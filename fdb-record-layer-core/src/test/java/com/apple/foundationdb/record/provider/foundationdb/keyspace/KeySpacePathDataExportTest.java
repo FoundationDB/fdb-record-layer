@@ -22,9 +22,10 @@ package com.apple.foundationdb.record.provider.foundationdb.keyspace;
 
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.Transaction;
-import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.apple.foundationdb.record.RecordCursorResult;
+import com.apple.foundationdb.record.RecordCursorStartContinuation;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
@@ -40,12 +41,16 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -53,14 +58,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * and returns it in a {@code RecordCursor<KeyValue>}.
  */
 @Tag(Tags.RequiresFDB)
-public class KeySpacePathDataExportTest {
+class KeySpacePathDataExportTest {
     @RegisterExtension
     final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
 
     @Test
-    public void testExportAllDataFromSimplePath() {
+    void testExportAllDataFromSimplePath() {
         KeySpace root = new KeySpace(
-                new KeySpaceDirectory("root", KeyType.STRING, "test-root")
+                new KeySpaceDirectory("root", KeyType.STRING, UUID.randomUUID().toString())
                         .addSubdirectory(new KeySpaceDirectory("level1", KeyType.LONG)));
 
         final FDBDatabase database = dbExtension.getDatabase();
@@ -74,7 +79,7 @@ public class KeySpacePathDataExportTest {
             for (int i = 0; i < 5; i++) {
                 Tuple key = basePath.add("level1", (long) i).toTuple(context);
                 tr.set(key.pack(), Tuple.from("value" + i).pack());
-                
+
                 // Add some sub-data under each key
                 for (int j = 0; j < 3; j++) {
                     Tuple subKey = key.add("sub" + j);
@@ -87,10 +92,8 @@ public class KeySpacePathDataExportTest {
         // Export all data from the root path
         try (FDBRecordContext context = database.openContext()) {
             KeySpacePath rootPath = root.path("root");
-            RecordCursor<KeyValue> cursor = rootPath.exportAllData(context);
-            
-            List<KeyValue> allData = cursor.asList().join();
-            
+            final List<KeyValue> allData = exportAllData(rootPath, context);
+
             // Should have 5 main entries + 15 sub-entries = 20 total
             assertEquals(20, allData.size());
             
@@ -103,9 +106,9 @@ public class KeySpacePathDataExportTest {
     }
 
     @Test
-    public void testExportAllDataFromSpecificSubPath() {
+    void testExportAllDataFromSpecificSubPath() {
         KeySpace root = new KeySpace(
-                new KeySpaceDirectory("app", KeyType.STRING, "myapp")
+                new KeySpaceDirectory("app", KeyType.STRING, UUID.randomUUID().toString())
                         .addSubdirectory(new KeySpaceDirectory("user", KeyType.LONG))
                         .addSubdirectory(new KeySpaceDirectory("data", KeyType.NULL)));
 
@@ -131,10 +134,8 @@ public class KeySpacePathDataExportTest {
         // Export data only for user 2
         try (FDBRecordContext context = database.openContext()) {
             KeySpacePath user2Path = root.path("app").add("user", 2L);
-            RecordCursor<KeyValue> cursor = user2Path.exportAllData(context);
-            
-            List<KeyValue> userData = cursor.asList().join();
-            
+            final List<KeyValue> userData = exportAllData(user2Path, context);
+
             // Should have 4 records for user 2
             assertEquals(4, userData.size());
             
@@ -147,9 +148,9 @@ public class KeySpacePathDataExportTest {
     }
 
     @Test
-    public void testExportAllDataWithDirectoryLayer() {
+    void testExportAllDataWithDirectoryLayer() {
         KeySpace root = new KeySpace(
-                new DirectoryLayerDirectory("env", "production")
+                new DirectoryLayerDirectory("env", UUID.randomUUID().toString())
                         .addSubdirectory(new KeySpaceDirectory("tenant", KeyType.LONG))
                         .addSubdirectory(new DirectoryLayerDirectory("service")));
 
@@ -178,21 +179,17 @@ public class KeySpacePathDataExportTest {
         // Export all data from tenant path
         try (FDBRecordContext context = database.openContext()) {
             KeySpacePath tenantPath = root.path("env").add("tenant", 100L);
-            RecordCursor<KeyValue> cursor = tenantPath.exportAllData(context);
-            
-            List<KeyValue> allData = cursor.asList().join();
-            
+            final List<KeyValue> allData = exportAllData(tenantPath, context);
+
             // Should have 6 records (3 services * 2 configs each)
             assertEquals(6, allData.size());
             
             // Verify we have data for all three services
-            List<String> serviceNames = new ArrayList<>();
+            Set<String> serviceNames = new HashSet<>();
             for (KeyValue kv : allData) {
                 String value = Tuple.fromBytes(kv.getValue()).getString(0);
                 String serviceName = value.split("_")[0];
-                if (!serviceNames.contains(serviceName)) {
-                    serviceNames.add(serviceName);
-                }
+                serviceNames.add(serviceName);
             }
             assertEquals(3, serviceNames.size());
             assertTrue(serviceNames.containsAll(Arrays.asList("auth", "storage", "compute")));
@@ -200,9 +197,9 @@ public class KeySpacePathDataExportTest {
     }
 
     @Test
-    public void testExportAllDataWithDifferentKeyTypes() {
+    void testExportAllDataWithDifferentKeyTypes() {
         KeySpace root = new KeySpace(
-                new KeySpaceDirectory("mixed", KeyType.STRING, "mixed-types")
+                new KeySpaceDirectory("mixed", KeyType.STRING, UUID.randomUUID().toString())
                         .addSubdirectory(new KeySpaceDirectory("strings", KeyType.STRING))
                         .addSubdirectory(new KeySpaceDirectory("longs", KeyType.LONG))
                         .addSubdirectory(new KeySpaceDirectory("bytes", KeyType.BYTES))
@@ -213,40 +210,22 @@ public class KeySpacePathDataExportTest {
         
         // Store test data with different key types
         try (FDBRecordContext context = database.openContext()) {
-            Transaction tr = context.ensureActive();
             KeySpacePath basePath = root.path("mixed");
             
-            // String keys
-            for (int i = 0; i < 3; i++) {
-                Tuple key = basePath.add("strings", "str" + i).toTuple(context);
-                tr.set(key.pack(), Tuple.from("string_value_" + i).pack());
-            }
+            // String keys (str0, str1, str2 -> string_value_0, string_value_1, string_value_2)
+            setData(List.of("str0", "str1", "str2"), context, basePath, "strings", "string_value_");
             
-            // Long keys
-            for (long i = 10; i < 13; i++) {
-                Tuple key = basePath.add("longs", i).toTuple(context);
-                tr.set(key.pack(), Tuple.from("long_value_" + i).pack());
-            }
+            // Long keys (10, 11, 12 -> long_value_10, long_value_11, long_value_12)
+            setData(List.of(10L, 11L, 12L), context, basePath, "longs", "long_value_");
             
-            // Bytes keys
-            for (int i = 0; i < 2; i++) {
-                byte[] byteKey = new byte[] { (byte) i, (byte) (i + 1) };
-                Tuple key = basePath.add("bytes", byteKey).toTuple(context);
-                tr.set(key.pack(), Tuple.from("bytes_value_" + i).pack());
-            }
+            // Bytes keys (arrays -> bytes_value_[0, 1], bytes_value_[1, 2])
+            setData(List.of(new byte[]{0, 1}, new byte[]{1, 2}), context, basePath, "bytes", "bytes_value_");
             
-            // UUID keys
-            for (int i = 0; i < 2; i++) {
-                UUID uuid = new UUID(i, i);
-                Tuple key = basePath.add("uuids", uuid).toTuple(context);
-                tr.set(key.pack(), Tuple.from("uuid_value_" + i).pack());
-            }
+            // UUID keys (UUIDs -> uuid_value_UUID)
+            setData(List.of(new UUID(0, 0), new UUID(1, 1)), context, basePath, "uuids", "uuid_value_");
             
-            // Boolean keys
-            for (boolean b : Arrays.asList(true, false)) {
-                Tuple key = basePath.add("booleans", b).toTuple(context);
-                tr.set(key.pack(), Tuple.from("boolean_value_" + b).pack());
-            }
+            // Boolean keys (true, false -> boolean_value_true, boolean_value_false)
+            setData(List.of(true, false), context, basePath, "booleans", "boolean_value_");
             
             context.commit();
         }
@@ -254,10 +233,8 @@ public class KeySpacePathDataExportTest {
         // Export all data and verify different key types
         try (FDBRecordContext context = database.openContext()) {
             KeySpacePath mixedPath = root.path("mixed");
-            RecordCursor<KeyValue> cursor = mixedPath.exportAllData(context);
-            
-            List<KeyValue> allData = cursor.asList().join();
-            
+            final List<KeyValue> allData = exportAllData(mixedPath, context);
+
             // Should have 12 records total (3+3+2+2+2)
             assertEquals(12, allData.size());
             
@@ -276,9 +253,9 @@ public class KeySpacePathDataExportTest {
     }
 
     @Test
-    public void testExportAllDataWithConstantValues() {
+    void testExportAllDataWithConstantValues() {
         KeySpace root = new KeySpace(
-                new KeySpaceDirectory("app", KeyType.STRING, "testapp")
+                new KeySpaceDirectory("app", KeyType.STRING, UUID.randomUUID().toString())
                         .addSubdirectory(new KeySpaceDirectory("version", KeyType.LONG, 1L))
                         .addSubdirectory(new KeySpaceDirectory("data", KeyType.STRING, "records")));
 
@@ -302,10 +279,8 @@ public class KeySpacePathDataExportTest {
         // Export data from path with constant values
         try (FDBRecordContext context = database.openContext()) {
             KeySpacePath appPath = root.path("app");
-            RecordCursor<KeyValue> cursor = appPath.exportAllData(context);
-            
-            List<KeyValue> allData = cursor.asList().join();
-            
+            final List<KeyValue> allData = exportAllData(appPath, context);
+
             // Should have 4 records
             assertEquals(4, allData.size());
             
@@ -318,9 +293,9 @@ public class KeySpacePathDataExportTest {
     }
 
     @Test
-    public void testExportAllDataEmpty() {
+    void testExportAllDataEmpty() {
         KeySpace root = new KeySpace(
-                new KeySpaceDirectory("empty", KeyType.STRING, "empty-space")
+                new KeySpaceDirectory("empty", KeyType.STRING, UUID.randomUUID().toString())
                         .addSubdirectory(new KeySpaceDirectory("level1", KeyType.LONG)));
 
         final FDBDatabase database = dbExtension.getDatabase();
@@ -328,101 +303,17 @@ public class KeySpacePathDataExportTest {
         // Don't store any data
         try (FDBRecordContext context = database.openContext()) {
             KeySpacePath emptyPath = root.path("empty");
-            RecordCursor<KeyValue> cursor = emptyPath.exportAllData(context);
-            
-            List<KeyValue> allData = cursor.asList().join();
-            
+            final List<KeyValue> allData = exportAllData(emptyPath, context);
+
             // Should be empty
             assertEquals(0, allData.size());
         }
     }
 
     @Test
-    public void testExportAllDataWithScanProperties() {
+    void testExportAllDataWithDeepNestedStructure() {
         KeySpace root = new KeySpace(
-                new KeySpaceDirectory("limited", KeyType.STRING, "limited-scan")
-                        .addSubdirectory(new KeySpaceDirectory("item", KeyType.LONG)));
-
-        final FDBDatabase database = dbExtension.getDatabase();
-        
-        // Store many records
-        try (FDBRecordContext context = database.openContext()) {
-            Transaction tr = context.ensureActive();
-            KeySpacePath basePath = root.path("limited");
-            
-            for (int i = 0; i < 20; i++) {
-                Tuple key = basePath.add("item", (long) i).toTuple(context);
-                tr.set(key.pack(), Tuple.from("item_data_" + i).pack());
-            }
-            context.commit();
-        }
-        
-        // Export with limited scan properties
-        try (FDBRecordContext context = database.openContext()) {
-            KeySpacePath limitedPath = root.path("limited");
-            ScanProperties scanProps = ScanProperties.FORWARD_SCAN.with(props ->
-                    props.setReturnedRowLimit(5));
-            
-            RecordCursor<KeyValue> cursor = limitedPath.exportAllData(context, scanProps);
-            
-            List<KeyValue> limitedData = cursor.asList().join();
-            
-            // Should have only 5 records due to limit
-            assertEquals(5, limitedData.size());
-            
-            // Should be the first 5 items
-            for (int i = 0; i < 5; i++) {
-                String value = Tuple.fromBytes(limitedData.get(i).getValue()).getString(0);
-                assertEquals("item_data_" + i, value);
-            }
-        }
-    }
-
-    @ParameterizedTest
-    @ValueSource(booleans = {true, false})
-    public void testExportAllDataReverse(boolean reverse) {
-        KeySpace root = new KeySpace(
-                new KeySpaceDirectory("ordered", KeyType.STRING, "ordered-data")
-                        .addSubdirectory(new KeySpaceDirectory("sequence", KeyType.LONG)));
-
-        final FDBDatabase database = dbExtension.getDatabase();
-        
-        // Store ordered data
-        try (FDBRecordContext context = database.openContext()) {
-            Transaction tr = context.ensureActive();
-            KeySpacePath basePath = root.path("ordered");
-            
-            for (int i = 0; i < 5; i++) {
-                Tuple key = basePath.add("sequence", (long) i).toTuple(context);
-                tr.set(key.pack(), Tuple.from("seq_" + i).pack());
-            }
-            context.commit();
-        }
-        
-        // Export with forward or reverse scan
-        try (FDBRecordContext context = database.openContext()) {
-            KeySpacePath orderedPath = root.path("ordered");
-            ScanProperties scanProps = new ScanProperties(null, reverse);
-            
-            RecordCursor<KeyValue> cursor = orderedPath.exportAllData(context, scanProps);
-            
-            List<KeyValue> allData = cursor.asList().join();
-            
-            assertEquals(5, allData.size());
-            
-            // Verify order based on scan direction
-            for (int i = 0; i < 5; i++) {
-                String value = Tuple.fromBytes(allData.get(i).getValue()).getString(0);
-                int expectedIndex = reverse ? (4 - i) : i;
-                assertEquals("seq_" + expectedIndex, value);
-            }
-        }
-    }
-
-    @Test
-    public void testExportAllDataWithDeepNestedStructure() {
-        KeySpace root = new KeySpace(
-                new KeySpaceDirectory("org", KeyType.STRING, "company")
+                new KeySpaceDirectory("org", KeyType.STRING, UUID.randomUUID().toString())
                         .addSubdirectory(new KeySpaceDirectory("dept", KeyType.STRING))
                         .addSubdirectory(new KeySpaceDirectory("team", KeyType.LONG))
                         .addSubdirectory(new KeySpaceDirectory("member", KeyType.UUID))
@@ -459,10 +350,8 @@ public class KeySpacePathDataExportTest {
         // Export all data from organization root
         try (FDBRecordContext context = database.openContext()) {
             KeySpacePath orgPath = root.path("org");
-            RecordCursor<KeyValue> cursor = orgPath.exportAllData(context);
-            
-            List<KeyValue> allData = cursor.asList().join();
-            
+            final List<KeyValue> allData = exportAllData(orgPath, context);
+
             // Should have 16 records (2 depts * 2 teams * 2 members * 2 records each)
             assertEquals(16, allData.size());
         }
@@ -470,10 +359,8 @@ public class KeySpacePathDataExportTest {
         // Export data from specific department
         try (FDBRecordContext context = database.openContext()) {
             KeySpacePath engPath = root.path("org").add("dept", "engineering");
-            RecordCursor<KeyValue> cursor = engPath.exportAllData(context);
-            
-            List<KeyValue> allData = cursor.asList().join();
-            
+            final List<KeyValue> allData = exportAllData(engPath, context);
+
             // Should have 8 records (1 dept * 2 teams * 2 members * 2 records each)
             assertEquals(8, allData.size());
             
@@ -488,9 +375,9 @@ public class KeySpacePathDataExportTest {
     }
 
     @Test
-    public void testExportAllDataWithBinaryData() {
+    void testExportAllDataWithBinaryData() {
         KeySpace root = new KeySpace(
-                new KeySpaceDirectory("binary", KeyType.STRING, "binary-test")
+                new KeySpaceDirectory("binary", KeyType.STRING, UUID.randomUUID().toString())
                         .addSubdirectory(new KeySpaceDirectory("blob", KeyType.BYTES)));
 
         final FDBDatabase database = dbExtension.getDatabase();
@@ -518,10 +405,8 @@ public class KeySpacePathDataExportTest {
         // Export binary data
         try (FDBRecordContext context = database.openContext()) {
             KeySpacePath binaryPath = root.path("binary");
-            RecordCursor<KeyValue> cursor = binaryPath.exportAllData(context);
-            
-            List<KeyValue> allData = cursor.asList().join();
-            
+            final List<KeyValue> allData = exportAllData(binaryPath, context);
+
             assertEquals(3, allData.size());
             
             // Verify binary data integrity
@@ -533,397 +418,84 @@ public class KeySpacePathDataExportTest {
         }
     }
 
-    @Test
-    public void testExportAllDataCursorBehavior() {
+    @ParameterizedTest
+    @ValueSource(ints = {1, 2, 3, 30})
+    void testExportAllDataWithContinuation(int limit) {
         KeySpace root = new KeySpace(
-                new KeySpaceDirectory("cursor", KeyType.STRING, "cursor-test")
+                new KeySpaceDirectory("continuation", KeyType.STRING, UUID.randomUUID().toString())
                         .addSubdirectory(new KeySpaceDirectory("item", KeyType.LONG)));
 
         final FDBDatabase database = dbExtension.getDatabase();
         
         // Store test data
-        try (FDBRecordContext context = database.openContext()) {
-            Transaction tr = context.ensureActive();
-            KeySpacePath basePath = root.path("cursor");
-            
-            for (int i = 0; i < 10; i++) {
-                Tuple key = basePath.add("item", (long) i).toTuple(context);
-                tr.set(key.pack(), Tuple.from("cursor_item_" + i).pack());
-            }
-            context.commit();
-        }
-        
-        // Test cursor behavior
-        try (FDBRecordContext context = database.openContext()) {
-            KeySpacePath cursorPath = root.path("cursor");
-            RecordCursor<KeyValue> cursor = cursorPath.exportAllData(context);
-            
-            // Test that cursor can be iterated
-            List<KeyValue> collected = new ArrayList<>();
-            RecordCursorResult<KeyValue> result;
-            
-            while ((result = cursor.getNext()).hasNext()) {
-                collected.add(result.get());
-            }
-            
-            assertEquals(10, collected.size());
-            assertFalse(result.hasNext());
-            
-            // Verify the reason for stopping
-            assertEquals(RecordCursor.NoNextReason.SOURCE_EXHAUSTED, result.getNoNextReason());
-        }
-    }
-
-    @Test
-    public void testExportAllDataWithContinuation() {
-        KeySpace root = new KeySpace(
-                new KeySpaceDirectory("continuation", KeyType.STRING, "continuation-test")
-                        .addSubdirectory(new KeySpaceDirectory("item", KeyType.LONG)));
-
-        final FDBDatabase database = dbExtension.getDatabase();
-        
-        // Store test data
+        final List<List<Tuple>> expected = new ArrayList<>();
+        expected.add(new ArrayList<>());
         try (FDBRecordContext context = database.openContext()) {
             Transaction tr = context.ensureActive();
             KeySpacePath basePath = root.path("continuation");
-            
-            for (int i = 0; i < 20; i++) {
-                Tuple key = basePath.add("item", (long) i).toTuple(context);
-                tr.set(key.pack(), Tuple.from("continuation_item_" + i).pack());
-            }
+
+            IntStream.range(0, 20).forEach(i -> {
+                Tuple key = basePath.add("item", (long)i).toTuple(context);
+                final Tuple value = Tuple.from("continuation_item_" + i);
+                tr.set(key.pack(), value.pack());
+                if (expected.get(expected.size() - 1).size() == limit) {
+                    expected.add(new ArrayList<>());
+                }
+                expected.get(expected.size() - 1).add(value);
+            });
             context.commit();
         }
         
         // Export with continuation support
         try (FDBRecordContext context = database.openContext()) {
             KeySpacePath continuationPath = root.path("continuation");
-            
-            // First export with limit to get continuation
-            ScanProperties limitedScan = ScanProperties.FORWARD_SCAN.with(props ->
-                    props.setReturnedRowLimit(5));
-            
-            RecordCursor<KeyValue> cursor = continuationPath.exportAllData(context, null, limitedScan);
-            List<KeyValue> firstBatch = cursor.asList().join();
-            
-            assertEquals(5, firstBatch.size());
-            
-            // Verify first batch contains items 0-4
-            for (int i = 0; i < 5; i++) {
-                String value = Tuple.fromBytes(firstBatch.get(i).getValue()).getString(0);
-                assertEquals("continuation_item_" + i, value);
+
+            final ScanProperties scanProperties = ScanProperties.FORWARD_SCAN.with(props -> props.setReturnedRowLimit(limit));
+            List<List<Tuple>> actual = new ArrayList<>();
+            RecordCursorContinuation continuation = RecordCursorStartContinuation.START;
+            while (!continuation.isEnd()) {
+                final RecordCursor<KeyValue> cursor = continuationPath.exportAllData(context, continuation.toBytes(),
+                        scanProperties);
+                final AtomicReference<RecordCursorResult<KeyValue>> lastResult = new AtomicReference<>();
+                final List<Tuple> batch = cursor.asList(lastResult).join().stream()
+                        .map(keyValue -> Tuple.fromBytes(keyValue.getKey())).collect(Collectors.toList());
+                actual.add(batch);
+                continuation = lastResult.get().getContinuation();
             }
-            
-            // Get continuation from the cursor result
-            RecordCursorResult<KeyValue> lastResult = cursor.getNext();
-            assertFalse(lastResult.hasNext());
-            assertEquals(RecordCursor.NoNextReason.RETURN_LIMIT_REACHED, lastResult.getNoNextReason());
-            
-            byte[] continuation = lastResult.getContinuation().toBytes();
-            assertNotNull(continuation);
-            
-            // Use continuation to get next batch
-            RecordCursor<KeyValue> continuedCursor = continuationPath.exportAllData(context, continuation, limitedScan);
-            List<KeyValue> secondBatch = continuedCursor.asList().join();
-            
-            assertEquals(5, secondBatch.size());
-            
-            // Verify second batch contains items 5-9
-            for (int i = 0; i < 5; i++) {
-                String value = Tuple.fromBytes(secondBatch.get(i).getValue()).getString(0);
-                assertEquals("continuation_item_" + (i + 5), value);
-            }
+            assertEquals(expected, actual);
         }
     }
 
-    @Test
-    public void testExportAllDataContinuationChaining() {
-        KeySpace root = new KeySpace(
-                new KeySpaceDirectory("chain", KeyType.STRING, "chain-test")
-                        .addSubdirectory(new KeySpaceDirectory("batch", KeyType.LONG)));
-
-        final FDBDatabase database = dbExtension.getDatabase();
-        
-        // Store test data
-        try (FDBRecordContext context = database.openContext()) {
-            Transaction tr = context.ensureActive();
-            KeySpacePath basePath = root.path("chain");
-            
-            for (int i = 0; i < 30; i++) {
-                Tuple key = basePath.add("batch", (long) i).toTuple(context);
-                tr.set(key.pack(), Tuple.from("batch_item_" + i).pack());
-            }
-            context.commit();
-        }
-        
-        // Chain multiple continuations
-        try (FDBRecordContext context = database.openContext()) {
-            KeySpacePath chainPath = root.path("chain");
-            ScanProperties batchScan = ScanProperties.FORWARD_SCAN.with(props ->
-                    props.setReturnedRowLimit(7));
-            
-            List<KeyValue> allCollected = new ArrayList<>();
-            byte[] continuation = null;
-            int batchCount = 0;
-            
-            do {
-                RecordCursor<KeyValue> cursor = chainPath.exportAllData(context, continuation, batchScan);
-                List<KeyValue> batch = cursor.asList().join();
-                
-                if (batch.isEmpty()) {
-                    break;
-                }
-                
-                allCollected.addAll(batch);
-                batchCount++;
-                
-                // Get continuation for next batch
-                RecordCursorResult<KeyValue> lastResult = cursor.getNext();
-                if (lastResult.hasNext() || lastResult.getNoNextReason() == RecordCursor.NoNextReason.RETURN_LIMIT_REACHED) {
-                    continuation = lastResult.getContinuation().toBytes();
-                } else {
-                    continuation = null;
-                }
-                
-                // Safety check to avoid infinite loop
-                assertTrue(batchCount <= 10, "Too many batches, possible infinite loop");
-                
-            } while (continuation != null);
-            
-            // Should have collected all 30 items across multiple batches
-            assertEquals(30, allCollected.size());
-            assertEquals(5, batchCount); // 30 items / 7 per batch = 5 batches (last partial)
-            
-            // Verify all items are present and in order
-            for (int i = 0; i < 30; i++) {
-                String value = Tuple.fromBytes(allCollected.get(i).getValue()).getString(0);
-                assertEquals("batch_item_" + i, value);
-            }
+    private void setData(List<Object> keys, FDBRecordContext context, KeySpacePath basePath,
+                         String subdirectory, String valuePrefix) {
+        Transaction tr = context.ensureActive();
+        for (int i = 0; i < keys.size(); i++) {
+            Tuple tuple = basePath.add(subdirectory, keys.get(i)).toTuple(context);
+            tr.set(tuple.pack(), Tuple.from(valuePrefix + i).pack());
         }
     }
 
-    @Test
-    public void testExportAllDataContinuationWithDifferentScanProperties() {
-        KeySpace root = new KeySpace(
-                new KeySpaceDirectory("scan", KeyType.STRING, "scan-props-test")
-                        .addSubdirectory(new KeySpaceDirectory("record", KeyType.LONG)));
+    private static List<KeyValue> exportAllData(final KeySpacePath rootPath, final FDBRecordContext context) {
+        final List<KeyValue> asSingleExport = rootPath.exportAllData(context, null, ScanProperties.FORWARD_SCAN).asList().join();
 
-        final FDBDatabase database = dbExtension.getDatabase();
-        
-        // Store test data
-        try (FDBRecordContext context = database.openContext()) {
-            Transaction tr = context.ensureActive();
-            KeySpacePath basePath = root.path("scan");
-            
-            for (int i = 0; i < 15; i++) {
-                Tuple key = basePath.add("record", (long) i).toTuple(context);
-                tr.set(key.pack(), Tuple.from("scan_record_" + i).pack());
-            }
-            context.commit();
+        final List<KeyValue> reversed = rootPath.exportAllData(context, null, ScanProperties.REVERSE_SCAN).asList().join();
+        Collections.reverse(reversed);
+        assertEquals(asSingleExport, reversed);
+
+        final ScanProperties scanProperties = ScanProperties.FORWARD_SCAN.with(props -> props.setReturnedRowLimit(1));
+        List<KeyValue> asContinuations = new ArrayList<>();
+        RecordCursorContinuation continuation = RecordCursorStartContinuation.START;
+        while (!continuation.isEnd()) {
+            final RecordCursor<KeyValue> cursor = rootPath.exportAllData(context, continuation.toBytes(),
+                    scanProperties);
+            final AtomicReference<RecordCursorResult<KeyValue>> lastResult = new AtomicReference<>();
+            final List<KeyValue> batch = cursor.asList(lastResult).join();
+            asContinuations.addAll(batch);
+            continuation = lastResult.get().getContinuation();
+            assertEquals(1, batch.size());
         }
-        
-        // Test continuation with reverse scan
-        try (FDBRecordContext context = database.openContext()) {
-            KeySpacePath scanPath = root.path("scan");
-            ScanProperties reverseScan = new ScanProperties(ExecuteProperties.newBuilder()
-                    .setReturnedRowLimit(5)
-                    .build(), true); // limit 5, reverse
-            
-            // First batch in reverse order
-            RecordCursor<KeyValue> cursor = scanPath.exportAllData(context, null, reverseScan);
-            List<KeyValue> firstBatch = cursor.asList().join();
-            
-            assertEquals(5, firstBatch.size());
-            
-            // Verify reverse order (should be items 14, 13, 12, 11, 10)
-            for (int i = 0; i < 5; i++) {
-                String value = Tuple.fromBytes(firstBatch.get(i).getValue()).getString(0);
-                assertEquals("scan_record_" + (14 - i), value);
-            }
-            
-            // Get continuation and continue reverse scan
-            RecordCursorResult<KeyValue> lastResult = cursor.getNext();
-            byte[] continuation = lastResult.getContinuation().toBytes();
-            
-            RecordCursor<KeyValue> continuedCursor = scanPath.exportAllData(context, continuation, reverseScan);
-            List<KeyValue> secondBatch = continuedCursor.asList().join();
-            
-            assertEquals(5, secondBatch.size());
-            
-            // Verify second batch in reverse order (should be items 9, 8, 7, 6, 5)
-            for (int i = 0; i < 5; i++) {
-                String value = Tuple.fromBytes(secondBatch.get(i).getValue()).getString(0);
-                assertEquals("scan_record_" + (9 - i), value);
-            }
-        }
+        assertEquals(asSingleExport, asContinuations);
+        return asSingleExport;
     }
 
-    @Test
-    public void testExportAllDataContinuationWithNestedPaths() {
-        KeySpace root = new KeySpace(
-                new KeySpaceDirectory("nested", KeyType.STRING, "nested-continuation")
-                        .addSubdirectory(new KeySpaceDirectory("category", KeyType.STRING))
-                        .addSubdirectory(new KeySpaceDirectory("item", KeyType.LONG))
-                        .addSubdirectory(new KeySpaceDirectory("data", KeyType.NULL)));
-
-        final FDBDatabase database = dbExtension.getDatabase();
-        
-        // Store nested test data
-        try (FDBRecordContext context = database.openContext()) {
-            Transaction tr = context.ensureActive();
-            
-            String[] categories = {"A", "B", "C"};
-            for (String category : categories) {
-                for (int item = 0; item < 5; item++) {
-                    KeySpacePath dataPath = root.path("nested")
-                            .add("category", category)
-                            .add("item", (long) item)
-                            .add("data");
-                    
-                    Tuple key = dataPath.toTuple(context);
-                    tr.set(key.pack(), Tuple.from(category + "_item_" + item).pack());
-                }
-            }
-            context.commit();
-        }
-        
-        // Export with continuation from nested path
-        try (FDBRecordContext context = database.openContext()) {
-            KeySpacePath nestedPath = root.path("nested").add("category", "B");
-            ScanProperties limitedScan = ScanProperties.FORWARD_SCAN.with(props ->
-                    props.setReturnedRowLimit(3));
-            
-            // First batch from category B
-            RecordCursor<KeyValue> cursor = nestedPath.exportAllData(context, null, limitedScan);
-            List<KeyValue> firstBatch = cursor.asList().join();
-            
-            assertEquals(3, firstBatch.size());
-            
-            // Verify all are from category B
-            for (KeyValue kv : firstBatch) {
-                String value = Tuple.fromBytes(kv.getValue()).getString(0);
-                assertTrue(value.startsWith("B_item_"));
-            }
-            
-            // Get continuation and get remaining items from category B
-            RecordCursorResult<KeyValue> lastResult = cursor.getNext();
-            byte[] continuation = lastResult.getContinuation().toBytes();
-            
-            RecordCursor<KeyValue> continuedCursor = nestedPath.exportAllData(context, continuation, limitedScan);
-            List<KeyValue> secondBatch = continuedCursor.asList().join();
-            
-            assertEquals(2, secondBatch.size()); // Only 2 remaining items in category B
-            
-            // Verify remaining items are from category B
-            for (KeyValue kv : secondBatch) {
-                String value = Tuple.fromBytes(kv.getValue()).getString(0);
-                assertTrue(value.startsWith("B_item_"));
-            }
-        }
-    }
-
-    @Test
-    public void testExportAllDataEmptyContinuation() {
-        KeySpace root = new KeySpace(
-                new KeySpaceDirectory("empty_cont", KeyType.STRING, "empty-continuation")
-                        .addSubdirectory(new KeySpaceDirectory("item", KeyType.LONG)));
-
-        final FDBDatabase database = dbExtension.getDatabase();
-        
-        // Store minimal test data
-        try (FDBRecordContext context = database.openContext()) {
-            Transaction tr = context.ensureActive();
-            KeySpacePath basePath = root.path("empty_cont");
-            
-            for (int i = 0; i < 3; i++) {
-                Tuple key = basePath.add("item", (long) i).toTuple(context);
-                tr.set(key.pack(), Tuple.from("empty_cont_item_" + i).pack());
-            }
-            context.commit();
-        }
-        
-        // Test behavior when using continuation on empty results
-        try (FDBRecordContext context = database.openContext()) {
-            KeySpacePath emptyContPath = root.path("empty_cont");
-            ScanProperties largeLimitScan = ScanProperties.FORWARD_SCAN.with(props ->
-                    props.setReturnedRowLimit(10)); // Larger than available data
-            
-            // First export gets all data (no continuation needed)
-            RecordCursor<KeyValue> cursor = emptyContPath.exportAllData(context, null, largeLimitScan);
-            List<KeyValue> allData = cursor.asList().join();
-            
-            assertEquals(3, allData.size());
-            
-            // Get final result
-            RecordCursorResult<KeyValue> finalResult = cursor.getNext();
-            assertFalse(finalResult.hasNext());
-            assertEquals(RecordCursor.NoNextReason.SOURCE_EXHAUSTED, finalResult.getNoNextReason());
-            
-            // Try to use continuation (should return empty)
-            byte[] continuation = finalResult.getContinuation().toBytes();
-            RecordCursor<KeyValue> continuedCursor = emptyContPath.exportAllData(context, continuation, largeLimitScan);
-            List<KeyValue> continuedData = continuedCursor.asList().join();
-            
-            assertEquals(0, continuedData.size()); // Should be empty
-        }
-    }
-
-    @Test
-    public void testExportAllDataContinuationConsistency() {
-        KeySpace root = new KeySpace(
-                new KeySpaceDirectory("consistency", KeyType.STRING, "consistency-test")
-                        .addSubdirectory(new KeySpaceDirectory("sequence", KeyType.LONG)));
-
-        final FDBDatabase database = dbExtension.getDatabase();
-        
-        // Store test data
-        try (FDBRecordContext context = database.openContext()) {
-            Transaction tr = context.ensureActive();
-            KeySpacePath basePath = root.path("consistency");
-            
-            for (int i = 0; i < 12; i++) {
-                Tuple key = basePath.add("sequence", (long) i).toTuple(context);
-                tr.set(key.pack(), Tuple.from("consistency_seq_" + i).pack());
-            }
-            context.commit();
-        }
-        
-        // Test that continuation produces consistent, non-overlapping results
-        try (FDBRecordContext context = database.openContext()) {
-            KeySpacePath consistencyPath = root.path("consistency");
-            ScanProperties batchScan = ScanProperties.FORWARD_SCAN.with(props ->
-                    props.setReturnedRowLimit(4));
-            
-            // Collect all data using continuations
-            List<String> collectedValues = new ArrayList<>();
-            byte[] continuation = null;
-            
-            for (int batch = 0; batch < 3; batch++) { // Expect 3 batches of 4 items each
-                RecordCursor<KeyValue> cursor = consistencyPath.exportAllData(context, continuation, batchScan);
-                List<KeyValue> batchData = cursor.asList().join();
-                
-                assertEquals(4, batchData.size(), "Batch " + batch + " should have 4 items");
-                
-                for (KeyValue kv : batchData) {
-                    String value = Tuple.fromBytes(kv.getValue()).getString(0);
-                    assertFalse(collectedValues.contains(value), "Duplicate value detected: " + value);
-                    collectedValues.add(value);
-                }
-                
-                // Get continuation for next batch
-                RecordCursorResult<KeyValue> lastResult = cursor.getNext();
-                if (batch < 2) { // Not the last batch
-                    assertEquals(RecordCursor.NoNextReason.RETURN_LIMIT_REACHED, lastResult.getNoNextReason());
-                    continuation = lastResult.getContinuation().toBytes();
-                } else { // Last batch
-                    assertEquals(RecordCursor.NoNextReason.SOURCE_EXHAUSTED, lastResult.getNoNextReason());
-                }
-            }
-            
-            // Verify we got all 12 items in correct order
-            assertEquals(12, collectedValues.size());
-            for (int i = 0; i < 12; i++) {
-                assertEquals("consistency_seq_" + i, collectedValues.get(i));
-            }
-        }
-    }
 }

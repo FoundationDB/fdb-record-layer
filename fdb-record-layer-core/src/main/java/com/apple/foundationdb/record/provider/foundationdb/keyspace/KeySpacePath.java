@@ -570,34 +570,6 @@ public interface KeySpacePath {
     /**
      * Export all data stored under this KeySpacePath and return it in a RecordCursor.
      * This method scans all keys that have this path as a prefix and returns the key-value pairs.
-     *
-     * @param context the transaction context in which to perform the data export
-     * @return a RecordCursor that iterates over all KeyValue pairs under this path
-     */
-    @API(API.Status.UNSTABLE)
-    @Nonnull
-    default RecordCursor<com.apple.foundationdb.KeyValue> exportAllData(@Nonnull FDBRecordContext context) {
-        return exportAllData(context, null, ScanProperties.FORWARD_SCAN);
-    }
-
-    /**
-     * Export all data stored under this KeySpacePath and return it in a RecordCursor.
-     * This method scans all keys that have this path as a prefix and returns the key-value pairs.
-     *
-     * @param context the transaction context in which to perform the data export
-     * @param scanProperties properties controlling how the scan should be performed
-     * @return a RecordCursor that iterates over all KeyValue pairs under this path
-     */
-    @API(API.Status.UNSTABLE)
-    @Nonnull
-    default RecordCursor<com.apple.foundationdb.KeyValue> exportAllData(@Nonnull FDBRecordContext context, 
-                                                                        @Nonnull ScanProperties scanProperties) {
-        return exportAllData(context, null, scanProperties);
-    }
-
-    /**
-     * Export all data stored under this KeySpacePath and return it in a RecordCursor.
-     * This method scans all keys that have this path as a prefix and returns the key-value pairs.
      * Supports continuation to resume scanning from a previous position.
      *
      * @param context the transaction context in which to perform the data export
