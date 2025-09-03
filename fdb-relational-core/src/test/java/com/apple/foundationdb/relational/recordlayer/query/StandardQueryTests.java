@@ -1369,7 +1369,13 @@ public class StandardQueryTests {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 statement.executeUpdate("insert into t1 values (42, [('Apple', 1, 100), ('Orange', 2, 200)], 142), (44, [('Grape', 3, 300), ('Pear', 4, 400)], 144)");
                 Assertions.assertTrue(statement.execute("SELECT T1.col5 FROM T1 where exists (SELECT 1 FROM T1.A r where r.col2 = 'Grape') "));
-                //Assertions.assertTrue(statement.execute("SELECT T1.col5, X.col2, X.col3 FROM T1, (SELECT col2, col3 FROM T1.A) X where X.col2 = 'Grape'"));
+                try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                    ResultSetAssert.assertThat(resultSet).hasNextRow()
+                            .isRowExactly(144L)
+                            .hasNoNextRow();
+                }
+                // another way of query
+                Assertions.assertTrue(statement.execute("SELECT T1.col5 FROM T1, (SELECT col2, col3 FROM T1.A) X where X.col2 = 'Grape'"));
                 try (final RelationalResultSet resultSet = statement.getResultSet()) {
                     ResultSetAssert.assertThat(resultSet).hasNextRow()
                             .isRowExactly(144L)
