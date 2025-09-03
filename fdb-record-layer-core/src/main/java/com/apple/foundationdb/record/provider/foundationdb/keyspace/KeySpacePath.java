@@ -579,7 +579,7 @@ public interface KeySpacePath {
      */
     @API(API.Status.UNSTABLE)
     @Nonnull
-    RecordCursor<com.apple.foundationdb.KeyValue> exportAllData(@Nonnull FDBRecordContext context,
-                                                                @Nullable byte[] continuation,
-                                                                @Nonnull ScanProperties scanProperties);
+    RecordCursor<DataInKeySpacePath> exportAllData(@Nonnull FDBRecordContext context,
+                                                   @Nullable byte[] continuation,
+                                                   @Nonnull ScanProperties scanProperties);
 }

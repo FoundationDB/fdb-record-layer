@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.keyspace;
 
-import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.Range;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
@@ -344,16 +343,17 @@ class KeySpacePathImpl implements KeySpacePath {
 
     @Nonnull
     @Override
-    public RecordCursor<KeyValue> exportAllData(@Nonnull FDBRecordContext context,
-                                                @Nullable byte[] continuation,
-                                                @Nonnull ScanProperties scanProperties) {
+    public RecordCursor<DataInKeySpacePath> exportAllData(@Nonnull FDBRecordContext context,
+                                                          @Nullable byte[] continuation,
+                                                          @Nonnull ScanProperties scanProperties) {
         return new LazyCursor<>(toTupleAsync(context)
                 .thenApply(tuple -> KeyValueCursor.Builder.withSubspace(new Subspace(tuple))
                         .setContext(context)
                         .setContinuation(continuation)
                         .setScanProperties(scanProperties)
                         .build()),
-                context.getExecutor());
+                context.getExecutor())
+                .map(keyValue -> new DataInKeySpacePath(this, keyValue, context));
     }
 
     /**

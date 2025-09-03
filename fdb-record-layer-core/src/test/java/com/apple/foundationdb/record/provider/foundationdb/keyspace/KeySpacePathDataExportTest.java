@@ -47,7 +47,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -458,13 +457,15 @@ class KeySpacePathDataExportTest {
             List<List<Tuple>> actual = new ArrayList<>();
             RecordCursorContinuation continuation = RecordCursorStartContinuation.START;
             while (!continuation.isEnd()) {
-                final RecordCursor<KeyValue> cursor = continuationPath.exportAllData(context, continuation.toBytes(),
+                final RecordCursor<DataInKeySpacePath> cursor = continuationPath.exportAllData(context, continuation.toBytes(),
                         scanProperties);
-                final AtomicReference<RecordCursorResult<KeyValue>> lastResult = new AtomicReference<>();
-                final List<Tuple> batch = cursor.asList(lastResult).join().stream()
-                        .map(keyValue -> Tuple.fromBytes(keyValue.getValue())).collect(Collectors.toList());
+                final AtomicReference<RecordCursorResult<Tuple>> tupleResult = new AtomicReference<>();
+                final List<Tuple> batch = cursor.map(dataInPath -> {
+                    KeyValue kv = dataInPath.getRawKeyValue();
+                    return Tuple.fromBytes(kv.getValue());
+                }).asList(tupleResult).join();
                 actual.add(batch);
-                continuation = lastResult.get().getContinuation();
+                continuation = tupleResult.get().getContinuation();
             }
             assertEquals(expectedBatches, actual);
         }
@@ -480,9 +481,11 @@ class KeySpacePathDataExportTest {
     }
 
     private static List<KeyValue> exportAllData(final KeySpacePath rootPath, final FDBRecordContext context) {
-        final List<KeyValue> asSingleExport = rootPath.exportAllData(context, null, ScanProperties.FORWARD_SCAN).asList().join();
+        final List<KeyValue> asSingleExport = rootPath.exportAllData(context, null, ScanProperties.FORWARD_SCAN)
+                .map(DataInKeySpacePath::getRawKeyValue).asList().join();
 
-        final List<KeyValue> reversed = rootPath.exportAllData(context, null, ScanProperties.REVERSE_SCAN).asList().join();
+        final List<KeyValue> reversed = rootPath.exportAllData(context, null, ScanProperties.REVERSE_SCAN)
+                .map(DataInKeySpacePath::getRawKeyValue).asList().join();
         Collections.reverse(reversed);
         assertEquals(asSingleExport, reversed);
 
@@ -490,13 +493,13 @@ class KeySpacePathDataExportTest {
         List<KeyValue> asContinuations = new ArrayList<>();
         RecordCursorContinuation continuation = RecordCursorStartContinuation.START;
         while (!continuation.isEnd()) {
-            final RecordCursor<KeyValue> cursor = rootPath.exportAllData(context, continuation.toBytes(),
+            final RecordCursor<DataInKeySpacePath> cursor = rootPath.exportAllData(context, continuation.toBytes(),
                     scanProperties);
-            final AtomicReference<RecordCursorResult<KeyValue>> lastResult = new AtomicReference<>();
-            final List<KeyValue> batch = cursor.asList(lastResult).join();
+            final AtomicReference<RecordCursorResult<KeyValue>> keyValueResult = new AtomicReference<>();
+            final List<KeyValue> batch = cursor.map(DataInKeySpacePath::getRawKeyValue).asList(keyValueResult).join();
             asContinuations.addAll(batch);
-            continuation = lastResult.get().getContinuation();
-            if (lastResult.get().hasNext()) {
+            continuation = keyValueResult.get().getContinuation();
+            if (keyValueResult.get().hasNext()) {
                 assertEquals(1, batch.size());
             } else {
                 assertThat(batch.size()).isLessThanOrEqualTo(1);

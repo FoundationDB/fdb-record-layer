@@ -229,9 +229,9 @@ public class KeySpacePathWrapper implements KeySpacePath {
 
     @Nonnull
     @Override
-    public RecordCursor<com.apple.foundationdb.KeyValue> exportAllData(@Nonnull FDBRecordContext context,
-                                                                       @Nullable byte[] continuation,
-                                                                       @Nonnull ScanProperties scanProperties) {
+    public RecordCursor<DataInKeySpacePath> exportAllData(@Nonnull FDBRecordContext context,
+                                                          @Nullable byte[] continuation,
+                                                          @Nonnull ScanProperties scanProperties) {
         return inner.exportAllData(context, continuation, scanProperties);
     }
 }
