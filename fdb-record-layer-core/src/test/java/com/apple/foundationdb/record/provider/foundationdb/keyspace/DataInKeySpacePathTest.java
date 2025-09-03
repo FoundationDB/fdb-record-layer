@@ -26,7 +26,9 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory.KeyType;
 import com.apple.foundationdb.record.test.FDBDatabaseExtension;
+import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.foundationdb.tuple.TupleHelpers;
 import com.apple.test.Tags;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -63,8 +65,10 @@ class DataInKeySpacePathTest {
             Transaction tr = context.ensureActive();
             
             KeySpacePath userPath = root.path("app").add("user", 123L);
-            Tuple keyTuple = userPath.toTuple(context);
-            byte[] keyBytes = keyTuple.pack();
+            final Subspace pathSubspace = userPath.toSubspace(context);
+            
+            // Add additional tuple elements after the KeySpacePath (this is how data is actually stored)
+            byte[] keyBytes = pathSubspace.pack(Tuple.from("record_id", 456L, "metadata"));
             byte[] valueBytes = Tuple.from("test_data").pack();
             
             tr.set(keyBytes, valueBytes);
@@ -90,9 +94,17 @@ class DataInKeySpacePathTest {
             assertNotNull(parent);
             assertEquals("app", parent.getDirectoryName());
             
-            // Verify the resolved path can recreate the original key
+            // Verify the resolved path recreates the KeySpacePath portion (not the full key)
             Tuple resolvedTuple = resolved.toTuple();
-            assertEquals(keyTuple, resolvedTuple);
+            assertEquals(TupleHelpers.subTuple(Tuple.fromBytes(keyBytes), 0, 2), resolvedTuple);
+            
+            // Verify that the remainder contains the additional tuple elements
+            Tuple remainder = resolved.getRemainder();
+            assertNotNull(remainder);
+            assertEquals(3, remainder.size());
+            assertEquals("record_id", remainder.getString(0));
+            assertEquals(456L, remainder.getLong(1));
+            assertEquals("metadata", remainder.getString(2));
             
             context.commit();
         }
@@ -114,8 +126,9 @@ class DataInKeySpacePathTest {
                     .add("region", "us-west-2")
                     .add("instance", "i-1234567890");
             
-            Tuple keyTuple = instancePath.toTuple(context);
-            byte[] keyBytes = keyTuple.pack();
+            // Add additional tuple elements after the KeySpacePath
+            byte[] keyBytes = instancePath.toSubspace(context).pack(
+                    Tuple.from("process_id", "web-server", "port", 8080L));
             byte[] valueBytes = Tuple.from("instance_data").pack();
             
             tr.set(keyBytes, valueBytes);
@@ -142,8 +155,17 @@ class DataInKeySpacePathTest {
             assertNotNull(serviceLevel);
             assertEquals("service", serviceLevel.getDirectoryName());
             
-            // Verify the resolved path can recreate the original key
-            assertEquals(keyTuple, resolved.toTuple());
+            // Verify the resolved path recreates the KeySpacePath portion
+            assertEquals(TupleHelpers.subTuple(Tuple.fromBytes(keyBytes), 0, 3), resolved.toTuple());
+            
+            // Verify that the remainder contains the additional tuple elements
+            Tuple remainder = resolved.getRemainder();
+            assertNotNull(remainder);
+            assertEquals(4, remainder.size());
+            assertEquals("process_id", remainder.getString(0));
+            assertEquals("web-server", remainder.getString(1));
+            assertEquals("port", remainder.getString(2));
+            assertEquals(8080L, remainder.getLong(3));
             
             context.commit();
         }
@@ -170,8 +192,9 @@ class DataInKeySpacePathTest {
                     .add("employee_uuid", employeeId)
                     .add("active", true);
             
-            Tuple keyTuple = employeePath.toTuple(context);
-            byte[] keyBytes = keyTuple.pack();
+            // Add additional tuple elements after the KeySpacePath
+            byte[] keyBytes = employeePath.toSubspace(context).pack(
+                    Tuple.from("salary", 75000L, "start_date", "2023-01-15"));
             byte[] valueBytes = Tuple.from("employee_record").pack();
             
             tr.set(keyBytes, valueBytes);
@@ -210,8 +233,17 @@ class DataInKeySpacePathTest {
             assertNotNull(companyLevel);
             assertEquals("company", companyLevel.getDirectoryName());
             
-            // Verify the resolved path can recreate the original key
-            assertEquals(keyTuple, resolved.toTuple());
+            // Verify the resolved path recreates the KeySpacePath portion
+            assertEquals(TupleHelpers.subTuple(Tuple.fromBytes(keyBytes), 0, 5), resolved.toTuple());
+            
+            // Verify that the remainder contains the additional tuple elements
+            Tuple remainder = resolved.getRemainder();
+            assertNotNull(remainder);
+            assertEquals(4, remainder.size());
+            assertEquals("salary", remainder.getString(0));
+            assertEquals(75000L, remainder.getLong(1));
+            assertEquals("start_date", remainder.getString(2));
+            assertEquals("2023-01-15", remainder.getString(3));
             
             context.commit();
         }
@@ -234,9 +266,9 @@ class DataInKeySpacePathTest {
                     .add("version")      // Uses constant value 1L
                     .add("environment")  // Uses constant value "production"
                     .add("data", "user_records");
-            
-            Tuple keyTuple = dataPath.toTuple(context);
-            byte[] keyBytes = keyTuple.pack();
+            // Add additional tuple elements after the KeySpacePath
+            byte[] keyBytes = dataPath.toSubspace(context).pack(
+                    Tuple.from("config_id", 1001L, "version", "v2.1"));
             byte[] valueBytes = Tuple.from("constant_test_data").pack();
             
             tr.set(keyBytes, valueBytes);
@@ -269,8 +301,17 @@ class DataInKeySpacePathTest {
             assertNotNull(applicationLevel);
             assertEquals("application", applicationLevel.getDirectoryName());
             
-            // Verify the resolved path can recreate the original key
-            assertEquals(keyTuple, resolved.toTuple());
+            // Verify the resolved path recreates the KeySpacePath portion
+            assertEquals(TupleHelpers.subTuple(Tuple.fromBytes(keyBytes), 0, 4), resolved.toTuple());
+            
+            // Verify that the remainder contains the additional tuple elements
+            Tuple remainder = resolved.getRemainder();
+            assertNotNull(remainder);
+            assertEquals(4, remainder.size());
+            assertEquals("config_id", remainder.getString(0));
+            assertEquals(1001L, remainder.getLong(1));
+            assertEquals("version", remainder.getString(2));
+            assertEquals("v2.1", remainder.getString(3));
             
             context.commit();
         }
