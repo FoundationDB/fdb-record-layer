@@ -20,18 +20,21 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.keyspace;
 
+import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.Range;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.ValueRange;
+import com.apple.foundationdb.record.cursors.LazyCursor;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursor;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.collect.Lists;
+
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
@@ -341,16 +344,16 @@ class KeySpacePathImpl implements KeySpacePath {
 
     @Nonnull
     @Override
-    public RecordCursor<com.apple.foundationdb.KeyValue> exportAllData(@Nonnull FDBRecordContext context,
-                                                                       @Nullable byte[] continuation,
-                                                                       @Nonnull ScanProperties scanProperties) {
-        final Tuple tuple = toTuple(context);
-
-        return KeyValueCursor.Builder.withSubspace(new Subspace(tuple))
-                .setContext(context)
-                .setContinuation(continuation)
-                .setScanProperties(scanProperties)
-                .build();
+    public RecordCursor<KeyValue> exportAllData(@Nonnull FDBRecordContext context,
+                                                @Nullable byte[] continuation,
+                                                @Nonnull ScanProperties scanProperties) {
+        return new LazyCursor<>(toTupleAsync(context)
+                .thenApply(tuple -> KeyValueCursor.Builder.withSubspace(new Subspace(tuple))
+                        .setContext(context)
+                        .setContinuation(continuation)
+                        .setScanProperties(scanProperties)
+                        .build()),
+                context.getExecutor());
     }
 
     /**
