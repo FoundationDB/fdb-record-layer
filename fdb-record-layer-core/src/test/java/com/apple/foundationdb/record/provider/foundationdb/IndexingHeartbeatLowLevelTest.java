@@ -54,7 +54,7 @@ import java.util.stream.Collectors;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 
-public class IndexingHeartbeatLowLevelTest {
+class IndexingHeartbeatLowLevelTest {
     @RegisterExtension
     final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
     @RegisterExtension
@@ -65,7 +65,7 @@ public class IndexingHeartbeatLowLevelTest {
     RecordMetaData metaData;
 
     @BeforeEach
-    public void setUp() {
+    void setUp() {
         final FDBDatabaseFactory factory = dbExtension.getDatabaseFactory();
         factory.setInitialDelayMillis(2L);
         factory.setMaxDelayMillis(4L);
@@ -96,11 +96,6 @@ public class IndexingHeartbeatLowLevelTest {
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(descriptor);
         hook.apply(metaDataBuilder);
         metaData = metaDataBuilder.getRecordMetaData();
-    }
-
-    void openMetaData(@Nonnull Descriptors.FileDescriptor descriptor) {
-        openMetaData(descriptor, (metaDataBuilder) -> {
-        });
     }
 
     void openSimpleMetaData(@Nonnull FDBRecordStoreTestBase.RecordMetaDataHook hook) {
@@ -411,7 +406,7 @@ public class IndexingHeartbeatLowLevelTest {
             final Map<UUID, IndexBuildProto.IndexBuildHeartbeat> existingHeartbeats = IndexingHeartbeat.getIndexingHeartbeats(recordStore, index, 0).join();
             Assertions.assertThat(existingHeartbeats).hasSize(1);
             final Integer numDeleted = IndexingHeartbeat.clearIndexingHeartbeats(recordStore, index, TimeUnit.SECONDS.toMillis(10), 0).join();
-            Assertions.assertThat(numDeleted).isEqualTo(0);
+            Assertions.assertThat(numDeleted).isZero();
             context.commit();
         }
 
