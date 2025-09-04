@@ -639,6 +639,53 @@ public class FDBRecordStoreSplitRecordsTest extends FDBRecordStoreTestBase {
         assertEquals(createdRecords, scannedRecords);
     }
 
+    @Test
+    public void testSplitSkip() {
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, TEST_SPLIT_HOOK);
+            commit(context);
+        }
+
+        final String bigValue = Strings.repeat("X", SplitHelper.SPLIT_RECORD_SIZE + 10);
+        final String smallValue = Strings.repeat("Y", 5);
+
+        final List<FDBStoredRecord<Message>> createdRecords = new ArrayList<>();
+        createdRecords.add(saveAndSplitSimpleRecord(1L, smallValue, 1));
+        createdRecords.add(saveAndSplitSimpleRecord(2L, smallValue, 2));
+        createdRecords.add(saveAndSplitSimpleRecord(3L, bigValue, 3));
+        createdRecords.add(saveAndSplitSimpleRecord(4L, smallValue, 4));
+        createdRecords.add(saveAndSplitSimpleRecord(5L, bigValue, 5));
+        createdRecords.add(saveAndSplitSimpleRecord(6L, bigValue, 6));
+        createdRecords.add(saveAndSplitSimpleRecord(7L, smallValue, 7));
+        createdRecords.add(saveAndSplitSimpleRecord(8L, smallValue, 8));
+        createdRecords.add(saveAndSplitSimpleRecord(9L, smallValue, 9));
+
+        // Scan one record at a time using continuations
+        final List<FDBStoredRecord<Message>> scannedRecords = new ArrayList<>();
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, TEST_SPLIT_HOOK);
+
+            RecordCursorIterator<FDBStoredRecord<Message>> messageCursor = recordStore.scanRecords(null,
+                            new ScanProperties(ExecuteProperties.newBuilder()
+                                    .setReturnedRowLimit(1)
+                                    .setSkip(scannedRecords.size())
+                                    .setIsolationLevel(IsolationLevel.SERIALIZABLE)
+                                    .build()))
+                    .asIterator();
+            while (messageCursor.hasNext()) {
+                scannedRecords.add(messageCursor.next());
+                messageCursor = recordStore.scanRecords(null, new ScanProperties(
+                        ExecuteProperties.newBuilder()
+                                .setReturnedRowLimit(1)
+                                .setSkip(scannedRecords.size())
+                                .setIsolationLevel(IsolationLevel.SERIALIZABLE)
+                                .build())).asIterator();
+            }
+            commit(context);
+        }
+        assertEquals(createdRecords, scannedRecords);
+    }
+
     @ParameterizedTest(name = "testSaveRecordWithDifferentSplits[{0}]")
     @MethodSource("testConfigs")
     public void testSaveRecordWithDifferentSplits(SplitRecordsTestConfig testConfig) {

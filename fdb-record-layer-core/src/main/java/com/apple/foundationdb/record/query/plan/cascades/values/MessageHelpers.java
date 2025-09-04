@@ -529,13 +529,21 @@ public class MessageHelpers {
                 final var currentField = currentRecordType.getField(index);
                 final var currentFieldType = Verify.verifyNotNull(currentField).getFieldType();
 
+                Descriptors.GenericDescriptor nestedTargetDescriptor;
+                if (targetFieldDescriptor.getJavaType() == Descriptors.FieldDescriptor.JavaType.MESSAGE) {
+                    nestedTargetDescriptor = targetFieldDescriptor.getMessageType();
+                } else if (targetFieldDescriptor.getJavaType() == Descriptors.FieldDescriptor.JavaType.ENUM) {
+                    nestedTargetDescriptor = targetFieldDescriptor.getEnumType();
+                } else {
+                    nestedTargetDescriptor = null;
+                }
                 // coerced object can only be NULL if passed-in object is NULL which cannot happen here
                 final var coercedObject =
                         Verify.verifyNotNull(
                                 coerceObject(
                                         promotionsChildrenMap == null ? null : promotionsChildrenMap.get(index),
                                         targetFieldType,
-                                        targetFieldDescriptor.getJavaType() == Descriptors.FieldDescriptor.JavaType.MESSAGE ? targetFieldDescriptor.getMessageType() : null,
+                                        nestedTargetDescriptor,
                                         currentFieldType,
                                         currentMessage.getField(messageFieldDescriptor)));
                 resultMessageBuilder.setField(targetFieldDescriptor, coercedObject);

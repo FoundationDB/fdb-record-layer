@@ -78,7 +78,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 /**
  * Tests for building indexes on an unnested record type.
  */
-abstract class OnlineIndexerBuildUnnestedIndexTest extends OnlineIndexerBuildIndexTest {
+class OnlineIndexerBuildUnnestedIndexTest extends OnlineIndexerBuildIndexTest {
     @Nonnull
     public static final String UNNESTED = "UnnestedMapType";
     @Nonnull
@@ -97,10 +97,6 @@ abstract class OnlineIndexerBuildUnnestedIndexTest extends OnlineIndexerBuildInd
 
     @Nonnull
     private static final List<String> KEYS = List.of("foo", "bar", "baz", "qux", "zop", "zork");
-
-    OnlineIndexerBuildUnnestedIndexTest(boolean safeBuild) {
-        super(safeBuild);
-    }
 
     public static class OnlineIndexerTestUnnestedRecordHandler implements OnlineIndexerTestRecordHandler<Message> {
         @Nonnull
@@ -688,19 +684,6 @@ abstract class OnlineIndexerBuildUnnestedIndexTest extends OnlineIndexerBuildInd
                 )
                 .build()) {
             assertThrows(IndexingBase.ValidationException.class, indexer::buildIndex);
-        }
-    }
-
-    public static class Safe extends OnlineIndexerBuildUnnestedIndexTest {
-        Safe() {
-            super(true);
-        }
-
-    }
-
-    public static class Unsafe extends OnlineIndexerBuildUnnestedIndexTest {
-        Unsafe() {
-            super(false);
         }
     }
 }

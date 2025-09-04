@@ -122,7 +122,8 @@ public class FDBDirectory extends Directory  {
     public static final int DEFAULT_INITIAL_CAPACITY = 128;
     private static final int SEQUENCE_SUBSPACE = 0;
     private static final int META_SUBSPACE = 1;
-    private static final int DATA_SUBSPACE = 2;
+    @VisibleForTesting
+    public static final int DATA_SUBSPACE = 2;
     @SuppressWarnings({"Unused", "PMD.UnusedPrivateField"}) // preserved to document that this is reserved
     private static final int SCHEMA_SUBSPACE = 3;
     private static final int PRIMARY_KEY_SUBSPACE = 4;
@@ -668,7 +669,7 @@ public class FDBDirectory extends Directory  {
 
     @Nonnull
     @VisibleForTesting
-    protected CompletableFuture<Map<String, FDBLuceneFileReference>> getFileReferenceCacheAsync() {
+    public CompletableFuture<Map<String, FDBLuceneFileReference>> getFileReferenceCacheAsync() {
         if (fileReferenceCache.get() != null) {
             return CompletableFuture.completedFuture(fileReferenceCache.get());
         }
@@ -744,16 +745,16 @@ public class FDBDirectory extends Directory  {
     @VisibleForTesting
     protected boolean deleteFileInternal(@Nonnull Map<String, FDBLuceneFileReference> cache, @Nonnull String name) throws IOException {
         // TODO make this transactional or ensure that it is deleted in the right order
-        FDBLuceneFileReference value = cache.remove(name);
-        if (value == null) {
+        FDBLuceneFileReference fileReference = cache.remove(name);
+        if (fileReference == null) {
             return false;
         }
-        final long id = value.getFieldInfosId();
+        final long id = fileReference.getFieldInfosId();
         if (fieldInfosStorage.delete(id)) {
             agilityContext.clear(fieldInfosSubspace.pack(id));
         }
-        // Nothing stored here currently.
-        agilityContext.clear(dataSubspace.subspace(Tuple.from(id)).range());
+        // Clear all data blocks for the file
+        agilityContext.clear(dataSubspace.subspace(Tuple.from(fileReference.getId())).range());
 
         // Delete K/V data: If the deferredDelete flag is on then delete all content from K/V subspace for the segment
         // (this is to support CFS deletion, that will be disjoint from the actual file deletion).

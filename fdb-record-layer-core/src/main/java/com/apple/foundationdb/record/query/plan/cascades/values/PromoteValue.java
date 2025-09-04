@@ -451,10 +451,13 @@ public class PromoteValue extends AbstractValue implements CreatesDynamicTypesVa
             final List<Type> inTypeElements = Objects.requireNonNull(((Type.Record) inType).getElementTypes());
             final List<Type> promoteToTypeElements = Objects.requireNonNull(((Type.Record) promoteToType).getElementTypes());
             SemanticException.check(inTypeElements.size() == promoteToTypeElements.size(), SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
+            var promotionNeeded = false;
             for (int i = 0; i < inTypeElements.size(); i++) {
-                SemanticException.check(!isPromotionNeeded(inTypeElements.get(i), promoteToTypeElements.get(i)), SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
+                if (isPromotionNeeded(inTypeElements.get(i), promoteToTypeElements.get(i))) {
+                    promotionNeeded = true;
+                }
             }
-            return false;
+            return promotionNeeded;
         }
         SemanticException.check((inType.isPrimitive() || inType.isEnum() || inType.isUuid()) &&
                 (promoteToType.isPrimitive() || promoteToType.isEnum() || promoteToType.isUuid()), SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
