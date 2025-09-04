@@ -3,6 +3,8 @@ name: Upload Coverage to Teamscale
 permissions:
   actions: read
 
+# This is a separate workflow from pull_request.yml because it needs to run with access
+# to the secrets
 on:
   workflow_run:
     workflows: [Pull Request]
@@ -48,6 +50,7 @@ jobs:
           server: 'https://fdb.teamscale.io'
           project: 'foundationdb-fdb-record-layer'
           user: 'fdb-record-layer-build'
+          # Use the same partition as we do for non-mixed-mode tests in release
           partition: 'CI Tests'
           accesskey: ${{ secrets.TEAMSCALE_ACCESS_KEY }}
           format: 'JACOCO'

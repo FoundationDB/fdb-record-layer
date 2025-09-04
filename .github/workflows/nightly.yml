@@ -41,4 +41,19 @@ jobs:
           test-reports/fdb-relational-jdbc/
           test-reports/fdb-relational-server/
           test-reports/yaml-tests/
+    - name: Upload coverage to teamscale
+      # temporary continue-on-error until we validate that this is working correctly
+      continue-on-error: true
+      uses: 'cqse/teamscale-upload-action@8d10b6693b9242420ef2062dbefc36af6e88d587'
+        with:
+          server: 'https://fdb.teamscale.io'
+          project: 'foundationdb-fdb-record-layer'
+          user: 'fdb-record-layer-build'
+          partition: 'Nightly Tests'
+          accesskey: ${{ secrets.TEAMSCALE_ACCESS_KEY }}
+          format: 'JACOCO'
+          revision: ${{ github.event.workflow_run.head_sha }}
+          files: |
+            ${{ github.workspace }}/.out/reports/jacoco/codeCoverageReport/codeCoverageReport.xml
+
 

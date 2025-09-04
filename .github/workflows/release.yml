@@ -61,6 +61,21 @@ jobs:
         uses: ./actions/gradle-test
         with:
           gradle_args: -PreleaseBuild=true -PpublishBuild=true
+      - name: Upload coverage to teamscale
+        # temporary until we validate that this is working correctly
+        continue-on-error: true
+        uses: 'cqse/teamscale-upload-action@8d10b6693b9242420ef2062dbefc36af6e88d587'
+          with:
+            server: 'https://fdb.teamscale.io'
+            project: 'foundationdb-fdb-record-layer'
+            user: 'fdb-record-layer-build'
+            # Use the same partition as teamscale_upload.yml for PRs
+            partition: 'CI Tests'
+            accesskey: ${{ secrets.TEAMSCALE_ACCESS_KEY }}
+            format: 'JACOCO'
+            revision: ${{ github.event.workflow_run.head_sha }}
+            files: |
+              ${{ github.workspace }}/.out/reports/jacoco/codeCoverageReport/codeCoverageReport.xml
 
   # 2. b) We run the mixed mode tests
   mixed-mode-test:
@@ -104,6 +119,20 @@ jobs:
         with:
           name: mixed-mode-results
           path: mixed-mode-results.md
+      - name: Upload coverage to teamscale
+        # temporary continue-on-error until we validate that this is working correctly
+        continue-on-error: true
+        uses: 'cqse/teamscale-upload-action@8d10b6693b9242420ef2062dbefc36af6e88d587'
+          with:
+            server: 'https://fdb.teamscale.io'
+            project: 'foundationdb-fdb-record-layer'
+            user: 'fdb-record-layer-build'
+            partition: 'Mixed Mode Tests'
+            accesskey: ${{ secrets.TEAMSCALE_ACCESS_KEY }}
+            format: 'JACOCO'
+            revision: ${{ github.event.workflow_run.head_sha }}
+            files: |
+              ${{ github.workspace }}/.out/reports/jacoco/codeCoverageReport/codeCoverageReport.xml
 
   # 3. Update the version in the repo, update the release notes, tag the commit
   #    and publish the artifacts, and if this is a BUILD release generate the documentation
