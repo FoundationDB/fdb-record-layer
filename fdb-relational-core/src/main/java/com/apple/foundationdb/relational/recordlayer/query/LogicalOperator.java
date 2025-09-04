@@ -266,18 +266,13 @@ public class LogicalOperator {
 
         Expressions outputAttributes;
         if (resultingQuantifier.getFlowedObjectType().isPrimitive()) {
-            outputAttributes = Expressions.of(convertPrimitiveArrayToExpressions(resultingQuantifier, explode, alias));
+            final ImmutableList.Builder<Expression> attributesBuilder = ImmutableList.builder();
+            attributesBuilder.add(new Expression(alias, DataTypeUtils.toRelationalType(explode.getResultValue().getResultType()), resultingQuantifier.getFlowedObjectValue()));
+            outputAttributes = Expressions.of(attributesBuilder.build());
         } else {
             outputAttributes = Expressions.of(convertToExpressions(resultingQuantifier));
         }
         return LogicalOperator.newOperator(alias, outputAttributes, resultingQuantifier);
-    }
-
-    @Nonnull
-    private static Expressions convertPrimitiveArrayToExpressions(@Nonnull Quantifier quantifier, @Nonnull ExplodeExpression explodeExpression, @Nonnull Optional<Identifier> alias) {
-        final ImmutableList.Builder<Expression> attributesBuilder = ImmutableList.builder();
-        attributesBuilder.add(new Expression(alias, DataTypeUtils.toRelationalType(explodeExpression.getResultValue().getResultType()), quantifier.getFlowedObjectValue()));
-        return Expressions.of(attributesBuilder.build());
     }
 
     @Nonnull
