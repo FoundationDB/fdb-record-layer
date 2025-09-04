@@ -631,7 +631,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
             assertTrue(indexedMutually > 0);
             if (index.equals(indexes.get(3))) {
                 // Was not built by the multi target session
-                assertEquals(indexedMutually, numRecords);
+                assertEquals(numRecords, indexedMutually);
             } else {
                 // Was partly built by the multi target session
                 assertTrue(indexedMutually < numRecords);
@@ -693,7 +693,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
 
         // must index all the records
         int indexedMutually = timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED);
-        assertEquals(indexedMutually, numRecords);
+        assertEquals(numRecords, indexedMutually);
 
         // happy indexes assertion
         assertReadable(indexes);

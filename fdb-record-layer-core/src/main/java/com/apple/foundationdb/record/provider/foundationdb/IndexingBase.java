@@ -40,7 +40,6 @@ import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
-import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.common.StoreTimerSnapshot;
@@ -134,12 +133,6 @@ public abstract class IndexingBase {
     @Nullable
     protected static byte[] packOrNull(@Nullable Tuple tuple) {
         return (tuple == null) ? null : tuple.pack();
-    }
-
-    // Turn a (possibly null) key into its tuple representation.
-    @Nullable
-    protected static Tuple convertOrNull(@Nullable Key.Evaluated key) {
-        return (key == null) ? null : key.toTuple();
     }
 
     @Nonnull
@@ -360,7 +353,7 @@ public abstract class IndexingBase {
         heartbeat = new IndexingHeartbeat(common.getIndexerId(), indexingTypeStamp.getMethod().toString(), common.config.getLeaseLengthMillis(), allowMutual);
 
         return forEachTargetIndex(index -> setIndexingTypeOrThrow(store, continuedBuild, index, indexingTypeStamp)
-                .thenCompose(ignore -> updateHeartbeat(true, store, index)));
+                .thenCompose(ignore -> updateHeartbeat(store, index)));
     }
 
     @Nonnull
@@ -390,7 +383,7 @@ public abstract class IndexingBase {
                     }
                     if (isTypeStampBlocked(savedStamp) && !policy.shouldAllowUnblock(savedStamp.getBlockID())) {
                         // Indexing is blocked
-                        throw newPartlyBuiltException(continuedBuild, savedStamp, newStamp, index);
+                        throw newPartlyBuiltException(savedStamp, newStamp, index);
                     }
                     if (areSimilar(newStamp, savedStamp)) {
                         // Similar stamps, replace it
@@ -411,7 +404,7 @@ public abstract class IndexingBase {
                                         savedStamp, continuedBuild));
                     }
                     // fall down to exception
-                    throw newPartlyBuiltException(continuedBuild, savedStamp, newStamp, index);
+                    throw newPartlyBuiltException(savedStamp, newStamp, index);
                 });
     }
 
@@ -455,7 +448,7 @@ public abstract class IndexingBase {
                     .toString());
         }
         final IndexBuildProto.IndexBuildIndexingStamp fakeSavedStamp = IndexingMultiTargetByRecords.compileSingleTargetLegacyIndexingTypeStamp();
-        throw newPartlyBuiltException(true, fakeSavedStamp, indexingTypeStamp, index);
+        throw newPartlyBuiltException(fakeSavedStamp, indexingTypeStamp, index);
     }
 
     @Nonnull
@@ -472,7 +465,7 @@ public abstract class IndexingBase {
             return AsyncUtil.DONE;
         }
         // A force overwrite cannot be allowed when partly built
-        throw newPartlyBuiltException(continuedBuild, savedStamp, indexingTypeStamp, index);
+        throw newPartlyBuiltException(savedStamp, indexingTypeStamp, index);
     }
 
     @Nonnull
@@ -497,10 +490,9 @@ public abstract class IndexingBase {
         });
     }
 
-    RecordCoreException newPartlyBuiltException(boolean continuedBuild,
-                                                IndexBuildProto.IndexBuildIndexingStamp savedStamp,
-                                                IndexBuildProto.IndexBuildIndexingStamp expectedStamp,
-                                                Index index) {
+    private RecordCoreException newPartlyBuiltException(IndexBuildProto.IndexBuildIndexingStamp savedStamp,
+                                                        IndexBuildProto.IndexBuildIndexingStamp expectedStamp,
+                                                        Index index) {
         return new PartlyBuiltException(savedStamp, expectedStamp, index, common.getIndexerId(),
                 savedStamp.getBlock() ?
                 "This index was partly built, and blocked" :
@@ -580,10 +572,6 @@ public abstract class IndexingBase {
     public <R> CompletableFuture<R> buildCommitRetryAsync(@Nonnull BiFunction<FDBRecordStore, AtomicLong, CompletableFuture<R>> buildFunction,
                                                           @Nullable List<Object> additionalLogMessageKeyValues, final boolean duringRangesIteration) {
         return throttle.buildCommitRetryAsync(buildFunction, null, additionalLogMessageKeyValues, duringRangesIteration);
-    }
-
-    public long getTotalRecordsScannedSuccessfully() {
-        return throttle.getTotalRecordsScannedSuccessfully();
     }
 
     protected void timerIncrement(StoreTimer.Count event) {
@@ -831,20 +819,16 @@ public abstract class IndexingBase {
         }
         final IndexBuildProto.IndexBuildIndexingStamp expectedTypeStamp = getIndexingTypeStamp(store);
         return forEachTargetIndex(index -> CompletableFuture.allOf(
-                updateHeartbeat(true, store, index),
+                updateHeartbeat(store, index),
                 store.loadIndexingTypeStampAsync(index)
                         .thenAccept(typeStamp -> validateTypeStamp(typeStamp, expectedTypeStamp, index))
         ));
     }
 
-    private CompletableFuture<Void> updateHeartbeat(boolean validate, FDBRecordStore store, Index index) {
-        if (heartbeat != null) {
-            if (validate) {
-                return heartbeat.checkAndUpdateHeartbeat(store, index);
-            }
-            heartbeat.updateHeartbeat(store, index);
-        }
-        return AsyncUtil.DONE;
+    private CompletableFuture<Void> updateHeartbeat(FDBRecordStore store, Index index) {
+        return heartbeat == null ?
+               AsyncUtil.DONE :
+               heartbeat.checkAndUpdateHeartbeat(store, index);
     }
 
     private CompletableFuture<Void> clearHeartbeats() {
@@ -1122,17 +1106,6 @@ public abstract class IndexingBase {
         }
     }
 
-    public static boolean isTimeLimitException(@Nullable Throwable ex) {
-        for (Throwable current = ex;
-                current != null;
-                current = current.getCause()) {
-            if (current instanceof TimeLimitException) {
-                return true;
-            }
-        }
-        return false;
-    }
-
     /**
      * thrown when partly built by another method.
      */
@@ -1189,7 +1162,7 @@ public abstract class IndexingBase {
             if (stamp.getBlock()) {
                 str.append(", blocked");
                 String id = stamp.getBlockID();
-                if (id != null && !id.isEmpty()) {
+                if (!id.isEmpty()) {
                     str.append(", blockId{").append(id).append("} ");
                 }
                 long expirationMillis = stamp.getBlockExpireEpochMilliSeconds();
@@ -1243,11 +1216,11 @@ public abstract class IndexingBase {
         return null;
     }
 
-    protected static boolean shouldLessenWork(@Nullable FDBException ex) {
+    protected static boolean doNotLessenWork(@Nullable FDBException ex) {
         // These error codes represent a list of errors that can occur if there is too much work to be done
         // in a single transaction.
         if (ex == null) {
-            return false;
+            return true;
         }
         final Set<Integer> lessenWorkCodes = new HashSet<>(Arrays.asList(
                 FDBError.TIMED_OUT.code(),
@@ -1256,7 +1229,7 @@ public abstract class IndexingBase {
                 FDBError.TRANSACTION_TIMED_OUT.code(),
                 FDBError.COMMIT_READ_INCOMPLETE.code(),
                 FDBError.TRANSACTION_TOO_LARGE.code()));
-        return lessenWorkCodes.contains(ex.getCode());
+        return !lessenWorkCodes.contains(ex.getCode());
     }
 }
 
