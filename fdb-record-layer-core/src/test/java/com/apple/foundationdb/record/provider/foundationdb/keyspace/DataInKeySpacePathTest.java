@@ -36,6 +36,7 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
@@ -53,19 +54,23 @@ class DataInKeySpacePathTest {
     @RegisterExtension
     final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
 
-    @Test
-    void testSimpleTwoLevelPath() {
+    @ParameterizedTest
+    @ValueSource(ints = {0, 1, 2})
+    void testSimpleTwoLevelPath(int depth) {
         KeySpace root = new KeySpace(
                 new KeySpaceDirectory("app", KeyType.STRING, UUID.randomUUID().toString())
-                        .addSubdirectory(new KeySpaceDirectory("user", KeyType.LONG)));
+                        .addSubdirectory(new KeySpaceDirectory("locality", KeyType.STRING, "Foo")
+                                        .addSubdirectory(new KeySpaceDirectory("user", KeyType.LONG))));
 
         final FDBDatabase database = dbExtension.getDatabase();
 
         // Store test data and create DataInKeySpacePath
         try (FDBRecordContext context = database.openContext()) {
             Transaction tr = context.ensureActive();
-            
-            KeySpacePath userPath = root.path("app").add("user", 123L);
+
+            KeySpacePath appPath = root.path("app");
+            KeySpacePath localityPath = appPath.add("locality");
+            KeySpacePath userPath = localityPath.add("user", 123L);
             final Subspace pathSubspace = userPath.toSubspace(context);
             
             // Add additional tuple elements after the KeySpacePath (this is how data is actually stored)
@@ -74,10 +79,10 @@ class DataInKeySpacePathTest {
             
             tr.set(keyBytes, valueBytes);
             KeyValue keyValue = new KeyValue(keyBytes, valueBytes);
-            
-            // Create DataInKeySpacePath from the app-level path
-            KeySpacePath appPath = root.path("app");
-            DataInKeySpacePath dataInPath = new DataInKeySpacePath(appPath, keyValue, context);
+
+            final List<KeySpacePath> queryPaths = List.of(appPath, localityPath, userPath);
+            DataInKeySpacePath dataInPath = new DataInKeySpacePath(
+                    queryPaths.get(depth), keyValue, context);
             
             // Verify the resolved path
             CompletableFuture<ResolvedKeySpacePath> resolvedFuture = dataInPath.getResolvedPath();
@@ -93,11 +98,14 @@ class DataInKeySpacePathTest {
             // Verify parent path
             ResolvedKeySpacePath parent = resolved.getParent();
             assertNotNull(parent);
-            assertEquals("app", parent.getDirectoryName());
-            
+            assertEquals("locality", parent.getDirectoryName());
+            ResolvedKeySpacePath grandParent = parent.getParent();
+            assertNotNull(grandParent);
+            assertEquals("app", grandParent.getDirectoryName());
+
             // Verify the resolved path recreates the KeySpacePath portion (not the full key)
             Tuple resolvedTuple = resolved.toTuple();
-            assertEquals(TupleHelpers.subTuple(Tuple.fromBytes(keyBytes), 0, 2), resolvedTuple);
+            assertEquals(TupleHelpers.subTuple(Tuple.fromBytes(keyBytes), 0, 3), resolvedTuple);
             
             // Verify that the remainder contains the additional tuple elements
             Tuple remainder = resolved.getRemainder();
@@ -545,5 +553,29 @@ class DataInKeySpacePathTest {
             
             context.commit();
         }
+    }
+
+    @Test
+    void testWithWrapper() {
+        final FDBDatabase database = dbExtension.getDatabase();
+        final EnvironmentKeySpace keySpace = EnvironmentKeySpace.setupSampleData(database);
+
+        // Test export at different levels through wrapper methods
+        try (FDBRecordContext context = database.openContext()) {
+            // Test 4: Export from specific data store level
+            EnvironmentKeySpace.DataPath dataStore = keySpace.root().userid(100L).application("app1").dataStore();
+
+            final byte[] key = dataStore.toTuple(context).add("record2").add(0).pack();
+            final byte[] value = Tuple.from("data").pack();
+            final DataInKeySpacePath dataInKeySpacePath = new DataInKeySpacePath(dataStore, new KeyValue(key, value), context);
+
+            final ResolvedKeySpacePath resolvedPath = dataInKeySpacePath.getResolvedPath().join();
+            assertEquals(dataStore.toResolvedPath(context), withoutRemainder(resolvedPath));
+            assertEquals(Tuple.from("record2", 0), resolvedPath.getRemainder());
+        }
+    }
+
+    private ResolvedKeySpacePath withoutRemainder(final ResolvedKeySpacePath path) {
+        return new ResolvedKeySpacePath(path.getParent(), path.toPath(), path.getResolvedPathValue(), null);
     }
 }

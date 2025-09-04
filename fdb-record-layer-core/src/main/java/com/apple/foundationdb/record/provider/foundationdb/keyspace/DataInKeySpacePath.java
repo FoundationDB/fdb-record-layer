@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.provider.foundationdb.keyspace;
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.foundationdb.tuple.TupleHelpers;
 
 import java.util.concurrent.CompletableFuture;
 
@@ -50,7 +51,14 @@ public class DataInKeySpacePath {
             // The remaining part of the key should be resolved from the resolved path's directory
             if (keyTuple.size() > pathLength) {
                 // There's more in the key than just the path, so resolve the rest
-                return resolvedPath.getDirectory().findChildForKey(context, resolvedPath, keyTuple, keyTuple.size(), pathLength);
+                if (resolvedPath.getDirectory().getSubdirectories().isEmpty()) {
+                    return CompletableFuture.completedFuture(
+                            new ResolvedKeySpacePath(resolvedPath.getParent(), resolvedPath.toPath(),
+                                    resolvedPath.getResolvedPathValue(),
+                                    TupleHelpers.subTuple(keyTuple, pathTuple.size(), keyTuple.size())));
+                } else {
+                    return resolvedPath.getDirectory().findChildForKey(context, resolvedPath, keyTuple, keyTuple.size(), pathLength);
+                }
             } else {
                 // The key exactly matches the path
                 return CompletableFuture.completedFuture(resolvedPath);

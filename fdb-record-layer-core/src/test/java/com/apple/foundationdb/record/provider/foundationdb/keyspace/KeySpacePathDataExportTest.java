@@ -33,13 +33,13 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDire
 import com.apple.foundationdb.record.test.FDBDatabaseExtension;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
+import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
-import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -467,6 +467,77 @@ class KeySpacePathDataExportTest {
         }
     }
 
+    @Test
+    void testExportAllDataThroughKeySpacePathWrapper() {
+        final FDBDatabase database = dbExtension.getDatabase();
+        final EnvironmentKeySpace keySpace = EnvironmentKeySpace.setupSampleData(database);
+
+        // Test export at different levels through wrapper methods
+        try (FDBRecordContext context = database.openContext()) {
+            // Export from root level (should get all data)
+            EnvironmentKeySpace.EnvironmentRoot root = keySpace.root();
+            List<KeyValue> allData = exportAllData(root, context);
+            assertEquals(6, allData.size(), "Root level should export all data");
+            
+            // Export from specific user level (should get data for user 100 only)
+            EnvironmentKeySpace.UserPath user100Path = keySpace.root().userid(100L);
+            verifyExtractedData(exportAllData(user100Path, context),
+                    5, "User 100 should have 4 records",
+                    "user100", "All user 100 data should contain 'user100'");
+
+            // Export from specific application level (app1 for user 100)
+            EnvironmentKeySpace.ApplicationPath app1User100 = user100Path.application("app1");
+            verifyExtractedData(exportAllData(app1User100, context),
+                    4, "App1 for user 100 should have 4 records (3 data + 1 metadata)",
+                    "user100_app1", "All app1 user100 data should contain 'user100_app1'");
+
+            // Export from specific data store level
+            EnvironmentKeySpace.DataPath dataStore = app1User100.dataStore();
+            List<KeyValue> dataStoreData = exportAllData(dataStore, context);
+            verifyExtractedData(dataStoreData,
+                    3, "Data store should have exactly 3 records",
+                    "user100_app1_data", "Data should be from user100 app1 data store");
+            
+            // Export from metadata store level
+            EnvironmentKeySpace.MetadataPath metadataStore = app1User100.metadataStore();
+            verifyExtractedData(exportAllData(metadataStore, context),
+                    1, "Metadata store should have exactly 1 record",
+                    "user100_app1_meta1", "Metadata value should match");
+
+            // Verify empty export for user with no data
+            EnvironmentKeySpace.UserPath user300Path = keySpace.root().userid(300L);
+            assertEquals(0, exportAllData(user300Path, context).size(), "User 300 should have no data");
+        }
+    }
+
+    @Test
+    void testExportAllDataThroughKeySpacePathWrapperResolvedPaths() {
+        final FDBDatabase database = dbExtension.getDatabase();
+        final EnvironmentKeySpace keySpace = EnvironmentKeySpace.setupSampleData(database);
+
+        // Test export at different levels through wrapper methods
+        try (FDBRecordContext context = database.openContext()) {
+            // Test 4: Export from specific data store level
+            EnvironmentKeySpace.DataPath dataStore = keySpace.root().userid(100L).application("app1").dataStore();
+            final List<ResolvedKeySpacePath> dataStoreData = dataStore.exportAllData(context, null, ScanProperties.FORWARD_SCAN)
+                    .mapPipelined(DataInKeySpacePath::getResolvedPath, 1).asList().join();
+            // Verify data store records have correct remainder
+            final ArrayList<Tuple> remainders = new ArrayList<>();
+            for (ResolvedKeySpacePath kv : dataStoreData) {
+                // Path tuple should be the same
+                Tuple dataStoreTuple = dataStore.toTuple(context);
+                assertEquals(dataStoreTuple, kv.toTuple());
+                remainders.add(kv.getRemainder());
+            }
+            assertEquals(List.of(
+                    Tuple.from("record1"),
+                    Tuple.from("record2", 0),
+                    Tuple.from("record2", 1)
+            ), remainders, "remainders should be the same");
+
+        }
+    }
+
     private void setData(List<Object> keys, FDBRecordContext context, KeySpacePath basePath,
                          String subdirectory, String valuePrefix) {
         Transaction tr = context.ensureActive();
@@ -479,6 +550,13 @@ class KeySpacePathDataExportTest {
     private static List<KeyValue> exportAllData(final KeySpacePath rootPath, final FDBRecordContext context) {
         final List<KeyValue> asSingleExport = rootPath.exportAllData(context, null, ScanProperties.FORWARD_SCAN)
                 .map(DataInKeySpacePath::getRawKeyValue).asList().join();
+
+        final List<ResolvedKeySpacePath> resolvedPaths = rootPath.exportAllData(context, null, ScanProperties.FORWARD_SCAN)
+                .mapPipelined(DataInKeySpacePath::getResolvedPath, 1).asList().join();
+        final ResolvedKeySpacePath rootResolvedPath = rootPath.toResolvedPath(context);
+        for (ResolvedKeySpacePath resolvedPath : resolvedPaths) {
+            assertStartsWith(rootResolvedPath, resolvedPath);
+        }
 
         final List<KeyValue> reversed = rootPath.exportAllData(context, null, ScanProperties.REVERSE_SCAN)
                 .map(DataInKeySpacePath::getRawKeyValue).asList().join();
@@ -501,114 +579,19 @@ class KeySpacePathDataExportTest {
                 assertThat(batch.size()).isLessThanOrEqualTo(1);
             }
         }
+
         assertEquals(asSingleExport, asContinuations);
         return asSingleExport;
     }
 
-    @Test
-    void testExportAllDataThroughKeySpacePathWrapper() {
-        final FDBDatabase database = dbExtension.getDatabase();
-        final EnvironmentKeySpace keySpace = setupEnvironmentKeySpaceData(database);
-
-        // Test export at different levels through wrapper methods
-        try (FDBRecordContext context = database.openContext()) {
-            // Export from root level (should get all data)
-            EnvironmentKeySpace.EnvironmentRoot root = keySpace.root();
-            List<KeyValue> allData = exportAllData(root, context);
-            assertEquals(5, allData.size(), "Root level should export all data");
-            
-            // Export from specific user level (should get data for user 100 only)
-            EnvironmentKeySpace.UserPath user100Path = keySpace.root().userid(100L);
-            verifyExtractedData(exportAllData(user100Path, context),
-                    4, "User 100 should have 4 records",
-                    "user100", "All user 100 data should contain 'user100'");
-
-            // Export from specific application level (app1 for user 100)
-            EnvironmentKeySpace.ApplicationPath app1User100 = user100Path.application("app1");
-            verifyExtractedData(exportAllData(app1User100, context),
-                    3, "App1 for user 100 should have 3 records (2 data + 1 metadata)",
-                    "user100_app1", "All app1 user100 data should contain 'user100_app1'");
-
-            // Export from specific data store level
-            EnvironmentKeySpace.DataPath dataStore = app1User100.dataStore();
-            List<KeyValue> dataStoreData = exportAllData(dataStore, context);
-            verifyExtractedData(dataStoreData,
-                    2, "Data store should have exactly 2 records",
-                    "user100_app1_data", "Data should be from user100 app1 data store");
-            
-            // Export from metadata store level
-            EnvironmentKeySpace.MetadataPath metadataStore = app1User100.metadataStore();
-            verifyExtractedData(exportAllData(metadataStore, context),
-                    1, "Metadata store should have exactly 1 record",
-                    "user100_app1_meta1", "Metadata value should match");
-
-            // Verify empty export for user with no data
-            EnvironmentKeySpace.UserPath user300Path = keySpace.root().userid(300L);
-            assertEquals(0, exportAllData(user300Path, context).size(), "User 300 should have no data");
-        }
-    }
-
-    @Test
-    void testExportAllDataThroughKeySpacePathWrapperResolvedPaths() {
-        final FDBDatabase database = dbExtension.getDatabase();
-        final EnvironmentKeySpace keySpace = setupEnvironmentKeySpaceData(database);
-
-        // Test export at different levels through wrapper methods
-        try (FDBRecordContext context = database.openContext()) {
-            // Test 4: Export from specific data store level
-            EnvironmentKeySpace.DataPath dataStore = keySpace.root().userid(100L).application("app1").dataStore();
-            final List<ResolvedKeySpacePath> dataStoreData = dataStore.exportAllData(context, null, ScanProperties.FORWARD_SCAN)
-                    .mapPipelined(DataInKeySpacePath::getResolvedPath, 1).asList().join();
-            assertEquals(2, dataStoreData.size());
-            // Verify data store records have correct remainder
-            final ArrayList<Tuple> remainders = new ArrayList<>();
-            for (ResolvedKeySpacePath kv : dataStoreData) {
-
-                // Path tuple should be the same
-                Tuple dataStoreTuple = dataStore.toTuple(context);
-                assertEquals(dataStoreTuple, kv.toTuple());
-
-                // Remainder should be the same
-                remainders.add(kv.getRemainder());
+    private static void assertStartsWith(final ResolvedKeySpacePath rootResolvedPath, ResolvedKeySpacePath resolvedPath) {
+        do {
+            if (resolvedPath.equals(rootResolvedPath)) {
+                return;
             }
-            assertEquals(List.of(
-                    Tuple.from("record1"),
-                    Tuple.from("record2", 0),
-                    Tuple.from("record2", 1)
-            ), remainders);
-
-        }
-    }
-
-    @Nonnull
-    private static EnvironmentKeySpace setupEnvironmentKeySpaceData(@Nonnull final FDBDatabase database) {
-        EnvironmentKeySpace keySpace = new EnvironmentKeySpace("test_env");
-
-        // Store test data at different levels of the hierarchy
-        try (FDBRecordContext context = database.openContext()) {
-            Transaction tr = context.ensureActive();
-            
-            // Create paths for different users and applications
-            EnvironmentKeySpace.ApplicationPath app1User1 = keySpace.root().userid(100L).application("app1");
-            EnvironmentKeySpace.ApplicationPath app2User1 = keySpace.root().userid(100L).application("app2");
-            EnvironmentKeySpace.ApplicationPath app1User2 = keySpace.root().userid(200L).application("app1");
-            
-            EnvironmentKeySpace.DataPath dataUser1App1 = app1User1.dataStore();
-            EnvironmentKeySpace.MetadataPath metaUser1App1 = app1User1.metadataStore();
-            EnvironmentKeySpace.DataPath dataUser1App2 = app2User1.dataStore();
-            EnvironmentKeySpace.DataPath dataUser2App1 = app1User2.dataStore();
-            
-            // Store data records with additional tuple elements after the KeySpacePath
-            tr.set(dataUser1App1.toTuple(context).add("record1").pack(), Tuple.from("user100_app1_data1").pack());
-            tr.set(dataUser1App1.toTuple(context).add("record2").add(0).pack(), Tuple.from("user100_app1_data2_0").pack());
-            tr.set(dataUser1App1.toTuple(context).add("record2").add(1).pack(), Tuple.from("user100_app1_data2_1").pack());
-            tr.set(metaUser1App1.toTuple(context).add("config1").pack(), Tuple.from("user100_app1_meta1").pack());
-            tr.set(dataUser1App2.toTuple(context).add("record3").pack(), Tuple.from("user100_app2_data3").pack());
-            tr.set(dataUser2App1.toTuple(context).add("record4").pack(), Tuple.from("user200_app1_data4").pack());
-            
-            context.commit();
-        }
-        return keySpace;
+            resolvedPath = resolvedPath.getParent();
+        } while (resolvedPath != null);
+        Assertions.fail("Expected <" + resolvedPath + "> to start with <" + rootResolvedPath + "> but it didn't");
     }
 
     private static void verifyExtractedData(final List<KeyValue> app1User100Data,

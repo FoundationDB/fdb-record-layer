@@ -20,9 +20,14 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.keyspace;
 
+import com.apple.foundationdb.Transaction;
+import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.tuple.Tuple;
+
+import javax.annotation.Nonnull;
+import java.util.UUID;
 
 /**
  * This provides an example of a way in which you can define a KeySpace in a relatively clean and type-safe
@@ -67,6 +72,37 @@ class EnvironmentKeySpace {
                                 .addSubdirectory(new DirectoryLayerDirectory(APPLICATION_KEY, ApplicationPath::new)
                                         .addSubdirectory(new KeySpaceDirectory(DATA_KEY, KeySpaceDirectory.KeyType.LONG, DATA_VALUE, DataPath::new))
                                         .addSubdirectory(new KeySpaceDirectory(METADATA_KEY, KeySpaceDirectory.KeyType.LONG, METADATA_VALUE, MetadataPath::new)))));
+    }
+
+    @Nonnull
+    static EnvironmentKeySpace setupSampleData(@Nonnull final FDBDatabase database) {
+        EnvironmentKeySpace keySpace = new EnvironmentKeySpace(UUID.randomUUID().toString());
+
+        // Store test data at different levels of the hierarchy
+        try (FDBRecordContext context = database.openContext()) {
+            Transaction tr = context.ensureActive();
+
+            // Create paths for different users and applications
+            ApplicationPath app1User1 = keySpace.root().userid(100L).application("app1");
+            ApplicationPath app2User1 = keySpace.root().userid(100L).application("app2");
+            ApplicationPath app1User2 = keySpace.root().userid(200L).application("app1");
+
+            DataPath dataUser1App1 = app1User1.dataStore();
+            MetadataPath metaUser1App1 = app1User1.metadataStore();
+            DataPath dataUser1App2 = app2User1.dataStore();
+            DataPath dataUser2App1 = app1User2.dataStore();
+
+            // Store data records with additional tuple elements after the KeySpacePath
+            tr.set(dataUser1App1.toTuple(context).add("record1").pack(), Tuple.from("user100_app1_data1").pack());
+            tr.set(dataUser1App1.toTuple(context).add("record2").add(0).pack(), Tuple.from("user100_app1_data2_0").pack());
+            tr.set(dataUser1App1.toTuple(context).add("record2").add(1).pack(), Tuple.from("user100_app1_data2_1").pack());
+            tr.set(metaUser1App1.toTuple(context).add("config1").pack(), Tuple.from("user100_app1_meta1").pack());
+            tr.set(dataUser1App2.toTuple(context).add("record3").pack(), Tuple.from("user100_app2_data3").pack());
+            tr.set(dataUser2App1.toTuple(context).add("record4").pack(), Tuple.from("user200_app1_data4").pack());
+
+            context.commit();
+        }
+        return keySpace;
     }
 
     public String getRootName() {
