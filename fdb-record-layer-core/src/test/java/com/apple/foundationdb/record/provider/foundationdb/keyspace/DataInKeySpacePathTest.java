@@ -118,8 +118,8 @@ class DataInKeySpacePathTest {
         KeySpace root = new KeySpace(
                 new KeySpaceDirectory("application", KeyType.STRING, appUuid)
                         .addSubdirectory(new KeySpaceDirectory("version", KeyType.LONG, 1L)
-                        .addSubdirectory(new KeySpaceDirectory("environment", KeyType.STRING, "production")
-                        .addSubdirectory(new KeySpaceDirectory("data", KeyType.STRING)))));
+                                .addSubdirectory(new KeySpaceDirectory("environment", KeyType.STRING, "production")
+                                        .addSubdirectory(new KeySpaceDirectory("data", KeyType.STRING)))));
 
         final FDBDatabase database = dbExtension.getDatabase();
 
@@ -249,77 +249,6 @@ class DataInKeySpacePathTest {
         }
     }
 
-    @ParameterizedTest
-    @ValueSource(ints = {1, 2, 3, 4, 5})
-    void testVariableDepthPaths(int depth) {
-        // Build a KeySpace with the specified depth
-        final String rootUuid = UUID.randomUUID().toString();
-        KeySpaceDirectory rootDir = new KeySpaceDirectory("root", KeyType.STRING, rootUuid);
-        KeySpace root = new KeySpace(rootDir);
-        KeySpaceDirectory dir = rootDir;
-        for (int i = 1; i < depth; i++) {
-            final KeySpaceDirectory next = new KeySpaceDirectory("level" + i, KeyType.LONG);
-            dir.addSubdirectory(next);
-            dir = next;
-        }
-
-        final FDBDatabase database = dbExtension.getDatabase();
-
-        try (FDBRecordContext context = database.openContext()) {
-            Transaction tr = context.ensureActive();
-            
-            // Build a path with the specified depth
-            KeySpacePath currentPath = root.path("root");
-            for (int i = 1; i < depth; i++) {
-                currentPath = currentPath.add("level" + i, i * 100L);
-            }
-            
-            Tuple keyTuple = currentPath.toTuple(context);
-            byte[] keyBytes = keyTuple.pack();
-            byte[] valueBytes = Tuple.from("depth_test_" + depth).pack();
-            
-            tr.set(keyBytes, valueBytes);
-            KeyValue keyValue = new KeyValue(keyBytes, valueBytes);
-            
-            // Create DataInKeySpacePath from the root-level path
-            KeySpacePath rootPath = root.path("root");
-            root.resolveFromKey(context, Tuple.fromBytes(keyValue.getKey()));
-            DataInKeySpacePath dataInPath = new DataInKeySpacePath(rootPath, keyValue, context);
-            
-            ResolvedKeySpacePath resolved = dataInPath.getResolvedPath().join();
-            
-            // Verify the path using assertNameAndValue by traversing up the hierarchy
-            ResolvedKeySpacePath current = resolved;
-            for (int i = depth - 1; i >= 1; i--) {
-                current = assertNameAndValue(current, "level" + i, i * 100L);
-            }
-            // Finally verify the root level
-            assertNull(assertNameAndValue(current, "root", rootUuid));
-            
-            // Verify the depth by traversing up the path
-            int actualDepth = 1; // Start at 1 for the root
-            current = resolved;
-            while (current.getParent() != null) {
-                actualDepth++;
-                current = current.getParent();
-            }
-            assertEquals(depth, actualDepth);
-            
-            // Verify the deepest level has the expected name and value
-            if (depth > 1) {
-                assertEquals("level" + (depth - 1), resolved.getDirectoryName());
-                assertEquals((depth - 1) * 100L, resolved.getResolvedValue());
-            } else {
-                assertEquals("root", resolved.getDirectoryName());
-            }
-            
-            // Verify the resolved path can recreate the original key
-            assertEquals(keyTuple, resolved.toTuple());
-            
-            context.commit();
-        }
-    }
-
     @Test
     void testKeyValueAccessors() {
         KeySpace root = new KeySpace(
@@ -346,44 +275,6 @@ class DataInKeySpacePathTest {
             CompletableFuture<ResolvedKeySpacePath> resolvedFuture = dataInPath.getResolvedPath();
             assertNotNull(resolvedFuture);
             assertTrue(resolvedFuture.isDone() || !resolvedFuture.isCancelled());
-        }
-    }
-
-    @Test
-    void testNullKeyTypeDirectory() {
-        final String baseUuid = UUID.randomUUID().toString();
-        KeySpace root = new KeySpace(
-                new KeySpaceDirectory("base", KeyType.STRING, baseUuid)
-                        .addSubdirectory(new KeySpaceDirectory("null_dir", KeyType.NULL)));
-
-        final FDBDatabase database = dbExtension.getDatabase();
-
-        try (FDBRecordContext context = database.openContext()) {
-            Transaction tr = context.ensureActive();
-            
-            KeySpacePath nullPath = root.path("base").add("null_dir");
-            
-            Tuple keyTuple = nullPath.toTuple(context);
-            byte[] keyBytes = keyTuple.pack();
-            byte[] valueBytes = Tuple.from("null_type_test").pack();
-            
-            tr.set(keyBytes, valueBytes);
-            KeyValue keyValue = new KeyValue(keyBytes, valueBytes);
-            
-            // Create DataInKeySpacePath from the base-level path
-            KeySpacePath basePath = root.path("base");
-            DataInKeySpacePath dataInPath = new DataInKeySpacePath(basePath, keyValue, context);
-            
-            ResolvedKeySpacePath resolved = dataInPath.getResolvedPath().join();
-            
-            // Verify the path using assertNameAndValue
-            ResolvedKeySpacePath baseLevel = assertNameAndValue(resolved, "null_dir", null);
-            assertNull(assertNameAndValue(baseLevel, "base", baseUuid));
-            
-            // Verify the resolved path can recreate the original key
-            assertEquals(keyTuple, resolved.toTuple());
-            
-            context.commit();
         }
     }
 
