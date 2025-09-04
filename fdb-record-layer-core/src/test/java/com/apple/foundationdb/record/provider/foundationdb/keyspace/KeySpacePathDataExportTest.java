@@ -48,6 +48,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -240,14 +241,9 @@ class KeySpacePathDataExportTest {
             assertEquals(12, allData.size());
             
             // Verify we have different value types
-            List<String> valueTypes = new ArrayList<>();
-            for (KeyValue kv : allData) {
-                String value = Tuple.fromBytes(kv.getValue()).getString(0);
-                String valueType = value.split("_")[0];
-                if (!valueTypes.contains(valueType)) {
-                    valueTypes.add(valueType);
-                }
-            }
+            Set<String> valueTypes = allData.stream()
+                    .map(kv -> Tuple.fromBytes(kv.getValue()).getString(0).split("_")[0])
+                    .collect(Collectors.toSet());
             assertEquals(5, valueTypes.size());
             assertTrue(valueTypes.containsAll(Arrays.asList("string", "long", "bytes", "uuid", "boolean")));
         }
@@ -353,7 +349,7 @@ class KeySpacePathDataExportTest {
             KeySpacePath orgPath = root.path("org");
             final List<KeyValue> allData = exportAllData(orgPath, context);
 
-            // Should have 16 records (2 depts * 2 teams * 2 members * 2 records each)
+            // Should have 16 records (2 departments * 2 teams * 2 members * 2 records each)
             assertEquals(16, allData.size());
         }
         
@@ -411,8 +407,7 @@ class KeySpacePathDataExportTest {
             assertEquals(3, allData.size());
             
             // Verify binary data integrity
-            for (int i = 0; i < allData.size(); i++) {
-                KeyValue kv = allData.get(i);
+            for (KeyValue kv : allData) {
                 String valueStr = new String(kv.getValue());
                 assertTrue(valueStr.startsWith("binary_data_"));
             }
