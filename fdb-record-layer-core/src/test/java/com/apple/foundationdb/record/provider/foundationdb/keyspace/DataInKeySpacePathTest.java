@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory.KeyType;
 import com.apple.foundationdb.record.test.FDBDatabaseExtension;
-import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 import com.apple.test.Tags;
@@ -36,7 +35,6 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
-import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
@@ -55,213 +53,70 @@ class DataInKeySpacePathTest {
     final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
 
     @ParameterizedTest
-    @ValueSource(ints = {0, 1, 2})
-    void testSimpleTwoLevelPath(int depth) {
+    @ValueSource(ints = {0, 1, 2, 3, 4, 5})
+    void testResolution() {
+        // Include some extra children to make sure resolution doesn't get confused
+        final String companyUuid = UUID.randomUUID().toString();
         KeySpace root = new KeySpace(
-                new KeySpaceDirectory("app", KeyType.STRING, UUID.randomUUID().toString())
-                        .addSubdirectory(new KeySpaceDirectory("locality", KeyType.STRING, "Foo")
-                                        .addSubdirectory(new KeySpaceDirectory("user", KeyType.LONG))));
-
-        final FDBDatabase database = dbExtension.getDatabase();
-
-        // Store test data and create DataInKeySpacePath
-        try (FDBRecordContext context = database.openContext()) {
-            Transaction tr = context.ensureActive();
-
-            KeySpacePath appPath = root.path("app");
-            KeySpacePath localityPath = appPath.add("locality");
-            KeySpacePath userPath = localityPath.add("user", 123L);
-            final Subspace pathSubspace = userPath.toSubspace(context);
-            
-            // Add additional tuple elements after the KeySpacePath (this is how data is actually stored)
-            byte[] keyBytes = pathSubspace.pack(Tuple.from("record_id", 456L, "metadata"));
-            byte[] valueBytes = Tuple.from("test_data").pack();
-            
-            tr.set(keyBytes, valueBytes);
-            KeyValue keyValue = new KeyValue(keyBytes, valueBytes);
-
-            final List<KeySpacePath> queryPaths = List.of(appPath, localityPath, userPath);
-            DataInKeySpacePath dataInPath = new DataInKeySpacePath(
-                    queryPaths.get(depth), keyValue, context);
-            
-            // Verify the resolved path
-            CompletableFuture<ResolvedKeySpacePath> resolvedFuture = dataInPath.getResolvedPath();
-            assertNotNull(resolvedFuture);
-            
-            ResolvedKeySpacePath resolved = resolvedFuture.join();
-            assertNotNull(resolved);
-            
-            // Verify the resolved path has the correct structure
-            assertEquals("user", resolved.getDirectoryName());
-            assertEquals(123L, resolved.getResolvedValue());
-            
-            // Verify parent path
-            ResolvedKeySpacePath parent = resolved.getParent();
-            assertNotNull(parent);
-            assertEquals("locality", parent.getDirectoryName());
-            ResolvedKeySpacePath grandParent = parent.getParent();
-            assertNotNull(grandParent);
-            assertEquals("app", grandParent.getDirectoryName());
-
-            // Verify the resolved path recreates the KeySpacePath portion (not the full key)
-            Tuple resolvedTuple = resolved.toTuple();
-            assertEquals(TupleHelpers.subTuple(Tuple.fromBytes(keyBytes), 0, 3), resolvedTuple);
-            
-            // Verify that the remainder contains the additional tuple elements
-            Tuple remainder = resolved.getRemainder();
-            assertNotNull(remainder);
-            assertEquals(3, remainder.size());
-            assertEquals("record_id", remainder.getString(0));
-            assertEquals(456L, remainder.getLong(1));
-            assertEquals("metadata", remainder.getString(2));
-            
-            context.commit();
-        }
-    }
-
-    @Test
-    void testThreeLevelPathWithStringValues() {
-        KeySpace root = new KeySpace(
-                new KeySpaceDirectory("service", KeyType.STRING, UUID.randomUUID().toString())
-                        .addSubdirectory(new KeySpaceDirectory("region", KeyType.STRING)
-                                .addSubdirectory(new KeySpaceDirectory("instance", KeyType.STRING))));
-
-        final FDBDatabase database = dbExtension.getDatabase();
-
-        try (FDBRecordContext context = database.openContext()) {
-            Transaction tr = context.ensureActive();
-            
-            KeySpacePath instancePath = root.path("service")
-                    .add("region", "us-west-2")
-                    .add("instance", "i-1234567890");
-            
-            // Add additional tuple elements after the KeySpacePath
-            byte[] keyBytes = instancePath.toSubspace(context).pack(
-                    Tuple.from("process_id", "web-server", "port", 8080L));
-            byte[] valueBytes = Tuple.from("instance_data").pack();
-            
-            tr.set(keyBytes, valueBytes);
-            KeyValue keyValue = new KeyValue(keyBytes, valueBytes);
-            
-            // Create DataInKeySpacePath from the service-level path
-            KeySpacePath servicePath = root.path("service");
-            DataInKeySpacePath dataInPath = new DataInKeySpacePath(servicePath, keyValue, context);
-            
-            ResolvedKeySpacePath resolved = dataInPath.getResolvedPath().join();
-            
-            // Verify the deepest level
-            assertEquals("instance", resolved.getDirectoryName());
-            assertEquals("i-1234567890", resolved.getResolvedValue());
-            
-            // Verify middle level
-            ResolvedKeySpacePath regionLevel = resolved.getParent();
-            assertNotNull(regionLevel);
-            assertEquals("region", regionLevel.getDirectoryName());
-            assertEquals("us-west-2", regionLevel.getResolvedValue());
-            
-            // Verify top level
-            ResolvedKeySpacePath serviceLevel = regionLevel.getParent();
-            assertNotNull(serviceLevel);
-            assertEquals("service", serviceLevel.getDirectoryName());
-            
-            // Verify the resolved path recreates the KeySpacePath portion
-            assertEquals(TupleHelpers.subTuple(Tuple.fromBytes(keyBytes), 0, 3), resolved.toTuple());
-            
-            // Verify that the remainder contains the additional tuple elements
-            Tuple remainder = resolved.getRemainder();
-            assertNotNull(remainder);
-            assertEquals(4, remainder.size());
-            assertEquals("process_id", remainder.getString(0));
-            assertEquals("web-server", remainder.getString(1));
-            assertEquals("port", remainder.getString(2));
-            assertEquals(8080L, remainder.getLong(3));
-            
-            context.commit();
-        }
-    }
-
-    @Test
-    void testDeepFiveLevelPathWithMixedTypes() {
-        KeySpace root = new KeySpace(
-                new KeySpaceDirectory("company", KeyType.STRING, UUID.randomUUID().toString())
+                new KeySpaceDirectory("company", KeyType.STRING, companyUuid)
                         .addSubdirectory(new KeySpaceDirectory("department", KeyType.STRING)
-                        .addSubdirectory(new KeySpaceDirectory("team_id", KeyType.LONG)
-                        .addSubdirectory(new KeySpaceDirectory("employee_uuid", KeyType.UUID)
-                        .addSubdirectory(new KeySpaceDirectory("active", KeyType.BOOLEAN))))));
+                                .addSubdirectory(new KeySpaceDirectory("team_id", KeyType.LONG)
+                                        .addSubdirectory(new KeySpaceDirectory("employee_uuid", KeyType.UUID)
+                                                .addSubdirectory(new KeySpaceDirectory("active", KeyType.BOOLEAN)
+                                                        .addSubdirectory(new KeySpaceDirectory("data", KeyType.NULL, null))
+                                                        .addSubdirectory(new KeySpaceDirectory("metaData", KeyType.LONG, 0))))
+                                        .addSubdirectory(new KeySpaceDirectory("buildings", KeyType.STRING)))));
 
         final FDBDatabase database = dbExtension.getDatabase();
 
         try (FDBRecordContext context = database.openContext()) {
             Transaction tr = context.ensureActive();
-            
+
             UUID employeeId = UUID.randomUUID();
             KeySpacePath employeePath = root.path("company")
                     .add("department", "engineering")
                     .add("team_id", 42L)
                     .add("employee_uuid", employeeId)
-                    .add("active", true);
-            
+                    .add("active", true)
+                    .add("data");
+
             // Add additional tuple elements after the KeySpacePath
-            byte[] keyBytes = employeePath.toSubspace(context).pack(
-                    Tuple.from("salary", 75000L, "start_date", "2023-01-15"));
+            final Tuple remainderTuple = Tuple.from("salary", 75000L, "start_date", "2023-01-15");
+            byte[] keyBytes = employeePath.toSubspace(context).pack(remainderTuple);
             byte[] valueBytes = Tuple.from("employee_record").pack();
-            
+
             tr.set(keyBytes, valueBytes);
             KeyValue keyValue = new KeyValue(keyBytes, valueBytes);
-            
+
             // Create DataInKeySpacePath from the company-level path
             KeySpacePath companyPath = root.path("company");
             DataInKeySpacePath dataInPath = new DataInKeySpacePath(companyPath, keyValue, context);
-            
+
             ResolvedKeySpacePath resolved = dataInPath.getResolvedPath().join();
-            
-            // Verify the deepest level (active)
-            assertEquals("active", resolved.getDirectoryName());
-            assertEquals(true, resolved.getResolvedValue());
-            
-            // Verify employee_uuid level
-            ResolvedKeySpacePath uuidLevel = resolved.getParent();
-            assertNotNull(uuidLevel);
-            assertEquals("employee_uuid", uuidLevel.getDirectoryName());
-            assertEquals(employeeId, uuidLevel.getResolvedValue());
-            
-            // Verify team_id level
-            ResolvedKeySpacePath teamLevel = uuidLevel.getParent();
-            assertNotNull(teamLevel);
-            assertEquals("team_id", teamLevel.getDirectoryName());
-            assertEquals(42L, teamLevel.getResolvedValue());
-            
-            // Verify department level
-            ResolvedKeySpacePath deptLevel = teamLevel.getParent();
-            assertNotNull(deptLevel);
-            assertEquals("department", deptLevel.getDirectoryName());
-            assertEquals("engineering", deptLevel.getResolvedValue());
-            
-            // Verify company level
-            ResolvedKeySpacePath companyLevel = deptLevel.getParent();
-            assertNotNull(companyLevel);
-            assertEquals("company", companyLevel.getDirectoryName());
-            
+
+            // Verify the path
+            ResolvedKeySpacePath activeLevel = assertNameAndValue(resolved, "data", null);
+            ResolvedKeySpacePath uuidLevel = assertNameAndValue(activeLevel, "active", true);
+            ResolvedKeySpacePath teamLevel = assertNameAndValue(uuidLevel, "employee_uuid", employeeId);
+            ResolvedKeySpacePath deptLevel = assertNameAndValue(teamLevel, "team_id", 42L);
+            ResolvedKeySpacePath companyLevel = assertNameAndValue(deptLevel, "department", "engineering");
+            assertNull(assertNameAndValue(companyLevel, "company", companyUuid));
+
             // Verify the resolved path recreates the KeySpacePath portion
-            assertEquals(TupleHelpers.subTuple(Tuple.fromBytes(keyBytes), 0, 5), resolved.toTuple());
-            
+            assertEquals(TupleHelpers.subTuple(Tuple.fromBytes(keyBytes), 0, 6), resolved.toTuple());
+
             // Verify that the remainder contains the additional tuple elements
-            Tuple remainder = resolved.getRemainder();
-            assertNotNull(remainder);
-            assertEquals(4, remainder.size());
-            assertEquals("salary", remainder.getString(0));
-            assertEquals(75000L, remainder.getLong(1));
-            assertEquals("start_date", remainder.getString(2));
-            assertEquals("2023-01-15", remainder.getString(3));
-            
+            assertEquals(remainderTuple, resolved.getRemainder());
+
             context.commit();
         }
     }
 
     @Test
     void testPathWithConstantValues() {
+        final String appUuid = UUID.randomUUID().toString();
         KeySpace root = new KeySpace(
-                new KeySpaceDirectory("application", KeyType.STRING, UUID.randomUUID().toString())
+                new KeySpaceDirectory("application", KeyType.STRING, appUuid)
                         .addSubdirectory(new KeySpaceDirectory("version", KeyType.LONG, 1L)
                         .addSubdirectory(new KeySpaceDirectory("environment", KeyType.STRING, "production")
                         .addSubdirectory(new KeySpaceDirectory("data", KeyType.STRING)))));
@@ -289,26 +144,11 @@ class DataInKeySpacePathTest {
             
             ResolvedKeySpacePath resolved = dataInPath.getResolvedPath().join();
             
-            // Verify the deepest level
-            assertEquals("data", resolved.getDirectoryName());
-            assertEquals("user_records", resolved.getResolvedValue());
-            
-            // Verify environment level (constant value)
-            ResolvedKeySpacePath envLevel = resolved.getParent();
-            assertNotNull(envLevel);
-            assertEquals("environment", envLevel.getDirectoryName());
-            assertEquals("production", envLevel.getResolvedValue());
-            
-            // Verify version level (constant value)
-            ResolvedKeySpacePath versionLevel = envLevel.getParent();
-            assertNotNull(versionLevel);
-            assertEquals("version", versionLevel.getDirectoryName());
-            assertEquals(1L, versionLevel.getResolvedValue());
-            
-            // Verify application level
-            ResolvedKeySpacePath applicationLevel = versionLevel.getParent();
-            assertNotNull(applicationLevel);
-            assertEquals("application", applicationLevel.getDirectoryName());
+            // Verify the path using assertNameAndValue
+            ResolvedKeySpacePath envLevel = assertNameAndValue(resolved, "data", "user_records");
+            ResolvedKeySpacePath versionLevel = assertNameAndValue(envLevel, "environment", "production");
+            ResolvedKeySpacePath applicationLevel = assertNameAndValue(versionLevel, "version", 1L);
+            assertNull(assertNameAndValue(applicationLevel, "application", appUuid));
             
             // Verify the resolved path recreates the KeySpacePath portion
             assertEquals(TupleHelpers.subTuple(Tuple.fromBytes(keyBytes), 0, 4), resolved.toTuple());
@@ -328,8 +168,9 @@ class DataInKeySpacePathTest {
 
     @Test
     void testPathWithDirectoryLayer() {
+        final String tenantUuid = UUID.randomUUID().toString();
         KeySpace root = new KeySpace(
-                new DirectoryLayerDirectory("tenant", UUID.randomUUID().toString())
+                new DirectoryLayerDirectory("tenant", tenantUuid)
                         .addSubdirectory(new KeySpaceDirectory("user_id", KeyType.LONG)
                                 .addSubdirectory(new DirectoryLayerDirectory("service"))));
 
@@ -353,34 +194,23 @@ class DataInKeySpacePathTest {
             KeySpacePath tenantPath = root.path("tenant");
             DataInKeySpacePath dataInPath = new DataInKeySpacePath(tenantPath, keyValue, context);
             
-            ResolvedKeySpacePath resolved = dataInPath.getResolvedPath().join();
+            ResolvedKeySpacePath serviceLevel = dataInPath.getResolvedPath().join();
             
-            // Verify the deepest level (service - DirectoryLayer)
-            assertEquals("service", resolved.getDirectoryName());
-            assertEquals("analytics", resolved.getLogicalValue());
-            
-            // Verify user_id level
-            ResolvedKeySpacePath userLevel = resolved.getParent();
-            assertNotNull(userLevel);
-            assertEquals("user_id", userLevel.getDirectoryName());
-            assertEquals(999L, userLevel.getLogicalValue());
-            
-            // Verify tenant level (DirectoryLayer)
-            ResolvedKeySpacePath tenantLevel = userLevel.getParent();
-            assertNotNull(tenantLevel);
-            assertEquals("tenant", tenantLevel.getDirectoryName());
-            
-            // Note: DirectoryLayer values are resolved asynchronously, so we verify the structure is correct
-            assertNotNull(tenantLevel.getResolvedValue());
-            
+            final ResolvedKeySpacePath userLevel = assertNameAndDirectoryScopedValue(
+                    serviceLevel, "service", "analytics", servicePath, context);
+            ResolvedKeySpacePath tenantLevel = assertNameAndValue(userLevel, "user_id", 999L);
+
+            assertNull(assertNameAndDirectoryScopedValue(tenantLevel, "tenant", tenantUuid, tenantPath, context));
+
             context.commit();
         }
     }
 
     @Test
     void testPathWithBinaryData() {
+        final String storeUuid = UUID.randomUUID().toString();
         KeySpace root = new KeySpace(
-                new KeySpaceDirectory("binary_store", KeyType.STRING, UUID.randomUUID().toString())
+                new KeySpaceDirectory("binary_store", KeyType.STRING, storeUuid)
                         .addSubdirectory(new KeySpaceDirectory("blob_id", KeyType.BYTES)));
 
         final FDBDatabase database = dbExtension.getDatabase();
@@ -404,15 +234,13 @@ class DataInKeySpacePathTest {
             
             ResolvedKeySpacePath resolved = dataInPath.getResolvedPath().join();
             
-            // Verify the deepest level
+            // Verify the path using assertNameAndValue
             assertEquals("blob_id", resolved.getDirectoryName());
             byte[] resolvedBytes = (byte[]) resolved.getResolvedValue();
             assertArrayEquals(blobId, resolvedBytes);
             
-            // Verify parent level
-            ResolvedKeySpacePath storeLevel = resolved.getParent();
-            assertNotNull(storeLevel);
-            assertEquals("binary_store", storeLevel.getDirectoryName());
+            ResolvedKeySpacePath storeLevel = assertNameAndValue(resolved.getParent(), "binary_store", storeUuid);
+            assertNull(storeLevel);
             
             // Verify the resolved path can recreate the original key
             assertEquals(keyTuple, resolved.toTuple());
@@ -425,7 +253,8 @@ class DataInKeySpacePathTest {
     @ValueSource(ints = {1, 2, 3, 4, 5})
     void testVariableDepthPaths(int depth) {
         // Build a KeySpace with the specified depth
-        KeySpaceDirectory rootDir = new KeySpaceDirectory("root", KeyType.STRING, UUID.randomUUID().toString());
+        final String rootUuid = UUID.randomUUID().toString();
+        KeySpaceDirectory rootDir = new KeySpaceDirectory("root", KeyType.STRING, rootUuid);
         KeySpace root = new KeySpace(rootDir);
         KeySpaceDirectory dir = rootDir;
         for (int i = 1; i < depth; i++) {
@@ -459,9 +288,17 @@ class DataInKeySpacePathTest {
             
             ResolvedKeySpacePath resolved = dataInPath.getResolvedPath().join();
             
+            // Verify the path using assertNameAndValue by traversing up the hierarchy
+            ResolvedKeySpacePath current = resolved;
+            for (int i = depth - 1; i >= 1; i--) {
+                current = assertNameAndValue(current, "level" + i, i * 100L);
+            }
+            // Finally verify the root level
+            assertNull(assertNameAndValue(current, "root", rootUuid));
+            
             // Verify the depth by traversing up the path
             int actualDepth = 1; // Start at 1 for the root
-            ResolvedKeySpacePath current = resolved;
+            current = resolved;
             while (current.getParent() != null) {
                 actualDepth++;
                 current = current.getParent();
@@ -514,8 +351,9 @@ class DataInKeySpacePathTest {
 
     @Test
     void testNullKeyTypeDirectory() {
+        final String baseUuid = UUID.randomUUID().toString();
         KeySpace root = new KeySpace(
-                new KeySpaceDirectory("base", KeyType.STRING, UUID.randomUUID().toString())
+                new KeySpaceDirectory("base", KeyType.STRING, baseUuid)
                         .addSubdirectory(new KeySpaceDirectory("null_dir", KeyType.NULL)));
 
         final FDBDatabase database = dbExtension.getDatabase();
@@ -538,15 +376,9 @@ class DataInKeySpacePathTest {
             
             ResolvedKeySpacePath resolved = dataInPath.getResolvedPath().join();
             
-            // Verify the deepest level (NULL type)
-            assertEquals("null_dir", resolved.getDirectoryName());
-            // NULL type directories have null as their resolved value
-            assertNull(resolved.getResolvedValue());
-            
-            // Verify parent level
-            ResolvedKeySpacePath baseLevel = resolved.getParent();
-            assertNotNull(baseLevel);
-            assertEquals("base", baseLevel.getDirectoryName());
+            // Verify the path using assertNameAndValue
+            ResolvedKeySpacePath baseLevel = assertNameAndValue(resolved, "null_dir", null);
+            assertNull(assertNameAndValue(baseLevel, "base", baseUuid));
             
             // Verify the resolved path can recreate the original key
             assertEquals(keyTuple, resolved.toTuple());
@@ -563,7 +395,8 @@ class DataInKeySpacePathTest {
         // Test export at different levels through wrapper methods
         try (FDBRecordContext context = database.openContext()) {
             // Test 4: Export from specific data store level
-            EnvironmentKeySpace.DataPath dataStore = keySpace.root().userid(100L).application("app1").dataStore();
+            final EnvironmentKeySpace.ApplicationPath appPath = keySpace.root().userid(100L).application("app1");
+            EnvironmentKeySpace.DataPath dataStore = appPath.dataStore();
 
             final byte[] key = dataStore.toTuple(context).add("record2").add(0).pack();
             final byte[] value = Tuple.from("data").pack();
@@ -572,7 +405,35 @@ class DataInKeySpacePathTest {
             final ResolvedKeySpacePath resolvedPath = dataInKeySpacePath.getResolvedPath().join();
             assertEquals(dataStore.toResolvedPath(context), withoutRemainder(resolvedPath));
             assertEquals(Tuple.from("record2", 0), resolvedPath.getRemainder());
+
+            // Verify the path using assertNameAndValue  
+            // Note: We expect the path to be: [environment] -> userid -> application -> data
+            ResolvedKeySpacePath appLevel;
+            appLevel = assertNameAndValue(resolvedPath, "data", EnvironmentKeySpace.DATA_VALUE);
+            ResolvedKeySpacePath userLevel = assertNameAndDirectoryScopedValue(appLevel, "application", "app1",
+                    appPath, context);
+            ResolvedKeySpacePath envLevel = assertNameAndValue(userLevel, "userid", 100L);
+            assertNull(assertNameAndDirectoryScopedValue(envLevel, keySpace.root().getDirectoryName(),
+                    keySpace.root().getValue(), keySpace.root(), context));
         }
+    }
+
+    private static ResolvedKeySpacePath assertNameAndDirectoryScopedValue(ResolvedKeySpacePath resolved,
+                                                                          String name, Object logicalValue,
+                                                                          KeySpacePath path, FDBRecordContext context) {
+        assertNotNull(resolved);
+        assertEquals(name, resolved.getDirectoryName());
+        assertEquals(path.toResolvedPath(context).getResolvedValue(), resolved.getResolvedValue());
+        assertEquals(logicalValue, resolved.getLogicalValue());
+        return resolved.getParent();
+    }
+
+    private static ResolvedKeySpacePath assertNameAndValue(ResolvedKeySpacePath resolved, String name, Object value) {
+        assertNotNull(resolved);
+        assertEquals(name, resolved.getDirectoryName());
+        assertEquals(value, resolved.getResolvedValue());
+        assertEquals(value, resolved.getLogicalValue());
+        return resolved.getParent();
     }
 
     private ResolvedKeySpacePath withoutRemainder(final ResolvedKeySpacePath path) {
