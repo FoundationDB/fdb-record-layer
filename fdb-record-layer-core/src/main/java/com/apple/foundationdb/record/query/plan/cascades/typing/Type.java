@@ -990,6 +990,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
             descriptorBuilder.addField(FieldDescriptorProto.newBuilder()
                     .setNumber(fieldNumber)
                     .setName(fieldName)
+                    .setJsonName(fieldName)
                     .setType(protoType)
                     .setLabel(label)
                     .build());
@@ -1636,6 +1637,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
             FieldDescriptorProto.Builder builder = FieldDescriptorProto.newBuilder()
                     .setNumber(fieldNumber)
                     .setName(fieldName)
+                    .setJsonName(fieldName)
                     .setType(protoType)
                     .setLabel(label);
             typeNameOptional.ifPresent(builder::setTypeName);
@@ -2069,9 +2071,11 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
             final var fieldDescriptorProto = FieldDescriptorProto.newBuilder();
             fieldDescriptorProto
                     .setName(fieldName)
+                    .setJsonName(fieldName)
                     .setNumber(fieldNumber)
+                    .setType(FieldDescriptorProto.Type.TYPE_MESSAGE)
                     .setLabel(label);
-            typeNameOptional.ifPresent(fieldDescriptorProto::setTypeName);
+            typeNameOptional.ifPresent(localName -> fieldDescriptorProto.setTypeName("." + localName));
             descriptorBuilder.addField(fieldDescriptorProto.build());
         }
 
@@ -3039,7 +3043,9 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
             FieldDescriptorProto.Builder builder = FieldDescriptorProto.newBuilder()
                     .setNumber(fieldNumber)
                     .setName(fieldName)
+                    .setJsonName(fieldName)
                     .setLabel(label)
+                    .setType(FieldDescriptorProto.Type.TYPE_MESSAGE)
                     .setTypeName(TupleFieldsProto.UUID.getDescriptor().getFullName());
             typeNameOptional.ifPresent(builder::setTypeName);
             descriptorBuilder.addField(builder);
