@@ -150,9 +150,9 @@ public class LuceneMetadataInfo extends IndexOperationResult {
      * Detailed file info class for the case where the response contains this information.
      */
     public static class LuceneFileInfo {
-        private String name;
-        private long id;
-        private long size;
+        private final String name;
+        private final long id;
+        private final long size;
 
         public LuceneFileInfo(final String name, final long id, final long size) {
             this.name = name;

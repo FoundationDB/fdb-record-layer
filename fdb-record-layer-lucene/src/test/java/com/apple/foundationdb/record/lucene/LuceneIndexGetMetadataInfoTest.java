@@ -42,6 +42,7 @@ import java.util.stream.Stream;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 /**
  * Tests around {@link LuceneGetMetadataInfo}.
@@ -192,6 +193,61 @@ public class LuceneIndexGetMetadataInfoTest extends FDBRecordStoreTestBase {
             }
             assertEquals(1, luceneInfo.getFieldInfoCount());
         }
+    }
+
+    @Test
+    void testLuceneInfoConstructor() {
+        final List<LuceneMetadataInfo.LuceneFileInfo> detailedFiles = List.of(
+                new LuceneMetadataInfo.LuceneFileInfo("file1.txt", 1L, 100L),
+                new LuceneMetadataInfo.LuceneFileInfo("file2.txt", 2L, 200L),
+                new LuceneMetadataInfo.LuceneFileInfo("file3.txt", 3L, 300L)
+        );
+
+        final LuceneMetadataInfo.LuceneInfo luceneInfo = new LuceneMetadataInfo.LuceneInfo(15, 5, detailedFiles);
+
+        assertEquals(15, luceneInfo.getDocumentCount());
+        assertEquals(5, luceneInfo.getFieldInfoCount());
+        assertEquals(detailedFiles, luceneInfo.getDetailedFileInfos());
+        assertEquals(List.of("file1.txt", "file2.txt", "file3.txt"), luceneInfo.getFiles());
+    }
+
+    @Test
+    void testLuceneInfoEqualsAndHashCode() {
+        final List<String> files1 = List.of("file1.txt", "file2.txt");
+        final List<String> files2 = List.of("file3.txt", "file4.txt");
+        final List<LuceneMetadataInfo.LuceneFileInfo> detailedFiles1 = List.of(
+                new LuceneMetadataInfo.LuceneFileInfo("file1.txt", 1L, 100L),
+                new LuceneMetadataInfo.LuceneFileInfo("file2.txt", 2L, 200L)
+        );
+        final List<LuceneMetadataInfo.LuceneFileInfo> detailedFiles2 = List.of(
+                new LuceneMetadataInfo.LuceneFileInfo("file3.txt", 3L, 300L),
+                new LuceneMetadataInfo.LuceneFileInfo("file4.txt", 4L, 400L)
+        );
+        final List<LuceneMetadataInfo.LuceneFileInfo> detailedFiles1Copy = List.of(
+                new LuceneMetadataInfo.LuceneFileInfo("file1.txt", 1L, 100L),
+                new LuceneMetadataInfo.LuceneFileInfo("file2.txt", 2L, 200L)
+        );
+        final LuceneMetadataInfo.LuceneInfo info1 = new LuceneMetadataInfo.LuceneInfo(10, 5, detailedFiles1);
+        final LuceneMetadataInfo.LuceneInfo info2 = new LuceneMetadataInfo.LuceneInfo(10, 5, detailedFiles1Copy);
+        final LuceneMetadataInfo.LuceneInfo info3 = new LuceneMetadataInfo.LuceneInfo(15, 5, detailedFiles1);
+        final LuceneMetadataInfo.LuceneInfo info4 = new LuceneMetadataInfo.LuceneInfo(10, 3, detailedFiles1);
+        final LuceneMetadataInfo.LuceneInfo info5 = new LuceneMetadataInfo.LuceneInfo(10, 5, detailedFiles2);
+
+        // Test equals
+        assertEquals(info1, info2);
+        assertNotEquals(info1, info3);
+        assertNotEquals(info1, info4);
+        assertNotEquals(info1, info5);
+
+        // Test hashCode consistency
+        assertEquals(info1.hashCode(), info2.hashCode());
+        assertNotEquals(info1.hashCode(), info3.hashCode());
+        assertNotEquals(info1.hashCode(), info4.hashCode());
+        assertNotEquals(info1.hashCode(), info5.hashCode());
+
+        // Test reflexivity
+        assertEquals(info1, info1);
+        assertEquals(info1.hashCode(), info1.hashCode());
     }
 
     private static void assertPartitionInfosHaveCorrectFromTo(
