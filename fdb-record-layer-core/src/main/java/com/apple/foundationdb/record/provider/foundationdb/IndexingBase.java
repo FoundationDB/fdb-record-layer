@@ -400,8 +400,7 @@ public abstract class IndexingBase {
                         // check if partly built
                         return isWriteOnlyButNoRecordScanned(store, index)
                                 .thenCompose(noRecordScanned ->
-                                throwUnlessNoRecordWasScanned(noRecordScanned, store, index, newStamp,
-                                        savedStamp, continuedBuild));
+                                throwUnlessNoRecordWasScanned(noRecordScanned, store, index, newStamp, savedStamp));
                     }
                     // fall down to exception
                     throw newPartlyBuiltException(savedStamp, newStamp, index);
@@ -456,8 +455,7 @@ public abstract class IndexingBase {
                                                                   FDBRecordStore store,
                                                                   Index index,
                                                                   IndexBuildProto.IndexBuildIndexingStamp indexingTypeStamp,
-                                                                  IndexBuildProto.IndexBuildIndexingStamp savedStamp,
-                                                                  boolean continuedBuild) {
+                                                                  IndexBuildProto.IndexBuildIndexingStamp savedStamp) {
         // Ditto (a complicated way to reduce complexity)
         if (noRecordScanned) {
             // we can safely overwrite the previous type stamp
