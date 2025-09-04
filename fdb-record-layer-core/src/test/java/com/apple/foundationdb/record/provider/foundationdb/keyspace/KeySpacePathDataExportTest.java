@@ -65,7 +65,7 @@ class KeySpacePathDataExportTest {
     final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
 
     @Test
-    void testExportAllDataFromSimplePath() {
+    void exportAllDataFromSimplePath() {
         KeySpace root = new KeySpace(
                 new KeySpaceDirectory("root", KeyType.STRING, UUID.randomUUID().toString())
                         .addSubdirectory(new KeySpaceDirectory("level1", KeyType.LONG)));
@@ -108,7 +108,7 @@ class KeySpacePathDataExportTest {
     }
 
     @Test
-    void testExportAllDataFromSpecificSubPath() {
+    void exportAllDataFromSpecificSubPath() {
         KeySpace root = new KeySpace(
                 new KeySpaceDirectory("app", KeyType.STRING, UUID.randomUUID().toString())
                         .addSubdirectory(new KeySpaceDirectory("user", KeyType.LONG)
@@ -150,7 +150,7 @@ class KeySpacePathDataExportTest {
     }
 
     @Test
-    void testExportAllDataWithDirectoryLayer() {
+    void exportAllDataWithDirectoryLayer() {
         KeySpace root = new KeySpace(
                 new DirectoryLayerDirectory("env", UUID.randomUUID().toString())
                         .addSubdirectory(new KeySpaceDirectory("tenant", KeyType.LONG)
@@ -199,7 +199,7 @@ class KeySpacePathDataExportTest {
     }
 
     @Test
-    void testExportAllDataWithDifferentKeyTypes() {
+    void exportAllDataWithDifferentKeyTypes() {
         KeySpace root = new KeySpace(
                 new KeySpaceDirectory("mixed", KeyType.STRING, UUID.randomUUID().toString())
                         .addSubdirectory(new KeySpaceDirectory("strings", KeyType.STRING))
@@ -250,7 +250,7 @@ class KeySpacePathDataExportTest {
     }
 
     @Test
-    void testExportAllDataWithConstantValues() {
+    void exportAllDataWithConstantValues() {
         KeySpace root = new KeySpace(
                 new KeySpaceDirectory("app", KeyType.STRING, UUID.randomUUID().toString())
                         .addSubdirectory(new KeySpaceDirectory("version", KeyType.LONG, 1L)
@@ -290,7 +290,7 @@ class KeySpacePathDataExportTest {
     }
 
     @Test
-    void testExportAllDataEmpty() {
+    void exportAllDataEmpty() {
         KeySpace root = new KeySpace(
                 new KeySpaceDirectory("empty", KeyType.STRING, UUID.randomUUID().toString())
                         .addSubdirectory(new KeySpaceDirectory("level1", KeyType.LONG)));
@@ -308,7 +308,7 @@ class KeySpacePathDataExportTest {
     }
 
     @Test
-    void testExportAllDataWithDeepNestedStructure() {
+    void exportAllDataWithDeepNestedStructure() {
         KeySpace root = new KeySpace(
                 new KeySpaceDirectory("org", KeyType.STRING, UUID.randomUUID().toString())
                         .addSubdirectory(new KeySpaceDirectory("dept", KeyType.STRING)
@@ -372,7 +372,7 @@ class KeySpacePathDataExportTest {
     }
 
     @Test
-    void testExportAllDataWithBinaryData() {
+    void exportAllDataWithBinaryData() {
         KeySpace root = new KeySpace(
                 new KeySpaceDirectory("binary", KeyType.STRING, UUID.randomUUID().toString())
                         .addSubdirectory(new KeySpaceDirectory("blob", KeyType.BYTES)));
@@ -416,7 +416,7 @@ class KeySpacePathDataExportTest {
 
     @ParameterizedTest
     @ValueSource(ints = {1, 2, 3, 30})
-    void testExportAllDataWithContinuation(int limit) {
+    void exportAllDataWithContinuation(int limit) {
         KeySpace root = new KeySpace(
                 new KeySpaceDirectory("continuation", KeyType.STRING, UUID.randomUUID().toString())
                         .addSubdirectory(new KeySpaceDirectory("item", KeyType.LONG)));
@@ -468,7 +468,7 @@ class KeySpacePathDataExportTest {
     }
 
     @Test
-    void testExportAllDataThroughKeySpacePathWrapper() {
+    void exportAllDataThroughKeySpacePathWrapper() {
         final FDBDatabase database = dbExtension.getDatabase();
         final EnvironmentKeySpace keySpace = EnvironmentKeySpace.setupSampleData(database);
 
@@ -511,7 +511,7 @@ class KeySpacePathDataExportTest {
     }
 
     @Test
-    void testExportAllDataThroughKeySpacePathWrapperResolvedPaths() {
+    void exportAllDataThroughKeySpacePathWrapperResolvedPaths() {
         final FDBDatabase database = dbExtension.getDatabase();
         final EnvironmentKeySpace keySpace = EnvironmentKeySpace.setupSampleData(database);
 
@@ -547,27 +547,38 @@ class KeySpacePathDataExportTest {
         }
     }
 
-    private static List<KeyValue> exportAllData(final KeySpacePath rootPath, final FDBRecordContext context) {
-        final List<KeyValue> asSingleExport = rootPath.exportAllData(context, null, ScanProperties.FORWARD_SCAN)
+    /**
+     * Export all the data, and make some assertions that can always be done.
+     * This combines a lot of assertions, but most of the underlying behavior should be well covered by the objects
+     * that {@link KeySpacePath#exportAllData} is built on.
+     * @param pathToExport the path being exported
+     * @param context the context in which to export
+     * @return a list of the raw {@code KeyValue}s being exported
+     */
+    private static List<KeyValue> exportAllData(final KeySpacePath pathToExport, final FDBRecordContext context) {
+        final List<KeyValue> asSingleExport = pathToExport.exportAllData(context, null, ScanProperties.FORWARD_SCAN)
                 .map(DataInKeySpacePath::getRawKeyValue).asList().join();
 
-        final List<ResolvedKeySpacePath> resolvedPaths = rootPath.exportAllData(context, null, ScanProperties.FORWARD_SCAN)
+        // assert that the resolved paths contain the right prefix
+        final List<ResolvedKeySpacePath> resolvedPaths = pathToExport.exportAllData(context, null, ScanProperties.FORWARD_SCAN)
                 .mapPipelined(DataInKeySpacePath::getResolvedPath, 1).asList().join();
-        final ResolvedKeySpacePath rootResolvedPath = rootPath.toResolvedPath(context);
+        final ResolvedKeySpacePath rootResolvedPath = pathToExport.toResolvedPath(context);
         for (ResolvedKeySpacePath resolvedPath : resolvedPaths) {
             assertStartsWith(rootResolvedPath, resolvedPath);
         }
 
-        final List<KeyValue> reversed = rootPath.exportAllData(context, null, ScanProperties.REVERSE_SCAN)
+        // assert that the reverse scan is the same as the forward scan, but in reverse
+        final List<KeyValue> reversed = pathToExport.exportAllData(context, null, ScanProperties.REVERSE_SCAN)
                 .map(DataInKeySpacePath::getRawKeyValue).asList().join();
         Collections.reverse(reversed);
         assertEquals(asSingleExport, reversed);
 
+        // Assert continuations work correctly
         final ScanProperties scanProperties = ScanProperties.FORWARD_SCAN.with(props -> props.setReturnedRowLimit(1));
         List<KeyValue> asContinuations = new ArrayList<>();
         RecordCursorContinuation continuation = RecordCursorStartContinuation.START;
         while (!continuation.isEnd()) {
-            final RecordCursor<DataInKeySpacePath> cursor = rootPath.exportAllData(context, continuation.toBytes(),
+            final RecordCursor<DataInKeySpacePath> cursor = pathToExport.exportAllData(context, continuation.toBytes(),
                     scanProperties);
             final AtomicReference<RecordCursorResult<KeyValue>> keyValueResult = new AtomicReference<>();
             final List<KeyValue> batch = cursor.map(DataInKeySpacePath::getRawKeyValue).asList(keyValueResult).join();

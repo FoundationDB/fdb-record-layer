@@ -54,7 +54,7 @@ class DataInKeySpacePathTest {
 
     @ParameterizedTest
     @ValueSource(ints = {0, 1, 2, 3, 4, 5})
-    void testResolution() {
+    void resolution() {
         // Include some extra children to make sure resolution doesn't get confused
         final String companyUuid = UUID.randomUUID().toString();
         KeySpace root = new KeySpace(
@@ -113,7 +113,7 @@ class DataInKeySpacePathTest {
     }
 
     @Test
-    void testPathWithConstantValues() {
+    void pathWithConstantValues() {
         final String appUuid = UUID.randomUUID().toString();
         KeySpace root = new KeySpace(
                 new KeySpaceDirectory("application", KeyType.STRING, appUuid)
@@ -167,7 +167,7 @@ class DataInKeySpacePathTest {
     }
 
     @Test
-    void testPathWithDirectoryLayer() {
+    void pathWithDirectoryLayer() {
         final String tenantUuid = UUID.randomUUID().toString();
         KeySpace root = new KeySpace(
                 new DirectoryLayerDirectory("tenant", tenantUuid)
@@ -207,7 +207,7 @@ class DataInKeySpacePathTest {
     }
 
     @Test
-    void testPathWithBinaryData() {
+    void pathWithBinaryData() {
         final String storeUuid = UUID.randomUUID().toString();
         KeySpace root = new KeySpace(
                 new KeySpaceDirectory("binary_store", KeyType.STRING, storeUuid)
@@ -250,7 +250,7 @@ class DataInKeySpacePathTest {
     }
 
     @Test
-    void testKeyValueAccessors() {
+    void keyValueAccessors() {
         KeySpace root = new KeySpace(
                 new KeySpaceDirectory("test", KeyType.STRING, UUID.randomUUID().toString()));
 
@@ -279,7 +279,7 @@ class DataInKeySpacePathTest {
     }
 
     @Test
-    void testWithWrapper() {
+    void withWrapper() {
         final FDBDatabase database = dbExtension.getDatabase();
         final EnvironmentKeySpace keySpace = EnvironmentKeySpace.setupSampleData(database);
 
