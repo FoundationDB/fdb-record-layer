@@ -238,19 +238,11 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
     }
 
     @Nonnull
-    default PredicateCompensationFunction computeCompensationFunction(@Nonnull final PartialMatch partialMatch,
-                                                                      @Nonnull final QueryPredicate originalQueryPredicate,
-                                                                      @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
-                                                                      @Nonnull final List<PredicateCompensationFunction> childrenResults,
-                                                                      @Nonnull final PullUp pullUp) {
-        Verify.verify(this instanceof LeafQueryPredicate);
-        Verify.verify(childrenResults.isEmpty());
-
-        return toResidualPredicate()
-                .replaceValuesMaybe(pullUp::pullUpValueMaybe)
-                .map(PredicateCompensationFunction::ofPredicate)
-                .orElse(PredicateCompensationFunction.impossibleCompensation());
-    }
+    PredicateCompensationFunction computeCompensationFunction(@Nonnull PartialMatch partialMatch,
+                                                              @Nonnull QueryPredicate originalQueryPredicate,
+                                                              @Nonnull Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
+                                                              @Nonnull List<PredicateCompensationFunction> childrenResults,
+                                                              @Nonnull PullUp pullUp);
 
     /**
      * Create a {@link QueryPredicate} that is equivalent to {@code this} but which is evaluated as a residual

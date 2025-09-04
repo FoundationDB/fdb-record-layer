@@ -31,7 +31,6 @@ import com.apple.foundationdb.record.planprotos.PRecordQueryPlan;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.cursors.IntersectionMultiCursor;
 import com.apple.foundationdb.record.query.plan.HeuristicPlanner;
-import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.FinalMemoizer;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.ProvidedOrderingPart;
@@ -43,7 +42,6 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.apple.foundationdb.record.query.plan.cascades.values.simplification.DefaultValueSimplificationRuleSet;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
@@ -107,12 +105,7 @@ public class RecordQueryMultiIntersectionOnValuesPlan extends RecordQueryInterse
     @Override
     public List<? extends Value> getRequiredValues(@Nonnull final CorrelationIdentifier newBaseAlias,
                                                    @Nonnull final Type inputType) {
-        final var ruleSet = DefaultValueSimplificationRuleSet.instance();
-        return getComparisonKeyValues().stream()
-                .map(comparisonKeyValue ->
-                        comparisonKeyValue.rebase(AliasMap.ofAliases(Quantifier.current(), newBaseAlias))
-                                .simplify(ruleSet, EvaluationContext.empty(), AliasMap.emptyMap(), getCorrelatedTo()))
-                .collect(ImmutableList.toImmutableList());
+        throw new UnsupportedOperationException();
     }
 
     @HeuristicPlanner

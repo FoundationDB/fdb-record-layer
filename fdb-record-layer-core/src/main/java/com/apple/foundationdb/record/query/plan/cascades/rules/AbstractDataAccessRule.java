@@ -319,6 +319,12 @@ public abstract class AbstractDataAccessRule extends CascadesRule<MatchPartition
             return LinkedIdentitySet.of();
         }
 
+        if (logger.isTraceEnabled()) {
+            for (Vectored<SingleMatchedAccess> bestMaximumCoverageMatch : bestMaximumCoverageMatches) {
+                logger.trace("single access = {}", bestMaximumCoverageMatch.getElement());
+            }
+        }
+
         // create scans for all best matches
         final var bestMatchToPlanMap =
                 createScansForMatches(call.getContext(), call, bestMaximumCoverageMatches);
@@ -433,6 +439,11 @@ public abstract class AbstractDataAccessRule extends CascadesRule<MatchPartition
                             bestMatchToDistinctPlanMap,
                             binaryPartition,
                             requestedOrderings);
+
+            if (logger.isTraceEnabled()) {
+                logger.trace("binary intersection result = {}", binaryIntersections);
+            }
+
             if (binaryIntersections.hasViableIntersection()) {
                 updateIntersectionInfoMap(intersectionInfoMap, binaryPartition, binaryIntersections);
             } else {
@@ -490,6 +501,10 @@ public abstract class AbstractDataAccessRule extends CascadesRule<MatchPartition
                                     bestMatchToDistinctPlanMap,
                                     kPartition,
                                     requestedOrderings);
+
+                    if (logger.isTraceEnabled()) {
+                        logger.trace("intersection result = {}", intersectionResult);
+                    }
 
                     if (!intersectionResult.hasViableIntersection()) {
                         continue;

@@ -18,21 +18,11 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.provider.foundationdb.query.plan.cascades;
+package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.query.expressions.Comparisons;
-import com.apple.foundationdb.record.query.plan.cascades.AccessHints;
-import com.apple.foundationdb.record.query.plan.cascades.Compensation;
-import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
-import com.apple.foundationdb.record.query.plan.cascades.GroupByMappings;
-import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentityMap;
-import com.apple.foundationdb.record.query.plan.cascades.Memoizer;
-import com.apple.foundationdb.record.query.plan.cascades.PlannerStage;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateCompensationFunction;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.ResultCompensationFunction;
-import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.RuleTestHelper;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
