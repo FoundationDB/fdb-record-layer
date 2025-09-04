@@ -195,6 +195,7 @@ public class LuceneIndexGetMetadataInfoTest extends FDBRecordStoreTestBase {
         }
     }
 
+    @SuppressWarnings("removal")
     @Test
     void testLuceneInfoConstructor() {
         final List<LuceneMetadataInfo.LuceneFileInfo> detailedFiles = List.of(
@@ -202,19 +203,25 @@ public class LuceneIndexGetMetadataInfoTest extends FDBRecordStoreTestBase {
                 new LuceneMetadataInfo.LuceneFileInfo("file2.txt", 2L, 200L),
                 new LuceneMetadataInfo.LuceneFileInfo("file3.txt", 3L, 300L)
         );
+        final List<String> fileNames = List.of("file1.txt", "file2.txt", "file3.txt");
 
-        final LuceneMetadataInfo.LuceneInfo luceneInfo = new LuceneMetadataInfo.LuceneInfo(15, 5, detailedFiles);
+        LuceneMetadataInfo.LuceneInfo luceneInfo = new LuceneMetadataInfo.LuceneInfo(15, 5, detailedFiles);
 
         assertEquals(15, luceneInfo.getDocumentCount());
         assertEquals(5, luceneInfo.getFieldInfoCount());
         assertEquals(detailedFiles, luceneInfo.getDetailedFileInfos());
-        assertEquals(List.of("file1.txt", "file2.txt", "file3.txt"), luceneInfo.getFiles());
+        assertEquals(fileNames, luceneInfo.getFiles());
+
+        luceneInfo = new LuceneMetadataInfo.LuceneInfo(15, fileNames, 5);
+
+        assertEquals(15, luceneInfo.getDocumentCount());
+        assertEquals(5, luceneInfo.getFieldInfoCount());
+        assertEquals(null, luceneInfo.getDetailedFileInfos());
+        assertEquals(fileNames, luceneInfo.getFiles());
     }
 
     @Test
     void testLuceneInfoEqualsAndHashCode() {
-        final List<String> files1 = List.of("file1.txt", "file2.txt");
-        final List<String> files2 = List.of("file3.txt", "file4.txt");
         final List<LuceneMetadataInfo.LuceneFileInfo> detailedFiles1 = List.of(
                 new LuceneMetadataInfo.LuceneFileInfo("file1.txt", 1L, 100L),
                 new LuceneMetadataInfo.LuceneFileInfo("file2.txt", 2L, 200L)
