@@ -113,6 +113,7 @@ jobs:
           test-reports/fdb-relational-jdbc/
           test-reports/fdb-relational-server/
           test-reports/yaml-tests/
+
     - name: Upload coverage to teamscale
         # temporary until we validate that this is working correctly
         continue-on-error: true
