@@ -415,7 +415,8 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
 
     @Override
     public void setOption(Options.Name name, Object value) throws SQLException {
-        options = Options.builder().fromOptions(options).withOption(name, value).build();
+        options = options.withOption(name, value);
+        frl.setOption(name, value);
     }
 
     @Override

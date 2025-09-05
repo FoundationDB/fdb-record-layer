@@ -21,13 +21,14 @@
 package com.apple.foundationdb.relational.api;
 
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.utils.OptionsTestHelper;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
-
 import com.google.common.collect.ImmutableSet;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.sql.SQLException;
+import java.util.Properties;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -143,4 +144,13 @@ class OptionsTest {
     void testDefault() {
         assertEquals((Integer) Options.NONE.getOption(Options.Name.MAX_ROWS), Integer.MAX_VALUE);
     }
+
+    @Test
+    void testPropertiesConversion() throws Exception {
+        final Options nonDefault = OptionsTestHelper.nonDefaultOptions();
+        final Properties asProps = Options.toProperties(nonDefault);
+        final Options fromProps = Options.fromProperties(asProps);
+        assertEquals(nonDefault, fromProps);
+    }
+
 }
