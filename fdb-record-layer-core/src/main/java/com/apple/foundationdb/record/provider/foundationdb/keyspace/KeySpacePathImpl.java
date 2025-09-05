@@ -316,6 +316,43 @@ class KeySpacePathImpl implements KeySpacePath {
                     1);
     }
 
+    @Nonnull
+    @Override
+    public CompletableFuture<Void> importData(@Nonnull FDBRecordContext context,
+                                              @Nonnull Iterable<DataInKeySpacePath> dataToImport) {
+        return toTupleAsync(context).thenCompose(targetTuple -> {
+            List<CompletableFuture<Void>> importFutures = new ArrayList<>();
+            
+            for (DataInKeySpacePath dataItem : dataToImport) {
+                CompletableFuture<Void> importFuture = dataItem.getResolvedPath().thenCompose(resolvedPath -> {
+                    // Validate that this data belongs under this path
+                    Tuple itemTuple = resolvedPath.toTuple();
+                    if (!TupleHelpers.isPrefix(targetTuple, itemTuple)) {
+                        throw new RecordCoreIllegalImportDataException(
+                                "Data item path does not belong under target path",
+                                "target", targetTuple, "item", itemTuple);
+                    }
+                    
+                    // Reconstruct the key using logical values from the resolved path
+                    Tuple keyTuple = itemTuple;
+                    if (resolvedPath.getRemainder() != null) {
+                        keyTuple = keyTuple.addAll(resolvedPath.getRemainder());
+                    }
+                    
+                    // Store the data
+                    byte[] keyBytes = keyTuple.pack();
+                    byte[] valueBytes = dataItem.getRawKeyValue().getValue();
+                    context.ensureActive().set(keyBytes, valueBytes);
+                    
+                    return AsyncUtil.DONE;
+                });
+                importFutures.add(importFuture);
+            }
+            
+            return AsyncUtil.whenAll(importFutures);
+        });
+    }
+
     /**
      * Returns this path properly wrapped in whatever implementation the directory the path is contained in dictates.
      */
