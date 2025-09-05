@@ -115,13 +115,13 @@ jobs:
           test-reports/yaml-tests/
 
     - name: Upload coverage to teamscale
-        # temporary until we validate that this is working correctly
-        continue-on-error: true
-        uses: ./actions/teamscale-upload
-        with:
-          partition: 'Nightly Tests'
-          revision: ${{ github.sha }}
-          files: "${{ github.workspace }}/.out/reports/jacoco/codeCoverageReport/codeCoverageReport.xml"
+      # temporary until we validate that this is working correctly
+      continue-on-error: true
+      uses: ./actions/teamscale-upload
+      with:
+        partition: 'Nightly Tests'
+        revision: ${{ github.sha }}
+        files: "${{ github.workspace }}/.out/reports/jacoco/codeCoverageReport/codeCoverageReport.xml"
 
 
 
