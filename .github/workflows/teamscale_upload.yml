@@ -45,14 +45,8 @@ jobs:
       - name: 'Unzip artifact'
         run: unzip "${{ runner.temp }}/artifacts/coverage-report.zip" -d "${{ runner.temp }}/artifacts"
       - name: 'Upload coverage'
-        uses: 'cqse/teamscale-upload-action@8d10b6693b9242420ef2062dbefc36af6e88d587'
+        uses: ./actions/teamscale-upload
         with:
-          server: 'https://fdb.teamscale.io'
-          project: 'foundationdb-fdb-record-layer'
-          user: 'fdb-record-layer-build'
-          # Use the same partition as we do for non-mixed-mode tests in release
           partition: 'CI Tests'
-          accesskey: ${{ secrets.TEAMSCALE_ACCESS_KEY }}
-          format: 'JACOCO'
           revision: ${{ github.event.workflow_run.head_sha }}
           files: "${{ runner.temp}}/artifacts/codeCoverageReport.xml"

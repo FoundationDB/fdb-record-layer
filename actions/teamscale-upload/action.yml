@@ -7,6 +7,9 @@ inputs:
   revision:
     description: 'Git sha'
     required: true
+  files:
+    description: 'Path to coverage xml file from jacoco'
+    required: true
 
 runs:
   using: "composite"
@@ -19,10 +22,8 @@ runs:
         server: 'https://fdb.teamscale.io'
         project: 'foundationdb-fdb-record-layer'
         user: 'fdb-record-layer-build'
-        # Use the same partition as teamscale_upload.yml for PRs
         partition: inputs.partition
         accesskey: ${{ secrets.TEAMSCALE_ACCESS_KEY }}
         format: 'JACOCO'
         revision: ${{ inputs.revision }}
-        files: |
-          ${{ github.workspace }}/.out/reports/jacoco/codeCoverageReport/codeCoverageReport.xml
+        files: ${{ inputs.files }}
