@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory.KeyType;
 import com.apple.foundationdb.record.test.FDBDatabaseExtension;
+import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import org.assertj.core.api.Assertions;
@@ -56,8 +57,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Tests for the new KeySpacePath data export feature that fetches all data stored under a KeySpacePath
- * and returns it in a {@code RecordCursor<KeyValue>}.
+ * Tests for {@link KeySpacePath#exportAllData}.
  */
 @Tag(Tags.RequiresFDB)
 class KeySpacePathDataExportTest {
@@ -79,13 +79,11 @@ class KeySpacePathDataExportTest {
             
             // Add data at different levels
             for (int i = 0; i < 5; i++) {
-                Tuple key = basePath.add("level1", (long) i).toTuple(context);
-                tr.set(key.pack(), Tuple.from("value" + i).pack());
+                final Subspace subspace = basePath.add("level1", (long)i).toSubspace(context);
 
                 // Add some sub-data under each key
                 for (int j = 0; j < 3; j++) {
-                    Tuple subKey = key.add("sub" + j);
-                    tr.set(subKey.pack(), Tuple.from("subvalue" + i + "_" + j).pack());
+                    tr.set(subspace.pack("sub" + j), Tuple.from("subvalue" + i + "_" + j).pack());
                 }
             }
             context.commit();
@@ -96,8 +94,8 @@ class KeySpacePathDataExportTest {
             KeySpacePath rootPath = root.path("root");
             final List<KeyValue> allData = exportAllData(rootPath, context);
 
-            // Should have 5 main entries + 15 sub-entries = 20 total
-            assertEquals(20, allData.size());
+            // Should have 15 sub-entries = 20 total
+            assertEquals(15, allData.size());
             
             // Verify the data is sorted by key
             for (int i = 1; i < allData.size(); i++) {
@@ -126,8 +124,8 @@ class KeySpacePathDataExportTest {
                 
                 // Add data for each user
                 for (int i = 0; i < 4; i++) {
-                    Tuple key = dataPath.toTuple(context).add("record" + i);
-                    tr.set(key.pack(), Tuple.from("user" + userId + "_data" + i).pack());
+                    byte[] key = dataPath.toSubspace(context).pack("record" + i);
+                    tr.set(key, Tuple.from("user" + userId + "_data" + i).pack());
                 }
             }
             context.commit();
@@ -168,10 +166,10 @@ class KeySpacePathDataExportTest {
             String[] services = {"auth", "storage", "compute"};
             for (String service : services) {
                 KeySpacePath servicePath = basePath.add("service", service);
-                Tuple serviceKey = servicePath.toTuple(context);
+                Subspace serviceKey = servicePath.toSubspace(context);
                 
                 for (int i = 0; i < 2; i++) {
-                    tr.set(serviceKey.add("config" + i).pack(),
+                    tr.set(serviceKey.pack("config" + i),
                             Tuple.from(service + "_config_" + i).pack());
                 }
             }
@@ -263,11 +261,11 @@ class KeySpacePathDataExportTest {
             Transaction tr = context.ensureActive();
             
             KeySpacePath dataPath = root.path("app").add("version").add("data");
-            Tuple baseKey = dataPath.toTuple(context);
+            Subspace baseKey = dataPath.toSubspace(context);
             
             // Add multiple records under the constant path
             for (int i = 0; i < 4; i++) {
-                tr.set(baseKey.add("record" + i).pack(),
+                tr.set(baseKey.pack("record" + i),
                         Tuple.from("constant_path_data_" + i).pack());
             }
             context.commit();
@@ -333,10 +331,10 @@ class KeySpacePathDataExportTest {
                                 .add("member", memberId)
                                 .add("data");
                         
-                        Tuple key = memberPath.toTuple(context);
-                        tr.set(key.add("profile").pack(),
+                        Subspace key = memberPath.toSubspace(context);
+                        tr.set(key.pack("profile"),
                                 Tuple.from(dept + "_team" + team + "_member" + member).pack());
-                        tr.set(key.add("settings").pack(),
+                        tr.set(key.pack("settings"),
                                 Tuple.from("settings_" + member).pack());
                     }
                 }

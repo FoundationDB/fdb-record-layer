@@ -93,12 +93,12 @@ class EnvironmentKeySpace {
             DataPath dataUser2App1 = app1User2.dataStore();
 
             // Store data records with additional tuple elements after the KeySpacePath
-            tr.set(dataUser1App1.toTuple(context).add("record1").pack(), Tuple.from("user100_app1_data1").pack());
-            tr.set(dataUser1App1.toTuple(context).add("record2").add(0).pack(), Tuple.from("user100_app1_data2_0").pack());
-            tr.set(dataUser1App1.toTuple(context).add("record2").add(1).pack(), Tuple.from("user100_app1_data2_1").pack());
-            tr.set(metaUser1App1.toTuple(context).add("config1").pack(), Tuple.from("user100_app1_meta1").pack());
-            tr.set(dataUser1App2.toTuple(context).add("record3").pack(), Tuple.from("user100_app2_data3").pack());
-            tr.set(dataUser2App1.toTuple(context).add("record4").pack(), Tuple.from("user200_app1_data4").pack());
+            tr.set(dataUser1App1.toSubspace(context).pack(Tuple.from("record1")), Tuple.from("user100_app1_data1").pack());
+            tr.set(dataUser1App1.toSubspace(context).pack(Tuple.from("record2", 0)), Tuple.from("user100_app1_data2_0").pack());
+            tr.set(dataUser1App1.toSubspace(context).pack(Tuple.from("record2", 1)), Tuple.from("user100_app1_data2_1").pack());
+            tr.set(metaUser1App1.toSubspace(context).pack(Tuple.from("config1")), Tuple.from("user100_app1_meta1").pack());
+            tr.set(dataUser1App2.toSubspace(context).pack(Tuple.from("record3")), Tuple.from("user100_app2_data3").pack());
+            tr.set(dataUser2App1.toSubspace(context).pack(Tuple.from("record4")), Tuple.from("user200_app1_data4").pack());
 
             context.commit();
         }

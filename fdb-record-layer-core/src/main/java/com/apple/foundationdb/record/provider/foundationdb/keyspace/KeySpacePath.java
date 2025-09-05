@@ -568,16 +568,14 @@ public interface KeySpacePath {
     String toString(@Nonnull Tuple tuple);
 
     /**
-     * Export all data stored under this KeySpacePath and return it in a RecordCursor.
-     * This method scans all keys that have this path as a prefix and returns the key-value pairs.
-     * Supports continuation to resume scanning from a previous position.
+     * Exports all data stored under this {@code KeySpacePath} and returns it in a {@link RecordCursor}.
      *
      * @param context the transaction context in which to perform the data export
-     * @param continuation optional continuation from a previous export operation, or null to start from the beginning
+     * @param continuation continuation from a previous export operation, or null to start from the beginning
      * @param scanProperties properties controlling how the scan should be performed
-     * @return a RecordCursor that iterates over all KeyValue pairs under this path
+     * @return a {link RecordCursor} that provides all the data under this path
      */
-    @API(API.Status.UNSTABLE)
+    @API(API.Status.EXPERIMENTAL)
     @Nonnull
     RecordCursor<DataInKeySpacePath> exportAllData(@Nonnull FDBRecordContext context,
                                                    @Nullable byte[] continuation,
