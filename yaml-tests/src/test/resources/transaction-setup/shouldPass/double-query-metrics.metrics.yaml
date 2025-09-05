@@ -4,9 +4,9 @@ transactions-tests:
     - create temporary function t2() on commit drop function AS SELECT * FROM t1;
     explain: SCAN(<,>)
     task_count: 166
-    task_total_time_ms: 95
-    transform_count: 42
-    transform_time_ms: 70
+    task_total_time_ms: 85
+    transform_count: 46
+    transform_time_ms: 63
     transform_yield_count: 15
     insert_time_ms: 6
     insert_new_count: 14
@@ -17,9 +17,9 @@ transactions-tests:
         id < 50;
     explain: SCAN(<,>) | FILTER _.ID LESS_THAN promote(@cT218 AS LONG)
     task_count: 189
-    task_total_time_ms: 122
-    transform_count: 46
-    transform_time_ms: 100
+    task_total_time_ms: 115
+    transform_count: 50
+    transform_time_ms: 84
     transform_yield_count: 16
     insert_time_ms: 2
     insert_new_count: 18

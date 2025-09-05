@@ -215,14 +215,14 @@ public class MatchableSortExpression implements RelationalExpressionWithChildren
     public Optional<MatchInfo> adjustMatch(@Nonnull final PartialMatch partialMatch) {
         final var childMatchInfo = partialMatch.getMatchInfo();
         final var maxMatchMap = childMatchInfo.getMaxMatchMap();
-        final var innerQuantifier = Iterables.getOnlyElement(getQuantifiers());
         final var adjustedMaxMatchMapOptional =
-                maxMatchMap.adjustMaybe(innerQuantifier.getAlias(), getResultValue(), ImmutableSet.of(innerQuantifier.getAlias()));
+                maxMatchMap.adjustMaybe(inner.getAlias(), getResultValue(), ImmutableSet.of(inner.getAlias()));
         return adjustedMaxMatchMapOptional
                 .map(adjustedMaxMatchMap ->
                         childMatchInfo.adjustedBuilder()
                                 .setMaxMatchMap(adjustedMaxMatchMap)
                                 .setMatchedOrderingParts(forPartialMatch(partialMatch))
+                                .setGroupByMappings(childMatchInfo.adjustGroupByMappings(inner))
                                 .build());
     }
 

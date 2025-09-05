@@ -3,8 +3,8 @@ primary-key-tests:
     explain: SCAN(<,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL
         | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
     task_count: 247
-    task_total_time_ms: 3
-    transform_count: 58
+    task_total_time_ms: 2
+    transform_count: 62
     transform_time_ms: 1
     transform_yield_count: 17
     insert_time_ms: 0

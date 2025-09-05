@@ -5,8 +5,8 @@ standard-tests-metadata:
         AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG))
         AS _0)
     task_count: 375
-    task_total_time_ms: 14
-    transform_count: 86
+    task_total_time_ms: 16
+    transform_count: 90
     transform_time_ms: 2
     transform_yield_count: 25
     insert_time_ms: 0

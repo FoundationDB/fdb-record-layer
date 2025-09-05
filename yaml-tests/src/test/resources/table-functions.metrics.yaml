@@ -128,8 +128,8 @@ table-functions:
         (q0.ID AS X, q0.COL1 AS Y, q1.ID AS Z) }
     task_count: 160
     task_total_time_ms: 1
-    transform_count: 45
-    transform_time_ms: 1
+    transform_count: 47
+    transform_time_ms: 0
     transform_yield_count: 13
     insert_time_ms: 0
     insert_new_count: 15

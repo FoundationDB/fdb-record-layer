@@ -7,9 +7,9 @@ catalog-tests:
         TEMPLATE_NAME, _._1 AS TEMPLATE_VERSION) | MAP (_ AS _0) | AGG (sum_l(_._0.CNT)
         AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)'
     task_count: 540
-    task_total_time_ms: 31
-    transform_count: 136
-    transform_time_ms: 13
+    task_total_time_ms: 47
+    transform_count: 144
+    transform_time_ms: 27
     transform_yield_count: 43
     insert_time_ms: 0
     insert_new_count: 51
@@ -23,9 +23,9 @@ catalog-tests:
         (_ AS _0) | AGG (sum_l(_._0.CNT) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS
         _0)'
     task_count: 540
-    task_total_time_ms: 31
-    transform_count: 136
-    transform_time_ms: 16
+    task_total_time_ms: 46
+    transform_count: 144
+    transform_time_ms: 26
     transform_yield_count: 43
     insert_time_ms: 0
     insert_new_count: 51

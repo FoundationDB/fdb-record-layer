@@ -4,7 +4,7 @@ cte-tests:
         AS COL1, _.COL2 AS COL2)'
     task_count: 267
     task_total_time_ms: 3
-    transform_count: 59
+    transform_count: 63
     transform_time_ms: 1
     transform_yield_count: 27
     insert_time_ms: 0
@@ -15,7 +15,7 @@ cte-tests:
         KEY[0], ID: KEY[3]]) | MAP (_.COL1 AS COL1)'
     task_count: 439
     task_total_time_ms: 3
-    transform_count: 103
+    transform_count: 107
     transform_time_ms: 1
     transform_yield_count: 34
     insert_time_ms: 0
@@ -27,7 +27,7 @@ cte-tests:
         KEY[0], ID: KEY[3]]) | MAP (_.COL1 AS X)'
     task_count: 498
     task_total_time_ms: 4
-    transform_count: 116
+    transform_count: 120
     transform_time_ms: 1
     transform_yield_count: 39
     insert_time_ms: 0
@@ -39,7 +39,7 @@ cte-tests:
         KEY[0], ID: KEY[3]]) | MAP (_.COL1 AS X)'
     task_count: 498
     task_total_time_ms: 4
-    transform_count: 116
+    transform_count: 120
     transform_time_ms: 1
     transform_yield_count: 39
     insert_time_ms: 0

@@ -3,68 +3,13 @@ unnamed-3:
         < 20)
     explain: ISCAN(I1 [EQUALS promote(@c8 AS LONG), EQUALS @c12])
     task_count: 327
-    task_total_time_ms: 37
-    transform_count: 76
-    transform_time_ms: 17
+    task_total_time_ms: 17
+    transform_count: 80
+    transform_time_ms: 6
     transform_yield_count: 32
     insert_time_ms: 0
     insert_new_count: 35
     insert_reused_count: 4
--   query: EXPLAIN select * from B where ? = 42 and ? = 43
-    explain: 'COVERING(I1 <,> -> [B1: KEY[3], B2: KEY[1], B3: KEY[0]]) | FILTER promote(@c8
-        AS INT) EQUALS @c6 AND promote(@c12 AS INT) EQUALS @c6 | FETCH'
-    task_count: 330
-    task_total_time_ms: 192
-    transform_count: 78
-    transform_time_ms: 139
-    transform_yield_count: 31
-    insert_time_ms: 7
-    insert_new_count: 39
-    insert_reused_count: 5
--   query: EXPLAIN select * from B where ? = 42 and ? = 43
-    explain: 'COVERING(I1 <,> -> [B1: KEY[3], B2: KEY[1], B3: KEY[0]]) | FILTER null
-        AND @c12 EQUALS @c10 | FETCH'
-    task_count: 330
-    task_total_time_ms: 20
-    transform_count: 78
-    transform_time_ms: 7
-    transform_yield_count: 31
-    insert_time_ms: 1
-    insert_new_count: 39
-    insert_reused_count: 5
--   query: EXPLAIN select * from B where ? = 42 and ? = 43
-    explain: 'COVERING(I1 <,> -> [B1: KEY[3], B2: KEY[1], B3: KEY[0]]) | FILTER null
-        AND @c8 EQUALS @c6 | FETCH'
-    task_count: 330
-    task_total_time_ms: 192
-    transform_count: 78
-    transform_time_ms: 139
-    transform_yield_count: 31
-    insert_time_ms: 7
-    insert_new_count: 39
-    insert_reused_count: 5
--   query: EXPLAIN select * from B where ? = 42 and ? = 43
-    explain: 'COVERING(I1 <,> -> [B1: KEY[3], B2: KEY[1], B3: KEY[0]]) | FILTER @c8
-        EQUALS @c6 AND @c12 EQUALS @c10 | FETCH'
-    task_count: 314
-    task_total_time_ms: 192
-    transform_count: 73
-    transform_time_ms: 143
-    transform_yield_count: 29
-    insert_time_ms: 6
-    insert_new_count: 35
-    insert_reused_count: 5
--   query: EXPLAIN select * from B where ? = 42 and ? = 43 and ? = 45
-    explain: 'COVERING(I1 <,> -> [B1: KEY[3], B2: KEY[1], B3: KEY[0]]) | FILTER @c6
-        EQUALS @c6 AND @c10 EQUALS @c10 AND @c14 EQUALS @c14 | FETCH'
-    task_count: 314
-    task_total_time_ms: 192
-    transform_count: 73
-    transform_time_ms: 142
-    transform_yield_count: 29
-    insert_time_ms: 6
-    insert_new_count: 35
-    insert_reused_count: 5
 agg-index-tests-count:
 -   query: EXPLAIN select * from B where b3 = 4 and b2 = 'b' and (? is null or b1
         < 20)
@@ -72,65 +17,10 @@ agg-index-tests-count:
         -> [B1: KEY[3], B2: KEY[1], B3: KEY[0]]) | FILTER @c15 IS_NULL OR _.B1 LESS_THAN
         promote(@c21 AS INT) | FETCH'
     task_count: 1426
-    task_total_time_ms: 79
-    transform_count: 257
-    transform_time_ms: 27
+    task_total_time_ms: 45
+    transform_count: 266
+    transform_time_ms: 20
     transform_yield_count: 84
-    insert_time_ms: 4
+    insert_time_ms: 1
     insert_new_count: 175
     insert_reused_count: 18
--   query: EXPLAIN select * from B where ? = 42 and ? = 43
-    explain: 'COVERING(I1 <,> -> [B1: KEY[3], B2: KEY[1], B3: KEY[0]]) | FILTER promote(@c8
-        AS INT) EQUALS @c6 AND promote(@c12 AS INT) EQUALS @c6 | FETCH'
-    task_count: 306
-    task_total_time_ms: 30
-    transform_count: 69
-    transform_time_ms: 10
-    transform_yield_count: 29
-    insert_time_ms: 1
-    insert_new_count: 35
-    insert_reused_count: 5
--   query: EXPLAIN select * from B where ? = 42 and ? = 43
-    explain: 'COVERING(I1 <,> -> [B1: KEY[3], B2: KEY[1], B3: KEY[0]]) | FILTER promote(@c8
-        AS INT) EQUALS @c6 AND @c12 EQUALS @c10 | FETCH'
-    task_count: 306
-    task_total_time_ms: 20
-    transform_count: 69
-    transform_time_ms: 7
-    transform_yield_count: 29
-    insert_time_ms: 0
-    insert_new_count: 35
-    insert_reused_count: 5
--   query: EXPLAIN select * from B where ? = 42 and ? = 43
-    explain: 'COVERING(I1 <,> -> [B1: KEY[3], B2: KEY[1], B3: KEY[0]]) | FILTER @c8
-        EQUALS @c6 AND promote(@c12 AS INT) EQUALS @c10 | FETCH'
-    task_count: 306
-    task_total_time_ms: 30
-    transform_count: 69
-    transform_time_ms: 9
-    transform_yield_count: 29
-    insert_time_ms: 1
-    insert_new_count: 35
-    insert_reused_count: 5
--   query: EXPLAIN select * from B where ? = 42 and ? = 43
-    explain: 'COVERING(I1 <,> -> [B1: KEY[3], B2: KEY[1], B3: KEY[0]]) | FILTER @c8
-        EQUALS @c6 AND @c12 EQUALS @c10 | FETCH'
-    task_count: 306
-    task_total_time_ms: 30
-    transform_count: 69
-    transform_time_ms: 10
-    transform_yield_count: 29
-    insert_time_ms: 1
-    insert_new_count: 35
-    insert_reused_count: 5
--   query: EXPLAIN select * from B where ? = 42 and ? = 43 and ? = 45
-    explain: 'COVERING(I1 <,> -> [B1: KEY[3], B2: KEY[1], B3: KEY[0]]) | FILTER @c6
-        EQUALS @c6 AND @c10 EQUALS @c10 AND @c14 EQUALS @c14 | FETCH'
-    task_count: 306
-    task_total_time_ms: 29
-    transform_count: 69
-    transform_time_ms: 10
-    transform_yield_count: 29
-    insert_time_ms: 1
-    insert_new_count: 35
-    insert_reused_count: 5

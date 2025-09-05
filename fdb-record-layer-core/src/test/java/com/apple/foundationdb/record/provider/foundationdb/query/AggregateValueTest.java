@@ -20,7 +20,10 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.query;
 
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.CountValue;
@@ -42,6 +45,7 @@ import java.util.BitSet;
 import java.util.List;
 import java.util.function.Consumer;
 
+import static com.apple.foundationdb.record.PlanHashable.CURRENT_FOR_CONTINUATION;
 import static com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue.ofScalar;
 
 /**
@@ -237,6 +241,18 @@ class AggregateValueTest {
             Assertions.assertEquals(21, sum);
             Assertions.assertEquals(6L, count);
         });
+    }
+
+    @Test
+    void testUnmatchedAggregateValueTest() {
+        final var value = new GroupByExpression.UnmatchedAggregateValue(CorrelationIdentifier.of("a"));
+        Assertions.assertEquals("unmatched(a)", value.toString());
+
+        final var serializationContext = PlanSerializationContext.newForCurrentMode();
+        Assertions.assertThrows(UnsupportedOperationException.class, () -> value.toValueProto(serializationContext));
+        Assertions.assertThrows(UnsupportedOperationException.class, () -> value.planHash(CURRENT_FOR_CONTINUATION));
+        Assertions.assertThrows(UnsupportedOperationException.class, () -> value.toProto(serializationContext));
+        Assertions.assertEquals(value, value.withChildren(ImmutableList.of()));
     }
 
     @Nullable

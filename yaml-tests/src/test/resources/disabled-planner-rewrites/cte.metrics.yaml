@@ -3,8 +3,8 @@ cte-tests:
     explain: 'COVERING(I1 [[LESS_THAN promote(@c8 AS LONG)]] -> [COL1: KEY[1], COL2:
         KEY[0], ID: KEY[3]]) | MAP (_.COL1 AS COL1)'
     task_count: 431
-    task_total_time_ms: 3
-    transform_count: 99
+    task_total_time_ms: 4
+    transform_count: 103
     transform_time_ms: 1
     transform_yield_count: 34
     insert_time_ms: 0
@@ -15,8 +15,8 @@ cte-tests:
     explain: SCAN(<,>) | MAP (_.COL1 AS X, _.COL2 AS Y) | FILTER _.Y LESS_THAN promote(@c21
         AS LONG) | MAP (_.X AS X)
     task_count: 342
-    task_total_time_ms: 3
-    transform_count: 70
+    task_total_time_ms: 4
+    transform_count: 76
     transform_time_ms: 1
     transform_yield_count: 27
     insert_time_ms: 0
@@ -27,8 +27,8 @@ cte-tests:
     explain: SCAN(<,>) | MAP (_.COL1 AS COL1, _.COL2 AS COL2) | FILTER _.COL2 LESS_THAN
         promote(@c24 AS LONG) | MAP (_.COL1 AS X)
     task_count: 342
-    task_total_time_ms: 2
-    transform_count: 70
+    task_total_time_ms: 3
+    transform_count: 76
     transform_time_ms: 1
     transform_yield_count: 27
     insert_time_ms: 0

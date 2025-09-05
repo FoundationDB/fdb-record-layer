@@ -5,8 +5,8 @@ unnamed-1:
         AS LONG) | UPDATE A | MAP (_.new.A3 AS A3)
     task_count: 288
     task_total_time_ms: 2
-    transform_count: 67
-    transform_time_ms: 1
+    transform_count: 71
+    transform_time_ms: 0
     transform_yield_count: 19
     insert_time_ms: 0
     insert_new_count: 25
@@ -16,8 +16,8 @@ unnamed-1:
         AS LONG) | UPDATE A | MAP (_.new.A3 AS A3)
     task_count: 288
     task_total_time_ms: 2
-    transform_count: 67
-    transform_time_ms: 1
+    transform_count: 71
+    transform_time_ms: 0
     transform_yield_count: 19
     insert_time_ms: 0
     insert_new_count: 25
@@ -27,8 +27,8 @@ unnamed-1:
     explain: SCAN(<,>) | DISTINCT BY PK | FILTER _.A1 LESS_THAN_OR_EQUALS promote(@c15
         AS LONG) | UPDATE A | MAP (_.new.A3 + _.new.A3 AS _0)
     task_count: 288
-    task_total_time_ms: 2
-    transform_count: 67
+    task_total_time_ms: 1
+    transform_count: 71
     transform_time_ms: 0
     transform_yield_count: 19
     insert_time_ms: 0
@@ -39,8 +39,8 @@ unnamed-1:
     explain: SCAN(<,>) | DISTINCT BY PK | FILTER _.A1 LESS_THAN_OR_EQUALS promote(@c15
         AS LONG) | UPDATE A | MAP (_.new.A3 + _.new.A3 AS _0)
     task_count: 288
-    task_total_time_ms: 2
-    transform_count: 67
+    task_total_time_ms: 1
+    transform_count: 71
     transform_time_ms: 0
     transform_yield_count: 19
     insert_time_ms: 0
@@ -50,9 +50,9 @@ unnamed-1:
     explain: SCAN(<,>) | DISTINCT BY PK | FILTER _.A1 GREATER_THAN promote(@c10 AS
         LONG) | UPDATE A
     task_count: 225
-    task_total_time_ms: 1
-    transform_count: 51
-    transform_time_ms: 0
+    task_total_time_ms: 3
+    transform_count: 55
+    transform_time_ms: 2
     transform_yield_count: 17
     insert_time_ms: 0
     insert_new_count: 21
@@ -61,9 +61,9 @@ unnamed-1:
     explain: SCAN(<,>) | DISTINCT BY PK | FILTER _.A1 GREATER_THAN promote(@c10 AS
         LONG) | UPDATE A
     task_count: 225
-    task_total_time_ms: 1
-    transform_count: 51
-    transform_time_ms: 0
+    task_total_time_ms: 3
+    transform_count: 55
+    transform_time_ms: 2
     transform_yield_count: 17
     insert_time_ms: 0
     insert_new_count: 21

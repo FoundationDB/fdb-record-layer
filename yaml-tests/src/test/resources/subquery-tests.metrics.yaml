@@ -4,11 +4,11 @@ subquery-tests:
         (_.IDA AS IDA) | DEFAULT NULL | FLATMAP q0 -> { SCAN(<,>) | TFILTER A | FILTER
         q0 NOT_NULL AS q1 RETURN (q1.IDA AS IDA) }
     task_count: 653
-    task_total_time_ms: 34
-    transform_count: 170
-    transform_time_ms: 10
+    task_total_time_ms: 49
+    transform_count: 178
+    transform_time_ms: 15
     transform_yield_count: 40
-    insert_time_ms: 1
+    insert_time_ms: 3
     insert_new_count: 70
     insert_reused_count: 4
 -   query: EXPLAIN select idx from x where exists (select x from a where ida = 1);
@@ -16,11 +16,11 @@ subquery-tests:
         (_.X AS X) | DEFAULT NULL | FLATMAP q0 -> { SCAN(<,>) | TFILTER X | FILTER
         q0 NOT_NULL AS q1 RETURN (q1.IDX AS IDX) }
     task_count: 681
-    task_total_time_ms: 34
-    transform_count: 178
-    transform_time_ms: 15
+    task_total_time_ms: 49
+    transform_count: 187
+    transform_time_ms: 13
     transform_yield_count: 45
-    insert_time_ms: 1
+    insert_time_ms: 3
     insert_new_count: 73
     insert_reused_count: 4
 -   query: EXPLAIN select x from a where exists (select a.x, max(idb) from b where
@@ -30,11 +30,11 @@ subquery-tests:
         (q0.X AS X, _._1._0 AS _1) | DEFAULT NULL | FILTER _ NOT_NULL AS q0 RETURN
         (q0.X AS X) }
     task_count: 612
-    task_total_time_ms: 26
-    transform_count: 164
-    transform_time_ms: 10
+    task_total_time_ms: 45
+    transform_count: 171
+    transform_time_ms: 30
     transform_yield_count: 46
-    insert_time_ms: 0
+    insert_time_ms: 3
     insert_new_count: 59
     insert_reused_count: 3
 -   query: EXPLAIN select x from a where exists (select x, max(idb) from b where q
@@ -44,11 +44,11 @@ subquery-tests:
         (q0.X AS X, _._1._0 AS _1) | DEFAULT NULL | FILTER _ NOT_NULL AS q0 RETURN
         (q0.X AS X) }
     task_count: 612
-    task_total_time_ms: 21
-    transform_count: 164
-    transform_time_ms: 11
+    task_total_time_ms: 43
+    transform_count: 171
+    transform_time_ms: 22
     transform_yield_count: 46
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 59
     insert_reused_count: 3
 -   query: EXPLAIN select x from a where exists (select max(x), max(idb) from b where
@@ -58,11 +58,11 @@ subquery-tests:
         (_._0.Q AS _0) | MAP (_._1._0 AS _0, _._1._1 AS _1) | DEFAULT NULL | FILTER
         _ NOT_NULL AS q0 RETURN (q0.X AS X) }
     task_count: 612
-    task_total_time_ms: 29
-    transform_count: 164
-    transform_time_ms: 13
+    task_total_time_ms: 16
+    transform_count: 171
+    transform_time_ms: 6
     transform_yield_count: 46
-    insert_time_ms: 1
+    insert_time_ms: 2
     insert_new_count: 59
     insert_reused_count: 3
 -   query: EXPLAIN select x from a where exists (select max(a.x), max(idb) from b
@@ -72,9 +72,9 @@ subquery-tests:
         (_._0.Q AS _0) | MAP (_._1._0 AS _0, _._1._1 AS _1) | DEFAULT NULL | FILTER
         _ NOT_NULL AS q0 RETURN (q0.X AS X) }
     task_count: 612
-    task_total_time_ms: 21
-    transform_count: 164
-    transform_time_ms: 7
+    task_total_time_ms: 17
+    transform_count: 171
+    transform_time_ms: 8
     transform_yield_count: 46
     insert_time_ms: 0
     insert_new_count: 59

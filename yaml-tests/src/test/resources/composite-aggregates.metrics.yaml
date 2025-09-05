@@ -1,0 +1,112 @@
+agg-empty-table-tests:
+-   query: EXPLAIN select sum(col2) / count(col2) from T2 group by col1;
+    explain: 'AISCAN(T2_I6 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) ∩ AISCAN(T2_I4
+        <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) COMPARE BY (_._0) WITH q0, q1
+        RETURN (q0._0 AS _0, q0._1 AS _1, q1._1 AS _2) | MAP (_._1 / _._2 AS _0)'
+    task_count: 426
+    task_total_time_ms: 119
+    transform_count: 132
+    transform_time_ms: 94
+    transform_yield_count: 57
+    insert_time_ms: 5
+    insert_new_count: 30
+    insert_reused_count: 1
+-   query: EXPLAIN select sum(col2), count(col2) from T2 where col1 < 2 group by col1;
+    explain: 'AISCAN(T2_I6 [[LESS_THAN promote(@c16 AS LONG)]] BY_GROUP -> [_0: KEY:[0],
+        _1: VALUE:[0]]) ∩ AISCAN(T2_I4 [[LESS_THAN promote(@c16 AS LONG)]] BY_GROUP
+        -> [_0: KEY:[0], _1: VALUE:[0]]) COMPARE BY (_._0) WITH q0, q1 RETURN (q0._0
+        AS _0, q0._1 AS _1, q1._1 AS _2) | MAP (_._1 AS _0, _._2 AS _1)'
+    task_count: 426
+    task_total_time_ms: 43
+    transform_count: 133
+    transform_time_ms: 36
+    transform_yield_count: 57
+    insert_time_ms: 1
+    insert_new_count: 30
+    insert_reused_count: 1
+-   query: EXPLAIN select sum(col2), count(col2) from T2 group by col1 having sum(col2)
+        = 17;
+    explain: 'AISCAN(T2_I6 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) ∩ AISCAN(T2_I4
+        <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) COMPARE BY (_._0) WITH q0, q1
+        RETURN (q0._0 AS _0, q0._1 AS _1, q1._1 AS _2) | FILTER _._1 EQUALS promote(@c22
+        AS LONG) | MAP (_._1 AS _0, _._2 AS _1)'
+    task_count: 457
+    task_total_time_ms: 30
+    transform_count: 138
+    transform_time_ms: 22
+    transform_yield_count: 58
+    insert_time_ms: 1
+    insert_new_count: 34
+    insert_reused_count: 1
+-   query: EXPLAIN select sum(col2), count(col2) from T2 where col1 < 2 group by col1
+        having sum(col2) = 17;
+    explain: 'AISCAN(T2_I6 [[LESS_THAN promote(@c16 AS LONG)]] BY_GROUP -> [_0: KEY:[0],
+        _1: VALUE:[0]]) ∩ AISCAN(T2_I4 [[LESS_THAN promote(@c16 AS LONG)]] BY_GROUP
+        -> [_0: KEY:[0], _1: VALUE:[0]]) COMPARE BY (_._0) WITH q0, q1 RETURN (q0._0
+        AS _0, q0._1 AS _1, q1._1 AS _2) | FILTER _._1 EQUALS promote(@c26 AS LONG)
+        | MAP (_._1 AS _0, _._2 AS _1)'
+    task_count: 457
+    task_total_time_ms: 25
+    transform_count: 139
+    transform_time_ms: 19
+    transform_yield_count: 58
+    insert_time_ms: 0
+    insert_new_count: 34
+    insert_reused_count: 1
+-   query: EXPLAIN select sum(col1) / count(col1), col2 from T1 group by col2;
+    explain: 'AISCAN(T1_I2 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) ∩ AISCAN(T1_I1
+        <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | AGG sum_l(_._2)
+        GROUP BY (_._0 AS _0) COMPARE BY (_._0) WITH q0, q1 RETURN (q0._0 AS _0, q0._1
+        AS _1, q1._1 AS _2) | MAP (_._1 / _._2 AS _0, _._0 AS COL2)'
+    task_count: 615
+    task_total_time_ms: 39
+    transform_count: 164
+    transform_time_ms: 28
+    transform_yield_count: 60
+    insert_time_ms: 3
+    insert_new_count: 56
+    insert_reused_count: 2
+-   query: EXPLAIN select col2, sum(col1) / count(col1) from T1 where col2 < 2 group
+        by col2 having sum(col1) = 17 order by col2;
+    explain: 'AISCAN(T1_I2 [[LESS_THAN promote(@c18 AS LONG)]] BY_GROUP -> [_0: KEY:[0],
+        _1: VALUE:[0]]) ∩ AISCAN(T1_I1 [[LESS_THAN promote(@c18 AS LONG)]] BY_GROUP
+        -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | AGG sum_l(_._2) GROUP BY (_._0
+        AS _0) COMPARE BY (_._0) WITH q0, q1 RETURN (q0._0 AS _0, q0._1 AS _1, q1._1
+        AS _2) | FILTER _._1 EQUALS promote(@c28 AS LONG) | MAP (_._0 AS COL2, _._1
+        / _._2 AS _1)'
+    task_count: 666
+    task_total_time_ms: 48
+    transform_count: 175
+    transform_time_ms: 38
+    transform_yield_count: 62
+    insert_time_ms: 1
+    insert_new_count: 60
+    insert_reused_count: 2
+-   query: EXPLAIN select col2, sum(col1) / count(col1) from T1 where col2 < 2 group
+        by col2, col3 having sum(col1) = 17;
+    explain: 'AISCAN(T1_I4 [[LESS_THAN promote(@c18 AS LONG)]] BY_GROUP -> [_0: KEY:[0],
+        _1: KEY:[1], _2: VALUE:[0]]) ∩ AISCAN(T1_I1 [[LESS_THAN promote(@c18 AS LONG)]]
+        BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) COMPARE BY (_._0, _._1)
+        WITH q0, q1 RETURN (q0._0 AS _0, q0._1 AS _1, q0._2 AS _2, q1._2 AS _3) |
+        FILTER _._2 EQUALS promote(@c30 AS LONG) | MAP (_._0 AS COL2, _._2 / _._3
+        AS _1)'
+    task_count: 443
+    task_total_time_ms: 30
+    transform_count: 130
+    transform_time_ms: 24
+    transform_yield_count: 51
+    insert_time_ms: 0
+    insert_new_count: 34
+    insert_reused_count: 1
+-   query: EXPLAIN select col1, min(col2), max(col2) from T3 group by col1, col3;
+    explain: ISCAN(T3_I1 <,>) | MAP (_ AS _0) | AGG (min_l(_._0.COL2) AS _0, max_l(_._0.COL2)
+        AS _1) GROUP BY (_._0.COL1 AS _0, _._0.COL3 AS _1) | MAP (_._0._0 AS COL1,
+        _._1._0 AS _1, _._1._1 AS _2)
+    task_count: 356
+    task_total_time_ms: 35
+    transform_count: 101
+    transform_time_ms: 28
+    transform_yield_count: 50
+    insert_time_ms: 0
+    insert_new_count: 33
+    insert_reused_count: 4

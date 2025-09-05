@@ -4,11 +4,11 @@ bitmap-agg-index-tests:
     explain: 'AISCAN(BITMAPINDEX1 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) |
         MAP (_._1 AS BITMAP, _._0 AS OFFSET)'
     task_count: 483
-    task_total_time_ms: 48
-    transform_count: 141
-    transform_time_ms: 33
+    task_total_time_ms: 165
+    transform_count: 148
+    transform_time_ms: 135
     transform_yield_count: 52
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 37
     insert_reused_count: 2
 -   query: EXPLAIN SELECT bitmap_construct_agg(bitmap_bit_position(id)) as bitmap,
@@ -16,11 +16,11 @@ bitmap-agg-index-tests:
     explain: 'AISCAN(BITMAPINDEX2 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]])
         | MAP (_._2 AS BITMAP, _._0 AS CATEGORY, _._1 AS OFFSET)'
     task_count: 483
-    task_total_time_ms: 52
-    transform_count: 141
-    transform_time_ms: 35
+    task_total_time_ms: 166
+    transform_count: 148
+    transform_time_ms: 139
     transform_yield_count: 52
-    insert_time_ms: 0
+    insert_time_ms: 2
     insert_new_count: 37
     insert_reused_count: 2
 -   query: EXPLAIN SELECT bitmap_construct_agg(bitmap_bit_position(id)) as bitmap,
@@ -29,11 +29,11 @@ bitmap-agg-index-tests:
     explain: 'AISCAN(BITMAPINDEX1 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) |
         MAP (_._1 AS BITMAP, _._0 AS OFFSET)'
     task_count: 483
-    task_total_time_ms: 50
-    transform_count: 141
-    transform_time_ms: 28
+    task_total_time_ms: 57
+    transform_count: 148
+    transform_time_ms: 39
     transform_yield_count: 52
-    insert_time_ms: 3
+    insert_time_ms: 2
     insert_new_count: 37
     insert_reused_count: 2
 -   query: EXPLAIN SELECT bitmap_construct_agg(bitmap_bit_position(id)) as bitmap,
@@ -42,11 +42,11 @@ bitmap-agg-index-tests:
     explain: 'AISCAN(BITMAPINDEX2 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]])
         | MAP (_._2 AS BITMAP, _._0 AS CATEGORY, _._1 AS OFFSET)'
     task_count: 483
-    task_total_time_ms: 49
-    transform_count: 141
-    transform_time_ms: 31
+    task_total_time_ms: 167
+    transform_count: 148
+    transform_time_ms: 140
     transform_yield_count: 52
-    insert_time_ms: 1
+    insert_time_ms: 3
     insert_new_count: 37
     insert_reused_count: 2
 -   query: EXPLAIN SELECT bitmap_construct_agg(bitmap_bit_position(id)) as bitmap,
@@ -55,11 +55,11 @@ bitmap-agg-index-tests:
         bitmap_bit_position 10000) AS _0) GROUP BY ((_._0.ID) bitmap_bucket_offset
         10000 AS _0) | MAP (_._1._0 AS BITMAP, _._0._0 AS OFFSET)
     task_count: 285
-    task_total_time_ms: 14
-    transform_count: 70
-    transform_time_ms: 5
+    task_total_time_ms: 145
+    transform_count: 74
+    transform_time_ms: 109
     transform_yield_count: 30
-    insert_time_ms: 0
+    insert_time_ms: 7
     insert_new_count: 25
     insert_reused_count: 2
 -   query: EXPLAIN SELECT bitmap_construct_agg(bitmap_bit_position(id)) as bitmap,
@@ -69,10 +69,10 @@ bitmap-agg-index-tests:
         bitmap_bucket_offset 10000 AS _1) | MAP (_._1._0 AS BITMAP, _._0._0 AS CATEGORY,
         _._0._1 AS OFFSET)
     task_count: 285
-    task_total_time_ms: 10
-    transform_count: 70
-    transform_time_ms: 6
+    task_total_time_ms: 146
+    transform_count: 74
+    transform_time_ms: 113
     transform_yield_count: 30
-    insert_time_ms: 0
+    insert_time_ms: 5
     insert_new_count: 25
     insert_reused_count: 2

@@ -87,7 +87,6 @@ public class BitmapAggregateIndexExpansionVisitor extends AggregateIndexExpansio
             throw new UnsupportedOperationException("unable to plan group by with non-field value " + groupedValue);
         }
 
-
         final var bitmapConstructAggFunc = BuiltInFunctionCatalog.getFunctionSingleton(NumericAggregationValue.BitmapConstructAggFn.class).orElseThrow();
         final var bitmapBitPositionFunc = BuiltInFunctionCatalog.getFunctionSingleton(ArithmeticValue.BitmapBitPositionFn.class).orElseThrow();
         final String sizeArgument = index.getOption(IndexOptions.BITMAP_VALUE_ENTRY_SIZE_OPTION);
@@ -97,7 +96,6 @@ public class BitmapAggregateIndexExpansionVisitor extends AggregateIndexExpansio
         final var aggregateValue = (Value)bitmapConstructAggFunc.encapsulate(ImmutableList.of(bitmapBitPositionFunc.encapsulate(ImmutableList.of(argument, entrySizeValue))));
         // add an RCV column representing the grouping columns as the first result set column
         // also, make sure to set the field type names correctly for each field value in the grouping keys RCV.
-
 
         final var groupingValues = baseExpansion.getResultColumns().subList(0, groupingKeyExpression.getGroupingCount())
                 .stream()

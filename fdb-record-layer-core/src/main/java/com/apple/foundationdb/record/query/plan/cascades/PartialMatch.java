@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.PullUp;
+import com.apple.foundationdb.record.util.pair.Pair;
 import com.google.common.base.Equivalence;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
@@ -304,7 +305,7 @@ public class PartialMatch {
     }
 
     @Nonnull
-    public Map<QueryPredicate, PredicateMapping> pullUpToParent(@Nonnull final CorrelationIdentifier nestingAlias,
+    public Map<QueryPredicate, PredicateMapping> pullUpToParent(@Nonnull final CorrelationIdentifier candidateAlias,
                                                                 @Nonnull final Predicate<QueryPredicate> predicateFilter) {
         final var interestingPredicates =
                 getAccumulatedPredicateMap().getMap()
@@ -313,39 +314,27 @@ public class PartialMatch {
                         .filter(predicateFilter)
                         .collect(LinkedIdentitySet.toLinkedIdentitySet());
 
-        return pullUpToParent(nestingAlias, interestingPredicates);
+        return pullUpToParent(candidateAlias, interestingPredicates);
     }
 
     @Nonnull
-    public Map<QueryPredicate, PredicateMapping> pullUpToParent(@Nonnull final CorrelationIdentifier nestingAlias,
+    public Map<QueryPredicate, PredicateMapping> pullUpToParent(@Nonnull final CorrelationIdentifier candidateAlias,
                                                                 @Nonnull final Set<QueryPredicate> interestingPredicates) {
         final var childPredicateMappings =
                 getPulledUpPredicateMappings(interestingPredicates);
 
         final var resultsMap = new LinkedIdentityMap<QueryPredicate, PredicateMapping>();
-        final var pullUp = pullUp(nestingAlias);
+        final var pullUp = pullUp(candidateAlias);
         for (final var childPredicateMappingEntry : childPredicateMappings.entrySet()) {
             final var originalQueryPredicate = childPredicateMappingEntry.getKey();
             final var childPredicateMapping = childPredicateMappingEntry.getValue();
             final var pulledUpPredicateOptional =
-                    childPredicateMapping.getTranslatedQueryPredicate().replaceValuesMaybe(pullUp::pullUpMaybe);
+                    childPredicateMapping.getTranslatedQueryPredicate().replaceValuesMaybe(pullUp::pullUpValueMaybe);
             pulledUpPredicateOptional.ifPresent(queryPredicate ->
                     resultsMap.put(originalQueryPredicate,
                             childPredicateMapping.withTranslatedQueryPredicate(queryPredicate)));
         }
         return resultsMap;
-    }
-
-    @Nonnull
-    public Map<QueryPredicate, PredicateMapping> getPulledUpPredicateMappings(@Nonnull final Predicate<QueryPredicate> predicateFilter) {
-        final var interestingPredicates =
-                getAccumulatedPredicateMap().getMap()
-                        .keySet()
-                        .stream()
-                        .filter(predicateFilter)
-                        .collect(LinkedIdentitySet.toLinkedIdentitySet());
-
-        return getPulledUpPredicateMappings(interestingPredicates);
     }
 
     @Nonnull
@@ -380,38 +369,50 @@ public class PartialMatch {
     }
 
     @Nonnull
-    public Compensation compensateCompleteMatch() {
-        return queryExpression.compensate(this, getBoundParameterPrefixMap(), null, Quantifier.uniqueID());
+    public Compensation compensateCompleteMatch(@Nullable PullUp unificationPullUp,
+                                                @Nonnull final CorrelationIdentifier candidateTopAlias) {
+        return queryExpression.compensate(this, getBoundParameterPrefixMap(), unificationPullUp, candidateTopAlias);
     }
 
     @Nonnull
     public Compensation compensate(@Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
                                    @Nonnull final PullUp pullUp,
-                                   @Nonnull final CorrelationIdentifier nestingAlias) {
-        return queryExpression.compensate(this, boundParameterPrefixMap, pullUp, nestingAlias);
+                                   @Nonnull final CorrelationIdentifier candidateAlias) {
+        return queryExpression.compensate(this, boundParameterPrefixMap, pullUp, candidateAlias);
     }
 
     @Nonnull
     public Compensation compensateExistential(@Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap) {
-        return queryExpression.compensate(this, boundParameterPrefixMap, null, Quantifier.uniqueID());
+        return queryExpression.compensate(this, boundParameterPrefixMap, null, Quantifier.uniqueId());
+    }
+
+    @Nullable
+    public PullUp.UnificationPullUp prepareForUnification(@Nonnull final CorrelationIdentifier topAlias,
+                                                          @Nonnull final CorrelationIdentifier topCandidateAlias) {
+        return getMatchCandidate().prepareForUnification(this, topAlias, topCandidateAlias);
     }
 
     @Nonnull
-    public PullUp pullUp(@Nonnull final CorrelationIdentifier nestingAlias) {
-        return nestPullUp(null, nestingAlias);
+    public PullUp pullUp(@Nonnull final CorrelationIdentifier candidateAlias) {
+        return Objects.requireNonNull(nestPullUp(null, candidateAlias).getRight());
     }
 
     @Nonnull
-    public PullUp nestPullUp(@Nullable final PullUp pullUp, @Nonnull final CorrelationIdentifier nestingAlias) {
+    public Pair</*root of match*/ PullUp , /*current*/ PullUp> nestPullUp(@Nullable final PullUp pullUp,
+                                                                          @Nonnull final CorrelationIdentifier candidateAlias) {
+        PullUp rootOfMatchPullUp = null;
         var currentMatchInfo = getMatchInfo();
         var currentCandidateRef = candidateRef;
         var currentPullUp = pullUp;
-        var currentNestingAlias = nestingAlias;
+        var currentCandidateAlias = candidateAlias;
         while (true) {
             final var nestingVisitor =
-                    PullUp.visitor(currentPullUp, currentNestingAlias);
+                    PullUp.visitor(currentPullUp, currentCandidateAlias);
             final var currentCandidateExpression = currentCandidateRef.get();
             currentPullUp = nestingVisitor.visit(currentCandidateRef.get());
+            if (!(pullUp instanceof PullUp.MatchPullUp) && rootOfMatchPullUp == null) {
+                rootOfMatchPullUp = currentPullUp;
+            }
             if (!currentMatchInfo.isAdjusted()) {
                 break;
             }
@@ -419,12 +420,12 @@ public class PartialMatch {
             final List<? extends Quantifier> currentQuantifiers = currentCandidateExpression.getQuantifiers();
             Verify.verify(currentQuantifiers.size() == 1);
             final Quantifier currentQuantifier = currentQuantifiers.get(0);
-            currentNestingAlias = currentQuantifier.getAlias();
+            currentCandidateAlias = currentQuantifier.getAlias();
             currentCandidateRef = currentQuantifier.getRangesOver();
 
             currentMatchInfo = ((MatchInfo.AdjustedMatchInfo)currentMatchInfo).getUnderlying();
         }
-        return currentPullUp;
+        return Pair.of(rootOfMatchPullUp, currentPullUp);
     }
 
     /**

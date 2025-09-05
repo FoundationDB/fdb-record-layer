@@ -310,4 +310,9 @@ public class YamlIntegrationTests {
     public void caseSensitivityTest(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("case-sensitivity.yamsql");
     }
+
+    @TestTemplate
+    public void compositeAggregates(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("composite-aggregates.yamsql");
+    }
 }

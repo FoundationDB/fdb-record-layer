@@ -312,7 +312,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
     void testInQueryWithConstantValueUnsorted() throws Exception {
         complexQuerySetup(NO_HOOK);
-        final ConstantObjectValue constant = ConstantObjectValue.of(CorrelationIdentifier.uniqueID(), "0", new Type.Array(false, Type.primitiveType(Type.TypeCode.INT, false)));
+        final ConstantObjectValue constant = ConstantObjectValue.of(CorrelationIdentifier.uniqueId(), "0", new Type.Array(false, Type.primitiveType(Type.TypeCode.INT, false)));
         final RecordQueryPlan plan = planGraph(() -> {
             final Quantifier base = fullTypeScan(recordStore.getRecordMetaData(), "MySimpleRecord");
             var select = GraphExpansion.builder()
@@ -648,7 +648,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
         Assumptions.assumeTrue(useCascadesPlanner);
         complexQuerySetup(NO_HOOK);
 
-        final ConstantObjectValue constant = ConstantObjectValue.of(Quantifier.uniqueID(), "0", new Type.Array(false, Type.primitiveType(Type.TypeCode.INT, false)));
+        final ConstantObjectValue constant = ConstantObjectValue.of(Quantifier.uniqueId(), "0", new Type.Array(false, Type.primitiveType(Type.TypeCode.INT, false)));
         planner.setConfiguration(planner.getConfiguration().asBuilder()
                 .setAttemptFailedInJoinAsUnionMaxSize(100)
                 .build());
@@ -1104,7 +1104,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 .andThen(metaDataBuilder -> metaDataBuilder.addIndex("MySimpleRecord", index));
         complexQuerySetup(hook);
 
-        final CorrelationIdentifier constantAlias = CorrelationIdentifier.uniqueID();
+        final CorrelationIdentifier constantAlias = CorrelationIdentifier.uniqueId();
         final ConstantObjectValue nv2Constant = ConstantObjectValue.of(constantAlias, "0", Type.primitiveType(Type.TypeCode.INT, false));
         final ConstantObjectValue listConstant = ConstantObjectValue.of(constantAlias, "1", new Type.Array(false, Type.primitiveType(Type.TypeCode.INT, false)));
         planner.setConfiguration(planner.getConfiguration().asBuilder().setAttemptFailedInJoinAsUnionMaxSize(10).build());

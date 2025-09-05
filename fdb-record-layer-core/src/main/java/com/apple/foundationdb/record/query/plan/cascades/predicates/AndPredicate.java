@@ -128,10 +128,10 @@ public class AndPredicate extends AndOrPredicate {
     public PredicateCompensationFunction computeCompensationFunction(@Nonnull final PartialMatch partialMatch,
                                                                      @Nonnull final QueryPredicate originalQueryPredicate,
                                                                      @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
-                                                                     @Nonnull final List<PredicateCompensationFunction> childrenResults,
+                                                                     @Nonnull final List<PredicateCompensationFunction> childrenCompensationFunctions,
                                                                      @Nonnull final PullUp pullUp) {
         boolean isNeeded = false;
-        for (final var childPredicateCompensationFunction : childrenResults) {
+        for (final var childPredicateCompensationFunction : childrenCompensationFunctions) {
             isNeeded |= childPredicateCompensationFunction.isNeeded();
             if (childPredicateCompensationFunction.isImpossible()) {
                 return PredicateCompensationFunction.impossibleCompensation();
@@ -142,12 +142,13 @@ public class AndPredicate extends AndOrPredicate {
             return PredicateCompensationFunction.noCompensationNeeded();
         }
 
-        return PredicateCompensationFunction.of(
-                baseAlias -> childrenResults.stream()
-                        .filter(PredicateCompensationFunction::isNeeded)
-                        .flatMap(predicateCompensationFunction ->
-                                predicateCompensationFunction.applyCompensationForPredicate(baseAlias).stream())
-                        .collect(LinkedIdentitySet.toLinkedIdentitySet()));
+        return PredicateCompensationFunction.ofChildrenCompensationFunctions(childrenCompensationFunctions,
+                (functions, baseAlias) ->
+                        functions.stream()
+                                .filter(PredicateCompensationFunction::isNeeded)
+                                .flatMap(predicateCompensationFunction ->
+                                        predicateCompensationFunction.applyCompensationForPredicate(baseAlias).stream())
+                                .collect(LinkedIdentitySet.toLinkedIdentitySet()));
     }
 
     @Nonnull
