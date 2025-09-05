@@ -6,7 +6,77 @@ on:
   workflow_dispatch:
 
 jobs:
-  gradle:
+  # In parallel, we run:
+  #   a) all the tests
+  #   b) the mixed-mode tests
+  #   c) the nightly tests
+  # At the moment the nightly tests include the regular tests, but we do both to get valuable coverage in teamscale.
+  # It's possible that we could change the nightly tests to just be the new tests, and not the regular tests in the future.
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4.2.2
+      - name: Setup Base Environment
+        id: setup-base
+        uses: ./actions/setup-base-env
+      - name: Setup FDB
+        uses: ./actions/setup-fdb
+      - name: Run Gradle Test
+        uses: ./actions/gradle-test
+        with:
+          gradle_args: -PreleaseBuild=true -PpublishBuild=true
+      - name: Upload coverage to teamscale
+        # temporary until we validate that this is working correctly
+        continue-on-error: true
+        uses: ./actions/teamscale-upload
+        with:
+          partition: 'CI Tests'
+          revision: ${{ github.sha }}
+
+  mixed-mode-test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4.2.2
+      - name: Setup Base Environment
+        uses: ./actions/setup-base-env
+      - name: Setup FDB
+        uses: ./actions/setup-fdb
+      - name: Run Gradle Test
+        uses: ./actions/gradle-test
+        with:
+          gradle_command: mixedModeTest
+          gradle_args: -PreleaseBuild=false -PpublishBuild=false
+      # We don't commit the incremented version, but we use this to know the version when generating
+      # the resulting markdown
+      - name: Increment version
+        shell: bash
+        run: python build/versionutils.py gradle.properties --increment -u PATCH
+      - name: Get new version
+        id: get_new_version
+        shell: bash
+        run: |
+          echo "version=$(python build/versionutils.py gradle.properties)" >> "$GITHUB_OUTPUT"
+      - name: Create markdown
+        shell: bash
+        run: python build/publish-mixed-mode-results.py ${{ steps.get_new_version.outputs.version }} --run-link ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }} --output mixed-mode-results.md
+      - name: Preview results
+        shell: bash
+        run: cat mixed-mode-results.md >> $GITHUB_STEP_SUMMARY
+      - name: Upload coverage to teamscale
+        # temporary until we validate that this is working correctly
+        continue-on-error: true
+        uses: ./actions/teamscale-upload
+        with:
+          partition: 'Mixed Mode Tests'
+          revision: ${{ github.sha }}
+
+  nightly_test:
     if: github.repository == 'FoundationDB/fdb-record-layer'
     runs-on: ubuntu-latest
     steps:
@@ -42,18 +112,12 @@ jobs:
           test-reports/fdb-relational-server/
           test-reports/yaml-tests/
     - name: Upload coverage to teamscale
-      # temporary continue-on-error until we validate that this is working correctly
-      continue-on-error: true
-      uses: 'cqse/teamscale-upload-action@8d10b6693b9242420ef2062dbefc36af6e88d587'
+        # temporary until we validate that this is working correctly
+        continue-on-error: true
+        uses: ./actions/teamscale-upload
         with:
-          server: 'https://fdb.teamscale.io'
-          project: 'foundationdb-fdb-record-layer'
-          user: 'fdb-record-layer-build'
           partition: 'Nightly Tests'
-          accesskey: ${{ secrets.TEAMSCALE_ACCESS_KEY }}
-          format: 'JACOCO'
-          revision: ${{ github.event.workflow_run.head_sha }}
-          files: |
-            ${{ github.workspace }}/.out/reports/jacoco/codeCoverageReport/codeCoverageReport.xml
+          revision: ${{ github.sha }}
+
 
 
