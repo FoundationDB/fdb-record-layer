@@ -580,4 +580,20 @@ public interface KeySpacePath {
     RecordCursor<DataInKeySpacePath> exportAllData(@Nonnull FDBRecordContext context,
                                                    @Nullable byte[] continuation,
                                                    @Nonnull ScanProperties scanProperties);
+
+    /**
+     * Imports the provided data exported via {@link #exportAllData} into this {@code KeySpacePath}.
+     * This will validate that any data provided in {@code dataToImport} has a path that should be in this path,
+     * or one of the sub-directories, if not the future will complete exceptionally with
+     * {@link RecordCoreIllegalImportDataException}.
+     * If there is any data already existing under this path, the new data will overwrite if the keys are the same.
+     * This will use the logical value in the {@link DataInKeySpacePath#getResolvedPath()} to determine the key, rather
+     * than the raw key, meaning that this will work even if the data was exported from a different cluster.
+     * @param context the transaction context in which to save the data
+     * @param dataToImport the data to be saved to the database
+     * @return a future to be completed once all data has been important.
+     */
+    @API(API.Status.EXPERIMENTAL)
+    CompletableFuture<Void> importData(@Nonnull FDBRecordContext context,
+                                       @Nonnull Iterable<DataInKeySpacePath> dataToImport);
 }
