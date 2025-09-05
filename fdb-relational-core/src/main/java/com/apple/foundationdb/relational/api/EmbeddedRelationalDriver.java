@@ -48,15 +48,20 @@ public class EmbeddedRelationalDriver implements RelationalDriver {
     }
 
     @Override
+    public Connection connect(String url, Properties info) throws SQLException {
+        return connect(URI.create(url), Options.fromProperties(info));
+    }
+
+    @Override
     public RelationalConnection connect(@Nonnull URI url,
-                                      @Nonnull Options connectionOptions) throws SQLException {
+                                        @Nonnull Options connectionOptions) throws SQLException {
         return connect(url, null, connectionOptions);
     }
 
     @SuppressWarnings("PMD.CloseResource") // returns connection outliving auto-closeable object. Should consider refactoring
     public RelationalConnection connect(@Nonnull URI url,
-                                      @Nullable Transaction existingTransaction,
-                                      @Nonnull Options connectionOptions) throws SQLException {
+                                        @Nullable Transaction existingTransaction,
+                                        @Nonnull Options connectionOptions) throws SQLException {
         final var urlString = url.toString();
         if (!acceptsURL(urlString)) {
             return null;
@@ -92,14 +97,6 @@ public class EmbeddedRelationalDriver implements RelationalDriver {
         } catch (RelationalException ve) {
             throw ve.toSqlException();
         }
-    }
-
-    @Override
-    public Connection connect(String url, Properties info) throws SQLException {
-        if (info != null && !info.isEmpty()) {
-            throw new SQLException("connect with Properties is not supported yet. Please use connect with Options instead.", ErrorCode.INTERNAL_ERROR.getErrorCode());
-        }
-        return connect(URI.create(url), null, Options.NONE);
     }
 
     @Override

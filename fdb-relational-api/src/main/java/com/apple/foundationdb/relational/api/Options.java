@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.options.CollectionContract;
 import com.apple.foundationdb.relational.api.options.OptionContract;
+import com.apple.foundationdb.relational.api.options.OptionContractWithConversion;
 import com.apple.foundationdb.relational.api.options.RangeContract;
 import com.apple.foundationdb.relational.api.options.TypeContract;
 import com.google.common.annotations.VisibleForTesting;
@@ -35,11 +36,13 @@ import com.google.common.collect.Maps;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.sql.SQLException;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Properties;
 
 @API(API.Status.EXPERIMENTAL)
 public final class Options {
@@ -230,6 +233,8 @@ public final class Options {
         USE_REMOTE_FETCH_WITH_FALLBACK
     }
 
+    private static final char[] HEX_CHARS = "0123456789ABCDEF".toCharArray();
+
     @SuppressWarnings("PMD.AvoidFieldNameMatchingTypeName")
     private static final Map<Name, List<OptionContract>> OPTIONS = makeContracts();
 
@@ -263,7 +268,9 @@ public final class Options {
 
     public static final Options NONE = Options.builder().build();
 
+    @Nullable
     private final Options parentOptions;
+    @Nonnull
     private final Map<Name, Object> optionsMap;
 
     @Nonnull
@@ -276,19 +283,23 @@ public final class Options {
         return OPTIONS_DEFAULT_VALUES;
     }
 
-    private Options(Map<Name, Object> optionsMap, Options parentOptions) {
+    private Options(@Nonnull Map<Name, Object> optionsMap, @Nullable Options parentOptions) {
         this.optionsMap = optionsMap;
         this.parentOptions = parentOptions;
     }
 
     @SuppressWarnings("unchecked")
-    public <T> T getOption(Name name) {
+    public <T> T getOption(@Nonnull Name name) {
         T option = getOptionInternal(name);
         if (option == null) {
             return (T) OPTIONS_DEFAULT_VALUES.get(name);
         } else {
             return option;
         }
+    }
+
+    public Options withOption(@Nonnull Name name, @Nullable Object value) throws SQLException {
+        return builder().fromOptions(this).withOption(name, value).build();
     }
 
     public Options withChild(@Nonnull Options childOptions) throws SQLException {
@@ -365,8 +376,8 @@ public final class Options {
     @Nullable
     private static Object parseStringOption(@Nonnull final Name name, String valueAsString) throws SQLException {
         for (OptionContract contract : Objects.requireNonNull(OPTIONS).get(name)) {
-            if (contract instanceof TypeContract<?>) {
-                return ((TypeContract<?>)contract).fromString(valueAsString);
+            if (contract instanceof OptionContractWithConversion<?>) {
+                return ((OptionContractWithConversion<?>)contract).fromString(valueAsString);
             }
         }
         throw new SQLException("option must have at least one type contract", ErrorCode.INTERNAL_ERROR.getErrorCode());
@@ -395,6 +406,71 @@ public final class Options {
         } else {
             return optionsMap.entrySet();
         }
+    }
+
+    @Override
+    public boolean equals(final Object o) {
+        if (!(o instanceof Options)) {
+            return false;
+        }
+
+        final Options options = (Options)o;
+        return Objects.equals(parentOptions, options.parentOptions) && optionsMap.equals(options.optionsMap);
+    }
+
+    @Override
+    public int hashCode() {
+        int result = Objects.hashCode(parentOptions);
+        result = 31 * result + optionsMap.hashCode();
+        return result;
+    }
+
+    public static Options fromProperties(@Nullable Properties properties) throws SQLException {
+        if (properties == null) {
+            return none();
+        }
+        Builder builder = builder();
+        for (String key : properties.stringPropertyNames()) {
+            final Name name = Name.valueOf(key);
+            // This does not work for CONTINUATION; throws an error. The Impl class is not accessible here.
+            // Furthermore, there is no module into which the translation methods could be moved that has
+            // access and is accessible to JDBC.
+            builder.withOptionFromString(name, properties.getProperty(key));
+        }
+        return builder.build();
+    }
+
+    @Nonnull
+    @SuppressWarnings("unchecked")
+    public static Properties toProperties(final Options options) {
+        final Properties result = new Properties();
+        for (Map.Entry<Name, ?> entry : options.entries()) {
+            final String prop;
+            switch (entry.getKey()) {
+                case CONTINUATION:
+                    prop = bytesToHex(((Continuation)entry.getValue()).serialize());
+                    break;
+                case DISABLED_PLANNER_RULES:
+                    prop = String.join(",", (Collection<String>)entry.getValue());
+                    break;
+                default:
+                    prop = entry.getValue().toString();
+                    break;
+            }
+            result.put(entry.getKey().name(), prop);
+        }
+        return result;
+    }
+
+    // TODO: This is just to avoid dependencies; use HexFormat when upgraded to JDK 17.
+    private static String bytesToHex(@Nonnull byte[] bytes) {
+        char[] hex = new char[bytes.length * 2];
+        for (int i = 0; i < bytes.length; i++ ) {
+            int b = bytes[i] & 0xFF;
+            hex[i * 2] = HEX_CHARS[b >>> 4];
+            hex[i * 2 + 1] = HEX_CHARS[b & 0x0F];
+        }
+        return new String(hex);
     }
 
     private static Map<Name, List<OptionContract>> makeContracts() {
