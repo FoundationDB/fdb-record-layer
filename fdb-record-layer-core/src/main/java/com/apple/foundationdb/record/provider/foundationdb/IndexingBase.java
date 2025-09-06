@@ -43,6 +43,7 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.common.StoreTimerSnapshot;
+import com.apple.foundationdb.record.provider.foundationdb.indexing.IndexingHeartbeat;
 import com.apple.foundationdb.record.provider.foundationdb.indexing.IndexingRangeSet;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordFromStoredRecordPlan;
@@ -1214,11 +1215,11 @@ public abstract class IndexingBase {
         return null;
     }
 
-    protected static boolean doNotLessenWork(@Nullable FDBException ex) {
+    protected static boolean shouldLessenWork(@Nullable FDBException ex) {
         // These error codes represent a list of errors that can occur if there is too much work to be done
         // in a single transaction.
         if (ex == null) {
-            return true;
+            return false;
         }
         final Set<Integer> lessenWorkCodes = new HashSet<>(Arrays.asList(
                 FDBError.TIMED_OUT.code(),
@@ -1227,7 +1228,7 @@ public abstract class IndexingBase {
                 FDBError.TRANSACTION_TIMED_OUT.code(),
                 FDBError.COMMIT_READ_INCOMPLETE.code(),
                 FDBError.TRANSACTION_TOO_LARGE.code()));
-        return !lessenWorkCodes.contains(ex.getCode());
+        return lessenWorkCodes.contains(ex.getCode());
     }
 }
 

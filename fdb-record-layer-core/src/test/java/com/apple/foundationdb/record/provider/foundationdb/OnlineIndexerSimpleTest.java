@@ -908,7 +908,10 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
         disableAll(List.of(index));
         try (OnlineIndexer indexBuilder = newIndexerBuilder(index)
                 .setUseSynchronizedSession(useSynchronizedSession)
-                .setUseSynchronizedSession(false)
+                .setConfigLoader(old -> {
+                    assertTrue(old.shouldUseSynchronizedSession());
+                    return old;
+                })
                 .build()) {
             indexBuilder.buildIndex();
         }
@@ -924,6 +927,7 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
         Thread t1 = new Thread(() -> {
             // build index and pause halfway, allowing an active session test
             try (OnlineIndexer indexBuilder = newIndexerBuilder(index)
+                    .setUseSynchronizedSession(useSynchronizedSession)
                     .setLeaseLengthMillis(TimeUnit.SECONDS.toMillis(20))
                     .setLimit(4)
                     .setConfigLoader(old -> pauseAfterOnePass(old, passed, startBuildingSemaphore, pauseMutualBuildSemaphore))
