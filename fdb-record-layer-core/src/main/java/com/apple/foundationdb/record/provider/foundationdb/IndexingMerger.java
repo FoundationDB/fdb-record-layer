@@ -146,7 +146,7 @@ public class IndexingMerger {
         mergeControl.mergeHadFailed(); // report to adjust stats
         final FDBException ex = IndexingBase.findException(e, FDBException.class);
         final IndexDeferredMaintenanceControl.LastStep lastStep = mergeControl.getLastStep();
-        if (IndexingBase.doNotLessenWork(ex)) {
+        if (!IndexingBase.shouldLessenWork(ex)) {
             giveUpMerging(mergeControl, e);
         }
         switch (lastStep) {

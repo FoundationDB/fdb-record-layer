@@ -18,7 +18,7 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.provider.foundationdb;
+package com.apple.foundationdb.record.provider.foundationdb.indexing;
 
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.annotation.API;
@@ -28,6 +28,8 @@ import com.apple.foundationdb.record.IndexBuildProto;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
+import com.apple.foundationdb.record.provider.foundationdb.IndexingSubspaces;
 import com.apple.foundationdb.synchronizedsession.SynchronizedSessionLockedException;
 import com.google.protobuf.InvalidProtocolBufferException;
 import org.slf4j.Logger;
@@ -66,6 +68,10 @@ public class IndexingHeartbeat {
         this.leaseLength = leaseLength;
         this.allowMutual = allowMutual;
         this.genesisTimeMilliseconds = nowMilliseconds();
+    }
+
+    public UUID getIndexerId() {
+        return indexerId;
     }
 
     public void updateHeartbeat(@Nonnull FDBRecordStore store, @Nonnull Index index) {

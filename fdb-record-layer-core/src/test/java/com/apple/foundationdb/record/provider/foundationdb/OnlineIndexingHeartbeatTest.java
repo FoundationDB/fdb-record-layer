@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
+import com.apple.foundationdb.record.provider.foundationdb.indexing.IndexingHeartbeat;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
 import org.junit.jupiter.api.Assertions;
@@ -83,7 +84,7 @@ class OnlineIndexingHeartbeatTest extends OnlineIndexerTest {
             Map<UUID, IndexBuildProto.IndexBuildHeartbeat> queried = indexer.getIndexingHeartbeats(0);
             assertThat(queried).hasSize(count);
             assertThat(queried.keySet())
-                    .containsExactlyInAnyOrderElementsOf(Arrays.stream(heartbeats).map(heartbeat -> heartbeat.indexerId).collect(Collectors.toList()));
+                    .containsExactlyInAnyOrderElementsOf(Arrays.stream(heartbeats).map(heartbeat -> heartbeat.getIndexerId()).collect(Collectors.toList()));
 
             // Query, partial
             queried = indexer.getIndexingHeartbeats(5);
@@ -101,7 +102,7 @@ class OnlineIndexingHeartbeatTest extends OnlineIndexerTest {
             Map<UUID, IndexBuildProto.IndexBuildHeartbeat> queried = indexer.getIndexingHeartbeats(100);
             assertThat(queried).hasSize(count);
             assertThat(queried.keySet())
-                    .containsExactlyInAnyOrderElementsOf(Arrays.stream(heartbeats).map(ht -> ht.indexerId).collect(Collectors.toList()));
+                    .containsExactlyInAnyOrderElementsOf(Arrays.stream(heartbeats).map(IndexingHeartbeat::getIndexerId).collect(Collectors.toList()));
 
             // clear all
             int countDeleted = indexer.clearIndexingHeartbeats(0, 0);
