@@ -128,6 +128,11 @@ public class FDBDatabaseExtension implements AfterEachCallback {
                     }
                     baseFactory.setAPIVersion(getAPIVersion());
                     baseFactory.setUnclosedWarning(true);
+                    if (clusterFiles.isEmpty()) {
+                        FDBDatabase unused = baseFactory.getDatabase();
+                        unused.performNoOp(); // make sure FDB gets opened
+                        unused.close();
+                    }
                     for (final String clusterFile : clusterFiles) {
                         FDBDatabase unused = baseFactory.getDatabase(clusterFile);
                         unused.performNoOp(); // make sure FDB gets opened
