@@ -54,6 +54,7 @@ import org.slf4j.MDC;
 
 import javax.annotation.Nonnull;
 import java.io.IOException;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -66,6 +67,7 @@ import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.lessThan;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -492,6 +494,33 @@ class FDBDatabaseTest {
             }
             assertEquals(initApiVersion, database.getFactory().getAPIVersion());
             assertEquals(initApiVersion, database.getAPIVersion());
+        }
+    }
+
+    @Test
+    void canAccessMultipleClusters() {
+        dbExtension.assumeClusterCount(2);
+        final FDBDatabase database0 = dbExtension.getDatabase(0);
+        final FDBDatabase database1 = dbExtension.getDatabase(1);
+        final byte[] key = Tuple.from(UUID.randomUUID()).pack();
+        final byte[] value0 = Tuple.from("cluster0").pack();
+        final byte[] value1 = Tuple.from("cluster1").pack();
+        try (FDBRecordContext context0 = database0.openContext()) {
+            context0.ensureActive().set(key, value0);
+            context0.commit();
+        }
+        try (FDBRecordContext context1 = database1.openContext()) {
+            assertNull(context1.ensureActive().get(key).join());
+            context1.ensureActive().set(key, value1);
+            context1.commit();
+        }
+        try (FDBRecordContext context0 = database0.openContext()) {
+            assertArrayEquals(value0, context0.ensureActive().get(key).join());
+            context0.commit();
+        }
+        try (FDBRecordContext context1 = database1.openContext()) {
+            assertArrayEquals(value1, context1.ensureActive().get(key).join());
+            context1.commit();
         }
     }
 }
