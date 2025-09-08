@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.test;
 
 import com.apple.foundationdb.FDB;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.provider.foundationdb.APIVersion;
 import com.apple.foundationdb.record.provider.foundationdb.BlockingInAsyncDetection;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
@@ -95,9 +96,9 @@ public class FDBDatabaseExtension implements AfterEachCallback {
             Object fdbConfig = yaml.load(yamlInput);
             return (List<String>)((Map<?, ?>)fdbConfig).get("clusterFiles");
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            throw new RecordCoreException("Could not read fdb-environment.yaml", e);
         } catch (ClassCastException e) {
-            throw new RuntimeException("Could not parse fdb environment file " + fdbEnvironment);
+            throw new RecordCoreException("Could not parse fdb environment file " + fdbEnvironment, e);
         }
     }
 
