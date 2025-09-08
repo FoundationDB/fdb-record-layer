@@ -515,7 +515,12 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
                     .processComplexLiteral(tokenIndex, arrayType));
         } else {
             final var inListItems = visitExpressions(ctx.expressions());
-            result = getDelegate().resolveFunction("__internal_array", inListItems.asList().toArray(new Expression[0]));
+            // if inListItems only contain one expression, return the expression, otherwise create an array.
+            if (inListItems.size() > 1) {
+                result = getDelegate().resolveFunction("__internal_array", inListItems.asList().toArray(new Expression[0]));
+            } else {
+                result = inListItems.getSingleItem();
+            }
         }
         return result;
     }

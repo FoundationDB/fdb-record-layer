@@ -121,7 +121,7 @@ public class InOpValue extends AbstractValue implements BooleanValue {
         }
 
         final var isLiteralList = inArrayValue.getCorrelatedTo().isEmpty();
-        SemanticException.check(isLiteralList, SemanticException.ErrorCode.UNSUPPORTED);
+        // SemanticException.check(isLiteralList, SemanticException.ErrorCode.UNSUPPORTED);
 
         if (typeRepository != null) {
             final var literalValue = Preconditions.checkNotNull(inArrayValue.evalWithoutStore(EvaluationContext.forTypeRepository(typeRepository)));
@@ -221,26 +221,31 @@ public class InOpValue extends AbstractValue implements BooleanValue {
 
             final Typed arg1 = arguments.get(1);
             final Type res1 = arg1.getResultType();
-            SemanticException.check(res1.isArray(), SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
+            SemanticException.check(res1.isArray() || res0.isArray(), SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
 
-            final var arrayElementType = Objects.requireNonNull(((Type.Array) res1).getElementType());
-            if (!arrayElementType.isUnresolved() && res0.getTypeCode() != arrayElementType.getTypeCode()) {
-                final var maximumType = Type.maximumType(arg0.getResultType(), arrayElementType);
+            final Type arrayType = res0.isArray() ? res0 : res1;
+            final Typed arrayArg = res0.isArray() ? arg0 : arg1;
+            final Type operandType = res0.isArray() ? res1 : res0;
+            final Typed operandArg = res0.isArray() ? arg1 : arg0;
+
+            final var arrayElementType = Objects.requireNonNull(((Type.Array) arrayType).getElementType());
+            if (!arrayElementType.isUnresolved() && operandType.getTypeCode() != arrayElementType.getTypeCode()) {
+                final var maximumType = Type.maximumType(operandType, arrayElementType);
                 // Incompatible types
                 SemanticException.check(maximumType != null, SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
 
                 // Promote arg0 if the resulting type is different
-                if (!arg0.getResultType().equals(maximumType)) {
-                    return new InOpValue(PromoteValue.inject((Value)arg0, maximumType), (Value)arg1);
+                if (!operandType.equals(maximumType)) {
+                    return new InOpValue(PromoteValue.inject((Value)operandArg, maximumType), (Value)arrayArg);
                 } else {
-                    return new InOpValue((Value)arg0, PromoteValue.inject((Value)arg1, new Type.Array(maximumType)));
+                    return new InOpValue((Value)operandArg, PromoteValue.inject((Value)arrayArg, new Type.Array(maximumType)));
                 }
             }
 
-            if (res0.isRecord()) {
+            if (operandType.isRecord()) {
                 // we cannot yet promote this properly
                 SemanticException.check(arrayElementType.isRecord(), SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
-                final var probeElementTypes = Objects.requireNonNull(((Type.Record)res0).getElementTypes());
+                final var probeElementTypes = Objects.requireNonNull(((Type.Record)operandType).getElementTypes());
                 final var inElementTypes = Objects.requireNonNull(((Type.Record)arrayElementType).getElementTypes());
                 for (int i = 0; i < inElementTypes.size(); i++) {
                     final var probeElementType = probeElementTypes.get(i);
@@ -251,7 +256,7 @@ public class InOpValue extends AbstractValue implements BooleanValue {
                             SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
                 }
             }
-            return new InOpValue((Value)arg0, (Value)arg1);
+            return new InOpValue((Value)operandArg, (Value)arrayArg);
         }
     }
 

@@ -1413,6 +1413,13 @@ public class StandardQueryTests {
                             .isRowExactly(44L, EmbeddedRelationalArray.newBuilder().addString("Grape").addString("Pear").build())
                             .hasNoNextRow();
                 }
+
+                Assertions.assertTrue(statement.execute("SELECT * FROM T1 where 'Grape' in (a)"));
+                try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                    ResultSetAssert.assertThat(resultSet).hasNextRow()
+                            .isRowExactly(44L, EmbeddedRelationalArray.newBuilder().addString("Grape").addString("Pear").build())
+                            .hasNoNextRow();
+                }
             }
         }
     }
