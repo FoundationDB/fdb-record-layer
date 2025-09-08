@@ -27,15 +27,23 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactoryImpl;
 import com.apple.foundationdb.test.TestExecutors;
+import com.google.common.base.Strings;
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.yaml.snakeyaml.Yaml;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ThreadLocalRandom;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -43,7 +51,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 /**
  * Extension that allows the user to specify the database. It ensures that FDB has been properly initialized
  * and that the {@link FDBDatabase} object used during a test does not leak between test runs. This registers
- * call backs that run before and after tests, so it is suggested that users use the {@link org.junit.jupiter.api.extension.RegisterExtension}
+ * call backs that run before and after tests, so it is suggested that users use the {@link RegisterExtension}
  * annotation to ensure that those callbacks run. Like so:
  *
  * <pre>{@code
@@ -61,12 +69,35 @@ public class FDBDatabaseExtension implements AfterEachCallback {
     public static final String BLOCKING_IN_ASYNC_PROPERTY = "com.apple.foundationdb.record.blockingInAsyncDetection";
     public static final String API_VERSION_PROPERTY = "com.apple.foundationdb.apiVersion";
     public static final boolean TRACE = false;
+    private static final List<String> clusterFiles;
     @Nullable
     private static volatile FDB fdb;
     @Nullable
     private FDBDatabaseFactory databaseFactory;
     @Nullable
     private FDBDatabase db;
+
+    static {
+        final String fdbEnvironment = System.getenv("FDB_ENVIRONMENT_YAML");
+        if (!Strings.isNullOrEmpty(fdbEnvironment)) {
+            clusterFiles = parseFDBEnvironmentYaml(fdbEnvironment);
+        } else {
+            clusterFiles = List.of();
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<String> parseFDBEnvironmentYaml(final String fdbEnvironment) {
+        Yaml yaml = new Yaml();
+        try (FileInputStream yamlInput = new FileInputStream(fdbEnvironment)) {
+            Object fdbConfig = yaml.load(yamlInput);
+            return (List<String>)((Map<?, ?>)fdbConfig).get("clusterFiles");
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        } catch (ClassCastException e) {
+            throw new RuntimeException("Could not parse fdb environment file " + fdbEnvironment);
+        }
+    }
 
     public FDBDatabaseExtension() {
     }
@@ -96,9 +127,11 @@ public class FDBDatabaseExtension implements AfterEachCallback {
                     }
                     baseFactory.setAPIVersion(getAPIVersion());
                     baseFactory.setUnclosedWarning(true);
-                    FDBDatabase unused = baseFactory.getDatabase();
-                    unused.performNoOp(); // make sure FDB gets opened
-                    unused.close();
+                    for (final String clusterFile : clusterFiles) {
+                        FDBDatabase unused = baseFactory.getDatabase(clusterFile);
+                        unused.performNoOp(); // make sure FDB gets opened
+                        unused.close();
+                    }
                     fdb = FDB.instance();
                 }
             }
@@ -140,9 +173,20 @@ public class FDBDatabaseExtension implements AfterEachCallback {
     @Nonnull
     public FDBDatabase getDatabase() {
         if (db == null) {
-            db = getDatabaseFactory().getDatabase();
+            db = getDatabaseFactory().getDatabase(getClusterFile());
         }
         return db;
+    }
+
+    private static String getClusterFile() {
+        if (clusterFiles.isEmpty()) {
+            LOGGER.info("Connecting to null FDB cluster");
+            return null;
+        } else {
+            final String clusterFile = clusterFiles.get(ThreadLocalRandom.current().nextInt(clusterFiles.size()));
+            LOGGER.info("Connecting to cluster file: " + clusterFile);
+            return clusterFile;
+        }
     }
 
     public void checkForOpenContexts() {
