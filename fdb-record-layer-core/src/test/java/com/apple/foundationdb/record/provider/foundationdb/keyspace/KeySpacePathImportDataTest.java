@@ -42,7 +42,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -111,11 +110,11 @@ class KeySpacePathImportDataTest {
             byte[] key1 = emp1Path.toSubspace(context).pack(Tuple.from("profile", "name"));
             byte[] key2 = emp2Path.toSubspace(context).pack(Tuple.from("profile", "name"));
 
-            byte[] value1 = getJoin(context, key1);
-            byte[] value2 = getJoin(context, key2);
+            Tuple value1 = getTuple(context, key1);
+            Tuple value2 = getTuple(context, key2);
 
-            assertEquals("John Doe", Tuple.fromBytes(value1).getString(0));
-            assertEquals("Jane Smith", Tuple.fromBytes(value2).getString(0));
+            assertEquals("John Doe", value1.getString(0));
+            assertEquals("Jane Smith", value2.getString(0));
         }
     }
 
@@ -126,15 +125,7 @@ class KeySpacePathImportDataTest {
         KeySpace root = new KeySpace(
                 new KeySpaceDirectory("test", KeyType.STRING, UUID.randomUUID().toString()));
 
-        try (FDBRecordContext context = database.openContext()) {
-            KeySpacePath testPath = root.path("test");
-            
-            // Import empty data - should complete successfully
-            CompletableFuture<Void> importFuture = testPath.importData(context, Collections.emptyList());
-            importFuture.join(); // Should not throw any exception
-            
-            context.commit();
-        }
+        importData(database, root.path("test"), Collections.emptyList()); // should not throw any exception
 
         try (FDBRecordContext context = database.openContext()) {
             KeySpacePath testPath = root.path("test");
@@ -153,7 +144,6 @@ class KeySpacePathImportDataTest {
         KeySpace root = new KeySpace(
                 new KeySpaceDirectory("root", KeyType.STRING, rootUuid)
                         .addSubdirectory(new KeySpaceDirectory("data", KeyType.LONG)));
-
 
         try (FDBRecordContext context = database.openContext()) {
             Transaction tr = context.ensureActive();
@@ -186,14 +176,9 @@ class KeySpacePathImportDataTest {
             KeySpacePath dataPath = root.path("root").add("data", 1L);
             final Subspace subspace = dataPath.toSubspace(context);
             byte[] key = subspace.pack(Tuple.from("record"));
-            byte[] value = getJoin(context, key);
-            assertEquals(Tuple.from("new_value"), Tuple.fromBytes(value));
-            assertEquals(Tuple.from("other_value"), Tuple.fromBytes(getJoin(context, subspace.pack("other"))));
+            assertEquals(Tuple.from("new_value"), getTuple(context, key));
+            assertEquals(Tuple.from("other_value"), getTuple(context, subspace.pack("other")));
         }
-    }
-
-    private static byte[] getJoin(final FDBRecordContext context, final byte[] key) {
-        return context.ensureActive().get(key).join();
     }
 
     @Test
@@ -229,16 +214,8 @@ class KeySpacePathImportDataTest {
         try (FDBRecordContext context = database.openContext()) {
             KeySpacePath dataPath = root.path("application").add("version").add("data", "config");
             byte[] key = dataPath.toSubspace(context).pack(Tuple.from("setting"));
-            byte[] value = getJoin(context, key);
-            assertEquals("value1", Tuple.fromBytes(value).getString(0));
-        }
-    }
-
-    private static void clearPath(final FDBDatabase database, final KeySpacePath root) {
-        try (FDBRecordContext context = database.openContext()) {
-            Transaction tr = context.ensureActive();
-            tr.clear(root.toSubspace(context).range());
-            context.commit();
+            Tuple value = getTuple(context, key);
+            assertEquals("value1", value.getString(0));
         }
     }
 
@@ -279,8 +256,8 @@ class KeySpacePathImportDataTest {
         try (FDBRecordContext context = database.openContext()) {
             KeySpacePath userPath = root.path("tenant").add("user_id", 999L);
             byte[] key = userPath.toSubspace(context).pack(Tuple.from("data"));
-            byte[] value = getJoin(context, key);
-            assertEquals("directory_test", Tuple.fromBytes(value).getString(0));
+            Tuple value = getTuple(context, key);
+            assertEquals("directory_test", value.getString(0));
         }
     }
 
@@ -314,10 +291,7 @@ class KeySpacePathImportDataTest {
 
         clearPath(database, root.path("binary_store"));
 
-        try (FDBRecordContext context = database.openContext()) {
-            root.path("binary_store").importData(context, exportedData).join();
-            context.commit();
-        }
+        importData(database, root.path("binary_store"), exportedData);
 
         // Verify
         try (FDBRecordContext context = database.openContext()) {
@@ -365,8 +339,8 @@ class KeySpacePathImportDataTest {
         try (FDBRecordContext context = database.openContext()) {
             KeySpacePath nullPath = root.path("base").add("null_dir");
             byte[] key = nullPath.toSubspace(context).pack(Tuple.from("item"));
-            byte[] value = getJoin(context, key);
-            assertEquals("null_test", Tuple.fromBytes(value).getString(0));
+            Tuple value = getTuple(context, key);
+            assertEquals("null_test", value.getString(0));
         }
     }
 
@@ -394,26 +368,16 @@ class KeySpacePathImportDataTest {
         }
 
         // Export and import
-        List<DataInKeySpacePath> exportedData = new ArrayList<>();
-        try (FDBRecordContext context = database.openContext()) {
-            root.path("org").exportAllData(context, null, ScanProperties.FORWARD_SCAN)
-                    .forEach(exportedData::add).join();
-        }
-
+        List<DataInKeySpacePath> exportedData = getExportedData(database, root.path("org"));
         clearPath(database, root.path("org"));
-
-        try (FDBRecordContext context = database.openContext()) {
-            root.path("org").importData(context, exportedData).join();
-            context.commit();
-        }
+        importData(database, root.path("org"), exportedData);
 
         // Verify
         try (FDBRecordContext context = database.openContext()) {
             KeySpacePath memberPath = root.path("org").add("dept", "engineering")
                     .add("team", 42L).add("member", memberId);
             byte[] key = memberPath.toSubspace(context).pack(Tuple.from("info", "name"));
-            byte[] value = getJoin(context, key);
-            assertEquals("Complex Test", Tuple.fromBytes(value).getString(0));
+            assertEquals(Tuple.from("Complex Test"), getTuple(context, key));
         }
     }
 
@@ -455,8 +419,8 @@ class KeySpacePathImportDataTest {
         try (FDBRecordContext context = database.openContext()) {
             KeySpacePath userPath = root.path("tenant").add("user_id", 123L);
             byte[] key = userPath.toSubspace(context).pack(Tuple.from("profile"));
-            byte[] value = getJoin(context, key);
-            assertEquals("cross_cluster_test", Tuple.fromBytes(value).getString(0));
+            Tuple value = getTuple(context, key);
+            assertEquals("cross_cluster_test", value.getString(0));
         }
     }
 
@@ -569,8 +533,8 @@ class KeySpacePathImportDataTest {
         try (FDBRecordContext context = database.openContext()) {
             KeySpacePath level2Path = root.path("root").add("level1", 1L).add("level2", "data");
             byte[] key2 = level2Path.toSubspace(context).pack(Tuple.from("item2"));
-            byte[] value2 = getJoin(context, key2);
-            assertEquals("value2", Tuple.fromBytes(value2).getString(0));
+            Tuple value2 = getTuple(context, key2);
+            assertEquals("value2", value2.getString(0));
         }
     }
 
@@ -685,8 +649,8 @@ class KeySpacePathImportDataTest {
         try (FDBRecordContext context = database.openContext()) {
             KeySpacePath dataPath = root.path("root").add("data", 1L);
             byte[] key = dataPath.toSubspace(context).pack(Tuple.from("item"));
-            byte[] value = getJoin(context, key);
-            assertEquals("final_value", Tuple.fromBytes(value).getString(0));
+            Tuple value = getTuple(context, key);
+            assertEquals("final_value", value.getString(0));
         }
     }
 
@@ -771,9 +735,17 @@ class KeySpacePathImportDataTest {
         try (FDBRecordContext context = database.openContext()) {
             KeySpacePath dataPath = root.path("root").add("data", 1L);
             byte[] key = dataPath.toSubspace(context).pack();
-            byte[] value = getJoin(context, key);
-            assertEquals("test", Tuple.fromBytes(value).getString(0));
+            Tuple value = getTuple(context, key);
+            assertEquals("test", value.getString(0));
         }
+    }
+
+    private static Tuple getTuple(final FDBRecordContext context, final byte[] key) {
+        return Tuple.fromBytes(context.ensureActive().get(key).join());
+    }
+
+    private static byte[] getJoin(final FDBRecordContext context, final byte[] key) {
+        return context.ensureActive().get(key).join();
     }
 
     private static void importData(final FDBDatabase database, final KeySpacePath path, final List<DataInKeySpacePath> exportedData) {
@@ -781,6 +753,17 @@ class KeySpacePathImportDataTest {
             path.importData(context, exportedData).join();
             context.commit();
         }
+    }
+
+    private static void clearPath(final FDBDatabase database, final KeySpacePath path) {
+        try (FDBRecordContext context = database.openContext()) {
+            Transaction tr = context.ensureActive();
+            tr.clear(path.toSubspace(context).range());
+            context.commit();
+        }
+        // just an extra check to make sure the test is working as expected
+        assertTrue(getExportedData(database, path).isEmpty(),
+                "Clearing should remove all the data");
     }
 
     @Nonnull
