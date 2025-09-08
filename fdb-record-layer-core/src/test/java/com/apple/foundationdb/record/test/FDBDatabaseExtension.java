@@ -70,13 +70,14 @@ public class FDBDatabaseExtension implements AfterEachCallback {
     public static final String BLOCKING_IN_ASYNC_PROPERTY = "com.apple.foundationdb.record.blockingInAsyncDetection";
     public static final String API_VERSION_PROPERTY = "com.apple.foundationdb.apiVersion";
     public static final boolean TRACE = false;
-    private static final List<String> clusterFiles;
     @Nullable
     private static volatile FDB fdb;
     @Nullable
     private FDBDatabaseFactory databaseFactory;
-    @Nullable
-    private Map<String, FDBDatabase> databases = new HashMap<>();
+    @Nonnull
+    private static final List<String> clusterFiles;
+    @Nonnull
+    private final Map<String, FDBDatabase> databases = new HashMap<>();
 
     static {
         final String fdbEnvironment = System.getenv("FDB_ENVIRONMENT_YAML");
