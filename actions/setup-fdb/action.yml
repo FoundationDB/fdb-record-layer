@@ -36,6 +36,9 @@ runs:
       run: sudo sed -e "s/public_address = auto:\$ID/public_address = 127.0.0.1:\$ID/g" -e "s/listen_address = public/listen_address = 0.0.0.0:\$ID/g" /etc/foundationdb/foundationdb.conf
     - name: Create cluster1
       shell: bash
+      run: sudo sed -e "s/cluster_file = .*/cluster_file = \/etc\/foundationdb\/fdb1.cluster/"
+    - name: Create cluster1
+      shell: bash
       run: sudo sed -e "s/cluster_file = .*/cluster_file = \/etc\/foundationdb\/fdb1.cluster/" > /etc/foundationdb/foundationdb1.conf
     - name: Create cluster2
       shell: bash
