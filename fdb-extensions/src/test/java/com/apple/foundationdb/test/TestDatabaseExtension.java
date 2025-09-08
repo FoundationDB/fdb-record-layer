@@ -84,9 +84,9 @@ public class TestDatabaseExtension implements BeforeAllCallback, AfterAllCallbac
             Object fdbConfig = yaml.load(yamlInput);
             return (List<String>)((Map<?, ?>)fdbConfig).get("clusterFiles");
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            throw new IllegalStateException("Could not read fdb-environment.yaml", e);
         } catch (ClassCastException e) {
-            throw new RuntimeException("Could not parse fdb environment file " + fdbEnvironment);
+            throw new IllegalStateException("Could not parse fdb environment file " + fdbEnvironment, e);
         }
     }
 
