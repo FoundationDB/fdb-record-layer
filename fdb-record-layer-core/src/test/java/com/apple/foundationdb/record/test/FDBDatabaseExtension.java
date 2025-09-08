@@ -190,7 +190,7 @@ public class FDBDatabaseExtension implements AfterEachCallback {
                 return databases.computeIfAbsent("NULL",
                         clusterFile -> {
                             LOGGER.info("Connecting to NULL cluster file");
-                            return getDatabaseFactory().getDatabase(clusterFile);
+                            return getDatabaseFactory().getDatabase();
                         });
             }
         }
