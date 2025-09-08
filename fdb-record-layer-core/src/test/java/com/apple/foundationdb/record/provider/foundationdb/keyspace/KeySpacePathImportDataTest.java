@@ -146,7 +146,7 @@ class KeySpacePathImportDataTest {
             
             // Verify BYTES data (raw binary, not in tuple)
             byte[] binaryKey = emp1Path.toSubspace(context).pack(Tuple.from("binary_metadata"));
-            assertArrayEquals("binary_test_data".getBytes(), getValue(context, binaryKey));
+            assertArrayEquals("binary_test_data".getBytes(), context.ensureActive().get(binaryKey).join());
             
             // Verify complex hierarchy with mixed types in remainder (LONG, BOOLEAN, STRING)
             byte[] complexKey = emp1Path.toSubspace(context).pack(Tuple.from("info", 42, true, "complex"));
@@ -402,10 +402,6 @@ class KeySpacePathImportDataTest {
 
     private static Tuple getTuple(final FDBRecordContext context, final byte[] key) {
         return Tuple.fromBytes(context.ensureActive().get(key).join());
-    }
-
-    private static byte[] getValue(final FDBRecordContext context, final byte[] key) {
-        return context.ensureActive().get(key).join();
     }
 
     private static void importData(final FDBDatabase database, final KeySpacePath path, final List<DataInKeySpacePath> exportedData) {
