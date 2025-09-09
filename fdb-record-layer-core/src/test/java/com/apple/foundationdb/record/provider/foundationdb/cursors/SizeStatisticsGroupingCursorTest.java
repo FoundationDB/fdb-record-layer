@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
+import com.apple.foundationdb.record.RecordCursorVisitor;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
@@ -33,11 +34,13 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.util.StringUtils;
+import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.protobuf.Message;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -285,6 +288,34 @@ public class SizeStatisticsGroupingCursorTest extends FDBRecordStoreTestBase {
         }
     }
 
+    @Test
+    public void getExecutorTest() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            SizeStatisticsGroupingCursor cursor = SizeStatisticsGroupingCursor.ofStore(recordStore, context, ScanProperties.FORWARD_SCAN, null, 0);
+            Assertions.assertThat(cursor.getExecutor()).isEqualTo(context.getExecutor());
+            commit(context);
+        }
+    }
+
+    @ParameterizedTest
+    @BooleanSource
+    public void acceptTest(boolean response) throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            SizeStatisticsGroupingCursor cursor = SizeStatisticsGroupingCursor.ofStore(recordStore, context, ScanProperties.FORWARD_SCAN, null, 0);
+
+            TestVisitor visitor = new TestVisitor(response);
+            boolean result = cursor.accept(visitor);
+
+            Assertions.assertThat(visitor.visitEnterCalled).isTrue();
+            Assertions.assertThat(visitor.visitLeaveCalled).isTrue();
+            Assertions.assertThat(result).isEqualTo(response);
+
+            commit(context);
+        }
+    }
+
     private Map<Tuple, SizeStatisticsResults> getStoreSizeAllResults(@Nonnull FDBRecordStore store, int aggregationDepth) {
         byte[] continuation = null;
         boolean done = false;
@@ -421,6 +452,28 @@ public class SizeStatisticsGroupingCursorTest extends FDBRecordStoreTestBase {
 
                 commit(context);
             }
+        }
+    }
+
+    private static class TestVisitor implements RecordCursorVisitor {
+        boolean visitEnterCalled = false;
+        boolean visitLeaveCalled = false;
+        boolean visitLeaveResult;
+
+        public TestVisitor(final boolean visitLeaveResult) {
+            this.visitLeaveResult = visitLeaveResult;
+        }
+
+        @Override
+        public boolean visitEnter(RecordCursor<?> cursor) {
+            visitEnterCalled = true;
+            return true;
+        }
+
+        @Override
+        public boolean visitLeave(RecordCursor<?> cursor) {
+            visitLeaveCalled = true;
+            return visitLeaveResult;
         }
     }
 }
