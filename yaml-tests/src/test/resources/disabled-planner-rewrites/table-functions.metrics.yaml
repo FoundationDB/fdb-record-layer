@@ -57,7 +57,7 @@ table-functions:
         AS Y, @c29 AS Z) AS W), (@c34 AS B, @c36 AS C, (@c39 AS X, @c41 AS Y, @c43
         AS Z) AS W)) | MAP (_.B AS B, _.C AS Q, _.W.X AS X)
     task_count: 163
-    task_total_time_ms: 0
+    task_total_time_ms: 1
     transform_count: 38
     transform_time_ms: 0
     transform_yield_count: 8
@@ -127,8 +127,8 @@ table-functions:
     explain: SCAN(<,>) | FLATMAP q0 -> { TF range(0l, q0.ID, STEP 1l) AS q1 RETURN
         (q0.ID AS X, q0.COL1 AS Y, q1.ID AS Z) }
     task_count: 152
-    task_total_time_ms: 4
-    transform_count: 41
+    task_total_time_ms: 2
+    transform_count: 43
     transform_time_ms: 1
     transform_yield_count: 13
     insert_time_ms: 0

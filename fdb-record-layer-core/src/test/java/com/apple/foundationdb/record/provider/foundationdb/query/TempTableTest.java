@@ -72,7 +72,7 @@ public class TempTableTest extends TempTableTestBase {
         try (FDBRecordContext context = openContext()) {
             // select id, value from <tempTable>.
             final var tempTable = tempTableInstance();
-            final var tempTableId = CorrelationIdentifier.uniqueID();
+            final var tempTableId = CorrelationIdentifier.uniqueId();
             final var plan = createAndOptimizeTempTableScanPlan(tempTableId);
             addSampleDataToTempTable(tempTable);
             final var expectedResults = ImmutableList.of(Pair.of(42L, "fortySecondValue"),
@@ -87,7 +87,7 @@ public class TempTableTest extends TempTableTestBase {
         try (FDBRecordContext context = openContext()) {
             final var tempTable = tempTableInstance();
             addSampleDataToTempTable(tempTable);
-            final var tempTableId = CorrelationIdentifier.uniqueID();
+            final var tempTableId = CorrelationIdentifier.uniqueId();
             final var tempTableScanQun = Quantifier.forEach(Reference.initialOf(TempTableScanExpression.ofCorrelated(tempTableId, getTempTableType())));
             final var selectExpressionBuilder = GraphExpansion.builder()
                     .addAllResultColumns(ImmutableList.of(getIdCol(tempTableScanQun), getValueCol(tempTableScanQun)))
@@ -107,7 +107,7 @@ public class TempTableTest extends TempTableTestBase {
         // insert into <tempTable> values ((1, 'first'), (2, 'second'))
         try (FDBRecordContext context = openContext()) {
             final var tempTable = tempTableInstance();
-            final var tempTableId = CorrelationIdentifier.uniqueID();
+            final var tempTableId = CorrelationIdentifier.uniqueId();
             final var firstRecord = rcv(1L, "first");
             final var secondArray = rcv(2L, "second");
             final var explodeExpression = new ExplodeExpression(AbstractArrayConstructorValue.LightArrayConstructorValue.of(firstRecord, secondArray));
@@ -132,11 +132,11 @@ public class TempTableTest extends TempTableTestBase {
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
-    void insertIntoTempTableWorksCorrectlyAcrossContinuations() throws Exception {
+    void insertIntoTempTableWorksCorrectlyAcrossContinuations() {
         // insert into <tempTable> values ((1, 'first'), stop, resume, then insert (2, 'second'))
         byte[] continuation = null;
         RecordQueryPlan planToResume = null;
-        final var tempTableId = CorrelationIdentifier.uniqueID();
+        final var tempTableId = CorrelationIdentifier.uniqueId();
 
         {
             final var tempTable = tempTableInstance();
@@ -183,7 +183,7 @@ public class TempTableTest extends TempTableTestBase {
         // select id, value from <tempTable> where id < 44L.
         byte[] continuation = null;
         RecordQueryPlan planToResume = null;
-        final var tempTableId = CorrelationIdentifier.uniqueID();
+        final var tempTableId = CorrelationIdentifier.uniqueId();
         final var tempTable = tempTableInstance();
         try (FDBRecordContext context = openContext()) {
             tempTable.add(queryResult(1L, "one"));

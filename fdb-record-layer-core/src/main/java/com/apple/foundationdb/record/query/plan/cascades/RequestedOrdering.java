@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.Values;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.OrderingValueComputationRuleSet;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.RequestedOrderingValueSimplificationRuleSet;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -88,6 +89,7 @@ public class RequestedOrdering {
         this.valueRequestedSortOrderMapSupplier = Suppliers.memoize(this::computeValueSortOrderMap);
     }
 
+    @Nonnull
     public Distinctness getDistinctness() {
         return distinctness;
     }
@@ -218,6 +220,20 @@ public class RequestedOrdering {
             final var orderingValue = Objects.requireNonNull(pushedDownOrderingValues.get(i));
             final var rebasedOrderingValue = orderingValue.rebase(translationMap);
             pushedDownOrderingPartsBuilder.add(new RequestedOrderingPart(rebasedOrderingValue, orderingPart.getSortOrder()));
+        }
+        return new RequestedOrdering(pushedDownOrderingPartsBuilder.build(), Distinctness.PRESERVE_DISTINCTNESS, isExhaustive());
+    }
+
+    @Nonnull
+    public RequestedOrdering translateCorrelations(@Nonnull TranslationMap translationMap, final boolean shouldSimplify) {
+        //
+        // Need to push every participating value of this requested ordering through the value.
+        //
+        final var pushedDownOrderingPartsBuilder = ImmutableList.<RequestedOrderingPart>builder();
+        for (final var orderingPart : orderingParts) {
+            final var orderingValue = orderingPart.getValue();
+            final var translatedOrderingValue = orderingValue.translateCorrelations(translationMap, shouldSimplify);
+            pushedDownOrderingPartsBuilder.add(new RequestedOrderingPart(translatedOrderingValue, orderingPart.getSortOrder()));
         }
         return new RequestedOrdering(pushedDownOrderingPartsBuilder.build(), Distinctness.PRESERVE_DISTINCTNESS, isExhaustive());
     }

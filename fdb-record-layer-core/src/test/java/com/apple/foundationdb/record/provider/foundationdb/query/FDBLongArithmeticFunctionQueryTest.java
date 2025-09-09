@@ -416,7 +416,7 @@ public class FDBLongArithmeticFunctionQueryTest extends FDBRecordStoreQueryTestB
             openSimpleRecordStore(context, hook);
 
             final String maskResultParam = "masked";
-            final CorrelationIdentifier baseConstantId = CorrelationIdentifier.uniqueID();
+            final CorrelationIdentifier baseConstantId = CorrelationIdentifier.uniqueId();
             final ConstantObjectValue maskConstantValue = ConstantObjectValue.of(baseConstantId, "mask", Type.primitiveType(Type.TypeCode.LONG, false));
             for (int i = 0; i < 3; i++) {
                 final long mask = (1 << i);

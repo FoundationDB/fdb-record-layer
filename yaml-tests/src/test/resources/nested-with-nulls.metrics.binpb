@@ -1,404 +1,401 @@
-‹
+–
 H
-nested-with-nulls-tests-EXPLAIN select id from t1 where a.a.a IS NULLè
-„˙ á^ ≈Ëû(0íá!8$@9ISCAN(I1 <,>) | FILTER _.A.A.A IS_NULL | MAP (_.ID AS ID)∂digraph G {
+nested-with-nulls-tests-EXPLAIN select id from t1 where a.a.a IS NULLÉ
+„«‰Îb áﬁ∂(0ù◊8$@9ISCAN(I1 <,>) | FILTER _.A.A.A IS_NULL | MAP (_.ID AS ID)™digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q41.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.A.A.A IS_NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q45.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.A.A.A IS_NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS A, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS B)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS A, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS B)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS A, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS B)" ];
   3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q41> label="q41" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}‹
+  2 -> 1 [ label=<&nbsp;q45> label="q45" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}–
 H
-nested-with-nulls-tests-EXPLAIN select id from t1 where a.a.b IS NULLè
-„á±^ Ùõœ(0åá&8$@9ISCAN(I1 <,>) | FILTER _.A.A.B IS_NULL | MAP (_.ID AS ID)∂digraph G {
+nested-with-nulls-tests-EXPLAIN select id from t1 where a.a.b IS NULLÉ
+„ƒ‹çb ƒøÙ(0œ†8$@9ISCAN(I1 <,>) | FILTER _.A.A.B IS_NULL | MAP (_.ID AS ID)™digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q41.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.A.A.B IS_NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q45.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.A.A.B IS_NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS A, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS B)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS A, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS B)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS A, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS B)" ];
   3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q41> label="q41" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}≠
+  2 -> 1 [ label=<&nbsp;q45> label="q45" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}¶
 H
-nested-with-nulls-tests-EXPLAIN select id from t1 where a.b.a IS NULL‡
-
-ªëèˇi Ñ∫w($0†Í8-@TCOVERING(I1 [[null],[null]] -> [ID: KEY[2], A: [B: [A: KEY[0]]]]) | MAP (_.ID AS ID)Ì	digraph G {
+nested-with-nulls-tests-EXPLAIN select id from t1 where a.b.a IS NULLŸ
+ªâÀm ˆÏ°($0πÕ*8-@TCOVERING(I1 [[null],[null]] -> [ID: KEY[2], A: [B: [A: KEY[0]]]]) | MAP (_.ID AS ID)Âdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q59.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: [(null), (null)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q65.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: [(null), (null)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS A, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS B)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS A, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS B)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q59> label="q59" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}‹
+  2 -> 1 [ label=<&nbsp;q65> label="q65" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}–
 H
-nested-with-nulls-tests-EXPLAIN select id from t1 where a.b.b IS NULLè
-„©Ùô^ ‡í…(0Âç8$@9ISCAN(I1 <,>) | FILTER _.A.B.B IS_NULL | MAP (_.ID AS ID)∂digraph G {
+nested-with-nulls-tests-EXPLAIN select id from t1 where a.b.b IS NULLÉ
+„Ú∫‹b ˛Åè(0ü±8$@9ISCAN(I1 <,>) | FILTER _.A.B.B IS_NULL | MAP (_.ID AS ID)™digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q41.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.A.B.B IS_NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q45.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.A.B.B IS_NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS A, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS B)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS A, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS B)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS A, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS B)" ];
   3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q41> label="q41" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}‹
+  2 -> 1 [ label=<&nbsp;q45> label="q45" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}–
 H
-nested-with-nulls-tests-EXPLAIN select id from t1 where b.a.a IS NULLè
-„˙éØ^ â‰œ(0äî8$@9ISCAN(I1 <,>) | FILTER _.B.A.A IS_NULL | MAP (_.ID AS ID)∂digraph G {
+nested-with-nulls-tests-EXPLAIN select id from t1 where b.a.a IS NULLÉ
+„∫∫∑b Åü”(0≥•8$@9ISCAN(I1 <,>) | FILTER _.B.A.A IS_NULL | MAP (_.ID AS ID)™digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q41.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.B.A.A IS_NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q45.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.B.A.A IS_NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS A, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS B)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS A, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS B)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS A, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS B)" ];
   3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q41> label="q41" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}‹
+  2 -> 1 [ label=<&nbsp;q45> label="q45" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}–
 H
-nested-with-nulls-tests-EXPLAIN select id from t1 where b.a.b IS NULLè
-„ÄÚ´^ øºõ(0â‰#8$@9ISCAN(I1 <,>) | FILTER _.B.A.B IS_NULL | MAP (_.ID AS ID)∂digraph G {
+nested-with-nulls-tests-EXPLAIN select id from t1 where b.a.b IS NULLÉ
+„ò¶€b ÈÔº(0Ÿ©8$@9ISCAN(I1 <,>) | FILTER _.B.A.B IS_NULL | MAP (_.ID AS ID)™digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q41.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.B.A.B IS_NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q45.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.B.A.B IS_NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS A, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS B)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS A, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS B)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS A, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS B)" ];
   3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q41> label="q41" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}‹
+  2 -> 1 [ label=<&nbsp;q45> label="q45" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}–
 H
-nested-with-nulls-tests-EXPLAIN select id from t1 where b.b.a IS NULLè
-„üº¨^ Çüû(0ïï%8$@9ISCAN(I1 <,>) | FILTER _.B.B.A IS_NULL | MAP (_.ID AS ID)∂digraph G {
+nested-with-nulls-tests-EXPLAIN select id from t1 where b.b.a IS NULLÉ
+„õÌ≤b Îƒ´(0†˜8$@9ISCAN(I1 <,>) | FILTER _.B.B.A IS_NULL | MAP (_.ID AS ID)™digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q41.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.B.B.A IS_NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q45.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.B.B.A IS_NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS A, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS B)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS A, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS B)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS A, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS B)" ];
   3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q41> label="q41" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}‹
+  2 -> 1 [ label=<&nbsp;q45> label="q45" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}–
 H
-nested-with-nulls-tests-EXPLAIN select id from t1 where b.b.b IS NULLè
-„˜ü®^ ∞‹‡(0‘å8$@9ISCAN(I1 <,>) | FILTER _.B.B.B IS_NULL | MAP (_.ID AS ID)∂digraph G {
+nested-with-nulls-tests-EXPLAIN select id from t1 where b.b.b IS NULLÉ
+„√ÑÓb °¢‰(0„Ã&8$@9ISCAN(I1 <,>) | FILTER _.B.B.B IS_NULL | MAP (_.ID AS ID)™digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q41.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.B.B.B IS_NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q45.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.B.B.B IS_NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS A, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS B)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS A, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS B)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS A, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS B)" ];
   3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q41> label="q41" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}·
+  2 -> 1 [ label=<&nbsp;q45> label="q45" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}÷
 L
-nested-with-nulls-tests1EXPLAIN select id from t1 where a.a.a IS NOT NULLê
-„∆Œ„^ —ç~(0˜´8$@:ISCAN(I1 <,>) | FILTER _.A.A.A NOT_NULL | MAP (_.ID AS ID)∑digraph G {
+nested-with-nulls-tests1EXPLAIN select id from t1 where a.a.a IS NOT NULLÖ
+„øË€b á≠‚(0’ö&8$@:ISCAN(I1 <,>) | FILTER _.A.A.A NOT_NULL | MAP (_.ID AS ID)´digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q41.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.A.A.A NOT_NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q45.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.A.A.A NOT_NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS A, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS B)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS A, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS B)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS A, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS B)" ];
   3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q41> label="q41" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}¨
+  2 -> 1 [ label=<&nbsp;q45> label="q45" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}§
 L
-nested-with-nulls-tests1EXPLAIN select id from t1 where a.a.b IS NOT NULL€
-
-∆ÒØë	w ⁄‰˙(&0ò¯-8/@NCOVERING(I2 ([null],> -> [ID: KEY[2], A: [A: [B: KEY[0]]]]) | MAP (_.ID AS ID)Ì	digraph G {
+nested-with-nulls-tests1EXPLAIN select id from t1 where a.a.b IS NOT NULL”
+∆ëﬂö{ Éüﬁ(&0˜ò,8/@NCOVERING(I2 ([null],> -> [ID: KEY[2], A: [A: [B: KEY[0]]]]) | MAP (_.ID AS ID)Âdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q62.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: ((null), ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q69.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: ((null), ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS A, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS B)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS A, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS B)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q62> label="q62" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}¨
+  2 -> 1 [ label=<&nbsp;q69> label="q69" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}§
 L
-nested-with-nulls-tests1EXPLAIN select id from t1 where a.b.a IS NOT NULL€
-
-ª¥∏Üi ∏‡ô($0É∫-8-@NCOVERING(I1 ([null],> -> [ID: KEY[2], A: [B: [A: KEY[0]]]]) | MAP (_.ID AS ID)Ì	digraph G {
+nested-with-nulls-tests1EXPLAIN select id from t1 where a.b.a IS NOT NULL”
+ªïÿ«	m ¬à≤($0‘ê28-@NCOVERING(I1 ([null],> -> [ID: KEY[2], A: [B: [A: KEY[0]]]]) | MAP (_.ID AS ID)Âdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q59.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: ((null), ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q65.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: ((null), ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS A, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS B)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS A, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS B)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q59> label="q59" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}‚
+  2 -> 1 [ label=<&nbsp;q65> label="q65" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}÷
 L
-nested-with-nulls-tests1EXPLAIN select id from t1 where a.b.b IS NOT NULLë
-„¥≥∂^ ¡ºà(0îæ8$@:ISCAN(I1 <,>) | FILTER _.A.B.B NOT_NULL | MAP (_.ID AS ID)∑digraph G {
+nested-with-nulls-tests1EXPLAIN select id from t1 where a.b.b IS NOT NULLÖ
+„ÃªÏb ≠µø(0†¡#8$@:ISCAN(I1 <,>) | FILTER _.A.B.B NOT_NULL | MAP (_.ID AS ID)´digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q41.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.A.B.B NOT_NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q45.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.A.B.B NOT_NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS A, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS B)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS A, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS B)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS A, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS B)" ];
   3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q41> label="q41" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}‚
+  2 -> 1 [ label=<&nbsp;q45> label="q45" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}÷
 L
-nested-with-nulls-tests1EXPLAIN select id from t1 where b.a.a IS NOT NULLë
-„≥∆õ^ Æ»ó(0≈∂8$@:ISCAN(I1 <,>) | FILTER _.B.A.A NOT_NULL | MAP (_.ID AS ID)∑digraph G {
+nested-with-nulls-tests1EXPLAIN select id from t1 where b.a.a IS NOT NULLÖ
+„‹ÿ‰b ‚‹õ(0éµ$8$@:ISCAN(I1 <,>) | FILTER _.B.A.A NOT_NULL | MAP (_.ID AS ID)´digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q41.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.B.A.A NOT_NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q45.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.B.A.A NOT_NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS A, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS B)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS A, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS B)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS A, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS B)" ];
   3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q41> label="q41" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}‚
+  2 -> 1 [ label=<&nbsp;q45> label="q45" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}’
 L
-nested-with-nulls-tests1EXPLAIN select id from t1 where b.a.b IS NOT NULLë
-„∞∆‘^ ÙßÎ(0ˆõ8$@:ISCAN(I1 <,>) | FILTER _.B.A.B NOT_NULL | MAP (_.ID AS ID)∑digraph G {
+nested-with-nulls-tests1EXPLAIN select id from t1 where b.a.b IS NOT NULLÑ
+„öñˆb È™z(0à§8$@:ISCAN(I1 <,>) | FILTER _.B.A.B NOT_NULL | MAP (_.ID AS ID)´digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q41.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.B.A.B NOT_NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q45.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.B.A.B NOT_NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS A, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS B)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS A, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS B)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS A, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS B)" ];
   3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q41> label="q41" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}‚
+  2 -> 1 [ label=<&nbsp;q45> label="q45" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}÷
 L
-nested-with-nulls-tests1EXPLAIN select id from t1 where b.b.a IS NOT NULLë
-„Ö≤≠^ ¯ã”(0ê«'8$@:ISCAN(I1 <,>) | FILTER _.B.B.A NOT_NULL | MAP (_.ID AS ID)∑digraph G {
+nested-with-nulls-tests1EXPLAIN select id from t1 where b.b.a IS NOT NULLÖ
+„Õµ—b Ô„â(0Á≈#8$@:ISCAN(I1 <,>) | FILTER _.B.B.A NOT_NULL | MAP (_.ID AS ID)´digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q41.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.B.B.A NOT_NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q45.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.B.B.A NOT_NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS A, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS B)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS A, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS B)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS A, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS B)" ];
   3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q41> label="q41" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}‚
+  2 -> 1 [ label=<&nbsp;q45> label="q45" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}÷
 L
-nested-with-nulls-tests1EXPLAIN select id from t1 where b.b.b IS NOT NULLë
-„⁄Ñü^ ¶ä≈(0»õ'8$@:ISCAN(I1 <,>) | FILTER _.B.B.B NOT_NULL | MAP (_.ID AS ID)∑digraph G {
+nested-with-nulls-tests1EXPLAIN select id from t1 where b.b.b IS NOT NULLÖ
+„Ω¨Ÿb Ì≈Ê(0≥ß%8$@:ISCAN(I1 <,>) | FILTER _.B.B.B NOT_NULL | MAP (_.ID AS ID)´digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q41.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.B.B.B NOT_NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q45.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.B.B.B NOT_NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS A, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS B)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS A, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS B)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS A, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS B)" ];
   3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q41> label="q41" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Ô
+  2 -> 1 [ label=<&nbsp;q45> label="q45" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}„
 Y
-nested-with-nulls-tests>EXPLAIN select id from t1 where coalesce(a.a.a, 'blah') = 'a1'ë
-Û±É—c æ·ù( 0Ô¬8(@zISCAN(I1 <,>) | FILTER coalesce_string(_.A.A.A, promote(@c14 AS STRING)) EQUALS promote(@c17 AS STRING) | MAP (_.ID AS ID)˜digraph G {
+nested-with-nulls-tests>EXPLAIN select id from t1 where coalesce(a.a.a, 'blah') = 'a1'Ö
+Û≥ùƒg ÈÅ∫( 0Ôë8(@zISCAN(I1 <,>) | FILTER coalesce_string(_.A.A.A, promote(@c14 AS STRING)) EQUALS promote(@c17 AS STRING) | MAP (_.ID AS ID)Îdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q42.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE coalesce_string(q2.A.A.A, promote(@c14 AS STRING)) EQUALS promote(@c17 AS STRING)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q46.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE coalesce_string(q2.A.A.A, promote(@c14 AS STRING)) EQUALS promote(@c17 AS STRING)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS A, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS B)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS A, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS B)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS A, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS B)" ];
   3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q42> label="q42" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}
+  2 -> 1 [ label=<&nbsp;q46> label="q46" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}‰
 Z
-nested-with-nulls-tests?EXPLAIN select id from t1 where coalesce(a.a.a, 'blah') = 'a1p'ë
-Û±É—c æ·ù( 0Ô¬8(@zISCAN(I1 <,>) | FILTER coalesce_string(_.A.A.A, promote(@c14 AS STRING)) EQUALS promote(@c17 AS STRING) | MAP (_.ID AS ID)˜digraph G {
+nested-with-nulls-tests?EXPLAIN select id from t1 where coalesce(a.a.a, 'blah') = 'a1p'Ö
+Û≥ùƒg ÈÅ∫( 0Ôë8(@zISCAN(I1 <,>) | FILTER coalesce_string(_.A.A.A, promote(@c14 AS STRING)) EQUALS promote(@c17 AS STRING) | MAP (_.ID AS ID)Îdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q42.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE coalesce_string(q2.A.A.A, promote(@c14 AS STRING)) EQUALS promote(@c17 AS STRING)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q46.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE coalesce_string(q2.A.A.A, promote(@c14 AS STRING)) EQUALS promote(@c17 AS STRING)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS A, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS B)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS A, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS B)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS A, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS B)" ];
   3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q42> label="q42" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}»
+  2 -> 1 [ label=<&nbsp;q46> label="q46" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}º
 ^
-nested-with-nulls-testsCEXPLAIN select id from t1 where coalesce(a.a.a, 'blah') IS NOT NULLÂ
-ÛÍ⁄°c °íª( 0…ﬁ'8(@dISCAN(I1 <,>) | FILTER coalesce_string(_.A.A.A, promote(@c14 AS STRING)) NOT_NULL | MAP (_.ID AS ID)·digraph G {
+nested-with-nulls-testsCEXPLAIN select id from t1 where coalesce(a.a.a, 'blah') IS NOT NULLŸ
+ÛóÅg ∂∏–( 0Øˇ$8(@dISCAN(I1 <,>) | FILTER coalesce_string(_.A.A.A, promote(@c14 AS STRING)) NOT_NULL | MAP (_.ID AS ID)’digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q42.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE coalesce_string(q2.A.A.A, promote(@c14 AS STRING)) NOT_NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q46.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE coalesce_string(q2.A.A.A, promote(@c14 AS STRING)) NOT_NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS A, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS B)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS A, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS B)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS A, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS B)" ];
   3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q42> label="q42" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}†
+  2 -> 1 [ label=<&nbsp;q46> label="q46" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}î
 \
-nested-with-nulls-testsAEXPLAIN select id from t1 where coalesce(a.a.a, null) IS NOT NULLø
-Ûéó¨c Áí∑( 0º≥)8(@QISCAN(I1 <,>) | FILTER coalesce_string(_.A.A.A, NULL) NOT_NULL | MAP (_.ID AS ID)Œdigraph G {
+nested-with-nulls-testsAEXPLAIN select id from t1 where coalesce(a.a.a, null) IS NOT NULL≥
+Û∑»ﬁg ñéì( 0ã— 8(@QISCAN(I1 <,>) | FILTER coalesce_string(_.A.A.A, NULL) NOT_NULL | MAP (_.ID AS ID)¬digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q42.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE coalesce_string(q2.A.A.A, NULL) NOT_NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q46.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE coalesce_string(q2.A.A.A, NULL) NOT_NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS A, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS B)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS A, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS B)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS A, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS B)" ];
   3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q42> label="q42" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Ì
+  2 -> 1 [ label=<&nbsp;q46> label="q46" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}·
 W
-nested-with-nulls-tests<EXPLAIN select id from t1 where coalesce(a.b.a, 'a2') = 'a2'ë
-Û≈≠™c ∫Öí( 0É¬8(@zISCAN(I1 <,>) | FILTER coalesce_string(_.A.B.A, promote(@c14 AS STRING)) EQUALS promote(@c14 AS STRING) | MAP (_.ID AS ID)˜digraph G {
+nested-with-nulls-tests<EXPLAIN select id from t1 where coalesce(a.b.a, 'a2') = 'a2'Ö
+ÛπÑÁg ßÂﬂ( 0ÕÕ#8(@zISCAN(I1 <,>) | FILTER coalesce_string(_.A.B.A, promote(@c14 AS STRING)) EQUALS promote(@c14 AS STRING) | MAP (_.ID AS ID)Îdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q42.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE coalesce_string(q2.A.B.A, promote(@c14 AS STRING)) EQUALS promote(@c14 AS STRING)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q46.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE coalesce_string(q2.A.B.A, promote(@c14 AS STRING)) EQUALS promote(@c14 AS STRING)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS A, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS B)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS A, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS B)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS A, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS B)" ];
   3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q42> label="q42" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Ô
+  2 -> 1 [ label=<&nbsp;q46> label="q46" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}„
 Y
-nested-with-nulls-tests>EXPLAIN select id from t1 where coalesce(a.b.a, 'foo') = 'foo'ë
-Û≈≠™c ∫Öí( 0É¬8(@zISCAN(I1 <,>) | FILTER coalesce_string(_.A.B.A, promote(@c14 AS STRING)) EQUALS promote(@c14 AS STRING) | MAP (_.ID AS ID)˜digraph G {
+nested-with-nulls-tests>EXPLAIN select id from t1 where coalesce(a.b.a, 'foo') = 'foo'Ö
+ÛπÑÁg ßÂﬂ( 0ÕÕ#8(@zISCAN(I1 <,>) | FILTER coalesce_string(_.A.B.A, promote(@c14 AS STRING)) EQUALS promote(@c14 AS STRING) | MAP (_.ID AS ID)Îdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q42.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE coalesce_string(q2.A.B.A, promote(@c14 AS STRING)) EQUALS promote(@c14 AS STRING)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q46.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE coalesce_string(q2.A.B.A, promote(@c14 AS STRING)) EQUALS promote(@c14 AS STRING)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS A, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS B)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS A, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS B)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS A, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS B)" ];
   3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q42> label="q42" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}¡
+  2 -> 1 [ label=<&nbsp;q46> label="q46" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}µ
 Y
-nested-with-nulls-tests>EXPLAIN select id from t1 where coalesce(a.b.a, 'foo') IS NULL„
-Ûá…˙c íπÉ( 0‡ú8(@cISCAN(I1 <,>) | FILTER coalesce_string(_.A.B.A, promote(@c14 AS STRING)) IS_NULL | MAP (_.ID AS ID)‡digraph G {
+nested-with-nulls-tests>EXPLAIN select id from t1 where coalesce(a.b.a, 'foo') IS NULL◊
+Ûóÿîg ›õò( 0∞©8(@cISCAN(I1 <,>) | FILTER coalesce_string(_.A.B.A, promote(@c14 AS STRING)) IS_NULL | MAP (_.ID AS ID)‘digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q42.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE coalesce_string(q2.A.B.A, promote(@c14 AS STRING)) IS_NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q46.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE coalesce_string(q2.A.B.A, promote(@c14 AS STRING)) IS_NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS A, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS B)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS A, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS B)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS A, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS B)" ];
   3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q42> label="q42" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}ö
+  2 -> 1 [ label=<&nbsp;q46> label="q46" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}é
 X
-nested-with-nulls-tests=EXPLAIN select id from t1 where coalesce(a.b.a, null) IS NULLΩ
-Û´„ìc Â¯°( 0À˜8(@PISCAN(I1 <,>) | FILTER coalesce_string(_.A.B.A, NULL) IS_NULL | MAP (_.ID AS ID)Õdigraph G {
+nested-with-nulls-tests=EXPLAIN select id from t1 where coalesce(a.b.a, null) IS NULL±
+ÛÌ£™g ∑¯—( 0¥ƒ8(@PISCAN(I1 <,>) | FILTER coalesce_string(_.A.B.A, NULL) IS_NULL | MAP (_.ID AS ID)¡digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q42.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE coalesce_string(q2.A.B.A, NULL) IS_NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q46.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE coalesce_string(q2.A.B.A, NULL) IS_NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS A, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS B)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS A, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS B)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS A, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS B)" ];
   3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q42> label="q42" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}«
+  2 -> 1 [ label=<&nbsp;q46> label="q46" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}ª
 ]
-nested-with-nulls-testsBEXPLAIN select id from t1 where coalesce(a.b.a, 'foo') IS NOT NULLÂ
-Û„ì¥c °ﬁ∏( 0˝Û(8(@dISCAN(I1 <,>) | FILTER coalesce_string(_.A.B.A, promote(@c14 AS STRING)) NOT_NULL | MAP (_.ID AS ID)·digraph G {
+nested-with-nulls-testsBEXPLAIN select id from t1 where coalesce(a.b.a, 'foo') IS NOT NULLŸ
+Û„Á∆g Àõü( 0Ì◊8(@dISCAN(I1 <,>) | FILTER coalesce_string(_.A.B.A, promote(@c14 AS STRING)) NOT_NULL | MAP (_.ID AS ID)’digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q42.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE coalesce_string(q2.A.B.A, promote(@c14 AS STRING)) NOT_NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q46.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE coalesce_string(q2.A.B.A, promote(@c14 AS STRING)) NOT_NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS A, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS B)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS A, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS B)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS A, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS B)" ];
   3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q42> label="q42" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}€
+  2 -> 1 [ label=<&nbsp;q46> label="q46" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}œ
 Q
-nested-with-nulls-tests6EXPLAIN select id from t1 where coalesce(b.a.b, 3) = 3Ö
-„ﬂ±∆^ ¡ªÓ(0öµ(8$@tISCAN(I1 <,>) | FILTER coalesce_long(_.B.A.B, promote(@c14 AS LONG)) EQUALS promote(@c14 AS LONG) | MAP (_.ID AS ID)Òdigraph G {
+nested-with-nulls-tests6EXPLAIN select id from t1 where coalesce(b.a.b, 3) = 3˘
+„–˝Âb ˘¬˘(0Œ€#8$@tISCAN(I1 <,>) | FILTER coalesce_long(_.B.A.B, promote(@c14 AS LONG)) EQUALS promote(@c14 AS LONG) | MAP (_.ID AS ID)Âdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q41.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE coalesce_long(q2.B.A.B, promote(@c14 AS LONG)) EQUALS promote(@c14 AS LONG)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q45.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE coalesce_long(q2.B.A.B, promote(@c14 AS LONG)) EQUALS promote(@c14 AS LONG)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS A, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS B)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS A, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS B)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS A, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS B)" ];
   3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q41> label="q41" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}›
+  2 -> 1 [ label=<&nbsp;q45> label="q45" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}—
 S
-nested-with-nulls-tests8EXPLAIN select id from t1 where coalesce(b.a.b, 42) = 42Ö
-„ﬂ±∆^ ¡ªÓ(0öµ(8$@tISCAN(I1 <,>) | FILTER coalesce_long(_.B.A.B, promote(@c14 AS LONG)) EQUALS promote(@c14 AS LONG) | MAP (_.ID AS ID)Òdigraph G {
+nested-with-nulls-tests8EXPLAIN select id from t1 where coalesce(b.a.b, 42) = 42˘
+„–˝Âb ˘¬˘(0Œ€#8$@tISCAN(I1 <,>) | FILTER coalesce_long(_.B.A.B, promote(@c14 AS LONG)) EQUALS promote(@c14 AS LONG) | MAP (_.ID AS ID)Âdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q41.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE coalesce_long(q2.B.A.B, promote(@c14 AS LONG)) EQUALS promote(@c14 AS LONG)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q45.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE coalesce_long(q2.B.A.B, promote(@c14 AS LONG)) EQUALS promote(@c14 AS LONG)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS A, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS B)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS A, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS B)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS A, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS B)" ];
   3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q41> label="q41" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}∂
+  2 -> 1 [ label=<&nbsp;q45> label="q45" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}™
 V
-nested-with-nulls-tests;EXPLAIN select id from t1 where coalesce(b.a.b, 42) IS NULL€
-„åùÄ^ Ÿ«ß(0ûƒ"8$@_ISCAN(I1 <,>) | FILTER coalesce_long(_.B.A.B, promote(@c14 AS LONG)) IS_NULL | MAP (_.ID AS ID)‹digraph G {
+nested-with-nulls-tests;EXPLAIN select id from t1 where coalesce(b.a.b, 42) IS NULLœ
+„Â∏çb ◊ôÜ(0ﬂ‚8$@_ISCAN(I1 <,>) | FILTER coalesce_long(_.B.A.B, promote(@c14 AS LONG)) IS_NULL | MAP (_.ID AS ID)–digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q41.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE coalesce_long(q2.B.A.B, promote(@c14 AS LONG)) IS_NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q45.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE coalesce_long(q2.B.A.B, promote(@c14 AS LONG)) IS_NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS A, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS B)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS A, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS B)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS A, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS B)" ];
   3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q41> label="q41" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}º
+  2 -> 1 [ label=<&nbsp;q45> label="q45" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}∞
 Z
-nested-with-nulls-tests?EXPLAIN select id from t1 where coalesce(b.a.b, 42) IS NOT NULL›
-„ñÅë^ Ûæ´(0∑Ö"8$@`ISCAN(I1 <,>) | FILTER coalesce_long(_.B.A.B, promote(@c14 AS LONG)) NOT_NULL | MAP (_.ID AS ID)›digraph G {
+nested-with-nulls-tests?EXPLAIN select id from t1 where coalesce(b.a.b, 42) IS NOT NULL—
+„’÷Üb Ÿœ†(0‹˛8$@`ISCAN(I1 <,>) | FILTER coalesce_long(_.B.A.B, promote(@c14 AS LONG)) NOT_NULL | MAP (_.ID AS ID)—digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q41.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE coalesce_long(q2.B.A.B, promote(@c14 AS LONG)) NOT_NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q45.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE coalesce_long(q2.B.A.B, promote(@c14 AS LONG)) NOT_NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS A, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS B)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS A, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS B)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS A, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS B)" ];
   3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q41> label="q41" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q45> label="q45" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
 }
