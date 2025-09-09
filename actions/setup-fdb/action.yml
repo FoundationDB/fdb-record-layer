@@ -46,6 +46,9 @@ runs:
     - name: Update cluster2 config file
       shell: bash
       run: sudo sed -i -e "s/cluster_file = .*/cluster_file = \/etc\/foundationdb\/fdb2.cluster/" /etc/foundationdb/foundationdb2.conf
+    - name: debugging
+      shell: bash
+      run: ls -l lh /etc/foundationdb
     - name: Start FDB Server 1
       shell: bash
       run: sudo /usr/lib/foundationdb/fdbmonitor /etc/foundationdb/foundationdb1.conf --daemonize
