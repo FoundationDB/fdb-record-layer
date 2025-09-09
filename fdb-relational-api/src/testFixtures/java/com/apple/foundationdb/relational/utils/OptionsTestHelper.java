@@ -33,7 +33,7 @@ public class OptionsTestHelper {
 
     public static Options nonDefaultOptions() throws SQLException {
         Options.Builder builder = Options.builder();
-        // Cannot do CONTINUATION, since there is no implementation available.
+        // Cannot do CONTINUATION, since the Impl class is in -core and not -api.
         builder = builder.withOption(Options.Name.INDEX_HINT, "thisIndex");
         builder = builder.withOption(Options.Name.MAX_ROWS, 5);
         builder = builder.withOption(Options.Name.REQUIRED_METADATA_TABLE_VERSION, 123);
@@ -61,7 +61,7 @@ public class OptionsTestHelper {
         builder = builder.withOption(Options.Name.ASYNC_OPERATIONS_TIMEOUT_MILLIS, 5000L);
         Options options = builder.build();
         for (Options.Name name : Options.Name.values()) {
-            if (name != Options.Name.CONTINUATION) {
+            if (name != Options.Name.CONTINUATION) {    // See above on why CONTINUATION was skipped.
                 Object value = options.getOption(name);
                 Assertions.assertThat(value).as(name.name()).isNotEqualTo(Options.defaultOptions().get(name));
             }

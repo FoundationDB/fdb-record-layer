@@ -688,7 +688,7 @@ public class TypeConversion {
             builder.withOption(Options.Name.MAX_ROWS, protoOptions.getMaxRows());
         }
         if (protoOptions.hasContinuation()) {
-            // TODO: Don't have Impl class here.
+            // TODO: The Impl class lives in relational-core.
             builder.withOption(Options.Name.CONTINUATION, protoOptions.getContinuation().toByteArray());
         }
         if (protoOptions.hasIndexHint()) {
