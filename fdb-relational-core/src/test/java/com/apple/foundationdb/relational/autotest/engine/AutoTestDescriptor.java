@@ -62,11 +62,12 @@ class AutoTestDescriptor extends ClassTestDescriptor {
     private final QueryInvoker queryInvoker;
     private final List<ConnectionMaker> connectionMakers;
     private final ConfigurationInvoker configInvoker;
-    private static final WorkloadConfig defaultConfig = new WorkloadConfig(Map.of(
-            WorkloadConfig.SEED_KEY, System.currentTimeMillis(),
-            WorkloadConfig.INSERT_BATCH_SIZE, 16,
-            WorkloadConfig.SAMPLE_SIZE, 128,
-            WorkloadConfig.REPORT_DIRECTORY, System.getProperty("user.dir")
+    private static final WorkloadConfig defaultConfig = new WorkloadConfig(
+            System.currentTimeMillis(),
+            System.getProperty("user.dir"),
+            Map.of(
+                    WorkloadConfig.INSERT_BATCH_SIZE, 16,
+                    WorkloadConfig.SAMPLE_SIZE, 128
     ));
 
     AutoTestDescriptor(UniqueId uniqueId,

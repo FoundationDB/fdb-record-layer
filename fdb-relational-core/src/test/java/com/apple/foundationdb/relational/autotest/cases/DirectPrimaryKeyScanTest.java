@@ -61,18 +61,19 @@ public class DirectPrimaryKeyScanTest {
     public static final EmbeddedRelationalExtension relational = new EmbeddedRelationalExtension();
 
     @WorkloadConfiguration
-    public WorkloadConfig config = new WorkloadConfig(Map.of(
-            "seed", 1L,
-            WorkloadConfig.REPORT_DIRECTORY, System.getProperty("user.dir") + "/.out/reports/autoTest/" + getClass().getSimpleName(),
-            "maxStringLength", 10,
-            "maxBytesLength", 10,
-            "maxArrayLength", 10,
-            "maxTables", 1,
-            "maxStructs", 2,
-            "maxColumns", 5,
-            "numSchemas", 2,
-            "recordsPerTable", 10
-    ));
+    public WorkloadConfig config = new WorkloadConfig(
+            1L,
+            System.getProperty("user.dir") + "/.out/reports/autoTest/" + getClass().getSimpleName(),
+            Map.of(
+                    "maxStringLength", 10,
+                    "maxBytesLength", 10,
+                    "maxArrayLength", 10,
+                    "maxTables", 1,
+                    "maxStructs", 2,
+                    "maxColumns", 5,
+                    "numSchemas", 2,
+                    "recordsPerTable", 10
+            ));
 
     @Connection
     public Connector relationalConnector = new Connector() {
@@ -104,7 +105,7 @@ public class DirectPrimaryKeyScanTest {
 
     @Schema
     public Stream<SchemaDescription> getSchemas(WorkloadConfig cfg) throws SQLException {
-        RandomDataSource rds = new UniformDataSource(cfg.getLong("seed"),
+        RandomDataSource rds = new UniformDataSource(cfg.getSeed(),
                 cfg.getInt("maxStringLength"),
                 cfg.getInt("maxBytesLength"));
         SchemaGenerator generator = new SchemaGenerator(rds, cfg.getInt("maxTables"),
@@ -125,7 +126,7 @@ public class DirectPrimaryKeyScanTest {
 
     @Data
     public final DataSet dataSet() {
-        return new RandomDataSet(config.getLong("seed"),
+        return new RandomDataSet(config.getSeed(),
                 config.getInt("maxArrayLength"),
                 config.getInt("recordsPerTable"),
                 config.getInt("maxStringLength"),
