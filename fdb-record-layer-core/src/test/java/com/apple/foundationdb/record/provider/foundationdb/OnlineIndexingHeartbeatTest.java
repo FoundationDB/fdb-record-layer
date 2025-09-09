@@ -33,6 +33,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 
+import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -246,23 +247,7 @@ class OnlineIndexingHeartbeatTest extends OnlineIndexerTest {
                 startSemaphore.release();
                 pauseSemaphore.release();
             } else {
-                AtomicInteger counter = new AtomicInteger(0);
-                try (OnlineIndexer indexer = newIndexerBuilder(indexes)
-                        .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
-                                .setMutualIndexingBoundaries(boundariesList))
-                        .setConfigLoader(old -> {
-                            if (counter.incrementAndGet() > 0) {
-                                if (count.incrementAndGet() == 2) {
-                                    startSemaphore.release();
-                                }
-                                Assertions.assertDoesNotThrow(() -> pauseSemaphore.acquire());
-                                pauseSemaphore.release();
-                            }
-                            return old;
-                        })
-                        .build()) {
-                    indexer.buildIndex();
-                }
+                buildIndexWithPause(indexes, boundariesList, count, startSemaphore, pauseSemaphore);
             }
         });
         // While building, heartbeats count should have been 3
@@ -271,6 +256,26 @@ class OnlineIndexingHeartbeatTest extends OnlineIndexerTest {
         // After building, heartbeats count should be 0
         try (OnlineIndexer indexer = newIndexerBuilder(indexes).build()) {
             heartbeats.set(indexer.getIndexingHeartbeats(0));
+        }
+    }
+
+    private void buildIndexWithPause(final List<Index> indexes, final List<Tuple> boundariesList, final AtomicInteger count, final Semaphore startSemaphore, final Semaphore pauseSemaphore) {
+        AtomicInteger counter = new AtomicInteger(0);
+        try (OnlineIndexer indexer = newIndexerBuilder(indexes)
+                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                        .setMutualIndexingBoundaries(boundariesList))
+                .setConfigLoader(old -> {
+                    if (counter.incrementAndGet() > 0) {
+                        if (count.incrementAndGet() == 2) {
+                            startSemaphore.release();
+                        }
+                        Assertions.assertDoesNotThrow(() -> pauseSemaphore.acquire());
+                        pauseSemaphore.release();
+                    }
+                    return old;
+                })
+                .build()) {
+            indexer.buildIndex();
         }
     }
 
@@ -290,35 +295,11 @@ class OnlineIndexingHeartbeatTest extends OnlineIndexerTest {
         final List<Map<UUID, IndexBuildProto.IndexBuildHeartbeat>> heartbeatsQueries = new ArrayList<>();
 
         Semaphore indexerGo = new Semaphore(1);
-        Semaphore colectorGo = new Semaphore(1);
+        Semaphore collectorGo = new Semaphore(1);
         AtomicBoolean indexerDone = new AtomicBoolean(false);
-        colectorGo.acquire();
-        Thread indexerThread = new Thread( () -> {
-            try (OnlineIndexer indexer = newIndexerBuilder(indexes)
-                    .setLimit(10)
-                    .setConfigLoader(old -> {
-                        colectorGo.release();
-                        Assertions.assertDoesNotThrow(() -> indexerGo.acquire());
-                        return old;
-                    })
-                    .build()) {
-                indexer.buildIndex();
-            }
-            colectorGo.release();
-            indexerDone.set(true);
-        });
-
-        Thread collectorThread = new Thread(() -> {
-            while (!indexerDone.get()) {
-                Assertions.assertDoesNotThrow(() -> colectorGo.acquire());
-                try (FDBRecordContext context = openContext()) {
-                    final Map<UUID, IndexBuildProto.IndexBuildHeartbeat> heartbeats = IndexingHeartbeat.getIndexingHeartbeats(recordStore, indexes.get(0), 0).join();
-                    heartbeatsQueries.add(heartbeats);
-                    context.commit();
-                }
-                indexerGo.release();
-            }
-        });
+        collectorGo.acquire();
+        Thread indexerThread = buildIndexesThread(indexes, collectorGo, indexerGo, indexerDone);
+        Thread collectorThread = collectHeartbeatsThread(indexerDone, collectorGo, indexes, heartbeatsQueries, indexerGo);
         indexerThread.start();
         collectorThread.start();
         collectorThread.join();
@@ -338,5 +319,38 @@ class OnlineIndexingHeartbeatTest extends OnlineIndexerTest {
                     .isGreaterThan(previous.getValue().getHeartbeatTimeMilliseconds());
             previous = item;
         }
+    }
+
+    @Nonnull
+    private Thread collectHeartbeatsThread(final AtomicBoolean indexerDone, final Semaphore colectorGo, final List<Index> indexes, final List<Map<UUID, IndexBuildProto.IndexBuildHeartbeat>> heartbeatsQueries, final Semaphore indexerGo) {
+        return new Thread(() -> {
+            while (!indexerDone.get()) {
+                Assertions.assertDoesNotThrow(() -> colectorGo.acquire());
+                try (FDBRecordContext context = openContext()) {
+                    final Map<UUID, IndexBuildProto.IndexBuildHeartbeat> heartbeats = IndexingHeartbeat.getIndexingHeartbeats(recordStore, indexes.get(0), 0).join();
+                    heartbeatsQueries.add(heartbeats);
+                    context.commit();
+                }
+                indexerGo.release();
+            }
+        });
+    }
+
+    @Nonnull
+    private Thread buildIndexesThread(final List<Index> indexes, final Semaphore colectorGo, final Semaphore indexerGo, final AtomicBoolean indexerDone) {
+        return new Thread(() -> {
+            try (OnlineIndexer indexer = newIndexerBuilder(indexes)
+                    .setLimit(10)
+                    .setConfigLoader(old -> {
+                        colectorGo.release();
+                        Assertions.assertDoesNotThrow(() -> indexerGo.acquire());
+                        return old;
+                    })
+                    .build()) {
+                indexer.buildIndex();
+            }
+            colectorGo.release();
+            indexerDone.set(true);
+        });
     }
 }

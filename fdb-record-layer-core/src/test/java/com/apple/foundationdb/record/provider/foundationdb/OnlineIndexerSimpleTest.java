@@ -897,28 +897,15 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
     @ParameterizedTest
     @BooleanSource
     @SuppressWarnings("removal")
-    void testDeprecatedSetUseSynchronizedSession(boolean useSynchronizedSession) throws InterruptedException {
+    void testExclusiveBuildRegardlessOfSettingDeprecatedSynchronizedSession(boolean useSynchronizedSession) throws InterruptedException {
         // regardless of useSynchronizedSession's value, the build should be exclusive
         Index index = new Index("simple$value_2", field("num_value_2").ungrouped(), IndexTypes.SUM);
         FDBRecordStoreTestBase.RecordMetaDataHook hook = metaDataBuilder -> metaDataBuilder.addIndex("MySimpleRecord", index);
-        populateData(20);
-
-        // phase 1: successfully build
+        populateData(21);
         openSimpleMetaData(hook);
         disableAll(List.of(index));
-        try (OnlineIndexer indexBuilder = newIndexerBuilder(index)
-                .setUseSynchronizedSession(useSynchronizedSession)
-                .setConfigLoader(old -> {
-                    assertTrue(old.shouldUseSynchronizedSession());
-                    return old;
-                })
-                .build()) {
-            indexBuilder.buildIndex();
-        }
-        assertReadable(index);
 
-        // Now disable and ensure exclusive build
-        disableAll(List.of(index));
+        // ensure exclusive build
         Semaphore pauseMutualBuildSemaphore = new Semaphore(1);
         Semaphore startBuildingSemaphore =  new Semaphore(1);
         pauseMutualBuildSemaphore.acquire();
@@ -963,6 +950,31 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
         pauseMutualBuildSemaphore.release();
         t1.join();
         // happy indexes assertion
+        assertReadable(index);
+    }
+
+    @ParameterizedTest
+    @BooleanSource
+    @SuppressWarnings("removal")
+    void testSuccessfullyBuildWithDeprecatedApiFunctions(final boolean useSynchronizedSession) {
+        Index index = new Index("simple$value_2", field("num_value_2").ungrouped(), IndexTypes.SUM);
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = metaDataBuilder -> metaDataBuilder.addIndex("MySimpleRecord", index);
+        populateData(20);
+
+        openSimpleMetaData(hook);
+        disableAll(List.of(index));
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(index)
+                .setLimit(3)
+                .setUseSynchronizedSession(useSynchronizedSession) // ignored value
+                .setConfigLoader(old -> {
+                    assertTrue(old.shouldUseSynchronizedSession());
+                    return old.toBuilder().setUseSynchronizedSession(useSynchronizedSession).build(); // ignored value
+                })
+                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                        .checkIndexingStampFrequencyMilliseconds(useSynchronizedSession ? 5_000 : 0)) // ignored value
+                .build()) {
+            indexBuilder.buildIndex();
+        }
         assertReadable(index);
     }
 }
