@@ -26,6 +26,7 @@ import org.junit.jupiter.api.extension.ParameterResolutionException;
 import org.junit.jupiter.api.extension.ParameterResolver;
 
 import java.util.Map;
+import java.util.concurrent.ThreadLocalRandom;
 
 public class WorkloadConfig implements ParameterResolver {
     public static final String SAMPLE_SIZE = "sampleSize";
@@ -35,8 +36,13 @@ public class WorkloadConfig implements ParameterResolver {
     private final String reportDirectory;
     private final Map<String, Object> configs;
 
-    public WorkloadConfig(long seed, String reportDirectory, Map<String, Object> otherConfigs) {
-        this.seed = seed;
+    public WorkloadConfig(String reportDirectory, Map<String, Object> otherConfigs) {
+        final boolean includeRandom = Boolean.parseBoolean(System.getProperty("tests.includeRandom", "false"));
+        if (includeRandom) {
+            this.seed = ThreadLocalRandom.current().nextLong();
+        } else {
+            this.seed = Long.parseLong(System.getProperty("tests.autoSeed", "2363712622230246740"));
+        }
         this.reportDirectory = reportDirectory;
         this.configs = Map.copyOf(otherConfigs);
     }

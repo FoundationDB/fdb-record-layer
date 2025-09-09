@@ -62,7 +62,6 @@ public class KnownPkGetTest {
 
     @WorkloadConfiguration
     public WorkloadConfig config = new WorkloadConfig(
-            1L,
             System.getProperty("user.dir") + "/.out/reports/autoTest/" + KnownPkGetTest.class.getSimpleName(),
             Map.of(
                     "maxStringLength", 10,

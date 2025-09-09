@@ -63,7 +63,6 @@ class AutoTestDescriptor extends ClassTestDescriptor {
     private final List<ConnectionMaker> connectionMakers;
     private final ConfigurationInvoker configInvoker;
     private static final WorkloadConfig defaultConfig = new WorkloadConfig(
-            System.currentTimeMillis(),
             System.getProperty("user.dir"),
             Map.of(
                     WorkloadConfig.INSERT_BATCH_SIZE, 16,

@@ -62,7 +62,6 @@ public class DirectPrimaryKeyScanTest {
 
     @WorkloadConfiguration
     public WorkloadConfig config = new WorkloadConfig(
-            1L,
             System.getProperty("user.dir") + "/.out/reports/autoTest/" + getClass().getSimpleName(),
             Map.of(
                     "maxStringLength", 10,
