@@ -50,3 +50,4 @@ jobs:
           partition: 'CI Tests'
           revision: ${{ github.event.workflow_run.head_sha }}
           files: "${{ runner.temp}}/artifacts/codeCoverageReport.xml"
+          teamscaleKey: ${{ secrets.TEAMSCALE_ACCESS_KEY }}

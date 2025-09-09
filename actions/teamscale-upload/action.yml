@@ -10,6 +10,9 @@ inputs:
   files:
     description: 'Path to coverage xml file from jacoco'
     required: true
+  teamscaleKey:
+    description: 'Access key to teamscale'
+    required: true
 
 runs:
   using: "composite"
@@ -23,7 +26,7 @@ runs:
         project: 'foundationdb-fdb-record-layer'
         user: 'fdb-record-layer-build'
         partition: inputs.partition
-        accesskey: ${{ secrets.TEAMSCALE_ACCESS_KEY }}
+        accesskey: ${{ inputs.teamscaleKey }}
         format: 'JACOCO'
         revision: ${{ inputs.revision }}
         files: ${{ inputs.files }}

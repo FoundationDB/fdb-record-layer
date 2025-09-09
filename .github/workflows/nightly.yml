@@ -42,6 +42,7 @@ jobs:
           partition: 'CI Tests'
           revision: ${{ github.sha }}
           files: "${{ github.workspace }}/.out/reports/jacoco/codeCoverageReport/codeCoverageReport.xml"
+          teamscaleKey: ${{ secrets.TEAMSCALE_ACCESS_KEY }}
 
   mixed-mode-test:
     if: github.repository == 'FoundationDB/fdb-record-layer'
@@ -84,6 +85,7 @@ jobs:
           partition: 'Mixed Mode Tests'
           revision: ${{ github.sha }}
           files: "${{ github.workspace }}/.out/reports/jacoco/codeCoverageReport/codeCoverageReport.xml"
+          teamscaleKey: ${{ secrets.TEAMSCALE_ACCESS_KEY }}
 
   nightly_test:
     if: github.repository == 'FoundationDB/fdb-record-layer'
@@ -129,6 +131,7 @@ jobs:
         partition: 'Nightly Tests'
         revision: ${{ github.sha }}
         files: "${{ github.workspace }}/.out/reports/jacoco/codeCoverageReport/codeCoverageReport.xml"
+        teamscaleKey: ${{ secrets.TEAMSCALE_ACCESS_KEY }}
 
 
 
