@@ -25,6 +25,7 @@ import org.junit.jupiter.api.extension.ParameterContext;
 import org.junit.jupiter.api.extension.ParameterResolutionException;
 import org.junit.jupiter.api.extension.ParameterResolver;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -44,7 +45,7 @@ public class WorkloadConfig implements ParameterResolver {
             this.seed = Long.parseLong(System.getProperty("tests.autoSeed", "2363712622230246740"));
         }
         this.reportDirectory = reportDirectory;
-        this.configs = Map.copyOf(otherConfigs);
+        this.configs = new HashMap<>(otherConfigs);
     }
 
     public long getSeed() {
