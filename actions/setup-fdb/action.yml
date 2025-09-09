@@ -49,7 +49,7 @@ runs:
       run: sudo sed -i -e "s/cluster_file = .*/cluster_file = \/etc\/foundationdb\/fdb2.cluster/" /etc/foundationdb/foundationdb2.conf
     - name: debugging
       shell: bash
-      run: ls -lh /etc/foundationdb
+      run: cat /etc/foundationdb/foundationdb2.conf
     # Setup two cluster files for the two configs
     - name: Create cluster1 clusterfile
       shell: bash
