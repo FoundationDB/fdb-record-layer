@@ -49,6 +49,9 @@ runs:
     - name: debugging
       shell: bash
       run: ls -l lh /etc/foundationdb
+    - name: debugging cat
+      shell: bash
+      run: sudo cat /etc/foundationdb/fdb.cluster
     - name: Start FDB Server 1
       shell: bash
       run: sudo /usr/lib/foundationdb/fdbmonitor /etc/foundationdb/foundationdb1.conf --daemonize
