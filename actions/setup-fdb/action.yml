@@ -53,10 +53,10 @@ runs:
     # Setup two cluster files for the two configs
     - name: Create cluster1 clusterfile
       shell: bash
-      run: sudo echo "fdb1:$(mktemp -u XXXXXXXX)@127.0.0.1:4500" > /etc/foundationdb/fdb1.cluster
+      run: sudo bash -c "echo 'fdb1:$(mktemp -u XXXXXXXX)@127.0.0.1:4500' > /etc/foundationdb/fdb1.cluster"
     - name: Create cluster2 clusterfile
       shell: bash
-      run: sudo echo "fdb2:$(mktemp -u XXXXXXXX)@127.0.0.1:4600" > /etc/foundationdb/fdb2.cluster
+      run: sudo bash -c "echo 'fdb2:$(mktemp -u XXXXXXXX)@127.0.0.1:4600' > /etc/foundationdb/fdb2.cluster"
     - name: Set clusterfile permissions
       shell: bash
       run: sudo chown foundationdb:foundationdb /etc/foundationdb/fdb1.cluster /etc/foundationdb/fdb2.cluster
