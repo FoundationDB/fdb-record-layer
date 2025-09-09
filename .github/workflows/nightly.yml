@@ -13,6 +13,7 @@ jobs:
   # At the moment the nightly tests include the regular tests, but we do both to get valuable coverage in teamscale.
   # It's possible that we could change the nightly tests to just be the new tests, and not the regular tests in the future.
   test:
+    if: github.repository == 'FoundationDB/fdb-record-layer'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -38,6 +39,7 @@ jobs:
           files: "${{ github.workspace }}/.out/reports/jacoco/codeCoverageReport/codeCoverageReport.xml"
 
   mixed-mode-test:
+    if: github.repository == 'FoundationDB/fdb-record-layer'
     runs-on: ubuntu-latest
     permissions:
       contents: read
