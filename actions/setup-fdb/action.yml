@@ -34,6 +34,7 @@ runs:
     - name: Fix FDB Network Addresses
       shell: bash
       run: sudo sed -i -e "s/public_address = auto:\$ID/public_address = 127.0.0.1:\$ID/g" -e "s/listen_address = public/listen_address = 0.0.0.0:\$ID/g" /etc/foundationdb/foundationdb.conf
+    # Setup 2 cluster conf files
     - name: Create cluster1 config file
       shell: bash
       run: sudo cp /etc/foundationdb/foundationdb.conf /etc/foundationdb/foundationdb1.conf
@@ -49,12 +50,30 @@ runs:
     - name: debugging
       shell: bash
       run: ls -lh /etc/foundationdb
-    - name: debugging cat
+    # Setup two cluster files for the two configs
+    - name: Create cluster1 clusterfile
       shell: bash
-      run: sudo cat /etc/foundationdb/fdb.cluster
+      run: echo "fdb1:$(mktemp -u XXXXXXXX)@127.0.0.1:4500" > /etc/foundationdb/fdb1.cluster
+    - name: Create cluster2 clusterfile
+      shell: bash
+      run: echo "fdb2:$(mktemp -u XXXXXXXX)@127.0.0.1:4600" > /etc/foundationdb/fdb2.cluster
+    - name: Set clusterfile permissions
+      shell: bash
+      run: chown foundationdb:foundationdb /etc/foundationdb/fdb1.cluster /etc/foundationdb/fdb2.cluster
+    - name: Set clusterfile permissions
+      shell: bash
+      run: chown 664 /etc/foundationdb/fdb1.cluster /etc/foundationdb/fdb2.cluster
+
+    - name: debugging
+      shell: bash
+      run: ls -lh /etc/foundationdb
+    # Start the two servers
     - name: Start FDB Server 1
       shell: bash
       run: sudo /usr/lib/foundationdb/fdbmonitor /etc/foundationdb/foundationdb1.conf --daemonize
+    - name: Start FDB Server 2
+      shell: bash
+      run: sudo /usr/lib/foundationdb/fdbmonitor /etc/foundationdb/foundationdb2.conf --daemonize
     - name: Switch FDB 1 to SSD
       shell: bash
       run: fdbcli -C /etc/foundationdb/fdb1.cluster --exec "configure single ssd storage_migration_type=aggressive; status"
