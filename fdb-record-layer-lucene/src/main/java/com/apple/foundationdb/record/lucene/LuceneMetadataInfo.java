@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexOperationResult;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -72,7 +73,7 @@ public class LuceneMetadataInfo extends IndexOperationResult {
         @Nullable
         private final Collection<LuceneFileInfo> detailedFileInfos;
 
-        @Deprecated(forRemoval = true)
+        @API(API.Status.DEPRECATED)
         public LuceneInfo(final int documentCount, final Collection<String> files, final int fieldInfoCount) {
             this.documentCount = documentCount;
             this.files = files;
@@ -86,7 +87,7 @@ public class LuceneMetadataInfo extends IndexOperationResult {
             this.documentCount = documentCount;
             this.files = detailedFileInfos.stream().map(LuceneFileInfo::getName).collect(Collectors.toList());
             this.fieldInfoCount = fieldInfoCount;
-            this.detailedFileInfos = detailedFileInfos;
+            this.detailedFileInfos = Collections.unmodifiableCollection(detailedFileInfos);
         }
 
         /**
