@@ -48,7 +48,7 @@ runs:
       run: sudo sed -i -e "s/cluster_file = .*/cluster_file = \/etc\/foundationdb\/fdb2.cluster/" /etc/foundationdb/foundationdb2.conf
     - name: debugging
       shell: bash
-      run: ls -l lh /etc/foundationdb
+      run: ls -lh /etc/foundationdb
     - name: debugging cat
       shell: bash
       run: sudo cat /etc/foundationdb/fdb.cluster
