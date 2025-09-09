@@ -66,11 +66,7 @@ dependencies {
 // The engine is defined in relational-core. If we move it somewhere such that other subprojects can use it, this
 // task should be moved to testing.gradle
 tasks.withType(Test).configureEach { theTask ->
-    if (project.hasProperty('tests.nightly')) {
-        theTask.testFramework.options.includeEngines.add('auto-test')
-    } else {
-        theTask.testFramework.options.excludeEngines.add('auto-test')
-    }
+    theTask.testFramework.options.includeEngines.add('auto-test')
 }
 
 publishing {
