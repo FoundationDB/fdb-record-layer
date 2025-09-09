@@ -27,7 +27,6 @@ import org.junit.jupiter.api.extension.ParameterResolver;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.ThreadLocalRandom;
 
 public class WorkloadConfig implements ParameterResolver {
     public static final String SAMPLE_SIZE = "sampleSize";
@@ -38,12 +37,10 @@ public class WorkloadConfig implements ParameterResolver {
     private final Map<String, Object> configs;
 
     public WorkloadConfig(String reportDirectory, Map<String, Object> otherConfigs) {
-        final boolean includeRandom = Boolean.parseBoolean(System.getProperty("tests.includeRandom", "false"));
-        if (includeRandom) {
-            this.seed = ThreadLocalRandom.current().nextLong();
-        } else {
-            this.seed = Long.parseLong(System.getProperty("tests.autoSeed", "2363712622230246740"));
-        }
+        // Eventually we should change `includeRandom` to get it from the property like RandomizedTestUtils, but
+        // these tests seem to fail pretty reliably once the random seed is put in, which would really mess with
+        // the nightly builds.
+        this.seed = Long.parseLong(System.getProperty("tests.autoSeed", "2363712622230246740"));
         this.reportDirectory = reportDirectory;
         this.configs = new HashMap<>(otherConfigs);
     }
