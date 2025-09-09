@@ -11,8 +11,11 @@ jobs:
   #   b) the mixed-mode tests
   #   c) the nightly tests
   # The nightly tests (currently) include all the regular tests, but we want to publish to teamscale the coverage
-  # statistics we're getting from PRB/before release. We want to be able to differentiate those two types of coverage
-  # in teamscale for a better understanding of what might escape in PRB.
+  # statistics we're getting from PRB separately. We want to be able to differentiate those two types of coverage
+  # in teamscale for a better understanding of what might escape in PRB (or in our pre-release test run).
+  # The mixed-mode coverage is a little different, we want to see explicitly what code is being covered in mixed-mode
+  # so that we can find potential uncovered code that could expose bugs when multiple versions are running at the same
+  # time.
   # It's possible that we could change the nightly tests to just be the new tests, and not the regular tests in the future.
   test:
     if: github.repository == 'FoundationDB/fdb-record-layer'
