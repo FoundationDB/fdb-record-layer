@@ -551,6 +551,13 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         return getDelegate().resolveFunction(ctx.comparisonOperator().getText(), left, right);
     }
 
+    @Override
+    public Expression visitSubscriptExpression(@Nonnull RelationalParser.SubscriptExpressionContext ctx) {
+        final var index = Assert.castUnchecked(ctx.index.accept(this), Expression.class);
+        final var base = Assert.castUnchecked(ctx.base.accept(this), Expression.class);
+        return getDelegate().resolveFunction(ctx.LEFT_SQUARE_BRACKET().getText(), index, base);
+    }
+
     @Nonnull
     @Override
     public Expression visitBetweenComparisonPredicate(@Nonnull RelationalParser.BetweenComparisonPredicateContext ctx) {

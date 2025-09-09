@@ -65,4 +65,16 @@ test_block:
       # "new" should not be quoted. TODO ([Post] Fix identifiers case-sensitivity matching in plan generator)
       - query: UPDATE D SET X = [(11), (12), (13)] WHERE PK = 1 RETURNING "new".X
       - result: [{[{F: 11}, {F: 12}, {F: 13}]}]
+    -
+      - query: select X[2] from A where PK = 1
+      - supported_version: !current_version
+      - result: [{13}]
+    -
+      - query: select X[1+1] from A where PK = 1
+      - supported_version: !current_version
+      - result: [{13}]
+    -
+      - query: select X[1+1] + X[3-1] from A where PK = 1
+      - supported_version: !current_version
+      - result: [{26}]
 ...

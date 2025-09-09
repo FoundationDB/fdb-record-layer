@@ -893,6 +893,9 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
     @Override
     Expression visitBinaryComparisonPredicate(@Nonnull RelationalParser.BinaryComparisonPredicateContext ctx);
 
+    @Override
+    Expression visitSubscriptExpression(@Nonnull RelationalParser.SubscriptExpressionContext ctx);
+
     @Nonnull
     @Override
     Expression visitBetweenComparisonPredicate(@Nonnull RelationalParser.BetweenComparisonPredicateContext ctx);

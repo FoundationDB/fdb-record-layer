@@ -1567,6 +1567,11 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
         return expressionVisitor.visitBinaryComparisonPredicate(ctx);
     }
 
+    @Override
+    public Expression visitSubscriptExpression(@Nonnull RelationalParser.SubscriptExpressionContext ctx) {
+        return expressionVisitor.visitSubscriptExpression(ctx);
+    }
+
     @Nonnull
     @Override
     public Expression visitBetweenComparisonPredicate(@Nonnull RelationalParser.BetweenComparisonPredicateContext ctx) {

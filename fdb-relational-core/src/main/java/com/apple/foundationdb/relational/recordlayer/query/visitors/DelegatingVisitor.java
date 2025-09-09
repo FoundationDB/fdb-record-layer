@@ -1406,6 +1406,11 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
         return getDelegate().visitBinaryComparisonPredicate(ctx);
     }
 
+    @Override
+    public Expression visitSubscriptExpression(@Nonnull RelationalParser.SubscriptExpressionContext ctx) {
+        return getDelegate().visitSubscriptExpression(ctx);
+    }
+
     @Nonnull
     @Override
     public Expression visitBetweenComparisonPredicate(@Nonnull RelationalParser.BetweenComparisonPredicateContext ctx) {
