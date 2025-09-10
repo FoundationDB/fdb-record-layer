@@ -27,6 +27,7 @@ options:
 ---
 schema_template:
     create table t(id bigint, s string, primary key(id))
+    create index t_id as select id from t
 ---
 setup:
   steps:
@@ -70,5 +71,22 @@ test_block:
   tests:
     -
       - query: SELECT * FROM t
+      - error: "25F01"
+---
+test_block:
+  name: write-unencrypted
+  preset: single_repetition_ordered
+  options:
+    connection_options:
+      ENCRYPT_WHEN_SERIALIZING: false
+  tests:
+    -
+      - query: INSERT INTO t VALUES (3, 'xyz')
+      - count: 1
+    -
+      - query: SELECT s FROM t WHERE id = 3
+      - unorderedResult: [{S: 'xyz'}]
+    -
+      - query: SELECT s FROM t WHERE id = 1
       - error: "25F01"
 ...
