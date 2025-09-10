@@ -104,13 +104,13 @@ runs:
 #       run: sudo /usr/lib/foundationdb/fdbmonitor --conffile /etc/foundationdb/foundationdb2.conf --lockfile /var/run/fdbmonitor2.pid --loggroup fdb2 --daemonize
     - name: debugging
       shell: bash
-      run: sudo ls -lh /var/log/foundationdb
+      run: sudo bash -c "ls -lh /var/log/foundationdb*"
     - name: debugging
       shell: bash
-      run: sudo bash -c "head /var/log/foundationdb/trace.*"
+      run: sudo bash -c "head /var/log/foundationdb*/trace.*"
     - name: debugging
       shell: bash
-      run: sudo bash -c "tail /var/log/foundationdb/trace.*"
+      run: sudo bash -c "tail /var/log/foundationdb*/trace.*"
     - name: Switch FDB 1 to SSD
       shell: bash
       run: fdbcli -C /etc/foundationdb/fdb1.cluster --exec "configure single ssd storage_migration_type=aggressive; status"
