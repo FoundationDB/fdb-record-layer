@@ -67,12 +67,15 @@ runs:
     - name: Create cluster2 clusterfile
       shell: bash
       run: sudo bash -c "echo 'fdb2:$(mktemp -u XXXXXXXX)@127.0.0.1:4600' > /etc/foundationdb/fdb2.cluster"
+    - name: Make new log directories
+      shell: bash
+      run: sudo mkdir /var/log/foundationdb1 /var/log/foundationdb2
+    - name: Set permissions
+      shell: bash
+      run: sudo chown foundationdb:foundationdb /etc/foundationdb/fdb1.cluster /etc/foundationdb/fdb2.cluster /var/log/foundationdb1 /var/log/foundationdb2
     - name: Set clusterfile permissions
       shell: bash
-      run: sudo chown foundationdb:foundationdb /etc/foundationdb/fdb1.cluster /etc/foundationdb/fdb2.cluster
-    - name: Set clusterfile permissions
-      shell: bash
-      run: sudo chmod 664 /etc/foundationdb/fdb1.cluster /etc/foundationdb/fdb2.cluster
+      run: sudo chmod 664 /etc/foundationdb/fdb1.cluster /etc/foundationdb/fdb2.cluster /var/log/foundationdb1 /var/log/foundationdb2
 
 
     - name: Remove default cluster file / config
