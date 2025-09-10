@@ -123,14 +123,14 @@ public final class ParseHelpers {
 
     public static boolean isConstant(@Nonnull final RelationalParser.ExpressionsContext expressionsContext) {
         for (final var exp : expressionsContext.expression()) {
-            if (!(exp instanceof RelationalParser.PredicateExpressionContext)) {
+            if (!(exp instanceof RelationalParser.PredicatedExpressionContext)) {
                 return false;
             }
-            final var predicate = (RelationalParser.PredicateExpressionContext) exp;
-            if (!(predicate.predicate() instanceof RelationalParser.ExpressionAtomPredicateContext)) {
+            final var predicate = (RelationalParser.PredicatedExpressionContext) exp;
+            if (predicate.predicate() != null) {
                 return false;
             }
-            final var expressionAtom = ((RelationalParser.ExpressionAtomPredicateContext) predicate.predicate()).expressionAtom();
+            final var expressionAtom = predicate.expressionAtom();
             if (!(expressionAtom instanceof RelationalParser.ConstantExpressionAtomContext)) {
                 return false;
             }

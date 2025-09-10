@@ -1366,20 +1366,8 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
 
     @Nonnull
     @Override
-    public Expression visitIsExpression(@Nonnull RelationalParser.IsExpressionContext ctx) {
-        return getDelegate().visitIsExpression(ctx);
-    }
-
-    @Nonnull
-    @Override
     public Expression visitNotExpression(@Nonnull RelationalParser.NotExpressionContext ctx) {
         return getDelegate().visitNotExpression(ctx);
-    }
-
-    @Nonnull
-    @Override
-    public Expression visitLikePredicate(@Nonnull RelationalParser.LikePredicateContext ctx) {
-        return getDelegate().visitLikePredicate(ctx);
     }
 
     @Nonnull
@@ -1390,14 +1378,8 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
 
     @Nonnull
     @Override
-    public Object visitPredicateExpression(@Nonnull RelationalParser.PredicateExpressionContext ctx) {
-        return getDelegate().visitPredicateExpression(ctx);
-    }
-
-    @Nonnull
-    @Override
-    public Object visitExpressionAtomPredicate(@Nonnull RelationalParser.ExpressionAtomPredicateContext ctx) {
-        return getDelegate().visitExpressionAtomPredicate(ctx);
+    public Expression visitPredicatedExpression(@Nonnull RelationalParser.PredicatedExpressionContext ctx) {
+        return getDelegate().visitPredicatedExpression(ctx);
     }
 
     @Nonnull
@@ -1413,32 +1395,8 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
 
     @Nonnull
     @Override
-    public Expression visitBetweenComparisonPredicate(@Nonnull RelationalParser.BetweenComparisonPredicateContext ctx) {
-        return getDelegate().visitBetweenComparisonPredicate(ctx);
-    }
-
-    @Nonnull
-    @Override
-    public Expression visitInPredicate(@Nonnull RelationalParser.InPredicateContext ctx) {
-        return getDelegate().visitInPredicate(ctx);
-    }
-
-    @Nonnull
-    @Override
     public Expression visitInList(@Nonnull RelationalParser.InListContext ctx) {
         return getDelegate().visitInList(ctx);
-    }
-
-    @Nonnull
-    @Override
-    public Object visitJsonExpressionAtom(@Nonnull RelationalParser.JsonExpressionAtomContext ctx) {
-        return getDelegate().visitJsonExpressionAtom(ctx);
-    }
-
-    @Nonnull
-    @Override
-    public Expression visitSubqueryExpressionAtom(@Nonnull RelationalParser.SubqueryExpressionAtomContext ctx) {
-        return getDelegate().visitSubqueryExpressionAtom(ctx);
     }
 
     @Nonnull
@@ -1495,10 +1453,24 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
         return getDelegate().visitExistsExpressionAtom(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitIntervalExpressionAtom(@Nonnull RelationalParser.IntervalExpressionAtomContext ctx) {
-        return getDelegate().visitIntervalExpressionAtom(ctx);
+    public Object visitBetweenComparisonPredicate(final RelationalParser.BetweenComparisonPredicateContext ctx) {
+        return getDelegate().visitBetweenComparisonPredicate(ctx);
+    }
+
+    @Override
+    public Object visitInPredicate(final RelationalParser.InPredicateContext ctx) {
+        return getDelegate().visitInPredicate(ctx);
+    }
+
+    @Override
+    public Object visitLikePredicate(final RelationalParser.LikePredicateContext ctx) {
+        return getDelegate().visitLikePredicate(ctx);
+    }
+
+    @Override
+    public Object visitIsExpression(final RelationalParser.IsExpressionContext ctx) {
+        return getDelegate().visitIsExpression(ctx);
     }
 
     @Nonnull

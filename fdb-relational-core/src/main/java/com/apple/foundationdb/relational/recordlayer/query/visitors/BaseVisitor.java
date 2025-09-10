@@ -1527,20 +1527,8 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
 
     @Nonnull
     @Override
-    public Expression visitIsExpression(@Nonnull RelationalParser.IsExpressionContext ctx) {
-        return expressionVisitor.visitIsExpression(ctx);
-    }
-
-    @Nonnull
-    @Override
     public Expression visitNotExpression(@Nonnull RelationalParser.NotExpressionContext ctx) {
         return expressionVisitor.visitNotExpression(ctx);
-    }
-
-    @Nonnull
-    @Override
-    public Expression visitLikePredicate(@Nonnull RelationalParser.LikePredicateContext ctx) {
-        return expressionVisitor.visitLikePredicate(ctx);
     }
 
     @Nonnull
@@ -1551,14 +1539,8 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
 
     @Nonnull
     @Override
-    public Object visitPredicateExpression(@Nonnull RelationalParser.PredicateExpressionContext ctx) {
-        return visitChildren(ctx);
-    }
-
-    @Nonnull
-    @Override
-    public Object visitExpressionAtomPredicate(@Nonnull RelationalParser.ExpressionAtomPredicateContext ctx) {
-        return visitChildren(ctx);
+    public Expression visitPredicatedExpression(@Nonnull RelationalParser.PredicatedExpressionContext ctx) {
+        return expressionVisitor.visitPredicatedExpression(ctx);
     }
 
     @Nonnull
@@ -1574,32 +1556,8 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
 
     @Nonnull
     @Override
-    public Expression visitBetweenComparisonPredicate(@Nonnull RelationalParser.BetweenComparisonPredicateContext ctx) {
-        return expressionVisitor.visitBetweenComparisonPredicate(ctx);
-    }
-
-    @Nonnull
-    @Override
-    public Expression visitInPredicate(@Nonnull RelationalParser.InPredicateContext ctx) {
-        return expressionVisitor.visitInPredicate(ctx);
-    }
-
-    @Nonnull
-    @Override
     public Expression visitInList(@Nonnull RelationalParser.InListContext ctx) {
         return expressionVisitor.visitInList(ctx);
-    }
-
-    @Nonnull
-    @Override
-    public Object visitJsonExpressionAtom(@Nonnull RelationalParser.JsonExpressionAtomContext ctx) {
-        return visitChildren(ctx);
-    }
-
-    @Nonnull
-    @Override
-    public Expression visitSubqueryExpressionAtom(@Nonnull RelationalParser.SubqueryExpressionAtomContext ctx) {
-        return expressionVisitor.visitSubqueryExpressionAtom(ctx);
     }
 
     @Nonnull
@@ -1656,9 +1614,23 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
         return expressionVisitor.visitExistsExpressionAtom(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitIntervalExpressionAtom(@Nonnull RelationalParser.IntervalExpressionAtomContext ctx) {
+    public Object visitBetweenComparisonPredicate(final RelationalParser.BetweenComparisonPredicateContext ctx) {
+        return visitChildren(ctx);
+    }
+
+    @Override
+    public Object visitInPredicate(final RelationalParser.InPredicateContext ctx) {
+        return visitChildren(ctx);
+    }
+
+    @Override
+    public Object visitLikePredicate(final RelationalParser.LikePredicateContext ctx) {
+        return visitChildren(ctx);
+    }
+
+    @Override
+    public Object visitIsExpression(final RelationalParser.IsExpressionContext ctx) {
         return visitChildren(ctx);
     }
 

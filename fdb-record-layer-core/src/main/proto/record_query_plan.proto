@@ -254,6 +254,7 @@ message PValue {
     PRangeValue range_value = 48;
     PFirstOrDefaultStreamingValue first_or_default_streaming_value = 49;
     PEvaluatesToValue evaluates_to_value = 50;
+    PSubscriptValue subscript_value = 51;
   }
 }
 
@@ -454,6 +455,11 @@ enum PEvaluation {
 message PEvaluatesToValue {
   optional PValue child = 1;
   optional PEvaluation evaluation = 2;
+}
+
+message PSubscriptValue {
+  optional PValue index = 1;
+  optional PValue source = 2;
 }
 
 message PFieldValue {
