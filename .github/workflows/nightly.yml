@@ -33,8 +33,14 @@ jobs:
       - name: Run Gradle Test
         uses: ./actions/gradle-test
         with:
-          gradle_command: test destructiveTest codeCoverageReport
+          gradle_command: test destructiveTest
           gradle_args: -PreleaseBuild=false -PpublishBuild=false
+      # If you run this command as part of the above it complains about imlplicit dependencies, but running separately
+      # is fine. We need to run it separately in pull_request, because we're combining different jobs
+      - name: Run JaCoCo Report
+        uses: ./actions/run-gradle
+        with:
+          gradle_command: codeCoverageReport
       - name: Upload coverage to teamscale
         # temporary until we validate that this is working correctly
         continue-on-error: true
@@ -60,8 +66,14 @@ jobs:
       - name: Run Gradle Test
         uses: ./actions/gradle-test
         with:
-          gradle_command: mixedModeTest codeCoverageReport
+          gradle_command: mixedModeTest
           gradle_args: -PreleaseBuild=false -PpublishBuild=false
+      # If you run this command as part of the above it complains about imlplicit dependencies, but running separately
+      # is fine. We need to run it separately in pull_request, because we're combining different jobs
+      - name: Run JaCoCo Report
+        uses: ./actions/run-gradle
+        with:
+          gradle_command: codeCoverageReport
       # We don't commit the incremented version, but we use this to know the version when generating
       # the resulting markdown
       - name: Increment version
@@ -101,8 +113,14 @@ jobs:
       - name: Run Gradle Test
         uses: ./actions/gradle-test
         with:
-          gradle_command: test destructiveTest codeCoverageReport
+          gradle_command: test destructiveTest
           gradle_args: "-PreleaseBuild=false -PpublishBuild=false -PspotbugsEnableHtmlReport -Ptests.includeRandom -Ptests.iterations=2 -Ptests.nightly"
+      # If you run this command as part of the above it complains about imlplicit dependencies, but running separately
+      # is fine. We need to run it separately in pull_request, because we're combining different jobs
+      - name: Run JaCoCo Report
+        uses: ./actions/run-gradle
+        with:
+          gradle_command: codeCoverageReport
       - name: Publish Test Reports
         if: always()
         uses: actions/upload-artifact@v4.6.0
