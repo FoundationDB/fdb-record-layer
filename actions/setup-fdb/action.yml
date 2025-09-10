@@ -67,6 +67,12 @@ runs:
       shell: bash
       run: sudo chmod 664 /etc/foundationdb/fdb1.cluster /etc/foundationdb/fdb2.cluster
 
+
+    - name: Remove default cluster file / config
+      shell: bash
+      run: sudo rm /etc/foundationdb/fdb.cluster /etc/foundationdb/foundationdb.conf
+  
+
     - name: debugging
       shell: bash
       run: ls -lh /etc/foundationdb
