@@ -32,29 +32,4 @@ import java.util.Optional;
 public interface WithPrimaryKeyMatchCandidate extends MatchCandidate {
     @Nonnull
     Optional<List<Value>> getPrimaryKeyValuesMaybe();
-
-    @Nonnull
-    static Optional<List<Value>> commonPrimaryKeyValuesMaybe(@Nonnull Iterable<? extends MatchCandidate> matchCandidates) {
-        List<Value> common = null;
-        var first = true;
-        for (final var matchCandidate : matchCandidates) {
-            if (matchCandidate instanceof WithPrimaryKeyMatchCandidate) {
-                final var withPrimaryKeyMatchCandidate = (WithPrimaryKeyMatchCandidate)matchCandidate;
-                final var primaryKeyMaybe = withPrimaryKeyMatchCandidate.getPrimaryKeyValuesMaybe();
-                if (primaryKeyMaybe.isEmpty()) {
-                    return Optional.empty();
-                }
-                final var primaryKey = primaryKeyMaybe.get();
-                if (first) {
-                    common = primaryKey;
-                    first = false;
-                } else if (!common.equals(primaryKey)) {
-                    return Optional.empty();
-                }
-            } else {
-                return Optional.empty();
-            }
-        }
-        return Optional.ofNullable(common); // common can only be null if we didn't have any match candidates to start with
-    }
 }

@@ -156,7 +156,7 @@ test_block:
        # At some point, should be able to roll up values from the aggregate index. However, even
        # controlling for that, it can still use the index
        - query: select max(col2) from T1 use index (mv8);
-       - explain: "ISCAN(MV8 <,>) | MAP (_ AS _0) | AGG (max_l(_._0.COL2) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
+       - explain: "AISCAN(MV8 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1]]) | AGG max_l(_._1) GROUP BY () | MAP ((_._1 AS _0) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
        - result: [{!l 13}]
     -
        # Min/max indexes need keep what amounts to a standard value index on their keys (in order to properly look up
@@ -177,7 +177,7 @@ test_block:
       # this should use the aggregate index in the future, for now, it is using streaming aggregate
       # over base table scan.
       - query: select max(col2) from t2;
-      - explain: "ISCAN(MV3 <,>) | MAP (_ AS _0) | AGG (max_l(_._0.COL2) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
+      - explain: "AISCAN(MV9 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]]) | AGG max_l(_._2) GROUP BY () | MAP ((_._2 AS _0) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
       - result: [{!l 2}]
     -
       - query: select col1, sum(col2) from T1 USE INDEX (vi1) group by col1;

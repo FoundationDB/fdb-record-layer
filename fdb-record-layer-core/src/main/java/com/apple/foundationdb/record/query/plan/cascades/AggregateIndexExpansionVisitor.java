@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.MatchableSo
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValueAndRanges;
+import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.CountValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.EmptyValue;
@@ -57,10 +58,10 @@ import com.google.common.collect.Sets;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
@@ -72,7 +73,12 @@ import java.util.stream.Stream;
 public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisitor
                                             implements ExpansionVisitor<KeyExpressionExpansionVisitor.VisitorState> {
     @Nonnull
-    static final Supplier<Map<String, BuiltInFunction<? extends Value>>> aggregateMap = Suppliers.memoize(AggregateIndexExpansionVisitor::computeAggregateMap);
+    static final Supplier<Map<String, BuiltInFunction<? extends Value>>> aggregateMap =
+            Suppliers.memoize(AggregateIndexExpansionVisitor::computeAggregateMap);
+
+    @Nonnull
+    static final Supplier<Map<String, BuiltInFunction<? extends Value>>> rollUpAggregateMap =
+            Suppliers.memoize(AggregateIndexExpansionVisitor::computeRollUpAggregateMap);
 
     @Nonnull
     protected final Index index;
@@ -92,7 +98,8 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
      * @param recordTypes The indexed record types.
      */
     public AggregateIndexExpansionVisitor(@Nonnull final Index index, @Nonnull final Collection<RecordType> recordTypes) {
-        Preconditions.checkArgument(IndexTypes.BITMAP_VALUE.equals(index.getType()) || aggregateMap.get().containsKey(index.getType()));
+        Preconditions.checkArgument(IndexTypes.BITMAP_VALUE.equals(index.getType()) ||
+                aggregateMap.get().containsKey(index.getType()));
         Preconditions.checkArgument(index.getRootExpression() instanceof GroupingKeyExpression);
         this.index = index;
         this.groupingKeyExpression = ((GroupingKeyExpression)index.getRootExpression());
@@ -139,9 +146,9 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
                 .addAll(groupByPlaceholders).build();
 
         // 3. construct SELECT-HAVING with SORT on top.
-        final var selectHavingAndPlaceholderAliases = constructSelectHaving(groupByQun, placeholders);
-        final var selectHaving = selectHavingAndPlaceholderAliases.getLeft();
-        final var placeHolderAliases = selectHavingAndPlaceholderAliases.getRight();
+        final var constructSelectHavingResult = constructSelectHaving(groupByQun, placeholders);
+        final var selectHaving = constructSelectHavingResult.getSelectExpression();
+        final var placeHolderAliases = constructSelectHavingResult.getPlaceholderAliases();
 
         // 4. add sort on top, if necessary, this will be absorbed later on as an ordering property of the match candidate.
         final var maybeWithSort = placeHolderAliases.isEmpty()
@@ -243,7 +250,8 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
             throw new RecordCoreException("unable to plan group by with non-field value")
                     .addLogInfo(LogMessageKeys.VALUE, groupedValue);
         }
-        final var aggregateValue = (Value)aggregateMap.get().get(index.getType()).encapsulate(ImmutableList.of(argument));
+        final var aggregateValue =
+                aggregateValue(index, argument).orElseThrow(() -> new RecordCoreException("unknown aggregation type"));
         // add an RCV column representing the grouping columns as the first result set column
         // also, make sure to set the field type names correctly for each field value in the grouping keys RCV.
 
@@ -278,19 +286,25 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
     }
 
     @Nonnull
-    private NonnullPair<SelectExpression, List<CorrelationIdentifier>> constructSelectHaving(@Nonnull final Quantifier groupByQun,
-                                                                                             @Nonnull final List<Placeholder> selectWherePlaceholders) {
+    private ConstructSelectHavingResult constructSelectHaving(@Nonnull final Quantifier groupByQun,
+                                                              @Nonnull final List<Placeholder> selectWherePlaceholders) {
+        final var rangesOverExpression = groupByQun.getRangesOver().get();
+        Verify.verify(rangesOverExpression instanceof GroupByExpression);
+        final var groupByExpression = (GroupByExpression)rangesOverExpression;
+
         // the grouping value in GroupByExpression comes first (if set).
         @Nullable final var groupingValueReference =
-                (groupByQun.getRangesOver().get() instanceof GroupByExpression && ((GroupByExpression)groupByQun.getRangesOver().get()).getGroupingValue() == null)
-                ? null
-                : FieldValue.ofOrdinalNumber(groupByQun.getFlowedObjectValue(), 0);
+                groupByExpression.getGroupingValue() == null
+                ? null : FieldValue.ofOrdinalNumber(groupByQun.getFlowedObjectValue(), 0);
 
-        final var aggregateValueReference = FieldValue.ofOrdinalNumberAndFuseIfPossible(FieldValue.ofOrdinalNumber(groupByQun.getFlowedObjectValue(), groupingValueReference == null ? 0 : 1), 0);
+        final var aggregateValueReference =
+                FieldValue.ofOrdinalNumberAndFuseIfPossible(FieldValue.ofOrdinalNumber(groupByQun.getFlowedObjectValue(),
+                        groupingValueReference == null ? 0 : 1), 0);
 
         final var placeholderAliases = ImmutableList.<CorrelationIdentifier>builder();
         final var selectHavingGraphExpansionBuilder = GraphExpansion.builder().addQuantifier(groupByQun);
-        final List<Value> groupingValues = groupingValueReference == null ? Collections.emptyList() : Values.deconstructRecord(groupingValueReference);
+        final List<Value> groupingValues = groupingValueReference == null
+                                           ? ImmutableList.of() : Values.deconstructRecord(groupingValueReference);
         if (groupingValueReference != null) {
             int i = 0;
             for (final var groupingValue : groupingValues) {
@@ -322,7 +336,15 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
         } else {
             finalPlaceholders = placeholderAliases.build();
         }
-        return NonnullPair.of(selectHavingGraphExpansionBuilder.build().buildSelect(), finalPlaceholders);
+
+        return new ConstructSelectHavingResult(selectHavingGraphExpansionBuilder.build().buildSelect(),
+                finalPlaceholders);
+    }
+
+    @Nonnull
+    public static Optional<AggregateValue> aggregateValue(@Nonnull final Index index, @Nonnull final Value argument) {
+        return Optional.of((AggregateValue)aggregateMap.get()
+                .get(index.getType()).encapsulate(ImmutableList.of(argument)));
     }
 
     @Nonnull
@@ -338,5 +360,54 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
         mapBuilder.put(IndexTypes.PERMUTED_MAX, new NumericAggregationValue.MaxFn());
         mapBuilder.put(IndexTypes.PERMUTED_MIN, new NumericAggregationValue.MinFn());
         return mapBuilder.build();
+    }
+
+    public static boolean canBeRolledUp(@Nonnull final String indexType) {
+        return rollUpAggregateMap.get().containsKey(indexType);
+    }
+
+    @Nonnull
+    public static Optional<AggregateValue> rollUpAggregateValueMaybe(@Nonnull final String indexType, @Nonnull final Value argument) {
+        return Optional.ofNullable(rollUpAggregateMap.get()
+                .get(indexType))
+                .map(fn -> (AggregateValue)fn.encapsulate(ImmutableList.of(argument)));
+    }
+
+    @Nonnull
+    private static Map<String, BuiltInFunction<? extends Value>> computeRollUpAggregateMap() {
+        final ImmutableMap.Builder<String, BuiltInFunction<? extends Value>> mapBuilder = ImmutableMap.builder();
+        mapBuilder.put(IndexTypes.MAX_EVER_LONG, new NumericAggregationValue.MaxFn());
+        mapBuilder.put(IndexTypes.MIN_EVER_LONG, new NumericAggregationValue.MinFn());
+        mapBuilder.put(IndexTypes.MAX_EVER_TUPLE, new NumericAggregationValue.MaxFn());
+        mapBuilder.put(IndexTypes.MIN_EVER_TUPLE, new NumericAggregationValue.MinFn());
+        mapBuilder.put(IndexTypes.SUM, new NumericAggregationValue.SumFn());
+        mapBuilder.put(IndexTypes.COUNT, new NumericAggregationValue.SumFn());
+        mapBuilder.put(IndexTypes.COUNT_NOT_NULL, new NumericAggregationValue.SumFn());
+        mapBuilder.put(IndexTypes.PERMUTED_MAX, new NumericAggregationValue.MaxFn());
+        mapBuilder.put(IndexTypes.PERMUTED_MIN, new NumericAggregationValue.MinFn());
+        return mapBuilder.build();
+    }
+
+    private static class ConstructSelectHavingResult {
+        @Nonnull
+        private final SelectExpression selectExpression;
+        @Nonnull
+        private final List<CorrelationIdentifier> placeholderAliases;
+
+        private ConstructSelectHavingResult(@Nonnull final SelectExpression selectExpression,
+                                            @Nonnull final List<CorrelationIdentifier> placeholderAliases) {
+            this.selectExpression = selectExpression;
+            this.placeholderAliases = placeholderAliases;
+        }
+
+        @Nonnull
+        public SelectExpression getSelectExpression() {
+            return selectExpression;
+        }
+
+        @Nonnull
+        public List<CorrelationIdentifier> getPlaceholderAliases() {
+            return placeholderAliases;
+        }
     }
 }

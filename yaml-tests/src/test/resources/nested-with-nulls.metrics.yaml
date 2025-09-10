@@ -2,9 +2,9 @@ nested-with-nulls-tests:
 -   query: EXPLAIN select id from t1 where a.a.a IS NULL
     explain: ISCAN(I1 <,>) | FILTER _.A.A.A IS_NULL | MAP (_.ID AS ID)
     task_count: 355
-    task_total_time_ms: 14
-    transform_count: 94
-    transform_time_ms: 4
+    task_total_time_ms: 8
+    transform_count: 98
+    transform_time_ms: 2
     transform_yield_count: 30
     insert_time_ms: 0
     insert_new_count: 36
@@ -12,9 +12,9 @@ nested-with-nulls-tests:
 -   query: EXPLAIN select id from t1 where a.a.b IS NULL
     explain: ISCAN(I1 <,>) | FILTER _.A.A.B IS_NULL | MAP (_.ID AS ID)
     task_count: 355
-    task_total_time_ms: 17
-    transform_count: 94
-    transform_time_ms: 5
+    task_total_time_ms: 12
+    transform_count: 98
+    transform_time_ms: 4
     transform_yield_count: 30
     insert_time_ms: 0
     insert_new_count: 36
@@ -23,9 +23,9 @@ nested-with-nulls-tests:
     explain: 'COVERING(I1 [[null],[null]] -> [ID: KEY[2], A: [B: [A: KEY[0]]]]) |
         MAP (_.ID AS ID)'
     task_count: 443
-    task_total_time_ms: 8
-    transform_count: 105
-    transform_time_ms: 1
+    task_total_time_ms: 18
+    transform_count: 109
+    transform_time_ms: 4
     transform_yield_count: 36
     insert_time_ms: 0
     insert_new_count: 45
@@ -33,9 +33,9 @@ nested-with-nulls-tests:
 -   query: EXPLAIN select id from t1 where a.b.b IS NULL
     explain: ISCAN(I1 <,>) | FILTER _.A.B.B IS_NULL | MAP (_.ID AS ID)
     task_count: 355
-    task_total_time_ms: 10
-    transform_count: 94
-    transform_time_ms: 3
+    task_total_time_ms: 5
+    transform_count: 98
+    transform_time_ms: 2
     transform_yield_count: 30
     insert_time_ms: 0
     insert_new_count: 36
@@ -43,8 +43,8 @@ nested-with-nulls-tests:
 -   query: EXPLAIN select id from t1 where b.a.a IS NULL
     explain: ISCAN(I1 <,>) | FILTER _.B.A.A IS_NULL | MAP (_.ID AS ID)
     task_count: 355
-    task_total_time_ms: 11
-    transform_count: 94
+    task_total_time_ms: 9
+    transform_count: 98
     transform_time_ms: 3
     transform_yield_count: 30
     insert_time_ms: 0
@@ -53,9 +53,9 @@ nested-with-nulls-tests:
 -   query: EXPLAIN select id from t1 where b.a.b IS NULL
     explain: ISCAN(I1 <,>) | FILTER _.B.A.B IS_NULL | MAP (_.ID AS ID)
     task_count: 355
-    task_total_time_ms: 15
-    transform_count: 94
-    transform_time_ms: 4
+    task_total_time_ms: 7
+    transform_count: 98
+    transform_time_ms: 3
     transform_yield_count: 30
     insert_time_ms: 0
     insert_new_count: 36
@@ -64,7 +64,7 @@ nested-with-nulls-tests:
     explain: ISCAN(I1 <,>) | FILTER _.B.B.A IS_NULL | MAP (_.ID AS ID)
     task_count: 355
     task_total_time_ms: 15
-    transform_count: 94
+    transform_count: 98
     transform_time_ms: 4
     transform_yield_count: 30
     insert_time_ms: 0
@@ -73,9 +73,9 @@ nested-with-nulls-tests:
 -   query: EXPLAIN select id from t1 where b.b.b IS NULL
     explain: ISCAN(I1 <,>) | FILTER _.B.B.B IS_NULL | MAP (_.ID AS ID)
     task_count: 355
-    task_total_time_ms: 11
-    transform_count: 94
-    transform_time_ms: 3
+    task_total_time_ms: 18
+    transform_count: 98
+    transform_time_ms: 5
     transform_yield_count: 30
     insert_time_ms: 0
     insert_new_count: 36
@@ -83,9 +83,9 @@ nested-with-nulls-tests:
 -   query: EXPLAIN select id from t1 where a.a.a IS NOT NULL
     explain: ISCAN(I1 <,>) | FILTER _.A.A.A NOT_NULL | MAP (_.ID AS ID)
     task_count: 355
-    task_total_time_ms: 5
-    transform_count: 94
-    transform_time_ms: 2
+    task_total_time_ms: 18
+    transform_count: 98
+    transform_time_ms: 5
     transform_yield_count: 30
     insert_time_ms: 0
     insert_new_count: 36
@@ -94,9 +94,9 @@ nested-with-nulls-tests:
     explain: 'COVERING(I2 ([null],> -> [ID: KEY[2], A: [A: [B: KEY[0]]]]) | MAP (_.ID
         AS ID)'
     task_count: 454
-    task_total_time_ms: 19
-    transform_count: 119
-    transform_time_ms: 6
+    task_total_time_ms: 17
+    transform_count: 123
+    transform_time_ms: 5
     transform_yield_count: 38
     insert_time_ms: 0
     insert_new_count: 47
@@ -105,9 +105,9 @@ nested-with-nulls-tests:
     explain: 'COVERING(I1 ([null],> -> [ID: KEY[2], A: [B: [A: KEY[0]]]]) | MAP (_.ID
         AS ID)'
     task_count: 443
-    task_total_time_ms: 16
-    transform_count: 105
-    transform_time_ms: 4
+    task_total_time_ms: 20
+    transform_count: 109
+    transform_time_ms: 5
     transform_yield_count: 36
     insert_time_ms: 0
     insert_new_count: 45
@@ -115,9 +115,9 @@ nested-with-nulls-tests:
 -   query: EXPLAIN select id from t1 where a.b.b IS NOT NULL
     explain: ISCAN(I1 <,>) | FILTER _.A.B.B NOT_NULL | MAP (_.ID AS ID)
     task_count: 355
-    task_total_time_ms: 11
-    transform_count: 94
-    transform_time_ms: 4
+    task_total_time_ms: 16
+    transform_count: 98
+    transform_time_ms: 5
     transform_yield_count: 30
     insert_time_ms: 0
     insert_new_count: 36
@@ -125,9 +125,9 @@ nested-with-nulls-tests:
 -   query: EXPLAIN select id from t1 where b.a.a IS NOT NULL
     explain: ISCAN(I1 <,>) | FILTER _.B.A.A NOT_NULL | MAP (_.ID AS ID)
     task_count: 355
-    task_total_time_ms: 6
-    transform_count: 94
-    transform_time_ms: 2
+    task_total_time_ms: 14
+    transform_count: 98
+    transform_time_ms: 4
     transform_yield_count: 30
     insert_time_ms: 0
     insert_new_count: 36
@@ -135,9 +135,9 @@ nested-with-nulls-tests:
 -   query: EXPLAIN select id from t1 where b.a.b IS NOT NULL
     explain: ISCAN(I1 <,>) | FILTER _.B.A.B NOT_NULL | MAP (_.ID AS ID)
     task_count: 355
-    task_total_time_ms: 11
-    transform_count: 94
-    transform_time_ms: 5
+    task_total_time_ms: 8
+    transform_count: 98
+    transform_time_ms: 2
     transform_yield_count: 30
     insert_time_ms: 0
     insert_new_count: 36
@@ -145,9 +145,9 @@ nested-with-nulls-tests:
 -   query: EXPLAIN select id from t1 where b.b.a IS NOT NULL
     explain: ISCAN(I1 <,>) | FILTER _.B.B.A NOT_NULL | MAP (_.ID AS ID)
     task_count: 355
-    task_total_time_ms: 17
-    transform_count: 94
-    transform_time_ms: 5
+    task_total_time_ms: 13
+    transform_count: 98
+    transform_time_ms: 4
     transform_yield_count: 30
     insert_time_ms: 0
     insert_new_count: 36
@@ -155,8 +155,8 @@ nested-with-nulls-tests:
 -   query: EXPLAIN select id from t1 where b.b.b IS NOT NULL
     explain: ISCAN(I1 <,>) | FILTER _.B.B.B NOT_NULL | MAP (_.ID AS ID)
     task_count: 355
-    task_total_time_ms: 17
-    transform_count: 94
+    task_total_time_ms: 18
+    transform_count: 98
     transform_time_ms: 5
     transform_yield_count: 30
     insert_time_ms: 0
@@ -166,9 +166,9 @@ nested-with-nulls-tests:
     explain: ISCAN(I1 <,>) | FILTER coalesce_string(_.A.A.A, promote(@c14 AS STRING))
         EQUALS promote(@c17 AS STRING) | MAP (_.ID AS ID)
     task_count: 371
-    task_total_time_ms: 11
-    transform_count: 99
-    transform_time_ms: 4
+    task_total_time_ms: 7
+    transform_count: 103
+    transform_time_ms: 3
     transform_yield_count: 32
     insert_time_ms: 0
     insert_new_count: 40
@@ -177,9 +177,9 @@ nested-with-nulls-tests:
     explain: ISCAN(I1 <,>) | FILTER coalesce_string(_.A.A.A, promote(@c14 AS STRING))
         EQUALS promote(@c17 AS STRING) | MAP (_.ID AS ID)
     task_count: 371
-    task_total_time_ms: 11
-    transform_count: 99
-    transform_time_ms: 4
+    task_total_time_ms: 7
+    transform_count: 103
+    transform_time_ms: 3
     transform_yield_count: 32
     insert_time_ms: 0
     insert_new_count: 40
@@ -188,8 +188,8 @@ nested-with-nulls-tests:
     explain: ISCAN(I1 <,>) | FILTER coalesce_string(_.A.A.A, promote(@c14 AS STRING))
         NOT_NULL | MAP (_.ID AS ID)
     task_count: 371
-    task_total_time_ms: 17
-    transform_count: 99
+    task_total_time_ms: 18
+    transform_count: 103
     transform_time_ms: 5
     transform_yield_count: 32
     insert_time_ms: 0
@@ -199,9 +199,9 @@ nested-with-nulls-tests:
     explain: ISCAN(I1 <,>) | FILTER coalesce_string(_.A.A.A, NULL) NOT_NULL | MAP
         (_.ID AS ID)
     task_count: 371
-    task_total_time_ms: 17
-    transform_count: 99
-    transform_time_ms: 5
+    task_total_time_ms: 14
+    transform_count: 103
+    transform_time_ms: 4
     transform_yield_count: 32
     insert_time_ms: 0
     insert_new_count: 40
@@ -210,9 +210,9 @@ nested-with-nulls-tests:
     explain: ISCAN(I1 <,>) | FILTER coalesce_string(_.A.B.A, promote(@c14 AS STRING))
         EQUALS promote(@c14 AS STRING) | MAP (_.ID AS ID)
     task_count: 371
-    task_total_time_ms: 11
-    transform_count: 99
-    transform_time_ms: 4
+    task_total_time_ms: 18
+    transform_count: 103
+    transform_time_ms: 5
     transform_yield_count: 32
     insert_time_ms: 0
     insert_new_count: 40
@@ -221,9 +221,9 @@ nested-with-nulls-tests:
     explain: ISCAN(I1 <,>) | FILTER coalesce_string(_.A.B.A, promote(@c14 AS STRING))
         EQUALS promote(@c14 AS STRING) | MAP (_.ID AS ID)
     task_count: 371
-    task_total_time_ms: 11
-    transform_count: 99
-    transform_time_ms: 4
+    task_total_time_ms: 18
+    transform_count: 103
+    transform_time_ms: 5
     transform_yield_count: 32
     insert_time_ms: 0
     insert_new_count: 40
@@ -233,7 +233,7 @@ nested-with-nulls-tests:
         IS_NULL | MAP (_.ID AS ID)
     task_count: 371
     task_total_time_ms: 6
-    transform_count: 99
+    transform_count: 103
     transform_time_ms: 2
     transform_yield_count: 32
     insert_time_ms: 0
@@ -243,9 +243,9 @@ nested-with-nulls-tests:
     explain: ISCAN(I1 <,>) | FILTER coalesce_string(_.A.B.A, NULL) IS_NULL | MAP (_.ID
         AS ID)
     task_count: 371
-    task_total_time_ms: 6
-    transform_count: 99
-    transform_time_ms: 2
+    task_total_time_ms: 11
+    transform_count: 103
+    transform_time_ms: 3
     transform_yield_count: 32
     insert_time_ms: 0
     insert_new_count: 40
@@ -254,9 +254,9 @@ nested-with-nulls-tests:
     explain: ISCAN(I1 <,>) | FILTER coalesce_string(_.A.B.A, promote(@c14 AS STRING))
         NOT_NULL | MAP (_.ID AS ID)
     task_count: 371
-    task_total_time_ms: 17
-    transform_count: 99
-    transform_time_ms: 5
+    task_total_time_ms: 7
+    transform_count: 103
+    transform_time_ms: 2
     transform_yield_count: 32
     insert_time_ms: 0
     insert_new_count: 40
@@ -265,8 +265,8 @@ nested-with-nulls-tests:
     explain: ISCAN(I1 <,>) | FILTER coalesce_long(_.B.A.B, promote(@c14 AS LONG))
         EQUALS promote(@c14 AS LONG) | MAP (_.ID AS ID)
     task_count: 355
-    task_total_time_ms: 17
-    transform_count: 94
+    task_total_time_ms: 18
+    transform_count: 98
     transform_time_ms: 6
     transform_yield_count: 30
     insert_time_ms: 0
@@ -276,8 +276,8 @@ nested-with-nulls-tests:
     explain: ISCAN(I1 <,>) | FILTER coalesce_long(_.B.A.B, promote(@c14 AS LONG))
         EQUALS promote(@c14 AS LONG) | MAP (_.ID AS ID)
     task_count: 355
-    task_total_time_ms: 17
-    transform_count: 94
+    task_total_time_ms: 18
+    transform_count: 98
     transform_time_ms: 6
     transform_yield_count: 30
     insert_time_ms: 0
@@ -287,9 +287,9 @@ nested-with-nulls-tests:
     explain: ISCAN(I1 <,>) | FILTER coalesce_long(_.B.A.B, promote(@c14 AS LONG))
         IS_NULL | MAP (_.ID AS ID)
     task_count: 355
-    task_total_time_ms: 14
-    transform_count: 94
-    transform_time_ms: 4
+    task_total_time_ms: 6
+    transform_count: 98
+    transform_time_ms: 2
     transform_yield_count: 30
     insert_time_ms: 0
     insert_new_count: 36
@@ -299,7 +299,7 @@ nested-with-nulls-tests:
         NOT_NULL | MAP (_.ID AS ID)
     task_count: 355
     task_total_time_ms: 14
-    transform_count: 94
+    transform_count: 98
     transform_time_ms: 4
     transform_yield_count: 30
     insert_time_ms: 0
