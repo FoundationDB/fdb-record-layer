@@ -138,7 +138,7 @@ columnType
     : primitiveType | customType=uid;
 
 primitiveType
-    : BOOLEAN | INTEGER | BIGINT | FLOAT | DOUBLE | STRING | BYTES;
+    : BOOLEAN | INTEGER | BIGINT | FLOAT | DOUBLE | STRING | BYTES | UUID;
 
 columnConstraint
     : nullNotnull                                                   #nullColumnConstraint
@@ -1178,6 +1178,7 @@ unaryOperator
 comparisonOperator
     : '=' | '>' | '<' | '<' '=' | '>' '='
     | '<' '>' | '!' '=' // | '<' '=' '>' // no support for null-safe equality
+    | IS NOT? DISTINCT FROM
     ;
 
 logicalOperator
@@ -1354,7 +1355,7 @@ functionNameBase
     | TIMESTAMPADD | TIMESTAMPDIFF | TIME_FORMAT | TIME_TO_SEC
     | TOUCHES | TO_BASE64 | TO_DAYS | TO_SECONDS | UCASE
     | UNCOMPRESS | UNCOMPRESSED_LENGTH | UNHEX | UNIX_TIMESTAMP
-    | UPDATEXML | UPPER | UUID | UUID_SHORT
+    | UPDATEXML | UPPER
     | VALIDATE_PASSWORD_STRENGTH | VERSION | VISIBLE
     | WAIT_UNTIL_SQL_THREAD_AFTER_GTIDS | WEEK | WEEKDAY
     | WEEKOFYEAR | WEIGHT_STRING | WITHIN | YEAR | YEARWEEK

@@ -51,11 +51,7 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 /**
  * Test building value indexes.
  */
-public abstract class OnlineIndexerBuildValueIndexTest extends OnlineIndexerBuildIndexTest {
-
-    private OnlineIndexerBuildValueIndexTest(boolean safeBuild) {
-        super(safeBuild);
-    }
+class OnlineIndexerBuildValueIndexTest extends OnlineIndexerBuildIndexTest {
 
     private void valueRebuild(@Nonnull List<TestRecords1Proto.MySimpleRecord> records, @Nullable List<TestRecords1Proto.MySimpleRecord> recordsWhileBuilding,
                               int agents, boolean overlap, boolean splitLongRecords) {
@@ -398,23 +394,5 @@ public abstract class OnlineIndexerBuildValueIndexTest extends OnlineIndexerBuil
                 TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(r.nextInt(100)).setNumValue2(r.nextInt(20) + 20).build()
         ).limit(100).sorted(Comparator.comparingLong(TestRecords1Proto.MySimpleRecord::getRecNo)).collect(Collectors.toList());
         valueRebuild(records, recordsWhileBuilding, 5, false);
-    }
-
-    /**
-     * Build indexes with the unchecked index build interfaces.
-     */
-    public static class Unsafe extends OnlineIndexerBuildValueIndexTest {
-        Unsafe() {
-            super(false);
-        }
-    }
-
-    /**
-     * Build indexes with the safe index build interfaces.
-     */
-    public static class Safe extends OnlineIndexerBuildValueIndexTest {
-        Safe() {
-            super(true);
-        }
     }
 }

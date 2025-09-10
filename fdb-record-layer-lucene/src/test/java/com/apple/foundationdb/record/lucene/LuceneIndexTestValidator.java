@@ -20,9 +20,12 @@
 
 package com.apple.foundationdb.record.lucene;
 
+import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
+import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectoryManager;
+import com.apple.foundationdb.record.lucene.directory.FDBLuceneFileReference;
 import com.apple.foundationdb.record.lucene.search.LuceneOptimizedIndexSearcher;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
@@ -31,6 +34,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
+import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.base.Verify;
 import org.apache.lucene.document.Document;
@@ -108,7 +112,7 @@ public class LuceneIndexTestValidator {
      * @param expectedDocumentInformation a map from group to primaryKey to timestamp
      * @param universalSearch a search that will return all the documents
      * @param allowDuplicatePrimaryKeys if {@code true} this will allow multiple entries in the primary key segment
-     * index for the same primaary key. This should only be {@code true} if you expect merges to fail.
+     * index for the same primary key. This should only be {@code true} if you expect merges to fail.
      * @throws IOException if there is any issue interacting with lucene
      */
     void validate(Index index, final Map<Tuple, ? extends Map<Tuple, Tuple>> expectedDocumentInformation,
@@ -150,23 +154,25 @@ public class LuceneIndexTestValidator {
             validatePrimaryKeySegmentIndex(recordStore, index, groupingKey, null,
                     Set.copyOf(records), allowDuplicatePrimaryKeys);
             Set.copyOf(records).forEach(primaryKey -> missingDocuments.get(groupingKey).remove(primaryKey));
+            // check for dangling blocks
+            final FDBDirectoryManager directoryManager = getDirectoryManager(recordStore, index);
+            final FDBDirectory directory = directoryManager.getDirectory(groupingKey, null);
+            validateDanglingBlocks(directory, context);
         }
     }
 
     private void validatePartitionedGroup(final Index index, final String universalSearch, final boolean allowDuplicatePrimaryKeys, final Tuple groupingKey, final int partitionLowWatermark, final int partitionHighWatermark, final List<Tuple> records, final Map<Tuple, Map<Tuple, Tuple>> missingDocuments) throws IOException {
         List<LucenePartitionInfoProto.LucenePartitionInfo> partitionInfos = getPartitionMeta(index, groupingKey);
         partitionInfos.sort(Comparator.comparing(info -> Tuple.fromBytes(info.getFrom().toByteArray())));
-        final String allCounts = partitionInfos.stream()
-                .map(info -> Tuple.fromBytes(info.getFrom().toByteArray()).toString() + info.getCount())
-                .collect(Collectors.joining(",", "[", "]"));
         Set<Integer> usedPartitionIds = new HashSet<>();
         Tuple lastToTuple = null;
         int visitedCount = 0;
 
         try (FDBRecordContext context = contextProvider.get()) {
             final FDBRecordStore recordStore = schemaSetup.apply(context);
-            for (int i = 0; i < partitionInfos.size(); i++) {
-                final LucenePartitionInfoProto.LucenePartitionInfo partitionInfo = partitionInfos.get(i);
+            final FDBDirectoryManager directoryManager = getDirectoryManager(recordStore, index);
+            for (int partitionIndex = 0; partitionIndex < partitionInfos.size(); partitionIndex++) {
+                final LucenePartitionInfoProto.LucenePartitionInfo partitionInfo = partitionInfos.get(partitionIndex);
                 if (LOGGER.isTraceEnabled()) {
                     LOGGER.trace("Group: " + groupingKey + " PartitionInfo[" + partitionInfo.getId() +
                             "]: count:" + partitionInfo.getCount() + " " +
@@ -174,17 +180,7 @@ public class LuceneIndexTestValidator {
                             Tuple.fromBytes(partitionInfo.getTo().toByteArray()));
                 }
 
-                assertTrue(isParititionCountWithinBounds(partitionInfos, i, partitionLowWatermark, partitionHighWatermark),
-                        "Group: " + groupingKey + " - " + allCounts + "\nlowWatermark: " + partitionLowWatermark + ", highWatermark: " + partitionHighWatermark +
-                                "\nCurrent count: " + partitionInfo.getCount());
-                assertTrue(usedPartitionIds.add(partitionInfo.getId()), () -> "Duplicate id: " + partitionInfo);
-                final Tuple fromTuple = Tuple.fromBytes(partitionInfo.getFrom().toByteArray());
-                if (i > 0) {
-                    assertThat(fromTuple, greaterThan(lastToTuple));
-                }
-                lastToTuple = Tuple.fromBytes(partitionInfo.getTo().toByteArray());
-                assertThat(fromTuple, lessThanOrEqualTo(lastToTuple));
-
+                lastToTuple = validatePartition(groupingKey, partitionLowWatermark, partitionHighWatermark, partitionInfos, partitionIndex, usedPartitionIds, lastToTuple);
                 LOGGER.debug(KeyValueLogMessage.of("Visited partition",
                         "group", groupingKey,
                         "documentsSoFar", visitedCount,
@@ -202,8 +198,64 @@ public class LuceneIndexTestValidator {
                 validatePrimaryKeySegmentIndex(recordStore, index, groupingKey, partitionInfo.getId(),
                         expectedPrimaryKeys, allowDuplicatePrimaryKeys);
                 expectedPrimaryKeys.forEach(primaryKey -> missingDocuments.get(groupingKey).remove(primaryKey));
+                // check for dangling blocks
+                final FDBDirectory directory = directoryManager.getDirectory(groupingKey, partitionInfo.getId());
+                if (LOGGER.isTraceEnabled()) {
+                    LOGGER.trace("Checking blocks for Group: " + groupingKey + " PartitionInfo: " + partitionInfo.getId());
+                }
+                validateDanglingBlocks(directory, context);
             }
         }
+    }
+
+    @Nonnull
+    private Tuple validatePartition(final Tuple groupingKey, final int partitionLowWatermark, final int partitionHighWatermark,
+                                    final List<LucenePartitionInfoProto.LucenePartitionInfo> partitionInfos, final int partitionIndex,
+                                    final Set<Integer> usedPartitionIds, Tuple previousToTuple) {
+        final LucenePartitionInfoProto.LucenePartitionInfo partitionInfo = partitionInfos.get(partitionIndex);
+        assertTrue(isParititionCountWithinBounds(partitionInfos, partitionIndex, partitionLowWatermark, partitionHighWatermark),
+                () -> partitionMessage(groupingKey, partitionLowWatermark, partitionHighWatermark, partitionInfos, partitionIndex));
+        assertTrue(usedPartitionIds.add(partitionInfo.getId()), () -> "Duplicate id: " + partitionInfo);
+        final Tuple fromTuple = Tuple.fromBytes(partitionInfo.getFrom().toByteArray());
+        if (partitionIndex > 0) {
+            assertThat(fromTuple, greaterThan(previousToTuple));
+        }
+        Tuple lastToTuple = Tuple.fromBytes(partitionInfo.getTo().toByteArray());
+        assertThat(fromTuple, lessThanOrEqualTo(lastToTuple));
+        return lastToTuple;
+    }
+
+    @Nonnull
+    private static String partitionMessage(final Tuple groupingKey, final int partitionLowWatermark, final int partitionHighWatermark,
+                                           final List<LucenePartitionInfoProto.LucenePartitionInfo> partitionInfos, final int partitionIndex) {
+        final String allCounts = partitionInfos.stream()
+                .map(info -> Tuple.fromBytes(info.getFrom().toByteArray()).toString() + info.getCount())
+                .collect(Collectors.joining(",", "[", "]"));
+        return "Group: " + groupingKey + " - " + allCounts +
+                "\nlowWatermark: " + partitionLowWatermark + ", highWatermark: " + partitionHighWatermark +
+                "\nCurrent count: " + partitionInfos.get(partitionIndex).getCount();
+    }
+
+    private static void validateDanglingBlocks(final FDBDirectory directory, final FDBRecordContext context) {
+        Subspace dataSubspace = directory.getSubspace().subspace(Tuple.from(FDBDirectory.DATA_SUBSPACE));
+        final Map<String, FDBLuceneFileReference> allFiles = directory.getFileReferenceCacheAsync().join();
+        // Get all valid file IDs from the file references
+        final Set<Long> validFileIds = allFiles.values().stream()
+                .map(FDBLuceneFileReference::getId)
+                .collect(Collectors.toSet());
+        if (LOGGER.isDebugEnabled()) {
+            LOGGER.debug("Found {} valid file IDs: {}", validFileIds.size(), validFileIds);
+        }
+        final List<KeyValue> subspaceKeys = context.ensureActive().getRange(dataSubspace.range()).asList().join();
+        final Set<Tuple> danglingBlocks = new HashSet<>();
+        for (KeyValue kv : subspaceKeys) {
+            Tuple fileAndBlock = dataSubspace.unpack(kv.getKey());
+            if (!validFileIds.contains(fileAndBlock.getLong(0))) {
+                danglingBlocks.add(fileAndBlock);
+            }
+        }
+        assertTrue(danglingBlocks.isEmpty(), "Found orphaned data blocks for file IDs: " +
+                danglingBlocks.stream().map(Tuple::toString).collect(Collectors.joining(", ")));
     }
 
     private static int getPartitionLowWatermark(final Index index) {

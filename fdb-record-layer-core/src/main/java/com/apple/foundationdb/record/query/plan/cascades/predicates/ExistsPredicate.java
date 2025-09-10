@@ -36,9 +36,6 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoolean;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
-import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
-import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.Memoizer;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateCompensationFunction;
@@ -49,6 +46,8 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.PullUp;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableSet;
@@ -238,7 +237,7 @@ public class ExistsPredicate extends AbstractQueryPredicate implements LeafQuery
             // Note that this predicate does NOT need to be pulled up as the existential quantifier is separately
             // added in.
             //
-            return PredicateCompensationFunction.of(baseAlias -> LinkedIdentitySet.of(originalExistsPredicate));
+            return PredicateCompensationFunction.ofExistentialPredicate(originalExistsPredicate);
         }
         return PredicateCompensationFunction.noCompensationNeeded();
     }

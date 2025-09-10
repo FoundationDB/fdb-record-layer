@@ -85,6 +85,6 @@ public class ToUniqueAliasesTranslationMap implements TranslationMap {
     @Nonnull
     private CorrelationIdentifier computeTargetIfAbsent(@Nonnull final CorrelationIdentifier sourceAlias) {
         return sourceToTargetMap.computeIfAbsent(sourceAlias,
-                ignored0 -> Quantifier.uniqueID());
+                ignored0 -> Quantifier.uniqueId());
     }
 }

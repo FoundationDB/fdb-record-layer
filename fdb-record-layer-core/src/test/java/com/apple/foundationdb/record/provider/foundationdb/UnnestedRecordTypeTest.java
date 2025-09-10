@@ -2316,10 +2316,11 @@ class UnnestedRecordTypeTest extends FDBRecordStoreQueryTestBase {
 
     @Test
     void deleteWhereOnMultiTypeFailsWithRecordTypePrefix() {
-        // Create a multi-type index on two different unnested types. Each one has a parent constituent named and an inner constituent, so the index is well-defined.
-        // The multi-type index in this case has a record type prefix. In theory, we actually could perform the delete records where, but the record type key in the
-        // index matches the synthetic type's record type key, not the base type. This means we'd need to translate the record type key before deleting data from the
-        // index. Until we get that working, just assert that this fails.
+        // Create a multi-type index on two different unnested types. Each one has a parent constituent named and an
+        // inner constituent, so the index is well-defined. The multi-type index in this case has a record type prefix.
+        // In theory, we actually could perform the delete records where, but the record type key in the index matches
+        // the synthetic type's record type key, not the base type. This means we'd need to translate the record type
+        // key before deleting data from the index. Until we get that working, just assert that this fails.
         final RecordMetaDataHook hook = addMultiTypeDoubleUnnestedIndex(concat(recordType(), field(PARENT_CONSTITUENT).nest(field("middle").nest("other_int")), field("inner").nest("foo")))
                 .andThen(setOuterAndMiddlePrimaryKey(concat(recordType(), field("middle").nest("other_int"), field("rec_no"))));
         final RecordMetaData metaData = doubleNestedMetaData(hook);

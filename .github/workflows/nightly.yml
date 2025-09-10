@@ -6,39 +6,132 @@ on:
   workflow_dispatch:
 
 jobs:
-  gradle:
+  # In parallel, we run:
+  #   a) all the tests
+  #   b) the mixed-mode tests
+  #   c) the nightly tests
+  # The nightly tests (currently) include all the regular tests, but we want to publish to teamscale the coverage
+  # statistics we're getting from PRB separately. We want to be able to differentiate those two types of coverage
+  # in teamscale for a better understanding of what might escape in PRB (or in our pre-release test run).
+  # The mixed-mode coverage is a little different, we want to see explicitly what code is being covered in mixed-mode
+  # so that we can find potential uncovered code that could expose bugs when multiple versions are running at the same
+  # time.
+  # It's possible that we could change the nightly tests to just be the new tests, and not the regular tests in the future.
+  test:
+    if: github.repository == 'FoundationDB/fdb-record-layer'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4.2.2
+      - name: Setup Base Environment
+        id: setup-base
+        uses: ./actions/setup-base-env
+      - name: Setup FDB
+        uses: ./actions/setup-fdb
+      - name: Run Gradle Test
+        uses: ./actions/gradle-test
+        with:
+          gradle_args: -PreleaseBuild=false -PpublishBuild=false
+      - name: Upload coverage to teamscale
+        # temporary until we validate that this is working correctly
+        continue-on-error: true
+        uses: ./actions/teamscale-upload
+        with:
+          partition: 'CI Tests'
+          revision: ${{ github.sha }}
+          files: "${{ github.workspace }}/.out/reports/jacoco/codeCoverageReport/codeCoverageReport.xml"
+          teamscaleKey: ${{ secrets.TEAMSCALE_ACCESS_KEY }}
+
+  mixed-mode-test:
+    if: github.repository == 'FoundationDB/fdb-record-layer'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4.2.2
+      - name: Setup Base Environment
+        uses: ./actions/setup-base-env
+      - name: Setup FDB
+        uses: ./actions/setup-fdb
+      - name: Run Gradle Test
+        uses: ./actions/gradle-test
+        with:
+          gradle_command: mixedModeTest
+          gradle_args: -PreleaseBuild=false -PpublishBuild=false
+      # We don't commit the incremented version, but we use this to know the version when generating
+      # the resulting markdown
+      - name: Increment version
+        shell: bash
+        run: python build/versionutils.py gradle.properties --increment -u PATCH
+      - name: Get new version
+        id: get_new_version
+        shell: bash
+        run: |
+          echo "version=$(python build/versionutils.py gradle.properties)" >> "$GITHUB_OUTPUT"
+      - name: Create markdown
+        shell: bash
+        run: python build/publish-mixed-mode-results.py ${{ steps.get_new_version.outputs.version }} --run-link ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }} --output mixed-mode-results.md
+      - name: Preview results
+        shell: bash
+        run: cat mixed-mode-results.md >> $GITHUB_STEP_SUMMARY
+      - name: Upload coverage to teamscale
+        # temporary until we validate that this is working correctly
+        continue-on-error: true
+        uses: ./actions/teamscale-upload
+        with:
+          partition: 'Mixed Mode Tests'
+          revision: ${{ github.sha }}
+          files: "${{ github.workspace }}/.out/reports/jacoco/codeCoverageReport/codeCoverageReport.xml"
+          teamscaleKey: ${{ secrets.TEAMSCALE_ACCESS_KEY }}
+
+  nightly_test:
     if: github.repository == 'FoundationDB/fdb-record-layer'
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout sources
-      uses: actions/checkout@v4.2.2
-    - name: Setup Base Environment
-      uses: ./actions/setup-base-env
-    - name: Setup FDB
-      uses: ./actions/setup-fdb
-    - name: Run Gradle Test
-      uses: ./actions/gradle-test
-      with:
-        gradle_args: "-PreleaseBuild=false -PpublishBuild=false -PspotbugsEnableHtmlReport -Ptests.includeRandom -Ptests.iterations=2 -Ptests.nightly"
-    - name: Publish Test Reports
-      if: always()
-      uses: actions/upload-artifact@v4.6.0
-      with:
-        name: test-reports
-        path: |
-          test-reports/fdb-java-annotations/
-          test-reports/fdb-extensions/
-          test-reports/fdb-record-layer-core/
-          test-reports/fdb-record-layer-icu/
-          test-reports/fdb-record-layer-spatial/
-          test-reports/fdb-record-layer-lucene/
-          test-reports/fdb-record-layer-jmh/
-          test-reports/examples/
-          test-reports/fdb-relational-api/
-          test-reports/fdb-relational-core/
-          test-reports/fdb-relational-cli/
-          test-reports/fdb-relational-grpc/
-          test-reports/fdb-relational-jdbc/
-          test-reports/fdb-relational-server/
-          test-reports/yaml-tests/
+      - name: Checkout sources
+        uses: actions/checkout@v4.2.2
+      - name: Setup Base Environment
+        uses: ./actions/setup-base-env
+      - name: Setup FDB
+        uses: ./actions/setup-fdb
+      - name: Run Gradle Test
+        uses: ./actions/gradle-test
+        with:
+          gradle_args: "-PreleaseBuild=false -PpublishBuild=false -PspotbugsEnableHtmlReport -Ptests.includeRandom -Ptests.iterations=2 -Ptests.nightly"
+      - name: Publish Test Reports
+        if: always()
+        uses: actions/upload-artifact@v4.6.0
+        with:
+          name: test-reports
+          path: |
+            test-reports/fdb-java-annotations/
+            test-reports/fdb-extensions/
+            test-reports/fdb-record-layer-core/
+            test-reports/fdb-record-layer-icu/
+            test-reports/fdb-record-layer-spatial/
+            test-reports/fdb-record-layer-lucene/
+            test-reports/fdb-record-layer-jmh/
+            test-reports/examples/
+            test-reports/fdb-relational-api/
+            test-reports/fdb-relational-core/
+            test-reports/fdb-relational-cli/
+            test-reports/fdb-relational-grpc/
+            test-reports/fdb-relational-jdbc/
+            test-reports/fdb-relational-server/
+            test-reports/yaml-tests/
+      
+      - name: Upload coverage to teamscale
+        # temporary until we validate that this is working correctly
+        continue-on-error: true
+        uses: ./actions/teamscale-upload
+        with:
+          partition: 'Nightly Tests'
+          revision: ${{ github.sha }}
+          files: "${{ github.workspace }}/.out/reports/jacoco/codeCoverageReport/codeCoverageReport.xml"
+          teamscaleKey: ${{ secrets.TEAMSCALE_ACCESS_KEY }}
+
+
 

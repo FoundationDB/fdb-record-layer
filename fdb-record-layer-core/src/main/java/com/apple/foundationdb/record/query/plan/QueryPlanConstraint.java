@@ -62,6 +62,10 @@ public class QueryPlanConstraint implements PlanHashable, PlanSerializable {
         return predicate;
     }
 
+    public boolean isTautology() {
+        return predicate.isTautology();
+    }
+
     public boolean isConstrained() {
         return !getPredicate().isTautology();
     }

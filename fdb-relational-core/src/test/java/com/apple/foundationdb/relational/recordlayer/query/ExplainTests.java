@@ -70,8 +70,14 @@ public class ExplainTests {
     void explainResultSetMetadataTest() throws Exception {
         final var expectedLabels = List.of("PLAN", "PLAN_HASH", "PLAN_DOT", "PLAN_GML", "PLAN_CONTINUATION", "PLANNER_METRICS");
         final var expectedTypes = List.of(Types.VARCHAR, Types.INTEGER, Types.VARCHAR, Types.VARCHAR, Types.STRUCT, Types.STRUCT);
-        final var expectedContLabels = List.of("EXECUTION_STATE", "VERSION", "PLAN_HASH_MODE");
-        final var expectedContTypes = List.of(Types.BINARY, Types.INTEGER, Types.VARCHAR);
+        final var expectedContLabels = List.of(
+                "EXECUTION_STATE",
+                "VERSION",
+                "PLAN_HASH_MODE",
+                "PLAN_HASH",
+                "SERIALIZED_PLAN_COMPLEXITY"
+        );
+        final var expectedContTypes = List.of(Types.BINARY, Types.INTEGER, Types.VARCHAR, Types.INTEGER, Types.INTEGER);
         final var expectedPlannerMetricsLabels = List.of(
                 "TASK_COUNT",
                 "TASK_TOTAL_TIME_NS",
@@ -124,7 +130,7 @@ public class ExplainTests {
                     final var assertResult = ResultSetAssert.assertThat(resultSet);
                     assertResult.hasNextRow()
                             .hasColumn("PLAN", "ISCAN(RECORD_NAME_IDX <,>)")
-                            .hasColumn("PLAN_HASH", -1635569052L)
+                            .hasColumn("PLAN_HASH", -1635569052)
                             .hasColumn("PLAN_CONTINUATION", null);
                     assertResult.hasNoNextRow();
                 }
@@ -148,15 +154,18 @@ public class ExplainTests {
                     ps.setObject("cont", continuation.serialize());
                     try (final RelationalResultSet resultSet = ps.executeQuery()) {
                         final var assertResult = ResultSetAssert.assertThat(resultSet);
+
                         assertResult.hasNextRow()
                                 .hasColumn("PLAN", "ISCAN(RECORD_NAME_IDX <,>)")
-                                .hasColumn("PLAN_HASH", -1635569052L);
+                                .hasColumn("PLAN_HASH", -1635569052);
                         final var continuationInfo = resultSet.getStruct(5);
                         org.junit.jupiter.api.Assertions.assertNotNull(continuationInfo);
                         final var assertStruct = RelationalStructAssert.assertThat(continuationInfo);
                         assertStruct.hasValue("EXECUTION_STATE", new byte[]{0, 21, 1, 21, 11});
                         assertStruct.hasValue("VERSION", 1);
                         assertStruct.hasValue("PLAN_HASH_MODE", null);
+                        assertStruct.hasValue("PLAN_HASH", -1635569052);
+                        assertStruct.hasValue("SERIALIZED_PLAN_COMPLEXITY", null);
                     }
                 }
             }
@@ -181,13 +190,48 @@ public class ExplainTests {
                         final var assertResult = ResultSetAssert.assertThat(resultSet);
                         assertResult.hasNextRow()
                                 .hasColumn("PLAN", "ISCAN(RECORD_NAME_IDX <,>)")
-                                .hasColumn("PLAN_HASH", -1635569052L);
+                                .hasColumn("PLAN_HASH", -1635569052);
                         final var continuationInfo = resultSet.getStruct(5);
                         org.junit.jupiter.api.Assertions.assertNotNull(continuationInfo);
                         final var assertStruct = RelationalStructAssert.assertThat(continuationInfo);
                         assertStruct.hasValue("EXECUTION_STATE", new byte[]{0, 21, 1, 21, 11});
                         assertStruct.hasValue("VERSION", 1);
                         assertStruct.hasValue("PLAN_HASH_MODE", "VC0");
+                        assertStruct.hasValue("PLAN_HASH", -1635569052);
+                        assertStruct.hasValue("SERIALIZED_PLAN_COMPLEXITY", 1);
+                    }
+                }
+            }
+        }
+    }
+
+    @Test
+    void explainWithContinuationSerializedPlanWithDifferentQueryTest() throws Exception {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            executeInsert(ddl);
+            Continuation continuation;
+            try (final var connection = ddl.setSchemaAndGetConnection()) {
+                connection.setOption(Options.Name.CONTINUATIONS_CONTAIN_COMPILED_STATEMENTS, true);
+                try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord")) {
+                    ps.setMaxRows(2);
+                    continuation = consumeResultAndGetContinuation(ps, 2);
+                }
+
+                try (RelationalPreparedStatement ps = connection.prepareStatement("EXPLAIN SELECT rest_no FROM RestaurantComplexRecord WITH CONTINUATION ?cont")) {
+                    ps.setObject("cont", continuation.serialize());
+                    try (final RelationalResultSet resultSet = ps.executeQuery()) {
+                        final var assertResult = ResultSetAssert.assertThat(resultSet);
+                        assertResult.hasNextRow()
+                                .hasColumn("PLAN", "COVERING(RECORD_NAME_IDX <,> -> [NAME: KEY[0], REST_NO: KEY[2]]) | MAP (_.REST_NO AS REST_NO)")
+                                .hasColumn("PLAN_HASH", 4759756);
+                        final var continuationInfo = resultSet.getStruct(5);
+                        org.junit.jupiter.api.Assertions.assertNotNull(continuationInfo);
+                        final var assertStruct = RelationalStructAssert.assertThat(continuationInfo);
+                        assertStruct.hasValue("EXECUTION_STATE", new byte[]{0, 21, 1, 21, 11});
+                        assertStruct.hasValue("VERSION", 1);
+                        assertStruct.hasValue("PLAN_HASH_MODE", "VC0");
+                        assertStruct.hasValue("PLAN_HASH", -1635569052);
+                        assertStruct.hasValue("SERIALIZED_PLAN_COMPLEXITY", 1);
                     }
                 }
             }
@@ -212,13 +256,15 @@ public class ExplainTests {
                         final var assertResult = ResultSetAssert.assertThat(resultSet);
                         assertResult.hasNextRow()
                                 .hasColumn("PLAN", "ISCAN(RECORD_NAME_IDX <,>)")
-                                .hasColumn("PLAN_HASH", -1635569052L);
+                                .hasColumn("PLAN_HASH", -1635569052);
                         final var continuationInfo = resultSet.getStruct(5);
                         org.junit.jupiter.api.Assertions.assertNotNull(continuationInfo);
                         final var assertStruct = RelationalStructAssert.assertThat(continuationInfo);
                         assertStruct.hasValue("EXECUTION_STATE", new byte[]{0, 21, 1, 21, 11});
                         assertStruct.hasValue("VERSION", 1);
                         assertStruct.hasValue("PLAN_HASH_MODE", "VC0");
+                        assertStruct.hasValue("PLAN_HASH", -1635569052);
+                        assertStruct.hasValue("SERIALIZED_PLAN_COMPLEXITY", 1);
                     }
                 }
 

@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataProvider;
@@ -708,6 +709,7 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
     }
 
     /**
+     * <em>Deprecated</em>. This will soon be determined by the indexing session type
      * Set the use of a synchronized session during the index operation. Synchronized sessions help performing
      * the multiple transactions operations in a resource efficient way.
      * Normally this should be {@code true}.
@@ -716,6 +718,7 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
      * @param useSynchronizedSession use synchronize session if true, otherwise false
      * @return this builder
      */
+    @API(API.Status.DEPRECATED)
     public B setUseSynchronizedSession(boolean useSynchronizedSession) {
         configBuilder.setUseSynchronizedSession(useSynchronizedSession);
         return self();

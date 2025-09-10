@@ -122,7 +122,6 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
                     localTestingConfigs,
                     // The configs for multi-server testing
                     externalServerConfigs).collect(Collectors.toList());
-
         }
         for (final YamlTestConfig testConfig : Iterables.concat(testConfigs, maintainConfigs)) {
             testConfig.beforeAll();

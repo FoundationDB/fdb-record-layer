@@ -34,7 +34,6 @@ import com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoolean;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.Correlated;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.Narrowable;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateCompensation;
@@ -239,22 +238,11 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
     }
 
     @Nonnull
-    default PredicateCompensationFunction computeCompensationFunction(@Nonnull final PartialMatch partialMatch,
-                                                                      @Nonnull final QueryPredicate originalQueryPredicate,
-                                                                      @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
-                                                                      @Nonnull final List<PredicateCompensationFunction> childrenResults,
-                                                                      @Nonnull final PullUp pullUp) {
-        Verify.verify(this instanceof LeafQueryPredicate);
-        Verify.verify(childrenResults.isEmpty());
-
-        return toResidualPredicate()
-                .replaceValuesMaybe(pullUp::pullUpMaybe)
-                .map(queryPredicate ->
-                        PredicateCompensationFunction.of(baseAlias ->
-                                LinkedIdentitySet.of(queryPredicate.translateCorrelations(
-                                        TranslationMap.ofAliases(pullUp.getTopAlias(), baseAlias), false))))
-                .orElse(PredicateCompensationFunction.impossibleCompensation());
-    }
+    PredicateCompensationFunction computeCompensationFunction(@Nonnull PartialMatch partialMatch,
+                                                              @Nonnull QueryPredicate originalQueryPredicate,
+                                                              @Nonnull Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
+                                                              @Nonnull List<PredicateCompensationFunction> childrenResults,
+                                                              @Nonnull PullUp pullUp);
 
     /**
      * Create a {@link QueryPredicate} that is equivalent to {@code this} but which is evaluated as a residual

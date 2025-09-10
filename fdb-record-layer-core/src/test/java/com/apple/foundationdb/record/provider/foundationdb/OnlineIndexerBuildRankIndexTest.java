@@ -61,11 +61,7 @@ import static org.junit.jupiter.api.Assertions.fail;
  * Test building value indexes.
  */
 @SuppressWarnings("try")
-public abstract class OnlineIndexerBuildRankIndexTest extends OnlineIndexerBuildIndexTest {
-
-    private OnlineIndexerBuildRankIndexTest(boolean safeBuild) {
-        super(safeBuild);
-    }
+class OnlineIndexerBuildRankIndexTest extends OnlineIndexerBuildIndexTest {
 
     private void rankRebuild(@Nonnull List<TestRecords1Proto.MySimpleRecord> records, @Nullable List<TestRecords1Proto.MySimpleRecord> recordsWhileBuilding,
                              int agents, boolean overlap) {
@@ -189,7 +185,7 @@ public abstract class OnlineIndexerBuildRankIndexTest extends OnlineIndexerBuild
     }
 
     @Test
-    public void emptyRangeRank() {
+    void emptyRangeRank() {
         rankRebuild(Collections.emptyList());
     }
 
@@ -309,23 +305,5 @@ public abstract class OnlineIndexerBuildRankIndexTest extends OnlineIndexerBuild
                 TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(r.nextInt(100)).setNumValue2(r.nextInt(20) + 20).build()
         ).limit(100).sorted(Comparator.comparingLong(TestRecords1Proto.MySimpleRecord::getRecNo)).collect(Collectors.toList());
         rankRebuild(records, recordsWhileBuilding, 5, false);
-    }
-
-    /**
-     * Build indexes with the unchecked index build interfaces.
-     */
-    public static class Unsafe extends OnlineIndexerBuildRankIndexTest {
-        Unsafe() {
-            super(false);
-        }
-    }
-
-    /**
-     * Build indexes with the safe index build interfaces.
-     */
-    public static class Safe extends OnlineIndexerBuildRankIndexTest {
-        Safe() {
-            super(true);
-        }
     }
 }

@@ -21,7 +21,6 @@
 package com.apple.foundationdb.relational.recordlayer.metadata.serde;
 
 import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.record.RecordMetaDataOptionsProto;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
@@ -31,14 +30,15 @@ import com.apple.foundationdb.relational.api.metadata.Table;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.recordlayer.metadata.SkeletonVisitor;
 import com.apple.foundationdb.relational.util.Assert;
-
 import com.google.protobuf.DescriptorProtos;
+import com.google.protobuf.Descriptors;
 
 import javax.annotation.Nonnull;
 import java.util.LinkedHashSet;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @API(API.Status.EXPERIMENTAL)
 public class FileDescriptorSerializer extends SkeletonVisitor {
@@ -73,6 +73,7 @@ public class FileDescriptorSerializer extends SkeletonVisitor {
 
     public FileDescriptorSerializer(@Nonnull DescriptorProtos.FileDescriptorProto.Builder fileBuilder) {
         this.fileBuilder = fileBuilder;
+        this.fileBuilder.addAllDependency(TypeRepository.DEPENDENCIES.stream().map(Descriptors.FileDescriptor::getFullName).collect(Collectors.toList()));
         this.unionDescriptorBuilder = DescriptorProtos.DescriptorProto.newBuilder().setName("RecordTypeUnion");
         final RecordMetaDataOptionsProto.RecordTypeOptions options = RecordMetaDataOptionsProto.RecordTypeOptions.newBuilder().setUsage(RecordMetaDataOptionsProto.RecordTypeOptions.Usage.UNION).build();
         unionDescriptorBuilder.getOptionsBuilder().setExtension(RecordMetaDataOptionsProto.record, options);

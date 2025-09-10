@@ -44,6 +44,7 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -73,8 +74,10 @@ public class RelationalArrayTest {
             "string_null string array, string_not_null string array not null, " +
             "bytes_null bytes array, bytes_not_null bytes array not null, " +
             "struct_null structure array, struct_not_null structure array not null, " +
+            "uuid_null uuid array, uuid_not_null uuid array not null, " +
             // "enumeration_null enumeration array, enumeration_not_null enumeration array not null, " +
-            "primary key(pk))";
+            "primary key(pk)) " +
+            "CREATE TABLE B(pk integer, uuid_null uuid array, primary key(pk))";
 
     public void insertQuery(@Nonnull String q) throws SQLException {
         try (final var conn = DriverManager.getConnection(database.getConnectionUri().toString())) {
@@ -91,6 +94,14 @@ public class RelationalArrayTest {
         insertArraysViaQuerySimpleStatement();
     }
 
+    @Test
+    public void uuidArray() throws SQLException {
+        insertQuery("INSERT INTO B VALUES (" +
+                "1," +
+                "['e5711bed-c606-49e2-a682-316348bf4091', '14b387cd-79ad-4860-9588-9c4e81588af0'])");
+
+    }
+
     private void insertArraysViaQuerySimpleStatement() throws SQLException {
         insertQuery("INSERT INTO T VALUES (" +
                 "1," +
@@ -101,7 +112,8 @@ public class RelationalArrayTest {
                 "[11, 22], [11, 22], " +
                 "['11', '22'], ['11', '22'], " +
                 "[x'31', x'32'], [x'31', x'32'], " +
-                "[(11, '11'), (22, '22')], [(11, '11'), (22, '22')] " +
+                "[(11, '11'), (22, '22')], [(11, '11'), (22, '22')], " +
+                "['e5711bed-c606-49e2-a682-316348bf4091', '14b387cd-79ad-4860-9588-9c4e81588af0'], ['e5711bed-c606-49e2-a682-316348bf4091', '14b387cd-79ad-4860-9588-9c4e81588af0'] " +
                 ")");
         insertQuery("INSERT INTO T VALUES (" +
                 "2," +
@@ -112,7 +124,8 @@ public class RelationalArrayTest {
                 "null, [11, 22], " +
                 "null, ['11', '22'], " +
                 "null, [x'31', x'32'], " +
-                "null, [(11, '11'), (22, '22')] " +
+                "null, [(11, '11'), (22, '22')], " +
+                "null, ['e5711bed-c606-49e2-a682-316348bf4091', '14b387cd-79ad-4860-9588-9c4e81588af0'] " +
                 ")");
         RelationalAssertions.assertThrowsSqlException(() -> insertQuery("INSERT INTO T VALUES (" +
                         "3," +
@@ -123,7 +136,8 @@ public class RelationalArrayTest {
                         "[11, 22], null, " +
                         "['11', '22'], null, " +
                         "[x'31', x'32'], null, " +
-                        "[(11, '11'), (22, '22')], null " +
+                        "[(11, '11'), (22, '22')], null, " +
+                        "['e5711bed-c606-49e2-a682-316348bf4091', '14b387cd-79ad-4860-9588-9c4e81588af0'], null " +
                         ")")).hasErrorCode(ErrorCode.INTERNAL_ERROR);
         RelationalAssertions.assertThrowsSqlException(() -> insertQuery("INSERT INTO T (pk) VALUES (4)"))
                 .hasErrorCode(ErrorCode.NOT_NULL_VIOLATION);
@@ -133,10 +147,11 @@ public class RelationalArrayTest {
     void testInsertArraysViaQueryPreparedStatement() throws SQLException {
         final var statement = "INSERT INTO T (pk, boolean_null, boolean_not_null, integer_null, integer_not_null, " +
                 "bigint_null, bigint_not_null, float_null, float_not_null, double_null, double_not_null, string_null, " +
-                "string_not_null, bytes_null, bytes_not_null, struct_null, struct_not_null) VALUES (?pk, ?boolean_null, " +
-                "?boolean_not_null, ?integer_null, ?integer_not_null, ?bigint_null, ?bigint_not_null, ?float_null, " +
-                "?float_not_null, ?double_null, ?double_not_null, ?string_null, ?string_not_null, ?bytes_null, " +
-                "?bytes_not_null, ?struct_null, ?struct_not_null)";
+                "string_not_null, bytes_null, bytes_not_null, struct_null, struct_not_null, uuid_null, uuid_not_null) " +
+                "VALUES (?pk, ?boolean_null, ?boolean_not_null, ?integer_null, ?integer_not_null, ?bigint_null, " +
+                "?bigint_not_null, ?float_null, ?float_not_null, ?double_null, ?double_not_null, ?string_null, " +
+                "?string_not_null, ?bytes_null, ?bytes_not_null, ?struct_null, ?struct_not_null, ?uuid_null, " +
+                "?uuid_not_null)";
 
         try (final var conn = DriverManager.getConnection(database.getConnectionUri().toString())) {
             conn.setSchema(database.getSchemaName());
@@ -159,6 +174,8 @@ public class RelationalArrayTest {
                 ps.setArray("bytes_not_null", EmbeddedRelationalArray.newBuilder().addAll(new byte[]{49}, new byte[]{50}).build());
                 ps.setArray("struct_null", EmbeddedRelationalArray.newBuilder().addAll(EmbeddedRelationalStruct.newBuilder().addInt("a", 11).addString("b", "11").build(), EmbeddedRelationalStruct.newBuilder().addInt("a", 22).addString("b", "22").build()).build());
                 ps.setArray("struct_not_null", EmbeddedRelationalArray.newBuilder().addAll(EmbeddedRelationalStruct.newBuilder().addInt("a", 11).addString("b", "11").build(), EmbeddedRelationalStruct.newBuilder().addInt("a", 22).addString("b", "22").build()).build());
+                ps.setArray("uuid_null", EmbeddedRelationalArray.newBuilder().addAll(UUID.fromString("e5711bed-c606-49e2-a682-316348bf4091"), UUID.fromString("14b387cd-79ad-4860-9588-9c4e81588af0")).build());
+                ps.setArray("uuid_not_null", EmbeddedRelationalArray.newBuilder().addAll(UUID.fromString("e5711bed-c606-49e2-a682-316348bf4091"), UUID.fromString("14b387cd-79ad-4860-9588-9c4e81588af0")).build());
                 Assertions.assertEquals(1, ps.executeUpdate());
             }
         }
@@ -184,6 +201,8 @@ public class RelationalArrayTest {
                 ps.setArray("bytes_not_null", EmbeddedRelationalArray.newBuilder().addAll(new byte[]{49}, new byte[]{50}).build());
                 ps.setNull("struct_null", Types.ARRAY);
                 ps.setArray("struct_not_null", EmbeddedRelationalArray.newBuilder().addAll(EmbeddedRelationalStruct.newBuilder().addInt("a", 11).addString("b", "11").build(), EmbeddedRelationalStruct.newBuilder().addInt("a", 22).addString("b", "22").build()).build());
+                ps.setNull("uuid_null", Types.ARRAY);
+                ps.setArray("uuid_not_null", EmbeddedRelationalArray.newBuilder().addAll(UUID.fromString("e5711bed-c606-49e2-a682-316348bf4091"), UUID.fromString("14b387cd-79ad-4860-9588-9c4e81588af0")).build());
                 Assertions.assertEquals(1, ps.executeUpdate());
             }
         }
@@ -209,6 +228,8 @@ public class RelationalArrayTest {
                 ps.setNull("bytes_not_null", Types.ARRAY);
                 ps.setArray("struct_null", EmbeddedRelationalArray.newBuilder().addAll(EmbeddedRelationalStruct.newBuilder().addInt("a", 11).addString("b", "11").build(), EmbeddedRelationalStruct.newBuilder().addInt("a", 22).addString("b", "22").build()).build());
                 ps.setNull("struct_not_null", Types.ARRAY);
+                ps.setArray("uuid_null", EmbeddedRelationalArray.newBuilder().addAll(UUID.fromString("e5711bed-c606-49e2-a682-316348bf4091"), UUID.fromString("14b387cd-79ad-4860-9588-9c4e81588af0")).build());
+                ps.setNull("uuid_not_null", Types.ARRAY);
                 RelationalAssertions.assertThrowsSqlException(ps::executeUpdate).hasErrorCode(ErrorCode.INTERNAL_ERROR);
             }
         }
@@ -249,8 +270,8 @@ public class RelationalArrayTest {
             conn.setAutoCommit(true);
             try (final var ps = ((RelationalPreparedStatement) conn.prepareStatement("INSERT INTO T (pk, boolean_not_null, " +
                     "integer_not_null, bigint_not_null, float_not_null, double_not_null, string_not_null, bytes_not_null, " +
-                    "struct_not_null) VALUES (?pk, ?boolean_not_null, ?integer_not_null, ?bigint_not_null, ?float_not_null, " +
-                    "?double_not_null, ?string_not_null, ?bytes_not_null, ?struct_not_null)"))) {
+                    "struct_not_null, uuid_not_null) VALUES (?pk, ?boolean_not_null, ?integer_not_null, ?bigint_not_null, " +
+                    "?float_not_null, ?double_not_null, ?string_not_null, ?bytes_not_null, ?struct_not_null, ?uuid_not_null)"))) {
                 ps.setInt("pk", 2);
                 ps.setArray("boolean_not_null", EmbeddedRelationalArray.newBuilder().addAll(true, false).build());
                 ps.setArray("integer_not_null", EmbeddedRelationalArray.newBuilder().addAll(11, 22).build());
@@ -260,6 +281,7 @@ public class RelationalArrayTest {
                 ps.setArray("string_not_null", EmbeddedRelationalArray.newBuilder().addAll("11", "22").build());
                 ps.setArray("bytes_not_null", EmbeddedRelationalArray.newBuilder().addAll(new byte[]{49}, new byte[]{50}).build());
                 ps.setArray("struct_not_null", EmbeddedRelationalArray.newBuilder().addAll(EmbeddedRelationalStruct.newBuilder().addInt("a", 11).addString("b", "11").build(), EmbeddedRelationalStruct.newBuilder().addInt("a", 22).addString("b", "22").build()).build());
+                ps.setArray("uuid_not_null", EmbeddedRelationalArray.newBuilder().addAll(UUID.fromString("e5711bed-c606-49e2-a682-316348bf4091"), UUID.fromString("14b387cd-79ad-4860-9588-9c4e81588af0")).build());
                 assertEquals(1, ps.executeUpdate());
             }
 
@@ -273,7 +295,8 @@ public class RelationalArrayTest {
                         .hasColumn("double_null", null)
                         .hasColumn("string_null", null)
                         .hasColumn("bytes_null", null)
-                        .hasColumn("struct_null", null);
+                        .hasColumn("struct_null", null)
+                        .hasColumn("uuid_null", null);
             }
         }
     }
@@ -312,7 +335,12 @@ public class RelationalArrayTest {
                 Arguments.of(16, 17, List.of(
                                 EmbeddedRelationalStruct.newBuilder().addInt("A", 11).addString("B", "11").build(),
                                 EmbeddedRelationalStruct.newBuilder().addInt("A", 22).addString("B", "22").build()),
-                        Types.STRUCT)
+                        Types.STRUCT),
+                Arguments.of(18, 19, List.of(
+                                UUID.fromString("e5711bed-c606-49e2-a682-316348bf4091"),
+                                UUID.fromString("14b387cd-79ad-4860-9588-9c4e81588af0")),
+                        Types.OTHER)
+
         );
     }
 

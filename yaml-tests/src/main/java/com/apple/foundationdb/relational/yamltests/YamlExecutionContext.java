@@ -179,11 +179,10 @@ public final class YamlExecutionContext {
                                                             @Nonnull final String query,
                                                             final int lineNumber,
                                                             @Nonnull final PlannerMetricsProto.Info info,
-                                                            boolean isDirtyMetrics) {
-        return actualMetricsMap.put(new QueryAndLocation(blockName, query, lineNumber), info);
+                                                            @Nonnull final List<String> setups) {
+        return actualMetricsMap.put(new QueryAndLocation(blockName, query, lineNumber, setups), info);
     }
 
-    @Nullable
     @SuppressWarnings("UnusedReturnValue")
     public synchronized void markDirty() {
         this.isDirtyMetrics = true;
@@ -388,10 +387,7 @@ public final class YamlExecutionContext {
         final var condensedMetricsMap = new LinkedHashMap<PlannerMetricsProto.Identifier, PlannerMetricsProto.Info>();
         for (final var entry : actualMetricsMap.entrySet()) {
             final var queryAndLocation = entry.getKey();
-            final var identifier = PlannerMetricsProto.Identifier.newBuilder()
-                    .setBlockName(queryAndLocation.getBlockName())
-                    .setQuery(queryAndLocation.getQuery())
-                    .build();
+            final var identifier = queryAndLocation.getIdentifier();
             if (condensedMetricsMap.containsKey(identifier)) {
                 logger.warn("⚠️ Repeated query in block {} at line {}", queryAndLocation.getBlockName(),
                         queryAndLocation.getLineNumber());
@@ -423,20 +419,25 @@ public final class YamlExecutionContext {
 
         final var mmap = LinkedListMultimap.<String, Map<String, Object>>create();
         for (final var entry : actualMetricsMap.entrySet()) {
-            final var identifier = entry.getKey();
+            final var identifier = entry.getKey().getIdentifier();
             final var info = entry.getValue();
             final var countersAndTimers = info.getCountersAndTimers();
-            final var infoMap =
-                    ImmutableMap.<String, Object>of("query", identifier.getQuery(),
-                            "explain", info.getExplain(),
-                            "task_count", countersAndTimers.getTaskCount(),
-                            "task_total_time_ms", TimeUnit.NANOSECONDS.toMillis(countersAndTimers.getTaskTotalTimeNs()),
-                            "transform_count", countersAndTimers.getTransformCount(),
-                            "transform_time_ms", TimeUnit.NANOSECONDS.toMillis(countersAndTimers.getTransformTimeNs()),
-                            "transform_yield_count", countersAndTimers.getTransformYieldCount(),
-                            "insert_time_ms", TimeUnit.NANOSECONDS.toMillis(countersAndTimers.getInsertTimeNs()),
-                            "insert_new_count", countersAndTimers.getInsertNewCount(),
-                            "insert_reused_count", countersAndTimers.getInsertReusedCount());
+            final var infoMap = new LinkedHashMap<String, Object>();
+            infoMap.put("query", identifier.getQuery());
+            // only include setup if it is non-empty, in part so that the PR that adds setup doesn't change every
+            // metric in the yaml files
+            if (identifier.getSetupsCount() > 0) {
+                infoMap.put("setup", identifier.getSetupsList());
+            }
+            infoMap.put("explain", info.getExplain());
+            infoMap.put("task_count", countersAndTimers.getTaskCount());
+            infoMap.put("task_total_time_ms", TimeUnit.NANOSECONDS.toMillis(countersAndTimers.getTaskTotalTimeNs()));
+            infoMap.put("transform_count", countersAndTimers.getTransformCount());
+            infoMap.put("transform_time_ms", TimeUnit.NANOSECONDS.toMillis(countersAndTimers.getTransformTimeNs()));
+            infoMap.put("transform_yield_count", countersAndTimers.getTransformYieldCount());
+            infoMap.put("insert_time_ms", TimeUnit.NANOSECONDS.toMillis(countersAndTimers.getInsertTimeNs()));
+            infoMap.put("insert_new_count", countersAndTimers.getInsertNewCount());
+            infoMap.put("insert_reused_count", countersAndTimers.getInsertReusedCount());
             mmap.put(identifier.getBlockName(), infoMap);
         }
 
@@ -513,23 +514,31 @@ public final class YamlExecutionContext {
 
     private static class QueryAndLocation {
         @Nonnull
-        private final String blockName;
-        private final String query;
+        private final PlannerMetricsProto.Identifier identifier;
         private final int lineNumber;
 
-        public QueryAndLocation(@Nonnull final String blockName, final String query, final int lineNumber) {
-            this.blockName = blockName;
-            this.query = query;
+        public QueryAndLocation(@Nonnull final String blockName, final String query, final int lineNumber,
+                                @Nonnull List<String> setups) {
+            identifier = PlannerMetricsProto.Identifier.newBuilder()
+                    .setBlockName(blockName)
+                    .setQuery(query)
+                    .addAllSetups(setups)
+                    .build();
             this.lineNumber = lineNumber;
         }
 
         @Nonnull
+        public PlannerMetricsProto.Identifier getIdentifier() {
+            return identifier;
+        }
+
+        @Nonnull
         public String getBlockName() {
-            return blockName;
+            return identifier.getBlockName();
         }
 
         public String getQuery() {
-            return query;
+            return identifier.getQuery();
         }
 
         public int getLineNumber() {
@@ -542,12 +551,12 @@ public final class YamlExecutionContext {
                 return false;
             }
             final QueryAndLocation that = (QueryAndLocation)o;
-            return lineNumber == that.lineNumber && Objects.equals(blockName, that.blockName) && Objects.equals(query, that.query);
+            return lineNumber == that.lineNumber && Objects.equals(identifier, that.identifier);
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(blockName, query, lineNumber);
+            return Objects.hash(identifier, lineNumber);
         }
     }
 

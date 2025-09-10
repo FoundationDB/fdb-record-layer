@@ -24,6 +24,7 @@ import com.apple.foundationdb.relational.yamltests.YamlConnectionFactory;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import com.apple.foundationdb.relational.yamltests.YamlRunner;
 import com.apple.foundationdb.relational.yamltests.configs.EmbeddedConfig;
+import com.apple.foundationdb.relational.yamltests.configs.YamlTestConfig;
 import com.apple.foundationdb.relational.yamltests.server.SemanticVersion;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -45,7 +46,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 public class TransactionSetupTest {
 
     private static final SemanticVersion VERSION = SemanticVersion.parse("4.4.8.0");
-    private static final EmbeddedConfig config = new EmbeddedConfig(null);
+    private static final YamlTestConfig config = new EmbeddedConfig(null);
+    private static final boolean CORRECT_METRICS = false;
 
     @BeforeAll
     static void beforeAll() throws Exception {
@@ -58,7 +60,13 @@ public class TransactionSetupTest {
     }
 
     private void doRun(String fileName) throws Exception {
-        new YamlRunner(fileName, createConnectionFactory(), YamlExecutionContext.ContextOptions.EMPTY_OPTIONS).run();
+        final YamlExecutionContext.ContextOptions options;
+        if (CORRECT_METRICS) {
+            options = YamlExecutionContext.ContextOptions.of(YamlExecutionContext.OPTION_CORRECT_METRICS, true);
+        } else {
+            options = YamlExecutionContext.ContextOptions.EMPTY_OPTIONS;
+        }
+        new YamlRunner(fileName, createConnectionFactory(), options).run();
     }
 
     YamlConnectionFactory createConnectionFactory() {
@@ -100,6 +108,7 @@ public class TransactionSetupTest {
 
     static Stream<String> shouldPass() {
         return Stream.of(
+                "double-query-metrics",
                 "double-reference",
                 "double-setup",
                 "duplicate-setup-reference-name",

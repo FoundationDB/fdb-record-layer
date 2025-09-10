@@ -169,7 +169,6 @@ public class RecordQueryExplodePlan implements RecordQueryPlanWithNoChildren {
         return collectionValue.getDynamicTypes();
     }
 
-
     @Nonnull
     @Override
     public String toString() {

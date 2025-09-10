@@ -1,0 +1,277 @@
+#
+# prepared.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+---
+options:
+  supported_version: 4.5.5.0
+---
+schema_template:
+    create table ta(a bigint, b uuid, primary key(a))
+
+    create table tb(a uuid, b bigint, primary key(a))
+
+    create table tc(a bigint, b uuid, c bigint, primary key(a, b))
+    create index tc1 as select b, c from tc order by b
+    create index tc2 as select b, c from tc order by b, c
+
+    create type as struct s1(a bigint, b uuid)
+    create table td(a bigint, b s1, primary key(a))
+    create table te(a bigint, b uuid, primary key(a))
+---
+setup:
+  steps:
+    - query: INSERT INTO TA
+        VALUES (1, '0920df1c-be81-4ec1-8a06-2180226f051d'),
+               (2, '64120112-4e39-40c3-94b9-2cc88a52e8df'),
+               (3, 'c35ba01f-f8fc-47d7-bb00-f077e8a75682'),
+               (4, '5394a912-aa8e-40fc-a4bb-ddf3f89ac45b'),
+               (5, 'a8708750-d70f-4800-8c3b-13700d5b369f'),
+               (6, '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6')
+    - query: INSERT INTO TA(A) VALUES (7), (8)
+    - query: INSERT INTO TB (B, A)
+        VALUES (1, '0920df1c-be81-4ec1-8a06-2180226f051d'),
+               (2, '64120112-4e39-40c3-94b9-2cc88a52e8df'),
+               (3, 'c35ba01f-f8fc-47d7-bb00-f077e8a75682'),
+               (4, '5394a912-aa8e-40fc-a4bb-ddf3f89ac45b'),
+               (5, 'a8708750-d70f-4800-8c3b-13700d5b369f'),
+               (6, '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6')
+    - query: INSERT INTO TC
+        VALUES (1, '0920df1c-be81-4ec1-8a06-2180226f051d', 6),
+               (2, '64120112-4e39-40c3-94b9-2cc88a52e8df', 5),
+               (3, 'c35ba01f-f8fc-47d7-bb00-f077e8a75682', 4),
+               (4, '5394a912-aa8e-40fc-a4bb-ddf3f89ac45b', 3),
+               (5, 'a8708750-d70f-4800-8c3b-13700d5b369f', 2),
+               (6, '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6', 1)
+---
+test_block:
+  supported_version: 4.5.5.0
+  name: insertion-tests
+  preset: single_repetition_ordered
+  connection_options:
+    DISABLE_PLANNER_REWRITING: true
+  tests:
+    -
+      - query: INSERT INTO TE VALUES (1, !! !uuid 'c35ba01f-f8fc-47d7-bb00-f077e8a75682' !!), (2, !! !uuid '64120112-4e39-40c3-94b9-2cc88a52e8df' !!)
+      - count: 2
+    -
+      - query: INSERT INTO TD VALUES (1, (2, !! !uuid 'c35ba01f-f8fc-47d7-bb00-f077e8a75682' !!)), (2, (3, !! !uuid '64120112-4e39-40c3-94b9-2cc88a52e8df' !!))
+      - count: 2
+---
+test_block:
+  name: uuid-as-a-field-tests
+  connection_options:
+    DISABLE_PLANNER_REWRITING: true
+  tests:
+    -
+      - query: select * from ta
+      - explain: "SCAN(<,>) | TFILTER TA"
+      - unorderedResult: [{1, !uuid '0920df1c-be81-4ec1-8a06-2180226f051d'},
+                          {2, !uuid '64120112-4e39-40c3-94b9-2cc88a52e8df'},
+                          {3, !uuid 'c35ba01f-f8fc-47d7-bb00-f077e8a75682'},
+                          {4, !uuid '5394a912-aa8e-40fc-a4bb-ddf3f89ac45b'},
+                          {5, !uuid 'a8708750-d70f-4800-8c3b-13700d5b369f'},
+                          {6, !uuid '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6'},
+                          {7, !null _},
+                          {8, !null _}]
+    -
+      - query: select * from ta where b > !! !uuid '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6' !!
+      - explain: "SCAN(<,>) | TFILTER TA | FILTER _.B GREATER_THAN promote(@c8 AS UUID)"
+      - unorderedResult: [{3, !uuid 'c35ba01f-f8fc-47d7-bb00-f077e8a75682'},
+                          {5, !uuid 'a8708750-d70f-4800-8c3b-13700d5b369f'}]
+    -
+      - query: select * from ta where b < !! !uuid '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6' !!
+      - explain: "SCAN(<,>) | TFILTER TA | FILTER _.B LESS_THAN promote(@c8 AS UUID)"
+      - unorderedResult: [{1, !uuid '0920df1c-be81-4ec1-8a06-2180226f051d'},
+                          {2, !uuid '64120112-4e39-40c3-94b9-2cc88a52e8df'},
+                          {4, !uuid '5394a912-aa8e-40fc-a4bb-ddf3f89ac45b'}]
+    -
+      - query: select * from ta where b >= !! !uuid '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6' !!
+      - explain: "SCAN(<,>) | TFILTER TA | FILTER _.B GREATER_THAN_OR_EQUALS promote(@c9 AS UUID)"
+      - unorderedResult: [{3, !uuid 'c35ba01f-f8fc-47d7-bb00-f077e8a75682'},
+                          {5, !uuid 'a8708750-d70f-4800-8c3b-13700d5b369f'},
+                          {6, !uuid '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6'}]
+    -
+      - query: select * from ta where b <= !! !uuid '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6' !!
+      - explain: "SCAN(<,>) | TFILTER TA | FILTER _.B LESS_THAN_OR_EQUALS promote(@c9 AS UUID)"
+      - unorderedResult: [{1, !uuid '0920df1c-be81-4ec1-8a06-2180226f051d'},
+                          {2, !uuid '64120112-4e39-40c3-94b9-2cc88a52e8df'},
+                          {4, !uuid '5394a912-aa8e-40fc-a4bb-ddf3f89ac45b'},
+                          {6, !uuid '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6'}]
+    -
+      - query: select * from ta where b = !! !uuid '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6' !!
+      - explain: "SCAN(<,>) | TFILTER TA | FILTER _.B EQUALS promote(@c8 AS UUID)"
+      - unorderedResult: [{6, !uuid '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6'}]
+    -
+      - query: select * from ta where b != !! !uuid '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6' !!
+      - explain: "SCAN(<,>) | TFILTER TA | FILTER _.B NOT_EQUALS promote(@c9 AS UUID)"
+      - unorderedResult: [{1, !uuid '0920df1c-be81-4ec1-8a06-2180226f051d'},
+                          {2, !uuid '64120112-4e39-40c3-94b9-2cc88a52e8df'},
+                          {3, !uuid 'c35ba01f-f8fc-47d7-bb00-f077e8a75682'},
+                          {4, !uuid '5394a912-aa8e-40fc-a4bb-ddf3f89ac45b'},
+                          {5, !uuid 'a8708750-d70f-4800-8c3b-13700d5b369f'}]
+    -
+      - query: select * from ta where b is null
+      - explain: "SCAN(<,>) | TFILTER TA | FILTER _.B IS_NULL"
+      - unorderedResult: [{7, !null _},
+                          {8, !null _}]
+    -
+      - query: select * from ta where b is not null order by b
+      - error: '0AF00'
+---
+test_block:
+  name: uuid-as-a-field-tests_uuid_parameter_as_string
+  connection_options:
+    DISABLE_PLANNER_REWRITING: true
+  tests:
+    -
+      - query: select * from ta where b > !! '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6' !!
+      - explain: "SCAN(<,>) | TFILTER TA | FILTER _.B GREATER_THAN promote(@c8 AS UUID)"
+      - unorderedResult: [{3, !uuid 'c35ba01f-f8fc-47d7-bb00-f077e8a75682'},
+                          {5, !uuid 'a8708750-d70f-4800-8c3b-13700d5b369f'}]
+    -
+      - query: select * from ta where b < !! '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6' !!
+      - explain: "SCAN(<,>) | TFILTER TA | FILTER _.B LESS_THAN promote(@c8 AS UUID)"
+      - unorderedResult: [{1, !uuid '0920df1c-be81-4ec1-8a06-2180226f051d'},
+                          {2, !uuid '64120112-4e39-40c3-94b9-2cc88a52e8df'},
+                          {4, !uuid '5394a912-aa8e-40fc-a4bb-ddf3f89ac45b'}]
+    -
+      - query: select * from ta where b >= !! '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6' !!
+      - explain: "SCAN(<,>) | TFILTER TA | FILTER _.B GREATER_THAN_OR_EQUALS promote(@c9 AS UUID)"
+      - unorderedResult: [{3, !uuid 'c35ba01f-f8fc-47d7-bb00-f077e8a75682'},
+                          {5, !uuid 'a8708750-d70f-4800-8c3b-13700d5b369f'},
+                          {6, !uuid '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6'}]
+    -
+      - query: select * from ta where b <= !! '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6' !!
+      - explain: "SCAN(<,>) | TFILTER TA | FILTER _.B LESS_THAN_OR_EQUALS promote(@c9 AS UUID)"
+      - unorderedResult: [{1, !uuid '0920df1c-be81-4ec1-8a06-2180226f051d'},
+                          {2, !uuid '64120112-4e39-40c3-94b9-2cc88a52e8df'},
+                          {4, !uuid '5394a912-aa8e-40fc-a4bb-ddf3f89ac45b'},
+                          {6, !uuid '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6'}]
+    -
+      - query: select * from ta where b = !! '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6' !!
+      - explain: "SCAN(<,>) | TFILTER TA | FILTER _.B EQUALS promote(@c8 AS UUID)"
+      - unorderedResult: [{6, !uuid '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6'}]
+    -
+      - query: select * from ta where b != !! '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6' !!
+      - explain: "SCAN(<,>) | TFILTER TA | FILTER _.B NOT_EQUALS promote(@c9 AS UUID)"
+      - unorderedResult: [{1, !uuid '0920df1c-be81-4ec1-8a06-2180226f051d'},
+                          {2, !uuid '64120112-4e39-40c3-94b9-2cc88a52e8df'},
+                          {3, !uuid 'c35ba01f-f8fc-47d7-bb00-f077e8a75682'},
+                          {4, !uuid '5394a912-aa8e-40fc-a4bb-ddf3f89ac45b'},
+                          {5, !uuid 'a8708750-d70f-4800-8c3b-13700d5b369f'}]
+---
+test_block:
+  name: uuid-as-a-primary-key
+  connection_options:
+    DISABLE_PLANNER_REWRITING: true
+  tests:
+    -
+      - query: select B, A from TB
+      - explain: "SCAN(<,>) | TFILTER TB | MAP (_.B AS B, _.A AS A)"
+      - unorderedResult: [{1, !uuid '0920df1c-be81-4ec1-8a06-2180226f051d'},
+                          {2, !uuid '64120112-4e39-40c3-94b9-2cc88a52e8df'},
+                          {3, !uuid 'c35ba01f-f8fc-47d7-bb00-f077e8a75682'},
+                          {4, !uuid '5394a912-aa8e-40fc-a4bb-ddf3f89ac45b'},
+                          {5, !uuid 'a8708750-d70f-4800-8c3b-13700d5b369f'},
+                          {6, !uuid '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6'}]
+    -
+      - query: select B, A from TB where a > !! !uuid '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6' !!
+      - explain: "SCAN(<,>) | TFILTER TB | FILTER _.A GREATER_THAN promote(@c10 AS UUID) | MAP (_.B AS B, _.A AS A)"
+      - unorderedResult: [{3, !uuid 'c35ba01f-f8fc-47d7-bb00-f077e8a75682'},
+                          {5, !uuid 'a8708750-d70f-4800-8c3b-13700d5b369f'}]
+    -
+      - query: select B, A from TB where a < !! !uuid '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6' !!
+      - explain: "SCAN(<,>) | TFILTER TB | FILTER _.A LESS_THAN promote(@c10 AS UUID) | MAP (_.B AS B, _.A AS A)"
+      - unorderedResult: [{1, !uuid '0920df1c-be81-4ec1-8a06-2180226f051d'},
+                          {2, !uuid '64120112-4e39-40c3-94b9-2cc88a52e8df'},
+                          {4, !uuid '5394a912-aa8e-40fc-a4bb-ddf3f89ac45b'}]
+    -
+      - query: select B, A from TB where a >= !! !uuid '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6' !!
+      - explain: "SCAN(<,>) | TFILTER TB | FILTER _.A GREATER_THAN_OR_EQUALS promote(@c11 AS UUID) | MAP (_.B AS B, _.A AS A)"
+      - unorderedResult: [{3, !uuid 'c35ba01f-f8fc-47d7-bb00-f077e8a75682'},
+                          {5, !uuid 'a8708750-d70f-4800-8c3b-13700d5b369f'},
+                          {6, !uuid '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6'}]
+    -
+      - query: select B, A from TB where a <= !! !uuid '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6' !!
+      - explain: "SCAN(<,>) | TFILTER TB | FILTER _.A LESS_THAN_OR_EQUALS promote(@c11 AS UUID) | MAP (_.B AS B, _.A AS A)"
+      - unorderedResult: [{1, !uuid '0920df1c-be81-4ec1-8a06-2180226f051d'},
+                          {2, !uuid '64120112-4e39-40c3-94b9-2cc88a52e8df'},
+                          {4, !uuid '5394a912-aa8e-40fc-a4bb-ddf3f89ac45b'},
+                          {6, !uuid '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6'}]
+    -
+      - query: select B, A from TB where a = !! !uuid '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6' !!
+      - explain: "SCAN(<,>) | TFILTER TB | FILTER _.A EQUALS promote(@c10 AS UUID) | MAP (_.B AS B, _.A AS A)"
+      - unorderedResult: [{6, !uuid '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6'}]
+    -
+      - query: select B, A from TB where a != !! !uuid '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6' !!
+      - explain: "SCAN(<,>) | TFILTER TB | FILTER _.A NOT_EQUALS promote(@c11 AS UUID) | MAP (_.B AS B, _.A AS A)"
+      - unorderedResult: [{1, !uuid '0920df1c-be81-4ec1-8a06-2180226f051d'},
+                          {2, !uuid '64120112-4e39-40c3-94b9-2cc88a52e8df'},
+                          {3, !uuid 'c35ba01f-f8fc-47d7-bb00-f077e8a75682'},
+                          {4, !uuid '5394a912-aa8e-40fc-a4bb-ddf3f89ac45b'},
+                          {5, !uuid 'a8708750-d70f-4800-8c3b-13700d5b369f'}]
+    -
+      - query: select B, A from TB where a is not null
+      - explain: "SCAN(<,>) | TFILTER TB | FILTER _.A NOT_NULL | MAP (_.B AS B, _.A AS A)"
+      - unorderedResult: [{1, !uuid '0920df1c-be81-4ec1-8a06-2180226f051d'},
+                          {2, !uuid '64120112-4e39-40c3-94b9-2cc88a52e8df'},
+                          {3, !uuid 'c35ba01f-f8fc-47d7-bb00-f077e8a75682'},
+                          {4, !uuid '5394a912-aa8e-40fc-a4bb-ddf3f89ac45b'},
+                          {5, !uuid 'a8708750-d70f-4800-8c3b-13700d5b369f'},
+                          {6, !uuid '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6'}]
+---
+test_block:
+  name: uuid-in-index-definition
+  connection_options:
+    DISABLE_PLANNER_REWRITING: true
+  tests:
+    -
+      - query: select b, c from tc order by b
+      - explain: "COVERING(TC1 <,> -> [A: KEY[2], B: KEY[0], C: VALUE[0]]) | MAP (_.B AS B, _.C AS C)"
+      - result: [{!uuid '0920df1c-be81-4ec1-8a06-2180226f051d', 6},
+                 {!uuid '5394a912-aa8e-40fc-a4bb-ddf3f89ac45b', 3},
+                 {!uuid '64120112-4e39-40c3-94b9-2cc88a52e8df', 5},
+                 {!uuid '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6', 1},
+                 {!uuid 'a8708750-d70f-4800-8c3b-13700d5b369f', 2},
+                 {!uuid 'c35ba01f-f8fc-47d7-bb00-f077e8a75682', 4}]
+    -
+      - query: select * from tc order by b
+      - explain: "ISCAN(TC1 <,>)"
+      - result: [{1, !uuid '0920df1c-be81-4ec1-8a06-2180226f051d', 6},
+                 {4, !uuid '5394a912-aa8e-40fc-a4bb-ddf3f89ac45b', 3},
+                 {2, !uuid '64120112-4e39-40c3-94b9-2cc88a52e8df', 5},
+                 {6, !uuid '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6', 1},
+                 {5, !uuid 'a8708750-d70f-4800-8c3b-13700d5b369f', 2},
+                 {3, !uuid 'c35ba01f-f8fc-47d7-bb00-f077e8a75682', 4}]
+    -
+      - query: select * from tc where b > 'a8708750-d70f-4800-8c3b-13700d5b369f' order by b
+      - explain: "ISCAN(TC1 [[GREATER_THAN promote(@c8 AS UUID)]])"
+      - result: [{3, !uuid 'c35ba01f-f8fc-47d7-bb00-f077e8a75682', 4}]
+    -
+      - query: select * from tc where b < 'a8708750-d70f-4800-8c3b-13700d5b369f' order by b desc
+      - explain: "ISCAN(TC1 [[LESS_THAN promote(@c8 AS UUID)]] REVERSE)"
+      - result: [{6, !uuid '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6', 1},
+                 {2, !uuid '64120112-4e39-40c3-94b9-2cc88a52e8df', 5},
+                 {4, !uuid '5394a912-aa8e-40fc-a4bb-ddf3f89ac45b', 3},
+                 {1, !uuid '0920df1c-be81-4ec1-8a06-2180226f051d', 6}]
+    -
+      - query: select * from tc where b < 'a8708750-d70f-4800-8c3b-13700d5b369f' and c > 4 order by b desc
+      - explain: "COVERING(TC1 [[LESS_THAN promote(@c8 AS UUID)]] REVERSE -> [A: KEY[2], B: KEY[0], C: VALUE[0]]) | FILTER _.C GREATER_THAN promote(@c12 AS LONG) | FETCH"
+      - result: [{2, !uuid '64120112-4e39-40c3-94b9-2cc88a52e8df', 5},
+                 {1, !uuid '0920df1c-be81-4ec1-8a06-2180226f051d', 6}]
+...

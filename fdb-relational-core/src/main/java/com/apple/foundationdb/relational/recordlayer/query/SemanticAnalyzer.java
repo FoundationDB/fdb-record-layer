@@ -529,6 +529,9 @@ public class SemanticAnalyzer {
             case "FLOAT":
                 type = isNullable ? DataType.Primitives.NULLABLE_FLOAT.type() : DataType.Primitives.FLOAT.type();
                 break;
+            case "UUID":
+                type = isNullable ? DataType.Primitives.NULLABLE_UUID.type() : DataType.Primitives.UUID.type();
+                break;
             default:
                 Assert.notNullUnchecked(metadataCatalog);
                 // assume it is a custom type, will fail in upper layers if the type can not be resolved.

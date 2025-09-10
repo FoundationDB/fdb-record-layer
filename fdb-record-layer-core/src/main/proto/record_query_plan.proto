@@ -254,6 +254,7 @@ message PValue {
     PRangeValue range_value = 48;
     PFirstOrDefaultStreamingValue first_or_default_streaming_value = 49;
     PEvaluatesToValue evaluates_to_value = 50;
+    PArrayDistinctValue array_distinct_value = 51;
   }
 }
 
@@ -931,7 +932,6 @@ message PBinaryRelOpValue {
       GTE_SID = 268;
       GTE_UID = 269;
       GTE_IDU = 270;
-
       EQ_BN = 271;
       EQ_IN = 272;
       EQ_LN = 273;
@@ -1062,6 +1062,101 @@ message PBinaryRelOpValue {
       GT_IDN = 398;
       GTE_NID = 399;
       GTE_IDN = 400;
+      IS_DISTINCT_FROM_BN = 401;
+      IS_DISTINCT_FROM_BB = 402;
+      IS_DISTINCT_FROM_IN = 403;
+      IS_DISTINCT_FROM_II = 404;
+      IS_DISTINCT_FROM_IL = 405;
+      IS_DISTINCT_FROM_IF = 406;
+      IS_DISTINCT_FROM_ID = 407;
+      IS_DISTINCT_FROM_LN = 408;
+      IS_DISTINCT_FROM_LI = 409;
+      IS_DISTINCT_FROM_LL = 410;
+      IS_DISTINCT_FROM_LF = 411;
+      IS_DISTINCT_FROM_LD = 412;
+      IS_DISTINCT_FROM_FN = 413;
+      IS_DISTINCT_FROM_FI = 414;
+      IS_DISTINCT_FROM_FL = 415;
+      IS_DISTINCT_FROM_FF = 416;
+      IS_DISTINCT_FROM_FD = 417;
+      IS_DISTINCT_FROM_DN = 418;
+      IS_DISTINCT_FROM_DI = 419;
+      IS_DISTINCT_FROM_DL = 420;
+      IS_DISTINCT_FROM_DF = 421;
+      IS_DISTINCT_FROM_DD = 422;
+      IS_DISTINCT_FROM_SN = 423;
+      IS_DISTINCT_FROM_SS = 424;
+      IS_DISTINCT_FROM_NB = 425;
+      IS_DISTINCT_FROM_NI = 426;
+      IS_DISTINCT_FROM_NL = 427;
+      IS_DISTINCT_FROM_NF = 428;
+      IS_DISTINCT_FROM_ND = 429;
+      IS_DISTINCT_FROM_NS = 430;
+      IS_DISTINCT_FROM_NV = 431;
+      IS_DISTINCT_FROM_VN = 432;
+      IS_DISTINCT_FROM_VV = 433;
+      IS_DISTINCT_FROM_BYN = 434;
+      IS_DISTINCT_FROM_BYBY = 435;
+      IS_DISTINCT_FROM_NBY = 436;
+      IS_DISTINCT_FROM_EE = 437;
+      IS_DISTINCT_FROM_ES = 438;
+      IS_DISTINCT_FROM_SE = 439;
+      IS_DISTINCT_FROM_EN = 440;
+      IS_DISTINCT_FROM_NE = 441;
+      IS_DISTINCT_FROM_IDID = 442;
+      IS_DISTINCT_FROM_IDS = 443;
+      IS_DISTINCT_FROM_SID = 444;
+      IS_DISTINCT_FROM_NID = 445;
+      IS_DISTINCT_FROM_IDN = 446;
+      IS_DISTINCT_FROM_NN = 447;
+      NOT_DISTINCT_FROM_BN = 448;
+      NOT_DISTINCT_FROM_BB = 449;
+      NOT_DISTINCT_FROM_IN = 450;
+      NOT_DISTINCT_FROM_II = 451;
+      NOT_DISTINCT_FROM_IL = 452;
+      NOT_DISTINCT_FROM_IF = 453;
+      NOT_DISTINCT_FROM_ID = 454;
+      NOT_DISTINCT_FROM_LN = 455;
+      NOT_DISTINCT_FROM_LI = 456;
+      NOT_DISTINCT_FROM_LL = 457;
+      NOT_DISTINCT_FROM_LF = 458;
+      NOT_DISTINCT_FROM_LD = 459;
+      NOT_DISTINCT_FROM_FN = 460;
+      NOT_DISTINCT_FROM_FI = 461;
+      NOT_DISTINCT_FROM_FL = 462;
+      NOT_DISTINCT_FROM_FF = 463;
+      NOT_DISTINCT_FROM_FD = 464;
+      NOT_DISTINCT_FROM_DN = 465;
+      NOT_DISTINCT_FROM_DI = 466;
+      NOT_DISTINCT_FROM_DL = 467;
+      NOT_DISTINCT_FROM_DF = 468;
+      NOT_DISTINCT_FROM_DD = 469;
+      NOT_DISTINCT_FROM_SN = 470;
+      NOT_DISTINCT_FROM_SS = 471;
+
+      NOT_DISTINCT_FROM_NB = 472;
+      NOT_DISTINCT_FROM_NI = 473;
+      NOT_DISTINCT_FROM_NL = 474;
+      NOT_DISTINCT_FROM_NF = 475;
+      NOT_DISTINCT_FROM_ND = 476;
+      NOT_DISTINCT_FROM_NS = 477;
+      NOT_DISTINCT_FROM_NV = 478;
+      NOT_DISTINCT_FROM_VN = 479;
+      NOT_DISTINCT_FROM_VV = 480;
+      NOT_DISTINCT_FROM_BYN = 481;
+      NOT_DISTINCT_FROM_BYBY = 482;
+      NOT_DISTINCT_FROM_NBY = 483;
+      NOT_DISTINCT_FROM_EE = 484;
+      NOT_DISTINCT_FROM_ES = 485;
+      NOT_DISTINCT_FROM_SE = 486;
+      NOT_DISTINCT_FROM_EN = 487;
+      NOT_DISTINCT_FROM_NE = 488;
+      NOT_DISTINCT_FROM_IDID = 489;
+      NOT_DISTINCT_FROM_IDS = 490;
+      NOT_DISTINCT_FROM_SID = 491;
+      NOT_DISTINCT_FROM_NID = 492;
+      NOT_DISTINCT_FROM_IDN = 493;
+      NOT_DISTINCT_FROM_NN = 494;
   }
   optional PRelOpValue super = 1;
   optional PBinaryPhysicalOperator operator = 2;
@@ -1165,6 +1260,10 @@ message PRangeValue {
   optional PValue step_child = 3;
 }
 
+message PArrayDistinctValue {
+  optional PValue child_value = 1;
+}
+
 //
 // Comparisons
 //
@@ -1189,6 +1288,8 @@ message PComparison {
     TEXT_CONTAINS_ANY_PREFIX = 17;
     SORT = 18;
     LIKE = 19;
+    IS_DISTINCT_FROM = 20;
+    NOT_DISTINCT_FROM = 21;
   }
 
   extensions 5000 to max;
@@ -1422,6 +1523,7 @@ message PRecordQueryPlan {
     PRecursiveUnionQueryPlan recursive_union_query_plan = 36;
     PRecordQueryTableFunctionPlan table_function_plan = 37;
     PRecordQueryStreamingAggregationPlan2 streaming_aggregation_plan2 = 38;
+    PRecordQueryMultiIntersectionOnValuesPlan multi_intersection_on_values_plan = 39;
   }
 }
 
@@ -1783,6 +1885,14 @@ message PRecordQueryIntersectionOnKeyExpressionPlan {
 //
 message PRecordQueryIntersectionOnValuesPlan {
   optional PRecordQueryIntersectionPlan super = 1;
+}
+
+//
+// PRecordQueryMultiIntersectionOnValuesPlan
+//
+message PRecordQueryMultiIntersectionOnValuesPlan {
+  optional PRecordQueryIntersectionPlan super = 1;
+  optional PValue result_value = 2;
 }
 
 //

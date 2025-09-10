@@ -207,6 +207,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    void distinctFrom(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("distinct-from.yamsql");
+    }
+
+    @TestTemplate
     void functions(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("functions.yamsql");
     }
@@ -267,8 +272,8 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
-    public void uuidProtoTest(YamlTest.Runner runner) throws Exception {
-        runner.runYamsql("uuid-proto.yamsql");
+    public void uuidTest(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("uuid.yamsql");
     }
 
     @TestTemplate
@@ -304,6 +309,11 @@ public class YamlIntegrationTests {
     @TestTemplate
     public void caseSensitivityTest(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("case-sensitivity.yamsql");
+    }
+
+    @TestTemplate
+    public void compositeAggregates(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("composite-aggregates.yamsql");
     }
 
     @TestTemplate
