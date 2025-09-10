@@ -33,6 +33,7 @@ jobs:
       - name: Run Gradle Test
         uses: ./actions/gradle-test
         with:
+          gradle_command: test destructiveTest codeCoverageReport
           gradle_args: -PreleaseBuild=false -PpublishBuild=false
       - name: Upload coverage to teamscale
         # temporary until we validate that this is working correctly
@@ -59,7 +60,7 @@ jobs:
       - name: Run Gradle Test
         uses: ./actions/gradle-test
         with:
-          gradle_command: mixedModeTest
+          gradle_command: mixedModeTest codeCoverageReport
           gradle_args: -PreleaseBuild=false -PpublishBuild=false
       # We don't commit the incremented version, but we use this to know the version when generating
       # the resulting markdown
@@ -100,6 +101,7 @@ jobs:
       - name: Run Gradle Test
         uses: ./actions/gradle-test
         with:
+          gradle_command: test destructiveTest codeCoverageReport
           gradle_args: "-PreleaseBuild=false -PpublishBuild=false -PspotbugsEnableHtmlReport -Ptests.includeRandom -Ptests.iterations=2 -Ptests.nightly"
       - name: Publish Test Reports
         if: always()
