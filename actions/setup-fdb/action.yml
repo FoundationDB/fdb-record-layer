@@ -75,7 +75,10 @@ runs:
       run: sudo chown foundationdb:foundationdb /etc/foundationdb/fdb1.cluster /etc/foundationdb/fdb2.cluster /var/log/foundationdb1 /var/log/foundationdb2
     - name: Set clusterfile permissions
       shell: bash
-      run: sudo chmod 664 /etc/foundationdb/fdb1.cluster /etc/foundationdb/fdb2.cluster /var/log/foundationdb1 /var/log/foundationdb2
+      run: sudo chmod 664 /etc/foundationdb/fdb1.cluster /etc/foundationdb/fdb2.cluster
+    - name: Set clusterfile permissions
+      shell: bash
+      run: sudo chmod 700 /var/log/foundationdb1 /var/log/foundationdb2
 
 
     - name: Remove default cluster file / config
