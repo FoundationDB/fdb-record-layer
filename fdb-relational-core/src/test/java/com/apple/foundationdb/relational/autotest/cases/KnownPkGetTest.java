@@ -43,7 +43,6 @@ import com.apple.foundationdb.relational.autotest.datagen.UniformDataSource;
 import com.apple.foundationdb.relational.memory.InMemoryCatalog;
 import com.apple.foundationdb.relational.memory.InMemoryRelationalConnection;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
-
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.net.URI;
@@ -53,6 +52,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.stream.Stream;
 
 @AutomatedTest
@@ -61,18 +61,18 @@ public class KnownPkGetTest {
     public static final EmbeddedRelationalExtension relational = new EmbeddedRelationalExtension();
 
     @WorkloadConfiguration
-    public WorkloadConfig config = new WorkloadConfig(Map.of(
-            "seed", 1L,
-            WorkloadConfig.REPORT_DIRECTORY, System.getProperty("user.dir") + "/.out/reports/autoTest/" + KnownPkGetTest.class.getSimpleName(),
-            "maxStringLength", 10,
-            "maxBytesLength", 10,
-            "maxArrayLength", 10,
-            "maxTables", 1,
-            "maxStructs", 2,
-            "maxColumns", 5,
-            "numSchemas", 5,
-            "recordsPerTable", 20
-    ));
+    public WorkloadConfig config = new WorkloadConfig(
+            System.getProperty("user.dir") + "/.out/reports/autoTest/" + KnownPkGetTest.class.getSimpleName(),
+            Map.of(
+                    "maxStringLength", 10,
+                    "maxBytesLength", 10,
+                    "maxArrayLength", 10,
+                    "maxTables", 1,
+                    "maxStructs", 2,
+                    "maxColumns", 5,
+                    "numSchemas", 5,
+                    "recordsPerTable", 20
+            ));
 
     public KnownPkGetTest() {
         System.out.println("Running");
@@ -108,14 +108,14 @@ public class KnownPkGetTest {
 
     @Schema
     public Stream<SchemaDescription> getSchemas(WorkloadConfig cfg) throws SQLException {
-        RandomDataSource rds = new UniformDataSource(cfg.getLong("seed"),
+        RandomDataSource rds = new UniformDataSource(cfg.getSeed(),
                 cfg.getInt("maxStringLength"),
                 cfg.getInt("maxBytesLength"));
         SchemaGenerator generator = new SchemaGenerator(rds, cfg.getInt("maxTables"),
                 cfg.getInt("maxStructs"),
                 cfg.getInt("maxColumns"));
 
-        String baseTemplateName = this.getClass().getSimpleName();
+        String baseTemplateName = this.getClass().getSimpleName() + "_" + String.valueOf(UUID.randomUUID()).replace("-", "_");
 
         int numSchemasToGen = cfg.getInt("numSchemas");
         List<SchemaDescription> schemas = new ArrayList<>();
@@ -129,7 +129,7 @@ public class KnownPkGetTest {
 
     @Data
     public final DataSet dataSet() {
-        return new RandomDataSet(config.getLong("seed"),
+        return new RandomDataSet(config.getSeed(),
                 config.getInt("maxArrayLength"),
                 config.getInt("recordsPerTable"),
                 config.getInt("maxStringLength"),

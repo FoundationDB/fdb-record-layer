@@ -29,19 +29,28 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class WorkloadConfig implements ParameterResolver {
-    public static final String SEED_KEY = "seed";
     public static final String SAMPLE_SIZE = "sampleSize";
     public static final String INSERT_BATCH_SIZE = "insertBatchSize";
-    public static final String REPORT_DIRECTORY = "reportDirectory";
 
+    private final long seed;
+    private final String reportDirectory;
     private final Map<String, Object> configs;
 
-    public WorkloadConfig(Map<String, Object> configs) {
-        this.configs = new HashMap<>(configs);
+    public WorkloadConfig(String reportDirectory, Map<String, Object> otherConfigs) {
+        // Eventually we should change `includeRandom` to get it from the property like RandomizedTestUtils, but
+        // these tests seem to fail pretty reliably once the random seed is put in, which would really mess with
+        // the nightly builds.
+        this.seed = Long.parseLong(System.getProperty("tests.autoSeed", "2363712622230246740"));
+        this.reportDirectory = reportDirectory;
+        this.configs = new HashMap<>(otherConfigs);
     }
 
-    public WorkloadConfig() {
-        this.configs = new HashMap<>();
+    public long getSeed() {
+        return seed;
+    }
+
+    public String getReportDirectory() {
+        return reportDirectory;
     }
 
     public Object get(String key) {
