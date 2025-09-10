@@ -45,15 +45,15 @@ runs:
       shell: bash
       run: >-
         sudo sed -i -e "s/\/etc\/foundationdb\/fdb.cluster/\/etc\/foundationdb\/fdb1.cluster/g"
-                    -e "s/\/var\/log\/foundationdb/\/var\/log\/foundationdb1/"
-                 /etc/foundationdb/foundationdb1.conf
+        -e "s/\/var\/log\/foundationdb/\/var\/log\/foundationdb1/"
+        /etc/foundationdb/foundationdb1.conf
     - name: Update cluster2 config file
       shell: bash
       run: >-
         sudo sed -i -e "s/\/etc\/foundationdb\/fdb.cluster/\/etc\/foundationdb\/fdb2.cluster/g"
-                    -e "s/\/var\/log\/foundationdb/\/var\/log\/foundationdb2/"
-                    -e "s/fdbserver.4500/fdbserver.4600/g"
-                 /etc/foundationdb/foundationdb2.conf
+        -e "s/\/var\/log\/foundationdb/\/var\/log\/foundationdb2/"
+        -e "s/fdbserver.4500/fdbserver.4600/g"
+        /etc/foundationdb/foundationdb2.conf
     - name: debugging
       shell: bash
       run: cat /etc/foundationdb/foundationdb1.conf
