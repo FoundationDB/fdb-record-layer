@@ -82,6 +82,9 @@ runs:
       run: sudo ls -lh /var/log/foundationdb
     - name: debugging
       shell: bash
+      run: sudo ps
+    - name: debugging
+      shell: bash
       run: sudo head /var/log/foundationdb/*
     - name: debugging
       shell: bash
