@@ -33,7 +33,7 @@ jobs:
       - name: Run Gradle Test
         uses: ./actions/gradle-test
         with:
-          gradle_args: -PreleaseBuild=true -PpublishBuild=true
+          gradle_args: -PreleaseBuild=false -PpublishBuild=false
       - name: Upload coverage to teamscale
         # temporary until we validate that this is working correctly
         continue-on-error: true
