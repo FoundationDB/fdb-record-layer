@@ -73,6 +73,9 @@ runs:
     # Start the two servers
     - name: Start FDB Server 1
       shell: bash
+      run: sudo /usr/lib/foundationdb/fdbmonitor --help
+    - name: Start FDB Server 1
+      shell: bash
       run: sudo /usr/lib/foundationdb/fdbmonitor /etc/foundationdb/foundationdb1.conf --daemonize
     - name: Start FDB Server 2
       shell: bash
