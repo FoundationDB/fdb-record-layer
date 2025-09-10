@@ -98,7 +98,7 @@ runs:
       run: sudo /usr/lib/foundationdb/fdbmonitor --help
     - name: Start FDB Server 1
       shell: bash
-      run: sudo /usr/lib/foundationdb/fdbmonitor --conffile /etc/foundationdb/foundationdb1.conf --lockfile /var/run/fdbmonitor1.pid --loggroup fdb1 --daemonize
+      run: sudo /usr/lib/foundationdb/fdbmonitor --conffile /etc/foundationdb/foundationdb1.conf --lockfile /var/run/fdbmonitor1.pid --loggroup fdb1 # --daemonize
 #     - name: Start FDB Server 2
 #       shell: bash
 #       run: sudo /usr/lib/foundationdb/fdbmonitor --conffile /etc/foundationdb/foundationdb2.conf --lockfile /var/run/fdbmonitor2.pid --loggroup fdb2 --daemonize
