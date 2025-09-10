@@ -3,6 +3,8 @@ name: Upload Coverage to Teamscale
 permissions:
   actions: read
 
+# This is a separate workflow from pull_request.yml because it needs to run with access
+# to the secrets
 on:
   workflow_run:
     workflows: [Pull Request]
@@ -43,13 +45,9 @@ jobs:
       - name: 'Unzip artifact'
         run: unzip "${{ runner.temp }}/artifacts/coverage-report.zip" -d "${{ runner.temp }}/artifacts"
       - name: 'Upload coverage'
-        uses: 'cqse/teamscale-upload-action@8d10b6693b9242420ef2062dbefc36af6e88d587'
+        uses: ./actions/teamscale-upload
         with:
-          server: 'https://fdb.teamscale.io'
-          project: 'foundationdb-fdb-record-layer'
-          user: 'fdb-record-layer-build'
           partition: 'CI Tests'
-          accesskey: ${{ secrets.TEAMSCALE_ACCESS_KEY }}
-          format: 'JACOCO'
           revision: ${{ github.event.workflow_run.head_sha }}
           files: "${{ runner.temp}}/artifacts/codeCoverageReport.xml"
+          teamscaleKey: ${{ secrets.TEAMSCALE_ACCESS_KEY }}
