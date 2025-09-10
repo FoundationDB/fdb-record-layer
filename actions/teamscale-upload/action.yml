@@ -21,12 +21,12 @@ runs:
     # temporary until we validate that this is working correctly
     continue-on-error: true
     uses: 'cqse/teamscale-upload-action@8d10b6693b9242420ef2062dbefc36af6e88d587'
-      with:
-        server: 'https://fdb.teamscale.io'
-        project: 'foundationdb-fdb-record-layer'
-        user: 'fdb-record-layer-build'
-        partition: inputs.partition
-        accesskey: ${{ inputs.teamscaleKey }}
-        format: 'JACOCO'
-        revision: ${{ inputs.revision }}
-        files: ${{ inputs.files }}
+    with:
+      server: 'https://fdb.teamscale.io'
+      project: 'foundationdb-fdb-record-layer'
+      user: 'fdb-record-layer-build'
+      partition: inputs.partition
+      accesskey: ${{ inputs.teamscaleKey }}
+      format: 'JACOCO'
+      revision: ${{ inputs.revision }}
+      files: ${{ inputs.files }}
