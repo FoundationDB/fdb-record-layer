@@ -43,10 +43,17 @@ runs:
       run: sudo cp /etc/foundationdb/foundationdb.conf /etc/foundationdb/foundationdb2.conf
     - name: Update cluster1 config file
       shell: bash
-      run: sudo sed -i -e "s/\/etc\/foundationdb\/fdb.cluster/\/etc\/foundationdb\/fdb1.cluster/g" /etc/foundationdb/foundationdb1.conf
+      run: >-
+        sudo sed -i -e "s/\/etc\/foundationdb\/fdb.cluster/\/etc\/foundationdb\/fdb1.cluster/g"
+                    -e "s/\/var\/log\/foundationdb/\/var\/log\/foundationdb1/"
+                 /etc/foundationdb/foundationdb1.conf
     - name: Update cluster2 config file
       shell: bash
-      run: sudo sed -i -e "s/\/etc\/foundationdb\/fdb.cluster/\/etc\/foundationdb\/fdb2.cluster/g" /etc/foundationdb/foundationdb2.conf
+      run: >-
+        sudo sed -i -e "s/\/etc\/foundationdb\/fdb.cluster/\/etc\/foundationdb\/fdb2.cluster/g"
+                    -e "s/\/var\/log\/foundationdb/\/var\/log\/foundationdb2/"
+                    -e "s/fdbserver.4500/fdbserver.4600/g"
+                 /etc/foundationdb/foundationdb2.conf
     - name: debugging
       shell: bash
       run: cat /etc/foundationdb/foundationdb1.conf
@@ -92,9 +99,9 @@ runs:
     - name: Start FDB Server 1
       shell: bash
       run: sudo /usr/lib/foundationdb/fdbmonitor --conffile /etc/foundationdb/foundationdb1.conf --lockfile /var/run/fdbmonitor1.pid --loggroup fdb1 --daemonize
-    - name: Start FDB Server 2
-      shell: bash
-      run: sudo /usr/lib/foundationdb/fdbmonitor --conffile /etc/foundationdb/foundationdb2.conf --lockfile /var/run/fdbmonitor2.pid --loggroup fdb2 --daemonize
+#     - name: Start FDB Server 2
+#       shell: bash
+#       run: sudo /usr/lib/foundationdb/fdbmonitor --conffile /etc/foundationdb/foundationdb2.conf --lockfile /var/run/fdbmonitor2.pid --loggroup fdb2 --daemonize
     - name: debugging
       shell: bash
       run: sudo ls -lh /var/log/foundationdb
