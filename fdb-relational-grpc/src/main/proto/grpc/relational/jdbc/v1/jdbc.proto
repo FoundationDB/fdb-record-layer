@@ -194,14 +194,12 @@ message StatementResponse {
 }
 
 message CommitRequest {
-  Options options = 1;
 }
 
 message CommitResponse {
 }
 
 message RollbackRequest {
-  Options options = 1;
 }
 
 message RollbackResponse {

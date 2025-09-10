@@ -267,7 +267,7 @@ class JDBCRelationalConnection implements RelationalConnection {
                 throw new SQLException("Commit cannot be called when auto commit is ON");
             } else {
                 TransactionalRequest.Builder transactionRequest = TransactionalRequest.newBuilder()
-                        .setCommitRequest(CommitRequest.newBuilder().setOptions(TypeConversion.toProtobuf(options)).build());
+                        .setCommitRequest(CommitRequest.newBuilder().build());
                 // wait here for response
                 final TransactionalResponse response = serverConnection.sendRequest(transactionRequest.build());
                 checkForResponseError(response);
@@ -292,7 +292,7 @@ class JDBCRelationalConnection implements RelationalConnection {
                 throw new SQLException("Rollback cannot be called when auto commit is ON");
             } else {
                 TransactionalRequest.Builder transactionRequest = TransactionalRequest.newBuilder()
-                        .setRollbackRequest(RollbackRequest.newBuilder().setOptions(TypeConversion.toProtobuf(options)).build());
+                        .setRollbackRequest(RollbackRequest.newBuilder().build());
                 final TransactionalResponse response = serverConnection.sendRequest(transactionRequest.build());
                 checkForResponseError(response);
                 if (!response.hasRollbackResponse()) {
