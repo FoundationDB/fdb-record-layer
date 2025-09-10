@@ -79,7 +79,7 @@ runs:
       run: sudo /usr/lib/foundationdb/fdbmonitor /etc/foundationdb/foundationdb2.conf --daemonize
     - name: debugging
       shell: bash
-      run: ls -lh /var/log/foundationdb
+      run: sudo ls -lh /var/log/foundationdb
     - name: Switch FDB 1 to SSD
       shell: bash
       run: fdbcli -C /etc/foundationdb/fdb1.cluster --exec "configure single ssd storage_migration_type=aggressive; status"
