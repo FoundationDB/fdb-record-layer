@@ -25,7 +25,7 @@ runs:
       server: 'https://fdb.teamscale.io'
       project: 'foundationdb-fdb-record-layer'
       user: 'fdb-record-layer-build'
-      partition: inputs.partition
+      partition: ${{ inputs.partition }}
       accesskey: ${{ inputs.teamscaleKey }}
       format: 'JACOCO'
       revision: ${{ inputs.revision }}
