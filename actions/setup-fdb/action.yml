@@ -71,8 +71,17 @@ runs:
     - name: Remove default cluster file / config
       shell: bash
       run: sudo rm /etc/foundationdb/fdb.cluster /etc/foundationdb/foundationdb.conf
+    - name: Stop default fdb
+      shell: bash
+      run: sudo killall fdbmonitor
+    - name: Cleanup default logs
+      shell: bash
+      run: sudo bash -c "rm /var/log/foundationdb/trace.*"
   
 
+    - name: debugging
+      shell: bash
+      run: ps
     - name: debugging
       shell: bash
       run: ls -lh /etc/foundationdb
