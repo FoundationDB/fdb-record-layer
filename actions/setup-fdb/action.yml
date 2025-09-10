@@ -82,10 +82,10 @@ runs:
       run: sudo ls -lh /var/log/foundationdb
     - name: debugging
       shell: bash
-      run: sudo head /var/log/foundationdb/trace.*
+      run: sudo bash -c "head /var/log/foundationdb/trace.*"
     - name: debugging
       shell: bash
-      run: sudo tail /var/log/foundationdb/trace.*
+      run: sudo bash -c "tail /var/log/foundationdb/trace.*"
     - name: Switch FDB 1 to SSD
       shell: bash
       run: fdbcli -C /etc/foundationdb/fdb1.cluster --exec "configure single ssd storage_migration_type=aggressive; status"
