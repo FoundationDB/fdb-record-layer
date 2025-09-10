@@ -84,6 +84,9 @@ runs:
     - name: Stop default fdb
       shell: bash
       run: sudo killall fdbmonitor
+    - name: debugging
+      shell: bash
+      run: ls -ldh /var/log/foundationdb
     - name: Cleanup default logs
       shell: bash
       run: sudo bash -c "rm /var/log/foundationdb/trace.*"
@@ -101,7 +104,7 @@ runs:
       run: sudo /usr/lib/foundationdb/fdbmonitor --help
     - name: Start FDB Server 1
       shell: bash
-      run: sudo /usr/lib/foundationdb/fdbmonitor --conffile /etc/foundationdb/foundationdb1.conf --lockfile /var/run/fdbmonitor1.pid --loggroup fdb1 # --daemonize
+      run: sudo /usr/lib/foundationdb/fdbmonitor --conffile /etc/foundationdb/foundationdb1.conf --lockfile /var/run/fdbmonitor1.pid --loggroup fdb1 --daemonize
 #     - name: Start FDB Server 2
 #       shell: bash
 #       run: sudo /usr/lib/foundationdb/fdbmonitor --conffile /etc/foundationdb/foundationdb2.conf --lockfile /var/run/fdbmonitor2.pid --loggroup fdb2 --daemonize
