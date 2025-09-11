@@ -138,3 +138,11 @@ runs:
         echo "clusterFiles: " >> fdb-environment.yaml
         echo "  - /etc/foundationdb/fdb1.cluster" >> fdb-environment.yaml
         echo "  - /etc/foundationdb/fdb2.cluster" >> fdb-environment.yaml
+    - name: Debugging fdb logs
+      if: always()
+      uses: actions/upload-artifact@v4.6.0
+      with:
+        name: other-test-reports
+        path: |
+          /var/log/foundationdb1
+          /var/log/foundationdb2
