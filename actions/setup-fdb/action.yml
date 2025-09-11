@@ -116,7 +116,7 @@ runs:
       run: sudo bash -c "ls -lh /var/log/foundationdb*"
     - name: debugging
       shell: bash
-      run: sudo bash -c "head /var/log/foundationdb*/trace.*"
+      run: sudo bash -c "head -n 50 /var/log/foundationdb*/trace.*"
     - name: debugging
       shell: bash
       run: sudo bash -c "tail /var/log/foundationdb*/trace.*"
