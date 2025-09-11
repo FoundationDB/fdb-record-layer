@@ -503,7 +503,7 @@ test_block:
       - result: [{!null _}]
     -
       - query: select sum(col1) from T2 where col2 > 0;
-      - supported_version: !current_version
+      - supported_version: 4.5.12.0
       - explain: "AISCAN(T2_I6 [[GREATER_THAN promote(@c11 AS LONG)]] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | AGG sum_l(_._1) GROUP BY () | MAP ((_._1 AS _0) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
       - result: [{!l 0}]
     -
