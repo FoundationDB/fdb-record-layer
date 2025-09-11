@@ -283,11 +283,12 @@ class KeySpacePathImpl implements KeySpacePath {
         // tree, so instead we will use a narrower definition of equality here.
         boolean directoriesEqual = Objects.equals(this.getDirectory().getKeyType(), that.getDirectory().getKeyType()) &&
                                    Objects.equals(this.getDirectory().getName(), that.getDirectory().getName()) &&
-                                   Objects.equals(this.getDirectory().getValue(), that.getDirectory().getValue());
+                                   KeySpaceDirectory.areEqual(this.getDirectory().getValue(), that.getDirectory().getValue());
 
+        // the values might be byte[]
         return directoriesEqual &&
-               Objects.equals(this.getValue(), that.getValue()) &&
-               Objects.equals(this.getParent(), that.getParent());
+                KeySpaceDirectory.areEqual(this.getValue(), that.getValue()) &&
+                Objects.equals(this.getParent(), that.getParent());
     }
 
     @Override
@@ -295,8 +296,8 @@ class KeySpacePathImpl implements KeySpacePath {
         return Objects.hash(
                 getDirectory().getKeyType(),
                 getDirectory().getName(),
-                getDirectory().getValue(),
-                getValue(),
+                KeySpaceDirectory.valueHashCode(getDirectory().getValue()),
+                KeySpaceDirectory.valueHashCode(getValue()),
                 parent);
     }
 

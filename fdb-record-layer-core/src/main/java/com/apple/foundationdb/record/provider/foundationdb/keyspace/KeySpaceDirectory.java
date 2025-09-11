@@ -710,7 +710,7 @@ public class KeySpaceDirectory {
         return value;
     }
 
-    protected static boolean areEqual(Object o1, Object o2) {
+    protected static boolean areEqual(@Nullable Object o1, @Nullable Object o2) {
         if (o1 == null) {
             return o2 == null;
         } else {
@@ -737,6 +737,26 @@ public class KeySpaceDirectory {
                 return o1.equals(o2);
             default:
                 throw new RecordCoreException("Unexpected key type " + o1Type);
+        }
+    }
+
+    protected static int valueHashCode(@Nullable Object value) {
+        if (value == null) {
+            return Objects.hashCode(value);
+        }
+
+        switch (KeyType.typeOf(value)) {
+            case BYTES:
+                return Arrays.hashCode((byte[]) value);
+            case LONG:
+            case STRING:
+            case FLOAT:
+            case DOUBLE:
+            case BOOLEAN:
+            case UUID:
+                return Objects.hashCode(value);
+            default:
+                throw new RecordCoreException("Unexpected key type " + KeyType.typeOf(value));
         }
     }
 
