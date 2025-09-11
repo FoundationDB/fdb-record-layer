@@ -126,6 +126,9 @@ runs:
       run: sudo ps -u foundationdb
     - name: debugging
       shell: bash
+      run: sudo netstat -nlp
+    - name: debugging
+      shell: bash
       run: fdbcli -C /etc/foundationdb/fdb1.cluster --exec "status" --log
     - name: debugging
       shell: bash
