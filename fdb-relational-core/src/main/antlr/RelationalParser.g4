@@ -880,7 +880,7 @@ ofTypeClause
     ;
 
 arrayConstructor
-    : LEFT_SQUARE_BRACKET expression (',' expression)* RIGHT_SQUARE_BRACKET
+    : LEFT_SQUARE_BRACKET expressions? RIGHT_SQUARE_BRACKET
     ;
 
 userVariables

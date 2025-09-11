@@ -568,7 +568,8 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     public Expression visitSubscriptExpression(@Nonnull RelationalParser.SubscriptExpressionContext ctx) {
         final var index = Assert.castUnchecked(ctx.index.accept(this), Expression.class);
         final var base = Assert.castUnchecked(ctx.base.accept(this), Expression.class);
-        return getDelegate().resolveFunction(ctx.LEFT_SQUARE_BRACKET().getText(), index, base);
+        return getDelegate().resolveFunction(ctx.LEFT_SQUARE_BRACKET().getText()
+                .concat(ctx.RIGHT_SQUARE_BRACKET().getText()), index, base);
     }
 
     @Nonnull
@@ -794,6 +795,12 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         final var maybeState = getStateMaybe();
         final var targetTypeMaybe = maybeState.flatMap(LogicalPlanFragment.State::getTargetType);
 
+        if (ctx.expressions() == null) {
+            final var elementType = targetTypeMaybe.map(type -> Assert.castUnchecked(type, Type.Array.class).getElementType())
+                    .orElse(Type.any());
+            return Expression.ofUnnamed(AbstractArrayConstructorValue.LightArrayConstructorValue.emptyArray(elementType));
+        }
+
         if (targetTypeMaybe.isEmpty()) {
             return handleArray(ctx);
         }
@@ -941,9 +948,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
 
     @Nonnull
     private Expression handleArray(@Nonnull RelationalParser.ArrayConstructorContext ctx) {
-        final var elements = Expressions.of(ctx.expression().stream()
-                .map(item -> Assert.castUnchecked(item.accept(this), Expression.class))
-                .collect(ImmutableList.toImmutableList())).underlying();
+        final var elements = visitExpressions(ctx.expressions()).underlying();
 
         //
         // TODO This absolutely must call the encapsulator to create the array constructor. The reason being that

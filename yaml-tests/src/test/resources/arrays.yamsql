@@ -22,12 +22,13 @@ schema_template:
     create table A(pk integer, x integer array, primary key(pk))
     create table B(pk integer, x string array, primary key(pk))
     create table C(pk integer, x double array, primary key(pk))
-    CREATE TYPE AS STRUCT S(f integer)
+    create type as struct S(f integer)
     create table D(pk integer, x S array, primary key(pk))
-    CREATE TYPE AS STRUCT T(x integer, y double)
+    create type as struct T(x integer, y double)
     create table E(pk integer, x T array, primary key(pk))
-    CREATE TYPE AS STRUCT U(x integer, y double, z integer array)
+    create type as struct U(x integer, y double, z integer array)
     create table F(pk integer, x U array, primary key(pk))
+    create table G(pk integer, x string array, primary key(pk))
 ---
 test_block:
   name: arrays-tests
@@ -57,6 +58,10 @@ test_block:
               (2, [(2, 2.0, [1, 1, 1]), (3, 3.0, [1, 1, 1]), (4, 4.0, [1, 1, 1])]),
               (3, [(3, 3.0, [1, 1, 1]), (4, 4.0, [1, 1, 1]), (5, 5.0, [1, 1, 1])])
       - count: 3
+    -
+      - query: INSERT INTO G VALUES (1, [])
+      - supported_version: !current_version
+      - count: 1
     -
       # "new" should not be quoted. TODO ([Post] Fix identifiers case-sensitivity matching in plan generator)
       - query: UPDATE A SET X = [11, 12, 13] WHERE PK = 1 RETURNING "new".X
@@ -96,4 +101,25 @@ test_block:
       - query: select X[-1] AS ERR FROM A WHERE pk = 1
       - supported_version: !current_version
       - result: [{ERR: !null _}]
+    -
+      # out of bound
+      - query: select X[0] AS ERR FROM A WHERE pk = 1
+      - supported_version: !current_version
+      - result: [{ERR: !null _}]
+    -
+      # empty array
+      - query: select X[1] AS ERR FROM G where pk = 1
+      - supported_version: !current_version
+      - result: [{ERR: !null _}]
+    -
+      # empty result
+      - query: select X[1] AS F FROM G where pk = 42
+      - supported_version: !current_version
+      - result: []
+#    -
+# it is not possible to project empty arrays, see:
+# https://github.com/FoundationDB/fdb-record-layer/issues/3589
+#      - query: select [] from F where pk = 1;
+#      - supported_version: !current_version
+#      - result: [{[]}]
 ...
