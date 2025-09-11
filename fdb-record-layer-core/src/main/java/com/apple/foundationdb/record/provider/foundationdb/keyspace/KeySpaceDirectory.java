@@ -742,7 +742,7 @@ public class KeySpaceDirectory {
 
     protected static int valueHashCode(@Nullable Object value) {
         if (value == null) {
-            return Objects.hashCode(value);
+            return 0;
         }
 
         switch (KeyType.typeOf(value)) {
