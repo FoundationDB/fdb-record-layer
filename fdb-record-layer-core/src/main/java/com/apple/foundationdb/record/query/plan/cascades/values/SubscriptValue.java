@@ -35,7 +35,6 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.protobuf.Message;
 
@@ -66,7 +65,7 @@ public class SubscriptValue extends AbstractValue {
     @Nonnull
     @Override
     protected Iterable<? extends Value> computeChildren() {
-        return ImmutableList.of(indexValue, sourceValue);
+        return List.of(indexValue, sourceValue);
     }
 
     @Nonnull
