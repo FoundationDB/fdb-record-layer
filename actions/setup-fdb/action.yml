@@ -127,10 +127,13 @@ runs:
       run: sudo bash -c "tail /var/log/foundationdb*/trace.*"
     - name: debugging
       shell: bash
-      run: ps
+      run: ps -u foundationdb
     - name: debugging
       shell: bash
-      run: fdbcli -C /etc/foundationdb/fdb1.cluster --exec "status"
+      run: fdbcli -C /etc/foundationdb/fdb1.cluster --exec "status" --log
+    - name: debugging
+      shell: bash
+      run: ls
     - name: debugging
       shell: bash
       run: sudo bash -c "tail /var/log/foundationdb1/trace.*"
