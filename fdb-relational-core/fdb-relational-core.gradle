@@ -67,6 +67,7 @@ dependencies {
 // task should be moved to testing.gradle
 tasks.withType(Test).configureEach { theTask ->
     theTask.testFramework.options.includeEngines.add('auto-test')
+    theTask.testFramework.options.includeEngines.add('junit-jupiter')
 }
 
 publishing {
