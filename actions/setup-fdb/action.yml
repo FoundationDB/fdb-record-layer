@@ -75,6 +75,10 @@ runs:
     - name: Set log dir permissions
       shell: bash
       run: sudo chmod 700 /var/log/foundationdb1 /var/log/foundationdb2
+      
+    - name: debugging
+      shell: bash
+      run: ls -lh /etc/foundationdb
 
     - name: Stop default fdb
       shell: bash
