@@ -93,6 +93,12 @@ runs:
     - name: Start FDB Server 2
       shell: bash
       run: sudo /usr/lib/foundationdb/fdbmonitor --conffile /etc/foundationdb/foundationdb2.conf --lockfile /var/run/fdbmonitor2.pid --loggroup fdb2 --daemonize
+    - name: debugging
+      shell: bash
+      run: sudo ps -u foundationdb
+    - name: debugging
+      shell: bash
+      run: sudo netstat -nlp
     - name: Switch FDB 1 to SSD
       shell: bash
       run: fdbcli -C /etc/foundationdb/fdb1.cluster --exec "configure single ssd storage_migration_type=aggressive; status"
