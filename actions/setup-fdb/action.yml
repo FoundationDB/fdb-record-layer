@@ -122,6 +122,9 @@ runs:
       run: sudo bash -c "tail /var/log/foundationdb*/trace.*"
     - name: debugging
       shell: bash
+      run: fdbcli -C /etc/foundationdb/fdb1.cluster --exec "status"
+    - name: debugging
+      shell: bash
       run: fdbcli -C /etc/foundationdb/fdb2.cluster --exec "status"
     - name: Switch FDB 1 to SSD
       shell: bash
