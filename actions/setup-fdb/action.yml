@@ -81,12 +81,16 @@ runs:
       run: sudo chmod 700 /var/log/foundationdb1 /var/log/foundationdb2
 
 
-    - name: Remove default cluster file / config
+    - name: debugging
       shell: bash
-      run: sudo rm /etc/foundationdb/fdb.cluster /etc/foundationdb/foundationdb.conf
+      run: ps
+
     - name: Stop default fdb
       shell: bash
       run: sudo killall fdbmonitor
+    - name: Remove default cluster file / config
+      shell: bash
+      run: sudo rm /etc/foundationdb/fdb.cluster /etc/foundationdb/foundationdb.conf
     - name: debugging
       shell: bash
       run: ls -ldh /var/log/foundationdb
@@ -120,6 +124,9 @@ runs:
     - name: debugging
       shell: bash
       run: sudo bash -c "tail /var/log/foundationdb*/trace.*"
+    - name: debugging
+      shell: bash
+      run: ps
     - name: debugging
       shell: bash
       run: fdbcli -C /etc/foundationdb/fdb1.cluster --exec "status"
