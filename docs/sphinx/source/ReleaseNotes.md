@@ -7,6 +7,44 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.5
 
+### 4.5.12.0
+
+<h4> New Features </h4>
+
+* Composite aggregates - [PR #3266](https://github.com/FoundationDB/fdb-record-layer/pull/3266)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Remove release notes for 4.5.11.0 - [PR #3585](https://github.com/FoundationDB/fdb-record-layer/pull/3585)
+* Add codeCoverageReport task to nightly run jobs - [PR #3587](https://github.com/FoundationDB/fdb-record-layer/pull/3587)
+* teamscale upload action incorrectly referenced the partition input - [PR #3582](https://github.com/FoundationDB/fdb-record-layer/pull/3582)
+* Checkout main during teamscale upload workflow - [PR #3581](https://github.com/FoundationDB/fdb-record-layer/pull/3581)
+* Do not mark nightly gradle test as release or publish build - [PR #3580](https://github.com/FoundationDB/fdb-record-layer/pull/3580)
+* Fix the indentation in the teamscale upload action. - [PR #3579](https://github.com/FoundationDB/fdb-record-layer/pull/3579)
+* When correcting yamsql metrics, only update queries with differences - [PR #3563](https://github.com/FoundationDB/fdb-record-layer/pull/3563)
+* Re enable auto test - [PR #3558](https://github.com/FoundationDB/fdb-record-layer/pull/3558)
+* Upload coverage from nightly builds - [PR #3568](https://github.com/FoundationDB/fdb-record-layer/pull/3568)
+
+</details>
+
+
+**[Full Changelog (4.5.10.0...4.5.12.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.5.10.0...4.5.12.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.5.1.0`, ✅`4.5.2.0`, ✅`4.5.3.0`, ✅`4.5.4.0`, ✅`4.5.5.0`, ✅`4.5.6.0`, ✅`4.5.7.0`, ✅`4.5.8.0`, ✅`4.5.9.0`, ✅`4.5.10.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/17640520208)
+
+
+
 ### 4.5.10.0
 
 <h4> New Features </h4>
