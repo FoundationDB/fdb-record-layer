@@ -220,6 +220,8 @@ class ResolvedKeySpacePathTest {
 
     /**
      * Test value pair for each KeyType.
+     * We use {@link Supplier} here to make sure that if it is falling back to reference equality (e.g. byte[]),
+     * we want to catch if it doesn't consider those equal.
      */
     private static class TestValuePair {
         private final Supplier<Object> value1Supplier;
