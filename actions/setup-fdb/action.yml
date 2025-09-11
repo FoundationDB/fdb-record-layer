@@ -55,12 +55,7 @@ runs:
         -e "s/\/var\/log\/foundationdb/\/var\/log\/foundationdb2/"
         -e "s/fdbserver.4500/fdbserver.4700/g"
         /etc/foundationdb/foundationdb2.conf
-#X    - name: debugging
-#X      shell: bash
-#X      run: cat /etc/foundationdb/foundationdb1.conf
-#X    - name: debugging
-#X      shell: bash
-#X      run: cat /etc/foundationdb/foundationdb2.conf
+
     # Setup two cluster files for the two configs
     - name: Create cluster1 clusterfile
       shell: bash
@@ -81,27 +76,16 @@ runs:
       shell: bash
       run: sudo chmod 700 /var/log/foundationdb1 /var/log/foundationdb2
 
-
-#X    - name: debugging
-#X      shell: bash
-#X      run: sudo ps -u foundationdb
-
     - name: Stop default fdb
       shell: bash
       run: sudo killall fdbmonitor
     - name: Remove default cluster file / config
       shell: bash
       run: sudo rm /etc/foundationdb/fdb.cluster /etc/foundationdb/foundationdb.conf
-#X    - name: debugging
-#X      shell: bash
-#X      run: ls -ldh /var/log/foundationdb
     - name: Cleanup default logs
       shell: bash
       run: sudo bash -c "rm /var/log/foundationdb/trace.*"
-  
-#X    - name: debugging
-#X      shell: bash
-#X      run: ls -lh /etc/foundationdb
+
     # Start the two servers
     - name: Start FDB Server 1
       shell: bash
@@ -112,33 +96,6 @@ runs:
      - name: Start FDB Server 2
        shell: bash
        run: sudo /usr/lib/foundationdb/fdbmonitor --conffile /etc/foundationdb/foundationdb2.conf --lockfile /var/run/fdbmonitor2.pid --loggroup fdb2 --daemonize
-#X    - name: debugging
-#X      shell: bash
-#X      run: sudo bash -c "ls -lh /var/log/foundationdb*"
-#X    - name: debugging
-#X      shell: bash
-#X      run: sudo bash -c "head -n 50 /var/log/foundationdb*/trace.*"
-#X    - name: debugging
-#X      shell: bash
-#X      run: sudo bash -c "tail /var/log/foundationdb*/trace.*"
-#X    - name: debugging
-#X      shell: bash
-#X      run: sudo ps -u foundationdb
-#X    - name: debugging
-#X      shell: bash
-#X      run: sudo netstat -nlp
-#X    - name: debugging
-#X      shell: bash
-#X      run: fdbcli -C /etc/foundationdb/fdb1.cluster --exec "status" --log
-#X    - name: debugging
-#X      shell: bash
-#X      run: cat trace.*.xml
-#X    - name: debugging
-#X      shell: bash
-#X      run: sudo bash -c "tail /var/log/foundationdb1/trace.*"
-#X    - name: debugging
-#X      shell: bash
-#X      run: fdbcli -C /etc/foundationdb/fdb2.cluster --exec "status"
     - name: Switch FDB 1 to SSD
       shell: bash
       run: fdbcli -C /etc/foundationdb/fdb1.cluster --exec "configure single ssd storage_migration_type=aggressive; status"
