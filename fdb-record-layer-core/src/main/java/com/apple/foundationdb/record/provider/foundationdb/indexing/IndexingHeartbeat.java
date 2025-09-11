@@ -40,6 +40,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -51,14 +52,14 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 @API(API.Status.INTERNAL)
 public class IndexingHeartbeat {
-    // [prefix, indexerId] -> [indexing-type, genesis time, heartbeat time]
+    // [prefix, indexerId] -> [creator info, create time, heartbeat time]
     @Nonnull
     private static final Logger logger = LoggerFactory.getLogger(IndexingHeartbeat.class);
     public static final String INVALID_HEARTBEAT_INFO = "<< Invalid Heartbeat >>";
 
     final UUID indexerId;
     final String info;
-    final long genesisTimeMilliseconds;
+    final long createTimeMilliseconds;
     final long leaseLength;
     final boolean allowMutual;
 
@@ -67,7 +68,7 @@ public class IndexingHeartbeat {
         this.info = info;
         this.leaseLength = leaseLength;
         this.allowMutual = allowMutual;
-        this.genesisTimeMilliseconds = nowMilliseconds();
+        this.createTimeMilliseconds = nowMilliseconds();
     }
 
     public UUID getIndexerId() {
@@ -78,7 +79,7 @@ public class IndexingHeartbeat {
         byte[] key = IndexingSubspaces.indexHeartbeatSubspace(store, index, indexerId).pack();
         byte[] value = IndexBuildProto.IndexBuildHeartbeat.newBuilder()
                 .setInfo(info)
-                .setGenesisTimeMilliseconds(genesisTimeMilliseconds)
+                .setCreateTimeMilliseconds(createTimeMilliseconds)
                 .setHeartbeatTimeMilliseconds(nowMilliseconds())
                 .build().toByteArray();
         store.ensureContextActive().set(key, value);
@@ -93,16 +94,8 @@ public class IndexingHeartbeat {
 
         final AsyncIterator<KeyValue> iterator = heartbeatsIterator(store, index);
         final long now = nowMilliseconds();
-        return AsyncUtil.whileTrue(() -> iterator.onHasNext()
-                        .thenApply(hasNext -> {
-                            if (!hasNext) {
-                                return false;
-                            }
-                            final KeyValue kv = iterator.next();
-                            checkSingleHeartbeat(store, index, kv, now);
-                            return true;
-                        }))
-                .thenAccept(ignore -> updateHeartbeat(store, index));
+        return AsyncUtil.forEachRemaining(iterator, kv -> checkSingleHeartbeat(store, index, kv, now), store.getExecutor())
+                .thenRun(() -> updateHeartbeat(store, index));
     }
 
     private void checkSingleHeartbeat(final @Nonnull FDBRecordStore store, final @Nonnull Index index, final KeyValue kv, final long now) {
@@ -111,7 +104,7 @@ public class IndexingHeartbeat {
             if (!otherIndexerId.equals(this.indexerId)) {
                 final IndexBuildProto.IndexBuildHeartbeat otherHeartbeat = IndexBuildProto.IndexBuildHeartbeat.parseFrom(kv.getValue());
                 final long age = now - otherHeartbeat.getHeartbeatTimeMilliseconds();
-                if (age > 0 && age < leaseLength) {
+                if (age > TimeUnit.DAYS.toMillis(-1) && age < leaseLength) {
                     // For practical reasons, this exception is backward compatible to the Synchronized Lock one
                     throw new SynchronizedSessionLockedException("Failed to initialize the session because of an existing session in progress")
                             .addLogInfo(LogMessageKeys.INDEXER_ID, indexerId)
@@ -158,12 +151,12 @@ public class IndexingHeartbeat {
                                 // Let the caller know about this invalid heartbeat.
                                 ret.put(otherIndexerId, IndexBuildProto.IndexBuildHeartbeat.newBuilder()
                                         .setInfo(INVALID_HEARTBEAT_INFO)
-                                                .setGenesisTimeMilliseconds(0)
+                                                .setCreateTimeMilliseconds(0)
                                                 .setHeartbeatTimeMilliseconds(0)
                                         .build());
                             }
                             return true;
-                        }))
+                        }), store.getExecutor())
                 .thenApply(ignore -> ret);
     }
 
@@ -195,7 +188,7 @@ public class IndexingHeartbeat {
                                 deleteCount.incrementAndGet();
                             }
                             return true;
-                        }))
+                        }), store.getExecutor())
                 .thenApply(ignore -> deleteCount.get());
     }
 

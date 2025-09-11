@@ -151,8 +151,8 @@ class IndexingHeartbeatLowLevelTest {
                         .containsExactlyInAnyOrderElementsOf(Arrays.stream(heartbeats).map(heartbeat -> heartbeat.indexerId).collect(Collectors.toList()));
                 Assertions.assertThat(queried.values().stream().map(IndexBuildProto.IndexBuildHeartbeat::getInfo))
                         .containsExactlyInAnyOrderElementsOf(Arrays.stream(heartbeats).map(heartbeat -> heartbeat.info).collect(Collectors.toList()));
-                Assertions.assertThat(queried.values().stream().map(IndexBuildProto.IndexBuildHeartbeat::getGenesisTimeMilliseconds))
-                        .containsExactlyInAnyOrderElementsOf(Arrays.stream(heartbeats).map(heartbeat -> heartbeat.genesisTimeMilliseconds).collect(Collectors.toList()));
+                Assertions.assertThat(queried.values().stream().map(IndexBuildProto.IndexBuildHeartbeat::getCreateTimeMilliseconds))
+                        .containsExactlyInAnyOrderElementsOf(Arrays.stream(heartbeats).map(heartbeat -> heartbeat.createTimeMilliseconds).collect(Collectors.toList()));
 
                 // Query, partial
                 queried =

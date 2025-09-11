@@ -393,6 +393,7 @@ public abstract class IndexingBase {
                     }
                     // Here: check if type conversion is allowed
                     if (continuedBuild && shouldAllowTypeConversionContinue(newStamp, savedStamp)) {
+                        // Special case: partly built by another indexing method, but may be continued with the current one
                         store.saveIndexingTypeStamp(index, newStamp);
                         return AsyncUtil.DONE;
                     }

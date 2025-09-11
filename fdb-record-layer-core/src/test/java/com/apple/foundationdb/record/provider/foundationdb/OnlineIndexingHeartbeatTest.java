@@ -313,7 +313,7 @@ class OnlineIndexingHeartbeatTest extends OnlineIndexerTest {
             assertThat(heartbeatsQueries.get(i)).hasSize(1);
             final Map.Entry<UUID, IndexBuildProto.IndexBuildHeartbeat> item = heartbeatsQueries.get(i).entrySet().iterator().next();
             assertThat(item.getKey()).isEqualTo(first.getKey());
-            assertThat(item.getValue().getGenesisTimeMilliseconds()).isEqualTo(first.getValue().getGenesisTimeMilliseconds());
+            assertThat(item.getValue().getCreateTimeMilliseconds()).isEqualTo(first.getValue().getCreateTimeMilliseconds());
             assertThat(item.getValue().getInfo()).isEqualTo(first.getValue().getInfo());
             assertThat(item.getValue().getHeartbeatTimeMilliseconds())
                     .isGreaterThan(previous.getValue().getHeartbeatTimeMilliseconds());
