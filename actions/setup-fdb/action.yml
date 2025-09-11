@@ -33,7 +33,7 @@ runs:
       run: sudo dpkg -i ~/.fdb-cache/${{ steps.fdb_filenames.outputs.client_deb }} ~/.fdb-cache/${{ steps.fdb_filenames.outputs.server_deb }}
     - name: Fix FDB Network Addresses
       shell: bash
-      run: sudo sed -i -e "s/public_address = auto:\$ID/public_address = 127.0.0.1:\$ID/g" -e "s/listen_address = public/listen_address = 0.0.0.0:\$ID/g" /etc/foundationdb/foundationdb.conf
+      run: sudo sed -i -e "s/public-address = auto:\$ID/public-address = 127.0.0.1:\$ID/g" -e "s/listen-address = public/listen-address = 0.0.0.0:\$ID/g" /etc/foundationdb/foundationdb.conf
     # Setup 2 cluster conf files
     - name: Create cluster1 config file
       shell: bash
