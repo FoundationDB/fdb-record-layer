@@ -133,7 +133,7 @@ runs:
       run: fdbcli -C /etc/foundationdb/fdb1.cluster --exec "status" --log
     - name: debugging
       shell: bash
-      run: ls
+      run: cat trace.*.xml
     - name: debugging
       shell: bash
       run: sudo bash -c "tail /var/log/foundationdb1/trace.*"
