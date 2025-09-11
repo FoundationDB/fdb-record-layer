@@ -84,7 +84,7 @@ runs:
 
     - name: debugging
       shell: bash
-      run: ps -u foundationdb
+      run: sudo ps -u foundationdb
 
     - name: Stop default fdb
       shell: bash
@@ -102,7 +102,7 @@ runs:
 
     - name: debugging
       shell: bash
-      run: ps -u foundationdb
+      run: sudo ps -u foundationdb
     - name: debugging
       shell: bash
       run: ls -lh /etc/foundationdb
@@ -127,7 +127,7 @@ runs:
       run: sudo bash -c "tail /var/log/foundationdb*/trace.*"
     - name: debugging
       shell: bash
-      run: ps -u foundationdb
+      run: sudo ps -u foundationdb
     - name: debugging
       shell: bash
       run: fdbcli -C /etc/foundationdb/fdb1.cluster --exec "status" --log
