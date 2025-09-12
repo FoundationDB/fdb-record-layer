@@ -28,6 +28,7 @@ import com.apple.foundationdb.relational.api.ddl.MetadataOperationsFactory;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.generated.RelationalParser;
+import com.apple.foundationdb.relational.generated.RelationalParserBaseVisitor;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerInvokedRoutine;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
@@ -48,7 +49,6 @@ import com.apple.foundationdb.relational.recordlayer.query.SemanticAnalyzer;
 import com.apple.foundationdb.relational.recordlayer.query.functions.CompiledSqlFunction;
 import com.apple.foundationdb.relational.recordlayer.query.functions.SqlFunctionCatalog;
 import com.apple.foundationdb.relational.util.Assert;
-import org.antlr.v4.runtime.tree.AbstractParseTreeVisitor;
 import org.antlr.v4.runtime.tree.ParseTree;
 
 import javax.annotation.Nonnull;
@@ -64,7 +64,7 @@ import java.util.Set;
  */
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @API(API.Status.EXPERIMENTAL)
-public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements TypedVisitor {
+public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements TypedVisitor {
 
     private final boolean caseSensitive;
 
@@ -1612,26 +1612,6 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
     @Override
     public Expression visitExistsExpressionAtom(@Nonnull RelationalParser.ExistsExpressionAtomContext ctx) {
         return expressionVisitor.visitExistsExpressionAtom(ctx);
-    }
-
-    @Override
-    public Object visitBetweenComparisonPredicate(final RelationalParser.BetweenComparisonPredicateContext ctx) {
-        return visitChildren(ctx);
-    }
-
-    @Override
-    public Object visitInPredicate(final RelationalParser.InPredicateContext ctx) {
-        return visitChildren(ctx);
-    }
-
-    @Override
-    public Object visitLikePredicate(final RelationalParser.LikePredicateContext ctx) {
-        return visitChildren(ctx);
-    }
-
-    @Override
-    public Object visitIsExpression(final RelationalParser.IsExpressionContext ctx) {
-        return visitChildren(ctx);
     }
 
     @Nonnull

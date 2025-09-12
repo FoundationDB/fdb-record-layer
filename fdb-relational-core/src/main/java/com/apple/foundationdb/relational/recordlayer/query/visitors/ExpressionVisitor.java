@@ -391,7 +391,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nonnull
     @Override
     public Expression visitPredicatedExpression(@Nonnull final RelationalParser.PredicatedExpressionContext ctx) {
-        final var operand = Assert.castUnchecked(ctx.expressionAtom().accept(this), Expression.class);
+        final var operand = Assert.castUnchecked(visit(ctx.expressionAtom()), Expression.class);
         final var predicate = ctx.predicate();
         if (predicate == null) {
             return operand;
