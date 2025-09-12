@@ -95,6 +95,12 @@ runs:
     - name: debugging
       shell: bash
       run: fdbcli -C /etc/foundationdb/fdb.cluster --exec "status" --log
+    - name: debugging
+      shell: bash
+      run: sudo ps -u foundationdb
+    - name: debugging
+      shell: bash
+      run: sudo netstat -nlp
 
     - name: Stop default fdb
       shell: bash
