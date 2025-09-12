@@ -41,6 +41,9 @@ runs:
     - name: Create cluster2 config file
       shell: bash
       run: sudo cp /etc/foundationdb/foundationdb.conf /etc/foundationdb/foundationdb2.conf
+    - name: Stop default fdb
+      shell: bash
+      run: sudo service foundationdb stop
     - name: Experiment
       shell: bash
       run: >-
