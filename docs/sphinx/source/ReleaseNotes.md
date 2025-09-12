@@ -7,6 +7,39 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.5
 
+### 4.5.13.0
+
+<h4> New Features </h4>
+
+* Support SQL array subscript operator - [PR #3586](https://github.com/FoundationDB/fdb-record-layer/pull/3586)
+<h4> Bug Fixes </h4>
+
+* Fix compensation logic to not early out if child compensations are needed - [PR #3593](https://github.com/FoundationDB/fdb-record-layer/pull/3593)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Run Jupiter tests in relational-core, not just auto-test - [PR #3590](https://github.com/FoundationDB/fdb-record-layer/pull/3590)
+
+</details>
+
+
+**[Full Changelog (4.5.12.0...4.5.13.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.5.12.0...4.5.13.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+❌`4.5.2.0`, ❌`4.5.3.0`, ❌`4.5.4.0`, ❌`4.5.5.0`, ❌`4.5.6.0`, ❌`4.5.7.0`, ❌`4.5.8.0`, ❌`4.5.9.0`, ❌`4.5.10.0`, ✅`4.5.12.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/17678739498)
+
+
+
 ### 4.5.12.0
 
 <h4> New Features </h4>
