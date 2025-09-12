@@ -105,6 +105,8 @@ public class IndexingHeartbeat {
                 final IndexBuildProto.IndexBuildHeartbeat otherHeartbeat = IndexBuildProto.IndexBuildHeartbeat.parseFrom(kv.getValue());
                 final long age = now - otherHeartbeat.getHeartbeatTimeMilliseconds();
                 if (age > TimeUnit.DAYS.toMillis(-1) && age < leaseLength) {
+                    // Note that if this heartbeat's age is more than a day in the future, it is considered as bad data. A day seems to be
+                    // long enough to tolerate reasonable clock skews between nodes.
                     // For practical reasons, this exception is backward compatible to the Synchronized Lock one
                     throw new SynchronizedSessionLockedException("Failed to initialize the session because of an existing session in progress")
                             .addLogInfo(LogMessageKeys.INDEXER_ID, indexerId)
