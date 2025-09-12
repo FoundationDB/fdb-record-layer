@@ -469,7 +469,7 @@ public class Commands {
                             .filter(Optional::isPresent)
                             .map(Optional::get)
                             .collect(Collectors.joining(", "));
-                    plannerRepl.printKeyValue("members: ", "{" + membersString + "}");
+                    plannerRepl.printKeyValue("members", "{" + membersString + "}");
                 }
                 plannerRepl.println();
             }
