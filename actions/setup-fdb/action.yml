@@ -111,7 +111,7 @@ runs:
 
     - name: debugging
       shell: bash
-      run: fdbcli -C /etc/foundationdb/fdb.cluster --exec "status" --log
+      run: fdbcli -C /etc/foundationdb/fdb.cluster --exec "status details" --log
     - name: debugging
       shell: bash
       run: sudo ps -u foundationdb
