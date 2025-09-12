@@ -229,8 +229,9 @@ public class ResolvedKeySpacePath {
         }
 
         ResolvedKeySpacePath otherPath = (ResolvedKeySpacePath) other;
-        return this.inner.equals(otherPath.inner)
-               && Objects.equals(this.getResolvedPathValue(), otherPath.getResolvedPathValue());
+        return Objects.equals(this.getResolvedPathValue(), otherPath.getResolvedPathValue()) &&
+                Objects.equals(this.getParent(), otherPath.getParent()) &&
+                this.inner.equals(otherPath.inner);
     }
 
     @Override

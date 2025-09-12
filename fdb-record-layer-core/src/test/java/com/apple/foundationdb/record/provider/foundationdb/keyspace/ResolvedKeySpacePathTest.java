@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.keyspace;
 
-import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory.KeyType;
 import com.apple.foundationdb.record.test.FDBDatabaseExtension;
 import com.apple.foundationdb.tuple.Tuple;
@@ -34,6 +32,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import javax.annotation.Nonnull;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.UUID;
@@ -54,10 +53,11 @@ class ResolvedKeySpacePathTest {
     /**
      * Provides test parameters for KeyType and constantDirectory combinations.
      */
-    static Stream<Arguments> keyTypeAndConstantDirectory() {
+    static Stream<Arguments> testEqualsHashCode() {
         return ParameterizedTestUtils.cartesianProduct(
                 Arrays.stream(KeyType.values()),
-                ParameterizedTestUtils.booleans("constantDirectory")
+                ParameterizedTestUtils.booleans("constantDirectory"),
+                ParameterizedTestUtils.booleans("differenceInParent")
         );
     }
 
@@ -79,64 +79,35 @@ class ResolvedKeySpacePathTest {
      * Test equals and hashCode contracts for depth 1 directories.
      */
     @ParameterizedTest
-    @MethodSource("keyTypeAndConstantDirectory")
-    void testEqualsHashCodeDepth1(KeyType keyType, boolean constantDirectory) {
+    @MethodSource("testEqualsHashCode")
+    void testEqualsHashCode(KeyType keyType, boolean constantDirectory, boolean differenceInParent) {
         TestValuePair values = TYPE_TEST_VALUES.get(keyType);
-        final FDBDatabase database = dbExtension.getDatabase();
-        
-        try (FDBRecordContext context = database.openContext()) {
-            // Create two identical paths
-            ResolvedKeySpacePath path1 = createResolvedPath(context, keyType, values.getValue1(), null, constantDirectory);
-            ResolvedKeySpacePath path2 = createResolvedPath(context, keyType, values.getValue1(), null, constantDirectory);
-            
-            // Test equality contracts
-            assertEquals(path1, path2, "Identical paths should be equal");
-            assertEquals(path2, path1, "Symmetry: path2.equals(path1)");
-            assertEquals(path1.hashCode(), path2.hashCode(), "Equal objects must have equal hash codes");
-            
-            // Test inequality when values differ (except NULL type which only has null values)
-            if (keyType != KeyType.NULL && values.getValue2() != null) {
-                ResolvedKeySpacePath path3 = createResolvedPath(context, keyType, values.getValue2(), null, constantDirectory);
-                assertNotEquals(path1, path3, "Paths with different values should not be equal");
-            }
-            
-            // Test basic contracts
-            assertEquals(path1, path1, "Reflexivity");
-            assertNotEquals(path1, null, "Null comparison");
-            assertNotEquals(path1, "not a path", "Type safety");
-        }
-    }
+        // Test case 1: Same logical and resolved values (existing test)
+        ResolvedKeySpacePath path1 = createResolvedPath(keyType, values.getValue1(), values.getValue1(),
+                createRootParent(), constantDirectory, differenceInParent);
+        ResolvedKeySpacePath path2 = createResolvedPath(keyType, values.getValue1(), values.getValue1(),
+                createRootParent(), constantDirectory, differenceInParent);
 
-    /**
-     * Test equals and hashCode with hierarchical paths (parent-child).
-     */
-    @ParameterizedTest
-    @MethodSource("keyTypeAndConstantDirectory")
-    void testEqualsHashCodeWithParent(KeyType childKeyType, boolean constantDirectory) {
-        final FDBDatabase database = dbExtension.getDatabase();
-        
-        try (FDBRecordContext context = database.openContext()) {
-            TestValuePair childValues = TYPE_TEST_VALUES.get(childKeyType);
+        // Test equality contracts
+        assertEquals(path1, path2, "Identical paths should be equal");
+        assertEquals(path2, path1, "Symmetry: path2.equals(path1)");
+        assertEquals(path1.hashCode(), path2.hashCode(), "Equal objects must have equal hash codes");
+            
+        // Test inequality when values differ (except NULL type which only has null values)
+        if (keyType != KeyType.NULL && values.getValue2() != null) {
+            ResolvedKeySpacePath path3 = createResolvedPath(keyType, values.getValue2(), createRootParent(), constantDirectory);
+            assertNotEquals(path1, path3, "Paths with different values should not be equal");
 
-            // Create parent path (always STRING type)
-            ResolvedKeySpacePath parent1 = createResolvedPath(context, KeyType.STRING, "parent1", null, constantDirectory);
-            ResolvedKeySpacePath parent2 = createResolvedPath(context, KeyType.STRING, "parent2", null, constantDirectory);
-            
-            // Create child paths with same parent
-            ResolvedKeySpacePath child1 = createResolvedPath(context, childKeyType, childValues.getValue1(), parent1, constantDirectory);
-            ResolvedKeySpacePath child2 = createResolvedPath(context, childKeyType, childValues.getValue1(), parent1, constantDirectory);
-            
-            // Test equality - should be equal with same parent and value
-            assertEquals(child1, child2, "Children with same parent and value should be equal");
-            assertEquals(child1.hashCode(), child2.hashCode(), "Equal children should have equal hash codes");
-            
-            // Test with different parents but same child value
-            ResolvedKeySpacePath child3 = createResolvedPath(context, childKeyType, childValues.getValue1(), parent2, constantDirectory);
-            
-            // Current implementation: equals() doesn't compare parent, only inner path and resolved value
-            // This test documents the current behavior
-            assertEquals(child1, child3, "Current implementation: parent not compared in equals()");
+            assertNotEquals(createResolvedPath(keyType, values.getValue1(), values.getValue2(), createRootParent(), constantDirectory, differenceInParent),
+                    path1, "Paths with different resolved values should not be equal");
+            assertNotEquals(createResolvedPath(keyType, values.getValue2(), values.getValue1(), createRootParent(), constantDirectory, differenceInParent),
+                    path1, "Paths with different logical values should not be equal");
         }
+            
+        // Test basic contracts
+        assertEquals(path1, path1, "Reflexivity");
+        assertNotEquals(path1, null, "Null comparison");
+        assertNotEquals(path1, "not a path", "Type safety");
     }
 
     /**
@@ -145,21 +116,17 @@ class ResolvedKeySpacePathTest {
     @ParameterizedTest
     @BooleanSource("constantDirectory")
     void testEqualsHashCodeWithDifferentMetadata(boolean constantDirectory) {
-        final FDBDatabase database = dbExtension.getDatabase();
-        
-        try (FDBRecordContext context = database.openContext()) {
-            // Create two paths with same inner path and resolved value but different metadata
-            KeySpacePath innerPath = createKeySpacePath(context, KeyType.STRING, "resolved", constantDirectory);
-            PathValue value1 = new PathValue("resolved", new byte[]{1, 2, 3});
-            PathValue value2 = new PathValue("resolved", new byte[]{4, 5, 6});
+        // Create two paths with same inner path and resolved value but different metadata
+        KeySpacePath innerPath = createKeySpacePath(createRootParent(), KeyType.STRING, "resolved", constantDirectory);
+        PathValue value1 = new PathValue("resolved", new byte[]{1, 2, 3});
+        PathValue value2 = new PathValue("resolved", new byte[]{4, 5, 6});
             
-            ResolvedKeySpacePath path1 = new ResolvedKeySpacePath(null, innerPath, value1, null);
-            ResolvedKeySpacePath path2 = new ResolvedKeySpacePath(null, innerPath, value2, null);
+        ResolvedKeySpacePath path1 = new ResolvedKeySpacePath(null, innerPath, value1, null);
+        ResolvedKeySpacePath path2 = new ResolvedKeySpacePath(null, innerPath, value2, null);
             
-            assertNotEquals(path1, path2, "Objects should be equal (same inner path and resolved value, metadata ignored)");
-            assertNotEquals(path1.hashCode(), path2.hashCode(),
-                    "Hash codes differ due to different PathValue metadata");
-        }
+        assertNotEquals(path1, path2, "Objects should be equal (same inner path and resolved value, metadata ignored)");
+        assertNotEquals(path1.hashCode(), path2.hashCode(),
+                "Hash codes differ due to different PathValue metadata");
     }
 
     /**
@@ -168,37 +135,43 @@ class ResolvedKeySpacePathTest {
     @ParameterizedTest
     @BooleanSource("constantDirectory")
     void testRemainderNotComparedInEquals(boolean constantDirectory) {
-        final FDBDatabase database = dbExtension.getDatabase();
-        
-        try (FDBRecordContext context = database.openContext()) {
-            KeySpacePath innerPath = createKeySpacePath(context, KeyType.STRING, "resolved", constantDirectory);
-            PathValue value = new PathValue("resolved", null);
+        KeySpacePath innerPath = createKeySpacePath(createRootParent(), KeyType.STRING, "resolved", constantDirectory);
+        PathValue value = new PathValue("resolved", null);
             
-            ResolvedKeySpacePath path1 = new ResolvedKeySpacePath(null, innerPath, value, Tuple.from("remainder1"));
-            ResolvedKeySpacePath path2 = new ResolvedKeySpacePath(null, innerPath, value, Tuple.from("remainder2"));
+        ResolvedKeySpacePath path1 = new ResolvedKeySpacePath(null, innerPath, value, Tuple.from("remainder1"));
+        ResolvedKeySpacePath path2 = new ResolvedKeySpacePath(null, innerPath, value, Tuple.from("remainder2"));
             
-            // Current implementation: remainder is not compared in equals()
-            assertEquals(path1, path2, "Current implementation: remainder not compared in equals()");
-        }
+        // Current implementation: remainder is not compared in equals()
+        assertEquals(path1, path2, "Current implementation: remainder not compared in equals()");
     }
 
-    /**
-     * Helper to create a resolved path for testing.
-     */
-    private ResolvedKeySpacePath createResolvedPath(FDBRecordContext context, KeyType keyType, 
-                                                   Object value, ResolvedKeySpacePath parent, boolean constantDirectory) {
-        KeySpacePath innerPath = createKeySpacePath(context, keyType, value, constantDirectory);
-        PathValue pathValue = new PathValue(value, null);
-        return new ResolvedKeySpacePath(parent, innerPath, pathValue, null);
+    private ResolvedKeySpacePath createResolvedPath(KeyType keyType, Object value,
+                                                    ResolvedKeySpacePath parent, boolean constantDirectory) {
+        return createResolvedPath(keyType, value, value, parent, constantDirectory, false);
+    }
+
+    private ResolvedKeySpacePath createResolvedPath(KeyType keyType,
+                                                    Object logicalValue, Object resolvedValue,
+                                                    @Nonnull ResolvedKeySpacePath parent,
+                                                    boolean constantDirectory, final boolean addConstantChild) {
+        KeySpacePath innerPath = createKeySpacePath(parent, keyType, logicalValue, constantDirectory);
+        PathValue pathValue = new PathValue(resolvedValue, null);
+        final ResolvedKeySpacePath resolvedKeySpacePath = new ResolvedKeySpacePath(parent, innerPath, pathValue, null);
+        if (addConstantChild) {
+            final ResolvedKeySpacePath resolvedPath = createResolvedPath(KeyType.STRING, "Constant", "Constant", resolvedKeySpacePath, true, false);
+            System.out.println(resolvedPath);
+            return resolvedPath;
+        } else {
+            System.out.println(resolvedKeySpacePath);
+            return resolvedKeySpacePath;
+        }
     }
 
     /**
      * Helper to create a KeySpacePath for testing.
      */
-    private KeySpacePath createKeySpacePath(FDBRecordContext context, KeyType keyType, Object value, boolean constantDirectory) {
-        // Always create same root directory
-        KeySpaceDirectory rootDir = new KeySpaceDirectory("root", KeyType.STRING, "root");
-        
+    private KeySpacePath createKeySpacePath(@Nonnull ResolvedKeySpacePath parent, KeyType keyType, Object value,
+                                            boolean constantDirectory) {
         // Create child directory based on constantDirectory parameter
         KeySpaceDirectory childDir;
         if (constantDirectory) {
@@ -206,16 +179,22 @@ class ResolvedKeySpacePathTest {
         } else {
             childDir = new KeySpaceDirectory("test", keyType);
         }
-        rootDir.addSubdirectory(childDir);
-        
-        KeySpace keySpace = new KeySpace(rootDir);
-        KeySpacePath rootPath = keySpace.path("root");
+        parent.getDirectory().addSubdirectory(childDir);
         
         if (constantDirectory) {
-            return rootPath.add("test");
+            return parent.toPath().add("test");
         } else {
-            return rootPath.add("test", value);
+            return parent.toPath().add("test", value);
         }
+    }
+
+    @Nonnull
+    private static ResolvedKeySpacePath createRootParent() {
+        KeySpacePath parent;
+        final KeySpaceDirectory parentDir = new KeySpaceDirectory("root", KeyType.STRING, "root");
+        KeySpace keySpace = new KeySpace(parentDir);
+        parent = keySpace.path("root");
+        return new ResolvedKeySpacePath(null, parent, new PathValue("root", null), null);
     }
 
     /**
