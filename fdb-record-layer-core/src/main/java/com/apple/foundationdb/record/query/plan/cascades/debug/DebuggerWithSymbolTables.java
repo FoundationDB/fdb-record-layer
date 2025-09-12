@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.query.plan.cascades.debug;
 
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
-import com.apple.foundationdb.record.query.combinatorics.TopologicalSort;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.PlanContext;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
@@ -53,11 +52,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Consumer;
 import java.util.function.IntUnaryOperator;
 import java.util.stream.Collectors;
-
-import static com.apple.foundationdb.record.query.plan.cascades.properties.ReferencesAndDependenciesProperty.referencesAndDependencies;
 
 /**
  * <p>
@@ -174,14 +170,6 @@ public class DebuggerWithSymbolTables implements SymbolDebugger, StatsDebugger {
         this.planContext = planContext;
 
         logQuery();
-    }
-
-    void restartState() {
-        eventStateStack.pop();
-        eventStateStack.push(EventState.copyOf(getCurrentEventState()));
-
-        symbolTablesStack.pop();
-        symbolTablesStack.push(SymbolTables.copyOf(getCurrentSymbolState()));
     }
 
     @Override
@@ -404,24 +392,6 @@ public class DebuggerWithSymbolTables implements SymbolDebugger, StatsDebugger {
     @Nonnull
     public static DebuggerWithSymbolTables withPrerecordedEvents(@Nonnull final String fileName) {
         return new DebuggerWithSymbolTables(true, true, fileName);
-    }
-
-    public static void printForEachExpression(@Nonnull final Reference root) {
-        forEachExpression(root, expression -> {
-            System.out.println("expression: " +
-                    SymbolDebugger.mapDebugger(debugger -> debugger.nameForObject(expression)).orElseThrow() + "; " +
-                    "hashCodeWithoutChildren: " + expression.hashCodeWithoutChildren() + "explain: " + expression);
-        });
-    }
-
-    public static void forEachExpression(@Nonnull final Reference root, @Nonnull final Consumer<RelationalExpression> consumer) {
-        final var references = referencesAndDependencies().evaluate(root);
-        final var referenceList = TopologicalSort.anyTopologicalOrderPermutation(references).orElseThrow();
-        for (final var reference : referenceList) {
-            for (final var member : reference.getAllMemberExpressions()) {
-                consumer.accept(member);
-            }
-        }
     }
 
     @FunctionalInterface
