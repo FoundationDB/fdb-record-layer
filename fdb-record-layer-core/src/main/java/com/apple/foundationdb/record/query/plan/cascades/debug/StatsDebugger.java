@@ -50,8 +50,8 @@ public interface StatsDebugger extends Debugger {
     }
 
     @Nonnull
-    static <T> Optional<T> mapDebugger(@Nonnull final Function<StatsDebugger, T> function) {
-        return getDebuggerMaybe().map(function);
+    static <T> Optional<T> flatMapDebugger(@Nonnull final Function<StatsDebugger, Optional<T>> function) {
+        return getDebuggerMaybe().flatMap(function);
     }
 
     @Nonnull

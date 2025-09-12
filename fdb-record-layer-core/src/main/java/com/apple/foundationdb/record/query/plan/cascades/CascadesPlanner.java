@@ -332,7 +332,7 @@ public class CascadesPlanner implements QueryPlanner {
                 .put(QueryPlanInfoKeys.MAX_TASK_QUEUE_SIZE, maxQueueSize)
                 .put(QueryPlanInfoKeys.CONSTRAINTS, constraints)
                 .put(QueryPlanInfoKeys.STATS_MAPS,
-                        StatsDebugger.getDebuggerMaybe().flatMap(StatsDebugger::getStatsMaps)
+                        StatsDebugger.flatMapDebugger(StatsDebugger::getStatsMaps)
                                 .orElse(null))
                 .build();
         return new QueryPlanResult(plan, info);
@@ -376,7 +376,7 @@ public class CascadesPlanner implements QueryPlanner {
                     QueryPlanInfo.newBuilder()
                             .put(QueryPlanInfoKeys.CONSTRAINTS, constraints)
                             .put(QueryPlanInfoKeys.STATS_MAPS,
-                                    StatsDebugger.getDebuggerMaybe().flatMap(StatsDebugger::getStatsMaps)
+                                    StatsDebugger.flatMapDebugger(StatsDebugger::getStatsMaps)
                                             .orElse(null))
                             .build());
         } finally {
