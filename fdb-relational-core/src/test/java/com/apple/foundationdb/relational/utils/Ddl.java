@@ -171,7 +171,7 @@ public class Ddl implements AutoCloseable {
         @Nonnull
         public Builder withOption(@Nonnull final Options.Name name, Object value) {
             try {
-                options = Options.builder().fromOptions(options).withOption(name, value).build();
+                options = options.withOption(name, value);
             } catch (SQLException e) {
                 throw new RuntimeException(e);
             }

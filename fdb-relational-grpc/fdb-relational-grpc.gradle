@@ -58,6 +58,7 @@ dependencies {
     // slf4j binding. Allows RL dependencies to log to same place as Relational
     runtimeOnly(libs.log4j.slf4jBinding)
 
+    testImplementation(testFixtures(project(":fdb-relational-api")))
     testImplementation(libs.bundles.test.impl)
     testRuntimeOnly(libs.bundles.test.runtime)
     testImplementation(libs.grpc.testing)

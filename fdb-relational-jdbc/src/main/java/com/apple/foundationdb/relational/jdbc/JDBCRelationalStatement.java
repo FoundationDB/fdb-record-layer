@@ -173,7 +173,7 @@ class JDBCRelationalStatement implements RelationalStatement {
             throws SQLException {
         checkOpen();
         // Punt on transaction/autocommit consideration for now (autocommit==true).
-        return this.connection.execute(sql, optionsAsProto(), parameters);
+        return this.connection.execute(sql, options, parameters);
     }
 
     @Override
@@ -313,14 +313,5 @@ class JDBCRelationalStatement implements RelationalStatement {
     @Override
     public void executeDeleteRange(@Nonnull String tableName, @Nonnull KeySet keyPrefix, @Nonnull Options options) throws SQLException {
         checkOpen();
-    }
-
-    private com.apple.foundationdb.relational.jdbc.grpc.v1.Options optionsAsProto() {
-        final var builder = com.apple.foundationdb.relational.jdbc.grpc.v1.Options.newBuilder();
-        int maxRows = this.options.getOption(Options.Name.MAX_ROWS);
-        if (maxRows != (int) Options.defaultOptions().get(Options.Name.MAX_ROWS)) {
-            builder.setMaxRows(maxRows);
-        }
-        return builder.build();
     }
 }

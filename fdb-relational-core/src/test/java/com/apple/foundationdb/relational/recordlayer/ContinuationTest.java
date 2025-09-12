@@ -20,13 +20,15 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.continuation.ContinuationProto;
-
 import com.google.common.primitives.Ints;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
+
+import java.util.Properties;
 
 public class ContinuationTest {
     @Test
@@ -92,5 +94,18 @@ public class ContinuationTest {
         Assertions.assertThat(continuation.atEnd()).isEqualTo(atEnd);
         Assertions.assertThat(continuation.getExecutionState()).isEqualTo(underlying);
         Assertions.assertThat(continuation.getVersion()).isEqualTo(ContinuationImpl.CURRENT_VERSION);
+    }
+
+    @Test
+    // This test is here because -api doesn't depend on -core, so Options has no way of making one.
+    // Note that for the same reason it is not possible to get the continuation back from the string property.
+    public void testContinuationOption() throws Exception {
+        final byte[] asBytes = { (byte)0xFE, (byte)0xED, (byte)0xBA, (byte)0xC1 };
+        final ContinuationImpl continuation = (ContinuationImpl) ContinuationImpl.fromUnderlyingBytes(asBytes);
+        final Options options = Options.builder().withOption(Options.Name.CONTINUATION, continuation).build();
+        final Properties properties = Options.toProperties(options);
+        // Field 1 (version): varint 1; field 2 (execution_state): len 4
+        Assertions.assertThat(properties).hasFieldOrPropertyWithValue(Options.Name.CONTINUATION.name(), "08011204FEEDBAC1");
+        Assertions.assertThatThrownBy(() -> Options.fromProperties(properties)).isInstanceOf(UnsupportedOperationException.class);
     }
 }

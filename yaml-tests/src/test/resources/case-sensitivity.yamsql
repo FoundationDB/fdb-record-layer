@@ -18,7 +18,7 @@
 # limitations under the License.
 ---
 options:
-    supported_version: 4.5.4.0
+    supported_version: !current_version
     connection_options:
       CASE_SENSITIVE_IDENTIFIERS: true
 ---

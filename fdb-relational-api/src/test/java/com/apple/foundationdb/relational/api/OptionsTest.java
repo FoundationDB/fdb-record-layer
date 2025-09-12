@@ -21,13 +21,16 @@
 package com.apple.foundationdb.relational.api;
 
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.utils.OptionsTestHelper;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
-
 import com.google.common.collect.ImmutableSet;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.sql.SQLException;
+import java.util.HashSet;
+import java.util.Properties;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -142,5 +145,26 @@ class OptionsTest {
     @Test
     void testDefault() {
         assertEquals((Integer) Options.NONE.getOption(Options.Name.MAX_ROWS), Integer.MAX_VALUE);
+    }
+
+    @Test
+    void testPropertiesConversion() throws Exception {
+        final Options nonDefault = OptionsTestHelper.nonDefaultOptions();
+        final Properties asProps = Options.toProperties(nonDefault);
+        final Options fromProps = Options.fromProperties(asProps);
+        assertEquals(nonDefault, fromProps);
+    }
+
+    @Test
+    void equality() throws SQLException {
+        int[] maxes = { 1, 10, 100, 1 };
+        Set<Options> set = new HashSet<>();
+        for (int i : maxes) {
+            Options options = Options.builder()
+                    .withOption(Options.Name.MAX_ROWS, i)
+                    .build();
+            set.add(options);
+        }
+        assertEquals(maxes.length - 1, set.size()); // One duplicate
     }
 }

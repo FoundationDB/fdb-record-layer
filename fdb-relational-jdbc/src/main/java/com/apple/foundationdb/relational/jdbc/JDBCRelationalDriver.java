@@ -21,20 +21,16 @@
 package com.apple.foundationdb.relational.jdbc;
 
 import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalDriver;
-import com.apple.foundationdb.relational.util.Assert;
 
 import javax.annotation.Nonnull;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.DriverPropertyInfo;
 import java.sql.SQLException;
-import java.sql.SQLFeatureNotSupportedException;
 import java.util.Locale;
 import java.util.Properties;
 
@@ -62,15 +58,21 @@ public class JDBCRelationalDriver implements RelationalDriver {
     }
 
     @Override
-    public Connection connect(String url, Properties info) throws SQLException {
-        Assert.thatUnchecked(info == null || info.isEmpty(), "connect with Properties is not supported yet. Please use connect with Options instead.");
-        if (!acceptsURL(url)) {
+    public RelationalConnection connect(String url, Properties info) throws SQLException {
+        return connect(URI.create(url), Options.fromProperties(info));
+    }
+
+    @Override
+    public RelationalConnection connect(@Nonnull URI url,
+                                        @Nonnull Options connectionOptions) throws SQLException {
+        final var urlString = url.toString();
+        if (!acceptsURL(urlString)) {
             return null;
         }
         // Parse the url String as a URI; makes it easy to pull out the pieces.
         URI uri;
         try {
-            uri = new URI(url.substring(JDBCURI.JDBC_URL_PREFIX.length()));
+            uri = new URI(urlString.substring(JDBCURI.JDBC_URL_PREFIX.length()));
         } catch (URISyntaxException e) {
             throw new IllegalArgumentException(e);
         }
@@ -79,7 +81,7 @@ public class JDBCRelationalDriver implements RelationalDriver {
         }
         // Pass the URI in and let the JDBCRelationalConnection try to
         // make sense of it and its parts (host, port, db, etc.) as it sees fit.
-        return new JDBCRelationalConnection(uri);
+        return new JDBCRelationalConnection(uri, connectionOptions);
     }
 
     @Override
@@ -90,10 +92,5 @@ public class JDBCRelationalDriver implements RelationalDriver {
     @Override
     public DriverPropertyInfo[] getPropertyInfo(String url, Properties info) {
         return new DriverPropertyInfo[0];
-    }
-
-    @Override
-    public RelationalConnection connect(@Nonnull URI url, @Nonnull Options connectionOptions) throws SQLException {
-        throw new SQLFeatureNotSupportedException("Not implemented");
     }
 }

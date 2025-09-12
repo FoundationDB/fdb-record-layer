@@ -26,7 +26,6 @@ import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.SqlTypeNamesSupport;
-import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.jdbc.grpc.GrpcConstants;
 import com.apple.foundationdb.relational.jdbc.grpc.GrpcSQLExceptionUtil;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.CommitRequest;
@@ -63,7 +62,6 @@ import java.sql.Array;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
-import java.sql.SQLFeatureNotSupportedException;
 import java.sql.SQLWarning;
 import java.sql.Struct;
 import java.util.Collection;
@@ -121,8 +119,10 @@ class JDBCRelationalConnection implements RelationalConnection {
      */
     private Closeable closeable;
 
+    private Options options;
+
     @SpotBugsSuppressWarnings(value = "CT_CONSTRUCTOR_THROW", justification = "Should consider refactoring but throwing exceptions for now")
-    JDBCRelationalConnection(URI uri) {
+    JDBCRelationalConnection(URI uri, Options options) {
         this.database = uri.getPath();
         Map<String, List<String>> queryParams = JDBCURI.splitQuery(uri);
         this.schema = JDBCURI.getFirstValue("schema", queryParams);
@@ -148,6 +148,7 @@ class JDBCRelationalConnection implements RelationalConnection {
         }
         this.blockingStub = JDBCServiceGrpc.newBlockingStub(managedChannel);
         this.asyncStub = JDBCServiceGrpc.newStub(managedChannel);
+        this.options = options;
     }
 
     /**
@@ -189,12 +190,12 @@ class JDBCRelationalConnection implements RelationalConnection {
         return this.blockingStub;
     }
 
-    public StatementResponse execute(String sql, com.apple.foundationdb.relational.jdbc.grpc.v1.Options options, Collection<Parameter> parameters) throws SQLException {
+    public StatementResponse execute(String sql, Options options, Collection<Parameter> parameters) throws SQLException {
         StatementRequest.Builder builder = StatementRequest.newBuilder()
                 .setSql(sql)
                 .setDatabase(getDatabase()) // TODO: for transactional execution these are not required
                 .setSchema(getSchema())
-                .setOptions(options);
+                .setOptions(TypeConversion.toProtobuf(options));
         if (parameters != null) {
             builder.setParameters(Parameters.newBuilder().addAllParameter(parameters).build());
         }
@@ -230,7 +231,8 @@ class JDBCRelationalConnection implements RelationalConnection {
                 .setDataResultSet(TypeConversion.toResultSetProtobuf(data))
                 .setDatabase(getDatabase())
                 .setSchema(getSchema())
-                .setTableName(tableName);
+                .setTableName(tableName)
+                .setOptions(TypeConversion.toProtobuf(options));
         try {
             if (getAutoCommit()) {
                 // insert using synchronous RPC command
@@ -348,7 +350,7 @@ class JDBCRelationalConnection implements RelationalConnection {
             // commit any remaining work
             try {
                 TransactionalRequest.Builder transactionRequest = TransactionalRequest.newBuilder()
-                        .setEnableAutoCommitRequest(EnableAutoCommitRequest.newBuilder().build());
+                        .setEnableAutoCommitRequest(EnableAutoCommitRequest.newBuilder().setOptions(TypeConversion.toProtobuf(options)).build());
                 // wait here for response
                 final TransactionalResponse response = serverConnection.sendRequest(transactionRequest.build());
                 checkForResponseError(response);
@@ -394,7 +396,7 @@ class JDBCRelationalConnection implements RelationalConnection {
         // TODO: For now just return null
         return null;
     }
- 
+
     @Override
     public void clearWarnings() throws SQLException {
         // TODO: Implement
@@ -451,20 +453,19 @@ class JDBCRelationalConnection implements RelationalConnection {
 
     @Override
     public DatabaseMetaData getMetaData() throws SQLException {
-        DatabaseMetaDataRequest request = DatabaseMetaDataRequest.newBuilder().build();
+        DatabaseMetaDataRequest request = DatabaseMetaDataRequest.newBuilder().setOptions(TypeConversion.toProtobuf(options)).build();
         return new JDBCRelationalDatabaseMetaData(this, getStub().getMetaData(request));
     }
 
     @Nonnull
     @Override
     public Options getOptions() {
-        return Options.NONE;
+        return options;
     }
 
     @Override
-    @ExcludeFromJacocoGeneratedReport
-    public void setOption(Options.Name name, Object value) throws SQLException {
-        throw new SQLFeatureNotSupportedException("Not implemented", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    public void setOption(@Nonnull Options.Name name, Object value) throws SQLException {
+        options = options.withOption(name, value);
     }
 
     @Override
