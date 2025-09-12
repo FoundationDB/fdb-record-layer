@@ -76,7 +76,7 @@ public class IndexingHeartbeat {
     }
 
     public void updateHeartbeat(@Nonnull FDBRecordStore store, @Nonnull Index index) {
-        byte[] key = IndexingSubspaces.indexHeartbeatSubspace(store, index, indexerId).pack();
+        byte[] key = IndexingSubspaces.indexHeartbeatSubspaceBytes(store, index, indexerId);
         byte[] value = IndexBuildProto.IndexBuildHeartbeat.newBuilder()
                 .setInfo(info)
                 .setCreateTimeMilliseconds(createTimeMilliseconds)
@@ -123,7 +123,7 @@ public class IndexingHeartbeat {
     }
 
     public void clearHeartbeat(@Nonnull FDBRecordStore store, @Nonnull Index index) {
-        store.ensureContextActive().clear(IndexingSubspaces.indexHeartbeatSubspace(store, index, indexerId).pack());
+        store.ensureContextActive().clear(IndexingSubspaces.indexHeartbeatSubspaceBytes(store, index, indexerId));
     }
 
     public static void clearAllHeartbeats(@Nonnull FDBRecordStore store, @Nonnull Index index) {

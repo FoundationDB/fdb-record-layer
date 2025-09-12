@@ -104,8 +104,8 @@ public final class IndexingSubspaces {
      * @return subspace
      */
     @Nonnull
-    public static Subspace indexHeartbeatSubspace(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, @Nonnull UUID indexerId) {
-        return indexHeartbeatSubspace(store, index).subspace(Tuple.from(indexerId));
+    public static byte[] indexHeartbeatSubspaceBytes(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, @Nonnull UUID indexerId) {
+        return indexHeartbeatSubspace(store, index).subspace(Tuple.from(indexerId)).pack();
     }
 
     /**

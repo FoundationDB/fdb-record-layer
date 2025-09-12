@@ -476,7 +476,7 @@ class IndexingHeartbeatLowLevelTest {
         // write unparseable data where a heartbeat should exist
         openSimpleMetaData(hook);
         try (FDBRecordContext context = openContext()) {
-            byte[] key = IndexingSubspaces.indexHeartbeatSubspace(recordStore, index, UUID.randomUUID()).pack();
+            byte[] key = IndexingSubspaces.indexHeartbeatSubspaceBytes(recordStore, index, UUID.randomUUID());
             byte[] value = "meaningless byte value".getBytes();
             recordStore.ensureContextActive().set(key, value);
             context.commit();
