@@ -106,6 +106,9 @@ runs:
     - name: debugging
       shell: bash
       run: fdbcli -C /etc/foundationdb/fdb1.cluster --exec "status"
+    - name: debugging
+      shell: bash
+      run: fdbcli -C /etc/foundationdb/fdb2.cluster --exec "status"
     - name: Switch FDB 1 to SSD
       shell: bash
       run: fdbcli -C /etc/foundationdb/fdb1.cluster --exec "configure single ssd storage_migration_type=aggressive; status"
