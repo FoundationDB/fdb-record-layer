@@ -57,6 +57,7 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexScanBounds;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanComparisons;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanParameters;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanRange;
+import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursorBase;
 import com.apple.foundationdb.record.provider.foundationdb.MultidimensionalIndexScanComparisons;
 import com.apple.foundationdb.record.provider.foundationdb.UnsupportedRemoteFetchIndexException;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
@@ -162,6 +163,8 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
 
     @Nonnull
     private final Supplier<ComparisonRanges> comparisonRangesSupplier;
+    @Nonnull
+    private final KeyValueCursorBase.SerializationMode serializationMode;
 
     public RecordQueryIndexPlan(@Nonnull final String indexName, @Nonnull final IndexScanParameters scanParameters, final boolean reverse) {
         this(indexName, null, scanParameters, IndexFetchMethod.SCAN_AND_FETCH, FetchIndexRecords.PRIMARY_KEY, reverse, false);
@@ -215,6 +218,21 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
                                 @Nonnull final Optional<? extends MatchCandidate> matchCandidateOptional,
                                 @Nonnull final Type resultType,
                                 @Nonnull final QueryPlanConstraint constraint) {
+        this(indexName, commonPrimaryKey, scanParameters, indexFetchMethod, fetchIndexRecords, reverse, strictlySorted, matchCandidateOptional, resultType, constraint, KeyValueCursorBase.SerializationMode.TO_OLD);
+    }
+
+    @VisibleForTesting
+    public RecordQueryIndexPlan(@Nonnull final String indexName,
+                                @Nullable final KeyExpression commonPrimaryKey,
+                                @Nonnull final IndexScanParameters scanParameters,
+                                @Nonnull final IndexFetchMethod indexFetchMethod,
+                                @Nonnull final FetchIndexRecords fetchIndexRecords,
+                                final boolean reverse,
+                                final boolean strictlySorted,
+                                @Nonnull final Optional<? extends MatchCandidate> matchCandidateOptional,
+                                @Nonnull final Type resultType,
+                                @Nonnull final QueryPlanConstraint constraint,
+                                @Nonnull final KeyValueCursorBase.SerializationMode serializationMode) {
         this.indexName = indexName;
         this.commonPrimaryKey = commonPrimaryKey;
         this.scanParameters = scanParameters;
@@ -232,6 +250,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
         }
         this.constraint = constraint;
         this.comparisonRangesSupplier = Suppliers.memoize(this::computeComparisonRanges);
+        this.serializationMode = serializationMode;
     }
 
     @Nonnull
@@ -291,8 +310,9 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
         final RecordMetaData metaData = store.getRecordMetaData();
         final Index index = metaData.getIndex(indexName);
         final IndexScanBounds scanBounds = scanParameters.bind(store, index, context);
+        byte[] innerContinuation = KeyValueCursorBase.Continuation.fromRawBytes(continuation, serializationMode);
 
-        return store.scanIndexRemoteFetch(index, scanBounds, continuation, executeProperties.asScanProperties(isReverse()), IndexOrphanBehavior.ERROR)
+        return store.scanIndexRemoteFetch(index, scanBounds, innerContinuation, executeProperties.asScanProperties(isReverse()), IndexOrphanBehavior.ERROR)
                 .map(store::queriedRecord)
                 .map(QueryResult::fromQueriedRecord);
     }
@@ -304,13 +324,15 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
         final RecordMetaData metaData = store.getRecordMetaData();
         final Index index = metaData.getIndex(indexName);
         final IndexScanBounds scanBounds = scanParameters.bind(store, index, context);
+        byte[] innerContinuation = KeyValueCursorBase.Continuation.fromRawBytes(continuation, serializationMode);
+
         if (!IndexScanType.BY_VALUE_OVER_SCAN.equals(getScanType())) {
-            return store.scanIndex(index, scanBounds, continuation, executeProperties.asScanProperties(reverse));
+            return store.scanIndex(index, scanBounds, innerContinuation, executeProperties.asScanProperties(reverse));
         }
 
         // Evaluate the scan bounds. Again, this optimization can only be done if we have a scan range
         if (!(scanBounds instanceof IndexScanRange)) {
-            return store.scanIndex(index, scanBounds, continuation, executeProperties.asScanProperties(reverse));
+            return store.scanIndex(index, scanBounds, innerContinuation, executeProperties.asScanProperties(reverse));
         }
 
         // Try to widen the scan range to include everything up
@@ -319,7 +341,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
         TupleRange widenedScanRange = widenRange(tupleScanRange);
         if (widenedScanRange == null) {
             // Unable to widen the range. Fall back to the original execution.
-            return store.scanIndex(index, scanBounds, continuation, executeProperties.asScanProperties(reverse));
+            return store.scanIndex(index, scanBounds, innerContinuation, executeProperties.asScanProperties(reverse));
         }
 
         return executeEntriesWithOverScan(tupleScanRange, widenedScanRange, store, index, continuation, executeProperties);
@@ -329,7 +351,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
                                                                                     @Nonnull FDBRecordStoreBase<M> store, @Nonnull Index index,
                                                                                     @Nullable byte[] continuation, @Nonnull ExecuteProperties executeProperties) {
         final byte[] prefixBytes = getRangePrefixBytes(tupleScanRange);
-        final IndexScanContinuationConvertor continuationConvertor = new IndexScanContinuationConvertor(prefixBytes);
+        final IndexScanContinuationConvertor continuationConvertor = new IndexScanContinuationConvertor(prefixBytes, serializationMode);
 
         // Scan a wider range, and then halt when either this scans outside the given range
         final IndexScanRange newScanRange = new IndexScanRange(IndexScanType.BY_VALUE, widenedScanRange);
@@ -756,9 +778,12 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
     private static class IndexScanContinuationConvertor implements RecordCursor.ContinuationConvertor {
         @Nonnull
         private final byte[] prefixBytes;
+        @Nonnull
+        private final KeyValueCursorBase.SerializationMode serializationMode;
 
-        public IndexScanContinuationConvertor(@Nonnull byte[] prefixBytes) {
+        public IndexScanContinuationConvertor(@Nonnull byte[] prefixBytes, @Nonnull final KeyValueCursorBase.SerializationMode serializationMode) {
             this.prefixBytes = prefixBytes;
+            this.serializationMode = serializationMode;
         }
 
         @Nullable
@@ -768,7 +793,8 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
                 return null;
             }
             // Add the prefix back to the inner continuation
-            return ByteArrayUtil.join(prefixBytes, continuation);
+            byte[] innerContinuation = KeyValueCursorBase.Continuation.fromRawBytes(continuation, serializationMode);
+            return ByteArrayUtil.join(prefixBytes, innerContinuation);
         }
 
         @Override
@@ -776,11 +802,11 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
             if (continuation.isEnd()) {
                 return continuation;
             }
-            final byte[] continuationBytes = continuation.toBytes();
+            byte[] continuationBytes = KeyValueCursorBase.Continuation.fromRawBytes(continuation.toBytes(), serializationMode);
             if (continuationBytes != null && ByteArrayUtil.startsWith(continuationBytes, prefixBytes)) {
                 // Strip away the prefix. Note that ByteStrings re-use the underlying ByteArray, so this can
                 // save a copy.
-                return new IndexScanContinuationConvertor.PrefixRemovingContinuation(continuation, prefixBytes.length);
+                return new IndexScanContinuationConvertor.PrefixRemovingContinuation(continuation, prefixBytes.length, serializationMode);
             } else {
                 // This key does not begin with the prefix. Return an END continuation to indicate that the
                 // scan is over.
@@ -795,10 +821,12 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
             @SuppressWarnings("squid:S3077") // array immutable once initialized, so AtomicByteArray not necessary
             @Nullable
             private volatile byte[] bytes;
+            private final KeyValueCursorBase.SerializationMode serializationMode;
 
-            private PrefixRemovingContinuation(RecordCursorContinuation baseContinuation, int prefixLength) {
+            private PrefixRemovingContinuation(RecordCursorContinuation baseContinuation, int prefixLength, KeyValueCursorBase.SerializationMode serializationMode) {
                 this.baseContinuation = baseContinuation;
                 this.prefixLength = prefixLength;
+                this.serializationMode = serializationMode;
             }
 
             @Nullable
@@ -807,7 +835,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
                 if (bytes == null) {
                     synchronized (this) {
                         if (bytes == null) {
-                            byte[] baseContinuationBytes = baseContinuation.toBytes();
+                            byte[] baseContinuationBytes = KeyValueCursorBase.Continuation.fromRawBytes(baseContinuation.toBytes(), serializationMode);
                             if (baseContinuationBytes == null) {
                                 return null;
                             }
@@ -821,7 +849,8 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
             @Nonnull
             @Override
             public ByteString toByteString() {
-                return baseContinuation.toByteString().substring(prefixLength);
+                byte[] result = KeyValueCursorBase.Continuation.fromRawBytes(baseContinuation.toBytes(), serializationMode);
+                return result == null ? ByteString.EMPTY : ByteString.copyFrom(result).substring(prefixLength);
             }
 
             @Override
