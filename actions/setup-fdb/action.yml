@@ -156,10 +156,10 @@ runs:
       run: sudo ls -lh /var/lib/foundationdb/data/4800
     - name: debugging
       shell: bash
-      run: fdbcli -C /etc/foundationdb/fdb1.cluster --exec "status" --log
+      run: fdbcli -C /etc/foundationdb/fdb1.cluster --exec "status details" --log
     - name: debugging
       shell: bash
-      run: fdbcli -C /etc/foundationdb/fdb2.cluster --exec "status" --log
+      run: fdbcli -C /etc/foundationdb/fdb2.cluster --exec "status details" --log
     - name: debugging
       shell: bash
       run: cat trace.*.xml
