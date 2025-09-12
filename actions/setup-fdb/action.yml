@@ -44,13 +44,13 @@ runs:
     - name: Experiment
       shell: bash
       run: >-
-        sudo sed -i -e "s/fdbserver.4500/fdbserver.4800/g"
-        /etc/foundationdb/foundationdb.conf
+        sudo sed -i -e "s/:4500/:4800/g"
+        /etc/foundationdb/fdb.cluster
     - name: Experiment
       shell: bash
       run: >-
-        sudo sed -i -e "s/:4500/:4800/g"
-        /etc/foundationdb/fdb.cluster
+        sudo sed -i -e "s/fdbserver.4500/fdbserver.4800/g"
+        /etc/foundationdb/foundationdb.conf
     - name: Update cluster1 config file
       shell: bash
       run: >-
