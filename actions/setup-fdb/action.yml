@@ -41,6 +41,11 @@ runs:
     - name: Create cluster2 config file
       shell: bash
       run: sudo cp /etc/foundationdb/foundationdb.conf /etc/foundationdb/foundationdb2.conf
+    - name: Experiment
+      shell: bash
+      run: >-
+        sudo sed -i -e "s/fdbserver.4500/fdbserver.4800/g"
+        /etc/foundationdb/foundationdb.conf
     - name: Update cluster1 config file
       shell: bash
       run: >-
