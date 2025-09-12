@@ -82,6 +82,12 @@ message SizeStatisticsContinuation {
     optional SizeStatisticsPartialResults partialResults = 2;
 }
 
+message SizeStatisticsGroupingContinuation {
+    optional bytes underlyingContinuation = 1;
+    optional SizeStatisticsPartialResults partialResults = 2;
+    optional bytes currentGroupingKey = 3;
+}
+
 message SizeStatisticsPartialResults {
     optional uint64 keyCount = 1;
     optional uint64 keySize = 2;
