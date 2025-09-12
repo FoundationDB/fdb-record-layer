@@ -167,6 +167,6 @@ message RangeCursorContinuation {
 }
 
 message KeyValueCursorContinuation {
-    optional bytes continuation = 1;
-    optional int64 prefixLength = 2;
+    optional bytes inner_continuation = 1;
+    optional int64 magic_number = 2;
 }

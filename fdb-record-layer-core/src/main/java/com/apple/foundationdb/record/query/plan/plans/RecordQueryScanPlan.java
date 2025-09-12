@@ -477,7 +477,6 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
         builder.setComparisons(comparisons.toProto(serializationContext));
         builder.setReverse(reverse);
         builder.setStrictlySorted(strictlySorted);
-        builder.setKeyvalueCursorSerializedToNew(serializationMode == KeyValueCursorBase.SerializationMode.TO_NEW);
         return builder.build();
     }
 
@@ -515,8 +514,7 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
                 ScanComparisons.fromProto(serializationContext, Objects.requireNonNull(recordQueryScanPlanProto.getComparisons())),
                 recordQueryScanPlanProto.getReverse(),
                 recordQueryScanPlanProto.getStrictlySorted(),
-                Optional.empty(),
-                recordQueryScanPlanProto.getKeyvalueCursorSerializedToNew() ? KeyValueCursorBase.SerializationMode.TO_NEW : KeyValueCursorBase.SerializationMode.TO_OLD);
+                Optional.empty());
     }
 
     /**

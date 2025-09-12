@@ -204,8 +204,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
                 recordQueryIndexPlanProto.getStrictlySorted(),
                 Optional.empty(),
                 Type.fromTypeProto(serializationContext, Objects.requireNonNull(recordQueryIndexPlanProto.getResultType())),
-                QueryPlanConstraint.fromProto(serializationContext, Objects.requireNonNull(recordQueryIndexPlanProto.getConstraint())),
-                recordQueryIndexPlanProto.getKeyvalueCursorSerializedToNew() ? KeyValueCursorBase.SerializationMode.TO_NEW : KeyValueCursorBase.SerializationMode.TO_OLD);
+                QueryPlanConstraint.fromProto(serializationContext, Objects.requireNonNull(recordQueryIndexPlanProto.getConstraint())));
     }
 
     @VisibleForTesting
@@ -747,7 +746,6 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
         builder.setStrictlySorted(strictlySorted);
         builder.setResultType(resultType.toTypeProto(serializationContext));
         builder.setConstraint(constraint.toProto(serializationContext));
-        builder.setKeyvalueCursorSerializedToNew(serializationMode == KeyValueCursorBase.SerializationMode.TO_NEW);
         return builder.build();
     }
 

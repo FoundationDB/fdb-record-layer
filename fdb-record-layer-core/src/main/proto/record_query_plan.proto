@@ -1694,7 +1694,6 @@ message PRecordQueryIndexPlan {
   optional bool strictly_sorted = 7;
   optional PType result_type = 8;
   optional PQueryPlanConstraint constraint = 9;
-  optional bool keyvalue_cursor_serialized_to_new = 10;
 }
 
 //
@@ -1962,7 +1961,6 @@ message PRecordQueryScanPlan {
   optional PScanComparisons comparisons = 5;
   optional bool reverse = 6;
   optional bool strictly_sorted = 7;
-  optional bool keyvalue_cursor_serialized_to_new = 8;
 }
 
 //
