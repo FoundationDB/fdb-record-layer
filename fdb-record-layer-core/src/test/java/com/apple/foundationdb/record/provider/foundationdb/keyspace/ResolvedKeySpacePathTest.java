@@ -33,6 +33,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.UUID;
@@ -53,6 +54,7 @@ class ResolvedKeySpacePathTest {
     /**
      * Provides test parameters for KeyType and constantDirectory combinations.
      */
+    @Nonnull
     static Stream<Arguments> testEqualsHashCode() {
         return ParameterizedTestUtils.cartesianProduct(
                 Arrays.stream(KeyType.values()),
@@ -80,8 +82,8 @@ class ResolvedKeySpacePathTest {
      */
     @ParameterizedTest
     @MethodSource("testEqualsHashCode")
-    void testEqualsHashCode(KeyType keyType, boolean constantDirectory, boolean differenceInParent) {
-        TestValuePair values = TYPE_TEST_VALUES.get(keyType);
+    void testEqualsHashCode(@Nonnull KeyType keyType, boolean constantDirectory, boolean differenceInParent) {
+        @Nonnull TestValuePair values = TYPE_TEST_VALUES.get(keyType);
         // Test case 1: Same logical and resolved values (existing test)
         ResolvedKeySpacePath path1 = createResolvedPath(keyType, values.getValue1(), values.getValue1(),
                 createRootParent(), constantDirectory, differenceInParent);
@@ -145,13 +147,15 @@ class ResolvedKeySpacePathTest {
         assertEquals(path1, path2, "Current implementation: remainder not compared in equals()");
     }
 
-    private ResolvedKeySpacePath createResolvedPath(KeyType keyType, Object value,
-                                                    ResolvedKeySpacePath parent, boolean constantDirectory) {
+    @Nonnull
+    private ResolvedKeySpacePath createResolvedPath(@Nonnull KeyType keyType, @Nullable Object value,
+                                                    @Nonnull ResolvedKeySpacePath parent, boolean constantDirectory) {
         return createResolvedPath(keyType, value, value, parent, constantDirectory, false);
     }
 
-    private ResolvedKeySpacePath createResolvedPath(KeyType keyType,
-                                                    Object logicalValue, Object resolvedValue,
+    @Nonnull
+    private ResolvedKeySpacePath createResolvedPath(@Nonnull KeyType keyType,
+                                                    @Nullable Object logicalValue, @Nullable Object resolvedValue,
                                                     @Nonnull ResolvedKeySpacePath parent,
                                                     boolean constantDirectory, final boolean addConstantChild) {
         KeySpacePath innerPath = createKeySpacePath(parent, keyType, logicalValue, constantDirectory);
@@ -170,7 +174,8 @@ class ResolvedKeySpacePathTest {
     /**
      * Helper to create a KeySpacePath for testing.
      */
-    private KeySpacePath createKeySpacePath(@Nonnull ResolvedKeySpacePath parent, KeyType keyType, Object value,
+    @Nonnull
+    private KeySpacePath createKeySpacePath(@Nonnull ResolvedKeySpacePath parent, @Nonnull KeyType keyType, @Nullable Object value,
                                             boolean constantDirectory) {
         // Create child directory based on constantDirectory parameter
         KeySpaceDirectory childDir;
@@ -203,18 +208,22 @@ class ResolvedKeySpacePathTest {
      * we want to catch if it doesn't consider those equal.
      */
     private static class TestValuePair {
+        @Nonnull
         private final Supplier<Object> value1Supplier;
+        @Nonnull
         private final Supplier<Object> value2Supplier;
         
-        TestValuePair(Supplier<Object> value1Supplier, Supplier<Object> value2Supplier) {
+        TestValuePair(@Nonnull Supplier<Object> value1Supplier, @Nonnull Supplier<Object> value2Supplier) {
             this.value1Supplier = value1Supplier;
             this.value2Supplier = value2Supplier;
         }
         
+        @Nullable
         Object getValue1() {
             return value1Supplier.get();
         }
         
+        @Nullable
         Object getValue2() {
             return value2Supplier.get();
         }
