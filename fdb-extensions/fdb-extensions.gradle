@@ -30,6 +30,7 @@ dependencies {
     compileOnly(libs.jsr305)
 
     testImplementation(libs.bundles.test.impl)
+    testImplementation(libs.snakeyaml)
     testRuntimeOnly(libs.bundles.test.runtime)
     testCompileOnly(libs.bundles.test.compileOnly)
     testAnnotationProcessor(libs.autoService)
