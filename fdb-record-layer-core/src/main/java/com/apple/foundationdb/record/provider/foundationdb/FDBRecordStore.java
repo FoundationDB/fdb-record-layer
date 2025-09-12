@@ -83,6 +83,7 @@ import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.common.DynamicMessageRecordSerializer;
 import com.apple.foundationdb.record.provider.common.RecordSerializer;
+import com.apple.foundationdb.record.provider.foundationdb.indexing.IndexingHeartbeat;
 import com.apple.foundationdb.record.provider.foundationdb.indexing.IndexingRangeSet;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.provider.foundationdb.storestate.FDBRecordStoreStateCache;
@@ -4965,7 +4966,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     private void clearReadableIndexBuildData(Index index) {
+        // Clear index maintenance data that is unneeded once the index becomes readable
         IndexingRangeSet.forIndexBuild(this, index).clear();
+        IndexingHeartbeat.clearAllHeartbeats(this, index);
     }
 
     @SuppressWarnings("PMD.CloseResource")

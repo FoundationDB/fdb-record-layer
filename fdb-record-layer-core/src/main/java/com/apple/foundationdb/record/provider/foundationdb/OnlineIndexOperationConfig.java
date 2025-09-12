@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.provider.foundationdb.synchronizedsession.SynchronizedSessionRunner;
 
 import javax.annotation.Nonnull;
 
@@ -53,7 +52,7 @@ public class OnlineIndexOperationConfig {
      */
     public static final int DEFAULT_PROGRESS_LOG_INTERVAL = -1;
     /**
-     * Default synchronized session lease time in milliseconds. This allows a lock expiration, if the online operation stops unexpectedly.
+     * Default indexing heartbeat age, in milliseconds, to define an "active" session.
      */
     public static final long DEFAULT_LEASE_LENGTH_MILLIS = 10_000;
 
@@ -77,14 +76,13 @@ public class OnlineIndexOperationConfig {
     private final int increaseLimitAfter;
     private final long timeLimitMilliseconds;
     private final long transactionTimeLimitMilliseconds;
-    private final boolean useSynchronizedSession;
     private final long leaseLengthMillis;
 
     public static final long UNLIMITED_TIME = 0;
 
     OnlineIndexOperationConfig(int maxLimit, int initialLimit, int maxRetries, int recordsPerSecond, long progressLogIntervalMillis, int increaseLimitAfter,
                                int maxWriteLimitBytes, long timeLimitMilliseconds, long transactionTimeLimitMilliseconds,
-                               boolean useSynchronizedSession, long leaseLengthMillis) {
+                               long leaseLengthMillis) {
         this.maxLimit = maxLimit;
         this.initialLimit = initialLimit;
         this.maxRetries = maxRetries;
@@ -94,7 +92,6 @@ public class OnlineIndexOperationConfig {
         this.maxWriteLimitBytes = maxWriteLimitBytes;
         this.timeLimitMilliseconds = timeLimitMilliseconds;
         this.transactionTimeLimitMilliseconds = transactionTimeLimitMilliseconds;
-        this.useSynchronizedSession = useSynchronizedSession;
         this.leaseLengthMillis = leaseLengthMillis;
     }
 
@@ -188,8 +185,16 @@ public class OnlineIndexOperationConfig {
         return new Builder();
     }
 
+
+    /**
+     * <em>Deprecated</em>. Synchronized sessions are now automatically determined by the indexing method.
+     * Mutual indexing and index scrubbing (if applicable) do not expect to run exclusively, other indexing methods will
+     * throw an exception if they another active indexing session is detected.
+     * @return always true;
+     */
+    @API(API.Status.DEPRECATED)
     public boolean shouldUseSynchronizedSession() {
-        return useSynchronizedSession;
+        return true;
     }
 
     public long getLeaseLengthMillis() {
@@ -213,7 +218,6 @@ public class OnlineIndexOperationConfig {
                 .setMaxRetries(this.maxRetries)
                 .setTimeLimitMilliseconds(timeLimitMilliseconds)
                 .setTransactionTimeLimitMilliseconds(this.transactionTimeLimitMilliseconds)
-                .setUseSynchronizedSession(useSynchronizedSession)
                 .setLeaseLengthMillis(leaseLengthMillis);
     }
 
@@ -234,7 +238,6 @@ public class OnlineIndexOperationConfig {
         private long timeLimitMilliseconds = UNLIMITED_TIME;
         private long transactionTimeLimitMilliseconds = DEFAULT_TRANSACTION_TIME_LIMIT;
         private long leaseLengthMillis = DEFAULT_LEASE_LENGTH_MILLIS;
-        private boolean useSynchronizedSession = true;
 
         protected Builder() {
 
@@ -485,23 +488,23 @@ public class OnlineIndexOperationConfig {
         }
 
         /**
-         * Set the use of a synchronized session during the index operation. Synchronized sessions help performing
-         * the multiple transactions operation in a resource efficient way.
-         * Normally this should be {@code true}.
-         *
-         * @see SynchronizedSessionRunner
-         * @param useSynchronizedSession use synchronize session if true, otherwise false
+         * <em>Deprecated</em>. Synchronized sessions are now automatically determined by the indexing method.
+         * Mutual indexing and index scrubbing (if applicable) do not expect to run exclusively, other indexing methods will
+         * throw an exception if they another active indexing session is detected.
+         * @param useSynchronizedSession ignored.
          * @return this builder
          */
+        @API(API.Status.DEPRECATED)
         public Builder setUseSynchronizedSession(boolean useSynchronizedSession) {
-            this.useSynchronizedSession = useSynchronizedSession;
+            // no-op
             return this;
         }
 
         /**
-         * Set the lease length in milliseconds if the synchronized session is used. By default this is {@link #DEFAULT_LEASE_LENGTH_MILLIS}.
-         * @see #setUseSynchronizedSession(boolean)
-         * @see com.apple.foundationdb.synchronizedsession.SynchronizedSession
+         * Defines the maximum age of another session's heartbeat to be considered an active session.
+         * The default value is {@link #DEFAULT_LEASE_LENGTH_MILLIS}.
+         * Mutual indexing and index scrubbing (if applicable) do not expect to run exclusively, other indexing methods will
+         * throw an exception if they another active indexing session is detected.
          * @param leaseLengthMillis length between last access and lease's end time in milliseconds
          * @return this builder
          */
@@ -519,7 +522,7 @@ public class OnlineIndexOperationConfig {
         public OnlineIndexOperationConfig build() {
             return new OnlineIndexOperationConfig(maxLimit, initialLimit, maxRetries, recordsPerSecond, progressLogIntervalMillis, increaseLimitAfter,
                     maxWriteLimitBytes, timeLimitMilliseconds, transactionTimeLimitMilliseconds,
-                    useSynchronizedSession, leaseLengthMillis);
+                    leaseLengthMillis);
         }
     }
 }

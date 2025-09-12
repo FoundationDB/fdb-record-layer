@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.provider.foundationdb;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.async.RangeSet;
+import com.apple.foundationdb.record.IndexBuildProto;
 import com.apple.foundationdb.record.IndexState;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
@@ -47,6 +48,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ThreadLocalRandom;
@@ -219,6 +221,8 @@ abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
                 }
             }
 
+            // This is also checked later in this test with indexBuilder.getIndexingHeartbeats. For now, keeping both versions.
+            // But at some point checkAnyOngoingOnlineIndexBuildsAsync will be deprecated.
             buildFuture = MoreAsyncUtil.composeWhenComplete(
                     buildFuture,
                     (result, ex) -> indexBuilder.checkAnyOngoingOnlineIndexBuildsAsync().thenAccept(Assertions::assertFalse),
@@ -291,6 +295,14 @@ abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
                                 lessThanOrEqualTo((long)records.size() + additionalScans)
                         ));
             }
+        }
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(index).build()) {
+            // Assert no ongoing sessions
+            final Map<UUID, IndexBuildProto.IndexBuildHeartbeat> heartbeats = indexBuilder.getIndexingHeartbeats(0);
+            assertTrue(heartbeats.isEmpty());
+
+            // Same thing
+            assertFalse(indexBuilder.checkAnyOngoingOnlineIndexBuilds());
         }
         KeyValueLogMessage msg = KeyValueLogMessage.build("building index - completed", TestLogMessageKeys.INDEX, index);
         msg.addKeysAndValues(timer.getKeysAndValues());

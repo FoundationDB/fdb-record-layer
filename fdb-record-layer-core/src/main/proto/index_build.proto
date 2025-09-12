@@ -46,4 +46,12 @@ message IndexBuildIndexingStamp {
   optional string blockID = 7; // optional, a short string that describes the reason for the block.
  }
 
+// An heartbeat is maintained by an OnlineIndexer at every transaction during the indexing iteration, to ensure there
+// aren't too many concurrent processes trying to build an index
+message IndexBuildHeartbeat {
+    optional string info = 1; // general information about the indexing session. This can be useful when querying the heartbeats.
+    optional int64 createTimeMilliseconds = 2; // indexer's creation time (since epoch)
+    optional int64 heartbeatTimeMilliseconds = 3; // last heartbeat's time (since epoch). This is the only heartbeat value that changes during online indexing.
+ }
+
 

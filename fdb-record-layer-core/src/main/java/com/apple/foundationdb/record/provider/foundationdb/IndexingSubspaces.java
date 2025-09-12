@@ -27,6 +27,7 @@ import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 
 import javax.annotation.Nonnull;
+import java.util.UUID;
 
 /**
  * List of subspaces related to the indexing/index-scrubbing processes.
@@ -40,6 +41,7 @@ public final class IndexingSubspaces {
     private static final Object INDEX_SCRUBBED_RECORDS_RANGES_ZERO = 4L;
     private static final Object INDEX_SCRUBBED_RECORDS_RANGES = 5L;
     private static final Object INDEX_SCRUBBED_INDEX_RANGES = 6L;
+    private static final Object INDEX_BUILD_HEARTBEAT_PREFIX = 7L;
 
     private IndexingSubspaces() {
         throw new IllegalStateException("Utility class");
@@ -81,6 +83,29 @@ public final class IndexingSubspaces {
     @Nonnull
     public static Subspace indexBuildTypeSubspace(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index) {
         return indexBuildSubspace(store, index, INDEX_BUILD_TYPE_VERSION);
+    }
+
+    /**
+     * Subspace that stores the indexing heartbeat.
+     * @param store store
+     * @param index index
+     * @return subspace
+     */
+    @Nonnull
+    public static Subspace indexHeartbeatSubspace(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index) {
+        return indexBuildSubspace(store, index, INDEX_BUILD_HEARTBEAT_PREFIX);
+    }
+
+    /**
+     * Subspace that stores the indexing heartbeat.
+     * @param store store
+     * @param index index
+     * @param indexerId session id
+     * @return subspace
+     */
+    @Nonnull
+    public static byte[] indexHeartbeatSubspaceBytes(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, @Nonnull UUID indexerId) {
+        return indexHeartbeatSubspace(store, index).subspace(Tuple.from(indexerId)).pack();
     }
 
     /**
@@ -184,5 +209,7 @@ public final class IndexingSubspaces {
         eraseAllIndexingScrubbingData(context, store, index);
         context.clear(Range.startsWith(indexBuildScannedRecordsSubspace(store, index).pack()));
         context.clear(Range.startsWith(indexBuildTypeSubspace(store, index).pack()));
+        // The heartbeats, unlike the sync lock, may be erased here. If needed, an appropriate heartbeat will be set after this clear & within the same transaction.
+        context.clear(Range.startsWith(indexHeartbeatSubspace(store, index).pack()));
     }
 }
