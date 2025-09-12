@@ -139,6 +139,12 @@ runs:
       run: sudo ls -lh /var/lib/foundationdb/data
     - name: debugging
       shell: bash
+      run: sudo ls -lh /var/lib/foundationdb/data/4500
+    - name: debugging
+      shell: bash
+      run: sudo ls -lh /var/lib/foundationdb/data/4800
+    - name: debugging
+      shell: bash
       run: fdbcli -C /etc/foundationdb/fdb1.cluster --exec "status" --log
     - name: debugging
       shell: bash
