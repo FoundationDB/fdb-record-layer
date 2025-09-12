@@ -2,9 +2,9 @@ simple-query-with-different-debuggers:
 -   query: EXPLAIN select * from t1 where id > 1
     explain: SCAN(<,>) | FILTER _.ID GREATER_THAN promote(@c8 AS LONG)
     task_count: 163
-    task_total_time_ms: 72
-    transform_count: 42
-    transform_time_ms: 61
+    task_total_time_ms: 85
+    transform_count: 46
+    transform_time_ms: 71
     transform_yield_count: 14
     insert_time_ms: 1
     insert_new_count: 14
@@ -12,9 +12,9 @@ simple-query-with-different-debuggers:
 -   query: EXPLAIN select * from t1 where id > 1
     explain: SCAN(<,>) | FILTER _.ID GREATER_THAN promote(@c8 AS LONG)
     task_count: 163
-    task_total_time_ms: 72
-    transform_count: 42
-    transform_time_ms: 61
+    task_total_time_ms: 85
+    transform_count: 46
+    transform_time_ms: 71
     transform_yield_count: 14
     insert_time_ms: 1
     insert_new_count: 14
@@ -22,9 +22,9 @@ simple-query-with-different-debuggers:
 -   query: EXPLAIN select * from t1 where id > 1
     explain: SCAN(<,>) | FILTER _.ID GREATER_THAN promote(@c8 AS LONG)
     task_count: 163
-    task_total_time_ms: 72
-    transform_count: 42
-    transform_time_ms: 61
+    task_total_time_ms: 85
+    transform_count: 46
+    transform_time_ms: 71
     transform_yield_count: 14
     insert_time_ms: 1
     insert_new_count: 14
