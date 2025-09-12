@@ -124,14 +124,14 @@ test_block:
     -
       # `NOT IN`
       - query: select e, a from ta where e not in ('foo' , 'bar', 'doe', 'arc', 'something')
-      - supported_version: !current_version
+      - supported_version: 4.5.13.0
       - unorderedResult: [{ E: "per", A: 4 }]
     -
       # `NOT IN` with incompatible types
       - query: select a, e from ta where e not in ('foo' , 35)
-      - initialVersionAtLeast: !current_version
+      - initialVersionAtLeast: 4.5.13.0
       - error: "42804"
-      - initialVersionLessThan: !current_version
+      - initialVersionLessThan: 4.5.13.0
       - error: "42601"
     -
       # Values of incompatible types in the IN list
