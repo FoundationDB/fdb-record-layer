@@ -48,7 +48,6 @@ import com.google.protobuf.ZeroCopyByteString;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Arrays;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -70,7 +69,6 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
     private byte[] lastKey;
     @Nonnull
     private final SerializationMode serializationMode;
-    public final long MAGIC_NUMBER = 1234L;
 
     protected KeyValueCursorBase(@Nonnull final FDBRecordContext context,
                                  @Nonnull final AsyncIterator<K> iterator,

@@ -37,7 +37,6 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.apple.foundationdb.record.RecordCursorEndContinuation;
-import com.apple.foundationdb.record.RecordCursorProto;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.ScanProperties;
@@ -851,7 +850,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
             @Override
             public ByteString toByteString() {
                 byte[] result = KeyValueCursorBase.Continuation.fromRawBytes(baseContinuation.toBytes(), serializationMode);
-                return result == null ? ByteString.EMPTY : ByteString.copyFrom(result);
+                return result == null ? ByteString.EMPTY : ByteString.copyFrom(result).substring(prefixLength);
             }
 
             @Override
