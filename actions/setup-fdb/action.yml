@@ -101,11 +101,12 @@ runs:
     - name: debugging
       shell: bash
       run: sudo netstat -nlp
-    - name: experiment
+#     - name: experiment -- I don't know how to daemonize this
+#       shell: bash
+#       run: sudo -u foundationdb /usr/sbin/fdbserver -p 127.0.0.1:4800 -C /etc/foundationdb/fdb.cluster -d /var/lib/foundationdb/data/4800 -L /var/log/foundationdb/ --machine-id 23948792384080c
+    - name: debugging
       shell: bash
-      run: sudo -u foundationdb /usr/sbin/fdbserver -p 127.0.0.1:4800 -C /etc/foundationdb/fdb.cluster -d /var/lib/foundationdb/data/4800 -L /var/log/foundationdb/ --machine-id 23948792384080c
-
-# sudo /usr/lib/foundationdb/fdbmonitor --conffile /etc/foundationdb/foundationdb.conf --lockfile /var/run/fdbmonitor.pid --loggroup fdbX --daemonize
+      run: sudo /usr/lib/foundationdb/fdbmonitor --conffile /etc/foundationdb/foundationdb.conf --lockfile /var/run/fdbmonitor.pid --loggroup fdbX --daemonize
 
 
     - name: debugging
