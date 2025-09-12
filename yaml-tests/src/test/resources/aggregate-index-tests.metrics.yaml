@@ -746,13 +746,13 @@ agg-index-tests:
         _2: KEY:[2], _3: KEY:[4], _4: KEY:[5], _5: KEY:[3]]) | MAP (_._1 AS B, _._2
         AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.D, _.B, _.C,
         _.E)'
-    task_count: 713
-    task_total_time_ms: 271
-    transform_count: 257
-    transform_time_ms: 218
-    transform_yield_count: 93
-    insert_time_ms: 1
-    insert_new_count: 53
+    task_count: 733
+    task_total_time_ms: 212
+    transform_count: 261
+    transform_time_ms: 155
+    transform_yield_count: 94
+    insert_time_ms: 0
+    insert_new_count: 62
     insert_reused_count: 0
 -   query: EXPLAIN select b, c, d, e, min(x) from t5 where a = 0 and c = 0 group by
         a, b, c, d, e having b IN ('foo', 'bar') order by min(x), d
@@ -761,11 +761,11 @@ agg-index-tests:
         _2: KEY:[2], _3: KEY:[4], _4: KEY:[5], _5: KEY:[3]]) | MAP (_._1 AS B, _._2
         AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.D, _.B, _.C,
         _.E)'
-    task_count: 713
-    task_total_time_ms: 298
-    transform_count: 257
-    transform_time_ms: 239
-    transform_yield_count: 93
+    task_count: 733
+    task_total_time_ms: 254
+    transform_count: 261
+    transform_time_ms: 187
+    transform_yield_count: 94
     insert_time_ms: 1
-    insert_new_count: 53
+    insert_new_count: 62
     insert_reused_count: 0

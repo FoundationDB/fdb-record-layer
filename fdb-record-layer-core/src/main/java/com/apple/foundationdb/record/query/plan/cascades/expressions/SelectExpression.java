@@ -880,7 +880,8 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
         isAnyCompensationFunctionImpossible |= compensatedResult.isCompensationImpossible();
 
         final var isCompensationNeeded =
-                !unmatchedQuantifiers.isEmpty() ||
+                childCompensation.isNeeded() ||
+                        !unmatchedQuantifiers.isEmpty() ||
                         isAnyCompensationFunctionNeeded ||
                         compensatedResult.getResultCompensationFunction().isNeeded();
 

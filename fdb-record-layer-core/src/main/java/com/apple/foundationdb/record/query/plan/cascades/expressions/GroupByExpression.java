@@ -652,7 +652,8 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
             return Compensation.impossibleCompensation();
         }
         final var compensatedResult = compensatedResultOptional.get();
-        if (!compensatedResult.getResultCompensationFunction().isNeeded()) {
+        if (!childCompensation.isNeeded() &&
+                !compensatedResult.getResultCompensationFunction().isNeeded()) {
             return Compensation.noCompensation();
         }
 
