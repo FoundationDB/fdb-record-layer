@@ -28,7 +28,9 @@ import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.sql.SQLException;
+import java.util.HashSet;
 import java.util.Properties;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -153,4 +155,16 @@ class OptionsTest {
         assertEquals(nonDefault, fromProps);
     }
 
+    @Test
+    void equality() throws SQLException {
+        int[] maxes = { 1, 10, 100, 1 };
+        Set<Options> set = new HashSet<>();
+        for (int i : maxes) {
+            Options options = Options.builder()
+                    .withOption(Options.Name.MAX_ROWS, i)
+                    .build();
+            set.add(options);
+        }
+        assertEquals(maxes.length - 1, set.size()); // One duplicate
+    }
 }

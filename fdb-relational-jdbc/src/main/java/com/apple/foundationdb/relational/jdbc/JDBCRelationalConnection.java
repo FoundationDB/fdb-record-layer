@@ -464,7 +464,6 @@ class JDBCRelationalConnection implements RelationalConnection {
     }
 
     @Override
-    @ExcludeFromJacocoGeneratedReport
     public void setOption(@Nonnull Options.Name name, Object value) throws SQLException {
         options = options.withOption(name, value);
     }
