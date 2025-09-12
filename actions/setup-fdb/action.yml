@@ -101,6 +101,9 @@ runs:
     - name: debugging
       shell: bash
       run: sudo netstat -nlp
+    - name: debugging
+      shell: bash
+      run: sudo cat /etc/foundationdb/foundationdb.conf
 
     - name: Stop default fdb
       shell: bash
