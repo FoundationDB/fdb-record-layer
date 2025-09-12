@@ -88,6 +88,12 @@ runs:
       
     - name: debugging
       shell: bash
+      run: sudo ls -lh /var/lib/foundationdb
+    - name: debugging
+      shell: bash
+      run: sudo ls -lh /var/lib/foundationdb/data
+    - name: debugging
+      shell: bash
       run: ls -lh /etc/foundationdb
     - name: debugging
       shell: bash
@@ -128,6 +134,9 @@ runs:
     - name: debugging
       shell: bash
       run: sudo netstat -nlp
+    - name: debugging
+      shell: bash
+      run: sudo ls -lh /var/lib/foundationdb/data
     - name: debugging
       shell: bash
       run: fdbcli -C /etc/foundationdb/fdb1.cluster --exec "status" --log
