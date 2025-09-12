@@ -1,8 +1,7 @@
 ù
 H
 agg-index-tests5EXPLAIN select col1, sum(col2) from T1 group by col1;–
-Ù¿ƒøè °âØ
-(@0Ëö,80@YAISCAN(MV1 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COL1, _._1 AS _1)÷
+ÙëÿËè ”éÍ(@0Ì”080@YAISCAN(MV1 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COL1, _._1 AS _1)÷
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -15,8 +14,7 @@ digraph G {
 }ÿ
 =
 agg-index-tests*EXPLAIN select col1 from T1 group by col1;ñ
-Åâ¸Á
-h ÖÎÖ(60Ã» 8%@ZISCAN(VI1 <,>) | MAP (_ AS _0) | AGG () GROUP BY (_._0.COL1 AS _0) | MAP (_._0._0 AS COL1)údigraph G {
+Åˇ√¥h Ì¶˚(60Á¯78%@ZISCAN(VI1 <,>) | MAP (_ AS _0) | AGG () GROUP BY (_._0.COL1 AS _0) | MAP (_._0._0 AS COL1)údigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -32,8 +30,7 @@ digraph G {
 }Ï
 B
 agg-index-tests/EXPLAIN select sum(col2) from T1 group by col1;•
-Ù“è¬è ∫¸ı
-(@0Øù-80@KAISCAN(MV1 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._1 AS _0)π
+ÙµªÆè Âﬁ≠(@0°ø680@KAISCAN(MV1 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._1 AS _0)π
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -46,7 +43,7 @@ digraph G {
 }Ø
 Z
 agg-index-testsGEXPLAIN select col1, sum(col2) from T1 group by col1 order by col1 asc;–
-Ù¸Ì«è òﬁú(@0¿ü+80@YAISCAN(MV1 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COL1, _._1 AS _1)÷
+Ù¶‘õè ¶¯˚(@0Åî180@YAISCAN(MV1 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COL1, _._1 AS _1)÷
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -59,7 +56,7 @@ digraph G {
 }Í
 [
 agg-index-testsHEXPLAIN select col1, sum(col2) from T1 group by col1 order by col1 desc;ä
-ÙÛÿÑè Ÿ‘ö(@0ƒ®,80@aAISCAN(MV1 <,> BY_GROUP REVERSE -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COL1, _._1 AS _1)àdigraph G {
+ÙŸí◊è äçê(@0öƒ580@aAISCAN(MV1 <,> BY_GROUP REVERSE -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COL1, _._1 AS _1)àdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -71,8 +68,7 @@ digraph G {
 }©
 L
 agg-index-tests9EXPLAIN select col1, sum(col2) + 1 from T1 group by col1;ÿ
-Ùê˘öè ÌÀå
-(@0˙∞,80@]AISCAN(MV1 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COL1, _._1 + 1 AS _1)⁄
+Ù«‘ôè ◊á∞(@0´º?80@]AISCAN(MV1 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COL1, _._1 + 1 AS _1)⁄
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -85,7 +81,7 @@ digraph G {
 }õ
 H
 agg-index-tests5EXPLAIN select col1, max(col2) from T1 group by col1;Œ
-àÕï◊ì Ÿˆï(B0ó€282@WAISCAN(MV8 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1]]) | MAP (_._0 AS COL1, _._1 AS _1)÷
+àΩÄ¨ì ©¿π(B0“ì?82@WAISCAN(MV8 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1]]) | MAP (_._0 AS COL1, _._1 AS _1)÷
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -98,7 +94,7 @@ digraph G {
 }©
 V
 agg-index-testsCEXPLAIN select col1, max(col2) from T1 group by col1 order by col1;Œ
-àˆﬁÇì Ωó˘(B0ÁÚ082@WAISCAN(MV8 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1]]) | MAP (_._0 AS COL1, _._1 AS _1)÷
+à˘é¸ì ÂÆƒ(B0◊îL82@WAISCAN(MV8 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1]]) | MAP (_._0 AS COL1, _._1 AS _1)÷
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -111,7 +107,7 @@ digraph G {
 }Ë
 [
 agg-index-testsHEXPLAIN select col1, max(col2) from T1 group by col1 order by col1 desc;à
-àò“Åì áÊˆ(B0ïé082@_AISCAN(MV8 <,> BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[1]]) | MAP (_._0 AS COL1, _._1 AS _1)àdigraph G {
+àü˚ôì º°º(B0˙ìI82@_AISCAN(MV8 <,> BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[1]]) | MAP (_._0 AS COL1, _._1 AS _1)àdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -123,7 +119,7 @@ digraph G {
 }Ÿ
 X
 agg-index-testsEEXPLAIN select col1, max(col2) from T1 where col1 = 10 group by col1;¸
- Ω∫Ÿ∆ Ô™´(J0–¡:8F@rAISCAN(MV8 [EQUALS promote(@c13 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1]]) | MAP (_._0 AS COL1, _._1 AS _1)È
+ ´”Õ∆ ãè“(J0∑°P8F@rAISCAN(MV8 [EQUALS promote(@c13 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1]]) | MAP (_._0 AS COL1, _._1 AS _1)È
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -151,10 +147,10 @@ D
   5 -> 4 [ label=<&nbsp;q104> label="q104" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   6 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}ë
+}í
 ?
-agg-index-tests,EXPLAIN select col2 from T1 where col1 = 10;Õ
-•µ˝ÿ´ ïÒ®(E0æ£O8D@nCOVERING(MV8 [EQUALS promote(@c8 AS LONG)] -> [COL1: KEY[0], COL2: KEY[1], ID: KEY[3]]) | MAP (_.COL2 AS COL2)æ
+agg-index-tests,EXPLAIN select col2 from T1 where col1 = 10;Œ
+•Èëà´ Ø¢‘(E0íÄ¡8D@nCOVERING(MV8 [EQUALS promote(@c8 AS LONG)] -> [COL1: KEY[0], COL2: KEY[1], ID: KEY[3]]) | MAP (_.COL2 AS COL2)æ
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -167,8 +163,7 @@ digraph G {
 }⁄
 R
 agg-index-tests?EXPLAIN select col2 from T1 where col1 = 10 order by col2 desc;É
-í±ˆé
-X ‹õÛ(00ìß8@ vCOVERING(MV8 [EQUALS promote(@c8 AS LONG)] REVERSE -> [COL1: KEY[0], COL2: KEY[1], ID: KEY[3]]) | MAP (_.COL2 AS COL2)Ì
+í•¯Ú.X È·í&(00∏†08@ vCOVERING(MV8 [EQUALS promote(@c8 AS LONG)] REVERSE -> [COL1: KEY[0], COL2: KEY[1], ID: KEY[3]]) | MAP (_.COL2 AS COL2)Ì
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -216,7 +211,7 @@ H
 }◊
 X
 agg-index-testsEEXPLAIN select col1, sum(col2) from T1 USE INDEX (vi1) group by col1;˙
-ÖÃ€ÃB ƒ–ÿ(0ç‹8@ISCAN(VI1 <,>) | MAP (_ AS _0) | AGG (sum_l(_._0.COL2) AS _0) GROUP BY (_._0.COL1 AS _0) | MAP (_._0._0 AS COL1, _._1._0 AS _1)€digraph G {
+ÖΩ°B Ì’¸(0Õ”8@ISCAN(VI1 <,>) | MAP (_ AS _0) | AGG (sum_l(_._0.COL2) AS _0) GROUP BY (_._0.COL1 AS _0) | MAP (_._0._0 AS COL1, _._1._0 AS _1)€digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -417,10 +412,10 @@ H
   4 -> 3 [ label=<&nbsp;q4> label="q4" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}¢
+}£
 M
-agg-index-tests:EXPLAIN select col1, max_ever(col2) from T1 group by col1;–
-…ê⁄à≠ ñ©Á(H0Öƒ<85@YAISCAN(MV6 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COL1, _._1 AS _1)÷
+agg-index-tests:EXPLAIN select col1, max_ever(col2) from T1 group by col1;—
+…ˆπ∂$≠ üı¡(H0âıÑ85@YAISCAN(MV6 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COL1, _._1 AS _1)÷
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -433,8 +428,8 @@ digraph G {
 }§
 M
 agg-index-tests:EXPLAIN select col1, min_ever(col2) from T1 group by col1;“
-÷˛’Íå äÕü
-(>0∏ä)8*@ZAISCAN(MV12 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COL1, _._1 AS _1)◊
+÷∑Åïå €ˇâ
+(>0Çﬁ98*@ZAISCAN(MV12 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COL1, _._1 AS _1)◊
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -473,7 +468,7 @@ digraph G {
 }Î
 X
 agg-index-testsEEXPLAIN select col1, sum(col2) from T1 where col1 > 15 group by col1;é
-∂≥¶Ì¬ ˙√˝(H0˝ﬂ98D@|AISCAN(MV1 [[GREATER_THAN promote(@c13 AS LONG)]] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COL1, _._1 AS _1)Ò
+∂«æ˝¬ ¢ì‚(H0’Àv8D@|AISCAN(MV1 [[GREATER_THAN promote(@c13 AS LONG)]] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COL1, _._1 AS _1)Ò
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -486,7 +481,7 @@ digraph G {
 }™
 R
 agg-index-tests?EXPLAIN select sum(col2) from T1 where col1  = 10 group by col1”
-∂ÃŒˆ¬ „ˇó(H0Ä¢:8D@fAISCAN(MV1 [EQUALS promote(@c11 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._1 AS _0)Ã
+∂ëÉÜ¬ Ï¥ä(H0ßü@8D@fAISCAN(MV1 [EQUALS promote(@c11 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._1 AS _0)Ã
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -496,10 +491,24 @@ digraph G {
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">MV1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1, LONG AS COL2)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Æ
+}‡
+x
+agg-index-testseEXPLAIN select col1 as g, sum(col2) as s from T1 use index (mv1) where col1 in (10, 20) group by col1„
+¡Í¯àÕ Ÿ∆¶( 0ìS8+@ÉAISCAN(MV1 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | FILTER _._0 IN promote(@c22 AS ARRAY(LONG)) | MAP (_._0 AS G, _._1 AS S)ædigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._0 AS G, q6._1 AS S)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS G, LONG AS S)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2._0 IN promote(@c22 AS ARRAY(LONG))</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0, LONG AS _1)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0, LONG AS _1)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">MV1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1, LONG AS COL2)" ];
+  3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}Ø
 c
-agg-index-testsPEXPLAIN select sum(col2) from T1 where col1 <= 10 group by col1 having col1 > 0;∆
-¡ø≈úƒ ’«•	(H0ú†38E@õAISCAN(MV1 [[GREATER_THAN promote(@c19 AS LONG) && LESS_THAN_OR_EQUALS promote(@c12 AS LONG)]] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._1 AS _0)âdigraph G {
+agg-index-testsPEXPLAIN select sum(col2) from T1 where col1 <= 10 group by col1 having col1 > 0;«
+¡©áßGƒ ˜¯Ò6(H0Ûú˚8E@õAISCAN(MV1 [[GREATER_THAN promote(@c19 AS LONG) && LESS_THAN_OR_EQUALS promote(@c12 AS LONG)]] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._1 AS _0)âdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
