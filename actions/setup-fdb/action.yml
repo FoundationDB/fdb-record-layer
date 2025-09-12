@@ -105,10 +105,13 @@ runs:
       run: sudo netstat -nlp
     - name: debugging
       shell: bash
-      run: fdbcli -C /etc/foundationdb/fdb1.cluster --exec "status"
+      run: fdbcli -C /etc/foundationdb/fdb1.cluster --exec "status" --log
     - name: debugging
       shell: bash
-      run: fdbcli -C /etc/foundationdb/fdb2.cluster --exec "status"
+      run: fdbcli -C /etc/foundationdb/fdb2.cluster --exec "status" --log
+    - name: debugging
+      shell: bash
+      run: cat trace.*.xml
     - name: Switch FDB 1 to SSD
       shell: bash
       run: fdbcli -C /etc/foundationdb/fdb1.cluster --exec "configure single ssd storage_migration_type=aggressive; status"
