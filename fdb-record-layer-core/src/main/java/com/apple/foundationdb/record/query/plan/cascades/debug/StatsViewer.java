@@ -44,7 +44,11 @@ import java.util.concurrent.TimeUnit;
  * </p>
  */
 @SuppressWarnings("unused")
-public class StatsViewer {
+public final class StatsViewer {
+    private StatsViewer() {
+
+    }
+
     public static String showStats(@Nonnull final StatsDebugger statsDebugger) {
         final var statsMaps = statsDebugger.getStatsMaps();
 
