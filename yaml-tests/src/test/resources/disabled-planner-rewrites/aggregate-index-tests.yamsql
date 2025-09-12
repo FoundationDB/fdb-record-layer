@@ -160,7 +160,7 @@ test_block:
        # controlling for that, it can still use the index
        - query: select max(col2) from T1 use index (mv8);
        - supported_version: 4.1.9.0
-       - explain: "ISCAN(MV8 <,>) | MAP (_ AS _0) | AGG (max_l(_._0.COL2) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
+       - explain: "AISCAN(MV8 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1]]) | AGG max_l(_._1) GROUP BY () | MAP ((_._1 AS _0) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
        - result: [{!l 13}]
     -
        - query: select max(col2) from T1 use index (mv8);
@@ -207,7 +207,7 @@ test_block:
       # over base table scan.
       - query: select max(col2) from t2;
       - supported_version: 4.1.9.0
-      - explain: "ISCAN(MV3 <,>) | MAP (_ AS _0) | AGG (max_l(_._0.COL2) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
+      - explain: "AISCAN(MV9 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]]) | AGG max_l(_._2) GROUP BY () | MAP ((_._2 AS _0) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
       - result: [{!l 2}]
     -
       - query: select max(col2) from t2;

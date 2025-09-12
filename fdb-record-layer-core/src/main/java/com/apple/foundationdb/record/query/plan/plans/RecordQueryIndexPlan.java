@@ -62,6 +62,7 @@ import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursorBase;
 import com.apple.foundationdb.record.provider.foundationdb.MultidimensionalIndexScanComparisons;
 import com.apple.foundationdb.record.provider.foundationdb.UnsupportedRemoteFetchIndexException;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
+import com.apple.foundationdb.record.query.plan.cascades.AggregateIndexMatchCandidate;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
@@ -684,6 +685,16 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
             attributeMapBuilder.put("direction", Attribute.gml("reversed"));
         }
 
+        final var matchCandidateOptional = getMatchCandidateMaybe();
+        final String extendedIndexName;
+        if (matchCandidateOptional.isPresent() &&
+                matchCandidateOptional.get() instanceof AggregateIndexMatchCandidate) {
+            final var aggregateIndexMatchCandidate = (AggregateIndexMatchCandidate)matchCandidateOptional.get();
+            extendedIndexName = aggregateIndexMatchCandidate.toString();
+        } else {
+            extendedIndexName = getIndexName();
+        }
+
         return PlannerGraph.fromNodeAndChildGraphs(
                 new PlannerGraph.OperatorNodeWithInfo(identity,
                         nodeInfo,
@@ -691,7 +702,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
                         attributeMapBuilder.build()),
                 ImmutableList.of(
                         PlannerGraph.fromNodeAndChildGraphs(
-                                new PlannerGraph.DataNodeWithInfo(NodeInfo.INDEX_DATA, getResultType(), ImmutableList.copyOf(getUsedIndexes())),
+                                new PlannerGraph.DataNodeWithInfo(NodeInfo.INDEX_DATA, getResultType(), ImmutableList.of(extendedIndexName)),
                                 ImmutableList.of())));
     }
 

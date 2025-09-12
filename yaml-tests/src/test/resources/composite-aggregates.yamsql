@@ -1,0 +1,107 @@
+#
+# composite-aggregates.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+---
+options:
+    supported_version: 4.5.12.0
+---
+schema_template:
+    create table t1(id bigint, col1 bigint, col2 bigint, col3 bigint, primary key(id))
+    create table t2(id bigint, col1 bigint, col2 bigint, primary key(id))
+    create table t3(id bigint, col1 bigint, col2 bigint, col3 bigint, primary key(id))
+    create index t1_i1 as select count(col1) from t1 group by col2, col3
+    create index t1_i2 as select col2, sum(col1) from t1 group by col2
+    create index t1_i3 as select col3, col2, sum(col1) from t1 group by col3, col2
+    create index t1_i4 as select col2, col3, sum(col1) from t1 group by col2, col3
+    create index t2_i1 as select count(*) from t2
+    create index t2_i2 as select count(*) from t2 group by col1
+    create index t2_i3 as select count(col2) from t2
+    create index t2_i4 as select count(col2) from t2 group by col1
+    create index t2_i5 as select sum(col1) from t2
+    create index t2_i6 as select sum(col2) from t2 group by col1
+    create index t2_i7 as select count(*) from t2 group by col1, col2
+    create index t3_i1 as select col1, max(col2), col3 from T3 group by col1, col3 order by col1, max(col2), col3
+    create index t3_i2 as select col1, min(col2), col3 from T3 group by col1, col3 order by col1, min(col2), col3
+
+---
+setup:
+  steps:
+    - query: INSERT INTO T1
+        VALUES (1, 10, 1, 1),
+               (2, 10, 1, 1),
+               (3, 10, 1, 2),
+               (4, 10, 1, 2),
+               (5, 10, 1, 2),
+               (6, 20, 6, 1),
+               (7, 20, 7, 2),
+               (8, 20, 7, 2),
+               (9, 20, 7, 3),
+               (10, 20, 7, 3),
+               (11, 20, 8, 0),
+               (12, 20, 8, 0),
+               (13, 20, 10, 1)
+    - query: INSERT INTO T2(ID, COL1, COL2, COL3)
+        VALUES (1, 1, 1, 100),
+               (2, 1, 1, 1),
+               (3, 1, 5, 2),
+               (4, 1, 10, 200),
+               (5, 2, 10, 200),
+               (6, 2, 20, 3),
+               (7, 2, 30, 400),
+               (8, 2, 40, 400),
+               (9, 2, 60, 400)
+
+---
+test_block:
+  name: agg-empty-table-tests
+  preset: single_repetition_ordered
+  tests:
+    -
+      - query: select sum(col2) / count(col2) from T2 group by col1;
+      - explain: "AISCAN(T2_I6 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) ∩ AISCAN(T2_I4 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) COMPARE BY (_._0) WITH q0, q1 RETURN (q0._0 AS _0, q0._1 AS _1, q1._1 AS _2) | MAP (_._1 / _._2 AS _0)"
+      - result: [{!l 4}, {!l 32}]
+    -
+      - query: select sum(col2), count(col2) from T2 where col1 < 2 group by col1;
+      - explain: "AISCAN(T2_I6 [[LESS_THAN promote(@c16 AS LONG)]] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) ∩ AISCAN(T2_I4 [[LESS_THAN promote(@c16 AS LONG)]] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) COMPARE BY (_._0) WITH q0, q1 RETURN (q0._0 AS _0, q0._1 AS _1, q1._1 AS _2) | MAP (_._1 AS _0, _._2 AS _1)"
+      - result: [{!l 17, !l 4}]
+    -
+      - query: select sum(col2), count(col2) from T2 group by col1 having sum(col2) = 17;
+      - explain: "AISCAN(T2_I6 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) ∩ AISCAN(T2_I4 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) COMPARE BY (_._0) WITH q0, q1 RETURN (q0._0 AS _0, q0._1 AS _1, q1._1 AS _2) | FILTER _._1 EQUALS promote(@c22 AS LONG) | MAP (_._1 AS _0, _._2 AS _1)"
+      - result: [{!l 17, !l 4}]
+    -
+      - query: select sum(col2), count(col2) from T2 where col1 < 2 group by col1 having sum(col2) = 17;
+      - explain: "AISCAN(T2_I6 [[LESS_THAN promote(@c16 AS LONG)]] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) ∩ AISCAN(T2_I4 [[LESS_THAN promote(@c16 AS LONG)]] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) COMPARE BY (_._0) WITH q0, q1 RETURN (q0._0 AS _0, q0._1 AS _1, q1._1 AS _2) | FILTER _._1 EQUALS promote(@c26 AS LONG) | MAP (_._1 AS _0, _._2 AS _1)"
+      - result: [{!l 17, !l 4}]
+    -
+      - query: select sum(col1) / count(col1), col2 from T1 group by col2;
+      - explain: "AISCAN(T1_I2 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) ∩ AISCAN(T1_I1 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | AGG sum_l(_._2) GROUP BY (_._0 AS _0) COMPARE BY (_._0) WITH q0, q1 RETURN (q0._0 AS _0, q0._1 AS _1, q1._1 AS _2) | MAP (_._1 / _._2 AS _0, _._0 AS COL2)"
+      - result: [{!l 10, !l 1}, {!l 20, !l 6}, {!l 20, !l 7}, {!l 20, !l 8}, {!l 20, !l 10}]
+    -
+      - query: select col2, sum(col1) / count(col1) from T1 where col2 < 2 group by col2 having sum(col1) = 17 order by col2;
+      - explain: "AISCAN(T1_I2 [[LESS_THAN promote(@c18 AS LONG)]] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) ∩ AISCAN(T1_I1 [[LESS_THAN promote(@c18 AS LONG)]] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | AGG sum_l(_._2) GROUP BY (_._0 AS _0) COMPARE BY (_._0) WITH q0, q1 RETURN (q0._0 AS _0, q0._1 AS _1, q1._1 AS _2) | FILTER _._1 EQUALS promote(@c28 AS LONG) | MAP (_._0 AS COL2, _._1 / _._2 AS _1)"
+      - result: []
+    -
+      - query: select col2, sum(col1) / count(col1) from T1 where col2 < 2 group by col2, col3 having sum(col1) = 17;
+      - explain: "AISCAN(T1_I4 [[LESS_THAN promote(@c18 AS LONG)]] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) ∩ AISCAN(T1_I1 [[LESS_THAN promote(@c18 AS LONG)]] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) COMPARE BY (_._0, _._1) WITH q0, q1 RETURN (q0._0 AS _0, q0._1 AS _1, q0._2 AS _2, q1._2 AS _3) | FILTER _._2 EQUALS promote(@c30 AS LONG) | MAP (_._0 AS COL2, _._2 / _._3 AS _1)"
+      - result: []
+    -
+      - query: select col1, min(col2), max(col2) from T3 group by col1, col3;
+      - explain: "ISCAN(T3_I1 <,>) | MAP (_ AS _0) | AGG (min_l(_._0.COL2) AS _0, max_l(_._0.COL2) AS _1) GROUP BY (_._0.COL1 AS _0, _._0.COL3 AS _1) | MAP (_._0._0 AS COL1, _._1._0 AS _1, _._1._1 AS _2)"
+      - result: []
+...

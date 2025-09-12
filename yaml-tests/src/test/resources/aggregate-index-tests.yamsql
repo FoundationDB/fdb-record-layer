@@ -156,7 +156,7 @@ test_block:
        # At some point, should be able to roll up values from the aggregate index. However, even
        # controlling for that, it can still use the index
        - query: select max(col2) from T1 use index (mv8);
-       - explain: "ISCAN(MV8 <,>) | MAP (_ AS _0) | AGG (max_l(_._0.COL2) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
+       - explain: "AISCAN(MV8 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1]]) | AGG max_l(_._1) GROUP BY () | MAP ((_._1 AS _0) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
        - result: [{!l 13}]
     -
        # Min/max indexes need keep what amounts to a standard value index on their keys (in order to properly look up
@@ -177,7 +177,7 @@ test_block:
       # this should use the aggregate index in the future, for now, it is using streaming aggregate
       # over base table scan.
       - query: select max(col2) from t2;
-      - explain: "ISCAN(MV3 <,>) | MAP (_ AS _0) | AGG (max_l(_._0.COL2) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
+      - explain: "AISCAN(MV9 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]]) | AGG max_l(_._2) GROUP BY () | MAP ((_._2 AS _0) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
       - result: [{!l 2}]
     -
       - query: select col1, sum(col2) from T1 USE INDEX (vi1) group by col1;
@@ -287,6 +287,10 @@ test_block:
       - query: select sum(col2) from T1 where col1  = 10 group by col1
       - explain: "AISCAN(MV1 [EQUALS promote(@c11 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._1 AS _0)"
       - result: [{!l 15}]
+    -
+      - query: select col1 as g, sum(col2) as s from T1 use index (mv1) where col1 in (10, 20) group by col1
+      - explain: "AISCAN(MV1 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | FILTER _._0 IN promote(@c22 AS ARRAY(LONG)) | MAP (_._0 AS G, _._1 AS S)"
+      - result: [{g: 10, s: 15}, {g: 20, s: 76}]
     -
       - query: select sum(col2) from T1 where col1 <= 10 group by col1 having col1 > 0;
       - explain: "AISCAN(MV1 [[GREATER_THAN promote(@c19 AS LONG) && LESS_THAN_OR_EQUALS promote(@c12 AS LONG)]] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._1 AS _0)"

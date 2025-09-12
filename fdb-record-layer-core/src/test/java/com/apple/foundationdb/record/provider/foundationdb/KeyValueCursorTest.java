@@ -220,6 +220,75 @@ public class KeyValueCursorTest {
         });
     }
 
+    private KeyValueCursor scanPrefixString(FDBRecordContext context, Tuple prefixRange, ScanProperties scanProperties, byte[] continuation) {
+        TupleRange range = new TupleRange(
+                prefixRange,
+                prefixRange,
+                EndpointType.PREFIX_STRING,
+                EndpointType.PREFIX_STRING
+        );
+        KeyValueCursor cursor = KeyValueCursor.Builder.withSubspace(subspace)
+                .setContext(context)
+                .setRange(range)
+                .setContinuation(continuation)
+                .setScanProperties(scanProperties)
+                .build();
+        return cursor;
+    }
+
+    private void assertKeyValue(KeyValue kv, Tuple key, Tuple value) {
+        assertArrayEquals(subspace.pack(key), kv.getKey());
+        assertArrayEquals(value.pack(), kv.getValue());
+    }
+
+    @Test
+    public void prefixString() {
+        // Populate data
+        fdb.database().run(tr -> {
+            for (int i = 0; i < 5; i++) {
+                tr.set(subspace.pack(Tuple.from("apple", i)), Tuple.from("apple", i).pack());
+                tr.set(subspace.pack(Tuple.from("banana", i)), Tuple.from("banana", i).pack());
+                tr.set(subspace.pack(Tuple.from("app", i)), Tuple.from("app", i).pack());
+                tr.set(subspace.pack(Tuple.from("a", i)), Tuple.from("a", i).pack());
+            }
+            return null;
+        });
+        fdb.run(context -> {
+            // Scan by empty prefix string, limit 10 rows
+            KeyValueCursor cursor = scanPrefixString(context, Tuple.from(""), new ScanProperties(ExecuteProperties.newBuilder().setReturnedRowLimit(10).build()), null);
+            for (int i = 0; i < 5; i++) {
+                assertKeyValue(cursor.getNext().get(), Tuple.from("a", i), Tuple.from("a", i));
+            }
+            for (int i = 0; i < 5; i++) {
+                assertKeyValue(cursor.getNext().get(), Tuple.from("app", i), Tuple.from("app", i));
+            }
+            // Continue scan next 10 rows
+            cursor = scanPrefixString(context, Tuple.from(""), new ScanProperties(ExecuteProperties.newBuilder().setReturnedRowLimit(10).build()), cursor.getNext().getContinuation().toBytes());
+            for (int i = 0; i < 5; i++) {
+                assertKeyValue(cursor.getNext().get(), Tuple.from("apple", i), Tuple.from("apple", i));
+            }
+            for (int i = 0; i < 5; i++) {
+                assertKeyValue(cursor.getNext().get(), Tuple.from("banana", i), Tuple.from("banana", i));
+            }
+            // Reverse scan with "app" prefix
+            cursor = scanPrefixString(context, Tuple.from("app"), new ScanProperties(ExecuteProperties.newBuilder().setReturnedRowLimit(5).build(), true), null);
+            for (int i = 4; i >= 0; i--) {
+                assertKeyValue(cursor.getNext().get(), Tuple.from("apple", i), Tuple.from("apple", i));
+            }
+            cursor = scanPrefixString(context, Tuple.from("app"), ScanProperties.REVERSE_SCAN, cursor.getNext().getContinuation().toBytes());
+            for (int i = 4; i >= 0; i--) {
+                assertKeyValue(cursor.getNext().get(), Tuple.from("app", i), Tuple.from("app", i));
+            }
+            // Scan with null character
+            cursor = scanPrefixString(context, Tuple.from("a\0"), ScanProperties.FORWARD_SCAN, null);
+            assertEquals(0, cursor.getCount().join());
+            cursor = scanPrefixString(context, Tuple.from("ap\0le"), ScanProperties.FORWARD_SCAN, null);
+            assertEquals(0, cursor.getCount().join());
+
+            return null;
+        });
+    }
+
     @ParameterizedTest
     @EnumSource(KeyValueCursorBase.SerializationMode.class)
     public void exclusiveRange(KeyValueCursorBase.SerializationMode serializationMode) {
@@ -516,12 +585,12 @@ public class KeyValueCursorTest {
         // not setting continuation -> continuation.hasContinuation() = false
         byte[] continuation = RecordCursorProto.KeyValueCursorContinuation.newBuilder().build().toByteArray();
         RecordCursorProto.KeyValueCursorContinuation continuationProto = RecordCursorProto.KeyValueCursorContinuation.parseFrom(continuation);
-        Assertions.assertFalse(continuationProto.hasContinuation());
+        Assertions.assertFalse(continuationProto.hasInnerContinuation());
 
         // setting continuation = ByteString.EMPTY -> continuation.hasContinuation() = true
-        byte[] continuation2 = RecordCursorProto.KeyValueCursorContinuation.newBuilder().setContinuation(ByteString.EMPTY).build().toByteArray();
+        byte[] continuation2 = RecordCursorProto.KeyValueCursorContinuation.newBuilder().setInnerContinuation(ByteString.EMPTY).build().toByteArray();
         RecordCursorProto.KeyValueCursorContinuation continuationProto2 = RecordCursorProto.KeyValueCursorContinuation.parseFrom(continuation2);
-        Assertions.assertTrue(continuationProto2.hasContinuation());
-        Assertions.assertEquals(ByteString.EMPTY, continuationProto2.getContinuation());
+        Assertions.assertTrue(continuationProto2.hasInnerContinuation());
+        Assertions.assertEquals(ByteString.EMPTY, continuationProto2.getInnerContinuation());
     }
 }

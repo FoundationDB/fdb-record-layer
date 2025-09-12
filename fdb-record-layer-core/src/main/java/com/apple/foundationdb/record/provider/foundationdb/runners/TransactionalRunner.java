@@ -95,13 +95,23 @@ public class TransactionalRunner implements AutoCloseable {
      * so will the future returned here.
      */
     @Nonnull
-    @SuppressWarnings("PMD.CloseResource")
+    @SuppressWarnings({"PMD.CloseResource", "PMD.UseTryWithResources"})
     public <T> CompletableFuture<T> runAsync(final boolean clearWeakReadSemantics,
                                              @Nonnull Function<? super FDBRecordContext, CompletableFuture<? extends T>> runnable) {
         FDBRecordContext context = openContext(clearWeakReadSemantics);
-        return runnable.apply(context)
-                .thenCompose((T val) -> context.commitAsync().thenApply(vignore -> val))
-                .whenComplete((result, exception) -> context.close());
+        boolean returnedFuture = false;
+        try {
+            CompletableFuture<T> future = runnable.apply(context)
+                    .thenCompose((T val) -> context.commitAsync().thenApply(vignore -> val));
+            returnedFuture = true;
+            return future.whenComplete((result, exception) -> context.close());
+        } finally {
+            if (!returnedFuture) {
+                // If there are any exceptions in creating the future, then we won't chain the
+                // context-closing callback. Handle that case to avoid leaking resources
+                context.close();
+            }
+        }
     }
 
     /**

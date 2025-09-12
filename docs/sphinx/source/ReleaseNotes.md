@@ -7,6 +7,170 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.5
 
+### 4.5.13.0
+
+<h4> New Features </h4>
+
+* Support SQL array subscript operator - [PR #3586](https://github.com/FoundationDB/fdb-record-layer/pull/3586)
+<h4> Bug Fixes </h4>
+
+* Fix compensation logic to not early out if child compensations are needed - [PR #3593](https://github.com/FoundationDB/fdb-record-layer/pull/3593)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Run Jupiter tests in relational-core, not just auto-test - [PR #3590](https://github.com/FoundationDB/fdb-record-layer/pull/3590)
+
+</details>
+
+
+**[Full Changelog (4.5.12.0...4.5.13.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.5.12.0...4.5.13.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+❌`4.5.2.0`, ❌`4.5.3.0`, ❌`4.5.4.0`, ❌`4.5.5.0`, ❌`4.5.6.0`, ❌`4.5.7.0`, ❌`4.5.8.0`, ❌`4.5.9.0`, ❌`4.5.10.0`, ✅`4.5.12.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/17678739498)
+
+
+
+### 4.5.12.0
+
+<h4> New Features </h4>
+
+* Composite aggregates - [PR #3266](https://github.com/FoundationDB/fdb-record-layer/pull/3266)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Remove release notes for 4.5.11.0 - [PR #3585](https://github.com/FoundationDB/fdb-record-layer/pull/3585)
+* Add codeCoverageReport task to nightly run jobs - [PR #3587](https://github.com/FoundationDB/fdb-record-layer/pull/3587)
+* teamscale upload action incorrectly referenced the partition input - [PR #3582](https://github.com/FoundationDB/fdb-record-layer/pull/3582)
+* Checkout main during teamscale upload workflow - [PR #3581](https://github.com/FoundationDB/fdb-record-layer/pull/3581)
+* Do not mark nightly gradle test as release or publish build - [PR #3580](https://github.com/FoundationDB/fdb-record-layer/pull/3580)
+* Fix the indentation in the teamscale upload action. - [PR #3579](https://github.com/FoundationDB/fdb-record-layer/pull/3579)
+* When correcting yamsql metrics, only update queries with differences - [PR #3563](https://github.com/FoundationDB/fdb-record-layer/pull/3563)
+* Re enable auto test - [PR #3558](https://github.com/FoundationDB/fdb-record-layer/pull/3558)
+* Upload coverage from nightly builds - [PR #3568](https://github.com/FoundationDB/fdb-record-layer/pull/3568)
+
+</details>
+
+
+**[Full Changelog (4.5.10.0...4.5.12.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.5.10.0...4.5.12.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.5.1.0`, ✅`4.5.2.0`, ✅`4.5.3.0`, ✅`4.5.4.0`, ✅`4.5.5.0`, ✅`4.5.6.0`, ✅`4.5.7.0`, ✅`4.5.8.0`, ✅`4.5.9.0`, ✅`4.5.10.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/17640520208)
+
+
+
+### 4.5.10.0
+
+<h4> New Features </h4>
+
+* Add new wrapper value for removing duplicates from array values - [PR #3560](https://github.com/FoundationDB/fdb-record-layer/pull/3560)
+
+
+**[Full Changelog (4.5.9.0...4.5.10.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.5.9.0...4.5.10.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.4.15.0`, ✅`4.5.1.0`, ✅`4.5.2.0`, ✅`4.5.3.0`, ✅`4.5.4.0`, ✅`4.5.5.0`, ✅`4.5.6.0`, ✅`4.5.7.0`, ✅`4.5.8.0`, ✅`4.5.9.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/17404192410)
+
+
+
+### 4.5.9.0
+
+<h4> Bug Fixes </h4>
+
+* Ensure that `TransactionalRunner::runAsync` closes a context that it creates even if future creation fails - [PR #3562](https://github.com/FoundationDB/fdb-record-layer/pull/3562)
+
+
+**[Full Changelog (4.5.8.0...4.5.9.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.5.8.0...4.5.9.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.4.12.0`, ✅`4.4.14.0`, ✅`4.4.15.0`, ✅`4.5.1.0`, ✅`4.5.2.0`, ✅`4.5.3.0`, ✅`4.5.4.0`, ✅`4.5.5.0`, ✅`4.5.6.0`, ✅`4.5.7.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/17328456324)
+
+
+
+### 4.5.8.0
+
+<h4> New Features </h4>
+
+* Add serialized plan complexity and hash to the continuation info in EXPLAIN - [PR #3541](https://github.com/FoundationDB/fdb-record-layer/pull/3541)
+
+
+**[Full Changelog (4.5.7.0...4.5.8.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.5.7.0...4.5.8.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.4.12.0`, ✅`4.4.14.0`, ✅`4.4.15.0`, ✅`4.5.1.0`, ✅`4.5.2.0`, ✅`4.5.3.0`, ✅`4.5.4.0`, ✅`4.5.5.0`, ✅`4.5.6.0`, ✅`4.5.7.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/17326611191)
+
+
+
+### 4.5.7.0
+
+<h4> Breaking Changes </h4>
+
+* Deprecate synchronized indexing controls - [PR #3552](https://github.com/FoundationDB/fdb-record-layer/pull/3552)
+<h4> Bug Fixes </h4>
+
+* FDBRecordStore.scanTypedRecords would skip double records on a store using `splitLongRecords` - [PR #3525](https://github.com/FoundationDB/fdb-record-layer/pull/3525)
+* Fix the continuation returned when scanning by EndpointType.PREFIX_STRING - [PR #3523](https://github.com/FoundationDB/fdb-record-layer/pull/3523)
+* Fix for Lucene block leaks on file deletion - [PR #3551](https://github.com/FoundationDB/fdb-record-layer/pull/3551)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Use thenAccept instead of thenApply - [PR #3535](https://github.com/FoundationDB/fdb-record-layer/pull/3535)
+* Extract explain query config into a separate file - [PR #3556](https://github.com/FoundationDB/fdb-record-layer/pull/3556)
+
+</details>
+
+
+**[Full Changelog (4.5.6.0...4.5.7.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.5.6.0...4.5.7.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+❌`4.4.11.0`, ✅`4.4.12.0`, ✅`4.4.14.0`, ✅`4.4.15.0`, ✅`4.5.1.0`, ✅`4.5.2.0`, ✅`4.5.3.0`, ✅`4.5.4.0`, ✅`4.5.5.0`, ✅`4.5.6.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/17271178483)
+
+
+
 ### 4.5.6.0
 
 <h4> New Features </h4>

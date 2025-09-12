@@ -4,11 +4,11 @@ unnamed-2:
     explain: SCAN(<,>) | FILTER _.ID EQUALS promote(@c23 AS LONG) | MAP (_.ID AS ID,
         _.COL1 AS COL1, _.COL2 AS COL2)
     task_count: 274
-    task_total_time_ms: 122
-    transform_count: 67
-    transform_time_ms: 92
+    task_total_time_ms: 10
+    transform_count: 75
+    transform_time_ms: 2
     transform_yield_count: 17
-    insert_time_ms: 2
+    insert_time_ms: 0
     insert_new_count: 18
     insert_reused_count: 6
 -   query: EXPLAIN select id, col1, col2 from (select * from (select * from T1) as
@@ -16,11 +16,11 @@ unnamed-2:
     explain: SCAN(<,>) | FILTER _.ID EQUALS promote(@c26 AS LONG) | MAP (_.ID AS ID,
         _.COL1 AS COL1, _.COL2 AS COL2)
     task_count: 270
-    task_total_time_ms: 122
-    transform_count: 68
-    transform_time_ms: 93
+    task_total_time_ms: 10
+    transform_count: 75
+    transform_time_ms: 2
     transform_yield_count: 17
-    insert_time_ms: 2
+    insert_time_ms: 0
     insert_new_count: 18
     insert_reused_count: 5
 -   query: EXPLAIN select count(*) from (select * from (select * from (select * from
@@ -29,11 +29,11 @@ unnamed-2:
         AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG))
         AS _0)
     task_count: 429
-    task_total_time_ms: 120
-    transform_count: 102
-    transform_time_ms: 86
+    task_total_time_ms: 12
+    transform_count: 107
+    transform_time_ms: 2
     transform_yield_count: 26
-    insert_time_ms: 2
+    insert_time_ms: 0
     insert_new_count: 34
     insert_reused_count: 2
 -   query: EXPLAIN select id, col1, col2 from (select * from (select * from (select
@@ -41,9 +41,9 @@ unnamed-2:
     explain: SCAN([[GREATER_THAN promote(@c24 AS LONG)]]) | MAP (_.ID AS ID, _.COL1
         AS COL1, _.COL2 AS COL2)
     task_count: 380
-    task_total_time_ms: 16
-    transform_count: 86
-    transform_time_ms: 5
+    task_total_time_ms: 12
+    transform_count: 93
+    transform_time_ms: 2
     transform_yield_count: 22
     insert_time_ms: 0
     insert_new_count: 25

@@ -4,11 +4,11 @@ basic-sql-function-tests:
         AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | MAP (_.COL1 AS
         COL1, _.COL2 AS COL2)'
     task_count: 1176
-    task_total_time_ms: 83
-    transform_count: 257
-    transform_time_ms: 20
+    task_total_time_ms: 80
+    transform_count: 261
+    transform_time_ms: 22
     transform_yield_count: 96
-    insert_time_ms: 4
+    insert_time_ms: 5
     insert_new_count: 148
     insert_reused_count: 11
 -   query: EXPLAIN select col1, col2 from f1(b => 'b', a => 103);
@@ -16,9 +16,9 @@ basic-sql-function-tests:
         AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | MAP (_.COL1 AS
         COL1, _.COL2 AS COL2)'
     task_count: 1176
-    task_total_time_ms: 76
-    transform_count: 257
-    transform_time_ms: 18
+    task_total_time_ms: 88
+    transform_count: 261
+    transform_time_ms: 20
     transform_yield_count: 96
     insert_time_ms: 4
     insert_new_count: 148
@@ -28,20 +28,20 @@ basic-sql-function-tests:
         AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | MAP (_.COL1 AS
         COL1, _.COL2 AS COL2)'
     task_count: 1176
-    task_total_time_ms: 52
-    transform_count: 257
-    transform_time_ms: 12
+    task_total_time_ms: 78
+    transform_count: 261
+    transform_time_ms: 21
     transform_yield_count: 96
-    insert_time_ms: 3
+    insert_time_ms: 4
     insert_new_count: 148
     insert_reused_count: 11
 -   query: EXPLAIN select col1 + 10, col2 from f1(103, 'b');
     explain: ISCAN(T1_IDX1 [EQUALS promote(@c12 AS STRING), [LESS_THAN promote(@c10
         AS LONG)]]) | MAP (_.COL1 + @c4 AS _0, _.COL2 AS COL2)
     task_count: 1024
-    task_total_time_ms: 68
-    transform_count: 240
-    transform_time_ms: 18
+    task_total_time_ms: 71
+    transform_count: 244
+    transform_time_ms: 20
     transform_yield_count: 86
     insert_time_ms: 2
     insert_new_count: 128
@@ -51,11 +51,11 @@ basic-sql-function-tests:
         AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | MAP (_.COL1 AS
         COL1, _.COL2 AS COL2)'
     task_count: 1176
-    task_total_time_ms: 85
-    transform_count: 257
-    transform_time_ms: 19
+    task_total_time_ms: 90
+    transform_count: 261
+    transform_time_ms: 24
     transform_yield_count: 96
-    insert_time_ms: 8
+    insert_time_ms: 5
     insert_new_count: 148
     insert_reused_count: 11
 -   query: EXPLAIN select * from f1(103, 'b') where col1 = 101
@@ -63,9 +63,9 @@ basic-sql-function-tests:
         AS LONG)] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | MAP (_.COL1 AS
         COL1, _.COL2 AS COL2)'
     task_count: 1320
-    task_total_time_ms: 100
-    transform_count: 295
-    transform_time_ms: 28
+    task_total_time_ms: 107
+    transform_count: 299
+    transform_time_ms: 31
     transform_yield_count: 110
     insert_time_ms: 7
     insert_new_count: 190
@@ -75,9 +75,9 @@ basic-sql-function-tests:
         + @c8 AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | MAP (_.COL1
         AS COL1, _.COL2 AS COL2)'
     task_count: 1176
-    task_total_time_ms: 85
-    transform_count: 257
-    transform_time_ms: 22
+    task_total_time_ms: 90
+    transform_count: 261
+    transform_time_ms: 23
     transform_yield_count: 96
     insert_time_ms: 4
     insert_new_count: 148
@@ -88,11 +88,11 @@ basic-sql-function-tests:
         + @c12 AS LONG) && LESS_THAN promote(@c22 AS LONG)]] -> [COL1: KEY[1], COL2:
         KEY[0], COL3: KEY[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2)'
     task_count: 1440
-    task_total_time_ms: 93
-    transform_count: 316
-    transform_time_ms: 29
+    task_total_time_ms: 103
+    transform_count: 320
+    transform_time_ms: 26
     transform_yield_count: 118
-    insert_time_ms: 6
+    insert_time_ms: 7
     insert_new_count: 214
     insert_reused_count: 20
 -   query: EXPLAIN select A.col1 AS W, A.col2 AS X, B.col1 AS Y, B.col2 AS Z from
@@ -103,11 +103,11 @@ basic-sql-function-tests:
         AS STRING) | FETCH AS q1 RETURN (q1.COL1 AS W, q1.COL2 AS X, q0.COL1 AS Y,
         q0.COL2 AS Z) }'
     task_count: 1648
-    task_total_time_ms: 98
-    transform_count: 364
-    transform_time_ms: 31
+    task_total_time_ms: 148
+    transform_count: 370
+    transform_time_ms: 47
     transform_yield_count: 141
-    insert_time_ms: 7
+    insert_time_ms: 6
     insert_new_count: 252
     insert_reused_count: 7
 -   query: EXPLAIN select A.col1 AS W, A.col2 AS X, B.col1 AS Y, B.col2 AS Z from
@@ -118,9 +118,9 @@ basic-sql-function-tests:
         AS STRING) | FETCH AS q1 RETURN (q1.COL1 AS W, q1.COL2 AS X, q0.COL1 AS Y,
         q0.COL2 AS Z) }'
     task_count: 1648
-    task_total_time_ms: 123
-    transform_count: 364
-    transform_time_ms: 38
+    task_total_time_ms: 138
+    transform_count: 370
+    transform_time_ms: 40
     transform_yield_count: 141
     insert_time_ms: 5
     insert_new_count: 252
@@ -131,9 +131,9 @@ basic-sql-function-tests:
         AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | MAP (_.COL1 AS
         Y, _.COL2 AS Z)'
     task_count: 1202
-    task_total_time_ms: 78
-    transform_count: 261
-    transform_time_ms: 21
+    task_total_time_ms: 72
+    transform_count: 265
+    transform_time_ms: 18
     transform_yield_count: 98
     insert_time_ms: 4
     insert_new_count: 152
@@ -143,9 +143,9 @@ basic-sql-function-tests:
         AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | MAP (_.COL1 AS
         Y, _.COL2 AS Z)'
     task_count: 1202
-    task_total_time_ms: 80
-    transform_count: 261
-    transform_time_ms: 20
+    task_total_time_ms: 82
+    transform_count: 265
+    transform_time_ms: 21
     transform_yield_count: 98
     insert_time_ms: 4
     insert_new_count: 152
@@ -154,11 +154,11 @@ basic-sql-function-tests:
     explain: ISCAN(T2_IDX1 <,>) | FLATMAP q0 -> { ISCAN(T1_IDX1 <,>) | FILTER promote(_.COL3
         AS LONG) EQUALS q0.Z | DEFAULT NULL | FILTER _ NOT_NULL AS q1 RETURN q0 }
     task_count: 1082
-    task_total_time_ms: 77
-    transform_count: 263
-    transform_time_ms: 25
+    task_total_time_ms: 84
+    transform_count: 270
+    transform_time_ms: 28
     transform_yield_count: 114
-    insert_time_ms: 2
+    insert_time_ms: 3
     insert_new_count: 153
     insert_reused_count: 7
 -   query: EXPLAIN select * from t2 where exists (select * from f2(k => t2.z))
@@ -166,8 +166,8 @@ basic-sql-function-tests:
         AS LONG) EQUALS q0.Z | DEFAULT NULL | FILTER _ NOT_NULL AS q1 RETURN q0 }
     task_count: 1082
     task_total_time_ms: 74
-    transform_count: 263
-    transform_time_ms: 23
+    transform_count: 270
+    transform_time_ms: 24
     transform_yield_count: 114
     insert_time_ms: 2
     insert_new_count: 153
@@ -178,11 +178,11 @@ basic-sql-function-tests:
         COL3: KEY[2]]) | FILTER promote(q0.COL3 AS LONG) EQUALS promote(@c10 AS LONG)
         | FETCH AS q1 RETURN (q1.COL1 AS COL1, q1.COL2 AS COL2, q0.COL3 AS COL3) }'
     task_count: 2236
-    task_total_time_ms: 158
-    transform_count: 483
-    transform_time_ms: 41
+    task_total_time_ms: 185
+    transform_count: 489
+    transform_time_ms: 47
     transform_yield_count: 197
-    insert_time_ms: 9
+    insert_time_ms: 10
     insert_new_count: 437
     insert_reused_count: 16
 -   query: EXPLAIN select * from f3(103, 'b', 4)
@@ -191,11 +191,11 @@ basic-sql-function-tests:
         COL3: KEY[2]]) | FILTER promote(q0.COL3 AS LONG) EQUALS promote(@c10 AS LONG)
         | FETCH AS q1 RETURN (q1.COL1 AS COL1, q1.COL2 AS COL2, q0.COL3 AS COL3) }'
     task_count: 2236
-    task_total_time_ms: 158
-    transform_count: 483
-    transform_time_ms: 41
+    task_total_time_ms: 185
+    transform_count: 489
+    transform_time_ms: 47
     transform_yield_count: 197
-    insert_time_ms: 9
+    insert_time_ms: 10
     insert_new_count: 437
     insert_reused_count: 16
 -   query: EXPLAIN select * from f4(103, 'b', 2, 2)
@@ -205,11 +205,11 @@ basic-sql-function-tests:
         + promote(@c10 AS LONG) | FETCH AS q1 RETURN (q1.COL1 AS COL1, q1.COL2 AS
         COL2, q0.COL3 AS COL3) }'
     task_count: 4554
-    task_total_time_ms: 509
-    transform_count: 940
-    transform_time_ms: 77
+    task_total_time_ms: 630
+    transform_count: 946
+    transform_time_ms: 110
     transform_yield_count: 382
-    insert_time_ms: 102
+    insert_time_ms: 138
     insert_new_count: 1253
     insert_reused_count: 81
 -   query: EXPLAIN select * from f4(a => 103, b => 'b', c => 2, d => 2)
@@ -219,11 +219,11 @@ basic-sql-function-tests:
         + promote(@c16 AS LONG) | FETCH AS q1 RETURN (q1.COL1 AS COL1, q1.COL2 AS
         COL2, q0.COL3 AS COL3) }'
     task_count: 4554
-    task_total_time_ms: 502
-    transform_count: 940
-    transform_time_ms: 94
+    task_total_time_ms: 597
+    transform_count: 946
+    transform_time_ms: 96
     transform_yield_count: 382
-    insert_time_ms: 111
+    insert_time_ms: 120
     insert_new_count: 1253
     insert_reused_count: 81
 -   query: EXPLAIN select * from f5();
@@ -231,11 +231,11 @@ basic-sql-function-tests:
         AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | MAP (_.COL1 AS
         COL1, _.COL2 AS COL2)'
     task_count: 1176
-    task_total_time_ms: 83
-    transform_count: 257
-    transform_time_ms: 20
+    task_total_time_ms: 79
+    transform_count: 261
+    transform_time_ms: 19
     transform_yield_count: 96
-    insert_time_ms: 5
+    insert_time_ms: 4
     insert_new_count: 148
     insert_reused_count: 11
 -   query: EXPLAIN select * from f5(103);
@@ -243,11 +243,11 @@ basic-sql-function-tests:
         AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | MAP (_.COL1 AS
         COL1, _.COL2 AS COL2)'
     task_count: 1176
-    task_total_time_ms: 76
-    transform_count: 257
-    transform_time_ms: 20
+    task_total_time_ms: 94
+    transform_count: 261
+    transform_time_ms: 21
     transform_yield_count: 96
-    insert_time_ms: 4
+    insert_time_ms: 8
     insert_new_count: 148
     insert_reused_count: 11
 -   query: EXPLAIN select * from f5(b => 'b');
@@ -255,9 +255,9 @@ basic-sql-function-tests:
         AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | MAP (_.COL1 AS
         COL1, _.COL2 AS COL2)'
     task_count: 1176
-    task_total_time_ms: 79
-    transform_count: 257
-    transform_time_ms: 21
+    task_total_time_ms: 75
+    transform_count: 261
+    transform_time_ms: 17
     transform_yield_count: 96
     insert_time_ms: 4
     insert_new_count: 148
@@ -267,9 +267,9 @@ basic-sql-function-tests:
         AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | MAP (_.COL1 AS
         COL1, _.COL2 AS COL2)'
     task_count: 1176
-    task_total_time_ms: 74
-    transform_count: 257
-    transform_time_ms: 17
+    task_total_time_ms: 85
+    transform_count: 261
+    transform_time_ms: 22
     transform_yield_count: 96
     insert_time_ms: 4
     insert_new_count: 148
@@ -279,9 +279,9 @@ basic-sql-function-tests:
         AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | MAP (_.COL1 AS
         COL1, _.COL2 AS COL2)'
     task_count: 1176
-    task_total_time_ms: 74
-    transform_count: 257
-    transform_time_ms: 17
+    task_total_time_ms: 85
+    transform_count: 261
+    transform_time_ms: 22
     transform_yield_count: 96
     insert_time_ms: 4
     insert_new_count: 148
@@ -291,9 +291,9 @@ basic-sql-function-tests:
         AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | MAP (_.COL1 AS
         COL1, _.COL2 AS COL2)'
     task_count: 1176
-    task_total_time_ms: 74
-    transform_count: 257
-    transform_time_ms: 17
+    task_total_time_ms: 85
+    transform_count: 261
+    transform_time_ms: 22
     transform_yield_count: 96
     insert_time_ms: 4
     insert_new_count: 148
@@ -303,11 +303,11 @@ basic-sql-function-tests:
         AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | MAP (_.COL1 AS
         COL1, _.COL2 AS COL2)'
     task_count: 1176
-    task_total_time_ms: 54
-    transform_count: 257
-    transform_time_ms: 10
+    task_total_time_ms: 88
+    transform_count: 261
+    transform_time_ms: 21
     transform_yield_count: 96
-    insert_time_ms: 3
+    insert_time_ms: 4
     insert_new_count: 148
     insert_reused_count: 11
 -   query: EXPLAIN select * from f5(102);
@@ -315,11 +315,11 @@ basic-sql-function-tests:
         AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | MAP (_.COL1 AS
         COL1, _.COL2 AS COL2)'
     task_count: 1176
-    task_total_time_ms: 76
-    transform_count: 257
-    transform_time_ms: 20
+    task_total_time_ms: 94
+    transform_count: 261
+    transform_time_ms: 21
     transform_yield_count: 96
-    insert_time_ms: 4
+    insert_time_ms: 8
     insert_new_count: 148
     insert_reused_count: 11
 -   query: EXPLAIN select * from f5(102, 'a');
@@ -328,7 +328,7 @@ basic-sql-function-tests:
         COL1, _.COL2 AS COL2)'
     task_count: 1176
     task_total_time_ms: 83
-    transform_count: 257
+    transform_count: 261
     transform_time_ms: 20
     transform_yield_count: 96
     insert_time_ms: 4

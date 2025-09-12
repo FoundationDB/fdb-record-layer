@@ -222,7 +222,7 @@ public final class GrpcSQLExceptionUtil {
             } catch (ClassNotFoundException | InstantiationException | IllegalAccessException | InvocationTargetException |
                     NoSuchMethodException e) {
                 // Just fall through to plain-old sqlexception.
-                if (logger.isTraceEnabled()) {
+                if (logger.isTraceEnabled() && e.getMessage() != null) {
                     logger.trace(e.getMessage());
                 }
             }
