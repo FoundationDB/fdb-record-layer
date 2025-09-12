@@ -52,7 +52,6 @@ import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -61,6 +60,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 import javax.annotation.Nonnull;
 import java.net.URI;
+import java.sql.SQLException;
 import java.util.BitSet;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -362,11 +362,10 @@ public class SchemaTemplateSerDeTests {
         Assertions.assertFalse(nonExisting.isPresent());
     }
 
-    @Disabled
     @Test
-    public void sqlFunctionsAreLazilyParsed() throws RelationalException {
+    public void sqlFunctionsAreLazilyParsed() throws Exception {
         final var peekingDeserializer = recMetadataSampleWithFunctions(
-                "CREATE FUNCTION SqlFunction1(IN Q BIGINT) AS SELECT * FROM T1 WHERE col1 < Q");
+                "CREATE FUNCTION SqlFunction1(IN Q BIGINT) AS SELECT * FROM T1 WHERE COL1 < Q");
         Assertions.assertTrue(peekingDeserializer.hasNoCompilationRequestsFor("SqlFunction1"));
 
         final var planGenerator = peekingDeserializer.getPlanGenerator();
@@ -378,12 +377,11 @@ public class SchemaTemplateSerDeTests {
         Assertions.assertNotNull(plan);
     }
 
-    @Disabled
     @Test
-    public void nestedSqlFunctionsAreLazilyParsed() throws RelationalException {
+    public void nestedSqlFunctionsAreLazilyParsed() throws Exception {
         final var peekingDeserializer = recMetadataSampleWithFunctions(
-                "CREATE FUNCTION SqlFunction1(IN Q BIGINT) AS SELECT * FROM T1 WHERE col1 < Q",
-                "CREATE FUNCTION SqlFunction2(IN Q BIGINT) AS SELECT * FROM SqlFunction1(100) WHERE col1 < Q");
+                "CREATE FUNCTION SqlFunction1(IN Q BIGINT) AS SELECT * FROM T1 WHERE COL1 < Q",
+                "CREATE FUNCTION SqlFunction2(IN Q BIGINT) AS SELECT * FROM SqlFunction1(100) WHERE COL1 < Q");
         Assertions.assertTrue(peekingDeserializer.hasNoCompilationRequestsFor("SqlFunction1"));
         Assertions.assertTrue(peekingDeserializer.hasNoCompilationRequestsFor("SqlFunction2"));
 
@@ -396,17 +394,16 @@ public class SchemaTemplateSerDeTests {
         Assertions.assertTrue(peekingDeserializer.hasOneCompilationRequestFor("SqlFunction1"));
         Assertions.assertTrue(peekingDeserializer.hasOneCompilationRequestFor("SqlFunction2"));
 
-        Assertions.assertDoesNotThrow(() -> planGenerator.getPlan("select * from SqlFunction2(200) where col1 < 300"));
+        Assertions.assertDoesNotThrow(() -> planGenerator.getPlan("select * from SqlFunction2(200) where COL1 < 300"));
         Assertions.assertTrue(peekingDeserializer.hasOneCompilationRequestFor("SqlFunction1"));
         Assertions.assertTrue(peekingDeserializer.hasOneCompilationRequestFor("SqlFunction2"));
     }
 
-    @Disabled
     @Test
-    public void onlyQueriedSqlFunctionsAreCompiled() throws RelationalException {
+    public void onlyQueriedSqlFunctionsAreCompiled() throws Exception {
         final var peekingDeserializer = recMetadataSampleWithFunctions(
-                "CREATE FUNCTION SqlFunction1(IN Q BIGINT) AS SELECT * FROM T1 WHERE col1 < Q",
-                "CREATE FUNCTION SqlFunction2(IN Q BIGINT) AS SELECT * FROM SqlFunction1(100) WHERE col1 < Q",
+                "CREATE FUNCTION SqlFunction1(IN Q BIGINT) AS SELECT * FROM T1 WHERE COL1 < Q",
+                "CREATE FUNCTION SqlFunction2(IN Q BIGINT) AS SELECT * FROM SqlFunction1(100) WHERE COL1 < Q",
                 "CREATE FUNCTION SqlFunction3() AS SELECT * FROM T1");
         Assertions.assertTrue(peekingDeserializer.hasNoCompilationRequestsFor("SqlFunction1"));
         Assertions.assertTrue(peekingDeserializer.hasNoCompilationRequestsFor("SqlFunction2"));
@@ -418,17 +415,19 @@ public class SchemaTemplateSerDeTests {
         Assertions.assertTrue(peekingDeserializer.hasNoCompilationRequestsFor("SqlFunction2"));
         Assertions.assertTrue(peekingDeserializer.hasNoCompilationRequestsFor("SqlFunction3"));
 
+        planGenerator.getPlan("select * from SqlFunction2(200)");
+
         Assertions.assertDoesNotThrow(() -> planGenerator.getPlan("select * from SqlFunction2(200)"));
         Assertions.assertTrue(peekingDeserializer.hasOneCompilationRequestFor("SqlFunction1"));
         Assertions.assertTrue(peekingDeserializer.hasOneCompilationRequestFor("SqlFunction2"));
         Assertions.assertTrue(peekingDeserializer.hasNoCompilationRequestsFor("SqlFunction3"));
 
-        Assertions.assertDoesNotThrow(() -> planGenerator.getPlan("select * from SqlFunction2(200) where col1 < 300"));
+        Assertions.assertDoesNotThrow(() -> planGenerator.getPlan("select * from SqlFunction2(200) where COL1 < 300"));
         Assertions.assertTrue(peekingDeserializer.hasOneCompilationRequestFor("SqlFunction1"));
         Assertions.assertTrue(peekingDeserializer.hasOneCompilationRequestFor("SqlFunction2"));
         Assertions.assertTrue(peekingDeserializer.hasNoCompilationRequestsFor("SqlFunction4"));
 
-        Assertions.assertDoesNotThrow(() -> planGenerator.getPlan("select * from SqlFunction3() where col1 < 300"));
+        Assertions.assertDoesNotThrow(() -> planGenerator.getPlan("select * from SqlFunction3() where COL1 < 300"));
         Assertions.assertTrue(peekingDeserializer.hasOneCompilationRequestFor("SqlFunction1"));
         Assertions.assertTrue(peekingDeserializer.hasOneCompilationRequestFor("SqlFunction2"));
         Assertions.assertTrue(peekingDeserializer.hasOneCompilationRequestFor("SqlFunction3"));
@@ -526,14 +525,16 @@ public class SchemaTemplateSerDeTests {
 
         // Verify that the provided functions match the ones we just deserialized
         Assertions.assertEquals(expectedFunctionMap, actualFunctionMap);
-
-        Assertions.assertTrue(invokedRoutines.containsKey("SqlFunction1"));
-        final var function = invokedRoutines.get("SqlFunction1");
-        Assertions.assertInstanceOf(RawSqlFunction.class, function);
-        final var rawSqlFunction = (RawSqlFunction)function;
-        Assertions.assertEquals("SqlFunction1", rawSqlFunction.getFunctionName());
-        Assertions.assertEquals("CREATE FUNCTION SqlFunction1(IN Q BIGINT) AS SELECT * FROM T1 WHERE col1 < Q",
-                rawSqlFunction.getDefinition());
+        for (final var entry : expectedFunctionMap.entrySet()) {
+            final var functionName = entry.getKey();
+            final var functionDescription = entry.getValue();
+            Assertions.assertTrue(invokedRoutines.containsKey(functionName));
+            final var function = invokedRoutines.get(functionName);
+            Assertions.assertInstanceOf(RawSqlFunction.class, function);
+            final var rawSqlFunction = (RawSqlFunction)function;
+            Assertions.assertEquals(functionName, rawSqlFunction.getFunctionName());
+            Assertions.assertEquals(functionDescription, rawSqlFunction.getDefinition());
+        }
 
         // let's verify now that _no_ compilation is invoked when deserializing the record metadata.
         // for that, we use a deserializer with peeking supplier to the function compilation logic.
@@ -586,8 +587,7 @@ public class SchemaTemplateSerDeTests {
         }
 
         @Nonnull
-        public PlanGenerator getPlanGenerator()
-                throws RelationalException {
+        public PlanGenerator getPlanGenerator() throws RelationalException, SQLException {
 
             final var metricCollector = new MetricCollector() {
                 @Override
@@ -610,7 +610,8 @@ public class SchemaTemplateSerDeTests {
                     .withPlannerConfiguration(PlannerConfiguration.ofAllAvailableIndexes())
                     .withUserVersion(0)
                     .build();
-            return PlanGenerator.create(Optional.empty(), ctx, ctx.getMetaData(), new RecordStoreState(null, Map.of()), Options.NONE);
+            return PlanGenerator.create(Optional.empty(), ctx, ctx.getMetaData(), new RecordStoreState(null, Map.of()),
+                    Options.builder().withOption(Options.Name.CASE_SENSITIVE_IDENTIFIERS, true).build());
         }
     }
 }

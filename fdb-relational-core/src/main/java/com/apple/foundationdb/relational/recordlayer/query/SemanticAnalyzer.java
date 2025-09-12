@@ -29,8 +29,11 @@ import com.apple.foundationdb.record.query.plan.cascades.CatalogedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.Correlated;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.IndexAccessHint;
+import com.apple.foundationdb.record.query.plan.cascades.Memoizer;
+import com.apple.foundationdb.record.query.plan.cascades.PlannerStage;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.References;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.TableFunctionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -48,6 +51,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.RelOpValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.StreamableAggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.StreamingValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.ToUniqueAliasesTranslationMap;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -66,6 +70,7 @@ import com.google.common.base.Function;
 import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
 import com.google.protobuf.ByteString;
@@ -839,12 +844,28 @@ public class SemanticAnalyzer {
                 : tableFunction.encapsulate(valueArgs);
         if (resultingValue instanceof StreamingValue) {
             final var tableFunctionExpression = new TableFunctionExpression(Assert.castUnchecked(resultingValue, StreamingValue.class));
-            final var resultingQuantifier = Quantifier.forEach(Reference.initialOf(tableFunctionExpression));
+            final var reference = Reference.initialOf(tableFunctionExpression);
+            long startTime = System.nanoTime();
+            final var translatedReference = Iterables.getOnlyElement(References.rebaseGraphs(List.of(reference),
+                    Memoizer.noMemoization(PlannerStage.INITIAL), new ToUniqueAliasesTranslationMap(), false));
+            long endTime = System.nanoTime();
+            long elapsedNanos = endTime - startTime;
+            double elapsedMillis = elapsedNanos / 1_000_000.0;
+            System.out.println("Translation plan took " + elapsedMillis);
+            final var resultingQuantifier = Quantifier.forEach(translatedReference);
             final var output = Expressions.of(LogicalOperator.convertToExpressions(resultingQuantifier));
             return LogicalOperator.newNamedOperator(functionName, output, resultingQuantifier);
         }
         final var relationalExpression = Assert.castUnchecked(resultingValue, RelationalExpression.class);
-        final var topQun = Quantifier.forEach(Reference.initialOf(relationalExpression));
+        final var reference = Reference.initialOf(relationalExpression);
+        long startTime = System.nanoTime();
+        final var translatedReference = Iterables.getOnlyElement(References.rebaseGraphs(List.of(reference),
+                Memoizer.noMemoization(PlannerStage.INITIAL), new ToUniqueAliasesTranslationMap(), false));
+        long endTime = System.nanoTime();
+        long elapsedNanos = endTime - startTime;
+        double elapsedMillis = elapsedNanos / 1_000_000.0;
+        System.out.println("Translation plan took " + elapsedMillis);
+        final var topQun = Quantifier.forEach(translatedReference);
         return LogicalOperator.newNamedOperator(functionName, Expressions.fromQuantifier(topQun), topQun);
     }
 
