@@ -21,14 +21,20 @@
 package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.relational.api.ddl.NoOpQueryFactory;
 import com.apple.foundationdb.relational.api.metadata.DataType;
+import com.apple.foundationdb.relational.generated.RelationalLexer;
+import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.recordlayer.ddl.NoOpMetadataOperationsFactory;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerColumn;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.recordlayer.query.visitors.BaseVisitor;
 import com.apple.foundationdb.relational.recordlayer.query.visitors.DelegatingVisitor;
+import org.antlr.v4.runtime.CommonTokenStream;
+import org.apache.commons.lang3.mutable.MutableBoolean;
+import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
@@ -55,19 +61,56 @@ public class DelegatingVisitorTest {
     }
 
     @Test
-    void visitPredicatedExpressionTest() throws Exception {
+    void visitPredicatedExpressionTest() {
+        final var query = "X BETWEEN 32 AND 43";
+        final MutableBoolean baseVisitorCalled = new MutableBoolean(false);
         final var baseVisitor = new BaseVisitor(
                 new MutablePlanGenerationContext(PreparedParams.empty(),
-                        PlanHashable.PlanHashMode.VC0, "X BETWEEN 32 AND 43", "X BETWEEN 32 AND 43", 42),
+                        PlanHashable.PlanHashMode.VC0, query, query, 42),
                 generateMetadata(),
                 NoOpQueryFactory.INSTANCE,
                 NoOpMetadataOperationsFactory.INSTANCE,
                 URI.create("/FDB/FRL1"),
-                false);
+                false) {
+            @Nonnull
+            @Override
+            public Expression visitPredicatedExpression(@Nonnull final RelationalParser.PredicatedExpressionContext ctx) {
+                baseVisitorCalled.setTrue();
+                return Expression.ofUnnamed(LiteralValue.ofScalar(42));
+            }
+        };
         final var delegatingVisitor = new DelegatingVisitor<>(baseVisitor);
-        final var parsed = QueryParser.parse("X BETWEEN 32 AND 43").getRootContext();
-        //delegatingVisitor.visitPredicatedExpression((RelationalParser.PredicatedExpressionContext)parsed);
-        System.out.println("hello");
+        final var tokenSource = new RelationalLexer(new CaseInsensitiveCharStream(query));
+        final var parser = new RelationalParser(new CommonTokenStream(tokenSource));
+        final var predicatedExpression = (RelationalParser.PredicatedExpressionContext)parser.expression();
+        delegatingVisitor.visitPredicatedExpression(predicatedExpression);
+        Assertions.assertThat(baseVisitorCalled.booleanValue()).isTrue();
     }
 
+    @Test
+    void visitSubscriptExpressionTest() {
+        final var query = "X[42]";
+        final MutableBoolean baseVisitorCalled = new MutableBoolean(false);
+        final var baseVisitor = new BaseVisitor(
+                new MutablePlanGenerationContext(PreparedParams.empty(),
+                        PlanHashable.PlanHashMode.VC0, query, query, 42),
+                generateMetadata(),
+                NoOpQueryFactory.INSTANCE,
+                NoOpMetadataOperationsFactory.INSTANCE,
+                URI.create("/FDB/FRL1"),
+                false) {
+
+            @Override
+            public Expression visitSubscriptExpression(@Nonnull final RelationalParser.SubscriptExpressionContext ctx) {
+                baseVisitorCalled.setTrue();
+                return Expression.ofUnnamed(LiteralValue.ofScalar(42));
+            }
+        };
+        final var delegatingVisitor = new DelegatingVisitor<>(baseVisitor);
+        final var tokenSource = new RelationalLexer(new CaseInsensitiveCharStream(query));
+        final var parser = new RelationalParser(new CommonTokenStream(tokenSource));
+        final var predicatedExpression = (RelationalParser.SubscriptExpressionContext)parser.expressionAtom();
+        delegatingVisitor.visitSubscriptExpression(predicatedExpression);
+        Assertions.assertThat(baseVisitorCalled.booleanValue()).isTrue();
+    }
 }
