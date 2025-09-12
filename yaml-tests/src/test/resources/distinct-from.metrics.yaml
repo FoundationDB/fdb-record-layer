@@ -111,24 +111,26 @@ not-distinct-from-tests:
     insert_new_count: 54
     insert_reused_count: 7
 -   query: EXPLAIN select count(*) from t1 WHERE null is not distinct from null
-    explain: 'AISCAN(CNT <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY
-        NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)'
+    explain: 'AISCAN(CNT <,> BY_GROUP -> [_0: VALUE:[0]]) | FILTER NULL NOT_DISTINCT_FROM
+        NULL | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l
+        AS LONG)) AS _0)'
     task_count: 995
-    task_total_time_ms: 48
-    transform_count: 252
-    transform_time_ms: 18
-    transform_yield_count: 70
+    task_total_time_ms: 31
+    transform_count: 254
+    transform_time_ms: 10
+    transform_yield_count: 69
     insert_time_ms: 1
     insert_new_count: 113
-    insert_reused_count: 5
+    insert_reused_count: 7
 -   query: EXPLAIN select count(*) from t1 WHERE 10 is not distinct from 10
-    explain: 'AISCAN(CNT <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY
-        NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)'
+    explain: 'AISCAN(CNT <,> BY_GROUP -> [_0: VALUE:[0]]) | FILTER @c9 NOT_DISTINCT_FROM
+        @c9 | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l
+        AS LONG)) AS _0)'
     task_count: 995
-    task_total_time_ms: 48
-    transform_count: 252
-    transform_time_ms: 18
-    transform_yield_count: 70
-    insert_time_ms: 1
+    task_total_time_ms: 24
+    transform_count: 254
+    transform_time_ms: 8
+    transform_yield_count: 69
+    insert_time_ms: 0
     insert_new_count: 113
-    insert_reused_count: 5
+    insert_reused_count: 7
