@@ -47,4 +47,8 @@ public class CipherPool {
     public static void returnCipher(@Nonnull Cipher cipher) {
         MAPPED_POOL.offer(cipher.getAlgorithm(), cipher);
     }
+
+    public static void invalidateAll() {
+        MAPPED_POOL.invalidateAll();
+    }
 }
