@@ -98,10 +98,10 @@ runs:
 
     - name: debugging
       shell: bash
-      run: systemctl --system daemon-reload
+      run: sudo systemctl --system daemon-reload
     - name: experiment
       shell: bash
-      run: systemctl start foundationdb.service
+      run: sudo systemctl start foundationdb.service
 # sudo /usr/lib/foundationdb/fdbmonitor --conffile /etc/foundationdb/foundationdb.conf --lockfile /var/run/fdbmonitor.pid --loggroup fdbX --daemonize
 
 
