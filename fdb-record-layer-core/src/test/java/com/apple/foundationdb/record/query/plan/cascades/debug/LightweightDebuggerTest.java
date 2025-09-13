@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.query.plan.cascades.PlannerPhase;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -43,6 +44,11 @@ class LightweightDebuggerTest {
         Debugger.setDebugger(debugger);
         Debugger.setup();
         StatsDebugger.withDebugger(d -> d.onQuery("SELECT * from A", PlanContext.EMPTY_CONTEXT));
+    }
+
+    @AfterAll
+    static void tearDown() {
+        Debugger.setDebugger(null);
     }
 
     @Test
