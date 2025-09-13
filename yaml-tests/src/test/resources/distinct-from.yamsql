@@ -95,13 +95,13 @@ test_block:
         # Cannot support FORCE_CONTINUATIONS due to non-empty aggregate scan returning a begin continuation.
         # See: https://github.com/FoundationDB/fdb-record-layer/issues/3206
       - maxRows: 0
-      - explain: "AISCAN(CNT <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
+      - explain: "AISCAN(CNT <,> BY_GROUP -> [_0: VALUE:[0]]) | FILTER NULL NOT_DISTINCT_FROM NULL | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
       - result: [{10}]
     -
       - query: select count(*) from t1 WHERE 10 is not distinct from 10
         # Cannot support FORCE_CONTINUATIONS due to non-empty aggregate scan returning a begin continuation.
         # See: https://github.com/FoundationDB/fdb-record-layer/issues/3206
       - maxRows: 0
-      - explain: "AISCAN(CNT <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
+      - explain: "AISCAN(CNT <,> BY_GROUP -> [_0: VALUE:[0]]) | FILTER @c9 NOT_DISTINCT_FROM @c9 | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
       - result: [{10}]
 ...

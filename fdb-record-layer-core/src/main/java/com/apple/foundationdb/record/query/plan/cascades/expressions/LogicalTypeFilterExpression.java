@@ -205,7 +205,8 @@ public class LogicalTypeFilterExpression implements TypeFilterExpression, Planne
             return Compensation.impossibleCompensation();
         }
         final var compensatedResult = compensatedResultOptional.get();
-        if (!compensatedResult.getResultCompensationFunction().isNeeded()) {
+        if (!childCompensation.isNeeded() &&
+                !compensatedResult.getResultCompensationFunction().isNeeded()) {
             return Compensation.noCompensation();
         }
 

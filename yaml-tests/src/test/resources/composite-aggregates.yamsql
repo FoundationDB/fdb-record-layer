@@ -19,7 +19,7 @@
 
 ---
 options:
-    supported_version: !current_version
+    supported_version: 4.5.12.0
 ---
 schema_template:
     create table t1(id bigint, col1 bigint, col2 bigint, col3 bigint, primary key(id))
