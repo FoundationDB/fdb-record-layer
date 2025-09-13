@@ -5,9 +5,9 @@ select-star-tests:
         (_._0._0 AS A1, _._0._1 AS A2, _._0._2 AS A3, q0.B1 AS B1) | DEFAULT NULL
         | FILTER _ NOT_NULL AS q0 RETURN (q0.B1 AS B1) }
     task_count: 491
-    task_total_time_ms: 22
-    transform_count: 128
-    transform_time_ms: 7
+    task_total_time_ms: 26
+    transform_count: 135
+    transform_time_ms: 9
     transform_yield_count: 42
     insert_time_ms: 0
     insert_new_count: 49
@@ -18,9 +18,9 @@ select-star-tests:
         (_._0._0 AS A1, _._0._1 AS A2, _._0._2 AS A3, q0.B1 AS B1) | DEFAULT NULL
         | FILTER _ NOT_NULL AS q0 RETURN (q0.B1 AS B1) }
     task_count: 491
-    task_total_time_ms: 22
-    transform_count: 128
-    transform_time_ms: 7
+    task_total_time_ms: 26
+    transform_count: 135
+    transform_time_ms: 9
     transform_yield_count: 42
     insert_time_ms: 0
     insert_new_count: 49
@@ -33,8 +33,8 @@ select-star-tests:
         AS B3) | DEFAULT NULL | FILTER _ NOT_NULL AS q0 RETURN q0 }
     task_count: 491
     task_total_time_ms: 19
-    transform_count: 128
-    transform_time_ms: 6
+    transform_count: 135
+    transform_time_ms: 8
     transform_yield_count: 42
     insert_time_ms: 0
     insert_new_count: 49

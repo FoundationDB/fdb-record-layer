@@ -6,9 +6,9 @@ null-operator-tests:
         (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)'
     task_count: 610
     task_total_time_ms: 28
-    transform_count: 142
+    transform_count: 146
     transform_time_ms: 9
     transform_yield_count: 42
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 71
     insert_reused_count: 4

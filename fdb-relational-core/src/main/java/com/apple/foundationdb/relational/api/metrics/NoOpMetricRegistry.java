@@ -30,7 +30,7 @@ import javax.annotation.Nonnull;
  * A utility for accessing a no-op {@link MetricRegistry}.
  * <p>
  * NOTE(stack): Consider NOT using codahale but prometheus metrics. If server is exporting metrics
- * on an prometheus endpoint, codahale will require translation (there are translators but better not
+ * on a prometheus endpoint, codahale will require translation (there are translators but better not
  * to translate at all). What is the story for clients? RL is codahale?
  */
 @API(API.Status.EXPERIMENTAL)

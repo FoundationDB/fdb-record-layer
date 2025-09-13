@@ -3,9 +3,9 @@ orderby-tests:
     explain: 'COVERING(I1 <,> -> [A: KEY[2], B: KEY[0], C: VALUE[0]]) | MAP (_.C AS
         C, _.B AS B) | MAP (_.C AS C)'
     task_count: 286
-    task_total_time_ms: 7
-    transform_count: 67
-    transform_time_ms: 3
+    task_total_time_ms: 11
+    transform_count: 71
+    transform_time_ms: 4
     transform_yield_count: 36
     insert_time_ms: 0
     insert_new_count: 25
@@ -14,9 +14,9 @@ orderby-tests:
     explain: 'COVERING(I2 <,> -> [A: KEY[2], B: VALUE[0], C: KEY[0]]) | MAP (_.B AS
         B, _.C AS C) | MAP (_.B AS B)'
     task_count: 391
-    task_total_time_ms: 17
-    transform_count: 84
-    transform_time_ms: 6
+    task_total_time_ms: 23
+    transform_count: 88
+    transform_time_ms: 9
     transform_yield_count: 43
     insert_time_ms: 0
     insert_new_count: 41
@@ -25,9 +25,9 @@ orderby-tests:
     explain: 'COVERING(I1 <,> REVERSE -> [A: KEY[2], B: KEY[0], C: VALUE[0]]) | MAP
         (_.C AS C, _.B AS B) | MAP (_.C AS C)'
     task_count: 286
-    task_total_time_ms: 6
-    transform_count: 67
-    transform_time_ms: 2
+    task_total_time_ms: 16
+    transform_count: 71
+    transform_time_ms: 7
     transform_yield_count: 36
     insert_time_ms: 0
     insert_new_count: 25
@@ -36,9 +36,9 @@ orderby-tests:
     explain: 'COVERING(I2 <,> REVERSE -> [A: KEY[2], B: VALUE[0], C: KEY[0]]) | MAP
         (_.B AS B, _.C AS C) | MAP (_.B AS B)'
     task_count: 391
-    task_total_time_ms: 10
-    transform_count: 84
-    transform_time_ms: 4
+    task_total_time_ms: 24
+    transform_count: 88
+    transform_time_ms: 10
     transform_yield_count: 43
     insert_time_ms: 0
     insert_new_count: 41
@@ -47,9 +47,9 @@ orderby-tests:
     explain: 'COVERING(I8 <,> -> [A: KEY[3], B: from_ordered_bytes(KEY:[1], DESC_NULLS_LAST),
         C: KEY[0]]) | MAP (_.C AS C, _.B AS B)'
     task_count: 202
-    task_total_time_ms: 9
-    transform_count: 46
-    transform_time_ms: 4
+    task_total_time_ms: 12
+    transform_count: 50
+    transform_time_ms: 6
     transform_yield_count: 22
     insert_time_ms: 0
     insert_new_count: 20

@@ -39,9 +39,6 @@ setup:
                (9, 0, 8.90, false, 'doe', (9, 90))
 ---
 test_block:
-  options:
-    connection_options:
-      DISABLE_PLANNER_REWRITING: true
   tests:
     -
       # LONG value matched against IN list of only LONG values
@@ -125,8 +122,16 @@ test_block:
       - query: select a, e from ta where e in ('b' + 'a' + 'r', 'doe')
       - unorderedResult: [{ A: 1, !ignore x }, { A: 8, !ignore x }, { A: 2, !ignore x }, { A: 5, !ignore x }, { A: 9, !ignore x }]
     -
-      # `NOT IN` not supported
+      # `NOT IN`
+      - query: select e, a from ta where e not in ('foo' , 'bar', 'doe', 'arc', 'something')
+      - supported_version: 4.5.13.0
+      - unorderedResult: [{ E: "per", A: 4 }]
+    -
+      # `NOT IN` with incompatible types
       - query: select a, e from ta where e not in ('foo' , 35)
+      - initialVersionAtLeast: 4.5.13.0
+      - error: "42804"
+      - initialVersionLessThan: 4.5.13.0
       - error: "42601"
     -
       # Values of incompatible types in the IN list
@@ -143,10 +148,8 @@ test_block:
 ---
 # Following tests are run once because running them the second time around causes the error to be different. This is
 # "expected" as the point of error is different in both the cases.
+# https://github.com/FoundationDB/fdb-record-layer/issues/3583
 test_block:
-  options:
-    connection_options:
-      DISABLE_PLANNER_REWRITING: true
   tests:
       -
         # LONG value matched against IN list of LONG and DOUBLE values

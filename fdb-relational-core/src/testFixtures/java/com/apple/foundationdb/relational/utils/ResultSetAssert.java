@@ -155,6 +155,7 @@ public class ResultSetAssert extends AbstractAssert<ResultSetAssert, RelationalR
                 return rs.getBoolean(position);
             case Types.SMALLINT:
             case Types.INTEGER:
+                return rs.getInt(position);
             case Types.BIGINT:
                 return rs.getLong(position);
             case Types.FLOAT:

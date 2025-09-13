@@ -106,7 +106,7 @@ class WorkloadTestDescriptor extends NestedClassTestDescriptor {
          * First, create the data
          */
         context.getThrowableCollector().execute(() -> {
-            WorkloadReporter reporter = new WorkloadReporter((String) workload.getConfig().get("reportDirectory"));
+            WorkloadReporter reporter = new WorkloadReporter(workload.getConfig().getReportDirectory());
             reporter.publishWorkload(workload);
             try {
                 loadSchema(workload);
@@ -279,7 +279,7 @@ class WorkloadTestDescriptor extends NestedClassTestDescriptor {
                     //TODO(bfines) configure this
                     final WorkloadConfig config = workload.getConfig();
                     ReservoirSample<RelationalStruct> reservoir = new ReservoirSample<>(config.getInt(WorkloadConfig.SAMPLE_SIZE, 100),
-                            config.getLong(WorkloadConfig.SEED_KEY, System.currentTimeMillis()));
+                            config.getSeed());
                     try (Stream<RelationalStruct> structs = dataSet.getData(table)) {
                         /*
                          * Read in a batch of records, and insert them to every connector

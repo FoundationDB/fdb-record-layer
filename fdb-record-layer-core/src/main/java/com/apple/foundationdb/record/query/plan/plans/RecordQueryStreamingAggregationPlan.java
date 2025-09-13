@@ -243,7 +243,6 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
         return completeResultValue;
     }
 
-    @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
     @Override
     public boolean equals(final Object other) {
         if (other == null) {
@@ -410,7 +409,6 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
         }
     }
 
-    @SuppressWarnings("SimplifiableConditionalExpression")
     @Nonnull
     public static RecordQueryStreamingAggregationPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                                                 @Nonnull final PRecordQueryStreamingAggregationPlan2 recordQueryStreamingAggregationPlanProto) {
@@ -468,8 +466,8 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
                                                          @Nullable final Value groupingKeyValue,
                                                          @Nonnull final AggregateValue aggregateValue,
                                                          @Nonnull final BiFunction<Value, Value, Value> resultValueFunction) {
-        final var groupingKeyAlias = CorrelationIdentifier.uniqueID();
-        final var aggregateAlias = CorrelationIdentifier.uniqueID();
+        final var groupingKeyAlias = CorrelationIdentifier.uniqueId();
+        final var aggregateAlias = CorrelationIdentifier.uniqueId();
 
         final var referencedGroupingKeyValue =
                 groupingKeyValue == null
@@ -487,8 +485,8 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
                                                          @Nonnull final AggregateValue aggregateValue,
                                                          @Nonnull final BiFunction<Value, Value, Value> resultValueFunction,
                                                          @Nonnull final SerializationMode serializationMode) {
-        final var groupingKeyAlias = CorrelationIdentifier.uniqueID();
-        final var aggregateAlias = CorrelationIdentifier.uniqueID();
+        final var groupingKeyAlias = CorrelationIdentifier.uniqueId();
+        final var aggregateAlias = CorrelationIdentifier.uniqueId();
 
         final var referencedGroupingKeyValue =
                 groupingKeyValue == null
