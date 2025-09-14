@@ -60,7 +60,7 @@ test_block:
   tests:
     -
       - query: SELECT * FROM t
-      - error: "25F01"
+      - error: "XXF01"
 ---
 test_block:
   name: read-wrong-key
@@ -71,7 +71,7 @@ test_block:
   tests:
     -
       - query: SELECT * FROM t
-      - error: "25F01"
+      - error: "XXF01"
 ---
 test_block:
   name: write-unencrypted
@@ -88,5 +88,5 @@ test_block:
       - unorderedResult: [{S: 'xyz'}]
     -
       - query: SELECT s FROM t WHERE id = 1
-      - error: "25F01"
+      - error: "XXF01"
 ...
