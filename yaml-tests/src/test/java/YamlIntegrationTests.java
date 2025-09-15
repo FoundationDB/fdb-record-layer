@@ -315,4 +315,9 @@ public class YamlIntegrationTests {
     public void compositeAggregates(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("composite-aggregates.yamsql");
     }
+
+    @TestTemplate
+    public void simpleQueryWithDifferentDebuggersTest(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("simple-query-with-different-debuggers.yamsql");
+    }
 }

@@ -24,6 +24,8 @@ import com.google.common.collect.ImmutableMap;
 
 import javax.annotation.Nonnull;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Stream;
 
 public class Stats {
     @Nonnull
@@ -60,5 +62,15 @@ public class Stats {
     @Nonnull
     public Stats toImmutable() {
         return new Stats(ImmutableMap.copyOf(locationCountMap), totalTimeInNs, ownTimeInNs);
+    }
+
+    public static Stats merge(final Stats first, final Stats second) {
+        return new Stats(
+                Stream.of(first.getLocationCountMap(), second.getLocationCountMap())
+                        .map(Map::entrySet)
+                        .flatMap(Set::stream)
+                        .collect(ImmutableMap.toImmutableMap(Map.Entry::getKey, Map.Entry::getValue, Long::sum)),
+                first.getTotalTimeInNs() + second.getTotalTimeInNs(),
+                first.getOwnTimeInNs() + second.getOwnTimeInNs());
     }
 }
