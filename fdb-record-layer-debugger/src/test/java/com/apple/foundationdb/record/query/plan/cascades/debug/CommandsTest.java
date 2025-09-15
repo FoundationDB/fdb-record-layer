@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpre
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import org.jline.terminal.Terminal;
 import org.jline.terminal.impl.DumbTerminal;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -63,6 +64,11 @@ class CommandsTest {
         Debugger.setDebugger(debugger);
         Debugger.setup();
         Debugger.withDebugger(d -> d.onQuery(query, PlanContext.EMPTY_CONTEXT));
+    }
+
+    @AfterAll
+    static void tearDown() {
+        Debugger.setDebugger(null);
     }
 
     @Test

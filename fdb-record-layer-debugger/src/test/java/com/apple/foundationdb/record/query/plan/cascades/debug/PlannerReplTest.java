@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 
 import org.jline.terminal.Terminal;
 import org.jline.terminal.impl.DumbTerminal;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -61,6 +62,11 @@ class PlannerReplTest {
         Debugger.setDebugger(debugger);
         Debugger.setup();
         Debugger.withDebugger(d -> d.onQuery("SELECT * FROM A", PlanContext.EMPTY_CONTEXT));
+    }
+
+    @AfterAll
+    static void tearDown() {
+        Debugger.setDebugger(null);
     }
 
     @Test
