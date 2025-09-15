@@ -38,30 +38,19 @@ import java.util.Arrays;
 import java.util.Map;
 import java.util.UUID;
 import java.util.function.Supplier;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 /**
- * Tests for {@link ResolvedKeySpacePath} equals() and hashCode() methods.
+ * Tests for {@link ResolvedKeySpacePath}.
  */
 @Tag(Tags.RequiresFDB)
 class ResolvedKeySpacePathTest {
     @RegisterExtension
     final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
-
-    /**
-     * Provides test parameters for KeyType and constantDirectory combinations.
-     */
-    @Nonnull
-    static Stream<Arguments> testEqualsHashCode() {
-        return ParameterizedTestUtils.cartesianProduct(
-                Arrays.stream(KeyType.values()),
-                ParameterizedTestUtils.booleans("constantDirectory"),
-                ParameterizedTestUtils.booleans("differenceInParent")
-        );
-    }
 
     /**
      * Test value pairs for each KeyType.
@@ -76,6 +65,15 @@ class ResolvedKeySpacePathTest {
             KeyType.FLOAT, new TestValuePair(() -> 1.5f, () -> 2.5f),
             KeyType.DOUBLE, new TestValuePair(() -> 1.5d, () -> 2.5d)
     );
+
+    @Nonnull
+    static Stream<Arguments> testEqualsHashCode() {
+        return ParameterizedTestUtils.cartesianProduct(
+                Arrays.stream(KeyType.values()),
+                ParameterizedTestUtils.booleans("constantDirectory"),
+                ParameterizedTestUtils.booleans("differenceInParent")
+        );
+    }
 
     /**
      * Test equals and hashCode contracts for depth 1 directories.
@@ -136,15 +134,24 @@ class ResolvedKeySpacePathTest {
      */
     @ParameterizedTest
     @BooleanSource("constantDirectory")
-    void testRemainderNotComparedInEquals(boolean constantDirectory) {
+    void testRemainderComparedInEquals(boolean constantDirectory) {
         KeySpacePath innerPath = createKeySpacePath(createRootParent(), KeyType.STRING, "resolved", constantDirectory);
         PathValue value = new PathValue("resolved", null);
             
         ResolvedKeySpacePath path1 = new ResolvedKeySpacePath(null, innerPath, value, Tuple.from("remainder1"));
         ResolvedKeySpacePath path2 = new ResolvedKeySpacePath(null, innerPath, value, Tuple.from("remainder2"));
-            
-        // Current implementation: remainder is not compared in equals()
-        assertEquals(path1, path2, "Current implementation: remainder not compared in equals()");
+        ResolvedKeySpacePath path3 = new ResolvedKeySpacePath(null, innerPath, value, Tuple.from("remainder1"));
+
+        assertNotEquals(path1, path2, "Paths with different remainders should not be equal");
+        assertEquals(path1, path3, "Paths with the same remainder should be equal");
+        assertEquals(path1.hashCode(), path3.hashCode(), "Paths with the same remainder should have same hashCode");
+        ResolvedKeySpacePath nullRemainder = new ResolvedKeySpacePath(null, innerPath, value, null);
+        assertNotEquals(path1, nullRemainder, "Path without a remainder should not be the equal to one with a remainder");
+        assertNotEquals(nullRemainder, null, "Make sure null is properly handled in equals");
+        IntStream.range(0, 10_000).mapToObj(i -> new ResolvedKeySpacePath(null, innerPath, value, Tuple.from(i)))
+                .filter(path -> path.hashCode() != path1.hashCode())
+                .findAny()
+                .orElseThrow(() -> new AssertionError("Paths with different remainders should sometimes have different hash codes"));
     }
 
     @Nonnull
@@ -162,18 +169,14 @@ class ResolvedKeySpacePathTest {
         PathValue pathValue = new PathValue(resolvedValue, null);
         final ResolvedKeySpacePath resolvedKeySpacePath = new ResolvedKeySpacePath(parent, innerPath, pathValue, null);
         if (addConstantChild) {
-            final ResolvedKeySpacePath resolvedPath = createResolvedPath(KeyType.STRING, "Constant", "Constant", resolvedKeySpacePath, true, false);
-            System.out.println(resolvedPath);
+            final ResolvedKeySpacePath resolvedPath = createResolvedPath(KeyType.STRING,
+                    "Constant", "Constant", resolvedKeySpacePath, true, false);
             return resolvedPath;
         } else {
-            System.out.println(resolvedKeySpacePath);
             return resolvedKeySpacePath;
         }
     }
 
-    /**
-     * Helper to create a KeySpacePath for testing.
-     */
     @Nonnull
     private KeySpacePath createKeySpacePath(@Nonnull ResolvedKeySpacePath parent, @Nonnull KeyType keyType, @Nullable Object value,
                                             boolean constantDirectory) {
@@ -195,10 +198,8 @@ class ResolvedKeySpacePathTest {
 
     @Nonnull
     private static ResolvedKeySpacePath createRootParent() {
-        KeySpacePath parent;
         final KeySpaceDirectory parentDir = new KeySpaceDirectory("root", KeyType.STRING, "root");
-        KeySpace keySpace = new KeySpace(parentDir);
-        parent = keySpace.path("root");
+        KeySpacePath parent = new KeySpace(parentDir).path("root");
         return new ResolvedKeySpacePath(null, parent, new PathValue("root", null), null);
     }
 

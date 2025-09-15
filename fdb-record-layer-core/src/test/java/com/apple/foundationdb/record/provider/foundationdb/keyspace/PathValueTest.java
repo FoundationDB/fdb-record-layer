@@ -30,7 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 /**
- * Tests for {@link PathValue} equals() and hashCode() methods.
+ * Tests for {@link PathValue}.
  */
 class PathValueTest {
 
@@ -59,14 +59,14 @@ class PathValueTest {
                 Arguments.of("different types", "string", null, 42L, null),
                 Arguments.of("different metadata", "test", new byte[]{1, 2, 3}, "test", new byte[]{4, 5, 6}),
                 Arguments.of("one null metadata", "test", new byte[]{1, 2, 3}, "test", null),
-                Arguments.of("different resolved values", "test1", new byte[]{1, 2, 3}, "test2", new byte[]{1, 2, 3})
+                Arguments.of("different value with same metadata", "test1", new byte[]{1, 2, 3}, "test2", new byte[]{1, 2, 3})
         );
     }
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("equalPathValuePairs")
     void testEqualsAndHashCodeForEqualValues(String description, Object resolvedValue1, byte[] metadata1, 
-                                           Object resolvedValue2, byte[] metadata2) {
+                                             Object resolvedValue2, byte[] metadata2) {
         PathValue value1 = new PathValue(resolvedValue1, metadata1);
         PathValue value2 = new PathValue(resolvedValue2, metadata2);
         
@@ -77,7 +77,7 @@ class PathValueTest {
     @ParameterizedTest(name = "{0}")
     @MethodSource("unequalPathValuePairs")
     void testNotEqualsForUnequalValues(String description, Object resolvedValue1, byte[] metadata1, 
-                                     Object resolvedValue2, byte[] metadata2) {
+                                       Object resolvedValue2, byte[] metadata2) {
         PathValue value1 = new PathValue(resolvedValue1, metadata1);
         PathValue value2 = new PathValue(resolvedValue2, metadata2);
         
