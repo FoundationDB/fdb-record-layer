@@ -237,7 +237,7 @@ public class ResolvedKeySpacePath {
 
     @Override
     public int hashCode() {
-        return Objects.hash(inner, getResolvedPathValue(), remainder);
+        return Objects.hash(inner, getResolvedPathValue(), remainder, getParent());
     }
 
     @Override
