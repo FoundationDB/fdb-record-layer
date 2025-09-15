@@ -845,26 +845,16 @@ public class SemanticAnalyzer {
         if (resultingValue instanceof StreamingValue) {
             final var tableFunctionExpression = new TableFunctionExpression(Assert.castUnchecked(resultingValue, StreamingValue.class));
             final var reference = Reference.initialOf(tableFunctionExpression);
-            long startTime = System.nanoTime();
             final var translatedReference = Iterables.getOnlyElement(References.rebaseGraphs(List.of(reference),
                     Memoizer.noMemoization(PlannerStage.INITIAL), new ToUniqueAliasesTranslationMap(), false));
-            long endTime = System.nanoTime();
-            long elapsedNanos = endTime - startTime;
-            double elapsedMillis = elapsedNanos / 1_000_000.0;
-            System.out.println("Translation plan took " + elapsedMillis);
             final var resultingQuantifier = Quantifier.forEach(translatedReference);
             final var output = Expressions.of(LogicalOperator.convertToExpressions(resultingQuantifier));
             return LogicalOperator.newNamedOperator(functionName, output, resultingQuantifier);
         }
         final var relationalExpression = Assert.castUnchecked(resultingValue, RelationalExpression.class);
         final var reference = Reference.initialOf(relationalExpression);
-        long startTime = System.nanoTime();
         final var translatedReference = Iterables.getOnlyElement(References.rebaseGraphs(List.of(reference),
                 Memoizer.noMemoization(PlannerStage.INITIAL), new ToUniqueAliasesTranslationMap(), false));
-        long endTime = System.nanoTime();
-        long elapsedNanos = endTime - startTime;
-        double elapsedMillis = elapsedNanos / 1_000_000.0;
-        System.out.println("Translation plan took " + elapsedMillis);
         final var topQun = Quantifier.forEach(translatedReference);
         return LogicalOperator.newNamedOperator(functionName, Expressions.fromQuantifier(topQun), topQun);
     }
