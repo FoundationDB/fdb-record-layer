@@ -2154,6 +2154,5 @@ message PRecordQueryTableFunctionPlan {
 message PRecordQueryRecursivePlan {
   optional PPhysicalQuantifier root_quantifier = 1;
   optional PPhysicalQuantifier child_quantifier = 2;
-  optional PValue result_value = 3;
-  optional bool inherit_record_properties = 4;
+  optional string prior_value_correlation = 3;
 }

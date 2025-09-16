@@ -71,17 +71,17 @@ public class RecordQueryRecursivePlan implements RecordQueryPlanWithChildren, Re
     @Nonnull
     private final Quantifier.Physical childQuantifier;
     @Nonnull
+    private final CorrelationIdentifier priorValueCorrelation;
+    @Nonnull
     private final Value resultValue;
-    private final boolean inheritRecordProperties;
 
     public RecordQueryRecursivePlan(@Nonnull final Quantifier.Physical rootQuantifier,
                                     @Nonnull final Quantifier.Physical childQuantifier,
-                                    @Nonnull final Value resultValue,
-                                    final boolean inheritRecordProperties) {
+                                    @Nonnull final CorrelationIdentifier priorValueCorrelation) {
         this.rootQuantifier = rootQuantifier;
         this.childQuantifier = childQuantifier;
-        this.resultValue = resultValue;
-        this.inheritRecordProperties = inheritRecordProperties;
+        this.priorValueCorrelation = priorValueCorrelation;
+        this.resultValue = RecordQuerySetPlan.mergeValues(ImmutableList.of(rootQuantifier, childQuantifier));
     }
 
     @Nonnull
@@ -92,10 +92,6 @@ public class RecordQueryRecursivePlan implements RecordQueryPlanWithChildren, Re
     @Nonnull
     public Quantifier.Physical getChildQuantifier() {
         return childQuantifier;
-    }
-
-    public boolean isInheritRecordProperties() {
-        return inheritRecordProperties;
     }
 
     @SuppressWarnings("resource")
@@ -112,20 +108,13 @@ public class RecordQueryRecursivePlan implements RecordQueryPlanWithChildren, Re
                                 rootQuantifier.getRangesOverPlan().executePlan(store, context, rootContinuation, nestedExecuteProperties),
                         (parentResult, depth, innerContinuation) -> {
                             // TODO: Consider binding depth as well.
-                            final CorrelationIdentifier priorId = CorrelationIdentifier.of("prior_" + childQuantifier.getAlias().getId());
-                            final EvaluationContext childContext = context.withBinding(Bindings.Internal.CORRELATION.bindingName(priorId.getId()), parentResult);
+                            final EvaluationContext childContext = context.withBinding(Bindings.Internal.CORRELATION.bindingName(priorValueCorrelation.getId()), parentResult);
                             return childQuantifier.getRangesOverPlan().executePlan(store, childContext, innerContinuation, nestedExecuteProperties);
                         },
                         null,
                         continuation
                 ).skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit())
-                .map(childResult -> {
-                    // TODO: Consider returning depth and is_leaf as well.
-                    final EvaluationContext childContext = context.withBinding(Bindings.Internal.CORRELATION.bindingName(childQuantifier.getAlias().getId()),
-                            childResult.getValue());
-                    final var computed = resultValue.eval(store, childContext);
-                    return inheritRecordProperties ? childResult.getValue().withComputed(computed) : QueryResult.ofComputed(computed);
-                });
+                .map(RecursiveCursor.RecursiveValue::getValue);
     }
 
     @Override
@@ -204,7 +193,7 @@ public class RecordQueryRecursivePlan implements RecordQueryPlanWithChildren, Re
 
     @Override
     public int hashCodeWithoutChildren() {
-        return Objects.hash(getResultValue(), inheritRecordProperties);
+        return Objects.hash(getResultValue(), priorValueCorrelation);
     }
 
     @Nonnull
@@ -212,12 +201,11 @@ public class RecordQueryRecursivePlan implements RecordQueryPlanWithChildren, Re
     public RelationalExpression translateCorrelations(@Nonnull final TranslationMap translationMap, final boolean shouldSimplifyValues,
                                                       @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         Verify.verify(translatedQuantifiers.size() == 2);
-        final Value translatedResultValue = resultValue.translateCorrelations(translationMap);
+        Verify.verify(!translationMap.containsSourceAlias(priorValueCorrelation));
         return new RecordQueryRecursivePlan(
                 translatedQuantifiers.get(0).narrow(Quantifier.Physical.class),
                 translatedQuantifiers.get(1).narrow(Quantifier.Physical.class),
-                translatedResultValue,
-                inheritRecordProperties
+                priorValueCorrelation
         );
     }
 
@@ -235,7 +223,7 @@ public class RecordQueryRecursivePlan implements RecordQueryPlanWithChildren, Re
         switch (mode.getKind()) {
             case LEGACY:
             case FOR_CONTINUATION:
-                return PlanHashable.objectsPlanHash(mode, BASE_HASH, getChildren(), getResultValue(), inheritRecordProperties);
+                return PlanHashable.objectsPlanHash(mode, BASE_HASH, getChildren(), getResultValue(), priorValueCorrelation);
             default:
                 throw new UnsupportedOperationException("Hash kind " + mode.name() + " is not supported");
         }
@@ -265,8 +253,7 @@ public class RecordQueryRecursivePlan implements RecordQueryPlanWithChildren, Re
         return PRecordQueryRecursivePlan.newBuilder()
                 .setRootQuantifier(rootQuantifier.toProto(serializationContext))
                 .setChildQuantifier(childQuantifier.toProto(serializationContext))
-                .setResultValue(resultValue.toValueProto(serializationContext))
-                .setInheritRecordProperties(inheritRecordProperties)
+                .setPriorValueCorrelation(priorValueCorrelation.getId())
                 .build();
     }
 
@@ -282,9 +269,13 @@ public class RecordQueryRecursivePlan implements RecordQueryPlanWithChildren, Re
         return new RecordQueryRecursivePlan(
                 Quantifier.Physical.fromProto(serializationContext, Objects.requireNonNull(recordQueryRecursivePlanProto.getRootQuantifier())),
                 Quantifier.Physical.fromProto(serializationContext, Objects.requireNonNull(recordQueryRecursivePlanProto.getChildQuantifier())),
-                Value.fromValueProto(serializationContext, Objects.requireNonNull(recordQueryRecursivePlanProto.getResultValue())),
-                recordQueryRecursivePlanProto.getInheritRecordProperties()
+                CorrelationIdentifier.of(Objects.requireNonNull(recordQueryRecursivePlanProto.getPriorValueCorrelation()))
         );
+    }
+
+    @Nonnull
+    public CorrelationIdentifier getPriorValueCorrelation() {
+        return priorValueCorrelation;
     }
 
     /**

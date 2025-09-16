@@ -843,7 +843,7 @@ public class DerivationsProperty implements ExpressionProperty<DerivationsProper
         @Nonnull
         @Override
         public Derivations visitRecursivePlan(@Nonnull final RecordQueryRecursivePlan recursivePlan) {
-            throw new RecordCoreException("unsupported plan operator");
+            return Derivations.EMPTY; // todo https://github.com/FoundationDB/fdb-record-layer/issues/2974
         }
 
         @Nonnull

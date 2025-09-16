@@ -431,10 +431,7 @@ public class PrimaryKeyProperty implements ExpressionProperty<Optional<List<Valu
         @Nonnull
         @Override
         public Optional<List<Value>> visitRecursivePlan(@Nonnull final RecordQueryRecursivePlan recursivePlan) {
-            if (recursivePlan.isInheritRecordProperties()) {
-                return primaryKeyFromSingleQuantifier(recursivePlan.getChildQuantifier());
-            }
-            return Optional.empty();
+            return commonPrimaryKeyFromChildren(recursivePlan);
         }
 
         @Nonnull

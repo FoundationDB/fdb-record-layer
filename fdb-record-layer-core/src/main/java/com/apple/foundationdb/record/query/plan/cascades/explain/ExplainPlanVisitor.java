@@ -613,13 +613,15 @@ public class ExplainPlanVisitor extends ExplainTokens implements RecordQueryPlan
     @Override
     public ExplainTokens visitRecursivePlan(@Nonnull final RecordQueryRecursivePlan recursivePlan) {
         Verify.verify(recursivePlan.getChildren().size() == 2);
-        addKeyword("RUNION-DFS");
-        // TODO: add prior alias here.
-        // .addSequence(() -> new ExplainTokens().addCommaAndWhiteSpace(),
-        // new ExplainTokens().addAliasDefinition(recursivePlan.getTempTableScanAlias()));
-        visit(recursivePlan.getChildren().get(0)).addWhitespace().addClosingBrace().addLinebreakOrWhitespace();
-        addKeyword("RECURSIVE").addWhitespace().addWhitespace().addOpeningBrace().addLinebreakOrWhitespace();
-        return visit(recursivePlan.getChildren().get(1)).addWhitespace().addClosingBrace()
+        addKeyword("RUNION-DFS").addWhitespace();
+        final var priorValueCorrelation = new ExplainTokens().addAliasDefinition(recursivePlan.getPriorValueCorrelation());
+        addNested(ExplainLevel.ALL_DETAILS, priorValueCorrelation).addWhitespace();
+        addOpeningBrace().addWhitespace();
+        visit(recursivePlan.getChildren().get(0)).addWhitespace();
+        addClosingBrace().addLinebreakOrWhitespace();
+        addOpeningBrace().addWhitespace();
+        addKeyword("RECURSIVE").addWhitespace();
+        return visit(recursivePlan.getChildren().get(1)).addWhitespace()
                 .addOptionalWhitespace().addClosingBrace();
     }
 

@@ -21,7 +21,9 @@
 import com.apple.foundationdb.relational.yamltests.MaintainYamlTestConfig;
 import com.apple.foundationdb.relational.yamltests.YamlTest;
 import com.apple.foundationdb.relational.yamltests.YamlTestConfigFilters;
+import com.sun.tools.javadoc.Main;
 import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestTemplate;
 
 /**
@@ -261,6 +263,7 @@ public class YamlIntegrationTests {
         runner.runYamsql("bitmap-aggregate-index.yamsql");
     }
 
+    @MaintainYamlTestConfig(YamlTestConfigFilters.CORRECT_EXPLAIN_AND_METRICS)
     @TestTemplate
     public void recursiveCte(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("recursive-cte.yamsql");

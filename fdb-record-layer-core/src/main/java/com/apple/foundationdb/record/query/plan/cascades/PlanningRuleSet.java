@@ -25,6 +25,7 @@ import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.rules.AdjustMatchRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.AggregateDataAccessRule;
+import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementRecursiveDfsUnionRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.WithPrimaryKeyDataAccessRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementDeleteRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementDistinctRule;
@@ -170,6 +171,7 @@ public class PlanningRuleSet extends CascadesRuleSet {
             new ImplementTempTableInsertRule(),
             new ImplementUpdateRule(),
             new ImplementRecursiveUnionRule(),
+            new ImplementRecursiveDfsUnionRule(),
             new ImplementTableFunctionRule()
     );
 
