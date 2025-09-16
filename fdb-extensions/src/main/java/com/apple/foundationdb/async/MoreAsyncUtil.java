@@ -23,12 +23,14 @@ package com.apple.foundationdb.async;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.util.LoggableException;
 import com.google.common.base.Suppliers;
+import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
@@ -42,9 +44,13 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.function.IntPredicate;
+import java.util.function.IntUnaryOperator;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 
@@ -1049,6 +1055,64 @@ public class MoreAsyncUtil {
             }
         });
         return result;
+    }
+
+    @Nonnull
+    public static <U> CompletableFuture<U> forLoop(final int startI, @Nullable final U startU,
+                                                   @Nonnull final IntPredicate conditionPredicate,
+                                                   @Nonnull final IntUnaryOperator stepFunction,
+                                                   @Nonnull final BiFunction<Integer, U, CompletableFuture<U>> body,
+                                                   @Nonnull final Executor executor) {
+        final AtomicInteger loopVariableAtomic = new AtomicInteger(startI);
+        final AtomicReference<U> lastResultAtomic = new AtomicReference<>(startU);
+        return whileTrue(() -> {
+            final int loopVariable = loopVariableAtomic.get();
+            if (!conditionPredicate.test(loopVariable)) {
+                return AsyncUtil.READY_FALSE;
+            }
+            return body.apply(loopVariable, lastResultAtomic.get())
+                    .thenApply(result -> {
+                        loopVariableAtomic.set(stepFunction.applyAsInt(loopVariable));
+                        lastResultAtomic.set(result);
+                        return true;
+                    });
+        }, executor).thenApply(ignored -> lastResultAtomic.get());
+    }
+
+    @SuppressWarnings("unchecked")
+    public static <T, U> CompletableFuture<List<U>> forEach(@Nonnull final Iterable<T> items,
+                                                            @Nonnull final Function<T, CompletableFuture<U>> body,
+                                                            final int parallelism,
+                                                            @Nonnull final Executor executor) {
+        // this deque is only modified by once upon creation
+        final ArrayDeque<T> toBeProcessed = new ArrayDeque<>();
+        for (final T item : items) {
+            toBeProcessed.addLast(item);
+        }
+
+        final List<CompletableFuture<Void>> working = Lists.newArrayList();
+        final AtomicInteger indexAtomic = new AtomicInteger(0);
+        final Object[] resultArray = new Object[toBeProcessed.size()];
+
+        return whileTrue(() -> {
+            working.removeIf(CompletableFuture::isDone);
+
+            while (working.size() <= parallelism) {
+                final T currentItem = toBeProcessed.pollFirst();
+                if (currentItem == null) {
+                    break;
+                }
+
+                final int index = indexAtomic.getAndIncrement();
+                working.add(body.apply(currentItem)
+                        .thenAccept(result -> resultArray[index] = result));
+            }
+
+            if (working.isEmpty()) {
+                return AsyncUtil.READY_FALSE;
+            }
+            return whenAny(working).thenApply(ignored -> true);
+        }, executor).thenApply(ignored -> Arrays.asList((U[])resultArray));
     }
 
     /**
