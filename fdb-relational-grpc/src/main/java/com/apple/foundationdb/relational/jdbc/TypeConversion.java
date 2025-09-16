@@ -23,6 +23,7 @@ package com.apple.foundationdb.relational.jdbc;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.relational.api.ArrayMetaData;
 import com.apple.foundationdb.relational.api.Continuation;
+import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalArray;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStruct;
@@ -55,6 +56,7 @@ import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -573,5 +575,232 @@ public class TypeConversion {
             default:
                 throw new IllegalStateException("Unrecognized continuation reason: " + reason);
         }
+    }
+
+    @VisibleForTesting
+    @SuppressWarnings("unchecked")
+    static com.apple.foundationdb.relational.jdbc.grpc.v1.Options.Builder toProtobuf(@Nonnull Options options) throws SQLException {
+        final var builder = com.apple.foundationdb.relational.jdbc.grpc.v1.Options.newBuilder();
+        for (Map.Entry<Options.Name, ?> entry : options.entries()) {
+            switch (entry.getKey()) {
+                case MAX_ROWS:
+                    builder.setMaxRows((Integer)entry.getValue());
+                    break;
+                case CONTINUATION:
+                    builder.setContinuation(ByteString.copyFrom(((Continuation)entry.getValue()).serialize()));
+                    break;
+                case INDEX_HINT:
+                    builder.setIndexHint((String)entry.getValue());
+                    break;
+                case REQUIRED_METADATA_TABLE_VERSION:
+                    builder.setRequiredMetadataTableVersion((Integer)entry.getValue());
+                    break;
+                case TRANSACTION_TIMEOUT:
+                    builder.setTransactionTimeout((Long)entry.getValue());
+                    break;
+                case REPLACE_ON_DUPLICATE_PK:
+                    builder.setReplaceOnDuplicatePk((Boolean)entry.getValue());
+                    break;
+                case PLAN_CACHE_PRIMARY_MAX_ENTRIES:
+                    builder.setPlanCachePrimaryMaxEntries((Integer)entry.getValue());
+                    break;
+                case PLAN_CACHE_SECONDARY_MAX_ENTRIES:
+                    builder.setPlanCacheSecondaryMaxEntries((Integer)entry.getValue());
+                    break;
+                case PLAN_CACHE_TERTIARY_MAX_ENTRIES:
+                    builder.setPlanCacheTertiaryMaxEntries((Integer)entry.getValue());
+                    break;
+                case PLAN_CACHE_PRIMARY_TIME_TO_LIVE_MILLIS:
+                    builder.setPlanCachePrimaryTimeToLiveMillis((Long)entry.getValue());
+                    break;
+                case PLAN_CACHE_SECONDARY_TIME_TO_LIVE_MILLIS:
+                    builder.setPlanCacheSecondaryTimeToLiveMillis((Long)entry.getValue());
+                    break;
+                case PLAN_CACHE_TERTIARY_TIME_TO_LIVE_MILLIS:
+                    builder.setPlanCacheTertiaryTimeToLiveMillis((Long)entry.getValue());
+                    break;
+                case INDEX_FETCH_METHOD:
+                    switch ((Options.IndexFetchMethod)entry.getValue()) {
+                        case SCAN_AND_FETCH:
+                            builder.setIndexFetchMethod(com.apple.foundationdb.relational.jdbc.grpc.v1.Options.IndexFetchMethod.SCAN_AND_FETCH);
+                            break;
+                        case USE_REMOTE_FETCH:
+                            builder.setIndexFetchMethod(com.apple.foundationdb.relational.jdbc.grpc.v1.Options.IndexFetchMethod.USE_REMOTE_FETCH);
+                            break;
+                        case USE_REMOTE_FETCH_WITH_FALLBACK:
+                            builder.setIndexFetchMethod(com.apple.foundationdb.relational.jdbc.grpc.v1.Options.IndexFetchMethod.USE_REMOTE_FETCH_WITH_FALLBACK);
+                            break;
+                        default:
+                            throw new SQLException("Unknown fetch method");
+                    }
+                    break;
+                case DISABLED_PLANNER_RULES:
+                    for (String rule : (Collection<String>)entry.getValue()) {
+                        builder.addDisabledPlannerRules(rule);
+                    }
+                    break;
+                case DISABLE_PLANNER_REWRITING:
+                    builder.setDisablePlannerRewriting((Boolean)entry.getValue());
+                    break;
+                case LOG_QUERY:
+                    builder.setLogQuery((Boolean)entry.getValue());
+                    break;
+                case LOG_SLOW_QUERY_THRESHOLD_MICROS:
+                    builder.setLogSlowQueryThresholdMicros((Long)entry.getValue());
+                    break;
+                case EXECUTION_TIME_LIMIT:
+                    builder.setExecutionTimeLimit((Long)entry.getValue());
+                    break;
+                case EXECUTION_SCANNED_BYTES_LIMIT:
+                    builder.setExecutionScannedBytesLimit((Long)entry.getValue());
+                    break;
+                case EXECUTION_SCANNED_ROWS_LIMIT:
+                    builder.setExecutionScannedRowsLimit((Integer)entry.getValue());
+                    break;
+                case DRY_RUN:
+                    builder.setDryRun((Boolean)entry.getValue());
+                    break;
+                case CASE_SENSITIVE_IDENTIFIERS:
+                    builder.setCaseSensitiveIdentifiers((Boolean)entry.getValue());
+                    break;
+                case CURRENT_PLAN_HASH_MODE:
+                    builder.setCurrentPlanHashMode((String)entry.getValue());
+                    break;
+                case VALID_PLAN_HASH_MODES:
+                    builder.setValidPlanHashModes((String)entry.getValue());
+                    break;
+                case CONTINUATIONS_CONTAIN_COMPILED_STATEMENTS:
+                    builder.setContinuationsContainCompiledStatements((Boolean)entry.getValue());
+                    break;
+                case ASYNC_OPERATIONS_TIMEOUT_MILLIS:
+                    builder.setAsyncOperationsTimeoutMillis((Long)entry.getValue());
+                    break;
+                case ENCRYPT_WHEN_SERIALIZING:
+                    builder.setEncryptWhenSerializing((Boolean)entry.getValue());
+                    break;
+                case ENCRYPTION_KEY_STORE:
+                    builder.setEncryptionKeyStore((String)entry.getValue());
+                    break;
+                case ENCRYPTION_KEY_ENTRY:
+                    builder.setEncryptionKeyEntry((String)entry.getValue());
+                    break;
+                case ENCRYPTION_KEY_PASSWORD:
+                    builder.setEncryptionKeyPassword((String)entry.getValue());
+                    break;
+                default:
+                    throw new SQLException("Cannot encode option in protobuf");
+            }
+        }
+        return builder;
+    }
+
+    public static Options fromProtobuf(com.apple.foundationdb.relational.jdbc.grpc.v1.Options protoOptions) throws SQLException {
+        final Options.Builder builder = Options.builder();
+        if (protoOptions.hasMaxRows()) {
+            builder.withOption(Options.Name.MAX_ROWS, protoOptions.getMaxRows());
+        }
+        if (protoOptions.hasContinuation()) {
+            // TODO: The Impl class lives in relational-core.
+            builder.withOption(Options.Name.CONTINUATION, protoOptions.getContinuation().toByteArray());
+        }
+        if (protoOptions.hasIndexHint()) {
+            builder.withOption(Options.Name.INDEX_HINT, protoOptions.getIndexHint());
+        }
+        if (protoOptions.hasRequiredMetadataTableVersion()) {
+            builder.withOption(Options.Name.REQUIRED_METADATA_TABLE_VERSION, protoOptions.getRequiredMetadataTableVersion());
+        }
+        if (protoOptions.hasTransactionTimeout()) {
+            builder.withOption(Options.Name.TRANSACTION_TIMEOUT, protoOptions.getTransactionTimeout());
+        }
+        if (protoOptions.hasReplaceOnDuplicatePk()) {
+            builder.withOption(Options.Name.REPLACE_ON_DUPLICATE_PK, protoOptions.getReplaceOnDuplicatePk());
+        }
+        if (protoOptions.hasPlanCachePrimaryMaxEntries()) {
+            builder.withOption(Options.Name.PLAN_CACHE_PRIMARY_MAX_ENTRIES, protoOptions.getPlanCachePrimaryMaxEntries());
+        }
+        if (protoOptions.hasPlanCacheSecondaryMaxEntries()) {
+            builder.withOption(Options.Name.PLAN_CACHE_SECONDARY_MAX_ENTRIES, protoOptions.getPlanCacheSecondaryMaxEntries());
+        }
+        if (protoOptions.hasPlanCacheTertiaryMaxEntries()) {
+            builder.withOption(Options.Name.PLAN_CACHE_TERTIARY_MAX_ENTRIES, protoOptions.getPlanCacheTertiaryMaxEntries());
+        }
+        if (protoOptions.hasPlanCachePrimaryTimeToLiveMillis()) {
+            builder.withOption(Options.Name.PLAN_CACHE_PRIMARY_TIME_TO_LIVE_MILLIS, protoOptions.getPlanCachePrimaryTimeToLiveMillis());
+        }
+        if (protoOptions.hasPlanCacheSecondaryTimeToLiveMillis()) {
+            builder.withOption(Options.Name.PLAN_CACHE_SECONDARY_TIME_TO_LIVE_MILLIS, protoOptions.getPlanCacheSecondaryTimeToLiveMillis());
+        }
+        if (protoOptions.hasPlanCacheTertiaryTimeToLiveMillis()) {
+            builder.withOption(Options.Name.PLAN_CACHE_TERTIARY_TIME_TO_LIVE_MILLIS, protoOptions.getPlanCacheTertiaryTimeToLiveMillis());
+        }
+        if (protoOptions.hasIndexFetchMethod()) {
+            Options.IndexFetchMethod indexFetchMethod;
+            switch (protoOptions.getIndexFetchMethod()) {
+                case SCAN_AND_FETCH:
+                    indexFetchMethod = Options.IndexFetchMethod.SCAN_AND_FETCH;
+                    break;
+                case USE_REMOTE_FETCH:
+                    indexFetchMethod = Options.IndexFetchMethod.USE_REMOTE_FETCH;
+                    break;
+                case USE_REMOTE_FETCH_WITH_FALLBACK:
+                    indexFetchMethod = Options.IndexFetchMethod.USE_REMOTE_FETCH_WITH_FALLBACK;
+                    break;
+                default:
+                    throw new SQLException("Unknown fetch method");
+            }
+            builder.withOption(Options.Name.INDEX_FETCH_METHOD, indexFetchMethod);
+        }
+        if (protoOptions.getDisabledPlannerRulesCount() > 0) {
+            builder.withOption(Options.Name.DISABLED_PLANNER_RULES, protoOptions.getDisabledPlannerRulesList());
+        }
+        if (protoOptions.hasDisablePlannerRewriting()) {
+            builder.withOption(Options.Name.DISABLE_PLANNER_REWRITING, protoOptions.getDisablePlannerRewriting());
+        }
+        if (protoOptions.hasLogQuery()) {
+            builder.withOption(Options.Name.LOG_QUERY, protoOptions.getLogQuery());
+        }
+        if (protoOptions.hasLogSlowQueryThresholdMicros()) {
+            builder.withOption(Options.Name.LOG_SLOW_QUERY_THRESHOLD_MICROS, protoOptions.getLogSlowQueryThresholdMicros());
+        }
+        if (protoOptions.hasExecutionTimeLimit()) {
+            builder.withOption(Options.Name.EXECUTION_TIME_LIMIT, protoOptions.getExecutionTimeLimit());
+        }
+        if (protoOptions.hasExecutionScannedBytesLimit()) {
+            builder.withOption(Options.Name.EXECUTION_SCANNED_BYTES_LIMIT, protoOptions.getExecutionScannedBytesLimit());
+        }
+        if (protoOptions.hasExecutionScannedRowsLimit()) {
+            builder.withOption(Options.Name.EXECUTION_SCANNED_ROWS_LIMIT, protoOptions.getExecutionScannedRowsLimit());
+        }
+        if (protoOptions.hasDryRun()) {
+            builder.withOption(Options.Name.DRY_RUN, protoOptions.getDryRun());
+        }
+        if (protoOptions.hasCaseSensitiveIdentifiers()) {
+            builder.withOption(Options.Name.CASE_SENSITIVE_IDENTIFIERS, protoOptions.getCaseSensitiveIdentifiers());
+        }
+        if (protoOptions.hasCurrentPlanHashMode()) {
+            builder.withOption(Options.Name.CURRENT_PLAN_HASH_MODE, protoOptions.getCurrentPlanHashMode());
+        }
+        if (protoOptions.hasValidPlanHashModes()) {
+            builder.withOption(Options.Name.VALID_PLAN_HASH_MODES, protoOptions.getValidPlanHashModes());
+        }
+        if (protoOptions.hasContinuationsContainCompiledStatements()) {
+            builder.withOption(Options.Name.CONTINUATIONS_CONTAIN_COMPILED_STATEMENTS, protoOptions.getContinuationsContainCompiledStatements());
+        }
+        if (protoOptions.hasAsyncOperationsTimeoutMillis()) {
+            builder.withOption(Options.Name.ASYNC_OPERATIONS_TIMEOUT_MILLIS, protoOptions.getAsyncOperationsTimeoutMillis());
+        }
+        if (protoOptions.hasEncryptWhenSerializing()) {
+            builder.withOption(Options.Name.ENCRYPT_WHEN_SERIALIZING, protoOptions.getEncryptWhenSerializing());
+        }
+        if (protoOptions.hasEncryptionKeyStore()) {
+            builder.withOption(Options.Name.ENCRYPTION_KEY_STORE, protoOptions.getEncryptionKeyStore());
+        }
+        if (protoOptions.hasEncryptionKeyEntry()) {
+            builder.withOption(Options.Name.ENCRYPTION_KEY_ENTRY, protoOptions.getEncryptionKeyEntry());
+        }
+        if (protoOptions.hasEncryptionKeyPassword()) {
+            builder.withOption(Options.Name.ENCRYPTION_KEY_PASSWORD, protoOptions.getEncryptionKeyPassword());
+        }
+        return builder.build();
     }
 }
