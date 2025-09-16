@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ObjectPlanHash;
@@ -34,13 +35,12 @@ import com.apple.foundationdb.record.planprotos.PRecordQueryRecursivePlan;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
-import com.apple.foundationdb.record.query.plan.PlanStringRepresentation;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.Memoizer;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
+import com.apple.foundationdb.record.query.plan.cascades.explain.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
@@ -113,7 +113,7 @@ public class RecordQueryRecursivePlan implements RecordQueryPlanWithChildren, Re
                         (parentResult, depth, innerContinuation) -> {
                             // TODO: Consider binding depth as well.
                             final CorrelationIdentifier priorId = CorrelationIdentifier.of("prior_" + childQuantifier.getAlias().getId());
-                            final EvaluationContext childContext = context.withBinding(priorId, parentResult);
+                            final EvaluationContext childContext = context.withBinding(Bindings.Internal.CORRELATION.bindingName(priorId.getId()), parentResult);
                             return childQuantifier.getRangesOverPlan().executePlan(store, childContext, innerContinuation, nestedExecuteProperties);
                         },
                         null,
@@ -121,7 +121,8 @@ public class RecordQueryRecursivePlan implements RecordQueryPlanWithChildren, Re
                 ).skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit())
                 .map(childResult -> {
                     // TODO: Consider returning depth and is_leaf as well.
-                    final EvaluationContext childContext = context.withBinding(childQuantifier.getAlias(), childResult.getValue());
+                    final EvaluationContext childContext = context.withBinding(Bindings.Internal.CORRELATION.bindingName(childQuantifier.getAlias().getId()),
+                            childResult.getValue());
                     final var computed = resultValue.eval(store, childContext);
                     return inheritRecordProperties ? childResult.getValue().withComputed(computed) : QueryResult.ofComputed(computed);
                 });
@@ -155,27 +156,14 @@ public class RecordQueryRecursivePlan implements RecordQueryPlanWithChildren, Re
         return resultValue.getCorrelatedTo();
     }
 
-    @Nonnull
-    @Override
-    public RecordQueryRecursivePlan translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
-        Verify.verify(translatedQuantifiers.size() == 2);
-        final Value translatedResultValue = resultValue.translateCorrelations(translationMap);
-        return new RecordQueryRecursivePlan(
-                translatedQuantifiers.get(0).narrow(Quantifier.Physical.class),
-                translatedQuantifiers.get(1).narrow(Quantifier.Physical.class),
-                translatedResultValue,
-                inheritRecordProperties
-        );
-    }
-
     @Override
     public boolean isReverse() {
         return Quantifiers.isReversed(Quantifiers.narrow(Quantifier.Physical.class, getQuantifiers()));
     }
 
     @Override
-    public RecordQueryRecursivePlan strictlySorted(@Nonnull Memoizer memoizer) {
-        return this;
+    public boolean isStrictlySorted() {
+        return true;
     }
 
     @Nonnull
@@ -187,7 +175,7 @@ public class RecordQueryRecursivePlan implements RecordQueryPlanWithChildren, Re
     @Nonnull
     @Override
     public String toString() {
-        return PlanStringRepresentation.toString(this);
+        return ExplainPlanVisitor.toStringForDebugging(this);
     }
 
     @Override
@@ -217,6 +205,20 @@ public class RecordQueryRecursivePlan implements RecordQueryPlanWithChildren, Re
     @Override
     public int hashCodeWithoutChildren() {
         return Objects.hash(getResultValue(), inheritRecordProperties);
+    }
+
+    @Nonnull
+    @Override
+    public RelationalExpression translateCorrelations(@Nonnull final TranslationMap translationMap, final boolean shouldSimplifyValues,
+                                                      @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+        Verify.verify(translatedQuantifiers.size() == 2);
+        final Value translatedResultValue = resultValue.translateCorrelations(translationMap);
+        return new RecordQueryRecursivePlan(
+                translatedQuantifiers.get(0).narrow(Quantifier.Physical.class),
+                translatedQuantifiers.get(1).narrow(Quantifier.Physical.class),
+                translatedResultValue,
+                inheritRecordProperties
+        );
     }
 
     @Override

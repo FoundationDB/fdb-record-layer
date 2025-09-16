@@ -67,6 +67,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanVisitor;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithExplain;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryRangePlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursivePlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScoreForRankPlan;
@@ -606,6 +607,20 @@ public class ExplainPlanVisitor extends ExplainTokens implements RecordQueryPlan
                                 .stream()
                                 .map(recordType -> new ExplainTokens().addIdentifier(recordType))
                                 .iterator());
+    }
+
+    @Nonnull
+    @Override
+    public ExplainTokens visitRecursivePlan(@Nonnull final RecordQueryRecursivePlan recursivePlan) {
+        Verify.verify(recursivePlan.getChildren().size() == 2);
+        addKeyword("RUNION-DFS");
+        // TODO: add prior alias here.
+        // .addSequence(() -> new ExplainTokens().addCommaAndWhiteSpace(),
+        // new ExplainTokens().addAliasDefinition(recursivePlan.getTempTableScanAlias()));
+        visit(recursivePlan.getChildren().get(0)).addWhitespace().addClosingBrace().addLinebreakOrWhitespace();
+        addKeyword("RECURSIVE").addWhitespace().addWhitespace().addOpeningBrace().addLinebreakOrWhitespace();
+        return visit(recursivePlan.getChildren().get(1)).addWhitespace().addClosingBrace()
+                .addOptionalWhitespace().addClosingBrace();
     }
 
     @Nonnull
