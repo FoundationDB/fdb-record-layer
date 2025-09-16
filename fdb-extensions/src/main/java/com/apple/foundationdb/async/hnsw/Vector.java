@@ -22,9 +22,18 @@ package com.apple.foundationdb.async.hnsw;
 
 import com.christianheina.langx.half4j.Half;
 import com.google.common.base.Suppliers;
+import com.google.common.collect.AbstractIterator;
+import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import java.io.EOFException;
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.nio.channels.FileChannel;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Objects;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -220,5 +229,110 @@ public abstract class Vector<R extends Number> {
         }
         // TODO
         throw new UnsupportedOperationException("not implemented yet");
+    }
+
+    public abstract static class StoredVecsIterator<N extends Number, T> extends AbstractIterator<T> {
+        @Nonnull
+        private final FileChannel fileChannel;
+
+        protected StoredVecsIterator(@Nonnull final FileChannel fileChannel) {
+            this.fileChannel = fileChannel;
+        }
+
+        @Nonnull
+        protected abstract N[] newComponentArray(int size);
+
+        @Nonnull
+        protected abstract N toComponent(@Nonnull ByteBuffer byteBuffer);
+
+        @Nonnull
+        protected abstract T toTarget(@Nonnull N[] components);
+
+
+        @Nullable
+        @Override
+        protected T computeNext() {
+            try {
+                final ByteBuffer headerBuf = ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN);
+                // allocate a buffer for reading floats later; you may reuse
+                headerBuf.clear();
+                final int bytesRead = fileChannel.read(headerBuf);
+                if (bytesRead < 4) {
+                    if (bytesRead == -1) {
+                        return endOfData();
+                    }
+                    throw new IOException("corrupt fvecs file");
+                }
+                headerBuf.flip();
+                final int dims = headerBuf.getInt();
+                if (dims <= 0) {
+                    throw new IOException("Invalid dimension " + dims + " at position " + (fileChannel.position() - 4));
+                }
+                final ByteBuffer vecBuf = ByteBuffer.allocate(dims * 4).order(ByteOrder.LITTLE_ENDIAN);
+                while (vecBuf.hasRemaining()) {
+                    int read = fileChannel.read(vecBuf);
+                    if (read < 0) {
+                        throw new EOFException("unexpected EOF when reading vector data");
+                    }
+                }
+                vecBuf.flip();
+                final N[] rawVecData = newComponentArray(dims);
+                for (int i = 0; i < dims; i++) {
+                    rawVecData[i] = toComponent(vecBuf);
+                }
+
+                return toTarget(rawVecData);
+            } catch (final IOException ioE) {
+                throw new RuntimeException(ioE);
+            }
+        }
+    }
+
+    public static class StoredFVecsIterator extends StoredVecsIterator<Double, DoubleVector> {
+        public StoredFVecsIterator(@Nonnull final FileChannel fileChannel) {
+            super(fileChannel);
+        }
+
+        @Nonnull
+        @Override
+        protected Double[] newComponentArray(final int size) {
+            return new Double[size];
+        }
+
+        @Nonnull
+        @Override
+        protected Double toComponent(@Nonnull final ByteBuffer byteBuffer) {
+            return (double)byteBuffer.getFloat();
+        }
+
+        @Nonnull
+        @Override
+        protected DoubleVector toTarget(@Nonnull final Double[] components) {
+            return new DoubleVector(components);
+        }
+    }
+
+    public static class StoredIVecsIterator extends StoredVecsIterator<Integer, List<Integer>> {
+        public StoredIVecsIterator(@Nonnull final FileChannel fileChannel) {
+            super(fileChannel);
+        }
+
+        @Nonnull
+        @Override
+        protected Integer[] newComponentArray(final int size) {
+            return new Integer[size];
+        }
+
+        @Nonnull
+        @Override
+        protected Integer toComponent(@Nonnull final ByteBuffer byteBuffer) {
+            return byteBuffer.getInt();
+        }
+
+        @Nonnull
+        @Override
+        protected List<Integer> toTarget(@Nonnull final Integer[] components) {
+            return ImmutableList.copyOf(components);
+        }
     }
 }
