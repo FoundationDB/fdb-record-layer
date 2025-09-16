@@ -195,7 +195,6 @@ public class LuceneIndexGetMetadataInfoTest extends FDBRecordStoreTestBase {
         }
     }
 
-    @SuppressWarnings("removal")
     @Test
     void testLuceneInfoConstructor() {
         final List<LuceneMetadataInfo.LuceneFileInfo> detailedFiles = List.of(

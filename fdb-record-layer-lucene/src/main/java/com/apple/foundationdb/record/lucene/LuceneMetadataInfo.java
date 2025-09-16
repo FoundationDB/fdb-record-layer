@@ -71,7 +71,7 @@ public class LuceneMetadataInfo extends IndexOperationResult {
         private final Collection<String> files;
         private final int fieldInfoCount;
         @Nullable
-        private final Collection<LuceneFileInfo> detailedFileInfos;
+        private final List<LuceneFileInfo> detailedFileInfos;
 
         @API(API.Status.DEPRECATED)
         public LuceneInfo(final int documentCount, final Collection<String> files, final int fieldInfoCount) {
@@ -83,11 +83,11 @@ public class LuceneMetadataInfo extends IndexOperationResult {
 
         public LuceneInfo(final int documentCount,
                           final int fieldInfoCount,
-                          @Nonnull final Collection<LuceneFileInfo> detailedFileInfos) {
+                          @Nonnull final List<LuceneFileInfo> detailedFileInfos) {
             this.documentCount = documentCount;
             this.files = detailedFileInfos.stream().map(LuceneFileInfo::getName).collect(Collectors.toList());
             this.fieldInfoCount = fieldInfoCount;
-            this.detailedFileInfos = Collections.unmodifiableCollection(detailedFileInfos);
+            this.detailedFileInfos = Collections.unmodifiableList(detailedFileInfos);
         }
 
         /**
@@ -119,10 +119,11 @@ public class LuceneMetadataInfo extends IndexOperationResult {
         /**
          * The detailed file info from the directory.
          * (Optional) - if the request did not specify that this is needed, this would be null.
+         * Note: This method returns the internal collection. It should not be modified.
          * @return the list of fileInfos in the directory
          */
         @Nullable
-        public Collection<LuceneFileInfo> getDetailedFileInfos() {
+        public List<LuceneFileInfo> getDetailedFileInfos() {
             return detailedFileInfos;
         }
 
