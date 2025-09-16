@@ -16,6 +16,7 @@
         <exclude name="MethodReturnsInternalArray" />
         <exclude name="UseVarargs" />
         <exclude name="UnusedImports" />
+        <exclude name="ReplaceVectorWithList" />
     </rule>
 
     <rule ref="category/java/codestyle.xml">
