@@ -119,7 +119,6 @@ public class LuceneMetadataInfo extends IndexOperationResult {
         /**
          * The detailed file info from the directory.
          * (Optional) - if the request did not specify that this is needed, this would be null.
-         * Note: This method returns the internal collection. It should not be modified.
          * @return the list of fileInfos in the directory
          */
         @Nullable
