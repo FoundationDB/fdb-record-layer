@@ -631,7 +631,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
             assertTrue(indexedMutually > 0);
             if (index.equals(indexes.get(3))) {
                 // Was not built by the multi target session
-                assertEquals(indexedMutually, numRecords);
+                assertEquals(numRecords, indexedMutually);
             } else {
                 // Was partly built by the multi target session
                 assertTrue(indexedMutually < numRecords);
@@ -663,6 +663,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
         Semaphore startBuildingSemaphore =  new Semaphore(1);
         pauseMutualBuildSemaphore.acquire();
         startBuildingSemaphore.acquire();
+        AtomicBoolean passed = new AtomicBoolean(false);
         final FDBStoreTimer timer = new FDBStoreTimer();
         Thread t1 = new Thread(() -> {
             // build indexes mutually and pause halfway, allowing an active session test
@@ -672,16 +673,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
                             .setMutualIndexing()
                             .build())
                     .setLimit(14)
-                    .setConfigLoader(old -> {
-                        try {
-                            startBuildingSemaphore.release();
-                            pauseMutualBuildSemaphore.acquire(); // pause to try building indexes
-                        } catch (InterruptedException e) {
-                            throw new RuntimeException(e);
-                        }
-                        pauseMutualBuildSemaphore.release();
-                        return old;
-                    })
+                    .setConfigLoader(old -> pauseAfterOnePass(old, passed, startBuildingSemaphore, pauseMutualBuildSemaphore))
                     .build()) {
                 indexBuilder.buildIndex();
             }
@@ -701,7 +693,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
 
         // must index all the records
         int indexedMutually = timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED);
-        assertEquals(indexedMutually, numRecords);
+        assertEquals(numRecords, indexedMutually);
 
         // happy indexes assertion
         assertReadable(indexes);
@@ -734,20 +726,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
             try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes, timer)
                     .setLeaseLengthMillis(TimeUnit.SECONDS.toMillis(20))
                     .setLimit(7)
-                    .setConfigLoader(old -> {
-                        if (passed.get()) {
-                            try {
-                                startBuildingSemaphore.release();
-                                pauseMutualBuildSemaphore.acquire(); // pause to try building indexes elsewhere
-                            } catch (InterruptedException e) {
-                                throw new RuntimeException(e);
-                            }
-                            pauseMutualBuildSemaphore.release();
-                        } else {
-                            passed.set(true);
-                        }
-                        return old;
-                    })
+                    .setConfigLoader(old -> pauseAfterOnePass(old, passed, startBuildingSemaphore, pauseMutualBuildSemaphore))
                     .build()) {
                 indexBuilder.buildIndex();
             }
@@ -1699,14 +1678,9 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
                         .setLimit(2)
                         .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                                 .setMutualIndexingBoundaries(boundariesList)
-                                .checkIndexingStampFrequencyMilliseconds(0)
                                 .build())
                         .setConfigLoader(old -> {
-                            try {
-                                Thread.sleep(10);
-                            } catch (InterruptedException e) {
-                                throw new RuntimeException(e);
-                            }
+                            snooze(10);
                             return old;
                         })
                         .build()) {
