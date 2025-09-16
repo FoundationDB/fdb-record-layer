@@ -44,6 +44,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalType
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUnionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUniqueExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.MatchableSortExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RecursiveExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RecursiveUnionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionVisitor;
@@ -414,6 +415,12 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
         public Cardinalities visitRecordQueryRecursiveDfsPlan(@Nonnull final RecordQueryRecursiveDfsPlan element) {
             // TODO
             return Cardinalities.unknownCardinalities;
+        }
+
+        @Nonnull
+        @Override
+        public Cardinalities visitRecursiveExpression(@Nonnull final RecursiveExpression element) {
+            return Cardinalities.unknownMaxCardinality();
         }
 
         @Nonnull

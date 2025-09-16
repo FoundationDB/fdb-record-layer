@@ -33,12 +33,12 @@ import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.TempTable;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
 
@@ -60,16 +60,21 @@ public class RecordQueryRecursiveDfsPlan implements RecordQueryPlanWithChildren 
     private final Value resultValue;
 
     @Nonnull
-    private final CorrelationIdentifier scanTempTableAlias;
+    private final CorrelationIdentifier priorValueCorrelation;
 
-    public RecordQueryRecursiveDfsPlan(@Nonnull final Quantifier.Physical root, @Nonnull final Quantifier.Physical recursive,
-                                       @Nonnull final CorrelationIdentifier scanTempTableAlias) {
+    public RecordQueryRecursiveDfsPlan(@Nonnull final Quantifier.Physical root,
+                                       @Nonnull final Quantifier.Physical recursive,
+                                       @Nonnull final CorrelationIdentifier priorValueCorrelation) {
         this.root = root;
         this.recursive = recursive;
-        this.scanTempTableAlias = scanTempTableAlias;
+        this.priorValueCorrelation = priorValueCorrelation;
         this.resultValue = RecordQuerySetPlan.mergeValues(ImmutableList.of(root, recursive));
     }
 
+    @Override
+    public boolean canCorrelate() {
+        return true;
+    }
 
     @Override
     public int planHash(@Nonnull final PlanHashMode hashMode) {
@@ -84,7 +89,7 @@ public class RecordQueryRecursiveDfsPlan implements RecordQueryPlanWithChildren 
     @Nonnull
     @Override
     public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
-        return Set.of();
+        return resultValue.getCorrelatedToWithoutChildren();
     }
 
     @Nonnull
@@ -92,25 +97,17 @@ public class RecordQueryRecursiveDfsPlan implements RecordQueryPlanWithChildren 
     public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context,
                                                                      @Nullable final byte[] continuation, @Nonnull final ExecuteProperties executeProperties) {
         final var nestedExecuteProperties = executeProperties.clearSkipAndLimit();
-        final var tempTable = store.getContext().getTempTableFactory().createTempTable();
-        final var childContext = context.withBinding(Bindings.Internal.CORRELATION.bindingName(scanTempTableAlias.getId()), tempTable);
         return RecursiveCursor.create(
                         rootContinuation ->
-                                root.getRangesOverPlan().executePlan(store, childContext, rootContinuation, nestedExecuteProperties),
+                                root.getRangesOverPlan().executePlan(store, context, rootContinuation, nestedExecuteProperties),
                         (parentResult, depth, innerContinuation) -> {
-                            final var tempTable2 = store.getContext().getTempTableFactory().createTempTable();
-                            final var child2Context = context.withBinding(Bindings.Internal.CORRELATION.bindingName(scanTempTableAlias.getId()), tempTable2);
-                            tempTable2.add(parentResult);
+                            final var child2Context = context.withBinding(Bindings.Internal.CORRELATION.bindingName(priorValueCorrelation.getId()), parentResult);
                             return recursive.getRangesOverPlan().executePlan(store, child2Context, innerContinuation, nestedExecuteProperties);
                         },
                         null,
                         continuation
                 ).skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit())
-                .map(childResult -> {
-//                    tempTable.clear();
-//                    tempTable.add(childResult.getValue());
-                    return childResult.getValue();
-                });
+                .map(RecursiveCursor.RecursiveValue::getValue);
     }
 
     @Nonnull
@@ -179,7 +176,8 @@ public class RecordQueryRecursiveDfsPlan implements RecordQueryPlanWithChildren 
         if (!(otherExpression instanceof RecordQueryRecursiveDfsPlan)) {
             return false;
         }
-        return true;
+        final var otherRecursiveDfsPlan = (RecordQueryRecursiveDfsPlan)otherExpression;
+        return this.priorValueCorrelation.equals(otherRecursiveDfsPlan.priorValueCorrelation);
     }
 
     @Override
@@ -189,7 +187,13 @@ public class RecordQueryRecursiveDfsPlan implements RecordQueryPlanWithChildren 
 
     @Nonnull
     @Override
-    public RelationalExpression translateCorrelations(@Nonnull final TranslationMap translationMap, final boolean shouldSimplifyValues, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
-        return new RecordQueryRecursiveDfsPlan((Quantifier.Physical)translatedQuantifiers.get(0), (Quantifier.Physical)translatedQuantifiers.get(1), scanTempTableAlias);
+    public RelationalExpression translateCorrelations(@Nonnull final TranslationMap translationMap, final boolean shouldSimplifyValues,
+                                                      @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+        Verify.verify(translatedQuantifiers.size() == 2);
+        Verify.verify(!translationMap.containsSourceAlias(priorValueCorrelation));
+        final var translatedRootQuantifier = translatedQuantifiers.get(0).narrow(Quantifier.Physical.class);
+        final var translatedRecursiveQuantifier = translatedQuantifiers.get(1).narrow(Quantifier.Physical.class);
+        return new RecordQueryRecursiveDfsPlan(translatedRootQuantifier, translatedRecursiveQuantifier,
+                priorValueCorrelation);
     }
 }

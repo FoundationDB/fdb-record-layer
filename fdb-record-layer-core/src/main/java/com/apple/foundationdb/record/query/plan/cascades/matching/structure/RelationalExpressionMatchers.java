@@ -35,6 +35,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSort
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalTypeFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUnionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUniqueExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RecursiveExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RecursiveUnionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionWithPredicates;
@@ -321,5 +322,10 @@ public class RelationalExpressionMatchers {
                                 typedWithDownstream(RecursiveUnionExpression.class,
                                         Extractor.of(RecursiveUnionExpression::getRecursiveStateQuantifier, name -> "recursive(" + name + ")"),
                                         recursiveDownstream))));
+    }
+
+    @Nonnull
+    public static BindingMatcher<RecursiveExpression> recursiveExpression(@Nonnull final CollectionMatcher<? extends Quantifier> downstream) {
+        return ofTypeOwning(RecursiveExpression.class, downstream);
     }
 }

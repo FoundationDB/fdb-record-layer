@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades.values;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
+import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
@@ -31,18 +32,26 @@ import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.planprotos.PRecursivePriorValue;
 import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.simplification.ComparisonCompensation;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
+import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.google.auto.service.AutoService;
+import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
 import java.util.function.Supplier;
 
 /**
@@ -69,6 +78,24 @@ public class RecursivePriorValue extends AbstractValue implements LeafValue, Pla
 
     @Nonnull
     @Override
+    public Set<CorrelationIdentifier> getCorrelatedTo() {
+        return ImmutableSet.of(alias);
+    }
+
+    @Nonnull
+    @Override
+    public Value rebaseLeaf(@Nonnull final CorrelationIdentifier targetAlias) {
+        return RecursivePriorValue.of(targetAlias, resultType);
+    }
+
+    @Nonnull
+    @Override
+    public Optional<NonnullPair<ComparisonCompensation, QueryPlanConstraint>> matchAndCompensateComparisonMaybe(@Nonnull final Value candidateValue, @Nonnull final ValueEquivalence valueEquivalence) {
+        return Optional.empty();
+    }
+
+    @Nonnull
+    @Override
     public Type getResultType() {
         return resultType;
     }
@@ -88,7 +115,8 @@ public class RecursivePriorValue extends AbstractValue implements LeafValue, Pla
 
     @Override
     public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
-        final var binding = (QueryResult)context.getBinding(CorrelationIdentifier.of("prior_" + alias.getId()));
+        final CorrelationIdentifier priorId = CorrelationIdentifier.of("prior_" + alias.getId());
+        final var binding = (QueryResult)context.getBinding(Bindings.Internal.CORRELATION.bindingName(priorId.getId()));
         if (resultType.isRecord()) {
             return binding.getDatum() == null ? null : binding.getMessage();
         } else {

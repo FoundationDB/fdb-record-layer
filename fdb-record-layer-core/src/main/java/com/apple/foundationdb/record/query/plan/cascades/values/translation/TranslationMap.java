@@ -26,8 +26,10 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.LeafValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.RecursivePriorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Verify;
+import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -104,7 +106,14 @@ public interface TranslationMap {
             }
             Verify.verify(!(translationTargetType instanceof Type.Erasable) ||
                     !((Type.Erasable)translationTargetType).isErased());
-            return (ignored, ignored2) -> translationTargetValue;
+            return (ignored, ignored2) -> {
+                System.out.println(ignored2);
+                if (ignored2 instanceof RecursivePriorValue) {
+                    final var targetCorrelation = Iterables.getOnlyElement(translationTargetValue.getCorrelatedTo());
+                    return ignored2.rebaseLeaf(targetCorrelation);
+                }
+                return translationTargetValue;
+            };
         }
     }
 }
