@@ -42,6 +42,38 @@ dependencies {
     testFixturesAnnotationProcessor(libs.autoService)
 }
 
+def siftSmallFile = layout.buildDirectory.file('downloads/siftsmall.tar.gz')
+def extractDir = layout.buildDirectory.dir("extracted")
+
+// Task that downloads the CSV exactly once unless it changed
+tasks.register('downloadSiftSmall', de.undercouch.gradle.tasks.download.Download) {
+    src 'https://huggingface.co/datasets/vecdata/siftsmall/resolve/3106e1b83049c44713b1ce06942d0ab474bbdfb6/siftsmall.tar.gz'
+    dest siftSmallFile.get().asFile
+    onlyIfModified true
+    tempAndMove true
+    retries 3
+}
+
+tasks.register('extractSiftSmall', Copy) {
+    dependsOn 'downloadSiftSmall'
+    from(tarTree(resources.gzip(siftSmallFile)))
+    into extractDir
+
+    doLast {
+        println "Extracted files into: ${extractDir.get().asFile}"
+        fileTree(extractDir).visit { details ->
+            if (!details.isDirectory()) {
+                println " - ${details.file}"
+            }
+        }
+    }
+}
+
+test {
+    dependsOn tasks.named('extractSiftSmall')
+    inputs.dir extractDir
+}
+
 publishing {
     publications {
         library(MavenPublication) {
