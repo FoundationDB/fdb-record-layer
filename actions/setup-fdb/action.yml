@@ -31,19 +31,13 @@ runs:
     - name: Install FDB Server
       shell: bash
       run: sudo dpkg -i ~/.fdb-cache/${{ steps.fdb_filenames.outputs.client_deb }} ~/.fdb-cache/${{ steps.fdb_filenames.outputs.server_deb }}
-#     - name: Fix FDB Network Addresses
-#       shell: bash
-#       run: sudo sed -i -e "s/public-address = auto:\$ID/public-address = 127.0.0.1:\$ID/g" -e "s/listen-address = public/listen-address = 127.0.0.1:\$ID/g" /etc/foundationdb/foundationdb.conf
-    # Setup 2 cluster conf files
-    - name: Create cluster1 config file
-      shell: bash
-      run: sudo cp /etc/foundationdb/foundationdb.conf /etc/foundationdb/foundationdb1.conf
-    - name: Create cluster2 config file
-      shell: bash
-      run: sudo cp /etc/foundationdb/foundationdb.conf /etc/foundationdb/foundationdb2.conf
     - name: Stop default fdb
       shell: bash
       run: sudo service foundationdb stop
+    - name: debugging
+      shell: bash
+      run: sudo ps -u foundationdb
+
     - name: Experiment
       shell: bash
       run: >-
