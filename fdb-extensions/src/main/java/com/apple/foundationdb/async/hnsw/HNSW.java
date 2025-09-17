@@ -62,9 +62,6 @@ import java.util.stream.Collectors;
 import static com.apple.foundationdb.async.MoreAsyncUtil.forEach;
 import static com.apple.foundationdb.async.MoreAsyncUtil.forLoop;
 
-/**
- * TODO.
- */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("checkstyle:AbbreviationAsWordInName")
 public class HNSW {
@@ -335,16 +332,10 @@ public class HNSW {
         return new ConfigBuilder();
     }
 
-    /**
-     * TODO.
-     */
     public HNSW(@Nonnull final Subspace subspace, @Nonnull final Executor executor) {
         this(subspace, executor, DEFAULT_CONFIG, OnWriteListener.NOOP, OnReadListener.NOOP);
     }
 
-    /**
-     * TODO.
-     */
     public HNSW(@Nonnull final Subspace subspace,
                 @Nonnull final Executor executor, @Nonnull final Config config,
                 @Nonnull final OnWriteListener onWriteListener,
@@ -402,9 +393,6 @@ public class HNSW {
     // Read Path
     //
 
-    /**
-     * TODO.
-     */
     @SuppressWarnings("checkstyle:MethodName") // method name introduced by paper
     @Nonnull
     public CompletableFuture<? extends List<? extends NodeReferenceAndNode<? extends NodeReference>>> kNearestNeighborsSearch(@Nonnull final ReadTransaction readTransaction,
@@ -487,9 +475,6 @@ public class HNSW {
         }
     }
 
-    /**
-     * TODO.
-     */
     @Nonnull
     private CompletableFuture<NodeReferenceWithDistance> greedySearchInliningLayer(@Nonnull final StorageAdapter<NodeReferenceWithVector> storageAdapter,
                                                                                    @Nonnull final ReadTransaction readTransaction,
@@ -534,9 +519,6 @@ public class HNSW {
                 }), executor).thenApply(ignored -> currentNodeReferenceAtomic.get());
     }
 
-    /**
-     * TODO.
-     */
     @Nonnull
     private <N extends NodeReference> CompletableFuture<List<NodeReferenceAndNode<N>>> searchLayer(@Nonnull StorageAdapter<N> storageAdapter,
                                                                                                    @Nonnull final ReadTransaction readTransaction,
@@ -608,9 +590,6 @@ public class HNSW {
                 });
     }
 
-    /**
-     * TODO.
-     */
     @Nonnull
     private <N extends NodeReference> CompletableFuture<Node<N>> fetchNodeIfNotCached(@Nonnull final StorageAdapter<N> storageAdapter,
                                                                                       @Nonnull final ReadTransaction readTransaction,
@@ -625,9 +604,6 @@ public class HNSW {
                 });
     }
 
-    /**
-     * TODO.
-     */
     @Nonnull
     private <R extends NodeReference, N extends NodeReference, U> CompletableFuture<U> fetchNodeIfNecessaryAndApply(@Nonnull final StorageAdapter<N> storageAdapter,
                                                                                                                     @Nonnull final ReadTransaction readTransaction,
@@ -645,9 +621,6 @@ public class HNSW {
                 .thenApply(node -> biMapFunction.apply(nodeReference, node));
     }
 
-    /**
-     * TODO.
-     */
     @Nonnull
     private <N extends NodeReference> CompletableFuture<List<NodeReferenceWithVector>> fetchNeighborhood(@Nonnull final StorageAdapter<N> storageAdapter,
                                                                                                          @Nonnull final ReadTransaction readTransaction,
@@ -671,9 +644,6 @@ public class HNSW {
                 });
     }
 
-    /**
-     * TODO.
-     */
     @Nonnull
     private <N extends NodeReference> CompletableFuture<List<NodeReferenceAndNode<N>>> fetchSomeNodesIfNotCached(@Nonnull final StorageAdapter<N> storageAdapter,
                                                                                                                  @Nonnull final ReadTransaction readTransaction,
@@ -694,9 +664,6 @@ public class HNSW {
                 });
     }
 
-    /**
-     * TODO.
-     */
     @Nonnull
     private <R extends NodeReference, N extends NodeReference, U> CompletableFuture<List<U>> fetchSomeNodesAndApply(@Nonnull final StorageAdapter<N> storageAdapter,
                                                                                                                     @Nonnull final ReadTransaction readTransaction,
