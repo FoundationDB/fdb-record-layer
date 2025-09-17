@@ -41,9 +41,6 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
-/**
- * TODO.
- */
 class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implements StorageAdapter<NodeReference> {
     @Nonnull
     private static final Logger logger = LoggerFactory.getLogger(CompactStorageAdapter.class);
