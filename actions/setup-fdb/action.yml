@@ -92,15 +92,15 @@ runs:
     - name: debugging
       shell: bash
       run: sudo ls -lh /var/lib/foundationdb/data/4800
+    - name: Switch FDB 1 to SSD
+      shell: bash
+      run: fdbcli -C /etc/foundationdb/fdb.cluster --exec "configure single ssd storage_migration_type=aggressive; status"
     - name: debugging
       shell: bash
       run: tail -n +1 trace.*.xml
     - name: debugging
       shell: bash
       run: sudo bash -c "tail -n +1 /var/log/foundationdb/*"
-    - name: debugging
-      shell: bash
-      run: exit(7)
     - name: Create fdb-environment.yaml
       shell: bash
       run: |
