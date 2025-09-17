@@ -30,7 +30,14 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * TODO.
+ * Represents a compact node within a graph structure, extending {@link AbstractNode}.
+ * <p>
+ * This node type is considered "compact" because it directly stores its associated
+ * data vector of type {@code Vector<Half>}. It is used to represent a vector in a
+ * vector space and maintains references to its neighbors via {@link NodeReference} objects.
+ *
+ * @see AbstractNode
+ * @see NodeReference
  */
 public class CompactNode extends AbstractNode<NodeReference> {
     @Nonnull
@@ -54,41 +61,94 @@ public class CompactNode extends AbstractNode<NodeReference> {
     @Nonnull
     private final Vector<Half> vector;
 
+    /**
+     * Constructs a new {@code CompactNode} instance.
+     * <p>
+     * This constructor initializes the node with its primary key, a data vector,
+     * and a list of its neighbors. It delegates the initialization of the
+     * {@code primaryKey} and {@code neighbors} to the superclass constructor.
+     *
+     * @param primaryKey the primary key that uniquely identifies this node; must not be {@code null}.
+     * @param vector the data vector of type {@code Vector<Half>} associated with this node; must not be {@code null}.
+     * @param neighbors a list of {@link NodeReference} objects representing the neighbors of this node; must not be
+     *                  {@code null}.
+     */
     public CompactNode(@Nonnull final Tuple primaryKey, @Nonnull final Vector<Half> vector,
                        @Nonnull final List<NodeReference> neighbors) {
         super(primaryKey, neighbors);
         this.vector = vector;
     }
 
+    /**
+     * Returns a {@link NodeReference} that uniquely identifies this node.
+     * <p>
+     * This implementation creates the reference using the node's primary key, obtained via {@code getPrimaryKey()}. It
+     * ignores the provided {@code vector} parameter, which exists to fulfill the contract of the overridden method.
+     *
+     * @param vector the vector context, which is ignored in this implementation.
+     * Per the {@code @Nullable} annotation, this can be {@code null}.
+     *
+     * @return a non-null {@link NodeReference} to this node.
+     */
     @Nonnull
     @Override
     public NodeReference getSelfReference(@Nullable final Vector<Half> vector) {
         return new NodeReference(getPrimaryKey());
     }
 
+    /**
+     * Gets the kind of this node.
+     * This implementation always returns {@link NodeKind#COMPACT}.
+     * @return the node kind, which is guaranteed to be {@link NodeKind#COMPACT}.
+     */
     @Nonnull
     @Override
     public NodeKind getKind() {
         return NodeKind.COMPACT;
     }
 
+    /**
+     * Gets the vector of {@code Half} objects.
+     * @return the non-null vector of {@link Half} objects.
+     */
     @Nonnull
     public Vector<Half> getVector() {
         return vector;
     }
 
+    /**
+     * Returns this node as a {@code CompactNode}. As this class is already a {@code CompactNode}, this method provides
+     * {@code this}.
+     * @return this object cast as a {@code CompactNode}, which is guaranteed to be non-null.
+     */
     @Nonnull
     @Override
     public CompactNode asCompactNode() {
         return this;
     }
 
+    /**
+     * Returns this node as an {@link InliningNode}.
+     * <p>
+     * This override is for node types that are not inlining nodes. As such, it
+     * will always fail.
+     * @return this node as a non-null {@link InliningNode}
+     * @throws IllegalStateException always, as this is not an inlining node
+     */
     @Nonnull
     @Override
     public InliningNode asInliningNode() {
         throw new IllegalStateException("this is not an inlining node");
     }
 
+    /**
+     * Gets the shared factory instance for creating {@link NodeReference} objects.
+     * <p>
+     * This static factory method is the preferred way to obtain a {@code NodeFactory}
+     * for {@link NodeReference} instances, as it returns a shared, pre-configured object.
+     *
+     * @return a shared, non-null instance of {@code NodeFactory<NodeReference>}
+     */
     @Nonnull
     public static NodeFactory<NodeReference> factory() {
         return FACTORY;
