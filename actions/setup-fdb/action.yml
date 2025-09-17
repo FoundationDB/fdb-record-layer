@@ -36,7 +36,7 @@ runs:
       run: sudo service foundationdb stop
     - name: debugging
       shell: bash
-      run: sudo ps -u foundationdb
+      run: sudo ps -u foundationdb || echo "None"
 
     - name: Experiment
       shell: bash
@@ -92,10 +92,10 @@ runs:
       run: sudo ls -lh /var/lib/foundationdb/data/4800
     - name: debugging
       shell: bash
-      run: cat trace.*.xml
+      run: tail -n +1 trace.*.xml
     - name: debugging
       shell: bash
-      run: sudo bash -c "cat /var/log/foundationdb/*"
+      run: sudo bash -c "tail -n +1 /var/log/foundationdb/*"
     - name: debugging
       shell: bash
       run: exit(7)
