@@ -41,16 +41,16 @@ runs:
       shell: bash
       run: sudo ps -u foundationdb || echo "None"
 
-    - name: Experiment
-      shell: bash
-      run: >-
-        sudo sed -i -e "s/:4500/:4800/g"
-        /etc/foundationdb/fdb.cluster
-    - name: Experiment
-      shell: bash
-      run: >-
-        sudo sed -i -e "s/fdbserver.4500/fdbserver.4800/g"
-        /etc/foundationdb/foundationdb.conf
+#     - name: Experiment
+#       shell: bash
+#       run: >-
+#         sudo sed -i -e "s/:4500/:4800/g"
+#         /etc/foundationdb/fdb.cluster
+#     - name: Experiment
+#       shell: bash
+#       run: >-
+#         sudo sed -i -e "s/fdbserver.4500/fdbserver.4800/g"
+#         /etc/foundationdb/foundationdb.conf
 
     - name: debugging
       shell: bash
