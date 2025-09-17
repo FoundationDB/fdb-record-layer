@@ -46,6 +46,7 @@ import com.google.protobuf.Message;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.net.URI;
+import java.util.List;
 import java.util.zip.Deflater;
 
 @API(API.Status.EXPERIMENTAL)
@@ -157,6 +158,10 @@ public final class StoreConfig {
         final String defaultKeyEntryAlias = options.getOption(Options.Name.ENCRYPTION_KEY_ENTRY);
         if (defaultKeyEntryAlias != null) {
             builder.setDefaultKeyEntryAlias(defaultKeyEntryAlias);
+        }
+        final List<String> keyEntryAliases = options.getOption(Options.Name.ENCRYPTION_KEY_ENTRY_LIST);
+        if (keyEntryAliases != null) {
+            builder.setKeyEntryAliases(keyEntryAliases);
         }
         final String keyStorePassword = options.getOption(Options.Name.ENCRYPTION_KEY_PASSWORD);
         if (keyStorePassword != null) {

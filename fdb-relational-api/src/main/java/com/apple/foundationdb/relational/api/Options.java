@@ -242,6 +242,11 @@ public final class Options {
         ENCRYPTION_KEY_ENTRY,
 
         /**
+         * All the key store entries available as encryption keys.
+         */
+        ENCRYPTION_KEY_ENTRY_LIST,
+
+        /**
          * The integrity key of the key store and the encryption key of the key entry.
          */
         ENCRYPTION_KEY_PASSWORD,
@@ -496,6 +501,7 @@ public final class Options {
                     prop = bytesToHex(((Continuation)entry.getValue()).serialize());
                     break;
                 case DISABLED_PLANNER_RULES:
+                case ENCRYPTION_KEY_ENTRY_LIST:
                     prop = String.join(",", (Collection<String>)entry.getValue());
                     break;
                 default:
@@ -549,6 +555,7 @@ public final class Options {
         data.put(Name.ENCRYPT_WHEN_SERIALIZING, List.of(TypeContract.booleanType()));
         data.put(Name.ENCRYPTION_KEY_STORE, List.of(TypeContract.nullableStringType()));
         data.put(Name.ENCRYPTION_KEY_ENTRY, List.of(TypeContract.nullableStringType()));
+        data.put(Name.ENCRYPTION_KEY_ENTRY_LIST, List.of(new CollectionContract<>(TypeContract.stringType())));
         data.put(Name.ENCRYPTION_KEY_PASSWORD, List.of(TypeContract.nullableStringType()));
         data.put(Name.COMPRESS_WHEN_SERIALIZING, List.of(TypeContract.booleanType()));
 

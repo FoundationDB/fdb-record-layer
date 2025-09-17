@@ -692,6 +692,11 @@ public class TypeConversion {
                         builder.setEncryptionKeyEntry((String)entry.getValue());
                     }
                     break;
+                case ENCRYPTION_KEY_ENTRY_LIST:
+                    for (String rule : (List<String>)entry.getValue()) {
+                        builder.addEncryptionKeyEntryList(rule);
+                    }
+                    break;
                 case ENCRYPTION_KEY_PASSWORD:
                     if (Options.isNull(entry.getValue())) {
                         builder.clearEncryptionKeyPassword();
@@ -812,6 +817,9 @@ public class TypeConversion {
         }
         if (protoOptions.hasEncryptionKeyEntry()) {
             builder.withOption(Options.Name.ENCRYPTION_KEY_ENTRY, protoOptions.getEncryptionKeyEntry());
+        }
+        if (protoOptions.getEncryptionKeyEntryListCount() > 0) {
+            builder.withOption(Options.Name.ENCRYPTION_KEY_ENTRY_LIST, protoOptions.getEncryptionKeyEntryListList());
         }
         if (protoOptions.hasEncryptionKeyPassword()) {
             builder.withOption(Options.Name.ENCRYPTION_KEY_PASSWORD, protoOptions.getEncryptionKeyPassword());

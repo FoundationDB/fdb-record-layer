@@ -152,6 +152,7 @@ message Options {
   optional string encryption_key_entry = 29;
   optional string encryption_key_password = 30;
   optional bool compress_when_serializing = 31;
+  repeated string encryption_key_entry_list = 32;
 }
 
 // Request that is part of a transactional (stateful) exchange
