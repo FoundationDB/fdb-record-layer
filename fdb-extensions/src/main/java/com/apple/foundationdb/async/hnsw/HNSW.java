@@ -62,6 +62,21 @@ import java.util.stream.Collectors;
 import static com.apple.foundationdb.async.MoreAsyncUtil.forEach;
 import static com.apple.foundationdb.async.MoreAsyncUtil.forLoop;
 
+/**
+ * An implementation of the Hierarchical Navigable Small World (HNSW) algorithm for
+ * efficient approximate nearest neighbor (ANN) search.
+ * <p>
+ * HNSW constructs a multi-layer graph, where each layer is a subset of the one below it.
+ * The top layers serve as fast entry points to navigate the graph, while the bottom layer
+ * contains all the data points. This structure allows for logarithmic-time complexity
+ * for search operations, making it suitable for large-scale, high-dimensional datasets.
+ * <p>
+ * This class provides methods for building the graph ({@link #insert(Transaction, Tuple, Vector)})
+ * and performing k-NN searches ({@link #kNearestNeighborsSearch(ReadTransaction, int, int, Vector)}).
+ * It is designed to be used with a transactional storage backend, managed via a {@link Subspace}.
+ *
+ * @see <a href="https://arxiv.org/abs/1603.09320">Efficient and robust approximate nearest neighbor search using Hierarchical Navigable Small World graphs</a>
+ */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("checkstyle:AbbreviationAsWordInName")
 public class HNSW {
@@ -332,10 +347,33 @@ public class HNSW {
         return new ConfigBuilder();
     }
 
+    /**
+     * Creates a new {@code HNSW} instance using the default configuration, write listener, and read listener.
+     * <p>
+     * This constructor delegates to the main constructor, providing default values for configuration
+     * and listeners, simplifying the instantiation process for common use cases.
+     *
+     * @param subspace the non-null {@link Subspace} to build the HNSW graph for.
+     * @param executor the non-null {@link Executor} for concurrent operations, such as building the graph.
+     */
     public HNSW(@Nonnull final Subspace subspace, @Nonnull final Executor executor) {
         this(subspace, executor, DEFAULT_CONFIG, OnWriteListener.NOOP, OnReadListener.NOOP);
     }
 
+    /**
+     * Constructs a new HNSW graph instance.
+     * <p>
+     * This constructor initializes the HNSW graph with the necessary components for storage,
+     * execution, configuration, and event handling. All parameters are mandatory and must not be null.
+     *
+     * @param subspace the {@link Subspace} where the graph data is stored.
+     * @param executor the {@link Executor} service to use for concurrent operations.
+     * @param config the {@link Config} object containing HNSW algorithm parameters.
+     * @param onWriteListener a listener to be notified of write events on the graph.
+     * @param onReadListener a listener to be notified of read events on the graph.
+     *
+     * @throws NullPointerException if any of the parameters are {@code null}.
+     */
     public HNSW(@Nonnull final Subspace subspace,
                 @Nonnull final Executor executor, @Nonnull final Config config,
                 @Nonnull final OnWriteListener onWriteListener,
@@ -348,6 +386,11 @@ public class HNSW {
     }
 
 
+    /**
+     * Gets the subspace associated with this object.
+     *
+     * @return the non-null subspace
+     */
     @Nonnull
     public Subspace getSubspace() {
         return subspace;
@@ -393,6 +436,27 @@ public class HNSW {
     // Read Path
     //
 
+    /**
+     * Performs a k-nearest neighbors (k-NN) search for a given query vector.
+     * <p>
+     * This method implements the search algorithm for an HNSW graph. The search begins at an entry point in the
+     * highest layer and greedily traverses down through the layers. In each layer, it finds the node closest to the
+     * {@code queryVector}. This node then serves as the entry point for the search in the layer below.
+     * <p>
+     * Once the search reaches the base layer (layer 0), it performs a more exhaustive search starting from the
+     * determined entry point. It explores the graph, maintaining a dynamic list of the best candidates found so far.
+     * The size of this candidate list is controlled by the {@code efSearch} parameter. Finally, the method selects
+     * the top {@code k} nodes from the search results, sorted by their distance to the query vector.
+     *
+     * @param readTransaction the transaction to use for reading from the database
+     * @param k the number of nearest neighbors to return
+     * @param efSearch the size of the dynamic candidate list for the search. A larger value increases accuracy
+     * at the cost of performance.
+     * @param queryVector the vector to find the nearest neighbors for
+     *
+     * @return a {@link CompletableFuture} that will complete with a list of the {@code k} nearest neighbors,
+     * sorted by distance in ascending order. The future completes with {@code null} if the index is empty.
+     */
     @SuppressWarnings("checkstyle:MethodName") // method name introduced by paper
     @Nonnull
     public CompletableFuture<? extends List<? extends NodeReferenceAndNode<? extends NodeReference>>> kNearestNeighborsSearch(@Nonnull final ReadTransaction readTransaction,
@@ -461,6 +525,29 @@ public class HNSW {
                 });
     }
 
+    /**
+     * Performs a greedy search on a single layer of the HNSW graph.
+     * <p>
+     * This method finds the node on the specified layer that is closest to the given query vector,
+     * starting the search from a designated entry point. The search is "greedy" because it aims to find
+     * only the single best neighbor.
+     * <p>
+     * The implementation strategy depends on the {@link NodeKind} of the provided {@link StorageAdapter}.
+     * If the node kind is {@code INLINING}, it delegates to the specialized {@link #greedySearchInliningLayer} method.
+     * Otherwise, it uses the more general {@link #searchLayer} method with a search size (ef) of 1.
+     * The operation is asynchronous.
+     *
+     * @param <N> the type of the node reference, extending {@link NodeReference}
+     * @param storageAdapter the {@link StorageAdapter} for accessing the graph data
+     * @param readTransaction the {@link ReadTransaction} to use for the search
+     * @param entryNeighbor the starting point for the search on this layer, which includes the node and its distance to
+     * the query vector
+     * @param layer the zero-based index of the layer to search within
+     * @param queryVector the query vector for which to find the nearest neighbor
+     *
+     * @return a {@link CompletableFuture} that, upon completion, will contain the closest node found on the layer,
+     * represented as a {@link NodeReferenceWithDistance}
+     */
     @Nonnull
     private <N extends NodeReference> CompletableFuture<NodeReferenceWithDistance> greedySearchLayer(@Nonnull StorageAdapter<N> storageAdapter,
                                                                                                      @Nonnull final ReadTransaction readTransaction,
@@ -475,6 +562,32 @@ public class HNSW {
         }
     }
 
+    /**
+     * Performs a greedy search for the nearest neighbor to a query vector within a single, non-zero layer of the HNSW
+     * graph.
+     * <p>
+     * This search is performed on layers that use {@code InliningNode}s, where neighbor vectors are stored directly
+     * within the node.
+     * The search starts from a given {@code entryNeighbor} and iteratively moves to the closest neighbor in the current
+     * node's
+     * neighbor list, until no closer neighbor can be found.
+     * <p>
+     * The entire process is asynchronous, returning a {@link CompletableFuture} that will complete with the best node
+     * found in this layer.
+     *
+     * @param storageAdapter the storage adapter to fetch nodes from the graph
+     * @param readTransaction the transaction context for database reads
+     * @param entryNeighbor the entry point for the search in this layer, typically the result from a search in a higher
+     * layer
+     * @param layer the layer number to perform the search in. Must be greater than 0.
+     * @param queryVector the vector for which to find the nearest neighbor
+     *
+     * @return a {@link CompletableFuture} that, upon completion, will hold the {@link NodeReferenceWithDistance} of the nearest
+     * neighbor found in this layer's greedy search
+     *
+     * @throws IllegalStateException if a node that is expected to exist cannot be fetched from the
+     * {@code storageAdapter} during the search
+     */
     @Nonnull
     private CompletableFuture<NodeReferenceWithDistance> greedySearchInliningLayer(@Nonnull final StorageAdapter<NodeReferenceWithVector> storageAdapter,
                                                                                    @Nonnull final ReadTransaction readTransaction,
@@ -519,6 +632,33 @@ public class HNSW {
                 }), executor).thenApply(ignored -> currentNodeReferenceAtomic.get());
     }
 
+    /**
+     * Searches a single layer of the graph to find the nearest neighbors to a query vector.
+     * <p>
+     * This method implements the greedy search algorithm used in HNSW (Hierarchical Navigable Small World)
+     * graphs for a specific layer. It begins with a set of entry points and iteratively explores the graph,
+     * always moving towards nodes that are closer to the {@code queryVector}.
+     * <p>
+     * It maintains a priority queue of candidates to visit and a result set of the nearest neighbors found so far.
+     * The size of the dynamic candidate list is controlled by the {@code efSearch} parameter, which balances
+     * search quality and performance. The entire process is asynchronous, leveraging
+     * {@link java.util.concurrent.CompletableFuture}
+     * to handle I/O operations (fetching nodes) without blocking.
+     *
+     * @param <N> The type of the node reference, extending {@link NodeReference}.
+     * @param storageAdapter The storage adapter for accessing node data from the underlying storage.
+     * @param readTransaction The transaction context for all database read operations.
+     * @param entryNeighbors A collection of starting nodes for the search in this layer, with their distances
+     * to the query vector already calculated.
+     * @param layer The zero-based index of the layer to search.
+     * @param efSearch The size of the dynamic candidate list. A larger value increases recall at the
+     * cost of performance.
+     * @param nodeCache A cache of nodes that have already been fetched from storage to avoid redundant I/O.
+     * @param queryVector The vector for which to find the nearest neighbors.
+     *
+     * @return A {@link java.util.concurrent.CompletableFuture} that, upon completion, will contain a list of the
+     * best candidate nodes found in this layer, paired with their full node data.
+     */
     @Nonnull
     private <N extends NodeReference> CompletableFuture<List<NodeReferenceAndNode<N>>> searchLayer(@Nonnull StorageAdapter<N> storageAdapter,
                                                                                                    @Nonnull final ReadTransaction readTransaction,
@@ -580,16 +720,41 @@ public class HNSW {
         }).thenCompose(ignored ->
                 fetchSomeNodesIfNotCached(storageAdapter, readTransaction, layer, nearestNeighbors, nodeCache))
                 .thenApply(searchResult -> {
-                    debug(l -> l.debug("searched layer={} for efSearch={} with result=={}", layer, efSearch,
-                            searchResult.stream()
-                                    .map(nodeReferenceAndNode ->
-                                            "(primaryKey=" + nodeReferenceAndNode.getNodeReferenceWithDistance().getPrimaryKey() +
-                                                    ",distance=" + nodeReferenceAndNode.getNodeReferenceWithDistance().getDistance() + ")")
-                                    .collect(Collectors.joining(","))));
+                    if (logger.isDebugEnabled()) {
+                        logger.debug("searched layer={} for efSearch={} with result=={}", layer, efSearch,
+                                searchResult.stream()
+                                        .map(nodeReferenceAndNode ->
+                                                "(primaryKey=" +
+                                                        nodeReferenceAndNode.getNodeReferenceWithDistance().getPrimaryKey() +
+                                                        ",distance=" +
+                                                        nodeReferenceAndNode.getNodeReferenceWithDistance().getDistance() + ")")
+                                        .collect(Collectors.joining(",")));
+                    }
                     return searchResult;
                 });
     }
 
+    /**
+     * Asynchronously fetches a node if it is not already present in the cache.
+     * <p>
+     * This method first attempts to retrieve the node from the provided {@code nodeCache} using the
+     * primary key of the {@code nodeReference}. If the node is not found in the cache, it is
+     * fetched from the underlying storage using the {@code storageAdapter}. Once fetched, the node
+     * is added to the {@code nodeCache} before the future is completed.
+     * <p>
+     * This is a convenience method that delegates to
+     * {@link #fetchNodeIfNecessaryAndApply(StorageAdapter, ReadTransaction, int, NodeReference,
+     * java.util.function.Function, java.util.function.BiFunction)}.
+     *
+     * @param <N> the type of the node reference, which must extend {@link NodeReference}
+     * @param storageAdapter the storage adapter used to fetch the node from persistent storage
+     * @param readTransaction the transaction to use for reading from storage
+     * @param layer the layer index where the node is located
+     * @param nodeReference the reference to the node to fetch
+     * @param nodeCache the cache to check for the node and to which the node will be added if fetched
+     *
+     * @return a {@link CompletableFuture} that will be completed with the fetched or cached {@link Node}
+     */
     @Nonnull
     private <N extends NodeReference> CompletableFuture<Node<N>> fetchNodeIfNotCached(@Nonnull final StorageAdapter<N> storageAdapter,
                                                                                       @Nonnull final ReadTransaction readTransaction,
@@ -604,6 +769,34 @@ public class HNSW {
                 });
     }
 
+    /**
+     * Conditionally fetches a node from storage and applies a function to it.
+     * <p>
+     * This method first attempts to generate a result by applying the {@code fetchBypassFunction}.
+     * If this function returns a non-null value, that value is returned immediately in a
+     * completed {@link CompletableFuture}, and no storage access occurs. This provides an
+     * optimization path, for example, if the required data is already available in a cache.
+     * <p>
+     * If the bypass function returns {@code null}, the method proceeds to asynchronously fetch the
+     * node from the given {@code StorageAdapter}. Once the node is retrieved, the
+     * {@code biMapFunction} is applied to the original {@code nodeReference} and the fetched
+     * {@code Node} to produce the final result.
+     *
+     * @param <R> The type of the input node reference.
+     * @param <N> The type of the node reference used by the storage adapter.
+     * @param <U> The type of the result.
+     * @param storageAdapter The storage adapter used to fetch the node if necessary.
+     * @param readTransaction The read transaction context for the storage operation.
+     * @param layer The layer index from which to fetch the node.
+     * @param nodeReference The reference to the node that may need to be fetched.
+     * @param fetchBypassFunction A function that provides a potential shortcut. If it returns a
+     * non-null value, the node fetch is bypassed.
+     * @param biMapFunction A function to be applied after a successful node fetch, combining the
+     * original reference and the fetched node to produce the final result.
+     *
+     * @return A {@link CompletableFuture} that will complete with the result from either the
+     * {@code fetchBypassFunction} or the {@code biMapFunction}.
+     */
     @Nonnull
     private <R extends NodeReference, N extends NodeReference, U> CompletableFuture<U> fetchNodeIfNecessaryAndApply(@Nonnull final StorageAdapter<N> storageAdapter,
                                                                                                                     @Nonnull final ReadTransaction readTransaction,
@@ -621,6 +814,26 @@ public class HNSW {
                 .thenApply(node -> biMapFunction.apply(nodeReference, node));
     }
 
+    /**
+     * Asynchronously fetches neighborhood nodes and returns them as {@link NodeReferenceWithVector} instances,
+     * which include the node's vector.
+     * <p>
+     * This method efficiently retrieves node data by first checking an in-memory {@code nodeCache}. If a node is not
+     * in the cache, it is fetched from the {@link StorageAdapter}. Fetched nodes are then added to the cache to
+     * optimize subsequent lookups. It also handles cases where the input {@code neighborReferences} may already
+     * contain {@link NodeReferenceWithVector} instances, avoiding redundant work.
+     *
+     * @param <N> the type of the node reference, extending {@link NodeReference}
+     * @param storageAdapter the storage adapter to fetch nodes from if they are not in the cache
+     * @param readTransaction the transaction context for database read operations
+     * @param layer the graph layer from which to fetch the nodes
+     * @param neighborReferences an iterable of references to the neighbor nodes to be fetched
+     * @param nodeCache a map serving as an in-memory cache for nodes. This map will be populated with any
+     * nodes fetched from storage.
+     *
+     * @return a {@link CompletableFuture} that, upon completion, will contain a list of
+     * {@link NodeReferenceWithVector} objects for the specified neighbors
+     */
     @Nonnull
     private <N extends NodeReference> CompletableFuture<List<NodeReferenceWithVector>> fetchNeighborhood(@Nonnull final StorageAdapter<N> storageAdapter,
                                                                                                          @Nonnull final ReadTransaction readTransaction,
@@ -644,6 +857,28 @@ public class HNSW {
                 });
     }
 
+    /**
+     * Fetches a collection of nodes, attempting to retrieve them from a cache first before
+     * accessing the underlying storage.
+     * <p>
+     * This method iterates through the provided {@code nodeReferences}. For each reference, it
+     * first checks the {@code nodeCache}. If the corresponding {@link Node} is found, it is
+     * used directly. If not, the node is fetched from the {@link StorageAdapter}. Any nodes
+     * fetched from storage are then added to the {@code nodeCache} to optimize subsequent lookups.
+     * The entire operation is performed asynchronously.
+     *
+     * @param <N> The type of the node reference, which must extend {@link NodeReference}.
+     * @param storageAdapter The storage adapter used to fetch nodes from storage if they are not in the cache.
+     * @param readTransaction The transaction context for the read operation.
+     * @param layer The layer from which to fetch the nodes.
+     * @param nodeReferences An {@link Iterable} of {@link NodeReferenceWithDistance} objects identifying the nodes to
+     * be fetched.
+     * @param nodeCache A map used as a cache. It is checked for existing nodes and updated with any newly fetched
+     * nodes.
+     *
+     * @return A {@link CompletableFuture} which will complete with a {@link List} of
+     * {@link NodeReferenceAndNode} objects, pairing each requested reference with its corresponding node.
+     */
     @Nonnull
     private <N extends NodeReference> CompletableFuture<List<NodeReferenceAndNode<N>>> fetchSomeNodesIfNotCached(@Nonnull final StorageAdapter<N> storageAdapter,
                                                                                                                  @Nonnull final ReadTransaction readTransaction,
@@ -664,6 +899,31 @@ public class HNSW {
                 });
     }
 
+    /**
+     * Asynchronously fetches a collection of nodes from storage and applies a function to each.
+     * <p>
+     * For each {@link NodeReference} in the provided iterable, this method concurrently fetches the corresponding
+     * {@code Node} using the given {@link StorageAdapter}. The logic delegates to
+     * {@code fetchNodeIfNecessaryAndApply}, which determines whether a full node fetch is required.
+     * If a node is fetched from storage, the {@code biMapFunction} is applied. If the fetch is bypassed
+     * (e.g., because the reference itself contains sufficient information), the {@code fetchBypassFunction} is used
+     * instead.
+     *
+     * @param <R> The type of the node references to be processed, extending {@link NodeReference}.
+     * @param <N> The type of the key references within the nodes, extending {@link NodeReference}.
+     * @param <U> The type of the result after applying one of the mapping functions.
+     * @param storageAdapter The {@link StorageAdapter} used to fetch nodes from the underlying storage.
+     * @param readTransaction The {@link ReadTransaction} context for the read operations.
+     * @param layer The layer index from which the nodes are being fetched.
+     * @param nodeReferences An {@link Iterable} of {@link NodeReference}s for the nodes to be fetched and processed.
+     * @param fetchBypassFunction The function to apply to a node reference when the actual node fetch is bypassed,
+     * mapping the reference directly to a result of type {@code U}.
+     * @param biMapFunction The function to apply when a node is successfully fetched, mapping the original
+     * reference and the fetched {@link Node} to a result of type {@code U}.
+     *
+     * @return A {@link CompletableFuture} that, upon completion, will hold a {@link java.util.List} of results
+     * of type {@code U}, corresponding to each processed node reference.
+     */
     @Nonnull
     private <R extends NodeReference, N extends NodeReference, U> CompletableFuture<List<U>> fetchSomeNodesAndApply(@Nonnull final StorageAdapter<N> storageAdapter,
                                                                                                                     @Nonnull final ReadTransaction readTransaction,
@@ -677,18 +937,52 @@ public class HNSW {
                 getExecutor());
     }
 
+    /**
+     * Asynchronously inserts a node reference and its corresponding vector into the index.
+     * <p>
+     * This is a convenience method that extracts the primary key and vector from the
+     * provided {@link NodeReferenceWithVector} and delegates to the
+     * {@link #insert(Transaction, Tuple, Vector)} method.
+     *
+     * @param transaction the transaction context for the operation. Must not be {@code null}.
+     * @param nodeReferenceWithVector a container object holding the primary key of the node
+     * and its vector representation. Must not be {@code null}.
+     *
+     * @return a {@link CompletableFuture} that will complete when the insertion operation is finished.
+     */
     @Nonnull
     public CompletableFuture<Void> insert(@Nonnull final Transaction transaction, @Nonnull final NodeReferenceWithVector nodeReferenceWithVector) {
         return insert(transaction, nodeReferenceWithVector.getPrimaryKey(), nodeReferenceWithVector.getVector());
     }
 
+    /**
+     * Inserts a new vector with its associated primary key into the HNSW graph.
+     * <p>
+     * The method first determines a random layer for the new node, called the {@code insertionLayer}.
+     * It then traverses the graph from the entry point downwards, greedily searching for the nearest
+     * neighbors to the {@code newVector} at each layer. This search identifies the optimal
+     * connection points for the new node.
+     * <p>
+     * Once the nearest neighbors are found, the new node is linked into the graph structure at all
+     * layers up to its {@code insertionLayer}. Special handling is included for inserting the
+     * first-ever node into the graph or when a new node's layer is higher than any existing node,
+     * which updates the graph's entry point. All operations are performed asynchronously.
+     *
+     * @param transaction the {@link Transaction} context for all database operations
+     * @param newPrimaryKey the unique {@link Tuple} primary key for the new node being inserted
+     * @param newVector the {@link Vector} data to be inserted into the graph
+     *
+     * @return a {@link CompletableFuture} that completes when the insertion operation is finished
+     */
     @Nonnull
     public CompletableFuture<Void> insert(@Nonnull final Transaction transaction, @Nonnull final Tuple newPrimaryKey,
                                           @Nonnull final Vector<Half> newVector) {
         final Metric metric = getConfig().getMetric();
 
         final int insertionLayer = insertionLayer(getConfig().getRandom());
-        debug(l -> l.debug("new node with key={} selected to be inserted into layer={}", newPrimaryKey, insertionLayer));
+        if (logger.isDebugEnabled()) {
+            logger.debug("new node with key={} selected to be inserted into layer={}", newPrimaryKey, insertionLayer);
+        }
 
         return StorageAdapter.fetchEntryNodeReference(transaction, getSubspace(), getOnReadListener())
                 .thenApply(entryNodeReference -> {
@@ -697,14 +991,18 @@ public class HNSW {
                         writeLonelyNodes(transaction, newPrimaryKey, newVector, insertionLayer, -1);
                         StorageAdapter.writeEntryNodeReference(transaction, getSubspace(),
                                 new EntryNodeReference(newPrimaryKey, newVector, insertionLayer), getOnWriteListener());
-                        debug(l -> l.debug("written entry node reference with key={} on layer={}", newPrimaryKey, insertionLayer));
+                        if (logger.isDebugEnabled()) {
+                            logger.debug("written entry node reference with key={} on layer={}", newPrimaryKey, insertionLayer);
+                        }
                     } else {
                         final int lMax = entryNodeReference.getLayer();
                         if (insertionLayer > lMax) {
                             writeLonelyNodes(transaction, newPrimaryKey, newVector, insertionLayer, lMax);
                             StorageAdapter.writeEntryNodeReference(transaction, getSubspace(),
                                     new EntryNodeReference(newPrimaryKey, newVector, insertionLayer), getOnWriteListener());
-                            debug(l -> l.debug("written entry node reference with key={} on layer={}", newPrimaryKey, insertionLayer));
+                            if (logger.isDebugEnabled()) {
+                                logger.debug("written entry node reference with key={} on layer={}", newPrimaryKey, insertionLayer);
+                            }
                         }
                     }
                     return entryNodeReference;
@@ -714,8 +1012,10 @@ public class HNSW {
                     }
 
                     final int lMax = entryNodeReference.getLayer();
-                    debug(l -> l.debug("entry node with key {} at layer {}", entryNodeReference.getPrimaryKey(),
-                            lMax));
+                    if (logger.isDebugEnabled()) {
+                        logger.debug("entry node with key {} at layer {}", entryNodeReference.getPrimaryKey(),
+                                lMax);
+                    }
 
                     final NodeReferenceWithDistance initialNodeReference =
                             new NodeReferenceWithDistance(entryNodeReference.getPrimaryKey(),
@@ -735,6 +1035,31 @@ public class HNSW {
                 }).thenCompose(ignored -> AsyncUtil.DONE);
     }
 
+    /**
+     * Inserts a batch of nodes into the HNSW graph asynchronously.
+     *
+     * <p>This method orchestrates the batch insertion of nodes into the HNSW graph structure.
+     * For each node in the input {@code batch}, it first assigns a random layer based on the configured
+     * probability distribution. The batch is then sorted in descending order of these assigned layers to
+     * ensure higher-layer nodes are processed first, which can optimize subsequent insertions by providing
+     * better entry points.</p>
+     *
+     * <p>The insertion logic proceeds in two main asynchronous stages:
+     * <ol>
+     *   <li><b>Search Phase:</b> For each node to be inserted, the method concurrently performs a greedy search
+     *   from the graph's main entry point down to the node's target layer. This identifies the nearest neighbors
+     *   at each level, which will serve as entry points for the insertion phase.</li>
+     *   <li><b>Insertion Phase:</b> The method then iterates through the nodes and inserts each one into the graph
+     *   from its target layer downwards, connecting it to its nearest neighbors. If a node's assigned layer is
+     *   higher than the current maximum layer of the graph, it becomes the new main entry point.</li>
+     * </ol>
+     * All underlying storage operations are performed within the context of the provided {@link Transaction}.</p>
+     *
+     * @param transaction the transaction to use for all storage operations; must not be {@code null}
+     * @param batch a {@code List} of {@link NodeReferenceWithVector} objects to insert; must not be {@code null}
+     *
+     * @return a {@link CompletableFuture} that completes with {@code null} when the entire batch has been inserted
+     */
     @Nonnull
     public CompletableFuture<Void> insertBatch(@Nonnull final Transaction transaction,
                                                @Nonnull List<NodeReferenceWithVector> batch) {
@@ -797,7 +1122,9 @@ public class HNSW {
                                                             new EntryNodeReference(itemPrimaryKey, itemVector, itemL);
                                                     StorageAdapter.writeEntryNodeReference(transaction, getSubspace(),
                                                             newEntryNodeReference, getOnWriteListener());
-                                                    debug(l -> l.debug("written entry node reference with key={} on layer={}", itemPrimaryKey, itemL));
+                                                    if (logger.isDebugEnabled()) {
+                                                        logger.debug("written entry node reference with key={} on layer={}", itemPrimaryKey, itemL);
+                                                    }
 
                                                     return CompletableFuture.completedFuture(newEntryNodeReference);
                                                 } else {
@@ -808,14 +1135,18 @@ public class HNSW {
                                                                 new EntryNodeReference(itemPrimaryKey, itemVector, itemL);
                                                         StorageAdapter.writeEntryNodeReference(transaction, getSubspace(),
                                                                 newEntryNodeReference, getOnWriteListener());
-                                                        debug(l -> l.debug("written entry node reference with key={} on layer={}", itemPrimaryKey, itemL));
+                                                        if (logger.isDebugEnabled()) {
+                                                            logger.debug("written entry node reference with key={} on layer={}", itemPrimaryKey, itemL);
+                                                        }
                                                     } else {
                                                         newEntryNodeReference = entryNodeReference;
                                                     }
                                                 }
 
-                                                debug(l -> l.debug("entry node with key {} at layer {}",
-                                                        currentEntryNodeReference.getPrimaryKey(), currentLMax));
+                                                if (logger.isDebugEnabled()) {
+                                                    logger.debug("entry node with key {} at layer {}",
+                                                            currentEntryNodeReference.getPrimaryKey(), currentLMax);
+                                                }
 
                                                 final var currentSearchEntry =
                                                         searchEntryReferences.get(index);
@@ -826,6 +1157,29 @@ public class HNSW {
                 }).thenCompose(ignored -> AsyncUtil.DONE);
     }
 
+    /**
+     * Inserts a new vector into the HNSW graph across multiple layers, starting from a given entry point.
+     * <p>
+     * This method implements the second phase of the HNSW insertion algorithm. It begins at a starting layer, which is
+     * the minimum of the graph's maximum layer ({@code lMax}) and the new node's randomly assigned
+     * {@code insertionLayer}. It then iterates downwards to layer 0. In each layer, it invokes
+     * {@link #insertIntoLayer(StorageAdapter, Transaction, List, int, Tuple, Vector)} to perform the search and
+     * connect the new node. The set of nearest neighbors found at layer {@code L} serves as the entry points for the
+     * search at layer {@code L-1}.
+     * </p>
+     *
+     * @param transaction the transaction to use for database operations
+     * @param newPrimaryKey the primary key of the new node being inserted
+     * @param newVector the vector data of the new node
+     * @param nodeReference the initial entry point for the search, typically the nearest neighbor found in the highest
+     * layer
+     * @param lMax the maximum layer number in the HNSW graph
+     * @param insertionLayer the randomly determined layer for the new node. The node will be inserted into all layers
+     * from this layer down to 0.
+     *
+     * @return a {@link CompletableFuture} that completes when the new node has been successfully inserted into all
+     * its designated layers
+     */
     @Nonnull
     private CompletableFuture<Void> insertIntoLayers(@Nonnull final Transaction transaction,
                                                      @Nonnull final Tuple newPrimaryKey,
@@ -833,7 +1187,9 @@ public class HNSW {
                                                      @Nonnull final NodeReferenceWithDistance nodeReference,
                                                      final int lMax,
                                                      final int insertionLayer) {
-        debug(l -> l.debug("nearest entry point at lMax={} is at key={}", lMax, nodeReference.getPrimaryKey()));
+        if (logger.isDebugEnabled()) {
+            logger.debug("nearest entry point at lMax={} is at key={}", lMax, nodeReference.getPrimaryKey());
+        }
         return MoreAsyncUtil.<List<NodeReferenceWithDistance>>forLoop(Math.min(lMax, insertionLayer), ImmutableList.of(nodeReference),
                 layer -> layer >= 0,
                 layer -> layer - 1,
@@ -844,6 +1200,39 @@ public class HNSW {
                 }, executor).thenCompose(ignored -> AsyncUtil.DONE);
     }
 
+    /**
+     * Inserts a new node into a specified layer of the HNSW graph.
+     * <p>
+     * This method orchestrates the complete insertion process for a single layer. It begins by performing a search
+     * within the given layer, starting from the provided {@code nearestNeighbors} as entry points, to find a set of
+     * candidate neighbors for the new node. From this candidate set, it selects the best connections based on the
+     * graph's parameters (M).
+     * </p>
+     * <p>
+     * After selecting the neighbors, it creates the new node and links it to them. It then reciprocally updates
+     * the selected neighbors to link back to the new node. If adding this new link causes a neighbor to exceed its
+     * maximum allowed connections, its connections are pruned. All changes, including the new node and the updated
+     * neighbors, are persisted to storage within the given transaction.
+     * </p>
+     * <p>
+     * The operation is asynchronous and returns a {@link CompletableFuture}. The future completes with the list of
+     * nodes found during the initial search phase, which are then used as the entry points for insertion into the
+     * next lower layer.
+     * </p>
+     *
+     * @param <N> the type of the node reference, extending {@link NodeReference}
+     * @param storageAdapter the storage adapter for reading from and writing to the graph
+     * @param transaction the transaction context for the database operations
+     * @param nearestNeighbors the list of nearest neighbors from the layer above, used as entry points for the search
+     * in this layer
+     * @param layer the layer number to insert the new node into
+     * @param newPrimaryKey the primary key of the new node to be inserted
+     * @param newVector the vector associated with the new node
+     *
+     * @return a {@code CompletableFuture} that completes with a list of the nearest neighbors found during the
+     * initial search phase. This list serves as the entry point for insertion into the next lower layer
+     * (i.e., {@code layer - 1}).
+     */
     @Nonnull
     private <N extends NodeReference> CompletableFuture<List<NodeReferenceWithDistance>> insertIntoLayer(@Nonnull final StorageAdapter<N> storageAdapter,
                                                                                                          @Nonnull final Transaction transaction,
@@ -851,7 +1240,9 @@ public class HNSW {
                                                                                                          int layer,
                                                                                                          @Nonnull final Tuple newPrimaryKey,
                                                                                                          @Nonnull final Vector<Half> newVector) {
-        debug(l -> l.debug("begin insert key={} at layer={}", newPrimaryKey, layer));
+        if (logger.isDebugEnabled()) {
+            logger.debug("begin insert key={} at layer={}", newPrimaryKey, layer);
+        }
         final Map<Tuple, Node<N>> nodeCache = Maps.newConcurrentMap();
 
         return searchLayer(storageAdapter, transaction,
@@ -912,11 +1303,33 @@ public class HNSW {
                                         });
                             });
                 }).thenApply(nodeReferencesWithDistances -> {
-                    debug(l -> l.debug("end insert key={} at layer={}", newPrimaryKey, layer));
+                    if (logger.isDebugEnabled()) {
+                        logger.debug("end insert key={} at layer={}", newPrimaryKey, layer);
+                    }
                     return nodeReferencesWithDistances;
                 });
     }
 
+    /**
+     * Calculates the delta between a current set of neighbors and a new set, producing a
+     * {@link NeighborsChangeSet} that represents the required insertions and deletions.
+     * <p>
+     * This method compares the neighbors present in the initial {@code beforeChangeSet} with
+     * the provided {@code afterNeighbors}. It identifies which neighbors from the "before" state
+     * are missing in the "after" state (to be deleted) and which new neighbors are present in the
+     * "after" state but not in the "before" state (to be inserted). It then constructs a new
+     * {@code NeighborsChangeSet} by wrapping the original one with {@link DeleteNeighborsChangeSet}
+     * and {@link InsertNeighborsChangeSet} as needed.
+     *
+     * @param <N> the type of the node reference, which must extend {@link NodeReference}
+     * @param beforeChangeSet the change set representing the state of neighbors before the update.
+     * This is used as the base for calculating changes. Must not be null.
+     * @param afterNeighbors an iterable collection of the desired neighbors after the update.
+     * Must not be null.
+     *
+     * @return a new {@code NeighborsChangeSet} that includes the necessary deletion and insertion
+     * operations to transform the neighbors from the "before" state to the "after" state.
+     */
     private <N extends NodeReference> NeighborsChangeSet<N> resolveChangeSetFromNewNeighbors(@Nonnull final NeighborsChangeSet<N> beforeChangeSet,
                                                                                              @Nonnull final Iterable<NodeReferenceAndNode<N>> afterNeighbors) {
         final Map<Tuple, N> beforeNeighborsMap = Maps.newLinkedHashMap();
@@ -959,6 +1372,27 @@ public class HNSW {
         return changeSet;
     }
 
+    /**
+     * Prunes the neighborhood of a given node if its number of connections exceeds the maximum allowed ({@code mMax}).
+     * <p>
+     * This is a maintenance operation for the HNSW graph. When new nodes are added, an existing node's neighborhood
+     * might temporarily grow beyond its limit. This method identifies such cases and trims the neighborhood back down
+     * to the {@code mMax} best connections, based on the configured distance metric. If the neighborhood size is
+     * already within the limit, this method does nothing.
+     *
+     * @param <N> the type of the node reference, extending {@link NodeReference}
+     * @param storageAdapter the storage adapter to fetch nodes from the database
+     * @param transaction the transaction context for database operations
+     * @param selectedNeighbor the node whose neighborhood is being considered for pruning
+     * @param layer the graph layer on which the operation is performed
+     * @param mMax the maximum number of neighbors a node is allowed to have on this layer
+     * @param neighborChangeSet a set of pending changes to the neighborhood that must be included in the pruning
+     * calculation
+     * @param nodeCache a cache of nodes to avoid redundant database fetches
+     *
+     * @return a {@link CompletableFuture} which completes with a list of the newly selected neighbors for the pruned node.
+     * If no pruning was necessary, it completes with {@code null}.
+     */
     @Nonnull
     private <N extends NodeReference> CompletableFuture<List<NodeReferenceAndNode<N>>> pruneNeighborsIfNecessary(@Nonnull final StorageAdapter<N> storageAdapter,
                                                                                                                  @Nonnull final Transaction transaction,
@@ -972,8 +1406,10 @@ public class HNSW {
         if (selectedNeighborNode.getNeighbors().size() < mMax) {
             return CompletableFuture.completedFuture(null);
         } else {
-            debug(l -> l.debug("pruning neighborhood of key={} which has numNeighbors={} out of mMax={}",
-                    selectedNeighborNode.getPrimaryKey(), selectedNeighborNode.getNeighbors().size(), mMax));
+            if (logger.isDebugEnabled()) {
+                logger.debug("pruning neighborhood of key={} which has numNeighbors={} out of mMax={}",
+                        selectedNeighborNode.getPrimaryKey(), selectedNeighborNode.getNeighbors().size(), mMax);
+            }
             return fetchNeighborhood(storageAdapter, transaction, layer, neighborChangeSet.merge(), nodeCache)
                     .thenCompose(nodeReferenceWithVectors -> {
                         final ImmutableList.Builder<NodeReferenceWithDistance> nodeReferencesWithDistancesBuilder =
@@ -998,6 +1434,36 @@ public class HNSW {
         }
     }
 
+    /**
+     * Selects the {@code m} best neighbors for a new node from a set of candidates using the HNSW selection heuristic.
+     * <p>
+     * This method implements the core logic for neighbor selection within a layer of the HNSW graph. It starts with an
+     * initial set of candidates ({@code nearestNeighbors}), which can be optionally extended by fetching their own
+     * neighbors.
+     * It then iteratively refines this set using a greedy best-first search.
+     * <p>
+     * The selection heuristic ensures diversity among neighbors. A candidate is added to the result set only if it is
+     * closer to the query {@code vector} than to any node already in the result set. This prevents selecting neighbors
+     * that are clustered together. If the {@code keepPrunedConnections} configuration is enabled, candidates that are
+     * pruned by this heuristic are kept and may be added at the end if the result set is not yet full.
+     * <p>
+     * The process is asynchronous and returns a {@link CompletableFuture} that will eventually contain the list of
+     * selected neighbors with their full node data.
+     *
+     * @param <N> the type of the node reference, extending {@link NodeReference}
+     * @param storageAdapter the storage adapter to fetch nodes and their neighbors
+     * @param readTransaction the transaction for performing database reads
+     * @param nearestNeighbors the initial pool of candidate neighbors, typically from a search in a higher layer
+     * @param layer the layer in the HNSW graph where the selection is being performed
+     * @param m the maximum number of neighbors to select
+     * @param isExtendCandidates a flag indicating whether to extend the initial candidate pool by fetching the
+     * neighbors of the {@code nearestNeighbors}
+     * @param nodeCache a cache of nodes to avoid redundant storage lookups
+     * @param vector the query vector for which neighbors are being selected
+     *
+     * @return a {@link CompletableFuture} which will complete with a list of the selected neighbors,
+     * each represented as a {@link NodeReferenceAndNode}
+     */
     private <N extends NodeReference> CompletableFuture<List<NodeReferenceAndNode<N>>> selectNeighbors(@Nonnull final StorageAdapter<N> storageAdapter,
                                                                                                        @Nonnull final ReadTransaction readTransaction,
                                                                                                        @Nonnull final Iterable<NodeReferenceAndNode<N>> nearestNeighbors,
@@ -1048,24 +1514,49 @@ public class HNSW {
                 }).thenCompose(selectedNeighbors ->
                         fetchSomeNodesIfNotCached(storageAdapter, readTransaction, layer, selectedNeighbors, nodeCache))
                 .thenApply(selectedNeighbors -> {
-                    debug(l ->
-                            l.debug("selected neighbors={}",
-                                    selectedNeighbors.stream()
-                                            .map(selectedNeighbor ->
-                                                    "(primaryKey=" + selectedNeighbor.getNodeReferenceWithDistance().getPrimaryKey() +
-                                                            ",distance=" + selectedNeighbor.getNodeReferenceWithDistance().getDistance() + ")")
-                                            .collect(Collectors.joining(","))));
+                    if (logger.isDebugEnabled()) {
+                        logger.debug("selected neighbors={}",
+                                selectedNeighbors.stream()
+                                        .map(selectedNeighbor ->
+                                                "(primaryKey=" + selectedNeighbor.getNodeReferenceWithDistance().getPrimaryKey() +
+                                                        ",distance=" + selectedNeighbor.getNodeReferenceWithDistance().getDistance() + ")")
+                                        .collect(Collectors.joining(",")));
+                    }
                     return selectedNeighbors;
                 });
     }
 
-    private <N extends NodeReference> CompletableFuture<List<NodeReferenceWithDistance>> extendCandidatesIfNecessary(@Nonnull final StorageAdapter<N> storageAdapter,
-                                                                                                                     @Nonnull final ReadTransaction readTransaction,
-                                                                                                                     @Nonnull final Iterable<NodeReferenceAndNode<N>> candidates,
-                                                                                                                     int layer,
-                                                                                                                     boolean isExtendCandidates,
-                                                                                                                     @Nonnull final Map<Tuple, Node<N>> nodeCache,
-                                                                                                                     @Nonnull final Vector<Half> vector) {
+    /**
+     * Conditionally extends a set of candidate nodes by fetching and evaluating their neighbors.
+     * <p>
+     * If {@code isExtendCandidates} is {@code true}, this method gathers the neighbors of the provided
+     * {@code candidates}, fetches their full node data, and calculates their distance to the given
+     * {@code vector}. The resulting list will contain both the original candidates and their newly
+     * evaluated neighbors.
+     * <p>
+     * If {@code isExtendCandidates} is {@code false}, the method simply returns a list containing
+     * only the original candidates. This operation is asynchronous and returns a {@link CompletableFuture}.
+     *
+     * @param <N> the type of the {@link NodeReference}
+     * @param storageAdapter the {@link StorageAdapter} used to access node data from storage
+     * @param readTransaction the active {@link ReadTransaction} for database access
+     * @param candidates an {@link Iterable} of initial candidate nodes, which have already been evaluated
+     * @param layer the graph layer from which to fetch nodes
+     * @param isExtendCandidates a boolean flag; if {@code true}, the candidate set is extended with neighbors
+     * @param nodeCache a cache mapping primary keys to {@link Node} objects to avoid redundant fetches
+     * @param vector the query vector used to calculate distances for any new neighbor nodes
+     *
+     * @return a {@link CompletableFuture} which will complete with a list of {@link NodeReferenceWithDistance},
+     * containing the original candidates and potentially their neighbors
+     */
+    private <N extends NodeReference> CompletableFuture<List<NodeReferenceWithDistance>>
+            extendCandidatesIfNecessary(@Nonnull final StorageAdapter<N> storageAdapter,
+                                        @Nonnull final ReadTransaction readTransaction,
+                                        @Nonnull final Iterable<NodeReferenceAndNode<N>> candidates,
+                                        int layer,
+                                        boolean isExtendCandidates,
+                                        @Nonnull final Map<Tuple, Node<N>> nodeCache,
+                                        @Nonnull final Vector<Half> vector) {
         if (isExtendCandidates) {
             final Metric metric = getConfig().getMetric();
 
@@ -1089,7 +1580,8 @@ public class HNSW {
 
             return fetchNeighborhood(storageAdapter, readTransaction, layer, neighborsOfCandidates, nodeCache)
                     .thenApply(withVectors -> {
-                        final ImmutableList.Builder<NodeReferenceWithDistance> extendedCandidatesBuilder = ImmutableList.builder();
+                        final ImmutableList.Builder<NodeReferenceWithDistance> extendedCandidatesBuilder =
+                                ImmutableList.builder();
                         for (final NodeReferenceAndNode<N> candidate : candidates) {
                             extendedCandidatesBuilder.add(candidate.getNodeReferenceWithDistance());
                         }
@@ -1111,6 +1603,21 @@ public class HNSW {
         }
     }
 
+    /**
+     * Writes lonely nodes for a given key across a specified range of layers.
+     * <p>
+     * A "lonely node" is a node in the layered structure that does not have a right
+     * sibling. This method iterates downwards from the {@code highestLayerInclusive}
+     * to the {@code lowestLayerExclusive}. For each layer in this range, it
+     * retrieves the appropriate {@link StorageAdapter} and calls
+     * {@link #writeLonelyNodeOnLayer} to persist the node's information.
+     *
+     * @param transaction the transaction to use for writing to the database
+     * @param primaryKey the primary key of the record for which lonely nodes are being written
+     * @param vector the search path vector that was followed to find this key
+     * @param highestLayerInclusive the highest layer (inclusive) to begin writing lonely nodes on
+     * @param lowestLayerExclusive the lowest layer (exclusive) at which to stop writing lonely nodes
+     */
     private void writeLonelyNodes(@Nonnull final Transaction transaction,
                                   @Nonnull final Tuple primaryKey,
                                   @Nonnull final Vector<Half> vector,
@@ -1122,6 +1629,21 @@ public class HNSW {
         }
     }
 
+    /**
+     * Writes a new, isolated ('lonely') node to a specified layer within the graph.
+     * <p>
+     * This method uses the provided {@link StorageAdapter} to create a new node with the
+     * given primary key and vector but with an empty set of neighbors. The write
+     * operation is performed as part of the given {@link Transaction}. This is typically
+     * used to insert the very first node into an empty graph layer.
+     *
+     * @param <N> the type of the node reference, extending {@link NodeReference}
+     * @param storageAdapter the {@link StorageAdapter} used to access the data store and create nodes; must not be null
+     * @param transaction the {@link Transaction} context for the write operation; must not be null
+     * @param layer the layer index where the new node will be written
+     * @param primaryKey the primary key for the new node; must not be null
+     * @param vector the vector data for the new node; must not be null
+     */
     private <N extends NodeReference> void writeLonelyNodeOnLayer(@Nonnull final StorageAdapter<N> storageAdapter,
                                                                   @Nonnull final Transaction transaction,
                                                                   final int layer,
@@ -1131,9 +1653,25 @@ public class HNSW {
                 storageAdapter.getNodeFactory()
                         .create(primaryKey, vector, ImmutableList.of()), layer,
                 new BaseNeighborsChangeSet<>(ImmutableList.of()));
-        debug(l -> l.debug("written lonely node at key={} on layer={}", primaryKey, layer));
+        if (logger.isDebugEnabled()) {
+            logger.debug("written lonely node at key={} on layer={}", primaryKey, layer);
+        }
     }
 
+    /**
+     * Scans all nodes within a given layer of the database.
+     * <p>
+     * The scan is performed transactionally in batches to avoid loading the entire layer
+     * into memory at once. Each discovered node is passed to the provided {@link Consumer}
+     * for processing. The operation continues fetching batches until all nodes in the
+     * specified layer have been processed.
+     *
+     * @param db the non-null {@link Database} instance to run the scan against.
+     * @param layer the specific layer index to scan.
+     * @param batchSize the number of nodes to retrieve and process in each batch.
+     * @param nodeConsumer the non-null {@link Consumer} that will accept each {@link Node}
+     * found in the layer.
+     */
     public void scanLayer(@Nonnull final Database db,
                           final int layer,
                           final int batchSize,
@@ -1155,28 +1693,64 @@ public class HNSW {
         } while (newPrimaryKey != null);
     }
 
+    /**
+     * Gets the appropriate storage adapter for a given layer.
+     * <p>
+     * This method selects a {@link StorageAdapter} implementation based on the layer number.
+     * The logic is intended to use an {@code InliningStorageAdapter} for layers greater
+     * than 0 and a {@code CompactStorageAdapter} for layer 0. However, the switch to
+     * the inlining adapter is currently disabled with a hardcoded {@code false},
+     * so this method will always return a {@code CompactStorageAdapter}.
+     *
+     * @param layer the layer number for which to get the storage adapter; currently unused
+     *
+     * @return a non-null {@link StorageAdapter} instance, which will always be a
+     * {@link CompactStorageAdapter} in the current implementation
+     */
     @Nonnull
     private StorageAdapter<? extends NodeReference> getStorageAdapterForLayer(final int layer) {
         return false && layer > 0
-               ? new InliningStorageAdapter(getConfig(), InliningNode.factory(), getSubspace(), getOnWriteListener(), getOnReadListener())
-               : new CompactStorageAdapter(getConfig(), CompactNode.factory(), getSubspace(), getOnWriteListener(), getOnReadListener());
+               ? new InliningStorageAdapter(getConfig(), InliningNode.factory(), getSubspace(), getOnWriteListener(),
+                getOnReadListener())
+               : new CompactStorageAdapter(getConfig(), CompactNode.factory(), getSubspace(), getOnWriteListener(),
+                getOnReadListener());
     }
 
+    /**
+     * Calculates a random layer for a new element to be inserted.
+     * <p>
+     * The layer is selected according to a logarithmic distribution, which ensures that
+     * the probability of choosing a higher layer decreases exponentially. This is
+     * achieved by applying the inverse transform sampling method. The specific formula
+     * is {@code floor(-ln(u) * lambda)}, where {@code u} is a uniform random
+     * number and {@code lambda} is a normalization factor derived from a system
+     * configuration parameter {@code M}.
+     *
+     * @param random the {@link Random} object used for generating a random number.
+     * It must not be null.
+     *
+     * @return a non-negative integer representing the randomly selected layer.
+     */
     private int insertionLayer(@Nonnull final Random random) {
         double lambda = 1.0 / Math.log(getConfig().getM());
         double u = 1.0 - random.nextDouble();  // Avoid log(0)
         return (int) Math.floor(-Math.log(u) * lambda);
     }
 
+    /**
+     * Logs a message at the INFO level, using a consumer for lazy evaluation.
+     * <p>
+     * This approach avoids the cost of constructing the log message if the INFO
+     * level is disabled. The provided {@link java.util.function.Consumer} will be
+     * executed only when {@code logger.isInfoEnabled()} returns {@code true}.
+     *
+     * @param loggerConsumer the {@link java.util.function.Consumer} that will be
+     * accepted if logging is enabled. It receives the
+     * {@code Logger} instance and must not be null.
+     */
     @SuppressWarnings("PMD.UnusedPrivateMethod")
     private void info(@Nonnull final Consumer<Logger> loggerConsumer) {
         if (logger.isInfoEnabled()) {
-            loggerConsumer.accept(logger);
-        }
-    }
-
-    private void debug(@Nonnull final Consumer<Logger> loggerConsumer) {
-        if (logger.isDebugEnabled()) {
             loggerConsumer.accept(logger);
         }
     }
