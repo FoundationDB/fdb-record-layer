@@ -18,7 +18,7 @@
 # limitations under the License.
 ---
 options:
-    supported_version: !current_version
+    supported_version: 4.6.1.0
     connection_options:
       ENCRYPT_WHEN_SERIALIZING: true
       ENCRYPTION_KEY_STORE: src/test/resources/encrypted.p12
