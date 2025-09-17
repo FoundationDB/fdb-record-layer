@@ -22,9 +22,45 @@ package com.apple.foundationdb.async.hnsw;
 
 import javax.annotation.Nonnull;
 
+/**
+ * Defines a metric for measuring the distance or similarity between n-dimensional vectors.
+ * <p>
+ * This interface provides a contract for various distance calculation algorithms, such as Euclidean, Manhattan,
+ * and Cosine distance. Implementations of this interface can be used in algorithms that require a metric for
+ * comparing data vectors, like clustering or nearest neighbor searches.
+ */
 public interface Metric {
+    /**
+     * Calculates a distance between two n-dimensional vectors.
+     * <p>
+     * The two vectors are represented as arrays of {@link  Double} and must be of the
+     * same length (i.e., have the same number of dimensions).
+     *
+     * @param vector1 the first vector. Must not be null.
+     * @param vector2 the second vector. Must not be null and must have the same
+     * length as {@code vector1}.
+     *
+     * @return the calculated distance as a {@code double}.
+     *
+     * @throws IllegalArgumentException if the vectors have different lengths.
+     * @throws NullPointerException if either {@code vector1} or {@code vector2} is null.
+     */
     double distance(Double[] vector1, Double[] vector2);
 
+    /**
+     * Calculates a comparative distance between two vectors. The comparative distance is used in contexts such as
+     * ranking where the caller needs to "compare" two distances. In contrast to a true metric, the distances computed
+     * by this method do not need to follow proper metric invariants: The distance can be negative; the distance
+     * does not need to follow triangle inequality.
+     * <p>
+     * This method is an alias for {@link #distance(Double[], Double[])} under normal circumstances. It is not for e.g.
+     * {@link DotProductMetric} where the distance is the negative dot product.
+     *
+     * @param vector1 the first vector, represented as an array of {@code Double}.
+     * @param vector2 the second vector, represented as an array of {@code Double}.
+     *
+     * @return the distance between the two vectors.
+     */
     default double comparativeDistance(Double[] vector1, Double[] vector2) {
         return distance(vector1, vector2);
     }

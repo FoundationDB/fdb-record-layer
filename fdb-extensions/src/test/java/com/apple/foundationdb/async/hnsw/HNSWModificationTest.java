@@ -32,26 +32,20 @@ import com.apple.test.Tags;
 import com.christianheina.langx.half4j.Half;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import org.assertj.core.util.Lists;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
-import java.io.FileReader;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.channels.FileChannel;
 import java.nio.file.Path;
@@ -62,13 +56,10 @@ import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.NavigableSet;
-import java.util.Objects;
 import java.util.Random;
-import java.util.concurrent.ConcurrentSkipListSet;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 
 /**
@@ -249,9 +240,9 @@ public class HNSWModificationTest {
     }
 
     @Test
-    public void testSIFTInsert10k() throws Exception {
+    public void testSIFTInsertSmall() throws Exception {
         final Metric metric = Metrics.EUCLIDEAN_METRIC.getMetric();
-        final int k = 10;
+        final int k = 100;
         final AtomicLong nextNodeIdAtomic = new AtomicLong(0L);
 
         final TestOnReadListener onReadListener = new TestOnReadListener();
@@ -272,9 +263,7 @@ public class HNSWModificationTest {
                             if (!vectorIterator.hasNext()) {
                                 return null;
                             }
-
                             final Vector.DoubleVector doubleVector = vectorIterator.next();
-
                             final Tuple currentPrimaryKey = createNextPrimaryKey(nextNodeIdAtomic);
                             final HalfVector currentVector = doubleVector.toHalfVector();
                             return new NodeReferenceWithVector(currentPrimaryKey, currentVector);
@@ -282,9 +271,14 @@ public class HNSWModificationTest {
             }
         }
 
+        validateSIFTSmall(hnsw, k);
+    }
+
+    private void validateSIFTSmall(@Nonnull final HNSW hnsw, final int k) throws IOException {
         final Path siftSmallGroundTruthPath = Paths.get(".out/extracted/siftsmall/siftsmall_groundtruth.ivecs");
         final Path siftSmallQueryPath = Paths.get(".out/extracted/siftsmall/siftsmall_query.fvecs");
 
+        final TestOnReadListener onReadListener = (TestOnReadListener)hnsw.getOnReadListener();
 
         try (final var queryChannel = FileChannel.open(siftSmallQueryPath, StandardOpenOption.READ);
                 final var groundTruthChannel = FileChannel.open(siftSmallGroundTruthPath, StandardOpenOption.READ)) {
@@ -295,34 +289,39 @@ public class HNSWModificationTest {
 
             while (queryIterator.hasNext()) {
                 final HalfVector queryVector = queryIterator.next().toHalfVector();
+                final Set<Integer> groundTruthIndices = ImmutableSet.copyOf(groundTruthIterator.next());
                 onReadListener.reset();
                 final long beginTs = System.nanoTime();
                 final List<? extends NodeReferenceAndNode<?>> results =
                         db.run(tr -> hnsw.kNearestNeighborsSearch(tr, k, 100, queryVector).join());
                 final long endTs = System.nanoTime();
-                logger.info("retrieved result in elapsedTimeMs={}", TimeUnit.NANOSECONDS.toMillis(endTs - beginTs));
+                logger.trace("retrieved result in elapsedTimeMs={}", TimeUnit.NANOSECONDS.toMillis(endTs - beginTs));
 
+                int recallCount = 0;
                 for (NodeReferenceAndNode<?> nodeReferenceAndNode : results) {
-                    final NodeReferenceWithDistance nodeReferenceWithDistance = nodeReferenceAndNode.getNodeReferenceWithDistance();
-                    logger.info("retrieved result nodeId = {} at distance = {}", nodeReferenceWithDistance.getPrimaryKey().getLong(0),
-                            nodeReferenceWithDistance.getDistance());
+                    final NodeReferenceWithDistance nodeReferenceWithDistance =
+                            nodeReferenceAndNode.getNodeReferenceWithDistance();
+                    final int primaryKeyIndex = (int)nodeReferenceWithDistance.getPrimaryKey().getLong(0);
+                    logger.trace("retrieved result nodeId = {} at distance = {} reading numNodes={}, readBytes={}",
+                            primaryKeyIndex, nodeReferenceWithDistance.getDistance(),
+                            onReadListener.getNodeCountByLayer(), onReadListener.getBytesReadByLayer());
+                    if (groundTruthIndices.contains(primaryKeyIndex)) {
+                        recallCount ++;
+                    }
                 }
 
-                logger.info("true result vector={}", groundTruthIterator.next());
+                final double recall = (double)recallCount / k;
+                Assertions.assertTrue(recall > 0.93);
+
+                logger.info("query returned results recall={}", String.format("%.2f", recall * 100.0d));
             }
         }
-
-        System.out.println(onReadListener.getNodeCountByLayer());
-        System.out.println(onReadListener.getBytesReadByLayer());
-
-        // logger.info("search transaction took elapsedTime={}ms", TimeUnit.NANOSECONDS.toMillis(endTs - beginTs));
     }
 
     @Test
-    @Timeout(value = 150, unit = TimeUnit.MINUTES)
-    public void testSIFTInsert10kWithBatchInsert() throws Exception {
+    public void testSIFTInsertSmallUsingBatchAPI() throws Exception {
         final Metric metric = Metrics.EUCLIDEAN_METRIC.getMetric();
-        final int k = 10;
+        final int k = 100;
         final AtomicLong nextNodeIdAtomic = new AtomicLong(0L);
 
         final TestOnReadListener onReadListener = new TestOnReadListener();
@@ -331,99 +330,26 @@ public class HNSWModificationTest {
                 HNSW.DEFAULT_CONFIG.toBuilder().setMetric(metric).setM(32).setMMax(32).setMMax0(64).build(),
                 OnWriteListener.NOOP, onReadListener);
 
-        final String tsvFile = "/Users/nseemann/Downloads/train-100k.tsv";
-        final int dimensions = 128;
+        final Path siftSmallPath = Paths.get(".out/extracted/siftsmall/siftsmall_base.fvecs");
 
-        final AtomicReference<HalfVector> queryVectorAtomic = new AtomicReference<>();
-        final NavigableSet<NodeReferenceWithDistance> trueResults = new ConcurrentSkipListSet<>(
-                Comparator.comparing(NodeReferenceWithDistance::getDistance));
+        try (final var fileChannel = FileChannel.open(siftSmallPath, StandardOpenOption.READ)) {
+            final Iterator<Vector.DoubleVector> vectorIterator = new Vector.StoredFVecsIterator(fileChannel);
 
-        try (BufferedReader br = new BufferedReader(new FileReader(tsvFile))) {
-            for (int i = 0; i < 10000;) {
+            int i = 0;
+            while (vectorIterator.hasNext()) {
                 i += insertBatch(hnsw, 100, nextNodeIdAtomic, onReadListener,
                         tr -> {
-                            final String line;
-                            try {
-                                line = br.readLine();
-                            } catch (IOException e) {
-                                throw new RuntimeException(e);
-                            }
-
-                            final String[] values = Objects.requireNonNull(line).split("\t");
-                            Assertions.assertEquals(dimensions, values.length);
-                            final Half[] halfs = new Half[dimensions];
-
-                            for (int c = 0; c < values.length; c++) {
-                                final String value = values[c];
-                                halfs[c] = HNSWHelpers.halfValueOf(Double.parseDouble(value));
-                            }
-                            final Tuple currentPrimaryKey = createNextPrimaryKey(nextNodeIdAtomic);
-                            final HalfVector currentVector = new HalfVector(halfs);
-                            final HalfVector queryVector = queryVectorAtomic.get();
-                            if (queryVector == null) {
-                                queryVectorAtomic.set(currentVector);
+                            if (!vectorIterator.hasNext()) {
                                 return null;
-                            } else {
-                                final double currentDistance =
-                                        Vector.comparativeDistance(metric, currentVector, queryVector);
-                                if (trueResults.size() < k || trueResults.last().getDistance() > currentDistance) {
-                                    trueResults.add(
-                                            new NodeReferenceWithDistance(currentPrimaryKey, currentVector,
-                                                    Vector.comparativeDistance(metric, currentVector, queryVector)));
-                                }
-                                if (trueResults.size() > k) {
-                                    trueResults.remove(trueResults.last());
-                                }
-                                return new NodeReferenceWithVector(currentPrimaryKey, currentVector);
                             }
+                            final Vector.DoubleVector doubleVector = vectorIterator.next();
+                            final Tuple currentPrimaryKey = createNextPrimaryKey(nextNodeIdAtomic);
+                            final HalfVector currentVector = doubleVector.toHalfVector();
+                            return new NodeReferenceWithVector(currentPrimaryKey, currentVector);
                         });
             }
         }
-
-        onReadListener.reset();
-        final long beginTs = System.nanoTime();
-        final List<? extends NodeReferenceAndNode<?>> results =
-                db.run(tr -> hnsw.kNearestNeighborsSearch(tr, k, 100, queryVectorAtomic.get()).join());
-        final long endTs = System.nanoTime();
-
-        for (NodeReferenceAndNode<?> nodeReferenceAndNode : results) {
-            final NodeReferenceWithDistance nodeReferenceWithDistance = nodeReferenceAndNode.getNodeReferenceWithDistance();
-            logger.info("retrieved result nodeId = {} at distance= {}", nodeReferenceWithDistance.getPrimaryKey().getLong(0),
-                    nodeReferenceWithDistance.getDistance());
-        }
-
-        for (final NodeReferenceWithDistance nodeReferenceWithDistance : trueResults) {
-            logger.info("true result nodeId ={} at distance={}", nodeReferenceWithDistance.getPrimaryKey().getLong(0),
-                    nodeReferenceWithDistance.getDistance());
-        }
-
-        System.out.println(onReadListener.getNodeCountByLayer());
-        System.out.println(onReadListener.getBytesReadByLayer());
-
-        logger.info("search transaction took elapsedTime={}ms", TimeUnit.NANOSECONDS.toMillis(endTs - beginTs));
-    }
-
-    @Test
-    public void testBasicInsertAndScanLayer() throws Exception {
-        final Random random = new Random(0);
-        final AtomicLong nextNodeId = new AtomicLong(0L);
-        final HNSW hnsw = new HNSW(rtSubspace.getSubspace(), TestExecutors.defaultThreadPool(),
-                HNSW.DEFAULT_CONFIG.toBuilder().setM(4).setMMax(4).setMMax0(4).build(),
-                OnWriteListener.NOOP, OnReadListener.NOOP);
-
-        db.run(tr -> {
-            for (int i = 0; i < 100; i ++) {
-                hnsw.insert(tr, createNextPrimaryKey(nextNodeId), createRandomVector(random, 2)).join();
-            }
-            return null;
-        });
-
-        int layer = 0;
-        while (true) {
-            if (!dumpLayer(hnsw, layer++)) {
-                break;
-            }
-        }
+        validateSIFTSmall(hnsw, k);
     }
 
     @Test
@@ -436,112 +362,6 @@ public class HNSWModificationTest {
             Vector.comparativeDistance(Metrics.EUCLIDEAN_METRIC.getMetric(), randomVector, roundTripVector);
             Assertions.assertEquals(randomVector, roundTripVector);
         }
-    }
-
-    @Test
-    @Timeout(value = 150, unit = TimeUnit.MINUTES)
-    public void testSIFTVectors() throws Exception {
-        final AtomicLong nextNodeIdAtomic = new AtomicLong(0L);
-
-        final TestOnReadListener onReadListener = new TestOnReadListener();
-
-        final HNSW hnsw = new HNSW(rtSubspace.getSubspace(), TestExecutors.defaultThreadPool(),
-                HNSW.DEFAULT_CONFIG.toBuilder().setMetric(Metrics.EUCLIDEAN_METRIC.getMetric())
-                        .setM(32).setMMax(32).setMMax0(64).build(),
-                OnWriteListener.NOOP, onReadListener);
-
-
-        final String tsvFile = "/Users/nseemann/Downloads/train-100k.tsv";
-        final int dimensions = 128;
-        final var referenceVector = createRandomVector(new Random(0), dimensions);
-        long count = 0L;
-        double mean = 0.0d;
-        double mean2 = 0.0d;
-
-        try (BufferedReader br = new BufferedReader(new FileReader(tsvFile))) {
-            for (int i = 0; i < 100_000; i ++) {
-                final String line;
-                try {
-                    line = br.readLine();
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
-
-                final String[] values = Objects.requireNonNull(line).split("\t");
-                Assertions.assertEquals(dimensions, values.length);
-                final Half[] halfs = new Half[dimensions];
-                for (int c = 0; c < values.length; c++) {
-                    final String value = values[c];
-                    halfs[c] = HNSWHelpers.halfValueOf(Double.parseDouble(value));
-                }
-                final HalfVector newVector = new HalfVector(halfs);
-                final double distance = Vector.comparativeDistance(Metrics.EUCLIDEAN_METRIC.getMetric(),
-                        referenceVector, newVector);
-                count++;
-                final double delta = distance - mean;
-                mean += delta / count;
-                final double delta2 = distance - mean;
-                mean2 += delta * delta2;
-            }
-        }
-        final double sampleVariance = mean2 / (count - 1);
-        final double standardDeviation = Math.sqrt(sampleVariance);
-        logger.info("mean={}, sample_variance={}, stddeviation={}, cv={}", mean, sampleVariance, standardDeviation,
-                standardDeviation / mean);
-    }
-
-    @ParameterizedTest
-    @ValueSource(ints = {2, 3, 10, 100, 768})
-    public void testManyVectorsStandardDeviation(final int dimensionality) {
-        final Random random = new Random();
-        final Metric metric = Metrics.EUCLIDEAN_METRIC.getMetric();
-        long count = 0L;
-        double mean = 0.0d;
-        double mean2 = 0.0d;
-        for (long i = 0L; i < 100000; i ++) {
-            final HalfVector vector1 = createRandomVector(random, dimensionality);
-            final HalfVector vector2 = createRandomVector(random, dimensionality);
-            final double distance = Vector.comparativeDistance(metric, vector1, vector2);
-            count = i + 1;
-            final double delta = distance - mean;
-            mean += delta / count;
-            final double delta2 = distance - mean;
-            mean2 += delta * delta2;
-        }
-        final double sampleVariance = mean2 / (count - 1);
-        final double standardDeviation = Math.sqrt(sampleVariance);
-        logger.info("mean={}, sample_variance={}, stddeviation={}, cv={}", mean, sampleVariance, standardDeviation,
-                standardDeviation / mean);
-    }
-
-    private boolean dumpLayer(final HNSW hnsw, final int layer) throws IOException {
-        final String verticesFileName = "/Users/nseemann/Downloads/vertices-" + layer + ".csv";
-        final String edgesFileName = "/Users/nseemann/Downloads/edges-" + layer + ".csv";
-
-        final AtomicLong numReadAtomic = new AtomicLong(0L);
-        try (final BufferedWriter verticesWriter = new BufferedWriter(new FileWriter(verticesFileName));
-                final BufferedWriter edgesWriter = new BufferedWriter(new FileWriter(edgesFileName))) {
-            hnsw.scanLayer(db, layer, 100, node -> {
-                final CompactNode compactNode = node.asCompactNode();
-                final Vector<Half> vector = compactNode.getVector();
-                try {
-                    verticesWriter.write(compactNode.getPrimaryKey().getLong(0) + "," +
-                            vector.getComponent(0) + "," +
-                            vector.getComponent(1));
-                    verticesWriter.newLine();
-
-                    for (final var neighbor : compactNode.getNeighbors()) {
-                        edgesWriter.write(compactNode.getPrimaryKey().getLong(0) + "," +
-                                neighbor.getPrimaryKey().getLong(0));
-                        edgesWriter.newLine();
-                    }
-                    numReadAtomic.getAndIncrement();
-                } catch (final IOException e) {
-                    throw new RuntimeException("unable to write to file", e);
-                }
-            });
-        }
-        return numReadAtomic.get() != 0;
     }
 
     private <N extends NodeReference> void writeNode(@Nonnull final Transaction transaction,
