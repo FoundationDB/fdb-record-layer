@@ -30,9 +30,14 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * TODO.
+ * Represents a specific type of node within a graph structure that is used to represent nodes in an HNSW structure.
+ * <p>
+ * This node extends {@link AbstractNode}, does not store its own vector and instead specifically manages neighbors
+ * of type {@link NodeReferenceWithVector} (which do store a vector each).
+ * It provides a concrete implementation for an "inlining" node, distinguishing it from other node types such as
+ * {@link CompactNode}.
  */
-class InliningNode extends AbstractNode<NodeReferenceWithVector> {
+public class InliningNode extends AbstractNode<NodeReferenceWithVector> {
     @Nonnull
     private static final NodeFactory<NodeReferenceWithVector> FACTORY = new NodeFactory<>() {
         @SuppressWarnings("unchecked")
@@ -51,11 +56,32 @@ class InliningNode extends AbstractNode<NodeReferenceWithVector> {
         }
     };
 
+    /**
+     * Constructs a new {@code InliningNode} with a specified primary key and a list of its neighbors.
+     * <p>
+     * This constructor initializes the node by calling the constructor of its superclass,
+     * passing the primary key and neighbor list.
+     *
+     * @param primaryKey the non-null primary key of the node, represented by a {@link Tuple}.
+     * @param neighbors the non-null list of neighbors for this node, where each neighbor
+     * is a {@link NodeReferenceWithVector}.
+     */
     public InliningNode(@Nonnull final Tuple primaryKey,
                         @Nonnull final List<NodeReferenceWithVector> neighbors) {
         super(primaryKey, neighbors);
     }
 
+    /**
+     * Gets a reference to this node.
+     *
+     * @param vector the vector to be associated with the node reference. Despite the
+     * {@code @Nullable} annotation, this parameter must not be null.
+     *
+     * @return a new {@link NodeReferenceWithVector} instance containing the node's
+     * primary key and the provided vector; will never be null.
+     *
+     * @throws NullPointerException if the provided {@code vector} is null.
+     */
     @Nonnull
     @Override
     @SpotBugsSuppressWarnings("NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE")
@@ -63,24 +89,51 @@ class InliningNode extends AbstractNode<NodeReferenceWithVector> {
         return new NodeReferenceWithVector(getPrimaryKey(), Objects.requireNonNull(vector));
     }
 
+    /**
+     * Gets the kind of this node.
+     * @return the non-null {@link NodeKind} of this node, which is always
+     * {@code NodeKind.INLINING}.
+     */
     @Nonnull
     @Override
     public NodeKind getKind() {
         return NodeKind.INLINING;
     }
 
+    /**
+     * Casts this node to a {@link CompactNode}.
+     * <p>
+     * This implementation always throws an exception because this specific node type
+     * cannot be represented as a compact node.
+     * @return this node as a {@link CompactNode}, never {@code null}
+     * @throws IllegalStateException always, as this node is not a compact node
+     */
     @Nonnull
     @Override
     public CompactNode asCompactNode() {
         throw new IllegalStateException("this is not a compact node");
     }
 
+    /**
+     * Returns this object as an {@link InliningNode}.
+     * <p>
+     * As this class is already an instance of {@code InliningNode}, this method simply returns {@code this}.
+     * @return this object, which is guaranteed to be an {@code InliningNode} and never {@code null}.
+     */
     @Nonnull
     @Override
     public InliningNode asInliningNode() {
         return this;
     }
 
+    /**
+     * Returns the singleton factory instance used to create {@link NodeReferenceWithVector} objects.
+     * <p>
+     * This method provides a standard way to obtain the factory, ensuring that a single, shared instance is used
+     * throughout the application.
+     *
+     * @return the singleton {@link NodeFactory} instance, never {@code null}.
+     */
     @Nonnull
     public static NodeFactory<NodeReferenceWithVector> factory() {
         return FACTORY;
