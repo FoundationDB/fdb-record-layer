@@ -41,16 +41,16 @@ runs:
       shell: bash
       run: sudo ps -u foundationdb || echo "None"
 
-#     - name: Experiment
-#       shell: bash
-#       run: >-
-#         sudo sed -i -e "s/:4500/:4800/g"
-#         /etc/foundationdb/fdb.cluster
-#     - name: Experiment
-#       shell: bash
-#       run: >-
-#         sudo sed -i -e "s/fdbserver.4500/fdbserver.4800/g"
-#         /etc/foundationdb/foundationdb.conf
+    - name: Experiment
+      shell: bash
+      run: >-
+        sudo sed -i -e "s/:4500/:4800/g"
+        /etc/foundationdb/fdb.cluster
+    - name: Experiment
+      shell: bash
+      run: >-
+        sudo sed -i -e "s/fdbserver.4500/fdbserver.4800/g"
+        /etc/foundationdb/foundationdb.conf
 
     - name: debugging
       shell: bash
@@ -69,11 +69,8 @@ runs:
 #       run: sudo -u foundationdb /usr/sbin/fdbserver -p 127.0.0.1:4800 -C /etc/foundationdb/fdb.cluster -d /var/lib/foundationdb/data/4800 -L /var/log/foundationdb/ --machine-id 23948792384080c
     - name: debugging
       shell: bash
-      run: sudo /usr/lib/foundationdb/fdbmonitor --conffile /etc/foundationdb/foundationdb.conf --lockfile /var/run/fdbmonitor.pid --loggroup fdbX --daemonize
+      run: sudo /usr/lib/foundationdb/fdbmonitor --conffile /etc/foundationdb/foundationdb.conf --lockfile /var/run/fdbmonitor.pid --loggroup fdbX # --daemonize
 
-    - name: debugging
-      shell: bash
-      run: sleep 5s
     - name: debugging
       shell: bash
       run: fdbcli -C /etc/foundationdb/fdb.cluster --exec "status details" --log
@@ -110,3 +107,65 @@ runs:
         echo "clusterFiles: " >> fdb-environment.yaml
         echo "  - /etc/foundationdb/fdb1.cluster" >> fdb-environment.yaml
         echo "  - /etc/foundationdb/fdb2.cluster" >> fdb-environment.yaml
+
+
+# 2025-09-17T20:25:56.6537954Z <Event Severity="10" Time="1758140723.199576" DateTime="2025-09-17T20:25:23Z"
+# Type="ProgramStart"
+# ID="0000000000000000"
+# RandomSeed="220297604"
+# SourceVersion="97eb76a3faf60b6da333f8136ccc371986d66aa0"
+# Version="7.3.42"
+# PackageName="7.3"
+# FileSystem=""
+# DataFolder="/var/lib/foundationdb/data/4800"
+# WorkingDirectory="/"
+# ClusterFile="file:///etc/foundationdb/fdb.cluster"
+# ConnectionString="hjxVNCVQ:UuvgBhXC@127.0.0.1:4800"
+# ActualTime="1758140723"
+# EnvironmentKnobOptions="none"
+# CommandLine="/usr/sbin/fdbserver
+#    --cluster-file=/etc/foundationdb/fdb.cluster
+#    --datadir=/var/lib/foundationdb/data/4800
+#    --listen-address=public
+#    --logdir=/var/log/foundationdb
+#    --public-address=auto:4800"
+# BuggifyEnabled="0"
+# FaultInjectionEnabled="1"
+# MemoryLimit="8589934592"
+# VirtualMemoryLimit="0"
+# ProtocolVersion="0x0FDB00B073000000"
+# ThreadID="9889572679649731099"
+# Machine="127.0.0.1:4800"
+# LogGroup="default"
+# TrackLatestType="Original" />
+
+
+# 2025-09-17T20:25:56.5133346Z <Event Severity="10" Time="1758140718.612520" DateTime="2025-09-17T20:25:18Z"
+# Type="ProgramStart"
+# ID="0000000000000000"
+# RandomSeed="3591645195"
+# SourceVersion="97eb76a3faf60b6da333f8136ccc371986d66aa0"
+# Version="7.3.42"
+# PackageName="7.3"
+# FileSystem=""
+# DataFolder="/var/lib/foundationdb/data/4500"
+# WorkingDirectory="/"
+# ClusterFile="file:///etc/foundationdb/fdb.cluster"
+# ConnectionString="hjxVNCVQ:UuvgBhXC@127.0.0.1:4500"
+# ActualTime="1758140718"
+# EnvironmentKnobOptions="none"
+# CommandLine="/usr/sbin/fdbserver
+#   --cluster-file=/etc/foundationdb/fdb.cluster
+#   --datadir=/var/lib/foundationdb/data/4500
+#   --listen-address=public
+#   --logdir=/var/log/foundationdb
+#   --public-address=auto:4500"
+# BuggifyEnabled="0"
+# FaultInjectionEnabled="1"
+# MemoryLimit="8589934592"
+# VirtualMemoryLimit="0"
+# ProtocolVersion="0x0FDB00B073000000"
+# ThreadID="2383862468738596229"
+# Machine="127.0.0.1:4500"
+# LogGroup="default"
+# TrackLatestType="Original" />
