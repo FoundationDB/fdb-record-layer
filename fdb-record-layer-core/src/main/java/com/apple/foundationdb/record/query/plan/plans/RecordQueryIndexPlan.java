@@ -310,7 +310,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
         final RecordMetaData metaData = store.getRecordMetaData();
         final Index index = metaData.getIndex(indexName);
         final IndexScanBounds scanBounds = scanParameters.bind(store, index, context);
-        byte[] innerContinuation = KeyValueCursorBase.Continuation.fromRawBytes(continuation, serializationMode);
+        byte[] innerContinuation = KeyValueCursorBase.Continuation.fromRawBytes(continuation);
 
         return store.scanIndexRemoteFetch(index, scanBounds, innerContinuation, executeProperties.asScanProperties(isReverse()), IndexOrphanBehavior.ERROR)
                 .map(store::queriedRecord)
@@ -324,7 +324,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
         final RecordMetaData metaData = store.getRecordMetaData();
         final Index index = metaData.getIndex(indexName);
         final IndexScanBounds scanBounds = scanParameters.bind(store, index, context);
-        byte[] innerContinuation = KeyValueCursorBase.Continuation.fromRawBytes(continuation, serializationMode);
+        byte[] innerContinuation = KeyValueCursorBase.Continuation.fromRawBytes(continuation);
 
         if (!IndexScanType.BY_VALUE_OVER_SCAN.equals(getScanType())) {
             return store.scanIndex(index, scanBounds, innerContinuation, executeProperties.asScanProperties(reverse));
@@ -793,7 +793,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
                 return null;
             }
             // Add the prefix back to the inner continuation
-            byte[] innerContinuation = KeyValueCursorBase.Continuation.fromRawBytes(continuation, serializationMode);
+            byte[] innerContinuation = KeyValueCursorBase.Continuation.fromRawBytes(continuation);
             return ByteArrayUtil.join(prefixBytes, innerContinuation);
         }
 
@@ -802,7 +802,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
             if (continuation.isEnd()) {
                 return continuation;
             }
-            byte[] continuationBytes = KeyValueCursorBase.Continuation.fromRawBytes(continuation.toBytes(), serializationMode);
+            byte[] continuationBytes = KeyValueCursorBase.Continuation.fromRawBytes(continuation.toBytes());
             if (continuationBytes != null && ByteArrayUtil.startsWith(continuationBytes, prefixBytes)) {
                 // Strip away the prefix. Note that ByteStrings re-use the underlying ByteArray, so this can
                 // save a copy.
@@ -835,7 +835,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
                 if (bytes == null) {
                     synchronized (this) {
                         if (bytes == null) {
-                            byte[] baseContinuationBytes = KeyValueCursorBase.Continuation.fromRawBytes(baseContinuation.toBytes(), serializationMode);
+                            byte[] baseContinuationBytes = KeyValueCursorBase.Continuation.fromRawBytes(baseContinuation.toBytes());
                             if (baseContinuationBytes == null) {
                                 return null;
                             }
@@ -849,7 +849,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
             @Nonnull
             @Override
             public ByteString toByteString() {
-                byte[] result = KeyValueCursorBase.Continuation.fromRawBytes(baseContinuation.toBytes(), serializationMode);
+                byte[] result = KeyValueCursorBase.Continuation.fromRawBytes(baseContinuation.toBytes());
                 return result == null ? ByteString.EMPTY : ByteString.copyFrom(result).substring(prefixLength);
             }
 

@@ -168,5 +168,5 @@ message RangeCursorContinuation {
 
 message KeyValueCursorContinuation {
     optional bytes inner_continuation = 1;
-    optional int64 magic_number = 2;
+    optional sfixed64 magic_number = 2;
 }

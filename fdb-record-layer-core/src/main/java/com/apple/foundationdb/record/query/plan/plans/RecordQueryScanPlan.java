@@ -95,8 +95,6 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
     private final Optional<? extends WithPrimaryKeyMatchCandidate> matchCandidateOptional;
     @Nonnull
     private final Supplier<ComparisonRanges> comparisonRangesSupplier;
-    @Nonnull
-    private final KeyValueCursorBase.SerializationMode serializationMode;
 
     /**
      * Overloaded constructor.
@@ -146,17 +144,6 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
         this(recordTypes, flowedType, commonPrimaryKey, comparisons, reverse, strictlySorted, Optional.of(matchCandidate));
     }
 
-    public RecordQueryScanPlan(@Nullable Set<String> recordTypes,
-                               @Nonnull Type flowedType,
-                               @Nullable KeyExpression commonPrimaryKey,
-                               @Nonnull ScanComparisons comparisons,
-                               boolean reverse,
-                               boolean strictlySorted,
-                               @Nonnull final Optional<? extends WithPrimaryKeyMatchCandidate> matchCandidateOptional) {
-        this(recordTypes, flowedType, commonPrimaryKey, comparisons, reverse, strictlySorted, matchCandidateOptional, KeyValueCursorBase.SerializationMode.TO_OLD);
-    }
-
-
     /**
      * Overloaded constructor.
      * @param recordTypes a super set of record types of the records that this scan operator can produce
@@ -175,8 +162,7 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
                                @Nonnull ScanComparisons comparisons,
                                boolean reverse,
                                boolean strictlySorted,
-                               @Nonnull final Optional<? extends WithPrimaryKeyMatchCandidate> matchCandidateOptional,
-                               @Nonnull final KeyValueCursorBase.SerializationMode serializationMode) {
+                               @Nonnull final Optional<? extends WithPrimaryKeyMatchCandidate> matchCandidateOptional) {
         this.recordTypes = recordTypes == null ? null : ImmutableSet.copyOf(recordTypes);
         this.flowedType = flowedType;
         this.commonPrimaryKey = commonPrimaryKey;
@@ -185,7 +171,6 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
         this.strictlySorted = strictlySorted;
         this.matchCandidateOptional = matchCandidateOptional;
         this.comparisonRangesSupplier = Suppliers.memoize(this::computeComparisonRanges);
-        this.serializationMode = serializationMode;
     }
 
     @Nonnull
@@ -195,7 +180,7 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
                                                                      @Nullable final byte[] continuation,
                                                                      @Nonnull final ExecuteProperties executeProperties) {
         final TupleRange range = comparisons.toTupleRange(store, context);
-        byte[] innerContinuation = KeyValueCursorBase.Continuation.fromRawBytes(continuation, serializationMode);
+        byte[] innerContinuation = KeyValueCursorBase.Continuation.fromRawBytes(continuation);
 
         return store.scanRecords(
                 range.getLow(), range.getHigh(), range.getLowEndpoint(), range.getHighEndpoint(), innerContinuation,

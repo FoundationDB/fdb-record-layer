@@ -145,7 +145,20 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
         private final byte[] lastKey;
         private final int prefixLength;
         private final SerializationMode serializationMode;
-        private static final long MAGIC_NUMBER = 1234L;
+        /*
+        how we chose this "magic number":
+        The goal is to make sure an old continuation won't be accidentally parsed as: {magic_number = 1234567890L, inner_continuation = some byte array}
+        An example that can be parsed as above is:
+        byte[] data = new byte[] {0x11, (byte) 0xD2, 0x02, (byte) 0x96, 0x49, 0x00, 0x00, 0x00, 0x00, 0x0A, 0x01, 0x14};
+        where 0x11 is wire tag for sfixed64,
+        [(byte) 0xD2, 0x02, (byte) 0x96, 0x49, 0x00, 0x00, 0x00, 0x00] is 1234567890L
+        0x0A is wire tag for bytes
+        0x01 represents that the byte array contains 1 byte
+        0x14 is the value of the byte array
+
+        Because 0xD2 is a negative number in java, it is not possible for a continuation to reach this number.
+         */
+        private static final long MAGIC_NUMBER = 1234567890L;
 
         public Continuation(@Nullable final byte[] lastKey, final int prefixLength, final SerializationMode serializationMode) {
             // Note that doing this without a full copy is dangerous if the array is ever mutated.
@@ -188,12 +201,9 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
             return byteString.isEmpty() ? new byte[0] : byteString.toByteArray();
         }
 
-        public static byte[] fromRawBytes(@Nullable byte[] rawBytes, SerializationMode serializationMode) {
+        public static byte[] fromRawBytes(@Nullable byte[] rawBytes) {
             if (rawBytes == null) {
                 return null;
-            }
-            if (serializationMode == SerializationMode.TO_OLD) {
-                return rawBytes;
             }
             try {
                 RecordCursorProto.KeyValueCursorContinuation continuationProto = RecordCursorProto.KeyValueCursorContinuation.parseFrom(rawBytes);
@@ -313,7 +323,7 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
             reverse = scanProperties.isReverse();
 
             if (continuation != null) {
-                byte[] realContinuation = KeyValueCursorBase.Continuation.fromRawBytes(continuation, serializationMode);
+                byte[] realContinuation = KeyValueCursorBase.Continuation.fromRawBytes(continuation);
                 final byte[] continuationBytes = new byte[prefixLength + realContinuation.length];
                 System.arraycopy(lowBytes, 0, continuationBytes, 0, prefixLength);
                 System.arraycopy(realContinuation, 0, continuationBytes, prefixLength, realContinuation.length);
