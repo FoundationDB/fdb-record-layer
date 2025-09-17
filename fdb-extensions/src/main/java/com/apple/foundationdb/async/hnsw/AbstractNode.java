@@ -27,8 +27,14 @@ import javax.annotation.Nonnull;
 import java.util.List;
 
 /**
- * TODO.
- * @param <N> node type class.
+ * An abstract base class implementing the {@link Node} interface.
+ * <p>
+ * This class provides the fundamental structure for a node within the HNSW graph,
+ * managing a unique {@link Tuple} primary key and an immutable list of its neighbors.
+ * Subclasses are expected to provide concrete implementations, potentially adding
+ * more state or behavior.
+ *
+ * @param <N> the type of the node reference used for neighbors, which must extend {@link NodeReference}
  */
 abstract class AbstractNode<N extends NodeReference> implements Node<N> {
     @Nonnull
@@ -37,24 +43,53 @@ abstract class AbstractNode<N extends NodeReference> implements Node<N> {
     @Nonnull
     private final List<N> neighbors;
 
+    /**
+     * Constructs a new {@code AbstractNode} with a specified primary key and a list of neighbors.
+     * <p>
+     * This constructor creates a defensive, immutable copy of the provided {@code neighbors} list.
+     * This ensures that the internal state of the node cannot be modified by external
+     * changes to the original list after construction.
+     *
+     * @param primaryKey the unique identifier for this node; must not be {@code null}
+     * @param neighbors the list of nodes connected to this node; must not be {@code null}
+     */
     protected AbstractNode(@Nonnull final Tuple primaryKey,
                            @Nonnull final List<N> neighbors) {
         this.primaryKey = primaryKey;
         this.neighbors = ImmutableList.copyOf(neighbors);
     }
 
+    /**
+     * Gets the primary key that uniquely identifies this object.
+     * @return the primary key {@link  Tuple}, which will never be {@code null}.
+     */
     @Nonnull
     @Override
     public Tuple getPrimaryKey() {
         return primaryKey;
     }
 
+    /**
+     * Gets the list of neighbors connected to this node.
+     * <p>
+     * This method returns a direct reference to the internal list which is
+     * immutable.
+     * @return a non-null, possibly empty, list of neighbors.
+     */
     @Nonnull
     @Override
     public List<N> getNeighbors() {
         return neighbors;
     }
 
+    /**
+     * Gets the neighbor at the specified index.
+     * <p>
+     * This method provides access to a specific neighbor by its zero-based position
+     * in the internal list of neighbors.
+     * @param index the zero-based index of the neighbor to retrieve.
+     * @return the neighbor at the specified index, guaranteed to be non-null.
+     */
     @Nonnull
     @Override
     public N getNeighbor(final int index) {
