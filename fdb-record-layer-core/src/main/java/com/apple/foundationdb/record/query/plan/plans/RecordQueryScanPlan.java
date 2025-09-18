@@ -180,10 +180,8 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
                                                                      @Nullable final byte[] continuation,
                                                                      @Nonnull final ExecuteProperties executeProperties) {
         final TupleRange range = comparisons.toTupleRange(store, context);
-        byte[] innerContinuation = KeyValueCursorBase.Continuation.fromRawBytes(continuation);
-
         return store.scanRecords(
-                range.getLow(), range.getHigh(), range.getLowEndpoint(), range.getHighEndpoint(), innerContinuation,
+                range.getLow(), range.getHigh(), range.getLowEndpoint(), range.getHighEndpoint(), continuation,
                 executeProperties.asScanProperties(reverse))
                 .map(store::queriedRecord)
                 .map(QueryResult::fromQueriedRecord);

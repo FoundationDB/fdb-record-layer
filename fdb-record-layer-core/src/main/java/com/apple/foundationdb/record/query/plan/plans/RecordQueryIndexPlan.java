@@ -310,9 +310,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
         final RecordMetaData metaData = store.getRecordMetaData();
         final Index index = metaData.getIndex(indexName);
         final IndexScanBounds scanBounds = scanParameters.bind(store, index, context);
-        byte[] innerContinuation = KeyValueCursorBase.Continuation.fromRawBytes(continuation);
-
-        return store.scanIndexRemoteFetch(index, scanBounds, innerContinuation, executeProperties.asScanProperties(isReverse()), IndexOrphanBehavior.ERROR)
+        return store.scanIndexRemoteFetch(index, scanBounds, continuation, executeProperties.asScanProperties(isReverse()), IndexOrphanBehavior.ERROR)
                 .map(store::queriedRecord)
                 .map(QueryResult::fromQueriedRecord);
     }
@@ -324,15 +322,13 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
         final RecordMetaData metaData = store.getRecordMetaData();
         final Index index = metaData.getIndex(indexName);
         final IndexScanBounds scanBounds = scanParameters.bind(store, index, context);
-        byte[] innerContinuation = KeyValueCursorBase.Continuation.fromRawBytes(continuation);
-
         if (!IndexScanType.BY_VALUE_OVER_SCAN.equals(getScanType())) {
-            return store.scanIndex(index, scanBounds, innerContinuation, executeProperties.asScanProperties(reverse));
+            return store.scanIndex(index, scanBounds, continuation, executeProperties.asScanProperties(reverse));
         }
 
         // Evaluate the scan bounds. Again, this optimization can only be done if we have a scan range
         if (!(scanBounds instanceof IndexScanRange)) {
-            return store.scanIndex(index, scanBounds, innerContinuation, executeProperties.asScanProperties(reverse));
+            return store.scanIndex(index, scanBounds, continuation, executeProperties.asScanProperties(reverse));
         }
 
         // Try to widen the scan range to include everything up
@@ -341,7 +337,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
         TupleRange widenedScanRange = widenRange(tupleScanRange);
         if (widenedScanRange == null) {
             // Unable to widen the range. Fall back to the original execution.
-            return store.scanIndex(index, scanBounds, innerContinuation, executeProperties.asScanProperties(reverse));
+            return store.scanIndex(index, scanBounds, continuation, executeProperties.asScanProperties(reverse));
         }
 
         return executeEntriesWithOverScan(tupleScanRange, widenedScanRange, store, index, continuation, executeProperties);
@@ -789,12 +785,9 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
         @Nullable
         @Override
         public byte[] unwrapContinuation(@Nullable final byte[] continuation) {
-            if (continuation == null) {
-                return null;
-            }
             // Add the prefix back to the inner continuation
-            byte[] innerContinuation = KeyValueCursorBase.Continuation.fromRawBytes(continuation);
-            return ByteArrayUtil.join(prefixBytes, innerContinuation);
+            byte[] innerContinuation = KeyValueCursorBase.Continuation.getInnerContinuation(continuation);
+            return new KeyValueCursorBase.Continuation(ByteArrayUtil.join(prefixBytes, innerContinuation), 0, serializationMode).toBytes();
         }
 
         @Override
@@ -802,7 +795,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
             if (continuation.isEnd()) {
                 return continuation;
             }
-            byte[] continuationBytes = KeyValueCursorBase.Continuation.fromRawBytes(continuation.toBytes());
+            byte[] continuationBytes = KeyValueCursorBase.Continuation.getInnerContinuation(continuation.toBytes());
             if (continuationBytes != null && ByteArrayUtil.startsWith(continuationBytes, prefixBytes)) {
                 // Strip away the prefix. Note that ByteStrings re-use the underlying ByteArray, so this can
                 // save a copy.
@@ -821,9 +814,10 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
             @SuppressWarnings("squid:S3077") // array immutable once initialized, so AtomicByteArray not necessary
             @Nullable
             private volatile byte[] bytes;
-            private final KeyValueCursorBase.SerializationMode serializationMode;
+            @Nonnull
+            private KeyValueCursorBase.SerializationMode serializationMode;
 
-            private PrefixRemovingContinuation(RecordCursorContinuation baseContinuation, int prefixLength, KeyValueCursorBase.SerializationMode serializationMode) {
+            private PrefixRemovingContinuation(RecordCursorContinuation baseContinuation, int prefixLength, @Nonnull KeyValueCursorBase.SerializationMode serializationMode) {
                 this.baseContinuation = baseContinuation;
                 this.prefixLength = prefixLength;
                 this.serializationMode = serializationMode;
@@ -835,11 +829,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
                 if (bytes == null) {
                     synchronized (this) {
                         if (bytes == null) {
-                            byte[] baseContinuationBytes = KeyValueCursorBase.Continuation.fromRawBytes(baseContinuation.toBytes());
-                            if (baseContinuationBytes == null) {
-                                return null;
-                            }
-                            this.bytes = Arrays.copyOfRange(baseContinuationBytes, prefixLength, baseContinuationBytes.length);
+                            bytes = KeyValueCursorBase.Continuation.getInnerContinuation(new KeyValueCursorBase.Continuation(baseContinuation.toBytes(), prefixLength, serializationMode).toBytes());
                         }
                     }
                 }
@@ -849,8 +839,8 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
             @Nonnull
             @Override
             public ByteString toByteString() {
-                byte[] result = KeyValueCursorBase.Continuation.fromRawBytes(baseContinuation.toBytes());
-                return result == null ? ByteString.EMPTY : ByteString.copyFrom(result).substring(prefixLength);
+                byte[] bytes1 = toBytes();
+                return bytes1 == null ? ByteString.EMPTY : ByteString.copyFrom(bytes1);
             }
 
             @Override

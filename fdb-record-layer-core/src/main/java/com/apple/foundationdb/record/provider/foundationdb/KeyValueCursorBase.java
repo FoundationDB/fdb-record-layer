@@ -48,6 +48,7 @@ import com.google.protobuf.ZeroCopyByteString;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Arrays;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -147,18 +148,17 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
         private final SerializationMode serializationMode;
         /*
         how we chose this "magic number":
-        The goal is to make sure an old continuation won't be accidentally parsed as: {magic_number = 1234567890L, inner_continuation = some byte array}
-        An example that can be parsed as above is:
-        byte[] data = new byte[] {0x11, (byte) 0xD2, 0x02, (byte) 0x96, 0x49, 0x00, 0x00, 0x00, 0x00, 0x0A, 0x01, 0x14};
-        where 0x11 is wire tag for sfixed64,
-        [(byte) 0xD2, 0x02, (byte) 0x96, 0x49, 0x00, 0x00, 0x00, 0x00] is 1234567890L
-        0x0A is wire tag for bytes
-        0x01 represents that the byte array contains 1 byte
-        0x14 is the value of the byte array
-
-        Because 0xD2 is a negative number in java, it is not possible for a continuation to reach this number.
+        The goal is to make sure an old continuation won't be accidentally parsed as: {magic_number = 6773487359078157740L, inner_continuation = some byte array}
+        In little endian, MAGIC_NUMBER: 6773487359078157740L is:
+        new byte[]{ (byte) 0xAC, (byte) 0xCD, 0x73, (byte) 0x98, (byte) 0xDD, 0x42, 0x00, 0x5E };
+        Note that none of those bytes are valid Tuple codes (except for the 0x00--which is also deliberate).
+        That includes the byte at position 4, that is \x98, which is the relevant byte if we had a Tuple that began with \x11.
+        The choice of 0x00 as the penultimate byte is there to protect against the only case where we don't get a valid Tuple back from a scan,
+        namely PREFIX_STRING scan. In that case, the byte string will begin with some String suffix, which theoretically could be a valid Protobuf value.
+        But that String suffix will have any \x00 bytes escaped by following it with an \xff byte.
+        So the sequence \x00\x5e would mean "end-of-string" followed by the beginning of a new Tuple value with code \x5e, which again, is invalid.
          */
-        private static final long MAGIC_NUMBER = 1234567890L;
+        private static final long MAGIC_NUMBER = 677_348_735_907_815_774_0L;
 
         public Continuation(@Nullable final byte[] lastKey, final int prefixLength, final SerializationMode serializationMode) {
             // Note that doing this without a full copy is dangerous if the array is ever mutated.
@@ -201,7 +201,7 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
             return byteString.isEmpty() ? new byte[0] : byteString.toByteArray();
         }
 
-        public static byte[] fromRawBytes(@Nullable byte[] rawBytes) {
+        public static byte[] getInnerContinuation(@Nullable byte[] rawBytes) {
             if (rawBytes == null) {
                 return null;
             }
@@ -323,7 +323,7 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
             reverse = scanProperties.isReverse();
 
             if (continuation != null) {
-                byte[] realContinuation = KeyValueCursorBase.Continuation.fromRawBytes(continuation);
+                byte[] realContinuation = KeyValueCursorBase.Continuation.getInnerContinuation(continuation);
                 final byte[] continuationBytes = new byte[prefixLength + realContinuation.length];
                 System.arraycopy(lowBytes, 0, continuationBytes, 0, prefixLength);
                 System.arraycopy(realContinuation, 0, continuationBytes, prefixLength, realContinuation.length);
@@ -365,7 +365,7 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
 
         @SpotBugsSuppressWarnings(value = "EI2", justification = "copies are expensive")
         public T setContinuation(@Nullable byte[] continuation) {
-            this.continuation = continuation;
+            this.continuation = KeyValueCursorBase.Continuation.getInnerContinuation(continuation);
             return self();
         }
 
