@@ -74,6 +74,7 @@ import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -828,6 +829,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
         }
 
         boolean hasCommonOrdering = false;
+        final var seenOrderingParts = new HashSet<List<OrderingPart.ProvidedOrderingPart>>();
         final var expressionsBuilder = ImmutableList.<RelationalExpression>builder();
         for (final var requestedOrdering : requestedOrderings) {
             final var comparisonKeyValuesIterable =
@@ -854,6 +856,13 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                     final var comparisonIsReverse =
                             RecordQuerySetPlan.resolveComparisonDirection(comparisonOrderingParts);
                     comparisonOrderingParts = RecordQuerySetPlan.adjustFixedBindings(comparisonOrderingParts, comparisonIsReverse);
+
+                    if (seenOrderingParts.contains(comparisonOrderingParts)) {
+                        // the ordering parts were already used in generating an intersection between the partition
+                        // constituents, so we can safely skip it.
+                        continue;
+                    }
+                    seenOrderingParts.add(comparisonOrderingParts);
 
                     final var newQuantifiers =
                             partition
