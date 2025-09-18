@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.ScanProperties;
+import com.apple.foundationdb.record.cursors.LazyCursor;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
@@ -53,51 +54,45 @@ import java.util.concurrent.Executor;
  * This class is an extension of {@link SizeStatisticsCollectorCursor}, in the sense that it has a generalized
  * function:
  * The {@link SizeStatisticsCollectorCursor} is returning the same result as this class would in case of group-by
- * depth of
- * 0. When using a non-0 group-by depth, this cursor would return a collection of subspace statistics broken down by
- * the
- * constituents of the subspace key values.
+ * depth of 0. When using a non-0 group-by depth, this cursor would return a collection of subspace statistics broken down by
+ * the constituents of the subspace key values.
  * The cursor performs a full scan of the subspace backing whatever it is collecting statistics on. It
  * should therefore be run relatively sparingly, and it should not be expected to finish within a single
  * transaction.
  * Note that this class makes no attempt at keeping its results transactional. As a result, if this is run on an
  * actively mutating data set, there are no guarantees that the values it returns were ever actually true for any
  * version in the transaction history. However, as long as the data set is not too volatile, it should produce an
- * approximate answer
- * for the statistics it yields.
+ * approximate answer for the statistics it yields.
  * <p>
  * This class could be used to replace {@link SizeStatisticsCollectorCursor} in the future but for
- * backwards-compatibility
- * both would remain the codebase.
+ * backwards-compatibility both would remain in the codebase.
  * <p>
  * A note about implementation: This cursor is implemented as a scanner across the entire subspace, adding sizes and
- * grouping
- * as it goes along. This has the advantage of scanning all subspaces regardless of the keys enclosed within.
- * Another
- * implementation could be considered, where specific subspaces are to be scanned, being more efficient, but less
- * flexible,
- * as it would require figuring out which subspaces actually exist.
+ * grouping as it goes along. This has the advantage of scanning all subspaces regardless of the keys enclosed within.
+ * Another implementation could be considered, where specific subspaces are to be scanned, being more efficient, but less
+ * flexible, as it would require figuring out which subspaces actually exist. An example of such approach can be made to
+ * understand the differences between RECORD and INDEX subspaces when dealing with a Store, to provide a response that
+ * knows the semantics of such subspaces.
  * <p>
  * A note about security: scanning subspaces may reveal sensitive information. Specifically, in the case of value
- * indexes,
- * the constituents of the key may reveal the values indexed by the index. DO NOT use this tool without proper
- * authentication and
- * authorization in place that ensures data integrity.
+ * indexes, the constituents of the key may reveal the values indexed by the index. DO NOT use this tool without proper
+ * authentication and authorization in place that ensures data integrity.
  */
 @API(API.Status.EXPERIMENTAL)
 public class SizeStatisticsGroupingCursor implements RecordCursor<SizeStatisticsGroupedResults> {
-    private static final Tuple EMPTY_TUPLE = new Tuple();
 
-    @Nonnull
-    private final SubspaceProvider subspaceProvider;
     @Nonnull
     private final FDBRecordContext context;
-    @Nonnull
-    private final ScanProperties scanProperties;
     private final int aggregationDepth;
 
-    @Nullable
+    /** The inner cursor. Its lifecycle is the same as this cursor (lazily initialized). */
+    @Nonnull
+    private final RecordCursor<KeyValue> innerCursor;
     private byte[] kvCursorContinuation;
+    /** The subspace future that will be resolved prior to the inner cursor iteration. */
+    @Nonnull
+    private final CompletableFuture<Subspace> subspaceFuture;
+
     /**
      * The current grouping key in progress.
      * When reaching a limit, this key would also be packed in the continuation and continued from.
@@ -119,9 +114,7 @@ public class SizeStatisticsGroupingCursor implements RecordCursor<SizeStatistics
 
     private SizeStatisticsGroupingCursor(@Nonnull SubspaceProvider subspaceProvider, @Nonnull FDBRecordContext context,
                                          @Nonnull ScanProperties scanProperties, @Nullable byte[] continuation, final int aggregationDepth) {
-        this.subspaceProvider = subspaceProvider;
         this.context = context;
-        this.scanProperties = scanProperties;
         this.aggregationDepth = aggregationDepth;
         this.closed = false;
 
@@ -131,7 +124,7 @@ public class SizeStatisticsGroupingCursor implements RecordCursor<SizeStatistics
             // currentGroupingKey will be initialized once we get the first result
         } else {
             try {
-                // if this is a continuation update stats with partial values and get the underlying cursor's continuation
+                // if this is a continuation update stats with partial values then get the underlying cursor's continuation
                 RecordCursorProto.SizeStatisticsGroupingContinuation statsContinuation = RecordCursorProto.SizeStatisticsGroupingContinuation.parseFrom(continuation);
                 if (SizeStatisticsGroupingContinuation.isLastResultContinuation(statsContinuation)) {
                     // The last result has been sent, mark as done
@@ -147,6 +140,16 @@ public class SizeStatisticsGroupingCursor implements RecordCursor<SizeStatistics
                         .addLogInfo("raw_bytes", ByteArrayUtil2.loggable(continuation));
             }
         }
+        subspaceFuture = subspaceProvider.getSubspaceAsync(context);
+        innerCursor = new LazyCursor<>(
+                subspaceFuture.thenApply(sub ->
+                        KeyValueCursor.Builder
+                                .withSubspace(sub)
+                                .setContext(context)
+                                .setContinuation(kvCursorContinuation)
+                                .setScanProperties(scanProperties)
+                                .build()),
+                getExecutor());
     }
 
     /**
@@ -253,26 +256,26 @@ public class SizeStatisticsGroupingCursor implements RecordCursor<SizeStatistics
     @Nonnull
     @Override
     public CompletableFuture<RecordCursorResult<SizeStatisticsGroupedResults>> onNext() {
-        // if this cursor instance has previously hit a limit then keep returning the same result
-        if (nextStatsResult != null && !nextStatsResult.hasNext()) {
-            return CompletableFuture.completedFuture(nextStatsResult);
+        if (nextStatsResult != null) {
+            // if this cursor instance has previously hit a limit then keep returning the same result
+            if (!nextStatsResult.hasNext()) {
+                return CompletableFuture.completedFuture(nextStatsResult);
+            }
+            // Similar to the constructor, this protects when we reached the end calling onNext
+            // here we can assume there is a result so the continuation is of the right type
+            if (((SizeStatisticsGroupingContinuation)nextStatsResult.getContinuation()).isLastResultContinuation()) {
+                nextStatsResult = RecordCursorResult.exhausted();
+                return CompletableFuture.completedFuture(nextStatsResult);
+            }
         }
-        // instantiate the underlying KV cursor, aggregates as much of its input as it can provide, and close it
-        return subspaceProvider.getSubspaceAsync(context).thenCompose(subspace -> {
-            KeyValueCursor kvCursor = KeyValueCursor.Builder
-                    .withSubspace(subspace)
-                    .setContext(context)
-                    .setContinuation(kvCursorContinuation)
-                    .setScanProperties(scanProperties)
-                    .build();
-            return AsyncUtil.whileTrue(() ->
-                            kvCursor.onNext()
-                                    .thenApply(nextKv ->
-                                            // set state of cursor, return false when done
-                                            handleOneItem(subspace, nextKv)))
-                    .thenApply(ignore -> nextStatsResult)
-                    .whenComplete((ignore, error) -> kvCursor.close());
-        });
+        // iterate until next result can be returned or the cursor is done
+        return subspaceFuture.thenCompose(subspace ->
+                AsyncUtil.whileTrue(
+                        () -> innerCursor.onNext().thenApply(nextKv ->
+                                // set state of cursor, return false when done
+                                handleOneItem(subspace, nextKv)),
+                        getExecutor())
+                .thenApply(ignore -> nextStatsResult));
     }
 
     @Nonnull
@@ -290,6 +293,7 @@ public class SizeStatisticsGroupingCursor implements RecordCursor<SizeStatistics
     @Override
     public void close() {
         closed = true;
+        innerCursor.close();
     }
 
     @Override
@@ -336,7 +340,7 @@ public class SizeStatisticsGroupingCursor implements RecordCursor<SizeStatistics
     private Tuple groupingKeyFrom(final Subspace subspace, final byte[] key) {
         // Ungrouped - no group breaks - all elements fall into the same group
         if (aggregationDepth == 0) {
-            return EMPTY_TUPLE;
+            return TupleHelpers.EMPTY;
         }
         // unpack removes the subspace prefix from the key and return the remaining Tuple elements
         final Tuple unpacked = subspace.unpack(key);

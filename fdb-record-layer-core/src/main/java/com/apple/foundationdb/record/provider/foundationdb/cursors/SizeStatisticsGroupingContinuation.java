@@ -40,6 +40,8 @@ class SizeStatisticsGroupingContinuation implements RecordCursorContinuation {
       */
     public static final SizeStatisticsGroupingContinuation LAST_RESULT_CONTINUATION = new SizeStatisticsGroupingContinuation();
 
+    /** Whether the continuation is a marker for the last result being sent before the cursor is done. */
+    private final boolean lastResultContinuation;
     @Nullable
     private RecordCursorContinuation innerContinuation;
     @Nullable
@@ -54,6 +56,7 @@ class SizeStatisticsGroupingContinuation implements RecordCursorContinuation {
      * The inner cursor is done, and we sent the last result, cannot continue afterward.
      */
     private SizeStatisticsGroupingContinuation() {
+        lastResultContinuation = true;
     }
 
     /**
@@ -62,6 +65,7 @@ class SizeStatisticsGroupingContinuation implements RecordCursorContinuation {
     SizeStatisticsGroupingContinuation(@Nonnull RecordCursorResult<KeyValue> currentKvResult,
                                        @Nonnull SizeStatisticsResults partialResults,
                                        @Nonnull Tuple currentGroupingKey) {
+        lastResultContinuation = false;
         this.innerContinuation = currentKvResult.getContinuation();
         this.partialResults = partialResults.copy(); //cache an immutable snapshot of the partial aggregate state
         this.currentGroupingKey = currentGroupingKey;
@@ -73,7 +77,11 @@ class SizeStatisticsGroupingContinuation implements RecordCursorContinuation {
      * @return TRUE if the protobuf marks a continuation with last result
      */
     public static boolean isLastResultContinuation(final RecordCursorProto.SizeStatisticsGroupingContinuation statsContinuation) {
-        return !statsContinuation.hasPartialResults();
+        return statsContinuation.getLastResultContinuation();
+    }
+
+    public boolean isLastResultContinuation() {
+        return lastResultContinuation;
     }
 
     @Nullable
@@ -91,6 +99,7 @@ class SizeStatisticsGroupingContinuation implements RecordCursorContinuation {
     public ByteString toByteString() {
         if (cachedByteString == null) {
             final RecordCursorProto.SizeStatisticsGroupingContinuation.Builder builder = RecordCursorProto.SizeStatisticsGroupingContinuation.newBuilder();
+            builder.setLastResultContinuation(lastResultContinuation);
             if (innerContinuation != null) {
                 builder.setUnderlyingContinuation(innerContinuation.toByteString());
             }
