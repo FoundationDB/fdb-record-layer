@@ -34,7 +34,6 @@ import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.provider.foundationdb.indexing.IndexingRangeSet;
-import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Message;
@@ -112,17 +111,12 @@ public class IndexingMultiTargetByRecords extends IndexingBase {
     CompletableFuture<Void> buildIndexInternalAsync() {
         return getRunner().runAsync(context -> openRecordStore(context)
                 .thenCompose( store -> context.getReadVersionAsync()
-                            .thenCompose(vignore -> {
-                                SubspaceProvider subspaceProvider = common.getRecordStoreBuilder().getSubspaceProvider();
-                                // validation checks, if any, will be performed here
-                                return subspaceProvider.getSubspaceAsync(context)
-                                        .thenCompose(this::buildMultiTargetIndex);
-                            })
-                ), common.indexLogMessageKeyValues("IndexingMultiTargetByRecords::buildIndexInternalAsync"));
+                            .thenCompose(ignore -> buildMultiTargetIndex())),
+                common.indexLogMessageKeyValues("IndexingMultiTargetByRecords::buildIndexInternalAsync"));
     }
 
     @Nonnull
-    private CompletableFuture<Void> buildMultiTargetIndex(@Nonnull Subspace subspace) {
+    private CompletableFuture<Void> buildMultiTargetIndex() {
         final TupleRange tupleRange = common.computeRecordsRange();
         final byte[] rangeStart;
         final byte[] rangeEnd;
@@ -157,7 +151,7 @@ public class IndexingMultiTargetByRecords extends IndexingBase {
                 LogMessageKeys.RANGE_END, rangeEnd);
 
         return maybePresetRangeFuture.thenCompose(ignore ->
-                        iterateAllRanges(additionalLogMessageKeyValues, this::buildRangeOnly, subspace));
+                        iterateAllRanges(additionalLogMessageKeyValues, this::buildRangeOnly));
     }
 
     @Nonnull

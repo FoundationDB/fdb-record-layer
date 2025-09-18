@@ -49,7 +49,6 @@ import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordFromStoredRecordPlan;
 import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordPlanner;
 import com.apple.foundationdb.subspace.Subspace;
-import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Message;
 import org.slf4j.Logger;
@@ -520,10 +519,6 @@ public abstract class IndexingBase {
                     .addKeysAndValues(common.indexLogMessageKeyValues())
                     .addKeysAndValues(throttle.logMessageKeyValues())
                     .addKeysAndValues(metricsDiff == null ? Collections.emptyMap() : metricsDiff.getKeysAndValues());
-            SubspaceProvider subspaceProvider = common.getRecordStoreBuilder().getSubspaceProvider();
-            if (subspaceProvider != null) {
-                message.addKeyAndValue(subspaceProvider.logKey(), subspaceProvider);
-            }
             LOGGER.info(message.toString());
         }
 
@@ -910,14 +905,12 @@ public abstract class IndexingBase {
     }
 
     protected CompletableFuture<Void> iterateAllRanges(List<Object> additionalLogMessageKeyValues,
-                                                       BiFunction<FDBRecordStore, AtomicLong,  CompletableFuture<Boolean>> iterateRange,
-                                                       @Nonnull Subspace subspace) {
-        return iterateAllRanges(additionalLogMessageKeyValues, iterateRange, subspace, null);
+                                                       BiFunction<FDBRecordStore, AtomicLong,  CompletableFuture<Boolean>> iterateRange) {
+        return iterateAllRanges(additionalLogMessageKeyValues, iterateRange, null);
     }
 
     protected CompletableFuture<Void> iterateAllRanges(List<Object> additionalLogMessageKeyValues,
                                                        BiFunction<FDBRecordStore, AtomicLong,  CompletableFuture<Boolean>> iterateRange,
-                                                       @Nonnull Subspace subspace,
                                                        @Nullable Function<FDBException, Optional<Boolean>> shouldReturnQuietly) {
 
         return AsyncUtil.whileTrue(() ->
@@ -934,7 +927,7 @@ public abstract class IndexingBase {
                                 final RuntimeException unwrappedEx = getRunner().getDatabase().mapAsyncToSyncException(ex);
                                 if (LOGGER.isInfoEnabled()) {
                                     LOGGER.info(KeyValueLogMessage.of("possibly non-fatal error encountered building range",
-                                            LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(subspace.pack())), ex);
+                                            common.indexLogMessageKeyValues()), ex);
                                 }
                                 throw unwrappedEx;
                             }).thenCompose(Function.identity()),
