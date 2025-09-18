@@ -926,8 +926,9 @@ public abstract class IndexingBase {
                                 }
                                 final RuntimeException unwrappedEx = getRunner().getDatabase().mapAsyncToSyncException(ex);
                                 if (LOGGER.isInfoEnabled()) {
-                                    LOGGER.info(KeyValueLogMessage.of("possibly non-fatal error encountered building range",
-                                            common.indexLogMessageKeyValues()), ex);
+                                    LOGGER.info(KeyValueLogMessage.build("possibly non-fatal error encountered building range")
+                                                    .addKeysAndValues(common.indexLogMessageKeyValues())
+                                            .toString(), ex);
                                 }
                                 throw unwrappedEx;
                             }).thenCompose(Function.identity()),
