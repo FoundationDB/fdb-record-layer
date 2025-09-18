@@ -832,7 +832,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
                 if (bytes == null) {
                     synchronized (this) {
                         if (bytes == null) {
-                            bytes = KeyValueCursorBase.Continuation.getInnerContinuation(new KeyValueCursorBase.Continuation(baseContinuation.toBytes(), prefixLength, serializationMode).toBytes());
+                            bytes = KeyValueCursorBase.Continuation.getInnerContinuation(new KeyValueCursorBase.Continuation(KeyValueCursorBase.Continuation.getInnerContinuation(baseContinuation.toBytes()), prefixLength, serializationMode).toBytes());
                         }
                     }
                 }

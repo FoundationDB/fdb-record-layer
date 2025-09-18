@@ -151,13 +151,16 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
         In little endian, MAGIC_NUMBER: 6773487359078157740L is:
         new byte[]{ (byte) 0xAC, (byte) 0xCD, 0x73, (byte) 0x98, (byte) 0xDD, 0x42, 0x00, 0x5E };
         Note that none of those bytes are valid Tuple codes (except for the 0x00--which is also deliberate).
-        That includes the byte at position 4, that is \x98, which is the relevant byte if we had a Tuple that began with \x11.
+        Note that the Protobuf tag for the magic_number field is \x11, which is a valid Tuple type code, corresponding to a three-byte
+        negative integer. So a Tuple may legitimately begin \x11\xAC\xCD\x73, but then the next byte would need to be
+        \x98 to match the magic number, and as that is not a Tuple code, a valid serialized Tuple cannot begin with a sequence
+        that deserializes to a Protobuf that sets the magic number.
         The choice of 0x00 as the penultimate byte is there to protect against the only case where we don't get a valid Tuple back from a scan,
         namely PREFIX_STRING scan. In that case, the byte string will begin with some String suffix, which theoretically could be a valid Protobuf value.
         But that String suffix will have any \x00 bytes escaped by following it with an \xff byte.
         So the sequence \x00\x5e would mean "end-of-string" followed by the beginning of a new Tuple value with code \x5e, which again, is invalid.
          */
-        private static final long MAGIC_NUMBER = 677_348_735_907_815_774_0L;
+        private static final long MAGIC_NUMBER = 6_773_487_359_078_157_740L;
 
         public Continuation(@Nullable final byte[] lastKey, final int prefixLength, final SerializationMode serializationMode) {
             // Note that doing this without a full copy is dangerous if the array is ever mutated.
@@ -364,7 +367,7 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
 
         @SpotBugsSuppressWarnings(value = "EI2", justification = "copies are expensive")
         public T setContinuation(@Nullable byte[] continuation) {
-            this.continuation = KeyValueCursorBase.Continuation.getInnerContinuation(continuation);
+            this.continuation = continuation;
             return self();
         }
 
