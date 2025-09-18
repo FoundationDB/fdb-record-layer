@@ -44,6 +44,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifier;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.anyPlan;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.preOrderTraversalIsAllowed;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.tempTableInsertPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.tempTableScanPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.exploratoryMember;
@@ -85,7 +86,7 @@ public class ImplementRecursiveDfsUnionRule extends ImplementationCascadesRule<R
 
     @Nonnull
     private static final BindingMatcher<RecursiveUnionExpression> root = recursiveUnionExpression(forEachQuantifier(initialPlanMatcher),
-            forEachQuantifier(recursivePlanMatcher));
+            forEachQuantifier(recursivePlanMatcher)).where(preOrderTraversalIsAllowed());
 
     public ImplementRecursiveDfsUnionRule() {
         super(root);

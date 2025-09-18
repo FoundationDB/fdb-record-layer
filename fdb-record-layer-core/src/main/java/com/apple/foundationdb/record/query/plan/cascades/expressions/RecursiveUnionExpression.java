@@ -57,16 +57,51 @@ public class RecursiveUnionExpression implements RelationalExpressionWithChildre
     private final CorrelationIdentifier tempTableInsertAlias;
 
     @Nonnull
+    private final Traversal traversal;
+
+    @Nonnull
     private final Value resultValue;
+
+    /**
+     * Defines the traversal strategy for recursive union operations in Common Table Expressions (CTEs).
+     * This enum specifies how the recursive leg of a recursive union should traverse and process
+     * the intermediate results during query execution.
+     */
+    public enum Traversal {
+        /**
+         * No specific traversal order is enforced. The implementation is free to choose
+         * any traversal strategy that is most efficient, potentially mixing different
+         * approaches or processing results as they become available.
+         */
+        ANY,
+
+        /**
+         * Depth-First Search (DFS) pre-order traversal. In this strategy, each node is
+         * processed before its children, ensuring that parent records are handled before
+         * their descendants in the recursive hierarchy. This is useful for scenarios
+         * where you need to process parent records before processing their children.
+         */
+        PREORDER,
+
+        /**
+         * Level-order (Breadth-First Search/BFS) traversal. In this strategy, all nodes
+         * at the current depth level are processed before moving to the next level.
+         * This ensures that all records at depth N are processed before any records
+         * at depth N+1, which is useful for scenarios requiring level-by-level processing.
+         */
+        LEVEL
+    }
 
     public RecursiveUnionExpression(@Nonnull final Quantifier initialState,
                                     @Nonnull final Quantifier recursiveState,
                                     @Nonnull final CorrelationIdentifier tempTableScanAlias,
-                                    @Nonnull final CorrelationIdentifier tempTableInsertAlias) {
+                                    @Nonnull final CorrelationIdentifier tempTableInsertAlias,
+                                    @Nonnull final Traversal traversal) {
         this.initialStateQuantifier = initialState;
         this.recursiveStateQuantifier = recursiveState;
         this.tempTableScanAlias = tempTableScanAlias;
         this.tempTableInsertAlias = tempTableInsertAlias;
+        this.traversal = traversal;
         this.resultValue = RecordQuerySetPlan.mergeValues(ImmutableList.of(initialStateQuantifier, recursiveStateQuantifier));
     }
 
@@ -142,7 +177,7 @@ public class RecursiveUnionExpression implements RelationalExpressionWithChildre
         final var translatedInitialStateQun = translatedQuantifiers.get(0);
         final var translatedRecursiveStateQun = translatedQuantifiers.get(1);
         return new RecursiveUnionExpression(translatedInitialStateQun, translatedRecursiveStateQun,
-                tempTableScanAlias, tempTableInsertAlias);
+                tempTableScanAlias, tempTableInsertAlias, traversal);
     }
 
     @Nonnull
@@ -163,5 +198,13 @@ public class RecursiveUnionExpression implements RelationalExpressionWithChildre
     @Nonnull
     public Quantifier getRecursiveStateQuantifier() {
         return recursiveStateQuantifier;
+    }
+
+    public boolean preOrderTraversalAllowed() {
+        return traversal == Traversal.ANY || traversal == Traversal.PREORDER;
+    }
+
+    public boolean levelTraversalAllowed() {
+        return traversal == Traversal.ANY || traversal == Traversal.LEVEL;
     }
 }

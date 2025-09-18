@@ -438,6 +438,11 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
         return getDelegate().visitCtes(ctx);
     }
 
+    @Override
+    public Object visitTraversalStrategy(final RelationalParser.TraversalStrategyContext ctx) {
+        return getDelegate().visitTraversalStrategy(ctx);
+    }
+
     @Nonnull
     @Override
     public LogicalOperator visitNamedQuery(@Nonnull RelationalParser.NamedQueryContext ctx) {
