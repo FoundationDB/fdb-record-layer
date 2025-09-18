@@ -94,7 +94,7 @@ runs:
       run: sudo ls -lh /var/lib/foundationdb/data/4800
     - name: Switch FDB 1 to SSD
       shell: bash
-      run: fdbcli -C /etc/foundationdb/fdb.cluster --exec "configure single ssd storage_migration_type=aggressive; status"
+      run: fdbcli -C /etc/foundationdb/fdb.cluster --exec "configure new single ssd storage_migration_type=aggressive; status"
     - name: debugging
       shell: bash
       run: tail -n +1 trace.*.xml
