@@ -785,6 +785,9 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
         @Nullable
         @Override
         public byte[] unwrapContinuation(@Nullable final byte[] continuation) {
+            if (continuation == null) {
+                return null;
+            }
             // Add the prefix back to the inner continuation
             byte[] innerContinuation = KeyValueCursorBase.Continuation.getInnerContinuation(continuation);
             return new KeyValueCursorBase.Continuation(ByteArrayUtil.join(prefixBytes, innerContinuation), 0, serializationMode).toBytes();
