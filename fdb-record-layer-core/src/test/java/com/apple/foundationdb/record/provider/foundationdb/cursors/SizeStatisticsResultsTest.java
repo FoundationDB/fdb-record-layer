@@ -28,6 +28,12 @@ import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
+import java.util.List;
+import java.util.Random;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Unit tests for {@link SizeStatisticsResults}.
@@ -38,14 +44,14 @@ public class SizeStatisticsResultsTest {
     public void emptyStatistics() {
         SizeStatisticsResults stats = new SizeStatisticsResults();
         
-        Assertions.assertThat(stats.getKeyCount()).isZero();
-        Assertions.assertThat(stats.getKeySize()).isZero();
-        Assertions.assertThat(stats.getMaxKeySize()).isZero();
-        Assertions.assertThat(stats.getValueSize()).isZero();
-        Assertions.assertThat(stats.getMaxValueSize()).isZero();
-        Assertions.assertThat(stats.getTotalSize()).isZero();
-        Assertions.assertThat(stats.getSizeBuckets()).hasSize(Integer.SIZE);
-        Assertions.assertThat(stats.getSizeBuckets()).containsOnly(0L);
+        assertThat(stats.getKeyCount()).isZero();
+        assertThat(stats.getKeySize()).isZero();
+        assertThat(stats.getMaxKeySize()).isZero();
+        assertThat(stats.getValueSize()).isZero();
+        assertThat(stats.getMaxValueSize()).isZero();
+        assertThat(stats.getTotalSize()).isZero();
+        assertThat(stats.getSizeBuckets()).hasSize(Integer.SIZE);
+        assertThat(stats.getSizeBuckets()).containsOnly(0L);
     }
 
     @Test
@@ -55,15 +61,15 @@ public class SizeStatisticsResultsTest {
         
         stats.updateStatistics(kv);
         
-        Assertions.assertThat(stats.getKeyCount()).isEqualTo(1);
-        Assertions.assertThat(stats.getKeySize()).isEqualTo(3); // "key"
-        Assertions.assertThat(stats.getMaxKeySize()).isEqualTo(3);
-        Assertions.assertThat(stats.getValueSize()).isEqualTo(5); // "value"
-        Assertions.assertThat(stats.getMaxValueSize()).isEqualTo(5);
-        Assertions.assertThat(stats.getTotalSize()).isEqualTo(8); // 3 + 5
-        Assertions.assertThat(stats.getAverageKeySize()).isEqualTo(3.0);
-        Assertions.assertThat(stats.getAverageValueSize()).isEqualTo(5.0);
-        Assertions.assertThat(stats.getAverage()).isEqualTo(8.0);
+        assertThat(stats.getKeyCount()).isEqualTo(1);
+        assertThat(stats.getKeySize()).isEqualTo(3); // "key"
+        assertThat(stats.getMaxKeySize()).isEqualTo(3);
+        assertThat(stats.getValueSize()).isEqualTo(5); // "value"
+        assertThat(stats.getMaxValueSize()).isEqualTo(5);
+        assertThat(stats.getTotalSize()).isEqualTo(8); // 3 + 5
+        assertThat(stats.getAverageKeySize()).isEqualTo(3.0);
+        assertThat(stats.getAverageValueSize()).isEqualTo(5.0);
+        assertThat(stats.getAverage()).isEqualTo(8.0);
     }
 
     @Test
@@ -74,15 +80,15 @@ public class SizeStatisticsResultsTest {
         stats.updateStatistics(new KeyValue("bb".getBytes(), "yy".getBytes())); // 2 + 2 = 4
         stats.updateStatistics(new KeyValue("ccc".getBytes(), "zzz".getBytes())); // 3 + 3 = 6
         
-        Assertions.assertThat(stats.getKeyCount()).isEqualTo(3);
-        Assertions.assertThat(stats.getKeySize()).isEqualTo(6); // 1 + 2 + 3
-        Assertions.assertThat(stats.getMaxKeySize()).isEqualTo(3);
-        Assertions.assertThat(stats.getValueSize()).isEqualTo(6); // 1 + 2 + 3
-        Assertions.assertThat(stats.getMaxValueSize()).isEqualTo(3);
-        Assertions.assertThat(stats.getTotalSize()).isEqualTo(12); // 6 + 6
-        Assertions.assertThat(stats.getAverageKeySize()).isEqualTo(2.0); // 6 / 3
-        Assertions.assertThat(stats.getAverageValueSize()).isEqualTo(2.0); // 6 / 3
-        Assertions.assertThat(stats.getAverage()).isEqualTo(4.0); // 12 / 3
+        assertThat(stats.getKeyCount()).isEqualTo(3);
+        assertThat(stats.getKeySize()).isEqualTo(6); // 1 + 2 + 3
+        assertThat(stats.getMaxKeySize()).isEqualTo(3);
+        assertThat(stats.getValueSize()).isEqualTo(6); // 1 + 2 + 3
+        assertThat(stats.getMaxValueSize()).isEqualTo(3);
+        assertThat(stats.getTotalSize()).isEqualTo(12); // 6 + 6
+        assertThat(stats.getAverageKeySize()).isEqualTo(2.0); // 6 / 3
+        assertThat(stats.getAverageValueSize()).isEqualTo(2.0); // 6 / 3
+        assertThat(stats.getAverage()).isEqualTo(4.0); // 12 / 3
     }
 
     @Test
@@ -102,14 +108,14 @@ public class SizeStatisticsResultsTest {
         stats.updateStatistics(new KeyValue("abcd".getBytes(), "efgh".getBytes())); // total size 8
         
         long[] buckets = stats.getSizeBuckets();
-        Assertions.assertThat(buckets[0]).isEqualTo(1); // size 1
-        Assertions.assertThat(buckets[1]).isEqualTo(1); // size 2
-        Assertions.assertThat(buckets[2]).isEqualTo(1); // size 4
-        Assertions.assertThat(buckets[3]).isEqualTo(1); // size 8
+        assertThat(buckets[0]).isEqualTo(1); // size 1
+        assertThat(buckets[1]).isEqualTo(1); // size 2
+        assertThat(buckets[2]).isEqualTo(1); // size 4
+        assertThat(buckets[3]).isEqualTo(1); // size 8
         
         // All other buckets should be zero
         for (int i = 4; i < Integer.SIZE; i++) {
-            Assertions.assertThat(buckets[i]).isZero();
+            assertThat(buckets[i]).isZero();
         }
     }
 
@@ -121,8 +127,8 @@ public class SizeStatisticsResultsTest {
         stats.updateStatistics(new KeyValue("".getBytes(), "".getBytes()));
         
         long[] buckets = stats.getSizeBuckets();
-        Assertions.assertThat(buckets).containsOnly(0L);
-        Assertions.assertThat(stats.getKeyCount()).isEqualTo(1);
+        assertThat(buckets).containsOnly(0L);
+        assertThat(stats.getKeyCount()).isEqualTo(1);
     }
 
     @Test
@@ -135,16 +141,42 @@ public class SizeStatisticsResultsTest {
         }
 
         // Total: 30 entries, 10 in bucket 1, 20 in bucket 2
-        Assertions.assertThat(stats.getKeyCount()).isEqualTo(10);
+        assertThat(stats.getKeyCount()).isEqualTo(10);
         
         // Test various proportions
         double p10 = stats.getProportion(0.1); // 10% = 3 entries, should be in bucket 1
         double p50 = stats.getProportion(0.5); // 50% = 15 entries, should be in bucket 2
         double p90 = stats.getProportion(0.9); // 90% = 27 entries, should be in bucket 2
         
-        Assertions.assertThat(p10).isGreaterThan(1.0).isLessThanOrEqualTo(2.0);
-        Assertions.assertThat(p50).isGreaterThan(5.0).isLessThanOrEqualTo(6.0);
-        Assertions.assertThat(p90).isGreaterThan(9.0); // bucket 2 range
+        assertThat(p10).isGreaterThan(1.0).isLessThanOrEqualTo(2.0);
+        assertThat(p50).isGreaterThan(5.0).isLessThanOrEqualTo(6.0);
+        assertThat(p90).isGreaterThan(9.0); // bucket 2 range
+    }
+
+    @Test
+    public void randomProportionCalculation() {
+        SizeStatisticsResults stats = new SizeStatisticsResults();
+
+        Random rand = new Random();
+        final List<KeyValue> keyValues = IntStream.range(0, 100)
+                .mapToObj(i -> new KeyValue("a".getBytes(), Strings.repeat("a", rand.nextInt(1024)).getBytes()))
+                .collect(Collectors.toList());
+        keyValues.stream().forEach(kv -> stats.updateStatistics(kv));
+
+        assertThat(stats.getKeyCount()).isEqualTo(100);
+
+        // Test various proportions
+        double p10 = stats.getProportion(0.1);
+        double p50 = stats.getProportion(0.5);
+        double p90 = stats.getProportion(0.9);
+
+        long p10Count = keyValues.stream().filter(kv -> (double)(kv.getKey().length + kv.getValue().length) < p10).count();
+        long p50Count = keyValues.stream().filter(kv -> (double)(kv.getKey().length + kv.getValue().length) < p50).count();
+        long p90Count = keyValues.stream().filter(kv -> (double)(kv.getKey().length + kv.getValue().length) < p90).count();
+        // Heuristics to try and balance test stability with meaningful assertion
+        assertThat(p10Count).isBetween(5L, 15L);
+        assertThat(p50Count).isBetween(40L, 60L);
+        assertThat(p90Count).isBetween(80L, 100L);
     }
 
     @Test
@@ -160,9 +192,9 @@ public class SizeStatisticsResultsTest {
         double p90 = stats.getP90();
         double p95 = stats.getP95();
         
-        Assertions.assertThat(median).isEqualTo(stats.getProportion(0.5));
-        Assertions.assertThat(p90).isEqualTo(stats.getProportion(0.9));
-        Assertions.assertThat(p95).isEqualTo(stats.getProportion(0.95));
+        assertThat(median).isEqualTo(stats.getProportion(0.5));
+        assertThat(p90).isEqualTo(stats.getProportion(0.9));
+        assertThat(p95).isEqualTo(stats.getProportion(0.95));
     }
 
     @Test
@@ -171,8 +203,8 @@ public class SizeStatisticsResultsTest {
         stats.updateStatistics(new KeyValue("a".getBytes(), "b".getBytes()));
         
         // Valid edge cases
-        Assertions.assertThat(stats.getProportion(0.0)).isGreaterThan(0);
-        Assertions.assertThat(stats.getProportion(0.99)).isGreaterThan(0);
+        assertThat(stats.getProportion(0.0)).isGreaterThan(0);
+        assertThat(stats.getProportion(0.99)).isGreaterThan(0);
         
         // Invalid proportions
         Assertions.assertThatThrownBy(() -> stats.getProportion(-0.1))
@@ -196,11 +228,11 @@ public class SizeStatisticsResultsTest {
         
         SizeStatisticsResults copy = original.copy();
         
-        Assertions.assertThat(copy).usingRecursiveComparison().isEqualTo(original);
+        assertThat(copy).usingRecursiveComparison().isEqualTo(original);
 
         // Verify it's a deep copy - modifying copy shouldn't affect original
         copy.updateStatistics(new KeyValue("new".getBytes(), "kv".getBytes()));
-        Assertions.assertThat(copy).usingRecursiveComparison().isNotEqualTo(original);
+        assertThat(copy).usingRecursiveComparison().isNotEqualTo(original);
     }
 
     @Test
@@ -215,7 +247,7 @@ public class SizeStatisticsResultsTest {
         SizeStatisticsResults restored = SizeStatisticsResults.fromProto(proto);
         
         // Verify all fields are preserved
-        Assertions.assertThat(restored).usingRecursiveComparison().isEqualTo(original);
+        assertThat(restored).usingRecursiveComparison().isEqualTo(original);
     }
 
     @Test
@@ -225,7 +257,7 @@ public class SizeStatisticsResultsTest {
         RecordCursorProto.SizeStatisticsPartialResults proto = original.toProto();
         SizeStatisticsResults restored = SizeStatisticsResults.fromProto(proto);
 
-        Assertions.assertThat(restored).usingRecursiveComparison().isEqualTo(original);
+        assertThat(restored).usingRecursiveComparison().isEqualTo(original);
     }
 
     @Test
@@ -242,18 +274,18 @@ public class SizeStatisticsResultsTest {
         
         stats.updateStatistics(new KeyValue(largeKey, largeValue));
         
-        Assertions.assertThat(stats.getKeyCount()).isEqualTo(1);
-        Assertions.assertThat(stats.getKeySize()).isEqualTo(keySize);
-        Assertions.assertThat(stats.getMaxKeySize()).isEqualTo(keySize);
-        Assertions.assertThat(stats.getValueSize()).isEqualTo(valueSize);
-        Assertions.assertThat(stats.getMaxValueSize()).isEqualTo(valueSize);
+        assertThat(stats.getKeyCount()).isEqualTo(1);
+        assertThat(stats.getKeySize()).isEqualTo(keySize);
+        assertThat(stats.getMaxKeySize()).isEqualTo(keySize);
+        assertThat(stats.getValueSize()).isEqualTo(valueSize);
+        assertThat(stats.getMaxValueSize()).isEqualTo(valueSize);
         final int totalSize = keySize + valueSize;
-        Assertions.assertThat(stats.getTotalSize()).isEqualTo(totalSize);
+        assertThat(stats.getTotalSize()).isEqualTo(totalSize);
         
         // Verify it goes into the correct bucket
         long[] buckets = stats.getSizeBuckets();
         int expectedBucket = Integer.SIZE - Integer.numberOfLeadingZeros(totalSize) - 1;
-        Assertions.assertThat(buckets[expectedBucket]).isEqualTo(1);
+        assertThat(buckets[expectedBucket]).isEqualTo(1);
     }
 
     @Test
@@ -261,9 +293,9 @@ public class SizeStatisticsResultsTest {
         SizeStatisticsResults stats = new SizeStatisticsResults();
         
         // With zero count, averages should be NaN due to division by zero
-        Assertions.assertThat(stats.getAverageKeySize()).isNaN();
-        Assertions.assertThat(stats.getAverageValueSize()).isNaN();
-        Assertions.assertThat(stats.getAverage()).isNaN();
+        assertThat(stats.getAverageKeySize()).isNaN();
+        assertThat(stats.getAverageValueSize()).isNaN();
+        assertThat(stats.getAverage()).isNaN();
     }
 
     @Test
@@ -273,25 +305,25 @@ public class SizeStatisticsResultsTest {
         // Test key with zero-size value
         stats.updateStatistics(new KeyValue("key".getBytes(), "".getBytes()));
         
-        Assertions.assertThat(stats.getKeyCount()).isEqualTo(1);
-        Assertions.assertThat(stats.getKeySize()).isEqualTo(3); // "key"
-        Assertions.assertThat(stats.getMaxKeySize()).isEqualTo(3);
-        Assertions.assertThat(stats.getValueSize()).isZero(); // empty value
-        Assertions.assertThat(stats.getMaxValueSize()).isZero();
-        Assertions.assertThat(stats.getTotalSize()).isEqualTo(3); // key size only
-        Assertions.assertThat(stats.getAverageKeySize()).isEqualTo(3.0);
-        Assertions.assertThat(stats.getAverageValueSize()).isZero();
-        Assertions.assertThat(stats.getAverage()).isEqualTo(3.0);
+        assertThat(stats.getKeyCount()).isEqualTo(1);
+        assertThat(stats.getKeySize()).isEqualTo(3); // "key"
+        assertThat(stats.getMaxKeySize()).isEqualTo(3);
+        assertThat(stats.getValueSize()).isZero(); // empty value
+        assertThat(stats.getMaxValueSize()).isZero();
+        assertThat(stats.getTotalSize()).isEqualTo(3); // key size only
+        assertThat(stats.getAverageKeySize()).isEqualTo(3.0);
+        assertThat(stats.getAverageValueSize()).isZero();
+        assertThat(stats.getAverage()).isEqualTo(3.0);
         
         // Check that it goes into the correct bucket (size 3)
         long[] buckets = stats.getSizeBuckets();
         int expectedBucket = Integer.SIZE - Integer.numberOfLeadingZeros(3) - 1;
-        Assertions.assertThat(buckets[expectedBucket]).isEqualTo(1);
+        assertThat(buckets[expectedBucket]).isEqualTo(1);
         
         // All other buckets should be zero
         for (int i = 0; i < Integer.SIZE; i++) {
             if (i != expectedBucket) {
-                Assertions.assertThat(buckets[i]).isZero();
+                assertThat(buckets[i]).isZero();
             }
         }
     }
