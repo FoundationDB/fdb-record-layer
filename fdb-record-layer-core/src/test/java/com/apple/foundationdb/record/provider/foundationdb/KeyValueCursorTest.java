@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ExecuteState;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.RecordCursorProto;
 import com.apple.foundationdb.record.RecordCursorResult;
@@ -51,8 +52,10 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
+import java.security.SecureRandom;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Objects;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
@@ -136,6 +139,83 @@ public class KeyValueCursorTest {
                     .setSerializationMode(serializationMode)
                     .build();
             assertEquals(15, (int)cursor.getCount().join());
+
+            return null;
+        });
+    }
+
+    @ParameterizedTest
+    @EnumSource(KeyValueCursorBase.SerializationMode.class)
+    public void allInARange(KeyValueCursorBase.SerializationMode serializationMode) throws InvalidProtocolBufferException {
+        // pick 2 examples that can be serialized as RecordCursorProto.KeyValueCursorContinuation, but was correctly rejected by the magic number check
+        byte[] lowBytes = new byte[]{ 0x11, (byte) 0xac,  (byte) 0xcd, (byte) 0x73, 0x01, (byte) 0xdd, 0x42, (byte) 0x98, 0x5e, 0x0A, 0x04, 0x0f, (byte) 0xdb, 0x00, 0x14 };
+        byte[] highBytes = new byte[]{ 0x18, 0x01, 0x0A, 0x02, 0x01, 0x14 };
+        RecordCursorProto.KeyValueCursorContinuation lowProto = RecordCursorProto.KeyValueCursorContinuation.parseFrom(lowBytes);
+        Assertions.assertEquals(0x5e9842dd0173cdacL, lowProto.getMagicNumber());
+        Assertions.assertEquals(ByteString.copyFrom(new byte[] { 0x0F, (byte)0xDB, 0x00, 0x14 }), lowProto.getInnerContinuation());
+        RecordCursorProto.KeyValueCursorContinuation highProto = RecordCursorProto.KeyValueCursorContinuation.parseFrom(highBytes);
+        Assertions.assertEquals(ByteString.copyFrom(new byte[] {(byte) 1, (byte) 20}), highProto.getInnerContinuation());
+
+        Tuple low = Tuple.fromBytes(lowBytes);  // should set the magic_number to 0x5e9842dd0173cdacL and the inner continuation to `\x0f\xdb\x00\x14`
+        Tuple high = Tuple.fromBytes(highBytes); // should set an unknown field 3 to 1 and the inner_continuation to `\x01\x14`
+        TupleRange tupleRange = new TupleRange(low, high, EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_INCLUSIVE);
+
+        // clear data populated by BeforeEach
+        fdb.database().run(transaction -> {
+            transaction.clear(subspace.range());
+            return null;
+        });
+
+        // Populate with data.
+        fdb.database().run(tr -> {
+            tr.set(subspace.pack(low), low.pack());
+            tr.set(subspace.pack(high), high.pack());
+            return null;
+        });
+
+
+        fdb.run(context -> {
+            byte[] continuation = null;
+            KeyValueCursor cursor = null;
+            for (int k = 0; k < 2; k++) {
+                cursor = KeyValueCursor.Builder.withSubspace(subspace)
+                        .setContext(context)
+                        .setRange(tupleRange)
+                        .setContinuation(continuation)
+                        .setScanProperties(ScanProperties.FORWARD_SCAN)
+                        .setSerializationMode(serializationMode)
+                        .build();
+                RecordCursorResult<KeyValue> cursorResult = cursor.getNext();
+                KeyValue kv = cursorResult.get();
+                continuation = cursorResult.getContinuation().toBytes();
+                if (k == 0) {
+                    assertArrayEquals(subspace.pack(low), kv.getKey());
+                    assertArrayEquals(low.pack(), kv.getValue());
+                } else {
+                    assertArrayEquals(subspace.pack(high), kv.getKey());
+                    assertArrayEquals(high.pack(), kv.getValue());
+                }
+            }
+
+            assertThat(cursor.getNext().hasNext(), is(false));
+
+
+            cursor = KeyValueCursor.Builder.withSubspace(subspace)
+                    .setContext(context)
+                    .setRange(tupleRange)
+                    .setContinuation(null)
+                    .setScanProperties(new ScanProperties(ExecuteProperties.newBuilder().setReturnedRowLimit(1).build()))
+                    .setSerializationMode(serializationMode)
+                    .build();
+            assertEquals(1, (int)cursor.getCount().join());
+            cursor = KeyValueCursor.Builder.withSubspace(subspace)
+                    .setContext(context)
+                    .setRange(tupleRange)
+                    .setContinuation(cursor.getNext().getContinuation().toBytes())
+                    .setScanProperties(ScanProperties.FORWARD_SCAN)
+                    .setSerializationMode(serializationMode)
+                    .build();
+            assertEquals(1, (int)cursor.getCount().join());
 
             return null;
         });
@@ -592,5 +672,23 @@ public class KeyValueCursorTest {
         RecordCursorProto.KeyValueCursorContinuation continuationProto2 = RecordCursorProto.KeyValueCursorContinuation.parseFrom(continuation2);
         Assertions.assertTrue(continuationProto2.hasInnerContinuation());
         Assertions.assertEquals(ByteString.EMPTY, continuationProto2.getInnerContinuation());
+    }
+
+    @Test
+    void emptyInnerContinuationTest() {
+        // ensure that when innerContinuation is empty, the wrapped continuation is not at beginning
+        int prefixLength = 50;
+        byte[] randomBytes = new byte[prefixLength];
+        new SecureRandom().nextBytes(randomBytes);
+        RecordCursorContinuation oldContinuation = new KeyValueCursorBase.Continuation(randomBytes, prefixLength, KeyValueCursorBase.SerializationMode.TO_OLD);
+        Assertions.assertFalse(oldContinuation.isEnd());
+        Assertions.assertEquals(ByteString.EMPTY, oldContinuation.toByteString());
+
+        KeyValueCursorBase.Continuation newContinuation = new KeyValueCursorBase.Continuation(randomBytes, prefixLength, KeyValueCursorBase.SerializationMode.TO_NEW);
+        Assertions.assertFalse(newContinuation.isEnd());
+        // inner continuation is empty
+        Assertions.assertEquals(0, Objects.requireNonNull(KeyValueCursorBase.Continuation.getInnerContinuation(newContinuation.toBytes())).length);
+        // wrapped continuation is not empty
+        Assertions.assertNotEquals(ByteString.EMPTY, newContinuation.toByteString());
     }
 }
