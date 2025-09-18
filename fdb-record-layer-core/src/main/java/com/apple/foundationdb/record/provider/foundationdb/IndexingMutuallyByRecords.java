@@ -283,7 +283,7 @@ public class IndexingMutuallyByRecords extends IndexingBase {
                             SubspaceProvider subspaceProvider = common.getRecordStoreBuilder().getSubspaceProvider();
                             // validation checks, if any, will be performed here
                             return subspaceProvider.getSubspaceAsync(context)
-                                    .thenCompose(subspace -> buildMultiTargetIndex(subspaceProvider, subspace));
+                                    .thenCompose(this::buildMultiTargetIndex);
                         })
                 ),
                 common.indexLogMessageKeyValues("IndexingMutuallyByRecords::buildIndexInternalAsync",
@@ -291,7 +291,7 @@ public class IndexingMutuallyByRecords extends IndexingBase {
     }
 
     @Nonnull
-    private CompletableFuture<Void> buildMultiTargetIndex(@Nonnull SubspaceProvider subspaceProvider, @Nonnull Subspace subspace) {
+    private CompletableFuture<Void> buildMultiTargetIndex(@Nonnull Subspace subspace) {
         final TupleRange tupleRange = common.computeRecordsRange();
         final byte[] rangeStart;
         final byte[] rangeEnd;
@@ -325,13 +325,12 @@ public class IndexingMutuallyByRecords extends IndexingBase {
 
         return maybePresetRangeFuture.thenCompose(ignore ->
                 iterateAllRanges(additionalLogMessageKeyValues,
-                        (store, recordsScanned) -> buildRangeOnly(store, subspaceProvider, subspace),
-                        subspaceProvider, subspace));
+                        (store, recordsScanned) -> buildRangeOnly(store, subspace),
+                        subspace));
     }
 
     @Nonnull
-    private CompletableFuture<Boolean> buildRangeOnly(@Nonnull FDBRecordStore store,
-                                                      @Nonnull SubspaceProvider subspaceProvider, @Nonnull Subspace subspace) {
+    private CompletableFuture<Boolean> buildRangeOnly(@Nonnull FDBRecordStore store, @Nonnull Subspace subspace) {
         // return false when done
         /* Mutual indexing:
          * 1. detects missing ranges
@@ -348,11 +347,10 @@ public class IndexingMutuallyByRecords extends IndexingBase {
         validateSameMetadataOrThrow(store);
         IndexingRangeSet rangeSet = IndexingRangeSet.forIndexBuild(store, common.getPrimaryIndex());
         return rangeSet.listMissingRangesAsync().thenCompose(missingRanges ->
-                buildNextRangeOnly(sortAndSquash(missingRanges), subspaceProvider, subspace));
+                buildNextRangeOnly(sortAndSquash(missingRanges), subspace));
     }
 
-    private CompletableFuture<Boolean> buildNextRangeOnly(List<Range> missingRanges,
-                                                          @Nonnull SubspaceProvider subspaceProvider, @Nonnull Subspace subspace) {
+    private CompletableFuture<Boolean> buildNextRangeOnly(List<Range> missingRanges, @Nonnull Subspace subspace) {
         if (LOGGER.isDebugEnabled()) {
             LOGGER.debug(KeyValueLogMessage.of("buildNextRangeOnly",
                     LogMessageKeys.MISSING_RANGES, missingRanges));
@@ -396,7 +394,7 @@ public class IndexingMutuallyByRecords extends IndexingBase {
                 additionalLogMessageKeyValues.addAll(fragmentLogMessageKeyValues());
                 return iterateAllRanges(additionalLogMessageKeyValues,
                         (store, recordsScanned) -> buildThisRangeOnly(store, recordsScanned, rangeToBuild),
-                        subspaceProvider, subspace,
+                        subspace,
                         anyJumperCallback(rangeToBuild)
                 ).thenCompose(ignore -> AsyncUtil.READY_TRUE);
             }

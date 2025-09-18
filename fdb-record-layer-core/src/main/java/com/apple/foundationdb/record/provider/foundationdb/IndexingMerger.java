@@ -29,8 +29,6 @@ import com.apple.foundationdb.record.util.Result;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -52,7 +50,6 @@ public class IndexingMerger {
     private int mergeSuccesses = 0;
     private long timeQuotaMillis = 0;
     private final IndexingCommon common;
-    private SubspaceProvider subspaceProvider = null;
     private int repartitionDocumentCount = 0;
     private int repartitionSecondChances = 0;
 
@@ -62,13 +59,12 @@ public class IndexingMerger {
         this.mergesLimit = initialMergesCountLimit;
     }
 
-    private CompletableFuture<FDBRecordStore> openRecordStore(@Nonnull FDBRecordContext context) {
+    private CompletableFuture<FDBRecordStore> openRecordStore(FDBRecordContext context) {
         return common.getRecordStoreBuilder().copyBuilder().setContext(context).openAsync();
     }
 
     @SuppressWarnings("squid:S3776") // cognitive complexity is high, candidate for refactoring
-    CompletableFuture<Void> mergeIndex(@Nullable SubspaceProvider subspaceProvider) {
-        this.subspaceProvider = subspaceProvider; // for logs only
+    CompletableFuture<Void> mergeIndex() {
         final AtomicInteger failureCountLimit = new AtomicInteger(1000);
         AtomicReference<IndexDeferredMaintenanceControl> mergeControlRef = new AtomicReference<>();
         final FDBStoreTimer timer = common.getRunner().getTimer();
@@ -249,6 +245,7 @@ public class IndexingMerger {
     String mergerLogMessage(String ttl, final IndexDeferredMaintenanceControl mergeControl) {
         final KeyValueLogMessage msg = KeyValueLogMessage.build(ttl);
         msg.addKeysAndValues(mergerKeysAndValues(mergeControl));
+        SubspaceProvider subspaceProvider = common.getRecordStoreBuilder().getSubspaceProvider();
         if (subspaceProvider != null) {
             msg.addKeyAndValue(subspaceProvider.logKey(), subspaceProvider);
         }

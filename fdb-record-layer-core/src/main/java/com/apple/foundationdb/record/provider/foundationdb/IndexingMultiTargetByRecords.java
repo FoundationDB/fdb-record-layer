@@ -116,13 +116,13 @@ public class IndexingMultiTargetByRecords extends IndexingBase {
                                 SubspaceProvider subspaceProvider = common.getRecordStoreBuilder().getSubspaceProvider();
                                 // validation checks, if any, will be performed here
                                 return subspaceProvider.getSubspaceAsync(context)
-                                        .thenCompose(subspace -> buildMultiTargetIndex(subspaceProvider, subspace));
+                                        .thenCompose(this::buildMultiTargetIndex);
                             })
                 ), common.indexLogMessageKeyValues("IndexingMultiTargetByRecords::buildIndexInternalAsync"));
     }
 
     @Nonnull
-    private CompletableFuture<Void> buildMultiTargetIndex(@Nonnull SubspaceProvider subspaceProvider, @Nonnull Subspace subspace) {
+    private CompletableFuture<Void> buildMultiTargetIndex(@Nonnull Subspace subspace) {
         final TupleRange tupleRange = common.computeRecordsRange();
         final byte[] rangeStart;
         final byte[] rangeEnd;
@@ -157,7 +157,7 @@ public class IndexingMultiTargetByRecords extends IndexingBase {
                 LogMessageKeys.RANGE_END, rangeEnd);
 
         return maybePresetRangeFuture.thenCompose(ignore ->
-                        iterateAllRanges(additionalLogMessageKeyValues, this::buildRangeOnly, subspaceProvider, subspace));
+                        iterateAllRanges(additionalLogMessageKeyValues, this::buildRangeOnly, subspace));
     }
 
     @Nonnull
@@ -218,7 +218,6 @@ public class IndexingMultiTargetByRecords extends IndexingBase {
         return AsyncUtil.whenAll(rangeSets.stream().map(set -> set.insertRangeAsync(start, end, true)).collect(Collectors.toList()));
     }
 
-    @Nullable
     @SuppressWarnings("unused")
     private  CompletableFuture<FDBStoredRecord<Message>> getRecordIfTypeMatch(FDBRecordStore store, @Nonnull RecordCursorResult<FDBStoredRecord<Message>> cursorResult) {
         // No need to "translate" rec, so store is unused

@@ -116,19 +116,18 @@ public class IndexScrubbing extends IndexingBase {
                                     SubspaceProvider subspaceProvider = common.getRecordStoreBuilder().getSubspaceProvider();
                                     return subspaceProvider.getSubspaceAsync(context)
                                             .thenCompose(subspace ->
-                                                    indexScrub(subspaceProvider, subspace));
+                                                    indexScrub(subspace));
                                 }),
                 common.indexLogMessageKeyValues("IndexScrubbing::buildIndexInternalAsync"));
     }
 
     @Nonnull
-    private CompletableFuture<Void> indexScrub(@Nonnull SubspaceProvider subspaceProvider, @Nonnull Subspace subspace) {
+    private CompletableFuture<Void> indexScrub(@Nonnull Subspace subspace) {
 
         final List<Object> additionalLogMessageKeyValues = Arrays.asList(LogMessageKeys.CALLING_METHOD, "indexScrub");
 
         return iterateAllRanges(additionalLogMessageKeyValues,
-                this::indexScrubRangeOnly,
-                subspaceProvider, subspace);
+                this::indexScrubRangeOnly, subspace);
     }
 
     @Nonnull

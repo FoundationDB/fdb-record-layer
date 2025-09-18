@@ -117,17 +117,17 @@ public class IndexingByIndex extends IndexingBase {
                             .thenCompose(vignore -> {
                                 SubspaceProvider subspaceProvider = common.getRecordStoreBuilder().getSubspaceProvider();
                                 return subspaceProvider.getSubspaceAsync(context)
-                                        .thenCompose(subspace -> buildIndexFromIndex(subspaceProvider, subspace));
+                                        .thenCompose(this::buildIndexFromIndex);
                             });
                 }), common.indexLogMessageKeyValues("IndexingByIndex::buildIndexInternalAsync"));
     }
 
     @Nonnull
-    private CompletableFuture<Void> buildIndexFromIndex(@Nonnull SubspaceProvider subspaceProvider, @Nonnull Subspace subspace) {
+    private CompletableFuture<Void> buildIndexFromIndex(@Nonnull Subspace subspace) {
         final List<Object> additionalLogMessageKeyValues = Arrays.asList(LogMessageKeys.CALLING_METHOD, "buildIndexFromIndex");
         return iterateAllRanges(additionalLogMessageKeyValues,
-                (store, recordsScanned) -> buildRangeOnly(store, recordsScanned),
-                subspaceProvider, subspace);
+                this::buildRangeOnly,
+                subspace);
     }
 
     @Nonnull

@@ -500,7 +500,7 @@ public abstract class IndexingBase {
     }
 
     // Helpers for implementing modules. Some of them are public to support unit-testing.
-    protected CompletableFuture<Boolean> doneOrThrottleDelayAndMaybeLogProgress(boolean done, SubspaceProvider subspaceProvider, List<Object> additionalLogMessageKeyValues) {
+    protected CompletableFuture<Boolean> doneOrThrottleDelayAndMaybeLogProgress(boolean done, List<Object> additionalLogMessageKeyValues) {
         if (done) {
             return AsyncUtil.READY_FALSE;
         }
@@ -513,15 +513,18 @@ public abstract class IndexingBase {
                 metricsDiff = lastProgressSnapshot == null ? timer : StoreTimer.getDifference(timer, lastProgressSnapshot);
                 lastProgressSnapshot = StoreTimerSnapshot.from(timer);
             }
-            LOGGER.info(KeyValueLogMessage.build("Indexer: Built Range",
-                    subspaceProvider.logKey(), subspaceProvider,
-                    LogMessageKeys.DELAY, toWait)
+            final KeyValueLogMessage message = KeyValueLogMessage.build("Indexer: Built Range",
+                            LogMessageKeys.DELAY, toWait)
                     .addKeysAndValues(additionalLogMessageKeyValues != null ? additionalLogMessageKeyValues : Collections.emptyList())
                     .addKeysAndValues(indexingLogMessageKeyValues())
                     .addKeysAndValues(common.indexLogMessageKeyValues())
                     .addKeysAndValues(throttle.logMessageKeyValues())
-                    .addKeysAndValues(metricsDiff == null ? Collections.emptyMap() : metricsDiff.getKeysAndValues())
-                    .toString());
+                    .addKeysAndValues(metricsDiff == null ? Collections.emptyMap() : metricsDiff.getKeysAndValues());
+            SubspaceProvider subspaceProvider = common.getRecordStoreBuilder().getSubspaceProvider();
+            if (subspaceProvider != null) {
+                message.addKeyAndValue(subspaceProvider.logKey(), subspaceProvider);
+            }
+            LOGGER.info(message.toString());
         }
 
         validateTimeLimit(toWait);
@@ -908,13 +911,13 @@ public abstract class IndexingBase {
 
     protected CompletableFuture<Void> iterateAllRanges(List<Object> additionalLogMessageKeyValues,
                                                        BiFunction<FDBRecordStore, AtomicLong,  CompletableFuture<Boolean>> iterateRange,
-                                                       @Nonnull SubspaceProvider subspaceProvider, @Nonnull Subspace subspace) {
-        return iterateAllRanges(additionalLogMessageKeyValues, iterateRange, subspaceProvider, subspace, null);
+                                                       @Nonnull Subspace subspace) {
+        return iterateAllRanges(additionalLogMessageKeyValues, iterateRange, subspace, null);
     }
 
     protected CompletableFuture<Void> iterateAllRanges(List<Object> additionalLogMessageKeyValues,
                                                        BiFunction<FDBRecordStore, AtomicLong,  CompletableFuture<Boolean>> iterateRange,
-                                                       @Nonnull SubspaceProvider subspaceProvider, @Nonnull Subspace subspace,
+                                                       @Nonnull Subspace subspace,
                                                        @Nullable Function<FDBException, Optional<Boolean>> shouldReturnQuietly) {
 
         return AsyncUtil.whileTrue(() ->
@@ -923,10 +926,10 @@ public abstract class IndexingBase {
                                 if (ex == null) {
                                     final Set<Index> indexSet = throttle.getAndResetMergeRequiredIndexes();
                                     if (indexSet != null && !indexSet.isEmpty()) {
-                                        return mergeIndexes(indexSet, subspaceProvider)
-                                                .thenCompose(ignore -> doneOrThrottleDelayAndMaybeLogProgress(!hasMore, subspaceProvider, additionalLogMessageKeyValues));
+                                        return mergeIndexes(indexSet)
+                                                .thenCompose(ignore -> doneOrThrottleDelayAndMaybeLogProgress(!hasMore, additionalLogMessageKeyValues));
                                     }
-                                    return doneOrThrottleDelayAndMaybeLogProgress(!hasMore, subspaceProvider, additionalLogMessageKeyValues);
+                                    return doneOrThrottleDelayAndMaybeLogProgress(!hasMore, additionalLogMessageKeyValues);
                                 }
                                 final RuntimeException unwrappedEx = getRunner().getDatabase().mapAsyncToSyncException(ex);
                                 if (LOGGER.isInfoEnabled()) {
@@ -939,12 +942,12 @@ public abstract class IndexingBase {
     }
 
     public CompletableFuture<Void> mergeIndexes() {
-        return mergeIndexes(new HashSet<>(common.getTargetIndexes()), common.getRecordStoreBuilder().subspaceProvider);
+        return mergeIndexes(new HashSet<>(common.getTargetIndexes()));
     }
 
-    private CompletableFuture<Void> mergeIndexes(Set<Index> indexSet, @Nullable SubspaceProvider subspaceProvider) {
+    private CompletableFuture<Void> mergeIndexes(Set<Index> indexSet) {
         return AsyncUtil.whenAll(indexSet.stream()
-                .map(index -> getIndexingMerger(index).mergeIndex(subspaceProvider)
+                .map(index -> getIndexingMerger(index).mergeIndex()
         ).collect(Collectors.toList()));
     }
 
