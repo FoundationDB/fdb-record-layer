@@ -351,7 +351,7 @@ public abstract class LocatableResolverTest {
      */
     @Test
     void testDoesNotCacheValueReadFromReadYourWritesCache() {
-        FDBDatabase fdb = dbExtension.getDatabase();
+        FDBDatabase fdb = dbExtension.getDatabase(database.getClusterFile());
         fdb.clearCaches();
 
         final String key = "hello " + UUID.randomUUID();

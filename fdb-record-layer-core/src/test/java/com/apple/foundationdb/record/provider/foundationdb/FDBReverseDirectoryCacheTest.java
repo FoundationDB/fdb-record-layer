@@ -593,7 +593,7 @@ public class FDBReverseDirectoryCacheTest {
         factory.clear();
 
         // Get a fresh new one
-        fdb = factory.getDatabase(FDBTestEnvironment.randomClusterFile());
+        fdb = factory.getDatabase(fdb.getClusterFile());
         cache = fdb.getReverseDirectoryCache();
 
         // In the hopes to ensure that re-creating the entries that we previously created
