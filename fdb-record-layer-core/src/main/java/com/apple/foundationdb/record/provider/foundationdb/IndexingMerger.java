@@ -77,7 +77,7 @@ public class IndexingMerger {
                 // Merge operation may take a long time, hence the runner's context must be a read-only. Ensure that it
                 // isn't a synchronized one, which may attempt a heartbeat write
                 // Note: this runAsync will retry according to the runner's "maxAttempts" setting
-                common.getNonSynchronizedRunner().runAsync(context -> openRecordStore(context)
+                common.getRunner().runAsync(context -> openRecordStore(context)
                                 .thenCompose(store -> {
                                     mergeStartTime.set(System.nanoTime());
                                     final IndexDeferredMaintenanceControl mergeControl = store.getIndexDeferredMaintenanceControl();

@@ -289,6 +289,7 @@ test_block:
       - result: [{!l 15}]
     -
       - query: select col1 as g, sum(col2) as s from T1 use index (mv1) where col1 in (10, 20) group by col1
+      - supported_version: 4.5.13.0
       - explain: "AISCAN(MV1 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | FILTER _._0 IN promote(@c22 AS ARRAY(LONG)) | MAP (_._0 AS G, _._1 AS S)"
       - result: [{g: 10, s: 15}, {g: 20, s: 76}]
     -

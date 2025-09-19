@@ -1,0 +1,92 @@
+#
+# encrypted.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2025 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+---
+options:
+    supported_version: 4.6.1.0
+    connection_options:
+      ENCRYPT_WHEN_SERIALIZING: true
+      ENCRYPTION_KEY_STORE: src/test/resources/encrypted.p12
+      ENCRYPTION_KEY_ENTRY: key-1
+      ENCRYPTION_KEY_PASSWORD: YAML+SQL
+---
+schema_template:
+    create table t(id bigint, s string, primary key(id))
+    create index t_id as select id from t
+---
+setup:
+  steps:
+    - query: INSERT INTO t
+        VALUES (1, 'abc'),
+               (2, 'def')
+---
+test_block:
+  name: read-encrypted
+  options:
+    connection_options:
+      ENCRYPT_WHEN_SERIALIZING: true
+  tests:
+    -
+      - query: SELECT * FROM t
+      - unorderedResult: [{ID: 1, S: 'abc'},
+                          {ID: 2, S: 'def'}]
+    -
+      - query: SELECT s FROM t WHERE id = 1
+      - unorderedResult: [{S: 'abc'}]
+    -
+      - query: SELECT s FROM t WHERE id = 2
+      - unorderedResult: [{S: 'def'}]
+---
+test_block:
+  name: read-unencrypted
+  options:
+    connection_options:
+      ENCRYPT_WHEN_SERIALIZING: false
+  tests:
+    -
+      - query: SELECT * FROM t
+      - error: "XXF01"
+---
+test_block:
+  name: read-wrong-key
+  options:
+    connection_options:
+      ENCRYPT_WHEN_SERIALIZING: true
+      ENCRYPTION_KEY_ENTRY: key-2
+  tests:
+    -
+      - query: SELECT * FROM t
+      - error: "XXF01"
+---
+test_block:
+  name: write-unencrypted
+  preset: single_repetition_ordered
+  options:
+    connection_options:
+      ENCRYPT_WHEN_SERIALIZING: false
+  tests:
+    -
+      - query: INSERT INTO t VALUES (3, 'xyz')
+      - count: 1
+    -
+      - query: SELECT s FROM t WHERE id = 3
+      - unorderedResult: [{S: 'xyz'}]
+    -
+      - query: SELECT s FROM t WHERE id = 1
+      - error: "XXF01"
+...

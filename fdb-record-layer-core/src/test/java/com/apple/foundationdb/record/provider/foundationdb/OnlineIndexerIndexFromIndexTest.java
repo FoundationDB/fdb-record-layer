@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.synchronizedsession.SynchronizedSessionLockedException;
 import com.apple.test.BooleanSource;
 import com.google.common.collect.Comparators;
 import org.junit.jupiter.api.Test;
@@ -38,6 +39,9 @@ import org.junit.jupiter.params.provider.ValueSource;
 import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -1153,5 +1157,56 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         assertEquals(numChunks , timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT));
         assertReadable(tgtIndex);
         scrubAndValidate(List.of(tgtIndex));
+    }
+
+    @Test
+    void testForbidConcurrentIndexFromIndexSessions() throws InterruptedException {
+        // Do not let a conversion of few indexes of an active multi-target session
+        final int numRecords = 59;
+        populateData(numRecords);
+
+        Index sourceIndex = new Index("src_index", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
+        openSimpleMetaData(metaDataBuilder -> metaDataBuilder.addIndex("MySimpleRecord", sourceIndex));
+        buildIndexClean(sourceIndex);
+
+        // Partly build index
+        Index tgtIndex = new Index("tgt_index", field("num_value_3_indexed"), IndexTypes.VALUE);
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = myHook(sourceIndex, tgtIndex);
+        openSimpleMetaData(hook);
+
+        Semaphore pauseMutualBuildSemaphore = new Semaphore(1);
+        Semaphore startBuildingSemaphore =  new Semaphore(1);
+        pauseMutualBuildSemaphore.acquire();
+        startBuildingSemaphore.acquire();
+        AtomicBoolean passed = new AtomicBoolean(false);
+        Thread t1 = new Thread(() -> {
+            // build index and pause halfway, allowing an active session test
+            try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex)
+                    .setLeaseLengthMillis(TimeUnit.SECONDS.toMillis(20))
+                    .setLimit(4)
+                    .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                            .setSourceIndex("src_index")
+                            .forbidRecordScan())
+                    .setConfigLoader(old -> pauseAfterOnePass(old, passed, startBuildingSemaphore, pauseMutualBuildSemaphore))
+                    .build()) {
+                indexBuilder.buildIndex();
+            }
+        });
+        t1.start();
+        startBuildingSemaphore.acquire();
+        startBuildingSemaphore.release();
+        // Try one index at a time
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex)
+                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                        .setSourceIndex("src_index")
+                        .forbidRecordScan())
+                .build()) {
+            assertThrows(SynchronizedSessionLockedException.class, indexBuilder::buildIndex);
+        }
+        // let the other thread finish indexing
+        pauseMutualBuildSemaphore.release();
+        t1.join();
+        // happy indexes assertion
+        assertReadable(tgtIndex);
     }
 }

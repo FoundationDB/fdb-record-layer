@@ -313,7 +313,6 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         buildIndexAndCrashHalfway(chunkSize, 2, timer, newIndexerBuilder(indexAhead)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .setReverseScanOrder(reverse2)
-                        .checkIndexingStampFrequencyMilliseconds(0)
                         .allowTakeoverContinue()));
 
         // 3. assert mismatch type stamp
@@ -864,21 +863,7 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
             try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes)
                     .setLeaseLengthMillis(TimeUnit.SECONDS.toMillis(20))
                     .setLimit(4)
-                    .setConfigLoader(old -> {
-                        if (passed.get()) {
-                            try {
-                                startBuildingSemaphore.release();
-                                pauseMutualBuildSemaphore.acquire(); // pause to try building indexes
-                            } catch (InterruptedException e) {
-                                throw new RuntimeException(e);
-                            } finally {
-                                pauseMutualBuildSemaphore.release();
-                            }
-                        } else {
-                            passed.set(true);
-                        }
-                        return old;
-                    })
+                    .setConfigLoader(old -> pauseAfterOnePass(old, passed, startBuildingSemaphore, pauseMutualBuildSemaphore))
                     .build()) {
                 indexBuilder.buildIndex();
             }
@@ -930,21 +915,7 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
             try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes)
                     .setLeaseLengthMillis(TimeUnit.SECONDS.toMillis(20))
                     .setLimit(4)
-                    .setConfigLoader(old -> {
-                        if (passed.get()) {
-                            try {
-                                startBuildingSemaphore.release();
-                                pauseMutualBuildSemaphore.acquire(); // pause to try building indexes
-                            } catch (InterruptedException e) {
-                                throw new RuntimeException(e);
-                            } finally {
-                                pauseMutualBuildSemaphore.release();
-                            }
-                        } else {
-                            passed.set(true);
-                        }
-                        return old;
-                    })
+                    .setConfigLoader(old -> pauseAfterOnePass(old, passed, startBuildingSemaphore, pauseMutualBuildSemaphore))
                     .build()) {
                 indexBuilder.buildIndex();
             }

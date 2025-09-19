@@ -29,14 +29,13 @@ import com.apple.foundationdb.relational.api.metrics.MetricCollector;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
 import com.apple.foundationdb.relational.yamltests.command.SQLFunction;
 import com.apple.foundationdb.relational.yamltests.server.SemanticVersion;
-import com.google.common.collect.Iterables;
-import org.junit.jupiter.api.Assumptions;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.List;
+import java.util.Map;
 
 /**
  * A simple version of {@link YamlConnection} for interacting with a single {@link RelationalConnection}.
@@ -70,9 +69,11 @@ public class SimpleYamlConnection implements YamlConnection {
     }
 
     @Override
+    @SuppressWarnings("PMD.CloseResource")
     public void setConnectionOptions(@Nonnull final Options connectionOptions) throws SQLException {
-        if (!Iterables.isEmpty(connectionOptions.entries())) {
-            Assumptions.abort("only embedded connections support the setting of connection options");
+        final RelationalConnection underlying = getUnderlying();
+        for (Map.Entry<Options.Name, ?> entry : connectionOptions.entries()) {
+            underlying.setOption(entry.getKey(), entry.getValue());
         }
     }
 
