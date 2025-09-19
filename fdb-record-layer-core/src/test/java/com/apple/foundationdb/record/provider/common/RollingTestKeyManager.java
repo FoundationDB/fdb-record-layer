@@ -26,7 +26,6 @@ import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
 import java.security.Key;
 import java.security.NoSuchAlgorithmException;
-import java.security.SecureRandom;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
@@ -39,11 +38,11 @@ public class RollingTestKeyManager implements SerializationKeyManager {
     private final Map<Integer, SecretKey> keys;
     private final Random random;
 
-    public RollingTestKeyManager() throws NoSuchAlgorithmException {
+    public RollingTestKeyManager(long seed) throws NoSuchAlgorithmException {
         keyGenerator = KeyGenerator.getInstance("AES");
         keyGenerator.init(128);
         keys = new HashMap<>();
-        random = new SecureRandom();
+        random = new Random(seed);
     }
 
     @Override
