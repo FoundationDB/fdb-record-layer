@@ -35,7 +35,6 @@ import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.provider.foundationdb.indexing.IndexingRangeSet;
-import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Message;
 import org.slf4j.Logger;
@@ -111,24 +110,17 @@ public class IndexScrubbing extends IndexingBase {
     @Override
     CompletableFuture<Void> buildIndexInternalAsync() {
         return getRunner().runAsync(context ->
-                        context.getReadVersionAsync()
-                                .thenCompose(vignore -> {
-                                    SubspaceProvider subspaceProvider = common.getRecordStoreBuilder().getSubspaceProvider();
-                                    return subspaceProvider.getSubspaceAsync(context)
-                                            .thenCompose(subspace ->
-                                                    indexScrub(subspaceProvider, subspace));
-                                }),
+                        context.getReadVersionAsync().thenCompose(ignore -> indexScrub()),
                 common.indexLogMessageKeyValues("IndexScrubbing::buildIndexInternalAsync"));
     }
 
     @Nonnull
-    private CompletableFuture<Void> indexScrub(@Nonnull SubspaceProvider subspaceProvider, @Nonnull Subspace subspace) {
+    private CompletableFuture<Void> indexScrub() {
 
         final List<Object> additionalLogMessageKeyValues = Arrays.asList(LogMessageKeys.CALLING_METHOD, "indexScrub");
 
         return iterateAllRanges(additionalLogMessageKeyValues,
-                this::indexScrubRangeOnly,
-                subspaceProvider, subspace);
+                this::indexScrubRangeOnly);
     }
 
     @Nonnull
