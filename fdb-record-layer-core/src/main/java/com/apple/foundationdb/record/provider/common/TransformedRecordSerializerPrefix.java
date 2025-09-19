@@ -1,5 +1,5 @@
 /*
- * TransformedRecordSerializerEncoding.java
+ * TransformedRecordSerializerPrefix.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -50,7 +50,7 @@ import javax.annotation.Nonnull;
  * <li><code>5</code> compressed and encrypted (in that order)</li>
  * </ul>
  * Recall that a serialized record is a message using the {@link RecordMetaData#getUnionDescriptor union descriptor}
- * from the {@link RecordMetaData record metadata}. That means is will be wire-type <code>2</code> plus a field numnber
+ * from the {@link RecordMetaData record metadata}. That means this will be wire-type <code>2</code> plus a field number
  * in the union. Since field numbers must be positive, this is unambiguous versus just <code>2</code> for clear text.
  * The remaining prefix types correspond to other Protobuf wire types: <code>1</code> is <code>I64</code>, <code>4</code>
  * is <code>EGROUP</code>, and <code>5</code> is <code>I32</code>. None of these are possible for the <em>start</em> of a
@@ -63,7 +63,7 @@ import javax.annotation.Nonnull;
  * The compressed form begins with a compression level, which again might someday be extended.
  * </p>
  */
-@API(API.Status.UNSTABLE)
+@API(API.Status.INTERNAL)
 class TransformedRecordSerializerPrefix {
     protected static final int PREFIX_ENCRYPTED = 1;
     protected static final int PREFIX_CLEAR = 2;
