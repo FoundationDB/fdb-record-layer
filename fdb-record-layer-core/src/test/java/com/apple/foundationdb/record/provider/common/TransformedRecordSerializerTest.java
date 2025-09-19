@@ -216,7 +216,7 @@ public class TransformedRecordSerializerTest {
                 greaterThan(storeTimer.getCount(RecordSerializer.Counts.RECORD_BYTES_AFTER_COMPRESSION)));
         assertEquals(TransformedRecordSerializerPrefix.PREFIX_COMPRESSED, serialized[0]);
         int rawLength = largeUnionRecord.toByteArray().length;
-        assertEquals(rawLength, ByteBuffer.wrap(serialized, 2, 4).order(ByteOrder.BIG_ENDIAN).getInt());
+        assertEquals(rawLength, getUncompressedSize(serialized));
         Message deserialized = deserialize(serializer, primaryKey, serialized);
         assertEquals(longRecord, deserialized);
 
