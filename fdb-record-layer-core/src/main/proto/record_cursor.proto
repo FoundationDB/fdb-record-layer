@@ -165,3 +165,11 @@ message OneOfTypedState {
 message RangeCursorContinuation {
     optional int64 nextPosition = 1;
 }
+
+message RecursiveContinuation {
+    message LevelCursor {
+        optional bytes continuation = 1;
+        optional bytes check_value = 2;
+    }
+    repeated LevelCursor levels = 1;
+}
