@@ -116,10 +116,9 @@ test_block:
       - query: select X[1] AS F FROM G where pk = 42
       - supported_version: 4.5.13.0
       - result: []
-#    -
-# it is not possible to project empty arrays, see:
-# https://github.com/FoundationDB/fdb-record-layer/issues/3589
-#      - query: select [] from F where pk = 1;
-#      - supported_version: 4.5.13.0
-#      - result: [{[]}]
+    -
+      # subscript from empty array
+      - query: select cast([] as string array)[0] AS G FROM F where pk = 1;
+      - supported_version: !current_version
+      - error: []
 ...

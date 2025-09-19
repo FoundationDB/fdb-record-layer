@@ -256,6 +256,7 @@ message PValue {
     PEvaluatesToValue evaluates_to_value = 50;
     PArrayDistinctValue array_distinct_value = 51;
     PSubscriptValue subscript_value = 52;
+    PCastValue cast_value = 53;
   }
 }
 
@@ -1268,6 +1269,61 @@ message PRangeValue {
 
 message PArrayDistinctValue {
   optional PValue child_value = 1;
+}
+
+message PCastValue {
+  enum PPhysicalOperator {
+    // Numeric to numeric conversions
+    INT_TO_LONG = 1;
+    INT_TO_FLOAT = 2;
+    INT_TO_DOUBLE = 3;
+    LONG_TO_INT = 4;
+    LONG_TO_FLOAT = 5;
+    LONG_TO_DOUBLE = 6;
+    FLOAT_TO_INT = 7;
+    FLOAT_TO_LONG = 8;
+    FLOAT_TO_DOUBLE = 9;
+    DOUBLE_TO_INT = 10;
+    DOUBLE_TO_LONG = 11;
+    DOUBLE_TO_FLOAT = 12;
+
+    // Numeric to string conversions
+    INT_TO_STRING = 13;
+    LONG_TO_STRING = 14;
+    FLOAT_TO_STRING = 15;
+    DOUBLE_TO_STRING = 16;
+    BOOLEAN_TO_STRING = 17;
+
+    // String to numeric conversions
+    STRING_TO_INT = 18;
+    STRING_TO_LONG = 19;
+    STRING_TO_FLOAT = 20;
+    STRING_TO_DOUBLE = 21;
+
+    // Boolean conversions
+    STRING_TO_BOOLEAN = 22;
+    INT_TO_BOOLEAN = 23;
+    BOOLEAN_TO_INT = 24;
+
+    // NULL conversions
+    NULL_TO_INT = 25;
+    NULL_TO_LONG = 26;
+    NULL_TO_FLOAT = 27;
+    NULL_TO_DOUBLE = 28;
+    NULL_TO_BOOLEAN = 29;
+    NULL_TO_STRING = 30;
+    NULL_TO_ARRAY = 31;
+    NULL_TO_RECORD = 32;
+    NULL_TO_ENUM = 33;
+    NULL_TO_UUID = 34;
+
+    // STRING to complex types.
+    STRING_TO_ENUM = 35;
+    STRING_TO_UUID = 36;
+  }
+  optional PValue child = 1;
+  optional PType cast_to_type = 2;
+  optional PPhysicalOperator operator = 3;
 }
 
 //

@@ -320,4 +320,10 @@ public class YamlIntegrationTests {
     public void serializationOptions(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("serialization-options.yamsql");
     }
+
+    @TestTemplate
+    @MaintainYamlTestConfig(YamlTestConfigFilters.CORRECT_EXPLAIN_AND_METRICS)
+    public void castTests(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("cast-tests.yamsql");
+    }
 }
