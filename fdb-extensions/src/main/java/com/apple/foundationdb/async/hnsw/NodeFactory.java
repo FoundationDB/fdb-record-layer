@@ -27,11 +27,39 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
 
+/**
+ * A factory interface for creating {@link Node} instances within a Hierarchical Navigable Small World (HNSW) graph.
+ * <p>
+ * Implementations of this interface define how nodes are constructed, allowing for different node types
+ * or storage strategies within the HNSW structure.
+ *
+ * @param <N> the type of {@link NodeReference} used to refer to nodes in the graph
+ */
 public interface NodeFactory<N extends NodeReference> {
+    /**
+     * Creates a new node with the specified properties.
+     * <p>
+     * This method is responsible for instantiating a {@code Node} object, initializing it
+     * with a primary key, an optional feature vector, and a list of its initial neighbors.
+     *
+     * @param primaryKey the {@link Tuple} representing the unique primary key for the new node. Must not be
+     *        {@code null}.
+     * @param vector the optional feature {@link Vector} associated with the node, which can be used for similarity
+     *        calculations. May be {@code null} if the node does not encode a vector (see {@link CompactNode} versus
+     *        {@link InliningNode}.
+     * @param neighbors the list of initial {@link NodeReference}s for the new node,
+     * establishing its initial connections in the graph. Must not be {@code null}.
+     *
+     * @return a new, non-null {@link Node} instance configured with the provided parameters.
+     */
     @Nonnull
     Node<N> create(@Nonnull Tuple primaryKey, @Nullable Vector<Half> vector,
                    @Nonnull List<? extends NodeReference> neighbors);
 
+    /**
+     * Gets the kind of this node.
+     * @return the kind of this node, never {@code null}.
+     */
     @Nonnull
     NodeKind getNodeKind();
 }
