@@ -181,6 +181,7 @@ public class FDBDirectory extends Directory  {
     // True if sharedCacheManager is present until sharedCache has been set (or not).
     private boolean sharedCachePending;
     private final AgilityContext agilityContext;
+    private final LuceneSerializer serializer;
 
     @Nullable
     private LucenePrimaryKeySegmentIndex primaryKeySegmentIndex;
@@ -231,6 +232,7 @@ public class FDBDirectory extends Directory  {
         this.fileSequenceCounter = new AtomicLong(-1);
         this.compressionEnabled = Objects.requireNonNullElse(agilityContext.getPropertyValue(LuceneRecordContextProperties.LUCENE_INDEX_COMPRESSION_ENABLED), false);
         this.encryptionEnabled = Objects.requireNonNullElse(agilityContext.getPropertyValue(LuceneRecordContextProperties.LUCENE_INDEX_ENCRYPTION_ENABLED), false);
+        this.serializer = new LuceneSerializer(agilityContext.getPropertyValue(LuceneRecordContextProperties.LUCENE_INDEX_KEY_MANAGER));
         this.fileReferenceMapSupplier = Suppliers.memoize(this::loadFileReferenceCacheForMemoization);
         this.sharedCacheManager = sharedCacheManager;
         this.sharedCacheKey = sharedCacheKey;
@@ -403,7 +405,7 @@ public class FDBDirectory extends Directory  {
      */
     public void writeFDBLuceneFileReference(@Nonnull String name, @Nonnull FDBLuceneFileReference reference) {
         final byte[] fileReferenceBytes = reference.getBytes();
-        final byte[] encodedBytes = Objects.requireNonNull(LuceneSerializer.encode(fileReferenceBytes, compressionEnabled, encryptionEnabled));
+        final byte[] encodedBytes = Objects.requireNonNull(serializer.encode(fileReferenceBytes, compressionEnabled, encryptionEnabled));
         agilityContext.recordSize(LuceneEvents.SizeEvents.LUCENE_WRITE_FILE_REFERENCE, encodedBytes.length);
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(getLogMessage("Write lucene file reference",
@@ -425,7 +427,7 @@ public class FDBDirectory extends Directory  {
      * @return the actual data size written to database with potential compression and encryption applied
      */
     public int writeData(final long id, final int block, @Nonnull final byte[] value) {
-        final byte[] encodedBytes = Objects.requireNonNull(LuceneSerializer.encode(value, compressionEnabled, encryptionEnabled));
+        final byte[] encodedBytes = Objects.requireNonNull(serializer.encode(value, compressionEnabled, encryptionEnabled));
         //This may not be correct transactionally
         agilityContext.recordSize(LuceneEvents.SizeEvents.LUCENE_WRITE, encodedBytes.length);
         if (LOGGER.isTraceEnabled()) {
@@ -538,7 +540,7 @@ public class FDBDirectory extends Directory  {
     private CompletableFuture<byte[]> readData(long id, int block) {
         return agilityContext.instrument(LuceneEvents.Events.LUCENE_FDB_READ_BLOCK,
                 agilityContext.get(dataSubspace.pack(Tuple.from(id, block)))
-                        .thenApply(LuceneSerializer::decode));
+                        .thenApply(serializer::decode));
     }
 
     @Nonnull
@@ -624,7 +626,7 @@ public class FDBDirectory extends Directory  {
             agilityContext.recordSize(LuceneEvents.SizeEvents.LUCENE_FILES_COUNT, list.size());
             list.forEach(kv -> {
                 String name = metaSubspace.unpack(kv.getKey()).getString(0);
-                final FDBLuceneFileReference fileReference = Objects.requireNonNull(FDBLuceneFileReference.parseFromBytes(LuceneSerializer.decode(kv.getValue())));
+                final FDBLuceneFileReference fileReference = Objects.requireNonNull(FDBLuceneFileReference.parseFromBytes(serializer.decode(kv.getValue())));
                 outMap.put(name, fileReference);
                 if (fileReference.getFieldInfosId() != 0) {
                     fieldInfosCount.computeIfAbsent(fileReference.getFieldInfosId(), key -> new AtomicInteger(0))
@@ -915,7 +917,7 @@ public class FDBDirectory extends Directory  {
                             .addLogInfo(LuceneLogMessageKeys.COMPRESSION_SUPPOSED, compressionEnabled)
                             .addLogInfo(LuceneLogMessageKeys.ENCRYPTION_SUPPOSED, encryptionEnabled);
                 }
-                byte[] encodedBytes = LuceneSerializer.encode(value.getBytes(), compressionEnabled, encryptionEnabled);
+                byte[] encodedBytes = serializer.encode(value.getBytes(), compressionEnabled, encryptionEnabled);
                 agilityContext.set(metaSubspace.pack(dest), encodedBytes);
                 agilityContext.clear(key);
 
@@ -1035,6 +1037,11 @@ public class FDBDirectory extends Directory  {
     @Nullable
     public <T> T asyncToSync(@Nonnull StoreTimer.Wait event, @Nonnull CompletableFuture<T> async) {
         return agilityContext.asyncToSync(event, async);
+    }
+
+    @Nullable
+    public LuceneSerializer getSerializer() {
+        return serializer;
     }
 
     public Subspace getSubspace() {
