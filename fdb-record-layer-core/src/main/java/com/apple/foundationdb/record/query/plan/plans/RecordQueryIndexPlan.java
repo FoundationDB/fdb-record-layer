@@ -818,7 +818,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
             @Nullable
             private volatile byte[] bytes;
             @Nonnull
-            private KeyValueCursorBase.SerializationMode serializationMode;
+            private final KeyValueCursorBase.SerializationMode serializationMode;
 
             private PrefixRemovingContinuation(RecordCursorContinuation baseContinuation, int prefixLength, @Nonnull KeyValueCursorBase.SerializationMode serializationMode) {
                 this.baseContinuation = baseContinuation;
