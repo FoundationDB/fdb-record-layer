@@ -529,7 +529,8 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         } else {
             final var inListItems = visitExpressions(ctx.expressions());
             // if inListItems only contain one expression, return the expression, otherwise create an array.
-            if (inListItems.size() > 1) {
+            if (true) {
+            // if (inListItems.size() > 1) {
                 result = getDelegate().resolveFunction("__internal_array", inListItems.asList().toArray(new Expression[0]));
             } else {
                 result = inListItems.getSingleItem();

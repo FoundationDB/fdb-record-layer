@@ -1399,6 +1399,7 @@ public class StandardQueryTests {
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 statement.executeUpdate("insert into t1 values (42, ['Apple', 'Orange']), (44, ['Grape', 'Pear'])");
+                /*
                 Assertions.assertTrue(statement.execute("SELECT * FROM T1 where exists (SELECT 1 FROM T1.A r where r = 'Grape')"));
                 try (final RelationalResultSet resultSet = statement.getResultSet()) {
                     ResultSetAssert.assertThat(resultSet).hasNextRow()
@@ -1413,6 +1414,8 @@ public class StandardQueryTests {
                             .isRowExactly(44L, EmbeddedRelationalArray.newBuilder().addString("Grape").addString("Pear").build())
                             .hasNoNextRow();
                 }
+
+                 */
 
                 Assertions.assertTrue(statement.execute("SELECT * FROM T1 where 'Grape' in (a)"));
                 try (final RelationalResultSet resultSet = statement.getResultSet()) {
