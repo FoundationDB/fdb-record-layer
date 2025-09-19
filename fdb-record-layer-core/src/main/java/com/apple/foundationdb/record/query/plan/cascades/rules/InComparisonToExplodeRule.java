@@ -36,6 +36,7 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.NotPredicate
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.ArrayDistinctValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.BooleanValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
@@ -163,7 +164,7 @@ public class InComparisonToExplodeRule extends ExplorationCascadesRule<SelectExp
                     Verify.verify(comparisonValue.getComparandValue().getResultType().isArray());
                     Type arrayElementType = ((Type.Array) comparisonValue.getComparandValue().getResultType()).getElementType();
                     Verify.verify(arrayElementType != null);
-                    explodeExpression = new ExplodeExpression(comparisonValue.getComparandValue());
+                    explodeExpression = new ExplodeExpression(new ArrayDistinctValue(comparisonValue.getComparandValue()));
                     newQuantifier = Quantifier.forEach(call.memoizeExploratoryExpression(explodeExpression));
                     if (arrayElementType.isRecord()) {
                         transformedPredicates.addAll(createSimpleEqualitiesForRecordTypeValue(value, newQuantifier));
