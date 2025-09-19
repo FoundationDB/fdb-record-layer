@@ -317,6 +317,9 @@ public class TransformedRecordSerializerJCE<M extends Message> extends Transform
                 if (cipherName != null) {
                     throw new RecordCoreArgumentException("cannot specify both key manager and cipher name");
                 }
+                if (secureRandom != null) {
+                    throw new RecordCoreArgumentException("cannot specify both key manager and secure random");
+                }
             }
             return new TransformedRecordSerializerJCE<>(
                     inner,
