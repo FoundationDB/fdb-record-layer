@@ -1,5 +1,5 @@
 /*
- * InliningNode.java
+ * InsertNeighborsChangeSet.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -33,7 +33,14 @@ import java.util.Map;
 import java.util.function.Predicate;
 
 /**
- * TODO.
+ * Represents an immutable change set for the neighbors of a node in the HNSW graph, specifically
+ * capturing the insertion of new neighbors.
+ * <p>
+ * This class layers new neighbors on top of a parent {@link NeighborsChangeSet}, allowing for a
+ * layered representation of modifications. The changes are not applied to the database until
+ * {@link #writeDelta} is called.
+ *
+ * @param <N> the type of the node reference, which must extend {@link NodeReference}
  */
 class InsertNeighborsChangeSet<N extends NodeReference> implements NeighborsChangeSet<N> {
     @Nonnull
@@ -45,6 +52,16 @@ class InsertNeighborsChangeSet<N extends NodeReference> implements NeighborsChan
     @Nonnull
     private final Map<Tuple, N> insertedNeighborsMap;
 
+    /**
+     * Creates a new {@code InsertNeighborsChangeSet}.
+     * <p>
+     * This constructor initializes the change set with its parent and a list of neighbors
+     * to be inserted. It internally builds an immutable map of the inserted neighbors,
+     * keyed by their primary key for efficient lookups.
+     *
+     * @param parent the parent {@link NeighborsChangeSet} on which this insertion is based.
+     * @param insertedNeighbors the list of neighbors to be inserted.
+     */
     public InsertNeighborsChangeSet(@Nonnull final NeighborsChangeSet<N> parent,
                                     @Nonnull final List<N> insertedNeighbors) {
         this.parent = parent;
@@ -56,18 +73,44 @@ class InsertNeighborsChangeSet<N extends NodeReference> implements NeighborsChan
         this.insertedNeighborsMap = insertedNeighborsMapBuilder.build();
     }
 
+    /**
+     * Gets the parent {@code NeighborsChangeSet} from which this change set was derived.
+     * @return the parent {@link NeighborsChangeSet}, which is never {@code null}.
+     */
     @Nonnull
     @Override
     public NeighborsChangeSet<N> getParent() {
         return parent;
     }
 
+    /**
+     * Merges the neighbors from this level of the hierarchy with all neighbors from parent levels.
+     * <p>
+     * This is achieved by creating a combined view that includes the results of the parent's {@code #merge()} call and
+     * the neighbors that have been inserted at the current level. The resulting {@code Iterable} provides a complete
+     * set of neighbors from this node and all its ancestors.
+     * @return a non-null {@code Iterable} containing all neighbors from this node and its ancestors.
+     */
     @Nonnull
     @Override
     public Iterable<N> merge() {
         return Iterables.concat(getParent().merge(), insertedNeighborsMap.values());
     }
 
+    /**
+     * Writes the delta of this layer to the specified storage adapter.
+     * <p>
+     * This implementation first delegates to the parent to write its delta, but excludes any neighbors that have been
+     * newly inserted in the current context (i.e., those in {@code insertedNeighborsMap}). It then iterates through its
+     * own newly inserted neighbors. For each neighbor that satisfies the given {@code tuplePredicate}, it writes the
+     * neighbor relationship to storage via the {@link InliningStorageAdapter}.
+     *
+     * @param storageAdapter the storage adapter to write to; must not be null
+     * @param transaction the transaction context for the write operation; must not be null
+     * @param layer the layer index to write the data to
+     * @param node the source node for which the neighbor delta is being written; must not be null
+     * @param tuplePredicate a predicate to filter which neighbor tuples should be written; must not be null
+     */
     @Override
     public void writeDelta(@Nonnull final InliningStorageAdapter storageAdapter, @Nonnull final Transaction transaction,
                            final int layer, @Nonnull final Node<N> node, @Nonnull final Predicate<Tuple> tuplePredicate) {
