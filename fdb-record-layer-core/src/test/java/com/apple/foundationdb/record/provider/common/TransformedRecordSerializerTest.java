@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
 import com.apple.test.ParameterizedTestUtils;
+import com.apple.test.RandomSeedSource;
 import com.apple.test.RandomizedTestUtils;
 import com.google.common.base.Strings;
 import com.google.common.collect.Streams;
@@ -462,6 +463,27 @@ public class TransformedRecordSerializerTest {
 
                 serialized[i] ^= mask;
             }
+        }
+    }
+
+    @ParameterizedTest
+    @RandomSeedSource
+    void varintEncoding(long seed) {
+        final Random random = new Random(seed);
+        for (int pass = 0; pass < 100; pass++) {
+            final long varint = random.nextLong();
+            final byte[] protobuf = MySimpleRecord.newBuilder().setRecNo(varint).build().toByteArray();
+            assertEquals(MySimpleRecord.REC_NO_FIELD_NUMBER << 3, protobuf[0]);
+            final byte[] protovar = Arrays.copyOfRange(protobuf, 1, protobuf.length);
+            final int length = protovar.length;
+            assertEquals(length, TransformedRecordSerializerPrefix.varintSize(varint));
+            final byte[] encoded = new byte[length];
+            final int encodedLength = TransformedRecordSerializerPrefix.writeVarint(encoded, varint);
+            assertEquals(length, encodedLength);
+            assertArrayEquals(protovar, encoded);
+            final TransformedRecordSerializerState state = new TransformedRecordSerializerState(protovar);
+            final long decoded = TransformedRecordSerializerPrefix.readVarint(state, PRIMARY_KEY);
+            assertEquals(varint, decoded);
         }
     }
 
