@@ -19,6 +19,6 @@
  */
 
 /**
- * Classes and interfaces related to the Hilbert R-tree implementation.
+ * Classes and interfaces related to the HNSW implementation as used for vector indexes.
  */
 package com.apple.foundationdb.async.hnsw;

@@ -25,27 +25,56 @@ import com.google.common.collect.ImmutableList;
 import javax.annotation.Nonnull;
 import java.util.List;
 
+/**
+ * A container class that pairs a {@link NodeReferenceWithDistance} with its corresponding {@link Node} object.
+ * <p>
+ * This is often used during graph traversal or searching, where a reference to a node (along with its distance from a
+ * query point) is first identified, and then the complete node data is fetched. This class holds these two related
+ * pieces of information together.
+ * @param <N> the type of {@link NodeReference} used within the {@link Node}
+ */
 public class NodeReferenceAndNode<N extends NodeReference> {
     @Nonnull
     private final NodeReferenceWithDistance nodeReferenceWithDistance;
     @Nonnull
     private final Node<N> node;
 
+    /**
+     * Constructs a new instance that pairs a node reference (with distance) with its
+     * corresponding {@link Node} object.
+     * @param nodeReferenceWithDistance the reference to a node, which also includes distance information. Must not be
+     *        {@code null}.
+     * @param node the actual {@code Node} object that the reference points to. Must not be {@code null}.
+     */
     public NodeReferenceAndNode(@Nonnull final NodeReferenceWithDistance nodeReferenceWithDistance, @Nonnull final Node<N> node) {
         this.nodeReferenceWithDistance = nodeReferenceWithDistance;
         this.node = node;
     }
 
+    /**
+     * Gets the node reference and its associated distance.
+     * @return the non-null {@link NodeReferenceWithDistance} object.
+     */
     @Nonnull
     public NodeReferenceWithDistance getNodeReferenceWithDistance() {
         return nodeReferenceWithDistance;
     }
 
+    /**
+     * Gets the underlying node represented by this object.
+     * @return the associated {@link Node} instance, never {@code null}.
+     */
     @Nonnull
     public Node<N> getNode() {
         return node;
     }
 
+    /**
+     * Helper to extract the references from a given collection of objects of this container class.
+     * @param referencesAndNodes an iterable of {@link NodeReferenceAndNode} objects from which to extract the
+     *        references.
+     * @return a {@link List} of {@link NodeReferenceAndNode}s
+     */
     @Nonnull
     public static List<NodeReferenceWithDistance> getReferences(@Nonnull List<? extends NodeReferenceAndNode<?>> referencesAndNodes) {
         final ImmutableList.Builder<NodeReferenceWithDistance> referencesBuilder = ImmutableList.builder();
