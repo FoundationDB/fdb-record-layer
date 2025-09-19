@@ -247,7 +247,7 @@ public abstract class LocatableResolverTest {
 
     @Test
     void testDirectoryCacheWithUncommittedContext() {
-        FDBDatabase fdb = dbExtension.getDatabase();
+        FDBDatabase fdb = database;
         fdb.clearCaches();
 
         // In the scoped directory layer test, this can conflict with initializing the reverse directory layer
@@ -301,7 +301,7 @@ public abstract class LocatableResolverTest {
 
     @Test
     void testCachesWinnerOfConflict() {
-        FDBDatabase fdb = dbExtension.getDatabase();
+        FDBDatabase fdb = database;
         fdb.clearCaches();
 
         // In the scoped directory layer test, this can conflict with initializing the reverse directory layer
@@ -436,7 +436,7 @@ public abstract class LocatableResolverTest {
         Long baseline = database.getDirectoryCacheStats().hitCount();
         Long reverseCacheBaseline = database.getReverseDirectoryInMemoryCache().stats().hitCount();
         database.close();
-        database = dbExtension.getDatabase();
+        database = dbExtension.getDatabaseFactory().getDatabase(database.getClusterFile());
         try (FDBRecordContext context = database.openContext()) {
             for (Map.Entry<String, Long> entry : mappings.entrySet()) {
                 Long value = globalScope.resolve(context.getTimer(), entry.getKey()).join();
@@ -897,7 +897,7 @@ public abstract class LocatableResolverTest {
         final FDBDatabaseFactory parallelFactory = new FDBDatabaseFactoryImpl();
         parallelFactory.setStateRefreshTimeMillis(100);
         parallelFactory.setAPIVersion(dbExtension.getAPIVersion());
-        String clusterFile = FDBTestEnvironment.randomClusterFile();
+        String clusterFile = database.getClusterFile();
         Supplier<FDBDatabase> databaseSupplier = () -> new FDBDatabase(parallelFactory, clusterFile);
         consistently("uninitialized version is 0", () -> {
             try (FDBRecordContext context = database.openContext()) {
@@ -935,7 +935,7 @@ public abstract class LocatableResolverTest {
         FDBDatabaseFactory factory = dbExtension.getDatabaseFactory();
         factory.setDirectoryCacheSize(10);
         final FDBStoreTimer timer = new FDBStoreTimer();
-        FDBDatabase fdb = factory.getDatabase(FDBTestEnvironment.randomClusterFile());
+        FDBDatabase fdb = factory.getDatabase(database.getClusterFile());
         fdb.close(); // Make sure cache is fresh, and resets version
         fdb.setResolverStateRefreshTimeMillis(100);
         String key = "some-key";
