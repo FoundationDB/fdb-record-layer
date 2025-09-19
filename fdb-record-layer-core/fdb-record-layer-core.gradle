@@ -20,6 +20,7 @@
 
 plugins {
     alias(libs.plugins.shadow)
+    id 'java-test-fixtures'
 }
 apply from: rootProject.file('gradle/proto.gradle')
 apply from: rootProject.file('gradle/publishing.gradle')
@@ -35,7 +36,9 @@ dependencies {
     compileOnly(libs.autoService)
     annotationProcessor(libs.autoService)
 
-    testImplementation project(path: ':fdb-extensions', configuration: 'tests')
+    // TODO we should move the rest of the things this depends on into the test fixtures
+    //testImplementation project(path: ':fdb-extensions', configuration: 'tests')
+    testImplementation(testFixtures(project(":fdb-extensions")))
     testImplementation(libs.bundles.test.impl)
     testRuntimeOnly(libs.bundles.test.runtime)
     testCompileOnly(libs.bundles.test.compileOnly)
