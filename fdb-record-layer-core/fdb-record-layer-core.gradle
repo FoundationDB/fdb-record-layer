@@ -36,7 +36,6 @@ dependencies {
     compileOnly(libs.autoService)
     annotationProcessor(libs.autoService)
 
-    // TODO we should move the rest of the things this depends on into the test fixtures
     testImplementation project(path: ':fdb-extensions', configuration: 'tests')
     testImplementation(libs.bundles.test.impl)
     testRuntimeOnly(libs.bundles.test.runtime)
