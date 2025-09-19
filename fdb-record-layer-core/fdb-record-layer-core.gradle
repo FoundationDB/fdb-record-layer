@@ -20,6 +20,7 @@
 
 plugins {
     alias(libs.plugins.shadow)
+    id 'java-test-fixtures'
 }
 apply from: rootProject.file('gradle/proto.gradle')
 apply from: rootProject.file('gradle/publishing.gradle')
@@ -44,6 +45,7 @@ dependencies {
     testImplementation(libs.junit.platform)
     testImplementation(libs.protobuf.util)
     testCompileOnly(libs.spotbugs.annotations)
+    testImplementation(libs.snakeyaml)
 
     testAnnotationProcessor(libs.autoService)
 }

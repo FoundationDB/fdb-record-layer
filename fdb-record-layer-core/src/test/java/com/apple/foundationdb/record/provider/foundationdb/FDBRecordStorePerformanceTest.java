@@ -38,6 +38,7 @@ import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.test.FDBDatabaseExtension;
 import com.apple.foundationdb.record.test.TestKeySpace;
+import com.apple.foundationdb.test.FDBTestEnvironment;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.util.StringUtils;
 import com.apple.test.Tags;
@@ -164,7 +165,7 @@ public class FDBRecordStorePerformanceTest {
     public void createMetaData() {
         FDBDatabaseFactory factory = dbExtension.getDatabaseFactory();
         factory.setDirectoryCacheSize(databaseParameters.pathCache);
-        fdb = factory.getDatabase();
+        fdb = factory.getDatabase(FDBTestEnvironment.randomClusterFile());
 
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
         metaDataBuilder.setSplitLongRecords(databaseParameters.splitRecords);

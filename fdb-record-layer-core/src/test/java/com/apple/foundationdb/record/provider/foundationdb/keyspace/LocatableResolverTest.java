@@ -39,6 +39,7 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.ResolverCrea
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.ResolverCreateHooks.PreWriteCheck;
 import com.apple.foundationdb.record.test.FDBDatabaseExtension;
 import com.apple.foundationdb.record.util.pair.Pair;
+import com.apple.foundationdb.test.FDBTestEnvironment;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
@@ -224,7 +225,7 @@ public abstract class LocatableResolverTest {
 
         FDBStoreTimer timer = new FDBStoreTimer();
 
-        FDBDatabase fdb = factory.getDatabase();
+        FDBDatabase fdb = factory.getDatabase(FDBTestEnvironment.randomClusterFile());
         fdb.close(); // Make sure cache is fresh.
         String key = "world";
         Long value;
@@ -246,7 +247,7 @@ public abstract class LocatableResolverTest {
 
     @Test
     void testDirectoryCacheWithUncommittedContext() {
-        FDBDatabase fdb = dbExtension.getDatabase();
+        FDBDatabase fdb = database;
         fdb.clearCaches();
 
         // In the scoped directory layer test, this can conflict with initializing the reverse directory layer
@@ -300,7 +301,7 @@ public abstract class LocatableResolverTest {
 
     @Test
     void testCachesWinnerOfConflict() {
-        FDBDatabase fdb = dbExtension.getDatabase();
+        FDBDatabase fdb = database;
         fdb.clearCaches();
 
         // In the scoped directory layer test, this can conflict with initializing the reverse directory layer
@@ -350,7 +351,7 @@ public abstract class LocatableResolverTest {
      */
     @Test
     void testDoesNotCacheValueReadFromReadYourWritesCache() {
-        FDBDatabase fdb = dbExtension.getDatabase();
+        FDBDatabase fdb = dbExtension.getDatabase(database.getClusterFile());
         fdb.clearCaches();
 
         final String key = "hello " + UUID.randomUUID();
@@ -397,7 +398,7 @@ public abstract class LocatableResolverTest {
 
         FDBStoreTimer timer = new FDBStoreTimer();
         String key = "hello " + UUID.randomUUID();
-        FDBDatabase fdb = factory.getDatabase();
+        FDBDatabase fdb = factory.getDatabase(FDBTestEnvironment.randomClusterFile());
 
         assertEquals(0, timer.getCount(FDBStoreTimer.Events.COMMIT));
         try (FDBRecordContext context = fdb.openContext(null, timer)) {
@@ -435,7 +436,7 @@ public abstract class LocatableResolverTest {
         Long baseline = database.getDirectoryCacheStats().hitCount();
         Long reverseCacheBaseline = database.getReverseDirectoryInMemoryCache().stats().hitCount();
         database.close();
-        database = dbExtension.getDatabase();
+        database = dbExtension.getDatabaseFactory().getDatabase(database.getClusterFile());
         try (FDBRecordContext context = database.openContext()) {
             for (Map.Entry<String, Long> entry : mappings.entrySet()) {
                 Long value = globalScope.resolve(context.getTimer(), entry.getKey()).join();
@@ -716,7 +717,7 @@ public abstract class LocatableResolverTest {
 
         final FDBDatabaseFactory factory = dbExtension.getDatabaseFactory();
         factory.clear();
-        FDBDatabase newDatabase = factory.getDatabase();
+        FDBDatabase newDatabase = factory.getDatabase(database.getClusterFile());
         FDBStoreTimer timer2 = new FDBStoreTimer();
         try (FDBRecordContext context = newDatabase.openContext(null, timer2)) {
             globalScope.resolve(context.getTimer(), "something").join();
@@ -896,7 +897,8 @@ public abstract class LocatableResolverTest {
         final FDBDatabaseFactory parallelFactory = new FDBDatabaseFactoryImpl();
         parallelFactory.setStateRefreshTimeMillis(100);
         parallelFactory.setAPIVersion(dbExtension.getAPIVersion());
-        Supplier<FDBDatabase> databaseSupplier = () -> new FDBDatabase(parallelFactory, null);
+        String clusterFile = database.getClusterFile();
+        Supplier<FDBDatabase> databaseSupplier = () -> new FDBDatabase(parallelFactory, clusterFile);
         consistently("uninitialized version is 0", () -> {
             try (FDBRecordContext context = database.openContext()) {
                 return globalScope.getVersion(context.getTimer()).join();
@@ -933,7 +935,7 @@ public abstract class LocatableResolverTest {
         FDBDatabaseFactory factory = dbExtension.getDatabaseFactory();
         factory.setDirectoryCacheSize(10);
         final FDBStoreTimer timer = new FDBStoreTimer();
-        FDBDatabase fdb = factory.getDatabase();
+        FDBDatabase fdb = factory.getDatabase(database.getClusterFile());
         fdb.close(); // Make sure cache is fresh, and resets version
         fdb.setResolverStateRefreshTimeMillis(100);
         String key = "some-key";
