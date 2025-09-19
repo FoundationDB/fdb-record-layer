@@ -112,6 +112,8 @@ dependencies {
     testFixturesImplementation(project(":fdb-java-annotations")) {
         exclude(group: "com.squareup", module: "javapoet")
     }
+    testFixturesImplementation project(path: ':fdb-extensions', configuration: 'tests')
+    testFixturesImplementation(libs.snakeyaml) // required for FDBTestEnvironment
     testFixturesImplementation(libs.promethus.simpleclient)
     testFixturesImplementation(libs.log4j.api)
 
