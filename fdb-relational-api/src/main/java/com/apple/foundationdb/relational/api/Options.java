@@ -245,6 +245,11 @@ public final class Options {
          * The integrity key of the key store and the encryption key of the key entry.
          */
         ENCRYPTION_KEY_PASSWORD,
+
+        /**
+         * A boolean indicating whether to (attempt to) compress records when saving.
+         */
+        COMPRESS_WHEN_SERIALIZING,
     }
 
     public enum IndexFetchMethod {
@@ -285,6 +290,7 @@ public final class Options {
         builder.put(Name.ASYNC_OPERATIONS_TIMEOUT_MILLIS, 10_000L);
         builder.put(Name.ENCRYPT_WHEN_SERIALIZING, false);
         builder.put(Name.ENCRYPTION_KEY_PASSWORD, "");
+        builder.put(Name.COMPRESS_WHEN_SERIALIZING, true);
         OPTIONS_DEFAULT_VALUES = builder.build();
     }
 
@@ -527,6 +533,7 @@ public final class Options {
         data.put(Name.ENCRYPTION_KEY_STORE, List.of(TypeContract.stringType()));
         data.put(Name.ENCRYPTION_KEY_ENTRY, List.of(TypeContract.stringType()));
         data.put(Name.ENCRYPTION_KEY_PASSWORD, List.of(TypeContract.stringType()));
+        data.put(Name.COMPRESS_WHEN_SERIALIZING, List.of(TypeContract.booleanType()));
 
         return Collections.unmodifiableMap(data);
     }

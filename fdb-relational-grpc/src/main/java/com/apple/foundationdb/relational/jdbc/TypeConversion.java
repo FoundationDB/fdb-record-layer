@@ -687,6 +687,9 @@ public class TypeConversion {
                 case ENCRYPTION_KEY_PASSWORD:
                     builder.setEncryptionKeyPassword((String)entry.getValue());
                     break;
+                case COMPRESS_WHEN_SERIALIZING:
+                    builder.setCompressWhenSerializing((Boolean)entry.getValue());
+                    break;
                 default:
                     throw new SQLException("Cannot encode option in protobuf");
             }
@@ -800,6 +803,9 @@ public class TypeConversion {
         }
         if (protoOptions.hasEncryptionKeyPassword()) {
             builder.withOption(Options.Name.ENCRYPTION_KEY_PASSWORD, protoOptions.getEncryptionKeyPassword());
+        }
+        if (protoOptions.hasCompressWhenSerializing()) {
+            builder.withOption(Options.Name.COMPRESS_WHEN_SERIALIZING, protoOptions.getCompressWhenSerializing());
         }
         return builder.build();
     }

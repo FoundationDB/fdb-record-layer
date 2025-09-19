@@ -129,7 +129,8 @@ public final class StoreConfig {
 
     static RecordSerializer<Message> serializerFromOptions(Options options) throws RelationalException {
         final boolean encrypted = options.getOption(Options.Name.ENCRYPT_WHEN_SERIALIZING);
-        if (!encrypted) {
+        final boolean compressed = options.getOption(Options.Name.COMPRESS_WHEN_SERIALIZING);
+        if (!encrypted && compressed) {
             return DEFAULT_RELATIONAL_SERIALIZER;
         }
         final SecretKey key;
@@ -156,9 +157,9 @@ public final class StoreConfig {
             throw new RelationalException("Key loading failed", ErrorCode.UNSUPPORTED_OPERATION, ex);
         }
         return TransformedRecordSerializerJCE.newDefaultBuilder()
-                .setEncryptWhenSerializing(true)
+                .setEncryptWhenSerializing(encrypted)
                 .setEncryptionKey(key)
-                .setCompressWhenSerializing(true)
+                .setCompressWhenSerializing(compressed)
                 .setCompressionLevel(Deflater.DEFAULT_COMPRESSION)
                 .setWriteValidationRatio(0.0)
                 .build();
