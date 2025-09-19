@@ -43,8 +43,12 @@ public final class RandomizedTestUtils {
     /**
      * Return a stream of randomly generated arguments based on the gradle properties.
      * <p>
-     *     Tip: Use {@code Stream.concat(streamOfFixedArguments, RandomizedTestUtils.randomArguments(random -> { ... }} to have some fixed
-     *     arguments, and also add randomized arguments when including random tests.
+     *     If {@code -Ptests.includeRandom} is specified, this will return {@code -Ptests.iterations} randomly generated
+     *     arguments. Otherwise this will return an empty stream.
+     * </p>
+     * <p>
+     *     Tip: Use {@code Stream.concat(streamOfFixedArguments, RandomizedTestUtils.randomArguments(random -> { ... }}
+     *     to have some fixed arguments, and also add randomized arguments when including random tests.
      * </p>
      * @param randomArguments A mapper from a {@link Random} to the arguments to be provided to
      * @return a stream of {@link Arguments} for a {@link org.junit.jupiter.params.ParameterizedTest}
@@ -61,17 +65,19 @@ public final class RandomizedTestUtils {
 
     /**
      * Return a stream of random {@code long}s to be used to seed random number generators.
-     * This can be supplied to a {@link org.junit.jupiter.params.ParameterizedTest} to run a test
-     * under different scenarios. This is preferred over, say, a {@code Stream<Random>} because
-     * the seed can be included in the test display name, which means that a failing seed can be
-     * recorded and the test re-run with that seed.
-     *
      * <p>
-     * To ensure tests are consistent when random tests are not included, users are encouraged
-     * to provide a set of random seeds that are always included in the returned stream via
-     * the {@code staticSeeds} parameter. However, if this argument is left empty, this will
-     * still always include at least one fixed seed, {@value FIXED_SEED}.
+     *     During PRB, and standard runs this will return just the set of fixed seeds, but if the tests are run
+     *     with {@code -P tests.includeRandom=true} and {@code -P tests.iteration=2} (as we do in our nightly builds),
+     *     this will return 2 additional random seeds. However, if no fixed seeds are provided, this will
+     *     still always include at least one fixed seed, {@value FIXED_SEED}.
      * </p>
+     * <p>
+     *     This can be supplied to a {@link org.junit.jupiter.params.ParameterizedTest} to run a test
+     *     under different scenarios. This is preferred over, say, a {@code Stream<Random>} because
+     *     the seed can be included in the test display name, which means that a failing seed can be
+     *     recorded and the test re-run with that seed.
+     * </p>
+     *
      * <p>
      *     If you only have one usage for the seeds, see also {@link RandomSeedSource}, which can be used without
      *     defining an additional method.
