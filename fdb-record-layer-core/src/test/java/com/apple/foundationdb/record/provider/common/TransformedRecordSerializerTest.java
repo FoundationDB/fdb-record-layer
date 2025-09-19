@@ -34,7 +34,6 @@ import com.apple.test.ParameterizedTestUtils;
 import com.apple.test.RandomSeedSource;
 import com.apple.test.RandomizedTestUtils;
 import com.google.common.base.Strings;
-import com.google.common.collect.Streams;
 import com.google.common.primitives.Bytes;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.BeforeAll;
@@ -508,12 +507,11 @@ public class TransformedRecordSerializerTest {
         assertThat(e.getMessage(), containsString("unrecognized transformation encoding"));
     }
 
-    @SuppressWarnings("UnstableApiUsage")
     public static Stream<Arguments> randomAndCompressed() {
-        return Streams.zip(
+        return ParameterizedTestUtils.cartesianProduct(
                 RandomizedTestUtils.randomSeeds(0xC0DE6EEDL, 0x6EEDC0DEL),
-                Stream.of(Boolean.TRUE, Boolean.FALSE),
-                Arguments::arguments);
+                ParameterizedTestUtils.booleans("compressToo")
+        );
     }
 
     @ParameterizedTest
