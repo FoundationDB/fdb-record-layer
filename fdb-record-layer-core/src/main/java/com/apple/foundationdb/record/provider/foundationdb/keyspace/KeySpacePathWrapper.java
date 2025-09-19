@@ -226,4 +226,19 @@ public class KeySpacePathWrapper implements KeySpacePath {
     public String toString(@Nonnull Tuple t) {
         return inner.toString(t);
     }
+
+    @Nonnull
+    @Override
+    public RecordCursor<DataInKeySpacePath> exportAllData(@Nonnull FDBRecordContext context,
+                                                          @Nullable byte[] continuation,
+                                                          @Nonnull ScanProperties scanProperties) {
+        return inner.exportAllData(context, continuation, scanProperties);
+    }
+
+    @Nonnull
+    @Override
+    public CompletableFuture<Void> importData(@Nonnull FDBRecordContext context,
+                                              @Nonnull Iterable<DataInKeySpacePath> dataToImport) {
+        return inner.importData(context, dataToImport);
+    }
 }
