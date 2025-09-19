@@ -27,7 +27,6 @@ import com.google.common.base.Strings;
 import org.junit.jupiter.api.extension.AfterAllCallback;
 import org.junit.jupiter.api.extension.BeforeAllCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
-import org.yaml.snakeyaml.Yaml;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -62,33 +61,6 @@ public class TestDatabaseExtension implements BeforeAllCallback, AfterAllCallbac
     private static volatile FDB fdb;
 
     private Database db;
-
-    @Nullable
-    private static final String clusterFile;
-
-    static {
-        final String fdbEnvironment = System.getenv("FDB_ENVIRONMENT_YAML");
-        if (!Strings.isNullOrEmpty(fdbEnvironment)) {
-            // the yaml configuration supports multiple cluster files, but this extension currently only supports
-            // one. See FDBDatabaseExtension in fdb-record-layer-core, which already supports multiple clusters.
-            clusterFile = parseFDBEnvironmentYaml(fdbEnvironment).get(0);
-        } else {
-            clusterFile = null;
-        }
-    }
-
-    @SuppressWarnings("unchecked")
-    private static List<String> parseFDBEnvironmentYaml(final String fdbEnvironment) {
-        Yaml yaml = new Yaml();
-        try (FileInputStream yamlInput = new FileInputStream(fdbEnvironment)) {
-            Object fdbConfig = yaml.load(yamlInput);
-            return (List<String>)((Map<?, ?>)fdbConfig).get("clusterFiles");
-        } catch (IOException e) {
-            throw new IllegalStateException("Could not read fdb-environment.yaml", e);
-        } catch (ClassCastException e) {
-            throw new IllegalStateException("Could not parse fdb environment file " + fdbEnvironment, e);
-        }
-    }
 
     public TestDatabaseExtension() {
     }
@@ -128,7 +100,7 @@ public class TestDatabaseExtension implements BeforeAllCallback, AfterAllCallbac
     @Nonnull
     public Database getDatabase() {
         if (db == null) {
-            db = FDB.instance().open(clusterFile);
+            db = FDB.instance().open(FDBTestClusterConfig.getClusterFile(0));
         }
         return db;
     }

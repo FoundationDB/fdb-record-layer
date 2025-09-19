@@ -21,32 +21,25 @@
 package com.apple.foundationdb.record.test;
 
 import com.apple.foundationdb.FDB;
-import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.provider.foundationdb.APIVersion;
 import com.apple.foundationdb.record.provider.foundationdb.BlockingInAsyncDetection;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactoryImpl;
+import com.apple.foundationdb.test.FDBTestClusterConfig;
 import com.apple.foundationdb.test.TestExecutors;
-import com.google.common.base.Strings;
-import org.assertj.core.api.Assumptions;
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.yaml.snakeyaml.Yaml;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.io.FileInputStream;
-import java.io.IOException;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.Executor;
-import java.util.concurrent.ThreadLocalRandom;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -76,31 +69,8 @@ public class FDBDatabaseExtension implements AfterEachCallback {
     @Nullable
     private FDBDatabaseFactory databaseFactory;
     @Nonnull
-    private static final List<String> clusterFiles;
-    @Nonnull
     private final Map<String, FDBDatabase> databases = new HashMap<>();
 
-    static {
-        final String fdbEnvironment = System.getenv("FDB_ENVIRONMENT_YAML");
-        if (!Strings.isNullOrEmpty(fdbEnvironment)) {
-            clusterFiles = parseFDBEnvironmentYaml(fdbEnvironment);
-        } else {
-            clusterFiles = List.of();
-        }
-    }
-
-    @SuppressWarnings("unchecked")
-    private static List<String> parseFDBEnvironmentYaml(final String fdbEnvironment) {
-        Yaml yaml = new Yaml();
-        try (FileInputStream yamlInput = new FileInputStream(fdbEnvironment)) {
-            Object fdbConfig = yaml.load(yamlInput);
-            return (List<String>)((Map<?, ?>)fdbConfig).get("clusterFiles");
-        } catch (IOException e) {
-            throw new RecordCoreException("Could not read fdb-environment.yaml", e);
-        } catch (ClassCastException e) {
-            throw new RecordCoreException("Could not parse fdb environment file " + fdbEnvironment, e);
-        }
-    }
 
     public FDBDatabaseExtension() {
     }
@@ -130,12 +100,7 @@ public class FDBDatabaseExtension implements AfterEachCallback {
                     }
                     baseFactory.setAPIVersion(getAPIVersion());
                     baseFactory.setUnclosedWarning(true);
-                    if (clusterFiles.isEmpty()) {
-                        FDBDatabase unused = baseFactory.getDatabase();
-                        unused.performNoOp(); // make sure FDB gets opened
-                        unused.close();
-                    }
-                    for (final String clusterFile : clusterFiles) {
+                    for (final String clusterFile : FDBTestClusterConfig.allClusterFiles()) {
                         FDBDatabase unused = baseFactory.getDatabase(clusterFile);
                         unused.performNoOp(); // make sure FDB gets opened
                         unused.close();
@@ -180,34 +145,19 @@ public class FDBDatabaseExtension implements AfterEachCallback {
 
     @Nonnull
     public FDBDatabase getDatabase() {
-        return getDatabase(randomClusterFileIndex());
+        return getDatabase(FDBTestClusterConfig.randomClusterFile());
     }
 
     public FDBDatabase getDatabase(int clusterIndex) {
-        if (clusterFiles.isEmpty()) {
-            if (clusterIndex > 0) {
-                throw new IndexOutOfBoundsException("No cluster files specified, so there is only the default");
-            } else {
-                return databases.computeIfAbsent("NULL",
-                        clusterFile -> {
-                            LOGGER.info("Connecting to NULL cluster file");
-                            return getDatabaseFactory().getDatabase();
-                        });
-            }
-        }
-        return databases.computeIfAbsent(clusterFiles.get(clusterIndex),
-                clusterFile -> {
-                    LOGGER.info("Connecting to cluster file: " + clusterFile);
-                    return getDatabaseFactory().getDatabase(clusterFile);
-                });
+        return getDatabase(FDBTestClusterConfig.getClusterFile(clusterIndex));
     }
 
-    private static int randomClusterFileIndex() {
-        if (clusterFiles.isEmpty()) {
-            return 0;
-        } else {
-            return ThreadLocalRandom.current().nextInt(clusterFiles.size());
-        }
+    public FDBDatabase getDatabase(@Nullable String clusterFile) {
+        return databases.computeIfAbsent(Objects.requireNonNullElse(clusterFile, "NULL"),
+                key -> {
+                    LOGGER.info("Connecting to cluster file: " + key);
+                    return getDatabaseFactory().getDatabase(key);
+                });
     }
 
     public void checkForOpenContexts() {
@@ -228,16 +178,6 @@ public class FDBDatabaseExtension implements AfterEachCallback {
         if (databaseFactory != null) {
             getDatabaseFactory().clear();
             databaseFactory = null;
-        }
-    }
-
-    /**
-     * Marks the current test as skipped if there are not the desired number of clusters available to test against.
-     * @param desiredCount the number of clusters to test against
-     */
-    public void assumeClusterCount(final int desiredCount) {
-        if (desiredCount > 1) {
-            Assumptions.assumeThat(clusterFiles.size()).as("Cluster file count").isGreaterThanOrEqualTo(desiredCount);
         }
     }
 }
