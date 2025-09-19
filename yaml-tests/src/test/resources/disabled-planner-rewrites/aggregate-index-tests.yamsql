@@ -344,6 +344,10 @@ test_block:
       - explain: "AISCAN(MV1 [[GREATER_THAN promote(@c13 AS LONG)]] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COL1, _._1 AS _1)"
       - result: [{!l 20, !l 76}]
     -
+      - query: select sum(col2) from T1 where col1  = 10 group by col1
+      - explain: "AISCAN(MV1 [EQUALS promote(@c11 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._1 AS _0)"
+      - result: [{!l 15}]
+    -
       - query: select sum(col2) from T1 where col1 <= 10 group by col1 having col1 > 0;
       - explain: "AISCAN(MV1 [[GREATER_THAN promote(@c19 AS LONG) && LESS_THAN_OR_EQUALS promote(@c12 AS LONG)]] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._1 AS _0)"
       - result: [{!l 15}]
