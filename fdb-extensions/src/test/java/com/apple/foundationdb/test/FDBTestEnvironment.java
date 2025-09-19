@@ -23,6 +23,7 @@ package com.apple.foundationdb.test;
 import org.assertj.core.api.Assumptions;
 import org.yaml.snakeyaml.Yaml;
 
+import javax.annotation.Nullable;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.Collections;
@@ -62,7 +63,7 @@ public final class FDBTestEnvironment {
         }
     }
 
-    // TODO @Nullable
+    @Nullable
     public static String getClusterFile(int i) {
         return clusterFiles.get(i);
     }
