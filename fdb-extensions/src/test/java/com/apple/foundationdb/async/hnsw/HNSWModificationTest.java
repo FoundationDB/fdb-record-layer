@@ -295,16 +295,17 @@ public class HNSWModificationTest {
                 final List<? extends NodeReferenceAndNode<?>> results =
                         db.run(tr -> hnsw.kNearestNeighborsSearch(tr, k, 100, queryVector).join());
                 final long endTs = System.nanoTime();
-                logger.trace("retrieved result in elapsedTimeMs={}", TimeUnit.NANOSECONDS.toMillis(endTs - beginTs));
+                logger.info("retrieved result in elapsedTimeMs={}, reading numNodes={}, readBytes={}",
+                        TimeUnit.NANOSECONDS.toMillis(endTs - beginTs),
+                        onReadListener.getNodeCountByLayer(), onReadListener.getBytesReadByLayer());
 
                 int recallCount = 0;
                 for (NodeReferenceAndNode<?> nodeReferenceAndNode : results) {
                     final NodeReferenceWithDistance nodeReferenceWithDistance =
                             nodeReferenceAndNode.getNodeReferenceWithDistance();
                     final int primaryKeyIndex = (int)nodeReferenceWithDistance.getPrimaryKey().getLong(0);
-                    logger.trace("retrieved result nodeId = {} at distance = {} reading numNodes={}, readBytes={}",
-                            primaryKeyIndex, nodeReferenceWithDistance.getDistance(),
-                            onReadListener.getNodeCountByLayer(), onReadListener.getBytesReadByLayer());
+                    logger.trace("retrieved result nodeId = {} at distance = {} ",
+                            primaryKeyIndex, nodeReferenceWithDistance.getDistance());
                     if (groundTruthIndices.contains(primaryKeyIndex)) {
                         recallCount ++;
                     }

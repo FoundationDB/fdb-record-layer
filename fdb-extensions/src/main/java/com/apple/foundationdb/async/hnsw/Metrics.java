@@ -1,5 +1,5 @@
 /*
- * Metric.java
+ * Metrics.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -22,20 +22,88 @@ package com.apple.foundationdb.async.hnsw;
 
 import javax.annotation.Nonnull;
 
+/**
+ * Represents various distance calculation strategies (metrics) for vectors.
+ * <p>
+ * Each enum constant holds a specific metric implementation, providing a type-safe way to calculate the distance
+ * between two points in a multidimensional space.
+ *
+ * @see Metric
+ */
 public enum Metrics {
+    /**
+     * Represents the Manhattan distance metric, implemented by {@link Metric.ManhattanMetric}.
+     * <p>
+     * This metric calculates a distance overlaying the multidimensional space with a grid-like structure only allowing
+     * orthogonal lines. In 2D this resembles the street structure in Manhattan where one would have to go {@code x}
+     * blocks north/south and {@code y} blocks east/west leading to a total distance of {@code x + y}.
+     * @see Metric.ManhattanMetric
+     */
     MANHATTAN_METRIC(new Metric.ManhattanMetric()),
+
+    /**
+     * Represents the Euclidean distance metric, implemented by {@link Metric.EuclideanMetric}.
+     * <p>
+     * This metric calculates the "ordinary" straight-line distance between two points
+     * in Euclidean space. The distance is the square root of the sum of the
+     * squared differences between the corresponding coordinates of the two points.
+     * @see Metric.EuclideanMetric
+     */
     EUCLIDEAN_METRIC(new Metric.EuclideanMetric()),
+
+    /**
+     * Represents the squared Euclidean distance metric, implemented by {@link Metric.EuclideanSquareMetric}.
+     * <p>
+     * This metric calculates the sum of the squared differences between the coordinates of two vectors, defined as
+     * {@code sum((p_i - q_i)^2)}. It is computationally less expensive than the standard Euclidean distance because it
+     * avoids the final square root operation.
+     * <p>
+     * This is often preferred in algorithms where comparing distances is more important than the actual distance value,
+     * such as in clustering algorithms, as it preserves the relative ordering of distances.
+     *
+     * @see <a href="https://en.wikipedia.org/wiki/Euclidean_distance#Squared_Euclidean_distance">Squared Euclidean
+     * distance</a>
+     * @see Metric.EuclideanSquareMetric
+     */
     EUCLIDEAN_SQUARE_METRIC(new Metric.EuclideanSquareMetric()),
+
+    /**
+     * Represents the Cosine distance metric, implemented by {@link Metric.CosineMetric}.
+     * <p>
+     * This metric calculates a "distance" between two vectors {@code v1} and {@code v2} that ranges between
+     * {@code 0.0d} and {@code 2.0d} that corresponds to {@code 1 - cos(v1, v2)}, meaning that if {@code v1 == v2},
+     * the distance is {@code 0} while if {@code v1} is orthogonal to {@code v2} it is {@code 1}.
+     * @see Metric.CosineMetric
+     */
     COSINE_METRIC(new Metric.CosineMetric()),
+
+    /**
+     * Dot product similarity, implemented by {@link Metric.DotProductMetric}
+     * <p>
+     * This metric calculates the inverted dot product of two vectors. It is not a true metric as the dot product can
+     * be positive at which point the distance is negative. In order to make callers aware of this fact, this distance
+     * only allows {@link Metric#comparativeDistance(Double[], Double[])} to be called.
+     *
+     * @see <a href="https://en.wikipedia.org/wiki/Dot_product">Dot Product</a>
+     * @see Metric.DotProductMetric
+     */
     DOT_PRODUCT_METRIC(new Metric.DotProductMetric());
 
     @Nonnull
     private final Metric metric;
 
+    /**
+     * Constructs a new Metrics instance with the specified metric.
+     * @param metric the metric to be associated with this Metrics instance; must not be null.
+     */
     Metrics(@Nonnull final Metric metric) {
         this.metric = metric;
     }
 
+    /**
+     * Gets the {@code Metric} associated with this instance.
+     * @return the non-null {@link Metric} for this instance
+     */
     @Nonnull
     public Metric getMetric() {
         return metric;

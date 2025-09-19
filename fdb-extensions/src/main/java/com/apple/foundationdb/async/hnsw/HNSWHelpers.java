@@ -31,6 +31,9 @@ import javax.annotation.Nonnull;
 public class HNSWHelpers {
     private static final char[] hexArray = "0123456789ABCDEF".toCharArray();
 
+    /**
+     * This is a utility class and is not intended to be instantiated.
+     */
     private HNSWHelpers() {
         // nothing
     }
@@ -51,11 +54,23 @@ public class HNSWHelpers {
         return "0x" + new String(hexChars).replaceFirst("^0+(?!$)", "");
     }
 
+    /**
+     * Returns a {@code Half} instance representing the specified {@code double} value, rounded to the nearest
+     * representable half-precision float value.
+     * @param d the {@code double} value to be converted.
+     * @return a non-null {@link Half} instance representing {@code d}.
+     */
     @Nonnull
     public static Half halfValueOf(final double d) {
         return Half.shortBitsToHalf(Half.halfToShortBits(Half.valueOf(d)));
     }
 
+    /**
+     * Returns a {@code Half} instance representing the specified {@code float} value, rounded to the nearest
+     * representable half-precision float value.
+     * @param f the {@code float} value to be converted.
+     * @return a non-null {@link Half} instance representing {@code f}.
+     */
     @Nonnull
     public static Half halfValueOf(final float f) {
         return Half.shortBitsToHalf(Half.halfToShortBits(Half.valueOf(f)));
