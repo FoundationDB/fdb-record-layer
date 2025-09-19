@@ -1057,6 +1057,23 @@ public class MoreAsyncUtil {
         return result;
     }
 
+    /**
+     * Method that provides the functionality of a for loop, however, in an asynchronous way. The result of this method
+     * is a {@link CompletableFuture} that represents the result of the last iteration of the loop body.
+     * @param startI an integer analogous to the starting value of a loop variable in a for loop
+     * @param startU an object of some type {@code U} that represents some initial state that is passed to the loop's
+     *        initial state
+     * @param conditionPredicate a predicate on the loop variable that must be true before the next iteration is
+     *        entered; analogous to the condition in a for loop
+     * @param stepFunction a unary operator used for modifying the loop variable after each iteration
+     * @param body a bi-function to be called for each iteration; this function is initially invoked using
+     *        {@code startI} and {@code startU}; the result of the body is then passed into the next iterator's body
+     *        together with a new value for the loop variable. In this way callers can access state inside an iteration
+     *        that was computed in a previous iteration.
+     * @param executor the executor
+     * @param <U> the type of the result of the body {@link BiFunction}
+     * @return a {@link CompletableFuture} containing the result of the last iteration's body invocation.
+     */
     @Nonnull
     public static <U> CompletableFuture<U> forLoop(final int startI, @Nullable final U startU,
                                                    @Nonnull final IntPredicate conditionPredicate,
@@ -1079,6 +1096,18 @@ public class MoreAsyncUtil {
         }, executor).thenApply(ignored -> lastResultAtomic.get());
     }
 
+    /**
+     * Method to iterate over some items, for each of which a body is executed asynchronously. The result of each such
+     * executed is then collected in a list and returned as a {@link CompletableFuture} over that list.
+     * @param items the items to iterate over
+     * @param body a function to be called for each item
+     * @param parallelism the maximum degree of parallelism this method should use
+     * @param executor the executor
+     * @param <T> the type of item
+     * @param <U> the type of the result
+     * @return a {@link CompletableFuture} containing a list of results collected from the individual body invocations
+     */
+    @Nonnull
     @SuppressWarnings("unchecked")
     public static <T, U> CompletableFuture<List<U>> forEach(@Nonnull final Iterable<T> items,
                                                             @Nonnull final Function<T, CompletableFuture<U>> body,
