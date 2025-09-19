@@ -31,7 +31,9 @@ import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
 import com.apple.test.ParameterizedTestUtils;
+import com.apple.test.RandomizedTestUtils;
 import com.google.common.base.Strings;
+import com.google.common.collect.Streams;
 import com.google.common.primitives.Bytes;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.BeforeAll;
@@ -484,17 +486,27 @@ public class TransformedRecordSerializerTest {
         assertThat(e.getMessage(), containsString("unrecognized transformation encoding"));
     }
 
-    @Test
-    void encryptRollingKeys() throws Exception {
-        RollingTestKeyManager keyManager = new RollingTestKeyManager();
+    @SuppressWarnings("UnstableApiUsage")
+    public static Stream<Arguments> randomAndCompressed() {
+        return Streams.zip(
+                RandomizedTestUtils.randomSeeds(0xC0DE6EEDL, 0x6EEDC0DEL),
+                Stream.of(Boolean.TRUE, Boolean.FALSE),
+                Arguments::arguments);
+    }
+
+    @ParameterizedTest
+    @MethodSource("randomAndCompressed")
+    void encryptRollingKeys(long seed, boolean compressToo) throws Exception {
+        RollingTestKeyManager keyManager = new RollingTestKeyManager(seed);
         TransformedRecordSerializer<Message> serializer = TransformedRecordSerializerJCE.newDefaultBuilder()
                 .setEncryptWhenSerializing(true)
                 .setKeyManager(keyManager)
+                .setCompressWhenSerializing(compressToo)
                 .setWriteValidationRatio(1.0)
                 .build();
 
         List<MySimpleRecord> records = new ArrayList<>();
-        for (int i = 0; i < 10; i++) {
+        for (int i = 0; i < 100; i++) {
             records.add(MySimpleRecord.newBuilder()
                         .setRecNo(1000 + i)
                         .setNumValue2(i)
@@ -589,7 +601,7 @@ public class TransformedRecordSerializerTest {
 
     @Test
     void cannotEncryptAfterClearKey() throws Exception {
-        RollingTestKeyManager keyManager = new RollingTestKeyManager();
+        RollingTestKeyManager keyManager = new RollingTestKeyManager(0);
         TransformedRecordSerializerJCE.Builder<Message> builder = TransformedRecordSerializerJCE.newDefaultBuilder()
                 .setEncryptWhenSerializing(true)
                 .setKeyManager(keyManager);
@@ -727,7 +739,7 @@ public class TransformedRecordSerializerTest {
         RecordCoreArgumentException e = assertThrows(RecordCoreArgumentException.class, builder::build);
         assertThat(e.getMessage(), containsString("cannot encrypt when serializing if encryption key is not set"));
 
-        RollingTestKeyManager keyManager = new RollingTestKeyManager();
+        RollingTestKeyManager keyManager = new RollingTestKeyManager(0);
         builder.setKeyManager(keyManager);
 
         builder.setCipherName(CipherPool.DEFAULT_CIPHER);
