@@ -1,5 +1,5 @@
 /*
- * HNSWModificationTest.java
+ * HNSWTest.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -34,6 +34,8 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
+import com.google.common.collect.ObjectArrays;
+import com.google.common.collect.Sets;
 import org.assertj.core.util.Lists;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -42,6 +44,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -55,12 +60,16 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
+import java.util.stream.LongStream;
+import java.util.stream.Stream;
 
 /**
  * Tests testing insert/update/deletes of data into/in/from {@link RTree}s.
@@ -69,8 +78,8 @@ import java.util.function.Function;
 @SuppressWarnings("checkstyle:AbbreviationAsWordInName")
 @Tag(Tags.RequiresFDB)
 @Tag(Tags.Slow)
-public class HNSWModificationTest {
-    private static final Logger logger = LoggerFactory.getLogger(HNSWModificationTest.class);
+public class HNSWTest {
+    private static final Logger logger = LoggerFactory.getLogger(HNSWTest.class);
     private static final int NUM_TEST_RUNS = 5;
     private static final int NUM_SAMPLES = 10_000;
 
@@ -88,9 +97,16 @@ public class HNSWModificationTest {
         db = dbExtension.getDatabase();
     }
 
-    @Test
-    public void testCompactSerialization() {
-        final Random random = new Random(0);
+    static Stream<Long> randomSeeds() {
+        return LongStream.generate(() -> new Random().nextLong())
+                .limit(5)
+                .boxed();
+    }
+
+    @ParameterizedTest(name = "seed={0}")
+    @MethodSource("randomSeeds")
+    public void testCompactSerialization(final Long seed) {
+        final Random random = new Random(seed);
         final CompactStorageAdapter storageAdapter =
                 new CompactStorageAdapter(HNSW.DEFAULT_CONFIG, CompactNode.factory(), rtSubspace.getSubspace(),
                         OnWriteListener.NOOP, OnReadListener.NOOP);
@@ -126,9 +142,10 @@ public class HNSWModificationTest {
                 }).join());
     }
 
-    @Test
-    public void testInliningSerialization() {
-        final Random random = new Random(0);
+    @ParameterizedTest(name = "seed={0}")
+    @MethodSource("randomSeeds")
+    public void testInliningSerialization(final Long seed) {
+        final Random random = new Random(seed);
         final InliningStorageAdapter storageAdapter =
                 new InliningStorageAdapter(HNSW.DEFAULT_CONFIG, InliningNode.factory(), rtSubspace.getSubspace(),
                         OnWriteListener.NOOP, OnReadListener.NOOP);
@@ -160,9 +177,26 @@ public class HNSWModificationTest {
                 )).join());
     }
 
-    @Test
-    public void testBasicInsert() {
-        final Random random = new Random(0);
+    static Stream<Arguments> randomSeedsWithOptions() {
+        Sets.cartesianProduct(ImmutableSet.of(true, false),
+                ImmutableSet.of(true, false),
+                ImmutableSet.of(true, false));
+        return Sets.cartesianProduct(ImmutableSet.of(true, false),
+                        ImmutableSet.of(true, false),
+                        ImmutableSet.of(true, false))
+                .stream()
+                .flatMap(arguments ->
+                        LongStream.generate(() -> new Random().nextLong())
+                                .limit(2)
+                                .mapToObj(seed -> Arguments.of(ObjectArrays.concat(seed, arguments.toArray()))));
+    }
+
+    @ParameterizedTest(name = "seed={0} useInlining={1} extendCandidates={2} keepPrunedConnections={3}")
+    @MethodSource("randomSeedsWithOptions")
+    public void testBasicInsert(final long seed, final boolean useInlining, final boolean extendCandidates,
+                                final boolean keepPrunedConnections) {
+        final Random random = new Random(seed);
+        final Metric metric = Metrics.EUCLIDEAN_METRIC.getMetric();
         final AtomicLong nextNodeIdAtomic = new AtomicLong(0L);
 
         final TestOnReadListener onReadListener = new TestOnReadListener();
@@ -170,29 +204,57 @@ public class HNSWModificationTest {
         final int dimensions = 128;
         final HNSW hnsw = new HNSW(rtSubspace.getSubspace(), TestExecutors.defaultThreadPool(),
                 HNSW.DEFAULT_CONFIG.toBuilder().setMetric(Metrics.EUCLIDEAN_METRIC.getMetric())
+                        .setUseInlining(useInlining).setExtendCandidates(extendCandidates)
+                        .setKeepPrunedConnections(keepPrunedConnections)
                         .setM(32).setMMax(32).setMMax0(64).build(),
                 OnWriteListener.NOOP, onReadListener);
 
+        final int k = 10;
+        final HalfVector queryVector = createRandomVector(random, dimensions);
+        final TreeSet<NodeReferenceWithDistance> nodesOrderedByDistance =
+                new TreeSet<>(Comparator.comparing(NodeReferenceWithDistance::getDistance));
+
         for (int i = 0; i < 1000;) {
             i += basicInsertBatch(hnsw, 100, nextNodeIdAtomic, onReadListener,
-                    tr -> new NodeReferenceWithVector(createNextPrimaryKey(nextNodeIdAtomic), createRandomVector(random, dimensions)));
+                    tr -> {
+                        final var primaryKey = createNextPrimaryKey(nextNodeIdAtomic);
+                        final HalfVector dataVector = createRandomVector(random, dimensions);
+                        final double distance = Vector.comparativeDistance(metric, dataVector, queryVector);
+                        final NodeReferenceWithDistance nodeReferenceWithDistance =
+                                new NodeReferenceWithDistance(primaryKey, dataVector, distance);
+                        nodesOrderedByDistance.add(nodeReferenceWithDistance);
+                        if (nodesOrderedByDistance.size() > k) {
+                            nodesOrderedByDistance.pollLast();
+                        }
+                        return nodeReferenceWithDistance;
+                    });
         }
 
         onReadListener.reset();
         final long beginTs = System.nanoTime();
-        final List<? extends NodeReferenceAndNode<?>> result =
-                db.run(tr -> hnsw.kNearestNeighborsSearch(tr, 10, 100, createRandomVector(random, dimensions)).join());
+        final List<? extends NodeReferenceAndNode<?>> results =
+                db.run(tr -> hnsw.kNearestNeighborsSearch(tr, k, 100, queryVector).join());
         final long endTs = System.nanoTime();
 
-        for (NodeReferenceAndNode<?> nodeReferenceAndNode : result) {
+        final ImmutableSet<Tuple> trueNN =
+                ImmutableSet.copyOf(NodeReference.primaryKeys(nodesOrderedByDistance));
+
+        int recallCount = 0;
+        for (NodeReferenceAndNode<?> nodeReferenceAndNode : results) {
             final NodeReferenceWithDistance nodeReferenceWithDistance = nodeReferenceAndNode.getNodeReferenceWithDistance();
             logger.info("nodeId ={} at distance={}", nodeReferenceWithDistance.getPrimaryKey().getLong(0),
                     nodeReferenceWithDistance.getDistance());
+            if (trueNN.contains(nodeReferenceAndNode.getNode().getPrimaryKey())) {
+                recallCount ++;
+            }
         }
-        System.out.println(onReadListener.getNodeCountByLayer());
-        System.out.println(onReadListener.getBytesReadByLayer());
+        final double recall = (double)recallCount / (double)k;
+        Assertions.assertTrue(recall > 0.93);
 
-        logger.info("search transaction took elapsedTime={}ms", TimeUnit.NANOSECONDS.toMillis(endTs - beginTs));
+        logger.info("search transaction took elapsedTime={}ms; read nodes={}, read bytes={}, recall={}",
+                TimeUnit.NANOSECONDS.toMillis(endTs - beginTs),
+                onReadListener.getNodeCountByLayer(), onReadListener.getBytesReadByLayer(),
+                String.format(Locale.ROOT, "%.2f", recall * 100.0d));
     }
 
     private int basicInsertBatch(final HNSW hnsw, final int batchSize,
@@ -210,8 +272,9 @@ public class HNSWModificationTest {
                 hnsw.insert(tr, newNodeReference).join();
             }
             final long endTs = System.nanoTime();
-            logger.info("inserted batchSize={} records starting at nodeId={} took elapsedTime={}ms, readCounts={}, MSums={}", batchSize, nextNodeId,
-                    TimeUnit.NANOSECONDS.toMillis(endTs - beginTs), onReadListener.getNodeCountByLayer(), onReadListener.getSumMByLayer());
+            logger.info("inserted batchSize={} records starting at nodeId={} took elapsedTime={}ms, readCounts={}, MSums={}",
+                    batchSize, nextNodeId, TimeUnit.NANOSECONDS.toMillis(endTs - beginTs),
+                    onReadListener.getNodeCountByLayer(), onReadListener.getSumMByLayer());
             return batchSize;
         });
     }
@@ -233,8 +296,9 @@ public class HNSWModificationTest {
             }
             hnsw.insertBatch(tr, nodeReferenceWithVectorBuilder.build()).join();
             final long endTs = System.nanoTime();
-            logger.info("inserted batch batchSize={} records starting at nodeId={} took elapsedTime={}ms, readCounts={}, MSums={}", batchSize, nextNodeId,
-                    TimeUnit.NANOSECONDS.toMillis(endTs - beginTs), onReadListener.getNodeCountByLayer(), onReadListener.getSumMByLayer());
+            logger.info("inserted batch batchSize={} records starting at nodeId={} took elapsedTime={}ms, readCounts={}, MSums={}",
+                    batchSize, nextNodeId, TimeUnit.NANOSECONDS.toMillis(endTs - beginTs),
+                    onReadListener.getNodeCountByLayer(), onReadListener.getSumMByLayer());
             return batchSize;
         });
     }
@@ -314,7 +378,7 @@ public class HNSWModificationTest {
                 final double recall = (double)recallCount / k;
                 Assertions.assertTrue(recall > 0.93);
 
-                logger.info("query returned results recall={}", String.format("%.2f", recall * 100.0d));
+                logger.info("query returned results recall={}", String.format(Locale.ROOT, "%.2f", recall * 100.0d));
             }
         }
     }
