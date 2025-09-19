@@ -84,6 +84,13 @@ public interface Metric {
         }
     }
 
+    /**
+     * Represents the Manhattan distance metric.
+     * <p>
+     * This metric calculates a distance overlaying the multidimensional space with a grid-like structure only allowing
+     * orthogonal lines. In 2D this resembles the street structure in Manhattan where one would have to go {@code x}
+     * blocks north/south and {@code y} blocks east/west leading to a total distance of {@code x + y}.
+     */
     class ManhattanMetric implements Metric {
         @Override
         public double distance(final Double[] vector1, final Double[] vector2) {
@@ -103,6 +110,13 @@ public interface Metric {
         }
     }
 
+    /**
+     * Represents the Euclidean distance metric.
+     * <p>
+     * This metric calculates the "ordinary" straight-line distance between two points
+     * in Euclidean space. The distance is the square root of the sum of the
+     * squared differences between the corresponding coordinates of the two points.
+     */
     class EuclideanMetric implements Metric {
         @Override
         public double distance(final Double[] vector1, final Double[] vector2) {
@@ -118,6 +132,19 @@ public interface Metric {
         }
     }
 
+    /**
+     * Represents the squared Euclidean distance metric.
+     * <p>
+     * This metric calculates the sum of the squared differences between the coordinates of two vectors, defined as
+     * {@code sum((p_i - q_i)^2)}. It is computationally less expensive than the standard Euclidean distance because it
+     * avoids the final square root operation.
+     * <p>
+     * This is often preferred in algorithms where comparing distances is more important than the actual distance value,
+     * such as in clustering algorithms, as it preserves the relative ordering of distances.
+     *
+     * @see <a href="https://en.wikipedia.org/wiki/Euclidean_distance#Squared_Euclidean_distance">Squared Euclidean
+     * distance</a>
+     */
     class EuclideanSquareMetric implements Metric {
         @Override
         public double distance(final Double[] vector1, final Double[] vector2) {
@@ -141,6 +168,14 @@ public interface Metric {
         }
     }
 
+    /**
+     * Represents the Cosine distance metric.
+     * <p>
+     * This metric calculates a "distance" between two vectors {@code v1} and {@code v2} that ranges between
+     * {@code 0.0d} and {@code 2.0d} that corresponds to {@code 1 - cos(v1, v2)}, meaning that if {@code v1 == v2},
+     * the distance is {@code 0} while if {@code v1} is orthogonal to {@code v2} it is {@code 1}.
+     * @see Metric.CosineMetric
+     */
     class CosineMetric implements Metric {
         @Override
         public double distance(final Double[] vector1, final Double[] vector2) {
@@ -171,6 +206,16 @@ public interface Metric {
         }
     }
 
+    /**
+     * Dot product similarity.
+     * <p>
+     * This metric calculates the inverted dot product of two vectors. It is not a true metric as the dot product can
+     * be positive at which point the distance is negative. In order to make callers aware of this fact, this distance
+     * only allows {@link Metric#comparativeDistance(Double[], Double[])} to be called.
+     *
+     * @see <a href="https://en.wikipedia.org/wiki/Dot_product">Dot Product</a>
+     * @see DotProductMetric
+     */
     class DotProductMetric implements Metric {
         @Override
         public double distance(final Double[] vector1, final Double[] vector2) {
