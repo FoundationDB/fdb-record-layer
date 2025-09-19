@@ -88,6 +88,7 @@ public class HNSW {
     public static final int MAX_CONCURRENT_SEARCHES = 10;
     @Nonnull public static final Random DEFAULT_RANDOM = new Random(0L);
     @Nonnull public static final Metric DEFAULT_METRIC = new Metric.EuclideanMetric();
+    public static final boolean DEFAULT_USE_INLINING = false;
     public static final int DEFAULT_M = 16;
     public static final int DEFAULT_M_MAX = DEFAULT_M;
     public static final int DEFAULT_M_MAX_0 = 2 * DEFAULT_M;
@@ -119,6 +120,7 @@ public class HNSW {
         private final Random random;
         @Nonnull
         private final Metric metric;
+        private final boolean useInlining;
         private final int m;
         private final int mMax;
         private final int mMax0;
@@ -130,6 +132,7 @@ public class HNSW {
         protected Config() {
             this.random = DEFAULT_RANDOM;
             this.metric = DEFAULT_METRIC;
+            this.useInlining = DEFAULT_USE_INLINING;
             this.m = DEFAULT_M;
             this.mMax = DEFAULT_M_MAX;
             this.mMax0 = DEFAULT_M_MAX_0;
@@ -139,11 +142,12 @@ public class HNSW {
             this.keepPrunedConnections = DEFAULT_KEEP_PRUNED_CONNECTIONS;
         }
 
-        protected Config(@Nonnull final Random random, @Nonnull final Metric metric, final int m, final int mMax,
-                         final int mMax0, final int efSearch, final int efConstruction, final boolean extendCandidates,
-                         final boolean keepPrunedConnections) {
+        protected Config(@Nonnull final Random random, @Nonnull final Metric metric, final boolean useInlining,
+                         final int m, final int mMax, final int mMax0, final int efSearch, final int efConstruction,
+                         final boolean extendCandidates, final boolean keepPrunedConnections) {
             this.random = random;
             this.metric = metric;
+            this.useInlining = useInlining;
             this.m = m;
             this.mMax = mMax;
             this.mMax0 = mMax0;
@@ -161,6 +165,10 @@ public class HNSW {
         @Nonnull
         public Metric getMetric() {
             return metric;
+        }
+
+        public boolean isUseInlining() {
+            return useInlining;
         }
 
         public int getM() {
@@ -193,16 +201,16 @@ public class HNSW {
 
         @Nonnull
         public ConfigBuilder toBuilder() {
-            return new ConfigBuilder(getRandom(), getMetric(), getM(), getMMax(), getMMax0(), getEfSearch(),
-                    getEfConstruction(), isExtendCandidates(), isKeepPrunedConnections());
+            return new ConfigBuilder(getRandom(), getMetric(), isUseInlining(), getM(), getMMax(), getMMax0(),
+                    getEfSearch(), getEfConstruction(), isExtendCandidates(), isKeepPrunedConnections());
         }
 
         @Override
         @Nonnull
         public String toString() {
-            return "Config[metric=" + getMetric() + "M=" + getM() + " , MMax=" + getMMax() + " , MMax0=" + getMMax0() +
-                    ", efSearch=" + getEfSearch() + ", efConstruction=" + getEfConstruction() +
-                    ", isExtendCandidates=" + isExtendCandidates() +
+            return "Config[metric=" + getMetric() + "isUseInlining" + isUseInlining() + "M=" + getM() +
+                    " , MMax=" + getMMax() + " , MMax0=" + getMMax0() + ", efSearch=" + getEfSearch() +
+                    ", efConstruction=" + getEfConstruction() + ", isExtendCandidates=" + isExtendCandidates() +
                     ", isKeepPrunedConnections=" + isKeepPrunedConnections() + "]";
         }
     }
@@ -219,6 +227,7 @@ public class HNSW {
         private Random random = DEFAULT_RANDOM;
         @Nonnull
         private Metric metric = DEFAULT_METRIC;
+        private boolean useInlining = DEFAULT_USE_INLINING;
         private int m = DEFAULT_M;
         private int mMax = DEFAULT_M_MAX;
         private int mMax0 = DEFAULT_M_MAX_0;
@@ -230,11 +239,12 @@ public class HNSW {
         public ConfigBuilder() {
         }
 
-        public ConfigBuilder(@Nonnull Random random, @Nonnull final Metric metric, final int m, final int mMax,
-                             final int mMax0, final int efSearch, final int efConstruction,
+        public ConfigBuilder(@Nonnull Random random, @Nonnull final Metric metric, final boolean useInlining,
+                             final int m, final int mMax, final int mMax0, final int efSearch, final int efConstruction,
                              final boolean extendCandidates, final boolean keepPrunedConnections) {
             this.random = random;
             this.metric = metric;
+            this.useInlining = useInlining;
             this.m = m;
             this.mMax = mMax;
             this.mMax0 = mMax0;
@@ -263,6 +273,15 @@ public class HNSW {
         @Nonnull
         public ConfigBuilder setMetric(@Nonnull final Metric metric) {
             this.metric = metric;
+            return this;
+        }
+
+        public boolean isUseInlining() {
+            return useInlining;
+        }
+
+        public ConfigBuilder setUseInlining(final boolean useInlining) {
+            this.useInlining = useInlining;
             return this;
         }
 
@@ -333,7 +352,7 @@ public class HNSW {
         }
 
         public Config build() {
-            return new Config(getRandom(), getMetric(), getM(), getMMax(), getMMax0(), getEfSearch(),
+            return new Config(getRandom(), getMetric(), isUseInlining(), getM(), getMMax(), getMMax0(), getEfSearch(),
                     getEfConstruction(), isExtendCandidates(), isKeepPrunedConnections());
         }
     }
@@ -1709,7 +1728,7 @@ public class HNSW {
      */
     @Nonnull
     private StorageAdapter<? extends NodeReference> getStorageAdapterForLayer(final int layer) {
-        return false && layer > 0
+        return config.isUseInlining() && layer > 0
                ? new InliningStorageAdapter(getConfig(), InliningNode.factory(), getSubspace(), getOnWriteListener(),
                 getOnReadListener())
                : new CompactStorageAdapter(getConfig(), CompactNode.factory(), getSubspace(), getOnWriteListener(),
