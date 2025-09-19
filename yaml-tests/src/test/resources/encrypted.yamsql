@@ -26,14 +26,14 @@ options:
       ENCRYPTION_KEY_PASSWORD: YAML+SQL
 ---
 schema_template:
-    create table t(id bigint, s string, primary key(id))
+    create table t(id bigint, s string, pad string, primary key(id) )
     create index t_id as select id from t
 ---
 setup:
   steps:
     - query: INSERT INTO t
-        VALUES (1, 'abc'),
-               (2, 'def')
+        VALUES (1, 'abc', '________________________________'),
+               (2, 'def', '________________________________')
 ---
 test_block:
   name: read-encrypted
@@ -43,8 +43,8 @@ test_block:
   tests:
     -
       - query: SELECT * FROM t
-      - unorderedResult: [{ID: 1, S: 'abc'},
-                          {ID: 2, S: 'def'}]
+      - unorderedResult: [{ID: 1, S: 'abc', PAD: '________________________________'},
+                          {ID: 2, S: 'def', PAD: '________________________________'}]
     -
       - query: SELECT s FROM t WHERE id = 1
       - unorderedResult: [{S: 'abc'}]
@@ -81,7 +81,7 @@ test_block:
       ENCRYPT_WHEN_SERIALIZING: false
   tests:
     -
-      - query: INSERT INTO t VALUES (3, 'xyz')
+      - query: INSERT INTO t VALUES (3, 'xyz', '________________________________')
       - count: 1
     -
       - query: SELECT s FROM t WHERE id = 3
