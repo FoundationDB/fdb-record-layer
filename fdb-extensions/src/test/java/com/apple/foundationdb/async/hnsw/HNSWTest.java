@@ -41,6 +41,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
@@ -304,6 +305,7 @@ public class HNSWTest {
     }
 
     @Test
+    @Timeout(value = 10, unit = TimeUnit.MINUTES)
     public void testSIFTInsertSmall() throws Exception {
         final Metric metric = Metrics.EUCLIDEAN_METRIC.getMetric();
         final int k = 100;
@@ -384,6 +386,7 @@ public class HNSWTest {
     }
 
     @Test
+    @Timeout(value = 10, unit = TimeUnit.MINUTES)
     public void testSIFTInsertSmallUsingBatchAPI() throws Exception {
         final Metric metric = Metrics.EUCLIDEAN_METRIC.getMetric();
         final int k = 100;
