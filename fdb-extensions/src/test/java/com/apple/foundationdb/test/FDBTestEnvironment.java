@@ -71,8 +71,8 @@ public final class FDBTestEnvironment {
         return clusterFiles;
     }
 
-    public static int randomClusterFile() {
-        return ThreadLocalRandom.current().nextInt(clusterFiles.size());
+    public static String randomClusterFile() {
+        return clusterFiles.get(ThreadLocalRandom.current().nextInt(clusterFiles.size()));
     }
 
     /**
