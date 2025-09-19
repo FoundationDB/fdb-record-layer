@@ -26,7 +26,7 @@ import com.apple.foundationdb.record.provider.foundationdb.BlockingInAsyncDetect
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactoryImpl;
-import com.apple.foundationdb.test.FDBTestClusterConfig;
+import com.apple.foundationdb.test.FDBTestEnvironment;
 import com.apple.foundationdb.test.TestExecutors;
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
@@ -100,7 +100,7 @@ public class FDBDatabaseExtension implements AfterEachCallback {
                     }
                     baseFactory.setAPIVersion(getAPIVersion());
                     baseFactory.setUnclosedWarning(true);
-                    for (final String clusterFile : FDBTestClusterConfig.allClusterFiles()) {
+                    for (final String clusterFile : FDBTestEnvironment.allClusterFiles()) {
                         FDBDatabase unused = baseFactory.getDatabase(clusterFile);
                         unused.performNoOp(); // make sure FDB gets opened
                         unused.close();
@@ -145,11 +145,11 @@ public class FDBDatabaseExtension implements AfterEachCallback {
 
     @Nonnull
     public FDBDatabase getDatabase() {
-        return getDatabase(FDBTestClusterConfig.randomClusterFile());
+        return getDatabase(FDBTestEnvironment.randomClusterFile());
     }
 
     public FDBDatabase getDatabase(int clusterIndex) {
-        return getDatabase(FDBTestClusterConfig.getClusterFile(clusterIndex));
+        return getDatabase(FDBTestEnvironment.getClusterFile(clusterIndex));
     }
 
     public FDBDatabase getDatabase(@Nullable String clusterFile) {

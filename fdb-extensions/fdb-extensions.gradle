@@ -18,10 +18,6 @@
  * limitations under the License.
  */
 
-plugins {
-    id 'java-test-fixtures'
-}
-
 apply from: rootProject.file('gradle/publishing.gradle')
 
 dependencies {
@@ -34,12 +30,10 @@ dependencies {
     compileOnly(libs.jsr305)
 
     testImplementation(libs.bundles.test.impl)
+    testImplementation(libs.snakeyaml)
     testRuntimeOnly(libs.bundles.test.runtime)
     testCompileOnly(libs.bundles.test.compileOnly)
     testAnnotationProcessor(libs.autoService)
-    testFixturesImplementation(libs.snakeyaml)
-    testFixturesImplementation(libs.assertj)
-    testFixturesCompileOnly(libs.jsr305)
 }
 
 publishing {

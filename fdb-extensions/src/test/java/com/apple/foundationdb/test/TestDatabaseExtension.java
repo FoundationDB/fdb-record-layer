@@ -23,17 +23,12 @@ package com.apple.foundationdb.test;
 import com.apple.foundationdb.Database;
 import com.apple.foundationdb.FDB;
 import com.apple.foundationdb.NetworkOptions;
-import com.google.common.base.Strings;
 import org.junit.jupiter.api.extension.AfterAllCallback;
 import org.junit.jupiter.api.extension.BeforeAllCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 
 /**
@@ -100,7 +95,7 @@ public class TestDatabaseExtension implements BeforeAllCallback, AfterAllCallbac
     @Nonnull
     public Database getDatabase() {
         if (db == null) {
-            db = FDB.instance().open(FDBTestClusterConfig.getClusterFile(0));
+            db = FDB.instance().open(FDBTestEnvironment.getClusterFile(0));
         }
         return db;
     }

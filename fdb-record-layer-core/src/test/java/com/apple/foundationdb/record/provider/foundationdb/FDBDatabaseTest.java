@@ -36,7 +36,7 @@ import com.apple.foundationdb.record.test.FakeClusterFileUtil;
 import com.apple.foundationdb.record.test.TestKeySpace;
 import com.apple.foundationdb.record.test.TestKeySpacePathManagerExtension;
 import com.apple.foundationdb.subspace.Subspace;
-import com.apple.foundationdb.test.FDBTestClusterConfig;
+import com.apple.foundationdb.test.FDBTestEnvironment;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
@@ -500,7 +500,7 @@ class FDBDatabaseTest {
 
     @Test
     void canAccessMultipleClusters() {
-        FDBTestClusterConfig.assumeClusterCount(2);
+        FDBTestEnvironment.assumeClusterCount(2);
         final FDBDatabase database0 = dbExtension.getDatabase(0);
         final FDBDatabase database1 = dbExtension.getDatabase(1);
         final byte[] key = Tuple.from(UUID.randomUUID()).pack();
