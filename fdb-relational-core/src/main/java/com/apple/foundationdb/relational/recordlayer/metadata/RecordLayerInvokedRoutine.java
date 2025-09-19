@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.query.plan.cascades.RawSqlFunction;
 import com.apple.foundationdb.relational.api.metadata.InvokedRoutine;
 import com.apple.foundationdb.relational.recordlayer.query.functions.CompiledSqlFunction;
 import com.apple.foundationdb.relational.util.Assert;
+import com.google.common.base.Suppliers;
 
 import javax.annotation.Nonnull;
 import java.util.Objects;
@@ -55,7 +56,9 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
         this.name = name;
         this.isTemporary = isTemporary;
         // TODO this used to be memoized
-        this.compilableSqlFunctionSupplier = compilableSqlFunctionSupplier;
+        final var memoizedTrue = Suppliers.memoize(() -> compilableSqlFunctionSupplier.apply(true));
+        final var memoizedFalse = Suppliers.memoize(() -> compilableSqlFunctionSupplier.apply(false));
+        this.compilableSqlFunctionSupplier = param -> param ? memoizedTrue.get() : memoizedFalse.get();
     }
 
     @Nonnull
