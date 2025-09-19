@@ -1373,7 +1373,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
         factory.setExecutor(new ForkJoinPool(PARALLELISM,
                 ForkJoinPool.defaultForkJoinWorkerThreadFactory,
                 null, false));
-        factory.getDatabase().setAsyncToSyncTimeout(event -> {
+        fdb.setAsyncToSyncTimeout(event -> {
             // Make AsyncToSync calls timeout after one second, otherwise a deadlock would just result in the test taking forever
             return Duration.ofSeconds(1L);
         });

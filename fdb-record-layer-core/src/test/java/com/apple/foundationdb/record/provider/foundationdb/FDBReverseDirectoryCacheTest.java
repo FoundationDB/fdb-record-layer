@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.ScopedValue;
 import com.apple.foundationdb.record.test.FDBDatabaseExtension;
 import com.apple.foundationdb.record.test.TestKeySpace;
 import com.apple.foundationdb.record.test.TestKeySpacePathManagerExtension;
+import com.apple.foundationdb.test.FDBTestEnvironment;
 import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
@@ -387,8 +388,9 @@ public class FDBReverseDirectoryCacheTest {
     public void testMapPathKeysConflictMultipleDatabaseObjects() throws Exception {
         // this is to simulate multiple VMs
         final int parallelism = 20;
+        final String clusterFile = FDBTestEnvironment.randomClusterFile();
         testParallelReverseDirectoryCache(parallelism, true,
-                () -> new FDBDatabase(dbExtension.getDatabaseFactory(), null));
+                () -> new FDBDatabase(dbExtension.getDatabaseFactory(), clusterFile));
     }
 
     @Test
@@ -404,8 +406,9 @@ public class FDBReverseDirectoryCacheTest {
     public void testCacheInitConflictMultipleDatabaseObjects() throws Exception {
         // this is to simulate multiple VMs
         final int parallelism = 20;
+        final String clusterFile = FDBTestEnvironment.randomClusterFile();
         testParallelReverseDirectoryCache(parallelism, false,
-                () -> new FDBDatabase(dbExtension.getDatabaseFactory(), null));
+                () -> new FDBDatabase(dbExtension.getDatabaseFactory(), clusterFile));
     }
 
     private void testParallelReverseDirectoryCache(int parallelism, boolean preInitReverseDirectoryCache,
@@ -459,7 +462,7 @@ public class FDBReverseDirectoryCacheTest {
         try {
             factory.setBlockingInAsyncDetection(BlockingInAsyncDetection.DISABLED);
             // Get a fresh new one
-            fdb = factory.getDatabase();
+            fdb = factory.getDatabase(FDBTestEnvironment.randomClusterFile());
 
             final Executor executor = new ForkJoinPool(parallelism + 1);
             final Semaphore lock = new Semaphore(parallelism);
@@ -590,7 +593,7 @@ public class FDBReverseDirectoryCacheTest {
         factory.clear();
 
         // Get a fresh new one
-        fdb = factory.getDatabase();
+        fdb = factory.getDatabase(FDBTestEnvironment.randomClusterFile());
         cache = fdb.getReverseDirectoryCache();
 
         // In the hopes to ensure that re-creating the entries that we previously created
