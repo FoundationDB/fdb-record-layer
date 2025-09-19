@@ -243,7 +243,7 @@ class FDBDatabaseTest {
         if (behavior.throwExceptionOnBlocking()) {
             assertThrows(BlockingInAsyncException.class, () -> database.joinNow(new CompletableFuture<>()));
         } else {
-            FDBDatabase database2 = factory.getDatabase();
+            FDBDatabase database2 = factory.getDatabase(database.getClusterFile());
             TestHelpers.assertLogs(FDBDatabase.class, FDBDatabase.BLOCKING_FOR_FUTURE_MESSAGE, () -> {
                 long val = database2.joinNow(MoreAsyncUtil.delayedFuture(100, TimeUnit.MILLISECONDS, database2.getScheduledExecutor())
                         .thenApply(vignore -> 1066L));

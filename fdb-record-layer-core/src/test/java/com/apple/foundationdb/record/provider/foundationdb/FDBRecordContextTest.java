@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.test.TestKeySpace;
 import com.apple.foundationdb.record.test.TestKeySpacePathManagerExtension;
 import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.foundationdb.subspace.Subspace;
+import com.apple.foundationdb.test.FDBTestEnvironment;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
@@ -433,7 +434,7 @@ public class FDBRecordContextTest {
             FDBDatabaseFactory factory = fdb.getFactory();
             factory.setTransactionIsTracedSupplier(() -> false);
             factory.clear();
-            fdb = factory.getDatabase();
+            fdb = factory.getDatabase(FDBTestEnvironment.randomClusterFile());
         }
         try (FDBRecordContext context = fdb.openContext()) {
             RecordCoreException err = assertThrows(RecordCoreException.class, context::logTransaction);
