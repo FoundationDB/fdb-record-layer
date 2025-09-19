@@ -65,8 +65,9 @@ import java.util.stream.Collectors;
  * for all keys and values in the specified subspace. Any cursor results emitted prior to that are a manifestation of
  * hitting an execution limit while scanning the subspace. These results provide a continuation that can be used
  * to resume aggregating the remaining keys and values of the subspace.
+ * Deprecated, use the {@link SizeStatisticsGroupingCursor} instead.
  */
-@API(API.Status.EXPERIMENTAL)
+@API(API.Status.DEPRECATED)
 public class SizeStatisticsCollectorCursor implements RecordCursor<SizeStatisticsCollectorCursor.SizeStatisticsResults> {
     @Nonnull
     private final SubspaceProvider subspaceProvider;
@@ -318,7 +319,9 @@ public class SizeStatisticsCollectorCursor implements RecordCursor<SizeStatistic
 
     /**
      * Encapsulates the distribution statistics returned by a SizeStatisticsCollectorCursor.
+     * This is deprecated. Use the {@link com.apple.foundationdb.record.provider.foundationdb.cursors.SizeStatisticsResults} instead
      */
+    @API(API.Status.DEPRECATED)
     public static class SizeStatisticsResults {
         private long keyCount;
         private long keySize;
