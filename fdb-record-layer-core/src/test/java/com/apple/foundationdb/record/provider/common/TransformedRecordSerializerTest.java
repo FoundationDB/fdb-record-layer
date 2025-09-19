@@ -97,11 +97,13 @@ public class TransformedRecordSerializerTest {
             "  But makes antiquity for aye his page,\n" +
             "    Finding the first conceit of love there bred,\n" +
             "    Where time and outward form would show it dead.";
+    public static final long PRIMARY_KEY_REC_NO = 1066;
+    public static final Tuple PRIMARY_KEY = Tuple.from(PRIMARY_KEY_REC_NO);
     private static RecordMetaData metaData;
-    private StoreTimer storeTimer;
+    private final StoreTimer storeTimer;
 
     @BeforeAll
-    public static void setUpMetaData() {
+    static void setUpMetaData() {
         metaData = RecordMetaData.build(TestRecords1Proto.getDescriptor());
     }
 
@@ -110,7 +112,7 @@ public class TransformedRecordSerializerTest {
     }
 
     @BeforeEach
-    public void resetTimer() {
+    void resetTimer() {
         storeTimer.reset();
     }
 
@@ -121,21 +123,21 @@ public class TransformedRecordSerializerTest {
         resetTimer();
     }
 
-    private byte[] serialize(@Nonnull RecordSerializer<? super MySimpleRecord> serializer, MySimpleRecord record) {
-        return serializer.serialize(metaData, metaData.getRecordType("MySimpleRecord"), record, storeTimer);
+    private byte[] serialize(@Nonnull RecordSerializer<? super MySimpleRecord> serializer, MySimpleRecord rec) {
+        return serializer.serialize(metaData, metaData.getRecordType("MySimpleRecord"), rec, storeTimer);
     }
 
     private <M extends Message> M deserialize(@Nonnull RecordSerializer<M> serializer, @Nonnull Tuple primaryKey, byte[] serialized) {
         return serializer.deserialize(metaData, primaryKey, serialized, storeTimer);
     }
 
-    private <M extends Message> void validateSerialization(@Nonnull RecordSerializer<M> serializer, M record, byte[] serialized) {
-        serializer.validateSerialization(metaData, metaData.getRecordType("MySimpleRecord"), record, serialized, storeTimer);
+    private <M extends Message> void validateSerialization(@Nonnull RecordSerializer<M> serializer, M rec, byte[] serialized) {
+        serializer.validateSerialization(metaData, metaData.getRecordType("MySimpleRecord"), rec, serialized, storeTimer);
     }
 
     @Test
-    public void readOldFormat() {
-        MySimpleRecord simpleRecord = MySimpleRecord.newBuilder().setRecNo(1066L).setStrValueIndexed("Hello").build();
+    void readOldFormat() {
+        MySimpleRecord simpleRecord = MySimpleRecord.newBuilder().setRecNo(PRIMARY_KEY_REC_NO).setStrValueIndexed("Hello").build();
         RecordTypeUnion unionRecord = RecordTypeUnion.newBuilder().setMySimpleRecord(simpleRecord).build();
         byte[] serialized = serialize(DynamicMessageRecordSerializer.instance(), simpleRecord);
         assertArrayEquals(unionRecord.toByteArray(), serialized);
@@ -150,10 +152,10 @@ public class TransformedRecordSerializerTest {
     }
 
     @Test
-    public void noTransformations() {
+    void noTransformations() {
         TransformedRecordSerializer<Message> serializer = TransformedRecordSerializer.newDefaultBuilder().setWriteValidationRatio(1.0).build();
 
-        MySimpleRecord simpleRecord = MySimpleRecord.newBuilder().setRecNo(1066L).setStrValueIndexed("Hello").build();
+        MySimpleRecord simpleRecord = MySimpleRecord.newBuilder().setRecNo(PRIMARY_KEY_REC_NO).setStrValueIndexed("Hello").build();
         RecordTypeUnion unionRecord = RecordTypeUnion.newBuilder().setMySimpleRecord(simpleRecord).build();
         byte[] serialized = serialize(serializer, simpleRecord);
         assertEquals(TransformedRecordSerializerPrefix.PREFIX_CLEAR, serialized[0]);
@@ -171,7 +173,7 @@ public class TransformedRecordSerializerTest {
 
     @ParameterizedTest
     @MethodSource("smallRecords")
-    public void compressSmallRecordWhenSerializing(@Nonnull final MySimpleRecord smallRecord, @Nonnull final Tuple primaryKey) {
+    void compressSmallRecordWhenSerializing(@Nonnull final MySimpleRecord smallRecord, @Nonnull final Tuple primaryKey) {
         TransformedRecordSerializer<Message> serializer = TransformedRecordSerializer.newDefaultBuilder()
                 .setCompressWhenSerializing(true)
                 .setCompressionLevel(Deflater.HUFFMAN_ONLY)
@@ -186,21 +188,21 @@ public class TransformedRecordSerializerTest {
         Message deserialized = deserialize(serializer, primaryKey, serialized);
         assertEquals(smallRecord, deserialized);
 
-        assertEquals(storeTimer.getCount(RecordSerializer.Counts.ESCHEW_RECORD_COMPRESSION), 1);
+        assertEquals(1, storeTimer.getCount(RecordSerializer.Counts.ESCHEW_RECORD_COMPRESSION));
         assertEquals(storeTimer.getCount(RecordSerializer.Counts.RECORD_BYTES_BEFORE_COMPRESSION),
                 storeTimer.getCount(RecordSerializer.Counts.RECORD_BYTES_AFTER_COMPRESSION));
     }
 
     static Stream<Arguments> longRecords() {
         return Stream.of(
-                Arguments.of(MySimpleRecord.newBuilder().setRecNo(1066L).setStrValueIndexed(Strings.repeat("foo", 1000)).build(), Tuple.from(1066L)),
-                Arguments.of(MySimpleRecord.newBuilder().setRecNo(1066L).setStrValueIndexed(SONNET_108).build(), Tuple.from(1066L))
+                Arguments.of(MySimpleRecord.newBuilder().setRecNo(PRIMARY_KEY_REC_NO).setStrValueIndexed(Strings.repeat("foo", 1000)).build(), PRIMARY_KEY),
+                Arguments.of(MySimpleRecord.newBuilder().setRecNo(PRIMARY_KEY_REC_NO).setStrValueIndexed(SONNET_108).build(), PRIMARY_KEY)
         );
     }
 
     @ParameterizedTest
     @MethodSource("longRecords")
-    public void compressLongRecordWhenSerializing(@Nonnull final MySimpleRecord longRecord, @Nonnull final Tuple primaryKey) {
+    void compressLongRecordWhenSerializing(@Nonnull final MySimpleRecord longRecord, @Nonnull final Tuple primaryKey) {
         TransformedRecordSerializer<Message> serializer = TransformedRecordSerializer.newDefaultBuilder()
                 .setCompressWhenSerializing(true)
                 .setCompressionLevel(Deflater.HUFFMAN_ONLY)
@@ -223,7 +225,7 @@ public class TransformedRecordSerializerTest {
     }
 
     @Test
-    public void decompressWithoutAdler() {
+    void decompressWithoutAdler() {
         final TransformedRecordSerializer<Message> serializer = TransformedRecordSerializer.newDefaultBuilder()
                 .setCompressWhenSerializing(true)
                 .setCompressionLevel(Deflater.BEST_COMPRESSION)
@@ -270,17 +272,17 @@ public class TransformedRecordSerializerTest {
     }
 
     @Test
-    public void unknownCompressionVersion() {
+    void unknownCompressionVersion() {
         TransformedRecordSerializer<Message> serializer = TransformedRecordSerializer.newDefaultBuilder()
                 .setCompressWhenSerializing(true)
                 .build();
-        MySimpleRecord simpleRecord = MySimpleRecord.newBuilder().setRecNo(1066L).setStrValueIndexed(SONNET_108).build();
+        MySimpleRecord simpleRecord = MySimpleRecord.newBuilder().setRecNo(PRIMARY_KEY_REC_NO).setStrValueIndexed(SONNET_108).build();
         byte[] serialized = serialize(serializer, simpleRecord);
         assertTrue(isCompressed(serialized));
         serialized[1] += 1; // Bump the compression version to an unknown value.
 
         RecordSerializationException e = assertThrows(RecordSerializationException.class,
-                () -> deserialize(serializer, Tuple.from(1066L), serialized));
+                () -> deserialize(serializer, PRIMARY_KEY, serialized));
         assertThat(e.getMessage(), containsString("unknown compression version"));
         RecordSerializationValidationException validationException = assertThrows(RecordSerializationValidationException.class,
                 () -> validateSerialization(serializer, simpleRecord, serialized));
@@ -289,14 +291,14 @@ public class TransformedRecordSerializerTest {
     }
 
     @Test
-    public void decompressionError() {
+    void decompressionError() {
         TransformedRecordSerializer<Message> serializer = TransformedRecordSerializer.newDefaultBuilder().setCompressWhenSerializing(true).build();
-        MySimpleRecord simpleRecord = MySimpleRecord.newBuilder().setRecNo(1066L).setStrValueIndexed(SONNET_108).build();
+        MySimpleRecord simpleRecord = MySimpleRecord.newBuilder().setRecNo(PRIMARY_KEY_REC_NO).setStrValueIndexed(SONNET_108).build();
         byte[] serialized = serialize(serializer, simpleRecord);
         serialized[serialized.length - 1] += 1; // Corrupt the compressed data
 
         RecordSerializationException e = assertThrows(RecordSerializationException.class,
-                () -> deserialize(serializer, Tuple.from(1066L), serialized));
+                () -> deserialize(serializer, PRIMARY_KEY, serialized));
         assertThat(e.getMessage(), containsString("decompression error"));
 
         RecordSerializationValidationException validationException = assertThrows(RecordSerializationValidationException.class,
@@ -306,7 +308,7 @@ public class TransformedRecordSerializerTest {
     }
 
     @Test
-    public void incorrectUncompressedSize() {
+    void incorrectUncompressedSize() {
         TransformedRecordSerializer<Message> serializer = TransformedRecordSerializer.newDefaultBuilder()
                 .setCompressionLevel(9)
                 .setCompressWhenSerializing(true)
@@ -314,7 +316,7 @@ public class TransformedRecordSerializerTest {
                 .build();
 
         final MySimpleRecord simpleRecord = MySimpleRecord.newBuilder()
-                .setRecNo(1066L)
+                .setRecNo(PRIMARY_KEY_REC_NO)
                 .setStrValueIndexed(SONNET_108)
                 .build();
         byte[] serialized = serialize(serializer, simpleRecord);
@@ -328,51 +330,49 @@ public class TransformedRecordSerializerTest {
 
         updateSize(serialized, innerSize * 2);
         RecordSerializationException tooSmallException = assertThrows(RecordSerializationException.class,
-                () -> deserialize(serializer, Tuple.from(1066L), serialized));
+                () -> deserialize(serializer, PRIMARY_KEY, serialized));
         assertThat(tooSmallException.getMessage(), containsString("decompressed record too small"));
         assertThat(tooSmallException.getLogInfo(), both(hasEntry(LogMessageKeys.EXPECTED.toString(), (Object) (innerSize * 2))).and(hasEntry(LogMessageKeys.ACTUAL.toString(), innerSize)));
 
         updateSize(serialized, innerSize / 2);
         RecordSerializationException tooLargeException = assertThrows(RecordSerializationException.class,
-                () -> deserialize(serializer, Tuple.from(1066L), serialized));
+                () -> deserialize(serializer, PRIMARY_KEY, serialized));
         assertThat(tooLargeException.getMessage(), containsString("decompressed record too large"));
         assertThat(tooLargeException.getLogInfo(), hasEntry(LogMessageKeys.EXPECTED.toString(), innerSize / 2));
     }
 
     @Test
-    public void buildWithoutSettingEncryption() {
-        assertThrows(RecordCoreArgumentException.class, () -> TransformedRecordSerializer.newDefaultBuilder().setEncryptWhenSerializing(true).build());
+    void buildWithoutSettingEncryption() {
+        final TransformedRecordSerializer.Builder<Message> builder = TransformedRecordSerializer.newDefaultBuilder().setEncryptWhenSerializing(true);
+        assertThrows(RecordCoreArgumentException.class, builder::build);
     }
 
     @Test
-    public void decryptWithoutSettingEncryption() {
-        List<Integer> codes = Arrays.asList(TransformedRecordSerializerPrefix.PREFIX_ENCRYPTED, TransformedRecordSerializerPrefix.PREFIX_ENCRYPTED | TransformedRecordSerializerPrefix.PREFIX_COMPRESSED);
+    void decryptWithoutSettingEncryption() {
+        final List<Integer> codes = Arrays.asList(TransformedRecordSerializerPrefix.PREFIX_ENCRYPTED, TransformedRecordSerializerPrefix.PREFIX_ENCRYPTED | TransformedRecordSerializerPrefix.PREFIX_COMPRESSED);
+        final TransformedRecordSerializer<Message> serializer = TransformedRecordSerializer.newDefaultBuilder().build();
         for (int code : codes) {
-            RecordSerializationException e = assertThrows(RecordSerializationException.class, () -> {
-                TransformedRecordSerializer<Message> serializer = TransformedRecordSerializer.newDefaultBuilder().build();
-                byte[] serialized = new byte[10];
-                serialized[0] = (byte)code;
-                deserialize(serializer, Tuple.from(1066L), serialized);
-            });
+            byte[] serialized = new byte[10];
+            serialized[0] = (byte)code;
+            RecordSerializationException e = assertThrows(RecordSerializationException.class,
+                    () -> deserialize(serializer, PRIMARY_KEY, serialized));
             assertThat(e.getMessage(), containsString("this serializer cannot decrypt"));
         }
     }
 
     @Test
-    public void unrecognizedEncoding() {
-        RecordSerializationException e = assertThrows(RecordSerializationException.class, () -> {
-            TransformedRecordSerializer<Message> serializer = TransformedRecordSerializer.newDefaultBuilder().build();
-            byte[] serialized = new byte[10];
-            serialized[0] = 0x0f;
-            deserialize(serializer, Tuple.from(1066L), serialized);
-        });
+    void unrecognizedEncoding() {
+        final TransformedRecordSerializer<Message> serializer = TransformedRecordSerializer.newDefaultBuilder().build();
+        byte[] serialized = new byte[10];
+        serialized[0] = 0x0f;
+        RecordSerializationException e = assertThrows(RecordSerializationException.class, () -> deserialize(serializer, PRIMARY_KEY, serialized));
         assertThat(e.getMessage(), containsString("unrecognized transformation encoding"));
         assertEquals(15L, e.getLogInfo().get("encoding"));
     }
 
     @ParameterizedTest
     @BooleanSource
-    public void encryptWhenSerializing(boolean compressToo) throws Exception {
+    void encryptWhenSerializing(boolean compressToo) throws Exception {
         KeyGenerator keyGen = KeyGenerator.getInstance("AES");
         keyGen.init(128);
         SecretKey key = keyGen.generateKey();
@@ -384,25 +384,25 @@ public class TransformedRecordSerializerTest {
                 .setWriteValidationRatio(1.0)
                 .build();
 
-        MySimpleRecord mediumRecord = MySimpleRecord.newBuilder().setRecNo(1066L).setStrValueIndexed(SONNET_108).build();
+        MySimpleRecord mediumRecord = MySimpleRecord.newBuilder().setRecNo(PRIMARY_KEY_REC_NO).setStrValueIndexed(SONNET_108).build();
         assertTrue(Bytes.indexOf(mediumRecord.toByteArray(), "brain".getBytes()) >= 0, "should contain clear text");
         byte[] serialized = serialize(serializer, mediumRecord);
         assertEquals(compressToo ? TransformedRecordSerializerPrefix.PREFIX_COMPRESSED_THEN_ENCRYPTED
                                  : TransformedRecordSerializerPrefix.PREFIX_ENCRYPTED,
                 serialized[0]);
         assertFalse(Bytes.indexOf(serialized, "brain".getBytes()) >= 0, "should not contain clear text");
-        Message deserialized = deserialize(serializer, Tuple.from(1066L), serialized);
+        Message deserialized = deserialize(serializer, PRIMARY_KEY, serialized);
         assertEquals(mediumRecord, deserialized);
     }
 
     @Test
-    public void validateWithIncorrectInner() {
+    void validateWithIncorrectInner() {
         TransformedRecordSerializer<MySimpleRecord> serializer = TransformedRecordSerializer.newBuilder(new ModifyingRecordSerializer())
                 .setCompressionLevel(9)
                 .setCompressWhenSerializing(true)
                 .setWriteValidationRatio(1.0)
                 .build();
-        final MySimpleRecord simpleRecord = MySimpleRecord.newBuilder().setRecNo(1066L).setNumValue2(42).build();
+        final MySimpleRecord simpleRecord = MySimpleRecord.newBuilder().setRecNo(PRIMARY_KEY_REC_NO).setNumValue2(42).build();
 
         RecordSerializationValidationException validationError = assertThrows(RecordSerializationValidationException.class,
                 () -> serialize(serializer, simpleRecord));
@@ -425,7 +425,7 @@ public class TransformedRecordSerializerTest {
      * Validate that we catch 1 bit flips in compression.
      */
     @Test
-    public void corruptAnyBit() {
+    void corruptAnyBit() {
         final TransformedRecordSerializer<Message> serializer = TransformedRecordSerializer.newDefaultBuilder()
                 .setCompressWhenSerializing(true)
                 .setCompressionLevel(9)
@@ -465,31 +465,27 @@ public class TransformedRecordSerializerTest {
 
     @ParameterizedTest
     @ValueSource(ints = {6, 10})
-    public void malformedVarintEncoding(int length) {
-        RecordSerializationException e = assertThrows(RecordSerializationException.class, () -> {
-            TransformedRecordSerializer<Message> serializer = TransformedRecordSerializer.newDefaultBuilder().build();
-            byte[] serialized = new byte[length];
-            Arrays.fill(serialized, (byte)0xFF);
-            deserialize(serializer, Tuple.from(1066L), serialized);
-        });
+    void malformedVarintEncoding(int length) {
+        final TransformedRecordSerializer<Message> serializer = TransformedRecordSerializer.newDefaultBuilder().build();
+        byte[] serialized = new byte[length];
+        Arrays.fill(serialized, (byte)0xFF);
+        RecordSerializationException e = assertThrows(RecordSerializationException.class, () -> deserialize(serializer, PRIMARY_KEY, serialized));
         assertThat(e.getMessage(), containsString(length > 64 / 7 ? "transformation prefix too long"
                                                                   : "transformation prefix malformed"));
     }
 
     @Test
-    public void invalidKeyNumberEncoding() {
-        RecordSerializationException e = assertThrows(RecordSerializationException.class, () -> {
-            TransformedRecordSerializer<Message> serializer = TransformedRecordSerializer.newDefaultBuilder().build();
-            byte[] serialized = new byte[10];
-            TransformedRecordSerializerPrefix.writeVarint(serialized,
-                    TransformedRecordSerializerPrefix.PREFIX_ENCRYPTED + ((long)Integer.MAX_VALUE + 1 << 3));
-            deserialize(serializer, Tuple.from(1066L), serialized);
-        });
+    void invalidKeyNumberEncoding() {
+        final TransformedRecordSerializer<Message> serializer = TransformedRecordSerializer.newDefaultBuilder().build();
+        byte[] serialized = new byte[10];
+        TransformedRecordSerializerPrefix.writeVarint(serialized,
+                TransformedRecordSerializerPrefix.PREFIX_ENCRYPTED + ((long)Integer.MAX_VALUE + 1 << 3));
+        RecordSerializationException e = assertThrows(RecordSerializationException.class, () -> deserialize(serializer, PRIMARY_KEY, serialized));
         assertThat(e.getMessage(), containsString("unrecognized transformation encoding"));
     }
 
     @Test
-    public void encryptRollingKeys() throws Exception {
+    void encryptRollingKeys() throws Exception {
         RollingTestKeyManager keyManager = new RollingTestKeyManager();
         TransformedRecordSerializer<Message> serializer = TransformedRecordSerializerJCE.newDefaultBuilder()
                 .setEncryptWhenSerializing(true)
@@ -507,8 +503,8 @@ public class TransformedRecordSerializerTest {
         }
 
         List<byte[]> serialized = new ArrayList<>();
-        for (MySimpleRecord record : records) {
-            serialized.add(serialize(serializer, record));
+        for (MySimpleRecord rec : records) {
+            serialized.add(serialize(serializer, rec));
         }
 
         assertThat(keyManager.numberOfKeys(), greaterThan(5));
@@ -522,7 +518,7 @@ public class TransformedRecordSerializerTest {
     }
 
     @Test
-    public void cannotDecryptUnknownKey() throws Exception {
+    void cannotDecryptUnknownKey() throws Exception {
         KeyGenerator keyGen = KeyGenerator.getInstance("AES");
         keyGen.init(128);
         SecretKey key = keyGen.generateKey();
@@ -553,20 +549,19 @@ public class TransformedRecordSerializerTest {
                 .setWriteValidationRatio(1.0)
                 .build();
 
-        MySimpleRecord simpleRecord = MySimpleRecord.newBuilder().setRecNo(1066L).setStrValueIndexed("Hello").build();
-        RecordTypeUnion unionRecord = RecordTypeUnion.newBuilder().setMySimpleRecord(simpleRecord).build();
+        MySimpleRecord simpleRecord = MySimpleRecord.newBuilder().setRecNo(PRIMARY_KEY_REC_NO).setStrValueIndexed("Hello").build();
         byte[] serialized = serialize(serializer, simpleRecord);
         TransformedRecordSerializer<Message> deserializer = TransformedRecordSerializerJCE.newDefaultBuilder()
                 .setEncryptionKey(key)
                 .build();
         RecordSerializationException e = assertThrows(RecordSerializationException.class,
-                () -> deserialize(deserializer, Tuple.from(1066L), serialized));
+                () -> deserialize(deserializer, PRIMARY_KEY, serialized));
         assertThat(e.getMessage(), containsString("only provide key number 0"));
     }
 
     @ParameterizedTest
     @BooleanSource
-    public void cannotDecryptWithoutKey(boolean jce) throws Exception {
+    void cannotDecryptWithoutKey(boolean jce) throws Exception {
         KeyGenerator keyGen = KeyGenerator.getInstance("AES");
         keyGen.init(128);
         TransformedRecordSerializer<Message> serializer = TransformedRecordSerializerJCE.newDefaultBuilder()
@@ -574,8 +569,7 @@ public class TransformedRecordSerializerTest {
                 .setEncryptionKey(keyGen.generateKey())
                 .setWriteValidationRatio(1.0)
                 .build();
-        MySimpleRecord simpleRecord = MySimpleRecord.newBuilder().setRecNo(1066L).setStrValueIndexed("Hello").build();
-        RecordTypeUnion unionRecord = RecordTypeUnion.newBuilder().setMySimpleRecord(simpleRecord).build();
+        MySimpleRecord simpleRecord = MySimpleRecord.newBuilder().setRecNo(PRIMARY_KEY_REC_NO).setStrValueIndexed("Hello").build();
         byte[] serialized = serialize(serializer, simpleRecord);
         TransformedRecordSerializer<Message> deserializer;
         if (jce) {
@@ -588,13 +582,13 @@ public class TransformedRecordSerializerTest {
                 .build();
         }
         RecordSerializationException e = assertThrows(RecordSerializationException.class,
-                () -> deserialize(deserializer, Tuple.from(1066L), serialized));
+                () -> deserialize(deserializer, PRIMARY_KEY, serialized));
         assertThat(e.getMessage(), containsString(jce ? "missing encryption key or provider during decryption"
                                                       : "this serializer cannot decrypt"));
     }
 
     @Test
-    public void cannotEncryptAfterClearKey() throws Exception {
+    void cannotEncryptAfterClearKey() throws Exception {
         RollingTestKeyManager keyManager = new RollingTestKeyManager();
         TransformedRecordSerializerJCE.Builder<Message> builder = TransformedRecordSerializerJCE.newDefaultBuilder()
                 .setEncryptWhenSerializing(true)
@@ -605,7 +599,7 @@ public class TransformedRecordSerializerTest {
     }
 
     @Test
-    public void keyDoesNotMatchAlgorithm() throws Exception {
+    void keyDoesNotMatchAlgorithm() throws Exception {
         KeyGenerator keyGen = KeyGenerator.getInstance("DES");
         keyGen.init(56);
         try {
@@ -614,8 +608,7 @@ public class TransformedRecordSerializerTest {
                     .setEncryptionKey(keyGen.generateKey())
                     .setWriteValidationRatio(1.0)
                     .build();
-            MySimpleRecord simpleRecord = MySimpleRecord.newBuilder().setRecNo(1066L).setStrValueIndexed("Hello").build();
-            RecordTypeUnion unionRecord = RecordTypeUnion.newBuilder().setMySimpleRecord(simpleRecord).build();
+            MySimpleRecord simpleRecord = MySimpleRecord.newBuilder().setRecNo(PRIMARY_KEY_REC_NO).setStrValueIndexed("Hello").build();
             RecordSerializationException e = assertThrows(RecordSerializationException.class,
                     () -> serialize(serializer, simpleRecord));
             assertThat(e.getMessage(), containsString("encryption error"));
@@ -628,7 +621,7 @@ public class TransformedRecordSerializerTest {
     }
 
     @Test
-    public void changeAlgorithm() throws Exception {
+    void changeAlgorithm() throws Exception {
         KeyGenerator keyGen = KeyGenerator.getInstance("AES");
         keyGen.init(128);
         TransformedRecordSerializer<Message> serializer = TransformedRecordSerializerJCE.newDefaultBuilder()
@@ -636,8 +629,7 @@ public class TransformedRecordSerializerTest {
                 .setEncryptionKey(keyGen.generateKey())
                 .setWriteValidationRatio(1.0)
                 .build();
-        MySimpleRecord simpleRecord = MySimpleRecord.newBuilder().setRecNo(1066L).setStrValueIndexed("Hello").build();
-        RecordTypeUnion unionRecord = RecordTypeUnion.newBuilder().setMySimpleRecord(simpleRecord).build();
+        MySimpleRecord simpleRecord = MySimpleRecord.newBuilder().setRecNo(PRIMARY_KEY_REC_NO).setStrValueIndexed("Hello").build();
         byte[] serialized = serialize(serializer, simpleRecord);
         KeyGenerator keyGen2 = KeyGenerator.getInstance("DES");
         keyGen2.init(56);
@@ -648,7 +640,7 @@ public class TransformedRecordSerializerTest {
                 .setWriteValidationRatio(1.0)
                 .build();
         RecordSerializationException e = assertThrows(RecordSerializationException.class,
-                () -> deserialize(deserializer, Tuple.from(1066L), serialized));
+                () -> deserialize(deserializer, PRIMARY_KEY, serialized));
         assertThat(e.getMessage(), containsString("decryption error"));
     }
 
@@ -660,14 +652,14 @@ public class TransformedRecordSerializerTest {
 
     @ParameterizedTest
     @MethodSource("compressedAndOrEncrypted")
-    public void typed(boolean compressed, boolean encrypted) throws Exception {
+    void typed(boolean compressed, boolean encrypted) throws Exception {
         RecordSerializer<MySimpleRecord> typedSerializer = new TypedRecordSerializer<>(
                 TestRecords1Proto.RecordTypeUnion.getDescriptor().findFieldByNumber(TestRecords1Proto.RecordTypeUnion._MYSIMPLERECORD_FIELD_NUMBER),
                 TestRecords1Proto.RecordTypeUnion::newBuilder,
                 TestRecords1Proto.RecordTypeUnion::hasMySimpleRecord,
                 TestRecords1Proto.RecordTypeUnion::getMySimpleRecord,
                 TestRecords1Proto.RecordTypeUnion.Builder::setMySimpleRecord);
-        MySimpleRecord record = MySimpleRecord.newBuilder().setRecNo(1066L).setStrValueIndexed(SONNET_108).build();
+        MySimpleRecord rec = MySimpleRecord.newBuilder().setRecNo(PRIMARY_KEY_REC_NO).setStrValueIndexed(SONNET_108).build();
 
         if (encrypted) {
             KeyGenerator keyGen = KeyGenerator.getInstance("AES");
@@ -686,23 +678,23 @@ public class TransformedRecordSerializerTest {
                 .build();
         }
 
-        byte[] typedSerialized = serialize(typedSerializer, record);
+        byte[] typedSerialized = serialize(typedSerializer, rec);
         RecordSerializer<Message> untypedSerializer = typedSerializer.widen();
-        byte[] untypedSerialized = serialize(untypedSerializer, record);
+        byte[] untypedSerialized = serialize(untypedSerializer, rec);
 
-        MySimpleRecord typedDeserialized = deserialize(typedSerializer, Tuple.from(1066L), typedSerialized);
-        assertEquals(record, typedDeserialized);
-        typedDeserialized = deserialize(typedSerializer, Tuple.from(1066L), untypedSerialized);
-        assertEquals(record, typedDeserialized);
+        MySimpleRecord typedDeserialized = deserialize(typedSerializer, PRIMARY_KEY, typedSerialized);
+        assertEquals(rec, typedDeserialized);
+        typedDeserialized = deserialize(typedSerializer, PRIMARY_KEY, untypedSerialized);
+        assertEquals(rec, typedDeserialized);
 
-        Message untypedDeserialized = deserialize(untypedSerializer, Tuple.from(1066L), typedSerialized);
-        assertEquals(record, untypedDeserialized);
-        untypedDeserialized = deserialize(untypedSerializer, Tuple.from(1066L), untypedSerialized);
-        assertEquals(record, untypedDeserialized);
+        Message untypedDeserialized = deserialize(untypedSerializer, PRIMARY_KEY, typedSerialized);
+        assertEquals(rec, untypedDeserialized);
+        untypedDeserialized = deserialize(untypedSerializer, PRIMARY_KEY, untypedSerialized);
+        assertEquals(rec, untypedDeserialized);
     }
 
     @Test
-    public void defaultKeyManagerKey() throws Exception {
+    void defaultKeyManagerKey() throws Exception {
         KeyGenerator keyGen = KeyGenerator.getInstance("AES");
         keyGen.init(128);
         TransformedRecordSerializerJCE<Message> serializer = TransformedRecordSerializerJCE.newDefaultBuilder()
@@ -711,6 +703,7 @@ public class TransformedRecordSerializerTest {
                 .setWriteValidationRatio(1.0)
                 .build();
         SerializationKeyManager keyManager = serializer.keyManager;
+        assertNotNull(keyManager);
         assertEquals(0, keyManager.getSerializationKey());
 
         RecordSerializationException e = assertThrows(RecordSerializationException.class,
@@ -727,7 +720,7 @@ public class TransformedRecordSerializerTest {
     }
 
     @Test
-    public void invalidKeyManagerBuilder() throws Exception {
+    void invalidKeyManagerBuilder() throws Exception {
         TransformedRecordSerializerJCE.Builder<Message> builder = TransformedRecordSerializerJCE.newDefaultBuilder();
         builder.setEncryptWhenSerializing(true);
 
@@ -772,7 +765,7 @@ public class TransformedRecordSerializerTest {
      */
     private static class ModifyingRecordSerializer implements RecordSerializer<MySimpleRecord> {
         @Nonnull
-        private static TypedRecordSerializer<MySimpleRecord, TestRecords1Proto.RecordTypeUnion, TestRecords1Proto.RecordTypeUnion.Builder> underlying = new TypedRecordSerializer<>(
+        private static final TypedRecordSerializer<MySimpleRecord, TestRecords1Proto.RecordTypeUnion, TestRecords1Proto.RecordTypeUnion.Builder> underlying = new TypedRecordSerializer<>(
                 TestRecords1Proto.RecordTypeUnion.getDescriptor().findFieldByName("_MySimpleRecord"),
                 RecordTypeUnion::newBuilder,
                 RecordTypeUnion::hasMySimpleRecord,
@@ -781,6 +774,7 @@ public class TransformedRecordSerializerTest {
         );
 
         public ModifyingRecordSerializer() {
+            /* handled by parent */
         }
 
         @Nonnull
