@@ -679,13 +679,25 @@ public class TypeConversion {
                     builder.setEncryptWhenSerializing((Boolean)entry.getValue());
                     break;
                 case ENCRYPTION_KEY_STORE:
-                    builder.setEncryptionKeyStore((String)entry.getValue());
+                    if (Options.isNull(entry.getValue())) {
+                        builder.clearEncryptionKeyStore();
+                    } else {
+                        builder.setEncryptionKeyStore((String)entry.getValue());
+                    }
                     break;
                 case ENCRYPTION_KEY_ENTRY:
-                    builder.setEncryptionKeyEntry((String)entry.getValue());
+                    if (Options.isNull(entry.getValue())) {
+                        builder.clearEncryptionKeyEntry();
+                    } else {
+                        builder.setEncryptionKeyEntry((String)entry.getValue());
+                    }
                     break;
                 case ENCRYPTION_KEY_PASSWORD:
-                    builder.setEncryptionKeyPassword((String)entry.getValue());
+                    if (Options.isNull(entry.getValue())) {
+                        builder.clearEncryptionKeyPassword();
+                    } else {
+                        builder.setEncryptionKeyPassword((String)entry.getValue());
+                    }
                     break;
                 case COMPRESS_WHEN_SERIALIZING:
                     builder.setCompressWhenSerializing((Boolean)entry.getValue());

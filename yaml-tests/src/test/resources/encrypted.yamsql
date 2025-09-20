@@ -36,10 +36,7 @@ setup:
                (2, 'def', '________________________________')
 ---
 test_block:
-  name: read-encrypted
-  options:
-    connection_options:
-      ENCRYPT_WHEN_SERIALIZING: true
+  name: read-with-encryption
   tests:
     -
       - query: SELECT * FROM t
@@ -53,10 +50,11 @@ test_block:
       - unorderedResult: [{S: 'def'}]
 ---
 test_block:
-  name: read-unencrypted
+  name: read-without-encryption
   options:
     connection_options:
       ENCRYPT_WHEN_SERIALIZING: false
+      ENCRYPTION_KEY_STORE:
   tests:
     -
       - query: SELECT * FROM t
@@ -74,11 +72,12 @@ test_block:
       - error: "XXF01"
 ---
 test_block:
-  name: write-unencrypted
+  name: write-without-encryption
   preset: single_repetition_ordered
   options:
     connection_options:
       ENCRYPT_WHEN_SERIALIZING: false
+      ENCRYPTION_KEY_STORE:
   tests:
     -
       - query: INSERT INTO t VALUES (3, 'xyz', null)
@@ -91,6 +90,27 @@ test_block:
       - error: "XXF01"
 ---
 test_block:
+  name: write-unencrypted
+  preset: single_repetition_ordered
+  options:
+    connection_options:
+      ENCRYPT_WHEN_SERIALIZING: false
+  tests:
+    -
+      - query: INSERT INTO t VALUES (4, 'uvw', null)
+      - count: 1
+    -
+      - query: SELECT s FROM t WHERE id = 4
+      - unorderedResult: [{S: 'uvw'}]
+    -
+      - query: SELECT s FROM t
+      - supported_version: !current_version
+      - unorderedResult: [{S: 'abc'},
+                          {S: 'def'},
+                          {S: 'xyz'},
+                          {S: 'uvw'}]
+---
+test_block:
   name: write-uncompressed
   preset: single_repetition_ordered
   options:
@@ -98,14 +118,15 @@ test_block:
       COMPRESS_WHEN_SERIALIZING: false
   tests:
     -
-      - query: INSERT INTO t VALUES (4, 'uvw', '********************************')
+      - query: INSERT INTO t VALUES (5, 'ghi', '********************************')
       - count: 1
     -
       - query: SELECT s FROM t
       - unorderedResult: [{S: 'abc'},
                           {S: 'def'},
                           {S: 'xyz'},
-                          {S: 'uvw'}]
+                          {S: 'uvw'},
+                          {S: 'ghi'}]
 ---
 test_block:
   name: write-uncompressed-unencrypted
@@ -116,9 +137,18 @@ test_block:
       COMPRESS_WHEN_SERIALIZING: false
   tests:
     -
-      - query: INSERT INTO t VALUES (5, 'rst', 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx')
+      - query: INSERT INTO t VALUES (6, 'rst', 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx')
       - count: 1
     -
-      - query: SELECT s FROM t WHERE id = 5
+      - query: SELECT s FROM t WHERE id = 6
       - unorderedResult: [{S: 'rst'}]
+    -
+      - query: SELECT s FROM t
+      - supported_version: !current_version
+      - unorderedResult: [{S: 'abc'},
+                          {S: 'def'},
+                          {S: 'xyz'},
+                          {S: 'uvw'},
+                          {S: 'ghi'},
+                          {S: 'rst'}]
 ...
