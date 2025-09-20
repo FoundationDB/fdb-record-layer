@@ -679,13 +679,33 @@ public class TypeConversion {
                     builder.setEncryptWhenSerializing((Boolean)entry.getValue());
                     break;
                 case ENCRYPTION_KEY_STORE:
-                    builder.setEncryptionKeyStore((String)entry.getValue());
+                    if (Options.isNull(entry.getValue())) {
+                        builder.clearEncryptionKeyStore();
+                    } else {
+                        builder.setEncryptionKeyStore((String)entry.getValue());
+                    }
                     break;
                 case ENCRYPTION_KEY_ENTRY:
-                    builder.setEncryptionKeyEntry((String)entry.getValue());
+                    if (Options.isNull(entry.getValue())) {
+                        builder.clearEncryptionKeyEntry();
+                    } else {
+                        builder.setEncryptionKeyEntry((String)entry.getValue());
+                    }
+                    break;
+                case ENCRYPTION_KEY_ENTRY_LIST:
+                    for (String rule : (List<String>)entry.getValue()) {
+                        builder.addEncryptionKeyEntryList(rule);
+                    }
                     break;
                 case ENCRYPTION_KEY_PASSWORD:
-                    builder.setEncryptionKeyPassword((String)entry.getValue());
+                    if (Options.isNull(entry.getValue())) {
+                        builder.clearEncryptionKeyPassword();
+                    } else {
+                        builder.setEncryptionKeyPassword((String)entry.getValue());
+                    }
+                    break;
+                case COMPRESS_WHEN_SERIALIZING:
+                    builder.setCompressWhenSerializing((Boolean)entry.getValue());
                     break;
                 default:
                     throw new SQLException("Cannot encode option in protobuf");
@@ -798,8 +818,14 @@ public class TypeConversion {
         if (protoOptions.hasEncryptionKeyEntry()) {
             builder.withOption(Options.Name.ENCRYPTION_KEY_ENTRY, protoOptions.getEncryptionKeyEntry());
         }
+        if (protoOptions.getEncryptionKeyEntryListCount() > 0) {
+            builder.withOption(Options.Name.ENCRYPTION_KEY_ENTRY_LIST, protoOptions.getEncryptionKeyEntryListList());
+        }
         if (protoOptions.hasEncryptionKeyPassword()) {
             builder.withOption(Options.Name.ENCRYPTION_KEY_PASSWORD, protoOptions.getEncryptionKeyPassword());
+        }
+        if (protoOptions.hasCompressWhenSerializing()) {
+            builder.withOption(Options.Name.COMPRESS_WHEN_SERIALIZING, protoOptions.getCompressWhenSerializing());
         }
         return builder.build();
     }
