@@ -26,25 +26,22 @@ options:
       ENCRYPTION_KEY_PASSWORD: YAML+SQL
 ---
 schema_template:
-    create table t(id bigint, s string, primary key(id))
+    create table t(id bigint, s string, pad string, primary key(id) )
     create index t_id as select id from t
 ---
 setup:
   steps:
     - query: INSERT INTO t
-        VALUES (1, 'abc'),
-               (2, 'def')
+        VALUES (1, 'abc', '________________________________'),
+               (2, 'def', '________________________________')
 ---
 test_block:
-  name: read-encrypted
-  options:
-    connection_options:
-      ENCRYPT_WHEN_SERIALIZING: true
+  name: read-with-encryption
   tests:
     -
       - query: SELECT * FROM t
-      - unorderedResult: [{ID: 1, S: 'abc'},
-                          {ID: 2, S: 'def'}]
+      - unorderedResult: [{ID: 1, S: 'abc', PAD: '________________________________'},
+                          {ID: 2, S: 'def', PAD: '________________________________'}]
     -
       - query: SELECT s FROM t WHERE id = 1
       - unorderedResult: [{S: 'abc'}]
@@ -53,10 +50,11 @@ test_block:
       - unorderedResult: [{S: 'def'}]
 ---
 test_block:
-  name: read-unencrypted
+  name: read-without-encryption
   options:
     connection_options:
       ENCRYPT_WHEN_SERIALIZING: false
+      ENCRYPTION_KEY_STORE:
   tests:
     -
       - query: SELECT * FROM t
@@ -74,14 +72,15 @@ test_block:
       - error: "XXF01"
 ---
 test_block:
-  name: write-unencrypted
+  name: write-without-encryption
   preset: single_repetition_ordered
   options:
     connection_options:
       ENCRYPT_WHEN_SERIALIZING: false
+      ENCRYPTION_KEY_STORE:
   tests:
     -
-      - query: INSERT INTO t VALUES (3, 'xyz')
+      - query: INSERT INTO t VALUES (3, 'xyz', null)
       - count: 1
     -
       - query: SELECT s FROM t WHERE id = 3
@@ -89,4 +88,67 @@ test_block:
     -
       - query: SELECT s FROM t WHERE id = 1
       - error: "XXF01"
+---
+test_block:
+  name: write-unencrypted
+  preset: single_repetition_ordered
+  options:
+    connection_options:
+      ENCRYPT_WHEN_SERIALIZING: false
+  tests:
+    -
+      - query: INSERT INTO t VALUES (4, 'uvw', null)
+      - count: 1
+    -
+      - query: SELECT s FROM t WHERE id = 4
+      - unorderedResult: [{S: 'uvw'}]
+    -
+      - query: SELECT s FROM t
+      - supported_version: !current_version
+      - unorderedResult: [{S: 'abc'},
+                          {S: 'def'},
+                          {S: 'xyz'},
+                          {S: 'uvw'}]
+---
+test_block:
+  name: write-uncompressed
+  preset: single_repetition_ordered
+  options:
+    connection_options:
+      COMPRESS_WHEN_SERIALIZING: false
+  tests:
+    -
+      - query: INSERT INTO t VALUES (5, 'ghi', '********************************')
+      - count: 1
+    -
+      - query: SELECT s FROM t
+      - unorderedResult: [{S: 'abc'},
+                          {S: 'def'},
+                          {S: 'xyz'},
+                          {S: 'uvw'},
+                          {S: 'ghi'}]
+---
+test_block:
+  name: write-uncompressed-unencrypted
+  preset: single_repetition_ordered
+  options:
+    connection_options:
+      ENCRYPT_WHEN_SERIALIZING: false
+      COMPRESS_WHEN_SERIALIZING: false
+  tests:
+    -
+      - query: INSERT INTO t VALUES (6, 'rst', 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx')
+      - count: 1
+    -
+      - query: SELECT s FROM t WHERE id = 6
+      - unorderedResult: [{S: 'rst'}]
+    -
+      - query: SELECT s FROM t
+      - supported_version: !current_version
+      - unorderedResult: [{S: 'abc'},
+                          {S: 'def'},
+                          {S: 'xyz'},
+                          {S: 'uvw'},
+                          {S: 'ghi'},
+                          {S: 'rst'}]
 ...
