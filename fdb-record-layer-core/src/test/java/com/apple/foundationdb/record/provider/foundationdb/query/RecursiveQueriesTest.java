@@ -1,5 +1,5 @@
 /*
- * RecursiveUnionTest.java
+ * RecursiveQueriesTest.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -49,7 +49,6 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.apple.foundationdb.record.query.plan.cascades.explain.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveUnionPlan;
@@ -87,18 +86,18 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 /**
  * Test suite for {@link RecordQueryRecursiveUnionPlan} planning and execution.
  */
-public class RecursiveQueriesTest extends TempTableTestBase {
+class RecursiveQueriesTest extends TempTableTestBase {
 
     static Stream<Arguments> multiplesOfSuccessParameters() {
         return Stream.of(
-            Arguments.of(ImmutableList.of(2L, 5L), 50L, LEVEL, ImmutableList.of(2L, 5L, 4L, 10L, 8L, 20L, 16L, 40L, 32L)),
-            Arguments.of(ImmutableList.of(2L, 5L), 50L, ANY, ImmutableList.of(2L, 5L, 4L, 10L, 8L, 20L, 16L, 40L, 32L)),
-            Arguments.of(ImmutableList.of(2L, 5L), 6L, LEVEL, ImmutableList.of(2L, 5L, 4L)),
-            Arguments.of(ImmutableList.of(2L, 5L), 6L, ANY, ImmutableList.of(2L, 5L, 4L)),
-            Arguments.of(ImmutableList.of(2L, 5L), 0L, LEVEL, ImmutableList.of(2L, 5L)),
-            Arguments.of(ImmutableList.of(2L, 5L), 0L, ANY, ImmutableList.of(2L, 5L)),
-            Arguments.of(ImmutableList.of(), 1000L, LEVEL, ImmutableList.of()),
-            Arguments.of(ImmutableList.of(), 1000L, ANY, ImmutableList.of())
+            Arguments.of(List.of(2L, 5L), 50L, LEVEL, List.of(2L, 5L, 4L, 10L, 8L, 20L, 16L, 40L, 32L)),
+            Arguments.of(List.of(2L, 5L), 50L, ANY, List.of(2L, 5L, 4L, 10L, 8L, 20L, 16L, 40L, 32L)),
+            Arguments.of(List.of(2L, 5L), 6L, LEVEL, List.of(2L, 5L, 4L)),
+            Arguments.of(List.of(2L, 5L), 6L, ANY, List.of(2L, 5L, 4L)),
+            Arguments.of(List.of(2L, 5L), 0L, LEVEL, List.of(2L, 5L)),
+            Arguments.of(List.of(2L, 5L), 0L, ANY, List.of(2L, 5L)),
+            Arguments.of(List.of(), 1000L, LEVEL, List.of()),
+            Arguments.of(List.of(), 1000L, ANY, List.of())
         );
     }
 
@@ -118,7 +117,7 @@ public class RecursiveQueriesTest extends TempTableTestBase {
         // PREORDER traversal is expected to fail because the constructed plan for calculating
         // multiplesOf is currently not matchable for the DFS implementation. We can implement
         // this if necessary, but for now this is not needed.
-        assertThrows(UnableToPlanException.class, () -> multiplesOf(ImmutableList.of(2L, 5L), 50L, PREORDER));
+        assertThrows(UnableToPlanException.class, () -> multiplesOf(List.of(2L, 5L), 50L, PREORDER));
     }
 
     /**
@@ -189,15 +188,15 @@ public class RecursiveQueriesTest extends TempTableTestBase {
 
     static Stream<Arguments> ancestorsOfNodeParameters() {
         return Stream.of(
-            Arguments.of(ImmutableMap.of(250L, 50L), LEVEL, ImmutableList.of(250L, 50L, 10L, 1L)),
-            Arguments.of(ImmutableMap.of(250L, 50L), PREORDER, ImmutableList.of(250L, 50L, 10L, 1L)),
-            Arguments.of(ImmutableMap.of(250L, 50L), ANY, ImmutableList.of(250L, 50L, 10L, 1L)),
-            Arguments.of(ImmutableMap.of(250L, 50L, 40L, 10L), LEVEL, ImmutableList.of(250L, 40L, 50L, 10L, 10L, 1L, 1L)),
-            Arguments.of(ImmutableMap.of(250L, 50L, 40L, 10L), PREORDER, ImmutableList.of(250L, 50L, 10L, 1L, 40L, 10L, 1L)),
-            Arguments.of(ImmutableMap.of(250L, 50L, 40L, 10L), ANY, ImmutableList.of(250L, 50L, 10L, 1L, 40L, 10L, 1L)),
-            Arguments.of(ImmutableMap.of(300L, 300L), LEVEL, ImmutableList.of(300L)),
-            Arguments.of(ImmutableMap.of(300L, 300L), PREORDER, ImmutableList.of(300L)),
-            Arguments.of(ImmutableMap.of(300L, 300L), ANY, ImmutableList.of(300L))
+            Arguments.of(ImmutableMap.of(250L, 50L), LEVEL, List.of(250L, 50L, 10L, 1L)),
+            Arguments.of(ImmutableMap.of(250L, 50L), PREORDER, List.of(250L, 50L, 10L, 1L)),
+            Arguments.of(ImmutableMap.of(250L, 50L), ANY, List.of(250L, 50L, 10L, 1L)),
+            Arguments.of(ImmutableMap.of(250L, 50L, 40L, 10L), LEVEL, List.of(250L, 40L, 50L, 10L, 10L, 1L, 1L)),
+            Arguments.of(ImmutableMap.of(250L, 50L, 40L, 10L), PREORDER, List.of(250L, 50L, 10L, 1L, 40L, 10L, 1L)),
+            Arguments.of(ImmutableMap.of(250L, 50L, 40L, 10L), ANY, List.of(250L, 50L, 10L, 1L, 40L, 10L, 1L)),
+            Arguments.of(ImmutableMap.of(300L, 300L), LEVEL, List.of(300L)),
+            Arguments.of(ImmutableMap.of(300L, 300L), PREORDER, List.of(300L)),
+            Arguments.of(ImmutableMap.of(300L, 300L), ANY, List.of(300L))
         );
     }
 
@@ -212,12 +211,12 @@ public class RecursiveQueriesTest extends TempTableTestBase {
 
     static Stream<Arguments> descendantsOfNodeParameters() {
         return Stream.of(
-            Arguments.of(ImmutableMap.of(1L, -1L), LEVEL, ImmutableList.of(1L, 10L, 20L, 40L, 50L, 70L, 100L, 210L, 250L)),
-            Arguments.of(ImmutableMap.of(1L, -1L), PREORDER, ImmutableList.of(1L, 10L, 40L, 50L, 250L, 70L, 20L, 100L, 210L)),
-            Arguments.of(ImmutableMap.of(1L, -1L), ANY, ImmutableList.of(1L, 10L, 40L, 50L, 250L, 70L, 20L, 100L, 210L)),
-            Arguments.of(ImmutableMap.of(10L, 1L), LEVEL, ImmutableList.of(10L, 40L, 50L, 70L, 250L)),
-            Arguments.of(ImmutableMap.of(10L, 1L), PREORDER, ImmutableList.of(10L, 40L, 50L, 250L, 70L)),
-            Arguments.of(ImmutableMap.of(10L, 1L), ANY, ImmutableList.of(10L, 40L, 50L, 250L, 70L))
+            Arguments.of(ImmutableMap.of(1L, -1L), LEVEL, List.of(1L, 10L, 20L, 40L, 50L, 70L, 100L, 210L, 250L)),
+            Arguments.of(ImmutableMap.of(1L, -1L), PREORDER, List.of(1L, 10L, 40L, 50L, 250L, 70L, 20L, 100L, 210L)),
+            Arguments.of(ImmutableMap.of(1L, -1L), ANY, List.of(1L, 10L, 40L, 50L, 250L, 70L, 20L, 100L, 210L)),
+            Arguments.of(ImmutableMap.of(10L, 1L), LEVEL, List.of(10L, 40L, 50L, 70L, 250L)),
+            Arguments.of(ImmutableMap.of(10L, 1L), PREORDER, List.of(10L, 40L, 50L, 250L, 70L)),
+            Arguments.of(ImmutableMap.of(10L, 1L), ANY, List.of(10L, 40L, 50L, 250L, 70L))
         );
     }
 
@@ -232,15 +231,15 @@ public class RecursiveQueriesTest extends TempTableTestBase {
 
     static Stream<Arguments> ancestorsOfNodeParametersAcrossContinuationParameters() {
         return Stream.of(
-            Arguments.of(ImmutableMap.of(250L, 50L), ImmutableList.of(1, 2, 1), LEVEL, ImmutableList.of(ImmutableList.of(250L), ImmutableList.of(50L, 10L), ImmutableList.of(1L))),
-            Arguments.of(ImmutableMap.of(250L, 50L), ImmutableList.of(1, 2, 1), PREORDER, ImmutableList.of(ImmutableList.of(250L), ImmutableList.of(50L, 10L), ImmutableList.of(1L))),
-            Arguments.of(ImmutableMap.of(250L, 50L), ImmutableList.of(1, 2, 1), ANY, ImmutableList.of(ImmutableList.of(250L), ImmutableList.of(50L, 10L), ImmutableList.of(1L))),
-            Arguments.of(ImmutableMap.of(250L, 50L), ImmutableList.of(1, 1, 2), LEVEL, ImmutableList.of(ImmutableList.of(250L), ImmutableList.of(50L), ImmutableList.of(10L, 1L))),
-            Arguments.of(ImmutableMap.of(250L, 50L), ImmutableList.of(1, 1, 2), PREORDER, ImmutableList.of(ImmutableList.of(250L), ImmutableList.of(50L), ImmutableList.of(10L, 1L))),
-            Arguments.of(ImmutableMap.of(250L, 50L), ImmutableList.of(1, 1, 2), ANY, ImmutableList.of(ImmutableList.of(250L), ImmutableList.of(50L), ImmutableList.of(10L, 1L))),
-            Arguments.of(ImmutableMap.of(250L, 50L), ImmutableList.of(1, -1), LEVEL, ImmutableList.of(ImmutableList.of(250L), ImmutableList.of(50L, 10L, 1L))),
-            Arguments.of(ImmutableMap.of(250L, 50L), ImmutableList.of(1, -1), PREORDER, ImmutableList.of(ImmutableList.of(250L), ImmutableList.of(50L, 10L, 1L))),
-            Arguments.of(ImmutableMap.of(250L, 50L), ImmutableList.of(1, -1), ANY, ImmutableList.of(ImmutableList.of(250L), ImmutableList.of(50L, 10L, 1L)))
+            Arguments.of(ImmutableMap.of(250L, 50L), List.of(1, 2, 1), LEVEL, List.of(List.of(250L), List.of(50L, 10L), List.of(1L))),
+            Arguments.of(ImmutableMap.of(250L, 50L), List.of(1, 2, 1), PREORDER, List.of(List.of(250L), List.of(50L, 10L), List.of(1L))),
+            Arguments.of(ImmutableMap.of(250L, 50L), List.of(1, 2, 1), ANY, List.of(List.of(250L), List.of(50L, 10L), List.of(1L))),
+            Arguments.of(ImmutableMap.of(250L, 50L), List.of(1, 1, 2), LEVEL, List.of(List.of(250L), List.of(50L), List.of(10L, 1L))),
+            Arguments.of(ImmutableMap.of(250L, 50L), List.of(1, 1, 2), PREORDER, List.of(List.of(250L), List.of(50L), List.of(10L, 1L))),
+            Arguments.of(ImmutableMap.of(250L, 50L), List.of(1, 1, 2), ANY, List.of(List.of(250L), List.of(50L), List.of(10L, 1L))),
+            Arguments.of(ImmutableMap.of(250L, 50L), List.of(1, -1), LEVEL, List.of(List.of(250L), List.of(50L, 10L, 1L))),
+            Arguments.of(ImmutableMap.of(250L, 50L), List.of(1, -1), PREORDER, List.of(List.of(250L), List.of(50L, 10L, 1L))),
+            Arguments.of(ImmutableMap.of(250L, 50L), List.of(1, -1), ANY, List.of(List.of(250L), List.of(50L, 10L, 1L)))
         );
     }
 
@@ -256,15 +255,15 @@ public class RecursiveQueriesTest extends TempTableTestBase {
 
     static Stream<Arguments> descendantsOfNodeAcrossContinuationParameters() {
         return Stream.of(
-            Arguments.of(sampleHierarchy(), ImmutableMap.of(1L, -1L), ImmutableList.of(1, -1), LEVEL, ImmutableList.of(ImmutableList.of(1L), ImmutableList.of(10L, 20L, 40L, 50L, 70L, 100L, 210L, 250L))),
-            Arguments.of(sampleHierarchy(), ImmutableMap.of(1L, -1L), ImmutableList.of(1, -1), PREORDER, ImmutableList.of(ImmutableList.of(1L), ImmutableList.of(10L, 40L, 50L, 250L, 70L, 20L, 100L, 210L))),
-            Arguments.of(sampleHierarchy(), ImmutableMap.of(1L, -1L), ImmutableList.of(1, -1), ANY, ImmutableList.of(ImmutableList.of(1L), ImmutableList.of(10L, 40L, 50L, 250L, 70L, 20L, 100L, 210L))),
-            Arguments.of(sampleHierarchy(), ImmutableMap.of(1L, -1L), ImmutableList.of(1, 2, 4, -1), LEVEL, ImmutableList.of(ImmutableList.of(1L), ImmutableList.of(10L, 20L), ImmutableList.of(40L, 50L, 70L, 100L), ImmutableList.of(210L, 250L))),
-            Arguments.of(sampleHierarchy(), ImmutableMap.of(1L, -1L), ImmutableList.of(1, 2, 4, -1), PREORDER, ImmutableList.of(ImmutableList.of(1L), ImmutableList.of(10L, 40L), ImmutableList.of(50L, 250L, 70L, 20L), ImmutableList.of(100L, 210L))),
-            Arguments.of(sampleHierarchy(), ImmutableMap.of(1L, -1L), ImmutableList.of(1, 2, 4, -1), ANY, ImmutableList.of(ImmutableList.of(1L), ImmutableList.of(10L, 40L), ImmutableList.of(50L, 250L, 70L, 20L), ImmutableList.of(100L, 210L))),
-            Arguments.of(sampleForest(), ImmutableMap.of(1L, -1L, 500L, -1L), ImmutableList.of(1, 2, 4, -1), LEVEL, ImmutableList.of(ImmutableList.of(1L), ImmutableList.of(500L, 10L), ImmutableList.of(20L, 510L, 520L, 40L), ImmutableList.of(50L, 70L, 100L, 210L, 550L, 250L))),
-            Arguments.of(sampleForest(), ImmutableMap.of(1L, -1L, 500L, -1L), ImmutableList.of(1, 2, 4, -1), PREORDER, ImmutableList.of(ImmutableList.of(1L), ImmutableList.of(10L, 40L), ImmutableList.of(50L, 250L, 70L, 20L), ImmutableList.of(100L, 210L, 500L, 510L, 550L, 520L))),
-            Arguments.of(sampleForest(), ImmutableMap.of(1L, -1L, 500L, -1L), ImmutableList.of(1, 2, 4, -1), ANY, ImmutableList.of(ImmutableList.of(1L), ImmutableList.of(10L, 40L), ImmutableList.of(50L, 250L, 70L, 20L), ImmutableList.of(100L, 210L, 500L, 510L, 550L, 520L)))
+            Arguments.of(sampleHierarchy(), ImmutableMap.of(1L, -1L), List.of(1, -1), LEVEL, List.of(List.of(1L), List.of(10L, 20L, 40L, 50L, 70L, 100L, 210L, 250L))),
+            Arguments.of(sampleHierarchy(), ImmutableMap.of(1L, -1L), List.of(1, -1), PREORDER, List.of(List.of(1L), List.of(10L, 40L, 50L, 250L, 70L, 20L, 100L, 210L))),
+            Arguments.of(sampleHierarchy(), ImmutableMap.of(1L, -1L), List.of(1, -1), ANY, List.of(List.of(1L), List.of(10L, 40L, 50L, 250L, 70L, 20L, 100L, 210L))),
+            Arguments.of(sampleHierarchy(), ImmutableMap.of(1L, -1L), List.of(1, 2, 4, -1), LEVEL, List.of(List.of(1L), List.of(10L, 20L), List.of(40L, 50L, 70L, 100L), List.of(210L, 250L))),
+            Arguments.of(sampleHierarchy(), ImmutableMap.of(1L, -1L), List.of(1, 2, 4, -1), PREORDER, List.of(List.of(1L), List.of(10L, 40L), List.of(50L, 250L, 70L, 20L), List.of(100L, 210L))),
+            Arguments.of(sampleHierarchy(), ImmutableMap.of(1L, -1L), List.of(1, 2, 4, -1), ANY, List.of(List.of(1L), List.of(10L, 40L), List.of(50L, 250L, 70L, 20L), List.of(100L, 210L))),
+            Arguments.of(sampleForest(), ImmutableMap.of(1L, -1L, 500L, -1L), List.of(1, 2, 4, -1), LEVEL, List.of(List.of(1L), List.of(500L, 10L), List.of(20L, 510L, 520L, 40L), List.of(50L, 70L, 100L, 210L, 550L, 250L))),
+            Arguments.of(sampleForest(), ImmutableMap.of(1L, -1L, 500L, -1L), List.of(1, 2, 4, -1), PREORDER, List.of(List.of(1L), List.of(10L, 40L), List.of(50L, 250L, 70L, 20L), List.of(100L, 210L, 500L, 510L, 550L, 520L))),
+            Arguments.of(sampleForest(), ImmutableMap.of(1L, -1L, 500L, -1L), List.of(1, 2, 4, -1), ANY, List.of(List.of(1L), List.of(10L, 40L), List.of(50L, 250L, 70L, 20L), List.of(100L, 210L, 500L, 510L, 550L, 520L)))
         );
     }
 
@@ -365,7 +364,7 @@ public class RecursiveQueriesTest extends TempTableTestBase {
 
             final var ttScanBla = Quantifier.forEach(Reference.initialOf(TempTableScanExpression.ofCorrelated(seedingTempTableAlias, getHierarchyType())));
             var selectExpression = GraphExpansion.builder()
-                    .addAllResultColumns(ImmutableList.of(getIdCol(ttScanBla))).addQuantifier(ttScanBla)
+                    .addAllResultColumns(List.of(getIdCol(ttScanBla))).addQuantifier(ttScanBla)
                     .build().buildSelect();
             final var seedingSelectQun = Quantifier.forEach(Reference.initialOf(selectExpression));
             final var insertTempTableAlias = CorrelationIdentifier.of("Insert");
@@ -375,9 +374,9 @@ public class RecursiveQueriesTest extends TempTableTestBase {
 
             final var ttScanRecuQun = Quantifier.forEach(Reference.initialOf(TempTableScanExpression.ofCorrelated(scanTempTableAlias, getHierarchyType())));
             var idField = getIdCol(ttScanRecuQun);
-            final var multByTwo = Column.of(Optional.of("id"), (Value)new ArithmeticValue.MulFn().encapsulate(ImmutableList.of(idField.getValue(), LiteralValue.ofScalar(2L))));
+            final var multByTwo = Column.of(Optional.of("id"), (Value)new ArithmeticValue.MulFn().encapsulate(List.of(idField.getValue(), LiteralValue.ofScalar(2L))));
             selectExpression = GraphExpansion.builder()
-                    .addAllResultColumns(ImmutableList.of(multByTwo))
+                    .addAllResultColumns(List.of(multByTwo))
                     .addQuantifier(ttScanRecuQun)
                     .build().buildSelect();
             final var selectQun = Quantifier.forEach(Reference.initialOf(selectExpression));
@@ -599,8 +598,6 @@ public class RecursiveQueriesTest extends TempTableTestBase {
 
         final var plan = createAndOptimizeHierarchyQuery(seedingTempTableAlias, insertTempTableAlias, scanTempTableAlias, queryPredicate, traversal);
 
-        System.out.println(ExplainPlanVisitor.prettyExplain(plan));
-
         final var seedingTempTable = tempTableInstance();
 
         initial.forEach((id, parent) -> seedingTempTable.add(queryResult(id, parent)));
@@ -665,7 +662,7 @@ public class RecursiveQueriesTest extends TempTableTestBase {
                                                             @Nonnull final RecursiveUnionExpression.Traversal traversal) {
         final var ttScanSeeding = Quantifier.forEach(Reference.initialOf(TempTableScanExpression.ofCorrelated(seedingTempTableAlias, getHierarchyType())));
         var selectExpression = GraphExpansion.builder()
-                .addAllResultColumns(ImmutableList.of(getIdCol(ttScanSeeding), getParentCol(ttScanSeeding))).addQuantifier(ttScanSeeding)
+                .addAllResultColumns(List.of(getIdCol(ttScanSeeding), getParentCol(ttScanSeeding))).addQuantifier(ttScanSeeding)
                 .build().buildSelect();
         final var seedingSelectQun = Quantifier.forEach(Reference.initialOf(selectExpression));
         final var tempTableInsertExpression = TempTableInsertExpression.ofCorrelated(seedingSelectQun,
@@ -674,13 +671,13 @@ public class RecursiveQueriesTest extends TempTableTestBase {
         final var tempTableScanExpression = TempTableScanExpression.ofCorrelated(scanTempTableAlias, getHierarchyType());
         final var ttScanRecuQun = Quantifier.forEach(Reference.initialOf(tempTableScanExpression));
         selectExpression = GraphExpansion.builder()
-                .addAllResultColumns(ImmutableList.of(getIdCol(ttScanRecuQun), getParentCol(ttScanRecuQun)))
+                .addAllResultColumns(List.of(getIdCol(ttScanRecuQun), getParentCol(ttScanRecuQun)))
                 .addQuantifier(ttScanRecuQun)
                 .build().buildSelect();
         final var ttSelectQun = Quantifier.forEach(Reference.initialOf(selectExpression));
         final var hierarchyScanQun = generateHierarchyScan(queryPredicate, ttSelectQun);
         final var joinExpression = GraphExpansion.builder()
-                .addAllResultColumns(ImmutableList.of(getIdCol(hierarchyScanQun), getParentCol(hierarchyScanQun)))
+                .addAllResultColumns(List.of(getIdCol(hierarchyScanQun), getParentCol(hierarchyScanQun)))
                 .addQuantifier(hierarchyScanQun)
                 .addQuantifier(ttSelectQun)
                 .build().buildSelect();
@@ -708,7 +705,7 @@ public class RecursiveQueriesTest extends TempTableTestBase {
         final var predicate = queryPredicate.apply(qun, ttSelectQun);
 
         final var selectBuilder = GraphExpansion.builder()
-                .addAllResultColumns(ImmutableList.of(getIdCol(qun), getParentCol(qun)))
+                .addAllResultColumns(List.of(getIdCol(qun), getParentCol(qun)))
                 .addPredicate(predicate)
                 .addQuantifier(qun);
         qun = Quantifier.forEach(Reference.initialOf(selectBuilder.build().buildSelect()));

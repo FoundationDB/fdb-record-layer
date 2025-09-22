@@ -38,8 +38,10 @@ test_block:
             select id, parent from t1 where parent = -1
             union all
             select b.id, b.parent from c1 as a, t1 as b where a.id = b.parent) select id from c1
-      - initialVersionAtLeast: !current_version
+      - supported_version: !current_version
       - explain: "RUNION-DFS q0 { ISCAN(PARENTIDX [EQUALS promote(@c15 AS LONG)]) } { RECURSIVE COVERING(PARENTIDX <,> -> [ID: KEY[1], PARENT: KEY[0]]) | FILTER q0.ID EQUALS _.PARENT | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP (_.ID AS ID)"
+# enable in 4.6.4.0 onward
+#      - initialVersionAtLeast: !current_version
       - result: [{ID: 1},
                  {ID: 10},
                  {ID: 40},
@@ -49,22 +51,24 @@ test_block:
                  {ID: 20},
                  {ID: 100},
                  {ID: 210}]
-      - initialVersionLessThan: !current_version
-      - explain: "RUNION q0, q1 { INITIAL { ISCAN(PARENTIDX [EQUALS promote(@c15 AS LONG)]) | INSERT INTO TEMP q1 } RECURSIVE  { ISCAN(CHILDIDX <,>) | FLATMAP q2 -> { TEMP SCAN base() | FILTER _.ID EQUALS q2.PARENT AS q3 RETURN (q2.ID AS ID, q2.PARENT AS PARENT) } | INSERT INTO TEMP q1 }} | MAP (_.ID AS ID)"
-      - result: [{ID: 1},
-                 {ID: 10},
-                 {ID: 20},
-                 {ID: 40},
-                 {ID: 50},
-                 {ID: 70},
-                 {ID: 100},
-                 {ID: 210},
-                 {ID: 250}]
+# enable in 4.6.4.0 onward
+#      - initialVersionLessThan: !current_version
+#      # employs level-based traversal
+#      - result: [{ID: 1},
+#                 {ID: 10},
+#                 {ID: 20},
+#                 {ID: 40},
+#                 {ID: 50},
+#                 {ID: 70},
+#                 {ID: 100},
+#                 {ID: 210},
+#                 {ID: 250}]
     -
       - query: with recursive (traversal = level) c1 as (
             select id, parent from t1 where parent = -1
             union all
             select b.id, b.parent from c1 as a, t1 as b where a.id = b.parent) select id from c1
+      - supported_version: !current_version
       - explain: "RUNION q0, q1 { INITIAL { ISCAN(PARENTIDX [EQUALS promote(@c20 AS LONG)]) | INSERT INTO TEMP q1 } RECURSIVE  { ISCAN(CHILDIDX <,>) | FLATMAP q2 -> { TEMP SCAN base() | FILTER _.ID EQUALS q2.PARENT AS q3 RETURN (q2.ID AS ID, q2.PARENT AS PARENT) } | INSERT INTO TEMP q1 }} | MAP (_.ID AS ID)"
       - unorderedResult: [{ID: 1},
                           {ID: 10},
@@ -90,6 +94,7 @@ test_block:
             select id, parent from t1 where id = 250
             union all
             select b.id, b.parent from c1 as a, t1 as b where a.parent = b.id) select id from c1
+      - supported_version: !current_version
       - explain: "RUNION q0, q1 { INITIAL { ISCAN(CHILDIDX [EQUALS promote(@c20 AS LONG)]) | INSERT INTO TEMP q1 } RECURSIVE  { ISCAN(CHILDIDX <,>) | FLATMAP q2 -> { TEMP SCAN base() | FILTER _.PARENT EQUALS q2.ID AS q3 RETURN (q2.ID AS ID, q2.PARENT AS PARENT) } | INSERT INTO TEMP q1 }} | MAP (_.ID AS ID)"
       - result: [{ID: 250},
                  {ID: 50},
@@ -100,61 +105,70 @@ test_block:
             select id, parent from t1 where id = 250
             union all
             select b.id, b.parent from c1 as a, t1 as b where a.parent = b.id) select id from c1
+      - supported_version: !current_version
       - explain: "RUNION-DFS q0 { ISCAN(CHILDIDX [EQUALS promote(@c20 AS LONG)]) } { RECURSIVE COVERING(PARENTIDX <,> -> [ID: KEY[1], PARENT: KEY[0]]) | FILTER q0.PARENT EQUALS _.ID | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP (_.ID AS ID)"
       - result: [{ID: 250},
                  {ID: 50},
                  {ID: 10},
                  {ID: 1}]
     -
-      - query: with recursive (traversal = level) allDescendants as (
-            with recursive (traversal = level) ancestorsOf250 as (
+      - query: with recursive allDescendants as (
+            with recursive ancestorsOf250 as (
             select id, parent from t1 where id = 250
             union all
             select b.id, b.parent from ancestorsOf250 as a, t1 as b where a.parent = b.id) select id, parent from ancestorsOf250
             union all
             select b.id, b.parent from allDescendants as a, t1 as b where a.id = b.parent) select id, parent from allDescendants
-      - explain: "RUNION q0, q1 { INITIAL { RUNION q2, q3 { INITIAL { ISCAN(CHILDIDX [EQUALS promote(@c30 AS LONG)]) | INSERT INTO TEMP q3 } RECURSIVE  { ISCAN(CHILDIDX <,>) | FLATMAP q4 -> { TEMP SCAN base() | FILTER _.PARENT EQUALS q4.ID AS q5 RETURN (q4.ID AS ID, q4.PARENT AS PARENT) } | INSERT INTO TEMP q3 }} | MAP (_.ID AS ID, _.PARENT AS PARENT) | INSERT INTO TEMP q1 } RECURSIVE  { ISCAN(CHILDIDX <,>) | FLATMAP q6 -> { TEMP SCAN base() | FILTER _.ID EQUALS q6.PARENT AS q7 RETURN (q6.ID AS ID, q6.PARENT AS PARENT) } | INSERT INTO TEMP q1 }} | MAP (_.ID AS ID, _.PARENT AS PARENT)"
+      - supported_version: !current_version
+      - explain: "RUNION-DFS q0 { RUNION-DFS q1 { ISCAN(CHILDIDX [EQUALS promote(@c20 AS LONG)]) } { RECURSIVE COVERING(PARENTIDX <,> -> [ID: KEY[1], PARENT: KEY[0]]) | FILTER q1.PARENT EQUALS _.ID | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP (_.ID AS ID, _.PARENT AS PARENT) } { RECURSIVE COVERING(PARENTIDX <,> -> [ID: KEY[1], PARENT: KEY[0]]) | FILTER q0.ID EQUALS _.PARENT | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP (_.ID AS ID, _.PARENT AS PARENT)"
+# enable in 4.6.4.0 onward
+#      - initialVersionAtLeast: !current_version
       - result: [{250, 50},
                  {50, 10},
+                 {250, 50},
                  {10, 1},
+                 {40, 10},
+                 {50, 10},
+                 {250, 50},
+                 {70, 10},
                  {1, -1},
                  {10, 1},
+                 {40, 10},
+                 {50, 10},
+                 {250, 50},
+                 {70, 10},
                  {20, 1},
-                 {40, 10},
-                 {50, 10},
-                 {70, 10},
-                 {250, 50},
-                 {40, 10},
-                 {50, 10},
-                 {70, 10},
                  {100, 20},
-                 {210, 20},
-                 {250, 50},
-                 {250, 50}]
-    -
-      - query: with recursive (traversal = level) c1 as (
-            select id, parent from t1 where parent = -1
-            union all
-            select b.id, b.parent from c1 as a, t1 as b where a.id = b.parent) select id from c1
-      - explain: "RUNION q0, q1 { INITIAL { ISCAN(PARENTIDX [EQUALS promote(@c20 AS LONG)]) | INSERT INTO TEMP q1 } RECURSIVE  { ISCAN(CHILDIDX <,>) | FLATMAP q2 -> { TEMP SCAN base() | FILTER _.ID EQUALS q2.PARENT AS q3 RETURN (q2.ID AS ID, q2.PARENT AS PARENT) } | INSERT INTO TEMP q1 }} | MAP (_.ID AS ID)"
-      - maxRows: 1
-      - result: [{ID: 1}]
-      - result: [{ID: 10}]
-      - result: [{ID: 20}]
-      - result: [{ID: 40}]
-      - result: [{ID: 50}]
-      - result: [{ID: 70}]
-      - result: [{ID: 100}]
-      - result: [{ID: 210}]
-      - result: [{ID: 250}]
-      - result: []
+                 {210, 20}]
+# enable in 4.6.4.0 onward
+#      - initialVersionLessThan: !current_version
+#      - result: [{250, 50},
+#                 {50, 10},
+#                 {10, 1},
+#                 {1, -1},
+#                 {10, 1},
+#                 {20, 1},
+#                 {40, 10},
+#                 {50, 10},
+#                 {70, 10},
+#                 {250, 50},
+#                 {40, 10},
+#                 {50, 10},
+#                 {70, 10},
+#                 {100, 20},
+#                 {210, 20},
+#                 {250, 50},
+#                 {250, 50}]
     -
       - query: with recursive c1 as (
             select id, parent from t1 where parent = -1
             union all
             select b.id, b.parent from c1 as a, t1 as b where a.id = b.parent) select id from c1
+      - supported_version: !current_version
       - explain: "RUNION-DFS q0 { ISCAN(PARENTIDX [EQUALS promote(@c15 AS LONG)]) } { RECURSIVE COVERING(PARENTIDX <,> -> [ID: KEY[1], PARENT: KEY[0]]) | FILTER q0.ID EQUALS _.PARENT | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP (_.ID AS ID)"
       - maxRows: 1
+# enable in 4.6.4.0 onward
+#      - initialVersionAtLeast: !current_version
       - result: [{ID: 1}]
       - result: [{ID: 10}]
       - result: [{ID: 40}]
@@ -165,34 +179,102 @@ test_block:
       - result: [{ID: 100}]
       - result: [{ID: 210}]
       - result: []
+# enable in 4.6.4.0 onward
+#      - initialVersionLessThan: !current_version
+#      - result: [{ID: 1}]
+#      - result: [{ID: 10}]
+#      - result: [{ID: 20}]
+#      - result: [{ID: 40}]
+#      - result: [{ID: 50}]
+#      - result: [{ID: 70}]
+#      - result: [{ID: 100}]
+#      - result: [{ID: 210}]
+#      - result: [{ID: 250}]
+#      - result: []
     -
-      - query: with recursive (traversal = level) allDescendants as (
-            with recursive (traversal = level) ancestorsOf250 as (
+      - query: with recursive c1 as (
+            select id, parent from t1 where parent = -1
+            union all
+            select b.id, b.parent from c1 as a, t1 as b where a.id = b.parent) select id from c1
+      - supported_version: !current_version
+      - explain: "RUNION-DFS q0 { ISCAN(PARENTIDX [EQUALS promote(@c15 AS LONG)]) } { RECURSIVE COVERING(PARENTIDX <,> -> [ID: KEY[1], PARENT: KEY[0]]) | FILTER q0.ID EQUALS _.PARENT | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP (_.ID AS ID)"
+      - maxRows: 1
+# enable in 4.6.4.0 onward
+#      - initialVersionAtLeast: !current_version
+      - result: [{ID: 1}]
+      - result: [{ID: 10}]
+      - result: [{ID: 40}]
+      - result: [{ID: 50}]
+      - result: [{ID: 250}]
+      - result: [{ID: 70}]
+      - result: [{ID: 20}]
+      - result: [{ID: 100}]
+      - result: [{ID: 210}]
+      - result: []
+# enable in 4.6.4.0 onward
+#      - initialVersionLessThan: !current_version
+#      # employs level-based traversal
+#      - result: [{ID: 1}]
+#      - result: [{ID: 10}]
+#      - result: [{ID: 20}]
+#      - result: [{ID: 40}]
+#      - result: [{ID: 50}]
+#      - result: [{ID: 70}]
+#      - result: [{ID: 100}]
+#      - result: [{ID: 210}]
+#      - result: [{ID: 250}]
+#      - result: []
+    -
+      - query: with recursive allDescendants as (
+            with recursive ancestorsOf250 as (
             select id, parent from t1 where id = 250
             union all
             select b.id, b.parent from ancestorsOf250 as a, t1 as b where a.parent = b.id) select id, parent from ancestorsOf250
             union all
             select b.id, b.parent from allDescendants as a, t1 as b where a.id = b.parent) select id, parent from allDescendants
-      - explain: "RUNION q0, q1 { INITIAL { RUNION q2, q3 { INITIAL { ISCAN(CHILDIDX [EQUALS promote(@c30 AS LONG)]) | INSERT INTO TEMP q3 } RECURSIVE  { ISCAN(CHILDIDX <,>) | FLATMAP q4 -> { TEMP SCAN base() | FILTER _.PARENT EQUALS q4.ID AS q5 RETURN (q4.ID AS ID, q4.PARENT AS PARENT) } | INSERT INTO TEMP q3 }} | MAP (_.ID AS ID, _.PARENT AS PARENT) | INSERT INTO TEMP q1 } RECURSIVE  { ISCAN(CHILDIDX <,>) | FLATMAP q6 -> { TEMP SCAN base() | FILTER _.ID EQUALS q6.PARENT AS q7 RETURN (q6.ID AS ID, q6.PARENT AS PARENT) } | INSERT INTO TEMP q1 }} | MAP (_.ID AS ID, _.PARENT AS PARENT)"
+      - supported_version: !current_version
+      - explain: "RUNION-DFS q0 { RUNION-DFS q1 { ISCAN(CHILDIDX [EQUALS promote(@c20 AS LONG)]) } { RECURSIVE COVERING(PARENTIDX <,> -> [ID: KEY[1], PARENT: KEY[0]]) | FILTER q1.PARENT EQUALS _.ID | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP (_.ID AS ID, _.PARENT AS PARENT) } { RECURSIVE COVERING(PARENTIDX <,> -> [ID: KEY[1], PARENT: KEY[0]]) | FILTER q0.ID EQUALS _.PARENT | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP (_.ID AS ID, _.PARENT AS PARENT)"
       - maxRows: 1
+# enable in 4.6.4.0 onward
+#      - initialVersionAtLeast: !current_version
       - result: [{250, 50}]
       - result: [{50, 10}]
+      - result: [{250, 50}]
       - result: [{10, 1}]
+      - result: [{40, 10}]
+      - result: [{50, 10}]
+      - result: [{250, 50}]
+      - result: [{70, 10}]
       - result: [{1, -1}]
       - result: [{10, 1}]
-      - result: [{20, 1}]
       - result: [{40, 10}]
       - result: [{50, 10}]
-      - result: [{70, 10}]
       - result: [{250, 50}]
-      - result: [{40, 10}]
-      - result: [{50, 10}]
       - result: [{70, 10}]
+      - result: [{20, 1}]
       - result: [{100, 20}]
       - result: [{210, 20}]
-      - result: [{250, 50}]
-      - result: [{250, 50}]
       - result: []
+# enable in 4.6.4.0 onward
+#      - initialVersionLessThan: !current_version
+#      - result: [{250, 50}]
+#      - result: [{50, 10}]
+#      - result: [{10, 1}]
+#      - result: [{1, -1}]
+#      - result: [{10, 1}]
+#      - result: [{20, 1}]
+#      - result: [{40, 10}]
+#      - result: [{50, 10}]
+#      - result: [{70, 10}]
+#      - result: [{250, 50}]
+#      - result: [{40, 10}]
+#      - result: [{50, 10}]
+#      - result: [{70, 10}]
+#      - result: [{100, 20}]
+#      - result: [{210, 20}]
+#      - result: [{250, 50}]
+#      - result: [{250, 50}]
+#      - result: []
 #    -
 # does not currently work due to bug in NLJ planning, see https://github.com/FoundationDB/fdb-record-layer/issues/2997
 #      - query: with recursive c1 as (

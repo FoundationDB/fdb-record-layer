@@ -68,7 +68,6 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.apple.foundationdb.relational.generated.RelationalParser.ALL;
-import static com.apple.foundationdb.relational.generated.RelationalParser.TRAVERSAL;
 
 @API(API.Status.EXPERIMENTAL)
 public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {

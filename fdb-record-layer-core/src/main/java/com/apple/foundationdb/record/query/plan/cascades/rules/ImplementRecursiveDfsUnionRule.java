@@ -1,5 +1,5 @@
 /*
- * ImplementDfsJoinRule.java
+ * ImplementRecursiveDfsUnionRule.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -54,6 +54,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.tempTableInsertExpression;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.SetMatcher.exactlyInAnyOrder;
 
+@SuppressWarnings("PMD.TooManyStaticImports")
 public class ImplementRecursiveDfsUnionRule extends ImplementationCascadesRule<RecursiveUnionExpression> {
 
     @Nonnull

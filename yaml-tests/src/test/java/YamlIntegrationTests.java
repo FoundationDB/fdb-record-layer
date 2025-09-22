@@ -21,9 +21,7 @@
 import com.apple.foundationdb.relational.yamltests.MaintainYamlTestConfig;
 import com.apple.foundationdb.relational.yamltests.YamlTest;
 import com.apple.foundationdb.relational.yamltests.YamlTestConfigFilters;
-import com.sun.tools.javadoc.Main;
 import org.junit.jupiter.api.Disabled;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestTemplate;
 
 /**
