@@ -7,6 +7,36 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.6
 
+### 4.6.3.0
+
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Add a connection option to control compression - [PR #3618](https://github.com/FoundationDB/fdb-record-layer/pull/3618)
+* Indexing: remove subspaceProvider and subspace arguments to iterating functions - [PR #3611](https://github.com/FoundationDB/fdb-record-layer/pull/3611)
+* Make RandomizedTestUtils clearer - [PR #3617](https://github.com/FoundationDB/fdb-record-layer/pull/3617)
+* Run jar when calculating codeCoverageReport in nightly build - [PR #3613](https://github.com/FoundationDB/fdb-record-layer/pull/3613)
+
+</details>
+
+
+**[Full Changelog (4.6.2.0...4.6.3.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.6.2.0...4.6.3.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.5.5.0`, ✅`4.5.6.0`, ✅`4.5.7.0`, ✅`4.5.8.0`, ✅`4.5.9.0`, ✅`4.5.10.0`, ✅`4.5.12.0`, ✅`4.5.13.0`, ✅`4.6.1.0`, ✅`4.6.2.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/17930606385)
+
+
+
 ### 4.6.2.0
 
 <h4> New Features </h4>
