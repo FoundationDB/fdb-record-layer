@@ -44,6 +44,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifier;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.anyPlan;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.mapPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.preOrderTraversalIsAllowed;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.tempTableInsertPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.tempTableScanPlan;
@@ -74,11 +75,14 @@ public class ImplementRecursiveDfsUnionRule extends ImplementationCascadesRule<R
     private static final BindingMatcher<Quantifier.ForEach> innerQunMatcher = forEachQuantifierOverRef(innerReferenceMatcher);
 
     @Nonnull
+    private static final BindingMatcher<Quantifier.ForEach> mapTempTableQunMatcher = forEachQuantifier(mapPlan(tempTableScanPlan()));
+
+    @Nonnull
     private static final BindingMatcher<Quantifier.ForEach> tempTableQunMatcher = forEachQuantifier(tempTableScanPlan());
 
     @Nonnull
     private static final BindingMatcher<SelectExpression> recursiveInnerSelectMatcher = selectExpression(
-            exactlyInAnyOrder(innerQunMatcher, tempTableQunMatcher));
+            exactlyInAnyOrder(innerQunMatcher, tempTableQunMatcher.or(mapTempTableQunMatcher)));
 
     @Nonnull
     private static final BindingMatcher<TempTableInsertExpression> recursivePlanMatcher = tempTableInsertExpression(
@@ -103,7 +107,9 @@ public class ImplementRecursiveDfsUnionRule extends ImplementationCascadesRule<R
         final var innerPlanPartition = call.get(innerPlanPartitionMatcher);
         final var innerRef = call.get(innerReferenceMatcher);
         final var innerQun = call.get(innerQunMatcher);
-        final var priorValueCorrelation = call.get(tempTableQunMatcher).getAlias();
+        final var priorValueCorrelation = (call.getBindings().containsKey(tempTableQunMatcher)
+                                          ? call.get(tempTableQunMatcher)
+                                          : call.get(mapTempTableQunMatcher)).getAlias();
 
         final var rootPlanRef = call.memoizePlan(initialInnerPlan);
         final var rootQun = Quantifier.physical(rootPlanRef, rootAlias);

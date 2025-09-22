@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.TempTable;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RecursiveUnionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.TempTableScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
@@ -49,6 +50,7 @@ import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 import com.google.protobuf.Descriptors;
@@ -357,37 +359,66 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
     static final class ListPartitioner {
 
         /**
-         * Partitions a list of numbers into a number of sub-lists defined, each sub-list start and end is defined
-         * pseudo-randomly according to a random size chosen with a uniform probability distribution.
-         * @param numberOfPartitions The number of partitions.
-         * @param input The input list.
-         * @return A number of sub-lists, each sub-list start and end is defined pseudo-randomly according to a random
-         * size chosen with a uniform probability distribution
+         * Generates a list of partition sizes using a power distribution.
+         * This method creates random split points that follow a power law distribution,
+         * which tends to create more smaller partitions and fewer larger ones.
+         *
+         * @param numberOfPartitions The number of partitions to generate
+         * @param inputSize The total size of the input to be partitioned
+         * @return A list of integers representing partition sizes
          */
         @Nonnull
-        public static Pair<List<Integer>, List<List<Long>>> partitionUsingNormalDistribution(int numberOfPartitions,
-                                                                                          @Nonnull final List<Long> input) {
-            return randomPartition(numberOfPartitions, input, random::nextInt);
+        public static List<Integer> getSplitsUsingPowerDistribution(int numberOfPartitions, int inputSize) {
+            final var splits = ImmutableList.<Integer>builder();
+            for (int i = 0; i < numberOfPartitions; i++) {
+                splits.add(ListPartitioner.nextIntWithPowerDistribution(inputSize));
+            }
+            return splits.build();
         }
 
         /**
-         * Partitions a list of numbers into a number of sub-lists defined, each sub-list start and end is defined
-         * pseudo-randomly according to a random size chosen with a power probability distribution.
-         * @param numberOfPartitions The number of partitions.
-         * @param input The input list.
-         * @return A number of sub-lists, each sub-list start and end is defined pseudo-randomly according to a random
-         * size chosen with a power probability distribution
+         * Generates a list of partition sizes using a normal (uniform) distribution.
+         * This method creates random split points with equal probability across
+         * the entire range, resulting in more evenly distributed partition sizes.
+         *
+         * @param numberOfPartitions The number of partitions to generate
+         * @param inputSize The total size of the input to be partitioned
+         * @return A list of integers representing partition sizes
          */
         @Nonnull
-        public static Pair<List<Integer>, List<List<Long>>> partitionUsingPowerDistribution(int numberOfPartitions,
-                                                                                         @Nonnull final List<Long> input) {
-            return randomPartition(numberOfPartitions, input, ListPartitioner::nextIntWithPowerDistribution);
+        public static List<Integer> getSplitsUsingNormalDistribution(int numberOfPartitions, int inputSize) {
+            final var splits = ImmutableList.<Integer>builder();
+            for (int i = 0; i < numberOfPartitions; i++) {
+                splits.add(random.nextInt(inputSize));
+            }
+            return splits.build();
         }
 
+        /**
+         * Partitions an input list into multiple sublists based on the provided split sizes.
+         * This method creates continuation snapshots and their corresponding expected results
+         * for testing pagination scenarios with random partition sizes.
+         *
+         * <p>The method ensures that:
+         * <ul>
+         *   <li>At least one partition is created (minimum numberOfPartitions = 1)</li>
+         *   <li>No more partitions than input elements are created</li>
+         *   <li>The last partition gets a continuation value of -1 (indicating end)</li>
+         *   <li>Each partition contains consecutive elements from the input</li>
+         * </ul>
+         *
+         * @param input The list of Long values to be partitioned
+         * @param splits The list of partition sizes to use for splitting
+         * @return A pair containing:
+         *         <ul>
+         *           <li>Left: List of continuation snapshots (integers indicating next start position, -1 for end)</li>
+         *           <li>Right: List of sublists representing the partitioned data</li>
+         *         </ul>
+         */
         @Nonnull
-        private static Pair<List<Integer>, List<List<Long>>> randomPartition(int numberOfPartitions,
-                                                                                @Nonnull final List<Long> input,
-                                                                                @Nonnull final Function<Integer, Integer> randomGenerator) {
+        public static Pair<List<Integer>, List<List<Long>>> randomPartition(@Nonnull final List<Long> input,
+                                                                             @Nonnull final List<Integer> splits) {
+            var numberOfPartitions = splits.size();
             numberOfPartitions = Math.min(numberOfPartitions, input.size());
             numberOfPartitions = Math.max(numberOfPartitions, 1);
             if (numberOfPartitions == 1) {
@@ -398,7 +429,7 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
 
             int size = 0;
             for (int i = 0; i < numberOfPartitions; i++) {
-                int partitionSize = size + randomGenerator.apply(input.size());
+                int partitionSize = size + splits.get(i);
                 if (size + partitionSize >= input.size() || (i == numberOfPartitions - 1 && size + partitionSize < input.size())) {
                     left.add(-1);
                     right.add(input.subList(size, input.size()));
@@ -472,13 +503,81 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
             return leafNodes.get(index);
         }
 
+        /**
+         * Calculates all descendants of the ROOT vertex in level-order (breadth-first) traversal.
+         * This is a convenience method that calls {@link #calculateDescendantsLevelOrder(long)} with ROOT.
+         *
+         * @return A list of all descendants from ROOT in level-order traversal.
+         */
         @Nonnull
-        public List<Long> calculateDescendants() {
-            return calculateDescendants(ROOT);
+        public List<Long> calculateDescendants(@Nonnull final RecursiveUnionExpression.Traversal traversal) {
+            return calculateDescendants(ROOT, traversal);
         }
 
+        /**
+         * Calculates all descendants of a given vertex in the specified traversal order.
+         * <br>
+         * For example, given the hierarchy:
+         * <pre>
+         * {@code
+         *         1
+         *       /   \
+         *      10    20
+         *    / | \   / \
+         *   40 50 70 100 210
+         *      |
+         *     250
+         * }
+         * </pre>
+         * Starting from vertex 1:
+         * - LEVEL traversal would return: [1, 10, 20, 40, 50, 70, 100, 210, 250]
+         * - PREORDER traversal would return: [1, 10, 40, 50, 250, 70, 20, 100, 210]
+         * - ANY traversal returns pre-order because the optimizer always prefers pre-order when given ANY order
+         *
+         * @param vertex The starting vertex to find descendants from. Must be >= ROOT.
+         * @param traversal The traversal order to use (LEVEL, PREORDER, or ANY).
+         * @return A list of all descendants (including the starting vertex) in the specified traversal order.
+         */
         @Nonnull
-        public List<Long> calculateDescendants(long vertex) {
+        public List<Long> calculateDescendants(long vertex, @Nonnull final RecursiveUnionExpression.Traversal traversal) {
+            switch (traversal) {
+                case LEVEL:
+                    return calculateDescendantsLevelOrder(vertex);
+                case PREORDER:
+                case ANY: // Optimizer always prefers pre-order when given ANY order
+                    Verify.verify(vertex >= ROOT);
+                    final var result = ImmutableList.<Long>builder();
+                    calculateDescendantsPreOrder(vertex, result);
+                    return result.build();
+                default:
+                    throw new IllegalArgumentException("Unsupported traversal type: " + traversal);
+            }
+        }
+
+        /**
+         * Calculates all descendants of a given vertex in level-order (breadth-first) traversal.
+         * This method visits all nodes at depth 0, then all nodes at depth 1, then all nodes at depth 2, etc.
+         * Uses a queue-based iterative approach for breadth-first traversal.
+         * <br>
+         * For example, given the hierarchy:
+         * <pre>
+         * {@code
+         *         1
+         *       /   \
+         *      10    20
+         *    / | \   / \
+         *   40 50 70 100 210
+         *      |
+         *     250
+         * }
+         * </pre>
+         * Starting from vertex 1, this method would return: [1, 10, 20, 40, 50, 70, 100, 210, 250]
+         * <br>
+         * @param vertex The starting vertex to find descendants from. Must be >= ROOT.
+         * @return A list of all descendants (including the starting vertex) in level-order traversal.
+         */
+        @Nonnull
+        public List<Long> calculateDescendantsLevelOrder(long vertex) {
             Verify.verify(vertex >= ROOT);
             final var result = ImmutableList.<Long>builder();
             final var reverseLookup = reverseLookup();
@@ -491,6 +590,37 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
                 level.addAll(reverseLookup.get(current));
             }
             return result.build();
+        }
+
+        /**
+         * Helper method for pre-order (depth-first) traversal of descendants.
+         * This method visits the current vertex first, then recursively visits all of its children from left to right.
+         * Uses a recursive approach for depth-first traversal.
+         * <br>
+         * For example, given the hierarchy:
+         * <pre>
+         * {@code
+         *         1
+         *       /   \
+         *      10    20
+         *    / | \   / \
+         *   40 50 70 100 210
+         *      |
+         *     250
+         * }
+         * </pre>
+         * Starting from vertex 1, this method would visit nodes in this order: [1, 10, 40, 50, 250, 70, 20, 100, 210]
+         * <br>
+         * @param vertex The current vertex being visited.
+         * @param result The builder to accumulate the traversal results.
+         */
+        private void calculateDescendantsPreOrder(long vertex,
+                                                  @Nonnull final ImmutableList.Builder<Long> result) {
+            result.add(vertex);
+            final var children = reverseLookup.get().get(vertex);
+            for (final var child : children) {
+                calculateDescendantsPreOrder(child, result);
+            }
         }
 
         @Nonnull
@@ -529,7 +659,8 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
                 while (j < maxChildrenCountPerLevel) {
                     listOfItems.add(firstItemNextLevel + j++);
                 }
-                final var levelPartitions = ListPartitioner.partitionUsingPowerDistribution((int)(firstItemNextLevel - firstItemCurrentLevel), listOfItems);
+                final var splits = ListPartitioner.getSplitsUsingPowerDistribution((int)(firstItemNextLevel - firstItemCurrentLevel), listOfItems.size());
+                final var levelPartitions = ListPartitioner.randomPartition(listOfItems, splits);
                 int newLevelSize = levelPartitions.getValue().stream().map(List::size).reduce(0, Integer::sum);
                 for (int partition = 0; partition < levelPartitions.getValue().size(); partition++) {
                     final var currentPartition = levelPartitions.getValue().get(partition);
@@ -541,6 +672,14 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
                 firstItemNextLevel = firstItemNextLevel + newLevelSize;
             }
             return Hierarchy.fromEdges(result);
+        }
+
+        public int size() {
+            final var vertices = ImmutableSet.<Long>builder();
+            for (final var edge : edges.entrySet()) {
+                vertices.add(edge.getKey(), edge.getKey());
+            }
+            return vertices.build().size();
         }
 
         public void print() {

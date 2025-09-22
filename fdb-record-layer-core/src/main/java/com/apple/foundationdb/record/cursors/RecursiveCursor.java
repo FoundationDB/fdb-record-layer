@@ -26,10 +26,12 @@ import com.apple.foundationdb.record.ByteArrayContinuation;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorContinuation;
+import com.apple.foundationdb.record.RecordCursorEndContinuation;
 import com.apple.foundationdb.record.RecordCursorProto;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorStartContinuation;
 import com.apple.foundationdb.record.RecordCursorVisitor;
+import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
@@ -319,7 +321,7 @@ public class RecursiveCursor<T> implements RecordCursor<RecursiveCursor.Recursiv
             if (node.emitPending) {
                 lastResult = RecordCursorResult.withNextValue(
                         new RecursiveValue<>(node.value, depth, false),
-                        buildContinuation(depth));
+                        buildContinuation(depth + 1));
                 node.emitPending = false;
                 return AsyncUtil.READY_FALSE;
             }

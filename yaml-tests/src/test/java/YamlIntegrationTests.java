@@ -263,7 +263,6 @@ public class YamlIntegrationTests {
         runner.runYamsql("bitmap-aggregate-index.yamsql");
     }
 
-    @MaintainYamlTestConfig(YamlTestConfigFilters.CORRECT_EXPLAIN_AND_METRICS)
     @TestTemplate
     public void recursiveCte(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("recursive-cte.yamsql");

@@ -114,10 +114,7 @@ public class RecordQueryRecursivePlan implements RecordQueryPlanWithChildren, Re
                         null,
                         continuation
                 ).skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit())
-                .map(r -> {
-                    System.out.println("r = " + r.getValue().getDatum().toString());
-                    return r.getValue();
-                });
+                .map(RecursiveCursor.RecursiveValue::getValue);
     }
 
     @Override
