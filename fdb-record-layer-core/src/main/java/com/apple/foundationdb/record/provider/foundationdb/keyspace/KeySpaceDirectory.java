@@ -719,6 +719,14 @@ public class KeySpaceDirectory {
             }
         }
 
+        // Handle ANY_VALUE specially - it should only be equal to itself
+        boolean isAnyValue = (o1 == ANY_VALUE || o2 == ANY_VALUE);
+        if (isAnyValue) {
+            @SuppressWarnings("PMD.CompareObjectsWithEquals")
+            boolean result = (o1 == o2);
+            return result;
+        }
+
         KeyType o1Type = KeyType.typeOf(o1);
         if (o1Type != KeyType.typeOf(o2)) {
             return false;
@@ -743,6 +751,11 @@ public class KeySpaceDirectory {
     protected static int valueHashCode(@Nullable Object value) {
         if (value == null) {
             return 0;
+        }
+
+        // Handle ANY_VALUE specially
+        if (value == ANY_VALUE) {
+            return System.identityHashCode(value);
         }
 
         switch (KeyType.typeOf(value)) {
@@ -916,6 +929,27 @@ public class KeySpaceDirectory {
                     "value", value,
                     "value_type", value.getClass().getName());
         }
+    }
+
+    /**
+     * Compares two KeySpaceDirectory objects for equality based on their intrinsic properties,
+     * ignoring their position in the directory hierarchy (parent, subdirectories) and wrapper functions.
+     *
+     * @param other the other KeySpaceDirectory to compare with
+     * @return true if the directories have the same name, keyType, and value; false otherwise
+     */
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
+    public boolean equalsIgnoringHierarchy(@Nullable Object other) {
+        if (this == other) {
+            return true;
+        }
+        if (other == null || getClass() != other.getClass()) {
+            return false;
+        }
+        KeySpaceDirectory that = (KeySpaceDirectory) other;
+        return Objects.equals(name, that.name) &&
+                Objects.equals(keyType, that.keyType) &&
+                areEqual(value, that.value);
     }
 
     private static class AnyValue {
