@@ -45,7 +45,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  */
 public class InitialVersionTest {
     private static final SemanticVersion VERSION = SemanticVersion.parse("3.0.18.0");
-    private static final EmbeddedConfig config = new EmbeddedConfig(FDBTestEnvironment.randomClusterFile());
+    private static final String CLUSTER_FILE = FDBTestEnvironment.randomClusterFile();
+    private static final EmbeddedConfig config = new EmbeddedConfig(CLUSTER_FILE);
 
     @BeforeAll
     static void beforeAll() throws Exception {
@@ -73,7 +74,7 @@ public class InitialVersionTest {
         return new YamlConnectionFactory() {
             @Override
             public YamlConnection getNewConnection(@Nonnull URI connectPath) throws SQLException {
-                return new SimpleYamlConnection(DriverManager.getConnection(connectPath.toString()), VERSION);
+                return new SimpleYamlConnection(DriverManager.getConnection(connectPath.toString()), VERSION, CLUSTER_FILE);
             }
 
             @Override

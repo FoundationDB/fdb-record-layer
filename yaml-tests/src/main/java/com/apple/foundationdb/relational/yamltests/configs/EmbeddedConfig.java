@@ -62,7 +62,7 @@ public class EmbeddedConfig implements YamlTestConfig {
 
     @Override
     public YamlConnectionFactory createConnectionFactory() {
-        return new EmbeddedYamlConnectionFactory();
+        return new EmbeddedYamlConnectionFactory(clusterFile);
     }
 
     @Override
