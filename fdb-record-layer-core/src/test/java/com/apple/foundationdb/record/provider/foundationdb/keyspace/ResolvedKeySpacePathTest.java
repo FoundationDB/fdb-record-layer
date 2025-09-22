@@ -43,6 +43,7 @@ import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 /**
  * Tests for {@link ResolvedKeySpacePath}.
@@ -94,7 +95,7 @@ class ResolvedKeySpacePathTest {
         assertEquals(path1.hashCode(), path2.hashCode(), "Equal objects must have equal hash codes");
             
         // Test inequality when values differ (except NULL type which only has null values)
-        if (keyType != KeyType.NULL && values.getValue2() != null) {
+        if (keyType != KeyType.NULL) {
             ResolvedKeySpacePath path3 = createResolvedPath(keyType, values.getValue2(), createRootParent(), constantDirectory);
             assertNotEquals(path1, path3, "Paths with different values should not be equal");
 
@@ -102,6 +103,8 @@ class ResolvedKeySpacePathTest {
                     path1, "Paths with different resolved values should not be equal");
             assertNotEquals(createResolvedPath(keyType, values.getValue2(), values.getValue1(), createRootParent(), constantDirectory, differenceInParent),
                     path1, "Paths with different logical values should not be equal");
+        } else {
+            assertNull(values.getValue2());
         }
             
         // Test basic contracts

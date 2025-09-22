@@ -59,6 +59,7 @@ class PathValueTest {
                 Arguments.of("different types", "string", null, 42L, null),
                 Arguments.of("different metadata", "test", new byte[]{1, 2, 3}, "test", new byte[]{4, 5, 6}),
                 Arguments.of("one null metadata", "test", new byte[]{1, 2, 3}, "test", null),
+                Arguments.of("one null value", null, null, "test", null),
                 Arguments.of("different value with same metadata", "test1", new byte[]{1, 2, 3}, "test2", new byte[]{1, 2, 3})
         );
     }
