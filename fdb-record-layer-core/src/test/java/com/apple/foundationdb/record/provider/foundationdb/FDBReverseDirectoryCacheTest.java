@@ -461,8 +461,8 @@ public class FDBReverseDirectoryCacheTest {
         final Supplier<BlockingInAsyncDetection> blockingInAsyncDetectionSupplier = factory.getBlockingInAsyncDetectionSupplier();
         try {
             factory.setBlockingInAsyncDetection(BlockingInAsyncDetection.DISABLED);
-            // Get a fresh new one
-            fdb = factory.getDatabase(FDBTestEnvironment.randomClusterFile());
+            // Get a fresh new one (but the same cluster as was wiped)
+            fdb = factory.getDatabase(fdb.getClusterFile());
 
             final Executor executor = new ForkJoinPool(parallelism + 1);
             final Semaphore lock = new Semaphore(parallelism);

@@ -39,7 +39,6 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.ResolverCrea
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.ResolverCreateHooks.PreWriteCheck;
 import com.apple.foundationdb.record.test.FDBDatabaseExtension;
 import com.apple.foundationdb.record.util.pair.Pair;
-import com.apple.foundationdb.test.FDBTestEnvironment;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
@@ -225,7 +224,7 @@ public abstract class LocatableResolverTest {
 
         FDBStoreTimer timer = new FDBStoreTimer();
 
-        FDBDatabase fdb = factory.getDatabase(FDBTestEnvironment.randomClusterFile());
+        FDBDatabase fdb = factory.getDatabase(database.getClusterFile());
         fdb.close(); // Make sure cache is fresh.
         String key = "world";
         Long value;
@@ -398,7 +397,7 @@ public abstract class LocatableResolverTest {
 
         FDBStoreTimer timer = new FDBStoreTimer();
         String key = "hello " + UUID.randomUUID();
-        FDBDatabase fdb = factory.getDatabase(FDBTestEnvironment.randomClusterFile());
+        FDBDatabase fdb = factory.getDatabase(database.getClusterFile());
 
         assertEquals(0, timer.getCount(FDBStoreTimer.Events.COMMIT));
         try (FDBRecordContext context = fdb.openContext(null, timer)) {

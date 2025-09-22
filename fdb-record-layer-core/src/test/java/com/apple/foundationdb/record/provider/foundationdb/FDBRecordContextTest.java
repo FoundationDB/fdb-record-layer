@@ -667,7 +667,7 @@ public class FDBRecordContextTest {
             factory.clear();
 
 
-            FDBDatabase database = dbExtension.getDatabase();
+            FDBDatabase database = factory.getDatabase(FDBTestEnvironment.randomClusterFile());
             try (FDBRecordContext context = database.openContext()) {
                 context.ensureActive().get(new byte[] { 0 }).thenAccept( value -> {
                     assertEquals(myThreadId, ThreadId.get());
