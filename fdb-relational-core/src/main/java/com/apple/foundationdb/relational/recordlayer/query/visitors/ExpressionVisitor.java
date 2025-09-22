@@ -516,6 +516,8 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         final Expression result;
         if (ctx.preparedStatementParameter() != null) {
             result = visitPreparedStatementParameter(ctx.preparedStatementParameter());
+        } else if (ctx.fullColumnName() != null) {
+            result = visitFullColumnName(ctx.fullColumnName());
         } else if (getDelegate().getPlanGenerationContext().shouldProcessLiteral() && ParseHelpers.isConstant(ctx.expressions())) {
             getDelegate().getPlanGenerationContext().startArrayLiteral();
             final var inListItems = visitExpressions(ctx.expressions());
@@ -528,9 +530,8 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
                     .processComplexLiteral(tokenIndex, arrayType));
         } else {
             final var inListItems = visitExpressions(ctx.expressions());
-            // if inListItems only contain one expression, return the expression, otherwise create an array.
-            if (true) {
-            // if (inListItems.size() > 1) {
+            // if in (expressions), wrap it in an internal array
+            if (ctx.LEFT_ROUND_BRACKET() != null) {
                 result = getDelegate().resolveFunction("__internal_array", inListItems.asList().toArray(new Expression[0]));
             } else {
                 result = inListItems.getSingleItem();
