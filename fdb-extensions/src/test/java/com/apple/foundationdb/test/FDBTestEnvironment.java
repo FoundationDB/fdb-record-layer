@@ -1,5 +1,5 @@
 /*
- * FDBTestClusterConfig.java
+ * FDBTestEnvironment.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -42,8 +42,6 @@ public final class FDBTestEnvironment {
         final String fdbEnvironment = System.getenv("FDB_ENVIRONMENT_YAML");
 
         if (fdbEnvironment != null && !fdbEnvironment.isEmpty()) {
-            // the yaml configuration supports multiple cluster files, but this extension currently only supports
-            // one. See FDBDatabaseExtension in fdb-record-layer-core, which already supports multiple clusters.
             clusterFiles = List.copyOf(parseFDBEnvironmentYaml(fdbEnvironment));
         } else {
             clusterFiles = Collections.singletonList(null); // List.of does not allow null
