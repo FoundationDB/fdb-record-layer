@@ -129,38 +129,40 @@ public final class StoreConfig {
 
     static RecordSerializer<Message> serializerFromOptions(Options options) throws RelationalException {
         final boolean encrypted = options.getOption(Options.Name.ENCRYPT_WHEN_SERIALIZING);
-        if (!encrypted) {
+        final boolean compressed = options.getOption(Options.Name.COMPRESS_WHEN_SERIALIZING);
+        final String keyStoreFile = options.getOption(Options.Name.ENCRYPTION_KEY_STORE);
+        if (!encrypted && compressed && keyStoreFile == null) {
             return DEFAULT_RELATIONAL_SERIALIZER;
         }
-        final SecretKey key;
-        try {
-            final String keyStoreFile = options.getOption(Options.Name.ENCRYPTION_KEY_STORE);
-            if (keyStoreFile == null) {
-                throw new RelationalException("Key store not specified", ErrorCode.UNSUPPORTED_OPERATION);
-            }
-            final String keyEntryAlias = options.getOption(Options.Name.ENCRYPTION_KEY_ENTRY);
-            if (keyEntryAlias == null) {
-                throw new RelationalException("Key entry not specified", ErrorCode.UNSUPPORTED_OPERATION);
-            }
-            final String keyPassword = options.getOption(Options.Name.ENCRYPTION_KEY_PASSWORD);
-            KeyStore keystore = KeyStore.getInstance(KeyStore.getDefaultType());
-            try (FileInputStream fis = new FileInputStream(keyStoreFile)) {
-                keystore.load(fis, keyPassword.toCharArray());
-            }
-            KeyStore.ProtectionParameter protParam = new KeyStore.PasswordProtection(keyPassword.toCharArray());
-            KeyStore.SecretKeyEntry entry = (KeyStore.SecretKeyEntry)keystore.getEntry(keyEntryAlias, protParam);
-            key = entry.getSecretKey();
-        } catch (FileNotFoundException ex) {
-            throw new RelationalException("Key store not found", ErrorCode.UNSUPPORTED_OPERATION, ex);
-        } catch (GeneralSecurityException | IOException ex) {
-            throw new RelationalException("Key loading failed", ErrorCode.UNSUPPORTED_OPERATION, ex);
-        }
-        return TransformedRecordSerializerJCE.newDefaultBuilder()
-                .setEncryptWhenSerializing(true)
-                .setEncryptionKey(key)
-                .setCompressWhenSerializing(true)
+        final TransformedRecordSerializerJCE.Builder<Message> serializerBuilder = TransformedRecordSerializerJCE.newDefaultBuilder()
+                .setEncryptWhenSerializing(encrypted)
+                .setCompressWhenSerializing(compressed)
                 .setCompressionLevel(Deflater.DEFAULT_COMPRESSION)
-                .setWriteValidationRatio(0.0)
-                .build();
+                .setWriteValidationRatio(0.0);
+        if (keyStoreFile != null) {
+            final SecretKey key;
+            try {
+                final String keyEntryAlias = options.getOption(Options.Name.ENCRYPTION_KEY_ENTRY);
+                if (keyEntryAlias == null) {
+                    throw new RelationalException("Key entry not specified", ErrorCode.UNSUPPORTED_OPERATION);
+                }
+                final String keyPassword = options.getOption(Options.Name.ENCRYPTION_KEY_PASSWORD);
+                KeyStore keystore = KeyStore.getInstance(KeyStore.getDefaultType());
+                try (FileInputStream fis = new FileInputStream(keyStoreFile)) {
+                    keystore.load(fis, keyPassword.toCharArray());
+                }
+                KeyStore.ProtectionParameter protParam = new KeyStore.PasswordProtection(keyPassword.toCharArray());
+                KeyStore.SecretKeyEntry entry = (KeyStore.SecretKeyEntry)keystore.getEntry(keyEntryAlias, protParam);
+                key = entry.getSecretKey();
+            } catch (FileNotFoundException ex) {
+                throw new RelationalException("Key store not found", ErrorCode.UNSUPPORTED_OPERATION, ex);
+            } catch (GeneralSecurityException | IOException ex) {
+                throw new RelationalException("Key loading failed", ErrorCode.UNSUPPORTED_OPERATION, ex);
+            }
+            serializerBuilder.setEncryptionKey(key);
+        } else if (encrypted) {
+            throw new RelationalException("Key store not specified", ErrorCode.UNSUPPORTED_OPERATION);
+        }
+        return serializerBuilder.build();
     }
 }
