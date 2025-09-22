@@ -37,10 +37,6 @@ public class EmbeddedConfig implements YamlTestConfig {
     @Nullable
     private final String clusterFile;
 
-    public EmbeddedConfig() {
-        this(null);
-    }
-
     public EmbeddedConfig(@Nullable final String clusterFile) {
         this.clusterFile = clusterFile;
     }

@@ -59,6 +59,7 @@ dependencies {
     implementation(libs.protobuf)
     implementation(libs.protobuf.util)
     implementation(libs.snakeyaml)
+    implementation project(path: ':fdb-extensions', configuration: 'tests')
 
     testImplementation(libs.bundles.test.impl)
     testRuntimeOnly(libs.bundles.test.runtime)
