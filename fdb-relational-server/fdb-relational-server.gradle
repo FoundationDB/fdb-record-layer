@@ -118,6 +118,7 @@ dependencies {
     testFixturesImplementation(libs.log4j.api)
 
     testImplementation(libs.bundles.test.impl)
+    testImplementation project(path: ':fdb-extensions', configuration: 'tests')
     testRuntimeOnly(libs.bundles.test.runtime)
     testCompileOnly(libs.bundles.test.compileOnly)
     testImplementation(libs.grpc.testing)
