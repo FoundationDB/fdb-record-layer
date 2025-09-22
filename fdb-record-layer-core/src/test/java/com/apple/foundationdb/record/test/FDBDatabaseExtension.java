@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactoryImp
 import com.apple.foundationdb.test.FDBTestEnvironment;
 import com.apple.foundationdb.test.TestExecutors;
 import org.junit.jupiter.api.extension.AfterEachCallback;
+import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.slf4j.Logger;
@@ -59,7 +60,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  * tests that use this extension are free to modify what would otherwise be global state on the factory or database.
  * </p>
  */
-public class FDBDatabaseExtension implements AfterEachCallback {
+public class FDBDatabaseExtension implements AfterEachCallback, BeforeEachCallback {
     private static final Logger LOGGER = LoggerFactory.getLogger(FDBDatabaseExtension.class);
     public static final String BLOCKING_IN_ASYNC_PROPERTY = "com.apple.foundationdb.record.blockingInAsyncDetection";
     public static final String API_VERSION_PROPERTY = "com.apple.foundationdb.apiVersion";
@@ -70,6 +71,7 @@ public class FDBDatabaseExtension implements AfterEachCallback {
     private FDBDatabaseFactory databaseFactory;
     @Nonnull
     private final Map<String, FDBDatabase> databases = new HashMap<>();
+    private String defaultClusterFile;
 
 
     public FDBDatabaseExtension() {
@@ -103,7 +105,7 @@ public class FDBDatabaseExtension implements AfterEachCallback {
                     for (final String clusterFile : FDBTestEnvironment.allClusterFiles()) {
                         FDBDatabase unused = baseFactory.getDatabase(clusterFile);
                         unused.performNoOp(); // make sure FDB gets opened
-                        unused.close();
+                        unused.close(); // FDBDatabase does not implement AutoCloseable
                     }
                     fdb = FDB.instance();
                 }
@@ -145,7 +147,7 @@ public class FDBDatabaseExtension implements AfterEachCallback {
 
     @Nonnull
     public FDBDatabase getDatabase() {
-        return getDatabase(FDBTestEnvironment.randomClusterFile());
+        return getDatabase(defaultClusterFile);
     }
 
     public FDBDatabase getDatabase(int clusterIndex) {
@@ -165,6 +167,11 @@ public class FDBDatabaseExtension implements AfterEachCallback {
             assertEquals(0, clusterFileToDatabase.getValue().warnAndCloseOldTrackedOpenContexts(0),
                     clusterFileToDatabase.getKey() + " should not have left any contexts open");
         }
+    }
+
+    @Override
+    public void beforeEach(final ExtensionContext context) {
+        defaultClusterFile = FDBTestEnvironment.randomClusterFile();
     }
 
     @Override
