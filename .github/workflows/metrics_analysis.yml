@@ -37,20 +37,8 @@ jobs:
           -PmetricsAnalysis.outlierQueries="$(pwd)/outlier-queries.txt" \
           || echo "ANALYSIS_FAILED=true" >> $GITHUB_OUTPUT
 
-        # Read the output for PR comment
-        {
-          echo 'ANALYSIS_REPORT<<EOF'
-          cat metrics-analysis-output.txt
-          echo EOF
-        } >> $GITHUB_OUTPUT
-        
-        if [[ -f "$(pwd)/outlier-queries.txt" ]] ; then
-          {
-            echo 'OUTLIERS_REPORT<<EOF'
-            cat outlier-queries.txt
-            echo EOF
-          } >> $GITHUB_OUTPUT
-        fi
+    - name: Add Report To Summary
+      run: cat metrics-analysis-output.txt > $GITHUB_STEP_SUMMARY
 
     - name: Check for outliers
       id: check-changes
@@ -66,26 +54,25 @@ jobs:
       with:
         github-token: ${{ secrets.GITHUB_TOKEN }}
         script: |
-          const output = `${{ steps.metrics-diff.outputs.OUTLIERS_REPORT }}`;
+          const fs = require('fs');
           const hasSignificantChanges = '${{ steps.check-changes.outputs.SIGNIFICANT_CHANGES }}' === 'true';
 
-          const commentBody = `## 📊 Metrics Diff Analysis
+          const commentBody = "## 📊 Metrics Diff Analysis\n\n" +
+            + fs.readFileSync("metrics-analysis-output.txt")
+            + `
+               <details>
+               <summary>ℹ️ About this analysis</summary>
 
-          ${output}
+               This automated analysis compares query planner metrics between the base branch and this PR. It categorizes changes into:
 
-          <details>
-          <summary>ℹ️ About this analysis</summary>
+               - **New queries**: Queries added in this PR
+               - **Dropped queries**: Queries removed in this PR
+               - **Plan changed + metrics changed**: Expected when query plans change
+               - **Metrics only changed**: Same plan but different metrics 
 
-          This automated analysis compares query planner metrics between the base branch and this PR. It categorizes changes into:
-
-          - **New queries**: Queries added in this PR
-          - **Dropped queries**: Queries removed in this PR
-          - **Plan changed + metrics changed**: Expected when query plans change
-          - **Metrics only changed**: ⚠️ Potential concern - same plan but different metrics
-
-          The last category may indicate planner regressions and should be investigated.
-          </details>
-          `;
+               The last category may indicate planner regressions and should be investigated.
+               </details>
+               `;
 
           // Find existing comment
           const { data: comments } = await github.rest.issues.listComments({
@@ -125,7 +112,7 @@ jobs:
           const fs = require('fs');
 
           // Parse the outliers report analysis output to find files with notable queries
-          const output = `${{ steps.metrics-diff.outputs.ANALYSIS_REPORT }}`;
+          const output = fs.readFileSync("outlier-queries.txt");
 
           // Each query appears separated by a blank line
           const queries = output.split('\n\n');
@@ -146,7 +133,7 @@ jobs:
                   owner: context.repo.owner,
                   repo: context.repo.repo,
                   pull_number: context.issue.number,
-                  body: `**Significant Metrics Change**\n\nThis query's metrics changed significantly during the latest run.\n\n${data}\n`
+                  body: "**Significant Metrics Change**\n\nThis query's metrics changed significantly during the latest run.\n\n" + data + "\n"
                   path: filePath,
                   line: lineNumber,
                   side: 'RIGHT'
