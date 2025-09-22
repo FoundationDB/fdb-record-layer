@@ -9,9 +9,7 @@ on:
       - 'yaml-tests/**'
       - '.github/workflows/metrics_analysis.yml'
 
-permissions:
-  contents: read
-  pull-requests: write
+permissions: write-all
 
 jobs:
   metrics-analysis:
