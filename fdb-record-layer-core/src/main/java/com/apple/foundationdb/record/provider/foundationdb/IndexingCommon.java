@@ -160,8 +160,8 @@ public class IndexingCommon {
 
         SubspaceProvider subspaceProvider = getRecordStoreBuilder().getSubspaceProvider();
         if (subspaceProvider != null) {
-            logIf(true, keyValues,
-                    subspaceProvider.logKey(), subspaceProvider);
+            keyValues.add(subspaceProvider.logKey());
+            keyValues.add(subspaceProvider);
         }
 
         if (moreKeyValues != null && !moreKeyValues.isEmpty()) {

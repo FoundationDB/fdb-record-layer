@@ -512,14 +512,14 @@ public abstract class IndexingBase {
                 metricsDiff = lastProgressSnapshot == null ? timer : StoreTimer.getDifference(timer, lastProgressSnapshot);
                 lastProgressSnapshot = StoreTimerSnapshot.from(timer);
             }
-            final KeyValueLogMessage message = KeyValueLogMessage.build("Indexer: Built Range",
+            LOGGER.info(KeyValueLogMessage.build("Indexer: Built Range",
                             LogMessageKeys.DELAY, toWait)
                     .addKeysAndValues(additionalLogMessageKeyValues != null ? additionalLogMessageKeyValues : Collections.emptyList())
                     .addKeysAndValues(indexingLogMessageKeyValues())
                     .addKeysAndValues(common.indexLogMessageKeyValues())
                     .addKeysAndValues(throttle.logMessageKeyValues())
-                    .addKeysAndValues(metricsDiff == null ? Collections.emptyMap() : metricsDiff.getKeysAndValues());
-            LOGGER.info(message.toString());
+                    .addKeysAndValues(metricsDiff == null ? Collections.emptyMap() : metricsDiff.getKeysAndValues())
+                    .toString());
         }
 
         validateTimeLimit(toWait);
