@@ -54,7 +54,7 @@ jobs:
         script: |
           const fs = require('fs');
           const hasSignificantChanges = '${{ steps.check-changes.outputs.SIGNIFICANT_CHANGES }}' === 'true';
-          const report = fs.readFileSync("./metrics-analysis-output.txt");
+          const report = fs.readFileSync("./metrics-analysis-output.txt", { encoding: 'utf8', flag: 'r'});
 
           const commentBody = "## 📊 Metrics Diff Analysis\n\n" +
             + report
@@ -112,7 +112,7 @@ jobs:
           const fs = require('fs');
 
           // Parse the outliers report analysis output to find files with notable queries
-          const output = fs.readFileSync("./outlier-queries.txt");
+          const output = fs.readFileSync("./outlier-queries.txt", { encoding: 'utf8', flag: 'r' }));
 
           // Each query appears separated by a blank line
           const queries = output.split('\n\n');
