@@ -317,7 +317,7 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
-    public void encryptedTest(YamlTest.Runner runner) throws Exception {
-        runner.runYamsql("encrypted.yamsql");
+    public void serializationOptions(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("serialization-options.yamsql");
     }
 }

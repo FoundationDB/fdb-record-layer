@@ -1,5 +1,5 @@
 #
-# encrypted.yamsql
+# serialization-options.yamsql
 #
 # This source file is part of the FoundationDB open source project
 #
@@ -21,7 +21,7 @@ options:
     supported_version: 4.6.1.0
     connection_options:
       ENCRYPT_WHEN_SERIALIZING: true
-      ENCRYPTION_KEY_STORE: src/test/resources/encrypted.p12
+      ENCRYPTION_KEY_STORE: src/test/resources/serialization-keys.p12
       ENCRYPTION_KEY_ENTRY: key-1
       ENCRYPTION_KEY_PASSWORD: YAML+SQL
 ---
