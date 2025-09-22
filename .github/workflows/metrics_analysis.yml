@@ -12,8 +12,7 @@ on:
 jobs:
   metrics-analysis:
     runs-on: ubuntu-latest
-    permissions:
-      pull-requests: write
+    permissions: write-all
 
     steps:
     - name: Checkout code
@@ -49,14 +48,16 @@ jobs:
 
     - name: Comment on PR
       uses: actions/github-script@v7
+      continue-on-error: true
       with:
         github-token: ${{ secrets.GITHUB_TOKEN }}
         script: |
           const fs = require('fs');
           const hasSignificantChanges = '${{ steps.check-changes.outputs.SIGNIFICANT_CHANGES }}' === 'true';
+          const report = fs.readFileSync("./metrics-analysis-output.txt");
 
           const commentBody = "## 📊 Metrics Diff Analysis\n\n" +
-            + fs.readFileSync("metrics-analysis-output.txt")
+            + report
             + `
                <details>
                <summary>ℹ️ About this analysis</summary>
@@ -104,13 +105,14 @@ jobs:
     - name: Add inline comments for outliers
       uses: actions/github-script@v7
       if: steps.check-changes.outputs.SIGNIFICANT_CHANGES == 'true'
+      continue-on-error: true
       with:
         github-token: ${{ secrets.GITHUB_TOKEN }}
         script: |
           const fs = require('fs');
 
           // Parse the outliers report analysis output to find files with notable queries
-          const output = fs.readFileSync("outlier-queries.txt");
+          const output = fs.readFileSync("./outlier-queries.txt");
 
           // Each query appears separated by a blank line
           const queries = output.split('\n\n');
