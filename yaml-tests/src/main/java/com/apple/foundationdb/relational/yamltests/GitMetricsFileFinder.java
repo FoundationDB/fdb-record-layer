@@ -1,0 +1,177 @@
+/*
+ * GitMetricsFileFinder.java
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.apple.foundationdb.relational.yamltests;
+
+import com.apple.foundationdb.record.logging.KeyValueLogMessage;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.google.common.collect.ImmutableSet;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import javax.annotation.Nonnull;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
+
+/**
+ * Utility class for finding changed metrics files using git integration.
+ * This class provides methods to identify metrics files that have changed between different git references.
+ */
+public final class GitMetricsFileFinder {
+    private static final Logger logger = LoggerFactory.getLogger(GitMetricsFileFinder.class);
+
+    private GitMetricsFileFinder() {
+        // Utility class
+    }
+
+    /**
+     * Finds all metrics YAML files that have changed between two git references.
+     *
+     * @param baseRef the base git reference (e.g., "main", "HEAD~1", commit SHA)
+     * @param repositoryRoot the root directory of the git repository
+     * @return set of paths to changed metrics files (both .yaml and .binpb)
+     * @throws RelationalException if git command fails or repository is not valid
+     */
+    @Nonnull
+    public static Set<Path> findChangedMetricsYamlFiles(@Nonnull final String baseRef,
+                                                        @Nonnull final Path repositoryRoot) throws RelationalException {
+        final List<String> changedFiles = getChangedFiles(baseRef, repositoryRoot);
+        final ImmutableSet.Builder<Path> metricsFiles = ImmutableSet.builder();
+
+        for (final var filePath : changedFiles) {
+            if (isMetricsYamlFile(filePath)) {
+                metricsFiles.add(repositoryRoot.resolve(filePath));
+            }
+        }
+
+        return metricsFiles.build();
+    }
+
+    /**
+     * Gets a list of all files changed between two git references.
+     *
+     * @param baseRef the base reference
+     * @param repositoryRoot the repository root directory
+     * @return list of relative file paths that have changed
+     * @throws RelationalException if git command fails
+     */
+    @Nonnull
+    private static List<String> getChangedFiles(@Nonnull final String baseRef,
+                                                @Nonnull final Path repositoryRoot) throws RelationalException {
+        final var command = List.of("git", "diff", "--name-only", baseRef);
+        try {
+            if (logger.isDebugEnabled()) {
+                logger.debug(KeyValueLogMessage.of("Executing git command",
+                        "root", repositoryRoot,
+                        "command", String.join(" ", command)));
+            }
+            final var processBuilder = new ProcessBuilder(command)
+                    .directory(repositoryRoot.toFile())
+                    .redirectErrorStream(true);
+
+            final var process = processBuilder.start();
+            final var result = new ArrayList<String>();
+
+            try (final var reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    result.add(line.trim());
+                }
+            }
+
+            final var exitCode = process.waitFor();
+            if (exitCode != 0) {
+                throw new RelationalException(
+                        "Git command failed with exit code " + exitCode + ": " + String.join(" ", command),
+                        ErrorCode.INTERNAL_ERROR);
+            }
+
+            return result;
+        } catch (final IOException | InterruptedException e) {
+            throw new RelationalException("Failed to execute git command: " + String.join(" ", command), ErrorCode.INTERNAL_ERROR, e);
+        }
+    }
+
+    /**
+     * Checks if a file path represents a metrics file (either .yaml or .binpb).
+     *
+     * @param filePath the file path to check
+     * @return true if the file is a metrics file
+     */
+    private static boolean isMetricsYamlFile(@Nonnull final String filePath) {
+        return filePath.endsWith(".metrics.yaml");
+    }
+
+    /**
+     * Checks if a file exists at the specified path.
+     *
+     * @param filePath the path to check
+     * @return true if the file exists
+     */
+    public static boolean fileExists(@Nonnull final Path filePath) {
+        return Files.exists(filePath) && Files.isRegularFile(filePath);
+    }
+
+    /**
+     * Gets the file path for a specific git reference (commit).
+     * This method checks out the file content at the specified reference.
+     *
+     * @param filePath the relative file path
+     * @param gitRef the git reference
+     * @param repositoryRoot the repository root
+     * @return path to a temporary file containing the content at the specified reference
+     * @throws RelationalException if git command fails
+     */
+    @Nonnull
+    public static Path getFileAtReference(@Nonnull final String filePath,
+                                          @Nonnull final String gitRef,
+                                          @Nonnull final Path repositoryRoot) throws RelationalException {
+        try {
+            final var tempFile = Files.createTempFile("metrics-diff-", gitRef + ".metrics.yaml");
+            final var command = List.of("git", "show", gitRef + ":" + filePath);
+            final var processBuilder = new ProcessBuilder(command)
+                    .directory(repositoryRoot.toFile())
+                    .redirectOutput(tempFile.toFile())
+                    .redirectErrorStream(false);
+
+            final var process = processBuilder.start();
+            final var exitCode = process.waitFor();
+
+            if (exitCode != 0) {
+                Files.deleteIfExists(tempFile);
+                throw new RelationalException(
+                        "Git show command failed with exit code " + exitCode + " for " + gitRef + ":" + filePath,
+                        ErrorCode.INTERNAL_ERROR);
+            }
+
+            return tempFile;
+        } catch (final IOException | InterruptedException e) {
+            throw new RelationalException(
+                    "Failed to get file content at reference " + gitRef + ":" + filePath, ErrorCode.INTERNAL_ERROR, e);
+        }
+    }
+}

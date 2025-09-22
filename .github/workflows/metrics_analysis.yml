@@ -1,0 +1,158 @@
+name: Metrics Diff Analysis
+
+on:
+  pull_request:
+    branches: [ main ]
+    paths:
+      - '**/*.metrics.yaml'
+      - '**/*.metrics.binpb'
+      - 'yaml-tests/**'
+      - '.github/workflows/metrics_analysis.yml'
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  metrics-analysis:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Need full history for git diff
+
+    - name: Setup Base Environment
+      uses: ./actions/setup-base-env
+
+    - name: Run metrics diff analysis
+      id: metrics-diff
+      run: |
+        # Run the analysis and capture output
+        ./gradlew :yaml-tests:analyzeMetrics \
+          -PmetricsAnalysis.baseRef="${{ github.event.pull_request.base.sha }}" \
+          -PmetricsAnalysis.repositoryRoot="$( pwd )" \
+          -PmetricsAnalysis.output="$(pwd)/metrics-analysis-output.txt" \
+          -PmetricsAnalysis.outlierQueries="$(pwd)/outlier-queries.txt" \
+          || echo "ANALYSIS_FAILED=true" >> $GITHUB_OUTPUT
+
+        # Read the output for PR comment
+        {
+          echo 'ANALYSIS_REPORT<<EOF'
+          cat metrics-analysis-output.txt
+          echo EOF
+        } >> $GITHUB_OUTPUT
+        
+        if [[ -f "$(pwd)/outlier-queries.txt" ]] ; then
+          {
+            echo 'OUTLIERS_REPORT<<EOF'
+            cat outlier-queries.txt
+            echo EOF
+          } >> $GITHUB_OUTPUT
+        fi
+
+    - name: Check for outliers
+      id: check-changes
+      run: |
+        if [[ -f outlier-queries.txt ]] ; then
+          echo "SIGNIFICANT_CHANGES=true" >> $GITHUB_OUTPUT
+        else
+          echo "SIGNIFICANT_CHANGES=false" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Comment on PR
+      uses: actions/github-script@v7
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        script: |
+          const output = `${{ steps.metrics-diff.outputs.OUTLIERS_REPORT }}`;
+          const hasSignificantChanges = '${{ steps.check-changes.outputs.SIGNIFICANT_CHANGES }}' === 'true';
+
+          const commentBody = `## 📊 Metrics Diff Analysis
+
+          ${output}
+
+          <details>
+          <summary>ℹ️ About this analysis</summary>
+
+          This automated analysis compares query planner metrics between the base branch and this PR. It categorizes changes into:
+
+          - **New queries**: Queries added in this PR
+          - **Dropped queries**: Queries removed in this PR
+          - **Plan changed + metrics changed**: Expected when query plans change
+          - **Metrics only changed**: ⚠️ Potential concern - same plan but different metrics
+
+          The last category may indicate planner regressions and should be investigated.
+          </details>
+          `;
+
+          // Find existing comment
+          const { data: comments } = await github.rest.issues.listComments({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: context.issue.number,
+          });
+
+          const existingComment = comments.find(comment =>
+            comment.user.type === 'Bot' && comment.body.includes('📊 Metrics Diff Analysis')
+          );
+
+          if (existingComment) {
+            // Update existing comment
+            await github.rest.issues.updateComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: existingComment.id,
+              body: commentBody
+            });
+          } else {
+            // Create new comment
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: commentBody
+            });
+          }
+
+    - name: Add inline comments for outliers
+      uses: actions/github-script@v7
+      if: steps.check-changes.outputs.SIGNIFICANT_CHANGES == 'true'
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        script: |
+          const fs = require('fs');
+
+          // Parse the outliers report analysis output to find files with notable queries
+          const output = `${{ steps.metrics-diff.outputs.ANALYSIS_REPORT }}`;
+
+          // Each query appears separated by a blank line
+          const queries = output.split('\n\n');
+
+          for (const query of queries) {
+            var newl = query.indexOf('\n');
+            if (newl < 0) {
+              continue;
+            }
+            const info = query.substring(0, newl);
+            const match = info.match(/^(.+\.metrics\.yaml):(\d+): (.+)$/);
+            if (match) {
+              const [, filePath, lineNumber, query] = match;
+              const data = query.substring(newl, query.length);
+              changedFiles.push({ filePath, query });
+              try {
+                await github.rest.pulls.createReviewComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  pull_number: context.issue.number,
+                  body: `**Significant Metrics Change**\n\nThis query's metrics changed significantly during the latest run.\n\n${data}\n`
+                  path: filePath,
+                  line: lineNumber,
+                  side: 'RIGHT'
+                });
+              } catch (error) {
+                console.log(`Could not add comment to ${filePath}: ${error.message}`);
+              }
+            }
+          }
