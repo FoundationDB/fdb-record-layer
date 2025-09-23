@@ -72,8 +72,8 @@ class MetricsDiffAnalyzerTest {
     @Nonnull
     private MetricsDiffAnalyzer.MetricsAnalysisResult analyze(@Nonnull Map<PlannerMetricsProto.Identifier, MetricsInfo> baseMetrics,
                                                               @Nonnull Map<PlannerMetricsProto.Identifier, MetricsInfo> headMetrics) {
-        final var analyzer = new MetricsDiffAnalyzer("base", Paths.get("."));
-        final var analysisBuilder = MetricsDiffAnalyzer.MetricsAnalysisResult.newBuilder();
+        final var analyzer = new MetricsDiffAnalyzer("base", "head", Paths.get("."), null);
+        final var analysisBuilder = analyzer.newAnalysisBuilder();
         final var filePath = Paths.get("test.metrics.yaml");
 
         analyzer.compareMetrics(baseMetrics, headMetrics, filePath, analysisBuilder);

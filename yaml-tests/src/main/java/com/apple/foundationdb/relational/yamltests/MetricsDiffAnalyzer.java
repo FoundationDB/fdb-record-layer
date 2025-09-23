@@ -53,9 +53,6 @@ import java.util.TreeMap;
 public final class MetricsDiffAnalyzer {
     private static final Logger logger = LogManager.getLogger(MetricsDiffAnalyzer.class);
 
-    private final String baseRef;
-    private final Path repositoryRoot;
-
     /**
      * Command line arguments for the metrics diff analyzer.
      */
@@ -72,14 +69,30 @@ public final class MetricsDiffAnalyzer {
         @Parameter(names = {"--outlier-queries"}, description = "Output file path to specifically list data for outlier queries", order = 3)
         public String outlierQueryPath;
 
+        @Parameter(names = {"--url-base"}, description = "Base of the URL to use for linking to queries", order = 4)
+        public String urlBase;
+
         @Parameter(names = {"--help", "-h"}, description = "Show help message", help = true, order = 4)
         public boolean help;
     }
 
+    @Nonnull
+    private final String baseRef;
+    @Nonnull
+    private final String headRef;
+    @Nullable
+    private final Path repositoryRoot;
+    @Nullable
+    private final String urlBase;
+
     public MetricsDiffAnalyzer(@Nonnull final String baseRef,
-                               @Nonnull final Path repositoryRoot) {
+                               @Nonnull final String headRef,
+                               @Nullable final Path repositoryRoot,
+                               @Nullable final String urlBase) {
         this.baseRef = baseRef;
+        this.headRef = headRef;
         this.repositoryRoot = repositoryRoot;
+        this.urlBase = urlBase;
     }
 
     /**
@@ -110,7 +123,7 @@ public final class MetricsDiffAnalyzer {
         final Path outputPath = arguments.outputPath != null ? Paths.get(arguments.outputPath) : null;
 
         try {
-            final var analyzer = new MetricsDiffAnalyzer(baseRef, repositoryRoot);
+            final var analyzer = new MetricsDiffAnalyzer(baseRef, GitMetricsFileFinder.getHeadReference(repositoryRoot), repositoryRoot, arguments.urlBase);
             final var analysis = analyzer.analyze();
             final var report = analysis.generateReport();
 
@@ -157,7 +170,7 @@ public final class MetricsDiffAnalyzer {
                 "base", baseRef,
                 "file_count", changedFiles.size()));
 
-        final var analysisBuilder = MetricsAnalysisResult.newBuilder(repositoryRoot);
+        final var analysisBuilder = newAnalysisBuilder();
 
         for (final var filePath : changedFiles) {
             analyzeYamlFile(filePath, analysisBuilder);
@@ -276,6 +289,11 @@ public final class MetricsDiffAnalyzer {
         }
     }
 
+    @Nonnull
+    public MetricsAnalysisResult.Builder newAnalysisBuilder() {
+        return new MetricsAnalysisResult.Builder(baseRef, headRef, repositoryRoot, urlBase);
+    }
+
     /**
      * Results of metrics analysis containing all detected changes.
      */
@@ -284,19 +302,31 @@ public final class MetricsDiffAnalyzer {
         private final List<QueryChange> droppedQueries;
         private final List<QueryChange> planAndMetricsChanged;
         private final List<QueryChange> metricsOnlyChanged;
+        @Nonnull
+        private final String baseRef;
+        @Nonnull
+        private final String headRef;
         @Nullable
         private final Path repositoryRoot;
+        @Nullable
+        private final String urlBase;
 
         private MetricsAnalysisResult(@Nonnull final List<QueryChange> newQueries,
                                       @Nonnull final List<QueryChange> droppedQueries,
                                       @Nonnull final List<QueryChange> planAndMetricsChanged,
                                       @Nonnull final List<QueryChange> metricsOnlyChanged,
-                                      @Nullable final Path repositoryRoot) {
+                                      @Nonnull final String baseRef,
+                                      @Nonnull final String headRef,
+                                      @Nullable final Path repositoryRoot,
+                                      @Nullable final String urlBase) {
             this.newQueries = newQueries;
             this.droppedQueries = droppedQueries;
             this.planAndMetricsChanged = planAndMetricsChanged;
             this.metricsOnlyChanged = metricsOnlyChanged;
+            this.baseRef = baseRef;
+            this.headRef = headRef;
             this.repositoryRoot = repositoryRoot;
+            this.urlBase = urlBase;
         }
 
         public List<QueryChange> getNewQueries() {
@@ -320,19 +350,35 @@ public final class MetricsDiffAnalyzer {
             return repositoryRoot == null ? path : repositoryRoot.relativize(path);
         }
 
+        @Nonnull
+        private String formatQueryDisplay(@Nonnull final QueryChange change) {
+            return formatQueryDisplay(change, true);
+        }
+
         /**
          * Helper method to format a query change for display with relative path and line number.
          */
         @Nonnull
-        private String formatQueryDisplay(@Nonnull final QueryChange change) {
+        private String formatQueryDisplay(@Nonnull final QueryChange change, boolean asLink) {
             int lineNumber = -1;
+            String ref = null;
             if (change.newInfo != null) {
                 lineNumber = change.newInfo.getLineNumber();
+                ref = headRef;
             } else if (change.oldInfo != null) {
                 lineNumber = change.oldInfo.getLineNumber();
+                ref = baseRef;
             }
             final String lineInfo = lineNumber > 0 ? (":" + lineNumber) : "";
-            return String.format("%s%s: `%s`", relativePath(change.filePath), lineInfo, change.identifier.getQuery());
+            String locationText = relativePath(change.filePath) + lineInfo;
+            if (asLink && urlBase != null) {
+                locationText = "[" + locationText + "](" + urlBase + "/" + ref + "/" + relativePath(change.filePath);
+                if (lineNumber > 0) {
+                    locationText += "#L" + lineNumber;
+                }
+                locationText += ")";
+            }
+            return locationText + ": `" + change.identifier.getQuery() + "`";
         }
 
         /**
@@ -417,7 +463,8 @@ public final class MetricsDiffAnalyzer {
 
             final StringBuilder report = new StringBuilder();
             for (QueryChange queryChange : outliers) {
-                report.append(formatQueryDisplay(queryChange)).append("\n");
+                // One query per line. Do not use format as a link
+                report.append(formatQueryDisplay(queryChange, false)).append("\n");
                 appendMetricsDiff(report, queryChange);
                 report.append("\n");
             }
@@ -588,24 +635,25 @@ public final class MetricsDiffAnalyzer {
             }
         }
 
-        public static MetricsAnalysisResult.Builder newBuilder() {
-            return new Builder(null);
-        }
-
-        public static MetricsAnalysisResult.Builder newBuilder(@Nullable final Path repositoryRoot) {
-            return new Builder(repositoryRoot);
-        }
-
         public static class Builder {
             private final ImmutableList.Builder<QueryChange> newQueries = ImmutableList.builder();
             private final ImmutableList.Builder<QueryChange> droppedQueries = ImmutableList.builder();
             private final ImmutableList.Builder<QueryChange> planAndMetricsChanged = ImmutableList.builder();
             private final ImmutableList.Builder<QueryChange> metricsOnlyChanged = ImmutableList.builder();
+            @Nonnull
+            private final String baseRef;
+            @Nonnull
+            private final String headRef;
             @Nullable
             private final Path repositoryRoot;
+            @Nullable
+            private final String urlBase;
 
-            public Builder(@Nullable final Path repositoryRoot) {
+            public Builder(@Nonnull String baseRef, @Nonnull String headRef, @Nullable final Path repositoryRoot, @Nullable final String urlBase) {
+                this.baseRef = baseRef;
+                this.headRef = headRef;
                 this.repositoryRoot = repositoryRoot;
+                this.urlBase = urlBase;
             }
 
             public Builder addNewQuery(@Nonnull final Path filePath,
@@ -644,7 +692,10 @@ public final class MetricsDiffAnalyzer {
                         droppedQueries.build(),
                         planAndMetricsChanged.build(),
                         metricsOnlyChanged.build(),
-                        repositoryRoot
+                        baseRef,
+                        headRef,
+                        repositoryRoot,
+                        urlBase
                 );
             }
         }

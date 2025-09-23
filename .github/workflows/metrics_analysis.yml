@@ -12,7 +12,9 @@ on:
 jobs:
   metrics-analysis:
     runs-on: ubuntu-latest
-    permissions: write-all
+    permissions:
+      issues: write
+      pull-requests: write
 
     steps:
     - name: Checkout code
@@ -29,6 +31,7 @@ jobs:
         # Run the analysis. Compare against the base hash of this PR
         ./gradlew :yaml-tests:analyzeMetrics \
           -PmetricsAnalysis.baseRef="${{ github.event.pull_request.base.sha }}" \
+          -PmetricsAnalysis.urlBase="${{ github.server_url }}/${{ github.repository }}/blob" \
           -PmetricsAnalysis.repositoryRoot="${{ github.workspace }}" \
           -PmetricsAnalysis.output="${{ github.workspace }}/metrics-analysis-output.txt" \
           -PmetricsAnalysis.outlierQueries="${{ github.workspace }}/outlier-queries.txt"
@@ -90,9 +93,32 @@ jobs:
       with:
         github-token: ${{ secrets.GITHUB_TOKEN }}
         script: |
-          const fs = require('fs');
+          // First, delete any existing comments from previous runs
+          const { data: reviewComments } = await github.rest.pulls.listReviewComments({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            pull_number: context.issue.number,
+          });
+
+          const metricsComments = reviewComments.filter(comment =>
+            comment.user.type === 'Bot' && comment.body.includes('**Significant Metrics Change**')
+          );
+
+          for (const comment of metricsComments) {
+            try {
+              await github.rest.pulls.deleteReviewComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: comment.id,
+              });
+              console.log(`Deleted previous metrics comment ${comment.id}`);
+            } catch (error) {
+              console.log(`Could not delete comment ${comment.id}: ${error.message}`);
+            }
+          }
 
           // Parse the outliers report analysis output to find files with notable queries
+          const fs = require('fs');
           const output = fs.readFileSync("${{ github.workspace }}/outlier-queries.txt", { encoding: 'utf8', flag: 'r' });
 
           // Each query appears separated by a blank line

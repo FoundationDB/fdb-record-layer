@@ -174,4 +174,36 @@ public final class GitMetricsFileFinder {
                     "Failed to get file content at reference " + gitRef + ":" + filePath, ErrorCode.INTERNAL_ERROR, e);
         }
     }
+
+    /**
+     * Get the current commit hash of the repo.
+     *
+     * @param repositoryRoot the directory to run the git process from
+     * @return the current commit hash
+     * @throws RelationalException if git commit fails
+     */
+    @Nonnull
+    public static String getHeadReference(@Nonnull Path repositoryRoot) throws RelationalException {
+        try {
+            final var command = List.of("git", "rev-parse", "HEAD");
+            final var processBuilder = new ProcessBuilder(command)
+                    .directory(repositoryRoot.toFile())
+                    .redirectErrorStream(false);
+
+            final var process = processBuilder.start();
+            final var exitCode = process.waitFor();
+            final String ref = new String(process.getInputStream().readAllBytes()).strip();
+
+            if (exitCode != 0) {
+                throw new RelationalException(
+                        "Git rev-parse command failed with exit code " + exitCode,
+                        ErrorCode.INTERNAL_ERROR);
+            }
+
+            return ref;
+        } catch (final IOException | InterruptedException e) {
+            throw new RelationalException(
+                    "Failed to get current head reference", ErrorCode.INTERNAL_ERROR, e);
+        }
+    }
 }

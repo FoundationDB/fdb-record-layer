@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.yamltests;
 
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
@@ -36,31 +37,23 @@ class MetricsDiffIntegrationTest {
 
     @Test
     void testCompleteWorkflowWithStatistics() throws Exception {
-        // Load test resources
-        final var baseMetrics = YamlExecutionContext.loadMetricsFromYamlFile(
-                getTestResourcePath("metrics-diff-test-base.metrics.yaml"));
-        final var headMetrics = YamlExecutionContext.loadMetricsFromYamlFile(
-                getTestResourcePath("metrics-diff-test-head.metrics.yaml"));
-        final Path basePath = Paths.get(".");
-
-        final var analyzer = new MetricsDiffAnalyzer("HEAD", basePath);
-
-        final var analysisBuilder = MetricsDiffAnalyzer.MetricsAnalysisResult.newBuilder(basePath);
-        analyzer.compareMetrics(baseMetrics, headMetrics, Paths.get("test.metrics.yaml"), analysisBuilder);
-        final var result = analysisBuilder.build();
+        final MetricsDiffAnalyzer.MetricsAnalysisResult analysis = analyze(
+                "metrics-diff-test-base.metrics.yaml",
+                "metrics-diff-test-head.metrics.yaml");
 
         // Verify the analysis detected expected changes
-        assertThat(result.getNewQueries()).hasSize(1); // table4 is new
-        assertThat(result.getDroppedQueries()).isEmpty();
-        assertThat(result.getPlanAndMetricsChanged()).isEmpty(); // no plan changes
-        assertThat(result.getMetricsOnlyChanged()).hasSize(3); // table1, table2, table3 have metrics changes
+        assertThat(analysis.getNewQueries()).hasSize(1); // table4 is new
+        assertThat(analysis.getDroppedQueries()).isEmpty();
+        assertThat(analysis.getPlanAndMetricsChanged()).isEmpty(); // no plan changes
+        assertThat(analysis.getMetricsOnlyChanged()).hasSize(3); // table1, table2, table3 have metrics changes
 
         // Generate and verify report
-        final var report = result.generateReport();
+        final var report = analysis.generateReport();
         assertThat(report)
                 .contains("# 📊 Metrics Diff Analysis Report")
                 .contains("## Summary")
                 .contains("- New queries: 1")
+                .contains("test.metrics.yaml: 1")
                 .contains("- Dropped queries: 0")
                 .contains("- Plan changed + metrics changed: 0")
                 .contains("- Plan unchanged + metrics changed: 3")
@@ -74,26 +67,50 @@ class MetricsDiffIntegrationTest {
     }
 
     @Test
+    void testCompleteWorkflowBackwards() throws Exception {
+        final MetricsDiffAnalyzer.MetricsAnalysisResult analysis = analyze(
+                "metrics-diff-test-head.metrics.yaml",
+                "metrics-diff-test-base.metrics.yaml");
+
+        // Verify the analysis detected expected changes
+        assertThat(analysis.getNewQueries()).isEmpty();
+        assertThat(analysis.getDroppedQueries()).hasSize(1);
+        assertThat(analysis.getPlanAndMetricsChanged()).isEmpty(); // no plan changes
+        assertThat(analysis.getMetricsOnlyChanged()).hasSize(3); // table1, table2, table3 have metrics changes
+
+        // Generate and verify report
+        final var report = analysis.generateReport();
+        assertThat(report)
+                .contains("# 📊 Metrics Diff Analysis Report")
+                .contains("## Summary")
+                .contains("- New queries: 0")
+                .contains("- Dropped queries: 1")
+                .contains("[test.metrics.yaml:35](https://example.com/repo/blob/base/test.metrics.yaml#L35): `SELECT * FROM table4`")
+                .contains("- Plan changed + metrics changed: 0")
+                .contains("- Plan unchanged + metrics changed: 3")
+                // Verify statistical analysis
+                .contains("## Only Metrics Changed")
+                .contains("### Statistical Summary (Only Metrics Changed)")
+                .contains("**`task_count`**:")
+                .contains("Average change: -2.0") // All queries have +2 task_count
+                .contains("**`transform_count`**:")
+                .contains("Average change: -1.0"); // All queries have +1 transform_count
+    }
+
+    @Test
     void testOutlierDetection() throws Exception {
-        // Load test resources with outlier data
-        final var baseMetrics = YamlExecutionContext.loadMetricsFromYamlFile(
-                getTestResourcePath("metrics-outlier-test-base.metrics.yaml"));
-        final var headMetrics = YamlExecutionContext.loadMetricsFromYamlFile(
-                getTestResourcePath("metrics-outlier-test-head.metrics.yaml"));
-        final Path basePath = Paths.get(".");
+        // Load test files with outlier case
+        final MetricsDiffAnalyzer.MetricsAnalysisResult analysis = analyze(
+                "metrics-outlier-test-base.metrics.yaml",
+                "metrics-outlier-test-head.metrics.yaml");
 
-        final var analyzer = new MetricsDiffAnalyzer("HEAD", basePath);
-        final var analysisBuilder = MetricsDiffAnalyzer.MetricsAnalysisResult.newBuilder(basePath);
-
-        analyzer.compareMetrics(baseMetrics, headMetrics, Paths.get("outlier-test.metrics.yaml"), analysisBuilder);
-        final var result = analysisBuilder.build();
-
-        final var report = result.generateReport();
+        final var report = analysis.generateReport();
 
         assertThat(report)
                 // Should detect the outlier query
                 .contains("### Significant Changes (Only Metrics Changed)")
                 .contains("outlier_query")
+                .contains("[test.metrics.yaml:145](https://example.com/repo/blob/head/test.metrics.yaml#L145): `outlier_query`")
                 // Normal queries should have small changes (+1), outlier should have large changes (+100, +50)
                 .contains("`task_count`: 100 -> 200 (+100)")
                 .contains("`transform_count`: 50 -> 100 (+50)");
@@ -101,19 +118,11 @@ class MetricsDiffIntegrationTest {
 
     @Test
     void testReportFormatting() throws Exception {
-        final var baseMetrics = YamlExecutionContext.loadMetricsFromYamlFile(
-                getTestResourcePath("test-base.metrics.yaml"));
-        final var headMetrics = YamlExecutionContext.loadMetricsFromYamlFile(
-                getTestResourcePath("test-head.metrics.yaml"));
-        final Path basePath = Paths.get(".");
+        final MetricsDiffAnalyzer.MetricsAnalysisResult analysis = analyze(
+                "test-base.metrics.yaml",
+                "test-head.metrics.yaml");
 
-        final var analyzer = new MetricsDiffAnalyzer("HEAD", basePath);
-        final var analysisBuilder = MetricsDiffAnalyzer.MetricsAnalysisResult.newBuilder(basePath);
-
-        analyzer.compareMetrics(baseMetrics, headMetrics, Paths.get("format-test.metrics.yaml"), analysisBuilder);
-        final var result = analysisBuilder.build();
-
-        final var report = result.generateReport();
+        final var report = analysis.generateReport();
 
         assertThat(report)
                 // Verify markdown formatting
@@ -138,19 +147,8 @@ class MetricsDiffIntegrationTest {
     @Test
     void testEmptyResultsReporting() throws Exception {
         // Test with identical files (no changes)
-        final var baseMetrics = YamlExecutionContext.loadMetricsFromYamlFile(
-                getTestResourcePath("test-base.metrics.yaml"));
-        final var headMetrics = YamlExecutionContext.loadMetricsFromYamlFile(
-                getTestResourcePath("test-base.metrics.yaml")); // Same file
-        final Path basePath = Paths.get(".");
-
-        final var analyzer = new MetricsDiffAnalyzer("main", basePath);
-        final var analysisBuilder = MetricsDiffAnalyzer.MetricsAnalysisResult.newBuilder(basePath);
-
-        analyzer.compareMetrics(baseMetrics, headMetrics, Paths.get("no-changes.metrics.yaml"), analysisBuilder);
-        final var result = analysisBuilder.build();
-
-        final var report = result.generateReport();
+        final MetricsDiffAnalyzer.MetricsAnalysisResult analysis = analyze("test-base.metrics.yaml", "test-base.metrics.yaml");
+        final var report = analysis.generateReport();
 
         // Should show no changes
         assertThat(report)
@@ -161,7 +159,22 @@ class MetricsDiffIntegrationTest {
     }
 
     @Nonnull
-    private Path getTestResourcePath(String filename) {
+    private static MetricsDiffAnalyzer.MetricsAnalysisResult analyze(@Nonnull String baseResource, @Nonnull String headResource) throws RelationalException {
+        // Load test resources
+        final var baseMetrics = YamlExecutionContext.loadMetricsFromYamlFile(
+                getTestResourcePath(baseResource));
+        final var headMetrics = YamlExecutionContext.loadMetricsFromYamlFile(
+                getTestResourcePath(headResource));
+        final Path basePath = Paths.get(".");
+
+        final MetricsDiffAnalyzer analyzer = new MetricsDiffAnalyzer("base", "head", basePath, "https://example.com/repo/blob");
+        final MetricsDiffAnalyzer.MetricsAnalysisResult.Builder analysisBuilder = analyzer.newAnalysisBuilder();
+        analyzer.compareMetrics(baseMetrics, headMetrics, Paths.get("test.metrics.yaml"), analysisBuilder);
+        return analysisBuilder.build();
+    }
+
+    @Nonnull
+    private static Path getTestResourcePath(String filename) {
         final var classLoader = Thread.currentThread().getContextClassLoader();
         final var resource = classLoader.getResource("metrics-diff/" + filename);
         assertNotNull(resource, "Test resource not found: metrics-diff/" + filename);

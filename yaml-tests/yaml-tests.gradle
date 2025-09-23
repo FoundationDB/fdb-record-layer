@@ -248,6 +248,9 @@ tasks.register('analyzeMetrics', JavaExec) {
         // args += ['--base-ref', project.getProperty('metricsAnalysis.baseRef')]
         args += ['--base-ref', '4.5.10.0']
     }
+    if (project.hasProperty('metricsAnalysis.urlBase')) {
+        args += ['--url-base', project.getProperty('metricsAnalysis.urlBase')]
+    }
     if (project.hasProperty('metricsAnalysis.output')) {
         args += ['--output', project.getProperty('metricsAnalysis.output')]
     }
