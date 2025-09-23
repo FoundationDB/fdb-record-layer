@@ -45,7 +45,7 @@ public interface Metric {
      * @throws IllegalArgumentException if the vectors have different lengths.
      * @throws NullPointerException if either {@code vector1} or {@code vector2} is null.
      */
-    double distance(Double[] vector1, Double[] vector2);
+    double distance(@Nonnull double[] vector1, @Nonnull double[] vector2);
 
     /**
      * Calculates a comparative distance between two vectors. The comparative distance is used in contexts such as
@@ -53,15 +53,15 @@ public interface Metric {
      * by this method do not need to follow proper metric invariants: The distance can be negative; the distance
      * does not need to follow triangle inequality.
      * <p>
-     * This method is an alias for {@link #distance(Double[], Double[])} under normal circumstances. It is not for e.g.
+     * This method is an alias for {@link #distance(double[], double[])} under normal circumstances. It is not for e.g.
      * {@link DotProductMetric} where the distance is the negative dot product.
      *
-     * @param vector1 the first vector, represented as an array of {@code Double}.
-     * @param vector2 the second vector, represented as an array of {@code Double}.
+     * @param vector1 the first vector, represented as an array of {@code double}.
+     * @param vector2 the second vector, represented as an array of {@code double}.
      *
      * @return the distance between the two vectors.
      */
-    default double comparativeDistance(Double[] vector1, Double[] vector2) {
+    default double comparativeDistance(@Nonnull double[] vector1, @Nonnull double[] vector2) {
         return distance(vector1, vector2);
     }
 
@@ -70,7 +70,7 @@ public interface Metric {
      * @param vector1 The first vector.
      * @param vector2 The second vector.
      */
-    private static void validate(Double[] vector1, Double[] vector2) {
+    private static void validate(double[] vector1, double[] vector2) {
         if (vector1 == null || vector2 == null) {
             throw new IllegalArgumentException("Vectors cannot be null");
         }
@@ -93,7 +93,7 @@ public interface Metric {
      */
     class ManhattanMetric implements Metric {
         @Override
-        public double distance(final Double[] vector1, final Double[] vector2) {
+        public double distance(@Nonnull final double[] vector1, @Nonnull final double[] vector2) {
             Metric.validate(vector1, vector2);
 
             double sumOfAbsDiffs = 0.0;
@@ -119,7 +119,7 @@ public interface Metric {
      */
     class EuclideanMetric implements Metric {
         @Override
-        public double distance(final Double[] vector1, final Double[] vector2) {
+        public double distance(@Nonnull final double[] vector1, @Nonnull final double[] vector2) {
             Metric.validate(vector1, vector2);
 
             return Math.sqrt(EuclideanSquareMetric.distanceInternal(vector1, vector2));
@@ -147,12 +147,12 @@ public interface Metric {
      */
     class EuclideanSquareMetric implements Metric {
         @Override
-        public double distance(final Double[] vector1, final Double[] vector2) {
+        public double distance(@Nonnull final double[] vector1, @Nonnull final double[] vector2) {
             Metric.validate(vector1, vector2);
             return distanceInternal(vector1, vector2);
         }
 
-        private static double distanceInternal(final Double[] vector1, final Double[] vector2) {
+        private static double distanceInternal(@Nonnull final double[] vector1, @Nonnull final double[] vector2) {
             double sumOfSquares = 0.0d;
             for (int i = 0; i < vector1.length; i++) {
                 double diff = vector1[i] - vector2[i];
@@ -178,7 +178,7 @@ public interface Metric {
      */
     class CosineMetric implements Metric {
         @Override
-        public double distance(final Double[] vector1, final Double[] vector2) {
+        public double distance(@Nonnull final double[] vector1, @Nonnull final double[] vector2) {
             Metric.validate(vector1, vector2);
 
             double dotProduct = 0.0;
@@ -211,19 +211,19 @@ public interface Metric {
      * <p>
      * This metric calculates the inverted dot product of two vectors. It is not a true metric as the dot product can
      * be positive at which point the distance is negative. In order to make callers aware of this fact, this distance
-     * only allows {@link Metric#comparativeDistance(Double[], Double[])} to be called.
+     * only allows {@link Metric#comparativeDistance(double[], double[])} to be called.
      *
      * @see <a href="https://en.wikipedia.org/wiki/Dot_product">Dot Product</a>
      * @see DotProductMetric
      */
     class DotProductMetric implements Metric {
         @Override
-        public double distance(final Double[] vector1, final Double[] vector2) {
+        public double distance(@Nonnull final double[] vector1, @Nonnull final double[] vector2) {
             throw new UnsupportedOperationException("dot product metric is not a true metric and can only be used for ranking");
         }
 
         @Override
-        public double comparativeDistance(final Double[] vector1, final Double[] vector2) {
+        public double comparativeDistance(@Nonnull final double[] vector1, @Nonnull final double[] vector2) {
             Metric.validate(vector1, vector2);
 
             double product = 0.0d;

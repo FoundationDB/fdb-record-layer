@@ -30,7 +30,6 @@ import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
-import com.christianheina.langx.half4j.Half;
 import com.google.common.base.Verify;
 import com.google.common.collect.Lists;
 import org.slf4j.Logger;
@@ -208,7 +207,7 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
     private Node<NodeReference> compactNodeFromTuples(@Nonnull final Tuple primaryKey,
                                                       @Nonnull final Tuple vectorTuple,
                                                       @Nonnull final Tuple neighborsTuple) {
-        final Vector<Half> vector = StorageAdapter.vectorFromTuple(vectorTuple);
+        final Vector vector = StorageAdapter.vectorFromTuple(vectorTuple);
         final List<NodeReference> nodeReferences = Lists.newArrayListWithExpectedSize(neighborsTuple.size());
 
         for (int i = 0; i < neighborsTuple.size(); i ++) {

@@ -21,7 +21,6 @@
 package com.apple.foundationdb.async.hnsw;
 
 import com.apple.foundationdb.tuple.Tuple;
-import com.christianheina.langx.half4j.Half;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -60,7 +59,7 @@ public interface Node<N extends NodeReference> {
      * method calls.
      */
     @Nonnull
-    N getSelfReference(@Nullable Vector<Half> vector);
+    N getSelfReference(@Nullable Vector vector);
 
     /**
      * Gets the list of neighboring nodes.
