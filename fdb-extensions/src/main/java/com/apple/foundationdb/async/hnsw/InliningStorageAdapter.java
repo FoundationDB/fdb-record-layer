@@ -30,7 +30,6 @@ import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
-import com.christianheina.langx.half4j.Half;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
@@ -182,7 +181,7 @@ class InliningStorageAdapter extends AbstractStorageAdapter<NodeReferenceWithVec
         final Tuple neighborValueTuple = Tuple.fromBytes(value);
 
         final Tuple neighborPrimaryKey = neighborKeyTuple.getNestedTuple(2); // neighbor primary key
-        final Vector<Half> neighborVector = StorageAdapter.vectorFromTuple(neighborValueTuple); // the entire value is the vector
+        final Vector neighborVector = StorageAdapter.vectorFromTuple(neighborValueTuple); // the entire value is the vector
         return new NodeReferenceWithVector(neighborPrimaryKey, neighborVector);
     }
 

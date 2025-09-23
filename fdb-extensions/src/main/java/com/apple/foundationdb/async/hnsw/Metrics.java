@@ -82,7 +82,7 @@ public enum Metrics {
      * <p>
      * This metric calculates the inverted dot product of two vectors. It is not a true metric as the dot product can
      * be positive at which point the distance is negative. In order to make callers aware of this fact, this distance
-     * only allows {@link Metric#comparativeDistance(Double[], Double[])} to be called.
+     * only allows {@link Metric#comparativeDistance(double[], double[])} to be called.
      *
      * @see <a href="https://en.wikipedia.org/wiki/Dot_product">Dot Product</a>
      * @see Metric.DotProductMetric

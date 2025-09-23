@@ -29,7 +29,6 @@ import com.apple.foundationdb.test.TestExecutors;
 import com.apple.foundationdb.test.TestSubspaceExtension;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
-import com.christianheina.langx.half4j.Half;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -98,7 +97,7 @@ public class HNSWTest {
         db = dbExtension.getDatabase();
     }
 
-    static Stream<Long> randomSeeds() {
+    private static Stream<Long> randomSeeds() {
         return LongStream.generate(() -> new Random().nextLong())
                 .limit(5)
                 .boxed();
@@ -106,7 +105,7 @@ public class HNSWTest {
 
     @ParameterizedTest(name = "seed={0}")
     @MethodSource("randomSeeds")
-    public void testCompactSerialization(final Long seed) {
+    public void testCompactSerialization(final long seed) {
         final Random random = new Random(seed);
         final CompactStorageAdapter storageAdapter =
                 new CompactStorageAdapter(HNSW.DEFAULT_CONFIG, CompactNode.factory(), rtSubspace.getSubspace(),
@@ -145,7 +144,7 @@ public class HNSWTest {
 
     @ParameterizedTest(name = "seed={0}")
     @MethodSource("randomSeeds")
-    public void testInliningSerialization(final Long seed) {
+    public void testInliningSerialization(final long seed) {
         final Random random = new Random(seed);
         final InliningStorageAdapter storageAdapter =
                 new InliningStorageAdapter(HNSW.DEFAULT_CONFIG, InliningNode.factory(), rtSubspace.getSubspace(),
@@ -211,7 +210,7 @@ public class HNSWTest {
                 OnWriteListener.NOOP, onReadListener);
 
         final int k = 10;
-        final HalfVector queryVector = createRandomVector(random, dimensions);
+        final HalfVector queryVector = VectorTest.createRandomHalfVector(random, dimensions);
         final TreeSet<NodeReferenceWithDistance> nodesOrderedByDistance =
                 new TreeSet<>(Comparator.comparing(NodeReferenceWithDistance::getDistance));
 
@@ -219,7 +218,7 @@ public class HNSWTest {
             i += basicInsertBatch(hnsw, 100, nextNodeIdAtomic, onReadListener,
                     tr -> {
                         final var primaryKey = createNextPrimaryKey(nextNodeIdAtomic);
-                        final HalfVector dataVector = createRandomVector(random, dimensions);
+                        final HalfVector dataVector = VectorTest.createRandomHalfVector(random, dimensions);
                         final double distance = Vector.comparativeDistance(metric, dataVector, queryVector);
                         final NodeReferenceWithDistance nodeReferenceWithDistance =
                                 new NodeReferenceWithDistance(primaryKey, dataVector, distance);
@@ -424,9 +423,9 @@ public class HNSWTest {
     public void testManyRandomVectors() {
         final Random random = new Random();
         for (long l = 0L; l < 3000000; l ++) {
-            final HalfVector randomVector = createRandomVector(random, 768);
+            final HalfVector randomVector = VectorTest.createRandomHalfVector(random, 768);
             final Tuple vectorTuple = StorageAdapter.tupleFromVector(randomVector);
-            final Vector<Half> roundTripVector = StorageAdapter.vectorFromTuple(vectorTuple);
+            final Vector roundTripVector = StorageAdapter.vectorFromTuple(vectorTuple);
             Vector.comparativeDistance(Metrics.EUCLIDEAN_METRIC.getMetric(), randomVector, roundTripVector);
             Assertions.assertEquals(randomVector, roundTripVector);
         }
@@ -453,7 +452,7 @@ public class HNSWTest {
             neighborsBuilder.add(createRandomNodeReference(random));
         }
 
-        return nodeFactory.create(primaryKey, createRandomVector(random, dimensionality), neighborsBuilder.build());
+        return nodeFactory.create(primaryKey, VectorTest.createRandomHalfVector(random, dimensionality), neighborsBuilder.build());
     }
 
     @Nonnull
@@ -467,7 +466,7 @@ public class HNSWTest {
             neighborsBuilder.add(createRandomNodeReferenceWithVector(random, dimensionality));
         }
 
-        return nodeFactory.create(primaryKey, createRandomVector(random, dimensionality), neighborsBuilder.build());
+        return nodeFactory.create(primaryKey, VectorTest.createRandomHalfVector(random, dimensionality), neighborsBuilder.build());
     }
 
     @Nonnull
@@ -477,7 +476,7 @@ public class HNSWTest {
 
     @Nonnull
     private NodeReferenceWithVector createRandomNodeReferenceWithVector(@Nonnull final Random random, final int dimensionality) {
-        return new NodeReferenceWithVector(createRandomPrimaryKey(random), createRandomVector(random, dimensionality));
+        return new NodeReferenceWithVector(createRandomPrimaryKey(random), VectorTest.createRandomHalfVector(random, dimensionality));
     }
 
     @Nonnull
@@ -488,16 +487,6 @@ public class HNSWTest {
     @Nonnull
     private static Tuple createNextPrimaryKey(@Nonnull final AtomicLong nextIdAtomic) {
         return Tuple.from(nextIdAtomic.getAndIncrement());
-    }
-
-    @Nonnull
-    private HalfVector createRandomVector(@Nonnull final Random random, final int dimensionality) {
-        final Half[] components = new Half[dimensionality];
-        for (int d = 0; d < dimensionality; d ++) {
-            // don't ask
-            components[d] = HNSWHelpers.halfValueOf(random.nextDouble());
-        }
-        return new HalfVector(components);
     }
 
     private static class TestOnReadListener implements OnReadListener {
