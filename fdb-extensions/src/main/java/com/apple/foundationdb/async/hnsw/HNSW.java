@@ -91,7 +91,6 @@ public class HNSW {
     public static final int DEFAULT_M = 16;
     public static final int DEFAULT_M_MAX = DEFAULT_M;
     public static final int DEFAULT_M_MAX_0 = 2 * DEFAULT_M;
-    public static final int DEFAULT_EF_SEARCH = 100;
     public static final int DEFAULT_EF_CONSTRUCTION = 200;
     public static final boolean DEFAULT_EXTEND_CANDIDATES = false;
     public static final boolean DEFAULT_KEEP_PRUNED_CONNECTIONS = false;
@@ -123,7 +122,6 @@ public class HNSW {
         private final int m;
         private final int mMax;
         private final int mMax0;
-        private final int efSearch;
         private final int efConstruction;
         private final boolean extendCandidates;
         private final boolean keepPrunedConnections;
@@ -135,14 +133,13 @@ public class HNSW {
             this.m = DEFAULT_M;
             this.mMax = DEFAULT_M_MAX;
             this.mMax0 = DEFAULT_M_MAX_0;
-            this.efSearch = DEFAULT_EF_SEARCH;
             this.efConstruction = DEFAULT_EF_CONSTRUCTION;
             this.extendCandidates = DEFAULT_EXTEND_CANDIDATES;
             this.keepPrunedConnections = DEFAULT_KEEP_PRUNED_CONNECTIONS;
         }
 
         protected Config(@Nonnull final Random random, @Nonnull final Metric metric, final boolean useInlining,
-                         final int m, final int mMax, final int mMax0, final int efSearch, final int efConstruction,
+                         final int m, final int mMax, final int mMax0, final int efConstruction,
                          final boolean extendCandidates, final boolean keepPrunedConnections) {
             this.random = random;
             this.metric = metric;
@@ -150,7 +147,6 @@ public class HNSW {
             this.m = m;
             this.mMax = mMax;
             this.mMax0 = mMax0;
-            this.efSearch = efSearch;
             this.efConstruction = efConstruction;
             this.extendCandidates = extendCandidates;
             this.keepPrunedConnections = keepPrunedConnections;
@@ -182,10 +178,6 @@ public class HNSW {
             return mMax0;
         }
 
-        public int getEfSearch() {
-            return efSearch;
-        }
-
         public int getEfConstruction() {
             return efConstruction;
         }
@@ -201,15 +193,15 @@ public class HNSW {
         @Nonnull
         public ConfigBuilder toBuilder() {
             return new ConfigBuilder(getRandom(), getMetric(), isUseInlining(), getM(), getMMax(), getMMax0(),
-                    getEfSearch(), getEfConstruction(), isExtendCandidates(), isKeepPrunedConnections());
+                    getEfConstruction(), isExtendCandidates(), isKeepPrunedConnections());
         }
 
         @Override
         @Nonnull
         public String toString() {
             return "Config[metric=" + getMetric() + "isUseInlining" + isUseInlining() + "M=" + getM() +
-                    " , MMax=" + getMMax() + " , MMax0=" + getMMax0() + ", efSearch=" + getEfSearch() +
-                    ", efConstruction=" + getEfConstruction() + ", isExtendCandidates=" + isExtendCandidates() +
+                    " , MMax=" + getMMax() + " , MMax0=" + getMMax0() + ", efConstruction=" + getEfConstruction() +
+                    ", isExtendCandidates=" + isExtendCandidates() +
                     ", isKeepPrunedConnections=" + isKeepPrunedConnections() + "]";
         }
     }
@@ -230,7 +222,6 @@ public class HNSW {
         private int m = DEFAULT_M;
         private int mMax = DEFAULT_M_MAX;
         private int mMax0 = DEFAULT_M_MAX_0;
-        private int efSearch = DEFAULT_EF_SEARCH;
         private int efConstruction = DEFAULT_EF_CONSTRUCTION;
         private boolean extendCandidates = DEFAULT_EXTEND_CANDIDATES;
         private boolean keepPrunedConnections = DEFAULT_KEEP_PRUNED_CONNECTIONS;
@@ -239,7 +230,7 @@ public class HNSW {
         }
 
         public ConfigBuilder(@Nonnull final Random random, @Nonnull final Metric metric, final boolean useInlining,
-                             final int m, final int mMax, final int mMax0, final int efSearch, final int efConstruction,
+                             final int m, final int mMax, final int mMax0, final int efConstruction,
                              final boolean extendCandidates, final boolean keepPrunedConnections) {
             this.random = random;
             this.metric = metric;
@@ -247,7 +238,6 @@ public class HNSW {
             this.m = m;
             this.mMax = mMax;
             this.mMax0 = mMax0;
-            this.efSearch = efSearch;
             this.efConstruction = efConstruction;
             this.extendCandidates = extendCandidates;
             this.keepPrunedConnections = keepPrunedConnections;
@@ -314,15 +304,6 @@ public class HNSW {
             return this;
         }
 
-        public int getEfSearch() {
-            return efSearch;
-        }
-
-        public ConfigBuilder setEfSearch(final int efSearch) {
-            this.efSearch = efSearch;
-            return this;
-        }
-
         public int getEfConstruction() {
             return efConstruction;
         }
@@ -351,7 +332,7 @@ public class HNSW {
         }
 
         public Config build() {
-            return new Config(getRandom(), getMetric(), isUseInlining(), getM(), getMMax(), getMMax0(), getEfSearch(),
+            return new Config(getRandom(), getMetric(), isUseInlining(), getM(), getMMax(), getMMax0(),
                     getEfConstruction(), isExtendCandidates(), isKeepPrunedConnections());
         }
     }
