@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.TransactionManager;
 import com.apple.foundationdb.relational.api.catalog.RelationalDatabase;
@@ -34,6 +35,7 @@ import com.apple.foundationdb.relational.recordlayer.storage.BackingStore;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.net.URI;
+import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -49,13 +51,17 @@ public abstract class AbstractDatabase implements RelationalDatabase {
     final Map<String, RecordLayerSchema> schemas = new HashMap<>();
     @Nullable
     private final RelationalPlanCache planCache;
+    @Nonnull
+    protected Options options;
 
     public AbstractDatabase(@Nonnull final MetadataOperationsFactory metadataOperationsFactory,
                             @Nonnull DdlQueryFactory ddlQueryFactory,
-                            @Nullable RelationalPlanCache planCache) {
+                            @Nullable RelationalPlanCache planCache,
+                            @Nonnull Options options) {
         this.metadataOperationsFactory = metadataOperationsFactory;
         this.ddlQueryFactory = ddlQueryFactory;
         this.planCache = planCache;
+        this.options = options;
     }
 
     protected void setConnection(@Nonnull EmbeddedRelationalConnection conn) {
@@ -118,5 +124,14 @@ public abstract class AbstractDatabase implements RelationalDatabase {
     @Nullable
     public RelationalPlanCache getPlanCache() {
         return planCache;
+    }
+
+    @Nonnull
+    public Options getOptions() {
+        return options;
+    }
+
+    public void setOption(@Nonnull Options.Name name, Object value) throws SQLException {
+        options = options.withOption(name, value);
     }
 }

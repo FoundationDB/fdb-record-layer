@@ -70,6 +70,6 @@ public class CollectionContract<T> implements OptionContract, OptionContractWith
             final String trimmedElementString = split.trim();
             results.add(elementContract.fromString(trimmedElementString));
         }
-        return Collections.unmodifiableCollection(results);
+        return Collections.unmodifiableList(results);
     }
 }

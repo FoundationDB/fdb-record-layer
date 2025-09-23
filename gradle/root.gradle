@@ -73,13 +73,29 @@ task checksumsVerify {
 apply plugin: 'jacoco'
 
 tasks.register('codeCoverageReport', JacocoReport) {
-    executionData fileTree(project.rootDir).include('**/.out/jacoco/*.exec')
-
     def coverageSubprojects = subprojects.findAll { sp ->
         sp.name != 'examples' &&
             sp.name != 'fdb-record-layer-core-shaded' &&
             sp.name != 'fdb-record-layer-jmh'
     }
+
+    // Add dependencies on test tasks that generate jacoco execution data
+    // use mustRunAfter so that we can download the jacoco/jar artifacts from parallel jobs
+    // in our pull_request workflow, and then run codeCoverageReport to merge, but this
+    // enforces the order, so that if you run the tests and codeCoverageReport in the same
+    // run (such as our nightly builds), gradle won't complain about implicit dependencies.
+    def t = coverageSubprojects.collectMany { sp ->
+        sp.tasks.withType(Test)
+    }
+    t.addAll(coverageSubprojects.collectMany { sp ->
+        sp.tasks.withType(Jar)
+    })
+
+    mustRunAfter t
+    def data = coverageSubprojects.collectMany { sp ->
+        sp.tasks.withType(Test).collect { testTask -> testTask.jacoco.destinationFile }
+    }
+    executionData data
 
     // Not much consistency in naming these.
     def exclusions = [

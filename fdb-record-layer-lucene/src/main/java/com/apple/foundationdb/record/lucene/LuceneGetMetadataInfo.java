@@ -33,7 +33,7 @@ import javax.annotation.Nullable;
  *     This is currently intended to be used for debugging purposes.
  * </p>
  */
-@API(API.Status.INTERNAL)
+@API(API.Status.EXPERIMENTAL)
 public class LuceneGetMetadataInfo extends IndexOperation {
 
     @Nonnull
