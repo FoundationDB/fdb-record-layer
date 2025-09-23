@@ -61,9 +61,9 @@ class MetricsDiffIntegrationTest {
                 .contains("## Only Metrics Changed")
                 .contains("### Statistical Summary (Only Metrics Changed)")
                 .contains("**`task_count`**:")
-                .contains("Average change: 2.0") // All queries have +2 task_count
+                .contains("Average change: +2.0") // All queries have +2 task_count
                 .contains("**`transform_count`**:")
-                .contains("Average change: 1.0"); // All queries have +1 transform_count
+                .contains("Average change: +1.0"); // All queries have +1 transform_count
     }
 
     @Test
@@ -92,9 +92,9 @@ class MetricsDiffIntegrationTest {
                 .contains("## Only Metrics Changed")
                 .contains("### Statistical Summary (Only Metrics Changed)")
                 .contains("**`task_count`**:")
-                .contains("Average change: -2.0") // All queries have +2 task_count
+                .contains("Average change: -2.0") // All queries have -2 task_count
                 .contains("**`transform_count`**:")
-                .contains("Average change: -1.0"); // All queries have +1 transform_count
+                .contains("Average change: -1.0"); // All queries have -1 transform_count
     }
 
     @Test
@@ -133,14 +133,14 @@ class MetricsDiffIntegrationTest {
                 .contains("## Only Metrics Changed")
                 // Verify statistical formatting patterns
                 .containsPattern("\\*\\*`\\w+`\\*\\*:")
-                .containsPattern("- Average change: -?\\d+\\.\\d+")
-                .containsPattern("- Average absolute change: -?\\d+\\.\\d+")
-                .containsPattern("- Median change: -?\\d+")
-                .containsPattern("- Median absolute change: -?\\d++")
+                .containsPattern("- Average change: [+-]?\\d+\\.\\d+")
+                .containsPattern("- Average absolute change: \\+?\\d+\\.\\d+")
+                .containsPattern("- Median change: [+-]?\\d+")
+                .containsPattern("- Median absolute change: \\+?\\d++")
                 .containsPattern("- Standard deviation: \\d+\\.\\d+")
                 .containsPattern("- Standard absolute deviation: \\d+\\.\\d+")
-                .containsPattern("- Range: -?\\d+ to -?\\d+")
-                .containsPattern("- Range of absolute values: -?\\d+ to -?\\d+")
+                .containsPattern("- Range: [+-]?\\d+ to [+-]?\\d+")
+                .containsPattern("- Range of absolute values: \\+?\\d+ to \\+?\\d+")
                 .containsPattern("- Queries affected: \\d+");
     }
 

@@ -471,20 +471,33 @@ public final class MetricsDiffAnalyzer {
             return report.toString();
         }
 
+        @Nonnull
+        private String sign(double d) {
+            // For adding an explicit plus to positive values. Rely on usual toString of negative values
+            // to add the minus sign
+            return d > 0 ? "+" : "";
+        }
+
+        @Nonnull
+        private String sign(long l) {
+            // See: sign(double)
+            return l > 0 ? "+" : "";
+        }
+
         private void appendStatisticalSummary(@Nonnull final StringBuilder report, @Nonnull final MetricsStatistics stats) {
             for (final var fieldName : YamlExecutionContext.TRACKED_METRIC_FIELDS) {
                 final var fieldStats = stats.getFieldStatistics(fieldName);
                 final var absoluteFieldStats = stats.getAbsoluteFieldStatistics(fieldName);
                 if (fieldStats.hasChanges() || absoluteFieldStats.hasChanges()) {
                     report.append(String.format("**`%s`**:\n", fieldName));
-                    report.append(String.format("  - Average change: %.1f\n", fieldStats.getMean()));
-                    report.append(String.format("  - Average absolute change: %.1f\n", absoluteFieldStats.getMean()));
-                    report.append(String.format("  - Median change: %d\n", fieldStats.getMedian()));
-                    report.append(String.format("  - Median absolute change: %d\n", absoluteFieldStats.getMedian()));
+                    report.append(String.format("  - Average change: %s%.1f\n", sign(fieldStats.getMean()), fieldStats.getMean()));
+                    report.append(String.format("  - Average absolute change: %s%.1f\n", sign(absoluteFieldStats.getMean()), absoluteFieldStats.getMean()));
+                    report.append(String.format("  - Median change: %s%d\n", sign(fieldStats.getMedian()), fieldStats.getMedian()));
+                    report.append(String.format("  - Median absolute change: %s%d\n", sign(absoluteFieldStats.getMedian()), absoluteFieldStats.getMedian()));
                     report.append(String.format("  - Standard deviation: %.1f\n", fieldStats.getStandardDeviation()));
                     report.append(String.format("  - Standard absolute deviation: %.1f\n", absoluteFieldStats.getStandardDeviation()));
-                    report.append(String.format("  - Range: %d to %d\n", fieldStats.getMin(), fieldStats.getMax()));
-                    report.append(String.format("  - Range of absolute values: %d to %d\n", absoluteFieldStats.getMin(), absoluteFieldStats.getMax()));
+                    report.append(String.format("  - Range: %s%d to %s%d\n", sign(fieldStats.getMin()), fieldStats.getMin(), sign(fieldStats.getMax()), fieldStats.getMax()));
+                    report.append(String.format("  - Range of absolute values: %s%d to %s%d\n", sign(absoluteFieldStats.getMin()), absoluteFieldStats.getMin(), sign(absoluteFieldStats.getMax()), absoluteFieldStats.getMax()));
                     report.append(String.format("  - Queries affected: %d\n\n", fieldStats.getChangedCount()));
                 }
             }
@@ -629,7 +642,7 @@ public final class MetricsDiffAnalyzer {
                 final long newValue = (long)newMetrics.getField(field);
                 if (oldValue != newValue) {
                     final long change = newValue - oldValue;
-                    final String changeStr = change > 0 ? "+" + change : String.valueOf(change);
+                    final String changeStr = sign(change) + change;
                     report.append(String.format("  - `%s`: %d -> %d (%s)\n", fieldName, oldValue, newValue, changeStr));
                 }
             }
