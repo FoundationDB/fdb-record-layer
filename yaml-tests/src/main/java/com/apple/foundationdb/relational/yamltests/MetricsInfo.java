@@ -113,8 +113,8 @@ public final class MetricsInfo {
     private static boolean isMetricDifferent(@Nonnull final MetricsInfo expected,
                                              @Nonnull final MetricsInfo actual,
                                              @Nonnull final Descriptors.FieldDescriptor fieldDescriptor) {
-        final long expectedMetric = (long) expected.getUnderlying().getField(fieldDescriptor);
-        final long actualMetric = (long) actual.getUnderlying().getField(fieldDescriptor);
+        final long expectedMetric = (long) expected.getUnderlying().getCountersAndTimers().getField(fieldDescriptor);
+        final long actualMetric = (long) actual.getUnderlying().getCountersAndTimers().getField(fieldDescriptor);
         return expectedMetric != actualMetric;
     }
 }
