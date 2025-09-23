@@ -29,7 +29,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactoryImp
 import com.apple.foundationdb.test.FDBTestEnvironment;
 import com.apple.foundationdb.test.TestExecutors;
 import org.junit.jupiter.api.extension.AfterEachCallback;
-import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.slf4j.Logger;
@@ -60,7 +59,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  * tests that use this extension are free to modify what would otherwise be global state on the factory or database.
  * </p>
  */
-public class FDBDatabaseExtension implements AfterEachCallback, BeforeEachCallback {
+public class FDBDatabaseExtension implements AfterEachCallback {
     private static final Logger LOGGER = LoggerFactory.getLogger(FDBDatabaseExtension.class);
     public static final String BLOCKING_IN_ASYNC_PROPERTY = "com.apple.foundationdb.record.blockingInAsyncDetection";
     public static final String API_VERSION_PROPERTY = "com.apple.foundationdb.apiVersion";
@@ -71,7 +70,7 @@ public class FDBDatabaseExtension implements AfterEachCallback, BeforeEachCallba
     private FDBDatabaseFactory databaseFactory;
     @Nonnull
     private final Map<String, FDBDatabase> databases = new HashMap<>();
-    private String defaultClusterFile;
+    private String defaultClusterFile = FDBTestEnvironment.randomClusterFile();
 
 
     public FDBDatabaseExtension() {
@@ -170,11 +169,6 @@ public class FDBDatabaseExtension implements AfterEachCallback, BeforeEachCallba
     }
 
     @Override
-    public void beforeEach(final ExtensionContext context) {
-        defaultClusterFile = FDBTestEnvironment.randomClusterFile();
-    }
-
-    @Override
     public void afterEach(final ExtensionContext extensionContext) {
         // Validate that the test closes all the transactions that it opens
         checkForOpenContexts();
@@ -186,5 +180,7 @@ public class FDBDatabaseExtension implements AfterEachCallback, BeforeEachCallba
             getDatabaseFactory().clear();
             databaseFactory = null;
         }
+        // we don't do this in a beforeEach, in case a test is accessing the database in the constructor.
+        defaultClusterFile = FDBTestEnvironment.randomClusterFile();
     }
 }
