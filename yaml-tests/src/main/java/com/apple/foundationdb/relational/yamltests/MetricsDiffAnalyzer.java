@@ -53,6 +53,15 @@ import java.util.TreeMap;
 public final class MetricsDiffAnalyzer {
     private static final Logger logger = LogManager.getLogger(MetricsDiffAnalyzer.class);
 
+    @Nonnull
+    private final String baseRef;
+    @Nonnull
+    private final String headRef;
+    @Nonnull
+    private final Path repositoryRoot;
+    @Nullable
+    private final String urlBase;
+
     /**
      * Command line arguments for the metrics diff analyzer.
      */
@@ -60,34 +69,28 @@ public final class MetricsDiffAnalyzer {
         @Parameter(names = {"--base-ref", "-b"}, description = "Git reference for baseline (e.g., 'main', commit SHA)", order = 0)
         public String baseRef = "main";
 
+        @Parameter(names = {"--head-ref"}, description = "Git reference for new code (e.g., 'HEAD', commit SHA)", order = 0)
+        public String headRef = "HEAD";
+
         @Parameter(names = {"--repository-root", "-r"}, description = "Path to git repository root", order = 1)
         public String repositoryRoot = ".";
 
         @Parameter(names = {"--output", "-o"}, description = "Output file path (writes to stdout if not specified)", order = 2)
         public String outputPath;
 
-        @Parameter(names = {"--outlier-queries"}, description = "Output file path to specifically list data for outlier queries", order = 3)
+        @Parameter(names = {"--outlier-queries"}, description = "Output file path to specifically list data for outlier queries", order = 5)
         public String outlierQueryPath;
 
-        @Parameter(names = {"--url-base"}, description = "Base of the URL to use for linking to queries", order = 4)
+        @Parameter(names = {"--url-base"}, description = "Base of the URL to use for linking to queries", order = 6)
         public String urlBase;
 
         @Parameter(names = {"--help", "-h"}, description = "Show help message", help = true, order = 4)
         public boolean help;
     }
 
-    @Nonnull
-    private final String baseRef;
-    @Nonnull
-    private final String headRef;
-    @Nullable
-    private final Path repositoryRoot;
-    @Nullable
-    private final String urlBase;
-
     public MetricsDiffAnalyzer(@Nonnull final String baseRef,
                                @Nonnull final String headRef,
-                               @Nullable final Path repositoryRoot,
+                               @Nonnull final Path repositoryRoot,
                                @Nullable final String urlBase) {
         this.baseRef = baseRef;
         this.headRef = headRef;
@@ -98,6 +101,7 @@ public final class MetricsDiffAnalyzer {
     /**
      * Main entry point for command-line usage.
      */
+    @SuppressWarnings("PMD.SystemPrintln")
     public static void main(String[] args) {
         final Arguments arguments = new Arguments();
         final JCommander commander = JCommander.newBuilder()
@@ -118,20 +122,24 @@ public final class MetricsDiffAnalyzer {
             return;
         }
 
-        final String baseRef = arguments.baseRef;
-        final Path repositoryRoot = Paths.get(arguments.repositoryRoot);
-        final Path outputPath = arguments.outputPath != null ? Paths.get(arguments.outputPath) : null;
 
         try {
-            final var analyzer = new MetricsDiffAnalyzer(baseRef, GitMetricsFileFinder.getHeadReference(repositoryRoot), repositoryRoot, arguments.urlBase);
+            final Path repositoryRoot = arguments.repositoryRoot == null ? Paths.get(".") : Paths.get(arguments.repositoryRoot);
+            final String baseRef = GitMetricsFileFinder.getCommitHash(repositoryRoot, arguments.baseRef);
+            final String headRef = GitMetricsFileFinder.getCommitHash(repositoryRoot, arguments.headRef);
+            final Path outputPath = arguments.outputPath != null ? Paths.get(arguments.outputPath) : null;
+
+            final var analyzer = new MetricsDiffAnalyzer(baseRef, headRef, repositoryRoot, arguments.urlBase);
             final var analysis = analyzer.analyze();
             final var report = analysis.generateReport();
 
             if (outputPath != null) {
                 Files.writeString(outputPath, report);
-                logger.info(KeyValueLogMessage.of(
-                        "Wrote metrics diff report",
-                        "output", outputPath));
+                if (logger.isInfoEnabled()) {
+                    logger.info(KeyValueLogMessage.of(
+                            "Wrote metrics diff report",
+                            "output", outputPath));
+                }
             } else {
                 System.out.println(report);
             }
@@ -141,8 +149,10 @@ public final class MetricsDiffAnalyzer {
                 if (!outlierReport.isEmpty()) {
                     final Path outlierQueryPath = Paths.get(arguments.outlierQueryPath);
                     Files.writeString(outlierQueryPath, outlierReport);
-                    logger.info(KeyValueLogMessage.of("Wrote outlier report",
-                            "output", outlierQueryPath));
+                    if (logger.isInfoEnabled()) {
+                        logger.info(KeyValueLogMessage.of("Wrote outlier report",
+                                "output", outlierQueryPath));
+                    }
                 }
             }
         } catch (final Exception e) {
@@ -156,19 +166,23 @@ public final class MetricsDiffAnalyzer {
      * Performs the metrics diff analysis.
      *
      * @return analysis results
-     *
      * @throws RelationalException if analysis fails
      */
     @Nonnull
     public MetricsAnalysisResult analyze() throws RelationalException {
-        logger.info(KeyValueLogMessage.of("Starting metrics diff analysis",
-                "base", baseRef));
+        if (logger.isInfoEnabled()) {
+            logger.info(KeyValueLogMessage.of("Starting metrics diff analysis",
+                    "base", baseRef));
+        }
 
         // Find all changed metrics files
-        final var changedFiles = GitMetricsFileFinder.findChangedMetricsYamlFiles(baseRef, repositoryRoot);
-        logger.info(KeyValueLogMessage.of("Found changed metrics files",
-                "base", baseRef,
-                "file_count", changedFiles.size()));
+        final var changedFiles = GitMetricsFileFinder.findChangedMetricsYamlFiles(baseRef, headRef, repositoryRoot);
+        if (logger.isInfoEnabled()) {
+            logger.info(KeyValueLogMessage.of("Found changed metrics files",
+                    "base", baseRef,
+                    "head", headRef,
+                    "file_count", changedFiles.size()));
+        }
 
         final var analysisBuilder = newAnalysisBuilder();
 
@@ -195,34 +209,31 @@ public final class MetricsDiffAnalyzer {
         }
 
         // Load base (old) metrics
-        Map<PlannerMetricsProto.Identifier, MetricsInfo> baseMetrics;
-        try {
-            final var baseYamlFile = GitMetricsFileFinder.getFileAtReference(
-                    repositoryRoot.relativize(yamlPath).toString(), baseRef, repositoryRoot);
-            baseMetrics = YamlExecutionContext.loadMetricsFromYamlFile(baseYamlFile);
-            Files.deleteIfExists(baseYamlFile); // Clean up temp file
-        } catch (final RelationalException e) {
-            // File might not exist in base ref (new file)
-            if (logger.isDebugEnabled()) {
-                logger.debug(KeyValueLogMessage.of("Could not load base metrics",
-                        "path", yamlPath), e);
-            }
-            baseMetrics = ImmutableMap.of();
-        } catch (IOException e) {
-            throw new RelationalException("unable to delete temporary file", ErrorCode.INTERNAL_ERROR, e);
-        }
+        final Map<PlannerMetricsProto.Identifier, MetricsInfo> baseMetrics = loadMetricsAtRef(yamlPath, baseRef);
 
         // Load head (new) metrics
-        final Map<PlannerMetricsProto.Identifier, MetricsInfo> headMetrics;
-        if (GitMetricsFileFinder.fileExists(yamlPath)) {
-            headMetrics = YamlExecutionContext.loadMetricsFromYamlFile(yamlPath);
-        } else {
-            // File was deleted
-            headMetrics = ImmutableMap.of();
-        }
+        final Map<PlannerMetricsProto.Identifier, MetricsInfo> headMetrics = loadMetricsAtRef(yamlPath, headRef);
 
         // Compare the metrics
         compareMetrics(baseMetrics, headMetrics, yamlPath, analysisBuilder);
+    }
+
+    @Nonnull
+    private Map<PlannerMetricsProto.Identifier, MetricsInfo> loadMetricsAtRef(@Nonnull Path yamlPath, @Nonnull String ref) throws RelationalException {
+        try {
+            final var yamlFile = GitMetricsFileFinder.getFileAtReference(
+                    repositoryRoot.relativize(yamlPath).toString(), ref, repositoryRoot);
+            if (yamlFile == null) {
+                return ImmutableMap.of();
+            }
+            try {
+                return YamlExecutionContext.loadMetricsFromYamlFile(yamlFile);
+            } finally {
+                Files.deleteIfExists(yamlFile); // Clean up temp file
+            }
+        } catch (IOException e) {
+            throw new RelationalException("unable to delete temporary file", ErrorCode.INTERNAL_ERROR, e);
+        }
     }
 
     /**
@@ -230,35 +241,24 @@ public final class MetricsDiffAnalyzer {
      */
     @VisibleForTesting
     public void compareMetrics(@Nonnull final Map<PlannerMetricsProto.Identifier, MetricsInfo> baseMetrics,
-                                @Nonnull final Map<PlannerMetricsProto.Identifier, MetricsInfo> headMetrics,
-                                @Nonnull final Path filePath,
-                                @Nonnull final MetricsAnalysisResult.Builder analysisBuilder) {
+                               @Nonnull final Map<PlannerMetricsProto.Identifier, MetricsInfo> headMetrics,
+                               @Nonnull final Path filePath,
+                               @Nonnull final MetricsAnalysisResult.Builder analysisBuilder) {
 
-        final var baseIdentifiers = baseMetrics.keySet();
-        final var headIdentifiers = headMetrics.keySet();
-
-        // Find new queries (in head but not in base)
+        // Find new and updated queries
         int newCount = 0;
-        for (final var identifier : headIdentifiers) {
-            if (!baseIdentifiers.contains(identifier)) {
-                newCount++;
-                analysisBuilder.addNewQuery(filePath, identifier, headMetrics.get(identifier));
-            }
-        }
-
-        // Find dropped queries (in base but not in head)
-        int droppedCount = 0;
-        for (final var identifier : baseIdentifiers) {
-            if (!headIdentifiers.contains(identifier)) {
-                droppedCount++;
-                analysisBuilder.addDroppedQuery(filePath, identifier, baseMetrics.get(identifier));
-            }
-        }
-
-        // Find changed queries (in both base and head)
         int changedCount = 0;
-        for (final var identifier : headIdentifiers) {
-            if (baseIdentifiers.contains(identifier)) {
+        for (final Map.Entry<PlannerMetricsProto.Identifier, MetricsInfo> entry : headMetrics.entrySet()) {
+            var identifier = entry.getKey();
+            final MetricsInfo headMetricInfo = entry.getValue();
+            final MetricsInfo baseMetricInfo = baseMetrics.get(identifier);
+            if (baseMetricInfo == null) {
+                // Query only in new metrics. Mark as new
+                newCount++;
+                analysisBuilder.addNewQuery(filePath, identifier, headMetricInfo);
+            } else {
+                // Query in both old and new. Mark as changed
+                changedCount++;
                 final MetricsInfo baseInfo = baseMetrics.get(identifier);
                 final MetricsInfo headInfo = headMetrics.get(identifier);
 
@@ -277,6 +277,17 @@ public final class MetricsDiffAnalyzer {
                 // there's some cosmetic change to the plan, like one operator's serialization is changed.
                 // It could also be something more interesting, but we're generally more concerned
                 // with changed metrics anyway
+            }
+        }
+
+        // Find dropped queries (in base but not in head)
+        int droppedCount = 0;
+        for (final Map.Entry<PlannerMetricsProto.Identifier, MetricsInfo> entry : baseMetrics.entrySet()) {
+            var identifier = entry.getKey();
+            final MetricsInfo baseMetricsInfo = entry.getValue();
+            if (!headMetrics.containsKey(identifier)) {
+                droppedCount++;
+                analysisBuilder.addDroppedQuery(filePath, identifier, baseMetricsInfo);
             }
         }
 
@@ -306,7 +317,7 @@ public final class MetricsDiffAnalyzer {
         private final String baseRef;
         @Nonnull
         private final String headRef;
-        @Nullable
+        @Nonnull
         private final Path repositoryRoot;
         @Nullable
         private final String urlBase;
@@ -317,7 +328,7 @@ public final class MetricsDiffAnalyzer {
                                       @Nonnull final List<QueryChange> metricsOnlyChanged,
                                       @Nonnull final String baseRef,
                                       @Nonnull final String headRef,
-                                      @Nullable final Path repositoryRoot,
+                                      @Nonnull final Path repositoryRoot,
                                       @Nullable final String urlBase) {
             this.newQueries = newQueries;
             this.droppedQueries = droppedQueries;
@@ -347,7 +358,7 @@ public final class MetricsDiffAnalyzer {
 
         @Nonnull
         private Path relativePath(@Nonnull Path path) {
-            return repositoryRoot == null ? path : repositoryRoot.relativize(path);
+            return repositoryRoot.relativize(path);
         }
 
         @Nonnull
@@ -395,11 +406,22 @@ public final class MetricsDiffAnalyzer {
             report.append("# 📊 Metrics Diff Analysis Report\n\n");
 
             report.append("## Summary\n\n")
-                    .append(String.format("- New queries: %d\n", newQueries.size()))
-                    .append(String.format("- Dropped queries: %d\n", droppedQueries.size()))
-                    .append(String.format("- Plan changed + metrics changed: %d\n", planAndMetricsChanged.size()))
-                    .append(String.format("- Plan unchanged + metrics changed: %d\n", metricsOnlyChanged.size()))
+                    .append("- New queries: ").append(newQueries.size()).append("\n")
+                    .append("- Dropped queries: ").append(droppedQueries.size()).append("\n")
+                    .append("- Plan changed + metrics changed: ").append(planAndMetricsChanged.size()).append("\n")
+                    .append("- Plan unchanged + metrics changed: ").append(metricsOnlyChanged.size()).append("\n")
                     .append("\n");
+
+            report.append("<details>\n\n")
+                    .append("<summary>ℹ️ About this analysis</summary>\n\n")
+                    .append("This automated analysis compares query planner metrics between the base branch and this PR. It categorizes changes into:\n\n")
+                    .append(" - **New queries**: Queries added in this PR\n")
+                    .append(" - **Dropped queries**: Queries removed in this PR. These should be reviewed to ensure we are not losing coverage.\n")
+                    .append(" - **Plan changed + metrics changed**: The query plan has changed along with planner metrics.\n")
+                    .append(" - **Metrics only changed**: Same plan but different metrics\n\n")
+                    .append("The last category in particular may indicate planner regressions that should be investigated.\n\n")
+                    .append("</details>\n\n");
+
 
             if (!newQueries.isEmpty()) {
                 // Only list a count of new queries by file type. Having more test cases is generally a good thing,
@@ -423,24 +445,32 @@ public final class MetricsDiffAnalyzer {
                 // List out each individual dropped query. These represent a potential lack of coverage, and
                 // so we want these listed out more explicitly
                 report.append("## Dropped Queries\n\nThe following queries with metrics were removed:\n\n");
-                for (final var change : droppedQueries) {
-                    report.append(String.format("- %s\n", formatQueryDisplay(change)));
+                final int maxQueries = 20;
+                final List<QueryChange> changes = droppedQueries.size() < maxQueries ? droppedQueries : droppedQueries.subList(0, maxQueries);
+                for (final var change : changes) {
+                    report.append("- ").append(formatQueryDisplay(change)).append("\n");
                 }
                 report.append("\n");
+
+                if (droppedQueries.size() > maxQueries) {
+                    int remaining = droppedQueries.size() - maxQueries;
+                    report.append("This list has been truncated. There ")
+                            .append(remaining == 1 ? "is " : "are ")
+                            .append(remaining)
+                            .append(" remaining dropped queries.\n\n");
+                }
+
+                report.append("The reviewer should double check that these queries were removed intentionally to avoid a loss of coverage.\n\n");
             }
 
-            appendChangesList(report, planAndMetricsChanged, "Plan and Metrics Changed");
-            appendChangesList(report, metricsOnlyChanged, "Only Metrics Changed");
-
-            report.append("<details>\n\n")
-                    .append("<summary>ℹ️ About this analysis</summary>\n\n")
-                    .append("This automated analysis compares query planner metrics between the base branch and this PR. It categorizes changes into:\n\n")
-                    .append(" - **New queries**: Queries added in this PR\n")
-                    .append(" - **Dropped queries**: Queries removed in this PR\n")
-                    .append(" - **Plan changed + metrics changed**: The query plan has changed along with planner metrics\n")
-                    .append(" - **Metrics only changed**: Same plan but different metrics\n\n")
-                    .append("The last category in particular may indicate planner regressions that should be investigated.\n\n")
-                    .append("</details>\n");
+            appendChangesList(report, planAndMetricsChanged, "Plan and Metrics Changed",
+                    "These queries experienced both plan and metrics changes. This generally indicates that there was some planner change\n"
+                            + "that means the planning for this query may be substantially different. Some amount of query plan metrics change is expected,\n"
+                            + "but the reviewer should still validate that these changes are not excessive.\n");
+            appendChangesList(report, metricsOnlyChanged, "Only Metrics Changed",
+                    "These queries experienced *only* metrics changes without any plan changes. If these metrics have substantially changed,\n"
+                            + "then a planner change has been made which affects planner performance but does not correlate with any new outcomes,\n"
+                            + "which could indicate a regression.\n");
 
             return report.toString();
         }
@@ -489,25 +519,26 @@ public final class MetricsDiffAnalyzer {
                 final var fieldStats = stats.getFieldStatistics(fieldName);
                 final var absoluteFieldStats = stats.getAbsoluteFieldStatistics(fieldName);
                 if (fieldStats.hasChanges() || absoluteFieldStats.hasChanges()) {
-                    report.append(String.format("**`%s`**:\n", fieldName));
-                    report.append(String.format("  - Average change: %s%.1f\n", sign(fieldStats.getMean()), fieldStats.getMean()));
-                    report.append(String.format("  - Average absolute change: %s%.1f\n", sign(absoluteFieldStats.getMean()), absoluteFieldStats.getMean()));
-                    report.append(String.format("  - Median change: %s%d\n", sign(fieldStats.getMedian()), fieldStats.getMedian()));
-                    report.append(String.format("  - Median absolute change: %s%d\n", sign(absoluteFieldStats.getMedian()), absoluteFieldStats.getMedian()));
-                    report.append(String.format("  - Standard deviation: %.1f\n", fieldStats.getStandardDeviation()));
-                    report.append(String.format("  - Standard absolute deviation: %.1f\n", absoluteFieldStats.getStandardDeviation()));
-                    report.append(String.format("  - Range: %s%d to %s%d\n", sign(fieldStats.getMin()), fieldStats.getMin(), sign(fieldStats.getMax()), fieldStats.getMax()));
-                    report.append(String.format("  - Range of absolute values: %s%d to %s%d\n", sign(absoluteFieldStats.getMin()), absoluteFieldStats.getMin(), sign(absoluteFieldStats.getMax()), absoluteFieldStats.getMax()));
-                    report.append(String.format("  - Queries affected: %d\n\n", fieldStats.getChangedCount()));
+                    report.append(String.format("**`%s`**:%n", fieldName));
+                    report.append(String.format("  - Average change: %s%.1f%n", sign(fieldStats.getMean()), fieldStats.getMean()));
+                    report.append(String.format("  - Average absolute change: %s%.1f%n", sign(absoluteFieldStats.getMean()), absoluteFieldStats.getMean()));
+                    report.append(String.format("  - Median change: %s%d%n", sign(fieldStats.getMedian()), fieldStats.getMedian()));
+                    report.append(String.format("  - Median absolute change: %s%d%n", sign(absoluteFieldStats.getMedian()), absoluteFieldStats.getMedian()));
+                    report.append(String.format("  - Standard deviation: %.1f%n", fieldStats.getStandardDeviation()));
+                    report.append(String.format("  - Standard absolute deviation: %.1f%n", absoluteFieldStats.getStandardDeviation()));
+                    report.append(String.format("  - Range: %s%d to %s%d%n", sign(fieldStats.getMin()), fieldStats.getMin(), sign(fieldStats.getMax()), fieldStats.getMax()));
+                    report.append(String.format("  - Range of absolute values: %s%d to %s%d%n", sign(absoluteFieldStats.getMin()), absoluteFieldStats.getMin(), sign(absoluteFieldStats.getMax()), absoluteFieldStats.getMax()));
+                    report.append(String.format("  - Queries affected: %d%n%n", fieldStats.getChangedCount()));
                 }
             }
         }
 
-        private void appendChangesList(@Nonnull final StringBuilder report, @Nonnull List<QueryChange> changes, @Nonnull String title) {
+        private void appendChangesList(@Nonnull final StringBuilder report, @Nonnull List<QueryChange> changes, @Nonnull String title, @Nonnull String explanation) {
             if (changes.isEmpty()) {
                 return;
             }
             report.append("## ").append(title).append("\n\n");
+            report.append(explanation).append("\n");
             report.append("Total: ").append(changes.size()).append(" quer").append(changes.size() == 1 ? "y" : "ies").append("\n\n");
 
             // Statistical analysis
@@ -524,6 +555,14 @@ public final class MetricsDiffAnalyzer {
                 for (final var change : metricsOutliers) {
                     report.append(String.format("- %s", formatQueryDisplay(change))).append("\n");
                     if (change.oldInfo != null && change.newInfo != null) {
+                        final String oldExplain = change.oldInfo.getExplain();
+                        final String newExplain = change.newInfo.getExplain();
+                        if (oldExplain.equals(newExplain)) {
+                            report.append("  - explain: `").append(oldExplain).append("`\n");
+                        } else {
+                            report.append("  - old explain: `").append(oldExplain).append("`\n");
+                            report.append("  - new explain: `").append(newExplain).append("`\n");
+                        }
                         appendMetricsDiff(report, change);
                     }
                 }
@@ -551,8 +590,8 @@ public final class MetricsDiffAnalyzer {
 
                     for (final var fieldName : YamlExecutionContext.TRACKED_METRIC_FIELDS) {
                         final var field = descriptor.findFieldByName(fieldName);
-                        final var oldValue = (long) oldMetrics.getField(field);
-                        final var newValue = (long) newMetrics.getField(field);
+                        final var oldValue = (long)oldMetrics.getField(field);
+                        final var newValue = (long)newMetrics.getField(field);
 
                         if (oldValue != newValue) {
                             final var difference = newValue - oldValue;
@@ -595,8 +634,8 @@ public final class MetricsDiffAnalyzer {
                     boolean isOutlier = false;
                     for (final var fieldName : YamlExecutionContext.TRACKED_METRIC_FIELDS) {
                         final var field = descriptor.findFieldByName(fieldName);
-                        final var oldValue = (long) oldMetrics.getField(field);
-                        final var newValue = (long) newMetrics.getField(field);
+                        final var oldValue = (long)oldMetrics.getField(field);
+                        final var newValue = (long)newMetrics.getField(field);
 
                         if (oldValue != newValue) {
                             final var difference = newValue - oldValue;
@@ -642,8 +681,9 @@ public final class MetricsDiffAnalyzer {
                 final long newValue = (long)newMetrics.getField(field);
                 if (oldValue != newValue) {
                     final long change = newValue - oldValue;
-                    final String changeStr = sign(change) + change;
-                    report.append(String.format("  - `%s`: %d -> %d (%s)\n", fieldName, oldValue, newValue, changeStr));
+                    report.append("  - `").append(fieldName).append("`: ")
+                            .append(oldValue).append(" -> ").append(newValue)
+                            .append(" (").append(sign(change)).append(change).append(")\n");
                 }
             }
         }
@@ -657,48 +697,53 @@ public final class MetricsDiffAnalyzer {
             private final String baseRef;
             @Nonnull
             private final String headRef;
-            @Nullable
+            @Nonnull
             private final Path repositoryRoot;
             @Nullable
             private final String urlBase;
 
-            public Builder(@Nonnull String baseRef, @Nonnull String headRef, @Nullable final Path repositoryRoot, @Nullable final String urlBase) {
+            public Builder(@Nonnull String baseRef, @Nonnull String headRef, @Nonnull final Path repositoryRoot, @Nullable final String urlBase) {
                 this.baseRef = baseRef;
                 this.headRef = headRef;
                 this.repositoryRoot = repositoryRoot;
                 this.urlBase = urlBase;
             }
 
+            @Nonnull
             public Builder addNewQuery(@Nonnull final Path filePath,
-                                    @Nonnull final PlannerMetricsProto.Identifier identifier,
-                                    @Nonnull final MetricsInfo info) {
+                                       @Nonnull final PlannerMetricsProto.Identifier identifier,
+                                       @Nonnull final MetricsInfo info) {
                 newQueries.add(new QueryChange(filePath, identifier, null, info));
                 return this;
             }
 
+            @Nonnull
             public Builder addDroppedQuery(@Nonnull final Path filePath,
-                                        @Nonnull final PlannerMetricsProto.Identifier identifier,
-                                        @Nonnull final MetricsInfo info) {
+                                           @Nonnull final PlannerMetricsProto.Identifier identifier,
+                                           @Nonnull final MetricsInfo info) {
                 droppedQueries.add(new QueryChange(filePath, identifier, info, null));
                 return this;
             }
 
+            @Nonnull
             public Builder addPlanAndMetricsChanged(@Nonnull final Path filePath,
-                                                 @Nonnull final PlannerMetricsProto.Identifier identifier,
-                                                 @Nonnull final MetricsInfo oldInfo,
-                                                 @Nonnull final MetricsInfo newInfo) {
+                                                    @Nonnull final PlannerMetricsProto.Identifier identifier,
+                                                    @Nonnull final MetricsInfo oldInfo,
+                                                    @Nonnull final MetricsInfo newInfo) {
                 planAndMetricsChanged.add(new QueryChange(filePath, identifier, oldInfo, newInfo));
                 return this;
             }
 
+            @Nonnull
             public Builder addMetricsOnlyChanged(@Nonnull final Path filePath,
-                                              @Nonnull final PlannerMetricsProto.Identifier identifier,
-                                              @Nonnull final MetricsInfo oldInfo,
-                                              @Nonnull final MetricsInfo newInfo) {
+                                                 @Nonnull final PlannerMetricsProto.Identifier identifier,
+                                                 @Nonnull final MetricsInfo oldInfo,
+                                                 @Nonnull final MetricsInfo newInfo) {
                 metricsOnlyChanged.add(new QueryChange(filePath, identifier, oldInfo, newInfo));
                 return this;
             }
 
+            @Nonnull
             public MetricsAnalysisResult build() {
                 return new MetricsAnalysisResult(
                         newQueries.build(),

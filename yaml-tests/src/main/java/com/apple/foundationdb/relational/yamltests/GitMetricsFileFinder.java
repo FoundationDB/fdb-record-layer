@@ -28,9 +28,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -52,14 +54,16 @@ public final class GitMetricsFileFinder {
      * Finds all metrics YAML files that have changed between two git references.
      *
      * @param baseRef the base git reference (e.g., "main", "HEAD~1", commit SHA)
+     * @param headRef the target git reference (e.g., "main", "HEAD~1", commit SHA)
      * @param repositoryRoot the root directory of the git repository
      * @return set of paths to changed metrics files (both .yaml and .binpb)
      * @throws RelationalException if git command fails or repository is not valid
      */
     @Nonnull
     public static Set<Path> findChangedMetricsYamlFiles(@Nonnull final String baseRef,
+                                                        @Nonnull final String headRef,
                                                         @Nonnull final Path repositoryRoot) throws RelationalException {
-        final List<String> changedFiles = getChangedFiles(baseRef, repositoryRoot);
+        final List<String> changedFiles = getChangedFiles(baseRef, headRef, repositoryRoot);
         final ImmutableSet.Builder<Path> metricsFiles = ImmutableSet.builder();
 
         for (final var filePath : changedFiles) {
@@ -75,14 +79,16 @@ public final class GitMetricsFileFinder {
      * Gets a list of all files changed between two git references.
      *
      * @param baseRef the base reference
+     * @param headRef the target reference
      * @param repositoryRoot the repository root directory
      * @return list of relative file paths that have changed
      * @throws RelationalException if git command fails
      */
     @Nonnull
     private static List<String> getChangedFiles(@Nonnull final String baseRef,
+                                                @Nonnull final String headRef,
                                                 @Nonnull final Path repositoryRoot) throws RelationalException {
-        final var command = List.of("git", "diff", "--name-only", baseRef);
+        final var command = List.of("git", "diff", "--name-only", baseRef + "..." + headRef);
         try {
             if (logger.isDebugEnabled()) {
                 logger.debug(KeyValueLogMessage.of("Executing git command",
@@ -94,12 +100,14 @@ public final class GitMetricsFileFinder {
                     .redirectErrorStream(true);
 
             final var process = processBuilder.start();
-            final var result = new ArrayList<String>();
+            final List<String> result = new ArrayList<>();
 
-            try (final var reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    result.add(line.trim());
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
+                for (String line = reader.readLine(); line != null; line = reader.readLine()) {
+                    final String stripped = line.strip();
+                    if (!stripped.isEmpty()) {
+                        result.add(stripped);
+                    }
                 }
             }
 
@@ -120,6 +128,7 @@ public final class GitMetricsFileFinder {
      * Checks if a file path represents a metrics file (either .yaml or .binpb).
      *
      * @param filePath the file path to check
+     *
      * @return true if the file is a metrics file
      */
     private static boolean isMetricsYamlFile(@Nonnull final String filePath) {
@@ -143,10 +152,10 @@ public final class GitMetricsFileFinder {
      * @param filePath the relative file path
      * @param gitRef the git reference
      * @param repositoryRoot the repository root
-     * @return path to a temporary file containing the content at the specified reference
+     * @return path to a temporary file containing the content at the specified reference or {@code null} if it didn't exist
      * @throws RelationalException if git command fails
      */
-    @Nonnull
+    @Nullable
     public static Path getFileAtReference(@Nonnull final String filePath,
                                           @Nonnull final String gitRef,
                                           @Nonnull final Path repositoryRoot) throws RelationalException {
@@ -162,10 +171,14 @@ public final class GitMetricsFileFinder {
             final var exitCode = process.waitFor();
 
             if (exitCode != 0) {
+                // File could not be loaded. It was probably not present at that version, so return null
+                if (logger.isDebugEnabled()) {
+                    logger.debug(KeyValueLogMessage.of("Unable to get file contents at reference",
+                            "path", filePath,
+                            "ref", gitRef));
+                }
                 Files.deleteIfExists(tempFile);
-                throw new RelationalException(
-                        "Git show command failed with exit code " + exitCode + " for " + gitRef + ":" + filePath,
-                        ErrorCode.INTERNAL_ERROR);
+                return null;
             }
 
             return tempFile;
@@ -176,23 +189,25 @@ public final class GitMetricsFileFinder {
     }
 
     /**
-     * Get the current commit hash of the repo.
+     * Get the commit hash for a given reference. This is to construct the commit values for use in things
+     * like permanent URLs.
      *
      * @param repositoryRoot the directory to run the git process from
+     * @param refName a git reference (e.g., branch name, "HEAD", etc.)
      * @return the current commit hash
      * @throws RelationalException if git commit fails
      */
     @Nonnull
-    public static String getHeadReference(@Nonnull Path repositoryRoot) throws RelationalException {
+    public static String getCommitHash(@Nonnull Path repositoryRoot, @Nonnull String refName) throws RelationalException {
         try {
-            final var command = List.of("git", "rev-parse", "HEAD");
+            final var command = List.of("git", "rev-parse", refName);
             final var processBuilder = new ProcessBuilder(command)
                     .directory(repositoryRoot.toFile())
                     .redirectErrorStream(false);
 
             final var process = processBuilder.start();
             final var exitCode = process.waitFor();
-            final String ref = new String(process.getInputStream().readAllBytes()).strip();
+            final String ref = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8).strip();
 
             if (exitCode != 0) {
                 throw new RelationalException(

@@ -30,7 +30,8 @@ jobs:
       run: |
         # Run the analysis. Compare against the base hash of this PR
         ./gradlew :yaml-tests:analyzeMetrics \
-          -PmetricsAnalysis.baseRef="${{ github.event.pull_request.base.sha }}" \
+          -PmetricsAnalysis.baseRef="${{ github.base_ref }}" \
+          -PmetricsAnalysis.headRef="${{ github.head_ref }}" \
           -PmetricsAnalysis.urlBase="${{ github.server_url }}/${{ github.repository }}/blob" \
           -PmetricsAnalysis.repositoryRoot="${{ github.workspace }}" \
           -PmetricsAnalysis.output="${{ github.workspace }}/metrics-analysis-output.txt" \

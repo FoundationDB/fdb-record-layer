@@ -518,7 +518,7 @@ public final class YamlExecutionContext {
      * This method provides YAML parsing capability for metrics diff analysis.
      *
      * @param filePath the path to the YAML metrics file
-     * @return immutable map of identifier -> info
+     * @return immutable map of identifier to info
      * @throws RelationalException if file cannot be read or parsed
      */
     @Nonnull
@@ -567,10 +567,10 @@ public final class YamlExecutionContext {
                         if (key instanceof CustomYamlConstructor.LinedObject) {
                             CustomYamlConstructor.LinedObject linedObject = (CustomYamlConstructor.LinedObject) key;
                             final String keyString = (String) linedObject.getObject();
-                            if (keyString.equals("query")) {
+                            if ("query".equals(keyString)) {
                                 query = (String) entry.getValue();
                                 lineNumber = ((CustomYamlConstructor.LinedObject) key).getLineNumber();
-                            } else if (keyString.equals("explain")) {
+                            } else if ("explain".equals(keyString)) {
                                 explain = (String) entry.getValue();
                             }
                         }
@@ -626,7 +626,7 @@ public final class YamlExecutionContext {
 
         // Build info
         final var info = PlannerMetricsProto.Info.newBuilder()
-                .setExplain(explain)
+                .setExplain(explain == null ? "" : explain)
                 .setCountersAndTimers(countersAndTimers)
                 .build();
 

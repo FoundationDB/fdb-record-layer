@@ -28,7 +28,7 @@ import java.util.Objects;
 
 public final class MetricsInfo {
     @Nonnull
-    private final PlannerMetricsProto.Info metricsInfo;
+    private final PlannerMetricsProto.Info underlying;
     @Nonnull
     private final Path filePath;
     private final int lineNumber;
@@ -36,14 +36,14 @@ public final class MetricsInfo {
     MetricsInfo(@Nonnull PlannerMetricsProto.Info metricsInfo,
                 @Nonnull Path filePath,
                 int lineNumber) {
-        this.metricsInfo = metricsInfo;
+        this.underlying = metricsInfo;
         this.filePath = filePath;
         this.lineNumber = lineNumber;
     }
 
     @Nonnull
-    public PlannerMetricsProto.Info getMetricsInfo() {
-        return metricsInfo;
+    public PlannerMetricsProto.Info getUnderlying() {
+        return underlying;
     }
 
     @Nonnull
@@ -57,12 +57,12 @@ public final class MetricsInfo {
 
     @Nonnull
     public String getExplain() {
-        return metricsInfo.getExplain();
+        return underlying.getExplain();
     }
 
     @Nonnull
     public PlannerMetricsProto.CountersAndTimers getCountersAndTimers() {
-        return metricsInfo.getCountersAndTimers();
+        return underlying.getCountersAndTimers();
     }
 
     @Override
@@ -74,11 +74,11 @@ public final class MetricsInfo {
             return false;
         }
         final MetricsInfo that = (MetricsInfo)object;
-        return lineNumber == that.lineNumber && Objects.equals(metricsInfo, that.metricsInfo) && Objects.equals(filePath, that.filePath);
+        return lineNumber == that.lineNumber && Objects.equals(underlying, that.underlying) && Objects.equals(filePath, that.filePath);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(metricsInfo, filePath, lineNumber);
+        return Objects.hash(underlying, filePath, lineNumber);
     }
 }
