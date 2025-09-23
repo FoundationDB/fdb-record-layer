@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.keyspace;
 
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -83,5 +84,13 @@ class PathValueTest {
         PathValue value2 = new PathValue(resolvedValue2, metadata2);
         
         assertNotEquals(value1, value2, "PathValues should not be equal: " + description);
+    }
+
+    @Test
+    void testTrivialEquality() {
+        PathValue value1 = new PathValue("Foo", null);
+
+        assertEquals(value1, value1, "Cover reference equality shortcut");
+        assertNotEquals("Foo", value1, "Check it doesn't fail with non-PathValue");
     }
 }

@@ -1257,9 +1257,6 @@ public class KeySpaceDirectoryTest {
         KeySpaceDirectory anyValueDir2 = new KeySpaceDirectory("test", KeyType.STRING);
         KeySpaceDirectory specificValueDir = new KeySpaceDirectory("test", KeyType.STRING, "specificValue");
 
-        // Null and different class tests
-        KeySpaceDirectory nullTestDir = new KeySpaceDirectory("test", KeyType.STRING, "value");
-
         return Stream.of(
                 // Basic equality/inequality
                 Arguments.of(stringDir1, stringDir2, true),
@@ -1298,9 +1295,10 @@ public class KeySpaceDirectoryTest {
     }
 
     @Test
-    void testEqualsIgnoringHierarchyWithNull() {
+    void testEqualsIgnoringHierarchyTrivialCases() {
         KeySpaceDirectory dir = new KeySpaceDirectory("test", KeyType.STRING, "value");
         assertFalse(dir.equalsIgnoringHierarchy(null), "Directory should not equal null");
+        assertFalse(dir.equalsIgnoringHierarchy("value"), "Directory should not equal other classes");
     }
 
     @Test
