@@ -154,10 +154,10 @@ public class FDBDatabaseExtension implements AfterEachCallback {
     }
 
     public FDBDatabase getDatabase(@Nullable String clusterFile) {
-        return databases.computeIfAbsent(Objects.requireNonNullElse(clusterFile, "NULL"),
+        return databases.computeIfAbsent(Objects.requireNonNullElse(clusterFile, ""),
                 key -> {
                     LOGGER.info("Connecting to cluster file: " + key);
-                    return getDatabaseFactory().getDatabase(key);
+                    return getDatabaseFactory().getDatabase(key.isEmpty() ? null : key);
                 });
     }
 
