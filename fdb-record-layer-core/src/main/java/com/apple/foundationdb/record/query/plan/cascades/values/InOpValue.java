@@ -120,9 +120,6 @@ public class InOpValue extends AbstractValue implements BooleanValue {
             return compileTimeEvalMaybe(typeRepository);
         }
 
-        final var isLiteralList = inArrayValue.getCorrelatedTo().isEmpty();
-        // SemanticException.check(isLiteralList, SemanticException.ErrorCode.UNSUPPORTED);
-
         if (typeRepository != null) {
             final var literalValue = Preconditions.checkNotNull(inArrayValue.evalWithoutStore(EvaluationContext.forTypeRepository(typeRepository)));
             return Optional.of(new ValuePredicate(probeValue, new Comparisons.ListComparison(Comparisons.Type.IN, (List<?>)literalValue)));
