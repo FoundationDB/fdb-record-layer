@@ -108,7 +108,6 @@ jobs:
             if (match) {
               const [, filePath, lineNumber, query] = match;
               const data = query.substring(newl, query.length);
-              changedFiles.push({ filePath, query });
               try {
                 await github.rest.pulls.createReviewComment({
                   owner: context.repo.owner,
