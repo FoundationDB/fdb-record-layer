@@ -22,7 +22,6 @@ package com.apple.foundationdb.async.hnsw;
 
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.tuple.Tuple;
-import com.christianheina.langx.half4j.Half;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -44,7 +43,7 @@ public class InliningNode extends AbstractNode<NodeReferenceWithVector> {
         @Nonnull
         @Override
         public Node<NodeReferenceWithVector> create(@Nonnull final Tuple primaryKey,
-                                                    @Nullable final Vector<Half> vector,
+                                                    @Nullable final Vector vector,
                                                     @Nonnull final List<? extends NodeReference> neighbors) {
             return new InliningNode(primaryKey, (List<NodeReferenceWithVector>)neighbors);
         }
@@ -85,7 +84,7 @@ public class InliningNode extends AbstractNode<NodeReferenceWithVector> {
     @Nonnull
     @Override
     @SpotBugsSuppressWarnings("NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE")
-    public NodeReferenceWithVector getSelfReference(@Nullable final Vector<Half> vector) {
+    public NodeReferenceWithVector getSelfReference(@Nullable final Vector vector) {
         return new NodeReferenceWithVector(getPrimaryKey(), Objects.requireNonNull(vector));
     }
 

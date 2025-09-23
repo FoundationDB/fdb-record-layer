@@ -21,7 +21,6 @@
 package com.apple.foundationdb.async.hnsw;
 
 import com.apple.foundationdb.tuple.Tuple;
-import com.christianheina.langx.half4j.Half;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -53,7 +52,7 @@ public interface NodeFactory<N extends NodeReference> {
      * @return a new, non-null {@link Node} instance configured with the provided parameters.
      */
     @Nonnull
-    Node<N> create(@Nonnull Tuple primaryKey, @Nullable Vector<Half> vector,
+    Node<N> create(@Nonnull Tuple primaryKey, @Nullable Vector vector,
                    @Nonnull List<? extends NodeReference> neighbors);
 
     /**
