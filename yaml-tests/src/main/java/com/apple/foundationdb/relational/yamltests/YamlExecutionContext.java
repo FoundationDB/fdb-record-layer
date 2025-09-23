@@ -552,32 +552,7 @@ public final class YamlExecutionContext {
 
                 // Process each query in the block
                 for (final var queryMap : queries) {
-                    if (queryMap == null) {
-                        continue;
-                    }
-
-                    // Extract line number from the "query" key if it's a LinedObject
-                    int lineNumber = 1; // Default line number
-                    String query = null;
-                    String explain = null;
-
-                    for (final var entry : queryMap.entrySet()) {
-                        final Object key = entry.getKey();
-                        if (key instanceof CustomYamlConstructor.LinedObject) {
-                            CustomYamlConstructor.LinedObject linedObject = (CustomYamlConstructor.LinedObject) key;
-                            final String keyString = (String) linedObject.getObject();
-                            if ("query".equals(keyString)) {
-                                query = (String) entry.getValue();
-                                lineNumber = ((CustomYamlConstructor.LinedObject) key).getLineNumber();
-                            } else if ("explain".equals(keyString)) {
-                                explain = (String) entry.getValue();
-                            }
-                        }
-                    }
-
-                    if (query != null) {
-                        processQueryAtLine(queryMap, blockName, lineNumber, query, explain, seen, resultMapBuilder, filePath);
-                    }
+                    processQueryAtLine(queryMap, blockName, seen, resultMapBuilder, filePath);
                 }
             }
 
@@ -591,14 +566,36 @@ public final class YamlExecutionContext {
      * Processes a single query with its line number information.
      */
     @SuppressWarnings("unchecked")
-    private static void processQueryAtLine(Map<?, ?> queryMap,
+    private static void processQueryAtLine(@Nullable Map<?, ?> queryMap,
                                            String blockName,
-                                           int lineNumber,
-                                           String query,
-                                           @Nullable String explain,
                                            Map<PlannerMetricsProto.Identifier, PlannerMetricsProto.Info> seen,
                                            ImmutableMap.Builder<PlannerMetricsProto.Identifier, MetricsInfo> resultMapBuilder,
                                            Path filePath) {
+        if (queryMap == null) {
+            return;
+        }
+
+        String query = null;
+        String explain = null;
+        int lineNumber = 1; // Default line number
+        for (Map.Entry<?, ?> entry : queryMap.entrySet()) {
+            final Object key = entry.getKey();
+            if (key instanceof CustomYamlConstructor.LinedObject) {
+                CustomYamlConstructor.LinedObject linedObject = (CustomYamlConstructor.LinedObject) key;
+                final String keyString = (String) linedObject.getObject();
+                if ("query".equals(keyString)) {
+                    query = (String) entry.getValue();
+                    lineNumber = ((CustomYamlConstructor.LinedObject) key).getLineNumber();
+                } else if ("explain".equals(keyString)) {
+                    explain = (String) entry.getValue();
+                }
+            }
+        }
+        if (query == null) {
+            // Query not found
+            return;
+        }
+
         // Extract the query string, handling LinedObject if present
         final var setup = (List<String>) queryMap.get("setup");
 

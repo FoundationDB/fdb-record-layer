@@ -611,11 +611,13 @@ public final class MetricsDiffAnalyzer {
                     .build();
         }
 
+        @Nonnull
         private List<QueryChange> findOutliers(@Nonnull final List<QueryChange> changes) {
             final MetricsStatistics summary = calculateMetricsStatistics(changes);
             return findOutliers(changes, summary);
         }
 
+        @Nonnull
         private List<QueryChange> findOutliers(@Nonnull final List<QueryChange> changes, @Nonnull final MetricsStatistics stats) {
             if (changes.size() < 3) {
                 // Not enough data for meaningful outlier detection
@@ -625,34 +627,37 @@ public final class MetricsDiffAnalyzer {
             final ImmutableList.Builder<QueryChange> outliers = ImmutableList.builder();
 
             for (final var change : changes) {
-                if (change.oldInfo != null && change.newInfo != null) {
-                    final var oldMetrics = change.oldInfo.getCountersAndTimers();
-                    final var newMetrics = change.newInfo.getCountersAndTimers();
-                    final var descriptor = oldMetrics.getDescriptorForType();
-
-                    boolean isOutlier = false;
-                    for (final var fieldName : YamlExecutionContext.TRACKED_METRIC_FIELDS) {
-                        final var field = descriptor.findFieldByName(fieldName);
-                        final var oldValue = (long)oldMetrics.getField(field);
-                        final var newValue = (long)newMetrics.getField(field);
-
-                        if (oldValue != newValue) {
-                            final var difference = newValue - oldValue;
-                            if (isOutlierValue(stats.getFieldStatistics(fieldName), difference)
-                                    || isOutlierValue(stats.getAbsoluteFieldStatistics(fieldName), Math.abs(difference))) {
-                                isOutlier = true;
-                                break;
-                            }
-                        }
-                    }
-
-                    if (isOutlier) {
-                        outliers.add(change);
-                    }
+                if (isOutlier(change, stats)) {
+                    outliers.add(change);
                 }
             }
 
             return outliers.build();
+        }
+
+        private boolean isOutlier(@Nonnull QueryChange change, @Nonnull MetricsStatistics stats) {
+            if (change.oldInfo == null || change.newInfo == null) {
+                return false;
+            }
+            final var oldMetrics = change.oldInfo.getCountersAndTimers();
+            final var newMetrics = change.newInfo.getCountersAndTimers();
+            final var descriptor = oldMetrics.getDescriptorForType();
+
+            for (final var fieldName : YamlExecutionContext.TRACKED_METRIC_FIELDS) {
+                final var field = descriptor.findFieldByName(fieldName);
+                final var oldValue = (long)oldMetrics.getField(field);
+                final var newValue = (long)newMetrics.getField(field);
+
+                if (oldValue != newValue) {
+                    final var difference = newValue - oldValue;
+                    if (isOutlierValue(stats.getFieldStatistics(fieldName), difference)
+                            || isOutlierValue(stats.getAbsoluteFieldStatistics(fieldName), Math.abs(difference))) {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
         }
 
         private boolean isOutlierValue(MetricsStatistics.FieldStatistics fieldStats, long difference) {

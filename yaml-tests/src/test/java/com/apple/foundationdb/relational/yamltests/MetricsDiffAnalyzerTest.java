@@ -362,25 +362,4 @@ class MetricsDiffAnalyzerTest {
 
         return builder.build();
     }
-
-    @Nonnull
-    private MetricsDiffAnalyzer.QueryChange createDummyQueryChange() {
-        final var identifier = PlannerMetricsProto.Identifier.newBuilder()
-                .setBlockName("test_block")
-                .setQuery("dummy_query")
-                .build();
-        final var info = PlannerMetricsProto.Info.newBuilder()
-                .setExplain("dummy_explain")
-                .setCountersAndTimers(BASE_DUMMY_COUNTERS)
-                .build();
-
-        final var metricsInfo = new MetricsInfo(info, Paths.get("test.yaml"), 1);
-
-        return new MetricsDiffAnalyzer.QueryChange(
-                Paths.get("test.metrics.yaml"),
-                identifier,
-                metricsInfo,
-                metricsInfo
-        );
-    }
 }
