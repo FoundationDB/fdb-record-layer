@@ -28,7 +28,6 @@ import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
-import com.christianheina.langx.half4j.Half;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -239,7 +238,7 @@ public class HNSW {
         public ConfigBuilder() {
         }
 
-        public ConfigBuilder(@Nonnull Random random, @Nonnull final Metric metric, final boolean useInlining,
+        public ConfigBuilder(@Nonnull final Random random, @Nonnull final Metric metric, final boolean useInlining,
                              final int m, final int mMax, final int mMax0, final int efSearch, final int efConstruction,
                              final boolean extendCandidates, final boolean keepPrunedConnections) {
             this.random = random;
@@ -481,7 +480,7 @@ public class HNSW {
     public CompletableFuture<? extends List<? extends NodeReferenceAndNode<? extends NodeReference>>> kNearestNeighborsSearch(@Nonnull final ReadTransaction readTransaction,
                                                                                                                               final int k,
                                                                                                                               final int efSearch,
-                                                                                                                              @Nonnull final Vector<Half> queryVector) {
+                                                                                                                              @Nonnull final Vector queryVector) {
         return StorageAdapter.fetchEntryNodeReference(readTransaction, getSubspace(), getOnReadListener())
                 .thenCompose(entryPointAndLayer -> {
                     if (entryPointAndLayer == null) {
@@ -572,7 +571,7 @@ public class HNSW {
                                                                                                      @Nonnull final ReadTransaction readTransaction,
                                                                                                      @Nonnull final NodeReferenceWithDistance entryNeighbor,
                                                                                                      final int layer,
-                                                                                                     @Nonnull final Vector<Half> queryVector) {
+                                                                                                     @Nonnull final Vector queryVector) {
         if (storageAdapter.getNodeKind() == NodeKind.INLINING) {
             return greedySearchInliningLayer(storageAdapter.asInliningStorageAdapter(), readTransaction, entryNeighbor, layer, queryVector);
         } else {
@@ -612,7 +611,7 @@ public class HNSW {
                                                                                    @Nonnull final ReadTransaction readTransaction,
                                                                                    @Nonnull final NodeReferenceWithDistance entryNeighbor,
                                                                                    final int layer,
-                                                                                   @Nonnull final Vector<Half> queryVector) {
+                                                                                   @Nonnull final Vector queryVector) {
         Verify.verify(layer > 0);
         final Metric metric = getConfig().getMetric();
         final AtomicReference<NodeReferenceWithDistance> currentNodeReferenceAtomic =
@@ -685,7 +684,7 @@ public class HNSW {
                                                                                                    final int layer,
                                                                                                    final int efSearch,
                                                                                                    @Nonnull final Map<Tuple, Node<N>> nodeCache,
-                                                                                                   @Nonnull final Vector<Half> queryVector) {
+                                                                                                   @Nonnull final Vector queryVector) {
         final Set<Tuple> visited = Sets.newConcurrentHashSet(NodeReference.primaryKeys(entryNeighbors));
         final Queue<NodeReferenceWithDistance> candidates =
                 new PriorityBlockingQueue<>(config.getM(),
@@ -995,7 +994,7 @@ public class HNSW {
      */
     @Nonnull
     public CompletableFuture<Void> insert(@Nonnull final Transaction transaction, @Nonnull final Tuple newPrimaryKey,
-                                          @Nonnull final Vector<Half> newVector) {
+                                          @Nonnull final Vector newVector) {
         final Metric metric = getConfig().getMetric();
 
         final int insertionLayer = insertionLayer(getConfig().getRandom());
@@ -1104,7 +1103,7 @@ public class HNSW {
                                     return CompletableFuture.completedFuture(null);
                                 }
 
-                                final Vector<Half> itemVector = item.getVector();
+                                final Vector itemVector = item.getVector();
                                 final int itemL = item.getLayer();
 
                                 final NodeReferenceWithDistance initialNodeReference =
@@ -1128,7 +1127,7 @@ public class HNSW {
                                             (index, currentEntryNodeReference) -> {
                                                 final NodeReferenceWithLayer item = batchWithLayers.get(index);
                                                 final Tuple itemPrimaryKey = item.getPrimaryKey();
-                                                final Vector<Half> itemVector = item.getVector();
+                                                final Vector itemVector = item.getVector();
                                                 final int itemL = item.getLayer();
 
                                                 final EntryNodeReference newEntryNodeReference;
@@ -1202,7 +1201,7 @@ public class HNSW {
     @Nonnull
     private CompletableFuture<Void> insertIntoLayers(@Nonnull final Transaction transaction,
                                                      @Nonnull final Tuple newPrimaryKey,
-                                                     @Nonnull final Vector<Half> newVector,
+                                                     @Nonnull final Vector newVector,
                                                      @Nonnull final NodeReferenceWithDistance nodeReference,
                                                      final int lMax,
                                                      final int insertionLayer) {
@@ -1258,7 +1257,7 @@ public class HNSW {
                                                                                                          @Nonnull final List<NodeReferenceWithDistance> nearestNeighbors,
                                                                                                          int layer,
                                                                                                          @Nonnull final Tuple newPrimaryKey,
-                                                                                                         @Nonnull final Vector<Half> newVector) {
+                                                                                                         @Nonnull final Vector newVector) {
         if (logger.isDebugEnabled()) {
             logger.debug("begin insert key={} at layer={}", newPrimaryKey, layer);
         }
@@ -1490,7 +1489,7 @@ public class HNSW {
                                                                                                        final int m,
                                                                                                        final boolean isExtendCandidates,
                                                                                                        @Nonnull final Map<Tuple, Node<N>> nodeCache,
-                                                                                                       @Nonnull final Vector<Half> vector) {
+                                                                                                       @Nonnull final Vector vector) {
         return extendCandidatesIfNecessary(storageAdapter, readTransaction, nearestNeighbors, layer, isExtendCandidates, nodeCache, vector)
                 .thenApply(extendedCandidates -> {
                     final List<NodeReferenceWithDistance> selected = Lists.newArrayListWithExpectedSize(m);
@@ -1575,7 +1574,7 @@ public class HNSW {
                                         int layer,
                                         boolean isExtendCandidates,
                                         @Nonnull final Map<Tuple, Node<N>> nodeCache,
-                                        @Nonnull final Vector<Half> vector) {
+                                        @Nonnull final Vector vector) {
         if (isExtendCandidates) {
             final Metric metric = getConfig().getMetric();
 
@@ -1639,7 +1638,7 @@ public class HNSW {
      */
     private void writeLonelyNodes(@Nonnull final Transaction transaction,
                                   @Nonnull final Tuple primaryKey,
-                                  @Nonnull final Vector<Half> vector,
+                                  @Nonnull final Vector vector,
                                   final int highestLayerInclusive,
                                   final int lowestLayerExclusive) {
         for (int layer = highestLayerInclusive; layer > lowestLayerExclusive; layer --) {
@@ -1667,7 +1666,7 @@ public class HNSW {
                                                                   @Nonnull final Transaction transaction,
                                                                   final int layer,
                                                                   @Nonnull final Tuple primaryKey,
-                                                                  @Nonnull final Vector<Half> vector) {
+                                                                  @Nonnull final Vector vector) {
         storageAdapter.writeNode(transaction,
                 storageAdapter.getNodeFactory()
                         .create(primaryKey, vector, ImmutableList.of()), layer,
@@ -1777,7 +1776,7 @@ public class HNSW {
     private static class NodeReferenceWithLayer extends NodeReferenceWithVector {
         private final int layer;
 
-        public NodeReferenceWithLayer(@Nonnull final Tuple primaryKey, @Nonnull final Vector<Half> vector,
+        public NodeReferenceWithLayer(@Nonnull final Tuple primaryKey, @Nonnull final Vector vector,
                                       final int layer) {
             super(primaryKey, vector);
             this.layer = layer;

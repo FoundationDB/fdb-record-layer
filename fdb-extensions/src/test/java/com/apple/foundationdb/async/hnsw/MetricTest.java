@@ -41,8 +41,8 @@ public class MetricTest {
     @Test
     public void manhattanMetricDistanceWithIdenticalVectorsShouldReturnZeroTest() {
         // Arrange
-        Double[] vector1 = {1.0, 2.5, -3.0};
-        Double[] vector2 = {1.0, 2.5, -3.0};
+        double[] vector1 = {1.0, 2.5, -3.0};
+        double[] vector2 = {1.0, 2.5, -3.0};
         double expectedDistance = 0.0;
 
         // Act
@@ -55,8 +55,8 @@ public class MetricTest {
     @Test
     public void manhattanMetricDistanceWithPositiveValueVectorsShouldReturnCorrectDistanceTest() {
         // Arrange
-        Double[] vector1 = {1.0, 2.0, 3.0};
-        Double[] vector2 = {4.0, 5.0, 6.0};
+        double[] vector1 = {1.0, 2.0, 3.0};
+        double[] vector2 = {4.0, 5.0, 6.0};
         double expectedDistance = 9.0; // |1-4| + |2-5| + |3-6| = 3 + 3 + 3
 
         // Act
@@ -69,8 +69,8 @@ public class MetricTest {
     @Test
     public void euclideanMetricDistanceWithIdenticalVectorsShouldReturnZeroTest() {
         // Arrange
-        Double[] vector1 = {1.0, 2.5, -3.0};
-        Double[] vector2 = {1.0, 2.5, -3.0};
+        double[] vector1 = {1.0, 2.5, -3.0};
+        double[] vector2 = {1.0, 2.5, -3.0};
         double expectedDistance = 0.0;
 
         // Act
@@ -83,8 +83,8 @@ public class MetricTest {
     @Test
     public void euclideanMetricDistanceWithDifferentPositiveVectorsShouldReturnCorrectDistanceTest() {
         // Arrange
-        Double[] vector1 = {1.0, 2.0};
-        Double[] vector2 = {4.0, 6.0};
+        double[] vector1 = {1.0, 2.0};
+        double[] vector2 = {4.0, 6.0};
         double expectedDistance = 5.0; // sqrt((1-4)^2 + (2-6)^2) = sqrt(9 + 16) = 5.0
 
         // Act
@@ -97,8 +97,8 @@ public class MetricTest {
     @Test
     public void euclideanSquareMetricDistanceWithIdenticalVectorsShouldReturnZeroTest() {
         // Arrange
-        Double[] vector1 = {1.0, 2.5, -3.0};
-        Double[] vector2 = {1.0, 2.5, -3.0};
+        double[] vector1 = {1.0, 2.5, -3.0};
+        double[] vector2 = {1.0, 2.5, -3.0};
         double expectedDistance = 0.0;
 
         // Act
@@ -111,8 +111,8 @@ public class MetricTest {
     @Test
     public void euclideanSquareMetricDistanceWithDifferentPositiveVectorsShouldReturnCorrectDistanceTest() {
         // Arrange
-        Double[] vector1 = {1.0, 2.0};
-        Double[] vector2 = {4.0, 6.0};
+        double[] vector1 = {1.0, 2.0};
+        double[] vector2 = {4.0, 6.0};
         double expectedDistance = 25.0; // (1-4)^2 + (2-6)^2 = 9 + 16 = 25.0
 
         // Act
@@ -125,8 +125,8 @@ public class MetricTest {
     @Test
     public void cosineMetricDistanceWithIdenticalVectorsReturnsZeroTest() {
         // Arrange
-        Double[] vector1 = {5.0, 3.0, -2.0};
-        Double[] vector2 = {5.0, 3.0, -2.0};
+        double[] vector1 = {5.0, 3.0, -2.0};
+        double[] vector2 = {5.0, 3.0, -2.0};
         double expectedDistance = 0.0;
 
         // Act
@@ -139,8 +139,8 @@ public class MetricTest {
     @Test
     public void cosineMetricDistanceWithOrthogonalVectorsReturnsOneTest() {
         // Arrange
-        Double[] vector1 = {1.0, 0.0};
-        Double[] vector2 = {0.0, 1.0};
+        double[] vector1 = {1.0, 0.0};
+        double[] vector2 = {0.0, 1.0};
         double expectedDistance = 1.0;
 
         // Act
@@ -152,8 +152,8 @@ public class MetricTest {
 
     @Test
     public void dotProductMetricComparativeDistanceWithPositiveVectorsTest() {
-        Double[] vector1 = {1.0, 2.0, 3.0};
-        Double[] vector2 = {4.0, 5.0, 6.0};
+        double[] vector1 = {1.0, 2.0, 3.0};
+        double[] vector2 = {4.0, 5.0, 6.0};
         double expected = -32.0;
 
         double actual = dotProductMetric.comparativeDistance(vector1, vector2);
@@ -163,8 +163,8 @@ public class MetricTest {
 
     @Test
     public void dotProductMetricComparativeDistanceWithOrthogonalVectorsReturnsZeroTest() {
-        Double[] vector1 = {1.0, 0.0};
-        Double[] vector2 = {0.0, 1.0};
+        double[] vector1 = {1.0, 0.0};
+        double[] vector2 = {0.0, 1.0};
         double expected = -0.0;
 
         double actual = dotProductMetric.comparativeDistance(vector1, vector2);
