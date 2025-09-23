@@ -21,7 +21,6 @@
 package com.apple.foundationdb.async.hnsw;
 
 import com.apple.foundationdb.tuple.Tuple;
-import com.christianheina.langx.half4j.Half;
 import com.google.common.base.Objects;
 
 import javax.annotation.Nonnull;
@@ -29,7 +28,7 @@ import javax.annotation.Nonnull;
 /**
  * Represents a reference to a node that includes an associated vector.
  * <p>
- * This class extends {@link NodeReference} by adding a {@code Vector<Half>} field. It encapsulates both the primary key
+ * This class extends {@link NodeReference} by adding a {@link Vector} field. It encapsulates both the primary key
  * of a node and its corresponding vector data, which is particularly useful in vector-based search and
  * indexing scenarios. Primarily, node references are used to refer to {@link Node}s in a storage-independent way, i.e.
  * a node reference always contains the vector of a node while the node itself (depending on the storage adapter)
@@ -37,7 +36,7 @@ import javax.annotation.Nonnull;
  */
 public class NodeReferenceWithVector extends NodeReference {
     @Nonnull
-    private final Vector<Half> vector;
+    private final Vector vector;
 
     /**
      * Constructs a new {@code NodeReferenceWithVector} with a specified primary key and vector.
@@ -49,7 +48,7 @@ public class NodeReferenceWithVector extends NodeReference {
      * @param primaryKey the primary key of the node, must not be null
      * @param vector the vector associated with the node, must not be null
      */
-    public NodeReferenceWithVector(@Nonnull final Tuple primaryKey, @Nonnull final Vector<Half> vector) {
+    public NodeReferenceWithVector(@Nonnull final Tuple primaryKey, @Nonnull final Vector vector) {
         super(primaryKey);
         this.vector = vector;
     }
@@ -63,7 +62,7 @@ public class NodeReferenceWithVector extends NodeReference {
      * @return the vector of {@code Half} objects; will never be {@code null}.
      */
     @Nonnull
-    public Vector<Half> getVector() {
+    public Vector getVector() {
         return vector;
     }
 
@@ -72,7 +71,7 @@ public class NodeReferenceWithVector extends NodeReference {
      * @return a non-null {@code Vector<Double>} containing the elements of this vector.
      */
     @Nonnull
-    public Vector<Double> getDoubleVector() {
+    public Vector.DoubleVector getDoubleVector() {
         return vector.toDoubleVector();
     }
 

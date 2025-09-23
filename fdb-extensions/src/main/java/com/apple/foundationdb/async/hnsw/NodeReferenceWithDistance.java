@@ -21,7 +21,6 @@
 package com.apple.foundationdb.async.hnsw;
 
 import com.apple.foundationdb.tuple.Tuple;
-import com.christianheina.langx.half4j.Half;
 
 import javax.annotation.Nonnull;
 import java.util.Objects;
@@ -45,7 +44,7 @@ public class NodeReferenceWithDistance extends NodeReferenceWithVector {
      * @param vector the vector associated with the referenced node. Must not be null.
      * @param distance the calculated distance of this node reference to some query vector or similar.
      */
-    public NodeReferenceWithDistance(@Nonnull final Tuple primaryKey, @Nonnull final Vector<Half> vector,
+    public NodeReferenceWithDistance(@Nonnull final Tuple primaryKey, @Nonnull final Vector vector,
                                      final double distance) {
         super(primaryKey, vector);
         this.distance = distance;
