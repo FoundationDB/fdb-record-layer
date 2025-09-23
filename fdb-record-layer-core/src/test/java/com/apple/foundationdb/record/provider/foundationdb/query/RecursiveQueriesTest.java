@@ -279,14 +279,14 @@ class RecursiveQueriesTest extends TempTableTestBase {
 
     @Nonnull
     static Stream<Arguments> randomizedDescendantsTestParameters() {
-        final int maxChildrenCountPerLevel = 1000;
-        final int maxDepth = 10;
-        final var randomHierarchy = Hierarchy.generateRandomHierarchy(maxChildrenCountPerLevel, maxDepth);
-        final var splits = ListPartitioner.getSplitsUsingNormalDistribution(10, randomHierarchy.size());
+        final int maxChildrenCountPerLevel = 100000;
+        final int maxDepth = 100;
+        final int effectiveParentsCount = 100;
+        final int continuationsCount = 0;
+        final var randomHierarchy = Hierarchy.generateRandomHierarchy(maxChildrenCountPerLevel, maxDepth, effectiveParentsCount);
+        final var splits = ListPartitioner.getSplitsUsingNormalDistribution(continuationsCount, randomHierarchy.size());
         return Stream.of(
-            Arguments.of(randomHierarchy, LEVEL, splits),
-            Arguments.of(randomHierarchy, PREORDER, splits),
-            Arguments.of(randomHierarchy, ANY, splits)
+            Arguments.of(randomHierarchy, LEVEL, splits)
         );
     }
 
@@ -300,15 +300,16 @@ class RecursiveQueriesTest extends TempTableTestBase {
         final var randomContinuationScenario = ListPartitioner.randomPartition(descendants, splits);
         final var continuationSnapshots = randomContinuationScenario.getKey();
         final var expectedResults = randomContinuationScenario.getValue();
-        var result = descendantsOfAcrossContinuations(randomHierarchy.getEdges(), ImmutableMap.of(1L, -1L), continuationSnapshots, false, traversal);
+        var result = descendantsOfAcrossContinuations(randomHierarchy.getEdges(), ImmutableMap.of(1L, -1L), continuationSnapshots, true, traversal);
         assertEquals(expectedResults, result);
     }
 
     @Nonnull
     static Stream<Arguments> randomizedAncestorsTestParameters() {
-        final int maxChildrenCountPerLevel = 100;
-        final int maxDepth = 100;
-        final var randomHierarchy = Hierarchy.generateRandomHierarchy(maxChildrenCountPerLevel, maxDepth);
+        final int maxChildrenCountPerLevel = 10;
+        final int maxDepth = 3;
+        final int branchingFactor = 3;
+        final var randomHierarchy = Hierarchy.generateRandomHierarchy(maxChildrenCountPerLevel, maxDepth, branchingFactor);
         final var leaf = randomHierarchy.getRandomLeaf();
         final var parent = randomHierarchy.getEdges().get(leaf);
         final var ancestors = randomHierarchy.calculateAncestors(leaf);

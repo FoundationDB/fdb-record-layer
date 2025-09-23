@@ -367,12 +367,46 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
          * @return A list of integers representing partition sizes
          */
         @Nonnull
-        public static List<Integer> getSplitsUsingPowerDistribution(int numberOfPartitions, int inputSize) {
-            final var splits = ImmutableList.<Integer>builder();
-            for (int i = 0; i < numberOfPartitions; i++) {
-                splits.add(ListPartitioner.nextIntWithPowerDistribution(inputSize));
+        public static List<Integer> getSplitsUsingPowerDistribution(int numSplits, int end) {
+            double alpha = 0.4;
+            double randomnessFactor = 0.3;
+            Random random = new Random();
+            int totalRange = end + 1;
+
+            // Generate inverse power distribution weights with randomness
+            double[] weights = new double[numSplits];
+            double totalWeight = 0;
+
+            for (int i = 0; i < numSplits; i++) {
+                double baseWeight = Math.pow(numSplits - i, -alpha);
+                double randomVariance = 1 + (random.nextGaussian() * randomnessFactor);
+                weights[i] = baseWeight * Math.max(0.1, randomVariance);
+                totalWeight += weights[i];
             }
-            return splits.build();
+
+            // Calculate sizes
+            int[] sizes = new int[numSplits];
+            int assignedTotal = 0;
+
+            for (int i = 0; i < numSplits - 1; i++) {
+                double normalizedWeight = weights[i] / totalWeight;
+                sizes[i] = Math.max(1, (int) Math.round(totalRange * normalizedWeight));
+                assignedTotal += sizes[i];
+            }
+
+            // Assign remaining elements to the last split
+            sizes[numSplits - 1] = Math.max(1, totalRange - assignedTotal);
+
+            // Create boundaries
+            List<Integer> boundaries = new ArrayList<>();
+
+            int currentPos = 0;
+            for (int i = 0; i < numSplits - 1; i++) {
+                currentPos += sizes[i];
+                boundaries.add(Math.min(currentPos, end + 1));
+            }
+
+            return boundaries;
         }
 
         /**
@@ -380,17 +414,51 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
          * This method creates random split points with equal probability across
          * the entire range, resulting in more evenly distributed partition sizes.
          *
-         * @param numberOfPartitions The number of partitions to generate
+         * @param splitCount The number of partitions to generate
          * @param inputSize The total size of the input to be partitioned
          * @return A list of integers representing partition sizes
          */
         @Nonnull
-        public static List<Integer> getSplitsUsingNormalDistribution(int numberOfPartitions, int inputSize) {
-            final var splits = ImmutableList.<Integer>builder();
-            for (int i = 0; i < numberOfPartitions; i++) {
-                splits.add(random.nextInt(inputSize));
+        public static List<Integer> getSplitsUsingNormalDistribution(int continuationCount, int inputSize) {
+            if (continuationCount == 0) {
+                return List.of();
             }
-            return splits.build();
+            int splitCount = continuationCount + 2; // two extra splits for boundaries.
+            if (splitCount == 0) {
+                return List.of();
+            }
+            Verify.verify(inputSize > 0);
+            Random random = new Random();
+
+            int baseSize = inputSize / splitCount;
+            int remainder = inputSize % splitCount;
+
+            // Generate random split points while maintaining similar sizes
+            List<Integer> boundaries = new ArrayList<>();
+
+            int currentPos = 0;
+            for (int i = 0; i < splitCount - 1; i++) {
+                // Calculate target size for this split
+                int targetSize = baseSize + (i < remainder ? 1 : 0);
+
+                // Add some randomness (±20% of base size, but ensure minimum size of 1)
+                int maxVariance = Math.max(1, baseSize / 5);
+                int variance = random.nextInt(2 * maxVariance + 1) - maxVariance;
+                int actualSize = Math.max(1, targetSize + variance);
+
+                currentPos += actualSize;
+
+                // Ensure we don't exceed the end boundary
+                int remaining = inputSize - currentPos;
+                int splitsLeft = splitCount - i - 1;
+                if (remaining < splitsLeft) {
+                    currentPos = inputSize - splitsLeft + 1;
+                }
+
+                boundaries.add(Math.min(currentPos, inputSize));
+            }
+
+            return boundaries;
         }
 
         /**
@@ -417,6 +485,7 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
         @Nonnull
         public static Pair<List<Integer>, List<List<Long>>> randomPartition(@Nonnull final List<Long> input,
                                                                              @Nonnull final List<Integer> splits) {
+            Verify.verify(splits.size() < input.size());
             var numberOfPartitions = splits.size();
             numberOfPartitions = Math.min(numberOfPartitions, input.size());
             numberOfPartitions = Math.max(numberOfPartitions, 1);
@@ -426,17 +495,13 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
             final var left = ImmutableList.<Integer>builder();
             final var right = ImmutableList.<List<Long>>builder();
 
-            int size = 0;
+
+            int l = 0;
             for (int i = 0; i < numberOfPartitions; i++) {
-                int partitionSize = size + splits.get(i);
-                if (size + partitionSize >= input.size() || (i == numberOfPartitions - 1 && size + partitionSize < input.size())) {
-                    left.add(-1);
-                    right.add(input.subList(size, input.size()));
-                    break;
-                }
-                left.add(partitionSize + 1);
-                right.add(ImmutableList.copyOf(input.subList(size, partitionSize + 1 + size)));
-                size += partitionSize + 1;
+                int r = splits.get(i);
+                left.add(r - l);
+                right.add(ImmutableList.copyOf(input.subList(l, r)));
+                l = r;
             }
             return NonnullPair.of(left.build(), right.build());
         }
@@ -646,8 +711,24 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
             return new Hierarchy(edges);
         }
 
+        public static double generateWithVariance(double x, double variancePercent) {
+            // Calculate the variance range
+            double variance = x * (variancePercent / 100.0);
+
+            // Generate random value between -variance and +variance
+            double randomVariance = (random.nextDouble() * 2 - 1) * variance;
+
+            return x + randomVariance;
+        }
+
+        public static int generateWithPercentVariance(int x, int percentage) {
+            Verify.verify(percentage >= 0 && percentage <= 100);
+            double result = generateWithVariance(x, percentage);
+            return (int) Math.round(result);
+        }
+
         @Nonnull
-        public static Hierarchy generateRandomHierarchy(int maxChildrenCountPerLevel, int maxDepth) {
+        public static Hierarchy generateRandomHierarchy(int maxChildrenCountPerLevel, int maxDepth, int parentsCount) {
             var result = new LinkedHashMap<Long, Long>();
             result.put(ROOT, SENTINEL);
             long firstItemCurrentLevel = 1;
@@ -658,7 +739,11 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
                 while (j < maxChildrenCountPerLevel) {
                     listOfItems.add(firstItemNextLevel + j++);
                 }
-                final var splits = ListPartitioner.getSplitsUsingPowerDistribution((int)(firstItemNextLevel - firstItemCurrentLevel), listOfItems.size());
+                var numSplits = generateWithPercentVariance(parentsCount, 20);
+                if (numSplits >= maxChildrenCountPerLevel) {
+                    numSplits = maxChildrenCountPerLevel - 1;
+                }
+                final var splits = ListPartitioner.getSplitsUsingPowerDistribution(numSplits, listOfItems.size());
                 final var levelPartitions = ListPartitioner.randomPartition(listOfItems, splits);
                 int newLevelSize = levelPartitions.getValue().stream().map(List::size).reduce(0, Integer::sum);
                 for (int partition = 0; partition < levelPartitions.getValue().size(); partition++) {
