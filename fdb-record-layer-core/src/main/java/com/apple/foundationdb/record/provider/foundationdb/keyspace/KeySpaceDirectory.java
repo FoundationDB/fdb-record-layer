@@ -710,6 +710,7 @@ public class KeySpaceDirectory {
         return value;
     }
 
+    @SuppressWarnings("PMD.CompareObjectsWithEquals") // we use ref
     protected static boolean areEqual(@Nullable Object o1, @Nullable Object o2) {
         if (o1 == null) {
             return o2 == null;
@@ -719,12 +720,10 @@ public class KeySpaceDirectory {
             }
         }
 
-        // Handle ANY_VALUE specially - it should only be equal to itself
+        // Handle ANY_VALUE specially - typeOf does not support ANY_VALUE
         boolean isAnyValue = (o1 == ANY_VALUE || o2 == ANY_VALUE);
         if (isAnyValue) {
-            @SuppressWarnings("PMD.CompareObjectsWithEquals")
-            boolean result = (o1 == o2);
-            return result;
+            return Objects.equals(o1, o2);
         }
 
         KeyType o1Type = KeyType.typeOf(o1);

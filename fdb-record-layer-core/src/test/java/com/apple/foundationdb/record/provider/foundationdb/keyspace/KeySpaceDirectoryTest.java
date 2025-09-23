@@ -1227,7 +1227,7 @@ public class KeySpaceDirectoryTest {
         assertEquals(directoryEntries.size(), idx);
     }
 
-    private static Stream<Arguments> testEqualsIgnoringHierarchyWithVariousTypes() {
+    static Stream<Arguments> testEqualsIgnoringHierarchyWithVariousTypes() {
         // Basic type equality tests
         KeySpaceDirectory stringDir1 = new KeySpaceDirectory("dir", KeyType.STRING, "hello");
         KeySpaceDirectory stringDir2 = new KeySpaceDirectory("dir", KeyType.STRING, "hello");
@@ -1281,7 +1281,7 @@ public class KeySpaceDirectoryTest {
     }
 
     @ParameterizedTest
-    @MethodSource
+    @MethodSource("testEqualsIgnoringHierarchyWithVariousTypes")
     void testEqualsIgnoringHierarchyWithVariousTypes(KeySpaceDirectory dir1, KeySpaceDirectory dir2, boolean shouldBeEqual) {
         if (shouldBeEqual) {
             assertTrue(dir1.equalsIgnoringHierarchy(dir2), "Directories should be equal for " + dir1.getKeyType());
@@ -1292,13 +1292,8 @@ public class KeySpaceDirectoryTest {
         }
         assertTrue(dir1.equalsIgnoringHierarchy(dir1), "Directories should always equal themselves");
         assertTrue(dir2.equalsIgnoringHierarchy(dir2), "Directories should always equal themselves");
-    }
-
-    @Test
-    void testEqualsIgnoringHierarchyTrivialCases() {
-        KeySpaceDirectory dir = new KeySpaceDirectory("test", KeyType.STRING, "value");
-        assertFalse(dir.equalsIgnoringHierarchy(null), "Directory should not equal null");
-        assertFalse(dir.equalsIgnoringHierarchy("value"), "Directory should not equal other classes");
+        assertFalse(dir1.equalsIgnoringHierarchy(null), "Directory should not equal null");
+        assertFalse(dir1.equalsIgnoringHierarchy(dir1.value), "Directory should not equal other classes");
     }
 
     @Test
