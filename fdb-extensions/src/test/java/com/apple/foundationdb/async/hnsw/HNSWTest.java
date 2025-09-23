@@ -68,6 +68,7 @@ import java.util.TreeSet;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import java.util.stream.LongStream;
 import java.util.stream.Stream;
 
@@ -255,6 +256,13 @@ public class HNSWTest {
                 TimeUnit.NANOSECONDS.toMillis(endTs - beginTs),
                 onReadListener.getNodeCountByLayer(), onReadListener.getBytesReadByLayer(),
                 String.format(Locale.ROOT, "%.2f", recall * 100.0d));
+
+        final Set<Long> usedIds =
+                LongStream.range(0, 1000)
+                        .boxed()
+                        .collect(Collectors.toSet());
+
+        hnsw.scanLayer(db, 0, 100, node -> Assertions.assertTrue(usedIds.remove(node.getPrimaryKey().getLong(0))));
     }
 
     private int basicInsertBatch(final HNSW hnsw, final int batchSize,
