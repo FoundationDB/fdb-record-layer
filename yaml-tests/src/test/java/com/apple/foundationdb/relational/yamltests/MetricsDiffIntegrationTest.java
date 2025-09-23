@@ -58,7 +58,7 @@ class MetricsDiffIntegrationTest {
         // Generate and verify report
         final var report = result.generateReport();
         assertThat(report)
-                .contains("# Metrics Diff Analysis Report")
+                .contains("# 📊 Metrics Diff Analysis Report")
                 .contains("## Summary")
                 .contains("- New queries: 1")
                 .contains("- Dropped queries: 0")
@@ -71,9 +71,6 @@ class MetricsDiffIntegrationTest {
                 .contains("Average change: 2.0") // All queries have +2 task_count
                 .contains("**`transform_count`**:")
                 .contains("Average change: 1.0"); // All queries have +1 transform_count
-
-        // Test significant changes detection - should be true due to metrics-only changes
-        assertThat(result.hasSignificantChanges()).isTrue();
     }
 
     @Test
@@ -120,7 +117,7 @@ class MetricsDiffIntegrationTest {
 
         assertThat(report)
                 // Verify markdown formatting
-                .startsWith("# Metrics Diff Analysis Report")
+                .contains("# 📊 Metrics Diff Analysis Report")
                 .contains("## Summary")
                 .contains("## New Queries")
                 .contains("## Plan and Metrics Changed")
@@ -161,9 +158,6 @@ class MetricsDiffIntegrationTest {
                 .contains("- Dropped queries: 0")
                 .contains("- Plan changed + metrics changed: 0")
                 .contains("- Plan unchanged + metrics changed: 0");
-
-        // Should not be significant
-        assertThat(result.hasSignificantChanges()).isFalse();
     }
 
     @Nonnull

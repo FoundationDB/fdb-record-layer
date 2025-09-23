@@ -43,6 +43,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 
 /**
  * Main analyzer for comparing metrics between different git references.
@@ -314,8 +315,9 @@ public final class MetricsDiffAnalyzer {
             return metricsOnlyChanged;
         }
 
-        public boolean hasSignificantChanges() {
-            return !droppedQueries.isEmpty() || !metricsOnlyChanged.isEmpty();
+        @Nonnull
+        private Path relativePath(@Nonnull Path path) {
+            return repositoryRoot == null ? path : repositoryRoot.relativize(path);
         }
 
         /**
@@ -323,7 +325,6 @@ public final class MetricsDiffAnalyzer {
          */
         @Nonnull
         private String formatQueryDisplay(@Nonnull final QueryChange change) {
-            final var relativePath = repositoryRoot != null ? repositoryRoot.relativize(change.filePath) : change.filePath;
             int lineNumber = -1;
             if (change.newInfo != null) {
                 lineNumber = change.newInfo.getLineNumber();
@@ -331,31 +332,51 @@ public final class MetricsDiffAnalyzer {
                 lineNumber = change.oldInfo.getLineNumber();
             }
             final String lineInfo = lineNumber > 0 ? (":" + lineNumber) : "";
-            return String.format("%s%s: `%s`", relativePath, lineInfo, change.identifier.getQuery());
+            return String.format("%s%s: `%s`", relativePath(change.filePath), lineInfo, change.identifier.getQuery());
         }
 
+        /**
+         * Generate a markdown formatted report summarizing metrics differences. It contains a few
+         * different sections, including information on the set of queries that have been added and
+         * dropped, as well as modifications. This is intended to be presented as a single document
+         * for a reviewer to use to aid in assessing the scope of planner metrics changes.
+         *
+         * @return the contents of a report comparing query metrics
+         */
         @Nonnull
         public String generateReport() {
             final var report = new StringBuilder();
-            report.append("# Metrics Diff Analysis Report\n\n");
+            report.append("# 📊 Metrics Diff Analysis Report\n\n");
 
-            report.append("## Summary\n\n");
-            report.append(String.format("- New queries: %d\n", newQueries.size()));
-            report.append(String.format("- Dropped queries: %d\n", droppedQueries.size()));
-            report.append(String.format("- Plan changed + metrics changed: %d\n", planAndMetricsChanged.size()));
-            report.append(String.format("- Plan unchanged + metrics changed: %d\n", metricsOnlyChanged.size()));
-            report.append("\n");
+            report.append("## Summary\n\n")
+                    .append(String.format("- New queries: %d\n", newQueries.size()))
+                    .append(String.format("- Dropped queries: %d\n", droppedQueries.size()))
+                    .append(String.format("- Plan changed + metrics changed: %d\n", planAndMetricsChanged.size()))
+                    .append(String.format("- Plan unchanged + metrics changed: %d\n", metricsOnlyChanged.size()))
+                    .append("\n");
 
             if (!newQueries.isEmpty()) {
-                report.append("## New Queries\n\n");
+                // Only list a count of new queries by file type. Having more test cases is generally a good thing,
+                // so we only want to get a rough overview
+                report.append("## New Queries\n\nCount of new queries by file:\n\n");
+                Map<Path, Integer> countByFile = new TreeMap<>(); // tree map so that we sort by file name
                 for (final var change : newQueries) {
-                    report.append(String.format("- %s\n", formatQueryDisplay(change)));
+                    countByFile.compute(change.filePath, (ignore, oldValue) -> oldValue == null ? 1 : oldValue + 1);
+                }
+                for (Map.Entry<Path, Integer> countEntry : countByFile.entrySet()) {
+                    report.append("- ")
+                            .append(relativePath(countEntry.getKey()))
+                            .append(": ")
+                            .append(countEntry.getValue())
+                            .append("\n");
                 }
                 report.append("\n");
             }
 
             if (!droppedQueries.isEmpty()) {
-                report.append("## Dropped Queries\n\n");
+                // List out each individual dropped query. These represent a potential lack of coverage, and
+                // so we want these listed out more explicitly
+                report.append("## Dropped Queries\n\nThe following queries with metrics were removed:\n\n");
                 for (final var change : droppedQueries) {
                     report.append(String.format("- %s\n", formatQueryDisplay(change)));
                 }
@@ -365,9 +386,29 @@ public final class MetricsDiffAnalyzer {
             appendChangesList(report, planAndMetricsChanged, "Plan and Metrics Changed");
             appendChangesList(report, metricsOnlyChanged, "Only Metrics Changed");
 
+            report.append("<details>\n\n")
+                    .append("<summary>ℹ️ About this analysis</summary>\n\n")
+                    .append("This automated analysis compares query planner metrics between the base branch and this PR. It categorizes changes into:\n\n")
+                    .append(" - **New queries**: Queries added in this PR\n")
+                    .append(" - **Dropped queries**: Queries removed in this PR\n")
+                    .append(" - **Plan changed + metrics changed**: The query plan has changed along with planner metrics\n")
+                    .append(" - **Metrics only changed**: Same plan but different metrics\n\n")
+                    .append("The last category in particular may indicate planner regressions that should be investigated.\n\n")
+                    .append("</details>\n");
+
             return report.toString();
         }
 
+        /**
+         * Print out a simple list of outlier queries. This format is kept simple so that
+         * it can be processed by tools to generate in-line comments. Each query is separated
+         * by a blank line. The first line contains the file and line number as well as the query
+         * text, and then the metrics differences follow. This is intended to be used to generate
+         * a list of in-line comments to highlight each of these queries.
+         *
+         * @return a report of outlier queries
+         */
+        @Nonnull
         public String generateOutlierQueryReport() {
             final List<QueryChange> outliers = findAllOutliers();
             if (outliers.isEmpty()) {
@@ -402,7 +443,7 @@ public final class MetricsDiffAnalyzer {
             }
         }
 
-        private void appendChangesList(@Nonnull final StringBuilder report, @Nonnull List<QueryChange> changes, String title) {
+        private void appendChangesList(@Nonnull final StringBuilder report, @Nonnull List<QueryChange> changes, @Nonnull String title) {
             if (changes.isEmpty()) {
                 return;
             }
@@ -421,12 +462,9 @@ public final class MetricsDiffAnalyzer {
                 report.append("No outliers detected.\n\n");
             } else {
                 for (final var change : metricsOutliers) {
-                    report.append(String.format("- %s", formatQueryDisplay(change)));
+                    report.append(String.format("- %s", formatQueryDisplay(change))).append("\n");
                     if (change.oldInfo != null && change.newInfo != null) {
-                        report.append("<br/>\n");
                         appendMetricsDiff(report, change);
-                    } else {
-                        report.append("\n");
                     }
                 }
                 report.append("\n");
@@ -467,7 +505,8 @@ public final class MetricsDiffAnalyzer {
             return statisticsBuilder.build();
         }
 
-        private List<QueryChange> findAllOutliers() {
+        @Nonnull
+        public List<QueryChange> findAllOutliers() {
             return ImmutableList.<QueryChange>builder()
                     .addAll(findOutliers(planAndMetricsChanged))
                     .addAll(findOutliers(metricsOnlyChanged))
@@ -544,7 +583,7 @@ public final class MetricsDiffAnalyzer {
                 if (oldValue != newValue) {
                     final long change = newValue - oldValue;
                     final String changeStr = change > 0 ? "+" + change : String.valueOf(change);
-                    report.append(String.format("&nbsp;&nbsp;&nbsp;&nbsp;`%s`: %d -> %d (%s)<br/>\n", fieldName, oldValue, newValue, changeStr));
+                    report.append(String.format("  - `%s`: %d -> %d (%s)\n", fieldName, oldValue, newValue, changeStr));
                 }
             }
         }

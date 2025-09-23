@@ -26,13 +26,12 @@ jobs:
     - name: Run metrics diff analysis
       id: metrics-diff
       run: |
-        # Run the analysis and capture output
+        # Run the analysis. Compare against the base hash of this PR
         ./gradlew :yaml-tests:analyzeMetrics \
           -PmetricsAnalysis.baseRef="${{ github.event.pull_request.base.sha }}" \
-          -PmetricsAnalysis.repositoryRoot="$( pwd )" \
-          -PmetricsAnalysis.output="$(pwd)/metrics-analysis-output.txt" \
-          -PmetricsAnalysis.outlierQueries="$(pwd)/outlier-queries.txt" \
-          || echo "ANALYSIS_FAILED=true" >> $GITHUB_OUTPUT
+          -PmetricsAnalysis.repositoryRoot="${{ github.workspace }}" \
+          -PmetricsAnalysis.output="${{ github.workspace }}/metrics-analysis-output.txt" \
+          -PmetricsAnalysis.outlierQueries="${{ github.workspace }}/outlier-queries.txt"
 
     - name: Add Report To Summary
       run: cat metrics-analysis-output.txt > $GITHUB_STEP_SUMMARY
@@ -53,25 +52,7 @@ jobs:
         github-token: ${{ secrets.GITHUB_TOKEN }}
         script: |
           const fs = require('fs');
-          const hasSignificantChanges = '${{ steps.check-changes.outputs.SIGNIFICANT_CHANGES }}' === 'true';
-          const report = fs.readFileSync("./metrics-analysis-output.txt", { encoding: 'utf8', flag: 'r'});
-
-          const commentBody = "## 📊 Metrics Diff Analysis\n\n" +
-            + report
-            + `
-               <details>
-               <summary>ℹ️ About this analysis</summary>
-
-               This automated analysis compares query planner metrics between the base branch and this PR. It categorizes changes into:
-
-               - **New queries**: Queries added in this PR
-               - **Dropped queries**: Queries removed in this PR
-               - **Plan changed + metrics changed**: Expected when query plans change
-               - **Metrics only changed**: Same plan but different metrics 
-
-               The last category may indicate planner regressions and should be investigated.
-               </details>
-               `;
+          const report = fs.readFileSync("${{ github.workspace }}/metrics-analysis-output.txt", { encoding: 'utf8', flag: 'r'});
 
           // Find existing comment
           const { data: comments } = await github.rest.issues.listComments({
@@ -90,7 +71,7 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               comment_id: existingComment.id,
-              body: commentBody
+              body: report
             });
           } else {
             // Create new comment
@@ -98,7 +79,7 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
-              body: commentBody
+              body: report
             });
           }
 
@@ -112,7 +93,7 @@ jobs:
           const fs = require('fs');
 
           // Parse the outliers report analysis output to find files with notable queries
-          const output = fs.readFileSync("./outlier-queries.txt", { encoding: 'utf8', flag: 'r' }));
+          const output = fs.readFileSync("${{ github.workspace }}/outlier-queries.txt", { encoding: 'utf8', flag: 'r' });
 
           // Each query appears separated by a blank line
           const queries = output.split('\n\n');

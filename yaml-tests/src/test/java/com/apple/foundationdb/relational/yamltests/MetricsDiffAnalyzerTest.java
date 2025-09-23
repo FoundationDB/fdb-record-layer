@@ -27,6 +27,7 @@ import org.junit.jupiter.api.Test;
 import javax.annotation.Nonnull;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -68,6 +69,26 @@ class MetricsDiffAnalyzerTest {
         assertThat(metricsInfo.getCountersAndTimers().getTransformCount()).isEqualTo(5);
     }
 
+    @Nonnull
+    private MetricsDiffAnalyzer.MetricsAnalysisResult analyze(@Nonnull Map<PlannerMetricsProto.Identifier, MetricsInfo> baseMetrics,
+                                                              @Nonnull Map<PlannerMetricsProto.Identifier, MetricsInfo> headMetrics) {
+        final var analyzer = new MetricsDiffAnalyzer("base", Paths.get("."));
+        final var analysisBuilder = MetricsDiffAnalyzer.MetricsAnalysisResult.newBuilder();
+        final var filePath = Paths.get("test.metrics.yaml");
+
+        analyzer.compareMetrics(baseMetrics, headMetrics, filePath, analysisBuilder);
+        return analysisBuilder.build();
+    }
+
+    @Nonnull
+    private Path getTestResourcePath(String filename) {
+        final var classLoader = Thread.currentThread().getContextClassLoader();
+        final var resource = classLoader.getResource("metrics-diff/" + filename);
+        assertNotNull(resource, "Test resource not found: metrics-diff/" + filename);
+        return Paths.get(resource.getPath());
+    }
+
+
     @Test
     void testCompareMetricsDetectsChanges() throws Exception {
         // Load base and head metrics
@@ -75,26 +96,19 @@ class MetricsDiffAnalyzerTest {
                 getTestResourcePath("test-base.metrics.yaml"));
         final var headMetrics = YamlExecutionContext.loadMetricsFromYamlFile(
                 getTestResourcePath("test-head.metrics.yaml"));
-
-        // Create analyzer and run comparison
-        final var analyzer = new MetricsDiffAnalyzer("base", Paths.get("."));
-        final var analysisBuilder = MetricsDiffAnalyzer.MetricsAnalysisResult.newBuilder();
-        final var filePath = Paths.get("test.metrics.yaml");
-
-        analyzer.compareMetrics(baseMetrics, headMetrics, filePath, analysisBuilder);
-        final var result = analysisBuilder.build();
+        final MetricsDiffAnalyzer.MetricsAnalysisResult analysis = analyze(baseMetrics, headMetrics);
 
         // Verify we detect changes
-        assertThat(result.getNewQueries()).hasSize(1); // "SELECT email FROM users WHERE email = ?"
-        assertThat(result.getDroppedQueries()).isEmpty();
-        assertThat(result.getPlanAndMetricsChanged()).hasSize(2); // two queries have plan change
-        assertThat(result.getMetricsOnlyChanged()).hasSize(1); // users query has only metrics changes
+        assertThat(analysis.getNewQueries()).hasSize(1); // "SELECT email FROM users WHERE email = ?"
+        assertThat(analysis.getDroppedQueries()).isEmpty();
+        assertThat(analysis.getPlanAndMetricsChanged()).hasSize(2); // two queries have plan change
+        assertThat(analysis.getMetricsOnlyChanged()).hasSize(1); // users query has only metrics changes
 
         // Verify specific changes
-        final var newQuery = result.getNewQueries().get(0);
+        final var newQuery = analysis.getNewQueries().get(0);
         assertThat(newQuery.identifier.getQuery()).contains("SELECT email FROM users WHERE email = ?");
 
-        for (MetricsDiffAnalyzer.QueryChange planChanged : result.getPlanAndMetricsChanged()) {
+        for (MetricsDiffAnalyzer.QueryChange planChanged : analysis.getPlanAndMetricsChanged()) {
             assertThat(planChanged.newInfo).isNotNull();
             assertThat(planChanged.oldInfo).isNotNull();
             final String query = planChanged.identifier.getQuery();
@@ -112,7 +126,7 @@ class MetricsDiffAnalyzerTest {
             }
         }
 
-        final var metricsChanged = result.getMetricsOnlyChanged().get(0);
+        final var metricsChanged = analysis.getMetricsOnlyChanged().get(0);
         assertThat(metricsChanged.newInfo).isNotNull();
         assertThat(metricsChanged.oldInfo).isNotNull();
         assertThat(metricsChanged.newInfo.getExplain())
@@ -125,16 +139,10 @@ class MetricsDiffAnalyzerTest {
         // Create test data with known statistical properties
         final var baseMetrics = createTestMetricsWithStatistics();
         final var headMetrics = createModifiedTestMetrics();
-
-        final var analyzer = new MetricsDiffAnalyzer("base", Paths.get("."));
-        final var analysisBuilder = MetricsDiffAnalyzer.MetricsAnalysisResult.newBuilder();
-        final var filePath = Paths.get("test.metrics.yaml");
-
-        analyzer.compareMetrics(baseMetrics, headMetrics, filePath, analysisBuilder);
-        final var result = analysisBuilder.build();
+        final MetricsDiffAnalyzer.MetricsAnalysisResult result = analyze(baseMetrics, headMetrics);
 
         // Generate report and verify statistical analysis
-        final var report = result.generateReport();
+        final String report = result.generateReport();
 
         assertThat(report)
                 .contains("Statistical Summary")
@@ -146,47 +154,19 @@ class MetricsDiffAnalyzerTest {
     }
 
     @Test
-    void testOutlierDetection() {
-        // Create metrics with one clear outlier
-        final var baseMetrics = createMetricsWithOutliers();
-        final var headMetrics = createMetricsWithOutlierChanges();
-
-        final var analyzer = new MetricsDiffAnalyzer("base", Paths.get("."));
-        final var analysisBuilder = MetricsDiffAnalyzer.MetricsAnalysisResult.newBuilder();
-        final var filePath = Paths.get("test.metrics.yaml");
-
-        analyzer.compareMetrics(baseMetrics, headMetrics, filePath, analysisBuilder);
-        final var result = analysisBuilder.build();
-
-        final var report = result.generateReport();
-
-        // Should detect the outlier
-        assertThat(report)
-                .contains("- Plan unchanged + metrics changed: 11")
-                .contains("Significant Changes (Only Metrics Changed)")
-                .contains("outlier_query");
-    }
-
-    @Test
     void testReportGeneration() throws Exception {
         // Load test metrics
         final var baseMetrics = YamlExecutionContext.loadMetricsFromYamlFile(
                 getTestResourcePath("test-base.metrics.yaml"));
         final var headMetrics = YamlExecutionContext.loadMetricsFromYamlFile(
                 getTestResourcePath("test-head.metrics.yaml"));
+        final MetricsDiffAnalyzer.MetricsAnalysisResult analysis = analyze(baseMetrics, headMetrics);
 
-        final var analyzer = new MetricsDiffAnalyzer("base", Paths.get("."));
-        final var analysisBuilder = MetricsDiffAnalyzer.MetricsAnalysisResult.newBuilder();
-        final var filePath = Paths.get("test.metrics.yaml");
-
-        analyzer.compareMetrics(baseMetrics, headMetrics, filePath, analysisBuilder);
-        final var result = analysisBuilder.build();
-
-        final var report = result.generateReport();
+        final String report = analysis.generateReport();
 
         // Verify report structure
         assertThat(report)
-                .contains("# Metrics Diff Analysis Report")
+                .contains("# 📊 Metrics Diff Analysis Report")
                 .contains("## Summary")
                 .contains("- New queries: 1")
                 .contains("- Dropped queries: 0")
@@ -198,34 +178,36 @@ class MetricsDiffAnalyzerTest {
     }
 
     @Test
-    void testSignificantChangesDetection() {
-        // Test with dropped queries (should be significant)
-        final MetricsDiffAnalyzer.QueryChange change = createDummyQueryChange();
-        final var analysisWithDropped = MetricsDiffAnalyzer.MetricsAnalysisResult.newBuilder()
-                .addDroppedQuery(change.filePath, change.identifier, change.oldInfo)
-                .build();
-        assertThat(analysisWithDropped.hasSignificantChanges()).isTrue();
+    void testOutlierDetection() {
+        // Create metrics with one clear outlier
+        final var baseMetrics = createMetricsWithOutliers();
+        final var headMetrics = createMetricsWithOutlierChanges();
+        final MetricsDiffAnalyzer.MetricsAnalysisResult analysis = analyze(baseMetrics, headMetrics);
+        final List<MetricsDiffAnalyzer.QueryChange> outliers = analysis.findAllOutliers();
+        assertThat(outliers)
+                .as("should have found a single outlier")
+                .hasSize(1);
+        final MetricsDiffAnalyzer.QueryChange expected = outliers.get(0);
+        assertThat(expected.newInfo)
+                .isNotNull();
 
-        // Test with metrics-only changes (should be significant)
-        final var analysisWithMetricsOnly = MetricsDiffAnalyzer.MetricsAnalysisResult.newBuilder()
-                .addMetricsOnlyChanged(change.filePath, change.identifier, change.oldInfo, change.newInfo)
-                .build();
-        assertThat(analysisWithMetricsOnly.hasSignificantChanges()).isTrue();
+        final String report = analysis.generateReport();
 
-        // Test with only new queries and plan changes (should not be significant)
-        final var analysisWithoutSignificant = MetricsDiffAnalyzer.MetricsAnalysisResult.newBuilder()
-                .addNewQuery(change.filePath, change.identifier, change.newInfo)
-                .addPlanAndMetricsChanged(change.filePath, change.identifier, change.oldInfo, change.newInfo)
-                .build();
-        assertThat(analysisWithoutSignificant.hasSignificantChanges()).isFalse();
-    }
+        // Should report the outlier in the larger report
+        assertThat(report)
+                .contains("- Plan unchanged + metrics changed: 11")
+                .contains("Significant Changes (Only Metrics Changed)")
+                .contains("outlier_query");
 
-    @Nonnull
-    private Path getTestResourcePath(String filename) {
-        final var classLoader = Thread.currentThread().getContextClassLoader();
-        final var resource = classLoader.getResource("metrics-diff/" + filename);
-        assertNotNull(resource, "Test resource not found: metrics-diff/" + filename);
-        return Paths.get(resource.getPath());
+        // Should also be able to see the query in the outlier query report
+        final String outlierReport = analysis.generateOutlierQueryReport();
+        assertThat(outlierReport).isNotEmpty();
+        String[] outlierText = outlierReport.split("\n\n");
+        assertThat(outlierText)
+                .hasSize(1);
+        assertThat(outlierText[0])
+                .contains(expected.identifier.getQuery())
+                .contains("" + expected.newInfo.getLineNumber());
     }
 
     @Nonnull
