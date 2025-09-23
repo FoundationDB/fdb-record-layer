@@ -21,7 +21,6 @@
 package com.apple.foundationdb.async.hnsw;
 
 import com.apple.foundationdb.tuple.Tuple;
-import com.christianheina.langx.half4j.Half;
 
 import javax.annotation.Nonnull;
 import java.util.Objects;
@@ -48,7 +47,7 @@ class EntryNodeReference extends NodeReferenceWithVector {
      * @param vector the vector data associated with the node. Must not be {@code null}.
      * @param layer the layer number where this entry node is located.
      */
-    public EntryNodeReference(@Nonnull final Tuple primaryKey, @Nonnull final Vector<Half> vector, final int layer) {
+    public EntryNodeReference(@Nonnull final Tuple primaryKey, @Nonnull final Vector vector, final int layer) {
         super(primaryKey, vector);
         this.layer = layer;
     }

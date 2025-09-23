@@ -46,13 +46,17 @@ import java.util.stream.Collectors;
  * where {@code R} is a subtype of {@link Number}. It includes common operations and functionalities like size,
  * component access, equality checks, and conversions. Concrete implementations must provide specific logic for
  * data type conversions and raw data representation.
- * @param <R> the type of the numbers stored in this vector, which must extend {@link Number}.
+
  */
-public abstract class Vector<R extends Number> {
+public abstract class Vector {
     @Nonnull
-    protected R[] data;
+    final double[] data;
+
     @Nonnull
     protected Supplier<Integer> hashCodeSupplier;
+
+    @Nonnull
+    private final Supplier<byte[]> toRawDataSupplier;
 
     /**
      * Constructs a new Vector with the given data.
@@ -61,12 +65,13 @@ public abstract class Vector<R extends Number> {
      * defensive copy. Therefore, any subsequent modifications to the input array will be reflected in this vector's
      * state. The contract of this constructor is that callers do not modify {@code data} after calling the constructor.
      * We do not want to copy the array here for performance reasons.
-     * @param data the array of elements for this vector; must not be {@code null}.
+     * @param data the components of this vector
      * @throws NullPointerException if the provided {@code data} array is null.
      */
-    public Vector(@Nonnull final R[] data) {
+    public Vector(@Nonnull final double[] data) {
         this.data = data;
         this.hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
+        this.toRawDataSupplier = Suppliers.memoize(this::computeRawData);
     }
 
     /**
@@ -88,8 +93,7 @@ public abstract class Vector<R extends Number> {
      * @throws IndexOutOfBoundsException if the {@code dimension} is negative or
      *         greater than or equal to the number of dimensions of this object.
      */
-    @Nonnull
-    R getComponent(int dimension) {
+    double getComponent(int dimension) {
         return data[dimension];
     }
 
@@ -101,7 +105,7 @@ public abstract class Vector<R extends Number> {
      * @return the data array of type {@code R[]}, never {@code null}.
      */
     @Nonnull
-    public R[] getData() {
+    public double[] getData() {
         return data;
     }
 
@@ -113,7 +117,19 @@ public abstract class Vector<R extends Number> {
      * @return a non-null byte array containing the raw data.
      */
     @Nonnull
-    public abstract byte[] getRawData();
+    public byte[] getRawData() {
+        return toRawDataSupplier.get();
+    }
+
+    /**
+     * Computes the raw byte data representation of this object.
+     * <p>
+     * This method provides a direct, unprocessed view of the object's underlying data. The format of the byte array is
+     * implementation-specific and should be documented by the concrete class that implements this method.
+     * @return a non-null byte array containing the raw data.
+     */
+    @Nonnull
+    protected abstract byte[] computeRawData();
 
     /**
      * Converts this object into a {@code Vector} of {@link Half} precision floating-point numbers.
@@ -125,7 +141,7 @@ public abstract class Vector<R extends Number> {
      *         object.
      */
     @Nonnull
-    public abstract Vector<Half> toHalfVector();
+    public abstract HalfVector toHalfVector();
 
     /**
      * Converts this vector into a {@link DoubleVector}.
@@ -140,10 +156,19 @@ public abstract class Vector<R extends Number> {
     public abstract DoubleVector toDoubleVector();
 
     /**
-     * Returns the number of digits to the right of the decimal point.
-     * @return the precision, which is the number of digits to the right of the decimal point.
+     * Returns the number of bytes used for the serialization of this vector per component.
+     * @return the component size, i.e. the number of bytes used for the serialization of this vector per component.
      */
-    public abstract int precision();
+    public int precision() {
+        return (1 << precisionShift());
+    }
+
+    /**
+     * Returns the number of bits we need to shift {@code 1} to express {@link #precision()} used for the serialization
+     * of this vector per component.
+     * @return returns the number of bits we need to shift {@code 1} to express {@link #precision()}
+     */
+    public abstract int precisionShift();
 
     /**
      * Compares this vector to the specified object for equality.
@@ -159,7 +184,7 @@ public abstract class Vector<R extends Number> {
         if (!(o instanceof Vector)) {
             return false;
         }
-        final Vector<?> vector = (Vector<?>)o;
+        final Vector vector = (Vector)o;
         return Objects.deepEquals(data, vector.data);
     }
 
@@ -208,11 +233,11 @@ public abstract class Vector<R extends Number> {
         Verify.verify(limitDimensions > 0);
         if (limitDimensions < data.length) {
             return "[" + Arrays.stream(Arrays.copyOfRange(data, 0, limitDimensions))
-                    .map(String::valueOf)
+                    .mapToObj(String::valueOf)
                     .collect(Collectors.joining(",")) + ", ...]";
         } else {
             return "[" + Arrays.stream(data)
-                    .map(String::valueOf)
+                    .mapToObj(String::valueOf)
                     .collect(Collectors.joining(",")) + "]";
         }
     }
@@ -221,21 +246,22 @@ public abstract class Vector<R extends Number> {
      * A vector class encoding a vector over half components. Conversion to {@link DoubleVector} is supported and
      * memoized.
      */
-    public static class HalfVector extends Vector<Half> {
+    public static class HalfVector extends Vector {
         @Nonnull
         private final Supplier<DoubleVector> toDoubleVectorSupplier;
-        @Nonnull
-        private final Supplier<byte[]> toRawDataSupplier;
 
-        public HalfVector(@Nonnull final Half[] data) {
+        public HalfVector(@Nonnull final Half[] halfData) {
+            this(computeDoubleData(halfData));
+        }
+
+        public HalfVector(@Nonnull final double[] data) {
             super(data);
             this.toDoubleVectorSupplier = Suppliers.memoize(this::computeDoubleVector);
-            this.toRawDataSupplier = Suppliers.memoize(this::computeRawData);
         }
 
         @Nonnull
         @Override
-        public Vector<Half> toHalfVector() {
+        public HalfVector toHalfVector() {
             return this;
         }
 
@@ -245,34 +271,29 @@ public abstract class Vector<R extends Number> {
             return toDoubleVectorSupplier.get();
         }
 
-        @Override
-        public int precision() {
-            return 16;
-        }
-
         @Nonnull
         public DoubleVector computeDoubleVector() {
-            Double[] result = new Double[data.length];
-            for (int i = 0; i < data.length; i ++) {
-                result[i] = data[i].doubleValue();
-            }
-            return new DoubleVector(result);
+            return new DoubleVector(data);
+        }
+
+        @Override
+        public int precisionShift() {
+            return 1;
         }
 
         @Nonnull
         @Override
-        public byte[] getRawData() {
-            return toRawDataSupplier.get();
-        }
-
-        @Nonnull
-        private byte[] computeRawData() {
+        protected byte[] computeRawData() {
             return StorageAdapter.bytesFromVector(this);
         }
 
         @Nonnull
-        public static HalfVector halfVectorFromBytes(@Nonnull final byte[] vectorBytes) {
-            return StorageAdapter.vectorFromBytes(vectorBytes);
+        private static double[] computeDoubleData(@Nonnull Half[] halfData) {
+            double[] result = new double[halfData.length];
+            for (int i = 0; i < halfData.length; i ++) {
+                result[i] = halfData[i].doubleValue();
+            }
+            return result;
         }
     }
 
@@ -280,11 +301,15 @@ public abstract class Vector<R extends Number> {
      * A vector class encoding a vector over double components. Conversion to {@link HalfVector} is supported and
      * memoized.
      */
-    public static class DoubleVector extends Vector<Double> {
+    public static class DoubleVector extends Vector {
         @Nonnull
         private final Supplier<HalfVector> toHalfVectorSupplier;
 
-        public DoubleVector(@Nonnull final Double[] data) {
+        public DoubleVector(@Nonnull final Double[] doubleData) {
+            this(computeDoubleData(doubleData));
+        }
+
+        public DoubleVector(@Nonnull final double[] data) {
             super(data);
             this.toHalfVectorSupplier = Suppliers.memoize(this::computeHalfVector);
         }
@@ -296,30 +321,34 @@ public abstract class Vector<R extends Number> {
         }
 
         @Nonnull
-        public HalfVector computeHalfVector() {
-            Half[] result = new Half[data.length];
-            for (int i = 0; i < data.length; i ++) {
-                result[i] = Half.valueOf(data[i]);
-            }
-            return new HalfVector(result);
-        }
-
-        @Nonnull
         @Override
         public DoubleVector toDoubleVector() {
             return this;
         }
 
+        @Nonnull
+        public HalfVector computeHalfVector() {
+            return new HalfVector(data);
+        }
+
         @Override
-        public int precision() {
-            return 64;
+        public int precisionShift() {
+            return 3;
         }
 
         @Nonnull
         @Override
-        public byte[] getRawData() {
-            // TODO
-            throw new UnsupportedOperationException("not implemented yet");
+        protected byte[] computeRawData() {
+            return StorageAdapter.bytesFromVector(this);
+        }
+
+        @Nonnull
+        private static double[] computeDoubleData(@Nonnull Double[] doubleData) {
+            double[] result = new double[doubleData.length];
+            for (int i = 0; i < doubleData.length; i ++) {
+                result[i] = doubleData[i];
+            }
+            return result;
         }
     }
 
@@ -329,16 +358,15 @@ public abstract class Vector<R extends Number> {
      * This static utility method provides a convenient way to compute the distance by handling the conversion of
      * generic {@code Vector<R>} objects to primitive {@code double} arrays. The actual distance computation is then
      * delegated to the provided {@link Metric} instance.
-     * @param <R> the type of the numbers in the vectors, which must extend {@link Number}.
      * @param metric the {@link Metric} to use for the distance calculation.
      * @param vector1 the first vector.
      * @param vector2 the second vector.
      * @return the calculated distance between the two vectors as a {@code double}.
      */
-    public static <R extends Number> double distance(@Nonnull Metric metric,
-                                                     @Nonnull final Vector<R> vector1,
-                                                     @Nonnull final Vector<R> vector2) {
-        return metric.distance(vector1.toDoubleVector().getData(), vector2.toDoubleVector().getData());
+    public static double distance(@Nonnull Metric metric,
+                                  @Nonnull final Vector vector1,
+                                  @Nonnull final Vector vector2) {
+        return metric.distance(vector1.getData(), vector2.getData());
     }
 
     /**
@@ -347,36 +375,16 @@ public abstract class Vector<R extends Number> {
      * This utility method converts the input vectors, which can contain any {@link Number} type, into primitive double
      * arrays. It then delegates the actual distance computation to the {@code comparativeDistance} method of the
      * provided {@link Metric} object.
-     * @param <R> the type of the numbers in the vectors, which must extend {@link Number}.
      * @param metric the {@link Metric} to use for the distance calculation. Must not be null.
      * @param vector1 the first vector for the comparison. Must not be null.
      * @param vector2 the second vector for the comparison. Must not be null.
      * @return the calculated comparative distance as a {@code double}.
      * @throws NullPointerException if {@code metric}, {@code vector1}, or {@code vector2} is null.
      */
-    static <R extends Number> double comparativeDistance(@Nonnull Metric metric,
-                                                         @Nonnull final Vector<R> vector1,
-                                                         @Nonnull final Vector<R> vector2) {
-        return metric.comparativeDistance(vector1.toDoubleVector().getData(), vector2.toDoubleVector().getData());
-    }
-
-    /**
-     * Creates a {@code Vector} instance from its byte representation.
-     * <p>
-     * This method deserializes a byte array into a vector object. The precision parameter is crucial for correctly
-     * interpreting the byte data. Currently, this implementation only supports 16-bit precision, which corresponds to a
-     * {@code HalfVector}.
-     * @param bytes the non-null byte array representing the vector.
-     * @param precision the precision of the vector's elements in bits (e.g., 16 for half-precision floats).
-     * @return a new {@code Vector} instance created from the byte array.
-     * @throws UnsupportedOperationException if the specified {@code precision} is not yet supported.
-     */
-    public static Vector<?> fromBytes(@Nonnull final byte[] bytes, int precision) {
-        if (precision == 16) {
-            return HalfVector.halfVectorFromBytes(bytes);
-        }
-        // TODO
-        throw new UnsupportedOperationException("not implemented yet");
+    static double comparativeDistance(@Nonnull Metric metric,
+                                      @Nonnull final Vector vector1,
+                                      @Nonnull final Vector vector2) {
+        return metric.comparativeDistance(vector1.getData(), vector2.getData());
     }
 
     /**
