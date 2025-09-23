@@ -206,9 +206,14 @@ public class CheckExplainConfig extends QueryConfig {
     private boolean areMetricsDifferent(final PlannerMetricsProto.CountersAndTimers expectedCountersAndTimers,
                                         final PlannerMetricsProto.CountersAndTimers actualCountersAndTimers,
                                         final Descriptors.Descriptor metricsDescriptor) {
-        return YamlExecutionContext.TRACKED_METRIC_FIELDS.stream()
-                .map(metricsDescriptor::findFieldByName)
-                .anyMatch(field -> isMetricDifferent(expectedCountersAndTimers, actualCountersAndTimers, field, lineNumber));
+        boolean different = false;
+        for (String fieldName : YamlExecutionContext.TRACKED_METRIC_FIELDS) {
+            // Check each metric. Do NOT short-circuit because we want to log any metrics
+            // that have changed (a side effect of isMetricDifferent)
+            different |= isMetricDifferent(expectedCountersAndTimers, actualCountersAndTimers,
+                    metricsDescriptor.findFieldByName(fieldName), lineNumber);
+        }
+        return different;
     }
 
     private static boolean isMetricDifferent(@Nonnull final PlannerMetricsProto.CountersAndTimers expected,

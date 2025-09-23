@@ -56,7 +56,7 @@ public final class GitMetricsFileFinder {
      * @param baseRef the base git reference (e.g., "main", "HEAD~1", commit SHA)
      * @param headRef the target git reference (e.g., "main", "HEAD~1", commit SHA)
      * @param repositoryRoot the root directory of the git repository
-     * @return set of paths to changed metrics files (both .yaml and .binpb)
+     * @return set of paths to changed metrics YAML files
      * @throws RelationalException if git command fails or repository is not valid
      */
     @Nonnull
@@ -125,10 +125,9 @@ public final class GitMetricsFileFinder {
     }
 
     /**
-     * Checks if a file path represents a metrics file (either .yaml or .binpb).
+     * Checks if a file path represents a metrics YAML file.
      *
      * @param filePath the file path to check
-     *
      * @return true if the file is a metrics file
      */
     private static boolean isMetricsYamlFile(@Nonnull final String filePath) {
@@ -136,23 +135,17 @@ public final class GitMetricsFileFinder {
     }
 
     /**
-     * Checks if a file exists at the specified path.
-     *
-     * @param filePath the path to check
-     * @return true if the file exists
-     */
-    public static boolean fileExists(@Nonnull final Path filePath) {
-        return Files.exists(filePath) && Files.isRegularFile(filePath);
-    }
-
-    /**
-     * Gets the file path for a specific git reference (commit).
-     * This method checks out the file content at the specified reference.
+     * Gets the file contents for a specific git reference (commit).
+     * This method checks out the file content at the specified reference and
+     * saves it into a temporary file located at the returned {@link Path}.
+     * If the file does not exist at the given reference, it will return a
+     * {@code null} path.
      *
      * @param filePath the relative file path
      * @param gitRef the git reference
      * @param repositoryRoot the repository root
-     * @return path to a temporary file containing the content at the specified reference or {@code null} if it didn't exist
+     * @return path to a temporary file containing the content at the specified reference
+     *    or {@code null} if it didn't exist at the given ref
      * @throws RelationalException if git command fails
      */
     @Nullable

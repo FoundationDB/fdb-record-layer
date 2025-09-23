@@ -30,7 +30,6 @@ import com.apple.foundationdb.relational.yamltests.generated.stats.PlannerMetric
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.LinkedListMultimap;
-import com.google.protobuf.Descriptors;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Assertions;
@@ -653,40 +652,6 @@ public final class YamlExecutionContext {
             return ((Number) value).longValue();
         }
         throw new IllegalArgumentException("Expected numeric value for key: " + key + ", got: " + value);
-    }
-
-    /**
-     * Compares two CountersAndTimers and determines if any of the tracked metrics are different.
-     * This method checks the core metrics that are used for planner comparison but excludes timing
-     * information as those can vary between runs.
-     *
-     * @param expected the expected metrics values
-     * @param actual the actual metrics values
-     * @return true if any of the tracked metrics differ
-     */
-    public static boolean areMetricsDifferent(@Nonnull final PlannerMetricsProto.CountersAndTimers expected,
-                                              @Nonnull final PlannerMetricsProto.CountersAndTimers actual) {
-        final var metricsDescriptor = expected.getDescriptorForType();
-
-        return TRACKED_METRIC_FIELDS.stream()
-                .map(metricsDescriptor::findFieldByName)
-                .anyMatch(field -> isMetricDifferent(expected, actual, field));
-    }
-
-    /**
-     * Compares a specific metric field between expected and actual values.
-     *
-     * @param expected the expected metrics
-     * @param actual the actual metrics
-     * @param fieldDescriptor the field to compare
-     * @return true if the metric values differ
-     */
-    public static boolean isMetricDifferent(@Nonnull final PlannerMetricsProto.CountersAndTimers expected,
-                                            @Nonnull final PlannerMetricsProto.CountersAndTimers actual,
-                                            @Nonnull final Descriptors.FieldDescriptor fieldDescriptor) {
-        final long expectedMetric = (long) expected.getField(fieldDescriptor);
-        final long actualMetric = (long) actual.getField(fieldDescriptor);
-        return expectedMetric != actualMetric;
     }
 
     @Nonnull

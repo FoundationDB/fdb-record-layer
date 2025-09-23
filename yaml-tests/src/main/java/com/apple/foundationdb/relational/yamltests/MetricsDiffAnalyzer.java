@@ -263,8 +263,7 @@ public final class MetricsDiffAnalyzer {
                 final MetricsInfo headInfo = headMetrics.get(identifier);
 
                 final var planChanged = !baseInfo.getExplain().equals(headInfo.getExplain());
-                final var metricsChanged = YamlExecutionContext.areMetricsDifferent(
-                        baseInfo.getCountersAndTimers(), headInfo.getCountersAndTimers());
+                final var metricsChanged = MetricsInfo.areMetricsDifferent(baseInfo, headInfo);
 
                 if (planChanged && metricsChanged) {
                     changedCount++;

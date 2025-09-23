@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.yamltests;
 
 import com.apple.foundationdb.relational.yamltests.generated.stats.PlannerMetricsProto;
+import com.google.protobuf.Descriptors;
 
 import javax.annotation.Nonnull;
 import java.nio.file.Path;
@@ -40,6 +41,7 @@ public final class MetricsInfo {
         this.filePath = filePath;
         this.lineNumber = lineNumber;
     }
+
 
     @Nonnull
     public PlannerMetricsProto.Info getUnderlying() {
@@ -80,5 +82,39 @@ public final class MetricsInfo {
     @Override
     public int hashCode() {
         return Objects.hash(underlying, filePath, lineNumber);
+    }
+
+    /**
+     * Compares two CountersAndTimers and determines if any of the tracked metrics are different.
+     * This method checks the core metrics that are used for planner comparison but excludes timing
+     * information as those can vary between runs.
+     *
+     * @param expected the expected metrics values
+     * @param actual the actual metrics values
+     * @return true if any of the tracked metrics differ
+     */
+    public static boolean areMetricsDifferent(@Nonnull final MetricsInfo expected,
+                                              @Nonnull final MetricsInfo actual) {
+        final var metricsDescriptor = PlannerMetricsProto.CountersAndTimers.getDescriptor();
+
+        return YamlExecutionContext.TRACKED_METRIC_FIELDS.stream()
+                .map(metricsDescriptor::findFieldByName)
+                .anyMatch(field -> isMetricDifferent(expected, actual, field));
+    }
+
+    /**
+     * Compares a specific metric field between expected and actual values.
+     *
+     * @param expected the expected metrics
+     * @param actual the actual metrics
+     * @param fieldDescriptor the field to compare
+     * @return true if the metric values differ
+     */
+    private static boolean isMetricDifferent(@Nonnull final MetricsInfo expected,
+                                             @Nonnull final MetricsInfo actual,
+                                             @Nonnull final Descriptors.FieldDescriptor fieldDescriptor) {
+        final long expectedMetric = (long) expected.getUnderlying().getField(fieldDescriptor);
+        final long actualMetric = (long) actual.getUnderlying().getField(fieldDescriptor);
+        return expectedMetric != actualMetric;
     }
 }
