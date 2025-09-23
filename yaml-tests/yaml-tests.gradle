@@ -245,8 +245,7 @@ tasks.register('analyzeMetrics', JavaExec) {
     // Pass along arguments to metrics analysis
     args = []
     if (project.hasProperty('metricsAnalysis.baseRef')) {
-        // args += ['--base-ref', project.getProperty('metricsAnalysis.baseRef')]
-        args += ['--base-ref', '4.5.10.0']
+        args += ['--base-ref', project.getProperty('metricsAnalysis.baseRef')]
     }
     if (project.hasProperty('metricsAnalysis.headRef')) {
         args += ['--head-ref', project.getProperty('metricsAnalysis.headRef')]

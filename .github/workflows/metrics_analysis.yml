@@ -1,12 +1,10 @@
 name: Metrics Diff Analysis
 
 on:
-  pull_request:
+  pull_request_target:
     paths:
       - '**/*.metrics.yaml'
       - '**/*.metrics.binpb'
-      - 'yaml-tests/**'
-      - '.github/workflows/metrics_analysis.yml'
 
 jobs:
   metrics-analysis:
@@ -29,8 +27,8 @@ jobs:
       run: |
         # Run the analysis. Compare against the base hash of this PR
         ./gradlew :yaml-tests:analyzeMetrics \
-          -PmetricsAnalysis.baseRef="${{ github.event.pull_request.base.sha }}" \
-          -PmetricsAnalysis.headRef="${{ github.event.pull_request.head.sha }}" \
+          -PmetricsAnalysis.baseRef="${{ github.event.pull_request_target.base.sha }}" \
+          -PmetricsAnalysis.headRef="${{ github.event.pull_request_target.head.sha }}" \
           -PmetricsAnalysis.urlBase="${{ github.server_url }}/${{ github.repository }}/blob" \
           -PmetricsAnalysis.repositoryRoot="${{ github.workspace }}" \
           -PmetricsAnalysis.output="${{ github.workspace }}/metrics-analysis-output.txt" \
