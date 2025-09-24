@@ -64,7 +64,7 @@ public class JDBCInProcessConfig implements YamlTestConfig {
 
     @Override
     public YamlConnectionFactory createConnectionFactory() {
-        return new JDBCInProcessYamlConnectionFactory(server);
+        return new JDBCInProcessYamlConnectionFactory(server, clusterFile);
     }
 
     @Nonnull

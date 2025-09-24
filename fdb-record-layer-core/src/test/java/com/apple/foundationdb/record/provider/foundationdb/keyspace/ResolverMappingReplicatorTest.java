@@ -237,7 +237,7 @@ public abstract class ResolverMappingReplicatorTest {
     @Test
     public void testCopyInSameDatabase() {
         ResolverMappingReplicator replicator = new ResolverMappingReplicator(primary, 10);
-        FDBDatabase differentDB = new FDBDatabase(dbExtension.getDatabaseFactory(), null);
+        FDBDatabase differentDB = new FDBDatabase(dbExtension.getDatabaseFactory(), database.getClusterFile());
 
         KeySpacePath path = basePath.add("to").add("replica");
         try (FDBRecordContext context = differentDB.openContext()) {

@@ -83,13 +83,20 @@ public class RelationalServer implements Closeable {
     private final int httpPort;
     private FRL frl;
     private final CollectorRegistry collectorRegistry;
+    private final String clusterFile;
 
     // Visible for the test fixture only so it can pass a CollectorRegistry.
     @VisibleForTesting
     RelationalServer(int grpcPort, int httpPort, CollectorRegistry collectorRegistry) {
+        this(grpcPort, httpPort, collectorRegistry, null);
+    }
+
+    @VisibleForTesting
+    RelationalServer(int grpcPort, int httpPort, CollectorRegistry collectorRegistry, String clusterFile) {
         this.grpcPort = grpcPort;
         this.httpPort = httpPort;
         this.collectorRegistry = collectorRegistry;
+        this.clusterFile = clusterFile;
     }
 
     public RelationalServer(int grpcPort, int httpPort) {
@@ -131,7 +138,7 @@ public class RelationalServer implements Closeable {
         // Create access to backing database.
         // TODO: Make this multi-query/-tenant/-database!
         try {
-            frl = new FRL();
+            frl = new FRL(com.apple.foundationdb.relational.api.Options.NONE, clusterFile);
         } catch (RelationalException ve) {
             throw new IOException(ve);
         }
