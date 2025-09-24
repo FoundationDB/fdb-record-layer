@@ -39,12 +39,12 @@ import java.util.UUID;
  * will be cleared out during the {@link AfterEachCallback} for this extension. To use, create a member variable
  * of the test and register the extension:
  *
- * <pre>{@code
- *     @RegisterExtension
- *     static final TestDatabaseExtension dbExtension = new TestDatabaseExtension();
- *     @RegisterExtension
- *     TestSubspaceExtension subspaceExtension = new TestSubspaceExtension(dbExtension);
- * }</pre>
+ * <pre>
+ * &#64;RegisterExtension
+ * static final TestDatabaseExtension dbExtension = new TestDatabaseExtension();
+ * &#64;RegisterExtension
+ * TestSubspaceExtension subspaceExtension = new TestSubspaceExtension(dbExtension);
+ * </pre>
  *
  * <p>
  * Within the test, call {@link #getSubspace()} to get the test's allocated exception. As long as all usage
