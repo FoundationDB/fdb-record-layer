@@ -25,7 +25,7 @@ import com.apple.foundationdb.record.RecordCoreArgumentException;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.io.FileInputStream;
+import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
@@ -60,7 +60,7 @@ public class KeyStoreSerializationKeyManager implements SerializationKeyManager 
                                               @Nonnull String cipherName, @Nonnull SecureRandom secureRandom) {
         this.keyStore = keyStore;
         this.keyEntryPassword = keyEntryPassword;
-        this.keyEntryAliases = keyEntryAliases;
+        this.keyEntryAliases = List.copyOf(keyEntryAliases);
         this.defaultKeyNumber = defaultKeyNumber;
         this.cipherName = cipherName;
         this.secureRandom = secureRandom;
@@ -193,10 +193,7 @@ public class KeyStoreSerializationKeyManager implements SerializationKeyManager 
             }
             final KeyStore keyStore;
             try {
-                keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
-                try (FileInputStream fis = new FileInputStream(keyStoreFileName)) {
-                    keyStore.load(fis, keyStorePassword.toCharArray());
-                }
+                keyStore = KeyStore.getInstance(new File(keyStoreFileName), keyStorePassword.toCharArray());
             } catch (FileNotFoundException ex) {
                 throw new RecordCoreArgumentException("Key store not found", ex);
             } catch (GeneralSecurityException | IOException ex) {
@@ -214,6 +211,9 @@ public class KeyStoreSerializationKeyManager implements SerializationKeyManager 
                 keyEntryAliases = List.of(defaultKeyEntryAlias);
                 defaultKeyNumber = 0;
             } else if (defaultKeyEntryAlias == null) {
+                if (keyEntryAliases.isEmpty()) {
+                    throw new RecordCoreArgumentException("need at least one key alias");
+                }
                 defaultKeyNumber = keyEntryAliases.size() - 1;
             } else {
                 defaultKeyNumber = keyEntryAliases.indexOf(defaultKeyEntryAlias);

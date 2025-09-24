@@ -25,6 +25,7 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.options.CollectionContract;
 import com.apple.foundationdb.relational.api.options.OptionContract;
 import com.apple.foundationdb.relational.api.options.OptionContractWithConversion;
+import com.apple.foundationdb.relational.api.options.OrderedCollectionContract;
 import com.apple.foundationdb.relational.api.options.RangeContract;
 import com.apple.foundationdb.relational.api.options.TypeContract;
 import com.google.common.annotations.VisibleForTesting;
@@ -555,7 +556,7 @@ public final class Options {
         data.put(Name.ENCRYPT_WHEN_SERIALIZING, List.of(TypeContract.booleanType()));
         data.put(Name.ENCRYPTION_KEY_STORE, List.of(TypeContract.nullableStringType()));
         data.put(Name.ENCRYPTION_KEY_ENTRY, List.of(TypeContract.nullableStringType()));
-        data.put(Name.ENCRYPTION_KEY_ENTRY_LIST, List.of(new CollectionContract<>(TypeContract.stringType())));
+        data.put(Name.ENCRYPTION_KEY_ENTRY_LIST, List.of(new OrderedCollectionContract<>(TypeContract.stringType())));
         data.put(Name.ENCRYPTION_KEY_PASSWORD, List.of(TypeContract.nullableStringType()));
         data.put(Name.COMPRESS_WHEN_SERIALIZING, List.of(TypeContract.booleanType()));
 
