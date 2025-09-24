@@ -125,11 +125,9 @@ public final class MetricsDiffAnalyzer {
 
         try {
             final Path repositoryRoot = arguments.repositoryRoot == null ? Paths.get(".") : Paths.get(arguments.repositoryRoot);
-            final String baseRef = GitMetricsFileFinder.getCommitHash(repositoryRoot, arguments.baseRef);
-            final String headRef = GitMetricsFileFinder.getCommitHash(repositoryRoot, arguments.headRef);
             final Path outputPath = arguments.outputPath != null ? Paths.get(arguments.outputPath) : null;
 
-            final var analyzer = new MetricsDiffAnalyzer(baseRef, headRef, repositoryRoot, arguments.urlBase);
+            final var analyzer = new MetricsDiffAnalyzer(arguments.baseRef, arguments.headRef, repositoryRoot, arguments.urlBase);
             final var analysis = analyzer.analyze();
             final var report = analysis.generateReport();
 

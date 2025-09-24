@@ -180,38 +180,4 @@ public final class GitMetricsFileFinder {
                     "Failed to get file content at reference " + gitRef + ":" + filePath, ErrorCode.INTERNAL_ERROR, e);
         }
     }
-
-    /**
-     * Get the commit hash for a given reference. This is to construct the commit values for use in things
-     * like permanent URLs.
-     *
-     * @param repositoryRoot the directory to run the git process from
-     * @param refName a git reference (e.g., branch name, "HEAD", etc.)
-     * @return the current commit hash
-     * @throws RelationalException if git commit fails
-     */
-    @Nonnull
-    public static String getCommitHash(@Nonnull Path repositoryRoot, @Nonnull String refName) throws RelationalException {
-        try {
-            final var command = List.of("git", "rev-parse", refName);
-            final var processBuilder = new ProcessBuilder(command)
-                    .directory(repositoryRoot.toFile())
-                    .redirectErrorStream(false);
-
-            final var process = processBuilder.start();
-            final var exitCode = process.waitFor();
-            final String ref = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8).strip();
-
-            if (exitCode != 0) {
-                throw new RelationalException(
-                        "Git rev-parse command failed with exit code " + exitCode,
-                        ErrorCode.INTERNAL_ERROR);
-            }
-
-            return ref;
-        } catch (final IOException | InterruptedException e) {
-            throw new RelationalException(
-                    "Failed to get current head reference", ErrorCode.INTERNAL_ERROR, e);
-        }
-    }
 }
