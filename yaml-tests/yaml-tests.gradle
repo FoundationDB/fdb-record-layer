@@ -59,7 +59,7 @@ dependencies {
     implementation(libs.protobuf)
     implementation(libs.protobuf.util)
     implementation(libs.snakeyaml)
-    implementation testFixtrues(project(':fdb-extensions'))
+    implementation testFixtures(project(':fdb-extensions'))
     implementation(libs.jcommander)
 
     testImplementation(libs.bundles.test.impl)

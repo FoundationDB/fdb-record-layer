@@ -37,6 +37,7 @@ dependencies {
     testAnnotationProcessor(libs.autoService)
 
     testFixturesImplementation(libs.bundles.test.impl)
+    testFixturesImplementation(libs.snakeyaml)
     testFixturesCompileOnly(libs.bundles.test.compileOnly)
     testFixturesImplementation(libs.slf4j.api)
     testFixturesAnnotationProcessor(libs.autoService)
