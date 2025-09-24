@@ -108,7 +108,7 @@ class MetricsDiffIntegrationTest {
 
         assertThat(report)
                 // Should detect the outlier query
-                .contains("### Significant Changes (Only Metrics Changed)")
+                .contains("### Significant Regressions (Only Metrics Changed)")
                 .contains("outlier_query")
                 .contains("[test.metrics.yaml:145](https://example.com/repo/blob/head/test.metrics.yaml#L145): `outlier_query`")
                 // Normal queries should have small changes (+1), outlier should have large changes (+100, +50)
@@ -134,14 +134,15 @@ class MetricsDiffIntegrationTest {
                 // Verify statistical formatting patterns
                 .containsPattern("\\*\\*`\\w+`\\*\\*:")
                 .containsPattern("- Average change: [+-]?\\d+\\.\\d+")
-                .containsPattern("- Average absolute change: \\+?\\d+\\.\\d+")
+                .containsPattern("- Average regression: \\+?\\d+\\.\\d+")
                 .containsPattern("- Median change: [+-]?\\d+")
-                .containsPattern("- Median absolute change: \\+?\\d++")
+                .containsPattern("- Median regression: \\+?\\d+")
                 .containsPattern("- Standard deviation: \\d+\\.\\d+")
-                .containsPattern("- Standard absolute deviation: \\d+\\.\\d+")
+                .containsPattern("- Standard deviation of regressions: \\d+\\.\\d+")
                 .containsPattern("- Range: [+-]?\\d+ to [+-]?\\d+")
-                .containsPattern("- Range of absolute values: \\+?\\d+ to \\+?\\d+")
-                .containsPattern("- Queries affected: \\d+");
+                .containsPattern("- Range of regressions: \\+?\\d+ to \\+?\\d+")
+                .containsPattern("- Queries changed: \\d+")
+                .containsPattern("- Queries regressed: \\d+");
     }
 
     @Test

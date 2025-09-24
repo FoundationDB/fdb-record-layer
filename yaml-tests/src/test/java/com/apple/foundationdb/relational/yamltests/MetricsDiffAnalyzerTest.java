@@ -150,7 +150,7 @@ class MetricsDiffAnalyzerTest {
                 .contains("Median change:")
                 .contains("Standard deviation:")
                 .contains("Range:")
-                .contains("Queries affected:");
+                .contains("Queries changed:");
     }
 
     @Test
@@ -196,7 +196,7 @@ class MetricsDiffAnalyzerTest {
         // Should report the outlier in the larger report
         assertThat(report)
                 .contains("- Plan unchanged + metrics changed: 11")
-                .contains("Significant Changes (Only Metrics Changed)")
+                .contains("Significant Regressions (Only Metrics Changed)")
                 .contains("outlier_query");
 
         // Should also be able to see the query in the outlier query report

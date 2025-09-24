@@ -36,12 +36,12 @@ import java.util.Map;
  */
 public final class MetricsStatistics {
     private final Map<String, FieldStatistics> fieldStatistics;
-    private final Map<String, FieldStatistics> absoluteFieldStatistics;
+    private final Map<String, FieldStatistics> regressionFieldStatistics;
 
     private MetricsStatistics(@Nonnull final Map<String, FieldStatistics> fieldStatistics,
-                              @Nonnull final Map<String, FieldStatistics> absoluteFieldStatistics) {
+                              @Nonnull final Map<String, FieldStatistics> regressionFieldStatistics) {
         this.fieldStatistics = fieldStatistics;
-        this.absoluteFieldStatistics = absoluteFieldStatistics;
+        this.regressionFieldStatistics = regressionFieldStatistics;
     }
 
     @Nonnull
@@ -50,21 +50,23 @@ public final class MetricsStatistics {
     }
 
     @Nonnull
-    public FieldStatistics getAbsoluteFieldStatistics(@Nonnull final String fieldName) {
-        return absoluteFieldStatistics.getOrDefault(fieldName, FieldStatistics.EMPTY);
+    public FieldStatistics getRegressionStatistics(@Nonnull final String fieldName) {
+        return regressionFieldStatistics.getOrDefault(fieldName, FieldStatistics.EMPTY);
     }
 
     /**
      * Statistics for a single metrics field across all queries.
      */
     public static class FieldStatistics {
+        @Nonnull
         public static final FieldStatistics EMPTY = new FieldStatistics(ImmutableList.of(), 0.0, 0.0);
 
+        @Nonnull
         public final List<Long> sortedValues;
         public final double mean;
         public final double standardDeviation;
 
-        private FieldStatistics(final List<Long> sortedValues,
+        private FieldStatistics(@Nonnull final List<Long> sortedValues,
                                 final double mean,
                                 final double standardDeviation) {
             this.sortedValues = ImmutableList.copyOf(sortedValues);
@@ -116,14 +118,6 @@ public final class MetricsStatistics {
         public long getMedian() {
             return getQuantile(0.5);
         }
-
-        public long getP95() {
-            return getQuantile(0.95);
-        }
-
-        public long getP05() {
-            return getQuantile(0.05);
-        }
     }
 
     public static Builder newBuilder() {
@@ -134,31 +128,37 @@ public final class MetricsStatistics {
      * Builder for collecting metric differences and calculating statistics.
      */
     public static class Builder {
+        @Nonnull
         private final Map<String, List<Long>> differences = new HashMap<>();
-        private final Map<String, List<Long>> absoluteDifferences = new HashMap<>();
+        @Nonnull
+        private final Map<String, List<Long>> regressions = new HashMap<>();
 
         @Nonnull
-        public Builder addDifference(@Nonnull final String fieldName, final long difference) {
+        public Builder addDifference(@Nonnull final String fieldName, final long baseValue, final long headValue) {
+            long difference = headValue - baseValue;
             differences.computeIfAbsent(fieldName, k -> new ArrayList<>()).add(difference);
-            absoluteDifferences.computeIfAbsent(fieldName, k -> new ArrayList<>()).add(Math.abs(difference));
+            if (difference > 0) {
+                regressions.computeIfAbsent(fieldName, k -> new ArrayList<>()).add(difference);
+            }
             return this;
         }
 
+        @Nonnull
         private Map<String, FieldStatistics> buildStats(@Nonnull final Map<String, List<Long>> baseMap) {
             final ImmutableMap.Builder<String, FieldStatistics> builder = ImmutableMap.builder();
 
             for (final var entry : baseMap.entrySet()) {
-                final var fieldName = entry.getKey();
-                final var values = entry.getValue();
+                final String fieldName = entry.getKey();
+                final List<Long> values = entry.getValue();
 
                 if (values.isEmpty()) {
                     continue;
                 }
 
-                // Sort values for median calculation
+                // Sort values for quantile calculations
                 Collections.sort(values);
 
-                // Calculate statistics
+                // Calculate statistics for values
                 final var mean = values.stream().mapToLong(Long::longValue).average().orElse(0.0);
                 final var variance = values.stream()
                         .mapToDouble(v -> Math.pow(v - mean, 2))
@@ -173,7 +173,7 @@ public final class MetricsStatistics {
 
         @Nonnull
         public MetricsStatistics build() {
-            return new MetricsStatistics(buildStats(differences), buildStats(absoluteDifferences));
+            return new MetricsStatistics(buildStats(differences), buildStats(regressions));
         }
     }
 }

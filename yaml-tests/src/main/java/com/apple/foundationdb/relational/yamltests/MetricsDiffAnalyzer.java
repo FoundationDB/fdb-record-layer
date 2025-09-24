@@ -516,18 +516,32 @@ public final class MetricsDiffAnalyzer {
         private void appendStatisticalSummary(@Nonnull final StringBuilder report, @Nonnull final MetricsStatistics stats) {
             for (final var fieldName : YamlExecutionContext.TRACKED_METRIC_FIELDS) {
                 final var fieldStats = stats.getFieldStatistics(fieldName);
-                final var absoluteFieldStats = stats.getAbsoluteFieldStatistics(fieldName);
-                if (fieldStats.hasChanges() || absoluteFieldStats.hasChanges()) {
+                final var regressionFieldStats = stats.getRegressionStatistics(fieldName);
+                if (fieldStats.hasChanges() || regressionFieldStats.hasChanges()) {
                     report.append(String.format("**`%s`**:%n", fieldName));
                     report.append(String.format("  - Average change: %s%.1f%n", sign(fieldStats.getMean()), fieldStats.getMean()));
-                    report.append(String.format("  - Average absolute change: %s%.1f%n", sign(absoluteFieldStats.getMean()), absoluteFieldStats.getMean()));
+                    if (regressionFieldStats.hasChanges()) {
+                        report.append(String.format("  - Average regression: %s%.1f%n", sign(regressionFieldStats.getMean()), regressionFieldStats.getMean()));
+                    }
                     report.append(String.format("  - Median change: %s%d%n", sign(fieldStats.getMedian()), fieldStats.getMedian()));
-                    report.append(String.format("  - Median absolute change: %s%d%n", sign(absoluteFieldStats.getMedian()), absoluteFieldStats.getMedian()));
+                    if (regressionFieldStats.hasChanges()) {
+                        report.append(String.format("  - Median regression: %s%d%n", sign(regressionFieldStats.getMedian()), regressionFieldStats.getMedian()));
+                    }
                     report.append(String.format("  - Standard deviation: %.1f%n", fieldStats.getStandardDeviation()));
-                    report.append(String.format("  - Standard absolute deviation: %.1f%n", absoluteFieldStats.getStandardDeviation()));
+                    if (regressionFieldStats.hasChanges()) {
+                        report.append(String.format("  - Standard deviation of regressions: %.1f%n", regressionFieldStats.getStandardDeviation()));
+                    }
                     report.append(String.format("  - Range: %s%d to %s%d%n", sign(fieldStats.getMin()), fieldStats.getMin(), sign(fieldStats.getMax()), fieldStats.getMax()));
-                    report.append(String.format("  - Range of absolute values: %s%d to %s%d%n", sign(absoluteFieldStats.getMin()), absoluteFieldStats.getMin(), sign(absoluteFieldStats.getMax()), absoluteFieldStats.getMax()));
-                    report.append(String.format("  - Queries affected: %d%n%n", fieldStats.getChangedCount()));
+                    if (regressionFieldStats.hasChanges()) {
+                        report.append(String.format("  - Range of regressions: %s%d to %s%d%n", sign(regressionFieldStats.getMin()), regressionFieldStats.getMin(), sign(regressionFieldStats.getMax()), regressionFieldStats.getMax()));
+                    }
+                    report.append(String.format("  - Queries changed: %d%n", fieldStats.getChangedCount()));
+                    if (regressionFieldStats.hasChanges()) {
+                        report.append(String.format("  - Queries regressed: %d%n", regressionFieldStats.getChangedCount()));
+                    } else {
+                        report.append("  - No regressions! 🎉\n");
+                    }
+                    report.append("\n"); // End with blank line
                 }
             }
         }
@@ -547,10 +561,18 @@ public final class MetricsDiffAnalyzer {
 
             // Show outliers for metrics-only changes (these are more concerning)
             final var metricsOutliers = findOutliers(changes, summary);
-            report.append("### Significant Changes (").append(title).append(")\n\n");
             if (metricsOutliers.isEmpty()) {
-                report.append("No outliers detected.\n\n");
+                report.append("There were no queries with significant regressions detected.\n\n");
             } else {
+                report.append("### Significant Regressions (").append(title).append(")\n\n");
+                report.append("There ")
+                        .append(metricsOutliers.size() == 1 ? "was " : "were ")
+                        .append(metricsOutliers.size())
+                        .append(" outlier").append(metricsOutliers.size() == 1 ? "" : "s")
+                        .append(" detected. Outlier queries have a significant regression in at least one field. Statistically, "
+                                + "this represents either an increase of more than two standard deviations above "
+                                + "the mean or a large absolute increase (e.g., 100).\n\n");
+
                 for (final var change : metricsOutliers) {
                     report.append(String.format("- %s", formatQueryDisplay(change))).append("\n");
                     if (change.oldInfo != null && change.newInfo != null) {
@@ -593,8 +615,7 @@ public final class MetricsDiffAnalyzer {
                         final var newValue = (long)newMetrics.getField(field);
 
                         if (oldValue != newValue) {
-                            final var difference = newValue - oldValue;
-                            statisticsBuilder.addDifference(fieldName, difference);
+                            statisticsBuilder.addDifference(fieldName, oldValue, newValue);
                         }
                     }
                 }
@@ -650,8 +671,7 @@ public final class MetricsDiffAnalyzer {
 
                 if (oldValue != newValue) {
                     final var difference = newValue - oldValue;
-                    if (isOutlierValue(stats.getFieldStatistics(fieldName), difference)
-                            || isOutlierValue(stats.getAbsoluteFieldStatistics(fieldName), Math.abs(difference))) {
+                    if (difference > 0 && isOutlierValue(stats.getRegressionStatistics(fieldName), difference)) {
                         return true;
                     }
                 }
@@ -664,8 +684,8 @@ public final class MetricsDiffAnalyzer {
             // Consider it an outlier if it's more than 2 standard deviations from the mean
             // or if it's a very large absolute change
             Assert.thatUnchecked(fieldStats.hasChanges(), "Field stats should have at least one difference");
-            final var zScore = Math.abs((difference - fieldStats.mean) / fieldStats.standardDeviation);
-            final var isLargeAbsoluteChange = Math.abs(difference) > Math.max(100, Math.abs(fieldStats.mean) * 2);
+            final var zScore = Math.abs((difference - fieldStats.getMean()) / fieldStats.getStandardDeviation());
+            final var isLargeAbsoluteChange = Math.abs(difference) > Math.max(100, Math.abs(fieldStats.getMean()) * 2);
             return zScore > 2.0 || isLargeAbsoluteChange;
         }
 

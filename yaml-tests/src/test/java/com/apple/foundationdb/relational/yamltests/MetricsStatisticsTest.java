@@ -37,8 +37,6 @@ class MetricsStatisticsTest {
         assertThat(fieldStats.getChangedCount()).isZero();
         assertThat(fieldStats.getMean()).isZero();
         assertThat(fieldStats.getMedian()).isZero();
-        assertThat(fieldStats.getP05()).isZero();
-        assertThat(fieldStats.getP95()).isZero();
         assertThat(fieldStats.getQuantile(0.1)).isZero();
         assertThat(fieldStats.getStandardDeviation()).isZero();
         assertThat(fieldStats.getMin()).isZero();
@@ -48,7 +46,7 @@ class MetricsStatisticsTest {
     @Test
     void testSingleValueStatistics() {
         final var stats = MetricsStatistics.newBuilder()
-                .addDifference("task_count", 10L)
+                .addDifference("task_count", 10L, 20L)
                 .build();
 
         final var fieldStats = stats.getFieldStatistics("task_count");
@@ -58,8 +56,6 @@ class MetricsStatisticsTest {
         assertThat(fieldStats.getMean()).isEqualTo(10.0);
         assertThat(fieldStats.getMedian()).isEqualTo(10);
         assertThat(fieldStats.getStandardDeviation()).isZero(); // Single value has no deviation
-        assertThat(fieldStats.getP05()).isEqualTo(10L);
-        assertThat(fieldStats.getP95()).isEqualTo(10L);
         assertThat(fieldStats.getQuantile(0.1)).isEqualTo(10L);
         assertThat(fieldStats.getMin()).isEqualTo(10L);
         assertThat(fieldStats.getMax()).isEqualTo(10L);
@@ -70,11 +66,11 @@ class MetricsStatisticsTest {
         // Add values: 2, 4, 6, 8, 10
         // Mean = 6.0, Median = 6.0, StdDev = sqrt(8) ≈ 2.83
         final var stats = MetricsStatistics.newBuilder()
-                .addDifference("task_count", 2L)
-                .addDifference("task_count", 4L)
-                .addDifference("task_count", 6L)
-                .addDifference("task_count", 8L)
-                .addDifference("task_count", 10L)
+                .addDifference("task_count", 2L, 4L)
+                .addDifference("task_count", 4L, 8L)
+                .addDifference("task_count", 6L, 12L)
+                .addDifference("task_count", 8L, 16L)
+                .addDifference("task_count", 10L, 20L)
                 .build();
 
         final var fieldStats = stats.getFieldStatistics("task_count");
@@ -84,8 +80,6 @@ class MetricsStatisticsTest {
         assertThat(fieldStats.getMean()).isEqualTo(6.0);
         assertThat(fieldStats.getMedian()).isEqualTo(6L);
         assertThat(fieldStats.getStandardDeviation()).isCloseTo(2.83, offset(0.01));
-        assertThat(fieldStats.getP05()).isEqualTo(2L);
-        assertThat(fieldStats.getP95()).isEqualTo(10L);
         assertThat(fieldStats.getQuantile(0.2)).isEqualTo(4L);
         assertThat(fieldStats.getMin()).isEqualTo(2L);
         assertThat(fieldStats.getMax()).isEqualTo(10L);
@@ -96,10 +90,10 @@ class MetricsStatisticsTest {
         // Add values: 1, 3, 5, 7
         // Median should be (3 + 5) / 2 = 4.0
         final var stats = MetricsStatistics.newBuilder()
-                .addDifference("task_count", 1L)
-                .addDifference("task_count", 3L)
-                .addDifference("task_count", 5L)
-                .addDifference("task_count", 7L)
+                .addDifference("task_count", 1L, 2L)
+                .addDifference("task_count", 3L, 6L)
+                .addDifference("task_count", 5L, 10L)
+                .addDifference("task_count", 7L, 14L)
                 .build();
 
         final var fieldStats = stats.getFieldStatistics("task_count");
@@ -113,28 +107,30 @@ class MetricsStatisticsTest {
         // Add both positive and negative values: -10, -5, 0, 5, 10
         // Mean = 0.0, Median = 0.0
         final var stats = MetricsStatistics.newBuilder()
-                .addDifference("task_count", -10L)
-                .addDifference("task_count", -5L)
-                .addDifference("task_count", 0L)
-                .addDifference("task_count", 5L)
-                .addDifference("task_count", 10L)
+                .addDifference("task_count", 50L, 40L)
+                .addDifference("task_count", 40L, 35L)
+                .addDifference("task_count", 30L, 30L)
+                .addDifference("task_count", 20L, 25L)
+                .addDifference("task_count", 10L, 20L)
                 .build();
 
         // For field statistics, the sign matters, and the positive and negative
         // cancel out
         final var fieldStats = stats.getFieldStatistics("task_count");
+        assertThat(fieldStats.getChangedCount()).isEqualTo(5);
         assertThat(fieldStats.getMean()).isZero();
         assertThat(fieldStats.getMedian()).isZero();
         assertThat(fieldStats.getMin()).isEqualTo(-10L);
         assertThat(fieldStats.getMax()).isEqualTo(10L);
 
-        // For absolute field statistics, we look at the absolute value and so the
-        // sign is ignored
-        final var absoluteFieldStats = stats.getAbsoluteFieldStatistics("task_count");
-        assertThat(absoluteFieldStats.getMean()).isCloseTo(6.0, offset(0.01));
-        assertThat(absoluteFieldStats.getMedian()).isEqualTo(5L);
-        assertThat(absoluteFieldStats.getMin()).isZero();
-        assertThat(absoluteFieldStats.getMax()).isEqualTo(10L);
+        // For regressions, we look only at positive changes, ignoring any negative
+        // or zero values
+        final var regressionStats = stats.getRegressionStatistics("task_count");
+        assertThat(regressionStats.getChangedCount()).isEqualTo(2);
+        assertThat(regressionStats.getMean()).isCloseTo(7.5, offset(0.01));
+        assertThat(regressionStats.getMedian()).isEqualTo(10L);
+        assertThat(regressionStats.getMin()).isEqualTo(5L);
+        assertThat(regressionStats.getMax()).isEqualTo(10L);
     }
 
     @Test
@@ -142,12 +138,12 @@ class MetricsStatisticsTest {
         final var builder = new MetricsStatistics.Builder();
 
         // Add different values for different fields
-        builder.addDifference("task_count", 10L);
-        builder.addDifference("task_count", 20L);
+        builder.addDifference("task_count", 10L, 20L);
+        builder.addDifference("task_count", 10L, 30L);
 
-        builder.addDifference("transform_count", 5L);
-        builder.addDifference("transform_count", 15L);
-        builder.addDifference("transform_count", 25L);
+        builder.addDifference("transform_count", 5L, 10L);
+        builder.addDifference("transform_count", 5L, 20L);
+        builder.addDifference("transform_count", 5L, 30L);
 
         final var stats = builder.build();
 
@@ -174,7 +170,7 @@ class MetricsStatisticsTest {
 
         // Add 1000 values from 1 to 1000
         for (long i = 1; i <= 1000; i++) {
-            builder.addDifference("task_count", i);
+            builder.addDifference("task_count", 10L, 10L + i);
         }
 
         final var stats = builder.build();
@@ -195,11 +191,11 @@ class MetricsStatisticsTest {
         final var builder = new MetricsStatistics.Builder();
 
         // Add same value multiple times
-        builder.addDifference("task_count", 5L);
-        builder.addDifference("task_count", 5L);
-        builder.addDifference("task_count", 5L);
-        builder.addDifference("task_count", 10L);
-        builder.addDifference("task_count", 10L);
+        builder.addDifference("task_count", 10L, 15L);
+        builder.addDifference("task_count", 20L, 25L);
+        builder.addDifference("task_count", 30L, 35L);
+        builder.addDifference("task_count", 40L, 50L);
+        builder.addDifference("task_count", 50L, 60L);
 
         final var stats = builder.build();
         final var fieldStats = stats.getFieldStatistics("task_count");
@@ -218,16 +214,16 @@ class MetricsStatisticsTest {
         final var builder = new MetricsStatistics.Builder();
 
         // Add zeros and non-zeros
-        builder.addDifference("task_count", 0L);
-        builder.addDifference("task_count", 0L);
-        builder.addDifference("task_count", 1L);
+        builder.addDifference("task_count", 0L, 0L);
+        builder.addDifference("task_count", 0L, 1L);
+        builder.addDifference("task_count", 1L, 2L);
 
         final var stats = builder.build();
         final var fieldStats = stats.getFieldStatistics("task_count");
 
         assertThat(fieldStats.getChangedCount()).isEqualTo(3);
-        assertThat(fieldStats.getMean()).isCloseTo(0.33, offset(0.01));
-        assertThat(fieldStats.getMedian()).isZero();
+        assertThat(fieldStats.getMean()).isCloseTo(0.67, offset(0.01));
+        assertThat(fieldStats.getMedian()).isOne();
         assertThat(fieldStats.getMin()).isZero();
         assertThat(fieldStats.getMax()).isOne();
     }
