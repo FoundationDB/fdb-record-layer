@@ -63,6 +63,7 @@ public class OptionsTestHelper {
         builder = builder.withOption(Options.Name.ENCRYPTION_KEY_STORE, "secrets.ks");
         builder = builder.withOption(Options.Name.ENCRYPTION_KEY_ENTRY, "mykey");
         builder = builder.withOption(Options.Name.ENCRYPTION_KEY_PASSWORD, "mypass");
+        builder = builder.withOption(Options.Name.COMPRESS_WHEN_SERIALIZING, false);
         Options options = builder.build();
         for (Options.Name name : Options.Name.values()) {
             if (name != Options.Name.CONTINUATION) {    // See above on why CONTINUATION was skipped.

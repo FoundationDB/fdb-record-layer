@@ -49,7 +49,6 @@ import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordFromStoredRecordPlan;
 import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordPlanner;
 import com.apple.foundationdb.subspace.Subspace;
-import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Message;
 import org.slf4j.Logger;
@@ -500,7 +499,7 @@ public abstract class IndexingBase {
     }
 
     // Helpers for implementing modules. Some of them are public to support unit-testing.
-    protected CompletableFuture<Boolean> doneOrThrottleDelayAndMaybeLogProgress(boolean done, SubspaceProvider subspaceProvider, List<Object> additionalLogMessageKeyValues) {
+    protected CompletableFuture<Boolean> doneOrThrottleDelayAndMaybeLogProgress(boolean done, List<Object> additionalLogMessageKeyValues) {
         if (done) {
             return AsyncUtil.READY_FALSE;
         }
@@ -514,8 +513,7 @@ public abstract class IndexingBase {
                 lastProgressSnapshot = StoreTimerSnapshot.from(timer);
             }
             LOGGER.info(KeyValueLogMessage.build("Indexer: Built Range",
-                    subspaceProvider.logKey(), subspaceProvider,
-                    LogMessageKeys.DELAY, toWait)
+                            LogMessageKeys.DELAY, toWait)
                     .addKeysAndValues(additionalLogMessageKeyValues != null ? additionalLogMessageKeyValues : Collections.emptyList())
                     .addKeysAndValues(indexingLogMessageKeyValues())
                     .addKeysAndValues(common.indexLogMessageKeyValues())
@@ -907,14 +905,12 @@ public abstract class IndexingBase {
     }
 
     protected CompletableFuture<Void> iterateAllRanges(List<Object> additionalLogMessageKeyValues,
-                                                       BiFunction<FDBRecordStore, AtomicLong,  CompletableFuture<Boolean>> iterateRange,
-                                                       @Nonnull SubspaceProvider subspaceProvider, @Nonnull Subspace subspace) {
-        return iterateAllRanges(additionalLogMessageKeyValues, iterateRange, subspaceProvider, subspace, null);
+                                                       BiFunction<FDBRecordStore, AtomicLong,  CompletableFuture<Boolean>> iterateRange) {
+        return iterateAllRanges(additionalLogMessageKeyValues, iterateRange, null);
     }
 
     protected CompletableFuture<Void> iterateAllRanges(List<Object> additionalLogMessageKeyValues,
                                                        BiFunction<FDBRecordStore, AtomicLong,  CompletableFuture<Boolean>> iterateRange,
-                                                       @Nonnull SubspaceProvider subspaceProvider, @Nonnull Subspace subspace,
                                                        @Nullable Function<FDBException, Optional<Boolean>> shouldReturnQuietly) {
 
         return AsyncUtil.whileTrue(() ->
@@ -923,15 +919,16 @@ public abstract class IndexingBase {
                                 if (ex == null) {
                                     final Set<Index> indexSet = throttle.getAndResetMergeRequiredIndexes();
                                     if (indexSet != null && !indexSet.isEmpty()) {
-                                        return mergeIndexes(indexSet, subspaceProvider)
-                                                .thenCompose(ignore -> doneOrThrottleDelayAndMaybeLogProgress(!hasMore, subspaceProvider, additionalLogMessageKeyValues));
+                                        return mergeIndexes(indexSet)
+                                                .thenCompose(ignore -> doneOrThrottleDelayAndMaybeLogProgress(!hasMore, additionalLogMessageKeyValues));
                                     }
-                                    return doneOrThrottleDelayAndMaybeLogProgress(!hasMore, subspaceProvider, additionalLogMessageKeyValues);
+                                    return doneOrThrottleDelayAndMaybeLogProgress(!hasMore, additionalLogMessageKeyValues);
                                 }
                                 final RuntimeException unwrappedEx = getRunner().getDatabase().mapAsyncToSyncException(ex);
                                 if (LOGGER.isInfoEnabled()) {
-                                    LOGGER.info(KeyValueLogMessage.of("possibly non-fatal error encountered building range",
-                                            LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(subspace.pack())), ex);
+                                    LOGGER.info(KeyValueLogMessage.build("possibly non-fatal error encountered building range")
+                                                    .addKeysAndValues(common.indexLogMessageKeyValues())
+                                            .toString(), ex);
                                 }
                                 throw unwrappedEx;
                             }).thenCompose(Function.identity()),
@@ -939,12 +936,12 @@ public abstract class IndexingBase {
     }
 
     public CompletableFuture<Void> mergeIndexes() {
-        return mergeIndexes(new HashSet<>(common.getTargetIndexes()), common.getRecordStoreBuilder().subspaceProvider);
+        return mergeIndexes(new HashSet<>(common.getTargetIndexes()));
     }
 
-    private CompletableFuture<Void> mergeIndexes(Set<Index> indexSet, @Nullable SubspaceProvider subspaceProvider) {
+    private CompletableFuture<Void> mergeIndexes(Set<Index> indexSet) {
         return AsyncUtil.whenAll(indexSet.stream()
-                .map(index -> getIndexingMerger(index).mergeIndex(subspaceProvider)
+                .map(index -> getIndexingMerger(index).mergeIndex()
         ).collect(Collectors.toList()));
     }
 

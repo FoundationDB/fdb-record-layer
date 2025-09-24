@@ -37,7 +37,6 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.provider.foundationdb.indexing.IndexingRangeSet;
-import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Message;
 import com.google.protobuf.ZeroCopyByteString;
@@ -114,20 +113,15 @@ public class IndexingByIndex extends IndexingBase {
                     validateSourceAndTargetIndexes(store);
                     // all valid; back to the future. Note that for practical reasons, readability and idempotency will be validated later
                     return context.getReadVersionAsync()
-                            .thenCompose(vignore -> {
-                                SubspaceProvider subspaceProvider = common.getRecordStoreBuilder().getSubspaceProvider();
-                                return subspaceProvider.getSubspaceAsync(context)
-                                        .thenCompose(subspace -> buildIndexFromIndex(subspaceProvider, subspace));
-                            });
+                            .thenCompose(ignore -> buildIndexFromIndex());
                 }), common.indexLogMessageKeyValues("IndexingByIndex::buildIndexInternalAsync"));
     }
 
     @Nonnull
-    private CompletableFuture<Void> buildIndexFromIndex(@Nonnull SubspaceProvider subspaceProvider, @Nonnull Subspace subspace) {
+    private CompletableFuture<Void> buildIndexFromIndex() {
         final List<Object> additionalLogMessageKeyValues = Arrays.asList(LogMessageKeys.CALLING_METHOD, "buildIndexFromIndex");
         return iterateAllRanges(additionalLogMessageKeyValues,
-                (store, recordsScanned) -> buildRangeOnly(store, recordsScanned),
-                subspaceProvider, subspace);
+                this::buildRangeOnly);
     }
 
     @Nonnull

@@ -245,6 +245,11 @@ public final class Options {
          * The integrity key of the key store and the encryption key of the key entry.
          */
         ENCRYPTION_KEY_PASSWORD,
+
+        /**
+         * A boolean indicating whether to (attempt to) compress records when saving.
+         */
+        COMPRESS_WHEN_SERIALIZING,
     }
 
     public enum IndexFetchMethod {
@@ -260,6 +265,8 @@ public final class Options {
 
     @Nonnull
     private static final Map<Name, Object> OPTIONS_DEFAULT_VALUES;
+
+    private static final Object NULL_STANDIN = new Object();
 
     static {
         final var builder = ImmutableMap.<Name, Object>builder();
@@ -285,6 +292,7 @@ public final class Options {
         builder.put(Name.ASYNC_OPERATIONS_TIMEOUT_MILLIS, 10_000L);
         builder.put(Name.ENCRYPT_WHEN_SERIALIZING, false);
         builder.put(Name.ENCRYPTION_KEY_PASSWORD, "");
+        builder.put(Name.COMPRESS_WHEN_SERIALIZING, true);
         OPTIONS_DEFAULT_VALUES = builder.build();
     }
 
@@ -366,9 +374,17 @@ public final class Options {
         }
 
         @Nonnull
-        public Builder withOption(Name name, Object value) throws SQLException {
-            validateOption(name, value);
-            optionsMap.put(name, value);
+        public Builder withOption(@Nonnull Name name, @Nullable Object value) throws SQLException {
+            if (value == NULL_STANDIN) {
+                optionsMap.put(name, NULL_STANDIN);
+            } else {
+                validateOption(name, value);
+                if (value == null) {
+                    optionsMap.put(name, NULL_STANDIN);
+                } else {
+                    optionsMap.put(name, value);
+                }
+            }
             return this;
         }
 
@@ -411,13 +427,16 @@ public final class Options {
         }
     }
 
+    @Nullable
     @SuppressWarnings("unchecked")
     private <T> T getOptionInternal(Name name) {
-        T option = (T) optionsMap.get(name);
-        if (option == null && parentOptions != null) {
+        Object option = optionsMap.get(name);
+        if (option == NULL_STANDIN) {
+            return null;
+        } else if (option == null && parentOptions != null) {
             return parentOptions.getOption(name);
         } else {
-            return option;
+            return (T) option;
         }
     }
 
@@ -428,6 +447,10 @@ public final class Options {
         } else {
             return optionsMap.entrySet();
         }
+    }
+
+    public static boolean isNull(@Nullable Object object) {
+        return object == null || object == NULL_STANDIN;
     }
 
     @Override
@@ -524,9 +547,10 @@ public final class Options {
         data.put(Name.CONTINUATIONS_CONTAIN_COMPILED_STATEMENTS, List.of(TypeContract.booleanType()));
         data.put(Name.ASYNC_OPERATIONS_TIMEOUT_MILLIS, List.of(TypeContract.longType(), RangeContract.of(0L, Long.MAX_VALUE)));
         data.put(Name.ENCRYPT_WHEN_SERIALIZING, List.of(TypeContract.booleanType()));
-        data.put(Name.ENCRYPTION_KEY_STORE, List.of(TypeContract.stringType()));
-        data.put(Name.ENCRYPTION_KEY_ENTRY, List.of(TypeContract.stringType()));
-        data.put(Name.ENCRYPTION_KEY_PASSWORD, List.of(TypeContract.stringType()));
+        data.put(Name.ENCRYPTION_KEY_STORE, List.of(TypeContract.nullableStringType()));
+        data.put(Name.ENCRYPTION_KEY_ENTRY, List.of(TypeContract.nullableStringType()));
+        data.put(Name.ENCRYPTION_KEY_PASSWORD, List.of(TypeContract.nullableStringType()));
+        data.put(Name.COMPRESS_WHEN_SERIALIZING, List.of(TypeContract.booleanType()));
 
         return Collections.unmodifiableMap(data);
     }

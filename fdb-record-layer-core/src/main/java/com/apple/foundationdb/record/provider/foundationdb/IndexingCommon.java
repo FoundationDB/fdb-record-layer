@@ -158,6 +158,12 @@ public class IndexingCommon {
                 LogMessageKeys.RECORDS_SCANNED, totalRecordsScanned.get(),
                 LogMessageKeys.INDEXER_ID, indexerId);
 
+        SubspaceProvider subspaceProvider = getRecordStoreBuilder().getSubspaceProvider();
+        if (subspaceProvider != null) {
+            keyValues.add(subspaceProvider.logKey());
+            keyValues.add(subspaceProvider);
+        }
+
         if (moreKeyValues != null && !moreKeyValues.isEmpty()) {
             keyValues.addAll(moreKeyValues);
         }

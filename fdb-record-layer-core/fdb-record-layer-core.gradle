@@ -35,7 +35,7 @@ dependencies {
     compileOnly(libs.autoService)
     annotationProcessor(libs.autoService)
 
-    testImplementation project(path: ':fdb-extensions', configuration: 'tests')
+    testImplementation testFixtures(project(':fdb-extensions'))
     testImplementation(libs.bundles.test.impl)
     testRuntimeOnly(libs.bundles.test.runtime)
     testCompileOnly(libs.bundles.test.compileOnly)

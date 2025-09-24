@@ -37,7 +37,7 @@ dependencies {
     testRuntimeOnly(libs.bundles.test.runtime)
     testCompileOnly(libs.bundles.test.compileOnly)
     testImplementation(libs.snakeyaml)
-    testImplementation project(path: ':fdb-extensions', configuration: 'tests')
+    testImplementation testFixtures(project(':fdb-extensions'))
     testImplementation project(path: coreProject, configuration: 'tests')
 }
 
