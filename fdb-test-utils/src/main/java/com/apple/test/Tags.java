@@ -23,6 +23,7 @@ package com.apple.test;
 /**
  * Annotation {@link org.junit.jupiter.api.Tag}s for Record Layer tests.
  */
+@SuppressWarnings("PMD.FieldNamingConventions")
 public class Tags {
     /**
      * Tests that require FoundationDB to be available.
