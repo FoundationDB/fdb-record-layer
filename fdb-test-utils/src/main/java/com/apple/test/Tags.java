@@ -24,7 +24,7 @@ package com.apple.test;
  * Annotation {@link org.junit.jupiter.api.Tag}s for Record Layer tests.
  */
 @SuppressWarnings("PMD.FieldNamingConventions")
-public class Tags {
+public final class Tags {
     /**
      * Tests that require FoundationDB to be available.
      */
@@ -47,4 +47,8 @@ public class Tags {
      * Tests that wipe the entire FDB cluster during their run.
      */
     public static final String WipesFDB = "WipesFDB";
+
+    private Tags() {
+    }
+
 }
