@@ -27,7 +27,7 @@ jobs:
       run: |
         # Make sure we have the PR head fetched. Note that we only download the code for comparison,
         # we do not run any code from the pull request's version
-        git fetch origin pulls/${{ github.event.number }}/head
+        git fetch origin pull/${{ github.event.number }}/head
 
         # Run the analysis. Compare against the base hash of this PR
         ./gradlew :yaml-tests:analyzeMetrics \
