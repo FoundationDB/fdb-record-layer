@@ -1,0 +1,152 @@
+name: Metrics Diff Analysis
+
+on:
+  pull_request_target:
+    paths:
+      - '**/*.metrics.yaml'
+
+jobs:
+  metrics-analysis:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Need full history for git diff
+
+    - name: Setup Base Environment
+      uses: ./actions/setup-base-env
+
+    - name: Run metrics diff analysis
+      id: metrics-diff
+      run: |
+        # Make sure we have the PR head fetched. Note that we only download the code for comparison,
+        # we do not run any code from the pull request's version
+        git fetch pulls/${{ github.event.number }}/head
+
+        # Run the analysis. Compare against the base hash of this PR
+        ./gradlew :yaml-tests:analyzeMetrics \
+          -PmetricsAnalysis.baseRef="${{ github.sha }}" \
+          -PmetricsAnalysis.headRef="${{ github.event.pull_request.head.sha }}" \
+          -PmetricsAnalysis.urlBase="${{ github.server_url }}/${{ github.repository }}/blob" \
+          -PmetricsAnalysis.repositoryRoot="${{ github.workspace }}" \
+          -PmetricsAnalysis.output="${{ github.workspace }}/metrics-analysis-output.txt" \
+          -PmetricsAnalysis.outlierQueries="${{ github.workspace }}/outlier-queries.txt"
+
+    - name: Add Report To Summary
+      run: cat metrics-analysis-output.txt > $GITHUB_STEP_SUMMARY
+
+    - name: Check for outliers
+      id: check-changes
+      run: |
+        if [[ -f outlier-queries.txt ]] ; then
+          echo "SIGNIFICANT_CHANGES=true" >> $GITHUB_OUTPUT
+        else
+          echo "SIGNIFICANT_CHANGES=false" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Comment on PR
+      uses: actions/github-script@v7
+      continue-on-error: true
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        script: |
+          const fs = require('fs');
+          const report = fs.readFileSync("${{ github.workspace }}/metrics-analysis-output.txt", { encoding: 'utf8', flag: 'r'});
+
+          // Find existing comment
+          const { data: comments } = await github.rest.issues.listComments({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: context.issue.number,
+          });
+
+          const existingComment = comments.find(comment =>
+            comment.user.type === 'Bot' && comment.body.includes('📊 Metrics Diff Analysis')
+          );
+
+          if (existingComment) {
+            // Delete previous comment
+            await github.rest.issues.deleteComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: existingComment.id,
+            });
+          }
+
+          // Create new comment
+          await github.rest.issues.createComment({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: context.issue.number,
+            body: report
+          });
+
+    - name: Add inline comments for outliers
+      uses: actions/github-script@v7
+      if: steps.check-changes.outputs.SIGNIFICANT_CHANGES == 'true'
+      continue-on-error: true
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        script: |
+          // First, delete any existing comments from previous runs
+          const { data: reviewComments } = await github.rest.pulls.listReviewComments({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            pull_number: context.issue.number,
+          });
+
+          const metricsComments = reviewComments.filter(comment =>
+            comment.user.type === 'Bot' && comment.body.includes('**Significant Metrics Change**')
+          );
+
+          for (const comment of metricsComments) {
+            try {
+              await github.rest.pulls.deleteReviewComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: comment.id,
+              });
+              console.log(`Deleted previous metrics comment ${comment.id}`);
+            } catch (error) {
+              console.log(`Could not delete comment ${comment.id}: ${error.message}`);
+            }
+          }
+
+          // Parse the outliers report analysis output to find files with notable queries
+          const fs = require('fs');
+          const output = fs.readFileSync("${{ github.workspace }}/outlier-queries.txt", { encoding: 'utf8', flag: 'r' });
+
+          // Each query appears separated by a blank line
+          const queries = output.split('\n\n');
+
+          for (const query of queries) {
+            var newl = query.indexOf('\n');
+            if (newl < 0) {
+              continue;
+            }
+            const info = query.substring(0, newl);
+            const match = info.match(/^(.+\.metrics\.yaml):(\d+): (.+)$/);
+            if (match) {
+              const [, filePath, lineNumber, query] = match;
+              const data = query.substring(newl, query.length);
+              try {
+                await github.rest.pulls.createReviewComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  pull_number: context.issue.number,
+                  body: "**Significant Metrics Change**\n\nThis query's metrics have changed significantly.\n\n" + data + "\n",
+                  path: filePath,
+                  line: lineNumber,
+                  side: 'RIGHT'
+                });
+              } catch (error) {
+                console.log(`Could not add comment to ${filePath}: ${error.message}`);
+              }
+            }
+          }

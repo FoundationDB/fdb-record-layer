@@ -1,0 +1,58 @@
+basic_queries:
+  - query: "SELECT id FROM users WHERE id = ?"
+    setup: []
+    explain: "Index(users_by_id [[?, ?]])"
+    task_count: 10
+    task_total_time_ms: 5
+    transform_count: 5
+    transform_time_ms: 2
+    transform_yield_count: 0
+    insert_time_ms: 1
+    insert_new_count: 2
+    insert_reused_count: 3
+  - query: "SELECT name FROM users WHERE name LIKE 'John%'"
+    setup: []
+    explain: "Index(users_by_name [[John, John~]]) [IMPROVED]"
+    task_count: 18
+    task_total_time_ms: 9
+    transform_count: 12
+    transform_time_ms: 6
+    transform_yield_count: 1
+    insert_time_ms: 2
+    insert_new_count: 6
+    insert_reused_count: 6
+  - query: "SELECT * FROM orders WHERE customer_id = ?"
+    setup: []
+    explain: "Covering_Index(orders_by_customer_with_details [[?, ?]])"
+    task_count: 12
+    task_total_time_ms: 6
+    transform_count: 8
+    transform_time_ms: 4
+    transform_yield_count: 0
+    insert_time_ms: 1
+    insert_new_count: 3
+    insert_reused_count: 5
+  - query: "SELECT email FROM users WHERE email = ?"
+    setup: []
+    explain: "Index(users_by_email [[?, ?]])"
+    task_count: 8
+    task_total_time_ms: 4
+    transform_count: 6
+    transform_time_ms: 2
+    transform_yield_count: 0
+    insert_time_ms: 1
+    insert_new_count: 2
+    insert_reused_count: 4
+
+complex_queries:
+  - query: "SELECT u.name, COUNT(*) FROM users u JOIN orders o ON u.id = o.customer_id GROUP BY u.name"
+    setup: []
+    explain: "GroupBy(Join(Index(users), Index(orders_by_customer)))"
+    task_count: 52
+    task_total_time_ms: 26
+    transform_count: 32
+    transform_time_ms: 16
+    transform_yield_count: 6
+    insert_time_ms: 9
+    insert_new_count: 17
+    insert_reused_count: 22
