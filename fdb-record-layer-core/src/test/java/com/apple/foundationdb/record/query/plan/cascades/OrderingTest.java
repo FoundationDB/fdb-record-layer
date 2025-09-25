@@ -34,11 +34,13 @@ import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructo
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.ValueTestHelpers;
 import com.google.common.base.Verify;
+import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.SetMultimap;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
@@ -50,6 +52,7 @@ import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class OrderingTest {
     @Test
@@ -605,5 +608,74 @@ class OrderingTest {
         Verify.verify(i == objects.length);
 
         return resultRequestedOrderingParts.build();
+    }
+
+    @Test
+    void testNoInvalidOrderingCheckDoesNotThrowOnValidCases() {
+        final var qov = ValueTestHelpers.qov();
+        final var a = ValueTestHelpers.field(qov, "a");
+        final var b = ValueTestHelpers.field(qov, "b");
+        final var c = ValueTestHelpers.field(qov, "c");
+
+        // Test case 1: Single directional value - should pass
+        final var singleDirectionalBindingMap = bindingMap(a, ProvidedSortOrder.ASCENDING);
+        final var singleDirectionalOrderingSet = PartiallyOrderedSet.of(ImmutableSet.of(a), ImmutableSetMultimap.of());
+
+        // This should not throw an exception
+        Assertions.assertDoesNotThrow(() ->
+                Ordering.noInvalidOrderingCheck(singleDirectionalBindingMap, singleDirectionalOrderingSet));
+
+        // Test case 2: Multiple directional values with proper dependencies - should pass
+        final var multiDirectionalBindingMap = bindingMap(
+                a, ProvidedSortOrder.ASCENDING,
+                b, ProvidedSortOrder.DESCENDING
+        );
+        final var multiDirectionalOrderingSet = PartiallyOrderedSet.of(
+                ImmutableSet.of(a, b),
+                ImmutableSetMultimap.of(b, a) // b depends on a
+        );
+
+        // This should not throw an exception
+        Assertions.assertDoesNotThrow(() ->
+                Ordering.noInvalidOrderingCheck(multiDirectionalBindingMap, multiDirectionalOrderingSet));
+
+        // Test case 3: Mix of directional and fixed values - should pass
+        final var mixedBindingMap = bindingMap(
+                a, ProvidedSortOrder.ASCENDING,
+                b, new Comparisons.NullComparison(Comparisons.Type.IS_NULL),
+                c, ProvidedSortOrder.DESCENDING
+        );
+        final var mixedOrderingSet = PartiallyOrderedSet.of(
+                ImmutableSet.of(a, b, c),
+                ImmutableSetMultimap.of(c, a) // c depends on a
+        );
+
+        // This should not throw an exception
+        Assertions.assertDoesNotThrow(() ->
+                Ordering.noInvalidOrderingCheck(mixedBindingMap, mixedOrderingSet));
+    }
+
+    @Test
+    void testNoInvalidOrderingCheckThrowsCorrectly() {
+        final var qov = ValueTestHelpers.qov();
+        final var a = ValueTestHelpers.field(qov, "a");
+        final var b = ValueTestHelpers.field(qov, "b");
+        final var c = ValueTestHelpers.field(qov, "c");
+
+        // Test case: Multiple directional values without proper interdependencies - should fail
+        final var invalidBindingMap = bindingMap(
+                a, ProvidedSortOrder.ASCENDING,
+                b, ProvidedSortOrder.DESCENDING,
+                c, new Comparisons.NullComparison(Comparisons.Type.IS_NULL) // fixed value
+        );
+        final var invalidOrderingSet = PartiallyOrderedSet.of(
+                ImmutableSet.of(a, b, c),
+                ImmutableSetMultimap.of() // No dependencies between directional values a and b
+        );
+
+        // This should throw a VerifyException via Verify.verify()
+        assertThrows(VerifyException.class, () ->
+                Ordering.noInvalidOrderingCheck(invalidBindingMap, invalidOrderingSet)
+        );
     }
 }
