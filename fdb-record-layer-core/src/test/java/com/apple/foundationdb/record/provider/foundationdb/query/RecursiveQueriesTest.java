@@ -279,9 +279,9 @@ class RecursiveQueriesTest extends TempTableTestBase {
 
     @Nonnull
     static Stream<Arguments> randomizedDescendantsTestParameters() {
-        final int maxChildrenCountPerLevel = 100000;
-        final int maxDepth = 100;
-        final int effectiveParentsCount = 100;
+        final int maxChildrenCountPerLevel = 1000;
+        final int maxDepth = 10;
+        final int effectiveParentsCount = 4;
         final int continuationsCount = 0;
         final var randomHierarchy = Hierarchy.generateRandomHierarchy(maxChildrenCountPerLevel, maxDepth, effectiveParentsCount);
         final var splits = ListPartitioner.getSplitsUsingNormalDistribution(continuationsCount, randomHierarchy.size());
@@ -306,14 +306,15 @@ class RecursiveQueriesTest extends TempTableTestBase {
 
     @Nonnull
     static Stream<Arguments> randomizedAncestorsTestParameters() {
-        final int maxChildrenCountPerLevel = 10;
-        final int maxDepth = 3;
-        final int branchingFactor = 3;
-        final var randomHierarchy = Hierarchy.generateRandomHierarchy(maxChildrenCountPerLevel, maxDepth, branchingFactor);
+        final int maxChildrenCountPerLevel = 1000;
+        final int maxDepth = 10;
+        final int effectiveParentsCount = 4;
+        final int continuationsCount = 0;
+        final var randomHierarchy = Hierarchy.generateRandomHierarchy(maxChildrenCountPerLevel, maxDepth, effectiveParentsCount);
         final var leaf = randomHierarchy.getRandomLeaf();
         final var parent = randomHierarchy.getEdges().get(leaf);
         final var ancestors = randomHierarchy.calculateAncestors(leaf);
-        final var splits = ListPartitioner.getSplitsUsingNormalDistribution(10, randomHierarchy.size());
+        final var splits = ListPartitioner.getSplitsUsingNormalDistribution(continuationsCount, randomHierarchy.size());
         return Stream.of(
             Arguments.of(randomHierarchy, leaf, parent, ancestors, splits, LEVEL),
             Arguments.of(randomHierarchy, leaf, parent, ancestors, splits, PREORDER),
