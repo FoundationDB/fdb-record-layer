@@ -7,6 +7,49 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.6
 
+### 4.6.4.0
+
+<h4> New Features </h4>
+
+* Extend serialized record encoding to allow for multiple encryption keys - [PR #3522](https://github.com/FoundationDB/fdb-record-layer/pull/3522)
+<h4> Bug Fixes </h4>
+
+* Remove duplicates from IN-list before turning it to an ExplodeExpression - [PR #3608](https://github.com/FoundationDB/fdb-record-layer/pull/3608)
+* Fix bug of scan aggregate index returning empty non-end continuation - [PR #3397](https://github.com/FoundationDB/fdb-record-layer/pull/3397)
+<h4> Performance Improvements </h4>
+
+* improve memo-performance - [PR #3625](https://github.com/FoundationDB/fdb-record-layer/pull/3625)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* remove test cases that used to test planner + disabled rewrite phase - [PR #3626](https://github.com/FoundationDB/fdb-record-layer/pull/3626)
+* Use reference name "pull/PR_NUMBER/head" to get PR head reference - [PR #3630](https://github.com/FoundationDB/fdb-record-layer/pull/3630)
+* Utilize testFixtures for `fdb-extensions` - [PR #3628](https://github.com/FoundationDB/fdb-record-layer/pull/3628)
+* Specify repo when fetching PR head in metrics build - [PR #3629](https://github.com/FoundationDB/fdb-record-layer/pull/3629)
+* Explicitly fetch PR head in metrics diff job - [PR #3627](https://github.com/FoundationDB/fdb-record-layer/pull/3627)
+* Create tool to automate reviews of metrics files - [PR #3620](https://github.com/FoundationDB/fdb-record-layer/pull/3620)
+* Remove redundant codeCoverageReport in nightly tests - [PR #3622](https://github.com/FoundationDB/fdb-record-layer/pull/3622)
+
+</details>
+
+
+**[Full Changelog (4.6.3.0...4.6.4.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.6.3.0...4.6.4.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+❌`4.5.6.0`, ❌`4.5.7.0`, ❌`4.5.8.0`, ❌`4.5.9.0`, ✅`4.5.10.0`, ✅`4.5.12.0`, ✅`4.5.13.0`, ✅`4.6.1.0`, ✅`4.6.2.0`, ✅`4.6.3.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/17992329047)
+
+
+
 ### 4.6.3.0
 
 
