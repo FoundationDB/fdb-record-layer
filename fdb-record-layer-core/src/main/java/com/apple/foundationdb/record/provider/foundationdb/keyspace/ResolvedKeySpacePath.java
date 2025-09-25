@@ -229,13 +229,15 @@ public class ResolvedKeySpacePath {
         }
 
         ResolvedKeySpacePath otherPath = (ResolvedKeySpacePath) other;
-        return this.inner.equals(otherPath.inner)
-               && Objects.equals(this.getResolvedValue(), otherPath.getResolvedValue());
+        return Objects.equals(this.getResolvedPathValue(), otherPath.getResolvedPathValue()) &&
+                Objects.equals(this.getParent(), otherPath.getParent()) &&
+                this.inner.equals(otherPath.inner) &&
+                Objects.equals(this.remainder, otherPath.remainder);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(inner, getResolvedPathValue());
+        return Objects.hash(inner, getResolvedPathValue(), remainder, getParent());
     }
 
     @Override
