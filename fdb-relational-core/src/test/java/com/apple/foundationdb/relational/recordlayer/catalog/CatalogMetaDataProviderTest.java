@@ -23,6 +23,7 @@ package com.apple.foundationdb.relational.recordlayer.catalog;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
+import com.apple.foundationdb.test.FDBTestEnvironment;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
@@ -53,7 +54,7 @@ class CatalogMetaDataProviderTest {
 
         //now create a RecordStore in that Catalog
         FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
-        FdbConnection fdbConn = new DirectFdbConnection(factory.getDatabase());
+        FdbConnection fdbConn = new DirectFdbConnection(factory.getDatabase(FDBTestEnvironment.randomClusterFile()));
         StoreCatalog storeCatalog;
         try (Transaction txn = fdbConn.getTransactionManager().createTransaction(Options.NONE)) {
             //create the Catalog RecordStore

@@ -46,7 +46,7 @@ public class ExternalServerYamlConnectionFactory implements YamlConnectionFactor
     public YamlConnection getNewConnection(@Nonnull URI connectPath) throws SQLException {
         String uriStr = connectPath.toString().replaceFirst("embed:", "relational://localhost:" + externalServer.getPort());
         LOG.info("Rewrote {} as {}", connectPath, uriStr);
-        return new SimpleYamlConnection(DriverManager.getConnection(uriStr), externalServer.getVersion());
+        return new SimpleYamlConnection(DriverManager.getConnection(uriStr), externalServer.getVersion(), externalServer.getClusterFile());
     }
 
     @Override

@@ -231,6 +231,12 @@ public class MultiServerConnectionFactory implements YamlConnectionFactory {
             return false;
         }
 
+        @Override
+        public String getClusterFile() {
+            // All underlying connections should be using the same cluster file
+            return underlyingConnections.get(0).getClusterFile();
+        }
+
         /**
          * Get the connection to send requests to.
          * This method conditionally advances the connection selector. This is done for ease of testing, where some

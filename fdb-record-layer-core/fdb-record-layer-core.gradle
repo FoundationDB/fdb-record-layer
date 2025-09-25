@@ -44,6 +44,7 @@ dependencies {
     testImplementation(libs.junit.platform)
     testImplementation(libs.protobuf.util)
     testCompileOnly(libs.spotbugs.annotations)
+    testImplementation(libs.snakeyaml)
 
     testAnnotationProcessor(libs.autoService)
 }

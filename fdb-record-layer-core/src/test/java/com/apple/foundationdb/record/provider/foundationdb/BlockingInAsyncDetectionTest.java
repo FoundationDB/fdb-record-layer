@@ -24,6 +24,7 @@ import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.TestHelpers;
 import com.apple.foundationdb.record.test.FDBDatabaseExtension;
+import com.apple.foundationdb.test.FDBTestEnvironment;
 import com.apple.test.Tags;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -57,7 +58,7 @@ class BlockingInAsyncDetectionTest {
         // Make sure that we aren't holding on to previously created databases
         factory.clear();
 
-        FDBDatabase database = factory.getDatabase();
+        FDBDatabase database = factory.getDatabase(FDBTestEnvironment.randomClusterFile());
         assertEquals(BlockingInAsyncDetection.IGNORE_COMPLETE_EXCEPTION_BLOCKING, database.getBlockingInAsyncDetection());
         assertThrows(BlockingInAsyncException.class, () -> callAsyncBlocking(database));
     }
@@ -68,7 +69,7 @@ class BlockingInAsyncDetectionTest {
         factory.setBlockingInAsyncDetection(BlockingInAsyncDetection.IGNORE_COMPLETE_WARN_BLOCKING);
         factory.clear();
 
-        FDBDatabase database = factory.getDatabase();
+        FDBDatabase database = factory.getDatabase(FDBTestEnvironment.randomClusterFile());
         TestHelpers.assertLogs(FDBDatabase.class, FDBDatabase.BLOCKING_IN_ASYNC_CONTEXT_MESSAGE,
                 () -> {
                     callAsyncBlocking(database, true);
@@ -82,7 +83,7 @@ class BlockingInAsyncDetectionTest {
         factory.setBlockingInAsyncDetection(BlockingInAsyncDetection.WARN_COMPLETE_EXCEPTION_BLOCKING);
         factory.clear();
 
-        FDBDatabase database = factory.getDatabase();
+        FDBDatabase database = factory.getDatabase(FDBTestEnvironment.randomClusterFile());
         TestHelpers.assertLogs(FDBDatabase.class, FDBDatabase.BLOCKING_IN_ASYNC_CONTEXT_MESSAGE,
                 () -> database.asyncToSync(new FDBStoreTimer(), FDBStoreTimer.Waits.WAIT_ERROR_CHECK,
                         CompletableFuture.supplyAsync(() ->
@@ -95,7 +96,7 @@ class BlockingInAsyncDetectionTest {
         factory.setBlockingInAsyncDetection(BlockingInAsyncDetection.WARN_COMPLETE_EXCEPTION_BLOCKING);
         factory.clear();
 
-        FDBDatabase database = factory.getDatabase();
+        FDBDatabase database = factory.getDatabase(FDBTestEnvironment.randomClusterFile());
         TestHelpers.assertLogs(FDBDatabase.class, FDBDatabase.BLOCKING_RETURNING_ASYNC_MESSAGE,
                 () -> returnAnAsync(database, MoreAsyncUtil.delayedFuture(200L, TimeUnit.MILLISECONDS, database.getScheduledExecutor())));
     }
@@ -106,7 +107,7 @@ class BlockingInAsyncDetectionTest {
         factory.setBlockingInAsyncDetection(BlockingInAsyncDetection.WARN_COMPLETE_EXCEPTION_BLOCKING);
         factory.clear();
 
-        FDBDatabase database = factory.getDatabase();
+        FDBDatabase database = factory.getDatabase(FDBTestEnvironment.randomClusterFile());
         TestHelpers.assertDidNotLog(FDBDatabase.class, FDBDatabase.BLOCKING_RETURNING_ASYNC_MESSAGE,
                 () -> returnAnAsync(database, CompletableFuture.completedFuture(10L)));
     }
