@@ -193,7 +193,7 @@ public class RecordQueryRecursivePlan implements RecordQueryPlanWithChildren, Re
 
     @Override
     public int hashCodeWithoutChildren() {
-        return Objects.hash(getResultValue(), priorValueCorrelation);
+        return Objects.hash(getResultValue()); // priorValueCorrelation _is_ a child correlation due to the recursive nature of this plan.
     }
 
     @Nonnull
@@ -223,7 +223,7 @@ public class RecordQueryRecursivePlan implements RecordQueryPlanWithChildren, Re
         switch (mode.getKind()) {
             case LEGACY:
             case FOR_CONTINUATION:
-                return PlanHashable.objectsPlanHash(mode, BASE_HASH, getChildren(), getResultValue(), priorValueCorrelation);
+                return PlanHashable.objectsPlanHash(mode, BASE_HASH, getChildren(), getResultValue());
             default:
                 throw new UnsupportedOperationException("Hash kind " + mode.name() + " is not supported");
         }
