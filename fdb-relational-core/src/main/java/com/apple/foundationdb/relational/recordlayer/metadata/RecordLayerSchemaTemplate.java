@@ -49,6 +49,7 @@ import com.google.common.collect.Multimap;
 import com.google.protobuf.Descriptors;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collection;
@@ -366,6 +367,103 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         visitor.finishVisit(this);
     }
 
+    /**
+     * Manages nullable and non-nullable variants of a struct type with the same name.
+     * This allows a struct type to exist in both nullable (for table columns) and 
+     * non-nullable (for array elements) forms within the same schema template.
+     */
+    private static final class TypeVariants {
+        private DataType.Named nullableVariant;
+        private DataType.Named nonNullableVariant;
+
+        /**
+         * Adds or updates a type variant based on its nullability.
+         * 
+         * @param type The type to add/update
+         */
+        public void addVariant(@Nonnull DataType.Named type) {
+            // Cast to DataType to access isNullable() method
+            // All named types (StructType, EnumType, etc.) extend DataType and implement Named
+            DataType dataType = (DataType) type;
+            if (dataType.isNullable()) {
+                this.nullableVariant = type;
+            } else {
+                this.nonNullableVariant = type;
+            }
+        }
+
+        /**
+         * Gets the appropriate variant based on required nullability.
+         * 
+         * @param nullable Whether nullable variant is required
+         * @return The appropriate variant, or null if not available
+         */
+        @Nullable
+        public DataType.Named getVariant(boolean nullable) {
+            return nullable ? nullableVariant : nonNullableVariant;
+        }
+
+        /**
+         * Gets the nullable variant if available.
+         */
+        @Nullable
+        public DataType.Named getNullableVariant() {
+            return nullableVariant;
+        }
+
+        /**
+         * Gets the non-nullable variant if available.
+         */
+        @Nullable
+        public DataType.Named getNonNullableVariant() {
+            return nonNullableVariant;
+        }
+
+        /**
+         * Checks if both variants exist.
+         */
+        public boolean hasBothVariants() {
+            return nullableVariant != null && nonNullableVariant != null;
+        }
+
+        /**
+         * Checks if any variant exists.
+         */
+        public boolean hasAnyVariant() {
+            return nullableVariant != null || nonNullableVariant != null;
+        }
+
+        /**
+         * Gets the primary variant (nullable if available, otherwise non-nullable).
+         * This maintains backward compatibility by preferring nullable variants.
+         */
+        @Nonnull
+        public DataType.Named getPrimaryVariant() {
+            if (nullableVariant != null) {
+                return nullableVariant;
+            }
+            if (nonNullableVariant != null) {
+                return nonNullableVariant;
+            }
+            throw new RelationalException("No variants available", ErrorCode.INTERNAL_ERROR).toUncheckedWrappedException();
+        }
+
+        /**
+         * Gets all non-null variants.
+         */
+        @Nonnull
+        public Collection<DataType.Named> getAllVariants() {
+            final var variants = new ArrayList<DataType.Named>();
+            if (nullableVariant != null) {
+                variants.add(nullableVariant);
+            }
+            if (nonNullableVariant != null) {
+                variants.add(nonNullableVariant);
+            }
+            return variants;
+        }
+    }
+
     public static final class Builder {
         private static final String TABLE_ALREADY_EXISTS = "table '%s' already exists";
         private static final String TYPE_WITH_NAME_ALREADY_EXISTS = "type with name '%s' already exists";
@@ -384,7 +482,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         private final Map<String, RecordLayerTable> tables;
 
         @Nonnull
-        private final Map<String, DataType.Named> auxiliaryTypes; // for quick lookup
+        private final Map<String, TypeVariants> auxiliaryTypes; // for quick lookup
 
         @Nonnull
         private final Map<String, RecordLayerInvokedRoutine> invokedRoutines;
@@ -490,7 +588,8 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         /**
          * Adds an auxiliary type, an auxiliary type is a type that is merely created, so it can be referenced later on
          * in a table definition. Any {@link DataType.Named} data type can be added as an auxiliary type such as {@code enum}s
-         * and {@code struct}s.
+         * and {@code struct}s. For struct types, this method supports adding both nullable and non-nullable
+         * variants of the same named type.
          *
          * @param auxiliaryType The auxiliary {@link DataType} to add.
          * @return {@code this} {@link Builder}.
@@ -498,8 +597,22 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         @Nonnull
         public Builder addAuxiliaryType(@Nonnull DataType.Named auxiliaryType) {
             Assert.thatUnchecked(!tables.containsKey(auxiliaryType.getName()), ErrorCode.INVALID_SCHEMA_TEMPLATE, TABLE_ALREADY_EXISTS, auxiliaryType.getName());
-            Assert.thatUnchecked(!auxiliaryTypes.containsKey(auxiliaryType.getName()), ErrorCode.INVALID_SCHEMA_TEMPLATE, TYPE_WITH_NAME_ALREADY_EXISTS, auxiliaryType.getName());
-            auxiliaryTypes.put(auxiliaryType.getName(), auxiliaryType);
+            
+            // For struct types, allow both nullable and non-nullable variants
+            if (auxiliaryType instanceof DataType.StructType) {
+                TypeVariants variants = auxiliaryTypes.get(auxiliaryType.getName());
+                if (variants == null) {
+                    variants = new TypeVariants();
+                    auxiliaryTypes.put(auxiliaryType.getName(), variants);
+                }
+                variants.addVariant(auxiliaryType);
+            } else {
+                // For non-struct types (enums, etc.), maintain existing behavior
+                Assert.thatUnchecked(!auxiliaryTypes.containsKey(auxiliaryType.getName()), ErrorCode.INVALID_SCHEMA_TEMPLATE, TYPE_WITH_NAME_ALREADY_EXISTS, auxiliaryType.getName());
+                TypeVariants variants = new TypeVariants();
+                variants.addVariant(auxiliaryType);
+                auxiliaryTypes.put(auxiliaryType.getName(), variants);
+            }
             return this;
         }
 
@@ -543,10 +656,87 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
             }
 
             if (auxiliaryTypes.containsKey(name)) {
-                return Optional.of((DataType) auxiliaryTypes.get(name));
+                // Return the primary variant (nullable if available, otherwise non-nullable)
+                // This maintains backward compatibility
+                return Optional.of((DataType) auxiliaryTypes.get(name).getPrimaryVariant());
             }
 
             return Optional.empty();
+        }
+
+        /**
+         * Finds a type variant with specific nullability. This method is used to support
+         * struct types that exist in both nullable and non-nullable forms.
+         *
+         * @param name The name of the type to find
+         * @param nullable Whether to find the nullable or non-nullable variant
+         * @return Optional containing the specific variant if found
+         */
+        @Nonnull
+        public Optional<DataType> findTypeVariant(@Nonnull final String name, boolean nullable) {
+            if (tables.containsKey(name)) {
+                DataType tableType = tables.get(name).getDatatype();
+                // Only return table type if nullability matches
+                if (tableType.isNullable() == nullable) {
+                    return Optional.of(tableType);
+                }
+                return Optional.empty();
+            }
+
+            if (auxiliaryTypes.containsKey(name)) {
+                TypeVariants variants = auxiliaryTypes.get(name);
+                DataType.Named variant = variants.getVariant(nullable);
+                return variant != null ? Optional.of((DataType) variant) : Optional.empty();
+            }
+
+            return Optional.empty();
+        }
+
+        /**
+         * Convenience method to add both nullable and non-nullable variants of a struct type.
+         * This is useful when you know a struct type will be used both as table columns 
+         * (nullable) and as array elements (non-nullable).
+         *
+         * @param structType The base struct type (nullability will be ignored, both variants created)
+         * @return {@code this} {@link Builder}.
+         */
+        @Nonnull
+        public Builder addStructTypeWithBothVariants(@Nonnull DataType.StructType structType) {
+            // Create nullable variant
+            DataType.StructType nullableVariant = (DataType.StructType) structType.withNullable(true);
+            addAuxiliaryType(nullableVariant);
+            
+            // Create non-nullable variant  
+            DataType.StructType nonNullableVariant = (DataType.StructType) structType.withNullable(false);
+            addAuxiliaryType(nonNullableVariant);
+            
+            return this;
+        }
+
+        /**
+         * Gets the appropriate struct type variant for use in array contexts (non-nullable).
+         *
+         * @param typeName The name of the struct type
+         * @return Optional containing the non-nullable variant if available
+         */
+        @Nonnull
+        public Optional<DataType.StructType> getStructTypeForArrayContext(@Nonnull final String typeName) {
+            return auxiliaryTypes.containsKey(typeName) ?
+                Optional.ofNullable((DataType.StructType) auxiliaryTypes.get(typeName).getNonNullableVariant()) :
+                Optional.empty();
+        }
+
+        /**
+         * Gets the appropriate struct type variant for use in table column contexts (nullable).
+         *
+         * @param typeName The name of the struct type  
+         * @return Optional containing the nullable variant if available
+         */
+        @Nonnull
+        public Optional<DataType.StructType> getStructTypeForColumnContext(@Nonnull final String typeName) {
+            return auxiliaryTypes.containsKey(typeName) ?
+                Optional.ofNullable((DataType.StructType) auxiliaryTypes.get(typeName).getNullableVariant()) :
+                Optional.empty();
         }
 
         @Nonnull
@@ -563,9 +753,14 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
             }
 
             if (!needsResolution) {
-                for (final var auxiliaryType : auxiliaryTypes.values()) {
-                    if (!((DataType) auxiliaryType).isResolved()) {
-                        needsResolution = true;
+                for (final var typeVariants : auxiliaryTypes.values()) {
+                    for (final var variant : typeVariants.getAllVariants()) {
+                        if (!((DataType) variant).isResolved()) {
+                            needsResolution = true;
+                            break;
+                        }
+                    }
+                    if (needsResolution) {
                         break;
                     }
                 }
@@ -584,14 +779,39 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
             }
         }
 
+        /**
+         * Creates both nullable and non-nullable variants for a struct type if they don't exist.
+         * 
+         * @param typeName The name of the struct type that needs both variants
+         */
+        private void createBothVariantsIfNeeded(@Nonnull final String typeName) {
+            TypeVariants variants = auxiliaryTypes.get(typeName);
+            if (variants == null || variants.hasBothVariants()) {
+                return; // Nothing to do
+            }
+            
+            // We have only one variant but need both - create the missing variant
+            DataType.Named existingVariant = variants.getPrimaryVariant();
+            DataType existingAsDataType = (DataType) existingVariant;
+            
+            if (existingVariant instanceof DataType.StructType && existingAsDataType.isResolved()) {
+                // Create the opposite nullability variant
+                DataType.Named newVariant = (DataType.Named) existingAsDataType.withNullable(!existingAsDataType.isNullable());
+                variants.addVariant(newVariant);
+            }
+        }
+
         private void resolveTypes() {
             // collect all named types from tables + auxiliary types.
             final var mapBuilder = ImmutableMap.<String, DataType>builder();
             for (final var table : tables.values()) {
                 mapBuilder.put(table.getName(), table.getDatatype());
             }
-            for (final var auxiliaryType : auxiliaryTypes.entrySet()) {
-                mapBuilder.put(auxiliaryType.getKey(), (DataType) auxiliaryType.getValue());
+            for (final var auxiliaryTypeEntry : auxiliaryTypes.entrySet()) {
+                // For each type name, add the primary variant to the map for backward compatibility
+                // This ensures existing type resolution logic works
+                TypeVariants typeVariants = auxiliaryTypeEntry.getValue();
+                mapBuilder.put(auxiliaryTypeEntry.getKey(), (DataType) typeVariants.getPrimaryVariant());
             }
             final var namedTypes = mapBuilder.build();
 
@@ -600,8 +820,12 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
             for (final var table : tables.values()) {
                 depsBuilder.put(table.getDatatype(), getDependencies(table.getDatatype(), namedTypes));
             }
-            for (final var auxiliaryType : auxiliaryTypes.entrySet()) {
-                depsBuilder.put((DataType) auxiliaryType.getValue(), getDependencies((DataType) auxiliaryType.getValue(), namedTypes));
+            for (final var auxiliaryTypeEntry : auxiliaryTypes.entrySet()) {
+                TypeVariants typeVariants = auxiliaryTypeEntry.getValue();
+                // Add dependencies for all variants of this type
+                for (final var variant : typeVariants.getAllVariants()) {
+                    depsBuilder.put((DataType) variant, getDependencies((DataType) variant, namedTypes));
+                }
             }
             final var deps = depsBuilder.build();
 
@@ -640,14 +864,26 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
             tables.clear();
             tables.putAll(resolvedTables.build());
 
-            final var resolvedAuxiliaryTypes = ImmutableMap.<String, DataType.Named>builder();
-            for (final var auxiliaryType : auxiliaryTypes.entrySet()) {
-                final var dataType = (DataType) auxiliaryType.getValue();
-                if (!dataType.isResolved()) {
-                    resolvedAuxiliaryTypes.put(auxiliaryType.getKey(), (DataType.Named) ((DataType) resolvedTypes.get(auxiliaryType.getKey())).withNullable(dataType.isNullable()));
-                } else {
-                    resolvedAuxiliaryTypes.put(auxiliaryType.getKey(), auxiliaryType.getValue());
+            final var resolvedAuxiliaryTypes = ImmutableMap.<String, TypeVariants>builder();
+            for (final var auxiliaryTypeEntry : auxiliaryTypes.entrySet()) {
+                final String typeName = auxiliaryTypeEntry.getKey();
+                final TypeVariants typeVariants = auxiliaryTypeEntry.getValue();
+                
+                TypeVariants resolvedVariants = new TypeVariants();
+                
+                // Resolve each variant
+                for (final var variant : typeVariants.getAllVariants()) {
+                    DataType.Named resolvedVariant;
+                    DataType variantAsDataType = (DataType) variant;
+                    if (!variantAsDataType.isResolved()) {
+                        resolvedVariant = (DataType.Named) ((DataType) resolvedTypes.get(typeName)).withNullable(variantAsDataType.isNullable());
+                    } else {
+                        resolvedVariant = variant;
+                    }
+                    resolvedVariants.addVariant(resolvedVariant);
                 }
+                
+                resolvedAuxiliaryTypes.put(typeName, resolvedVariants);
             }
 
             auxiliaryTypes.clear();
