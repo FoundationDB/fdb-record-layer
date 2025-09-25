@@ -21,10 +21,10 @@
 package com.apple.foundationdb.relational.recordlayer.util;
 
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.RecordCoreStorageException;
+import com.apple.foundationdb.record.provider.foundationdb.RecordContextNotActiveException;
+import com.apple.foundationdb.record.provider.foundationdb.RecordDeserializationException;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -33,20 +33,24 @@ import java.util.Map;
 class ExceptionUtilTest {
 
     @Test
-    @SuppressWarnings("ThrowableNotThrown") //intentional
-    void detectsTransactionIsNoLongerActive() throws Exception {
-        RelationalException converted = ExceptionUtil.toRelationalException(new RecordCoreStorageException("Transaction is no longer active"));
+    void detectsTransactionIsNoLongerActive() {
+        RelationalException converted = ExceptionUtil.toRelationalException(new RecordContextNotActiveException("Transaction is no longer active"));
         Assertions.assertEquals(ErrorCode.TRANSACTION_INACTIVE, converted.getErrorCode());
     }
 
     @Test
-    @SuppressWarnings("ThrowableNotThrown") //intentional
+    void detectsDeserializationFailure() {
+        RelationalException converted = ExceptionUtil.toRelationalException(new RecordDeserializationException("Failed to deserialize record", new IllegalArgumentException()));
+        Assertions.assertEquals(ErrorCode.DESERIALIZATION_FAILURE, converted.getErrorCode());
+    }
+
+    @Test
     void carriesRecordLayerContext() {
         RecordCoreException rece = new RecordCoreException("this is a test error message").addLogInfo("table", "foo");
         RelationalException converted = ExceptionUtil.toRelationalException(rece);
         Assertions.assertEquals(ErrorCode.UNKNOWN, converted.getErrorCode(), "Incorrect error code!");
         Map<String, Object> ctxMap = converted.getContext();
         Assertions.assertTrue(ctxMap.containsKey("table"), "context missing key!");
-        Assertions.assertEquals(ctxMap.get("table"), "foo", "Incorrect context value!");
+        Assertions.assertEquals("foo", ctxMap.get("table"), "Incorrect context value!");
     }
 }

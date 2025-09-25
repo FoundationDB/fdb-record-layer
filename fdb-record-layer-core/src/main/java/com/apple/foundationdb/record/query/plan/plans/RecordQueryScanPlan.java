@@ -143,7 +143,6 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
         this(recordTypes, flowedType, commonPrimaryKey, comparisons, reverse, strictlySorted, Optional.of(matchCandidate));
     }
 
-
     /**
      * Overloaded constructor.
      * @param recordTypes a super set of record types of the records that this scan operator can produce

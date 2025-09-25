@@ -21,15 +21,17 @@
 package com.apple.foundationdb.relational.recordlayer.storage;
 
 import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaDataProvider;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.provider.common.RecordSerializer;
+import com.apple.foundationdb.record.provider.common.TransformedRecordSerializer;
+import com.apple.foundationdb.record.provider.common.TransformedRecordSerializerJCE;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FormatVersion;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.NoSuchDirectoryException;
+import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -37,26 +39,41 @@ import com.apple.foundationdb.relational.recordlayer.RecordLayerConfig;
 import com.apple.foundationdb.relational.recordlayer.RelationalKeyspaceProvider;
 import com.apple.foundationdb.relational.recordlayer.catalog.RecordMetaDataStore;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
-
 import com.google.protobuf.Message;
 
+import javax.crypto.SecretKey;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.net.URI;
+import java.security.GeneralSecurityException;
+import java.security.KeyStore;
+import java.util.zip.Deflater;
 
 @API(API.Status.EXPERIMENTAL)
 public final class StoreConfig {
+    public static final RecordSerializer<Message> DEFAULT_RELATIONAL_SERIALIZER = TransformedRecordSerializer.newDefaultBuilder()
+            .setEncryptWhenSerializing(false)
+            .setCompressWhenSerializing(true)
+            .setCompressionLevel(Deflater.DEFAULT_COMPRESSION)
+            .setWriteValidationRatio(0.0)
+            .build();
     private final RecordLayerConfig recordLayerConfig;
     private final String schemaName;
     private final KeySpacePath storePath;
     private final RecordMetaDataProvider metaDataProvider;
+    private final RecordSerializer<Message> serializer;
 
     private StoreConfig(RecordLayerConfig recordLayerConfig,
                         String schemaName,
                         KeySpacePath storePath,
-                        RecordMetaDataProvider metaDataProvider) {
+                        RecordMetaDataProvider metaDataProvider,
+                        RecordSerializer<Message> serializer) {
         this.recordLayerConfig = recordLayerConfig;
         this.schemaName = schemaName;
         this.storePath = storePath;
         this.metaDataProvider = metaDataProvider;
+        this.serializer = serializer;
     }
 
     public String getSchemaName() {
@@ -72,7 +89,7 @@ public final class StoreConfig {
     }
 
     public RecordSerializer<Message> getSerializer() {
-        return recordLayerConfig.getSerializer();
+        return serializer;
     }
 
     public FDBRecordStoreBase.UserVersionChecker getUserVersionChecker() {
@@ -87,7 +104,8 @@ public final class StoreConfig {
                                      String schemaName,
                                      RelationalKeyspaceProvider.RelationalDatabasePath databasePath,
                                      RecordMetaDataStore metaDataStore,
-                                     Transaction transaction) throws RelationalException {
+                                     Transaction transaction,
+                                     Options options) throws RelationalException {
         //TODO(bfines) error handling if this store doesn't exist
 
         RelationalKeyspaceProvider.RelationalSchemaPath schemaPath;
@@ -104,6 +122,47 @@ public final class StoreConfig {
         URI dbUri = databasePath.toUri();
         RecordMetaDataProvider metaDataProvider = metaDataStore.loadMetaData(transaction, dbUri, schemaName);
 
-        return new StoreConfig(recordLayerConfig, schemaName, schemaPath, metaDataProvider);
+        RecordSerializer<Message> serializer = serializerFromOptions(options);
+
+        return new StoreConfig(recordLayerConfig, schemaName, schemaPath, metaDataProvider, serializer);
+    }
+
+    static RecordSerializer<Message> serializerFromOptions(Options options) throws RelationalException {
+        final boolean encrypted = options.getOption(Options.Name.ENCRYPT_WHEN_SERIALIZING);
+        final boolean compressed = options.getOption(Options.Name.COMPRESS_WHEN_SERIALIZING);
+        final String keyStoreFile = options.getOption(Options.Name.ENCRYPTION_KEY_STORE);
+        if (!encrypted && compressed && keyStoreFile == null) {
+            return DEFAULT_RELATIONAL_SERIALIZER;
+        }
+        final TransformedRecordSerializerJCE.Builder<Message> serializerBuilder = TransformedRecordSerializerJCE.newDefaultBuilder()
+                .setEncryptWhenSerializing(encrypted)
+                .setCompressWhenSerializing(compressed)
+                .setCompressionLevel(Deflater.DEFAULT_COMPRESSION)
+                .setWriteValidationRatio(0.0);
+        if (keyStoreFile != null) {
+            final SecretKey key;
+            try {
+                final String keyEntryAlias = options.getOption(Options.Name.ENCRYPTION_KEY_ENTRY);
+                if (keyEntryAlias == null) {
+                    throw new RelationalException("Key entry not specified", ErrorCode.UNSUPPORTED_OPERATION);
+                }
+                final String keyPassword = options.getOption(Options.Name.ENCRYPTION_KEY_PASSWORD);
+                KeyStore keystore = KeyStore.getInstance(KeyStore.getDefaultType());
+                try (FileInputStream fis = new FileInputStream(keyStoreFile)) {
+                    keystore.load(fis, keyPassword.toCharArray());
+                }
+                KeyStore.ProtectionParameter protParam = new KeyStore.PasswordProtection(keyPassword.toCharArray());
+                KeyStore.SecretKeyEntry entry = (KeyStore.SecretKeyEntry)keystore.getEntry(keyEntryAlias, protParam);
+                key = entry.getSecretKey();
+            } catch (FileNotFoundException ex) {
+                throw new RelationalException("Key store not found", ErrorCode.UNSUPPORTED_OPERATION, ex);
+            } catch (GeneralSecurityException | IOException ex) {
+                throw new RelationalException("Key loading failed", ErrorCode.UNSUPPORTED_OPERATION, ex);
+            }
+            serializerBuilder.setEncryptionKey(key);
+        } else if (encrypted) {
+            throw new RelationalException("Key store not specified", ErrorCode.UNSUPPORTED_OPERATION);
+        }
+        return serializerBuilder.build();
     }
 }

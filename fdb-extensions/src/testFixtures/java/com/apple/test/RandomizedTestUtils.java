@@ -1,0 +1,129 @@
+/*
+ * RandomizedTestUtils.java
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2015-2024 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.apple.test;
+
+import org.junit.jupiter.params.provider.Arguments;
+
+import javax.annotation.Nonnull;
+import java.util.Collection;
+import java.util.Random;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.Function;
+import java.util.function.Supplier;
+import java.util.stream.LongStream;
+import java.util.stream.Stream;
+
+/**
+ * A Utility class for adding randomness to tests.
+ */
+public final class RandomizedTestUtils {
+    private static final long FIXED_SEED = 0xf17ed5eedL;
+
+    private RandomizedTestUtils() {
+    }
+
+    /**
+     * Return a stream of randomly generated arguments based on the gradle properties.
+     * <p>
+     *     If {@code -Ptests.includeRandom} is specified, this will return {@code -Ptests.iterations} randomly generated
+     *     arguments. Otherwise this will return an empty stream.
+     * </p>
+     * <p>
+     *     Tip: Use {@code Stream.concat(streamOfFixedArguments, RandomizedTestUtils.randomArguments(random -> { ... }}
+     *     to have some fixed arguments, and also add randomized arguments when including random tests.
+     * </p>
+     * @param randomArguments A mapper from a {@link Random} to the arguments to be provided to
+     * @return a stream of {@link Arguments} for a {@link org.junit.jupiter.params.ParameterizedTest}
+     */
+    public static Stream<Arguments> randomArguments(Function<Random, Arguments> randomArguments) {
+        if (includeRandomTests()) {
+            Random random = ThreadLocalRandom.current();
+            return Stream.generate(() -> randomArguments.apply(random))
+                    .limit(getIterations());
+        } else {
+            return Stream.of();
+        }
+    }
+
+    /**
+     * Return a stream of random {@code long}s to be used to seed random number generators.
+     * <p>
+     *     During PRB, and standard runs this will return just the set of fixed seeds, but if the tests are run
+     *     with {@code -P tests.includeRandom=true} and {@code -P tests.iteration=2} (as we do in our nightly builds),
+     *     this will return 2 additional random seeds. However, if no fixed seeds are provided, this will
+     *     still always include at least one fixed seed, {@value FIXED_SEED}.
+     * </p>
+     * <p>
+     *     This can be supplied to a {@link org.junit.jupiter.params.ParameterizedTest} to run a test
+     *     under different scenarios. This is preferred over, say, a {@code Stream<Random>} because
+     *     the seed can be included in the test display name, which means that a failing seed can be
+     *     recorded and the test re-run with that seed.
+     * </p>
+     *
+     * <p>
+     *     If you only have one usage for the seeds, see also {@link RandomSeedSource}, which can be used without
+     *     defining an additional method.
+     * </p>
+     *
+     * @param staticSeeds a set of seeds to always include in the returned random seeds
+     * @return a stream of random {@code long}s to initialize {@link Random}s
+     */
+    @Nonnull
+    public static Stream<Long> randomSeeds(long... staticSeeds) {
+        LongStream longStream = staticSeeds.length == 0 ? LongStream.of(FIXED_SEED) : LongStream.of(staticSeeds);
+        if (includeRandomTests()) {
+            Random random = ThreadLocalRandom.current();
+            longStream = LongStream.concat(longStream,
+                    LongStream.generate(random::nextLong).limit(getIterations()));
+        }
+        return longStream.boxed();
+    }
+
+    private static int getIterations() {
+        return Integer.parseInt(System.getProperty("tests.iterations", "0"));
+    }
+
+    public static boolean includeRandomTests() {
+        return Boolean.parseBoolean(System.getProperty("tests.includeRandom", "false"));
+    }
+
+    /**
+     * Generate a random value that is not in the given collection.
+     * <p>
+     *     This can be most useful if you are trying to generate unique values, but with some randomness, and are storing
+     *     each one you generate in some other object
+     * </p>
+     * @param values a set of values that won't be returned.
+     * @param randomValueGenerator a supplier of random values
+     * @param <T> the type of value to generate
+     * @return a random value as generated by {@code randomValueGenerator} that is not already in {@code values}
+     */
+    public static <T> T randomNotIn(final Collection<T> values, final Supplier<T> randomValueGenerator) {
+        T prospectiveValue;
+        for (int i = 0; i < 10_000; i++) {
+            prospectiveValue = randomValueGenerator.get();
+            if (!values.contains(prospectiveValue)) {
+                return prospectiveValue;
+            }
+        }
+        throw new IllegalStateException("Could not generate random value not in " + values);
+    }
+}

@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.relational.yamltests.connectionfactory;
 
-import com.apple.foundationdb.relational.yamltests.EmbeddedSimpleYamlConnection;
+import com.apple.foundationdb.relational.yamltests.SimpleYamlConnection;
 import com.apple.foundationdb.relational.yamltests.YamlConnection;
 import com.apple.foundationdb.relational.yamltests.YamlConnectionFactory;
 import com.apple.foundationdb.relational.yamltests.server.SemanticVersion;
@@ -34,7 +34,7 @@ import java.util.Set;
 public class EmbeddedYamlConnectionFactory implements YamlConnectionFactory {
     @Override
     public YamlConnection getNewConnection(@Nonnull URI connectPath) throws SQLException {
-        return new EmbeddedSimpleYamlConnection(DriverManager.getConnection(connectPath.toString()),
+        return new SimpleYamlConnection(DriverManager.getConnection(connectPath.toString()),
                 SemanticVersion.current(), "Embedded");
     }
 

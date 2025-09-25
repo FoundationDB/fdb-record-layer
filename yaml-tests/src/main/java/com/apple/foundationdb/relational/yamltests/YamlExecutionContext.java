@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.yamltests;
 
+import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -34,17 +35,21 @@ import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Assertions;
 import org.opentest4j.TestAbortedException;
 import org.yaml.snakeyaml.DumperOptions;
+import org.yaml.snakeyaml.LoaderOptions;
 import org.yaml.snakeyaml.Yaml;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.io.BufferedInputStream;
 import java.io.BufferedReader;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -62,6 +67,19 @@ import java.util.function.Supplier;
 @SuppressWarnings({"PMD.GuardLogStatement"}) // It already is, but PMD is confused and reporting error in unrelated locations.
 public final class YamlExecutionContext {
     private static final Logger logger = LogManager.getLogger(YamlRunner.class);
+
+    /**
+     * List of metrics field names that are tracked for planner comparison.
+     * These are the core metrics that should be consistent between runs, excluding timing
+     * information which can vary.
+     */
+    public static final List<String> TRACKED_METRIC_FIELDS = List.of(
+            "task_count",
+            "transform_count",
+            "transform_yield_count",
+            "insert_new_count",
+            "insert_reused_count"
+    );
 
     public static final ContextOption<Boolean> OPTION_FORCE_CONTINUATIONS = new ContextOption<>("optionForceContinuation");
     public static final ContextOption<Boolean> OPTION_CORRECT_EXPLAIN = new ContextOption<>("optionCorrectExplain");
@@ -492,6 +510,145 @@ public final class YamlExecutionContext {
         } catch (final IOException e) {
             throw new RelationalException(ErrorCode.INTERNAL_ERROR, e);
         }
+    }
+
+    /**
+     * Loads metrics from a YAML file on disk.
+     * This method provides YAML parsing capability for metrics diff analysis.
+     *
+     * @param filePath the path to the YAML metrics file
+     * @return immutable map of identifier to info
+     * @throws RelationalException if file cannot be read or parsed
+     */
+    @Nonnull
+    @SuppressWarnings("unchecked")
+    public static Map<PlannerMetricsProto.Identifier, MetricsInfo> loadMetricsFromYamlFile(@Nonnull final Path filePath) throws RelationalException {
+        final ImmutableMap.Builder<PlannerMetricsProto.Identifier, MetricsInfo> resultMapBuilder = ImmutableMap.builder();
+        final Map<PlannerMetricsProto.Identifier, PlannerMetricsProto.Info> seen = new HashMap<>();
+        if (!Files.exists(filePath)) {
+            return resultMapBuilder.build();
+        }
+
+        try {
+            final LoaderOptions loaderOptions = new LoaderOptions();
+            loaderOptions.setAllowDuplicateKeys(true);
+            final var yaml = new Yaml(new CustomYamlConstructor(loaderOptions));
+            final var document = yaml.load(new BufferedInputStream(new FileInputStream(filePath.toFile())));
+
+            if (!(document instanceof Map)) {
+                return resultMapBuilder.build();
+            }
+
+            final var data = (Map<String, List<Map<?, ?>>>) document;
+
+            // Parse each block in the YAML file
+            for (final var blockEntry : data.entrySet()) {
+                final var blockName = blockEntry.getKey();
+                final var queries = blockEntry.getValue();
+
+                if (queries == null) {
+                    continue;
+                }
+
+                // Process each query in the block
+                for (final var queryMap : queries) {
+                    processQueryAtLine(queryMap, blockName, seen, resultMapBuilder, filePath);
+                }
+            }
+
+            return resultMapBuilder.build();
+        } catch (final IOException e) {
+            throw new RelationalException(ErrorCode.INTERNAL_ERROR, e);
+        }
+    }
+
+    /**
+     * Processes a single query with its line number information.
+     */
+    @SuppressWarnings("unchecked")
+    private static void processQueryAtLine(@Nullable Map<?, ?> queryMap,
+                                           String blockName,
+                                           Map<PlannerMetricsProto.Identifier, PlannerMetricsProto.Info> seen,
+                                           ImmutableMap.Builder<PlannerMetricsProto.Identifier, MetricsInfo> resultMapBuilder,
+                                           Path filePath) {
+        if (queryMap == null) {
+            return;
+        }
+
+        String query = null;
+        String explain = null;
+        int lineNumber = 1; // Default line number
+        for (Map.Entry<?, ?> entry : queryMap.entrySet()) {
+            final Object key = entry.getKey();
+            if (key instanceof CustomYamlConstructor.LinedObject) {
+                CustomYamlConstructor.LinedObject linedObject = (CustomYamlConstructor.LinedObject) key;
+                final String keyString = (String) linedObject.getObject();
+                if ("query".equals(keyString)) {
+                    query = (String) entry.getValue();
+                    lineNumber = ((CustomYamlConstructor.LinedObject) key).getLineNumber();
+                } else if ("explain".equals(keyString)) {
+                    explain = (String) entry.getValue();
+                }
+            }
+        }
+        if (query == null) {
+            // Query not found
+            return;
+        }
+
+        // Extract the query string, handling LinedObject if present
+        final var setup = (List<String>) queryMap.get("setup");
+
+        // Build identifier
+        final var identifierBuilder = PlannerMetricsProto.Identifier.newBuilder()
+                .setBlockName(blockName)
+                .setQuery(query);
+        if (setup != null) {
+            identifierBuilder.addAllSetups(setup);
+        }
+        final var identifier = identifierBuilder.build();
+
+        // Build counters and timers
+        final var countersAndTimers = PlannerMetricsProto.CountersAndTimers.newBuilder()
+                .setTaskCount(getLongValue(queryMap, "task_count"))
+                .setTaskTotalTimeNs(TimeUnit.MILLISECONDS.toNanos(getLongValue(queryMap, "task_total_time_ms")))
+                .setTransformCount(getLongValue(queryMap, "transform_count"))
+                .setTransformTimeNs(TimeUnit.MILLISECONDS.toNanos(getLongValue(queryMap, "transform_time_ms")))
+                .setTransformYieldCount(getLongValue(queryMap, "transform_yield_count"))
+                .setInsertTimeNs(TimeUnit.MILLISECONDS.toNanos(getLongValue(queryMap, "insert_time_ms")))
+                .setInsertNewCount(getLongValue(queryMap, "insert_new_count"))
+                .setInsertReusedCount(getLongValue(queryMap, "insert_reused_count"))
+                .build();
+
+        // Build info
+        final var info = PlannerMetricsProto.Info.newBuilder()
+                .setExplain(explain == null ? "" : explain)
+                .setCountersAndTimers(countersAndTimers)
+                .build();
+
+        // Check for duplicates
+        final var oldInfo = seen.get(identifier);
+        if (oldInfo == null) {
+            seen.put(identifier, info);
+            resultMapBuilder.put(identifier, new MetricsInfo(info, filePath, lineNumber));
+        } else if (!info.equals(oldInfo)) {
+            logger.warn(KeyValueLogMessage.of("Metrics file contains multiple copies of the same query",
+                    "file", filePath,
+                    "block", identifier.getBlockName(),
+                    "query", identifier.getQuery(),
+                    "line", lineNumber));
+        }
+    }
+
+    /**
+     * Helper method to safely extract long values from YAML data.
+     */
+    private static long getLongValue(Map<?, ?> map, String key) {
+        final var value = map.get(key);
+        if (value instanceof Number) {
+            return ((Number) value).longValue();
+        }
+        throw new IllegalArgumentException("Expected numeric value for key: " + key + ", got: " + value);
     }
 
     @Nonnull
