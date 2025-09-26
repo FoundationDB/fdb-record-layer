@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.provider.foundationdb.IndexMatchCandidateRegistry;
 import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
@@ -104,6 +105,7 @@ public class MetaDataPlanContext implements PlanContext {
     public static PlanContext forRecordQuery(@Nonnull RecordQueryPlannerConfiguration plannerConfiguration,
                                              @Nonnull RecordMetaData metaData,
                                              @Nonnull RecordStoreState recordStoreState,
+                                             @Nonnull IndexMatchCandidateRegistry matchCandidateRegistry,
                                              @Nonnull RecordQuery query) {
         final Optional<Collection<String>> queriedRecordTypeNamesOptional = query.getRecordTypes().isEmpty() ? Optional.empty() : Optional.of(query.getRecordTypes());
         final Optional<Collection<String>> allowedIndexesOptional = query.hasAllowedIndexes() ? Optional.of(Objects.requireNonNull(query.getAllowedIndexes())) : Optional.empty();
@@ -154,9 +156,7 @@ public class MetaDataPlanContext implements PlanContext {
 
         final ImmutableSet.Builder<MatchCandidate> matchCandidatesBuilder = ImmutableSet.builder();
         for (Index index : indexList) {
-            final Iterable<MatchCandidate> candidatesForIndex =
-                    MatchCandidateExpansion.fromIndexDefinition(metaData, index, isSortReverse);
-            matchCandidatesBuilder.addAll(candidatesForIndex);
+            matchCandidatesBuilder.addAll(matchCandidateRegistry.createMatchCandidates(metaData, index, isSortReverse));
         }
 
         MatchCandidateExpansion.fromPrimaryDefinition(metaData, queriedRecordTypeNames, commonPrimaryKey, isSortReverse)
@@ -168,6 +168,7 @@ public class MetaDataPlanContext implements PlanContext {
     public static PlanContext forRootReference(@Nonnull final RecordQueryPlannerConfiguration plannerConfiguration,
                                                @Nonnull final RecordMetaData metaData,
                                                @Nonnull final RecordStoreState recordStoreState,
+                                               @Nonnull final IndexMatchCandidateRegistry matchCandidateRegistry,
                                                @Nonnull final Reference rootReference,
                                                @Nonnull final Optional<Collection<String>> allowedIndexesOptional,
                                                @Nonnull final IndexQueryabilityFilter indexQueryabilityFilter) {
@@ -198,9 +199,7 @@ public class MetaDataPlanContext implements PlanContext {
 
         final ImmutableSet.Builder<MatchCandidate> matchCandidatesBuilder = ImmutableSet.builder();
         for (final var index : indexList) {
-            final Iterable<MatchCandidate> candidatesForIndex =
-                    MatchCandidateExpansion.fromIndexDefinition(metaData, index, false);
-            matchCandidatesBuilder.addAll(candidatesForIndex);
+            matchCandidatesBuilder.addAll(matchCandidateRegistry.createMatchCandidates(metaData, index, false));
         }
 
         for (final var recordType : queriedRecordTypes) {

@@ -27,6 +27,8 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.metadata.MetaDataException;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.provider.foundationdb.IndexMatchCandidateRegistry;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
@@ -387,15 +389,6 @@ public final class PlanGenerator {
 
     }
 
-    @Nonnull
-    private static CascadesPlanner createPlanner(@Nonnull final RecordMetaData metaData,
-                                                 @Nonnull final RecordStoreState recordStoreState,
-                                                 @Nonnull final PlanContext planContext) {
-        final var planner = new CascadesPlanner(metaData, recordStoreState);
-        planner.setConfiguration(planContext.getRecordQueryPlannerConfiguration());
-        return planner;
-    }
-
     /**
      * Creates a new instance of the plan generator.
      *
@@ -412,8 +405,18 @@ public final class PlanGenerator {
                                        @Nonnull final PlanContext planContext,
                                        @Nonnull final RecordMetaData metaData,
                                        @Nonnull final RecordStoreState recordStoreState,
+                                       @Nonnull final IndexMatchCandidateRegistry matchCandidateRegistry,
                                        @Nonnull final Options options) throws RelationalException {
-        final var planner = createPlanner(metaData, recordStoreState, planContext);
+        final var planner = new CascadesPlanner(metaData, recordStoreState, matchCandidateRegistry);
+        planner.setConfiguration(planContext.getRecordQueryPlannerConfiguration());
         return new PlanGenerator(cache, planContext, planner, options);
+    }
+
+    @Nonnull
+    public static PlanGenerator create(@Nonnull final Optional<RelationalPlanCache> cache,
+                                       @Nonnull final PlanContext planContext,
+                                       @Nonnull FDBRecordStoreBase<?> store,
+                                       @Nonnull final Options options) throws RelationalException {
+        return create(cache, planContext, store.getRecordMetaData(), store.getRecordStoreState(), store.getIndexMaintainerRegistry(), options);
     }
 }

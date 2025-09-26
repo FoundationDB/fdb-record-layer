@@ -49,56 +49,26 @@ public class MatchCandidateExpansion {
     }
 
     @Nonnull
-    public static Iterable<MatchCandidate> fromIndexDefinition(@Nonnull final RecordMetaData metaData,
-                                                               @Nonnull final Index index,
-                                                               final boolean isReverse) {
-        final IndexExpansionInfo info = IndexExpansionInfo.forIndex(metaData, index, isReverse);
-        final ImmutableList.Builder<MatchCandidate> resultBuilder = ImmutableList.builder();
-
-        switch (info.getIndexType()) {
-            case IndexTypes.VALUE:
-            case IndexTypes.VERSION:
-                expandValueIndexMatchCandidate(info)
-                        .ifPresent(resultBuilder::add);
-                break;
-            case IndexTypes.RANK:
-                // For rank() we need to create at least two candidates. One for BY_RANK scans and one for BY_VALUE scans.
-                expandValueIndexMatchCandidate(info)
-                        .ifPresent(resultBuilder::add);
-
-                expandIndexMatchCandidate(info, info.getCommonPrimaryKeyForTypes(), new WindowedIndexExpansionVisitor(index, info.getIndexedRecordTypes()))
-                        .ifPresent(resultBuilder::add);
-                break;
-            case IndexTypes.MIN_EVER_TUPLE: // fallthrough
-            case IndexTypes.MAX_EVER_TUPLE: // fallthrough
-            case IndexTypes.MAX_EVER_LONG: // fallthrough
-            case IndexTypes.MIN_EVER_LONG: // fallthrough
-            case IndexTypes.BITMAP_VALUE: // fallthrough
-            case IndexTypes.SUM: // fallthrough
-            case IndexTypes.COUNT: // fallthrough
-            case IndexTypes.COUNT_NOT_NULL:
-                expandAggregateIndexMatchCandidate(info)
-                        .ifPresent(resultBuilder::add);
-                break;
-            case IndexTypes.PERMUTED_MAX: // fallthrough
-            case IndexTypes.PERMUTED_MIN:
-                // For permuted min and max, we use the value index expansion for BY_VALUE scans and we use
-                // the aggregate index expansion for BY_GROUP scans
-                expandValueIndexMatchCandidate(info)
-                        .ifPresent(resultBuilder::add);
-                expandAggregateIndexMatchCandidate(info)
-                        .ifPresent(resultBuilder::add);
-                break;
-            default:
-                break;
-        }
-        return resultBuilder.build();
+    public static Iterable<MatchCandidate> expandValueIndexMatchCandidate(@Nonnull RecordMetaData metaData, @Nonnull Index index, boolean isReverse) {
+        final IndexExpansionInfo info = createInfo(metaData, index, isReverse);
+        return expandValueIndexMatchCandidate(info)
+                .map(ImmutableList::of)
+                .orElse(ImmutableList.of());
     }
 
     public static Optional<MatchCandidate> expandValueIndexMatchCandidate(@Nonnull IndexExpansionInfo info) {
         return expandIndexMatchCandidate(info, info.getCommonPrimaryKeyForTypes(), new ValueIndexExpansionVisitor(info.getIndex(), info.getIndexedRecordTypes()));
     }
 
+    @Nonnull
+    public static Iterable<MatchCandidate> expandAggregateIndexMatchCandidate(@Nonnull RecordMetaData metaData, @Nonnull Index index, boolean isReverse) {
+        final IndexExpansionInfo info = createInfo(metaData, index, isReverse);
+        return expandAggregateIndexMatchCandidate(info)
+                .map(ImmutableList::of)
+                .orElse(ImmutableList.of());
+    }
+
+    @Nonnull
     public static Optional<MatchCandidate> expandAggregateIndexMatchCandidate(@Nonnull IndexExpansionInfo info) {
         final var aggregateIndexExpansionVisitor = IndexTypes.BITMAP_VALUE.equals(info.getIndexType())
                 ? new BitmapAggregateIndexExpansionVisitor(info.getIndex(), info.getIndexedRecordTypes())
@@ -109,9 +79,9 @@ public class MatchCandidateExpansion {
     }
 
     @Nonnull
-    private static Optional<MatchCandidate> expandIndexMatchCandidate(@Nonnull IndexExpansionInfo info,
-                                                                      @Nullable KeyExpression commonPrimaryKey,
-                                                                      @Nonnull final ExpansionVisitor<?> expansionVisitor) {
+    public static Optional<MatchCandidate> expandIndexMatchCandidate(@Nonnull IndexExpansionInfo info,
+                                                                     @Nullable KeyExpression commonPrimaryKey,
+                                                                     @Nonnull final ExpansionVisitor<?> expansionVisitor) {
         final var baseRef = createBaseRef(info, new IndexAccessHint(info.getIndexName()));
         try {
             return Optional.of(expansionVisitor.expand(() -> Quantifier.forEach(baseRef), commonPrimaryKey, info.isReverse()));
@@ -247,32 +217,32 @@ public class MatchCandidateExpansion {
         public Set<String> getAvailableRecordTypeNames() {
             return metaData.getRecordTypes().keySet();
         }
+    }
 
-        /**
-         * Create an {@link IndexExpansionInfo} for a given index.
-         * This wraps the given parameters into a single object, as well
-         * as enriching the given parameters with pre-calculated items that
-         * can then be used during index expansion.
-         *
-         * @param metaData the meta-data that is the source of the index
-         * @param index the index that we are expanding
-         * @param reverse whether the query requires this scan be in reverse
-         * @return an object encapsulating information about the index
-         */
+    /**
+     * Create an {@link IndexExpansionInfo} for a given index.
+     * This wraps the given parameters into a single object, as well
+     * as enriching the given parameters with pre-calculated items that
+     * can then be used during index expansion.
+     *
+     * @param metaData the meta-data that is the source of the index
+     * @param index the index that we are expanding
+     * @param reverse whether the query requires this scan be in reverse
+     * @return an object encapsulating information about the index
+     */
+    @Nonnull
+    public static IndexExpansionInfo createInfo(@Nonnull RecordMetaData metaData,
+                                                @Nonnull Index index,
+                                                boolean reverse) {
         @Nonnull
-        public static IndexExpansionInfo forIndex(@Nonnull RecordMetaData metaData,
-                                                  @Nonnull Index index,
-                                                  boolean reverse) {
-            @Nonnull
-            final Collection<RecordType> indexedRecordTypes = Collections.unmodifiableCollection(metaData.recordTypesForIndex(index));
-            @Nonnull
-            final Set<String> indexedRecordTypeNames = indexedRecordTypes.stream()
-                    .map(RecordType::getName)
-                    .collect(ImmutableSet.toImmutableSet());
-            @Nullable
-            final KeyExpression commonPrimaryKeyForTypes = RecordMetaData.commonPrimaryKey(indexedRecordTypes);
+        final Collection<RecordType> indexedRecordTypes = Collections.unmodifiableCollection(metaData.recordTypesForIndex(index));
+        @Nonnull
+        final Set<String> indexedRecordTypeNames = indexedRecordTypes.stream()
+                .map(RecordType::getName)
+                .collect(ImmutableSet.toImmutableSet());
+        @Nullable
+        final KeyExpression commonPrimaryKeyForTypes = RecordMetaData.commonPrimaryKey(indexedRecordTypes);
 
-            return new IndexExpansionInfo(metaData, index, reverse, indexedRecordTypes, indexedRecordTypeNames, commonPrimaryKeyForTypes);
-        }
+        return new IndexExpansionInfo(metaData, index, reverse, indexedRecordTypes, indexedRecordTypeNames, commonPrimaryKeyForTypes);
     }
 }

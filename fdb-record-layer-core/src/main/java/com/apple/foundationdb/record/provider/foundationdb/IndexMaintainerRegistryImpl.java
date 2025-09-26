@@ -47,7 +47,7 @@ public class IndexMaintainerRegistryImpl implements IndexMaintainerFactoryRegist
     private final Map<String, IndexMaintainerFactory> registry;
 
     @Nonnull
-    public static IndexMaintainerRegistry instance() {
+    public static IndexMaintainerFactoryRegistry instance() {
         return INSTANCE;
     }
 
