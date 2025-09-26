@@ -428,6 +428,7 @@ public class FDBDirectory extends Directory  {
      */
     public int writeData(final long id, final int block, @Nonnull final byte[] value) {
         final byte[] encodedBytes = Objects.requireNonNull(serializer.encode(value, compressionEnabled, encryptionEnabled));
+        agilityContext.increment(LuceneEvents.Counts.LUCENE_BLOCK_WRITES);
         //This may not be correct transactionally
         agilityContext.recordSize(LuceneEvents.SizeEvents.LUCENE_WRITE, encodedBytes.length);
         if (LOGGER.isTraceEnabled()) {
