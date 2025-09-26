@@ -213,7 +213,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
     @Override
     public void setupPlanner(@Nullable PlannableIndexTypes indexTypes) {
         if (isUseCascadesPlanner()) {
-            planner = new CascadesPlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState());
+            planner = CascadesPlanner.forStore(recordStore);
         } else {
             if (indexTypes == null) {
                 indexTypes = new PlannableIndexTypes(

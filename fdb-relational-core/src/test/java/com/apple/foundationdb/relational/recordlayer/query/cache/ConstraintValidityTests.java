@@ -119,7 +119,7 @@ public class ConstraintValidityTests {
                 .withMetricsCollector(embeddedConnection.getMetricCollector())
                 .withUserVersion(44)
                 .build();
-        return PlanGenerator.create(Optional.of(cache), planContext, store.getRecordMetaData(), storeState, Options.builder().build());
+        return PlanGenerator.create(Optional.of(cache), planContext, store.getRecordMetaData(), storeState, store.getIndexMaintainerRegistry(), Options.builder().build());
     }
 
     private void planQuery(@Nonnull final RelationalPlanCache cache,

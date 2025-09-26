@@ -186,6 +186,8 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
     @Nonnull
     RecordSerializer<M> getSerializer();
 
+    @Nonnull
+    IndexMaintainerFactoryRegistry getIndexMaintainerRegistry();
 
     /**
      * Returns the index maintainer for a given index.
@@ -2328,7 +2330,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
          * @return the index registry to use
          */
         @Nonnull
-        IndexMaintainerRegistry getIndexMaintainerRegistry();
+        IndexMaintainerFactoryRegistry getIndexMaintainerRegistry();
 
         /**
          * Set the registry of index maintainers to be used by the record store.
@@ -2338,7 +2340,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
          * @see RecordMetaDataBuilder#setIndexMaintainerRegistry
          */
         @Nonnull
-        BaseBuilder<M, R> setIndexMaintainerRegistry(@Nonnull IndexMaintainerRegistry indexMaintainerRegistry);
+        BaseBuilder<M, R> setIndexMaintainerRegistry(@Nonnull IndexMaintainerFactoryRegistry indexMaintainerRegistry);
 
         /**
          * Get the {@link IndexMaintenanceFilter index filter} to be used by the record store.

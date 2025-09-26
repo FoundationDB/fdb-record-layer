@@ -101,7 +101,7 @@ public class FDBRecordStoreConcurrentTestBase {
     public QueryPlanner setupPlanner(@Nonnull FDBRecordStore recordStore, @Nullable PlannableIndexTypes indexTypes) {
         final QueryPlanner planner;
         if (useCascadesPlanner) {
-            planner = new CascadesPlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState());
+            planner = CascadesPlanner.forStore(recordStore);
             if (Debugger.getDebugger() == null) {
                 Debugger.setDebugger(DebuggerWithSymbolTables.withSanityChecks());
             }

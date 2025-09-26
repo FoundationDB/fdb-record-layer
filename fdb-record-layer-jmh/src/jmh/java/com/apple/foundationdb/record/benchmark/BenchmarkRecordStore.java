@@ -168,7 +168,7 @@ public class BenchmarkRecordStore {
         final RecordMetaData recordMetaData = recordStoreBuilder.getMetaDataProvider().getRecordMetaData();
         final RecordStoreState recordStoreState = new RecordStoreState(null, null);
         if (cascades) {
-            return new CascadesPlanner(recordMetaData, recordStoreState);
+            return new CascadesPlanner(recordMetaData, recordStoreState, recordStoreBuilder.getIndexMaintainerRegistry());
         } else {
             return new RecordQueryPlanner(recordMetaData, recordStoreState, timer.getTimer());
         }
