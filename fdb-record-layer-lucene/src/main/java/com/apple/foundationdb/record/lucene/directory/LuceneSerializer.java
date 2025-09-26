@@ -176,6 +176,7 @@ public class LuceneSerializer {
                                                  @Nonnull byte[] encodedData, int prefixLength) {
         final byte[] encoded = new byte[originalData.length + prefixLength];
         System.arraycopy(encodedData, 0, encoded, 0, prefixLength);
+        // This bit is always in the lowest (first) byte, even if the prefix is longer.
         encoded[0] &= ~ENCODING_COMPRESSED;
         System.arraycopy(originalData, 0, encoded, prefixLength, originalData.length);
         state.setCompressed(false);
