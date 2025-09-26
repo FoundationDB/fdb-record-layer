@@ -58,6 +58,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 @API(API.Status.EXPERIMENTAL)
@@ -340,13 +341,13 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         }
 
         // 3. visit the SQL string to generate (compile) the corresponding SQL plan.
-        final var compiledSqlFunction = visitSqlInvokedFunction(functionSpecCtx, bodyCtx, isTemporary);
+        final Supplier<CompiledSqlFunction> compiledSqlFunction = () -> visitSqlInvokedFunction(functionSpecCtx, bodyCtx, isTemporary);
 
         // 4. Return it.
         return RecordLayerInvokedRoutine.newBuilder()
                 .setName(functionName)
                 .setDescription(functionDefinition)
-                .withCompilableRoutine(ignored -> compiledSqlFunction)
+                .withCompilableRoutine(ignored -> compiledSqlFunction.get())
                 .setNormalizedDescription(getDelegate().getPlanGenerationContext().getCanonicalQueryString())
                 .setTemporary(isTemporary)
                 .build();
