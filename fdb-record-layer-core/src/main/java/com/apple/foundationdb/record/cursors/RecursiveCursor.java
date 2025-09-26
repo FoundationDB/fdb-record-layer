@@ -249,7 +249,7 @@ public class RecursiveCursor<T> implements RecordCursor<RecursiveCursor.Recursiv
     // It would also be possible to only have a single open cursor and return in level-order.
     // These alternatives have even more complicated continuation restoring behavior, though.
 
-    static class RecursiveNode<T> {
+    static final class RecursiveNode<T> {
         @Nullable
         final T value;
         @Nullable
@@ -398,7 +398,7 @@ public class RecursiveCursor<T> implements RecordCursor<RecursiveCursor.Recursiv
         return new Continuation(continuations, checkValues);
     }
 
-    private static class Continuation implements RecordCursorContinuation {
+    private static final class Continuation implements RecordCursorContinuation {
         @Nonnull
         private final List<RecordCursorContinuation> continuations;
         @Nullable

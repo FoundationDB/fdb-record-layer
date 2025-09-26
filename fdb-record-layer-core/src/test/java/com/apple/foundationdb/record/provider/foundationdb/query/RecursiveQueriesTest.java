@@ -51,6 +51,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursivePlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveUnionPlan;
 import com.apple.foundationdb.record.util.pair.Pair;
 import com.google.common.base.Stopwatch;
@@ -81,6 +82,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.expressions.Recu
 import static com.apple.foundationdb.record.query.plan.cascades.expressions.RecursiveUnionExpression.Traversal.LEVEL;
 import static com.apple.foundationdb.record.query.plan.cascades.expressions.RecursiveUnionExpression.Traversal.PREORDER;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
@@ -335,6 +337,37 @@ class RecursiveQueriesTest extends TempTableTestBase {
         assertEquals(expectedResults, result);
     }
 
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    void testRecursivePlanEquality() {
+        Assumptions.assumeTrue(isUseCascadesPlanner());
+        final var plan1 = ancestorsPlan(PREORDER);
+        assertInstanceOf(RecordQueryRecursivePlan.class, plan1);
+        final var plan2 = ancestorsPlan(PREORDER);
+        assertInstanceOf(RecordQueryRecursivePlan.class, plan2);
+        assertEquals(plan1.hashCode(), plan2.hashCode());
+        assertEquals(plan1, plan2);
+        assertEquals(plan1.toString(), plan2.toString());
+        assertEquals(plan1.getComplexity(), plan2.getComplexity());
+        assertEquals(plan1.isReverse(), plan2.isReverse());
+    }
+
+    @Nonnull
+    private RecordQueryPlan ancestorsPlan(@Nonnull final RecursiveUnionExpression.Traversal traversal) {
+        try (FDBRecordContext context = openContext()) {
+            setupRecordStoreMetadata(context);
+            Assumptions.assumeTrue(isUseCascadesPlanner());
+            final var seedingTempTableAlias = CorrelationIdentifier.uniqueId();
+            final var insertTempTableAlias = CorrelationIdentifier.uniqueId();
+            final var scanTempTableAlias = CorrelationIdentifier.uniqueId();
+            final BiFunction<Quantifier.ForEach, Quantifier.ForEach, QueryPredicate> predicate = (hierarchyScanQun, ttSelectQun) -> {
+                final var idField = getIdField(hierarchyScanQun);
+                final var parentField = getParentField(ttSelectQun);
+                return new ValuePredicate(idField, new Comparisons.ValueComparison(Comparisons.Type.EQUALS, parentField));
+            };
+            return createAndOptimizeHierarchyQuery(seedingTempTableAlias, insertTempTableAlias, scanTempTableAlias, predicate, traversal);
+        }
+    }
+
     /**
      * Creates and executes a recursive union plan that calculates multiple series recursively {@code F(X) = F(X-1) * 2}
      * up until a given limit.
@@ -584,12 +617,7 @@ class RecursiveQueriesTest extends TempTableTestBase {
                                                        @Nullable final byte[] continuation,
                                                        int numberOfItemsToReturn,
                                                        @Nonnull final RecursiveUnionExpression.Traversal traversal) {
-        RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(TestHierarchiesProto.getDescriptor());
-        builder.getRecordType("SimpleHierarchicalRecord").setPrimaryKey(field("id"));
-        builder.addIndex("SimpleHierarchicalRecord", "parentIdIdx", concat(field("parent"), field("id")));
-        builder.addIndex("SimpleHierarchicalRecord", "idParentIdx", concat(field("id"), field("parent")));
-        RecordMetaData metaData = builder.getRecordMetaData();
-        createOrOpenRecordStore(context, metaData);
+        setupRecordStoreMetadata(context);
         for (final var entry : hierarchy.entrySet()) {
             final var message = item(entry.getKey(), entry.getValue());
             recordStore.saveRecord(message);
@@ -605,6 +633,15 @@ class RecursiveQueriesTest extends TempTableTestBase {
         initial.forEach((id, parent) -> seedingTempTable.add(queryResult(id, parent)));
         var evaluationContext = setUpPlanContext(plan, seedingTempTableAlias, seedingTempTable);
         return executeHierarchyPlan(plan, continuation, evaluationContext, numberOfItemsToReturn);
+    }
+
+    private void setupRecordStoreMetadata(@Nonnull final FDBRecordContext context) {
+        RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(TestHierarchiesProto.getDescriptor());
+        builder.getRecordType("SimpleHierarchicalRecord").setPrimaryKey(field("id"));
+        builder.addIndex("SimpleHierarchicalRecord", "parentIdIdx", concat(field("parent"), field("id")));
+        builder.addIndex("SimpleHierarchicalRecord", "idParentIdx", concat(field("id"), field("parent")));
+        RecordMetaData metaData = builder.getRecordMetaData();
+        createOrOpenRecordStore(context, metaData);
     }
 
     /**

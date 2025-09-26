@@ -34,6 +34,8 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Tests for {@link RecursiveCursor}.
@@ -55,6 +57,27 @@ public class RecursiveCursorTest {
         };
     }
 
+    /**
+     * Creates a cursor that generates string paths at a specific depth using recursive traversal.
+     *
+     * <p>This method builds a tree structure where:
+     * <ul>
+     *   <li>The root level has {@code nroot} children (numbered 0 to nroot-1)</li>
+     *   <li>Each subsequent level has {@code nchildren} children per node</li>
+     *   <li>The tree is traversed to the specified {@code depth}</li>
+     *   <li>Only paths at exactly the target depth are returned</li>
+     * </ul>
+     *
+     * <p>Example: {@code stringPathsCursor(2, 3, 3, null)} generates paths like:
+     * "0/0/0", "0/0/1", "0/0/2", "0/1/0", "0/1/1", "0/1/2", "0/2/0", "0/2/1", "0/2/2",
+     * "1/0/0", "1/0/1", "1/0/2", "1/1/0", "1/1/1", "1/1/2", "1/2/0", "1/2/1", "1/2/2"
+     *
+     * @param nroot the number of root-level nodes to generate
+     * @param nchildren the number of children each non-root node should have
+     * @param depth the target depth at which to collect paths (1-based)
+     * @param continuation optional continuation token for resuming traversal
+     * @return a cursor over string paths at the specified depth
+     */
     @Nonnull
     private static RecordCursor<String> stringPathsCursor(int nroot, int nchildren, int depth,
                                                           @Nullable byte[] continuation) {
@@ -103,4 +126,32 @@ public class RecursiveCursorTest {
         assertEquals(14, nsteps);
     }
 
+    @Test
+    void testVisitorAcceptance() {
+        final var cursorCountPerDepth = new ArrayList<Integer>(101);
+        cursorCountPerDepth.add(-1);
+        for (int depth = 1; depth <= 10; depth++) {
+            cursorCountPerDepth.add(-1);
+            final var actual = stringPathsCursor(1, 2, depth, null);
+            final var fDepth = depth;
+            actual.forEachResult(r -> {
+                final var count = CursorCountVisitor.getCursorsCount(actual);
+                final var prevCount = cursorCountPerDepth.get(fDepth);
+                if (prevCount == -1) {
+                    cursorCountPerDepth.set(fDepth, count);
+                } else {
+                    assertEquals(prevCount, count);
+                }
+                assertFalse(actual.isClosed());
+            });
+            assertTrue(actual.isClosed());
+        }
+        final var depthDifference = cursorCountPerDepth.get(2) - cursorCountPerDepth.get(1);
+        for (int depth = 10; depth > 2; depth--) {
+            final var currentDepth = cursorCountPerDepth.get(depth);
+            final var previousDepth = cursorCountPerDepth.get(depth - 1);
+            // increasing the depth will always add the same amount of nested cursors.
+            assertEquals(depthDifference, currentDepth - previousDepth);
+        }
+    }
 }
