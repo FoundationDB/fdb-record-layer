@@ -155,11 +155,11 @@ public class MetaDataPlanContext implements PlanContext {
         final ImmutableSet.Builder<MatchCandidate> matchCandidatesBuilder = ImmutableSet.builder();
         for (Index index : indexList) {
             final Iterable<MatchCandidate> candidatesForIndex =
-                    MatchCandidate.fromIndexDefinition(metaData, index, isSortReverse);
+                    MatchCandidateExpansion.fromIndexDefinition(metaData, index, isSortReverse);
             matchCandidatesBuilder.addAll(candidatesForIndex);
         }
 
-        MatchCandidate.fromPrimaryDefinition(metaData, queriedRecordTypeNames, commonPrimaryKey, isSortReverse)
+        MatchCandidateExpansion.fromPrimaryDefinition(metaData, queriedRecordTypeNames, commonPrimaryKey, isSortReverse)
                 .ifPresent(matchCandidatesBuilder::add);
 
         return new MetaDataPlanContext(plannerConfiguration, matchCandidatesBuilder.build());
@@ -199,12 +199,12 @@ public class MetaDataPlanContext implements PlanContext {
         final ImmutableSet.Builder<MatchCandidate> matchCandidatesBuilder = ImmutableSet.builder();
         for (final var index : indexList) {
             final Iterable<MatchCandidate> candidatesForIndex =
-                    MatchCandidate.fromIndexDefinition(metaData, index, false);
+                    MatchCandidateExpansion.fromIndexDefinition(metaData, index, false);
             matchCandidatesBuilder.addAll(candidatesForIndex);
         }
 
         for (final var recordType : queriedRecordTypes) {
-            MatchCandidate.fromPrimaryDefinition(metaData,
+            MatchCandidateExpansion.fromPrimaryDefinition(metaData,
                             ImmutableSet.of(recordType.getName()),
                             recordType.getPrimaryKey(),
                             false)

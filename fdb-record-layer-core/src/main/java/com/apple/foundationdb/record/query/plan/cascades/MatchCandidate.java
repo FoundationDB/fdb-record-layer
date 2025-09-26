@@ -20,19 +20,12 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
-import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
-import com.apple.foundationdb.record.RecordMetaData;
-import com.apple.foundationdb.record.logging.KeyValueLogMessage;
-import com.apple.foundationdb.record.metadata.Index;
-import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.MatchedOrderingPart;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalTypeFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -48,13 +41,9 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.SetMultimap;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -71,9 +60,6 @@ import java.util.Set;
  * {@link ComparisonRange}s which usually are the direct result of graph matching.
  */
 public interface MatchCandidate {
-
-    @Nonnull
-    Logger LOGGER = LoggerFactory.getLogger(MatchCandidate.class);
 
     /**
      * Returns the name of the match candidate. If this candidate represents an index, it will be the name of the index.
@@ -274,235 +260,6 @@ public interface MatchCandidate {
         return getQueriedRecordTypes().stream()
                 .map(RecordType::getName)
                 .collect(ImmutableSet.toImmutableSet());
-    }
-
-    /**
-     * Class encapsulating the information necessary to create a {@link MatchCandidate}
-     * for an {@link Index}. This exists as a convenience class that allows certain
-     * information to be computed once and referenced during match candidate creation.
-     */
-    @API(API.Status.INTERNAL)
-    class IndexExpansionInfo {
-        @Nonnull
-        private final RecordMetaData metaData;
-        @Nonnull
-        private final Index index;
-        private final boolean reverse;
-        @Nullable
-        private final KeyExpression commonPrimaryKeyForTypes;
-        @Nonnull
-        private final Collection<RecordType> indexedRecordTypes;
-        @Nonnull
-        private final Set<String> indexedRecordTypeNames;
-
-        private IndexExpansionInfo(@Nonnull RecordMetaData metaData,
-                                   @Nonnull Index index,
-                                   boolean reverse,
-                                   @Nonnull Collection<RecordType> indexedRecordTypes,
-                                   @Nonnull Set<String> indexedRecordTypeNames,
-                                   @Nullable KeyExpression commonPrimaryKeyForTypes) {
-            this.metaData = metaData;
-            this.index = index;
-            this.reverse = reverse;
-            this.indexedRecordTypes = indexedRecordTypes;
-            this.indexedRecordTypeNames = indexedRecordTypeNames;
-            this.commonPrimaryKeyForTypes = commonPrimaryKeyForTypes;
-        }
-
-        @Nonnull
-        public RecordMetaData getMetaData() {
-            return metaData;
-        }
-
-        @Nonnull
-        public Index getIndex() {
-            return index;
-        }
-
-        @Nonnull
-        public String getIndexName() {
-            return index.getName();
-        }
-
-        @Nonnull
-        public String getIndexType() {
-            return index.getType();
-        }
-
-        public boolean isReverse() {
-            return reverse;
-        }
-
-        @Nonnull
-        public Collection<RecordType> getIndexedRecordTypes() {
-            return indexedRecordTypes;
-        }
-
-        @Nonnull
-        public Set<String> getIndexedRecordTypeNames() {
-            return indexedRecordTypeNames;
-        }
-
-        @Nullable
-        public KeyExpression getCommonPrimaryKeyForTypes() {
-            return commonPrimaryKeyForTypes;
-        }
-
-        @Nonnull
-        public Set<String> getAvailableRecordTypeNames() {
-            return metaData.getRecordTypes().keySet();
-        }
-
-        /**
-         * Create an {@link IndexExpansionInfo} for a given index.
-         * This wraps the given parameters into a single object, as well
-         * as enriching the given parameters with pre-calculated items that
-         * can then be used during index expansion.
-         *
-         * @param metaData the meta-data that is the source of the index
-         * @param index the index that we are expanding
-         * @param reverse whether the query requires this scan be in reverse
-         * @return an object encapsulating information about the index
-         */
-        @Nonnull
-        public static IndexExpansionInfo forIndex(@Nonnull RecordMetaData metaData,
-                                                  @Nonnull Index index,
-                                                  boolean reverse) {
-            @Nonnull
-            final Collection<RecordType> indexedRecordTypes = Collections.unmodifiableCollection(metaData.recordTypesForIndex(index));
-            @Nonnull
-            final Set<String> indexedRecordTypeNames = indexedRecordTypes.stream()
-                    .map(RecordType::getName)
-                    .collect(ImmutableSet.toImmutableSet());
-            @Nullable
-            final KeyExpression commonPrimaryKeyForTypes = RecordMetaData.commonPrimaryKey(indexedRecordTypes);
-
-            return new IndexExpansionInfo(metaData, index, reverse, indexedRecordTypes, indexedRecordTypeNames, commonPrimaryKeyForTypes);
-        }
-
-    }
-
-    @Nonnull
-    static Iterable<MatchCandidate> fromIndexDefinition(@Nonnull final RecordMetaData metaData,
-                                                        @Nonnull final Index index,
-                                                        final boolean isReverse) {
-        final IndexExpansionInfo info = IndexExpansionInfo.forIndex(metaData, index, isReverse);
-        final ImmutableList.Builder<MatchCandidate> resultBuilder = ImmutableList.builder();
-
-        switch (info.getIndexType()) {
-            case IndexTypes.VALUE:
-            case IndexTypes.VERSION:
-                expandValueIndexMatchCandidate(info)
-                        .ifPresent(resultBuilder::add);
-                break;
-            case IndexTypes.RANK:
-                // For rank() we need to create at least two candidates. One for BY_RANK scans and one for BY_VALUE scans.
-                expandValueIndexMatchCandidate(info)
-                        .ifPresent(resultBuilder::add);
-
-                expandIndexMatchCandidate(info, info.getCommonPrimaryKeyForTypes(), new WindowedIndexExpansionVisitor(index, info.getIndexedRecordTypes()))
-                        .ifPresent(resultBuilder::add);
-                break;
-            case IndexTypes.MIN_EVER_TUPLE: // fallthrough
-            case IndexTypes.MAX_EVER_TUPLE: // fallthrough
-            case IndexTypes.MAX_EVER_LONG: // fallthrough
-            case IndexTypes.MIN_EVER_LONG: // fallthrough
-            case IndexTypes.BITMAP_VALUE: // fallthrough
-            case IndexTypes.SUM: // fallthrough
-            case IndexTypes.COUNT: // fallthrough
-            case IndexTypes.COUNT_NOT_NULL:
-                expandAggregateIndexMatchCandidate(info)
-                        .ifPresent(resultBuilder::add);
-                break;
-            case IndexTypes.PERMUTED_MAX: // fallthrough
-            case IndexTypes.PERMUTED_MIN:
-                // For permuted min and max, we use the value index expansion for BY_VALUE scans and we use
-                // the aggregate index expansion for BY_GROUP scans
-                expandValueIndexMatchCandidate(info)
-                        .ifPresent(resultBuilder::add);
-                expandAggregateIndexMatchCandidate(info)
-                        .ifPresent(resultBuilder::add);
-                break;
-            default:
-                break;
-        }
-        return resultBuilder.build();
-    }
-
-    private static Optional<MatchCandidate> expandValueIndexMatchCandidate(@Nonnull IndexExpansionInfo info) {
-        return expandIndexMatchCandidate(info, info.getCommonPrimaryKeyForTypes(), new ValueIndexExpansionVisitor(info.getIndex(), info.getIndexedRecordTypes()));
-    }
-
-    private static Optional<MatchCandidate> expandAggregateIndexMatchCandidate(@Nonnull IndexExpansionInfo info) {
-        final var aggregateIndexExpansionVisitor = IndexTypes.BITMAP_VALUE.equals(info.getIndexType())
-                ? new BitmapAggregateIndexExpansionVisitor(info.getIndex(), info.getIndexedRecordTypes())
-                : new AggregateIndexExpansionVisitor(info.getIndex(), info.getIndexedRecordTypes());
-        // Override the common primary key here. We always want it to be null because the primary key is not
-        // included in the expanded aggregate index
-        return expandIndexMatchCandidate(info, null, aggregateIndexExpansionVisitor);
-    }
-
-    @Nonnull
-    private static Optional<MatchCandidate> expandIndexMatchCandidate(@Nonnull IndexExpansionInfo info,
-                                                                      @Nullable KeyExpression commonPrimaryKey,
-                                                                      @Nonnull final ExpansionVisitor<?> expansionVisitor) {
-        final var baseRef = createBaseRef(info, new IndexAccessHint(info.getIndexName()));
-        try {
-            return Optional.of(expansionVisitor.expand(() -> Quantifier.forEach(baseRef), commonPrimaryKey, info.isReverse()));
-        } catch (final UnsupportedOperationException uOE) {
-            // just log and return empty
-            if (LOGGER.isDebugEnabled()) {
-                final String message =
-                        KeyValueLogMessage.of("unsupported index",
-                                "reason", uOE.getMessage(),
-                                "indexName", info.getIndexName());
-                LOGGER.debug(message, uOE);
-            }
-        }
-        return Optional.empty();
-    }
-
-    @Nonnull
-    static Optional<MatchCandidate> fromPrimaryDefinition(@Nonnull final RecordMetaData metaData,
-                                                          @Nonnull final Set<String> queriedRecordTypeNames,
-                                                          @Nullable KeyExpression primaryKey,
-                                                          final boolean isReverse) {
-        if (primaryKey != null) {
-            final var availableRecordTypes = metaData.getRecordTypes().values();
-            final var queriedRecordTypes =
-                    availableRecordTypes.stream()
-                            .filter(recordType -> queriedRecordTypeNames.contains(recordType.getName()))
-                            .collect(ImmutableList.toImmutableList());
-
-            final var baseRef = createBaseRef(metaData.getRecordTypes().keySet(), queriedRecordTypeNames, queriedRecordTypes, new PrimaryAccessHint());
-            final var expansionVisitor = new PrimaryAccessExpansionVisitor(availableRecordTypes, queriedRecordTypes);
-            return Optional.of(expansionVisitor.expand(() -> Quantifier.forEach(baseRef), primaryKey, isReverse));
-        }
-
-        return Optional.empty();
-    }
-
-    @Nonnull
-    static Reference createBaseRef(@Nonnull IndexExpansionInfo info,
-                                   @Nonnull AccessHint accessHint) {
-        return createBaseRef(info.getAvailableRecordTypeNames(), info.getIndexedRecordTypeNames(), info.getIndexedRecordTypes(), accessHint);
-    }
-
-    @Nonnull
-    static Reference createBaseRef(@Nonnull final Set<String> availableRecordTypeNames,
-                                   @Nonnull final Set<String> queriedRecordTypeNames,
-                                   @Nonnull final Collection<RecordType> queriedRecordTypes,
-                                   @Nonnull AccessHint accessHint) {
-        final var quantifier =
-                Quantifier.forEach(
-                        Reference.initialOf(
-                                new FullUnorderedScanExpression(availableRecordTypeNames,
-                                        new Type.AnyRecord(false),
-                                        new AccessHints(accessHint))));
-        return Reference.initialOf(
-                new LogicalTypeFilterExpression(queriedRecordTypeNames,
-                        quantifier,
-                        Type.Record.fromFieldDescriptorsMap(RecordMetaData.getFieldDescriptorMapFromTypes(queriedRecordTypes))));
     }
 
     @Nonnull
