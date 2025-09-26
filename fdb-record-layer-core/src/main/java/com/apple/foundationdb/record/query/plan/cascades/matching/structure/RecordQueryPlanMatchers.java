@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.bitmap.ComposedBitmapIndexQueryPlan;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalIntersectionExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RecursiveUnionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -807,5 +808,19 @@ public class RecordQueryPlanMatchers {
         return typedWithDownstream(RecordQueryAbstractDataModificationPlan.class,
                 Extractor.of(RecordQueryAbstractDataModificationPlan::getTargetRecordType, name -> "target(" + name + ")"),
                 downstream);
+    }
+
+    @Nonnull
+    public static BindingMatcher<RecursiveUnionExpression> preOrderTraversalIsAllowed() {
+        return typedWithDownstream(RecursiveUnionExpression.class,
+                Extractor.of(RecursiveUnionExpression::preOrderTraversalAllowed, name -> "preorderTraversal(" + name + ")"),
+                PrimitiveMatchers.equalsObject(true));
+    }
+
+    @Nonnull
+    public static BindingMatcher<RecursiveUnionExpression> levelTraversalIsAllowed() {
+        return typedWithDownstream(RecursiveUnionExpression.class,
+                Extractor.of(RecursiveUnionExpression::levelTraversalAllowed, name -> "levelTraversal(" + name + ")"),
+                PrimitiveMatchers.equalsObject(true));
     }
 }

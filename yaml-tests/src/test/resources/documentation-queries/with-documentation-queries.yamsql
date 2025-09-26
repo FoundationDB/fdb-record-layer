@@ -1,0 +1,142 @@
+---
+options:
+  supported_version: !current_version
+---
+schema_template:
+    create table employees(id bigint, name string, manager_id bigint, dept string, primary key(id))
+---
+setup:
+  steps:
+    # Setup for simple CTE and nested CTE examples
+    - query: insert into employees
+            values (1, 'Alice', NULL, 'Executive'),
+                   (2, 'Bob', 1, 'Engineering'),
+                   (3, 'Carol', 1, 'Marketing'),
+                   (4, 'David', 2, 'Engineering'),
+                   (5, 'Eve', 2, 'Engineering'),
+                   (6, 'Frank', 3, 'Marketing')
+---
+test_block:
+  name: with-documentation-tests
+  preset: single_repetition_ordered
+  tests:
+    # Simple CTE Example
+    -
+      - query: WITH engineering_team(name) AS (
+              SELECT name FROM employees WHERE dept = 'Engineering'
+          )
+          SELECT * FROM engineering_team
+      - supported_version: !current_version
+      - unorderedResult: [{name: "Bob"},
+                          {name: "David"},
+                          {name: "Eve"}]
+    # Finding All Subordinates (Recursive CTE)
+    -
+      - query: WITH RECURSIVE subordinates AS (
+              SELECT id, name, manager_id FROM employees WHERE id = 1
+              UNION ALL
+              SELECT e.id, e.name, e.manager_id
+              FROM subordinates AS s, employees AS e
+              WHERE s.id = e.manager_id
+          )
+          SELECT name FROM subordinates WHERE id != 1
+      - supported_version: !current_version
+      - unorderedResult: [{name: "Bob"},
+                          {name: "David"},
+                          {name: "Eve"},
+                          {name: "Carol"},
+                          {name: "Frank"}]
+
+    # Finding Management Chain (Bottom-Up)
+    -
+      - query: WITH RECURSIVE management_chain AS (
+              SELECT id, name, manager_id FROM employees WHERE name = 'Eve'
+              UNION ALL
+              SELECT e.id, e.name, e.manager_id
+              FROM management_chain AS mc, employees AS e
+              WHERE mc.manager_id = e.id
+          )
+          SELECT name FROM management_chain
+      - supported_version: !current_version
+      - result: [{name: "Eve"},
+                 {name: "Bob"},
+                 {name: "Alice"}]
+
+    # Level-Order Traversal
+    -
+      - query: WITH RECURSIVE (TRAVERSAL = LEVEL) org_levels AS (
+              SELECT id, name, manager_id, 0 AS level FROM employees WHERE manager_id IS NULL
+              UNION ALL
+              SELECT e.id, e.name, e.manager_id, ol.level + 1
+              FROM org_levels AS ol, employees AS e
+              WHERE ol.id = e.manager_id
+          )
+          SELECT name, level FROM org_levels
+      - supported_version: !current_version
+      - result: [{name: "Alice", level: 0},
+                 {name: "Bob", level: 1},
+                 {name: "Carol", level: 1},
+                 {name: "David", level: 2},
+                 {name: "Eve", level: 2},
+                 {name: "Frank", level: 2}]
+
+    # Preorder Traversal
+    -
+      - query: WITH RECURSIVE (TRAVERSAL = PREORDER) subordinates AS (
+              SELECT id, name, manager_id FROM employees WHERE id = 1
+              UNION ALL
+              SELECT e.id, e.name, e.manager_id
+              FROM subordinates AS s, employees AS e
+              WHERE s.id = e.manager_id
+          )
+          SELECT name FROM subordinates WHERE id != 1
+      - supported_version: !current_version
+      - result: [{name: "Bob"},
+                 {name: "David"},
+                 {name: "Eve"},
+                 {name: "Carol"},
+                 {name: "Frank"}]
+    -
+      - query: delete from employees
+    -
+      - query: insert into employees
+            values
+            (1, 'Alice', NULL, 'Executive'),
+            (2, 'Bob', 1, 'Engineering'),
+            (3, 'Carol', 1, 'Engineering'),
+            (4, 'David', 2, 'Engineering'),
+            (5, 'Eve', 2, 'Engineering'),
+            (6, 'Frank', 3, 'Engineering'),
+            (7, 'Grace', 3, 'Engineering'),
+            (10, 'Helen', NULL, 'Sales'),
+            (11, 'Ivan', 10, 'Sales'),
+            (12, 'Julia', 10, 'Sales'),
+            (13, 'Kevin', 11, 'Sales'),
+            (14, 'Lisa', 11, 'Sales'),
+            (20, 'Mike', NULL, 'Marketing'),
+            (21, 'Nina', 20, 'Marketing'),
+            (22, 'Oscar', 21, 'Marketing')
+    # Nested Recursive CTE Example
+    -
+      - query: WITH RECURSIVE colleagues_of_bob AS (
+              WITH RECURSIVE bob_managers AS (
+                  SELECT id, name, manager_id FROM employees WHERE name = 'Bob'
+                  UNION ALL
+                  SELECT e.id, e.name, e.manager_id
+                  FROM bob_managers AS bm, employees AS e
+                  WHERE bm.manager_id = e.id
+              )
+              SELECT id, name, manager_id FROM bob_managers
+              UNION ALL
+              SELECT e.id, e.name, e.manager_id
+              FROM colleagues_of_bob AS c, employees AS e
+              WHERE c.id = e.manager_id AND NOT EXISTS (SELECT name FROM c WHERE name = e.name)
+          )
+          SELECT name FROM colleagues_of_bob WHERE name != 'Bob'
+      - supported_version: !current_version
+      - unorderedResult: [{name: "Alice"},
+                          {name: "Carol"},
+                          {name: "David"},
+                          {name: "Eve"},
+                          {name: "Frank"},
+                          {name: "Grace"}]

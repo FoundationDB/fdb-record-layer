@@ -334,7 +334,12 @@ query
     ;
 
 ctes
-    : WITH (RECURSIVE)? namedQuery (COMMA namedQuery)*
+    : WITH (RECURSIVE ( '(' TRAVERSAL '=' traversalStrategy ')')?)? namedQuery (COMMA namedQuery)*
+    ;
+
+traversalStrategy
+    : PREORDER
+    | LEVEL
     ;
 
 namedQuery
