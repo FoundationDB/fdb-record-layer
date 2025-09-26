@@ -1,29 +1,49 @@
 Diagram(
     Stack(
         Terminal('WITH'),
-            OneOrMore(
-                Sequence(
-                    NonTerminal('cteName'),
-                    Optional(
-                        Sequence(
-                            Terminal('('),
-                            OneOrMore(
-                                NonTerminal('columnAlias'),
-                                Terminal(','),
-                            ),
-                            Terminal(')'),
+        Optional(
+            Sequence(
+                Terminal('RECURSIVE'),
+                Optional(
+                    Sequence(
+                        Terminal('('),
+                        Terminal('TRAVERSAL'),
+                        Terminal('='),
+                        Choice(0,
+                            Terminal('ANY'),
+                            Terminal('PREORDER'),
+                            Terminal('LEVEL')
                         ),
-                        'skip',
+                        Terminal(')')
                     ),
-                    Optional(
-                        Terminal('AS'),
-                    ),
-                    Terminal('('),
-                    NonTerminal('cteQuery'),
-                    Terminal(')'),
-                ),
-                Terminal(','),
+                    'skip'
+                )
             ),
+            'skip'
+        ),
+        OneOrMore(
+            Sequence(
+                NonTerminal('cteName'),
+                Optional(
+                    Sequence(
+                        Terminal('('),
+                        OneOrMore(
+                            NonTerminal('columnAlias'),
+                            Terminal(','),
+                        ),
+                        Terminal(')'),
+                    ),
+                    'skip',
+                ),
+                Optional(
+                    Terminal('AS'),
+                ),
+                Terminal('('),
+                NonTerminal('cteQuery'),
+                Terminal(')'),
+            ),
+            Terminal(','),
+        ),
         NonTerminal('query')
     )
 )
