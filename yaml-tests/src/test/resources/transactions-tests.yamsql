@@ -58,4 +58,43 @@ test_block:
       - query: select * from t1 where id > 15;
       - setupReference: t1_less_than_50
       - result: [{id: 30, col1: 40}]
+---
+# Create a new schema with the CASE_SENSITIVE_IDENTIFIERS connection option turned on
+setup:
+  options:
+    connection_options:
+      CASE_SENSITIVE_IDENTIFIERS: true
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  steps:
+    - query: drop schema template if exists case_sensitive_template
+    - query: create schema template case_sensitive_template
+         create table TaBlE1(x bigint, y string, primary key(x))
+    - query: drop database if exists /FRL/CASE_SENSITIVE_TEMPLATE
+    - query: create database /FRL/CASE_SENSITIVE_TEMPLATE
+    - query: create schema /FRL/CASE_SENSITIVE_TEMPLATE/test with template case_sensitive_template
+---
+setup:
+  options:
+    connection_options:
+      CASE_SENSITIVE_IDENTIFIERS: true
+  connect: "jdbc:embed:/FRL/CASE_SENSITIVE_TEMPLATE?schema=test"
+  steps:
+    - query: insert into TaBlE1 values (1, 'foo'), (2, 'bar'), (3, 'blah')
+---
+test_block:
+  name: transaction-with-connection-options
+  connect: "jdbc:embed:/FRL/CASE_SENSITIVE_TEMPLATE?schema=test"
+  options:
+    supported_version: !current_version
+    connection_options:
+      CASE_SENSITIVE_IDENTIFIERS: true
+  tests:
+    -
+      # This test ensures that the CASE_SENSITIVE_IDENTIFIERS option is being passed correctly in the query
+      # and the transactional setup.
+      - query: select * from Func1
+      - setup: create temporary function Func1() on commit drop function as
+          select * from TaBlE1 where x >= 2;
+      - unorderedResult: [{x: 2, y: 'bar'},
+                          {x: 3, y: 'blah'}]
 ...

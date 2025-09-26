@@ -42,7 +42,6 @@ import io.grpc.stub.StreamObserver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nullable;
 import java.sql.SQLException;
 
 /**
@@ -71,17 +70,17 @@ public class TransactionRequestHandler implements StreamObserver<TransactionalRe
         try {
             if (transactionRequest.hasExecuteRequest()) {
                 final StatementRequest request = transactionRequest.getExecuteRequest();
+                final Options options = TypeConversion.fromProtobuf(request.getOptions());
                 if (logger.isInfoEnabled()) {
                     logger.info(KeyValueLogMessage.build("Handling execute request")
                             .addKeyAndValue(LogMessageKeys.QUERY, request.getSql())
                             .toString());
                 }
                 if (transactionalToken == null || transactionalToken.expired()) {
-                    // TODO: connection-wide options are not passed in for now
-                    transactionalToken = frl.createTransactionalToken(request.getDatabase(), request.getSchema(), Options.NONE);
+                    transactionalToken = frl.createTransactionalToken(request.getDatabase(), request.getSchema(), options);
                 }
                 final FRL.Response response = frl.transactionalExecute(transactionalToken, request.getSql(),
-                        request.getParameters().getParameterList(), fromProto(request.getOptions()));
+                        request.getParameters().getParameterList(), options);
 
                 StatementResponse.Builder statementResponseBuilder = StatementResponse.newBuilder();
                 if (response.isQuery()) {
@@ -94,14 +93,14 @@ public class TransactionRequestHandler implements StreamObserver<TransactionalRe
                 responseBuilder.setExecuteResponse(statementResponseBuilder);
             } else if (transactionRequest.hasInsertRequest()) {
                 final InsertRequest request = transactionRequest.getInsertRequest();
+                final Options options = TypeConversion.fromProtobuf(request.getOptions());
                 if (logger.isInfoEnabled()) {
                     logger.info(KeyValueLogMessage.build("Handling insert request")
                             .addKeyAndValue(LogMessageKeys.RECORD_TYPE, request.getTableName())
                             .toString());
                 }
                 if (transactionalToken == null || transactionalToken.expired()) {
-                    // TODO: connection-wide options are not passed in for now
-                    transactionalToken = frl.createTransactionalToken(request.getDatabase(), request.getSchema(), Options.NONE);
+                    transactionalToken = frl.createTransactionalToken(request.getDatabase(), request.getSchema(), options);
                 }
                 int recordsInserted = frl.transactionalInsert(transactionalToken, request.getTableName(), TypeConversion.fromResultSetProtobuf(request.getDataResultSet()));
                 responseBuilder.setInsertResponse(InsertResponse.newBuilder().setRowCount(recordsInserted));
@@ -162,16 +161,5 @@ public class TransactionRequestHandler implements StreamObserver<TransactionalRe
                 logger.warn(KeyValueLogMessage.build("Error while closing transactional connection").toString(), e);
             }
         }
-    }
-
-    private Options fromProto(@Nullable com.apple.foundationdb.relational.jdbc.grpc.v1.Options proto) throws SQLException {
-        if (proto == null) {
-            return null;
-        }
-        final Options.Builder builder = Options.builder();
-        if (proto.hasMaxRows()) {
-            builder.withOption(Options.Name.MAX_ROWS, proto.getMaxRows());
-        }
-        return builder.build();
     }
 }
