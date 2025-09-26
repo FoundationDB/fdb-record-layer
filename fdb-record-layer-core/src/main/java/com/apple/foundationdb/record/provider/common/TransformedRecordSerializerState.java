@@ -28,15 +28,10 @@ import java.util.Arrays;
 
 /**
  * The internal state of serialization / deserialization, pointing to a portion of a byte array.
- * Also includes information on intended / found serialization format.
  */
 @API(API.Status.INTERNAL)
 @SpotBugsSuppressWarnings("EI_EXPOSE_REP")
-class TransformedRecordSerializerState {
-    private boolean compressed;
-    private boolean encrypted;
-    private int keyNumber;
-
+class TransformedRecordSerializerState extends CompressedAndEncryptedSerializerState {
     @Nonnull
     private byte[] data;
     private int offset;
@@ -50,30 +45,6 @@ class TransformedRecordSerializerState {
         this.data = data;
         this.offset = offset;
         this.length = length;
-    }
-
-    public boolean isCompressed() {
-        return compressed;
-    }
-
-    public void setCompressed(boolean compressed) {
-        this.compressed = compressed;
-    }
-
-    public boolean isEncrypted() {
-        return encrypted;
-    }
-
-    public void setEncrypted(boolean encrypted) {
-        this.encrypted = encrypted;
-    }
-
-    public int getKeyNumber() {
-        return keyNumber;
-    }
-
-    public void setKeyNumber(int keyNumber) {
-        this.keyNumber = keyNumber;
     }
 
     @Nonnull

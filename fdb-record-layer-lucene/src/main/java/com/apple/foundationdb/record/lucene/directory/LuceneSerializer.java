@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.lucene.LuceneLogMessageKeys;
 import com.apple.foundationdb.record.provider.common.CipherPool;
+import com.apple.foundationdb.record.provider.common.CompressedAndEncryptedSerializerState;
 import com.apple.foundationdb.record.provider.common.SerializationKeyManager;
 import org.apache.lucene.codecs.compressing.CompressionMode;
 import org.apache.lucene.codecs.compressing.Compressor;
@@ -59,54 +60,18 @@ public class LuceneSerializer {
         this.keyManager = keyManager;
     }
 
-    private static class EncodingState {
-        private boolean compressed;
-        private boolean encrypted;
-        private int keyNumber;
-
-        private EncodingState() {
-            this.compressed = false;
-            this.encrypted = false;
-        }
-
-        boolean isCompressed() {
-            return compressed;
-        }
-
-        void setCompressed(boolean compressed) {
-            this.compressed = compressed;
-        }
-
-        boolean isEncrypted() {
-            return encrypted;
-        }
-
-        void setEncrypted(boolean encrypted) {
-            this.encrypted = encrypted;
-        }
-
-        public int getKeyNumber() {
-            return keyNumber;
-        }
-
-        public void setKeyNumber(final int keyNumber) {
-            this.keyNumber = keyNumber;
-        }
-    }
-
     @Nullable
     public byte[] encode(@Nullable byte[] data, boolean compress, boolean encrypt) {
         if (data == null) {
             return null;
         }
 
-        final EncodingState state = new EncodingState();
+        final CompressedAndEncryptedSerializerState state = new CompressedAndEncryptedSerializerState();
         long prefix = 0;
         if (compress) {
             prefix |= ENCODING_COMPRESSED;
             state.setCompressed(true);
         }
-        // Encryption will be supported in future
         if (encrypt) {
             if (keyManager == null) {
                 throw new RecordCoreException("cannot encrypt Lucene blocks without keys");
@@ -153,7 +118,7 @@ public class LuceneSerializer {
                     .addLogInfo(LuceneLogMessageKeys.DATA_VALUE, data);
         }
 
-        final EncodingState state = new EncodingState();
+        final CompressedAndEncryptedSerializerState state = new CompressedAndEncryptedSerializerState();
         byte[] decoded;
         try {
             final ByteArrayDataInput encodedDataInput = new ByteArrayDataInput(data);
@@ -184,7 +149,7 @@ public class LuceneSerializer {
     }
 
     @Nonnull
-    private static byte[] compressIfNeeded(@Nonnull EncodingState state, @Nonnull ByteBuffersDataOutput encodedDataOutput,
+    private static byte[] compressIfNeeded(@Nonnull CompressedAndEncryptedSerializerState state, @Nonnull ByteBuffersDataOutput encodedDataOutput,
                                            @Nonnull byte[] uncompressedData, int prefixLength)
             throws IOException {
         if (!state.isCompressed()) {
@@ -207,7 +172,7 @@ public class LuceneSerializer {
         }
     }
 
-    private static byte[] fallBackToUncompressed(@Nonnull EncodingState state, @Nonnull byte[] originalData,
+    private static byte[] fallBackToUncompressed(@Nonnull CompressedAndEncryptedSerializerState state, @Nonnull byte[] originalData,
                                                  @Nonnull byte[] encodedData, int prefixLength) {
         final byte[] encoded = new byte[originalData.length + prefixLength];
         System.arraycopy(encodedData, 0, encoded, 0, prefixLength);
@@ -217,7 +182,7 @@ public class LuceneSerializer {
         return encoded;
     }
 
-    private void decompressIfNeeded(@Nonnull EncodingState state, @Nonnull ByteArrayDataInput encodedDataInput)
+    private void decompressIfNeeded(@Nonnull CompressedAndEncryptedSerializerState state, @Nonnull ByteArrayDataInput encodedDataInput)
             throws IOException {
         if (!state.isCompressed()) {
             return;
@@ -236,7 +201,7 @@ public class LuceneSerializer {
         encodedDataInput.reset(ref.bytes, ref.offset, ref.length);
     }
 
-    private byte[] encryptIfNeeded(@Nonnull EncodingState state, @Nonnull byte[] encoded, int prefixLength) throws GeneralSecurityException {
+    private byte[] encryptIfNeeded(@Nonnull CompressedAndEncryptedSerializerState state, @Nonnull byte[] encoded, int prefixLength) throws GeneralSecurityException {
         if (!state.isEncrypted()) {
             return encoded;
         }
@@ -260,7 +225,7 @@ public class LuceneSerializer {
         return withIv;
     }
 
-    private void decryptIfNeeded(@Nonnull EncodingState state, @Nonnull ByteArrayDataInput encodedDataInput)
+    private void decryptIfNeeded(@Nonnull CompressedAndEncryptedSerializerState state, @Nonnull ByteArrayDataInput encodedDataInput)
             throws GeneralSecurityException {
         if (!state.isEncrypted()) {
             return;
