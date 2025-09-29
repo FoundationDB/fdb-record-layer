@@ -52,15 +52,9 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
  * class {@link KeyExpressionExpansionVisitor}, this class merely provides a specific {@link #expand} method.
  */
 public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor implements ExpansionVisitor<KeyExpressionExpansionVisitor.VisitorState> {
-    @Nonnull
-    private static final Set<String> SUPPORTED_INDEX_TYPES = Set.of(
-            IndexTypes.VALUE,
-            IndexTypes.VERSION,
-            IndexTypes.RANK,
-            IndexTypes.PERMUTED_MAX,
-            IndexTypes.PERMUTED_MIN
-    );
-
+    // We may need to rethink this as it limits the set of indexes that can support a grouping key expression
+    // this hard-coded list, which limits the ability of this visitor to work on types not defined
+    // in the core sub-project
     @Nonnull
     private static final Set<String> GROUPED_INDEX_TYPES = Set.of(
             IndexTypes.RANK,

@@ -33,6 +33,8 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactory;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
+import com.apple.foundationdb.record.query.plan.cascades.BitmapAggregateIndexExpansionVisitor;
+import com.apple.foundationdb.record.query.plan.cascades.ExpansionVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.MatchCandidateExpansion;
 import com.google.auto.service.AutoService;
@@ -111,6 +113,9 @@ public class BitmapValueIndexMaintainerFactory implements IndexMaintainerFactory
     @Nonnull
     @Override
     public Iterable<MatchCandidate> createMatchCandidates(@Nonnull final RecordMetaData metaData, @Nonnull final Index index, final boolean reverse) {
-        return MatchCandidateExpansion.expandAggregateIndexMatchCandidate(metaData, index, reverse);
+        final MatchCandidateExpansion.IndexExpansionInfo info = MatchCandidateExpansion.createInfo(metaData, index, reverse);
+        final ExpansionVisitor<?> expansionVisitor = new BitmapAggregateIndexExpansionVisitor(info.getIndex(), info.getIndexedRecordTypes());
+        return MatchCandidateExpansion.optionalToIterable(
+                MatchCandidateExpansion.expandIndexMatchCandidate(info, null, expansionVisitor));
     }
 }

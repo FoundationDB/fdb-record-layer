@@ -33,7 +33,7 @@ import javax.annotation.Nonnull;
  * without needing to be defined in the core Record Layer repository.
  *
  * @see IndexMaintainerFactory#createMatchCandidates(RecordMetaData, Index, boolean)
- * @see IndexMaintainerFactoryRegistry for a sub-interface that delegates to the {@link IndexMaintainerFactory}
+ * @see IndexMaintainerFactoryRegistry for a sub-interface that delegates to the index maintainer factory
  * @see IndexMaintainerRegistryImpl for the default implementation
  */
 public interface IndexMatchCandidateRegistry {

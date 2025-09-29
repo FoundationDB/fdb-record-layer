@@ -24,7 +24,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.metadata.Index;
-import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression;
@@ -42,40 +41,62 @@ import java.util.Collections;
 import java.util.Optional;
 import java.util.Set;
 
+/**
+ * Utility methods for expanding certain indexes into {@link MatchCandidate}s. This should be used by
+ * methods like {@link com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactory#createMatchCandidates(RecordMetaData, Index, boolean)}
+ * to create the match candidate that will be used by the {@link CascadesPlanner} during query
+ * planning. Note that indexes may create multiple match candidates, but individual {@link ExpansionVisitor}s
+ * will return at most one candidate. So certain methods here return an {@link Optional}. The utility
+ * method {@link #optionalToIterable(Optional)} can be used to turn that {@link Optional} into s
+ * list containing the one candidate (if set).
+ */
+@API(API.Status.INTERNAL)
 public class MatchCandidateExpansion {
+    @Nonnull
     private static final Logger LOGGER = LoggerFactory.getLogger(MatchCandidateExpansion.class);
 
     private MatchCandidateExpansion() {
     }
 
+    /**
+     * Utility method to turn an {@link Optional} into an {@link Iterable}. If the
+     * optional is not empty, this will return a collection with a single element.
+     * If the optional is empty, it will return an empty collection.
+     *
+     * @param matchCandidateMaybe an optional that may contain a match candidate
+     * @return a collection containing the contents of the optional if set
+     */
     @Nonnull
-    public static Iterable<MatchCandidate> expandValueIndexMatchCandidate(@Nonnull RecordMetaData metaData, @Nonnull Index index, boolean isReverse) {
-        final IndexExpansionInfo info = createInfo(metaData, index, isReverse);
-        return expandValueIndexMatchCandidate(info)
+    public static Iterable<MatchCandidate> optionalToIterable(@Nonnull Optional<MatchCandidate> matchCandidateMaybe) {
+        return matchCandidateMaybe
                 .map(ImmutableList::of)
                 .orElse(ImmutableList.of());
     }
 
+    @Nonnull
+    public static Iterable<MatchCandidate> expandValueIndexMatchCandidate(@Nonnull RecordMetaData metaData, @Nonnull Index index, boolean isReverse) {
+        final IndexExpansionInfo info = createInfo(metaData, index, isReverse);
+        return optionalToIterable(expandValueIndexMatchCandidate(info));
+    }
+
+    @Nonnull
     public static Optional<MatchCandidate> expandValueIndexMatchCandidate(@Nonnull IndexExpansionInfo info) {
-        return expandIndexMatchCandidate(info, info.getCommonPrimaryKeyForTypes(), new ValueIndexExpansionVisitor(info.getIndex(), info.getIndexedRecordTypes()));
+        return expandIndexMatchCandidate(info, info.getCommonPrimaryKeyForTypes(),
+                new ValueIndexExpansionVisitor(info.getIndex(), info.getIndexedRecordTypes()));
     }
 
     @Nonnull
     public static Iterable<MatchCandidate> expandAggregateIndexMatchCandidate(@Nonnull RecordMetaData metaData, @Nonnull Index index, boolean isReverse) {
         final IndexExpansionInfo info = createInfo(metaData, index, isReverse);
-        return expandAggregateIndexMatchCandidate(info)
-                .map(ImmutableList::of)
-                .orElse(ImmutableList.of());
+        return optionalToIterable(expandAggregateIndexMatchCandidate(info));
     }
 
     @Nonnull
     public static Optional<MatchCandidate> expandAggregateIndexMatchCandidate(@Nonnull IndexExpansionInfo info) {
-        final var aggregateIndexExpansionVisitor = IndexTypes.BITMAP_VALUE.equals(info.getIndexType())
-                ? new BitmapAggregateIndexExpansionVisitor(info.getIndex(), info.getIndexedRecordTypes())
-                : new AggregateIndexExpansionVisitor(info.getIndex(), info.getIndexedRecordTypes());
         // Override the common primary key here. We always want it to be null because the primary key is not
         // included in the expanded aggregate index
-        return expandIndexMatchCandidate(info, null, aggregateIndexExpansionVisitor);
+        return expandIndexMatchCandidate(info, null,
+                new AggregateIndexExpansionVisitor(info.getIndex(), info.getIndexedRecordTypes()));
     }
 
     @Nonnull
