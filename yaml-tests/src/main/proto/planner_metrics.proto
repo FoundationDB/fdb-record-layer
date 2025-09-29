@@ -47,7 +47,10 @@ message CountersAndTimers {
   optional int64 transform_count = 3;
   optional int64 transform_time_ns = 4;
   optional int64 transform_yield_count = 5;
-  optional int64 insert_time_ns = 6;
-  optional int64 insert_new_count = 7;
-  optional int64 insert_reused_count = 8;
+  optional int64 insert_yield_time_ns = 6;
+  optional int64 insert_yield_new_count = 7;
+  optional int64 insert_yield_reused_count = 8;
+  optional int64 insert_memoize_time_ns = 9;
+  optional int64 insert_memoize_new_count = 10;
+  optional int64 insert_memoize_reused_count = 11;
 }

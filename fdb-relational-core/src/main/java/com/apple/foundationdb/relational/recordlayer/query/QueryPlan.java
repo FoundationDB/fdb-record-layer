@@ -320,9 +320,12 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                             DataType.StructType.Field.from("TRANSFORM_COUNT", DataType.Primitives.LONG.type(), 2),
                             DataType.StructType.Field.from("TRANSFORM_TIME_NS", DataType.Primitives.LONG.type(), 3),
                             DataType.StructType.Field.from("TRANSFORM_YIELD_COUNT", DataType.Primitives.LONG.type(), 4),
-                            DataType.StructType.Field.from("INSERT_TIME_NS", DataType.Primitives.LONG.type(), 5),
-                            DataType.StructType.Field.from("INSERT_NEW_COUNT", DataType.Primitives.LONG.type(), 6),
-                            DataType.StructType.Field.from("INSERT_REUSED_COUNT", DataType.Primitives.LONG.type(), 7)),
+                            DataType.StructType.Field.from("INSERT_YIELD_TIME_NS", DataType.Primitives.LONG.type(), 5),
+                            DataType.StructType.Field.from("INSERT_YIELD_NEW_COUNT", DataType.Primitives.LONG.type(), 6),
+                            DataType.StructType.Field.from("INSERT_YIELD_REUSED_COUNT", DataType.Primitives.LONG.type(), 7),
+                            DataType.StructType.Field.from("INSERT_TIME_MEMOIZE_NS", DataType.Primitives.LONG.type(), 8),
+                            DataType.StructType.Field.from("INSERT_MEMOIZE_NEW_COUNT", DataType.Primitives.LONG.type(), 9),
+                            DataType.StructType.Field.from("INSERT_MEMOIZE_REUSED_COUNT", DataType.Primitives.LONG.type(), 10)),
                     true);
             final var explainStructType = DataType.StructType.from(
                     "EXPLAIN", List.of(
@@ -352,8 +355,10 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                         Optional.ofNullable(plannerEventClassStatsMap.get(Debugger.ExecutingTaskEvent.class));
                 final var transformRuleCallStats =
                         Optional.ofNullable(plannerEventClassStatsMap.get(Debugger.TransformRuleCallEvent.class));
-                final var insertIntoMemoStats =
-                        Optional.ofNullable(plannerEventClassStatsMap.get(Debugger.InsertIntoMemoEvent.class));
+                final var insertIntoMemoYieldStats =
+                        Optional.ofNullable(plannerEventClassStatsMap.get(Debugger.InsertIntoMemoYieldEvent.class));
+                final var insertIntoMemoMemoizeStats =
+                        Optional.ofNullable(plannerEventClassStatsMap.get(Debugger.InsertIntoMemoMemoizeEvent.class));
 
                 plannerMetrics =
                         new ImmutableRowStruct(new ArrayRow(
@@ -362,9 +367,12 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                                 transformRuleCallStats.map(s -> s.getCount(Debugger.Location.BEGIN)).orElse(0L),
                                 transformRuleCallStats.map(Stats::getOwnTimeInNs).orElse(0L),
                                 transformRuleCallStats.map(s -> s.getCount(Debugger.Location.YIELD)).orElse(0L),
-                                insertIntoMemoStats.map(Stats::getOwnTimeInNs).orElse(0L),
-                                insertIntoMemoStats.map(s -> s.getCount(Debugger.Location.NEW)).orElse(0L),
-                                insertIntoMemoStats.map(s -> s.getCount(Debugger.Location.REUSED)).orElse(0L),
+                                insertIntoMemoYieldStats.map(Stats::getOwnTimeInNs).orElse(0L),
+                                insertIntoMemoYieldStats.map(s -> s.getCount(Debugger.Location.NEW)).orElse(0L),
+                                insertIntoMemoYieldStats.map(s -> s.getCount(Debugger.Location.REUSED)).orElse(0L),
+                                insertIntoMemoMemoizeStats.map(Stats::getOwnTimeInNs).orElse(0L),
+                                insertIntoMemoMemoizeStats.map(s -> s.getCount(Debugger.Location.NEW)).orElse(0L),
+                                insertIntoMemoMemoizeStats.map(s -> s.getCount(Debugger.Location.REUSED)).orElse(0L),
                                 parsedContinuation.getVersion(),
                                 parsedContinuation.getCompiledStatement() == null ? null : parsedContinuation.getCompiledStatement().getPlanSerializationMode()
                         ), RelationalStructMetaData.of(plannerMetricsStructType));

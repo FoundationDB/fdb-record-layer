@@ -7,50 +7,65 @@ orderby-tests:
     transform_count: 77
     transform_time_ms: 5
     transform_yield_count: 36
-    insert_time_ms: 0
-    insert_new_count: 25
-    insert_reused_count: 2
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 12
+    insert_yield_reused_count: 2
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 13
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select b from t1 order by c
     explain: 'COVERING(I2 <,> -> [A: KEY[2], B: VALUE[0], C: KEY[0]]) | MAP (_.B AS
         B, _.C AS C) | MAP (_.B AS B)'
     task_count: 407
-    task_total_time_ms: 7
+    task_total_time_ms: 10
     transform_count: 94
     transform_time_ms: 3
     transform_yield_count: 43
-    insert_time_ms: 0
-    insert_new_count: 41
-    insert_reused_count: 4
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 19
+    insert_yield_reused_count: 4
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 22
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select c from t1 order by b desc
     explain: 'COVERING(I1 <,> REVERSE -> [A: KEY[2], B: KEY[0], C: VALUE[0]]) | MAP
         (_.C AS C, _.B AS B) | MAP (_.C AS C)'
     task_count: 302
-    task_total_time_ms: 5
+    task_total_time_ms: 7
     transform_count: 77
     transform_time_ms: 2
     transform_yield_count: 36
-    insert_time_ms: 0
-    insert_new_count: 25
-    insert_reused_count: 2
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 12
+    insert_yield_reused_count: 2
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 13
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select b from t1 order by c desc
     explain: 'COVERING(I2 <,> REVERSE -> [A: KEY[2], B: VALUE[0], C: KEY[0]]) | MAP
         (_.B AS B, _.C AS C) | MAP (_.B AS B)'
     task_count: 407
-    task_total_time_ms: 19
+    task_total_time_ms: 16
     transform_count: 94
-    transform_time_ms: 5
+    transform_time_ms: 4
     transform_yield_count: 43
-    insert_time_ms: 0
-    insert_new_count: 41
-    insert_reused_count: 4
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 19
+    insert_yield_reused_count: 4
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 22
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select c, b from t5 order by c, b desc;
     explain: 'COVERING(I8 <,> -> [A: KEY[3], B: from_ordered_bytes(KEY:[1], DESC_NULLS_LAST),
         C: KEY[0]]) | MAP (_.C AS C, _.B AS B)'
     task_count: 210
-    task_total_time_ms: 14
+    task_total_time_ms: 6
     transform_count: 53
-    transform_time_ms: 6
+    transform_time_ms: 3
     transform_yield_count: 22
-    insert_time_ms: 0
-    insert_new_count: 20
-    insert_reused_count: 2
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 10
+    insert_yield_reused_count: 2
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 10
+    insert_memoize_reused_count: 0

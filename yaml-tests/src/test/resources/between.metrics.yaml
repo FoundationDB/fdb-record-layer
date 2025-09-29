@@ -3,32 +3,41 @@ between-index-tests:
     explain: ISCAN(I1 [[GREATER_THAN_OR_EQUALS promote(@c8 AS INT) && LESS_THAN_OR_EQUALS
         promote(@c8 AS INT)]])
     task_count: 327
-    task_total_time_ms: 17
+    task_total_time_ms: 16
     transform_count: 81
-    transform_time_ms: 5
+    transform_time_ms: 4
     transform_yield_count: 32
-    insert_time_ms: 0
-    insert_new_count: 35
-    insert_reused_count: 4
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 20
+    insert_yield_reused_count: 4
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 15
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select * from t1 WHERE col1 + 5 BETWEEN 10 AND 20
     explain: ISCAN(I1 <,>) | FILTER _.COL1 + @c8 GREATER_THAN_OR_EQUALS promote(@c10
         AS INT) AND _.COL1 + @c8 LESS_THAN_OR_EQUALS promote(@c12 AS INT)
     task_count: 291
     task_total_time_ms: 16
     transform_count: 77
-    transform_time_ms: 6
+    transform_time_ms: 5
     transform_yield_count: 29
-    insert_time_ms: 0
-    insert_new_count: 33
-    insert_reused_count: 4
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 17
+    insert_yield_reused_count: 4
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 16
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select * from t1 WHERE col1 + 5 NOT BETWEEN 10 AND 20
     explain: ISCAN(I1 <,>) | FILTER _.COL1 + @c8 LESS_THAN promote(@c11 AS INT) OR
         _.COL1 + @c8 GREATER_THAN promote(@c13 AS INT)
     task_count: 291
-    task_total_time_ms: 17
+    task_total_time_ms: 16
     transform_count: 78
-    transform_time_ms: 6
+    transform_time_ms: 5
     transform_yield_count: 29
-    insert_time_ms: 0
-    insert_new_count: 33
-    insert_reused_count: 4
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 17
+    insert_yield_reused_count: 4
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 16
+    insert_memoize_reused_count: 0

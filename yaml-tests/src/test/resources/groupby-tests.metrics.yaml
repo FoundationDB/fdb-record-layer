@@ -4,71 +4,89 @@ group-by-tests:
     explain: ISCAN(I1 <,>) | MAP ((_.COL1 AS COL1, _.COL2 AS COL2) AS _0) | AGG (avg_l(_._0.COL2)
         AS _0) GROUP BY (_._0.COL1 AS _0) | MAP (_._1._0 AS _0)
     task_count: 299
-    task_total_time_ms: 12
+    task_total_time_ms: 5
     transform_count: 74
-    transform_time_ms: 5
+    transform_time_ms: 2
     transform_yield_count: 26
-    insert_time_ms: 0
-    insert_new_count: 29
-    insert_reused_count: 2
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 14
+    insert_yield_reused_count: 2
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 15
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select SUM(x.col2) / COUNT(x.col2), AVG(x.col2) from (select col1,col2
         from t1) as x group by x.col1;
     explain: ISCAN(I1 <,>) | MAP ((_.COL1 AS COL1, _.COL2 AS COL2) AS _0) | AGG (sum_l(_._0.COL2)
         AS _0, count(_._0.COL2) AS _1, avg_l(_._0.COL2) AS _2) GROUP BY (_._0.COL1
         AS _0) | MAP (_._1._0 / _._1._1 AS _0, _._1._2 AS _1)
     task_count: 299
-    task_total_time_ms: 8
+    task_total_time_ms: 4
     transform_count: 74
-    transform_time_ms: 3
+    transform_time_ms: 2
     transform_yield_count: 26
-    insert_time_ms: 0
-    insert_new_count: 29
-    insert_reused_count: 2
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 14
+    insert_yield_reused_count: 2
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 15
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select MAX(x.col2) from (select col1,col2 from t1) as x;
     explain: ISCAN(I1 <,>) | MAP ((_.COL1 AS COL1, _.COL2 AS COL2) AS _0) | AGG (max_l(_._0.COL2)
         AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)
     task_count: 358
     task_total_time_ms: 9
     transform_count: 81
-    transform_time_ms: 4
+    transform_time_ms: 3
     transform_yield_count: 29
-    insert_time_ms: 0
-    insert_new_count: 40
-    insert_reused_count: 4
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 17
+    insert_yield_reused_count: 4
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 23
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select MIN(x.col2) from (select col1,col2 from t1) as x;
     explain: ISCAN(I1 <,>) | MAP ((_.COL1 AS COL1, _.COL2 AS COL2) AS _0) | AGG (min_l(_._0.COL2)
         AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)
     task_count: 358
-    task_total_time_ms: 8
+    task_total_time_ms: 5
     transform_count: 81
     transform_time_ms: 2
     transform_yield_count: 29
-    insert_time_ms: 0
-    insert_new_count: 40
-    insert_reused_count: 4
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 17
+    insert_yield_reused_count: 4
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 23
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select COUNT(x.col2) from (select col1,col2 from t1) as x;
     explain: ISCAN(I1 <,>) | MAP ((_.COL1 AS COL1, _.COL2 AS COL2) AS _0) | AGG (count(_._0.COL2)
         AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG))
         AS _0)
     task_count: 358
-    task_total_time_ms: 15
+    task_total_time_ms: 4
     transform_count: 81
-    transform_time_ms: 5
+    transform_time_ms: 1
     transform_yield_count: 29
-    insert_time_ms: 0
-    insert_new_count: 40
-    insert_reused_count: 4
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 17
+    insert_yield_reused_count: 4
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 23
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select AVG(x.col2) from (select col1,col2 from t1) as x;
     explain: ISCAN(I1 <,>) | MAP ((_.COL1 AS COL1, _.COL2 AS COL2) AS _0) | AGG (avg_l(_._0.COL2)
         AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)
     task_count: 358
-    task_total_time_ms: 8
+    task_total_time_ms: 6
     transform_count: 81
-    transform_time_ms: 3
+    transform_time_ms: 2
     transform_yield_count: 29
-    insert_time_ms: 0
-    insert_new_count: 40
-    insert_reused_count: 4
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 17
+    insert_yield_reused_count: 4
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 23
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select COUNT(*) from T1;
     explain: ISCAN(I1 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY
         NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
@@ -77,17 +95,23 @@ group-by-tests:
     transform_count: 77
     transform_time_ms: 2
     transform_yield_count: 27
-    insert_time_ms: 0
-    insert_new_count: 36
-    insert_reused_count: 4
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 15
+    insert_yield_reused_count: 4
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 21
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select COUNT(col1) from T1;
     explain: ISCAN(I1 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL1) AS _0) | ON EMPTY
         NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
     task_count: 332
-    task_total_time_ms: 8
+    task_total_time_ms: 5
     transform_count: 77
-    transform_time_ms: 2
+    transform_time_ms: 1
     transform_yield_count: 27
-    insert_time_ms: 0
-    insert_new_count: 36
-    insert_reused_count: 4
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 15
+    insert_yield_reused_count: 4
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 21
+    insert_memoize_reused_count: 0

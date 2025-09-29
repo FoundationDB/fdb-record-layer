@@ -38,9 +38,10 @@ message PEvent {
     PTransformEvent transform_event = 8;
     PTransformRuleCallEvent transform_rule_call_event = 9;
     PExecutingTaskEvent executing_task_event = 10;
-    PInsertIntoMemoEvent insert_into_memo_event = 11;
+    PInsertIntoMemoYieldEvent insert_into_memo_yield_event = 11;
     PTranslateCorrelationsEvent translate_correlations_event = 12;
     PInitiatePlannerPhaseEvent initiate_planner_phase_event = 13;
+    PInsertIntoMemoMemoizeEvent insert_into_memo_memoize_event = 14;
   }
 }
 
@@ -105,7 +106,7 @@ message PInitiatePlannerPhaseEvent {
   optional PAbstractEventWithState super = 1;
 }
 
-message PInsertIntoMemoEvent {
+message PInsertIntoMemoYieldEvent {
   optional string location = 1;
   optional PRegisteredRelationalExpression expression = 2;
   repeated PRegisteredReference reusedExpressionReferences = 3;
@@ -114,6 +115,12 @@ message PInsertIntoMemoEvent {
 message PTranslateCorrelationsEvent {
   optional PRegisteredRelationalExpression expression = 1;
   optional string location = 2;
+}
+
+message PInsertIntoMemoMemoizeEvent {
+  optional string location = 1;
+  optional PRegisteredRelationalExpression expression = 2;
+  repeated PRegisteredReference reusedExpressionReferences = 3;
 }
 
 message PRegisteredReference {

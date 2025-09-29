@@ -26,7 +26,7 @@ import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers.AliasResolver;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
-import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger.InsertIntoMemoEvent;
+import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger.InsertIntoMemoMemoizeEvent;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
@@ -41,6 +41,7 @@ import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Deque;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -295,7 +296,7 @@ public class CascadesRuleCall implements ExplorationCascadesRuleCall, Implementa
     @Nonnull
     private Reference addNewReference(@Nonnull final Reference newRef) {
         for (RelationalExpression expression : newRef.getAllMemberExpressions()) {
-            Debugger.withDebugger(debugger -> debugger.onEvent(InsertIntoMemoEvent.newExp(expression)));
+            Debugger.withDebugger(debugger -> debugger.onEvent(InsertIntoMemoMemoizeEvent.newExp(expression)));
             traversal.addExpression(newRef, expression);
         }
         newReferences.add(newRef);
@@ -352,7 +353,7 @@ public class CascadesRuleCall implements ExplorationCascadesRuleCall, Implementa
         // least one variation) or it will be a new reference, but that reference must be missing at least
         // one child from the first variation and therefore cannot be reused
         //
-        Debugger.withDebugger(debugger -> debugger.onEvent(InsertIntoMemoEvent.begin()));
+        Debugger.withDebugger(debugger -> debugger.onEvent(InsertIntoMemoMemoizeEvent.begin()));
         try {
             Preconditions.checkArgument(expressions.stream().noneMatch(expression -> expression instanceof RecordQueryPlan));
 
@@ -370,20 +371,23 @@ public class CascadesRuleCall implements ExplorationCascadesRuleCall, Implementa
                             .collect(ImmutableList.toImmutableList());
 
             // Gather the references to the expressions that include each child
-            final var expressionToReferenceMap = new LinkedIdentityMap<RelationalExpression, Reference>();
-            referencePathsList.stream()
-                    .flatMap(Collection::stream)
-                    .filter(referencePath -> isEligibleForReuse(requiredCorrelations, referencePath))
-                    .forEach(referencePath -> {
-                        final var referencingExpression = referencePath.getExpression();
-                        if (expressionToReferenceMap.containsKey(referencingExpression)) {
-                            if (expressionToReferenceMap.get(referencingExpression) != referencePath.getReference()) {
-                                throw new RecordCoreException("expression used in multiple references");
-                            }
-                        } else {
-                            expressionToReferenceMap.put(referencePath.getExpression(), referencePath.getReference());
+            final var expressionToReferenceMap = new IdentityHashMap<RelationalExpression, Reference>();
+            for (final var referencePathSet : referencePathsList) {
+                for (final var referencePath : referencePathSet) {
+                    final var eligibleForReuse = isEligibleForReuse(requiredCorrelations, referencePath);
+                    if (!eligibleForReuse) {
+                        continue;
+                    }
+                    final var referencingExpression = referencePath.getExpression();
+                    if (expressionToReferenceMap.containsKey(referencingExpression)) {
+                        if (expressionToReferenceMap.get(referencingExpression) != referencePath.getReference()) {
+                            throw new RecordCoreException("expression used in multiple references");
                         }
-                    });
+                    } else {
+                        expressionToReferenceMap.put(referencePath.getExpression(), referencePath.getReference());
+                    }
+                }
+            }
 
             // From the traversal, get the sets of expressions that point to each child
             final List<Set<RelationalExpression>> referencingExpressions = referencePathsList.stream()
@@ -413,7 +417,7 @@ public class CascadesRuleCall implements ExplorationCascadesRuleCall, Implementa
                 Reference existingReference = existingRefs.get(0);
                 expressions.forEach(expr ->
                         Debugger.withDebugger(debugger ->
-                                debugger.onEvent(InsertIntoMemoEvent.reusedExpWithReferences(expr, existingRefs))));
+                                debugger.onEvent(InsertIntoMemoMemoizeEvent.reusedExp(expr, existingRefs))));
                 Verify.verify(existingReference != this.root);
                 return existingReference;
             }
@@ -421,7 +425,7 @@ public class CascadesRuleCall implements ExplorationCascadesRuleCall, Implementa
             // If we didn't find one, create a new reference and add it to the memo
             return addNewReference(Reference.ofExploratoryExpressions(plannerPhase.getTargetPlannerStage(), expressions));
         } finally {
-            Debugger.withDebugger(debugger -> debugger.onEvent(InsertIntoMemoEvent.end()));
+            Debugger.withDebugger(debugger -> debugger.onEvent(InsertIntoMemoMemoizeEvent.end()));
         }
     }
 
@@ -436,7 +440,7 @@ public class CascadesRuleCall implements ExplorationCascadesRuleCall, Implementa
 
     @Nonnull
     private Reference memoizeLeafExpressions(@Nonnull final Collection<? extends RelationalExpression> expressions) {
-        Debugger.withDebugger(debugger -> debugger.onEvent(InsertIntoMemoEvent.begin()));
+        Debugger.withDebugger(debugger -> debugger.onEvent(InsertIntoMemoMemoizeEvent.begin()));
         try {
             Preconditions.checkArgument(expressions.stream()
                     .allMatch(expression -> !(expression instanceof RecordQueryPlan) && expression.getQuantifiers().isEmpty()));
@@ -450,7 +454,8 @@ public class CascadesRuleCall implements ExplorationCascadesRuleCall, Implementa
                 }
                 if (leafRef.containsAllInMemo(expressions, AliasMap.emptyMap(), false)) {
                     for (RelationalExpression expression : expressions) {
-                        Debugger.withDebugger(debugger -> debugger.onEvent(InsertIntoMemoEvent.reusedExp(expression)));
+                        Debugger.withDebugger(debugger ->
+                                debugger.onEvent(InsertIntoMemoMemoizeEvent.reusedExp(expression, leafRefs)));
                     }
                     return leafRef;
                 }
@@ -458,7 +463,7 @@ public class CascadesRuleCall implements ExplorationCascadesRuleCall, Implementa
 
             return addNewReference(Reference.ofExploratoryExpressions(plannerPhase.getTargetPlannerStage(), expressions));
         } finally {
-            Debugger.withDebugger(debugger -> debugger.onEvent(InsertIntoMemoEvent.end()));
+            Debugger.withDebugger(debugger -> debugger.onEvent(InsertIntoMemoMemoizeEvent.end()));
         }
     }
 
@@ -535,14 +540,14 @@ public class CascadesRuleCall implements ExplorationCascadesRuleCall, Implementa
         final var allExpressions =
                 Iterables.concat(exploratoryExpressions, finalExpressions);
         Debugger.withDebugger(debugger -> allExpressions.forEach(
-                expression -> debugger.onEvent(InsertIntoMemoEvent.begin())));
+                expression -> debugger.onEvent(InsertIntoMemoMemoizeEvent.begin())));
         try {
             final var exploratoryExpressionSet = new LinkedIdentitySet<>(exploratoryExpressions);
             final var finalExpressionSet = new LinkedIdentitySet<>(finalExpressions);
             return addNewReference(referenceCreator.apply(exploratoryExpressionSet, finalExpressionSet));
         } finally {
             Debugger.withDebugger(debugger -> allExpressions.forEach(
-                    expression -> debugger.onEvent(InsertIntoMemoEvent.end())));
+                    expression -> debugger.onEvent(InsertIntoMemoMemoizeEvent.end())));
         }
     }
 

@@ -7,9 +7,12 @@ unnamed-3:
     transform_count: 80
     transform_time_ms: 6
     transform_yield_count: 32
-    insert_time_ms: 0
-    insert_new_count: 35
-    insert_reused_count: 4
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 20
+    insert_yield_reused_count: 4
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 15
+    insert_memoize_reused_count: 0
 agg-index-tests-count:
 -   query: EXPLAIN select * from B where b3 = 4 and b2 = 'b' and (? is null or b1
         < 20)
@@ -17,10 +20,13 @@ agg-index-tests-count:
         -> [B1: KEY[3], B2: KEY[1], B3: KEY[0]]) | FILTER @c15 IS_NULL OR _.B1 LESS_THAN
         promote(@c21 AS INT) | FETCH'
     task_count: 1426
-    task_total_time_ms: 45
+    task_total_time_ms: 46
     transform_count: 266
-    transform_time_ms: 20
+    transform_time_ms: 13
     transform_yield_count: 84
-    insert_time_ms: 1
-    insert_new_count: 175
-    insert_reused_count: 18
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 64
+    insert_yield_reused_count: 18
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 111
+    insert_memoize_reused_count: 0

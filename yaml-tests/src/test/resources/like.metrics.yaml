@@ -3,98 +3,125 @@ unnamed-3:
     explain: 'COVERING(C2 <,> -> [C1: KEY[2], C2: KEY[0]]) | FILTER _.C2 LIKE @c8
         ESCAPE ''null'' | FETCH'
     task_count: 338
-    task_total_time_ms: 10
+    task_total_time_ms: 5
     transform_count: 79
-    transform_time_ms: 3
+    transform_time_ms: 1
     transform_yield_count: 29
-    insert_time_ms: 0
-    insert_new_count: 38
-    insert_reused_count: 5
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 17
+    insert_yield_reused_count: 5
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 21
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select * from C WHERE C2 LIKE 'a%'
     explain: 'COVERING(C2 <,> -> [C1: KEY[2], C2: KEY[0]]) | FILTER _.C2 LIKE @c8
         ESCAPE ''null'' | FETCH'
     task_count: 338
-    task_total_time_ms: 9
+    task_total_time_ms: 11
     transform_count: 79
     transform_time_ms: 3
     transform_yield_count: 29
-    insert_time_ms: 0
-    insert_new_count: 38
-    insert_reused_count: 5
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 17
+    insert_yield_reused_count: 5
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 21
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select * from C WHERE C2 LIKE 'ap%'
     explain: 'COVERING(C2 <,> -> [C1: KEY[2], C2: KEY[0]]) | FILTER _.C2 LIKE @c8
         ESCAPE ''null'' | FETCH'
     task_count: 338
-    task_total_time_ms: 9
+    task_total_time_ms: 11
     transform_count: 79
     transform_time_ms: 3
     transform_yield_count: 29
-    insert_time_ms: 0
-    insert_new_count: 38
-    insert_reused_count: 5
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 17
+    insert_yield_reused_count: 5
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 21
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select * from C WHERE C2 LIKE 'a%l%'
     explain: 'COVERING(C2 <,> -> [C1: KEY[2], C2: KEY[0]]) | FILTER _.C2 LIKE @c8
         ESCAPE ''null'' | FETCH'
     task_count: 338
-    task_total_time_ms: 10
+    task_total_time_ms: 7
     transform_count: 79
-    transform_time_ms: 3
+    transform_time_ms: 2
     transform_yield_count: 29
-    insert_time_ms: 0
-    insert_new_count: 38
-    insert_reused_count: 5
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 17
+    insert_yield_reused_count: 5
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 21
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select * from C WHERE C2 LIKE 'ca%'
     explain: 'COVERING(C2 <,> -> [C1: KEY[2], C2: KEY[0]]) | FILTER _.C2 LIKE @c8
         ESCAPE ''null'' | FETCH'
     task_count: 338
-    task_total_time_ms: 10
+    task_total_time_ms: 11
     transform_count: 79
     transform_time_ms: 3
     transform_yield_count: 29
-    insert_time_ms: 0
-    insert_new_count: 38
-    insert_reused_count: 5
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 17
+    insert_yield_reused_count: 5
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 21
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select * from C WHERE C2 LIKE 'ca_al'
     explain: 'COVERING(C2 <,> -> [C1: KEY[2], C2: KEY[0]]) | FILTER _.C2 LIKE @c8
         ESCAPE ''null'' | FETCH'
     task_count: 338
-    task_total_time_ms: 10
+    task_total_time_ms: 8
     transform_count: 79
     transform_time_ms: 3
     transform_yield_count: 29
-    insert_time_ms: 0
-    insert_new_count: 38
-    insert_reused_count: 5
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 17
+    insert_yield_reused_count: 5
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 21
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select * from C WHERE C2 LIKE 'ca%al'
     explain: 'COVERING(C2 <,> -> [C1: KEY[2], C2: KEY[0]]) | FILTER _.C2 LIKE @c8
         ESCAPE ''null'' | FETCH'
     task_count: 338
-    task_total_time_ms: 10
+    task_total_time_ms: 7
     transform_count: 79
-    transform_time_ms: 3
+    transform_time_ms: 2
     transform_yield_count: 29
-    insert_time_ms: 0
-    insert_new_count: 38
-    insert_reused_count: 5
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 17
+    insert_yield_reused_count: 5
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 21
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select * from C WHERE C2 LIKE 'ca_al%'
     explain: 'COVERING(C2 <,> -> [C1: KEY[2], C2: KEY[0]]) | FILTER _.C2 LIKE @c8
         ESCAPE ''null'' | FETCH'
     task_count: 338
-    task_total_time_ms: 10
+    task_total_time_ms: 11
     transform_count: 79
     transform_time_ms: 3
     transform_yield_count: 29
-    insert_time_ms: 0
-    insert_new_count: 38
-    insert_reused_count: 5
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 17
+    insert_yield_reused_count: 5
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 21
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select * from C WHERE C2 LIKE 'ca%al%'
     explain: 'COVERING(C2 <,> -> [C1: KEY[2], C2: KEY[0]]) | FILTER _.C2 LIKE @c8
         ESCAPE ''null'' | FETCH'
     task_count: 338
-    task_total_time_ms: 15
+    task_total_time_ms: 6
     transform_count: 79
-    transform_time_ms: 4
+    transform_time_ms: 2
     transform_yield_count: 29
-    insert_time_ms: 0
-    insert_new_count: 38
-    insert_reused_count: 5
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 17
+    insert_yield_reused_count: 5
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 21
+    insert_memoize_reused_count: 0

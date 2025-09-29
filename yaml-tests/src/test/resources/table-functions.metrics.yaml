@@ -9,9 +9,12 @@ table-functions:
     transform_count: 29
     transform_time_ms: 0
     transform_yield_count: 6
-    insert_time_ms: 0
-    insert_new_count: 8
-    insert_reused_count: 0
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 6
+    insert_yield_reused_count: 0
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 2
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select B, C, W from values (1, 2.0, (3, 4, 'foo')), (10, 90.2,
         (5, 6.0, 'bar')) as A(B, C, W(X, Y, Z))
     explain: EXPLODE array((@c10 AS B, @c12 AS C, (@c15 AS X, promote(@c17 AS DOUBLE)
@@ -22,22 +25,28 @@ table-functions:
     transform_count: 27
     transform_time_ms: 0
     transform_yield_count: 6
-    insert_time_ms: 0
-    insert_new_count: 9
-    insert_reused_count: 0
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 6
+    insert_yield_reused_count: 0
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 3
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select A.B, C, W from values (1, 2.0, (3, 4, 'foo')), (10, 90.2,
         (5, 6.0, 'bar')) as A(B, C, W(X, Y, Z))
     explain: EXPLODE array((@c12 AS B, @c14 AS C, (@c17 AS X, promote(@c19 AS DOUBLE)
         AS Y, @c21 AS Z) AS W), (@c26 AS B, @c28 AS C, (@c31 AS X, @c33 AS Y, @c35
         AS Z) AS W)) | MAP (_.B AS B, _.C AS C, _.W AS W)
     task_count: 116
-    task_total_time_ms: 0
+    task_total_time_ms: 1
     transform_count: 27
     transform_time_ms: 0
     transform_yield_count: 6
-    insert_time_ms: 0
-    insert_new_count: 9
-    insert_reused_count: 0
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 6
+    insert_yield_reused_count: 0
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 3
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select A.B, C as Q, W.X from values (1, 2.0, (3, 4, 'foo')), (10,
         90.2, (5, 6.0, 'bar')) as A(B, C, W(X, Y, Z))
     explain: EXPLODE array((@c16 AS B, @c18 AS C, (@c21 AS X, promote(@c23 AS DOUBLE)
@@ -48,9 +57,12 @@ table-functions:
     transform_count: 27
     transform_time_ms: 0
     transform_yield_count: 6
-    insert_time_ms: 0
-    insert_new_count: 9
-    insert_reused_count: 0
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 6
+    insert_yield_reused_count: 0
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 3
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select * from (select A.B, C as Q, W.X from values (1, 2.0, (3,
         4, 'foo')), (10, 90.2, (5, 6.0, 'bar')) as A(B, C, W(X, Y, Z))) as u
     explain: EXPLODE array((@c20 AS B, @c22 AS C, (@c25 AS X, promote(@c27 AS DOUBLE)
@@ -61,9 +73,12 @@ table-functions:
     transform_count: 31
     transform_time_ms: 0
     transform_yield_count: 8
-    insert_time_ms: 0
-    insert_new_count: 13
-    insert_reused_count: 0
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 8
+    insert_yield_reused_count: 0
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 5
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select * from (select A.B, C as Q, W.X from values (1, 2.0, (3,
         4, 'foo')), (10, 90.2, (5, 6.0, 'bar')) as A(B, C, W(X, Y, Z))) as u where
         b < 8
@@ -72,13 +87,16 @@ table-functions:
         AS Z) AS W)) | FILTER _.B LESS_THAN @c68 | MAP (_.B AS B, _.C AS Q, _.W.X
         AS X)
     task_count: 186
-    task_total_time_ms: 2
+    task_total_time_ms: 1
     transform_count: 42
     transform_time_ms: 0
     transform_yield_count: 11
-    insert_time_ms: 0
-    insert_new_count: 21
-    insert_reused_count: 1
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 11
+    insert_yield_reused_count: 1
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 10
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select * from range(0, 11, 5)
     explain: TF range(promote(@c6 AS LONG), promote(@c8 AS LONG), STEP promote(@c10
         AS LONG))
@@ -87,9 +105,12 @@ table-functions:
     transform_count: 29
     transform_time_ms: 0
     transform_yield_count: 6
-    insert_time_ms: 0
-    insert_new_count: 8
-    insert_reused_count: 0
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 6
+    insert_yield_reused_count: 0
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 2
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select * from range(6 - 6, 14 + 6 + 1, 20 - 10)
     explain: TF range(promote(@c6 - @c6 AS LONG), promote(@c10 + @c6 + @c14 AS LONG),
         STEP promote(@c16 - @c18 AS LONG))
@@ -98,9 +119,12 @@ table-functions:
     transform_count: 29
     transform_time_ms: 0
     transform_yield_count: 6
-    insert_time_ms: 0
-    insert_new_count: 8
-    insert_reused_count: 0
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 6
+    insert_yield_reused_count: 0
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 2
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select ID as X from range(3) as Y
     explain: TF range(0l, promote(@c8 AS LONG), STEP 1l) | MAP (_.ID AS X)
     task_count: 116
@@ -108,9 +132,12 @@ table-functions:
     transform_count: 27
     transform_time_ms: 0
     transform_yield_count: 6
-    insert_time_ms: 0
-    insert_new_count: 9
-    insert_reused_count: 0
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 6
+    insert_yield_reused_count: 0
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 3
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select X.ID as A, Y.ID as B from range(3) as X, range(4) as Y
     explain: TF range(0l, promote(@c16 AS LONG), STEP 1l) | FLATMAP q0 -> { TF range(0l,
         promote(@c23 AS LONG), STEP 1l) AS q1 RETURN (q0.ID AS A, q1.ID AS B) }
@@ -119,9 +146,12 @@ table-functions:
     transform_count: 41
     transform_time_ms: 0
     transform_yield_count: 10
-    insert_time_ms: 0
-    insert_new_count: 17
-    insert_reused_count: 0
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 10
+    insert_yield_reused_count: 0
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 7
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select a.id as x, a.col1 as y, b.id as z from t1 as a, range(a.id)
         as b
     explain: SCAN(<,>) | FLATMAP q0 -> { TF range(0l, q0.ID, STEP 1l) AS q1 RETURN
@@ -131,6 +161,9 @@ table-functions:
     transform_count: 47
     transform_time_ms: 0
     transform_yield_count: 13
-    insert_time_ms: 0
-    insert_new_count: 15
-    insert_reused_count: 0
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 9
+    insert_yield_reused_count: 0
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 6
+    insert_memoize_reused_count: 0

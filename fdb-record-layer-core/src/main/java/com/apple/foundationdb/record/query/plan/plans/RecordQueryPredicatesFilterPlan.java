@@ -133,7 +133,7 @@ public class RecordQueryPredicatesFilterPlan extends RecordQueryFilterPlanBase i
 
     @Nonnull
     @Override
-    public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
+    public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return predicates.stream()
                 .flatMap(queryPredicate -> queryPredicate.getCorrelatedTo().stream())
                 .collect(ImmutableSet.toImmutableSet());
@@ -205,7 +205,7 @@ public class RecordQueryPredicatesFilterPlan extends RecordQueryFilterPlanBase i
     }
 
     @Override
-    public int hashCodeWithoutChildren() {
+    public int computeHashCodeWithoutChildren() {
         return Objects.hash(conjunctedPredicate);
     }
 

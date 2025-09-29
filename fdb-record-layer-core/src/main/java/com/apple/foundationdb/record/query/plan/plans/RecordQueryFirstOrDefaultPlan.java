@@ -38,11 +38,11 @@ import com.apple.foundationdb.record.query.plan.cascades.FinalMemoizer;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
+import com.apple.foundationdb.record.query.plan.cascades.explain.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.AbstractRelationalExpressionWithChildren;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionWithChildren;
-import com.apple.foundationdb.record.query.plan.cascades.explain.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.values.DerivedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
@@ -65,7 +65,7 @@ import java.util.Set;
  * the first record.
  */
 @API(API.Status.INTERNAL)
-public class RecordQueryFirstOrDefaultPlan implements RecordQueryPlanWithChild, RelationalExpressionWithChildren {
+public class RecordQueryFirstOrDefaultPlan extends AbstractRelationalExpressionWithChildren implements RecordQueryPlanWithChild {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-First-Or-Default-Plan");
 
     @Nonnull
@@ -75,8 +75,8 @@ public class RecordQueryFirstOrDefaultPlan implements RecordQueryPlanWithChild, 
     @Nonnull
     private final Value resultValue;
 
-    public RecordQueryFirstOrDefaultPlan(@Nonnull Quantifier.Physical inner,
-                                         @Nonnull Value onEmptyResultValue) {
+    public RecordQueryFirstOrDefaultPlan(@Nonnull final Quantifier.Physical inner,
+                                         @Nonnull final Value onEmptyResultValue) {
         Verify.verify(inner.getFlowedObjectType().nullable().equals(onEmptyResultValue.getResultType().nullable()));
         this.inner = inner;
         this.onEmptyResultValue = onEmptyResultValue;
@@ -97,7 +97,7 @@ public class RecordQueryFirstOrDefaultPlan implements RecordQueryPlanWithChild, 
                                                                      @Nonnull final ExecuteProperties executeProperties) {
         // Note that a null child continuation is always handed to the child cursor below.
         // This is because the returned FutureCursor only ever returns a single value, and so if
-        // if that lambda is called, it indicates that the original continuation is null, and we
+        // that lambda is called, it indicates that the original continuation is null, and we
         // are starting the plan from the beginning. That this doesn't handle the inner cursor
         // halting with an out-of-band no-next-reasons, which currently is treated the same way
         // as the inner cursor being empty.
@@ -121,7 +121,7 @@ public class RecordQueryFirstOrDefaultPlan implements RecordQueryPlanWithChild, 
 
     @Nonnull
     @Override
-    public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
+    public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return onEmptyResultValue.getCorrelatedTo();
     }
 
@@ -189,7 +189,7 @@ public class RecordQueryFirstOrDefaultPlan implements RecordQueryPlanWithChild, 
     }
 
     @Override
-    public int hashCodeWithoutChildren() {
+    public int computeHashCodeWithoutChildren() {
         return Objects.hash(getResultValue());
     }
 

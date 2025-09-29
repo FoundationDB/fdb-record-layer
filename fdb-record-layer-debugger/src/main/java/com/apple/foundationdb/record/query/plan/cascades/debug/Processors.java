@@ -27,7 +27,7 @@ import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger.AdjustMa
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger.ExecutingTaskEvent;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger.ExploreExpressionEvent;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger.ExploreGroupEvent;
-import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger.InsertIntoMemoEvent;
+import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger.InsertIntoMemoYieldEvent;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger.OptimizeGroupEvent;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger.OptimizeInputsEvent;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger.TransformEvent;
@@ -365,26 +365,26 @@ public class Processors {
     }
 
     /**
-     * Processor for {@link InsertIntoMemoEvent}.
+     * Processor for {@link InsertIntoMemoYieldEvent}.
      */
     @AutoService(Processor.class)
-    public static class InsertMemoProcessor implements Processor<InsertIntoMemoEvent> {
+    public static class InsertMemoProcessor implements Processor<InsertIntoMemoYieldEvent> {
         @Override
-        public void onDetail(final PlannerRepl plannerRepl, final InsertIntoMemoEvent event) {
+        public void onDetail(final PlannerRepl plannerRepl, final InsertIntoMemoYieldEvent event) {
             plannerRepl.printlnKeyValue("event", event.getShorthand().name().toLowerCase(Locale.ROOT));
             plannerRepl.printlnKeyValue("location", event.getLocation().name().toLowerCase(Locale.ROOT));
             plannerRepl.printlnKeyValue("description", event.getDescription());
         }
 
         @Override
-        public void onList(final PlannerRepl plannerRepl, final InsertIntoMemoEvent event) {
+        public void onList(final PlannerRepl plannerRepl, final InsertIntoMemoYieldEvent event) {
             plannerRepl.printKeyValue("shorthand", event.getShorthand().name().toLowerCase(Locale.ROOT) + "; ");
             plannerRepl.printKeyValue("location", event.getLocation().name().toLowerCase(Locale.ROOT));
         }
 
         @Override
-        public Class<InsertIntoMemoEvent> getEventType() {
-            return InsertIntoMemoEvent.class;
+        public Class<InsertIntoMemoYieldEvent> getEventType() {
+            return InsertIntoMemoYieldEvent.class;
         }
     }
 

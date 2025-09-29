@@ -7,13 +7,16 @@ recursive-cte-tests:
         TEMP SCAN base() | FILTER _.ID EQUALS q2.PARENT AS q3 RETURN (q2.ID AS ID,
         q2.PARENT AS PARENT) } | INSERT INTO TEMP q1 }} | MAP (_.ID AS ID)
     task_count: 1334
-    task_total_time_ms: 212
+    task_total_time_ms: 14
     transform_count: 320
-    transform_time_ms: 126
+    transform_time_ms: 6
     transform_yield_count: 98
-    insert_time_ms: 11
-    insert_new_count: 185
-    insert_reused_count: 9
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 65
+    insert_yield_reused_count: 9
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 120
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN with recursive c1 as ( select id, parent from t1 where id = 250
         union all select b.id, b.parent from c1 as a, t1 as b where a.parent = b.id)
         select id from c1
@@ -22,13 +25,16 @@ recursive-cte-tests:
         TEMP SCAN base() | FILTER _.PARENT EQUALS q2.ID AS q3 RETURN (q2.ID AS ID,
         q2.PARENT AS PARENT) } | INSERT INTO TEMP q1 }} | MAP (_.ID AS ID)
     task_count: 1334
-    task_total_time_ms: 48
+    task_total_time_ms: 14
     transform_count: 320
-    transform_time_ms: 19
+    transform_time_ms: 5
     transform_yield_count: 98
-    insert_time_ms: 4
-    insert_new_count: 185
-    insert_reused_count: 9
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 65
+    insert_yield_reused_count: 9
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 120
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN with recursive allDescendants as ( with recursive ancestorsOf250
         as ( select id, parent from t1 where id = 250 union all select b.id, b.parent
         from ancestorsOf250 as a, t1 as b where a.parent = b.id) select id, parent
@@ -43,13 +49,16 @@ recursive-cte-tests:
         q6.PARENT AS q7 RETURN (q6.ID AS ID, q6.PARENT AS PARENT) } | INSERT INTO
         TEMP q1 }} | MAP (_.ID AS ID, _.PARENT AS PARENT)
     task_count: 2122
-    task_total_time_ms: 55
+    task_total_time_ms: 21
     transform_count: 523
-    transform_time_ms: 24
+    transform_time_ms: 7
     transform_yield_count: 150
-    insert_time_ms: 4
-    insert_new_count: 300
-    insert_reused_count: 15
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 102
+    insert_yield_reused_count: 15
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 198
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN with recursive c1 as ( select id, parent from t1 where parent =
         -1 union all select b.id, b.parent from c1 as a, t1 as b where a.id = b.parent)
         select id from c1
@@ -58,13 +67,16 @@ recursive-cte-tests:
         TEMP SCAN base() | FILTER _.ID EQUALS q2.PARENT AS q3 RETURN (q2.ID AS ID,
         q2.PARENT AS PARENT) } | INSERT INTO TEMP q1 }} | MAP (_.ID AS ID)
     task_count: 1334
-    task_total_time_ms: 212
+    task_total_time_ms: 14
     transform_count: 320
-    transform_time_ms: 126
+    transform_time_ms: 6
     transform_yield_count: 98
-    insert_time_ms: 11
-    insert_new_count: 185
-    insert_reused_count: 9
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 65
+    insert_yield_reused_count: 9
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 120
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN with recursive allDescendants as ( with recursive ancestorsOf250
         as ( select id, parent from t1 where id = 250 union all select b.id, b.parent
         from ancestorsOf250 as a, t1 as b where a.parent = b.id) select id, parent
@@ -79,10 +91,13 @@ recursive-cte-tests:
         q6.PARENT AS q7 RETURN (q6.ID AS ID, q6.PARENT AS PARENT) } | INSERT INTO
         TEMP q1 }} | MAP (_.ID AS ID, _.PARENT AS PARENT)
     task_count: 2122
-    task_total_time_ms: 55
+    task_total_time_ms: 21
     transform_count: 523
-    transform_time_ms: 24
+    transform_time_ms: 7
     transform_yield_count: 150
-    insert_time_ms: 4
-    insert_new_count: 300
-    insert_reused_count: 15
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 102
+    insert_yield_reused_count: 15
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 198
+    insert_memoize_reused_count: 0

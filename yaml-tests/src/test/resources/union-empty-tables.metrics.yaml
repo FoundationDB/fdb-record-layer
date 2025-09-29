@@ -4,13 +4,16 @@ unnamed-1:
         count_star(*) AS _1) | ON EMPTY NULL | MAP (_._0._0 AS A, coalesce_long(_._0._1,
         promote(0l AS LONG)) AS B)
     task_count: 260
-    task_total_time_ms: 4
+    task_total_time_ms: 5
     transform_count: 63
     transform_time_ms: 1
     transform_yield_count: 17
-    insert_time_ms: 0
-    insert_new_count: 24
-    insert_reused_count: 2
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 11
+    insert_yield_reused_count: 2
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 13
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select sum(a) as a, sum(b) as b from (select sum(col1) as a, count(*)
         as b from t1 union all select sum(col1) as a, count(*) as b from t2) as x
     explain: SCAN(<,>) | TFILTER T1 | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0,
@@ -21,133 +24,166 @@ unnamed-1:
         AGG (sum_l(_._0.A) AS _0, sum_l(_._0.B) AS _1) | ON EMPTY NULL | MAP (_._0._0
         AS A, _._0._1 AS B)
     task_count: 691
-    task_total_time_ms: 27
+    task_total_time_ms: 13
     transform_count: 167
-    transform_time_ms: 12
+    transform_time_ms: 2
     transform_yield_count: 42
-    insert_time_ms: 0
-    insert_new_count: 64
-    insert_reused_count: 4
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 28
+    insert_yield_reused_count: 4
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 36
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select col1, col2 from t1 union all select col1, col2 from t1
     explain: SCAN(<,>) | TFILTER T1 | MAP (_.COL1 AS COL1, _.COL2 AS COL2) ⊎ SCAN(<,>)
         | TFILTER T1 | MAP (_.COL1 AS COL1, _.COL2 AS COL2)
     task_count: 323
-    task_total_time_ms: 10
+    task_total_time_ms: 9
     transform_count: 81
     transform_time_ms: 2
     transform_yield_count: 25
-    insert_time_ms: 0
-    insert_new_count: 33
-    insert_reused_count: 4
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 14
+    insert_yield_reused_count: 4
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 19
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select * from t1 union all select * from t1;
     explain: SCAN(<,>) | TFILTER T1 ⊎ SCAN(<,>) | TFILTER T1
     task_count: 323
-    task_total_time_ms: 13
+    task_total_time_ms: 6
     transform_count: 81
-    transform_time_ms: 3
+    transform_time_ms: 1
     transform_yield_count: 25
-    insert_time_ms: 0
-    insert_new_count: 29
-    insert_reused_count: 4
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 14
+    insert_yield_reused_count: 4
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 15
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select * from t1 union all select id, col1, col2 from t1;
     explain: SCAN(<,>) | TFILTER T1 ⊎ SCAN(<,>) | TFILTER T1 | MAP (_.ID AS ID, _.COL1
         AS COL1, _.COL2 AS COL2)
     task_count: 351
-    task_total_time_ms: 15
+    task_total_time_ms: 12
     transform_count: 86
-    transform_time_ms: 3
+    transform_time_ms: 1
     transform_yield_count: 27
-    insert_time_ms: 0
-    insert_new_count: 33
-    insert_reused_count: 3
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 16
+    insert_yield_reused_count: 3
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 17
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select id, col1, col2 from t1 union all select * from t1;
     explain: SCAN(<,>) | TFILTER T1 | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)
         ⊎ SCAN(<,>) | TFILTER T1
     task_count: 351
-    task_total_time_ms: 17
+    task_total_time_ms: 7
     transform_count: 86
-    transform_time_ms: 6
+    transform_time_ms: 1
     transform_yield_count: 27
-    insert_time_ms: 0
-    insert_new_count: 33
-    insert_reused_count: 3
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 16
+    insert_yield_reused_count: 3
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 17
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select id as W, col1 as X, col2 as Y from t1 union all select *
         from t1;
     explain: SCAN(<,>) | TFILTER T1 | MAP (_.ID AS W, _.COL1 AS X, _.COL2 AS Y) |
         MAP (_.W AS W, _.X AS X, _.Y AS Y) ⊎ SCAN(<,>) | TFILTER T1 | MAP (_.ID AS
         ID, _.COL1 AS COL1, _.COL2 AS COL2)
     task_count: 447
-    task_total_time_ms: 16
+    task_total_time_ms: 10
     transform_count: 113
-    transform_time_ms: 2
+    transform_time_ms: 1
     transform_yield_count: 29
-    insert_time_ms: 0
-    insert_new_count: 39
-    insert_reused_count: 4
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 18
+    insert_yield_reused_count: 4
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 21
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN (select id as W, col1 as X, col2 as Y from t1) union all select
         * from t1;
     explain: SCAN(<,>) | TFILTER T1 | MAP (_.ID AS W, _.COL1 AS X, _.COL2 AS Y) |
         MAP (_.W AS W, _.X AS X, _.Y AS Y) ⊎ SCAN(<,>) | TFILTER T1 | MAP (_.ID AS
         ID, _.COL1 AS COL1, _.COL2 AS COL2)
     task_count: 447
-    task_total_time_ms: 12
+    task_total_time_ms: 15
     transform_count: 113
-    transform_time_ms: 2
+    transform_time_ms: 3
     transform_yield_count: 29
-    insert_time_ms: 0
-    insert_new_count: 39
-    insert_reused_count: 4
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 18
+    insert_yield_reused_count: 4
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 21
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select id as W, col1 as X, col2 as Y from t1 union all (select
         * from t1);
     explain: SCAN(<,>) | TFILTER T1 | MAP (_.ID AS W, _.COL1 AS X, _.COL2 AS Y) |
         MAP (_.W AS W, _.X AS X, _.Y AS Y) ⊎ SCAN(<,>) | TFILTER T1 | MAP (_.ID AS
         ID, _.COL1 AS COL1, _.COL2 AS COL2)
     task_count: 447
-    task_total_time_ms: 17
+    task_total_time_ms: 18
     transform_count: 113
-    transform_time_ms: 2
+    transform_time_ms: 4
     transform_yield_count: 29
-    insert_time_ms: 0
-    insert_new_count: 39
-    insert_reused_count: 4
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 18
+    insert_yield_reused_count: 4
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 21
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN (select id as W, col1 as X, col2 as Y from t1 union all (select
         * from t1));
     explain: SCAN(<,>) | TFILTER T1 | MAP (_.ID AS W, _.COL1 AS X, _.COL2 AS Y) |
         MAP (_.W AS W, _.X AS X, _.Y AS Y) ⊎ SCAN(<,>) | TFILTER T1 | MAP (_.ID AS
         ID, _.COL1 AS COL1, _.COL2 AS COL2)
     task_count: 447
-    task_total_time_ms: 5
+    task_total_time_ms: 3
     transform_count: 113
     transform_time_ms: 1
     transform_yield_count: 29
-    insert_time_ms: 0
-    insert_new_count: 39
-    insert_reused_count: 4
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 18
+    insert_yield_reused_count: 4
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 21
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN ((select id as W, col1 as X, col2 as Y from t1) union all select
         * from t1);
     explain: SCAN(<,>) | TFILTER T1 | MAP (_.ID AS W, _.COL1 AS X, _.COL2 AS Y) |
         MAP (_.W AS W, _.X AS X, _.Y AS Y) ⊎ SCAN(<,>) | TFILTER T1 | MAP (_.ID AS
         ID, _.COL1 AS COL1, _.COL2 AS COL2)
     task_count: 447
-    task_total_time_ms: 16
+    task_total_time_ms: 14
     transform_count: 113
     transform_time_ms: 2
     transform_yield_count: 29
-    insert_time_ms: 0
-    insert_new_count: 39
-    insert_reused_count: 4
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 18
+    insert_yield_reused_count: 4
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 21
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select a, b from t3 union all select a, b from t4
     explain: SCAN(<,>) | TFILTER T3 | MAP (_.A AS A, _.B AS B) | MAP (_.A AS A, promote(_.B
         AS DOUBLE) AS B) ⊎ SCAN(<,>) | TFILTER T4 | MAP (_.A AS A, _.B AS B) | MAP
         (promote(_.A AS DOUBLE) AS A, _.B AS B)
     task_count: 485
-    task_total_time_ms: 12
+    task_total_time_ms: 21
     transform_count: 127
-    transform_time_ms: 3
+    transform_time_ms: 5
     transform_yield_count: 39
-    insert_time_ms: 0
-    insert_new_count: 44
-    insert_reused_count: 4
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 20
+    insert_yield_reused_count: 4
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 24
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select sum(Y) as S from (select count(*) as Y from t3 where a <
         10 group by a union all select count(*) from t4) as X
     explain: 'AISCAN(MV10 [[LESS_THAN promote(@c22 AS DOUBLE)]] BY_GROUP -> [_0: KEY:[0],
@@ -156,13 +192,16 @@ unnamed-1:
         promote(0l AS LONG)) AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) |
         ON EMPTY NULL | MAP (_._0._0 AS S)'
     task_count: 773
-    task_total_time_ms: 16
+    task_total_time_ms: 32
     transform_count: 208
-    transform_time_ms: 8
+    transform_time_ms: 11
     transform_yield_count: 55
-    insert_time_ms: 0
-    insert_new_count: 68
-    insert_reused_count: 3
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 31
+    insert_yield_reused_count: 3
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 37
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select sum(Y) as S from (select count(*) as Y from t3 union all
         select count(*) from t1) as X
     explain: 'AISCAN(MV10 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | AGG sum_l(_._1)
@@ -172,13 +211,16 @@ unnamed-1:
         AS LONG)) AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) | ON EMPTY NULL
         | MAP (_._0._0 AS S)'
     task_count: 926
-    task_total_time_ms: 34
+    task_total_time_ms: 30
     transform_count: 242
-    transform_time_ms: 15
+    transform_time_ms: 16
     transform_yield_count: 61
-    insert_time_ms: 1
-    insert_new_count: 89
-    insert_reused_count: 6
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 37
+    insert_yield_reused_count: 6
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 52
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select col2 from t1 where exists (select a from t3 where col2 <=
         id union all select b from t4 where col2 <= id)
     explain: SCAN(<,>) | TFILTER T1 | FLATMAP q0 -> { SCAN(<,>) | TFILTER T3 | FILTER
@@ -186,10 +228,13 @@ unnamed-1:
         T4 | FILTER _.ID GREATER_THAN_OR_EQUALS q0.COL2 | MAP (_.B AS B) | DEFAULT
         NULL | FILTER _ NOT_NULL AS q1 RETURN (q0.COL2 AS COL2) }
     task_count: 773
-    task_total_time_ms: 29
+    task_total_time_ms: 25
     transform_count: 215
-    transform_time_ms: 12
+    transform_time_ms: 7
     transform_yield_count: 61
-    insert_time_ms: 1
-    insert_new_count: 77
-    insert_reused_count: 6
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 31
+    insert_yield_reused_count: 5
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 46
+    insert_memoize_reused_count: 1

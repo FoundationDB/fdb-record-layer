@@ -77,8 +77,10 @@ public final class YamlExecutionContext {
             "task_count",
             "transform_count",
             "transform_yield_count",
-            "insert_new_count",
-            "insert_reused_count"
+            "insert_yield_new_count",
+            "insert_yield_reused_count",
+            "insert_memoize_new_count",
+            "insert_memoize_reused_count"
     );
 
     public static final ContextOption<Boolean> OPTION_FORCE_CONTINUATIONS = new ContextOption<>("optionForceContinuation");
@@ -453,9 +455,12 @@ public final class YamlExecutionContext {
             infoMap.put("transform_count", countersAndTimers.getTransformCount());
             infoMap.put("transform_time_ms", TimeUnit.NANOSECONDS.toMillis(countersAndTimers.getTransformTimeNs()));
             infoMap.put("transform_yield_count", countersAndTimers.getTransformYieldCount());
-            infoMap.put("insert_time_ms", TimeUnit.NANOSECONDS.toMillis(countersAndTimers.getInsertTimeNs()));
-            infoMap.put("insert_new_count", countersAndTimers.getInsertNewCount());
-            infoMap.put("insert_reused_count", countersAndTimers.getInsertReusedCount());
+            infoMap.put("insert_yield_time_ms", TimeUnit.NANOSECONDS.toMillis(countersAndTimers.getInsertYieldTimeNs()));
+            infoMap.put("insert_yield_new_count", countersAndTimers.getInsertYieldNewCount());
+            infoMap.put("insert_yield_reused_count", countersAndTimers.getInsertYieldReusedCount());
+            infoMap.put("insert_memoize_time_ms", TimeUnit.NANOSECONDS.toMillis(countersAndTimers.getInsertMemoizeTimeNs()));
+            infoMap.put("insert_memoize_new_count", countersAndTimers.getInsertMemoizeNewCount());
+            infoMap.put("insert_memoize_reused_count", countersAndTimers.getInsertMemoizeReusedCount());
             mmap.put(identifier.getBlockName(), infoMap);
         }
 
@@ -615,9 +620,12 @@ public final class YamlExecutionContext {
                 .setTransformCount(getLongValue(queryMap, "transform_count"))
                 .setTransformTimeNs(TimeUnit.MILLISECONDS.toNanos(getLongValue(queryMap, "transform_time_ms")))
                 .setTransformYieldCount(getLongValue(queryMap, "transform_yield_count"))
-                .setInsertTimeNs(TimeUnit.MILLISECONDS.toNanos(getLongValue(queryMap, "insert_time_ms")))
-                .setInsertNewCount(getLongValue(queryMap, "insert_new_count"))
-                .setInsertReusedCount(getLongValue(queryMap, "insert_reused_count"))
+                .setInsertYieldTimeNs(TimeUnit.MILLISECONDS.toNanos(getLongValue(queryMap, "insert_yield_time_ms")))
+                .setInsertYieldNewCount(getLongValue(queryMap, "insert_yield_new_count"))
+                .setInsertYieldReusedCount(getLongValue(queryMap, "insert_yield_reused_count"))
+                .setInsertMemoizeTimeNs(TimeUnit.MILLISECONDS.toNanos(getLongValue(queryMap, "insert_memoize_time_ms")))
+                .setInsertMemoizeNewCount(getLongValue(queryMap, "insert_memoize_new_count"))
+                .setInsertMemoizeReusedCount(getLongValue(queryMap, "insert_memoize_reused_count"))
                 .build();
 
         // Build info

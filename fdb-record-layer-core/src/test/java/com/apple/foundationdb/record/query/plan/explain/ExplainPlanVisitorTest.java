@@ -89,6 +89,7 @@ import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.RandomizedTestUtils;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.primitives.ImmutableIntArray;
 import com.google.protobuf.Message;
@@ -630,7 +631,13 @@ public class ExplainPlanVisitorTest {
         @Nonnull
         @Override
         public Set<CorrelationIdentifier> getCorrelatedTo() {
-            return Collections.emptySet();
+            return getCorrelatedToWithoutChildren();
+        }
+
+        @Nonnull
+        @Override
+        public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
+            return ImmutableSet.of();
         }
 
         @Nonnull

@@ -24,7 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.HeuristicPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
-import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger.InsertIntoMemoEvent;
+import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger.InsertIntoMemoYieldEvent;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionWithChildren;
@@ -48,7 +48,6 @@ import java.util.AbstractCollection;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -326,14 +325,14 @@ public class Reference implements Correlated<Reference>, Typed {
     private boolean insert(@Nonnull final RelationalExpression newExpression,
                            final boolean isFinal,
                            @Nullable final Map<ExpressionProperty<?>, ?> precomputedPropertiesMap) {
-        Debugger.withDebugger(debugger -> debugger.onEvent(InsertIntoMemoEvent.begin()));
+        Debugger.withDebugger(debugger -> debugger.onEvent(InsertIntoMemoYieldEvent.begin()));
         try {
             final boolean containsInMemo = containsInMemo(newExpression, isFinal);
             Debugger.withDebugger(debugger -> {
                 if (containsInMemo) {
-                    debugger.onEvent(InsertIntoMemoEvent.reusedExpWithReferences(newExpression, ImmutableList.of(this)));
+                    debugger.onEvent(InsertIntoMemoYieldEvent.reusedExp(newExpression, ImmutableList.of(this)));
                 } else {
-                    debugger.onEvent(InsertIntoMemoEvent.newExp(newExpression));
+                    debugger.onEvent(InsertIntoMemoYieldEvent.newExp(newExpression));
                 }
             });
             if (!containsInMemo) {
@@ -342,7 +341,7 @@ public class Reference implements Correlated<Reference>, Typed {
             }
             return false;
         } finally {
-            Debugger.withDebugger(debugger -> debugger.onEvent(InsertIntoMemoEvent.end()));
+            Debugger.withDebugger(debugger -> debugger.onEvent(InsertIntoMemoYieldEvent.end()));
         }
     }
 
@@ -983,17 +982,7 @@ public class Reference implements Correlated<Reference>, Typed {
                                       @Nonnull final AliasMap equivalenceMap) {
             // short circuit if possible
             if (expressions.contains(otherExpression)) {
-                //
-                // Make sure that the equivalence map either only defines identities, i.e. aliases are only mapped to
-                // themselves, or, if not, that neither sources nor targets have anything to do with the expression's
-                // correlation set.
-                //
-                final var otherCorrelatedTo = otherExpression.getCorrelatedTo();
-                if (equivalenceMap.definesOnlyIdentities() ||
-                        (Collections.disjoint(equivalenceMap.targets(), otherCorrelatedTo) &&
-                                 Collections.disjoint(equivalenceMap.sources(), otherCorrelatedTo))) {
-                    return true;
-                }
+                return true;
             }
 
             for (final RelationalExpression member : expressions) {

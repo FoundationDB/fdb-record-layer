@@ -3,141 +3,177 @@ agg-empty-table-tests:
     explain: SCAN(<,>) | TFILTER T1 | MAP (_ AS _0) | AGG (count_star(*) AS _0) |
         ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
     task_count: 260
-    task_total_time_ms: 6
+    task_total_time_ms: 4
     transform_count: 63
     transform_time_ms: 1
     transform_yield_count: 17
-    insert_time_ms: 0
-    insert_new_count: 24
-    insert_reused_count: 2
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 11
+    insert_yield_reused_count: 2
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 13
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select count(*) from T1 where col1 = 0;
     explain: SCAN(<,>) | TFILTER T1 | FILTER _.COL1 EQUALS promote(@c11 AS LONG) |
         MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
         promote(0l AS LONG)) AS _0)
     task_count: 331
-    task_total_time_ms: 10
+    task_total_time_ms: 11
     transform_count: 83
-    transform_time_ms: 2
+    transform_time_ms: 3
     transform_yield_count: 19
-    insert_time_ms: 0
-    insert_new_count: 30
-    insert_reused_count: 2
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 13
+    insert_yield_reused_count: 2
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 17
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select count(*) from T1 where col1 > 0;
     explain: SCAN(<,>) | TFILTER T1 | FILTER _.COL1 GREATER_THAN promote(@c11 AS LONG)
         | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
         promote(0l AS LONG)) AS _0)
     task_count: 331
-    task_total_time_ms: 6
+    task_total_time_ms: 9
     transform_count: 83
-    transform_time_ms: 1
+    transform_time_ms: 2
     transform_yield_count: 19
-    insert_time_ms: 0
-    insert_new_count: 30
-    insert_reused_count: 2
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 13
+    insert_yield_reused_count: 2
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 17
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select count(*) from T2;
     explain: 'AISCAN(T2_I1 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY
         NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)'
     task_count: 608
-    task_total_time_ms: 32
+    task_total_time_ms: 27
     transform_count: 183
-    transform_time_ms: 18
+    transform_time_ms: 15
     transform_yield_count: 60
-    insert_time_ms: 0
-    insert_new_count: 55
-    insert_reused_count: 7
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 22
+    insert_yield_reused_count: 7
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 33
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select count(*) from T2 where col1 = 0;
     explain: 'AISCAN(T2_I2 [EQUALS promote(@c11 AS LONG)] BY_GROUP -> [_0: KEY:[0],
         _1: VALUE:[0]]) | MAP ((_._1 AS _0) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
         promote(0l AS LONG)) AS _0)'
     task_count: 562
-    task_total_time_ms: 32
+    task_total_time_ms: 27
     transform_count: 172
-    transform_time_ms: 18
+    transform_time_ms: 15
     transform_yield_count: 58
-    insert_time_ms: 0
-    insert_new_count: 47
-    insert_reused_count: 5
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 20
+    insert_yield_reused_count: 5
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 27
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select count(*) from T2 where col1 > 0;
     explain: 'AISCAN(T2_I2 [[GREATER_THAN promote(@c11 AS LONG)]] BY_GROUP -> [_0:
         KEY:[0], _1: VALUE:[0]]) | AGG sum_l(_._1) GROUP BY () | MAP ((_._1 AS _0)
         AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG))
         AS _0)'
     task_count: 584
-    task_total_time_ms: 33
+    task_total_time_ms: 27
     transform_count: 174
-    transform_time_ms: 21
+    transform_time_ms: 14
     transform_yield_count: 58
-    insert_time_ms: 0
-    insert_new_count: 50
-    insert_reused_count: 5
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 20
+    insert_yield_reused_count: 5
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 30
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select count(*) from T2 group by col1;
     explain: 'AISCAN(T2_I2 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._1
         AS _0)'
     task_count: 364
-    task_total_time_ms: 19
+    task_total_time_ms: 27
     transform_count: 119
-    transform_time_ms: 11
+    transform_time_ms: 18
     transform_yield_count: 48
-    insert_time_ms: 0
-    insert_new_count: 24
-    insert_reused_count: 1
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 13
+    insert_yield_reused_count: 1
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 11
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select count(*) from T2 where col1 = 0 group by col1;
     explain: 'AISCAN(T2_I2 [EQUALS promote(@c11 AS LONG)] BY_GROUP -> [_0: KEY:[0],
         _1: VALUE:[0]]) | MAP (_._1 AS _0)'
     task_count: 364
-    task_total_time_ms: 11
+    task_total_time_ms: 15
     transform_count: 120
-    transform_time_ms: 7
+    transform_time_ms: 11
     transform_yield_count: 48
-    insert_time_ms: 0
-    insert_new_count: 24
-    insert_reused_count: 1
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 13
+    insert_yield_reused_count: 1
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 11
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select count(*) from T2 where col1 > 0 group by col1;
     explain: 'AISCAN(T2_I2 [[GREATER_THAN promote(@c11 AS LONG)]] BY_GROUP -> [_0:
         KEY:[0], _1: VALUE:[0]]) | MAP (_._1 AS _0)'
     task_count: 364
-    task_total_time_ms: 18
+    task_total_time_ms: 25
     transform_count: 120
-    transform_time_ms: 12
+    transform_time_ms: 16
     transform_yield_count: 48
-    insert_time_ms: 0
-    insert_new_count: 24
-    insert_reused_count: 1
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 13
+    insert_yield_reused_count: 1
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 11
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select count(*) from T3;
     explain: ISCAN(T3_I2 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY
         NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
     task_count: 404
-    task_total_time_ms: 5
+    task_total_time_ms: 9
     transform_count: 91
-    transform_time_ms: 2
+    transform_time_ms: 3
     transform_yield_count: 37
-    insert_time_ms: 0
-    insert_new_count: 48
-    insert_reused_count: 6
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 19
+    insert_yield_reused_count: 6
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 29
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select count(*) from T3 where col1 = 0;
     explain: ISCAN(T3_I1 [EQUALS promote(@c11 AS LONG)]) | MAP (_ AS _0) | AGG (count_star(*)
         AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG))
         AS _0)
     task_count: 635
-    task_total_time_ms: 25
+    task_total_time_ms: 16
     transform_count: 158
-    transform_time_ms: 8
+    transform_time_ms: 5
     transform_yield_count: 45
-    insert_time_ms: 1
-    insert_new_count: 70
-    insert_reused_count: 5
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 27
+    insert_yield_reused_count: 5
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 43
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select count(*) from T3 where col1 > 0;
     explain: ISCAN(T3_I1 [[GREATER_THAN promote(@c11 AS LONG)]]) | MAP (_ AS _0) |
         AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l
         AS LONG)) AS _0)
     task_count: 650
-    task_total_time_ms: 25
+    task_total_time_ms: 17
     transform_count: 159
-    transform_time_ms: 7
+    transform_time_ms: 6
     transform_yield_count: 46
-    insert_time_ms: 0
-    insert_new_count: 72
-    insert_reused_count: 5
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 28
+    insert_yield_reused_count: 5
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 44
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select count(*) from T3 group by col1;
     explain: ISCAN(T3_I1 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY
         (_._0.COL1 AS _0) | MAP (_._1._0 AS _0)
@@ -146,102 +182,129 @@ agg-empty-table-tests:
     transform_count: 74
     transform_time_ms: 4
     transform_yield_count: 30
-    insert_time_ms: 0
-    insert_new_count: 25
-    insert_reused_count: 2
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 12
+    insert_yield_reused_count: 2
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 13
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select count(*) from T3 where col1 = 0 group by col1;
     explain: ISCAN(T3_I1 [EQUALS promote(@c11 AS LONG)]) | MAP (_ AS _0) | AGG (count_star(*)
         AS _0) GROUP BY (_._0.COL1 AS _0) | MAP (_._1._0 AS _0)
     task_count: 382
-    task_total_time_ms: 16
+    task_total_time_ms: 15
     transform_count: 100
     transform_time_ms: 5
     transform_yield_count: 34
-    insert_time_ms: 0
-    insert_new_count: 35
-    insert_reused_count: 1
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 16
+    insert_yield_reused_count: 1
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 19
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select count(*) from T3 where col1 > 0 group by col1;
     explain: ISCAN(T3_I1 [[GREATER_THAN promote(@c11 AS LONG)]]) | MAP (_ AS _0) |
         AGG (count_star(*) AS _0) GROUP BY (_._0.COL1 AS _0) | MAP (_._1._0 AS _0)
     task_count: 382
-    task_total_time_ms: 16
+    task_total_time_ms: 12
     transform_count: 100
-    transform_time_ms: 6
+    transform_time_ms: 4
     transform_yield_count: 34
-    insert_time_ms: 0
-    insert_new_count: 35
-    insert_reused_count: 1
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 16
+    insert_yield_reused_count: 1
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 19
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select count(col2) from T1;
     explain: SCAN(<,>) | TFILTER T1 | MAP (_ AS _0) | AGG (count(_._0.COL2) AS _0)
         | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
     task_count: 260
-    task_total_time_ms: 6
+    task_total_time_ms: 5
     transform_count: 63
     transform_time_ms: 1
     transform_yield_count: 17
-    insert_time_ms: 0
-    insert_new_count: 24
-    insert_reused_count: 2
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 11
+    insert_yield_reused_count: 2
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 13
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select count(col2) from T1 where col1 = 0;
     explain: SCAN(<,>) | TFILTER T1 | FILTER _.COL1 EQUALS promote(@c11 AS LONG) |
         MAP (_ AS _0) | AGG (count(_._0.COL2) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
         promote(0l AS LONG)) AS _0)
     task_count: 331
-    task_total_time_ms: 9
+    task_total_time_ms: 7
     transform_count: 83
     transform_time_ms: 2
     transform_yield_count: 19
-    insert_time_ms: 0
-    insert_new_count: 30
-    insert_reused_count: 2
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 13
+    insert_yield_reused_count: 2
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 17
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select count(col2) from T1 where col1 > 0;
     explain: SCAN(<,>) | TFILTER T1 | FILTER _.COL1 GREATER_THAN promote(@c11 AS LONG)
         | MAP (_ AS _0) | AGG (count(_._0.COL2) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
         promote(0l AS LONG)) AS _0)
     task_count: 331
-    task_total_time_ms: 12
+    task_total_time_ms: 8
     transform_count: 83
-    transform_time_ms: 3
+    transform_time_ms: 2
     transform_yield_count: 19
-    insert_time_ms: 0
-    insert_new_count: 30
-    insert_reused_count: 2
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 13
+    insert_yield_reused_count: 2
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 17
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select count(col2) from T2;
     explain: 'AISCAN(T2_I3 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY
         NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)'
     task_count: 608
-    task_total_time_ms: 31
+    task_total_time_ms: 28
     transform_count: 183
-    transform_time_ms: 19
+    transform_time_ms: 16
     transform_yield_count: 60
-    insert_time_ms: 0
-    insert_new_count: 55
-    insert_reused_count: 7
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 22
+    insert_yield_reused_count: 7
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 33
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select count(col2) from T2 where col1 = 0;
     explain: 'AISCAN(T2_I4 [EQUALS promote(@c11 AS LONG)] BY_GROUP -> [_0: KEY:[0],
         _1: VALUE:[0]]) | MAP ((_._1 AS _0) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
         promote(0l AS LONG)) AS _0)'
     task_count: 562
-    task_total_time_ms: 29
+    task_total_time_ms: 34
     transform_count: 172
-    transform_time_ms: 19
+    transform_time_ms: 21
     transform_yield_count: 58
-    insert_time_ms: 0
-    insert_new_count: 47
-    insert_reused_count: 5
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 20
+    insert_yield_reused_count: 5
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 27
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select count(col2) from T2 where col1 > 0;
     explain: 'AISCAN(T2_I4 [[GREATER_THAN promote(@c11 AS LONG)]] BY_GROUP -> [_0:
         KEY:[0], _1: VALUE:[0]]) | AGG sum_l(_._1) GROUP BY () | MAP ((_._1 AS _0)
         AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG))
         AS _0)'
     task_count: 584
-    task_total_time_ms: 26
+    task_total_time_ms: 30
     transform_count: 174
-    transform_time_ms: 15
+    transform_time_ms: 19
     transform_yield_count: 58
-    insert_time_ms: 0
-    insert_new_count: 50
-    insert_reused_count: 5
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 20
+    insert_yield_reused_count: 5
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 30
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select count(col2) from T2 group by col1;
     explain: 'AISCAN(T2_I4 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._1
         AS _0)'
@@ -250,295 +313,373 @@ agg-empty-table-tests:
     transform_count: 119
     transform_time_ms: 13
     transform_yield_count: 48
-    insert_time_ms: 0
-    insert_new_count: 24
-    insert_reused_count: 1
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 13
+    insert_yield_reused_count: 1
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 11
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select count(col2) from T2 where col1 = 0 group by col1;
     explain: 'AISCAN(T2_I4 [EQUALS promote(@c11 AS LONG)] BY_GROUP -> [_0: KEY:[0],
         _1: VALUE:[0]]) | MAP (_._1 AS _0)'
     task_count: 364
-    task_total_time_ms: 25
+    task_total_time_ms: 24
     transform_count: 120
-    transform_time_ms: 14
+    transform_time_ms: 11
     transform_yield_count: 48
-    insert_time_ms: 0
-    insert_new_count: 24
-    insert_reused_count: 1
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 13
+    insert_yield_reused_count: 1
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 11
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select count(col2) from T2 where col1 > 0 group by col1;
     explain: 'AISCAN(T2_I4 [[GREATER_THAN promote(@c11 AS LONG)]] BY_GROUP -> [_0:
         KEY:[0], _1: VALUE:[0]]) | MAP (_._1 AS _0)'
     task_count: 364
-    task_total_time_ms: 21
+    task_total_time_ms: 28
     transform_count: 120
-    transform_time_ms: 12
+    transform_time_ms: 17
     transform_yield_count: 48
-    insert_time_ms: 0
-    insert_new_count: 24
-    insert_reused_count: 1
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 13
+    insert_yield_reused_count: 1
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 11
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select count(col2) from T3;
     explain: ISCAN(T3_I1 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL2) AS _0) | ON
         EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
     task_count: 404
-    task_total_time_ms: 16
+    task_total_time_ms: 4
     transform_count: 91
-    transform_time_ms: 6
+    transform_time_ms: 2
     transform_yield_count: 37
-    insert_time_ms: 0
-    insert_new_count: 48
-    insert_reused_count: 6
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 19
+    insert_yield_reused_count: 6
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 29
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select count(col2) from T3 where col1 = 0;
     explain: ISCAN(T3_I1 [EQUALS promote(@c11 AS LONG)]) | MAP (_ AS _0) | AGG (count(_._0.COL2)
         AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG))
         AS _0)
     task_count: 635
-    task_total_time_ms: 20
+    task_total_time_ms: 27
     transform_count: 158
-    transform_time_ms: 6
+    transform_time_ms: 10
     transform_yield_count: 45
-    insert_time_ms: 0
-    insert_new_count: 70
-    insert_reused_count: 5
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 27
+    insert_yield_reused_count: 5
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 43
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select count(col2) from T3 where col1 > 0;
     explain: ISCAN(T3_I1 [[GREATER_THAN promote(@c11 AS LONG)]]) | MAP (_ AS _0) |
         AGG (count(_._0.COL2) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
         promote(0l AS LONG)) AS _0)
     task_count: 650
-    task_total_time_ms: 18
+    task_total_time_ms: 19
     transform_count: 159
-    transform_time_ms: 5
+    transform_time_ms: 6
     transform_yield_count: 46
-    insert_time_ms: 0
-    insert_new_count: 72
-    insert_reused_count: 5
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 28
+    insert_yield_reused_count: 5
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 44
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select count(col2) from T3 group by col1;
     explain: ISCAN(T3_I1 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL2) AS _0) GROUP
         BY (_._0.COL1 AS _0) | MAP (_._1._0 AS _0)
     task_count: 285
-    task_total_time_ms: 12
+    task_total_time_ms: 11
     transform_count: 74
-    transform_time_ms: 5
+    transform_time_ms: 4
     transform_yield_count: 30
-    insert_time_ms: 0
-    insert_new_count: 25
-    insert_reused_count: 2
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 12
+    insert_yield_reused_count: 2
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 13
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select count(col2) from T3 where col1 = 0 group by col1;
     explain: ISCAN(T3_I1 [EQUALS promote(@c11 AS LONG)]) | MAP (_ AS _0) | AGG (count(_._0.COL2)
         AS _0) GROUP BY (_._0.COL1 AS _0) | MAP (_._1._0 AS _0)
     task_count: 382
-    task_total_time_ms: 7
+    task_total_time_ms: 12
     transform_count: 100
     transform_time_ms: 3
     transform_yield_count: 34
-    insert_time_ms: 0
-    insert_new_count: 35
-    insert_reused_count: 1
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 16
+    insert_yield_reused_count: 1
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 19
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select count(col2) from T3 where col1 > 0 group by col1;
     explain: ISCAN(T3_I1 [[GREATER_THAN promote(@c11 AS LONG)]]) | MAP (_ AS _0) |
         AGG (count(_._0.COL2) AS _0) GROUP BY (_._0.COL1 AS _0) | MAP (_._1._0 AS
         _0)
     task_count: 382
-    task_total_time_ms: 15
+    task_total_time_ms: 8
     transform_count: 100
-    transform_time_ms: 5
+    transform_time_ms: 2
     transform_yield_count: 34
-    insert_time_ms: 0
-    insert_new_count: 35
-    insert_reused_count: 1
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 16
+    insert_yield_reused_count: 1
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 19
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select sum(col1) from T1;
     explain: SCAN(<,>) | TFILTER T1 | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0)
         | ON EMPTY NULL | MAP (_._0._0 AS _0)
     task_count: 260
-    task_total_time_ms: 8
+    task_total_time_ms: 5
     transform_count: 63
     transform_time_ms: 1
     transform_yield_count: 17
-    insert_time_ms: 0
-    insert_new_count: 24
-    insert_reused_count: 2
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 11
+    insert_yield_reused_count: 2
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 13
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select sum(col1) from T1 where col1 = 0;
     explain: SCAN(<,>) | TFILTER T1 | FILTER _.COL1 EQUALS promote(@c11 AS LONG) |
         MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0
-        AS _0)
-    task_count: 331
-    task_total_time_ms: 14
-    transform_count: 83
-    transform_time_ms: 2
-    transform_yield_count: 19
-    insert_time_ms: 0
-    insert_new_count: 30
-    insert_reused_count: 2
--   query: EXPLAIN select sum(col1) from T1 where col2 = 0;
-    explain: SCAN(<,>) | TFILTER T1 | FILTER _.COL2 EQUALS promote(@c11 AS LONG) |
-        MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0
-        AS _0)
-    task_count: 331
-    task_total_time_ms: 7
-    transform_count: 83
-    transform_time_ms: 2
-    transform_yield_count: 19
-    insert_time_ms: 0
-    insert_new_count: 30
-    insert_reused_count: 2
--   query: EXPLAIN select sum(col1) from T1 where col1 > 0;
-    explain: SCAN(<,>) | TFILTER T1 | FILTER _.COL1 GREATER_THAN promote(@c11 AS LONG)
-        | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0
-        AS _0)
-    task_count: 331
-    task_total_time_ms: 6
-    transform_count: 83
-    transform_time_ms: 1
-    transform_yield_count: 19
-    insert_time_ms: 0
-    insert_new_count: 30
-    insert_reused_count: 2
--   query: EXPLAIN select sum(col1) from T1 where col2 > 0;
-    explain: SCAN(<,>) | TFILTER T1 | FILTER _.COL2 GREATER_THAN promote(@c11 AS LONG)
-        | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0
         AS _0)
     task_count: 331
     task_total_time_ms: 10
     transform_count: 83
     transform_time_ms: 2
     transform_yield_count: 19
-    insert_time_ms: 0
-    insert_new_count: 30
-    insert_reused_count: 2
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 13
+    insert_yield_reused_count: 2
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 17
+    insert_memoize_reused_count: 0
+-   query: EXPLAIN select sum(col1) from T1 where col2 = 0;
+    explain: SCAN(<,>) | TFILTER T1 | FILTER _.COL2 EQUALS promote(@c11 AS LONG) |
+        MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0
+        AS _0)
+    task_count: 331
+    task_total_time_ms: 9
+    transform_count: 83
+    transform_time_ms: 2
+    transform_yield_count: 19
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 13
+    insert_yield_reused_count: 2
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 17
+    insert_memoize_reused_count: 0
+-   query: EXPLAIN select sum(col1) from T1 where col1 > 0;
+    explain: SCAN(<,>) | TFILTER T1 | FILTER _.COL1 GREATER_THAN promote(@c11 AS LONG)
+        | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0
+        AS _0)
+    task_count: 331
+    task_total_time_ms: 8
+    transform_count: 83
+    transform_time_ms: 2
+    transform_yield_count: 19
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 13
+    insert_yield_reused_count: 2
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 17
+    insert_memoize_reused_count: 0
+-   query: EXPLAIN select sum(col1) from T1 where col2 > 0;
+    explain: SCAN(<,>) | TFILTER T1 | FILTER _.COL2 GREATER_THAN promote(@c11 AS LONG)
+        | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0
+        AS _0)
+    task_count: 331
+    task_total_time_ms: 5
+    transform_count: 83
+    transform_time_ms: 1
+    transform_yield_count: 19
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 13
+    insert_yield_reused_count: 2
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 17
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select sum(col1) from T2;
     explain: 'AISCAN(T2_I5 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY
         NULL | MAP (_._0._0 AS _0)'
     task_count: 608
-    task_total_time_ms: 31
+    task_total_time_ms: 37
     transform_count: 183
-    transform_time_ms: 18
+    transform_time_ms: 23
     transform_yield_count: 60
-    insert_time_ms: 0
-    insert_new_count: 55
-    insert_reused_count: 7
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 22
+    insert_yield_reused_count: 7
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 33
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select sum(col1) from T2 where col1 = 0;
     explain: SCAN(<,>) | TFILTER T2 | FILTER _.COL1 EQUALS promote(@c11 AS LONG) |
         MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0
         AS _0)
     task_count: 389
-    task_total_time_ms: 21
+    task_total_time_ms: 18
     transform_count: 114
-    transform_time_ms: 15
+    transform_time_ms: 12
     transform_yield_count: 48
-    insert_time_ms: 0
-    insert_new_count: 32
-    insert_reused_count: 2
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 13
+    insert_yield_reused_count: 2
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 19
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select sum(col1) from T2 where col2 = 0;
     explain: 'AISCAN(T2_I6 [EQUALS promote(@c11 AS LONG)] BY_GROUP -> [_0: KEY:[0],
         _1: VALUE:[0]]) | MAP ((_._1 AS _0) AS _0) | ON EMPTY NULL | MAP (_._0._0
         AS _0)'
     task_count: 562
-    task_total_time_ms: 41
+    task_total_time_ms: 39
     transform_count: 172
-    transform_time_ms: 26
+    transform_time_ms: 22
     transform_yield_count: 58
-    insert_time_ms: 0
-    insert_new_count: 47
-    insert_reused_count: 5
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 20
+    insert_yield_reused_count: 5
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 27
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select sum(col1) from T2 where col1 > 0;
     explain: SCAN(<,>) | TFILTER T2 | FILTER _.COL1 GREATER_THAN promote(@c11 AS LONG)
         | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0
         AS _0)
     task_count: 389
-    task_total_time_ms: 26
+    task_total_time_ms: 19
     transform_count: 114
-    transform_time_ms: 17
+    transform_time_ms: 12
     transform_yield_count: 48
-    insert_time_ms: 0
-    insert_new_count: 32
-    insert_reused_count: 2
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 13
+    insert_yield_reused_count: 2
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 19
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select sum(col1) from T2 where col2 > 0;
     explain: 'AISCAN(T2_I6 [[GREATER_THAN promote(@c11 AS LONG)]] BY_GROUP -> [_0:
         KEY:[0], _1: VALUE:[0]]) | AGG sum_l(_._1) GROUP BY () | MAP ((_._1 AS _0)
         AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)'
     task_count: 584
-    task_total_time_ms: 17
+    task_total_time_ms: 24
     transform_count: 174
-    transform_time_ms: 10
+    transform_time_ms: 14
     transform_yield_count: 58
-    insert_time_ms: 0
-    insert_new_count: 50
-    insert_reused_count: 5
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 20
+    insert_yield_reused_count: 5
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 30
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select sum(col1) from T2 where col2 = 0 group by col2;
     explain: 'AISCAN(T2_I6 [EQUALS promote(@c11 AS LONG)] BY_GROUP -> [_0: KEY:[0],
         _1: VALUE:[0]]) | MAP (_._1 AS _0)'
     task_count: 364
-    task_total_time_ms: 24
+    task_total_time_ms: 22
     transform_count: 120
-    transform_time_ms: 14
+    transform_time_ms: 13
     transform_yield_count: 48
-    insert_time_ms: 0
-    insert_new_count: 24
-    insert_reused_count: 1
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 13
+    insert_yield_reused_count: 1
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 11
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select sum(col1) from T2 where col2 > 0 group by col2;
     explain: 'AISCAN(T2_I6 [[GREATER_THAN promote(@c11 AS LONG)]] BY_GROUP -> [_0:
         KEY:[0], _1: VALUE:[0]]) | MAP (_._1 AS _0)'
     task_count: 364
-    task_total_time_ms: 7
+    task_total_time_ms: 15
     transform_count: 120
-    transform_time_ms: 5
+    transform_time_ms: 10
     transform_yield_count: 48
-    insert_time_ms: 0
-    insert_new_count: 24
-    insert_reused_count: 1
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 13
+    insert_yield_reused_count: 1
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 11
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select sum(col1) from T3;
     explain: ISCAN(T3_I1 <,>) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON
         EMPTY NULL | MAP (_._0._0 AS _0)
     task_count: 404
-    task_total_time_ms: 12
+    task_total_time_ms: 19
     transform_count: 91
-    transform_time_ms: 4
+    transform_time_ms: 6
     transform_yield_count: 37
-    insert_time_ms: 0
-    insert_new_count: 48
-    insert_reused_count: 6
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 19
+    insert_yield_reused_count: 6
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 29
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select sum(col1) from T3 where col1 = 0;
     explain: ISCAN(T3_I1 [EQUALS promote(@c11 AS LONG)]) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1)
         AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)
     task_count: 635
-    task_total_time_ms: 7
+    task_total_time_ms: 11
     transform_count: 158
     transform_time_ms: 3
     transform_yield_count: 45
-    insert_time_ms: 0
-    insert_new_count: 70
-    insert_reused_count: 5
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 27
+    insert_yield_reused_count: 5
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 43
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select sum(col1) from T3 where col2 = 0;
     explain: ISCAN(T3_I2 [EQUALS promote(@c11 AS LONG)]) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1)
         AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)
     task_count: 635
-    task_total_time_ms: 18
+    task_total_time_ms: 21
     transform_count: 158
-    transform_time_ms: 5
+    transform_time_ms: 7
     transform_yield_count: 45
-    insert_time_ms: 0
-    insert_new_count: 70
-    insert_reused_count: 5
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 27
+    insert_yield_reused_count: 5
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 43
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select sum(col1) from T3 where col1 > 0;
     explain: ISCAN(T3_I1 [[GREATER_THAN promote(@c11 AS LONG)]]) | MAP (_ AS _0) |
         AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)
     task_count: 650
     task_total_time_ms: 22
     transform_count: 159
-    transform_time_ms: 7
+    transform_time_ms: 6
     transform_yield_count: 46
-    insert_time_ms: 0
-    insert_new_count: 72
-    insert_reused_count: 5
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 28
+    insert_yield_reused_count: 5
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 44
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select sum(col1) from T3 where col2 > 0;
     explain: ISCAN(T3_I2 [[GREATER_THAN promote(@c11 AS LONG)]]) | MAP (_ AS _0) |
         AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)
     task_count: 650
-    task_total_time_ms: 22
+    task_total_time_ms: 26
     transform_count: 159
-    transform_time_ms: 8
+    transform_time_ms: 11
     transform_yield_count: 46
-    insert_time_ms: 0
-    insert_new_count: 72
-    insert_reused_count: 5
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 28
+    insert_yield_reused_count: 5
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 44
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select sum(col1) from T3 where col1 = 0 group by col2;
     explain: ISCAN(T3_I2 <,>) | FILTER _.COL1 EQUALS promote(@c11 AS LONG) | MAP (_
         AS _0) | AGG (sum_l(_._0.COL1) AS _0) GROUP BY (_._0.COL2 AS _0) | MAP (_._1._0
@@ -548,343 +689,433 @@ agg-empty-table-tests:
     transform_count: 98
     transform_time_ms: 5
     transform_yield_count: 33
-    insert_time_ms: 0
-    insert_new_count: 33
-    insert_reused_count: 2
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 15
+    insert_yield_reused_count: 2
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 18
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select sum(col1) from T3 where col2 = 0 group by col2;
     explain: ISCAN(T3_I2 [EQUALS promote(@c11 AS LONG)]) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1)
         AS _0) GROUP BY (_._0.COL2 AS _0) | MAP (_._1._0 AS _0)
     task_count: 382
-    task_total_time_ms: 14
+    task_total_time_ms: 10
     transform_count: 100
     transform_time_ms: 4
     transform_yield_count: 34
-    insert_time_ms: 0
-    insert_new_count: 35
-    insert_reused_count: 1
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 16
+    insert_yield_reused_count: 1
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 19
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select sum(col1) from T3 where col1 > 0 group by col2;
     explain: ISCAN(T3_I2 <,>) | FILTER _.COL1 GREATER_THAN promote(@c11 AS LONG) |
         MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) GROUP BY (_._0.COL2 AS _0) |
         MAP (_._1._0 AS _0)
     task_count: 363
-    task_total_time_ms: 10
+    task_total_time_ms: 7
     transform_count: 98
-    transform_time_ms: 3
+    transform_time_ms: 2
     transform_yield_count: 33
-    insert_time_ms: 0
-    insert_new_count: 33
-    insert_reused_count: 2
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 15
+    insert_yield_reused_count: 2
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 18
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select sum(col1) from T3 where col2 > 0 group by col2;
     explain: ISCAN(T3_I2 [[GREATER_THAN promote(@c11 AS LONG)]]) | MAP (_ AS _0) |
         AGG (sum_l(_._0.COL1) AS _0) GROUP BY (_._0.COL2 AS _0) | MAP (_._1._0 AS
-        _0)
-    task_count: 382
-    task_total_time_ms: 12
-    transform_count: 100
-    transform_time_ms: 4
-    transform_yield_count: 34
-    insert_time_ms: 0
-    insert_new_count: 35
-    insert_reused_count: 1
-agg-empty-table-tests-after-modifications:
--   query: EXPLAIN select count(*) from T1;
-    explain: SCAN(<,>) | TFILTER T1 | MAP (_ AS _0) | AGG (count_star(*) AS _0) |
-        ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
-    task_count: 260
-    task_total_time_ms: 6
-    transform_count: 63
-    transform_time_ms: 1
-    transform_yield_count: 17
-    insert_time_ms: 0
-    insert_new_count: 24
-    insert_reused_count: 2
--   query: EXPLAIN select count(*) from T1 where col1 = 0;
-    explain: SCAN(<,>) | TFILTER T1 | FILTER _.COL1 EQUALS promote(@c11 AS LONG) |
-        MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
-        promote(0l AS LONG)) AS _0)
-    task_count: 331
-    task_total_time_ms: 10
-    transform_count: 83
-    transform_time_ms: 2
-    transform_yield_count: 19
-    insert_time_ms: 0
-    insert_new_count: 30
-    insert_reused_count: 2
--   query: EXPLAIN select count(*) from T1 where col1 > 0;
-    explain: SCAN(<,>) | TFILTER T1 | FILTER _.COL1 GREATER_THAN promote(@c11 AS LONG)
-        | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
-        promote(0l AS LONG)) AS _0)
-    task_count: 331
-    task_total_time_ms: 6
-    transform_count: 83
-    transform_time_ms: 1
-    transform_yield_count: 19
-    insert_time_ms: 0
-    insert_new_count: 30
-    insert_reused_count: 2
--   query: EXPLAIN select count(*) from T2;
-    explain: 'AISCAN(T2_I1 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY
-        NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)'
-    task_count: 608
-    task_total_time_ms: 32
-    transform_count: 183
-    transform_time_ms: 18
-    transform_yield_count: 60
-    insert_time_ms: 0
-    insert_new_count: 55
-    insert_reused_count: 7
--   query: EXPLAIN select count(col2) from T2;
-    explain: 'AISCAN(T2_I3 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY
-        NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)'
-    task_count: 608
-    task_total_time_ms: 31
-    transform_count: 183
-    transform_time_ms: 19
-    transform_yield_count: 60
-    insert_time_ms: 0
-    insert_new_count: 55
-    insert_reused_count: 7
--   query: EXPLAIN select count(col2) from T2 where col1 = 0;
-    explain: 'AISCAN(T2_I4 [EQUALS promote(@c11 AS LONG)] BY_GROUP -> [_0: KEY:[0],
-        _1: VALUE:[0]]) | MAP ((_._1 AS _0) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
-        promote(0l AS LONG)) AS _0)'
-    task_count: 562
-    task_total_time_ms: 29
-    transform_count: 172
-    transform_time_ms: 19
-    transform_yield_count: 58
-    insert_time_ms: 0
-    insert_new_count: 47
-    insert_reused_count: 5
--   query: EXPLAIN select count(col2) from T2 where col1 > 0;
-    explain: 'AISCAN(T2_I4 [[GREATER_THAN promote(@c11 AS LONG)]] BY_GROUP -> [_0:
-        KEY:[0], _1: VALUE:[0]]) | AGG sum_l(_._1) GROUP BY () | MAP ((_._1 AS _0)
-        AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG))
-        AS _0)'
-    task_count: 584
-    task_total_time_ms: 26
-    transform_count: 174
-    transform_time_ms: 15
-    transform_yield_count: 58
-    insert_time_ms: 0
-    insert_new_count: 50
-    insert_reused_count: 5
--   query: EXPLAIN select count(col2) from T3;
-    explain: ISCAN(T3_I1 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL2) AS _0) | ON
-        EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
-    task_count: 404
-    task_total_time_ms: 16
-    transform_count: 91
-    transform_time_ms: 6
-    transform_yield_count: 37
-    insert_time_ms: 0
-    insert_new_count: 48
-    insert_reused_count: 6
--   query: EXPLAIN select count(col2) from T3 where col1 = 0;
-    explain: ISCAN(T3_I1 [EQUALS promote(@c11 AS LONG)]) | MAP (_ AS _0) | AGG (count(_._0.COL2)
-        AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG))
-        AS _0)
-    task_count: 635
-    task_total_time_ms: 20
-    transform_count: 158
-    transform_time_ms: 6
-    transform_yield_count: 45
-    insert_time_ms: 0
-    insert_new_count: 70
-    insert_reused_count: 5
--   query: EXPLAIN select count(col2) from T3 where col1 > 0;
-    explain: ISCAN(T3_I1 [[GREATER_THAN promote(@c11 AS LONG)]]) | MAP (_ AS _0) |
-        AGG (count(_._0.COL2) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
-        promote(0l AS LONG)) AS _0)
-    task_count: 650
-    task_total_time_ms: 18
-    transform_count: 159
-    transform_time_ms: 5
-    transform_yield_count: 46
-    insert_time_ms: 0
-    insert_new_count: 72
-    insert_reused_count: 5
--   query: EXPLAIN select count(col2) from T3 group by col1;
-    explain: ISCAN(T3_I1 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL2) AS _0) GROUP
-        BY (_._0.COL1 AS _0) | MAP (_._1._0 AS _0)
-    task_count: 285
-    task_total_time_ms: 12
-    transform_count: 74
-    transform_time_ms: 5
-    transform_yield_count: 30
-    insert_time_ms: 0
-    insert_new_count: 25
-    insert_reused_count: 2
--   query: EXPLAIN select count(col2) from T3 where col1 = 0 group by col1;
-    explain: ISCAN(T3_I1 [EQUALS promote(@c11 AS LONG)]) | MAP (_ AS _0) | AGG (count(_._0.COL2)
-        AS _0) GROUP BY (_._0.COL1 AS _0) | MAP (_._1._0 AS _0)
-    task_count: 382
-    task_total_time_ms: 7
-    transform_count: 100
-    transform_time_ms: 3
-    transform_yield_count: 34
-    insert_time_ms: 0
-    insert_new_count: 35
-    insert_reused_count: 1
--   query: EXPLAIN select count(col2) from T3 where col1 > 0 group by col1;
-    explain: ISCAN(T3_I1 [[GREATER_THAN promote(@c11 AS LONG)]]) | MAP (_ AS _0) |
-        AGG (count(_._0.COL2) AS _0) GROUP BY (_._0.COL1 AS _0) | MAP (_._1._0 AS
         _0)
     task_count: 382
     task_total_time_ms: 15
     transform_count: 100
     transform_time_ms: 5
     transform_yield_count: 34
-    insert_time_ms: 0
-    insert_new_count: 35
-    insert_reused_count: 1
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 16
+    insert_yield_reused_count: 1
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 19
+    insert_memoize_reused_count: 0
+agg-empty-table-tests-after-modifications:
+-   query: EXPLAIN select count(*) from T1;
+    explain: SCAN(<,>) | TFILTER T1 | MAP (_ AS _0) | AGG (count_star(*) AS _0) |
+        ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
+    task_count: 260
+    task_total_time_ms: 4
+    transform_count: 63
+    transform_time_ms: 1
+    transform_yield_count: 17
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 11
+    insert_yield_reused_count: 2
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 13
+    insert_memoize_reused_count: 0
+-   query: EXPLAIN select count(*) from T1 where col1 = 0;
+    explain: SCAN(<,>) | TFILTER T1 | FILTER _.COL1 EQUALS promote(@c11 AS LONG) |
+        MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
+        promote(0l AS LONG)) AS _0)
+    task_count: 331
+    task_total_time_ms: 11
+    transform_count: 83
+    transform_time_ms: 3
+    transform_yield_count: 19
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 13
+    insert_yield_reused_count: 2
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 17
+    insert_memoize_reused_count: 0
+-   query: EXPLAIN select count(*) from T1 where col1 > 0;
+    explain: SCAN(<,>) | TFILTER T1 | FILTER _.COL1 GREATER_THAN promote(@c11 AS LONG)
+        | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
+        promote(0l AS LONG)) AS _0)
+    task_count: 331
+    task_total_time_ms: 9
+    transform_count: 83
+    transform_time_ms: 2
+    transform_yield_count: 19
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 13
+    insert_yield_reused_count: 2
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 17
+    insert_memoize_reused_count: 0
+-   query: EXPLAIN select count(*) from T2;
+    explain: 'AISCAN(T2_I1 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY
+        NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)'
+    task_count: 608
+    task_total_time_ms: 27
+    transform_count: 183
+    transform_time_ms: 15
+    transform_yield_count: 60
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 22
+    insert_yield_reused_count: 7
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 33
+    insert_memoize_reused_count: 0
+-   query: EXPLAIN select count(col2) from T2;
+    explain: 'AISCAN(T2_I3 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY
+        NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)'
+    task_count: 608
+    task_total_time_ms: 28
+    transform_count: 183
+    transform_time_ms: 16
+    transform_yield_count: 60
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 22
+    insert_yield_reused_count: 7
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 33
+    insert_memoize_reused_count: 0
+-   query: EXPLAIN select count(col2) from T2 where col1 = 0;
+    explain: 'AISCAN(T2_I4 [EQUALS promote(@c11 AS LONG)] BY_GROUP -> [_0: KEY:[0],
+        _1: VALUE:[0]]) | MAP ((_._1 AS _0) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
+        promote(0l AS LONG)) AS _0)'
+    task_count: 562
+    task_total_time_ms: 34
+    transform_count: 172
+    transform_time_ms: 21
+    transform_yield_count: 58
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 20
+    insert_yield_reused_count: 5
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 27
+    insert_memoize_reused_count: 0
+-   query: EXPLAIN select count(col2) from T2 where col1 > 0;
+    explain: 'AISCAN(T2_I4 [[GREATER_THAN promote(@c11 AS LONG)]] BY_GROUP -> [_0:
+        KEY:[0], _1: VALUE:[0]]) | AGG sum_l(_._1) GROUP BY () | MAP ((_._1 AS _0)
+        AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG))
+        AS _0)'
+    task_count: 584
+    task_total_time_ms: 30
+    transform_count: 174
+    transform_time_ms: 19
+    transform_yield_count: 58
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 20
+    insert_yield_reused_count: 5
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 30
+    insert_memoize_reused_count: 0
+-   query: EXPLAIN select count(col2) from T3;
+    explain: ISCAN(T3_I1 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL2) AS _0) | ON
+        EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
+    task_count: 404
+    task_total_time_ms: 4
+    transform_count: 91
+    transform_time_ms: 2
+    transform_yield_count: 37
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 19
+    insert_yield_reused_count: 6
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 29
+    insert_memoize_reused_count: 0
+-   query: EXPLAIN select count(col2) from T3 where col1 = 0;
+    explain: ISCAN(T3_I1 [EQUALS promote(@c11 AS LONG)]) | MAP (_ AS _0) | AGG (count(_._0.COL2)
+        AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG))
+        AS _0)
+    task_count: 635
+    task_total_time_ms: 27
+    transform_count: 158
+    transform_time_ms: 10
+    transform_yield_count: 45
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 27
+    insert_yield_reused_count: 5
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 43
+    insert_memoize_reused_count: 0
+-   query: EXPLAIN select count(col2) from T3 where col1 > 0;
+    explain: ISCAN(T3_I1 [[GREATER_THAN promote(@c11 AS LONG)]]) | MAP (_ AS _0) |
+        AGG (count(_._0.COL2) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
+        promote(0l AS LONG)) AS _0)
+    task_count: 650
+    task_total_time_ms: 19
+    transform_count: 159
+    transform_time_ms: 6
+    transform_yield_count: 46
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 28
+    insert_yield_reused_count: 5
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 44
+    insert_memoize_reused_count: 0
+-   query: EXPLAIN select count(col2) from T3 group by col1;
+    explain: ISCAN(T3_I1 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL2) AS _0) GROUP
+        BY (_._0.COL1 AS _0) | MAP (_._1._0 AS _0)
+    task_count: 285
+    task_total_time_ms: 11
+    transform_count: 74
+    transform_time_ms: 4
+    transform_yield_count: 30
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 12
+    insert_yield_reused_count: 2
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 13
+    insert_memoize_reused_count: 0
+-   query: EXPLAIN select count(col2) from T3 where col1 = 0 group by col1;
+    explain: ISCAN(T3_I1 [EQUALS promote(@c11 AS LONG)]) | MAP (_ AS _0) | AGG (count(_._0.COL2)
+        AS _0) GROUP BY (_._0.COL1 AS _0) | MAP (_._1._0 AS _0)
+    task_count: 382
+    task_total_time_ms: 12
+    transform_count: 100
+    transform_time_ms: 3
+    transform_yield_count: 34
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 16
+    insert_yield_reused_count: 1
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 19
+    insert_memoize_reused_count: 0
+-   query: EXPLAIN select count(col2) from T3 where col1 > 0 group by col1;
+    explain: ISCAN(T3_I1 [[GREATER_THAN promote(@c11 AS LONG)]]) | MAP (_ AS _0) |
+        AGG (count(_._0.COL2) AS _0) GROUP BY (_._0.COL1 AS _0) | MAP (_._1._0 AS
+        _0)
+    task_count: 382
+    task_total_time_ms: 8
+    transform_count: 100
+    transform_time_ms: 2
+    transform_yield_count: 34
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 16
+    insert_yield_reused_count: 1
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 19
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select sum(col1) from T1;
     explain: SCAN(<,>) | TFILTER T1 | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0)
         | ON EMPTY NULL | MAP (_._0._0 AS _0)
     task_count: 260
-    task_total_time_ms: 8
+    task_total_time_ms: 5
     transform_count: 63
     transform_time_ms: 1
     transform_yield_count: 17
-    insert_time_ms: 0
-    insert_new_count: 24
-    insert_reused_count: 2
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 11
+    insert_yield_reused_count: 2
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 13
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select sum(col1) from T1 where col1 = 0;
     explain: SCAN(<,>) | TFILTER T1 | FILTER _.COL1 EQUALS promote(@c11 AS LONG) |
         MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0
-        AS _0)
-    task_count: 331
-    task_total_time_ms: 14
-    transform_count: 83
-    transform_time_ms: 2
-    transform_yield_count: 19
-    insert_time_ms: 0
-    insert_new_count: 30
-    insert_reused_count: 2
--   query: EXPLAIN select sum(col1) from T1 where col2 = 0;
-    explain: SCAN(<,>) | TFILTER T1 | FILTER _.COL2 EQUALS promote(@c11 AS LONG) |
-        MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0
-        AS _0)
-    task_count: 331
-    task_total_time_ms: 7
-    transform_count: 83
-    transform_time_ms: 2
-    transform_yield_count: 19
-    insert_time_ms: 0
-    insert_new_count: 30
-    insert_reused_count: 2
--   query: EXPLAIN select sum(col1) from T1 where col1 > 0;
-    explain: SCAN(<,>) | TFILTER T1 | FILTER _.COL1 GREATER_THAN promote(@c11 AS LONG)
-        | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0
-        AS _0)
-    task_count: 331
-    task_total_time_ms: 6
-    transform_count: 83
-    transform_time_ms: 1
-    transform_yield_count: 19
-    insert_time_ms: 0
-    insert_new_count: 30
-    insert_reused_count: 2
--   query: EXPLAIN select sum(col1) from T1 where col2 > 0;
-    explain: SCAN(<,>) | TFILTER T1 | FILTER _.COL2 GREATER_THAN promote(@c11 AS LONG)
-        | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0
         AS _0)
     task_count: 331
     task_total_time_ms: 10
     transform_count: 83
     transform_time_ms: 2
     transform_yield_count: 19
-    insert_time_ms: 0
-    insert_new_count: 30
-    insert_reused_count: 2
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 13
+    insert_yield_reused_count: 2
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 17
+    insert_memoize_reused_count: 0
+-   query: EXPLAIN select sum(col1) from T1 where col2 = 0;
+    explain: SCAN(<,>) | TFILTER T1 | FILTER _.COL2 EQUALS promote(@c11 AS LONG) |
+        MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0
+        AS _0)
+    task_count: 331
+    task_total_time_ms: 9
+    transform_count: 83
+    transform_time_ms: 2
+    transform_yield_count: 19
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 13
+    insert_yield_reused_count: 2
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 17
+    insert_memoize_reused_count: 0
+-   query: EXPLAIN select sum(col1) from T1 where col1 > 0;
+    explain: SCAN(<,>) | TFILTER T1 | FILTER _.COL1 GREATER_THAN promote(@c11 AS LONG)
+        | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0
+        AS _0)
+    task_count: 331
+    task_total_time_ms: 8
+    transform_count: 83
+    transform_time_ms: 2
+    transform_yield_count: 19
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 13
+    insert_yield_reused_count: 2
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 17
+    insert_memoize_reused_count: 0
+-   query: EXPLAIN select sum(col1) from T1 where col2 > 0;
+    explain: SCAN(<,>) | TFILTER T1 | FILTER _.COL2 GREATER_THAN promote(@c11 AS LONG)
+        | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0
+        AS _0)
+    task_count: 331
+    task_total_time_ms: 5
+    transform_count: 83
+    transform_time_ms: 1
+    transform_yield_count: 19
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 13
+    insert_yield_reused_count: 2
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 17
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select sum(col1) from T2;
     explain: 'AISCAN(T2_I5 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY
         NULL | MAP (_._0._0 AS _0)'
     task_count: 608
-    task_total_time_ms: 31
+    task_total_time_ms: 37
     transform_count: 183
-    transform_time_ms: 18
+    transform_time_ms: 23
     transform_yield_count: 60
-    insert_time_ms: 0
-    insert_new_count: 55
-    insert_reused_count: 7
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 22
+    insert_yield_reused_count: 7
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 33
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select sum(col1) from T2 where col2 = 0;
     explain: 'AISCAN(T2_I6 [EQUALS promote(@c11 AS LONG)] BY_GROUP -> [_0: KEY:[0],
         _1: VALUE:[0]]) | MAP ((_._1 AS _0) AS _0) | ON EMPTY NULL | MAP (_._0._0
         AS _0)'
     task_count: 562
-    task_total_time_ms: 41
+    task_total_time_ms: 39
     transform_count: 172
-    transform_time_ms: 26
+    transform_time_ms: 22
     transform_yield_count: 58
-    insert_time_ms: 0
-    insert_new_count: 47
-    insert_reused_count: 5
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 20
+    insert_yield_reused_count: 5
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 27
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select sum(col1) from T2 where col1 > 0;
     explain: SCAN(<,>) | TFILTER T2 | FILTER _.COL1 GREATER_THAN promote(@c11 AS LONG)
         | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0
         AS _0)
     task_count: 389
-    task_total_time_ms: 26
+    task_total_time_ms: 19
     transform_count: 114
-    transform_time_ms: 17
+    transform_time_ms: 12
     transform_yield_count: 48
-    insert_time_ms: 0
-    insert_new_count: 32
-    insert_reused_count: 2
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 13
+    insert_yield_reused_count: 2
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 19
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select sum(col1) from T2 where col2 > 0;
     explain: 'AISCAN(T2_I6 [[GREATER_THAN promote(@c11 AS LONG)]] BY_GROUP -> [_0:
         KEY:[0], _1: VALUE:[0]]) | AGG sum_l(_._1) GROUP BY () | MAP ((_._1 AS _0)
         AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)'
     task_count: 584
-    task_total_time_ms: 17
+    task_total_time_ms: 24
     transform_count: 174
-    transform_time_ms: 10
+    transform_time_ms: 14
     transform_yield_count: 58
-    insert_time_ms: 0
-    insert_new_count: 50
-    insert_reused_count: 5
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 20
+    insert_yield_reused_count: 5
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 30
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select sum(col1) from T3 where col1 = 0;
     explain: ISCAN(T3_I1 [EQUALS promote(@c11 AS LONG)]) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1)
         AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)
     task_count: 635
-    task_total_time_ms: 7
+    task_total_time_ms: 11
     transform_count: 158
     transform_time_ms: 3
     transform_yield_count: 45
-    insert_time_ms: 0
-    insert_new_count: 70
-    insert_reused_count: 5
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 27
+    insert_yield_reused_count: 5
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 43
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select sum(col1) from T3 where col2 = 0;
     explain: ISCAN(T3_I2 [EQUALS promote(@c11 AS LONG)]) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1)
         AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)
     task_count: 635
-    task_total_time_ms: 18
+    task_total_time_ms: 21
     transform_count: 158
-    transform_time_ms: 5
+    transform_time_ms: 7
     transform_yield_count: 45
-    insert_time_ms: 0
-    insert_new_count: 70
-    insert_reused_count: 5
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 27
+    insert_yield_reused_count: 5
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 43
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select sum(col1) from T3 where col1 > 0;
     explain: ISCAN(T3_I1 [[GREATER_THAN promote(@c11 AS LONG)]]) | MAP (_ AS _0) |
         AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)
     task_count: 650
     task_total_time_ms: 22
     transform_count: 159
-    transform_time_ms: 7
+    transform_time_ms: 6
     transform_yield_count: 46
-    insert_time_ms: 0
-    insert_new_count: 72
-    insert_reused_count: 5
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 28
+    insert_yield_reused_count: 5
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 44
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select sum(col1) from T3 where col2 > 0;
     explain: ISCAN(T3_I2 [[GREATER_THAN promote(@c11 AS LONG)]]) | MAP (_ AS _0) |
         AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)
     task_count: 650
-    task_total_time_ms: 22
+    task_total_time_ms: 26
     transform_count: 159
-    transform_time_ms: 8
+    transform_time_ms: 11
     transform_yield_count: 46
-    insert_time_ms: 0
-    insert_new_count: 72
-    insert_reused_count: 5
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 28
+    insert_yield_reused_count: 5
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 44
+    insert_memoize_reused_count: 0

@@ -4,26 +4,32 @@ unnamed-4:
         AS STRING) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP
         (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
     task_count: 347
-    task_total_time_ms: 2
+    task_total_time_ms: 3
     transform_count: 88
     transform_time_ms: 1
     transform_yield_count: 21
-    insert_time_ms: 0
-    insert_new_count: 34
-    insert_reused_count: 2
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 15
+    insert_yield_reused_count: 2
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 19
+    insert_memoize_reused_count: 0
 unnamed-10:
 -   query: EXPLAIN select count(*) from "DATABASES" where database_id = '/FRL/DB'
     explain: SCAN(<,>) | TFILTER DATABASES | FILTER _.DATABASE_ID EQUALS promote(@c11
         AS STRING) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP
         (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
     task_count: 359
-    task_total_time_ms: 3
+    task_total_time_ms: 4
     transform_count: 97
     transform_time_ms: 2
     transform_yield_count: 27
-    insert_time_ms: 0
-    insert_new_count: 34
-    insert_reused_count: 2
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 15
+    insert_yield_reused_count: 2
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 19
+    insert_memoize_reused_count: 0
 unnamed-20:
 -   query: EXPLAIN select count(*) from "SCHEMAS" where database_id = '/FRL/DB'
     explain: 'COVERING(TEMPLATES_VALUE_INDEX <,> -> [DATABASE_ID: KEY[2], SCHEMA_NAME:
@@ -32,10 +38,13 @@ unnamed-20:
         AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG))
         AS _0)'
     task_count: 579
-    task_total_time_ms: 6
+    task_total_time_ms: 7
     transform_count: 146
-    transform_time_ms: 3
+    transform_time_ms: 4
     transform_yield_count: 44
-    insert_time_ms: 0
-    insert_new_count: 65
-    insert_reused_count: 3
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 25
+    insert_yield_reused_count: 3
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 40
+    insert_memoize_reused_count: 0

@@ -213,8 +213,8 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan implements PlanWi
     }
 
     @Override
-    public int hashCode() {
-        return Objects.hash(super.hashCode(), planOrderingKey, storedFields);
+    public int computeHashCodeWithoutChildren() {
+        return Objects.hash(super.computeHashCodeWithoutChildren(), planOrderingKey, storedFields);
     }
 
     @Nonnull

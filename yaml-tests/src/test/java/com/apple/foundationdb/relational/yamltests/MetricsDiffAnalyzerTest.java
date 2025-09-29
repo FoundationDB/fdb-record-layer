@@ -43,9 +43,12 @@ class MetricsDiffAnalyzerTest {
             .setTransformCount(5)
             .setTransformTimeNs(500000L)
             .setTransformYieldCount(1)
-            .setInsertTimeNs(100000L)
-            .setInsertNewCount(2)
-            .setInsertReusedCount(3)
+            .setInsertYieldTimeNs(100000L)
+            .setInsertYieldNewCount(2)
+            .setInsertYieldReusedCount(3)
+            .setInsertMemoizeTimeNs(100000L)
+            .setInsertMemoizeNewCount(4)
+            .setInsertMemoizeReusedCount(5)
             .build();
 
     @Test
@@ -228,9 +231,12 @@ class MetricsDiffAnalyzerTest {
                     .setTransformCount(5 * i)
                     .setTransformTimeNs(500000L * i)
                     .setTransformYieldCount(i)
-                    .setInsertTimeNs(100000L * i)
-                    .setInsertNewCount(2 * i)
-                    .setInsertReusedCount(3 * i)
+                    .setInsertYieldTimeNs(100000L * i)
+                    .setInsertYieldNewCount(2 * i)
+                    .setInsertYieldReusedCount(3 * i)
+                    .setInsertMemoizeTimeNs(100000L * i)
+                    .setInsertMemoizeNewCount(4 * i)
+                    .setInsertMemoizeReusedCount(5 * i)
                     .build();
 
             final var info = PlannerMetricsProto.Info.newBuilder()
@@ -262,9 +268,12 @@ class MetricsDiffAnalyzerTest {
                     .setTransformCount(5 * i + 1)
                     .setTransformTimeNs(500000L * i)
                     .setTransformYieldCount(i)
-                    .setInsertTimeNs(100000L * i)
-                    .setInsertNewCount(2 * i)
-                    .setInsertReusedCount(3 * i)
+                    .setInsertYieldTimeNs(100000L * i)
+                    .setInsertYieldNewCount(2 * i)
+                    .setInsertYieldReusedCount(3 * i)
+                    .setInsertMemoizeTimeNs(100000L * i)
+                    .setInsertMemoizeNewCount(4 * i)
+                    .setInsertMemoizeReusedCount(5 * i)
                     .build();
 
             final var info = PlannerMetricsProto.Info.newBuilder()

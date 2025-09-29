@@ -1,7 +1,7 @@
-ü-
+ß-
 e
-select-star-testsPEXPLAIN select B1 from B where exists (select A.*, B1 from A group by A1,A2,A3);µ,
-É÷í˚ë ±à≤(*0íá81@âSCAN(<,>) | TFILTER B | FLATMAP q0 -> { ISCAN(A_IDX <,>) | MAP (_ AS _0) | AGG () GROUP BY (_._0.A1 AS _0, _._0.A2 AS _1, _._0.A3 AS _2) | MAP (_._0._0 AS A1, _._0._1 AS A2, _._0._2 AS A3, q0.B1 AS B1) | DEFAULT NULL | FILTER _ NOT_NULL AS q0 RETURN (q0.B1 AS B1) }ä*digraph G {
+select-star-testsPEXPLAIN select B1 from B where exists (select A.*, B1 from A group by A1,A2,A3);Ω,
+"ÉÆ¢ê	ë ˛Ÿ˛(*0˚É8@H¸”PXâSCAN(<,>) | TFILTER B | FLATMAP q0 -> { ISCAN(A_IDX <,>) | MAP (_ AS _0) | AGG () GROUP BY (_._0.A1 AS _0, _._0.A2 AS _1, _._0.A3 AS _2) | MAP (_._0._0 AS A1, _._0._1 AS A2, _._0._2 AS A3, q0.B1 AS B1) | DEFAULT NULL | FILTER _ NOT_NULL AS q0 RETURN (q0.B1 AS B1) }ä*digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -31,10 +31,10 @@ e
     rankDir=LR;
     2 -> 5 [ color="red" style="invis" ];
   }
-}Á.
+}Ô.
 g
-select-star-testsREXPLAIN select B.* from B where exists (select A.*, B.* from A group by A1,A2,A3);˚-
-ÉÚÛóë Á•ù(*0≈ %81@òSCAN(<,>) | TFILTER B | FLATMAP q0 -> { ISCAN(A_IDX <,>) | MAP (_ AS _0) | AGG () GROUP BY (_._0.A1 AS _0, _._0.A2 AS _1, _._0.A3 AS _2) | MAP (_._0._0 AS A1, _._0._1 AS A2, _._0._2 AS A3, q0.B1 AS B1, q0.B2 AS B2, q0.B3 AS B3) | DEFAULT NULL | FILTER _ NOT_NULL AS q0 RETURN q0 }¡+digraph G {
+select-star-testsREXPLAIN select B.* from B where exists (select A.*, B.* from A group by A1,A2,A3);É.
+"ÉáÍÂë åÈá(*0õ 8@HÌÙPXòSCAN(<,>) | TFILTER B | FLATMAP q0 -> { ISCAN(A_IDX <,>) | MAP (_ AS _0) | AGG () GROUP BY (_._0.A1 AS _0, _._0.A2 AS _1, _._0.A3 AS _2) | MAP (_._0._0 AS A1, _._0._1 AS A2, _._0._2 AS A3, q0.B1 AS B1, q0.B2 AS B2, q0.B3 AS B3) | DEFAULT NULL | FILTER _ NOT_NULL AS q0 RETURN q0 }¡+digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;

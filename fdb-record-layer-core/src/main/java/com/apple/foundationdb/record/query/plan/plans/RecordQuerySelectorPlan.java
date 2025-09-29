@@ -188,7 +188,7 @@ public class RecordQuerySelectorPlan extends RecordQueryChooserPlanBase {
     }
 
     @Override
-    public int hashCodeWithoutChildren() {
+    public int computeHashCodeWithoutChildren() {
         return Objects.hash(isReverse(), planSelector);
     }
 

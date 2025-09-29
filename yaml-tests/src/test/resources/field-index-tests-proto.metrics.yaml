@@ -5,32 +5,41 @@ field-index-tests-proto:
         AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG))
         AS _0)
     task_count: 375
-    task_total_time_ms: 13
+    task_total_time_ms: 14
     transform_count: 90
-    transform_time_ms: 2
+    transform_time_ms: 1
     transform_yield_count: 25
-    insert_time_ms: 0
-    insert_new_count: 38
-    insert_reused_count: 1
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 19
+    insert_yield_reused_count: 1
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 19
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select sum(COL1) from "MyTable";
     explain: SCAN(<,>) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL
         | MAP (_._0._0 AS _0)
     task_count: 247
-    task_total_time_ms: 8
+    task_total_time_ms: 3
     transform_count: 62
-    transform_time_ms: 1
+    transform_time_ms: 0
     transform_yield_count: 17
-    insert_time_ms: 0
-    insert_new_count: 21
-    insert_reused_count: 2
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 11
+    insert_yield_reused_count: 2
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 10
+    insert_memoize_reused_count: 0
 -   query: EXPLAIN select count(COL1) from "MyTable";
     explain: SCAN(<,>) | MAP (_ AS _0) | AGG (count(_._0.COL1) AS _0) | ON EMPTY NULL
         | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
     task_count: 247
-    task_total_time_ms: 8
+    task_total_time_ms: 3
     transform_count: 62
-    transform_time_ms: 1
+    transform_time_ms: 0
     transform_yield_count: 17
-    insert_time_ms: 0
-    insert_new_count: 21
-    insert_reused_count: 2
+    insert_yield_time_ms: 0
+    insert_yield_new_count: 11
+    insert_yield_reused_count: 2
+    insert_memoize_time_ms: 0
+    insert_memoize_new_count: 10
+    insert_memoize_reused_count: 0
