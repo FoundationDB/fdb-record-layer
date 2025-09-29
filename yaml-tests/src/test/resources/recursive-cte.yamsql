@@ -1,7 +1,4 @@
 ---
-options:
-  supported_version: 4.0.561.0
----
 schema_template:
     create table t1(id bigint, parent bigint, primary key(id))
     create index parentIdx as select parent, id from t1 order by parent, id
@@ -31,7 +28,6 @@ setup:
 ---
 test_block:
   name: recursive-cte-tests
-  preset: single_repetition_ordered
   tests:
     -
       - query: with recursive c1 as (
@@ -40,7 +36,7 @@ test_block:
             select b.id, b.parent from c1 as a, t1 as b where a.id = b.parent) select id from c1
       - supported_version: !current_version
       - explain: "RUNION-DFS q0 { ISCAN(PARENTIDX [EQUALS promote(@c15 AS LONG)]) } { RECURSIVE COVERING(PARENTIDX <,> -> [ID: KEY[1], PARENT: KEY[0]]) | FILTER q0.ID EQUALS _.PARENT | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP (_.ID AS ID)"
-# enable in 4.6.4.0 onward
+# enable in 4.6.5.0 onward
 #      - initialVersionAtLeast: !current_version
       - result: [{ID: 1},
                  {ID: 10},
@@ -51,7 +47,7 @@ test_block:
                  {ID: 20},
                  {ID: 100},
                  {ID: 210}]
-# enable in 4.6.4.0 onward
+# enable in 4.6.5.0 onward
 #      - initialVersionLessThan: !current_version
 #      # employs level-based traversal
 #      - result: [{ID: 1},
@@ -121,7 +117,7 @@ test_block:
             select b.id, b.parent from allDescendants as a, t1 as b where a.id = b.parent) select id, parent from allDescendants
       - supported_version: !current_version
       - explain: "RUNION-DFS q0 { RUNION-DFS q1 { ISCAN(CHILDIDX [EQUALS promote(@c20 AS LONG)]) } { RECURSIVE COVERING(PARENTIDX <,> -> [ID: KEY[1], PARENT: KEY[0]]) | FILTER q1.PARENT EQUALS _.ID | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP (_.ID AS ID, _.PARENT AS PARENT) } { RECURSIVE COVERING(PARENTIDX <,> -> [ID: KEY[1], PARENT: KEY[0]]) | FILTER q0.ID EQUALS _.PARENT | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP (_.ID AS ID, _.PARENT AS PARENT)"
-# enable in 4.6.4.0 onward
+# enable in 4.6.5.0 onward
 #      - initialVersionAtLeast: !current_version
       - result: [{250, 50},
                  {50, 10},
@@ -140,7 +136,7 @@ test_block:
                  {20, 1},
                  {100, 20},
                  {210, 20}]
-# enable in 4.6.4.0 onward
+# enable in 4.6.5.0 onward
 #      - initialVersionLessThan: !current_version
 #      - result: [{250, 50},
 #                 {50, 10},
@@ -167,7 +163,7 @@ test_block:
       - supported_version: !current_version
       - explain: "RUNION-DFS q0 { ISCAN(PARENTIDX [EQUALS promote(@c15 AS LONG)]) } { RECURSIVE COVERING(PARENTIDX <,> -> [ID: KEY[1], PARENT: KEY[0]]) | FILTER q0.ID EQUALS _.PARENT | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP (_.ID AS ID)"
       - maxRows: 1
-# enable in 4.6.4.0 onward
+# enable in 4.6.5.0 onward
 #      - initialVersionAtLeast: !current_version
       - result: [{ID: 1}]
       - result: [{ID: 10}]
@@ -179,7 +175,7 @@ test_block:
       - result: [{ID: 100}]
       - result: [{ID: 210}]
       - result: []
-# enable in 4.6.4.0 onward
+# enable in 4.6.5.0 onward
 #      - initialVersionLessThan: !current_version
 #      - result: [{ID: 1}]
 #      - result: [{ID: 10}]
@@ -199,7 +195,7 @@ test_block:
       - supported_version: !current_version
       - explain: "RUNION-DFS q0 { ISCAN(PARENTIDX [EQUALS promote(@c15 AS LONG)]) } { RECURSIVE COVERING(PARENTIDX <,> -> [ID: KEY[1], PARENT: KEY[0]]) | FILTER q0.ID EQUALS _.PARENT | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP (_.ID AS ID)"
       - maxRows: 1
-# enable in 4.6.4.0 onward
+# enable in 4.6.5.0 onward
 #      - initialVersionAtLeast: !current_version
       - result: [{ID: 1}]
       - result: [{ID: 10}]
@@ -211,7 +207,7 @@ test_block:
       - result: [{ID: 100}]
       - result: [{ID: 210}]
       - result: []
-# enable in 4.6.4.0 onward
+# enable in 4.6.5.0 onward
 #      - initialVersionLessThan: !current_version
 #      # employs level-based traversal
 #      - result: [{ID: 1}]
@@ -235,7 +231,7 @@ test_block:
       - supported_version: !current_version
       - explain: "RUNION-DFS q0 { RUNION-DFS q1 { ISCAN(CHILDIDX [EQUALS promote(@c20 AS LONG)]) } { RECURSIVE COVERING(PARENTIDX <,> -> [ID: KEY[1], PARENT: KEY[0]]) | FILTER q1.PARENT EQUALS _.ID | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP (_.ID AS ID, _.PARENT AS PARENT) } { RECURSIVE COVERING(PARENTIDX <,> -> [ID: KEY[1], PARENT: KEY[0]]) | FILTER q0.ID EQUALS _.PARENT | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP (_.ID AS ID, _.PARENT AS PARENT)"
       - maxRows: 1
-# enable in 4.6.4.0 onward
+# enable in 4.6.5.0 onward
 #      - initialVersionAtLeast: !current_version
       - result: [{250, 50}]
       - result: [{50, 10}]
@@ -255,7 +251,7 @@ test_block:
       - result: [{100, 20}]
       - result: [{210, 20}]
       - result: []
-# enable in 4.6.4.0 onward
+# enable in 4.6.5.0 onward
 #      - initialVersionLessThan: !current_version
 #      - result: [{250, 50}]
 #      - result: [{50, 10}]
