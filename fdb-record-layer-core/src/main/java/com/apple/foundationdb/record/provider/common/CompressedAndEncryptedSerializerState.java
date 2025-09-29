@@ -25,6 +25,7 @@ import com.apple.foundationdb.annotation.API;
 /**
  * Information on intended / found serialization format: compressed and/or encrypted.
  */
+@API(API.Status.INTERNAL)
 public class CompressedAndEncryptedSerializerState {
     private boolean compressed;
     private boolean encrypted;
