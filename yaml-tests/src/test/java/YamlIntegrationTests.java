@@ -227,6 +227,16 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void structTypeVariants(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("struct-type-variants.yamsql");
+    }
+
+    @TestTemplate
+    public void structNullableVariantsBasic(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("struct-nullable-variants-basic.yamsql");
+    }
+
+    @TestTemplate
     public void insertEnum(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("insert-enum.yamsql");
     }

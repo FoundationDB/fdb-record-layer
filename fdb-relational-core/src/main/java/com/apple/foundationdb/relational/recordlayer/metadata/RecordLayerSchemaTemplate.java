@@ -703,11 +703,11 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         @Nonnull
         public Builder addStructTypeWithBothVariants(@Nonnull DataType.StructType structType) {
             // Create nullable variant
-            DataType.StructType nullableVariant = (DataType.StructType) structType.withNullable(true);
+            DataType.StructType nullableVariant = structType.withNullable(true);
             addAuxiliaryType(nullableVariant);
             
             // Create non-nullable variant  
-            DataType.StructType nonNullableVariant = (DataType.StructType) structType.withNullable(false);
+            DataType.StructType nonNullableVariant = structType.withNullable(false);
             addAuxiliaryType(nonNullableVariant);
             
             return this;
