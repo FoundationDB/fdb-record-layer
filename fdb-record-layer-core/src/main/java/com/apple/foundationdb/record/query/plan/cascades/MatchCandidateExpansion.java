@@ -30,14 +30,12 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorder
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalTypeFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Optional;
 import java.util.Set;
 
@@ -51,7 +49,7 @@ import java.util.Set;
  * list containing the one candidate (if set).
  */
 @API(API.Status.INTERNAL)
-public class MatchCandidateExpansion {
+public final class MatchCandidateExpansion {
     @Nonnull
     private static final Logger LOGGER = LoggerFactory.getLogger(MatchCandidateExpansion.class);
 
@@ -63,19 +61,19 @@ public class MatchCandidateExpansion {
      * optional is not empty, this will return a collection with a single element.
      * If the optional is empty, it will return an empty collection.
      *
-     * @param matchCandidateMaybe an optional that may contain a match candidate
+     * @param optional an optional that may contain a match candidate
      * @return a collection containing the contents of the optional if set
      */
     @Nonnull
-    public static Iterable<MatchCandidate> optionalToIterable(@Nonnull Optional<MatchCandidate> matchCandidateMaybe) {
-        return matchCandidateMaybe
+    public static <T> Iterable<T> optionalToIterable(@Nonnull Optional<T> optional) {
+        return optional
                 .map(ImmutableList::of)
                 .orElse(ImmutableList.of());
     }
 
     @Nonnull
     public static Iterable<MatchCandidate> expandValueIndexMatchCandidate(@Nonnull RecordMetaData metaData, @Nonnull Index index, boolean isReverse) {
-        final IndexExpansionInfo info = createInfo(metaData, index, isReverse);
+        final IndexExpansionInfo info = IndexExpansionInfo.createInfo(metaData, index, isReverse);
         return optionalToIterable(expandValueIndexMatchCandidate(info));
     }
 
@@ -87,7 +85,7 @@ public class MatchCandidateExpansion {
 
     @Nonnull
     public static Iterable<MatchCandidate> expandAggregateIndexMatchCandidate(@Nonnull RecordMetaData metaData, @Nonnull Index index, boolean isReverse) {
-        final IndexExpansionInfo info = createInfo(metaData, index, isReverse);
+        final IndexExpansionInfo info = IndexExpansionInfo.createInfo(metaData, index, isReverse);
         return optionalToIterable(expandAggregateIndexMatchCandidate(info));
     }
 
@@ -160,110 +158,5 @@ public class MatchCandidateExpansion {
                 new LogicalTypeFilterExpression(queriedRecordTypeNames,
                         quantifier,
                         Type.Record.fromFieldDescriptorsMap(RecordMetaData.getFieldDescriptorMapFromTypes(queriedRecordTypes))));
-    }
-
-    /**
-     * Class encapsulating the information necessary to create a {@link MatchCandidate}
-     * for an {@link Index}. This exists as a convenience class that allows certain
-     * information to be computed once and referenced during match candidate creation.
-     */
-    @API(API.Status.INTERNAL)
-    public static class IndexExpansionInfo {
-        @Nonnull
-        private final RecordMetaData metaData;
-        @Nonnull
-        private final Index index;
-        private final boolean reverse;
-        @Nullable
-        private final KeyExpression commonPrimaryKeyForTypes;
-        @Nonnull
-        private final Collection<RecordType> indexedRecordTypes;
-        @Nonnull
-        private final Set<String> indexedRecordTypeNames;
-
-        private IndexExpansionInfo(@Nonnull RecordMetaData metaData,
-                                   @Nonnull Index index,
-                                   boolean reverse,
-                                   @Nonnull Collection<RecordType> indexedRecordTypes,
-                                   @Nonnull Set<String> indexedRecordTypeNames,
-                                   @Nullable KeyExpression commonPrimaryKeyForTypes) {
-            this.metaData = metaData;
-            this.index = index;
-            this.reverse = reverse;
-            this.indexedRecordTypes = indexedRecordTypes;
-            this.indexedRecordTypeNames = indexedRecordTypeNames;
-            this.commonPrimaryKeyForTypes = commonPrimaryKeyForTypes;
-        }
-
-        @Nonnull
-        public RecordMetaData getMetaData() {
-            return metaData;
-        }
-
-        @Nonnull
-        public Index getIndex() {
-            return index;
-        }
-
-        @Nonnull
-        public String getIndexName() {
-            return index.getName();
-        }
-
-        @Nonnull
-        public String getIndexType() {
-            return index.getType();
-        }
-
-        public boolean isReverse() {
-            return reverse;
-        }
-
-        @Nonnull
-        public Collection<RecordType> getIndexedRecordTypes() {
-            return indexedRecordTypes;
-        }
-
-        @Nonnull
-        public Set<String> getIndexedRecordTypeNames() {
-            return indexedRecordTypeNames;
-        }
-
-        @Nullable
-        public KeyExpression getCommonPrimaryKeyForTypes() {
-            return commonPrimaryKeyForTypes;
-        }
-
-        @Nonnull
-        public Set<String> getAvailableRecordTypeNames() {
-            return metaData.getRecordTypes().keySet();
-        }
-    }
-
-    /**
-     * Create an {@link IndexExpansionInfo} for a given index.
-     * This wraps the given parameters into a single object, as well
-     * as enriching the given parameters with pre-calculated items that
-     * can then be used during index expansion.
-     *
-     * @param metaData the meta-data that is the source of the index
-     * @param index the index that we are expanding
-     * @param reverse whether the query requires this scan be in reverse
-     * @return an object encapsulating information about the index
-     */
-    @Nonnull
-    public static IndexExpansionInfo createInfo(@Nonnull RecordMetaData metaData,
-                                                @Nonnull Index index,
-                                                boolean reverse) {
-        @Nonnull
-        final Collection<RecordType> indexedRecordTypes = Collections.unmodifiableCollection(metaData.recordTypesForIndex(index));
-        @Nonnull
-        final Set<String> indexedRecordTypeNames = indexedRecordTypes.stream()
-                .map(RecordType::getName)
-                .collect(ImmutableSet.toImmutableSet());
-        @Nullable
-        final KeyExpression commonPrimaryKeyForTypes = RecordMetaData.commonPrimaryKey(indexedRecordTypes);
-
-        return new IndexExpansionInfo(metaData, index, reverse, indexedRecordTypes, indexedRecordTypeNames, commonPrimaryKeyForTypes);
     }
 }

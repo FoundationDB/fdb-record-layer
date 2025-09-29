@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.metadata.MetaDataValidator;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactory;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
+import com.apple.foundationdb.record.query.plan.cascades.IndexExpansionInfo;
 import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.MatchCandidateExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.WindowedIndexExpansionVisitor;
@@ -110,7 +111,7 @@ public class RankIndexMaintainerFactory implements IndexMaintainerFactory {
     @Nonnull
     @Override
     public Iterable<MatchCandidate> createMatchCandidates(@Nonnull final RecordMetaData metaData, @Nonnull final Index index, final boolean reverse) {
-        final MatchCandidateExpansion.IndexExpansionInfo info = MatchCandidateExpansion.createInfo(metaData, index, reverse);
+        final IndexExpansionInfo info = IndexExpansionInfo.createInfo(metaData, index, reverse);
         final ImmutableList.Builder<MatchCandidate> resultBuilder = ImmutableList.builder();
 
         // For rank() we need to create at two candidates. One for BY_RANK scans and one for BY_VALUE scans.

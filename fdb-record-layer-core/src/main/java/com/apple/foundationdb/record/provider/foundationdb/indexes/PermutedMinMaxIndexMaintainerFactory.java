@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactory;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
+import com.apple.foundationdb.record.query.plan.cascades.IndexExpansionInfo;
 import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.MatchCandidateExpansion;
 import com.google.auto.service.AutoService;
@@ -95,7 +96,7 @@ public class PermutedMinMaxIndexMaintainerFactory implements IndexMaintainerFact
     @Nonnull
     @Override
     public Iterable<MatchCandidate> createMatchCandidates(@Nonnull final RecordMetaData metaData, @Nonnull final Index index, final boolean reverse) {
-        final MatchCandidateExpansion.IndexExpansionInfo info = MatchCandidateExpansion.createInfo(metaData, index, reverse);
+        final IndexExpansionInfo info = IndexExpansionInfo.createInfo(metaData, index, reverse);
         final ImmutableList.Builder<MatchCandidate> resultBuilder = ImmutableList.builderWithExpectedSize(2);
 
         // For permuted min and max, we use the value index expansion for BY_VALUE scans and we use
