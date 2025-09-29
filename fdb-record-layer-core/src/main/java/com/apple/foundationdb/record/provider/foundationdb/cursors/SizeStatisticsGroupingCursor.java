@@ -82,16 +82,20 @@ import java.util.concurrent.Executor;
 public class SizeStatisticsGroupingCursor implements RecordCursor<SizeStatisticsGroupedResults> {
 
     @Nonnull
+    private final SubspaceProvider subspaceProvider;
+    @Nonnull
     private final FDBRecordContext context;
+    @Nonnull
+    private final ScanProperties scanProperties;
     private final int aggregationDepth;
 
     /** The inner cursor. Its lifecycle is the same as this cursor (lazily initialized). */
-    @Nonnull
-    private final RecordCursor<KeyValue> innerCursor;
+    @Nullable
+    private RecordCursor<KeyValue> innerCursor;
     private byte[] kvCursorContinuation;
-    /** The subspace future that will be resolved prior to the inner cursor iteration. */
-    @Nonnull
-    private final CompletableFuture<Subspace> subspaceFuture;
+    /** The subspace future that will be resolved prior to the inner cursor iteration (Lazily initialized). */
+    @Nullable
+    private CompletableFuture<Subspace> subspaceFuture;
 
     /**
      * The current grouping key in progress.
@@ -114,7 +118,9 @@ public class SizeStatisticsGroupingCursor implements RecordCursor<SizeStatistics
 
     private SizeStatisticsGroupingCursor(@Nonnull SubspaceProvider subspaceProvider, @Nonnull FDBRecordContext context,
                                          @Nonnull ScanProperties scanProperties, @Nullable byte[] continuation, final int aggregationDepth) {
+        this.subspaceProvider = subspaceProvider;
         this.context = context;
+        this.scanProperties = scanProperties;
         this.aggregationDepth = aggregationDepth;
         this.closed = false;
 
@@ -140,16 +146,6 @@ public class SizeStatisticsGroupingCursor implements RecordCursor<SizeStatistics
                         .addLogInfo("raw_bytes", ByteArrayUtil2.loggable(continuation));
             }
         }
-        subspaceFuture = subspaceProvider.getSubspaceAsync(context);
-        innerCursor = new LazyCursor<>(
-                subspaceFuture.thenApply(sub ->
-                        KeyValueCursor.Builder
-                                .withSubspace(sub)
-                                .setContext(context)
-                                .setContinuation(kvCursorContinuation)
-                                .setScanProperties(scanProperties)
-                                .build()),
-                getExecutor());
     }
 
     /**
@@ -256,6 +252,20 @@ public class SizeStatisticsGroupingCursor implements RecordCursor<SizeStatistics
     @Nonnull
     @Override
     public CompletableFuture<RecordCursorResult<SizeStatisticsGroupedResults>> onNext() {
+        // Initialize the inner cursor on the first call
+        if (subspaceFuture == null) {
+            subspaceFuture = subspaceProvider.getSubspaceAsync(context);
+            innerCursor = new LazyCursor<>(
+                    subspaceFuture.thenApply(sub ->
+                            KeyValueCursor.Builder
+                                    .withSubspace(sub)
+                                    .setContext(context)
+                                    .setContinuation(kvCursorContinuation)
+                                    .setScanProperties(scanProperties)
+                                    .build()),
+                    getExecutor());
+        }
+
         if (nextStatsResult != null) {
             // if this cursor instance has previously hit a limit then keep returning the same result
             if (!nextStatsResult.hasNext()) {

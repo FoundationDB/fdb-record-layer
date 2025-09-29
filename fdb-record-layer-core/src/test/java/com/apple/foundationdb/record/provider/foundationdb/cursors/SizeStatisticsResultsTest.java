@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCursorProto;
 import com.google.common.base.Strings;
 import org.assertj.core.api.Assertions;
+import org.assertj.core.data.Offset;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
@@ -140,17 +141,21 @@ public class SizeStatisticsResultsTest {
             stats.updateStatistics(new KeyValue("a".getBytes(), Strings.repeat("a", i).getBytes()));
         }
 
-        // Total: 30 entries, 10 in bucket 1, 20 in bucket 2
+        // Total: 10 entries
         assertThat(stats.getKeyCount()).isEqualTo(10);
         
         // Test various proportions
-        double p10 = stats.getProportion(0.1); // 10% = 3 entries, should be in bucket 1
-        double p50 = stats.getProportion(0.5); // 50% = 15 entries, should be in bucket 2
-        double p90 = stats.getProportion(0.9); // 90% = 27 entries, should be in bucket 2
-        
-        assertThat(p10).isGreaterThan(1.0).isLessThanOrEqualTo(2.0);
-        assertThat(p50).isGreaterThan(5.0).isLessThanOrEqualTo(6.0);
-        assertThat(p90).isGreaterThan(9.0); // bucket 2 range
+        double p10 = stats.getProportion(0.1); // 10% = 1 entry
+        double p50 = stats.getProportion(0.5); // 50% = 5 entries
+        double p90 = stats.getProportion(0.9); // 90% = 9 entries
+        double p95 = stats.getProportion(0.95); // 95% = 9 entries
+        double p99 = stats.getProportion(0.99); // 99% = 9 entries
+
+        assertThat(p10).isEqualTo(2.0);
+        assertThat(p50).isEqualTo(stats.getMedian()).isEqualTo(6.0);
+        assertThat(p90).isEqualTo(stats.getP90()).isCloseTo(13.33333D, Offset.offset(0.1)); // bucket 2 range
+        assertThat(p95).isEqualTo(stats.getP95()).isCloseTo(13.33333D, Offset.offset(0.1)); // bucket 2 range
+        assertThat(p99).isCloseTo(13.33333D, Offset.offset(0.1)); // bucket 2 range
     }
 
     @Test
@@ -177,24 +182,6 @@ public class SizeStatisticsResultsTest {
         assertThat(p10Count).isBetween(5L, 15L);
         assertThat(p50Count).isBetween(40L, 60L);
         assertThat(p90Count).isBetween(80L, 100L);
-    }
-
-    @Test
-    public void medianP90P95() {
-        SizeStatisticsResults stats = new SizeStatisticsResults();
-        
-        // Add uniform distribution
-        for (int i = 0; i < 100; i++) {
-            stats.updateStatistics(new KeyValue("ab".getBytes(), "cd".getBytes())); // size 4
-        }
-        
-        double median = stats.getMedian();
-        double p90 = stats.getP90();
-        double p95 = stats.getP95();
-        
-        assertThat(median).isEqualTo(stats.getProportion(0.5));
-        assertThat(p90).isEqualTo(stats.getProportion(0.9));
-        assertThat(p95).isEqualTo(stats.getProportion(0.95));
     }
 
     @Test

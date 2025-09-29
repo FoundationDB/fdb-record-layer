@@ -84,8 +84,8 @@ message SizeStatisticsContinuation {
 
 message SizeStatisticsGroupingContinuation {
     // A marker for when the continuation is used to indicate that the cursor is done and this is the last result
-    required bool lastResultContinuation = 1;
-    optional bytes underlyingContinuation =2;
+    optional bool lastResultContinuation = 1;
+    optional bytes underlyingContinuation = 2;
     optional SizeStatisticsPartialResults partialResults = 3;
     optional bytes currentGroupingKey = 4;
 }

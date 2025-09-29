@@ -77,7 +77,9 @@ class SizeStatisticsGroupingContinuation implements RecordCursorContinuation {
      * @return TRUE if the protobuf marks a continuation with last result
      */
     public static boolean isLastResultContinuation(final RecordCursorProto.SizeStatisticsGroupingContinuation statsContinuation) {
-        return statsContinuation.getLastResultContinuation();
+        // Default to false
+        return (statsContinuation.hasLastResultContinuation() &&
+                statsContinuation.getLastResultContinuation());
     }
 
     public boolean isLastResultContinuation() {
