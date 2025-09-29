@@ -7,6 +7,29 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.6
 
+### 4.6.5.0
+
+<h4> New Features </h4>
+
+* Make use of key store its own key manager - [PR #3606](https://github.com/FoundationDB/fdb-record-layer/pull/3606)
+<h4> Bug Fixes </h4>
+
+* Allow TransformedRecordSerializerJCE.Builder to be reused - [PR #3642](https://github.com/FoundationDB/fdb-record-layer/pull/3642)
+* fix bug where pullup should create an ordinary map instead or an iden… - [PR #3624](https://github.com/FoundationDB/fdb-record-layer/pull/3624)
+
+
+**[Full Changelog (4.6.4.0...4.6.5.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.6.4.0...4.6.5.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+❌`4.5.7.0`, ❌`4.5.8.0`, ❌`4.5.9.0`, ✅`4.5.10.0`, ✅`4.5.12.0`, ✅`4.5.13.0`, ✅`4.6.1.0`, ✅`4.6.2.0`, ✅`4.6.3.0`, ✅`4.6.4.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/18101660068)
+
+
+
 ### 4.6.4.0
 
 <h4> New Features </h4>
