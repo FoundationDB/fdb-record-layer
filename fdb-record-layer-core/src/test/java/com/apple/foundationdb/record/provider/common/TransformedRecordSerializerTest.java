@@ -72,6 +72,7 @@ import static org.hamcrest.Matchers.hasEntry;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -770,6 +771,25 @@ public class TransformedRecordSerializerTest {
         builder.setEncryptionKey(keyManager.getKey(keyManager.getSerializationKey()));
         e = assertThrows(RecordCoreArgumentException.class, builder::build);
         assertThat(e.getMessage(), containsString("cannot specify both key manager and encryption key"));
+    }
+
+    @Test
+    void reuseBuilder() throws Exception {
+        RollingTestKeyManager keyManager = new RollingTestKeyManager(0);
+        TransformedRecordSerializerJCE.Builder<Message> builderWithEncryptionKey = TransformedRecordSerializerJCE
+                .newDefaultBuilder()
+                .setEncryptionKey(keyManager.getKey(keyManager.getSerializationKey()));
+        TransformedRecordSerializerJCE.Builder<Message> builderWithKeyManager = TransformedRecordSerializerJCE
+                .newDefaultBuilder()
+                .setKeyManager(keyManager);
+
+        List.of(builderWithEncryptionKey, builderWithKeyManager).forEach((builder) -> {
+            builder.setEncryptWhenSerializing(false);
+            assertDoesNotThrow(builder::build);
+
+            builder.setEncryptWhenSerializing(true);
+            assertDoesNotThrow(builder::build);
+        });
     }
 
     private boolean isCompressed(byte[] serialized) {
