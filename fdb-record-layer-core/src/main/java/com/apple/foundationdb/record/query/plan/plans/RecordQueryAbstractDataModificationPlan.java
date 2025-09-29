@@ -244,6 +244,7 @@ public abstract class RecordQueryAbstractDataModificationPlan extends AbstractRe
     }
 
     @Nonnull
+    @Override
     public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         final var resultValueCorrelatedTo =
                 Sets.filter(computationValue.getCorrelatedTo(),
@@ -307,8 +308,9 @@ public abstract class RecordQueryAbstractDataModificationPlan extends AbstractRe
         return structuralHashCode();
     }
 
+    @Override
     public int computeHashCodeWithoutChildren() {
-        return Objects.hash(BASE_HASH.planHash(PlanHashable.CURRENT_FOR_CONTINUATION), targetRecordType, targetType,
+        return Objects.hash(BASE_HASH.hashCode(), targetRecordType, targetType,
                 transformationsTrie, coercionTrie, computationValue);
     }
 

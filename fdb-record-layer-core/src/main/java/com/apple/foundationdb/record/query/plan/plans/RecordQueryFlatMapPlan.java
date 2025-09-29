@@ -151,6 +151,7 @@ public class RecordQueryFlatMapPlan extends AbstractRelationalExpressionWithChil
     }
 
     @Nonnull
+    @Override
     public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return resultValue.getCorrelatedTo();
     }
@@ -215,6 +216,7 @@ public class RecordQueryFlatMapPlan extends AbstractRelationalExpressionWithChil
         return structuralHashCode();
     }
 
+    @Override
     public int computeHashCodeWithoutChildren() {
         return Objects.hash(getResultValue(), inheritOuterRecordProperties);
     }

@@ -154,6 +154,7 @@ public class SelectExpression extends AbstractRelationalExpressionWithChildren i
     }
 
     @Nonnull
+    @Override
     public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return Streams.concat(predicates.stream().flatMap(queryPredicate -> queryPredicate.getCorrelatedTo().stream()),
                         resultValue.getCorrelatedTo().stream())
@@ -205,6 +206,7 @@ public class SelectExpression extends AbstractRelationalExpressionWithChildren i
                 .allMatch(isSame -> isSame);
     }
 
+    @Override
     public int computeHashCodeWithoutChildren() {
         return Objects.hash(getPredicates(), getResultValue());
     }

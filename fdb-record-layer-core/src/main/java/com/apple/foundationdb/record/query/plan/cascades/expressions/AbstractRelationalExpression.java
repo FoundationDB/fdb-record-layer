@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.query.plan.cascades.expressions;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Suppliers;
 
 import javax.annotation.Nonnull;
@@ -30,7 +29,7 @@ import java.util.Set;
 import java.util.function.Supplier;
 
 /**
- * Abstract implementation of {@link Value} that provides memoization of correlatedTo sets.
+ * Abstract implementation of {@link RelationalExpression} that provides memoization of correlatedTo sets.
  */
 @API(API.Status.EXPERIMENTAL)
 public abstract class AbstractRelationalExpression implements RelationalExpression {
@@ -47,6 +46,7 @@ public abstract class AbstractRelationalExpression implements RelationalExpressi
     }
 
     @Nonnull
+    @Override
     public final Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
         return correlatedToWithoutChildrenSupplier.get();
     }

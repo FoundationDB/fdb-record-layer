@@ -264,5 +264,4 @@ public abstract class RecordQueryUnionPlan extends RecordQueryUnionPlanBase {
                         ImmutableMap.of("comparisonKeyFunction", Attribute.gml(comparisonKeyFunction.toString()))),
                 childGraphs);
     }
-
 }

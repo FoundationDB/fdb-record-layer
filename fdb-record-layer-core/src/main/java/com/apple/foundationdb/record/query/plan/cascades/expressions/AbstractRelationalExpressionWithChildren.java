@@ -1,5 +1,5 @@
 /*
- * AbstractRelationalExpression.java
+ * AbstractRelationalExpressionWithChildren.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.query.plan.cascades.expressions;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Suppliers;
 
 import javax.annotation.Nonnull;
@@ -30,7 +29,8 @@ import java.util.Set;
 import java.util.function.Supplier;
 
 /**
- * Abstract implementation of {@link Value} that provides memoization of correlatedTo sets.
+ * Abstract implementation of {@link RelationalExpressionWithChildren} that provides memoization of correlatedTo sets.
+ * This class only applies to expressions that are not leaf expressions.
  */
 @API(API.Status.EXPERIMENTAL)
 public abstract class AbstractRelationalExpressionWithChildren extends AbstractRelationalExpression implements RelationalExpressionWithChildren {
@@ -43,6 +43,7 @@ public abstract class AbstractRelationalExpressionWithChildren extends AbstractR
     }
 
     @Nonnull
+    @Override
     public final Set<CorrelationIdentifier> getCorrelatedTo() {
         return correlatedToSupplier.get();
     }

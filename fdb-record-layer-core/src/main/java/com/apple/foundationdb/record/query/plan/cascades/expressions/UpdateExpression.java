@@ -96,6 +96,7 @@ public class UpdateExpression extends AbstractRelationalExpressionWithChildren i
     }
 
     @Nonnull
+    @Override
     public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return transformMap.values()
                 .stream()
@@ -166,6 +167,7 @@ public class UpdateExpression extends AbstractRelationalExpressionWithChildren i
         return semanticHashCode();
     }
 
+    @Override
     public int computeHashCodeWithoutChildren() {
         return Objects.hash(targetRecordType, targetType, transformMap);
     }

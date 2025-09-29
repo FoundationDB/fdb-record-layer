@@ -173,6 +173,7 @@ public class RecordQueryDeletePlan extends AbstractRelationalExpressionWithChild
         return structuralHashCode();
     }
 
+    @Override
     public int computeHashCodeWithoutChildren() {
         return Objects.hash(BASE_HASH.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
     }
