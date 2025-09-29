@@ -81,11 +81,6 @@ public final class IndexExpansionInfo {
         return index.getName();
     }
 
-    @Nonnull
-    public String getIndexType() {
-        return index.getType();
-    }
-
     public boolean isReverse() {
         return reverse;
     }

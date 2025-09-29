@@ -27,6 +27,8 @@ import com.apple.foundationdb.record.provider.common.TypedRecordSerializer;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
+import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.test.FDBDatabaseExtension;
 import com.apple.foundationdb.record.test.TestKeySpace;
 import com.apple.foundationdb.record.test.TestKeySpacePathManagerExtension;
@@ -37,9 +39,14 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
+import javax.annotation.Nonnull;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Collectors;
+
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Tests for {@link FDBTypedRecordStore}.
@@ -106,36 +113,76 @@ public class FDBTypedRecordStoreTest {
         }
     }
 
-    @Test
-    void query() {
+    @Nonnull
+    private List<TestRecords1Proto.MySimpleRecord> insertTestData() {
+        List<TestRecords1Proto.MySimpleRecord> inserted = new ArrayList<>();
         try (FDBRecordContext context = fdb.openContext()) {
             openTypedRecordStore(context);
-
             for (int i = 0; i < 100; i++) {
-                TestRecords1Proto.MySimpleRecord.Builder recBuilder = TestRecords1Proto.MySimpleRecord.newBuilder();
-                recBuilder.setRecNo(i);
-                recBuilder.setStrValueIndexed((i & 1) == 1 ? "odd" : "even");
-                recBuilder.setNumValueUnique(i + 1000);
-                recordStore.saveRecord(recBuilder.build());
+                TestRecords1Proto.MySimpleRecord rec = TestRecords1Proto.MySimpleRecord.newBuilder()
+                        .setRecNo(i)
+                        .setStrValueIndexed((i & 1) == 1 ? "odd" : "even")
+                        .setNumValueUnique(i + 1000)
+                        .build();
+                recordStore.saveRecord(rec);
+                inserted.add(rec);
             }
             context.commit();
         }
+        return inserted;
+    }
 
-        RecordQuery query = RecordQuery.newBuilder()
+    @Test
+    void query() {
+        final List<TestRecords1Proto.MySimpleRecord> data = insertTestData();
+
+        final RecordQuery query = RecordQuery.newBuilder()
                 .setRecordType("MySimpleRecord")
                 .setFilter(Query.field("str_value_indexed").equalsValue("even"))
                 .build();
         try (FDBRecordContext context = fdb.openContext()) {
             openTypedRecordStore(context);
-            int i = 0;
+            final List<TestRecords1Proto.MySimpleRecord> queried = new ArrayList<>();
             try (RecordCursorIterator<FDBQueriedRecord<TestRecords1Proto.MySimpleRecord>> cursor = recordStore.executeQuery(query).asIterator()) {
                 while (cursor.hasNext()) {
                     TestRecords1Proto.MySimpleRecord myrec = cursor.next().getRecord();
-                    assertTrue((myrec.getNumValueUnique() % 2) == 0);
-                    i++;
+                    assertThat(myrec.getNumValueUnique() % 2)
+                            .isZero();
+                    queried.add(myrec);
                 }
             }
-            assertEquals(50, i);
+            assertThat(queried)
+                    .hasSize(50)
+                    .hasSameElementsAs(data.stream().filter(rec -> "even".equals(rec.getStrValueIndexed())).collect(Collectors.toSet()));
+        }
+    }
+
+    @Test
+    void queryCascades() {
+        final List<TestRecords1Proto.MySimpleRecord> data = insertTestData();
+
+        final RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType("MySimpleRecord")
+                .setFilter(Query.field("str_value_indexed").equalsValue("odd"))
+                .build();
+
+        try (FDBRecordContext context = fdb.openContext()) {
+            openTypedRecordStore(context);
+
+            CascadesPlanner cascadesPlanner = CascadesPlanner.forStore(recordStore);
+            final RecordQueryPlan plan = cascadesPlanner.plan(query);
+            final List<TestRecords1Proto.MySimpleRecord> queried = new ArrayList<>();
+            try (RecordCursorIterator<FDBQueriedRecord<TestRecords1Proto.MySimpleRecord>> cursor = recordStore.executeQuery(plan).asIterator()) {
+                while (cursor.hasNext()) {
+                    TestRecords1Proto.MySimpleRecord myrec = cursor.next().getRecord();
+                    assertThat(myrec.getNumValueUnique() % 2)
+                            .isOne();
+                    queried.add(myrec);
+                }
+            }
+            assertThat(queried)
+                    .hasSize(50)
+                    .hasSameElementsAs(data.stream().filter(rec -> "odd".equals(rec.getStrValueIndexed())).collect(Collectors.toSet()));
         }
     }
 

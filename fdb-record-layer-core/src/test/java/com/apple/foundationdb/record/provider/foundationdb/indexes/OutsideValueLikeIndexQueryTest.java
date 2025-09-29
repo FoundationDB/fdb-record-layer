@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.provider.foundationdb.indexes;
 import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.RecordCursorResult;
@@ -74,6 +75,7 @@ import static com.apple.foundationdb.record.query.plan.ScanComparisons.range;
 import static com.apple.foundationdb.record.query.plan.ScanComparisons.unbounded;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.only;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PrimitiveMatchers.containsAll;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.filterPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.flatMapPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.indexName;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.indexPlan;
@@ -83,6 +85,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.typeFilterPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.properties.UsedTypesProperty.usedTypes;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Test that we can use the {@link OutsideValueLikeIndexMaintainer} to define
@@ -109,55 +112,50 @@ class OutsideValueLikeIndexQueryTest extends FDBRecordStoreQueryTestBase {
         metaDataBuilder.addIndex("MySimpleRecord", index);
     }
 
+    private void addNonCascadesNumValue2Index(@Nonnull RecordMetaDataBuilder metaDataBuilder) {
+        final Index index = new Index(OUTSIDE_INDEX_NAME, field("num_value_2"), NonCascadesValueIndexMaintainer.INDEX_TYPE);
+        metaDataBuilder.addIndex("MySimpleRecord", index);
+    }
+
     private void openStoreWithOutsideIndex(@Nonnull FDBRecordContext context) {
         openSimpleRecordStore(context, this::addOutsideNumValue2Index);
         setupPlanner(WITH_OUTSIDE_INDEX_TYPES);
     }
 
+    private void openStoreWithNonCascadesValue2Index(@Nonnull FDBRecordContext context) {
+        openSimpleRecordStore(context, this::addNonCascadesNumValue2Index);
+    }
+
     @Nonnull
     private List<TestRecords1Proto.MySimpleRecord> saveSimpleData(int count) {
-        try (FDBRecordContext context = openContext()) {
-            openStoreWithOutsideIndex(context);
-            final List<TestRecords1Proto.MySimpleRecord> results = new ArrayList<>(count);
-
-            for (int i = 0; i < count; i++) {
-                final TestRecords1Proto.MySimpleRecord msg = TestRecords1Proto.MySimpleRecord.newBuilder()
-                        .setRecNo(1_000L + i)
-                        .setNumValue2(i % 10)
-                        .setNumValueUnique(i)
-                        .setStrValueIndexed(i % 2 == 0 ? "even" : "odd")
-                        .setNumValue3Indexed(i % 7)
-                        .build();
-                recordStore.saveRecord(msg);
-                results.add(msg);
-            }
-
-            // Write update to database and return result
-            commit(context);
-            return results;
+        final List<TestRecords1Proto.MySimpleRecord> results = new ArrayList<>(count);
+        for (int i = 0; i < count; i++) {
+            final TestRecords1Proto.MySimpleRecord msg = TestRecords1Proto.MySimpleRecord.newBuilder()
+                    .setRecNo(1_000L + i)
+                    .setNumValue2(i % 10)
+                    .setNumValueUnique(i)
+                    .setStrValueIndexed(i % 2 == 0 ? "even" : "odd")
+                    .setNumValue3Indexed(i % 7)
+                    .build();
+            recordStore.saveRecord(msg);
+            results.add(msg);
         }
+        return results;
     }
 
     @Nonnull
     private List<TestRecords1Proto.MyOtherRecord> saveOtherData(int count) {
-        try (FDBRecordContext context = openContext()) {
-            openStoreWithOutsideIndex(context);
-            final List<TestRecords1Proto.MyOtherRecord> results = new ArrayList<>(count);
-
-            for (int i = 0; i < count; i++) {
-                final TestRecords1Proto.MyOtherRecord msg = TestRecords1Proto.MyOtherRecord.newBuilder()
-                        .setRecNo(100_000L + i)
-                        .setNumValue2(i % 10)
-                        .setNumValue3Indexed(i % 7)
-                        .build();
-                recordStore.saveRecord(msg);
-                results.add(msg);
-            }
-
-            // Write update to database and return result
-            commit(context);
-            return results;
+        final List<TestRecords1Proto.MyOtherRecord> results = new ArrayList<>(count);
+        for (int i = 0; i < count; i++) {
+            final TestRecords1Proto.MyOtherRecord msg = TestRecords1Proto.MyOtherRecord.newBuilder()
+                    .setRecNo(100_000L + i)
+                    .setNumValue2(i % 10)
+                    .setNumValue3Indexed(i % 7)
+                    .build();
+            recordStore.saveRecord(msg);
+            results.add(msg);
         }
+        return results;
     }
 
     /**
@@ -168,10 +166,11 @@ class OutsideValueLikeIndexQueryTest extends FDBRecordStoreQueryTestBase {
      */
     @DualPlannerTest
     void planForSort() {
-        final List<TestRecords1Proto.MySimpleRecord> simpleRecords = saveSimpleData(50);
-        saveOtherData(20); // just so that we have something to avoid during the query
         try (FDBRecordContext context = openContext()) {
             openStoreWithOutsideIndex(context);
+
+            final List<TestRecords1Proto.MySimpleRecord> simpleRecords = saveSimpleData(50);
+            saveOtherData(20); // just so that we have something to avoid during the query
 
             final RecordQuery query = RecordQuery.newBuilder()
                     .setRecordType("MySimpleRecord")
@@ -206,14 +205,14 @@ class OutsideValueLikeIndexQueryTest extends FDBRecordStoreQueryTestBase {
 
     @DualPlannerTest
     void planForFilter() {
-        final List<TestRecords1Proto.MySimpleRecord> simpleRecords = saveSimpleData(35);
-        final Set<Integer> numValue2s = simpleRecords.stream()
-                .map(TestRecords1Proto.MySimpleRecord::getNumValue2)
-                .collect(Collectors.toSet());
-        saveOtherData(20); // just so that we have something to avoid during the query
-
         try (FDBRecordContext context = openContext()) {
             openStoreWithOutsideIndex(context);
+
+            final List<TestRecords1Proto.MySimpleRecord> simpleRecords = saveSimpleData(35);
+            final Set<Integer> numValue2s = simpleRecords.stream()
+                    .map(TestRecords1Proto.MySimpleRecord::getNumValue2)
+                    .collect(Collectors.toSet());
+            saveOtherData(20); // just so that we have something to avoid during the query
 
             final RecordQuery query = RecordQuery.newBuilder()
                     .setRecordType("MySimpleRecord")
@@ -250,8 +249,14 @@ class OutsideValueLikeIndexQueryTest extends FDBRecordStoreQueryTestBase {
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
     void useAsPartOfJoin() {
-        final List<TestRecords1Proto.MySimpleRecord> simpleRecords = saveSimpleData(20);
-        final List<TestRecords1Proto.MyOtherRecord> otherRecords = saveOtherData(20);
+        final List<TestRecords1Proto.MySimpleRecord> simpleRecords;
+        final List<TestRecords1Proto.MyOtherRecord> otherRecords;
+        try (FDBRecordContext context = openContext()) {
+            openStoreWithOutsideIndex(context);
+            simpleRecords = saveSimpleData(20);
+            otherRecords = saveOtherData(20);
+            commit(context);
+        }
 
         // Precompute the join results, using num_value_2 as the join criterion
         final Map<Integer, Set<NonnullPair<Long, Long>>> expectedResults = new HashMap<>();
@@ -313,6 +318,39 @@ class OutsideValueLikeIndexQueryTest extends FDBRecordStoreQueryTestBase {
             }
             assertThat(queriedResults)
                     .isEqualTo(expectedResults);
+        }
+    }
+
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    void fullScanWithIndexWithoutMatchCandidates() {
+        try (FDBRecordContext context = openContext()) {
+            openStoreWithNonCascadesValue2Index(context);
+
+            final RecordQuery query1 = RecordQuery.newBuilder()
+                    .setRecordType("MySimpleRecord")
+                    .setFilter(Query.field("num_value_2").equalsParameter("param"))
+                    .build();
+            final RecordQueryPlan plan = planQuery(query1);
+            assertMatchesExactly(plan, filterPlan(
+                    typeFilterPlan(
+                            scanPlan().where(scanComparisons(unbounded()))
+                    )
+            ));
+        }
+    }
+
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    void cannotSortWithIndexWithoutMatchCandidates() {
+        try (FDBRecordContext context = openContext()) {
+            openStoreWithNonCascadesValue2Index(context);
+
+            final RecordQuery query1 = RecordQuery.newBuilder()
+                    .setRecordType("MySimpleRecord")
+                    .setSort(field("num_value_2"), true)
+                    .build();
+            assertThatThrownBy(() -> planQuery(query1))
+                    .isInstanceOf(RecordCoreException.class)
+                    .hasMessageContaining("Cascades planner could not plan query");
         }
     }
 }
