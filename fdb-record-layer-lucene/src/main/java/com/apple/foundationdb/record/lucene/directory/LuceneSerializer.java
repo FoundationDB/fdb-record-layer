@@ -140,7 +140,7 @@ public class LuceneSerializer {
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(KeyValueLogMessage.of("Decoded lucene data",
                     LuceneLogMessageKeys.COMPRESSED_EVENTUALLY, state.isCompressed(),
-                    LuceneLogMessageKeys.ENCRYPTED_EVENTUALLY, state.isCompressed(),
+                    LuceneLogMessageKeys.ENCRYPTED_EVENTUALLY, state.isEncrypted(),
                     LuceneLogMessageKeys.ENCODED_DATA_SIZE, data.length,
                     LuceneLogMessageKeys.ORIGINAL_DATA_SIZE, decoded.length));
         }
