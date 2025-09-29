@@ -61,6 +61,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
+import org.junit.jupiter.api.Assertions;
 
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -462,6 +463,7 @@ class RecursiveQueriesTest extends TempTableTestBase {
             final var logicalPlan = Reference.initialOf(LogicalSortExpression.unsorted(Quantifier.forEach(Reference.initialOf(recursiveUnionPlan))));
             final var cascadesPlanner = (CascadesPlanner)planner;
             final var plan = cascadesPlanner.planGraph(() -> logicalPlan, Optional.empty(), IndexQueryabilityFilter.TRUE, EvaluationContext.empty()).getPlan();
+            Assertions.assertEquals(7, plan.getComplexity());
 
             var evaluationContext = putTempTableInContext(seedingTempTableAlias, seedingTempTable, null);
             return extractResultsAsIds(context, plan, evaluationContext).stream().collect(ImmutableList.toImmutableList());
