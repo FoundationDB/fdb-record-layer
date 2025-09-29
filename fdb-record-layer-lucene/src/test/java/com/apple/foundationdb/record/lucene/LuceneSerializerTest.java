@@ -44,7 +44,7 @@ import java.util.concurrent.ThreadLocalRandom;
 class LuceneSerializerTest {
     @Test
     void testEncodingWithoutCompression() throws InvalidProtocolBufferException {
-        final LuceneSerializer serializer = new LuceneSerializer(null);
+        final LuceneSerializer serializer = new LuceneSerializer(true, false, null);
         final ByteString content = RandomUtil.randomByteString(ThreadLocalRandom.current(), 100);
         final LuceneFileSystemProto.LuceneFileReference reference = LuceneFileSystemProto.LuceneFileReference.newBuilder()
                 .setId(1)
@@ -53,7 +53,7 @@ class LuceneSerializerTest {
                 .setContent(content)
                 .build();
         final byte[] originalValue = reference.toByteArray();
-        final byte[] encodedValue = serializer.encode(originalValue, true, false);
+        final byte[] encodedValue = serializer.encode(originalValue);
         final byte[] decodedValue = serializer.decode(encodedValue);
 
         final byte[] expectedEncodedValue = new byte[originalValue.length + 1];
@@ -74,7 +74,7 @@ class LuceneSerializerTest {
 
     @Test
     void testEncodingWithCompression() throws InvalidProtocolBufferException {
-        final LuceneSerializer serializer = new LuceneSerializer(null);
+        final LuceneSerializer serializer = new LuceneSerializer(true, false, null);
         final String duplicateMsg = "abcdefghijklmnopqrstuvwxyz";
         final String content = "content_" + duplicateMsg + "_" + duplicateMsg;
         final LuceneFileSystemProto.LuceneFileReference reference = LuceneFileSystemProto.LuceneFileReference.newBuilder()
@@ -84,7 +84,7 @@ class LuceneSerializerTest {
                 .setContent(ByteString.copyFromUtf8(content))
                 .build();
         final byte[] value = reference.toByteArray();
-        final byte[] encodedValue = serializer.encode(value, true, false);
+        final byte[] encodedValue = serializer.encode(value);
         final byte[] decodedValue = serializer.decode(encodedValue);
 
         // The encoded value's size is smaller than the original one due to compression
@@ -107,7 +107,7 @@ class LuceneSerializerTest {
         keyGen.init(128);
         SecretKey key = keyGen.generateKey();
         final SerializationKeyManager keyManager = new FixedZeroKeyManager(key, null, null);
-        final LuceneSerializer serializer = new LuceneSerializer(keyManager);
+        final LuceneSerializer serializer = new LuceneSerializer(compressToo, true, keyManager);
         final ByteString content = RandomUtil.randomByteString(ThreadLocalRandom.current(), 100);
         final LuceneFileSystemProto.LuceneFileReference reference = LuceneFileSystemProto.LuceneFileReference.newBuilder()
                 .setId(1)
@@ -116,7 +116,7 @@ class LuceneSerializerTest {
                 .setContent(content)
                 .build();
         final byte[] value = reference.toByteArray();
-        final byte[] encodedValue = serializer.encode(value, compressToo, true);
+        final byte[] encodedValue = serializer.encode(value);
         final byte[] decodedValue = serializer.decode(encodedValue);
         Assertions.assertArrayEquals(value, decodedValue);
         final LuceneFileSystemProto.LuceneFileReference decryptedReference = LuceneFileSystemProto.LuceneFileReference.parseFrom(decodedValue);

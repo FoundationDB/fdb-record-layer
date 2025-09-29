@@ -53,26 +53,44 @@ public class LuceneSerializer {
     private static final byte COMPRESSION_VERSION_FOR_HIGH_COMPRESSION = 0;
     private static final int ENCRYPTION_KEY_SHIFT = 3;
 
+    private final boolean compressionEnabled;
+    private final boolean encryptionEnabled;
     @Nullable
     private final SerializationKeyManager keyManager;
 
-    public LuceneSerializer(@Nullable SerializationKeyManager keyManager) {
+    public LuceneSerializer(boolean compressionEnabled,
+                            boolean encryptionEnabled, @Nullable SerializationKeyManager keyManager) {
+        this.compressionEnabled = compressionEnabled;
+        this.encryptionEnabled = encryptionEnabled;
         this.keyManager = keyManager;
     }
 
+    public boolean isCompressionEnabled() {
+        return compressionEnabled;
+    }
+
+    public boolean isEncryptionEnabled() {
+        return encryptionEnabled;
+    }
+
     @Nullable
-    public byte[] encode(@Nullable byte[] data, boolean compress, boolean encrypt) {
+    public SerializationKeyManager getKeyManager() {
+        return keyManager;
+    }
+
+    @Nullable
+    public byte[] encode(@Nullable byte[] data) {
         if (data == null) {
             return null;
         }
 
         final CompressedAndEncryptedSerializerState state = new CompressedAndEncryptedSerializerState();
         long prefix = 0;
-        if (compress) {
+        if (compressionEnabled) {
             prefix |= ENCODING_COMPRESSED;
             state.setCompressed(true);
         }
-        if (encrypt) {
+        if (encryptionEnabled) {
             if (keyManager == null) {
                 throw new RecordCoreException("cannot encrypt Lucene blocks without keys");
             }
@@ -96,8 +114,8 @@ public class LuceneSerializer {
 
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(KeyValueLogMessage.of("Encoded lucene data",
-                    LuceneLogMessageKeys.COMPRESSION_SUPPOSED, compress,
-                    LuceneLogMessageKeys.ENCRYPTION_SUPPOSED, encrypt,
+                    LuceneLogMessageKeys.COMPRESSION_SUPPOSED, compressionEnabled,
+                    LuceneLogMessageKeys.ENCRYPTION_SUPPOSED, encryptionEnabled,
                     LuceneLogMessageKeys.COMPRESSED_EVENTUALLY, state.isCompressed(),
                     LuceneLogMessageKeys.ENCRYPTED_EVENTUALLY, state.isEncrypted(),
                     LuceneLogMessageKeys.ORIGINAL_DATA_SIZE, data.length,
