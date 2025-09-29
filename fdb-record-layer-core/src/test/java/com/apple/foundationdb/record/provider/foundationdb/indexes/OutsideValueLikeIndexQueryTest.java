@@ -79,6 +79,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.flatMapPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.indexName;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.indexPlan;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.predicatesFilterPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.recordTypes;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.scanComparisons;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.scanPlan;
@@ -321,34 +322,47 @@ class OutsideValueLikeIndexQueryTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
-    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    @DualPlannerTest
     void fullScanWithIndexWithoutMatchCandidates() {
         try (FDBRecordContext context = openContext()) {
             openStoreWithNonCascadesValue2Index(context);
 
-            final RecordQuery query1 = RecordQuery.newBuilder()
+            final RecordQuery query = RecordQuery.newBuilder()
                     .setRecordType("MySimpleRecord")
                     .setFilter(Query.field("num_value_2").equalsParameter("param"))
                     .build();
-            final RecordQueryPlan plan = planQuery(query1);
-            assertMatchesExactly(plan, filterPlan(
-                    typeFilterPlan(
-                            scanPlan().where(scanComparisons(unbounded()))
-                    )
-            ));
+            final RecordQueryPlan plan = planQuery(query);
+            if (useCascadesPlanner) {
+                assertMatchesExactly(plan, predicatesFilterPlan(
+                        typeFilterPlan(
+                                scanPlan().where(scanComparisons(unbounded()))
+                        )
+                ));
+            } else {
+                assertMatchesExactly(plan, filterPlan(
+                        typeFilterPlan(
+                                scanPlan().where(scanComparisons(unbounded()))
+                        )
+                ));
+            }
         }
     }
 
+    /**
+     * Validate that indexes that aren't set up to be matched are not selected when querying.
+     * Ideally, we'd be able to assert that this doesn't use the index in the old planner either,
+     * but see: <a href="https://github.com/FoundationDB/fdb-record-layer/issues/3648">Issue #3648</a>.
+     */
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
     void cannotSortWithIndexWithoutMatchCandidates() {
         try (FDBRecordContext context = openContext()) {
             openStoreWithNonCascadesValue2Index(context);
 
-            final RecordQuery query1 = RecordQuery.newBuilder()
+            final RecordQuery query = RecordQuery.newBuilder()
                     .setRecordType("MySimpleRecord")
                     .setSort(field("num_value_2"), true)
                     .build();
-            assertThatThrownBy(() -> planQuery(query1))
+            assertThatThrownBy(() -> planQuery(query))
                     .isInstanceOf(RecordCoreException.class)
                     .hasMessageContaining("Cascades planner could not plan query");
         }
