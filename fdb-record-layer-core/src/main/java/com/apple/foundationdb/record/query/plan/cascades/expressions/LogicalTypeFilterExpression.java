@@ -60,7 +60,7 @@ import java.util.Set;
  * @see com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan for the fallback implementation
  */
 @API(API.Status.EXPERIMENTAL)
-public class LogicalTypeFilterExpression implements TypeFilterExpression, PlannerGraphRewritable {
+public class LogicalTypeFilterExpression extends AbstractRelationalExpressionWithChildren implements TypeFilterExpression, PlannerGraphRewritable {
     @Nonnull
     private final Set<String> recordTypes;
     @Nonnull
@@ -104,7 +104,7 @@ public class LogicalTypeFilterExpression implements TypeFilterExpression, Planne
 
     @Nonnull
     @Override
-    public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
+    public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return ImmutableSet.of();
     }
 
@@ -126,6 +126,11 @@ public class LogicalTypeFilterExpression implements TypeFilterExpression, Planne
     @Override
     public int hashCode() {
         return semanticHashCode();
+    }
+
+    @Override
+    public int computeHashCodeWithoutChildren() {
+        return TypeFilterExpression.super.computeHashCodeWithoutChildren();
     }
 
     @Nonnull

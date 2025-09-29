@@ -41,6 +41,7 @@ import com.apple.foundationdb.record.query.plan.cascades.TempTable;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphRewritable;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.AbstractRelationalExpressionWithChildren;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.explain.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -66,7 +67,7 @@ import java.util.Set;
  * A query plan that inserts records into a temporary in-memory buffer {@link TempTable}.
  */
 @API(API.Status.INTERNAL)
-public class TempTableInsertPlan implements RecordQueryPlanWithChild, PlannerGraphRewritable {
+public class TempTableInsertPlan extends AbstractRelationalExpressionWithChildren implements RecordQueryPlanWithChild, PlannerGraphRewritable {
 
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Temp-Table-Insert-Plan");
 
@@ -97,6 +98,7 @@ public class TempTableInsertPlan implements RecordQueryPlanWithChild, PlannerGra
 
     @Nonnull
     @Override
+    @SuppressWarnings("resource")
     public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
                                                                      @Nonnull final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,
@@ -187,7 +189,7 @@ public class TempTableInsertPlan implements RecordQueryPlanWithChild, PlannerGra
     }
 
     @Override
-    public int hashCodeWithoutChildren() {
+    public int computeHashCodeWithoutChildren() {
         return Objects.hash(BASE_HASH.planHash(PlanHashable.CURRENT_FOR_CONTINUATION), getTempTableReferenceValue(), isOwningTempTable);
     }
 
@@ -272,7 +274,7 @@ public class TempTableInsertPlan implements RecordQueryPlanWithChild, PlannerGra
 
     @Nonnull
     @Override
-    public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
+    public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return tempTableReferenceValue.getCorrelatedToWithoutChildren();
     }
 

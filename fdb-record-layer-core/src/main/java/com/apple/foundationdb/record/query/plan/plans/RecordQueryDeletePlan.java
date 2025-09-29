@@ -40,6 +40,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphRewritable;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.AbstractRelationalExpressionWithChildren;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.explain.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.properties.StoredRecordProperty;
@@ -72,7 +73,7 @@ import java.util.function.Supplier;
  * Not that we hold on to a target record type in this plan operator only for debugging purposes at the moment.
  */
 @API(API.Status.INTERNAL)
-public class RecordQueryDeletePlan implements RecordQueryPlanWithChild, PlannerGraphRewritable {
+public class RecordQueryDeletePlan extends AbstractRelationalExpressionWithChildren implements RecordQueryPlanWithChild, PlannerGraphRewritable {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Delete-Plan");
 
     public static final Logger LOGGER = LoggerFactory.getLogger(RecordQueryDeletePlan.class);
@@ -83,13 +84,9 @@ public class RecordQueryDeletePlan implements RecordQueryPlanWithChild, PlannerG
     @Nonnull
     private final Supplier<Value> resultValueSupplier;
 
-    @Nonnull
-    private final Supplier<Integer> hashCodeWithoutChildrenSupplier;
-
     protected RecordQueryDeletePlan(@Nonnull final Quantifier.Physical inner) {
         this.inner = inner;
         this.resultValueSupplier = Suppliers.memoize(inner::getFlowedObjectValue);
-        this.hashCodeWithoutChildrenSupplier = Suppliers.memoize(this::computeHashCodeWithoutChildren);
     }
 
     @Nonnull
@@ -131,7 +128,7 @@ public class RecordQueryDeletePlan implements RecordQueryPlanWithChild, PlannerG
 
     @Nonnull
     @Override
-    public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
+    public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return ImmutableSet.of();
     }
 
@@ -176,12 +173,7 @@ public class RecordQueryDeletePlan implements RecordQueryPlanWithChild, PlannerG
         return structuralHashCode();
     }
 
-    @Override
-    public int hashCodeWithoutChildren() {
-        return hashCodeWithoutChildrenSupplier.get();
-    }
-
-    private int computeHashCodeWithoutChildren() {
+    public int computeHashCodeWithoutChildren() {
         return Objects.hash(BASE_HASH.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
     }
 

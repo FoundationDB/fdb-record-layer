@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQuerySetPlan;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
 import java.util.List;
@@ -42,7 +43,7 @@ import java.util.Set;
  * the execution of the other leg, the "recursive state" leg. The recursive unions repeatedly executes the recursive
  * leg until it does not produce any more results (fix-point).
  */
-public class RecursiveUnionExpression implements RelationalExpressionWithChildren {
+public class RecursiveUnionExpression extends AbstractRelationalExpressionWithChildren {
 
     @Nonnull
     private final Quantifier initialStateQuantifier;
@@ -112,7 +113,19 @@ public class RecursiveUnionExpression implements RelationalExpressionWithChildre
 
     @Nonnull
     @Override
-    public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
+    public Set<CorrelationIdentifier> computeCorrelatedTo() {
+        final ImmutableSet.Builder<CorrelationIdentifier> builder = ImmutableSet.builder();
+        Streams.concat(initialStateQuantifier.getCorrelatedTo().stream(),
+                        recursiveStateQuantifier.getCorrelatedTo().stream())
+                // filter out the correlations that are satisfied by this plan
+                .filter(alias -> !alias.equals(tempTableInsertAlias) && !alias.equals(tempTableScanAlias))
+                .forEach(builder::add);
+        return builder.build();
+    }
+
+    @Nonnull
+    @Override
+    public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return ImmutableSet.of();
     }
 
@@ -162,7 +175,7 @@ public class RecursiveUnionExpression implements RelationalExpressionWithChildre
     }
 
     @Override
-    public int hashCodeWithoutChildren() {
+    public int computeHashCodeWithoutChildren() {
         return Objects.hash(getTempTableScanAlias(), getTempTableInsertAlias(), traversalStrategy);
     }
 

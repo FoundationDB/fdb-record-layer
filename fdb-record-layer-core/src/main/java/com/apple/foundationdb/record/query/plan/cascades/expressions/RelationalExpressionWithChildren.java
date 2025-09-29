@@ -43,9 +43,8 @@ public interface RelationalExpressionWithChildren extends RelationalExpression {
     int getRelationalChildCount();
 
     @Nonnull
-    @Override
     @SuppressWarnings("squid:S2201")
-    default Set<CorrelationIdentifier> getCorrelatedTo() {
+    default Set<CorrelationIdentifier> computeCorrelatedTo() {
         final ImmutableSet.Builder<CorrelationIdentifier> builder = ImmutableSet.builder();
         final List<? extends Quantifier> quantifiers = getQuantifiers();
         final Map<CorrelationIdentifier, ? extends Quantifier> aliasToQuantifierMap = Quantifiers.aliasToQuantifierMap(quantifiers);

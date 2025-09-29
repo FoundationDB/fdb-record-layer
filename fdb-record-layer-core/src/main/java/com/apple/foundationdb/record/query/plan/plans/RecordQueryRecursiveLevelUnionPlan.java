@@ -44,6 +44,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.TempTable;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.AbstractRelationalExpressionWithChildren;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
@@ -52,6 +53,7 @@ import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Streams;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
@@ -79,7 +81,7 @@ import java.util.function.Supplier;
  * for more information see {@link RecursiveUnionCursor}.
  */
 @API(API.Status.INTERNAL)
-public class RecordQueryRecursiveLevelUnionPlan implements RecordQueryPlanWithChildren {
+public class RecordQueryRecursiveLevelUnionPlan extends AbstractRelationalExpressionWithChildren implements RecordQueryPlanWithChildren {
 
     @Nonnull
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Recursive-Union-Query-Plan");
@@ -103,10 +105,7 @@ public class RecordQueryRecursiveLevelUnionPlan implements RecordQueryPlanWithCh
     private final Supplier<List<RecordQueryPlan>> computeChildren;
 
     @Nonnull
-    private final Supplier<Integer> computeHashCodeWithoutChildrenSupplier;
-
-    @Nonnull
-    private final Supplier<Integer> computeComplexity;
+    private final Supplier<Integer> computeComplexitySupplier;
 
     public RecordQueryRecursiveLevelUnionPlan(@Nonnull final Quantifier.Physical initialStateQuantifier,
                                               @Nonnull final Quantifier.Physical recursiveStateQuantifier,
@@ -118,8 +117,7 @@ public class RecordQueryRecursiveLevelUnionPlan implements RecordQueryPlanWithCh
         this.tempTableInsertAlias = tempTableInsertAlias;
         this.resultValue = RecordQuerySetPlan.mergeValues(ImmutableList.of(initialStateQuantifier, recursiveStateQuantifier));
         this.computeChildren = Suppliers.memoize(this::computeChildren);
-        this.computeHashCodeWithoutChildrenSupplier = Suppliers.memoize(this::computeHashCodeWithoutChildren);
-        this.computeComplexity = Suppliers.memoize(this::computeComplexity);
+        this.computeComplexitySupplier = Suppliers.memoize(this::computeComplexity);
     }
 
     @Override
@@ -139,10 +137,23 @@ public class RecordQueryRecursiveLevelUnionPlan implements RecordQueryPlanWithCh
 
     @Nonnull
     @Override
-    public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
+    public Set<CorrelationIdentifier> computeCorrelatedTo() {
+        final ImmutableSet.Builder<CorrelationIdentifier> builder = ImmutableSet.builder();
+        Streams.concat(initialStateQuantifier.getCorrelatedTo().stream(),
+                        recursiveStateQuantifier.getCorrelatedTo().stream())
+                // filter out the correlations that are satisfied by this plan
+                .filter(alias -> !alias.equals(tempTableInsertAlias) && !alias.equals(tempTableScanAlias))
+                .forEach(builder::add);
+        return builder.build();
+    }
+
+    @Nonnull
+    @Override
+    public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return ImmutableSet.of();
     }
 
+    @SuppressWarnings("resource")
     @Nonnull
     @Override
     public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
@@ -242,7 +253,7 @@ public class RecordQueryRecursiveLevelUnionPlan implements RecordQueryPlanWithCh
 
     @Override
     public int getComplexity() {
-        return computeComplexity.get();
+        return computeComplexitySupplier.get();
     }
 
     private int computeComplexity() {
@@ -280,12 +291,7 @@ public class RecordQueryRecursiveLevelUnionPlan implements RecordQueryPlanWithCh
                 && tempTableInsertAlias.equals(otherRecursiveUnionQueryPlan.tempTableInsertAlias);
     }
 
-    @Override
-    public int hashCodeWithoutChildren() {
-        return computeHashCodeWithoutChildrenSupplier.get();
-    }
-
-    private int computeHashCodeWithoutChildren() {
+    public int computeHashCodeWithoutChildren() {
         return Objects.hash(tempTableInsertAlias, tempTableInsertAlias);
     }
 
