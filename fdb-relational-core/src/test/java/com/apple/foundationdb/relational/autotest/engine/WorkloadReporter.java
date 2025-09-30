@@ -71,6 +71,8 @@ class WorkloadReporter {
         workloadName = workload.getDisplayName();
         properties = new Properties();
         properties.put("SchemaDescription", workload.getSchema());
+        properties.put("seed", workload.getConfig().getSeed());
+        properties.put("reportDirectory", workload.getConfig().getReportDirectory());
         properties.putAll(workload.getConfig().asMap());
         timestamp = System.currentTimeMillis();
     }

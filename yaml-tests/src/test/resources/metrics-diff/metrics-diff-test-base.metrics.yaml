@@ -1,0 +1,34 @@
+statistics_test:
+  - query: "SELECT * FROM table1"
+    setup: []
+    explain: "Index(table1_idx)"
+    task_count: 10
+    task_total_time_ms: 5
+    transform_count: 5
+    transform_time_ms: 2
+    transform_yield_count: 0
+    insert_time_ms: 1
+    insert_new_count: 2
+    insert_reused_count: 3
+  - query: "SELECT * FROM table2"
+    setup: []
+    explain: "Index(table2_idx)"
+    task_count: 20
+    task_total_time_ms: 10
+    transform_count: 10
+    transform_time_ms: 5
+    transform_yield_count: 0
+    insert_time_ms: 2
+    insert_new_count: 4
+    insert_reused_count: 6
+  - query: "SELECT * FROM table3"
+    setup: []
+    explain: "Index(table3_idx)"
+    task_count: 30
+    task_total_time_ms: 15
+    transform_count: 15
+    transform_time_ms: 7
+    transform_yield_count: 0
+    insert_time_ms: 3
+    insert_new_count: 6
+    insert_reused_count: 9

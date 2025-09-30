@@ -173,3 +173,8 @@ message OneOfTypedState {
 message RangeCursorContinuation {
     optional int64 nextPosition = 1;
 }
+
+message KeyValueCursorContinuation {
+    optional bytes inner_continuation = 1;
+    optional sfixed64 magic_number = 2;
+}

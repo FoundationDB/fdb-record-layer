@@ -1,0 +1,12 @@
+simple_queries:
+  - query: "SELECT * FROM products WHERE price > 100"
+    setup: []
+    explain: "Index(products_by_price [[100, ∞]])"
+    task_count: 25
+    task_total_time_ms: 12
+    transform_count: 20
+    transform_time_ms: 10
+    transform_yield_count: 3
+    insert_time_ms: 4
+    insert_new_count: 10
+    insert_reused_count: 15

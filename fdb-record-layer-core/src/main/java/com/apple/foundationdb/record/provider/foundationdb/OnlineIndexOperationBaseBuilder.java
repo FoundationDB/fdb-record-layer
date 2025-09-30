@@ -27,7 +27,6 @@ import com.apple.foundationdb.record.RecordMetaDataProvider;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.provider.common.RecordSerializer;
-import com.apple.foundationdb.record.provider.foundationdb.synchronizedsession.SynchronizedSessionRunner;
 import com.apple.foundationdb.subspace.Subspace;
 import com.google.protobuf.Message;
 
@@ -709,26 +708,32 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
     }
 
     /**
-     * <em>Deprecated</em>. This will soon be determined by the indexing session type
+     * <em>Deprecated</em>. Synchronization is handled by shared heartbeats and exclusive access is being determined by
+     * the indexing session type.
+     *
+     * <em> When upgrading from Synchronized sessions to a version that uses Shared Heartbeats</em>:
+     * During graduate code upgrade on multiple servers, there may be a state of one server indexing
+     * with a synchronized session lock, while another server builds the same index with an exclusive heartbeat
+     * "lock". If that happens:
+     * a) There will be no more than two concurrent active sessions (one per each lock type).
+     * b) The indexing sessions will conflict each other until one of the indexers will give up. While this is
+     * not optimal, the generated index will be valid.
+     *
      * Set the use of a synchronized session during the index operation. Synchronized sessions help performing
      * the multiple transactions operations in a resource efficient way.
      * Normally this should be {@code true}.
      *
-     * @see SynchronizedSessionRunner
      * @param useSynchronizedSession use synchronize session if true, otherwise false
      * @return this builder
      */
     @API(API.Status.DEPRECATED)
     public B setUseSynchronizedSession(boolean useSynchronizedSession) {
-        configBuilder.setUseSynchronizedSession(useSynchronizedSession);
         return self();
     }
 
     /**
-     * Set the lease length in milliseconds if the synchronized session is used. The default value is {@link OnlineIndexOperationConfig#DEFAULT_LEASE_LENGTH_MILLIS}.
-     * @see #setUseSynchronizedSession(boolean)
-     * @see com.apple.foundationdb.synchronizedsession.SynchronizedSession
-     * @param leaseLengthMillis length between last access and lease's end time in milliseconds
+     * Set the max age of an indexing heartbeat to define an "active" indexing session.
+     * @param leaseLengthMillis max heartbeat age to be considered "active". In milliseconds
      * @return this builder
      */
     public B setLeaseLengthMillis(long leaseLengthMillis) {

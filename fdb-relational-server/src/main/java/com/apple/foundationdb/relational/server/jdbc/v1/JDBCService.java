@@ -21,7 +21,6 @@
 package com.apple.foundationdb.relational.server.jdbc.v1;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.jdbc.TypeConversion;
 import com.apple.foundationdb.relational.jdbc.grpc.GrpcSQLExceptionUtil;
@@ -87,7 +86,7 @@ public class JDBCService extends JDBCServiceGrpc.JDBCServiceImplBase {
         try {
             StatementResponse.Builder statementResponseBuilder = StatementResponse.newBuilder();
             FRL.Response response = this.frl.execute(request.getDatabase(), request.getSchema(), request.getSql(),
-                    request.hasParameters() ? request.getParameters().getParameterList() : null, fromProtoOptions(request.getOptions()));
+                    request.hasParameters() ? request.getParameters().getParameterList() : null, TypeConversion.fromProtobuf(request.getOptions()));
             if (response.isQuery()) {
                 // Setting row count like this might not be right... It is for updates. Might have to do something
                 // better than this count.
@@ -127,7 +126,7 @@ public class JDBCService extends JDBCServiceGrpc.JDBCServiceImplBase {
             return;
         }
         try {
-            int rowCount = this.frl.update(request.getDatabase(), request.getSchema(), request.getSql());
+            int rowCount = this.frl.update(request.getDatabase(), request.getSchema(), request.getSql(), TypeConversion.fromProtobuf(request.getOptions()));
             StatementResponse statementResponse = StatementResponse.newBuilder().setRowCount(rowCount).build();
             responseObserver.onNext(statementResponse);
             responseObserver.onCompleted();
@@ -165,7 +164,7 @@ public class JDBCService extends JDBCServiceGrpc.JDBCServiceImplBase {
         }
         try {
             int rowCount = this.frl.insert(request.getDatabase(), request.getSchema(), request.getTableName(),
-                    TypeConversion.fromResultSetProtobuf(request.getDataResultSet()));
+                    TypeConversion.fromResultSetProtobuf(request.getDataResultSet()), TypeConversion.fromProtobuf(request.getOptions()));
             InsertResponse insertResponse = InsertResponse.newBuilder().setRowCount(rowCount).build();
             responseObserver.onNext(insertResponse);
             responseObserver.onCompleted();
@@ -202,7 +201,7 @@ public class JDBCService extends JDBCServiceGrpc.JDBCServiceImplBase {
             return;
         }
         try (RelationalResultSet rs = frl.get(request.getDatabase(), request.getSchema(), request.getTableName(),
-                    TypeConversion.fromProtobuf(request.getKeySet()))) {
+                    TypeConversion.fromProtobuf(request.getKeySet()), TypeConversion.fromProtobuf(request.getOptions()))) {
             GetResponse getResponse = GetResponse.newBuilder().setResultSet(TypeConversion.toProtobuf(rs)).build();
             responseObserver.onNext(getResponse);
             responseObserver.onCompleted();
@@ -248,7 +247,7 @@ public class JDBCService extends JDBCServiceGrpc.JDBCServiceImplBase {
             return;
         }
         try (RelationalResultSet rs = this.frl.scan(request.getDatabase(), request.getSchema(), request.getTableName(),
-                    TypeConversion.fromProtobuf(request.getKeySet()))) {
+                    TypeConversion.fromProtobuf(request.getKeySet()), TypeConversion.fromProtobuf(request.getOptions()))) {
             ScanResponse scanResponse = ScanResponse.newBuilder().setResultSet(TypeConversion.toProtobuf(rs)).build();
             responseObserver.onNext(scanResponse);
             responseObserver.onCompleted();
@@ -285,11 +284,4 @@ public class JDBCService extends JDBCServiceGrpc.JDBCServiceImplBase {
                 .withCause(t).asRuntimeException();
     }
 
-    private static Options fromProtoOptions(com.apple.foundationdb.relational.jdbc.grpc.v1.Options protoOptions) throws SQLException {
-        final var builder = Options.builder();
-        if (protoOptions.hasMaxRows()) {
-            builder.withOption(Options.Name.MAX_ROWS, protoOptions.getMaxRows());
-        }
-        return builder.build();
-    }
 }

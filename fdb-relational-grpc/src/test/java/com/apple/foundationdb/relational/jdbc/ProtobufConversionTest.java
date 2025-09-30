@@ -21,12 +21,14 @@
 package com.apple.foundationdb.relational.jdbc;
 
 import com.apple.foundationdb.relational.api.Continuation;
+import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.ResultSet;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.RpcContinuation;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.RpcContinuationReason;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.Column;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.Struct;
+import com.apple.foundationdb.relational.utils.OptionsTestHelper;
 import com.google.protobuf.ByteString;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -69,6 +71,14 @@ public class ProtobufConversionTest {
         Integer a = 123;
         column = TypeConversion.toColumn(a, biFunction);
         Assertions.assertEquals(a, column.getInteger());
+    }
+
+    @Test
+    void testOptions() throws Exception {
+        final Options nonDefault = OptionsTestHelper.nonDefaultOptions();
+        final com.apple.foundationdb.relational.jdbc.grpc.v1.Options asProto = TypeConversion.toProtobuf(nonDefault).build();
+        final Options fromProto = TypeConversion.fromProtobuf(asProto);
+        Assertions.assertEquals(nonDefault, fromProto);
     }
 
     @Test

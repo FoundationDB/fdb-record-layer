@@ -1,37 +1,0 @@
-ø
-L
-between-index-tests5EXPLAIN select * from t1 WHERE col1 BETWEEN 10 AND 10Ó
-Ø∆ﬂÔD îºÒ(0¥œ8@cISCAN(I1 [[GREATER_THAN_OR_EQUALS promote(@c8 AS INT) && LESS_THAN_OR_EQUALS promote(@c8 AS INT)]])Îdigraph G {
-  fontname=courier;
-  rankdir=BT;
-  splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [[GREATER_THAN_OR_EQUALS promote(@c8 AS INT) &amp;&amp; LESS_THAN_OR_EQUALS promote(@c8 AS INT)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, )" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, )" ];
-  2 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}»
-P
-between-index-tests9EXPLAIN select * from t1 WHERE col1 + 5 BETWEEN 10 AND 20Û
-ã‰ @ íœê(0‡Ì8@âISCAN(I1 <,>) | FILTER _.COL1 + @c8 GREATER_THAN_OR_EQUALS promote(@c10 AS INT) AND _.COL1 + @c8 LESS_THAN_OR_EQUALS promote(@c12 AS INT)…
-digraph G {
-  fontname=courier;
-  rankdir=BT;
-  splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.COL1 + @c8 GREATER_THAN_OR_EQUALS promote(@c10 AS INT) AND q2.COL1 + @c8 LESS_THAN_OR_EQUALS promote(@c12 AS INT)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, )" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, )" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, )" ];
-  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}°
-T
-between-index-tests=EXPLAIN select * from t1 WHERE col1 + 5 NOT BETWEEN 10 AND 20»
-ãÌ˛ÁA Ïßî(0¯º8@tISCAN(I1 <,>) | FILTER _.COL1 + @c8 LESS_THAN promote(@c11 AS INT) OR _.COL1 + @c8 GREATER_THAN promote(@c13 AS INT)¥
-digraph G {
-  fontname=courier;
-  rankdir=BT;
-  splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.COL1 + @c8 LESS_THAN promote(@c11 AS INT) OR q2.COL1 + @c8 GREATER_THAN promote(@c13 AS INT)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, )" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, )" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, )" ];
-  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}

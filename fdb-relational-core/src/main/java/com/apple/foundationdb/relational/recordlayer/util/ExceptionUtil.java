@@ -21,18 +21,17 @@
 package com.apple.foundationdb.relational.recordlayer.util;
 
 import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.RecordCoreStorageException;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.provider.foundationdb.FDBExceptions;
 import com.apple.foundationdb.record.provider.foundationdb.RecordAlreadyExistsException;
+import com.apple.foundationdb.record.provider.foundationdb.RecordContextNotActiveException;
+import com.apple.foundationdb.record.provider.foundationdb.RecordDeserializationException;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.UnableToPlanException;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
-import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-
+import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.google.common.base.VerifyException;
 
 import java.sql.SQLException;
@@ -63,11 +62,10 @@ public final class ExceptionUtil {
         ErrorCode code = ErrorCode.UNKNOWN;
         if (re instanceof FDBExceptions.FDBStoreTransactionTimeoutException) {
             code = ErrorCode.TRANSACTION_TIMEOUT;
-        } else if (re instanceof RecordCoreStorageException ||
-                (re.getCause() != null && re.getCause() instanceof RecordCoreStorageException)) {
-            // Async handling can make a RecordCoreStorageException with cause of RecordCoreStorageException
-            // when 'Transaction is not active' exception.
+        } else if (re instanceof RecordContextNotActiveException || re.getCause() instanceof RecordContextNotActiveException) {
             code = ErrorCode.TRANSACTION_INACTIVE;
+        } else if (re instanceof RecordDeserializationException || re.getCause() instanceof RecordDeserializationException) {
+            code = ErrorCode.DESERIALIZATION_FAILURE;
         } else if (re instanceof RecordAlreadyExistsException || re.getCause() instanceof RecordAlreadyExistsException) {
             code = ErrorCode.UNIQUE_CONSTRAINT_VIOLATION;
         } else if (re instanceof MetaDataException) {

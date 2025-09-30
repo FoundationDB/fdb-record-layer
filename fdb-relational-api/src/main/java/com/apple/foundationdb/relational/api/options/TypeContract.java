@@ -33,30 +33,41 @@ import java.util.function.Function;
 public class TypeContract<T> implements OptionContract, OptionContractWithConversion<T> {
 
     @Nonnull
-    private static final TypeContract<Boolean> BOOLEAN_TYPE = new TypeContract<>(Boolean.class, Boolean::parseBoolean);
+    private static final TypeContract<Boolean> BOOLEAN_TYPE = new TypeContract<>(Boolean.class, Boolean::parseBoolean, false);
 
     @Nonnull
-    private static final TypeContract<Integer> INTEGER_TYPE = new TypeContract<>(Integer.class, Integer::parseInt);
+    private static final TypeContract<Integer> INTEGER_TYPE = new TypeContract<>(Integer.class, Integer::parseInt, false);
 
     @Nonnull
-    private static final TypeContract<Long> LONG_TYPE = new TypeContract<>(Long.class, Long::parseLong);
+    private static final TypeContract<Long> LONG_TYPE = new TypeContract<>(Long.class, Long::parseLong, false);
 
     @Nonnull
-    private static final TypeContract<String> STRING_TYPE = new TypeContract<>(String.class, Function.identity());
+    private static final TypeContract<String> STRING_TYPE = new TypeContract<>(String.class, Function.identity(), false);
+
+    @Nonnull
+    private static final TypeContract<String> NULLABLE_STRING_TYPE = new TypeContract<>(String.class, Function.identity(), true);
 
     @Nonnull
     private final Class<T> clazz;
 
     @Nonnull
     private final Function<String, T> fromStringFunction;
+    private final boolean nullable;
 
-    private TypeContract(@Nonnull Class<T> clazz, @Nonnull Function<String, T> fromStringFunction) {
+    private TypeContract(@Nonnull Class<T> clazz, @Nonnull Function<String, T> fromStringFunction, boolean nullable) {
         this.clazz = clazz;
         this.fromStringFunction = fromStringFunction;
+        this.nullable = nullable;
     }
 
     @Override
     public void validate(Options.Name name, Object value) throws SQLException {
+        if (value == null) {
+            if (nullable) {
+                return;
+            }
+            throw new SQLException("Option " + name + " should not be null", ErrorCode.INVALID_PARAMETER.getErrorCode());
+        }
         if (!clazz.isInstance(value)) {
             throw new SQLException("Option " + name + " should be of type " + clazz + " but is " + value.getClass(), ErrorCode.INVALID_PARAMETER.getErrorCode());
         }
@@ -70,7 +81,7 @@ public class TypeContract<T> implements OptionContract, OptionContractWithConver
 
     @Nonnull
     public static <T> TypeContract<T> of(@Nonnull final Class<T> clazz, @Nonnull Function<String, T> fromStringFunction) {
-        return new TypeContract<>(clazz, fromStringFunction);
+        return new TypeContract<>(clazz, fromStringFunction, false);
     }
 
     @Nonnull
@@ -81,6 +92,11 @@ public class TypeContract<T> implements OptionContract, OptionContractWithConver
     @Nonnull
     public static TypeContract<String> stringType() {
         return STRING_TYPE;
+    }
+
+    @Nonnull
+    public static TypeContract<String> nullableStringType() {
+        return NULLABLE_STRING_TYPE;
     }
 
     @Nonnull

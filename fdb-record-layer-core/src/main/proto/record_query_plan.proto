@@ -255,6 +255,7 @@ message PValue {
     PFirstOrDefaultStreamingValue first_or_default_streaming_value = 49;
     PEvaluatesToValue evaluates_to_value = 50;
     PArrayDistinctValue array_distinct_value = 51;
+    PSubscriptValue subscript_value = 52;
   }
 }
 
@@ -455,6 +456,11 @@ enum PEvaluation {
 message PEvaluatesToValue {
   optional PValue child = 1;
   optional PEvaluation evaluation = 2;
+}
+
+message PSubscriptValue {
+  optional PValue index = 1;
+  optional PValue source = 2;
 }
 
 message PFieldValue {
@@ -1523,6 +1529,7 @@ message PRecordQueryPlan {
     PRecursiveUnionQueryPlan recursive_union_query_plan = 36;
     PRecordQueryTableFunctionPlan table_function_plan = 37;
     PRecordQueryStreamingAggregationPlan2 streaming_aggregation_plan2 = 38;
+    PRecordQueryMultiIntersectionOnValuesPlan multi_intersection_on_values_plan = 39;
   }
 }
 
@@ -1884,6 +1891,14 @@ message PRecordQueryIntersectionOnKeyExpressionPlan {
 //
 message PRecordQueryIntersectionOnValuesPlan {
   optional PRecordQueryIntersectionPlan super = 1;
+}
+
+//
+// PRecordQueryMultiIntersectionOnValuesPlan
+//
+message PRecordQueryMultiIntersectionOnValuesPlan {
+  optional PRecordQueryIntersectionPlan super = 1;
+  optional PValue result_value = 2;
 }
 
 //

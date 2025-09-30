@@ -44,6 +44,10 @@ public interface EnumeratingIterable<T> extends Iterable<List<T>> {
         return new SingleIterable<>(singleElement);
     }
 
+    static <T> EnumeratingIterable<T> emptyOnEmptyIterable() {
+        return new SingleIterable<>();
+    }
+
     /**
      * An implementation of {@link EnumeratingIterable} that is optimized to work for empty
      * input sets.
@@ -84,11 +88,15 @@ public interface EnumeratingIterable<T> extends Iterable<List<T>> {
      * @param <T> type
      */
     class SingleIterable<T> implements EnumeratingIterable<T> {
-        @Nonnull
+        @Nullable
         private final T singleElement;
 
         private SingleIterable(@Nonnull final T singleElement) {
             this.singleElement = singleElement;
+        }
+
+        private SingleIterable() {
+            this.singleElement = null;
         }
 
         @Nonnull
@@ -103,12 +111,12 @@ public interface EnumeratingIterable<T> extends Iterable<List<T>> {
      * @param <T> type of the element
      */
     class SingleIterator<T> extends AbstractIterator<List<T>> implements EnumeratingIterator<T> {
-        @Nonnull
+        @Nullable
         private final T singleElement;
 
         boolean atFirst = true;
 
-        private SingleIterator(@Nonnull final T singleElement) {
+        private SingleIterator(@Nullable final T singleElement) {
             this.singleElement = singleElement;
         }
 
@@ -128,6 +136,9 @@ public interface EnumeratingIterable<T> extends Iterable<List<T>> {
 
             atFirst = false;
 
+            if (singleElement == null) {
+                return ImmutableList.of();
+            }
             return ImmutableList.of(singleElement);
         }
     }

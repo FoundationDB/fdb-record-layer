@@ -21,7 +21,9 @@
 package com.apple.foundationdb.record.query.plan.cascades.matching.structure;
 
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
+import com.apple.foundationdb.record.query.plan.cascades.AggregateIndexMatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
+import com.apple.foundationdb.record.query.plan.cascades.WithPrimaryKeyMatchCandidate;
 
 import javax.annotation.Nonnull;
 import java.util.stream.Stream;
@@ -86,6 +88,49 @@ public class PartialMatchMatchers {
                                 return Stream.of(bindings);
                             }
                         });
+            }
+        };
+    }
+
+    /**
+     * Matches any {@link PartialMatch} that is a match with a
+     * {@link com.apple.foundationdb.record.query.plan.cascades.MatchCandidate} that is backed by data structure that
+     * understands the concept of a primary key. Those match candidates are primary scan candidates, value indexes,
+     * and windowed indexes.
+     * @return a matcher matching a {@link PartialMatch} whose
+     *         {@link com.apple.foundationdb.record.query.plan.cascades.MatchCandidate} implements
+     *         {@link WithPrimaryKeyMatchCandidate}.
+     */
+    @Nonnull
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
+    public static BindingMatcher<PartialMatch> matchingWithPrimaryKeyMatchCandidate() {
+        return new TypedMatcher<>(PartialMatch.class) {
+            @Nonnull
+            @Override
+            public Stream<PlannerBindings> bindMatchesSafely(@Nonnull final RecordQueryPlannerConfiguration plannerConfiguration,
+                                                             @Nonnull final PlannerBindings outerBindings, @Nonnull final PartialMatch in) {
+                return super.bindMatchesSafely(plannerConfiguration, outerBindings, in)
+                        .filter(bindings -> in.getMatchCandidate() instanceof WithPrimaryKeyMatchCandidate);
+            }
+        };
+    }
+
+    /**
+     * Matches any {@link PartialMatch} that is a match with an {@link AggregateIndexMatchCandidate}.
+     * @return a matcher matching any partial match whose
+     *         {@link com.apple.foundationdb.record.query.plan.cascades.MatchCandidate} is of type
+     *         {@link AggregateIndexMatchCandidate}.
+     */
+    @Nonnull
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
+    public static BindingMatcher<PartialMatch> matchingAggregateIndexMatchCandidate() {
+        return new TypedMatcher<>(PartialMatch.class) {
+            @Nonnull
+            @Override
+            public Stream<PlannerBindings> bindMatchesSafely(@Nonnull final RecordQueryPlannerConfiguration plannerConfiguration,
+                                                             @Nonnull final PlannerBindings outerBindings, @Nonnull final PartialMatch in) {
+                return super.bindMatchesSafely(plannerConfiguration, outerBindings, in)
+                        .filter(bindings -> in.getMatchCandidate() instanceof AggregateIndexMatchCandidate);
             }
         };
     }
