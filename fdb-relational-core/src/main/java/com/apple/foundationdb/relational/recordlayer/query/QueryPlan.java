@@ -268,9 +268,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
             PlanValidator.validateHashes(parsedContinuation, executionContext.metricCollector,
                     recordQueryPlan, queryExecutionContext, currentPlanHashMode, validPlanHashModes);
 
-            final var options = executionContext.getOptions();
-            final var continuationsContainCompiledStatements = OptionsUtils.getContinuationsContainsCompiledStatements(options);
-            if (continuationsContainCompiledStatements && !parsedContinuation.atBeginning()) {
+            if (!parsedContinuation.atBeginning()) {
                 // if we are here it means that the current execution is from a regular planned plan, i.e. not
                 // an EXECUTE CONTINUATION statement but it uses a continuation that is not at the beginning.
                 // this can only happen if the query was started without the use of serialized plans, and we are now
@@ -411,21 +409,20 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                 final ResumableIterator<Row> iterator = RecordLayerIterator.create(cursor, messageFDBQueriedRecord -> new MessageTuple(messageFDBQueriedRecord.getMessage()));
                 return new RecordLayerResultSet(RelationalStructMetaData.of(dataType), iterator, connection,
                         (continuation, reason) -> enrichContinuation(continuation,
-                                currentPlanHashMode, reason, OptionsUtils.getContinuationsContainsCompiledStatements(options)));
+                                currentPlanHashMode, reason));
             });
         }
 
         @Nonnull
         private Continuation enrichContinuation(@Nonnull final Continuation continuation,
                                                 @Nonnull final PlanHashMode currentPlanHashMode,
-                                                @Nonnull final Continuation.Reason reason,
-                                                final boolean serializeCompiledStatement) throws RelationalException {
+                                                @Nonnull final Continuation.Reason reason) throws RelationalException {
             final var continuationBuilder =  ContinuationImpl.copyOf(continuation).asBuilder()
                     .withBindingHash(queryExecutionContext.getParameterHash())
                     .withPlanHash(planHashSupplier.get())
                     .withReason(reason);
             // Do not send the serialized plan unless we can continue with this continuation.
-            if (serializeCompiledStatement && !continuation.atEnd()) {
+            if (!continuation.atEnd()) {
                 //
                 // Note that serialization and deserialization of the constituent elements have to done in the same order
                 // in order for the dictionary compression for type serialization to work properly. The order is

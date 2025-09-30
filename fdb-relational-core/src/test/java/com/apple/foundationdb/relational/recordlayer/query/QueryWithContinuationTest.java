@@ -99,13 +99,11 @@ public class QueryWithContinuationTest {
             executeInsert(ddl);
             Continuation continuation;
             try (final var connection = ddl.setSchemaAndGetConnection()) {
-                connection.setOption(Options.Name.CONTINUATIONS_CONTAIN_COMPILED_STATEMENTS, true);
                 try (var statement = connection.prepareStatement("SELECT * FROM RestaurantComplexRecord")) {
                     statement.setMaxRows(2);
                     continuation = assertResult(statement, 10L, 11L);
                     assertContinuation(continuation, false, false);
                 }
-                connection.setOption(Options.Name.CONTINUATIONS_CONTAIN_COMPILED_STATEMENTS, true);
                 try (var statement = connection.prepareStatement("EXECUTE CONTINUATION ?continuation")) {
                     statement.setMaxRows(2);
                     statement.setBytes("continuation", continuation.serialize());
