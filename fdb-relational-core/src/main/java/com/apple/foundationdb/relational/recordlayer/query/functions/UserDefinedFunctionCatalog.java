@@ -54,14 +54,14 @@ final class UserDefinedFunctionCatalog {
     }
 
     public boolean containsFunction(@Nonnull final String name) {
-        return functionsMap.containsKey(name);
-        // return isCaseSensitive ? functionsMap.containsKey(name) : functionsMap.containsKey(name.toUpperCase(Locale.ROOT));
+        // return functionsMap.containsKey(name);
+        return isCaseSensitive ? functionsMap.containsKey(name) : functionsMap.containsKey(name.toUpperCase(Locale.ROOT));
     }
 
     @Nonnull
     public Optional<? extends CatalogedFunction> lookup(@Nonnull final String functionName, Expressions arguments) {
-        final var functionSupplier = functionsMap.get(functionName);
-        // final var functionSupplier = isCaseSensitive ? functionsMap.get(functionName) : functionsMap.get(functionName.toUpperCase(Locale.ROOT));
+        // final var functionSupplier = functionsMap.get(functionName);
+        final var functionSupplier = isCaseSensitive ? functionsMap.get(functionName) : functionsMap.get(functionName.toUpperCase(Locale.ROOT));
         if (functionSupplier == null) {
             return Optional.empty();
         }

@@ -406,18 +406,15 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         if (isScalar) {
             final var semanticAnalyzer = getDelegate().getSemanticAnalyzer();
             // get parameter names and corresponding QuantifiedObjectValue
-            List<Identifier> paramNameIdList = new ArrayList<>();
-            List<QuantifiedObjectValue> paramValueList = new ArrayList<>();
             final var parameters = getDelegate().getPlanGenerationContext().withDisabledLiteralProcessing(() ->
                     visitSqlParameterDeclarationList(functionSpecCtx.sqlParameterDeclarationList()).asNamedArguments());
+            List<Identifier> paramNameIdList = parameters.stream().map(e -> e.getName().get()).collect(Collectors.toList());
+            List<DataType> dataTypeList = parameters.stream().map(Expression::getDataType).collect(Collectors.toList());
+            List<QuantifiedObjectValue> paramValueList = dataTypeList.stream().map(dt -> QuantifiedObjectValue.of(CorrelationIdentifier.uniqueId(), DataTypeUtils.toRecordLayerType(dt))).collect(Collectors.toList());
+
             Assert.thatUnchecked(parameters.asList().size() == 1, "we only support 1 input parameter for user defined scalar function now");
 
-            for (RelationalParser.SqlParameterDeclarationContext sqlParameterDeclarationContext: functionSpecCtx.sqlParameterDeclarationList().sqlParameterDeclarations().sqlParameterDeclaration()) {
-                paramNameIdList.add(visitUid(sqlParameterDeclarationContext.sqlParameterName));
-                DataType paramType = visitFunctionColumnType(sqlParameterDeclarationContext.parameterType);
-                paramValueList.add(QuantifiedObjectValue.of(CorrelationIdentifier.uniqueId(), DataTypeUtils.toRecordLayerType(paramType)));
-            }
-
+            // only support fullId functionBody now
             final var functionBody = visitFullId((RelationalParser.FullIdContext)bodyCtx.getChild(1));
             Optional<Expression> result = semanticAnalyzer.lookupNestedField(functionBody, Expression.of(paramValueList.get(0), paramNameIdList.get(0)), Expression.of(paramValueList.get(0), paramNameIdList.get(0)), true);
             Assert.thatUnchecked(result.isPresent(), "cannot resolve user defined scalar function value");
