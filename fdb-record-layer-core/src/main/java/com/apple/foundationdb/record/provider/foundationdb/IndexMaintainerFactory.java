@@ -79,7 +79,11 @@ public interface IndexMaintainerFactory {
      * structured as a method on the maintainer factory so that indexes
      * defined outside the core repository can define the structure
      * used by the planner to match them. However, use cases should be
-     * aware that the planner
+     * aware that the planner does not provide a stable API (yet) for
+     * what these match candidates should contain, and so outside
+     * implementors should be mindful that it is on them to keep up
+     * with the planner as it changes. For that reason, this should only
+     * be overridden by users who know what they are doing.
      *
      * <p>
      * By default, this returns an empty collection. This means that the

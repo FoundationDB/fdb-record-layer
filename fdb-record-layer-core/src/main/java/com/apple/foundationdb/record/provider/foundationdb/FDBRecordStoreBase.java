@@ -65,6 +65,7 @@ import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
+import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.subspace.Subspace;
@@ -2118,6 +2119,18 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
                                                    @Nonnull EvaluationContext evaluationContext,
                                                    @Nonnull ExecuteProperties executeProperties) {
         return plan.executePlan(this, evaluationContext, continuation, executeProperties);
+    }
+
+    /**
+     * Create a {@link CascadesPlanner} to use to plan queries on this record store. It will be
+     * initialized with the context necessary to generate query plans for the store, like the
+     * set of available types and indexes.
+     *
+     * @return a {@link CascadesPlanner} implementation initialized with state from this record store
+     */
+    @Nonnull
+    default CascadesPlanner getCascadesPlanner() {
+        return new CascadesPlanner(getRecordMetaData(), getRecordStoreState(), getIndexMaintainerRegistry());
     }
 
     /**

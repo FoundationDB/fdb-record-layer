@@ -29,7 +29,6 @@ import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLaye
 import com.apple.foundationdb.record.query.plan.PlannableIndexTypes;
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.debug.DebuggerWithSymbolTables;
 import com.apple.foundationdb.record.test.FDBDatabaseExtension;
@@ -101,7 +100,7 @@ public class FDBRecordStoreConcurrentTestBase {
     public QueryPlanner setupPlanner(@Nonnull FDBRecordStore recordStore, @Nullable PlannableIndexTypes indexTypes) {
         final QueryPlanner planner;
         if (useCascadesPlanner) {
-            planner = CascadesPlanner.forStore(recordStore);
+            planner = recordStore.getCascadesPlanner();
             if (Debugger.getDebugger() == null) {
                 Debugger.setDebugger(DebuggerWithSymbolTables.withSanityChecks());
             }

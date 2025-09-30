@@ -169,7 +169,7 @@ public class FDBTypedRecordStoreTest {
         try (FDBRecordContext context = fdb.openContext()) {
             openTypedRecordStore(context);
 
-            CascadesPlanner cascadesPlanner = CascadesPlanner.forStore(recordStore);
+            CascadesPlanner cascadesPlanner = recordStore.getCascadesPlanner();
             final RecordQueryPlan plan = cascadesPlanner.plan(query);
             final List<TestRecords1Proto.MySimpleRecord> queried = new ArrayList<>();
             try (RecordCursorIterator<FDBQueriedRecord<TestRecords1Proto.MySimpleRecord>> cursor = recordStore.executeQuery(plan).asIterator()) {

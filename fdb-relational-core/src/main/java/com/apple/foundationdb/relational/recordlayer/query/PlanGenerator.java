@@ -412,6 +412,16 @@ public final class PlanGenerator {
         return new PlanGenerator(cache, planContext, planner, options);
     }
 
+    /**
+     * Create a new instance of the plan generator for a given store.
+     *
+     * @param cache An optional instance of the query plan cache
+     * @param planContext The context related for planning the query and looking it in the cache
+     * @param store The record store to generate the planner for
+     * @param options a set of planner options
+     * @return a new instance of the plan generator
+     * @throws RelationalException if creation of the plan generator fails
+     */
     @Nonnull
     public static PlanGenerator create(@Nonnull final Optional<RelationalPlanCache> cache,
                                        @Nonnull final PlanContext planContext,

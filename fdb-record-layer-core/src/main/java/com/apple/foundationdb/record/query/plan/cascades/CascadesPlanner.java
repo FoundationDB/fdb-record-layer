@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMatchCandidateRegistry;
 import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
 import com.apple.foundationdb.record.query.ParameterRelationshipGraph;
@@ -242,10 +241,6 @@ public class CascadesPlanner implements QueryPlanner {
         this.evaluationContext = EvaluationContext.empty();
         this.traversal = Traversal.withRoot(currentRoot);
         this.taskStack = new ArrayDeque<>();
-    }
-
-    public static CascadesPlanner forStore(@Nonnull FDBRecordStoreBase<?> recordStore) {
-        return new CascadesPlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState(), recordStore.getIndexMaintainerRegistry());
     }
 
     @Nonnull

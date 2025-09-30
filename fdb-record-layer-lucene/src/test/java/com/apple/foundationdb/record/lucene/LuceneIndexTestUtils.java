@@ -44,7 +44,6 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath
 import com.apple.foundationdb.record.query.plan.PlannableIndexTypes;
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.debug.DebuggerWithSymbolTables;
 import com.apple.foundationdb.record.util.pair.Pair;
@@ -617,7 +616,7 @@ public class LuceneIndexTestUtils {
                                      @Nullable PlannableIndexTypes indexTypes, boolean useRewritePlanner) {
         QueryPlanner planner;
         if (useRewritePlanner) {
-            planner = new CascadesPlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState(), recordStore.getIndexMaintainerRegistry());
+            planner = recordStore.getCascadesPlanner();
             if (Debugger.getDebugger() == null) {
                 Debugger.setDebugger(DebuggerWithSymbolTables.withSanityChecks());
             }
