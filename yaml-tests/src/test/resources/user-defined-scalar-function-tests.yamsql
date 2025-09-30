@@ -25,9 +25,13 @@ schema_template:
     create type as struct st4(s bigint, t bigint)
     create table nested(id bigint, q st4, r st3, primary key(q.s, r.u.w))
     create index i2 as select r.v.z from nested order by r.v.z
+    create table simple_table(a bigint, b string, c integer, primary key(a))
     CREATE FUNCTION st2(IN x TYPE ST3) RETURNS ST2 AS x.u
     CREATE FUNCTION z(IN x TYPE ST3) RETURNS bigint AS x.v.z
-    CREATE FUNCTION self(IN x bigint) RETURNS bigint AS x;
+    CREATE FUNCTION self(IN x bigint) RETURNS bigint AS x
+    CREATE FUNCTION table_func1(IN limit_val bigint) AS SELECT id, self(id) as id_copy, z(r) as z_val FROM nested WHERE id <= limit_val
+    CREATE FUNCTION table_func2(IN threshold bigint) AS SELECT self(id) as processed_id, z(r) as z_val FROM nested WHERE z(r) >= threshold
+    CREATE FUNCTION table_func3(IN x bigint, IN y bigint) AS SELECT self(a) as a_val, self(a) as a_copy FROM simple_table WHERE a BETWEEN x AND y
 ---
 setup:
   steps:
@@ -38,6 +42,12 @@ setup:
                (4, (203, 4), ((5, 14), (10, 100))),
                (5, (329, 5), ((5, 15), (10, 140))),
                (6, (330, 6), ((5, 16), (10, 140)))
+    - query: INSERT INTO simple_table
+        VALUES (10, 'apple', 1),
+               (20, 'banana', 2),
+               (30, 'cherry', 3),
+               (40, 'date', 4),
+               (50, 'elderberry', 5)
 ---
 test_block:
   name: user-defined-scalar-function-tests
@@ -51,6 +61,46 @@ test_block:
     -
       - query: select id from nested where self(id) > 2 and self(id) < 5
       - unorderedResult: [{3}, {4}]
+    -
+      # Test multiple invocations of same function in SELECT clause
+      - query: select self(id) as A, self(id) as B, self(id * 2) as C from nested where id <= 2
+      - unorderedResult: [{A: 1, B: 1, C: 2}, {A: 2, B: 2, C: 4}]
+    -
+      # Test multiple invocations with different UDF functions
+      - query: select z(r) as A, z(r) as B, st2(r) as C from nested where id = 1
+      - unorderedResult: [{A: 100, B: 100, C: {!l 5, !l 11}}]
+    -
+      # Test multiple invocations in both SELECT and WHERE clauses
+      - query: select self(id) as A, z(r) as B, z(r) as C from nested where z(r) = 100 and self(id) <= 3
+      - unorderedResult: [{A: 1, B: 100, C: 100}, {A: 2, B: 100, C: 100}, {A: 3, B: 100, C: 100}]
+    -
+      # Test table function with scalar UDF in SELECT and WHERE
+      - query: select * from table_func1(3)
+      - unorderedResult: [{id: 1, id_copy: 1, z_val: 100}, {id: 2, id_copy: 2, z_val: 100}, {id: 3, id_copy: 3, z_val: 100}]
+    -
+      # Test table function with scalar UDF filtering
+      - query: select * from table_func2(140)
+      - unorderedResult: [{processed_id: 5, z_val: 140}, {processed_id: 6, z_val: 140}]
+    -
+      # Test table function with multiple scalar UDFs
+      - query: select * from table_func3(20, 40)
+      - unorderedResult: [{a_val: 20, a_copy: 20}, {a_val: 30, a_copy: 30}, {a_val: 40, a_copy: 40}]
+    -
+      # Test joining table function results with scalar UDF processing
+      - query: select t1.id_copy as A, t2.processed_id as B from table_func1(2) t1, table_func2(100) t2 where t1.id_copy = t2.processed_id
+      - unorderedResult: [{A: 1, B: 1}, {A: 2, B: 2}]
+    -
+      # Test scalar UDF applied to table function results
+      - query: select self(id_copy) as A, z_val as B from table_func1(4)
+      - unorderedResult: [{A: 1, B: 100}, {A: 2, B: 100}, {A: 3, B: 100}, {A: 4, B: 100}]
+    -
+      # Test nested scalar UDF calls within table function results
+      - query: select self(self(a_val)) as A, self(a_copy) as B from table_func3(10, 30)
+      - unorderedResult: [{A: 10, B: 10}, {A: 20, B: 20}, {A: 30, B: 30}]
+    -
+      # Test table function with scalar UDF in WHERE clause filtering the result
+      - query: select * from table_func1(6) where self(id_copy) > 3
+      - unorderedResult: [{id: 4, id_copy: 4, z_val: 100}, {id: 5, id_copy: 5, z_val: 140}, {id: 6, id_copy: 6, z_val: 140}]
     -
       # wrong function name
       - query: select zz(r) from nested group by z(r)
