@@ -415,7 +415,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
             for (RelationalParser.SqlParameterDeclarationContext sqlParameterDeclarationContext: functionSpecCtx.sqlParameterDeclarationList().sqlParameterDeclarations().sqlParameterDeclaration()) {
                 paramNameIdList.add(visitUid(sqlParameterDeclarationContext.sqlParameterName));
                 DataType paramType = visitFunctionColumnType(sqlParameterDeclarationContext.parameterType);
-                paramValueList.add(QuantifiedObjectValue.of(CorrelationIdentifier.uniqueID(), DataTypeUtils.toRecordLayerType(paramType)));
+                paramValueList.add(QuantifiedObjectValue.of(CorrelationIdentifier.uniqueId(), DataTypeUtils.toRecordLayerType(paramType)));
             }
 
             final var functionBody = visitFullId((RelationalParser.FullIdContext)bodyCtx.getChild(1));
