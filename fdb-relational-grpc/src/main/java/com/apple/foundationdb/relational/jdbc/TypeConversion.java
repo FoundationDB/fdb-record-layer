@@ -228,6 +228,8 @@ public class TypeConversion {
                 return Type.VERSION;
             case ENUM:
                 return Type.ENUM;
+            case UUID:
+                return Type.UUID;
             default:
                 throw new RelationalException("not supported in toProtobuf: " + type, ErrorCode.INTERNAL_ERROR).toUncheckedWrappedException();
         }
