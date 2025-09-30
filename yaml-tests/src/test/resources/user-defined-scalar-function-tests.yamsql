@@ -40,7 +40,7 @@ setup:
                (6, (330, 6), ((5, 16), (10, 140)))
 ---
 test_block:
-  name: group-by-tests
+  name: user-defined-scalar-function-tests
   tests:
     -
       - query: select z(r) from nested group by z(r)

@@ -404,7 +404,6 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         boolean isScalar = functionSpecCtx.returnsClause() != null &&
                 functionSpecCtx.returnsClause().returnsType().returnsTableType() == null;
         if (isScalar) {
-            // user defined scalar function
             final var semanticAnalyzer = getDelegate().getSemanticAnalyzer();
             // get parameter names and corresponding QuantifiedObjectValue
             List<Identifier> paramNameIdList = new ArrayList<>();

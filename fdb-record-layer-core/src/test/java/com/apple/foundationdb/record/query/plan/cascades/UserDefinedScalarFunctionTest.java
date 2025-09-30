@@ -36,7 +36,7 @@ import java.util.Optional;
 /**
  * Tests of {@link UserDefinedScalarFunction}.
  */
-public class MacroFunctionTest {
+public class UserDefinedScalarFunctionTest {
     @Test
     void testColumnProjection() {
         ImmutableList<Type.Record.Field> fields = ImmutableList.of(

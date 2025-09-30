@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer.query.visitors;
 
+import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.CompatibleTypeEvolutionPredicate;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.metadata.DataType;
@@ -186,7 +187,7 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
     CompilableSqlFunction visitTempSqlInvokedFunction(RelationalParser.TempSqlInvokedFunctionContext ctx);
 
     @Override
-    com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction visitSqlInvokedFunction(RelationalParser.SqlInvokedFunctionContext ctx);
+    UserDefinedFunction visitSqlInvokedFunction(RelationalParser.SqlInvokedFunctionContext ctx);
 
     @Override
     LogicalOperator visitStatementBody(RelationalParser.StatementBodyContext ctx);

@@ -45,7 +45,6 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
-    @MaintainYamlTestConfig(YamlTestConfigFilters.CORRECT_METRICS)
     public void userDefinedScalarFunctionTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("user-defined-scalar-function-tests.yamsql");
     }

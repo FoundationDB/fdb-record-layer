@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer.metadata.serde;
 
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.apple.foundationdb.relational.api.ddl.NoOpQueryFactory;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.generated.RelationalParser;
@@ -38,10 +39,10 @@ import java.net.URI;
 public interface RoutineParser {
 
     @Nonnull
-    com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction parse(@Nonnull String routineString, boolean isCaseSensitive);
+    UserDefinedFunction parse(@Nonnull String routineString, boolean isCaseSensitive);
 
     @Nonnull
-    com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction parseTemporaryFunction(@Nonnull String functionName, @Nonnull String routineString,
+    UserDefinedFunction parseTemporaryFunction(@Nonnull String functionName, @Nonnull String routineString,
                                                                                                  @Nonnull PreparedParams preparedParams, boolean isCaseSensitive);
 
     class DefaultSqlFunctionParser implements RoutineParser {

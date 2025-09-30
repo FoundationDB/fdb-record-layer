@@ -169,7 +169,7 @@ public class RecordMetadataDeserializer {
                 .setName(name)
                 .setDescription(body)
                 .setTemporary(false)
-                .withUserDefinedRoutine(ignored -> getSqlFunctionCompiler(name, metadata, body).apply(ignored))
+                .withUserDefinedRoutine(getSqlFunctionCompiler(name, metadata, body))
                 .withSerializableFunction(new RawSqlFunction(name, body));
     }
 

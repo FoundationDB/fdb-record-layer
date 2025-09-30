@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.TableFunctionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -60,7 +61,7 @@ import java.util.Optional;
  * function plan as a leg of a binary join, where
  */
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-public class CompilableSqlFunction extends com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction implements WithPlanGenerationSideEffects {
+public class CompilableSqlFunction extends UserDefinedFunction implements WithPlanGenerationSideEffects {
 
     @Nonnull
     private final RelationalExpression body;
