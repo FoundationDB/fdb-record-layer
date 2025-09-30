@@ -408,6 +408,10 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
             // get parameter names and corresponding QuantifiedObjectValue
             List<Identifier> paramNameIdList = new ArrayList<>();
             List<QuantifiedObjectValue> paramValueList = new ArrayList<>();
+            final var parameters = getDelegate().getPlanGenerationContext().withDisabledLiteralProcessing(() ->
+                    visitSqlParameterDeclarationList(functionSpecCtx.sqlParameterDeclarationList()).asNamedArguments());
+            Assert.thatUnchecked(parameters.asList().size() == 1, "we only support 1 input parameter for user defined scalar function now");
+
             for (RelationalParser.SqlParameterDeclarationContext sqlParameterDeclarationContext: functionSpecCtx.sqlParameterDeclarationList().sqlParameterDeclarations().sqlParameterDeclaration()) {
                 paramNameIdList.add(visitUid(sqlParameterDeclarationContext.sqlParameterName));
                 DataType paramType = visitFunctionColumnType(sqlParameterDeclarationContext.parameterType);
