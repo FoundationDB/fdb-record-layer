@@ -125,6 +125,13 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
         return typedSerializer;
     }
 
+
+    @Nonnull
+    @Override
+    public IndexMaintainerFactoryRegistry getIndexMaintainerRegistry() {
+        return untypedStore.getIndexMaintainerRegistry();
+    }
+
     @Nonnull
     @Override
     public IndexMaintainer getIndexMaintainer(@Nonnull final Index index) {
@@ -497,13 +504,13 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
 
         @Nonnull
         @Override
-        public IndexMaintainerRegistry getIndexMaintainerRegistry() {
+        public IndexMaintainerFactoryRegistry getIndexMaintainerRegistry() {
             return untypedStoreBuilder.getIndexMaintainerRegistry();
         }
 
         @Nonnull
         @Override
-        public Builder<M> setIndexMaintainerRegistry(@Nonnull IndexMaintainerRegistry indexMaintainerRegistry) {
+        public Builder<M> setIndexMaintainerRegistry(@Nonnull IndexMaintainerFactoryRegistry indexMaintainerRegistry) {
             untypedStoreBuilder.setIndexMaintainerRegistry(indexMaintainerRegistry);
             return this;
         }

@@ -24,7 +24,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
-import com.apple.foundationdb.record.metadata.IndexValidator;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.util.ServiceLoaderProvider;
 import org.slf4j.Logger;
@@ -38,17 +37,17 @@ import java.util.Map;
  * A singleton {@link IndexMaintainerRegistry} that finds {@link IndexMaintainerFactory} classes in the classpath.
  */
 @API(API.Status.INTERNAL)
-public class IndexMaintainerRegistryImpl implements IndexMaintainerRegistry {
+public class IndexMaintainerFactoryRegistryImpl implements IndexMaintainerFactoryRegistry {
     @Nonnull
-    private static final Logger LOGGER = LoggerFactory.getLogger(IndexMaintainerRegistryImpl.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(IndexMaintainerFactoryRegistryImpl.class);
     @Nonnull
-    protected static final IndexMaintainerRegistryImpl INSTANCE = new IndexMaintainerRegistryImpl();
+    protected static final IndexMaintainerFactoryRegistryImpl INSTANCE = new IndexMaintainerFactoryRegistryImpl();
 
     @Nonnull
     private final Map<String, IndexMaintainerFactory> registry;
 
     @Nonnull
-    public static IndexMaintainerRegistry instance() {
+    public static IndexMaintainerFactoryRegistry instance() {
         return INSTANCE;
     }
 
@@ -69,27 +68,17 @@ public class IndexMaintainerRegistryImpl implements IndexMaintainerRegistry {
         return registry;
     }
 
-    protected IndexMaintainerRegistryImpl() {
+    protected IndexMaintainerFactoryRegistryImpl() {
         registry = initRegistry();
     }
 
     @Nonnull
     @Override
-    public IndexValidator getIndexValidator(@Nonnull Index index) {
+    public IndexMaintainerFactory getIndexMaintainerFactory(@Nonnull final Index index) {
         final IndexMaintainerFactory factory = registry.get(index.getType());
         if (factory == null) {
             throw new MetaDataException("Unknown index type for " + index);
         }
-        return factory.getIndexValidator(index);
-    }
-
-    @Nonnull
-    @Override
-    public IndexMaintainer getIndexMaintainer(@Nonnull IndexMaintainerState state) {
-        final IndexMaintainerFactory factory = registry.get(state.index.getType());
-        if (factory == null) {
-            throw new MetaDataException("Unknown index type for " + state.index);
-        }
-        return factory.getIndexMaintainer(state);
+        return factory;
     }
 }
