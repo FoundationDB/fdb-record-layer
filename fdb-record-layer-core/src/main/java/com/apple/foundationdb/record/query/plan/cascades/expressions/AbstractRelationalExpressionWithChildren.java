@@ -22,9 +22,14 @@ package com.apple.foundationdb.record.query.plan.cascades.expressions;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.google.common.base.Suppliers;
+import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.Supplier;
 
@@ -46,5 +51,28 @@ public abstract class AbstractRelationalExpressionWithChildren extends AbstractR
     @Override
     public final Set<CorrelationIdentifier> getCorrelatedTo() {
         return correlatedToSupplier.get();
+    }
+
+    @Nonnull
+    protected Set<CorrelationIdentifier> computeCorrelatedTo() {
+        final ImmutableSet.Builder<CorrelationIdentifier> builder = ImmutableSet.builder();
+        final List<? extends Quantifier> quantifiers = getQuantifiers();
+        final Map<CorrelationIdentifier, ? extends Quantifier> aliasToQuantifierMap = Quantifiers.aliasToQuantifierMap(quantifiers);
+
+        getCorrelatedToWithoutChildren()
+                .stream()
+                .filter(correlationIdentifier -> !aliasToQuantifierMap.containsKey(correlationIdentifier))
+                .forEach(builder::add);
+
+        for (final Quantifier quantifier : quantifiers) {
+            quantifier.getCorrelatedTo()
+                    .stream()
+                    // Filter out the correlations that are satisfied by this expression if this expression can
+                    // correlate.
+                    .filter(correlationIdentifier -> !canCorrelate() || !aliasToQuantifierMap.containsKey(correlationIdentifier))
+                    .forEach(builder::add);
+        }
+
+        return builder.build();
     }
 }
