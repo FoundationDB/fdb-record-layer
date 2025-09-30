@@ -802,8 +802,8 @@ public class TypeConversion {
         if (protoOptions.hasValidPlanHashModes()) {
             builder.withOption(Options.Name.VALID_PLAN_HASH_MODES, protoOptions.getValidPlanHashModes());
         }
-        if (!protoOptions.hasContinuationsContainCompiledStatements() || !protoOptions.getContinuationsContainCompiledStatements()) {
-            throw new RelationalException("Option CONTINUATIONS_CONTAIN_COMPILED_STATEMENTS not supported anymore!", ErrorCode.UNSUPPORTED_OPERATION).toUncheckedWrappedException();
+        if (protoOptions.hasContinuationsContainCompiledStatements() && !protoOptions.getContinuationsContainCompiledStatements()) {
+            throw new RelationalException("Option CONTINUATIONS_CONTAIN_COMPILED_STATEMENTS=false not supported anymore!", ErrorCode.UNSUPPORTED_OPERATION).toUncheckedWrappedException();
         }
         if (protoOptions.hasAsyncOperationsTimeoutMillis()) {
             builder.withOption(Options.Name.ASYNC_OPERATIONS_TIMEOUT_MILLIS, protoOptions.getAsyncOperationsTimeoutMillis());
