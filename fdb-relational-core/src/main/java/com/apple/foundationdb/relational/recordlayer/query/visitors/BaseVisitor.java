@@ -28,6 +28,7 @@ import com.apple.foundationdb.relational.api.ddl.MetadataOperationsFactory;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.generated.RelationalParser;
+import com.apple.foundationdb.relational.generated.RelationalParserBaseVisitor;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerInvokedRoutine;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
@@ -48,7 +49,6 @@ import com.apple.foundationdb.relational.recordlayer.query.SemanticAnalyzer;
 import com.apple.foundationdb.relational.recordlayer.query.functions.CompilableSqlFunction;
 import com.apple.foundationdb.relational.recordlayer.query.functions.SqlFunctionCatalog;
 import com.apple.foundationdb.relational.util.Assert;
-import org.antlr.v4.runtime.tree.AbstractParseTreeVisitor;
 import org.antlr.v4.runtime.tree.ParseTree;
 
 import javax.annotation.Nonnull;
@@ -64,7 +64,7 @@ import java.util.Set;
  */
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @API(API.Status.EXPERIMENTAL)
-public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements TypedVisitor {
+public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements TypedVisitor {
 
     private final boolean caseSensitive;
 
@@ -1540,20 +1540,8 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
 
     @Nonnull
     @Override
-    public Expression visitIsExpression(@Nonnull RelationalParser.IsExpressionContext ctx) {
-        return expressionVisitor.visitIsExpression(ctx);
-    }
-
-    @Nonnull
-    @Override
     public Expression visitNotExpression(@Nonnull RelationalParser.NotExpressionContext ctx) {
         return expressionVisitor.visitNotExpression(ctx);
-    }
-
-    @Nonnull
-    @Override
-    public Expression visitLikePredicate(@Nonnull RelationalParser.LikePredicateContext ctx) {
-        return expressionVisitor.visitLikePredicate(ctx);
     }
 
     @Nonnull
@@ -1564,14 +1552,8 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
 
     @Nonnull
     @Override
-    public Object visitPredicateExpression(@Nonnull RelationalParser.PredicateExpressionContext ctx) {
-        return visitChildren(ctx);
-    }
-
-    @Nonnull
-    @Override
-    public Object visitExpressionAtomPredicate(@Nonnull RelationalParser.ExpressionAtomPredicateContext ctx) {
-        return visitChildren(ctx);
+    public Expression visitPredicatedExpression(@Nonnull RelationalParser.PredicatedExpressionContext ctx) {
+        return expressionVisitor.visitPredicatedExpression(ctx);
     }
 
     @Nonnull
@@ -1580,34 +1562,15 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
         return expressionVisitor.visitBinaryComparisonPredicate(ctx);
     }
 
-    @Nonnull
     @Override
-    public Expression visitBetweenComparisonPredicate(@Nonnull RelationalParser.BetweenComparisonPredicateContext ctx) {
-        return expressionVisitor.visitBetweenComparisonPredicate(ctx);
-    }
-
-    @Nonnull
-    @Override
-    public Expression visitInPredicate(@Nonnull RelationalParser.InPredicateContext ctx) {
-        return expressionVisitor.visitInPredicate(ctx);
+    public Expression visitSubscriptExpression(@Nonnull RelationalParser.SubscriptExpressionContext ctx) {
+        return expressionVisitor.visitSubscriptExpression(ctx);
     }
 
     @Nonnull
     @Override
     public Expression visitInList(@Nonnull RelationalParser.InListContext ctx) {
         return expressionVisitor.visitInList(ctx);
-    }
-
-    @Nonnull
-    @Override
-    public Object visitJsonExpressionAtom(@Nonnull RelationalParser.JsonExpressionAtomContext ctx) {
-        return visitChildren(ctx);
-    }
-
-    @Nonnull
-    @Override
-    public Expression visitSubqueryExpressionAtom(@Nonnull RelationalParser.SubqueryExpressionAtomContext ctx) {
-        return expressionVisitor.visitSubqueryExpressionAtom(ctx);
     }
 
     @Nonnull
@@ -1662,12 +1625,6 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
     @Override
     public Expression visitExistsExpressionAtom(@Nonnull RelationalParser.ExistsExpressionAtomContext ctx) {
         return expressionVisitor.visitExistsExpressionAtom(ctx);
-    }
-
-    @Nonnull
-    @Override
-    public Object visitIntervalExpressionAtom(@Nonnull RelationalParser.IntervalExpressionAtomContext ctx) {
-        return visitChildren(ctx);
     }
 
     @Nonnull

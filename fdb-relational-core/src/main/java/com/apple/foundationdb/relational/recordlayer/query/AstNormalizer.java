@@ -447,7 +447,6 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
 
     @Override
     public Object visitInPredicate(@Nonnull RelationalParser.InPredicateContext ctx) {
-        ctx.expressionAtom().accept(this);
         ctx.IN().accept(this);
 
         if (ctx.inList().preparedStatementParameter() != null) {

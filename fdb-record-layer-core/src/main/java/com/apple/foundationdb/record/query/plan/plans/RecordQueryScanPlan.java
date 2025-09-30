@@ -143,7 +143,6 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
         this(recordTypes, flowedType, commonPrimaryKey, comparisons, reverse, strictlySorted, Optional.of(matchCandidate));
     }
 
-
     /**
      * Overloaded constructor.
      * @param recordTypes a super set of record types of the records that this scan operator can produce
@@ -157,12 +156,12 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
      */
     @VisibleForTesting
     public RecordQueryScanPlan(@Nullable Set<String> recordTypes,
-                                @Nonnull Type flowedType,
-                                @Nullable KeyExpression commonPrimaryKey,
-                                @Nonnull ScanComparisons comparisons,
-                                boolean reverse,
-                                boolean strictlySorted,
-                                @Nonnull final Optional<? extends WithPrimaryKeyMatchCandidate> matchCandidateOptional) {
+                               @Nonnull Type flowedType,
+                               @Nullable KeyExpression commonPrimaryKey,
+                               @Nonnull ScanComparisons comparisons,
+                               boolean reverse,
+                               boolean strictlySorted,
+                               @Nonnull final Optional<? extends WithPrimaryKeyMatchCandidate> matchCandidateOptional) {
         this.recordTypes = recordTypes == null ? null : ImmutableSet.copyOf(recordTypes);
         this.flowedType = flowedType;
         this.commonPrimaryKey = commonPrimaryKey;

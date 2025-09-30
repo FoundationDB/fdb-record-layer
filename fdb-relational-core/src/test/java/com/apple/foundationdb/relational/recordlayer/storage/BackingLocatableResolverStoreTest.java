@@ -131,7 +131,7 @@ public class BackingLocatableResolverStoreTest {
                                                          @Nonnull StorageCluster cluster,
                                                          @Nonnull LocatableResolver resolver,
                                                          @Nonnull StoreCatalog catalog) {
-            super(NoOpMetadataOperationsFactory.INSTANCE, NoOpQueryFactory.INSTANCE, null);
+            super(NoOpMetadataOperationsFactory.INSTANCE, NoOpQueryFactory.INSTANCE, null, Options.NONE);
             this.dbPath = dbPath;
             this.transactionManager = cluster.getTransactionManager();
             this.resolver = resolver;
@@ -416,33 +416,33 @@ public class BackingLocatableResolverStoreTest {
         try (RelationalConnection connection = db.connect(null)) {
             connection.setSchema("dl");
             try (RelationalStatement statement = connection.createStatement()) {
-                long version = interningLayer.getVersion(null).join();
+                int version = interningLayer.getVersion(null).join();
                 assertStateMatches(statement, version, "UNLOCKED");
 
                 interningLayer.incrementVersion().join();
-                assertStateMatches(statement, version + 1L, "UNLOCKED");
+                assertStateMatches(statement, version + 1, "UNLOCKED");
 
-                insertResolverState(statement, version + 2L, "UNLOCKED");
-                assertStateMatches(statement, version + 2L, "UNLOCKED");
+                insertResolverState(statement, version + 2, "UNLOCKED");
+                assertStateMatches(statement, version + 2, "UNLOCKED");
 
                 interningLayer.enableWriteLock().join();
-                assertStateMatches(statement, version + 2L, "WRITE_LOCKED");
+                assertStateMatches(statement, version + 2, "WRITE_LOCKED");
 
                 interningLayer.disableWriteLock().join();
-                assertStateMatches(statement, version + 2L, "UNLOCKED");
+                assertStateMatches(statement, version + 2, "UNLOCKED");
 
                 interningLayer.retireLayer().join();
-                assertStateMatches(statement, version + 2L, "RETIRED");
+                assertStateMatches(statement, version + 2, "RETIRED");
 
-                insertResolverState(statement, version + 3L, "RETIRED");
-                assertStateMatches(statement, version + 3L, "RETIRED");
+                insertResolverState(statement, version + 3, "RETIRED");
+                assertStateMatches(statement, version + 3, "RETIRED");
 
-                insertResolverState(statement, version + 3L, "UNLOCKED");
-                assertStateMatches(statement, version + 3L, "UNLOCKED");
+                insertResolverState(statement, version + 3, "UNLOCKED");
+                assertStateMatches(statement, version + 3, "UNLOCKED");
 
-                RelationalAssertions.assertThrowsSqlException(() -> insertResolverState(statement, version + 2L, "UNLOCKED"))
+                RelationalAssertions.assertThrowsSqlException(() -> insertResolverState(statement, version + 2, "UNLOCKED"))
                         .hasMessageContaining("resolver state version must monotonically increase");
-                assertStateMatches(statement, version + 3L, "UNLOCKED");
+                assertStateMatches(statement, version + 3, "UNLOCKED");
             }
         }
     }
@@ -455,7 +455,7 @@ public class BackingLocatableResolverStoreTest {
         try (RelationalConnection connection = db.connect(null)) {
             connection.setSchema("dl");
             try (RelationalStatement statement = connection.createStatement()) {
-                long version = interningLayer.getVersion(null).join();
+                int version = interningLayer.getVersion(null).join();
 
                 try (RelationalResultSet resultSet = scanResolverStates(statement)) {
                     ResultSetAssert.assertThat(resultSet)
@@ -482,7 +482,7 @@ public class BackingLocatableResolverStoreTest {
         try (RelationalConnection connection = db.connect(null)) {
             connection.setSchema("dl");
             try (RelationalStatement statement = connection.createStatement()) {
-                long version = interningLayer.getVersion(null).join();
+                int version = interningLayer.getVersion(null).join();
 
                 Continuation continuation;
                 try (RelationalResultSet resultSet = scanResolverStates(statement, 1, ContinuationImpl.BEGIN)) {
@@ -635,7 +635,7 @@ public class BackingLocatableResolverStoreTest {
         }
     }
 
-    private void assertStateMatches(RelationalStatement statement, long version, String lock) throws SQLException {
+    private void assertStateMatches(RelationalStatement statement, int version, String lock) throws SQLException {
         try (RelationalResultSet resultSet = statement.executeGet(LocatableResolverMetaDataProvider.RESOLVER_STATE_TYPE_NAME, new KeySet(), Options.NONE)) {
             ResultSetAssert.assertThat(resultSet)
                     .hasNextRow()
@@ -657,9 +657,9 @@ public class BackingLocatableResolverStoreTest {
         }
     }
 
-    private void insertResolverState(RelationalStatement statement, long version, String lock) throws SQLException {
+    private void insertResolverState(RelationalStatement statement, int version, String lock) throws SQLException {
         final var struct = EmbeddedRelationalStruct.newBuilder()
-                .addInt(LocatableResolverMetaDataProvider.VERSION_FIELD_NAME, (int) version)
+                .addInt(LocatableResolverMetaDataProvider.VERSION_FIELD_NAME, version)
                 .addObject(LocatableResolverMetaDataProvider.LOCK_FIELD_NAME, lock)
                 .build();
         Options options = Options.builder()

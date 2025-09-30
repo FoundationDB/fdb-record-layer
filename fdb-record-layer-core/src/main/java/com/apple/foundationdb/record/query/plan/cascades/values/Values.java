@@ -47,7 +47,7 @@ public class Values {
      * @return a list of field values
      */
     @Nonnull
-    public static List<Value> deconstructRecord(@Nonnull Value recordValue) {
+    public static List<Value> deconstructRecord(@Nonnull final Value recordValue) {
         final var resultType = recordValue.getResultType();
         Verify.verify(resultType.isRecord());
         Verify.verify(resultType instanceof Type.Record);

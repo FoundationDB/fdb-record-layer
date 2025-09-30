@@ -51,7 +51,6 @@ import com.apple.foundationdb.relational.recordlayer.query.SemanticAnalyzer;
 import com.apple.foundationdb.relational.recordlayer.query.StringTrieNode;
 import com.apple.foundationdb.relational.recordlayer.query.TautologicalValue;
 import com.apple.foundationdb.relational.util.Assert;
-import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Streams;
@@ -399,6 +398,30 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
 
     @Nonnull
     @Override
+    public Expression visitPredicatedExpression(@Nonnull final RelationalParser.PredicatedExpressionContext ctx) {
+        final var operand = Assert.castUnchecked(visit(ctx.expressionAtom()), Expression.class);
+        final var predicate = ctx.predicate();
+        if (predicate == null) {
+            return operand;
+        }
+        if (predicate instanceof RelationalParser.BetweenComparisonPredicateContext) {
+            return visitBetweenComparisonPredicate(operand, (RelationalParser.BetweenComparisonPredicateContext)predicate);
+        }
+        if (predicate instanceof RelationalParser.InPredicateContext) {
+            return visitInPredicate(operand, (RelationalParser.InPredicateContext)predicate);
+        }
+        if (predicate instanceof RelationalParser.LikePredicateContext) {
+            return visitLikePredicate(operand, (RelationalParser.LikePredicateContext)predicate);
+        }
+        if (predicate instanceof RelationalParser.IsExpressionContext) {
+            return visitIsExpression(operand, (RelationalParser.IsExpressionContext)predicate);
+        }
+        Assert.failUnchecked(ErrorCode.UNSUPPORTED_QUERY, "unsupported predicate " + ctx.predicate().getText());
+        return null;
+    }
+
+    @Nonnull
+    @Override
     public Expression visitLimitClause(@Nonnull RelationalParser.LimitClauseContext ctx) {
         // TODO (SQL query with OFFSET clause skipping wrong number of records with splitLongRecords=true in Relational)
         Assert.isNullUnchecked(ctx.offset, "OFFSET clause is not supported");
@@ -437,22 +460,12 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     }
 
     @Nonnull
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    public Expression visitSubqueryExpressionAtom(@Nonnull RelationalParser.SubqueryExpressionAtomContext ctx) {
-        Assert.failUnchecked(ErrorCode.UNSUPPORTED_QUERY, "query is not supported");
-        return null;
-    }
-
-    @Nonnull
-    @Override
-    public Expression visitIsExpression(@Nonnull RelationalParser.IsExpressionContext ctx) {
-        final var predicate = Assert.castUnchecked(visit(ctx.predicate()), Expression.class);
+    private Expression visitIsExpression(@Nonnull Expression operand, @Nonnull RelationalParser.IsExpressionContext ctx) {
         if (ctx.NULL_LITERAL() != null) {
             if (ctx.NOT() != null) {
-                return getDelegate().resolveFunction("is not null", predicate);
+                return getDelegate().resolveFunction("is not null", operand);
             }
-            return getDelegate().resolveFunction("is null", predicate);
+            return getDelegate().resolveFunction("is null", operand);
         } else {
             boolean right = ctx.TRUE() != null;
             final Expression nullClause;
@@ -460,20 +473,19 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
             if (ctx.NOT() != null) {
                 //invert the condition, and add an allowance for null as well -- e.g. is not true => (is false or is null)
                 right = !right;
-                nullClause = getDelegate().resolveFunction("is null", predicate);
+                nullClause = getDelegate().resolveFunction("is null", operand);
                 combineFunc = "or";
             } else {
-                nullClause = getDelegate().resolveFunction("is not null", predicate);
+                nullClause = getDelegate().resolveFunction("is not null", operand);
                 combineFunc = "and";
             }
-            final var equals = getDelegate().resolveFunction("=", predicate, Expression.ofUnnamed(new LiteralValue<>(right)));
+            final var equals = getDelegate().resolveFunction("=", operand, Expression.ofUnnamed(new LiteralValue<>(right)));
             return getDelegate().resolveFunction(combineFunc, nullClause, equals);
         }
     }
 
     @Nonnull
-    @Override
-    public Expression visitLikePredicate(@Nonnull RelationalParser.LikePredicateContext ctx) {
+    private Expression visitLikePredicate(@Nonnull Expression operand, @Nonnull RelationalParser.LikePredicateContext ctx) {
         final LiteralValue<?> escapeValue;
         if (ctx.escape != null) {
             final var escapeChar = getDelegate().normalizeString(ctx.escape.getText());
@@ -487,8 +499,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
                 Type.primitiveType(Type.TypeCode.STRING), pattern, ctx.pattern.getTokenIndex());
         final var patternFunction = getDelegate().resolveFunction("__pattern_for_like", Expression.ofUnnamed(patternValueBinding),
                 Expression.ofUnnamed(escapeValue));
-        final var predicate = Assert.castUnchecked(ctx.predicate().accept(this), Expression.class);
-        final var likeFunction = getDelegate().resolveFunction(ctx.LIKE().getText(), predicate, patternFunction);
+        final var likeFunction = getDelegate().resolveFunction(ctx.LIKE().getText(), operand, patternFunction);
         if (ctx.NOT() != null) {
             return getDelegate().resolveFunction(ctx.NOT().getText(), likeFunction);
         }
@@ -496,13 +507,15 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     }
 
     @Nonnull
-    @Override
-    public Expression visitInPredicate(@Nonnull RelationalParser.InPredicateContext ctx) {
+    private Expression visitInPredicate(@Nonnull Expression operand, @Nonnull RelationalParser.InPredicateContext ctx) {
         Assert.thatUnchecked(ctx.inList().queryExpressionBody() == null, ErrorCode.UNSUPPORTED_QUERY,
                 "IN predicate does not support nested SELECT");
-        final var left = Assert.castUnchecked(ctx.expressionAtom().accept(this), Expression.class);
         final var right = visitInList(ctx.inList());
-        return getDelegate().resolveFunction(ctx.IN().getText(), left, right);
+        var in = getDelegate().resolveFunction(ctx.IN().getText(), operand, right);
+        if (ctx.NOT() != null) {
+            in = getDelegate().resolveFunction(ctx.NOT().getText(), in);
+        }
+        return in;
     }
 
     @Nonnull
@@ -511,7 +524,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         final Expression result;
         if (ctx.preparedStatementParameter() != null) {
             result = visitPreparedStatementParameter(ctx.preparedStatementParameter());
-        } else if (getDelegate().getPlanGenerationContext().shouldProcessLiteral() && inListItemsAreConstant(ctx.expressions())) {
+        } else if (getDelegate().getPlanGenerationContext().shouldProcessLiteral() && ParseHelpers.isConstant(ctx.expressions())) {
             getDelegate().getPlanGenerationContext().startArrayLiteral();
             final var inListItems = visitExpressions(ctx.expressions());
             final var tokenIndex = ctx.getStart().getTokenIndex();
@@ -559,10 +572,17 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         return getDelegate().resolveFunction(ctx.comparisonOperator().getText(), left, right);
     }
 
-    @Nonnull
     @Override
-    public Expression visitBetweenComparisonPredicate(@Nonnull RelationalParser.BetweenComparisonPredicateContext ctx) {
-        final var operand = Assert.castUnchecked(ctx.operand.accept(this), Expression.class);
+    public Expression visitSubscriptExpression(@Nonnull RelationalParser.SubscriptExpressionContext ctx) {
+        final var index = Assert.castUnchecked(ctx.index.accept(this), Expression.class);
+        final var base = Assert.castUnchecked(ctx.base.accept(this), Expression.class);
+        return getDelegate().resolveFunction(ctx.LEFT_SQUARE_BRACKET().getText()
+                .concat(ctx.RIGHT_SQUARE_BRACKET().getText()), index, base);
+    }
+
+    @Nonnull
+    private Expression visitBetweenComparisonPredicate(@Nonnull Expression operand,
+                                                       @Nonnull RelationalParser.BetweenComparisonPredicateContext ctx) {
         final var left = Assert.castUnchecked(ctx.left.accept(this), Expression.class);
         final var right = Assert.castUnchecked(ctx.right.accept(this), Expression.class);
         if (ctx.NOT() == null) {
@@ -783,6 +803,12 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         final var maybeState = getStateMaybe();
         final var targetTypeMaybe = maybeState.flatMap(LogicalPlanFragment.State::getTargetType);
 
+        if (ctx.expressions() == null) {
+            final var elementType = targetTypeMaybe.map(type -> Assert.castUnchecked(type, Type.Array.class).getElementType())
+                    .orElse(Type.any());
+            return Expression.ofUnnamed(AbstractArrayConstructorValue.LightArrayConstructorValue.emptyArray(elementType));
+        }
+
         if (targetTypeMaybe.isEmpty()) {
             return handleArray(ctx);
         }
@@ -930,9 +956,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
 
     @Nonnull
     private Expression handleArray(@Nonnull RelationalParser.ArrayConstructorContext ctx) {
-        final var elements = Expressions.of(ctx.expression().stream()
-                .map(item -> Assert.castUnchecked(item.accept(this), Expression.class))
-                .collect(ImmutableList.toImmutableList())).underlying();
+        final var elements = visitExpressions(ctx.expressions()).underlying();
 
         //
         // TODO This absolutely must call the encapsulator to create the array constructor. The reason being that
@@ -966,23 +990,5 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         final var type = Type.fromObject(literal);
         final var value = getDelegate().getPlanGenerationContext().processQueryLiteral(type, literal, tokenIndex);
         return Expression.ofUnnamed(value);
-    }
-
-    // TODO (Allow only constants in in-list parse rule)
-    private boolean inListItemsAreConstant(@Nonnull final RelationalParser.ExpressionsContext expressionsContext) {
-        for (final var exp : expressionsContext.expression()) {
-            if (!(exp instanceof RelationalParser.PredicateExpressionContext)) {
-                return false;
-            }
-            final var predicate = (RelationalParser.PredicateExpressionContext) exp;
-            if (!(predicate.predicate() instanceof RelationalParser.ExpressionAtomPredicateContext)) {
-                return false;
-            }
-            final var expressionAtom = ((RelationalParser.ExpressionAtomPredicateContext) predicate.predicate()).expressionAtom();
-            if (!(expressionAtom instanceof RelationalParser.ConstantExpressionAtomContext)) {
-                return false;
-            }
-        }
-        return true;
     }
 }

@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.MatchInfo;
@@ -100,8 +101,9 @@ public class AdjustMatchRule extends CascadesRule<PartialMatch> {
             return Optional.empty();
         }
 
+        final Quantifier candidateQuantifier = Iterables.getOnlyElement(candidateExpression.getQuantifiers());
         final Reference otherRangesOver =
-                Iterables.getOnlyElement(candidateExpression.getQuantifiers()).getRangesOver();
+                candidateQuantifier.getRangesOver();
 
         if (!candidateExpression.getCorrelatedTo().equals(otherRangesOver.getCorrelatedTo())) {
             return Optional.empty();

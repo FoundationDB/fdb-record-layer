@@ -24,6 +24,8 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.options.CollectionContract;
 import com.apple.foundationdb.relational.api.options.OptionContract;
+import com.apple.foundationdb.relational.api.options.OptionContractWithConversion;
+import com.apple.foundationdb.relational.api.options.OrderedCollectionContract;
 import com.apple.foundationdb.relational.api.options.RangeContract;
 import com.apple.foundationdb.relational.api.options.TypeContract;
 import com.google.common.annotations.VisibleForTesting;
@@ -35,11 +37,13 @@ import com.google.common.collect.Maps;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.sql.SQLException;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Properties;
 
 @API(API.Status.EXPERIMENTAL)
 public final class Options {
@@ -221,7 +225,37 @@ public final class Options {
          * operations interacting with FDB.
          * Scope: Engine
          */
-        ASYNC_OPERATIONS_TIMEOUT_MILLIS
+        ASYNC_OPERATIONS_TIMEOUT_MILLIS,
+
+        /**
+         * A boolean indicating whether to encrypt records when saving and decrypt when loading.
+         */
+        ENCRYPT_WHEN_SERIALIZING,
+
+        /**
+         * The key store file containing the encryption key to use.
+         */
+        ENCRYPTION_KEY_STORE,
+
+        /**
+         * The key store entry containing the encryption key to use.
+         */
+        ENCRYPTION_KEY_ENTRY,
+
+        /**
+         * All the key store entries available as encryption keys.
+         */
+        ENCRYPTION_KEY_ENTRY_LIST,
+
+        /**
+         * The integrity key of the key store and the encryption key of the key entry.
+         */
+        ENCRYPTION_KEY_PASSWORD,
+
+        /**
+         * A boolean indicating whether to (attempt to) compress records when saving.
+         */
+        COMPRESS_WHEN_SERIALIZING,
     }
 
     public enum IndexFetchMethod {
@@ -230,11 +264,15 @@ public final class Options {
         USE_REMOTE_FETCH_WITH_FALLBACK
     }
 
+    private static final char[] HEX_CHARS = "0123456789ABCDEF".toCharArray();
+
     @SuppressWarnings("PMD.AvoidFieldNameMatchingTypeName")
     private static final Map<Name, List<OptionContract>> OPTIONS = makeContracts();
 
     @Nonnull
     private static final Map<Name, Object> OPTIONS_DEFAULT_VALUES;
+
+    private static final Object NULL_STANDIN = new Object();
 
     static {
         final var builder = ImmutableMap.<Name, Object>builder();
@@ -258,12 +296,17 @@ public final class Options {
         builder.put(Name.CASE_SENSITIVE_IDENTIFIERS, false);
         builder.put(Name.CONTINUATIONS_CONTAIN_COMPILED_STATEMENTS, true);
         builder.put(Name.ASYNC_OPERATIONS_TIMEOUT_MILLIS, 10_000L);
+        builder.put(Name.ENCRYPT_WHEN_SERIALIZING, false);
+        builder.put(Name.ENCRYPTION_KEY_PASSWORD, "");
+        builder.put(Name.COMPRESS_WHEN_SERIALIZING, true);
         OPTIONS_DEFAULT_VALUES = builder.build();
     }
 
     public static final Options NONE = Options.builder().build();
 
+    @Nullable
     private final Options parentOptions;
+    @Nonnull
     private final Map<Name, Object> optionsMap;
 
     @Nonnull
@@ -276,19 +319,23 @@ public final class Options {
         return OPTIONS_DEFAULT_VALUES;
     }
 
-    private Options(Map<Name, Object> optionsMap, Options parentOptions) {
+    private Options(@Nonnull Map<Name, Object> optionsMap, @Nullable Options parentOptions) {
         this.optionsMap = optionsMap;
         this.parentOptions = parentOptions;
     }
 
     @SuppressWarnings("unchecked")
-    public <T> T getOption(Name name) {
+    public <T> T getOption(@Nonnull Name name) {
         T option = getOptionInternal(name);
         if (option == null) {
             return (T) OPTIONS_DEFAULT_VALUES.get(name);
         } else {
             return option;
         }
+    }
+
+    public Options withOption(@Nonnull Name name, @Nullable Object value) throws SQLException {
+        return builder().fromOptions(this).withOption(name, value).build();
     }
 
     public Options withChild(@Nonnull Options childOptions) throws SQLException {
@@ -333,9 +380,17 @@ public final class Options {
         }
 
         @Nonnull
-        public Builder withOption(Name name, Object value) throws SQLException {
-            validateOption(name, value);
-            optionsMap.put(name, value);
+        public Builder withOption(@Nonnull Name name, @Nullable Object value) throws SQLException {
+            if (value == NULL_STANDIN) {
+                optionsMap.put(name, NULL_STANDIN);
+            } else {
+                validateOption(name, value);
+                if (value == null) {
+                    optionsMap.put(name, NULL_STANDIN);
+                } else {
+                    optionsMap.put(name, value);
+                }
+            }
             return this;
         }
 
@@ -365,8 +420,8 @@ public final class Options {
     @Nullable
     private static Object parseStringOption(@Nonnull final Name name, String valueAsString) throws SQLException {
         for (OptionContract contract : Objects.requireNonNull(OPTIONS).get(name)) {
-            if (contract instanceof TypeContract<?>) {
-                return ((TypeContract<?>)contract).fromString(valueAsString);
+            if (contract instanceof OptionContractWithConversion<?>) {
+                return ((OptionContractWithConversion<?>)contract).fromString(valueAsString);
             }
         }
         throw new SQLException("option must have at least one type contract", ErrorCode.INTERNAL_ERROR.getErrorCode());
@@ -378,13 +433,16 @@ public final class Options {
         }
     }
 
+    @Nullable
     @SuppressWarnings("unchecked")
     private <T> T getOptionInternal(Name name) {
-        T option = (T) optionsMap.get(name);
-        if (option == null && parentOptions != null) {
+        Object option = optionsMap.get(name);
+        if (option == NULL_STANDIN) {
+            return null;
+        } else if (option == null && parentOptions != null) {
             return parentOptions.getOption(name);
         } else {
-            return option;
+            return (T) option;
         }
     }
 
@@ -395,6 +453,76 @@ public final class Options {
         } else {
             return optionsMap.entrySet();
         }
+    }
+
+    public static boolean isNull(@Nullable Object object) {
+        return object == null || object == NULL_STANDIN;
+    }
+
+    @Override
+    public boolean equals(final Object o) {
+        if (!(o instanceof Options)) {
+            return false;
+        }
+
+        final Options options = (Options)o;
+        return Objects.equals(parentOptions, options.parentOptions) && optionsMap.equals(options.optionsMap);
+    }
+
+    @Override
+    public int hashCode() {
+        int result = Objects.hashCode(parentOptions);
+        result = 31 * result + optionsMap.hashCode();
+        return result;
+    }
+
+    public static Options fromProperties(@Nullable Properties properties) throws SQLException {
+        if (properties == null) {
+            return none();
+        }
+        Builder builder = builder();
+        for (String key : properties.stringPropertyNames()) {
+            final Name name = Name.valueOf(key);
+            // This does not work for CONTINUATION; throws an error. The Impl class is not accessible here.
+            // Furthermore, there is no module into which the translation methods could be moved that has
+            // access and is accessible to JDBC.
+            builder.withOptionFromString(name, properties.getProperty(key));
+        }
+        return builder.build();
+    }
+
+    @Nonnull
+    @SuppressWarnings("unchecked")
+    public static Properties toProperties(final Options options) {
+        final Properties result = new Properties();
+        for (Map.Entry<Name, ?> entry : options.entries()) {
+            final String prop;
+            switch (entry.getKey()) {
+                case CONTINUATION:
+                    prop = bytesToHex(((Continuation)entry.getValue()).serialize());
+                    break;
+                case DISABLED_PLANNER_RULES:
+                case ENCRYPTION_KEY_ENTRY_LIST:
+                    prop = String.join(",", (Collection<String>)entry.getValue());
+                    break;
+                default:
+                    prop = entry.getValue().toString();
+                    break;
+            }
+            result.put(entry.getKey().name(), prop);
+        }
+        return result;
+    }
+
+    // TODO: This is just to avoid dependencies; use HexFormat when upgraded to JDK 17.
+    private static String bytesToHex(@Nonnull byte[] bytes) {
+        char[] hex = new char[bytes.length * 2];
+        for (int i = 0; i < bytes.length; i++ ) {
+            int b = bytes[i] & 0xFF;
+            hex[i * 2] = HEX_CHARS[b >>> 4];
+            hex[i * 2 + 1] = HEX_CHARS[b & 0x0F];
+        }
+        return new String(hex);
     }
 
     private static Map<Name, List<OptionContract>> makeContracts() {
@@ -425,6 +553,12 @@ public final class Options {
         data.put(Name.VALID_PLAN_HASH_MODES, List.of(TypeContract.stringType()));
         data.put(Name.CONTINUATIONS_CONTAIN_COMPILED_STATEMENTS, List.of(TypeContract.booleanType()));
         data.put(Name.ASYNC_OPERATIONS_TIMEOUT_MILLIS, List.of(TypeContract.longType(), RangeContract.of(0L, Long.MAX_VALUE)));
+        data.put(Name.ENCRYPT_WHEN_SERIALIZING, List.of(TypeContract.booleanType()));
+        data.put(Name.ENCRYPTION_KEY_STORE, List.of(TypeContract.nullableStringType()));
+        data.put(Name.ENCRYPTION_KEY_ENTRY, List.of(TypeContract.nullableStringType()));
+        data.put(Name.ENCRYPTION_KEY_ENTRY_LIST, List.of(new OrderedCollectionContract<>(TypeContract.stringType())));
+        data.put(Name.ENCRYPTION_KEY_PASSWORD, List.of(TypeContract.nullableStringType()));
+        data.put(Name.COMPRESS_WHEN_SERIALIZING, List.of(TypeContract.booleanType()));
 
         return Collections.unmodifiableMap(data);
     }

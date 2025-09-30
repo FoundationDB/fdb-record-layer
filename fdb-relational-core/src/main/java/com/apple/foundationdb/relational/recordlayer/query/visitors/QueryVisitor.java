@@ -597,14 +597,14 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
 
     @Nonnull
     private static Optional<RelationalParser.FullIdContext> isAliasMaybe(@Nonnull RelationalParser.OrderByExpressionContext orderByExpressionContext) {
-        if (!(orderByExpressionContext.expression() instanceof RelationalParser.PredicateExpressionContext)) {
+        if (!(orderByExpressionContext.expression() instanceof RelationalParser.PredicatedExpressionContext)) {
             return Optional.empty();
         }
-        final var predicate = ((RelationalParser.PredicateExpressionContext) orderByExpressionContext.expression()).predicate();
-        if (!(predicate instanceof RelationalParser.ExpressionAtomPredicateContext)) {
+        final var predicatedExpression = (RelationalParser.PredicatedExpressionContext) orderByExpressionContext.expression();
+        if (predicatedExpression.predicate() != null) {
             return Optional.empty();
         }
-        final var atomExpression = ((RelationalParser.ExpressionAtomPredicateContext) predicate).expressionAtom();
+        final var atomExpression = predicatedExpression.expressionAtom();
         if (!(atomExpression instanceof RelationalParser.FullColumnNameExpressionAtomContext)) {
             return Optional.empty();
         }
