@@ -181,7 +181,7 @@ public class RecordQueryDamPlan extends AbstractRelationalExpressionWithChildren
     @Nonnull
     @Override
     public RecordQueryPlanWithChild withChild(@Nonnull Reference childRef) {
-        return new RecordQueryDamPlan(Quantifier.physical(childRef), key);
+        return new RecordQueryDamPlan(Quantifier.physical(childRef, inner.getAlias()), key);
     }
 
     @Override

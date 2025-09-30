@@ -134,7 +134,7 @@ public class RecordQueryFilterPlan extends RecordQueryFilterPlanBase {
     @Nonnull
     @Override
     public RecordQueryPlanWithChild withChild(@Nonnull final Reference childRef) {
-        return new RecordQueryFilterPlan(Quantifier.physical(childRef), getFilters());
+        return new RecordQueryFilterPlan(Quantifier.physical(childRef, getInner().getAlias()), getFilters());
     }
 
     @Nonnull

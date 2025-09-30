@@ -150,7 +150,7 @@ public class RecordQueryDeletePlan extends AbstractRelationalExpressionWithChild
     @Nonnull
     @Override
     public RecordQueryDeletePlan withChild(@Nonnull final Reference childRef) {
-        return new RecordQueryDeletePlan(Quantifier.physical(childRef));
+        return new RecordQueryDeletePlan(Quantifier.physical(childRef, inner.getAlias()));
     }
 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")

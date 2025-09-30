@@ -206,7 +206,8 @@ public class RecordQueryFetchFromPartialRecordPlan extends AbstractRelationalExp
     @Nonnull
     @Override
     public RecordQueryPlanWithChild withChild(@Nonnull final Reference childRef) {
-        return new RecordQueryFetchFromPartialRecordPlan(Quantifier.physical(childRef), TranslateValueFunction.unableToTranslate(), resultType, fetchIndexRecords);
+        return new RecordQueryFetchFromPartialRecordPlan(Quantifier.physical(childRef, inner.getAlias()),
+                TranslateValueFunction.unableToTranslate(), resultType, fetchIndexRecords);
     }
 
     @Nonnull
