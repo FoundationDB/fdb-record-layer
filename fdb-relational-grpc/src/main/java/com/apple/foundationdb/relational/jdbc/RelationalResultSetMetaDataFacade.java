@@ -85,8 +85,8 @@ class RelationalResultSetMetaDataFacade implements RelationalResultSetMetaData  
 
     @Override
     public int getColumnType(int oneBasedColumn) throws SQLException {
-        return this.delegate.getColumnMetadata()
-                .getColumnMetadata(PositionalIndex.toProtobuf(oneBasedColumn)).getJavaSqlTypesCode();
+        return TypeConversion.toSqlType(this.delegate.getColumnMetadata()
+                .getColumnMetadata(PositionalIndex.toProtobuf(oneBasedColumn)).getType());
     }
 
     @Override

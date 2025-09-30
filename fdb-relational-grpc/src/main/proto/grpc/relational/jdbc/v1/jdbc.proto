@@ -108,7 +108,7 @@ message Parameters {
 
 // A parameter has java sql type as well as actual parameter.
 message Parameter {
-  int32 java_sql_types_code = 1;
+  int32 java_sql_types_code = 1 [deprecated = true];
   // Reuse the column type here. It has much of what we need carrying
   // across parameters as well as null support, etc.
   Column parameter = 2;

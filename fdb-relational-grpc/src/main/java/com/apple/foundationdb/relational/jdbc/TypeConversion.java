@@ -174,7 +174,6 @@ public class TypeConversion {
         final var protobufType = toProtobufType(type);
         var columnMetadataBuilder = ColumnMetadata.newBuilder()
                 .setName(metadata.getColumnName(oneBasedIndex))
-                .setJavaSqlTypesCode(metadata.getColumnType(oneBasedIndex))
                 .setNullable(metadata.isNullable(oneBasedIndex) == DatabaseMetaData.columnNullable)
                 .setType(protobufType);
         // TODO phantom.
@@ -229,8 +228,6 @@ public class TypeConversion {
                 return Type.VERSION;
             case ENUM:
                 return Type.ENUM;
-            case UUID:
-                return Type.UUID;
             default:
                 throw new RelationalException("not supported in toProtobuf: " + type, ErrorCode.INTERNAL_ERROR).toUncheckedWrappedException();
         }
@@ -243,7 +240,6 @@ public class TypeConversion {
             throws SQLException {
         var columnMetadataBuilder = ColumnMetadata.newBuilder()
                 .setName(metadata.getElementName())
-                .setJavaSqlTypesCode(metadata.getElementType())
                 .setType(toProtobufType(metadata.asRelationalType().getElementType()))
                 .setNullable(metadata.isElementNullable() == DatabaseMetaData.columnNullable);
         // TODO phantom.
@@ -827,5 +823,33 @@ public class TypeConversion {
             builder.withOption(Options.Name.COMPRESS_WHEN_SERIALIZING, protoOptions.getCompressWhenSerializing());
         }
         return builder.build();
+    }
+
+    static int toSqlType(Type type) throws SQLException {
+        switch (type) {
+            case INTEGER:
+                return Types.INTEGER;
+            case LONG:
+                return Types.BIGINT;
+            case STRING:
+                return Types.VARCHAR;
+            case ENUM:
+            case UUID:
+                return Types.OTHER;
+            case BOOLEAN:
+                return Types.BOOLEAN;
+            case ARRAY:
+                return Types.ARRAY;
+            case STRUCT:
+                return Types.STRUCT;
+            case BYTES:
+                return Types.BINARY;
+            case FLOAT:
+                return Types.FLOAT;
+            case DOUBLE:
+                return Types.DOUBLE;
+            default:
+                throw new SQLException("JDBC Type: " + type + " not supported");
+        }
     }
 }
