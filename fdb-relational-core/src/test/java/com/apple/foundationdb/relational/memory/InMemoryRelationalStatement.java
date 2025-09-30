@@ -21,7 +21,7 @@
 package com.apple.foundationdb.relational.memory;
 
 import com.apple.foundationdb.record.RecordStoreState;
-import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerRegistryImpl;
+import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactoryRegistryImpl;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Row;
@@ -116,7 +116,7 @@ public class InMemoryRelationalStatement implements RelationalStatement {
                     .withUserVersion(0)
                     .build();
 
-            final var planGenerator = PlanGenerator.create(Optional.empty(), ctx, ctx.getMetaData(), new RecordStoreState(null, Map.of()), IndexMaintainerRegistryImpl.instance(), Options.NONE);
+            final var planGenerator = PlanGenerator.create(Optional.empty(), ctx, ctx.getMetaData(), new RecordStoreState(null, Map.of()), IndexMaintainerFactoryRegistryImpl.instance(), Options.NONE);
             final Plan<?> plan = planGenerator.getPlan(sql);
             if (plan instanceof QueryPlan) {
                 throw new SQLFeatureNotSupportedException("Cannot execute queries in the InMemory Relational version, it's only good for Direct Access API");

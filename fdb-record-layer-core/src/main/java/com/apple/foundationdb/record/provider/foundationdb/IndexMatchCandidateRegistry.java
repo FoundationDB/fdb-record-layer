@@ -34,7 +34,7 @@ import javax.annotation.Nonnull;
  *
  * @see IndexMaintainerFactory#createMatchCandidates(RecordMetaData, Index, boolean)
  * @see IndexMaintainerFactoryRegistry for a sub-interface that delegates to the index maintainer factory
- * @see IndexMaintainerRegistryImpl for the default implementation
+ * @see IndexMaintainerFactoryRegistryImpl for the default implementation
  */
 public interface IndexMatchCandidateRegistry {
 

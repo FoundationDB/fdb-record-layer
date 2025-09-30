@@ -5327,7 +5327,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         private FDBRecordStoreBase.UserVersionChecker userVersionChecker;
 
         @Nonnull
-        private IndexMaintainerFactoryRegistry indexMaintainerRegistry = IndexMaintainerRegistryImpl.instance();
+        private IndexMaintainerFactoryRegistry indexMaintainerRegistry = IndexMaintainerFactoryRegistryImpl.instance();
 
         @Nonnull
         private IndexMaintenanceFilter indexMaintenanceFilter = IndexMaintenanceFilter.NORMAL;

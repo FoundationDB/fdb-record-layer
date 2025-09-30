@@ -37,11 +37,11 @@ import java.util.Map;
  * A singleton {@link IndexMaintainerRegistry} that finds {@link IndexMaintainerFactory} classes in the classpath.
  */
 @API(API.Status.INTERNAL)
-public class IndexMaintainerRegistryImpl implements IndexMaintainerFactoryRegistry {
+public class IndexMaintainerFactoryRegistryImpl implements IndexMaintainerFactoryRegistry {
     @Nonnull
-    private static final Logger LOGGER = LoggerFactory.getLogger(IndexMaintainerRegistryImpl.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(IndexMaintainerFactoryRegistryImpl.class);
     @Nonnull
-    protected static final IndexMaintainerRegistryImpl INSTANCE = new IndexMaintainerRegistryImpl();
+    protected static final IndexMaintainerFactoryRegistryImpl INSTANCE = new IndexMaintainerFactoryRegistryImpl();
 
     @Nonnull
     private final Map<String, IndexMaintainerFactory> registry;
@@ -68,7 +68,7 @@ public class IndexMaintainerRegistryImpl implements IndexMaintainerFactoryRegist
         return registry;
     }
 
-    protected IndexMaintainerRegistryImpl() {
+    protected IndexMaintainerFactoryRegistryImpl() {
         registry = initRegistry();
     }
 

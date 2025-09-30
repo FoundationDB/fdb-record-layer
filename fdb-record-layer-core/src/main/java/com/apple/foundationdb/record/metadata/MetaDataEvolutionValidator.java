@@ -25,7 +25,7 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactoryRegistry;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerRegistry;
-import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerRegistryImpl;
+import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactoryRegistryImpl;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
@@ -101,7 +101,7 @@ public class MetaDataEvolutionValidator {
     private final boolean disallowTypeRenames;
 
     private MetaDataEvolutionValidator() {
-        this.indexValidatorRegistry = IndexMaintainerRegistryImpl.instance();
+        this.indexValidatorRegistry = IndexMaintainerFactoryRegistryImpl.instance();
         this.allowNoVersionChange = false;
         this.allowNoSinceVersion = false;
         this.allowIndexRebuilds = false;
@@ -677,7 +677,7 @@ public class MetaDataEvolutionValidator {
     /**
      * Get the registry of index maintainers used to validate indexes. This registry should generally
      * be the same registry as the registry that will be used by any record stores that may use
-     * the meta-data. By default, this uses the default {@link IndexMaintainerRegistryImpl} instance.
+     * the meta-data. By default, this uses the default {@link IndexMaintainerFactoryRegistryImpl} instance.
      *
      * @return the index maintainer registry used to validate indexes
      * @see com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase.BaseBuilder#setIndexMaintainerRegistry(IndexMaintainerFactoryRegistry)

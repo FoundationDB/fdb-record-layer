@@ -25,7 +25,7 @@ import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
-import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerRegistryImpl;
+import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactoryRegistryImpl;
 import com.apple.foundationdb.record.query.plan.cascades.RawSqlFunction;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.Options;
@@ -611,7 +611,7 @@ public class SchemaTemplateSerDeTests {
                     .withPlannerConfiguration(PlannerConfiguration.ofAllAvailableIndexes())
                     .withUserVersion(0)
                     .build();
-            return PlanGenerator.create(Optional.empty(), ctx, ctx.getMetaData(), new RecordStoreState(null, Map.of()), IndexMaintainerRegistryImpl.instance(), Options.NONE);
+            return PlanGenerator.create(Optional.empty(), ctx, ctx.getMetaData(), new RecordStoreState(null, Map.of()), IndexMaintainerFactoryRegistryImpl.instance(), Options.NONE);
         }
     }
 }

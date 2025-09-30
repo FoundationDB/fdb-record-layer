@@ -24,7 +24,7 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataOptionsProto;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.RecordStoreState;
-import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerRegistryImpl;
+import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactoryRegistryImpl;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
@@ -86,7 +86,7 @@ public class DdlTestUtil {
         final var storeState = new RecordStoreState(null, Map.of());
         try (var schema = embeddedConnection.getRecordLayerDatabase().loadSchema(embeddedConnection.getSchema())) {
             final var metadata = schema.loadStore().getRecordMetaData();
-            return PlanGenerator.create(Optional.empty(), planContext, metadata, storeState, IndexMaintainerRegistryImpl.instance(), Options.NONE);
+            return PlanGenerator.create(Optional.empty(), planContext, metadata, storeState, IndexMaintainerFactoryRegistryImpl.instance(), Options.NONE);
         }
     }
 
@@ -109,7 +109,7 @@ public class DdlTestUtil {
         final var storeState = new RecordStoreState(null, Map.of());
         try (var schema = embeddedConnection.getRecordLayerDatabase().loadSchema(embeddedConnection.getSchema())) {
             final var metadata = schema.loadStore().getRecordMetaData();
-            return PlanGenerator.create(Optional.empty(), planContext, metadata, storeState, IndexMaintainerRegistryImpl.instance(), Options.NONE);
+            return PlanGenerator.create(Optional.empty(), planContext, metadata, storeState, IndexMaintainerFactoryRegistryImpl.instance(), Options.NONE);
         }
     }
 
@@ -123,7 +123,7 @@ public class DdlTestUtil {
         final var storeState = new RecordStoreState(null, Map.of());
         try (var schema = embeddedConnection.getRecordLayerDatabase().loadSchema(embeddedConnection.getSchema())) {
             final var metadata = schema.loadStore().getRecordMetaData();
-            return PlanGenerator.create(Optional.empty(), planContext, metadata, storeState, IndexMaintainerRegistryImpl.instance(), Options.NONE);
+            return PlanGenerator.create(Optional.empty(), planContext, metadata, storeState, IndexMaintainerFactoryRegistryImpl.instance(), Options.NONE);
         }
     }
 
