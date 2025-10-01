@@ -117,6 +117,7 @@ jobs:
         uses: ./actions/gradle-test
         with:
           gradle_command: >-
+            jar
             test
             -x :fdb-record-layer-core:test
             -x :fdb-record-layer-lucene:test
@@ -181,7 +182,7 @@ jobs:
       - name: Run JaCoCo Report
         uses: ./actions/run-gradle
         with:
-          gradle_command: codeCoverageReport
+          gradle_command: jar codeCoverageReport
       - name: Publish Coverage Report
         uses: actions/upload-artifact@v4.6.0
         with:
