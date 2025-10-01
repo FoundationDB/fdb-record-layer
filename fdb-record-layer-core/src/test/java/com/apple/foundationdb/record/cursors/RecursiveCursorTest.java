@@ -40,7 +40,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Tests for {@link RecursiveCursor}.
  */
-public class RecursiveCursorTest {
+class RecursiveCursorTest {
     @Nonnull
     private static RecordCursor<String> numberStrings(int n, @Nullable byte[] continuation) {
         return new RangeCursor(TestExecutors.defaultThreadPool(), n, continuation).map(i -> Integer.toString(i));

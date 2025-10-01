@@ -18,8 +18,6 @@
  * limitations under the License.
  */
 
-import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
-import com.apple.foundationdb.record.query.plan.cascades.debug.DebuggerWithSymbolTables;
 import com.apple.foundationdb.relational.yamltests.MaintainYamlTestConfig;
 import com.apple.foundationdb.relational.yamltests.YamlTest;
 import com.apple.foundationdb.relational.yamltests.YamlTestConfigFilters;
@@ -36,10 +34,6 @@ import org.junit.jupiter.api.TestTemplate;
  */
 @YamlTest
 public class YamlIntegrationTests {
-
-    public YamlIntegrationTests() {
-        Debugger.setDebugger(DebuggerWithSymbolTables.withSanityChecks());
-    }
 
     @TestTemplate
     public void showcasingTests(YamlTest.Runner runner) throws Exception {

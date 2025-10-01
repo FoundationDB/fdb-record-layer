@@ -51,7 +51,7 @@ import java.util.function.Function;
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.CloseResource")
-public class RecursiveCursor<T> implements RecordCursor<RecursiveCursor.RecursiveValue<T>> {
+public final class RecursiveCursor<T> implements RecordCursor<RecursiveCursor.RecursiveValue<T>> {
 
     @Nonnull
     private final ChildCursorFunction<T> childCursorFunction;

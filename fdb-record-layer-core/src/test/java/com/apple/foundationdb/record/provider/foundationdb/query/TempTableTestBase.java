@@ -55,6 +55,7 @@ import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 
 import javax.annotation.Nonnull;
@@ -362,8 +363,8 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
          * This method creates random split points that follow a power law distribution,
          * which tends to create more smaller partitions and fewer larger ones.
          *
-         * @param numberOfPartitions The number of partitions to generate
-         * @param inputSize The total size of the input to be partitioned
+         * @param numSplits The number of partitions to generate
+         * @param end The total size of the input to be partitioned
          * @return A list of integers representing partition sizes
          */
         @Nonnull
@@ -388,6 +389,7 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
             int[] sizes = new int[numSplits];
             int assignedTotal = 0;
 
+            Assertions.assertTrue(totalWeight > 0);
             for (int i = 0; i < numSplits - 1; i++) {
                 double normalizedWeight = weights[i] / totalWeight;
                 sizes[i] = Math.max(1, (int) Math.round(totalRange * normalizedWeight));
@@ -414,7 +416,7 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
          * This method creates random split points with equal probability across
          * the entire range, resulting in more evenly distributed partition sizes.
          *
-         * @param splitCount The number of partitions to generate
+         * @param continuationCount The number of partitions to generate
          * @param inputSize The total size of the input to be partitioned
          * @return A list of integers representing partition sizes
          */
@@ -504,28 +506,6 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
                 l = r;
             }
             return NonnullPair.of(left.build(), right.build());
-        }
-
-        /**
-         * Returns a random integer number between [1, {@code upperBound}] according to a power distribution.
-         * <br>
-         * This transforms the normal distribution as defined in standard Java {@link Random}
-         * to power distribution, for more information, see <a href="https://mathworld.wolfram.com/RandomNumber.html">https://mathworld.wolfram.com/RandomNumber.html</a>
-         * @param upperBound The upper bound (inclusive), must be larger than 1
-         * @return a random integer number between [1, {@code upperBound}] according to a power distribution.
-         * <br>
-         */
-        private static int nextIntWithPowerDistribution(int upperBound) {
-            Verify.verify(upperBound > 1);
-            double lowerRange = 1.0;
-            double upperRange = upperBound * 1.0d;
-            double temperature = -2.3;
-            double randomValue = random.nextDouble();
-            double leftTerm = Math.pow(upperRange, temperature + 1);
-            double rightTerm = Math.pow(lowerRange, temperature + 1);
-            double exponent = (1.0d / (temperature + 1));
-            double base = (leftTerm - rightTerm) * randomValue + rightTerm;
-            return (int)Math.round(Math.pow(base, exponent)) - 1;
         }
     }
 
