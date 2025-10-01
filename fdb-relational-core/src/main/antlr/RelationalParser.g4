@@ -514,7 +514,6 @@ queryOption
     : NOCACHE
     | LOG QUERY
     | DRY RUN
-    | CONTINUATION CONTAINS COMPILED STATEMENT
     ;
 
 // Transaction's Statements

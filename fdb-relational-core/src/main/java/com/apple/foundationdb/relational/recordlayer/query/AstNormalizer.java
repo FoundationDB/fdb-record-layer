@@ -302,9 +302,6 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
             if (ctx.DRY() != null) {
                 queryOptions.withOption(Options.Name.DRY_RUN, true);
             }
-            if (ctx.CONTINUATION() != null) {
-                queryOptions.withOption(Options.Name.CONTINUATIONS_CONTAIN_COMPILED_STATEMENTS, true);
-            }
             return null;
         } catch (SQLException e) {
             throw ExceptionUtil.toRelationalException(e).toUncheckedWrappedException();
