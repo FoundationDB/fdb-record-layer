@@ -215,12 +215,6 @@ public final class Options {
         VALID_PLAN_HASH_MODES,
 
         /**
-         * Boolean indicator if continuations generated for query responses may contain serialized compiled statements
-         * that can be used in EXECUTE CONTINUATION statements.
-         */
-        CONTINUATIONS_CONTAIN_COMPILED_STATEMENTS,
-
-        /**
          * Timeout for asynchronous operations in milliseconds, this is usually used to set an upperbound time limit for
          * operations interacting with FDB.
          * Scope: Engine
@@ -294,7 +288,6 @@ public final class Options {
         builder.put(Name.EXECUTION_SCANNED_ROWS_LIMIT, Integer.MAX_VALUE);
         builder.put(Name.DRY_RUN, false);
         builder.put(Name.CASE_SENSITIVE_IDENTIFIERS, false);
-        builder.put(Name.CONTINUATIONS_CONTAIN_COMPILED_STATEMENTS, true);
         builder.put(Name.ASYNC_OPERATIONS_TIMEOUT_MILLIS, 10_000L);
         builder.put(Name.ENCRYPT_WHEN_SERIALIZING, false);
         builder.put(Name.ENCRYPTION_KEY_PASSWORD, "");
@@ -551,7 +544,6 @@ public final class Options {
         data.put(Name.CASE_SENSITIVE_IDENTIFIERS, List.of(TypeContract.booleanType()));
         data.put(Name.CURRENT_PLAN_HASH_MODE, List.of(TypeContract.stringType()));
         data.put(Name.VALID_PLAN_HASH_MODES, List.of(TypeContract.stringType()));
-        data.put(Name.CONTINUATIONS_CONTAIN_COMPILED_STATEMENTS, List.of(TypeContract.booleanType()));
         data.put(Name.ASYNC_OPERATIONS_TIMEOUT_MILLIS, List.of(TypeContract.longType(), RangeContract.of(0L, Long.MAX_VALUE)));
         data.put(Name.ENCRYPT_WHEN_SERIALIZING, List.of(TypeContract.booleanType()));
         data.put(Name.ENCRYPTION_KEY_STORE, List.of(TypeContract.nullableStringType()));
