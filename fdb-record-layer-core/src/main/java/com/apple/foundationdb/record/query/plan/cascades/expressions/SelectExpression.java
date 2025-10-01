@@ -139,6 +139,10 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
         return predicates;
     }
 
+    public boolean hasPredicates() {
+        return !predicates.isEmpty();
+    }
+
     @Nonnull
     @Override
     public List<? extends Quantifier> getQuantifiers() {

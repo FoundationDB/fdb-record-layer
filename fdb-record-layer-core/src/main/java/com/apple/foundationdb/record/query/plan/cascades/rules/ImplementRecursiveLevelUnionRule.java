@@ -27,7 +27,7 @@ import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RecursiveUnionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveUnionPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveLevelUnionPlan;
 
 import javax.annotation.Nonnull;
 
@@ -41,13 +41,13 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 
 /**
  * A rule that implements a {@link RecursiveUnionExpression}. Currently, the implementation translates the recursive
- * union expression verbatim to a corresponding {@link RecordQueryRecursiveUnionPlan} that has the same topological structure,
+ * union expression verbatim to a corresponding {@link RecordQueryRecursiveLevelUnionPlan} that has the same topological structure,
  * i.e. an {@code Initial} union leg used to seed the recursion, and a {@code Recursive} leg used to compute all recursive
  * results repeatedly until reaching a fix-point.
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class ImplementRecursiveUnionRule extends ImplementationCascadesRule<RecursiveUnionExpression> {
+public class ImplementRecursiveLevelUnionRule extends ImplementationCascadesRule<RecursiveUnionExpression> {
 
     @Nonnull
     private static final BindingMatcher<PlanPartition> initialPlanPartitionsMatcher = anyPlanPartition();
@@ -67,7 +67,7 @@ public class ImplementRecursiveUnionRule extends ImplementationCascadesRule<Recu
     private static final BindingMatcher<RecursiveUnionExpression> root = recursiveUnionExpression(initialQunMatcher, recursiveQunMatcher)
             .where(levelTraversalIsAllowed());
 
-    public ImplementRecursiveUnionRule() {
+    public ImplementRecursiveLevelUnionRule() {
         super(root);
     }
 
@@ -86,7 +86,7 @@ public class ImplementRecursiveUnionRule extends ImplementationCascadesRule<Recu
 
         final var tempTableScanValueReference = recursiveUnionExpression.getTempTableScanAlias();
         final var tempTableInsertValueReference = recursiveUnionExpression.getTempTableInsertAlias();
-        final var recursiveUnionPlan = new RecordQueryRecursiveUnionPlan(initialPhysicalQun, recursivePhysicalQun, tempTableScanValueReference, tempTableInsertValueReference);
+        final var recursiveUnionPlan = new RecordQueryRecursiveLevelUnionPlan(initialPhysicalQun, recursivePhysicalQun, tempTableScanValueReference, tempTableInsertValueReference);
 
         call.yieldPlan(recursiveUnionPlan);
     }

@@ -118,20 +118,20 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
     @Override
     public LogicalOperators visitCtes(@Nonnull RelationalParser.CtesContext ctx) {
         if (ctx.RECURSIVE() != null) {
-            final RecursiveUnionExpression.Traversal traversal;
+            final RecursiveUnionExpression.TraversalStrategy traversalStrategy;
             if (ctx.traversalStrategy() != null) {
                 if (ctx.traversalStrategy().LEVEL() != null) {
-                    traversal = RecursiveUnionExpression.Traversal.LEVEL;
+                    traversalStrategy = RecursiveUnionExpression.TraversalStrategy.LEVEL;
                 } else if (ctx.traversalStrategy().PREORDER() != null) {
-                    traversal = RecursiveUnionExpression.Traversal.PREORDER;
+                    traversalStrategy = RecursiveUnionExpression.TraversalStrategy.PREORDER;
                 } else {
-                    traversal = RecursiveUnionExpression.Traversal.ANY;
+                    traversalStrategy = RecursiveUnionExpression.TraversalStrategy.ANY;
                     Assert.failUnchecked(ErrorCode.INTERNAL_ERROR, "Unsupported traversal " + ctx.traversalStrategy().getText());
                 }
             } else {
-                traversal = RecursiveUnionExpression.Traversal.ANY;
+                traversalStrategy = RecursiveUnionExpression.TraversalStrategy.ANY;
             }
-            return LogicalOperators.of(ctx.namedQuery().stream().map(namedQuery -> handleRecursiveNamedQuery(namedQuery, traversal)).collect(ImmutableList.toImmutableList()));
+            return LogicalOperators.of(ctx.namedQuery().stream().map(namedQuery -> handleRecursiveNamedQuery(namedQuery, traversalStrategy)).collect(ImmutableList.toImmutableList()));
         }
         return LogicalOperators.of(ctx.namedQuery().stream().map(this::visitNamedQuery).collect(ImmutableList.toImmutableList()));
     }
@@ -156,7 +156,7 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
     @SuppressWarnings("UnstableApiUsage")
     @Nonnull
     public LogicalOperator handleRecursiveNamedQuery(@Nonnull final RelationalParser.NamedQueryContext recursiveQueryContext,
-                                                     @Nonnull final RecursiveUnionExpression.Traversal traversal) {
+                                                     @Nonnull final RecursiveUnionExpression.TraversalStrategy traversalStrategy) {
         final var queryName = visitFullId(recursiveQueryContext.name);
         final Optional<Type> recursiveQueryType;
         final var memoized = MemoizedFunction.<ParserRuleContext, LogicalOperators>memoize(
@@ -193,7 +193,7 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         final var initialLegInsert = LogicalOperator.newTemporaryTableInsert(initialLeg, insertTempTableId, type);
         final var recursiveLegInsert = LogicalOperator.newTemporaryTableInsert(recursiveLeg, insertTempTableId, type);
         final var recursiveUnion = new RecursiveUnionExpression(initialLegInsert.getQuantifier(), recursiveLegInsert.getQuantifier(),
-                CorrelationIdentifier.of(scanId.getName()), CorrelationIdentifier.of(insertTempTableId.getName()), traversal);
+                CorrelationIdentifier.of(scanId.getName()), CorrelationIdentifier.of(insertTempTableId.getName()), traversalStrategy);
         final var quantifier = Quantifier.forEach(Reference.initialOf(recursiveUnion));
         var logicalOperator = LogicalOperator.newNamedOperator(queryName, Expressions.fromQuantifier(quantifier), quantifier);
         if (recursiveQueryContext.columnAliases != null) {

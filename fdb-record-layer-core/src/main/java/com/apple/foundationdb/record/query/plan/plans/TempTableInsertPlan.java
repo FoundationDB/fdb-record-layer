@@ -174,8 +174,16 @@ public class TempTableInsertPlan implements RecordQueryPlanWithChild, PlannerGra
     }
 
     @Override
-    public boolean equalsWithoutChildren(@Nonnull final RelationalExpression other, @Nonnull final AliasMap equivalences) {
-        return false;
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
+    public boolean equalsWithoutChildren(@Nonnull final RelationalExpression otherExpression, @Nonnull final AliasMap equivalences) {
+        if (this == otherExpression) {
+            return true;
+        }
+        if (getClass() != otherExpression.getClass()) {
+            return false;
+        }
+        final var otherTempTableScan =  (TempTableInsertPlan)otherExpression;
+        return tempTableReferenceValue.semanticEquals(otherTempTableScan.tempTableReferenceValue, equivalences);
     }
 
     @Override

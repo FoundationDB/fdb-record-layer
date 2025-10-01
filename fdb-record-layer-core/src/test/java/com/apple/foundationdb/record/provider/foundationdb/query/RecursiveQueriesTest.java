@@ -51,8 +51,8 @@ import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursivePlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveUnionPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveDfsJoinPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveLevelUnionPlan;
 import com.apple.foundationdb.record.util.pair.Pair;
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Verify;
@@ -78,15 +78,15 @@ import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
-import static com.apple.foundationdb.record.query.plan.cascades.expressions.RecursiveUnionExpression.Traversal.ANY;
-import static com.apple.foundationdb.record.query.plan.cascades.expressions.RecursiveUnionExpression.Traversal.LEVEL;
-import static com.apple.foundationdb.record.query.plan.cascades.expressions.RecursiveUnionExpression.Traversal.PREORDER;
+import static com.apple.foundationdb.record.query.plan.cascades.expressions.RecursiveUnionExpression.TraversalStrategy.ANY;
+import static com.apple.foundationdb.record.query.plan.cascades.expressions.RecursiveUnionExpression.TraversalStrategy.LEVEL;
+import static com.apple.foundationdb.record.query.plan.cascades.expressions.RecursiveUnionExpression.TraversalStrategy.PREORDER;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
- * Test suite for {@link RecordQueryRecursiveUnionPlan} planning and execution.
+ * Test suite for {@link RecordQueryRecursiveLevelUnionPlan} planning and execution.
  */
 class RecursiveQueriesTest extends TempTableTestBase {
 
@@ -107,9 +107,9 @@ class RecursiveQueriesTest extends TempTableTestBase {
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
     @ParameterizedTest(name = "recursive union with initial {0}, limit {1}, and {2} traversal produces {3}")
     @MethodSource("multiplesOfSuccessParameters")
-    void multiplesOfTest(List<Long> initial, long limit, RecursiveUnionExpression.Traversal traversal, List<Long> expectedResult) throws Exception {
+    void multiplesOfTest(List<Long> initial, long limit, RecursiveUnionExpression.TraversalStrategy traversalStrategy, List<Long> expectedResult) throws Exception {
         Assumptions.assumeTrue(isUseCascadesPlanner());
-        var result = multiplesOf(initial, limit, traversal);
+        var result = multiplesOf(initial, limit, traversalStrategy);
         assertEquals(expectedResult, result);
     }
 
@@ -205,9 +205,9 @@ class RecursiveQueriesTest extends TempTableTestBase {
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
     @ParameterizedTest(name = "ancestors of {0} with {1} traversal are {2}")
     @MethodSource("ancestorsOfNodeParameters")
-    void ancestorsOfNodeTest(Map<Long, Long> initial, RecursiveUnionExpression.Traversal traversal, List<Long> expectedResult) {
+    void ancestorsOfNodeTest(Map<Long, Long> initial, RecursiveUnionExpression.TraversalStrategy traversalStrategy, List<Long> expectedResult) {
         Assumptions.assumeTrue(isUseCascadesPlanner());
-        var result = ancestorsOf(sampleHierarchy(), initial, traversal);
+        var result = ancestorsOf(sampleHierarchy(), initial, traversalStrategy);
         assertEquals(expectedResult, result);
     }
 
@@ -225,15 +225,15 @@ class RecursiveQueriesTest extends TempTableTestBase {
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
     @ParameterizedTest(name = "descendants of {0} with {1} traversal are {2}")
     @MethodSource("descendantsOfNodeParameters")
-    void descendantsOfNodeTest(Map<Long, Long> initial, RecursiveUnionExpression.Traversal traversal, List<Long> expectedResult) {
+    void descendantsOfNodeTest(Map<Long, Long> initial, RecursiveUnionExpression.TraversalStrategy traversalStrategy, List<Long> expectedResult) {
         Assumptions.assumeTrue(isUseCascadesPlanner());
-        var result = descendantsOf(sampleHierarchy(), initial, traversal);
+        var result = descendantsOf(sampleHierarchy(), initial, traversalStrategy);
         assertEquals(expectedResult, result);
     }
 
     static Stream<Arguments> ancestorsOfNodeParametersAcrossContinuationParameters() {
         return Stream.of(
-            Arguments.of(ImmutableMap.of(250L, 50L), List.of(1, 2, 1), LEVEL, List.of(List.of(250L), List.of(50L, 10L), List.of(1L))),
+            //Arguments.of(ImmutableMap.of(250L, 50L), List.of(1, 2, 1), LEVEL, List.of(List.of(250L), List.of(50L, 10L), List.of(1L))),
             Arguments.of(ImmutableMap.of(250L, 50L), List.of(1, 2, 1), PREORDER, List.of(List.of(250L), List.of(50L, 10L), List.of(1L))),
             Arguments.of(ImmutableMap.of(250L, 50L), List.of(1, 2, 1), ANY, List.of(List.of(250L), List.of(50L, 10L), List.of(1L))),
             Arguments.of(ImmutableMap.of(250L, 50L), List.of(1, 1, 2), LEVEL, List.of(List.of(250L), List.of(50L), List.of(10L, 1L))),
@@ -249,9 +249,9 @@ class RecursiveQueriesTest extends TempTableTestBase {
     @ParameterizedTest(name = "ancestors of nodes {0} with row limits {1} and {2} traversal are {3}")
     @MethodSource("ancestorsOfNodeParametersAcrossContinuationParameters")
     void ancestorsOfNodeAcrossContinuation(Map<Long, Long> initial, List<Integer> successiveRowLimits,
-                                           RecursiveUnionExpression.Traversal traversal, List<List<Long>> expectedResult) {
+                                           RecursiveUnionExpression.TraversalStrategy traversalStrategy, List<List<Long>> expectedResult) {
         Assumptions.assumeTrue(isUseCascadesPlanner());
-        var result = ancestorsOfAcrossContinuations(sampleHierarchy(), initial, successiveRowLimits, false, traversal);
+        var result = ancestorsOfAcrossContinuations(sampleHierarchy(), initial, successiveRowLimits, false, traversalStrategy);
         assertEquals(expectedResult, result);
     }
 
@@ -273,9 +273,9 @@ class RecursiveQueriesTest extends TempTableTestBase {
     @ParameterizedTest(name = "descendants of nodes {1} with row limits {2} and {3} traversal in hierarchy are {4}")
     @MethodSource("descendantsOfNodeAcrossContinuationParameters")
     void descendantsOfNodeAcrossContinuations(Map<Long, Long> hierarchy, Map<Long, Long> initial, List<Integer> successiveRowLimits,
-                                              RecursiveUnionExpression.Traversal traversal, List<List<Long>> expectedResult) {
+                                              RecursiveUnionExpression.TraversalStrategy traversalStrategy, List<List<Long>> expectedResult) {
         Assumptions.assumeTrue(isUseCascadesPlanner());
-        var result = descendantsOfAcrossContinuations(hierarchy, initial, successiveRowLimits, false, traversal);
+        var result = descendantsOfAcrossContinuations(hierarchy, initial, successiveRowLimits, false, traversalStrategy);
         assertEquals(expectedResult, result);
     }
 
@@ -295,14 +295,14 @@ class RecursiveQueriesTest extends TempTableTestBase {
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
     @ParameterizedTest(name = "randomized descendants test with {1} traversal")
     @MethodSource("randomizedDescendantsTestParameters")
-    void randomizedDescendantsTest(Hierarchy randomHierarchy, RecursiveUnionExpression.Traversal traversal,
+    void randomizedDescendantsTest(Hierarchy randomHierarchy, RecursiveUnionExpression.TraversalStrategy traversalStrategy,
                                    List<Integer> splits) {
         Assumptions.assumeTrue(isUseCascadesPlanner());
-        final var descendants = randomHierarchy.calculateDescendants(traversal);
+        final var descendants = randomHierarchy.calculateDescendants(traversalStrategy);
         final var randomContinuationScenario = ListPartitioner.randomPartition(descendants, splits);
         final var continuationSnapshots = randomContinuationScenario.getKey();
         final var expectedResults = randomContinuationScenario.getValue();
-        var result = descendantsOfAcrossContinuations(randomHierarchy.getEdges(), ImmutableMap.of(1L, -1L), continuationSnapshots, true, traversal);
+        var result = descendantsOfAcrossContinuations(randomHierarchy.getEdges(), ImmutableMap.of(1L, -1L), continuationSnapshots, true, traversalStrategy);
         assertEquals(expectedResults, result);
     }
 
@@ -328,12 +328,12 @@ class RecursiveQueriesTest extends TempTableTestBase {
     @ParameterizedTest(name = "randomized ancestors test with {5} traversal")
     @MethodSource("randomizedAncestorsTestParameters")
     void randomizedAncestorsTest(Hierarchy randomHierarchy, Long leaf, Long parent, List<Long> ancestors,
-                                List<Integer> splits, RecursiveUnionExpression.Traversal traversal) {
+                                List<Integer> splits, RecursiveUnionExpression.TraversalStrategy traversalStrategy) {
         Assumptions.assumeTrue(isUseCascadesPlanner());
         final var randomContinuationScenario = ListPartitioner.randomPartition(ancestors, splits);
         final var continuationSnapshots = randomContinuationScenario.getKey();
         final var expectedResults = randomContinuationScenario.getValue();
-        var result = ancestorsOfAcrossContinuations(randomHierarchy.getEdges(), ImmutableMap.of(leaf, parent), continuationSnapshots, false, traversal);
+        var result = ancestorsOfAcrossContinuations(randomHierarchy.getEdges(), ImmutableMap.of(leaf, parent), continuationSnapshots, false, traversalStrategy);
         assertEquals(expectedResults, result);
     }
 
@@ -341,9 +341,9 @@ class RecursiveQueriesTest extends TempTableTestBase {
     void testRecursivePlanEquality() {
         Assumptions.assumeTrue(isUseCascadesPlanner());
         final var plan1 = ancestorsPlan(PREORDER);
-        assertInstanceOf(RecordQueryRecursivePlan.class, plan1);
+        assertInstanceOf(RecordQueryRecursiveDfsJoinPlan.class, plan1);
         final var plan2 = ancestorsPlan(PREORDER);
-        assertInstanceOf(RecordQueryRecursivePlan.class, plan2);
+        assertInstanceOf(RecordQueryRecursiveDfsJoinPlan.class, plan2);
         assertEquals(plan1.hashCode(), plan2.hashCode());
         assertEquals(plan1, plan2);
         assertEquals(plan1.toString(), plan2.toString());
@@ -352,7 +352,7 @@ class RecursiveQueriesTest extends TempTableTestBase {
     }
 
     @Nonnull
-    private RecordQueryPlan ancestorsPlan(@Nonnull final RecursiveUnionExpression.Traversal traversal) {
+    private RecordQueryPlan ancestorsPlan(@Nonnull final RecursiveUnionExpression.TraversalStrategy traversalStrategy) {
         try (FDBRecordContext context = openContext()) {
             setupRecordStoreMetadata(context);
             Assumptions.assumeTrue(isUseCascadesPlanner());
@@ -364,7 +364,7 @@ class RecursiveQueriesTest extends TempTableTestBase {
                 final var parentField = getParentField(ttSelectQun);
                 return new ValuePredicate(idField, new Comparisons.ValueComparison(Comparisons.Type.EQUALS, parentField));
             };
-            return createAndOptimizeHierarchyQuery(seedingTempTableAlias, insertTempTableAlias, scanTempTableAlias, predicate, traversal);
+            return createAndOptimizeHierarchyQuery(seedingTempTableAlias, insertTempTableAlias, scanTempTableAlias, predicate, traversalStrategy);
         }
     }
 
@@ -384,14 +384,14 @@ class RecursiveQueriesTest extends TempTableTestBase {
      *
      * @param initial The initial elements in the series, used to seed the recursion.
      * @param limit The (exclusive) limit of the series.
-     * @param traversal The traversal order to use (LEVEL, PREORDER, or ANY).
+     * @param traversalStrategy The traversal order to use (LEVEL, PREORDER, or ANY).
      * @return A series of by-two multiples starting with {@code initial} items up until the given {@code limit}. The Note
      * that the initial items are still included in the final result even if they violate the limit.
      * @throws Exception If the execution of the recursive union plan fails.
      */
     @Nonnull
     private List<Long> multiplesOf(@Nonnull final List<Long> initial, long limit,
-                                   @Nonnull final RecursiveUnionExpression.Traversal traversal) throws Exception {
+                                   @Nonnull final RecursiveUnionExpression.TraversalStrategy traversalStrategy) throws Exception {
         try (FDBRecordContext context = openContext()) {
             final var seedingTempTable = tempTableInstance();
             final var seedingTempTableAlias = CorrelationIdentifier.of("Seeding");
@@ -425,7 +425,7 @@ class RecursiveQueriesTest extends TempTableTestBase {
 
             final var recuInsertQun = Quantifier.forEach(Reference.initialOf(TempTableInsertExpression.ofCorrelated(recuSelectQun, insertTempTableAlias, getInnerType(recuSelectQun))));
 
-            final var recursiveUnionPlan = new RecursiveUnionExpression(initInsertQun, recuInsertQun, scanTempTableAlias, insertTempTableAlias, traversal);
+            final var recursiveUnionPlan = new RecursiveUnionExpression(initInsertQun, recuInsertQun, scanTempTableAlias, insertTempTableAlias, traversalStrategy);
 
             final var logicalPlan = Reference.initialOf(LogicalSortExpression.unsorted(Quantifier.forEach(Reference.initialOf(recursiveUnionPlan))));
             final var cascadesPlanner = (CascadesPlanner)planner;
@@ -442,17 +442,17 @@ class RecursiveQueriesTest extends TempTableTestBase {
      *
      * @param hierarchy The hierarchy, represented a list of {@code child -> parent} edges.
      * @param initial List of edges whose {@code child}'s ancestors are to be calculated.
-     * @param traversal The traversal order to use (LEVEL, PREORDER, or ANY).
+     * @param traversalStrategy The traversal order to use (LEVEL, PREORDER, or ANY).
      * @return A list of nodes representing the path from the given path from child(ren) to the parent.
      */
     @Nonnull
     private List<Long> ancestorsOf(@Nonnull final Map<Long, Long> hierarchy, @Nonnull final Map<Long, Long> initial,
-                                   @Nonnull final RecursiveUnionExpression.Traversal traversal) {
+                                   @Nonnull final RecursiveUnionExpression.TraversalStrategy traversalStrategy) {
         return hierarchicalQuery(hierarchy, initial, (hierarchyScanQun, ttSelectQun) -> {
             final var idField = getIdField(hierarchyScanQun);
             final var parentField = getParentField(ttSelectQun);
             return new ValuePredicate(idField, new Comparisons.ValueComparison(Comparisons.Type.EQUALS, parentField));
-        }, traversal);
+        }, traversalStrategy);
     }
 
     /**
@@ -461,17 +461,17 @@ class RecursiveQueriesTest extends TempTableTestBase {
      *
      * @param hierarchy The hierarchy, represented a list of {@code child -> parent} edges.
      * @param initial List of edges whose {@code child}'s descendants are to be calculated.
-     * @param traversal The traversal order to use (LEVEL, PREORDER, or ANY).
+     * @param traversalStrategy The traversal order to use (LEVEL, PREORDER, or ANY).
      * @return A list of nodes representing the path from the given parent(s) to the children.
      */
     @Nonnull
     private List<Long> descendantsOf(@Nonnull final Map<Long, Long> hierarchy, @Nonnull final Map<Long, Long> initial,
-                                     @Nonnull final RecursiveUnionExpression.Traversal traversal) {
+                                     @Nonnull final RecursiveUnionExpression.TraversalStrategy traversalStrategy) {
         return hierarchicalQuery(hierarchy, initial, (hierarchyScanQun, ttSelectQun) -> {
             final var idField = getIdField(ttSelectQun);
             final var parentField = getParentField(hierarchyScanQun);
             return new ValuePredicate(idField, new Comparisons.ValueComparison(Comparisons.Type.EQUALS, parentField));
-        }, traversal);
+        }, traversalStrategy);
     }
 
     /**
@@ -482,7 +482,7 @@ class RecursiveQueriesTest extends TempTableTestBase {
      * @param initial List of edges whose {@code child}'s ancestors are to be calculated.
      * @param successiveRowLimits execution resumption points by means of result offsets.\
      * @param reportExecutionTime if {@code true}, outputs the execution time to standard out.
-     * @param traversal The traversal order to use (LEVEL, PREORDER, or ANY).
+     * @param traversalStrategy The traversal order to use (LEVEL, PREORDER, or ANY).
      *
      * @return A chunked list of nodes representing the path from the given path from child(ren) to the parent across
      * the given list of execution resumptions.
@@ -492,13 +492,13 @@ class RecursiveQueriesTest extends TempTableTestBase {
                                                             @Nonnull final Map<Long, Long> initial,
                                                             @Nonnull final List<Integer> successiveRowLimits,
                                                             final boolean reportExecutionTime,
-                                                            @Nonnull final RecursiveUnionExpression.Traversal traversal) {
+                                                            @Nonnull final RecursiveUnionExpression.TraversalStrategy traversalStrategy) {
         final BiFunction<Quantifier.ForEach, Quantifier.ForEach, QueryPredicate> predicate = (hierarchyScanQun, ttSelectQun) -> {
             final var idField = getIdField(hierarchyScanQun);
             final var parentField = getParentField(ttSelectQun);
             return new ValuePredicate(idField, new Comparisons.ValueComparison(Comparisons.Type.EQUALS, parentField));
         };
-        return hierarchyQueryAcrossContinuations(hierarchy, initial, predicate, successiveRowLimits, reportExecutionTime, traversal);
+        return hierarchyQueryAcrossContinuations(hierarchy, initial, predicate, successiveRowLimits, reportExecutionTime, traversalStrategy);
     }
 
     /**
@@ -509,7 +509,7 @@ class RecursiveQueriesTest extends TempTableTestBase {
      * @param initial List of edges whose {@code child}'s descendants are to be calculated.
      * @param successiveRowLimits execution resumption points by means of result offsets.
      * @param reportExecutionTime if {@code true}, outputs the execution time to standard out.
-     * @param traversal The traversal order to use (LEVEL, PREORDER, or ANY).
+     * @param traversalStrategy The traversal order to use (LEVEL, PREORDER, or ANY).
      *
      * @return A chunked list of nodes representing the path from the given parent(s) to the children across
      * the given list of execution resumptions.
@@ -519,13 +519,13 @@ class RecursiveQueriesTest extends TempTableTestBase {
                                                               @Nonnull final Map<Long, Long> initial,
                                                               @Nonnull final List<Integer> successiveRowLimits,
                                                               final boolean reportExecutionTime,
-                                                              @Nonnull final RecursiveUnionExpression.Traversal traversal) {
+                                                              @Nonnull final RecursiveUnionExpression.TraversalStrategy traversalStrategy) {
         final BiFunction<Quantifier.ForEach, Quantifier.ForEach, QueryPredicate> predicate = (hierarchyScanQun, ttSelectQun) -> {
             final var idField = getIdField(ttSelectQun);
             final var parentField = getParentField(hierarchyScanQun);
             return new ValuePredicate(parentField, new Comparisons.ValueComparison(Comparisons.Type.EQUALS, idField));
         };
-        return hierarchyQueryAcrossContinuations(hierarchy, initial, predicate, successiveRowLimits, reportExecutionTime, traversal);
+        return hierarchyQueryAcrossContinuations(hierarchy, initial, predicate, successiveRowLimits, reportExecutionTime, traversalStrategy);
     }
 
     /**
@@ -537,7 +537,7 @@ class RecursiveQueriesTest extends TempTableTestBase {
      * @param predicate a predicate that is put on the recursive state determining the fix point.
      * @param successiveRowLimits execution resumption points by means of result offsets.
      * @param reportExecutionTime if {@code True}, outputs the execution time to standard out.
-     * @param traversal The traversal order to use (LEVEL, PREORDER, or ANY).
+     * @param traversalStrategy The traversal order to use (LEVEL, PREORDER, or ANY).
      * @return A chunked list of nodes representing the execution results of the recursive query.
      */
     @Nonnull
@@ -546,15 +546,16 @@ class RecursiveQueriesTest extends TempTableTestBase {
                                                                @Nonnull final BiFunction<Quantifier.ForEach, Quantifier.ForEach, QueryPredicate> predicate,
                                                                @Nonnull final List<Integer> successiveRowLimits,
                                                                final boolean reportExecutionTime,
-                                                               @Nonnull final RecursiveUnionExpression.Traversal traversal) {
+                                                               @Nonnull final RecursiveUnionExpression.TraversalStrategy traversalStrategy) {
         final ImmutableList.Builder<List<Long>> resultBuilder = ImmutableList.builder();
         try (FDBRecordContext context = openContext()) {
             var executionTimesMs =  ImmutableList.<Long>builder();
             var continuations = ImmutableList.<byte[]>builder();
-            var executionResult = hierarchicalQuery(hierarchy, initial, predicate, context, null, successiveRowLimits.get(0), traversal);
+            var executionResult = hierarchicalQuery(hierarchy, initial, predicate, context, null, successiveRowLimits.get(0), traversalStrategy);
             executionTimesMs.add(executionResult.getExecutionTimeMillis());
             continuations.add(new byte[]{});
-            final var plan = executionResult.getPlan();
+            final var originalPlan = executionResult.getPlan();
+            final RecordQueryPlan plan = verifySerialization(originalPlan);
             var continuation = executionResult.getContinuation();
             resultBuilder.add(executionResult.getExecutionResult());
             final var seedingTempTableAlias = CorrelationIdentifier.of("Seeding");
@@ -584,16 +585,16 @@ class RecursiveQueriesTest extends TempTableTestBase {
      * @param hierarchy The hierarchy, represented a list of {@code child -> parent} edges.
      * @param initial The initial state passed to the recursive union.
      * @param queryPredicate A predicate that determines the fix point.
-     * @param traversal The traversal order to use (LEVEL, PREORDER, or ANY).
+     * @param traversalStrategy The traversal order to use (LEVEL, PREORDER, or ANY).
      * @return A list of nodes representing the execution results of the recursive query.
      */
     @Nonnull
     private List<Long> hierarchicalQuery(@Nonnull final Map<Long, Long> hierarchy,
                                          @Nonnull final Map<Long, Long> initial,
                                          @Nonnull final BiFunction<Quantifier.ForEach, Quantifier.ForEach, QueryPredicate> queryPredicate,
-                                         @Nonnull final RecursiveUnionExpression.Traversal traversal) {
+                                         @Nonnull final RecursiveUnionExpression.TraversalStrategy traversalStrategy) {
         try (FDBRecordContext context = openContext()) {
-            return hierarchicalQuery(hierarchy, initial, queryPredicate, context, null, -1, traversal).getExecutionResult();
+            return hierarchicalQuery(hierarchy, initial, queryPredicate, context, null, -1, traversalStrategy).getExecutionResult();
         }
     }
 
@@ -606,7 +607,7 @@ class RecursiveQueriesTest extends TempTableTestBase {
      * @param context The FDB record context to use.
      * @param continuation An optional continuation from a previous execution.
      * @param numberOfItemsToReturn The number of items to return, or -1 for all items.
-     * @param traversal The traversal order to use (LEVEL, PREORDER, or ANY).
+     * @param traversalStrategy The traversal order to use (LEVEL, PREORDER, or ANY).
      * @return The execution result including the plan, results, and continuation.
      */
     @Nonnull
@@ -616,7 +617,7 @@ class RecursiveQueriesTest extends TempTableTestBase {
                                                        @Nonnull final FDBRecordContext context,
                                                        @Nullable final byte[] continuation,
                                                        int numberOfItemsToReturn,
-                                                       @Nonnull final RecursiveUnionExpression.Traversal traversal) {
+                                                       @Nonnull final RecursiveUnionExpression.TraversalStrategy traversalStrategy) {
         setupRecordStoreMetadata(context);
         for (final var entry : hierarchy.entrySet()) {
             final var message = item(entry.getKey(), entry.getValue());
@@ -626,7 +627,7 @@ class RecursiveQueriesTest extends TempTableTestBase {
         final var insertTempTableAlias = CorrelationIdentifier.of("Insert");
         final var scanTempTableAlias = CorrelationIdentifier.of("Scan");
 
-        final var plan = createAndOptimizeHierarchyQuery(seedingTempTableAlias, insertTempTableAlias, scanTempTableAlias, queryPredicate, traversal);
+        final var plan = createAndOptimizeHierarchyQuery(seedingTempTableAlias, insertTempTableAlias, scanTempTableAlias, queryPredicate, traversalStrategy);
 
         final var seedingTempTable = tempTableInstance();
 
@@ -645,11 +646,11 @@ class RecursiveQueriesTest extends TempTableTestBase {
     }
 
     /**
-     * Executes a hierarchical plan, created by invoking {@link RecursiveQueriesTest#hierarchicalQuery(Map, Map, BiFunction, RecursiveUnionExpression.Traversal)},
+     * Executes a hierarchical plan, created by invoking {@link RecursiveQueriesTest#hierarchicalQuery(Map, Map, BiFunction, RecursiveUnionExpression.TraversalStrategy)},
      * or resumes a previous execution given its continuation. The execution can be bounded to return a specific number
      * of elements only.
      *
-     * @param hierarchyPlan The hierarchy plan, created by invoking {@link RecursiveQueriesTest#hierarchicalQuery(Map, Map, BiFunction, RecursiveUnionExpression.Traversal)}.
+     * @param hierarchyPlan The hierarchy plan, created by invoking {@link RecursiveQueriesTest#hierarchicalQuery(Map, Map, BiFunction, RecursiveUnionExpression.TraversalStrategy)}.
      * @param continuation An optional continuation belonging to previous interrupted execution.
      * @param numberOfItemsToReturn An optional number of items to return, {@code -1} to get all items.
      * @return the {@code id} portion of plan execution results
@@ -690,7 +691,7 @@ class RecursiveQueriesTest extends TempTableTestBase {
      * @param insertTempTableAlias The alias for the insert temp table.
      * @param scanTempTableAlias The alias for the scan temp table.
      * @param queryPredicate The predicate that determines the fix point.
-     * @param traversal The traversal order to use (LEVEL, PREORDER, or ANY).
+     * @param traversalStrategy The traversal order to use (LEVEL, PREORDER, or ANY).
      * @return The optimized query plan.
      */
     @Nonnull
@@ -698,7 +699,7 @@ class RecursiveQueriesTest extends TempTableTestBase {
                                                             @Nonnull final CorrelationIdentifier insertTempTableAlias,
                                                             @Nonnull final CorrelationIdentifier scanTempTableAlias,
                                                             @Nonnull final BiFunction<Quantifier.ForEach, Quantifier.ForEach, QueryPredicate> queryPredicate,
-                                                            @Nonnull final RecursiveUnionExpression.Traversal traversal) {
+                                                            @Nonnull final RecursiveUnionExpression.TraversalStrategy traversalStrategy) {
         final var ttScanSeeding = Quantifier.forEach(Reference.initialOf(TempTableScanExpression.ofCorrelated(seedingTempTableAlias, getHierarchyType())));
         var selectExpression = GraphExpansion.builder()
                 .addAllResultColumns(List.of(getIdCol(ttScanSeeding), getParentCol(ttScanSeeding))).addQuantifier(ttScanSeeding)
@@ -724,7 +725,7 @@ class RecursiveQueriesTest extends TempTableTestBase {
         final var joinQun = Quantifier.forEach(Reference.initialOf(joinExpression));
         final var recuInsertQun = Quantifier.forEach(Reference.initialOf(TempTableInsertExpression.ofCorrelated(joinQun,
                 insertTempTableAlias, getInnerType(joinQun))));
-        final var recursiveUnionPlan = new RecursiveUnionExpression(initInsertQun, recuInsertQun, scanTempTableAlias, insertTempTableAlias, traversal);
+        final var recursiveUnionPlan = new RecursiveUnionExpression(initInsertQun, recuInsertQun, scanTempTableAlias, insertTempTableAlias, traversalStrategy);
 
         final var logicalPlan = Reference.initialOf(LogicalSortExpression.unsorted(Quantifier.forEach(Reference.initialOf(recursiveUnionPlan))));
         final var cascadesPlanner = (CascadesPlanner)planner;

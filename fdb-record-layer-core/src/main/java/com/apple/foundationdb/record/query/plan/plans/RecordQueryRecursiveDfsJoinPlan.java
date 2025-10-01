@@ -31,7 +31,7 @@ import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.cursors.RecursiveCursor;
 import com.apple.foundationdb.record.planprotos.PRecordQueryPlan;
-import com.apple.foundationdb.record.planprotos.PRecordQueryRecursivePlan;
+import com.apple.foundationdb.record.planprotos.PRecordQueryRecursiveDfsJoinPlan;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
@@ -63,7 +63,7 @@ import java.util.Set;
  * A query plan that recursively applies a plan to earlier results, starting with a root plan.
  */
 @API(API.Status.INTERNAL)
-public class RecordQueryRecursivePlan implements RecordQueryPlanWithChildren, RelationalExpressionWithChildren {
+public class RecordQueryRecursiveDfsJoinPlan implements RecordQueryPlanWithChildren, RelationalExpressionWithChildren {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Recursive-Plan");
 
     @Nonnull
@@ -75,9 +75,9 @@ public class RecordQueryRecursivePlan implements RecordQueryPlanWithChildren, Re
     @Nonnull
     private final Value resultValue;
 
-    public RecordQueryRecursivePlan(@Nonnull final Quantifier.Physical rootQuantifier,
-                                    @Nonnull final Quantifier.Physical childQuantifier,
-                                    @Nonnull final CorrelationIdentifier priorValueCorrelation) {
+    public RecordQueryRecursiveDfsJoinPlan(@Nonnull final Quantifier.Physical rootQuantifier,
+                                           @Nonnull final Quantifier.Physical childQuantifier,
+                                           @Nonnull final CorrelationIdentifier priorValueCorrelation) {
         this.rootQuantifier = rootQuantifier;
         this.childQuantifier = childQuantifier;
         this.priorValueCorrelation = priorValueCorrelation;
@@ -187,6 +187,55 @@ public class RecordQueryRecursivePlan implements RecordQueryPlanWithChildren, Re
     }
 
     @Override
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
+    public boolean structuralEquals(@Nullable final Object other, @Nonnull final AliasMap equivalenceMap) {
+        if (this == other) {
+            return true;
+        }
+
+        if (other == null || other.getClass() != RecordQueryRecursiveDfsJoinPlan.class) {
+            return false;
+        }
+
+        final var otherExpression = (RecordQueryRecursiveDfsJoinPlan)other;
+
+        for (final AliasMap boundCorrelatedReferencesMap : enumerateUnboundCorrelatedTo(equivalenceMap, otherExpression)) {
+            final AliasMap.Builder boundCorrelatedToBuilder = boundCorrelatedReferencesMap.toBuilder();
+
+            // assume prior aliases are equal.
+            boundCorrelatedToBuilder.put(getPriorValueCorrelation(), otherExpression.getPriorValueCorrelation());
+
+            // verify structural equality of the root quantifier.
+
+            if (getRootQuantifier().structuralHashCode() != otherExpression.getRootQuantifier().structuralHashCode()) {
+                continue;
+            }
+            if (!getRootQuantifier().structuralEquals(otherExpression.getRootQuantifier(), boundCorrelatedToBuilder.build())) {
+                continue;
+            }
+            // root quantifiers are structurally equal, add their aliases to the alias map equivalence
+            boundCorrelatedToBuilder.put(getRootQuantifier().getAlias(), otherExpression.getRootQuantifier().getAlias());
+
+            // verify structural equality of the child quantifiers.
+            if (getChildQuantifier().structuralHashCode() != otherExpression.getChildQuantifier().structuralHashCode()) {
+                continue;
+            }
+            if (!getChildQuantifier().structuralEquals(otherExpression.getChildQuantifier(), boundCorrelatedToBuilder.build())) {
+                continue;
+            }
+            // child quantifiers are also structurally equal, add their aliases to the alias map equivalence
+            boundCorrelatedToBuilder.put(getChildQuantifier().getAlias(), otherExpression.getChildQuantifier().getAlias());
+
+            // verify semantic equality of both expressions using the accumulated alias map equivalence
+            if (equalsWithoutChildren(otherExpression, boundCorrelatedToBuilder.build())) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    @Override
     public int hashCode() {
         return structuralHashCode();
     }
@@ -202,7 +251,7 @@ public class RecordQueryRecursivePlan implements RecordQueryPlanWithChildren, Re
                                                       @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         Verify.verify(translatedQuantifiers.size() == 2);
         Verify.verify(!translationMap.containsSourceAlias(priorValueCorrelation));
-        return new RecordQueryRecursivePlan(
+        return new RecordQueryRecursiveDfsJoinPlan(
                 translatedQuantifiers.get(0).narrow(Quantifier.Physical.class),
                 translatedQuantifiers.get(1).narrow(Quantifier.Physical.class),
                 priorValueCorrelation
@@ -249,8 +298,8 @@ public class RecordQueryRecursivePlan implements RecordQueryPlanWithChildren, Re
 
     @Nonnull
     @Override
-    public PRecordQueryRecursivePlan toProto(@Nonnull final PlanSerializationContext serializationContext) {
-        return PRecordQueryRecursivePlan.newBuilder()
+    public PRecordQueryRecursiveDfsJoinPlan toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PRecordQueryRecursiveDfsJoinPlan.newBuilder()
                 .setRootQuantifier(rootQuantifier.toProto(serializationContext))
                 .setChildQuantifier(childQuantifier.toProto(serializationContext))
                 .setPriorValueCorrelation(priorValueCorrelation.getId())
@@ -260,13 +309,13 @@ public class RecordQueryRecursivePlan implements RecordQueryPlanWithChildren, Re
     @Nonnull
     @Override
     public PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
-        return PRecordQueryPlan.newBuilder().setRecursivePlan(toProto(serializationContext)).build();
+        return PRecordQueryPlan.newBuilder().setRecursiveDfsJoinPlan(toProto(serializationContext)).build();
     }
 
     @Nonnull
-    public static RecordQueryRecursivePlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                   @Nonnull final PRecordQueryRecursivePlan recordQueryRecursivePlanProto) {
-        return new RecordQueryRecursivePlan(
+    public static RecordQueryRecursiveDfsJoinPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                            @Nonnull final PRecordQueryRecursiveDfsJoinPlan recordQueryRecursivePlanProto) {
+        return new RecordQueryRecursiveDfsJoinPlan(
                 Quantifier.Physical.fromProto(serializationContext, Objects.requireNonNull(recordQueryRecursivePlanProto.getRootQuantifier())),
                 Quantifier.Physical.fromProto(serializationContext, Objects.requireNonNull(recordQueryRecursivePlanProto.getChildQuantifier())),
                 CorrelationIdentifier.of(Objects.requireNonNull(recordQueryRecursivePlanProto.getPriorValueCorrelation()))
@@ -282,18 +331,18 @@ public class RecordQueryRecursivePlan implements RecordQueryPlanWithChildren, Re
      * Deserializer.
      */
     @AutoService(PlanDeserializer.class)
-    public static class Deserializer implements PlanDeserializer<PRecordQueryRecursivePlan, RecordQueryRecursivePlan> {
+    public static class Deserializer implements PlanDeserializer<PRecordQueryRecursiveDfsJoinPlan, RecordQueryRecursiveDfsJoinPlan> {
         @Nonnull
         @Override
-        public Class<PRecordQueryRecursivePlan> getProtoMessageClass() {
-            return PRecordQueryRecursivePlan.class;
+        public Class<PRecordQueryRecursiveDfsJoinPlan> getProtoMessageClass() {
+            return PRecordQueryRecursiveDfsJoinPlan.class;
         }
 
         @Nonnull
         @Override
-        public RecordQueryRecursivePlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                  @Nonnull final PRecordQueryRecursivePlan recordQueryRecursivePlanProto) {
-            return RecordQueryRecursivePlan.fromProto(serializationContext, recordQueryRecursivePlanProto);
+        public RecordQueryRecursiveDfsJoinPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                         @Nonnull final PRecordQueryRecursiveDfsJoinPlan recordQueryRecursivePlanProto) {
+            return RecordQueryRecursiveDfsJoinPlan.fromProto(serializationContext, recordQueryRecursivePlanProto);
         }
     }
 }

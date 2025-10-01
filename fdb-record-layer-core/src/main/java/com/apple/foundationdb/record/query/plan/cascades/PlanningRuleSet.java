@@ -25,7 +25,7 @@ import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.rules.AdjustMatchRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.AggregateDataAccessRule;
-import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementRecursiveDfsUnionRule;
+import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementRecursiveDfsJoinRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.WithPrimaryKeyDataAccessRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementDeleteRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementDistinctRule;
@@ -37,7 +37,7 @@ import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementInUnionR
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementInsertRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementIntersectionRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementNestedLoopJoinRule;
-import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementRecursiveUnionRule;
+import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementRecursiveLevelUnionRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementSimpleSelectRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementStreamingAggregationRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementTableFunctionRule;
@@ -170,8 +170,8 @@ public class PlanningRuleSet extends CascadesRuleSet {
             new ImplementInsertRule(),
             new ImplementTempTableInsertRule(),
             new ImplementUpdateRule(),
-            new ImplementRecursiveUnionRule(),
-            new ImplementRecursiveDfsUnionRule(),
+            new ImplementRecursiveLevelUnionRule(),
+            new ImplementRecursiveDfsJoinRule(),
             new ImplementTableFunctionRule()
     );
 

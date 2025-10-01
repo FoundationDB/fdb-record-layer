@@ -139,9 +139,9 @@ public class DelegatingVisitorTest {
             public Object visitTraversalStrategy(final RelationalParser.TraversalStrategyContext ctx) {
                 baseVisitorCalled.setTrue();
                 if (query.equals("LEVEL")) {
-                    return RecursiveUnionExpression.Traversal.LEVEL;
+                    return RecursiveUnionExpression.TraversalStrategy.LEVEL;
                 } else {
-                    return RecursiveUnionExpression.Traversal.PREORDER;
+                    return RecursiveUnionExpression.TraversalStrategy.PREORDER;
                 }
             }
         };

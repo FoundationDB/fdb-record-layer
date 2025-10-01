@@ -57,7 +57,7 @@ public class RecursiveUnionExpression implements RelationalExpressionWithChildre
     private final CorrelationIdentifier tempTableInsertAlias;
 
     @Nonnull
-    private final Traversal traversal;
+    private final TraversalStrategy traversalStrategy;
 
     @Nonnull
     private final Value resultValue;
@@ -67,7 +67,7 @@ public class RecursiveUnionExpression implements RelationalExpressionWithChildre
      * This enum specifies how the recursive leg of a recursive union should traverse and process
      * the intermediate results during query execution.
      */
-    public enum Traversal {
+    public enum TraversalStrategy {
         /**
          * No specific traversal order is enforced. The implementation is free to choose
          * any traversal strategy that is most efficient, potentially mixing different
@@ -96,12 +96,12 @@ public class RecursiveUnionExpression implements RelationalExpressionWithChildre
                                     @Nonnull final Quantifier recursiveState,
                                     @Nonnull final CorrelationIdentifier tempTableScanAlias,
                                     @Nonnull final CorrelationIdentifier tempTableInsertAlias,
-                                    @Nonnull final Traversal traversal) {
+                                    @Nonnull final TraversalStrategy traversalStrategy) {
         this.initialStateQuantifier = initialState;
         this.recursiveStateQuantifier = recursiveState;
         this.tempTableScanAlias = tempTableScanAlias;
         this.tempTableInsertAlias = tempTableInsertAlias;
-        this.traversal = traversal;
+        this.traversalStrategy = traversalStrategy;
         this.resultValue = RecordQuerySetPlan.mergeValues(ImmutableList.of(initialStateQuantifier, recursiveStateQuantifier));
     }
 
@@ -143,7 +143,8 @@ public class RecursiveUnionExpression implements RelationalExpressionWithChildre
             return false;
         }
         final var otherRecursiveUnionExpression = (RecursiveUnionExpression)otherExpression;
-        return (tempTableScanAlias.equals(otherRecursiveUnionExpression.tempTableScanAlias)
+        return traversalStrategy == otherRecursiveUnionExpression.traversalStrategy &&
+                (tempTableScanAlias.equals(otherRecursiveUnionExpression.tempTableScanAlias)
                         || equivalences.containsMapping(tempTableScanAlias, otherRecursiveUnionExpression.tempTableScanAlias)) &&
                 (tempTableInsertAlias.equals(otherRecursiveUnionExpression.tempTableInsertAlias)
                          || equivalences.containsMapping(tempTableInsertAlias, otherRecursiveUnionExpression.tempTableInsertAlias));
@@ -162,7 +163,7 @@ public class RecursiveUnionExpression implements RelationalExpressionWithChildre
 
     @Override
     public int hashCodeWithoutChildren() {
-        return Objects.hash(getTempTableScanAlias(), getTempTableInsertAlias());
+        return Objects.hash(getTempTableScanAlias(), getTempTableInsertAlias(), traversalStrategy);
     }
 
     @Nonnull
@@ -177,7 +178,7 @@ public class RecursiveUnionExpression implements RelationalExpressionWithChildre
         final var translatedInitialStateQun = translatedQuantifiers.get(0);
         final var translatedRecursiveStateQun = translatedQuantifiers.get(1);
         return new RecursiveUnionExpression(translatedInitialStateQun, translatedRecursiveStateQun,
-                tempTableScanAlias, tempTableInsertAlias, traversal);
+                tempTableScanAlias, tempTableInsertAlias, traversalStrategy);
     }
 
     @Nonnull
@@ -201,10 +202,10 @@ public class RecursiveUnionExpression implements RelationalExpressionWithChildre
     }
 
     public boolean preOrderTraversalAllowed() {
-        return traversal == Traversal.ANY || traversal == Traversal.PREORDER;
+        return traversalStrategy == TraversalStrategy.ANY || traversalStrategy == TraversalStrategy.PREORDER;
     }
 
     public boolean levelTraversalAllowed() {
-        return traversal == Traversal.ANY || traversal == Traversal.LEVEL;
+        return traversalStrategy == TraversalStrategy.ANY || traversalStrategy == TraversalStrategy.LEVEL;
     }
 }

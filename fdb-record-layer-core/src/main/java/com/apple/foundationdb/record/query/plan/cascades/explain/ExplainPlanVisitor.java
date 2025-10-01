@@ -67,8 +67,8 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanVisitor;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithExplain;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryRangePlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursivePlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveUnionPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveDfsJoinPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveLevelUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScoreForRankPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQuerySelectorPlan;
@@ -429,7 +429,7 @@ public class ExplainPlanVisitor extends ExplainTokens implements RecordQueryPlan
 
     @Nonnull
     @Override
-    public ExplainTokens visitRecursiveUnionPlan(@Nonnull final RecordQueryRecursiveUnionPlan recursiveUnionPlan) {
+    public ExplainTokens visitRecursiveLevelUnionPlan(@Nonnull final RecordQueryRecursiveLevelUnionPlan recursiveUnionPlan) {
         Verify.verify(recursiveUnionPlan.getChildren().size() == 2);
         addKeyword("RUNION").addWhitespace()
                 .addSequence(() -> new ExplainTokens().addCommaAndWhiteSpace(),
@@ -611,17 +611,17 @@ public class ExplainPlanVisitor extends ExplainTokens implements RecordQueryPlan
 
     @Nonnull
     @Override
-    public ExplainTokens visitRecursivePlan(@Nonnull final RecordQueryRecursivePlan recursivePlan) {
-        Verify.verify(recursivePlan.getChildren().size() == 2);
+    public ExplainTokens visitRecursiveDfsJoinPlan(@Nonnull final RecordQueryRecursiveDfsJoinPlan recursiveDfsJoinPlan) {
+        Verify.verify(recursiveDfsJoinPlan.getChildren().size() == 2);
         addKeyword("RUNION-DFS").addWhitespace();
-        final var priorValueCorrelation = new ExplainTokens().addAliasDefinition(recursivePlan.getPriorValueCorrelation());
+        final var priorValueCorrelation = new ExplainTokens().addAliasDefinition(recursiveDfsJoinPlan.getPriorValueCorrelation());
         addNested(ExplainLevel.ALL_DETAILS, priorValueCorrelation).addWhitespace();
         addOpeningBrace().addWhitespace();
-        visit(recursivePlan.getChildren().get(0)).addWhitespace();
+        visit(recursiveDfsJoinPlan.getChildren().get(0)).addWhitespace();
         addClosingBrace().addLinebreakOrWhitespace();
         addOpeningBrace().addWhitespace();
         addKeyword("RECURSIVE").addWhitespace();
-        return visit(recursivePlan.getChildren().get(1)).addWhitespace()
+        return visit(recursiveDfsJoinPlan.getChildren().get(1)).addWhitespace()
                 .addOptionalWhitespace().addClosingBrace();
     }
 

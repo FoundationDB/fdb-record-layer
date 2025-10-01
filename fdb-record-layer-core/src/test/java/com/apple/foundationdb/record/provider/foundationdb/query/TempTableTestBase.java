@@ -574,8 +574,8 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
          * @return A list of all descendants from ROOT in level-order traversal.
          */
         @Nonnull
-        public List<Long> calculateDescendants(@Nonnull final RecursiveUnionExpression.Traversal traversal) {
-            return calculateDescendants(ROOT, traversal);
+        public List<Long> calculateDescendants(@Nonnull final RecursiveUnionExpression.TraversalStrategy traversalStrategy) {
+            return calculateDescendants(ROOT, traversalStrategy);
         }
 
         /**
@@ -599,12 +599,12 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
          * - ANY traversal returns pre-order because the optimizer always prefers pre-order when given ANY order
          *
          * @param vertex The starting vertex to find descendants from. Must be >= ROOT.
-         * @param traversal The traversal order to use (LEVEL, PREORDER, or ANY).
+         * @param traversalStrategy The traversal order to use (LEVEL, PREORDER, or ANY).
          * @return A list of all descendants (including the starting vertex) in the specified traversal order.
          */
         @Nonnull
-        public List<Long> calculateDescendants(long vertex, @Nonnull final RecursiveUnionExpression.Traversal traversal) {
-            switch (traversal) {
+        public List<Long> calculateDescendants(long vertex, @Nonnull final RecursiveUnionExpression.TraversalStrategy traversalStrategy) {
+            switch (traversalStrategy) {
                 case LEVEL:
                     return calculateDescendantsLevelOrder(vertex);
                 case PREORDER:
@@ -614,7 +614,7 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
                     calculateDescendantsPreOrder(vertex, result);
                     return result.build();
                 default:
-                    throw new IllegalArgumentException("Unsupported traversal type: " + traversal);
+                    throw new IllegalArgumentException("Unsupported traversal type: " + traversalStrategy);
             }
         }
 
