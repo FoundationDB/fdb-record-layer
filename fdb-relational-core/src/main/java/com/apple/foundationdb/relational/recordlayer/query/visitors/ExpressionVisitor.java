@@ -307,9 +307,11 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nonnull
     @Override
     public Expression visitUserDefinedScalarFunctionCall(@Nonnull RelationalParser.UserDefinedScalarFunctionCallContext ctx) {
-        final var functionName = ctx.userDefinedScalarFunctionName().getText();
+        final var functionName = Identifier.of(getDelegate().normalizeString(ctx.userDefinedScalarFunctionName().getText()));
+
+        // final var functionName = ctx.userDefinedScalarFunctionName().getText();
         Expressions arguments = visitFunctionArgs(ctx.functionArgs());
-        return getDelegate().resolveFunction(functionName, arguments.asList().toArray(new Expression[0]));
+        return getDelegate().resolveFunction(functionName.getName(), arguments.asList().toArray(new Expression[0]));
     }
 
     @Nonnull
