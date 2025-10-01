@@ -163,7 +163,7 @@ public class RecordQueryUnorderedDistinctPlan extends AbstractRelationalExpressi
     @Nonnull
     @Override
     public RecordQueryPlanWithChild withChild(@Nonnull final Reference childRef) {
-        return new RecordQueryUnorderedDistinctPlan(Quantifier.physical(childRef), getComparisonKey());
+        return new RecordQueryUnorderedDistinctPlan(Quantifier.physical(childRef, inner.getAlias()), getComparisonKey());
     }
 
     @Nonnull

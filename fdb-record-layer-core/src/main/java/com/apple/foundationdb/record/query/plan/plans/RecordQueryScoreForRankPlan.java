@@ -199,7 +199,7 @@ public class RecordQueryScoreForRankPlan extends AbstractRelationalExpressionWit
     @Nonnull
     @Override
     public RecordQueryPlanWithChild withChild(@Nonnull final Reference childRef) {
-        return new RecordQueryScoreForRankPlan(Quantifier.physical(childRef), getRanks());
+        return new RecordQueryScoreForRankPlan(Quantifier.physical(childRef, inner.getAlias()), getRanks());
     }
 
     @Override

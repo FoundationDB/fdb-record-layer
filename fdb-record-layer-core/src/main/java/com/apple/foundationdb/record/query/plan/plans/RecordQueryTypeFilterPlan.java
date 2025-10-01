@@ -156,7 +156,7 @@ public class RecordQueryTypeFilterPlan extends AbstractRelationalExpressionWithC
     @Nonnull
     @Override
     public RecordQueryPlanWithChild withChild(@Nonnull final Reference childRef) {
-        return new RecordQueryTypeFilterPlan(Quantifier.physical(childRef), getRecordTypes(), resultType);
+        return new RecordQueryTypeFilterPlan(Quantifier.physical(childRef, inner.getAlias()), getRecordTypes(), resultType);
     }
 
     @Nonnull

@@ -115,7 +115,7 @@ public class RecordQueryInsertPlan extends RecordQueryAbstractDataModificationPl
     @Nonnull
     @Override
     public RecordQueryInsertPlan withChild(@Nonnull final Reference childRef) {
-        return new RecordQueryInsertPlan(Quantifier.physical(childRef),
+        return new RecordQueryInsertPlan(Quantifier.physical(childRef, getInner().getAlias()),
                 getTargetRecordType(),
                 getTargetType(),
                 getCoercionTrie(),

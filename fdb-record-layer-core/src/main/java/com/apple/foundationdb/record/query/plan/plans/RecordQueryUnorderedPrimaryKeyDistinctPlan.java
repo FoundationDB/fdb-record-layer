@@ -149,7 +149,7 @@ public class RecordQueryUnorderedPrimaryKeyDistinctPlan extends AbstractRelation
     @Nonnull
     @Override
     public RecordQueryPlanWithChild withChild(@Nonnull final Reference childRef) {
-        return new RecordQueryUnorderedPrimaryKeyDistinctPlan(Quantifier.physical(childRef));
+        return new RecordQueryUnorderedPrimaryKeyDistinctPlan(Quantifier.physical(childRef, inner.getAlias()));
     }
 
     @Nonnull

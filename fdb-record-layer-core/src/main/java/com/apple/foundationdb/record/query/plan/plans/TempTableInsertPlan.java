@@ -158,7 +158,7 @@ public class TempTableInsertPlan extends AbstractRelationalExpressionWithChildre
     @Nonnull
     @Override
     public TempTableInsertPlan withChild(@Nonnull final Reference childRef) {
-        return new TempTableInsertPlan(Quantifier.physical(childRef),
+        return new TempTableInsertPlan(Quantifier.physical(childRef, inner.getAlias()),
                 getTempTableReferenceValue(),
                 isOwningTempTable);
     }

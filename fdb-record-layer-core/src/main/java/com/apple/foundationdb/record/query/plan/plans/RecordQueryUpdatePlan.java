@@ -156,7 +156,7 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
     @Nonnull
     @Override
     public RecordQueryPlanWithChild withChild(@Nonnull final Reference childRef) {
-        return new RecordQueryUpdatePlan(Quantifier.physical(childRef),
+        return new RecordQueryUpdatePlan(Quantifier.physical(childRef, getInner().getAlias()),
                 getTargetRecordType(),
                 getTargetType(),
                 getTransformationsTrie(),

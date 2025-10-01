@@ -173,7 +173,7 @@ public class RecordQuerySortPlan extends AbstractRelationalExpressionWithChildre
     @Nonnull
     @Override
     public RecordQueryPlanWithChild withChild(@Nonnull final Reference childRef) {
-        return new RecordQuerySortPlan(Quantifier.physical(childRef), key);
+        return new RecordQuerySortPlan(Quantifier.physical(childRef, inner.getAlias()), key);
     }
 
     @Override

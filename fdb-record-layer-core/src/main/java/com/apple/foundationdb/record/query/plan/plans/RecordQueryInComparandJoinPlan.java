@@ -110,7 +110,7 @@ public class RecordQueryInComparandJoinPlan extends RecordQueryInJoinPlan {
     @Nonnull
     @Override
     public RecordQueryPlanWithChild withChild(@Nonnull final Reference childRef) {
-        return new RecordQueryInComparandJoinPlan(Quantifier.physical(childRef), inComparandSource(), internal);
+        return new RecordQueryInComparandJoinPlan(Quantifier.physical(childRef, inner.getAlias()), inComparandSource(), internal);
     }
 
     private InComparandSource inComparandSource() {

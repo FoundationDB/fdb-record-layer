@@ -157,7 +157,7 @@ public class RecordQueryPredicatesFilterPlan extends RecordQueryFilterPlanBase i
     @Nonnull
     @Override
     public RecordQueryPlanWithChild withChild(@Nonnull final Reference childRef) {
-        return new RecordQueryPredicatesFilterPlan(Quantifier.physical(childRef), getPredicates());
+        return new RecordQueryPredicatesFilterPlan(Quantifier.physical(childRef, getInner().getAlias()), getPredicates());
     }
 
     @Nonnull
