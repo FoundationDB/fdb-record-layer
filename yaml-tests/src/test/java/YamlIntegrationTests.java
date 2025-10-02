@@ -302,6 +302,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void setupWithConnectionOptionsTest(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("setup-with-connection-options.yamsql");
+    }
+
+    @TestTemplate
     public void literalExtractionTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("null-extraction-tests.yamsql");
     }
