@@ -393,47 +393,6 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         }
 
         /**
-         * Gets the appropriate variant based on required nullability.
-         * 
-         * @param nullable Whether nullable variant is required
-         * @return The appropriate variant, or null if not available
-         */
-        @Nullable
-        public DataType.Named getVariant(boolean nullable) {
-            return nullable ? nullableVariant : nonNullableVariant;
-        }
-
-        /**
-         * Gets the nullable variant if available.
-         */
-        @Nullable
-        public DataType.Named getNullableVariant() {
-            return nullableVariant;
-        }
-
-        /**
-         * Gets the non-nullable variant if available.
-         */
-        @Nullable
-        public DataType.Named getNonNullableVariant() {
-            return nonNullableVariant;
-        }
-
-        /**
-         * Checks if both variants exist.
-         */
-        public boolean hasBothVariants() {
-            return nullableVariant != null && nonNullableVariant != null;
-        }
-
-        /**
-         * Checks if any variant exists.
-         */
-        public boolean hasAnyVariant() {
-            return nullableVariant != null || nonNullableVariant != null;
-        }
-
-        /**
          * Gets the primary variant (nullable if available, otherwise non-nullable).
          * This maintains backward compatibility by preferring nullable variants.
          */
@@ -600,11 +559,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
             
             // For struct types, allow both nullable and non-nullable variants
             if (auxiliaryType instanceof DataType.StructType) {
-                TypeVariants variants = auxiliaryTypes.get(auxiliaryType.getName());
-                if (variants == null) {
-                    variants = new TypeVariants();
-                    auxiliaryTypes.put(auxiliaryType.getName(), variants);
-                }
+                TypeVariants variants = auxiliaryTypes.computeIfAbsent(auxiliaryType.getName(), k -> new TypeVariants());
                 variants.addVariant(auxiliaryType);
             } else {
                 // For non-struct types (enums, etc.), maintain existing behavior
@@ -664,81 +619,6 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
             return Optional.empty();
         }
 
-        /**
-         * Finds a type variant with specific nullability. This method is used to support
-         * struct types that exist in both nullable and non-nullable forms.
-         *
-         * @param name The name of the type to find
-         * @param nullable Whether to find the nullable or non-nullable variant
-         * @return Optional containing the specific variant if found
-         */
-        @Nonnull
-        public Optional<DataType> findTypeVariant(@Nonnull final String name, boolean nullable) {
-            if (tables.containsKey(name)) {
-                DataType tableType = tables.get(name).getDatatype();
-                // Only return table type if nullability matches
-                if (tableType.isNullable() == nullable) {
-                    return Optional.of(tableType);
-                }
-                return Optional.empty();
-            }
-
-            if (auxiliaryTypes.containsKey(name)) {
-                TypeVariants variants = auxiliaryTypes.get(name);
-                DataType.Named variant = variants.getVariant(nullable);
-                return variant != null ? Optional.of((DataType) variant) : Optional.empty();
-            }
-
-            return Optional.empty();
-        }
-
-        /**
-         * Convenience method to add both nullable and non-nullable variants of a struct type.
-         * This is useful when you know a struct type will be used both as table columns 
-         * (nullable) and as array elements (non-nullable).
-         *
-         * @param structType The base struct type (nullability will be ignored, both variants created)
-         * @return {@code this} {@link Builder}.
-         */
-        @Nonnull
-        public Builder addStructTypeWithBothVariants(@Nonnull DataType.StructType structType) {
-            // Create nullable variant
-            DataType.StructType nullableVariant = structType.withNullable(true);
-            addAuxiliaryType(nullableVariant);
-            
-            // Create non-nullable variant  
-            DataType.StructType nonNullableVariant = structType.withNullable(false);
-            addAuxiliaryType(nonNullableVariant);
-            
-            return this;
-        }
-
-        /**
-         * Gets the appropriate struct type variant for use in array contexts (non-nullable).
-         *
-         * @param typeName The name of the struct type
-         * @return Optional containing the non-nullable variant if available
-         */
-        @Nonnull
-        public Optional<DataType.StructType> getStructTypeForArrayContext(@Nonnull final String typeName) {
-            return auxiliaryTypes.containsKey(typeName) ?
-                Optional.ofNullable((DataType.StructType) auxiliaryTypes.get(typeName).getNonNullableVariant()) :
-                Optional.empty();
-        }
-
-        /**
-         * Gets the appropriate struct type variant for use in table column contexts (nullable).
-         *
-         * @param typeName The name of the struct type  
-         * @return Optional containing the nullable variant if available
-         */
-        @Nonnull
-        public Optional<DataType.StructType> getStructTypeForColumnContext(@Nonnull final String typeName) {
-            return auxiliaryTypes.containsKey(typeName) ?
-                Optional.ofNullable((DataType.StructType) auxiliaryTypes.get(typeName).getNullableVariant()) :
-                Optional.empty();
-        }
-
         @Nonnull
         public RecordLayerSchemaTemplate build() {
             Assert.thatUnchecked(!tables.isEmpty(), ErrorCode.INVALID_SCHEMA_TEMPLATE, "schema template contains no tables");
@@ -776,28 +656,6 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
             } else {
                 return new RecordLayerSchemaTemplate(name, new LinkedHashSet<>(tables.values()),
                         new LinkedHashSet<>(invokedRoutines.values()), version, enableLongRows, storeRowVersions, intermingleTables);
-            }
-        }
-
-        /**
-         * Creates both nullable and non-nullable variants for a struct type if they don't exist.
-         * 
-         * @param typeName The name of the struct type that needs both variants
-         */
-        private void createBothVariantsIfNeeded(@Nonnull final String typeName) {
-            TypeVariants variants = auxiliaryTypes.get(typeName);
-            if (variants == null || variants.hasBothVariants()) {
-                return; // Nothing to do
-            }
-            
-            // We have only one variant but need both - create the missing variant
-            DataType.Named existingVariant = variants.getPrimaryVariant();
-            DataType existingAsDataType = (DataType) existingVariant;
-            
-            if (existingVariant instanceof DataType.StructType && existingAsDataType.isResolved()) {
-                // Create the opposite nullability variant
-                DataType.Named newVariant = (DataType.Named) existingAsDataType.withNullable(!existingAsDataType.isNullable());
-                variants.addVariant(newVariant);
             }
         }
 
