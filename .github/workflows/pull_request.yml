@@ -182,7 +182,7 @@ jobs:
       - name: Run JaCoCo Report
         uses: ./actions/run-gradle
         with:
-          gradle_command: jar codeCoverageReport
+          gradle_command: codeCoverageReport
       - name: Publish Coverage Report
         uses: actions/upload-artifact@v4.6.0
         with:
