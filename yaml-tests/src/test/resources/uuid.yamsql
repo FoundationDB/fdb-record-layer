@@ -232,6 +232,16 @@ test_block:
   tests:
     -
       - query: select b, c from tc order by b
+      - debugger: insane
+      - explain: "COVERING(TC1 <,> -> [A: KEY[2], B: KEY[0], C: VALUE[0]]) | MAP (_.B AS B, _.C AS C)"
+      - result: [{!uuid '0920df1c-be81-4ec1-8a06-2180226f051d', 6},
+                 {!uuid '5394a912-aa8e-40fc-a4bb-ddf3f89ac45b', 3},
+                 {!uuid '64120112-4e39-40c3-94b9-2cc88a52e8df', 5},
+                 {!uuid '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6', 1},
+                 {!uuid 'a8708750-d70f-4800-8c3b-13700d5b369f', 2},
+                 {!uuid 'c35ba01f-f8fc-47d7-bb00-f077e8a75682', 4}]
+    -
+      - query: select b, c from tc order by b
       - explain: "COVERING(TC1 <,> -> [A: KEY[2], B: KEY[0], C: VALUE[0]]) | MAP (_.B AS B, _.C AS C)"
       - result: [{!uuid '0920df1c-be81-4ec1-8a06-2180226f051d', 6},
                  {!uuid '5394a912-aa8e-40fc-a4bb-ddf3f89ac45b', 3},
