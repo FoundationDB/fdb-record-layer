@@ -34,6 +34,7 @@ import org.junit.jupiter.api.TestTemplate;
  */
 @YamlTest
 public class YamlIntegrationTests {
+
     @TestTemplate
     public void showcasingTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("showcasing-tests.yamsql");

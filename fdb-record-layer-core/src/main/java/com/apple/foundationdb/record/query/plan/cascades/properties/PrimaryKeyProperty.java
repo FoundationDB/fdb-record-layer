@@ -49,7 +49,8 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryInValuesJoinPla
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInsertPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryMultiIntersectionOnValuesPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveUnionPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveDfsJoinPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveLevelUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTableFunctionPlan;
 import com.apple.foundationdb.record.query.plan.plans.TempTableScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.TempTableInsertPlan;
@@ -295,7 +296,7 @@ public class PrimaryKeyProperty implements ExpressionProperty<Optional<List<Valu
 
         @Nonnull
         @Override
-        public Optional<List<Value>> visitRecursiveUnionPlan(@Nonnull final RecordQueryRecursiveUnionPlan recursiveUnionPlan) {
+        public Optional<List<Value>> visitRecursiveLevelUnionPlan(@Nonnull final RecordQueryRecursiveLevelUnionPlan recursiveUnionPlan) {
             return commonPrimaryKeyFromChildren(recursiveUnionPlan);
         }
 
@@ -425,6 +426,12 @@ public class PrimaryKeyProperty implements ExpressionProperty<Optional<List<Valu
         @Override
         public Optional<List<Value>> visitSortPlan(@Nonnull final RecordQuerySortPlan sortPlan) {
             return primaryKeyFromSingleChild(sortPlan);
+        }
+
+        @Nonnull
+        @Override
+        public Optional<List<Value>> visitRecursiveDfsJoinPlan(@Nonnull final RecordQueryRecursiveDfsJoinPlan recursiveDfsJoinPlan) {
+            return commonPrimaryKeyFromChildren(recursiveDfsJoinPlan);
         }
 
         @Nonnull
