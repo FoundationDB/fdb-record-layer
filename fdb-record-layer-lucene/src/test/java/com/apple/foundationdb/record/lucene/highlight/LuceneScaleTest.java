@@ -50,7 +50,6 @@ import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.PlannableIndexTypes;
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.test.TestKeySpace;
 import com.apple.foundationdb.record.util.pair.Pair;
@@ -254,7 +253,7 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
     @Override
     public void setupPlanner(@Nullable PlannableIndexTypes indexTypes) {
         if (isUseCascadesPlanner()) {
-            planner = new CascadesPlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState());
+            planner = recordStore.getCascadesPlanner();
         } else {
             if (indexTypes == null) {
                 indexTypes = new PlannableIndexTypes(

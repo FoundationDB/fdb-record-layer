@@ -65,6 +65,7 @@ import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
+import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.subspace.Subspace;
@@ -186,6 +187,8 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
     @Nonnull
     RecordSerializer<M> getSerializer();
 
+    @Nonnull
+    IndexMaintainerFactoryRegistry getIndexMaintainerRegistry();
 
     /**
      * Returns the index maintainer for a given index.
@@ -2119,6 +2122,18 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
     }
 
     /**
+     * Create a {@link CascadesPlanner} to use to plan queries on this record store. It will be
+     * initialized with the context necessary to generate query plans for the store, like the
+     * set of available types and indexes.
+     *
+     * @return a {@link CascadesPlanner} implementation initialized with state from this record store
+     */
+    @Nonnull
+    default CascadesPlanner getCascadesPlanner() {
+        return new CascadesPlanner(getRecordMetaData(), getRecordStoreState(), getIndexMaintainerRegistry());
+    }
+
+    /**
      * Plan a query.
      * @param query the query to plan
      * @param parameterRelationshipGraph a set of bindings and their relationships that provide additional information
@@ -2328,7 +2343,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
          * @return the index registry to use
          */
         @Nonnull
-        IndexMaintainerRegistry getIndexMaintainerRegistry();
+        IndexMaintainerFactoryRegistry getIndexMaintainerRegistry();
 
         /**
          * Set the registry of index maintainers to be used by the record store.
@@ -2338,7 +2353,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
          * @see RecordMetaDataBuilder#setIndexMaintainerRegistry
          */
         @Nonnull
-        BaseBuilder<M, R> setIndexMaintainerRegistry(@Nonnull IndexMaintainerRegistry indexMaintainerRegistry);
+        BaseBuilder<M, R> setIndexMaintainerRegistry(@Nonnull IndexMaintainerFactoryRegistry indexMaintainerRegistry);
 
         /**
          * Get the {@link IndexMaintenanceFilter index filter} to be used by the record store.
