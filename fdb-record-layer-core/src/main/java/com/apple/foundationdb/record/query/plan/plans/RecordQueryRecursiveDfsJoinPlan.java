@@ -49,6 +49,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.Message;
 
@@ -80,7 +81,7 @@ public class RecordQueryRecursiveDfsJoinPlan implements RecordQueryPlanWithChild
         this.rootQuantifier = rootQuantifier;
         this.childQuantifier = childQuantifier;
         this.priorValueCorrelation = priorValueCorrelation;
-        this.resultValue = RecordQuerySetPlan.mergeValues(List.of(rootQuantifier, childQuantifier));
+        this.resultValue = RecordQuerySetPlan.mergeValues(ImmutableList.of(rootQuantifier, childQuantifier));
     }
 
     @Nonnull
@@ -129,7 +130,7 @@ public class RecordQueryRecursiveDfsJoinPlan implements RecordQueryPlanWithChild
     @Nonnull
     @Override
     public List<RecordQueryPlan> getChildren() {
-        return List.of(rootQuantifier.getRangesOverPlan(), childQuantifier.getRangesOverPlan());
+        return ImmutableList.of(rootQuantifier.getRangesOverPlan(), childQuantifier.getRangesOverPlan());
     }
 
     @Nonnull
@@ -280,7 +281,7 @@ public class RecordQueryRecursiveDfsJoinPlan implements RecordQueryPlanWithChild
     @Nonnull
     @Override
     public List<? extends Quantifier> getQuantifiers() {
-        return List.of(rootQuantifier, childQuantifier);
+        return ImmutableList.of(rootQuantifier, childQuantifier);
     }
 
     @Nonnull
@@ -289,7 +290,7 @@ public class RecordQueryRecursiveDfsJoinPlan implements RecordQueryPlanWithChild
         return PlannerGraph.fromNodeAndChildGraphs(
                 new PlannerGraph.OperatorNodeWithInfo(this,
                         NodeInfo.NESTED_LOOP_JOIN_OPERATOR,
-                        List.of("RECURSIVE {{expr}}"),
+                        ImmutableList.of("RECURSIVE {{expr}}"),
                         ImmutableMap.of("expr", Attribute.gml(getResultValue().toString()))),
                 childGraphs,
                 getQuantifiers());

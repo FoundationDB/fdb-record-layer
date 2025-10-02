@@ -35,12 +35,12 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Values;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveDfsJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.TempTableInsertPlan;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
 
 import java.util.Collection;
-import java.util.List;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.AnyMatcher.any;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.anyPlanPartition;
@@ -145,7 +145,7 @@ public class ImplementRecursiveDfsJoinRule extends ImplementationCascadesRule<Re
                                           ? call.get(recursiveTempTableScanQunMatcher)
                                           : call.get(recursiveSelectFromTempTableScanQunMatcher)).getAlias();
 
-        final var rootPlanRef = call.memoizeMemberPlansFromOther(initialInnerPlanRef, List.of(initialInnerPlan));
+        final var rootPlanRef = call.memoizeMemberPlansFromOther(initialInnerPlanRef, ImmutableList.of(initialInnerPlan));
         final var rootQun = Quantifier.physical(rootPlanRef, initialStateAlias);
 
         final var recursivePlanRef = ImplementSimpleSelectRule.implementSelectExpression(call, recursiveInnerSelect.getResultValue(),
