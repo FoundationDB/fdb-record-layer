@@ -20,7 +20,7 @@
 # This test confirms the capability of setting connection options for setup blocks and transactional setups.
 ---
 options:
-  supported_version: !current_version
+  supported_version: 4.7.1.0
 ---
 setup:
   options:
@@ -47,7 +47,7 @@ test_block:
   name: transaction-with-connection-options
   connect: "jdbc:embed:/FRL/CASE_SENSITIVE_TEMPLATE?schema=test"
   options:
-    supported_version: !current_version
+    supported_version: 4.7.1.0
     connection_options:
       CASE_SENSITIVE_IDENTIFIERS: true
   tests:
