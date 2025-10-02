@@ -20,11 +20,12 @@
 
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
-import com.apple.foundationdb.relational.yamltests.connectionfactory.MultiServerConnectionFactory;
 import com.apple.foundationdb.relational.yamltests.SimpleYamlConnection;
 import com.apple.foundationdb.relational.yamltests.YamlConnection;
 import com.apple.foundationdb.relational.yamltests.YamlConnectionFactory;
+import com.apple.foundationdb.relational.yamltests.connectionfactory.MultiServerConnectionFactory;
 import com.apple.foundationdb.relational.yamltests.server.SemanticVersion;
+import com.apple.foundationdb.test.FDBTestEnvironment;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -42,6 +43,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 public class MultiServerConnectionFactoryTest {
     private static final SemanticVersion PRIMARY_VERSION = SemanticVersion.parse("2.2.2.0");
     private static final SemanticVersion ALTERNATE_VERSION = SemanticVersion.parse("1.1.1.0");
+    private static final String CLUSTER_FILE = FDBTestEnvironment.randomClusterFile();
 
     @ParameterizedTest
     @CsvSource({"0", "1"})
@@ -156,7 +158,7 @@ public class MultiServerConnectionFactoryTest {
             public YamlConnection getNewConnection(@Nonnull URI connectPath) throws SQLException {
                 // Add query string to connection so we can tell where it came from
                 URI newPath = URI.create(connectPath + "?version=" + version);
-                return new SimpleYamlConnection(dummyConnection(newPath), version);
+                return new SimpleYamlConnection(dummyConnection(newPath), version, CLUSTER_FILE);
             }
 
             @Override
