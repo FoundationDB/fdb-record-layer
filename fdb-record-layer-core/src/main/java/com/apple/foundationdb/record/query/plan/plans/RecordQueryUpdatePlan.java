@@ -156,7 +156,7 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
     @Nonnull
     @Override
     public RecordQueryPlanWithChild withChild(@Nonnull final Reference childRef) {
-        return new RecordQueryUpdatePlan(Quantifier.physical(childRef),
+        return new RecordQueryUpdatePlan(Quantifier.physical(childRef, getInner().getAlias()),
                 getTargetRecordType(),
                 getTargetType(),
                 getTransformationsTrie(),
@@ -165,8 +165,8 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
     }
 
     @Override
-    public int hashCodeWithoutChildren() {
-        return Objects.hash(BASE_HASH.planHash(PlanHashable.CURRENT_FOR_CONTINUATION), super.hashCodeWithoutChildren());
+    public int computeHashCodeWithoutChildren() {
+        return Objects.hash(BASE_HASH, super.computeHashCodeWithoutChildren());
     }
 
     @Override

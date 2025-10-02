@@ -40,7 +40,7 @@ import java.util.Set;
  * is also a {@link RelationalExpression}.
  */
 @API(API.Status.EXPERIMENTAL)
-public class LogicalUniqueExpression implements RelationalExpressionWithChildren {
+public class LogicalUniqueExpression extends AbstractRelationalExpressionWithChildren {
     @Nonnull
     private final Quantifier inner;
 
@@ -65,7 +65,7 @@ public class LogicalUniqueExpression implements RelationalExpressionWithChildren
 
     @Nonnull
     @Override
-    public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
+    public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return ImmutableSet.of();
     }
 
@@ -99,7 +99,7 @@ public class LogicalUniqueExpression implements RelationalExpressionWithChildren
     }
 
     @Override
-    public int hashCodeWithoutChildren() {
+    public int computeHashCodeWithoutChildren() {
         return 251;
     }
 

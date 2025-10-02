@@ -61,6 +61,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
+import org.junit.jupiter.api.Assertions;
 
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -69,6 +70,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -458,10 +460,12 @@ class RecursiveQueriesTest extends TempTableTestBase {
             final var recuInsertQun = Quantifier.forEach(Reference.initialOf(TempTableInsertExpression.ofCorrelated(recuSelectQun, insertTempTableAlias, getInnerType(recuSelectQun))));
 
             final var recursiveUnionPlan = new RecursiveUnionExpression(initInsertQun, recuInsertQun, scanTempTableAlias, insertTempTableAlias, traversalStrategy);
+            Assertions.assertTrue(Collections.disjoint(recursiveUnionPlan.getCorrelatedTo(), ImmutableSet.of(scanTempTableAlias, insertTempTableAlias)));
 
             final var logicalPlan = Reference.initialOf(LogicalSortExpression.unsorted(Quantifier.forEach(Reference.initialOf(recursiveUnionPlan))));
             final var cascadesPlanner = (CascadesPlanner)planner;
             final var plan = cascadesPlanner.planGraph(() -> logicalPlan, Optional.empty(), IndexQueryabilityFilter.TRUE, EvaluationContext.empty()).getPlan();
+            Assertions.assertEquals(7, plan.getComplexity());
 
             var evaluationContext = putTempTableInContext(seedingTempTableAlias, seedingTempTable, null);
             return extractResultsAsIds(context, plan, evaluationContext).stream().collect(ImmutableList.toImmutableList());
@@ -770,7 +774,9 @@ class RecursiveQueriesTest extends TempTableTestBase {
         final var joinQun = Quantifier.forEach(Reference.initialOf(joinExpression));
         final var recuInsertQun = Quantifier.forEach(Reference.initialOf(TempTableInsertExpression.ofCorrelated(joinQun,
                 insertTempTableAlias, getInnerType(joinQun))));
-        return new RecursiveUnionExpression(initInsertQun, recuInsertQun, scanTempTableAlias, insertTempTableAlias, traversalStrategy);
+        final var recursiveUnionPlan = new RecursiveUnionExpression(initInsertQun, recuInsertQun, scanTempTableAlias, insertTempTableAlias, traversalStrategy);
+        Assertions.assertTrue(Collections.disjoint(recursiveUnionPlan.getCorrelatedTo(), ImmutableSet.of(scanTempTableAlias, insertTempTableAlias)));
+        return recursiveUnionPlan;
     }
 
     @Nonnull

@@ -35,6 +35,7 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.FinalMemoizer;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.explain.ExplainPlanVisitor;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.AbstractRelationalExpressionWithChildren;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Verify;
@@ -55,7 +56,7 @@ import java.util.stream.Stream;
  * Common base class for plans that perform stream union operations.
  */
 @API(API.Status.INTERNAL)
-public abstract class RecordQueryUnionPlanBase implements RecordQueryPlanWithChildren, RecordQuerySetPlan {
+public abstract class RecordQueryUnionPlanBase extends AbstractRelationalExpressionWithChildren implements RecordQueryPlanWithChildren, RecordQuerySetPlan {
     public static final Logger LOGGER = LoggerFactory.getLogger(RecordQueryUnionPlanBase.class);
 
     protected static final String UNION = "∪";    // U+222A
@@ -180,7 +181,7 @@ public abstract class RecordQueryUnionPlanBase implements RecordQueryPlanWithChi
     }
 
     @Override
-    public int hashCodeWithoutChildren() {
+    public int computeHashCodeWithoutChildren() {
         return Objects.hash(reverse);
     }
 

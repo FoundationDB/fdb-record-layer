@@ -126,7 +126,7 @@ public interface QueryPlan<T> extends PlanHashable, RelationalExpression {
 
     /**
      * Returns a set of names of the indexes used by this plan (and its sub-plans).
-     * @return an set of indexes used by this plan
+     * @return a set of indexes used by this plan
      */
     @Nonnull
     Set<String> getUsedIndexes();

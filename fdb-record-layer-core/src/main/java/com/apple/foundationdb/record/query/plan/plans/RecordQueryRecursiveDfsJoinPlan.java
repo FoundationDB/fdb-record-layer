@@ -43,14 +43,16 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.cascades.explain.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.AbstractRelationalExpressionWithChildren;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionWithChildren;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Streams;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -63,7 +65,7 @@ import java.util.Set;
  * A query plan that recursively applies a plan to earlier results, starting with a root plan.
  */
 @API(API.Status.INTERNAL)
-public class RecordQueryRecursiveDfsJoinPlan implements RecordQueryPlanWithChildren, RelationalExpressionWithChildren {
+public class RecordQueryRecursiveDfsJoinPlan extends AbstractRelationalExpressionWithChildren implements RecordQueryPlanWithChildren {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Recursive-Plan");
 
     @Nonnull
@@ -141,7 +143,19 @@ public class RecordQueryRecursiveDfsJoinPlan implements RecordQueryPlanWithChild
 
     @Nonnull
     @Override
-    public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
+    public Set<CorrelationIdentifier> computeCorrelatedTo() {
+        final ImmutableSet.Builder<CorrelationIdentifier> builder = ImmutableSet.builder();
+        Streams.concat(rootQuantifier.getCorrelatedTo().stream(),
+                        childQuantifier.getCorrelatedTo().stream())
+                // filter out the correlations that are satisfied by this plan
+                .filter(alias -> !alias.equals(priorValueCorrelation))
+                .forEach(builder::add);
+        return builder.build();
+    }
+
+    @Nonnull
+    @Override
+    public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return resultValue.getCorrelatedTo();
     }
 
@@ -241,7 +255,7 @@ public class RecordQueryRecursiveDfsJoinPlan implements RecordQueryPlanWithChild
     }
 
     @Override
-    public int hashCodeWithoutChildren() {
+    public int computeHashCodeWithoutChildren() {
         return Objects.hash(getResultValue()); // priorValueCorrelation _is_ a child correlation due to the recursive nature of this plan.
     }
 

@@ -256,6 +256,7 @@ message PValue {
     PEvaluatesToValue evaluates_to_value = 50;
     PArrayDistinctValue array_distinct_value = 51;
     PSubscriptValue subscript_value = 52;
+    PParameterObjectValue parameter_object_value = 53;
   }
 }
 
@@ -1268,6 +1269,11 @@ message PRangeValue {
 
 message PArrayDistinctValue {
   optional PValue child_value = 1;
+}
+
+message PParameterObjectValue {
+  optional string parameter_name = 1;
+  optional PType result_type = 2;
 }
 
 //

@@ -99,7 +99,7 @@ public class RecordQueryInUnionOnKeyExpressionPlan extends RecordQueryInUnionPla
     @Nonnull
     @Override
     public RecordQueryInUnionOnKeyExpressionPlan withChild(@Nonnull final Reference childRef) {
-        return new RecordQueryInUnionOnKeyExpressionPlan(Quantifier.physical(childRef),
+        return new RecordQueryInUnionOnKeyExpressionPlan(Quantifier.physical(childRef, inner.getAlias()),
                 getInSources(),
                 getComparisonKeyExpression(),
                 reverse,

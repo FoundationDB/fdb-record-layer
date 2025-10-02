@@ -79,12 +79,6 @@ public class QuantifiedRecordValue extends AbstractValue implements QuantifiedVa
         return QuantifiedRecordValue.of(targetAlias, resultType);
     }
 
-    @Nonnull
-    @Override
-    public Value replaceReferenceWithField(@Nonnull final FieldValue fieldValue) {
-        return fieldValue;
-    }
-
     @Nullable
     @Override
     public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {

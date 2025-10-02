@@ -122,7 +122,7 @@ public class RecordQueryInParameterJoinPlan extends RecordQueryInJoinPlan {
     @Nonnull
     @Override
     public RecordQueryPlanWithChild withChild(@Nonnull final Reference childRef) {
-        return new RecordQueryInParameterJoinPlan(Quantifier.physical(childRef), inSource, internal);
+        return new RecordQueryInParameterJoinPlan(Quantifier.physical(childRef, inner.getAlias()), inSource, internal);
     }
 
     @Override
