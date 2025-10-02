@@ -473,38 +473,36 @@ public class TypeRepository {
         @Nonnull
         public Builder addTypeIfNeeded(@Nonnull final Type type) {
             if (!typeToNameMap.containsKey(type)) {
-                // Check if we already have a nullability variant of this type defined
-                final String expectedProtoName = generateProtoTypeName(type);
-                final Type existingCanonicalType = nameToCanonicalTypeMap.get(expectedProtoName);
-
-                if (existingCanonicalType != null && differsOnlyInNullability(type, existingCanonicalType)) {
-                    // Don't call defineProtoType again, just register the mapping
-                    typesWithBothNullabilityVariants.add(expectedProtoName);
-                    typeToNameMap.put(type, expectedProtoName);
-                } else {
-                    // Standard case: define the protobuf type
-                    type.defineProtoType(this);
+                // Check if we have a structurally identical type with different nullability already registered
+                Type canonicalType = findCanonicalTypeForStructure(type);
+                if (canonicalType != null) {
+                    // Use the same protobuf name as the canonical type
+                    String existingProtoName = typeToNameMap.get(canonicalType);
+                    if (existingProtoName != null) {
+                        typesWithBothNullabilityVariants.add(existingProtoName);
+                        typeToNameMap.put(type, existingProtoName);
+                        return this;
+                    }
                 }
+
+                // Standard case: define the protobuf type
+                type.defineProtoType(this);
             }
             return this;
         }
 
         /**
-         * Generates the expected protobuf type name for a given type.
-         * This is used to predict what name a type would get before calling defineProtoType.
+         * Finds a type that has the same structure as the given type but different nullability.
+         * Returns null if no such type exists.
          */
-        private String generateProtoTypeName(@Nonnull final Type type) {
-            // For most types, we can predict the protobuf name based on structure
-            // This is a simplified version - the actual logic might be more complex
-            if (type instanceof Type.Record) {
-                final Type.Record recordType = (Type.Record) type;
-                final String recordName = recordType.getName();
-                if (recordName != null) {
-                    return recordName.toUpperCase();
+        private Type findCanonicalTypeForStructure(@Nonnull final Type type) {
+            for (Map.Entry<Type, String> entry : typeToNameMap.entrySet()) {
+                Type existingType = entry.getKey();
+                if (differsOnlyInNullability(type, existingType)) {
+                    return existingType;
                 }
             }
-            // Add more type-specific logic as needed
-            return type.toString().toUpperCase().replaceAll("[^A-Z0-9_]", "_");
+            return null;
         }
 
         @Nonnull
