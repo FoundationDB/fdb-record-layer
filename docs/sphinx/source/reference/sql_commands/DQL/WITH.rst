@@ -19,12 +19,12 @@ Parameters
 * :sql:`RECURSIVE`
     Optional keyword to enable recursive functionality. When specified, the CTE can reference itself in its query definition.
 
-* :sql:`TRAVERSAL`
-    Optional parameter for recursive CTEs that specifies the traversal strategy:
+* :sql:`TRAVERSAL ORDER`
+    Optional clause for recursive CTEs that specifies the traversal strategy. This clause appears before the final SELECT statement:
 
-    - :sql:`ANY` - Let the optimizer choose the best traversal strategy (default)
-    - :sql:`PREORDER` - Depth-first search traversal
-    - :sql:`LEVEL` - Breadth-first (level-order) traversal
+    - :sql:`pre_order` - Depth-first search traversal
+    - :sql:`level_order` - Breadth-first (level-order) traversal
+    - If not specified, the optimizer chooses the best traversal strategy (default)
 
 * :sql:`cteName`
     The name of the common table expression.
@@ -173,13 +173,14 @@ Using level traversal to process the hierarchy breadth-first:
 
 .. code-block:: sql
 
-    WITH RECURSIVE (TRAVERSAL = LEVEL) org_levels AS (
+    WITH RECURSIVE org_levels AS (
         SELECT id, name, manager_id, 0 AS level FROM employees WHERE manager_id IS NULL
         UNION ALL
         SELECT e.id, e.name, e.manager_id, ol.level + 1
         FROM org_levels AS ol, employees AS e
         WHERE ol.id = e.manager_id
     )
+    TRAVERSAL ORDER level_order
     SELECT name, level FROM org_levels ORDER BY level, name
 
 This processes all employees at level 0 (CEO), then level 1 (direct reports), then level 2, etc.
@@ -211,13 +212,14 @@ Using explicit preorder traversal to process the hierarchy depth-first:
 
 .. code-block:: sql
 
-    WITH RECURSIVE (TRAVERSAL = PREORDER) subordinates AS (
+    WITH RECURSIVE subordinates AS (
         SELECT id, name, manager_id FROM employees WHERE id = 1
         UNION ALL
         SELECT e.id, e.name, e.manager_id
         FROM subordinates AS s, employees AS e
         WHERE s.id = e.manager_id
     )
+    TRAVERSAL ORDER pre_order
     SELECT name FROM subordinates WHERE id != 1
 
 Result with preorder traversal (depth-first):

@@ -64,13 +64,14 @@ test_block:
 
     # Level-Order Traversal
     -
-      - query: WITH RECURSIVE (TRAVERSAL = LEVEL) org_levels AS (
+      - query: WITH RECURSIVE org_levels AS (
               SELECT id, name, manager_id, 0 AS level FROM employees WHERE manager_id IS NULL
               UNION ALL
               SELECT e.id, e.name, e.manager_id, ol.level + 1
               FROM org_levels AS ol, employees AS e
               WHERE ol.id = e.manager_id
           )
+          TRAVERSAL ORDER level_order
           SELECT name, level FROM org_levels
       - supported_version: !current_version
       - result: [{name: "Alice", level: 0},
@@ -82,13 +83,14 @@ test_block:
 
     # Preorder Traversal
     -
-      - query: WITH RECURSIVE (TRAVERSAL = PREORDER) subordinates AS (
+      - query: WITH RECURSIVE subordinates AS (
               SELECT id, name, manager_id FROM employees WHERE id = 1
               UNION ALL
               SELECT e.id, e.name, e.manager_id
               FROM subordinates AS s, employees AS e
               WHERE s.id = e.manager_id
           )
+          TRAVERSAL ORDER pre_order
           SELECT name FROM subordinates WHERE id != 1
       - supported_version: !current_version
       - result: [{name: "Bob"},

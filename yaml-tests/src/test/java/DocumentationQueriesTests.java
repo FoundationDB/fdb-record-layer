@@ -18,11 +18,13 @@
  * limitations under the License.
  */
 
-import com.apple.foundationdb.relational.yamltests.MaintainYamlTestConfig;
 import com.apple.foundationdb.relational.yamltests.YamlTest;
-import com.apple.foundationdb.relational.yamltests.YamlTestConfigFilters;
 import org.junit.jupiter.api.TestTemplate;
 
+/**
+ * Test suite that aims to run all sample SQL queries defined in the documentation. This ensures
+ * that as SQL syntax and capabilities evolve, the documentation remains consistent and up to date.
+ */
 @YamlTest
 public class DocumentationQueriesTests {
     private static final String PREFIX = "documentation-queries";

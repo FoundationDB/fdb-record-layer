@@ -2,23 +2,7 @@ Diagram(
     Stack(
         Terminal('WITH'),
         Optional(
-            Sequence(
-                Terminal('RECURSIVE'),
-                Optional(
-                    Sequence(
-                        Terminal('('),
-                        Terminal('TRAVERSAL'),
-                        Terminal('='),
-                        Choice(0,
-                            Terminal('ANY'),
-                            Terminal('PREORDER'),
-                            Terminal('LEVEL')
-                        ),
-                        Terminal(')')
-                    ),
-                    'skip'
-                )
-            ),
+            Terminal('RECURSIVE'),
             'skip'
         ),
         OneOrMore(
@@ -43,6 +27,17 @@ Diagram(
                 Terminal(')'),
             ),
             Terminal(','),
+        ),
+        Optional(
+            Sequence(
+                Terminal('TRAVERSAL'),
+                Terminal('ORDER'),
+                Choice(0,
+                    Terminal('pre_order'),
+                    Terminal('level_order')
+                )
+            ),
+            'skip'
         ),
         NonTerminal('query')
     )
