@@ -118,7 +118,7 @@ test_block:
       - result: []
     -
       # subscript from empty array
-      - query: select cast([] as string array)[0] AS G FROM F where pk = 1;
+      - query: select cast([] as string array)[0] AS ERR FROM F where pk = 1;
       - supported_version: !current_version
-      - error: []
+      - result: [{ERR: !null _}]
 ...
