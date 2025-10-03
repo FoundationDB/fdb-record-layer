@@ -1,29 +1,44 @@
 Diagram(
     Stack(
         Terminal('WITH'),
-            OneOrMore(
-                Sequence(
-                    NonTerminal('cteName'),
-                    Optional(
-                        Sequence(
-                            Terminal('('),
-                            OneOrMore(
-                                NonTerminal('columnAlias'),
-                                Terminal(','),
-                            ),
-                            Terminal(')'),
+        Optional(
+            Terminal('RECURSIVE'),
+            'skip'
+        ),
+        OneOrMore(
+            Sequence(
+                NonTerminal('cteName'),
+                Optional(
+                    Sequence(
+                        Terminal('('),
+                        OneOrMore(
+                            NonTerminal('columnAlias'),
+                            Terminal(','),
                         ),
-                        'skip',
+                        Terminal(')'),
                     ),
-                    Optional(
-                        Terminal('AS'),
-                    ),
-                    Terminal('('),
-                    NonTerminal('cteQuery'),
-                    Terminal(')'),
+                    'skip',
                 ),
-                Terminal(','),
+                Optional(
+                    Terminal('AS'),
+                ),
+                Terminal('('),
+                NonTerminal('cteQuery'),
+                Terminal(')'),
             ),
+            Terminal(','),
+        ),
+        Optional(
+            Sequence(
+                Terminal('TRAVERSAL'),
+                Terminal('ORDER'),
+                Choice(0,
+                    Terminal('pre_order'),
+                    Terminal('level_order')
+                )
+            ),
+            'skip'
+        ),
         NonTerminal('query')
     )
 )

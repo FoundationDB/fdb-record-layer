@@ -59,12 +59,6 @@ public class EmptyValue extends AbstractValue implements LeafValue {
         return Key.Evaluated.EMPTY;
     }
 
-    @Nonnull
-    @Override
-    public Value replaceReferenceWithField(@Nonnull final FieldValue fieldValue) {
-        return this;
-    }
-
     @Override
     public boolean isFunctionallyDependentOn(@Nonnull final Value otherValue) {
         return true;

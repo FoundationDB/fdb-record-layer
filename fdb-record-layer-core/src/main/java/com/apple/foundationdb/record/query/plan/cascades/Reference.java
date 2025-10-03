@@ -364,6 +364,8 @@ public class Reference implements Correlated<Reference>, Typed {
 
         Debugger.sanityCheck(() -> Verify.verify(getTotalMembersSize() == 0 ||
                 getResultType().equals(newExpression.getResultType())));
+        Debugger.sanityCheck(() -> Verify.verify(getTotalMembersSize() == 0 ||
+                getCorrelatedTo().containsAll(newExpression.getCorrelatedTo())));
 
         if (isFinal) {
             finalMembers.add(newExpression);

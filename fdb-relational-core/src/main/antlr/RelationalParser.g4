@@ -334,7 +334,11 @@ query
     ;
 
 ctes
-    : WITH (RECURSIVE)? namedQuery (COMMA namedQuery)*
+    : WITH (RECURSIVE)? namedQuery (COMMA namedQuery)* traversalOrderClause?
+    ;
+
+traversalOrderClause
+    : TRAVERSAL ORDER order=(PRE_ORDER | LEVEL_ORDER)
     ;
 
 namedQuery
@@ -517,7 +521,6 @@ queryOption
     : NOCACHE
     | LOG QUERY
     | DRY RUN
-    | CONTINUATION CONTAINS COMPILED STATEMENT
     ;
 
 // Transaction's Statements

@@ -25,11 +25,13 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.AbstractRelationalExpressionWithChildren;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.PickValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
 import java.util.List;
@@ -45,7 +47,7 @@ import java.util.stream.Stream;
  * that are interchangeable: the same result set, in a compatible order (if one is specified).
  * Selecting one plan over the other will not have an impact on the client receiving the results.
  */
-public abstract class RecordQueryChooserPlanBase implements RecordQueryPlanWithChildren {
+public abstract class RecordQueryChooserPlanBase extends AbstractRelationalExpressionWithChildren implements RecordQueryPlanWithChildren {
     @Nonnull
     protected final List<Quantifier.Physical> quantifiers;
     private final boolean reverse;
@@ -100,8 +102,8 @@ public abstract class RecordQueryChooserPlanBase implements RecordQueryPlanWithC
 
     @Nonnull
     @Override
-    public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
-        return Set.of();
+    public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
+        return ImmutableSet.of();
     }
 
     @Nonnull

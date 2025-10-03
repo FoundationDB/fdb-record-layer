@@ -36,6 +36,7 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphRewritable;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.AbstractRelationalExpressionWithChildren;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.MessageHelpers;
@@ -86,7 +87,7 @@ import java.util.function.Supplier;
  * </pre>
  */
 @API(API.Status.INTERNAL)
-public abstract class RecordQueryAbstractDataModificationPlan implements RecordQueryPlanWithChild, PlannerGraphRewritable {
+public abstract class RecordQueryAbstractDataModificationPlan extends AbstractRelationalExpressionWithChildren implements RecordQueryPlanWithChild, PlannerGraphRewritable {
     public static final Logger LOGGER = LoggerFactory.getLogger(RecordQueryAbstractDataModificationPlan.class);
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Abstract-Data-Modification-Plan");
     private static final UUID CURRENT_MODIFIED_RECORD = UUID.randomUUID();
@@ -116,12 +117,6 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
 
     @Nonnull
     private final CorrelationIdentifier currentModifiedRecordAlias;
-
-    @Nonnull
-    private final Supplier<Set<CorrelationIdentifier>> correlatedToWithoutChildrenSupplier;
-
-    @Nonnull
-    private final Supplier<Integer> hashCodeWithoutChildrenSupplier;
 
     @Nonnull
     private final Supplier<Integer> planHashForContinuationSupplier;
@@ -157,8 +152,6 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
         this.computationValue = computationValue;
         this.resultValue = new QueriedValue(computationValue.getResultType());
         this.currentModifiedRecordAlias = currentModifiedRecordAlias;
-        this.correlatedToWithoutChildrenSupplier = Suppliers.memoize(this::computeCorrelatedToWithoutChildren);
-        this.hashCodeWithoutChildrenSupplier = Suppliers.memoize(this::computeHashCodeWithoutChildren);
         this.planHashForContinuationSupplier = Suppliers.memoize(this::computePlanHashForContinuation);
     }
 
@@ -252,11 +245,6 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
 
     @Nonnull
     @Override
-    public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
-        return correlatedToWithoutChildrenSupplier.get();
-    }
-
-    @Nonnull
     public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         final var resultValueCorrelatedTo =
                 Sets.filter(computationValue.getCorrelatedTo(),
@@ -321,12 +309,8 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
     }
 
     @Override
-    public int hashCodeWithoutChildren() {
-        return hashCodeWithoutChildrenSupplier.get();
-    }
-
-    private int computeHashCodeWithoutChildren() {
-        return Objects.hash(BASE_HASH.planHash(PlanHashable.CURRENT_FOR_CONTINUATION), targetRecordType, targetType,
+    public int computeHashCodeWithoutChildren() {
+        return Objects.hash(BASE_HASH.hashCode(), targetRecordType, targetType,
                 transformationsTrie, coercionTrie, computationValue);
     }
 

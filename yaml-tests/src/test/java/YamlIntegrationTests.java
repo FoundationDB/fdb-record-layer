@@ -34,6 +34,7 @@ import org.junit.jupiter.api.TestTemplate;
  */
 @YamlTest
 public class YamlIntegrationTests {
+
     @TestTemplate
     public void showcasingTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("showcasing-tests.yamsql");
@@ -299,6 +300,11 @@ public class YamlIntegrationTests {
     @TestTemplate
     public void transactionalCallsTest(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("transactions-tests.yamsql");
+    }
+
+    @TestTemplate
+    public void setupWithConnectionOptionsTest(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("setup-with-connection-options.yamsql");
     }
 
     @TestTemplate

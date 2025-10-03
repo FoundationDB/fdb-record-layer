@@ -32,7 +32,7 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.cursors.RecursiveUnionCursor;
 import com.apple.foundationdb.record.cursors.RecursiveUnionCursor.RecursiveStateManager;
 import com.apple.foundationdb.record.planprotos.PRecordQueryPlan;
-import com.apple.foundationdb.record.planprotos.PRecursiveUnionQueryPlan;
+import com.apple.foundationdb.record.planprotos.PRecordQueryRecursiveLevelUnionPlan;
 import com.apple.foundationdb.record.planprotos.PTempTable;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
@@ -44,6 +44,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.TempTable;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.AbstractRelationalExpressionWithChildren;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
@@ -52,6 +53,7 @@ import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Streams;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
@@ -79,7 +81,7 @@ import java.util.function.Supplier;
  * for more information see {@link RecursiveUnionCursor}.
  */
 @API(API.Status.INTERNAL)
-public class RecordQueryRecursiveUnionPlan implements RecordQueryPlanWithChildren {
+public class RecordQueryRecursiveLevelUnionPlan extends AbstractRelationalExpressionWithChildren implements RecordQueryPlanWithChildren {
 
     @Nonnull
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Recursive-Union-Query-Plan");
@@ -103,23 +105,19 @@ public class RecordQueryRecursiveUnionPlan implements RecordQueryPlanWithChildre
     private final Supplier<List<RecordQueryPlan>> computeChildren;
 
     @Nonnull
-    private final Supplier<Integer> computeHashCodeWithoutChildrenSupplier;
+    private final Supplier<Integer> computeComplexitySupplier;
 
-    @Nonnull
-    private final Supplier<Integer> computeComplexity;
-
-    public RecordQueryRecursiveUnionPlan(@Nonnull final Quantifier.Physical initialStateQuantifier,
-                                         @Nonnull final Quantifier.Physical recursiveStateQuantifier,
-                                         @Nonnull final CorrelationIdentifier tempTableScanAlias,
-                                         @Nonnull final CorrelationIdentifier tempTableInsertAlias) {
+    public RecordQueryRecursiveLevelUnionPlan(@Nonnull final Quantifier.Physical initialStateQuantifier,
+                                              @Nonnull final Quantifier.Physical recursiveStateQuantifier,
+                                              @Nonnull final CorrelationIdentifier tempTableScanAlias,
+                                              @Nonnull final CorrelationIdentifier tempTableInsertAlias) {
         this.initialStateQuantifier = initialStateQuantifier;
         this.recursiveStateQuantifier = recursiveStateQuantifier;
         this.tempTableScanAlias = tempTableScanAlias;
         this.tempTableInsertAlias = tempTableInsertAlias;
         this.resultValue = RecordQuerySetPlan.mergeValues(ImmutableList.of(initialStateQuantifier, recursiveStateQuantifier));
         this.computeChildren = Suppliers.memoize(this::computeChildren);
-        this.computeHashCodeWithoutChildrenSupplier = Suppliers.memoize(this::computeHashCodeWithoutChildren);
-        this.computeComplexity = Suppliers.memoize(this::computeComplexity);
+        this.computeComplexitySupplier = Suppliers.memoize(this::computeComplexity);
     }
 
     @Override
@@ -139,10 +137,23 @@ public class RecordQueryRecursiveUnionPlan implements RecordQueryPlanWithChildre
 
     @Nonnull
     @Override
-    public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
+    public Set<CorrelationIdentifier> computeCorrelatedTo() {
+        final ImmutableSet.Builder<CorrelationIdentifier> builder = ImmutableSet.builder();
+        Streams.concat(initialStateQuantifier.getCorrelatedTo().stream(),
+                        recursiveStateQuantifier.getCorrelatedTo().stream())
+                // filter out the correlations that are satisfied by this plan
+                .filter(alias -> !alias.equals(tempTableInsertAlias) && !alias.equals(tempTableScanAlias))
+                .forEach(builder::add);
+        return builder.build();
+    }
+
+    @Nonnull
+    @Override
+    public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return ImmutableSet.of();
     }
 
+    @SuppressWarnings("resource")
     @Nonnull
     @Override
     public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
@@ -195,8 +206,8 @@ public class RecordQueryRecursiveUnionPlan implements RecordQueryPlanWithChildre
 
     @Nonnull
     @Override
-    public PRecursiveUnionQueryPlan toProto(@Nonnull final PlanSerializationContext serializationContext) {
-        final var builder = PRecursiveUnionQueryPlan.newBuilder()
+    public PRecordQueryRecursiveLevelUnionPlan toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        final var builder = PRecordQueryRecursiveLevelUnionPlan.newBuilder()
                 .setInitialStateQuantifier(initialStateQuantifier.toProto(serializationContext))
                 .setRecursiveStateQuantifier(recursiveStateQuantifier.toProto(serializationContext))
                 .setInitialTempTableAlias(tempTableScanAlias.getId())
@@ -205,11 +216,11 @@ public class RecordQueryRecursiveUnionPlan implements RecordQueryPlanWithChildre
     }
 
     @Nonnull
-    public static RecordQueryRecursiveUnionPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                          @Nonnull final PRecursiveUnionQueryPlan recordQueryUnorderedDistinctPlanProto) {
+    public static RecordQueryRecursiveLevelUnionPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                               @Nonnull final PRecordQueryRecursiveLevelUnionPlan recordQueryUnorderedDistinctPlanProto) {
         final var initialStateQuantifier = Quantifier.Physical.fromProto(serializationContext, recordQueryUnorderedDistinctPlanProto.getInitialStateQuantifier());
         final var recursiveStateQuantifier = Quantifier.Physical.fromProto(serializationContext, recordQueryUnorderedDistinctPlanProto.getRecursiveStateQuantifier());
-        return new RecordQueryRecursiveUnionPlan(initialStateQuantifier, recursiveStateQuantifier,
+        return new RecordQueryRecursiveLevelUnionPlan(initialStateQuantifier, recursiveStateQuantifier,
                 CorrelationIdentifier.of(recordQueryUnorderedDistinctPlanProto.getInitialTempTableAlias()),
                 CorrelationIdentifier.of(recordQueryUnorderedDistinctPlanProto.getRecursiveTempTableAlias()));
     }
@@ -217,7 +228,7 @@ public class RecordQueryRecursiveUnionPlan implements RecordQueryPlanWithChildre
     @Nonnull
     @Override
     public PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
-        return PRecordQueryPlan.newBuilder().setRecursiveUnionQueryPlan(toProto(serializationContext)).build();
+        return PRecordQueryPlan.newBuilder().setRecursiveLevelUnionPlan(toProto(serializationContext)).build();
     }
 
     @Nonnull
@@ -242,7 +253,7 @@ public class RecordQueryRecursiveUnionPlan implements RecordQueryPlanWithChildre
 
     @Override
     public int getComplexity() {
-        return computeComplexity.get();
+        return computeComplexitySupplier.get();
     }
 
     private int computeComplexity() {
@@ -270,22 +281,18 @@ public class RecordQueryRecursiveUnionPlan implements RecordQueryPlanWithChildre
         if (this == otherExpression) {
             return true;
         }
-        if (!(otherExpression instanceof RecordQueryRecursiveUnionPlan)) {
+        if (!(otherExpression instanceof RecordQueryRecursiveLevelUnionPlan)) {
             return false;
         }
 
-        final var otherRecursiveUnionQueryPlan = (RecordQueryRecursiveUnionPlan)otherExpression;
+        final var otherRecursiveUnionQueryPlan = (RecordQueryRecursiveLevelUnionPlan)otherExpression;
 
         return tempTableScanAlias.equals(otherRecursiveUnionQueryPlan.tempTableScanAlias)
                 && tempTableInsertAlias.equals(otherRecursiveUnionQueryPlan.tempTableInsertAlias);
     }
 
     @Override
-    public int hashCodeWithoutChildren() {
-        return computeHashCodeWithoutChildrenSupplier.get();
-    }
-
-    private int computeHashCodeWithoutChildren() {
+    public int computeHashCodeWithoutChildren() {
         return Objects.hash(tempTableInsertAlias, tempTableInsertAlias);
     }
 
@@ -304,7 +311,7 @@ public class RecordQueryRecursiveUnionPlan implements RecordQueryPlanWithChildre
         Verify.verify(!translationMap.containsSourceAlias(tempTableInsertAlias));
         final var translatedInitialQuantifier = translatedQuantifiers.get(0).narrow(Quantifier.Physical.class);
         final var translatedRecursiveQuantifier = translatedQuantifiers.get(1).narrow(Quantifier.Physical.class);
-        return new RecordQueryRecursiveUnionPlan(translatedInitialQuantifier, translatedRecursiveQuantifier,
+        return new RecordQueryRecursiveLevelUnionPlan(translatedInitialQuantifier, translatedRecursiveQuantifier,
                 tempTableScanAlias, tempTableInsertAlias);
     }
 
@@ -319,27 +326,27 @@ public class RecordQueryRecursiveUnionPlan implements RecordQueryPlanWithChildre
     }
 
     /**
-     * Deserializer of {@link RecordQueryRecursiveUnionPlan}.
+     * Deserializer of {@link RecordQueryRecursiveLevelUnionPlan}.
      */
     @AutoService(PlanDeserializer.class)
-    public static final class Deserializer implements PlanDeserializer<PRecursiveUnionQueryPlan, RecordQueryRecursiveUnionPlan> {
+    public static final class Deserializer implements PlanDeserializer<PRecordQueryRecursiveLevelUnionPlan, RecordQueryRecursiveLevelUnionPlan> {
         @Nonnull
         @Override
-        public Class<PRecursiveUnionQueryPlan> getProtoMessageClass() {
-            return PRecursiveUnionQueryPlan.class;
+        public Class<PRecordQueryRecursiveLevelUnionPlan> getProtoMessageClass() {
+            return PRecordQueryRecursiveLevelUnionPlan.class;
         }
 
         @Nonnull
         @Override
-        public RecordQueryRecursiveUnionPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                       @Nonnull final PRecursiveUnionQueryPlan recordQueryUnorderedDistinctPlanProto) {
-            return RecordQueryRecursiveUnionPlan.fromProto(serializationContext, recordQueryUnorderedDistinctPlanProto);
+        public RecordQueryRecursiveLevelUnionPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                            @Nonnull final PRecordQueryRecursiveLevelUnionPlan recordQueryUnorderedDistinctPlanProto) {
+            return RecordQueryRecursiveLevelUnionPlan.fromProto(serializationContext, recordQueryUnorderedDistinctPlanProto);
         }
     }
 
     /**
      * A reference implementation of {@link RecursiveStateManager} that orchestrates the recursive execution of
-     * {@link RecordQueryRecursiveUnionPlan}.
+     * {@link RecordQueryRecursiveLevelUnionPlan}.
      */
     private static final class RecursiveStateManagerImpl implements RecursiveStateManager<QueryResult> {
 

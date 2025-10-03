@@ -40,7 +40,7 @@ import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.LiteralKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerRegistry;
-import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerRegistryImpl;
+import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactoryRegistryImpl;
 import com.apple.foundationdb.record.provider.foundationdb.MetaDataProtoEditor;
 import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
@@ -146,7 +146,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         formerIndexes = new ArrayList<>();
         unionFields = new HashMap<>();
         explicitDependencies = new TreeMap<>();
-        indexMaintainerRegistry = IndexMaintainerRegistryImpl.instance();
+        indexMaintainerRegistry = IndexMaintainerFactoryRegistryImpl.instance();
         evolutionValidator = MetaDataEvolutionValidator.getDefaultInstance();
         syntheticRecordTypes = new HashMap<>();
         userDefinedFunctionMap = new HashMap<>();

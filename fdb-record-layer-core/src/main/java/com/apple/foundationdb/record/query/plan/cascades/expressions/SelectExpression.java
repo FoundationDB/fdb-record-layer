@@ -89,17 +89,13 @@ import java.util.stream.Collectors;
  * A select expression.
  */
 @API(API.Status.EXPERIMENTAL)
-public class SelectExpression implements RelationalExpressionWithChildren.ChildrenAsSet, RelationalExpressionWithPredicates, InternalPlannerGraphRewritable {
+public class SelectExpression extends AbstractRelationalExpressionWithChildren implements RelationalExpressionWithChildren.ChildrenAsSet, RelationalExpressionWithPredicates, InternalPlannerGraphRewritable {
     @Nonnull
     private final Value resultValue;
     @Nonnull
     private final List<Quantifier> children;
     @Nonnull
     private final List<? extends QueryPredicate> predicates;
-    @Nonnull
-    private final Supplier<Integer> hashCodeWithoutChildrenSupplier;
-    @Nonnull
-    private final Supplier<Set<CorrelationIdentifier>> correlatedToWithoutChildrenSupplier;
     @Nonnull
     private final Supplier<Map<CorrelationIdentifier, ? extends Quantifier>> aliasToQuantifierMapSupplier;
     @Nonnull
@@ -115,8 +111,6 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
         this.predicates = predicates.isEmpty()
                           ? ImmutableList.of()
                           : partitionPredicates(predicates);
-        this.hashCodeWithoutChildrenSupplier = Suppliers.memoize(this::computeHashCodeWithoutChildren);
-        this.correlatedToWithoutChildrenSupplier = Suppliers.memoize(this::computeCorrelatedToWithoutChildren);
         this.aliasToQuantifierMapSupplier = Suppliers.memoize(() -> Quantifiers.aliasToQuantifierMap(children));
         this.correlationOrderSupplier = Suppliers.memoize(this::computeCorrelationOrder);
         this.independentQuantifiersPartitioningSupplier = Suppliers.memoize(this::computeIndependentQuantifiersPartitioning);
@@ -139,6 +133,10 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
         return predicates;
     }
 
+    public boolean hasPredicates() {
+        return !predicates.isEmpty();
+    }
+
     @Nonnull
     @Override
     public List<? extends Quantifier> getQuantifiers() {
@@ -157,12 +155,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
 
     @Nonnull
     @Override
-    public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
-        return correlatedToWithoutChildrenSupplier.get();
-    }
-
-    @Nonnull
-    private Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
+    public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return Streams.concat(predicates.stream().flatMap(queryPredicate -> queryPredicate.getCorrelatedTo().stream()),
                         resultValue.getCorrelatedTo().stream())
                 .collect(ImmutableSet.toImmutableSet());
@@ -214,11 +207,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
     }
 
     @Override
-    public int hashCodeWithoutChildren() {
-        return hashCodeWithoutChildrenSupplier.get();
-    }
-
-    private int computeHashCodeWithoutChildren() {
+    public int computeHashCodeWithoutChildren() {
         return Objects.hash(getPredicates(), getResultValue());
     }
 

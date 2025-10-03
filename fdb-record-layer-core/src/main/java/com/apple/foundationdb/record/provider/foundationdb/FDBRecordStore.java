@@ -282,7 +282,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     protected final RecordSerializer<Message> serializer;
 
     @Nonnull
-    protected final IndexMaintainerRegistry indexMaintainerRegistry;
+    protected final IndexMaintainerFactoryRegistry indexMaintainerRegistry;
 
     @Nonnull
     protected final IndexMaintenanceFilter indexMaintenanceFilter;
@@ -322,7 +322,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                              @Nonnull FormatVersion formatVersion,
                              @Nonnull RecordMetaDataProvider metaDataProvider,
                              @Nonnull RecordSerializer<Message> serializer,
-                             @Nonnull IndexMaintainerRegistry indexMaintainerRegistry,
+                             @Nonnull IndexMaintainerFactoryRegistry indexMaintainerRegistry,
                              @Nonnull IndexMaintenanceFilter indexMaintenanceFilter,
                              @Nonnull PipelineSizer pipelineSizer,
                              @Nullable FDBRecordStoreStateCache storeStateCache,
@@ -463,8 +463,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         return serializer;
     }
 
+    @Override
     @Nonnull
-    public IndexMaintainerRegistry getIndexMaintainerRegistry() {
+    public IndexMaintainerFactoryRegistry getIndexMaintainerRegistry() {
         return indexMaintainerRegistry;
     }
 
@@ -5326,7 +5327,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         private FDBRecordStoreBase.UserVersionChecker userVersionChecker;
 
         @Nonnull
-        private IndexMaintainerRegistry indexMaintainerRegistry = IndexMaintainerRegistryImpl.instance();
+        private IndexMaintainerFactoryRegistry indexMaintainerRegistry = IndexMaintainerFactoryRegistryImpl.instance();
 
         @Nonnull
         private IndexMaintenanceFilter indexMaintenanceFilter = IndexMaintenanceFilter.NORMAL;
@@ -5523,13 +5524,13 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
         @Override
         @Nonnull
-        public IndexMaintainerRegistry getIndexMaintainerRegistry() {
+        public IndexMaintainerFactoryRegistry getIndexMaintainerRegistry() {
             return indexMaintainerRegistry;
         }
 
         @Override
         @Nonnull
-        public Builder setIndexMaintainerRegistry(@Nonnull IndexMaintainerRegistry indexMaintainerRegistry) {
+        public Builder setIndexMaintainerRegistry(@Nonnull IndexMaintainerFactoryRegistry indexMaintainerRegistry) {
             this.indexMaintainerRegistry = indexMaintainerRegistry;
             return this;
         }

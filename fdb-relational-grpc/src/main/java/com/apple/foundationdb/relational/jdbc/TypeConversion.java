@@ -581,6 +581,8 @@ public class TypeConversion {
     @SuppressWarnings("unchecked")
     static com.apple.foundationdb.relational.jdbc.grpc.v1.Options.Builder toProtobuf(@Nonnull Options options) throws SQLException {
         final var builder = com.apple.foundationdb.relational.jdbc.grpc.v1.Options.newBuilder();
+        // Switched-on by default on JDBC driver until the option is deprecated and removed.
+        builder.setContinuationsContainCompiledStatements(true);
         for (Map.Entry<Options.Name, ?> entry : options.entries()) {
             switch (entry.getKey()) {
                 case MAX_ROWS:
@@ -668,9 +670,6 @@ public class TypeConversion {
                     break;
                 case VALID_PLAN_HASH_MODES:
                     builder.setValidPlanHashModes((String)entry.getValue());
-                    break;
-                case CONTINUATIONS_CONTAIN_COMPILED_STATEMENTS:
-                    builder.setContinuationsContainCompiledStatements((Boolean)entry.getValue());
                     break;
                 case ASYNC_OPERATIONS_TIMEOUT_MILLIS:
                     builder.setAsyncOperationsTimeoutMillis((Long)entry.getValue());
@@ -803,8 +802,8 @@ public class TypeConversion {
         if (protoOptions.hasValidPlanHashModes()) {
             builder.withOption(Options.Name.VALID_PLAN_HASH_MODES, protoOptions.getValidPlanHashModes());
         }
-        if (protoOptions.hasContinuationsContainCompiledStatements()) {
-            builder.withOption(Options.Name.CONTINUATIONS_CONTAIN_COMPILED_STATEMENTS, protoOptions.getContinuationsContainCompiledStatements());
+        if (protoOptions.hasContinuationsContainCompiledStatements() && !protoOptions.getContinuationsContainCompiledStatements()) {
+            throw new RelationalException("Option CONTINUATIONS_CONTAIN_COMPILED_STATEMENTS=false not supported anymore!", ErrorCode.UNSUPPORTED_OPERATION).toUncheckedWrappedException();
         }
         if (protoOptions.hasAsyncOperationsTimeoutMillis()) {
             builder.withOption(Options.Name.ASYNC_OPERATIONS_TIMEOUT_MILLIS, protoOptions.getAsyncOperationsTimeoutMillis());

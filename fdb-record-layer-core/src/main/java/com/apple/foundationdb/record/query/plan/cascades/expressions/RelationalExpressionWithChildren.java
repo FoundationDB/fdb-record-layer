@@ -29,8 +29,6 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
-import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
@@ -44,30 +42,6 @@ public interface RelationalExpressionWithChildren extends RelationalExpression {
 
     @Nonnull
     @Override
-    @SuppressWarnings("squid:S2201")
-    default Set<CorrelationIdentifier> getCorrelatedTo() {
-        final ImmutableSet.Builder<CorrelationIdentifier> builder = ImmutableSet.builder();
-        final List<? extends Quantifier> quantifiers = getQuantifiers();
-        final Map<CorrelationIdentifier, ? extends Quantifier> aliasToQuantifierMap = Quantifiers.aliasToQuantifierMap(quantifiers);
-
-        getCorrelatedToWithoutChildren()
-                .stream()
-                .filter(correlationIdentifier -> !aliasToQuantifierMap.containsKey(correlationIdentifier))
-                .forEach(builder::add);
-
-        for (final Quantifier quantifier : quantifiers) {
-            quantifier.getCorrelatedTo()
-                    .stream()
-                    // Filter out the correlations that are satisfied by this expression if this expression can
-                    // correlate.
-                    .filter(correlationIdentifier -> !canCorrelate() || !aliasToQuantifierMap.containsKey(correlationIdentifier))
-                    .forEach(builder::add);
-        }
-
-        return builder.build();
-    }
-
-    @Nonnull
     Set<CorrelationIdentifier> getCorrelatedToWithoutChildren();
 
     @Nonnull

@@ -41,10 +41,11 @@ import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
+import com.apple.foundationdb.record.query.plan.cascades.explain.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.AbstractRelationalExpressionWithoutChildren;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.cascades.explain.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
@@ -68,7 +69,7 @@ import java.util.Set;
  * in that the comparison on a query might actually be split into multiple queries.
  */
 @API(API.Status.INTERNAL)
-public class RecordQueryTextIndexPlan implements RecordQueryPlanWithIndex, RecordQueryPlanWithNoChildren {
+public class RecordQueryTextIndexPlan extends AbstractRelationalExpressionWithoutChildren implements RecordQueryPlanWithIndex, RecordQueryPlanWithNoChildren {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Text-Index-Plan");
 
     @Nonnull
@@ -157,7 +158,7 @@ public class RecordQueryTextIndexPlan implements RecordQueryPlanWithIndex, Recor
 
     @Nonnull
     @Override
-    public Set<CorrelationIdentifier> getCorrelatedTo() {
+    public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return ImmutableSet.of();
     }
 
@@ -216,7 +217,7 @@ public class RecordQueryTextIndexPlan implements RecordQueryPlanWithIndex, Recor
     }
 
     @Override
-    public int hashCodeWithoutChildren() {
+    public int computeHashCodeWithoutChildren() {
         return Objects.hash(indexName, textScan, reverse);
     }
 

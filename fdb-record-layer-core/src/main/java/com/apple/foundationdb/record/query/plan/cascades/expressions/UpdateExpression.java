@@ -24,7 +24,6 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphRewritable;
@@ -34,9 +33,9 @@ import com.apple.foundationdb.record.query.plan.cascades.values.ObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryAbstractDataModificationPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUpdatePlan;
-import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -49,7 +48,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 /**
@@ -58,7 +56,7 @@ import java.util.stream.Collectors;
  *
  * @see com.apple.foundationdb.record.query.plan.cascades.rules.ImplementUpdateRule
  */
-public class UpdateExpression implements RelationalExpressionWithChildren, PlannerGraphRewritable {
+public class UpdateExpression extends AbstractRelationalExpressionWithChildren implements PlannerGraphRewritable {
 
     private static final String OLD_FIELD_NAME = "old";
     private static final String NEW_FIELD_NAME = "new";
@@ -76,12 +74,6 @@ public class UpdateExpression implements RelationalExpressionWithChildren, Plann
     @Nonnull
     private final Map<FieldValue.FieldPath, Value> transformMap;
 
-    @Nonnull
-    private final Supplier<Set<CorrelationIdentifier>> correlatedToWithoutChildrenSupplier;
-
-    @Nonnull
-    private final Supplier<Integer> hashCodeWithoutChildrenSupplier;
-
     public UpdateExpression(@Nonnull final Quantifier.ForEach inner,
                             @Nonnull final String targetRecordType,
                             @Nonnull final Type.Record targetType,
@@ -91,8 +83,6 @@ public class UpdateExpression implements RelationalExpressionWithChildren, Plann
         this.targetType = targetType;
         this.resultValue = new QueriedValue(computeResultType(inner.getFlowedObjectType(), targetType));
         this.transformMap = ImmutableMap.copyOf(transformMap);
-        this.correlatedToWithoutChildrenSupplier = Suppliers.memoize(this::computeCorrelatedToWithoutChildren);
-        this.hashCodeWithoutChildrenSupplier = Suppliers.memoize(this::computeHashCodeWithoutChildren);
     }
 
     @Nonnull
@@ -107,12 +97,7 @@ public class UpdateExpression implements RelationalExpressionWithChildren, Plann
 
     @Nonnull
     @Override
-    public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
-        return correlatedToWithoutChildrenSupplier.get();
-    }
-
-    @Nonnull
-    private Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
+    public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return transformMap.values()
                 .stream()
                 .flatMap(value -> value.getCorrelatedTo().stream())
@@ -183,10 +168,6 @@ public class UpdateExpression implements RelationalExpressionWithChildren, Plann
     }
 
     @Override
-    public int hashCodeWithoutChildren() {
-        return hashCodeWithoutChildrenSupplier.get();
-    }
-
     public int computeHashCodeWithoutChildren() {
         return Objects.hash(targetRecordType, targetType, transformMap);
     }

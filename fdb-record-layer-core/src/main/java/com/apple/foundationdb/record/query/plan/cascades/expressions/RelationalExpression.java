@@ -250,6 +250,9 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
         return false;
     }
 
+    @Nonnull
+    Set<CorrelationIdentifier> getCorrelatedToWithoutChildren();
+
     /**
      * Method to compute the correlation order as a {@link PartiallyOrderedSet}.
      * @return a partial order representing the transitive closure of all dependencies between quantifiers in this

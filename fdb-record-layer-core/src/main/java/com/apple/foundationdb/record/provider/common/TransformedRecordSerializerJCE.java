@@ -304,13 +304,19 @@ public class TransformedRecordSerializerJCE<M extends Message> extends Transform
          */
         @Override
         public TransformedRecordSerializerJCE<M> build() {
-            if (keyManager == null) {
-                if (encryptionKey != null) {
-                    keyManager = new FixedZeroKeyManager(encryptionKey, cipherName, secureRandom);
-                } else if (encryptWhenSerializing) {
-                    throw new RecordCoreArgumentException("cannot encrypt when serializing if encryption key is not set");
-                }
-            } else {
+            return new TransformedRecordSerializerJCE<>(
+                    inner,
+                    compressWhenSerializing,
+                    compressionLevel,
+                    encryptWhenSerializing,
+                    writeValidationRatio,
+                    resolveKeyManager()
+            );
+        }
+
+        @Nullable
+        private SerializationKeyManager resolveKeyManager() {
+            if (this.keyManager != null) {
                 if (encryptionKey != null) {
                     throw new RecordCoreArgumentException("cannot specify both key manager and encryption key");
                 }
@@ -320,17 +326,20 @@ public class TransformedRecordSerializerJCE<M extends Message> extends Transform
                 if (secureRandom != null) {
                     throw new RecordCoreArgumentException("cannot specify both key manager and secure random");
                 }
-            }
-            return new TransformedRecordSerializerJCE<>(
-                    inner,
-                    compressWhenSerializing,
-                    compressionLevel,
-                    encryptWhenSerializing,
-                    writeValidationRatio,
-                    keyManager
-            );
-        }
 
+                return keyManager;
+            }
+
+            if (encryptionKey != null) {
+                return new FixedZeroKeyManager(encryptionKey, cipherName, secureRandom);
+            }
+
+            if (!encryptWhenSerializing) {
+                return null;
+            }
+
+            throw new RecordCoreArgumentException("cannot encrypt when serializing if encryption key is not set");
+        }
     }
 
 }

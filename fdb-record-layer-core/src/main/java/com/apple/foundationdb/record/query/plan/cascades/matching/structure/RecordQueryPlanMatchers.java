@@ -31,7 +31,9 @@ import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.bitmap.ComposedBitmapIndexQueryPlan;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalIntersectionExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RecursiveUnionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.InParameterSource;
@@ -797,6 +799,11 @@ public class RecordQueryPlanMatchers {
     }
 
     @Nonnull
+    public static BindingMatcher<TempTableInsertPlan> tempTableInsertPlanOverQuantifier(@Nonnull final BindingMatcher<? extends Quantifier> downstream) {
+        return ofTypeOwning(TempTableInsertPlan.class, any(downstream));
+    }
+
+    @Nonnull
     public static BindingMatcher<RecordQueryUpdatePlan> updatePlan(@Nonnull final BindingMatcher<? extends RecordQueryPlan> downstream) {
         return childrenPlans(RecordQueryUpdatePlan.class, all(downstream));
     }
@@ -807,5 +814,26 @@ public class RecordQueryPlanMatchers {
         return typedWithDownstream(RecordQueryAbstractDataModificationPlan.class,
                 Extractor.of(RecordQueryAbstractDataModificationPlan::getTargetRecordType, name -> "target(" + name + ")"),
                 downstream);
+    }
+
+    @Nonnull
+    public static BindingMatcher<RecursiveUnionExpression> preOrderTraversalIsAllowed() {
+        return typedWithDownstream(RecursiveUnionExpression.class,
+                Extractor.of(RecursiveUnionExpression::preOrderTraversalAllowed, name -> "preorderTraversal(" + name + ")"),
+                PrimitiveMatchers.equalsObject(true));
+    }
+
+    @Nonnull
+    public static BindingMatcher<RecursiveUnionExpression> levelTraversalIsAllowed() {
+        return typedWithDownstream(RecursiveUnionExpression.class,
+                Extractor.of(RecursiveUnionExpression::levelTraversalAllowed, name -> "levelTraversal(" + name + ")"),
+                PrimitiveMatchers.equalsObject(true));
+    }
+
+    @Nonnull
+    public static BindingMatcher<SelectExpression> hasNoPredicates() {
+        return typedWithDownstream(SelectExpression.class,
+                Extractor.of(SelectExpression::hasPredicates, name -> "levelTraversal(" + name + ")"),
+                PrimitiveMatchers.equalsObject(false));
     }
 }

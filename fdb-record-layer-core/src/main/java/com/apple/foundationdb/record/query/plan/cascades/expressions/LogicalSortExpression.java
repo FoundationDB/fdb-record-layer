@@ -47,7 +47,7 @@ import java.util.stream.Collectors;
  * relational planner expression.
  */
 @API(API.Status.EXPERIMENTAL)
-public class LogicalSortExpression implements RelationalExpressionWithChildren, InternalPlannerGraphRewritable {
+public class LogicalSortExpression extends AbstractRelationalExpressionWithChildren implements InternalPlannerGraphRewritable {
     @Nonnull
     private final RequestedOrdering ordering;
 
@@ -105,7 +105,7 @@ public class LogicalSortExpression implements RelationalExpressionWithChildren, 
 
     @Nonnull
     @Override
-    public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
+    public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return ImmutableSet.of();
     }
 
@@ -151,7 +151,7 @@ public class LogicalSortExpression implements RelationalExpressionWithChildren, 
     }
 
     @Override
-    public int hashCodeWithoutChildren() {
+    public int computeHashCodeWithoutChildren() {
         return ordering.hashCode();
     }
 

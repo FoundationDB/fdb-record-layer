@@ -20,7 +20,9 @@
 
 package com.apple.foundationdb.relational.yamltests.block;
 
+import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.util.Assert;
+import com.apple.foundationdb.relational.yamltests.CustomYamlConstructor;
 import com.apple.foundationdb.relational.yamltests.Matchers;
 import com.apple.foundationdb.relational.yamltests.YamlConnection;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
@@ -29,9 +31,11 @@ import com.apple.foundationdb.relational.yamltests.command.QueryCommand;
 
 import javax.annotation.Nonnull;
 import java.net.URI;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Consumer;
@@ -69,12 +73,22 @@ public class SetupBlock extends ConnectedBlock {
 
     public static final class ManualSetupBlock extends SetupBlock {
 
-        public static final String MANUAL_SETUP_BLOCK_STEPS = "steps";
+        public static final String STEPS = "steps";
+        public static final String OPTIONS = "options";
+        public static final String CONNECTION_OPTIONS = "connection_options";
 
         public static SetupBlock parse(int lineNumber, @Nonnull Object document, @Nonnull YamlExecutionContext executionContext) {
             try {
-                final var setupMap = Matchers.map(document, "setup");
-                final var stepsObject = setupMap.getOrDefault(MANUAL_SETUP_BLOCK_STEPS, null);
+                Options connectionOptions = Options.none();
+                final var setupMap = CustomYamlConstructor.LinedObject.unlineKeys(Matchers.map(document, "setup"));
+                if (setupMap.get(OPTIONS) != null) {
+                    final Map<?, ?> optionsMap = CustomYamlConstructor.LinedObject.unlineKeys(Matchers.map(setupMap.get(OPTIONS)));
+                    if (optionsMap.containsKey(CONNECTION_OPTIONS)) {
+                        connectionOptions = TestBlock.TestBlockOptions.parseConnectionOptions(Matchers.map(optionsMap.get(CONNECTION_OPTIONS)));
+                    }
+                }
+
+                final var stepsObject = setupMap.getOrDefault(STEPS, null);
                 if (stepsObject == null) {
                     Assert.failUnchecked("Illegal Format: No steps provided in setup block.");
                 }
@@ -82,7 +96,7 @@ public class SetupBlock extends ConnectedBlock {
                 for (final var step : Matchers.arrayList(stepsObject, "setup steps")) {
                     Assert.thatUnchecked(Matchers.map(step, "setup step").size() == 1, "Illegal Format: A setup step should be a single command");
                     final var resolvedCommand = Objects.requireNonNull(Command.parse(List.of(step), "unnamed-setup-block", executionContext));
-                    executables.add(resolvedCommand::execute);
+                    executables.add(createSetupExecutable(resolvedCommand, connectionOptions));
                 }
                 return new ManualSetupBlock(lineNumber, executables, executionContext.inferConnectionURI(setupMap.getOrDefault(BLOCK_CONNECT, null)),
                         executionContext);
@@ -94,6 +108,18 @@ public class SetupBlock extends ConnectedBlock {
         private ManualSetupBlock(int lineNumber, @Nonnull List<Consumer<YamlConnection>> executables, @Nonnull URI connectionURI,
                                  @Nonnull YamlExecutionContext executionContext) {
             super(lineNumber, executables, connectionURI, executionContext);
+        }
+
+        @Nonnull
+        private static Consumer<YamlConnection> createSetupExecutable(Command setupCommand, @Nonnull Options connectionOptions) {
+            return connection -> {
+                try {
+                    connection.setConnectionOptions(connectionOptions);
+                } catch (SQLException e) {
+                    throw new RuntimeException(e);
+                }
+                setupCommand.execute(connection);
+            };
         }
     }
 
