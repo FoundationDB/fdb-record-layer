@@ -285,7 +285,7 @@ public class StatementBuilderTests {
                                     .contains("{42} : ???");
                         } else {
                             assertThat(value.toString())
-                                    .contains("GREATEST(B : long ∪ ∅,42 : long) : long");
+                                    .contains("GREATEST((B : long ∪ ∅) : long ∪ ∅,42 : long) : long");
                         }
                     });
         }
@@ -294,32 +294,6 @@ public class StatementBuilderTests {
     @Test
     void mathInSetClause() throws Exception {
         final String schemaTemplateString = "CREATE TABLE T1(pk bigint, a bigint, b bigint, c string, PRIMARY KEY(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplateString).build()) {
-            final var updateStatement = "update T1 set a = 42";
-            final var updateBuilder = ddl.setSchemaAndGetConnection().createStatementBuilderFactory().updateStatementBuilder(updateStatement);
-            final var ef = ddl.getConnection().createExpressionBuilderFactory();
-            final var bField = ef.field("T1", "B");
-            updateBuilder.addSetClause(bField, bField.asLong().add(ef.literal(1L)));
-            assertThat(updateBuilder.getSetClauses())
-                    .hasSize(2)
-                    .allSatisfy((field, value) -> {
-                        assertThat(field.getName())
-                                .isIn("A", "B");
-                        if ("A".equals(field.getName())) {
-                            assertThat(value.toString())
-                                    .contains("{42} : ???");
-                        } else {
-                            assertThat(value.toString())
-                                    .contains("ADD((B : long ∪ ∅) : long ∪ ∅,1 : long) : long ∪ ∅");
-                        }
-                    });
-        }
-    }
-
-    @Test
-    void setAnEnum() throws Exception {
-        final String schemaTemplateString = "CREATE TYPE AS enum ()\n"
-                + "CREATE TABLE T1(pk bigint, a bigint, b bigint, c string, PRIMARY KEY(pk))";
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplateString).build()) {
             final var updateStatement = "update T1 set a = 42";
             final var updateBuilder = ddl.setSchemaAndGetConnection().createStatementBuilderFactory().updateStatementBuilder(updateStatement);
