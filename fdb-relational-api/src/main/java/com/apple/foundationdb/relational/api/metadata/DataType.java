@@ -42,7 +42,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 /**
- * This class represents a Relational data type. A data type has the following characterstics:
+ * This class represents a Relational data type. A data type has the following characteristics:
  *
  * <ul>
  *   <li>it can be either flat or nested.
