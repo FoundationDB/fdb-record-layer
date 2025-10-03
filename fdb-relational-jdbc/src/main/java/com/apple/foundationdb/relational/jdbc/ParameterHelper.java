@@ -146,7 +146,7 @@ public class ParameterHelper {
             case UUID:
                 return ofUUID((UUID)x);
             case NULL:
-                return ofNull(type.getJdbcSqlCode()); // TODO: THis would be generic null...
+                return ofNull(type.getJdbcSqlCode()); // TODO: This would be generic null...
             default:
                 throw new SQLException("setObject Not supported for type: " + type,
                         ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
