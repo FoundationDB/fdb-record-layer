@@ -22,25 +22,24 @@ package com.apple.foundationdb.record.query.plan.cascades.values;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
-import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
-import com.apple.foundationdb.record.planprotos.PQuantifiedObjectValue;
+import com.apple.foundationdb.record.planprotos.PParameterObjectValue;
 import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoolean;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
-import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.protobuf.Message;
 
@@ -54,17 +53,22 @@ import java.util.function.Supplier;
  * A value representing the quantifier as an object. For example, this is used to represent non-nested repeated fields.
  */
 @API(API.Status.EXPERIMENTAL)
-public class QuantifiedObjectValue extends AbstractValue implements QuantifiedValue {
-    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Quantified-Object-Value");
+public class ParameterObjectValue extends AbstractValue implements LeafValue {
+    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Parameter-Object-Value");
 
     @Nonnull
-    private final CorrelationIdentifier alias;
+    private final String parameterName;
     @Nonnull
     private final Type resultType;
 
-    private QuantifiedObjectValue(@Nonnull final CorrelationIdentifier alias, @Nonnull final Type resultType) {
-        this.alias = alias;
+    private ParameterObjectValue(@Nonnull final String parameterName, @Nonnull final Type resultType) {
+        this.parameterName = parameterName;
         this.resultType = resultType;
+    }
+
+    @Nonnull
+    public String getParameterName() {
+        return parameterName;
     }
 
     @Nonnull
@@ -76,34 +80,19 @@ public class QuantifiedObjectValue extends AbstractValue implements QuantifiedVa
     @Nonnull
     @Override
     public Value rebaseLeaf(@Nonnull final CorrelationIdentifier targetAlias) {
-        return QuantifiedObjectValue.of(targetAlias, resultType);
+        return this;
     }
 
     @Nullable
     @Override
     public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
-        final var obj = context.getBinding(Bindings.Internal.CORRELATION, alias);
-        if (getResultType().isRelation()) {
-            return obj;
-        }
-        final var binding = (QueryResult)obj;
-        if (resultType.isRecord()) {
-            return binding.getDatum() == null ? null : binding.getMessage();
-        } else {
-            return binding.getDatum();
-        }
-    }
-
-    @Nonnull
-    @Override
-    public CorrelationIdentifier getAlias() {
-        return alias;
+        return context.getBinding(parameterName);
     }
 
     @Nonnull
     @Override
     public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
-        return QuantifiedValue.super.getCorrelatedToWithoutChildren();
+        return ImmutableSet.of();
     }
 
     @Nonnull
@@ -126,7 +115,7 @@ public class QuantifiedObjectValue extends AbstractValue implements QuantifiedVa
     @Override
     public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
         Verify.verify(Iterables.isEmpty(explainSuppliers));
-        return ExplainTokensWithPrecedence.of(new ExplainTokens().addAliasReference(alias));
+        return ExplainTokensWithPrecedence.of(new ExplainTokens().addKeyword("$").addIdentifier(parameterName));
     }
 
     @Override
@@ -141,25 +130,29 @@ public class QuantifiedObjectValue extends AbstractValue implements QuantifiedVa
         return semanticEquals(other, AliasMap.emptyMap());
     }
 
+    @Nonnull
+    @Override
+    public ConstrainedBoolean equalsWithoutChildren(@Nonnull final Value other) {
+        return LeafValue.super.equalsWithoutChildren(other)
+                .filter(ignored -> getParameterName().equals(((ParameterObjectValue)other).getParameterName()));
+    }
+
     @Override
     public boolean isFunctionallyDependentOn(@Nonnull final Value otherValue) {
-        if (otherValue instanceof QuantifiedObjectValue) {
-            return getAlias().equals(((QuantifiedObjectValue)otherValue).getAlias());
-        }
         return false;
     }
 
     @Nonnull
     @Override
     public Value with(@Nonnull final Type type) {
-        return QuantifiedObjectValue.of(getAlias(), type);
+        return ParameterObjectValue.of(parameterName, type);
     }
 
     @Nonnull
     @Override
-    public PQuantifiedObjectValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
-        PQuantifiedObjectValue.Builder builder = PQuantifiedObjectValue.newBuilder();
-        builder.setAlias(alias.getId());
+    public PParameterObjectValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        final PParameterObjectValue.Builder builder = PParameterObjectValue.newBuilder();
+        builder.setParameterName(parameterName);
         builder.setResultType(resultType.toTypeProto(serializationContext));
         return builder.build();
     }
@@ -168,50 +161,37 @@ public class QuantifiedObjectValue extends AbstractValue implements QuantifiedVa
     @Override
     public PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
         final var specificValueProto = toProto(serializationContext);
-        return PValue.newBuilder().setQuantifiedObjectValue(specificValueProto).build();
+        return PValue.newBuilder().setParameterObjectValue(specificValueProto).build();
     }
 
     @Nonnull
-    public static QuantifiedObjectValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                  @Nonnull final PQuantifiedObjectValue quantifiedObjectValue) {
-        return new QuantifiedObjectValue(CorrelationIdentifier.of(Objects.requireNonNull(quantifiedObjectValue.getAlias())),
-                Type.fromTypeProto(serializationContext, Objects.requireNonNull(quantifiedObjectValue.getResultType())));
+    public static ParameterObjectValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                 @Nonnull final PParameterObjectValue parameterObjectValueProto) {
+        return new ParameterObjectValue(Objects.requireNonNull(parameterObjectValueProto.getParameterName()),
+                Type.fromTypeProto(serializationContext, Objects.requireNonNull(parameterObjectValueProto.getResultType())));
     }
 
     @Nonnull
-    public static QuantifiedObjectValue of(@Nonnull final Quantifier quantifier) {
-        return new QuantifiedObjectValue(quantifier.getAlias(), quantifier.getFlowedObjectType());
-    }
-
-    @Nonnull
-    public static QuantifiedObjectValue of(@Nonnull final CorrelationIdentifier alias, @Nonnull final Type resultType) {
-        return new QuantifiedObjectValue(alias, resultType);
-    }
-
-    public static boolean isSimpleQuantifiedObjectValueOver(@Nonnull final Value value,
-                                                            @Nonnull final CorrelationIdentifier alias) {
-        if (!(value instanceof QuantifiedObjectValue)) {
-            return false;
-        }
-        return ((QuantifiedObjectValue)value).getAlias().equals(alias);
+    public static ParameterObjectValue of(@Nonnull final String parameterName, @Nonnull final Type resultType) {
+        return new ParameterObjectValue(parameterName, resultType);
     }
 
     /**
      * Deserializer.
      */
     @AutoService(PlanDeserializer.class)
-    public static class Deserializer implements PlanDeserializer<PQuantifiedObjectValue, QuantifiedObjectValue> {
+    public static class Deserializer implements PlanDeserializer<PParameterObjectValue, ParameterObjectValue> {
         @Nonnull
         @Override
-        public Class<PQuantifiedObjectValue> getProtoMessageClass() {
-            return PQuantifiedObjectValue.class;
+        public Class<PParameterObjectValue> getProtoMessageClass() {
+            return PParameterObjectValue.class;
         }
 
         @Nonnull
         @Override
-        public QuantifiedObjectValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                               @Nonnull final PQuantifiedObjectValue quantifiedObjectValueProto) {
-            return QuantifiedObjectValue.fromProto(serializationContext, quantifiedObjectValueProto);
+        public ParameterObjectValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                              @Nonnull final PParameterObjectValue parameterObjectValueProto) {
+            return ParameterObjectValue.fromProto(serializationContext, parameterObjectValueProto);
         }
     }
 }

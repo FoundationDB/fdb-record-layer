@@ -46,7 +46,7 @@ import java.util.Set;
  *
  * @see com.apple.foundationdb.record.query.plan.cascades.rules.ImplementDeleteRule
  */
-public class DeleteExpression implements RelationalExpressionWithChildren, PlannerGraphRewritable {
+public class DeleteExpression extends AbstractRelationalExpressionWithChildren implements PlannerGraphRewritable {
     @Nonnull
     private final Quantifier.ForEach inner;
     @Nonnull
@@ -69,10 +69,9 @@ public class DeleteExpression implements RelationalExpressionWithChildren, Plann
 
     @Nonnull
     @Override
-    public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
+    public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return ImmutableSet.of();
     }
-
 
     @Nonnull
     @Override
@@ -126,7 +125,7 @@ public class DeleteExpression implements RelationalExpressionWithChildren, Plann
     }
 
     @Override
-    public int hashCodeWithoutChildren() {
+    public int computeHashCodeWithoutChildren() {
         return Objects.hash(targetRecordType);
     }
 

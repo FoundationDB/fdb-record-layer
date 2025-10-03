@@ -37,7 +37,7 @@ test_block:
             select b.id, b.parent, a.y as level from t1 as b, (select id, parent, level + 1 as y from c1) as a  where a.parent = b.id)
             traversal order pre_order
             select id, parent, level from c1
-      - supported_version: !current_version
+      - supported_version: 4.7.1.0
       - explain: "RUNION-DFS q0 { COVERING(CHILDIDX [EQUALS promote(@c19 AS LONG)] -> [ID: KEY[0], PARENT: KEY[1]]) | MAP (_.ID AS ID, _.PARENT AS PARENT, @c11 AS LEVEL) } { RECURSIVE COVERING(PARENTIDX <,> -> [ID: KEY[1], PARENT: KEY[0]]) | FILTER q0.PARENT EQUALS _.ID | MAP (_.ID AS ID, _.PARENT AS PARENT, q0.LEVEL + @c49 AS LEVEL) } | MAP (_.ID AS ID, _.PARENT AS PARENT, _.LEVEL AS LEVEL)"
       - result: [{ID: 250, PARENT: 50, LEVEL: 0},
                  {ID: 50, PARENT: 10, LEVEL: 1},
@@ -50,7 +50,7 @@ test_block:
             select b.id, b.parent, a.y as level from (select id, parent, level + 1 as y from c1) as a, t1 as b where a.parent = b.id)
             traversal order level_order
             select id, parent, level from c1
-      - supported_version: !current_version
+      - supported_version: 4.7.1.0
       - explain: "RUNION q0, q1 { INITIAL { COVERING(CHILDIDX [EQUALS promote(@c19 AS LONG)] -> [ID: KEY[0], PARENT: KEY[1]]) | MAP (_.ID AS ID, _.PARENT AS PARENT, @c11 AS LEVEL) | INSERT INTO TEMP q1 } RECURSIVE  { ISCAN(CHILDIDX <,>) | FLATMAP q2 -> { TEMP SCAN base() | FILTER _.PARENT EQUALS q2.ID AS q3 RETURN (q2.ID AS ID, q2.PARENT AS PARENT, q3.LEVEL + @c45 AS LEVEL) } | INSERT INTO TEMP q1 }} | MAP (_.ID AS ID, _.PARENT AS PARENT, _.LEVEL AS LEVEL)"
       - result: [{ID: 250, PARENT: 50, LEVEL: 0},
                  {ID: 50, PARENT: 10, LEVEL: 1},
@@ -61,9 +61,9 @@ test_block:
             select id, parent from t1 where parent = -1
             union all
             select b.id, b.parent from c1 as a, t1 as b where a.id = b.parent) select id from c1
-      - supported_version: !current_version
+      - supported_version: 4.7.1.0
       - explain: "RUNION-DFS q0 { ISCAN(PARENTIDX [EQUALS promote(@c15 AS LONG)]) } { RECURSIVE COVERING(PARENTIDX <,> -> [ID: KEY[1], PARENT: KEY[0]]) | FILTER q0.ID EQUALS _.PARENT | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP (_.ID AS ID)"
-      - initialVersionAtLeast: !current_version
+      - initialVersionAtLeast: 4.7.1.0
       - result: [{ID: 1},
                  {ID: 10},
                  {ID: 40},
@@ -73,7 +73,7 @@ test_block:
                  {ID: 20},
                  {ID: 100},
                  {ID: 210}]
-      - initialVersionLessThan: !current_version
+      - initialVersionLessThan: 4.7.1.0
       # employs level-based traversal
       - result: [{ID: 1},
                  {ID: 10},
@@ -91,7 +91,7 @@ test_block:
             select b.id, b.parent from c1 as a, t1 as b where a.id = b.parent)
             traversal order level_order
             select id from c1
-      - supported_version: !current_version
+      - supported_version: 4.7.1.0
       - explain: "RUNION q0, q1 { INITIAL { ISCAN(PARENTIDX [EQUALS promote(@c15 AS LONG)]) | INSERT INTO TEMP q1 } RECURSIVE  { ISCAN(CHILDIDX <,>) | FLATMAP q2 -> { TEMP SCAN base() | FILTER _.ID EQUALS q2.PARENT AS q3 RETURN (q2.ID AS ID, q2.PARENT AS PARENT) } | INSERT INTO TEMP q1 }} | MAP (_.ID AS ID)"
       - unorderedResult: [{ID: 1},
                           {ID: 10},
@@ -119,7 +119,7 @@ test_block:
             select b.id, b.parent from c1 as a, t1 as b where a.parent = b.id)
             traversal order level_order
             select id from c1
-      - supported_version: !current_version
+      - supported_version: 4.7.1.0
       - explain: "RUNION q0, q1 { INITIAL { ISCAN(CHILDIDX [EQUALS promote(@c15 AS LONG)]) | INSERT INTO TEMP q1 } RECURSIVE  { ISCAN(CHILDIDX <,>) | FLATMAP q2 -> { TEMP SCAN base() | FILTER _.PARENT EQUALS q2.ID AS q3 RETURN (q2.ID AS ID, q2.PARENT AS PARENT) } | INSERT INTO TEMP q1 }} | MAP (_.ID AS ID)"
       - result: [{ID: 250},
                  {ID: 50},
@@ -132,7 +132,7 @@ test_block:
             select b.id, b.parent from c1 as a, t1 as b where a.parent = b.id)
             traversal order pre_order
             select id from c1
-      - supported_version: !current_version
+      - supported_version: 4.7.1.0
       - explain: "RUNION-DFS q0 { ISCAN(CHILDIDX [EQUALS promote(@c15 AS LONG)]) } { RECURSIVE COVERING(PARENTIDX <,> -> [ID: KEY[1], PARENT: KEY[0]]) | FILTER q0.PARENT EQUALS _.ID | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP (_.ID AS ID)"
       - result: [{ID: 250},
                  {ID: 50},
@@ -147,7 +147,7 @@ test_block:
             union all
             select b.id, b.parent from allDescendants as a, t1 as b where a.id = b.parent) select id, parent from allDescendants
       - explain: "RUNION-DFS q0 { RUNION-DFS q1 { ISCAN(CHILDIDX [EQUALS promote(@c20 AS LONG)]) } { RECURSIVE COVERING(PARENTIDX <,> -> [ID: KEY[1], PARENT: KEY[0]]) | FILTER q1.PARENT EQUALS _.ID | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP (_.ID AS ID, _.PARENT AS PARENT) } { RECURSIVE COVERING(PARENTIDX <,> -> [ID: KEY[1], PARENT: KEY[0]]) | FILTER q0.ID EQUALS _.PARENT | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP (_.ID AS ID, _.PARENT AS PARENT)"
-      - initialVersionAtLeast: !current_version
+      - initialVersionAtLeast: 4.7.1.0
       - result: [{250, 50},
                  {50, 10},
                  {250, 50},
@@ -165,7 +165,7 @@ test_block:
                  {20, 1},
                  {100, 20},
                  {210, 20}]
-      - initialVersionLessThan: !current_version
+      - initialVersionLessThan: 4.7.1.0
       - result: [{250, 50},
                  {50, 10},
                  {10, 1},
@@ -188,7 +188,7 @@ test_block:
             select id, parent from t1 where parent = -1
             union all
             select b.id, b.parent from c1 as a, t1 as b where a.id = b.parent) select id from c1
-      - supported_version: !current_version
+      - supported_version: 4.7.1.0
       - explain: "RUNION-DFS q0 { ISCAN(PARENTIDX [EQUALS promote(@c15 AS LONG)]) } { RECURSIVE COVERING(PARENTIDX <,> -> [ID: KEY[1], PARENT: KEY[0]]) | FILTER q0.ID EQUALS _.PARENT | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP (_.ID AS ID)"
       - maxRows: 1
       - result: [{ID: 1}]
@@ -210,8 +210,8 @@ test_block:
       - maxRows: 1
       # new hierarchical plans contain a newly introduced physical operator, so new plan continuations can not be resumed on older versions
       # which is ok because we do not care about backward-compatibility for that particular scenario.
-      - initialVersionAtLeast: !current_version
-      - initialVersionLessThan: !current_version
+      - initialVersionAtLeast: 4.7.1.0
+      - initialVersionLessThan: 4.7.1.0
       # employs level-based traversal
       - result: [{ID: 1}]
       - result: [{ID: 10}]
@@ -231,7 +231,7 @@ test_block:
             select b.id, b.parent from ancestorsOf250 as a, t1 as b where a.parent = b.id) select id, parent from ancestorsOf250
             union all
             select b.id, b.parent from allDescendants as a, t1 as b where a.id = b.parent) select id, parent from allDescendants
-      - supported_version: !current_version
+      - supported_version: 4.7.1.0
       - explain: "RUNION-DFS q0 { RUNION-DFS q1 { ISCAN(CHILDIDX [EQUALS promote(@c20 AS LONG)]) } { RECURSIVE COVERING(PARENTIDX <,> -> [ID: KEY[1], PARENT: KEY[0]]) | FILTER q1.PARENT EQUALS _.ID | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP (_.ID AS ID, _.PARENT AS PARENT) } { RECURSIVE COVERING(PARENTIDX <,> -> [ID: KEY[1], PARENT: KEY[0]]) | FILTER q0.ID EQUALS _.PARENT | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP (_.ID AS ID, _.PARENT AS PARENT)"
       - maxRows: 1
       - result: [{250, 50}]
@@ -264,8 +264,8 @@ test_block:
       - maxRows: 1
       # new hierarchical plans contain a newly introduced physical operator, so new plan continuations can not be resumed on older versions
       # which is ok because we do not care about backward-compatibility for that particular scenario.
-      - initialVersionAtLeast: !current_version
-      - initialVersionLessThan: !current_version
+      - initialVersionAtLeast: 4.7.1.0
+      - initialVersionLessThan: 4.7.1.0
       - result: [{250, 50}]
       - result: [{50, 10}]
       - result: [{10, 1}]

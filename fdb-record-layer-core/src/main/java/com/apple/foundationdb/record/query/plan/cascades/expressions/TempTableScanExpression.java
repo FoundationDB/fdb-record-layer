@@ -52,7 +52,7 @@ import java.util.Set;
  * does exactly that.
  */
 @API(API.Status.EXPERIMENTAL)
-public class TempTableScanExpression implements RelationalExpression, PlannerGraphRewritable {
+public class TempTableScanExpression extends AbstractRelationalExpressionWithoutChildren implements PlannerGraphRewritable {
     @Nonnull
     private final Value tempTableReferenceValue;
     @Nonnull
@@ -83,7 +83,7 @@ public class TempTableScanExpression implements RelationalExpression, PlannerGra
 
     @Nonnull
     @Override
-    public Set<CorrelationIdentifier> getCorrelatedTo() {
+    public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return tempTableReferenceValue.getCorrelatedTo();
     }
 
@@ -130,7 +130,7 @@ public class TempTableScanExpression implements RelationalExpression, PlannerGra
     }
 
     @Override
-    public int hashCodeWithoutChildren() {
+    public int computeHashCodeWithoutChildren() {
         return Objects.hash(tempTableReferenceValue);
     }
 

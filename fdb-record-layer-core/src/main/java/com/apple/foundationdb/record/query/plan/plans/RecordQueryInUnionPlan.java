@@ -46,6 +46,7 @@ import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.AbstractRelationalExpressionWithChildren;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.explain.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -70,7 +71,7 @@ import java.util.stream.Collectors;
  * A query plan that executes union over instantiations of a child plan for each of the elements of some {@code IN} list(s).
  */
 @API(API.Status.INTERNAL)
-public abstract class RecordQueryInUnionPlan implements RecordQueryPlanWithChild, RecordQuerySetPlan {
+public abstract class RecordQueryInUnionPlan extends AbstractRelationalExpressionWithChildren implements RecordQueryPlanWithChild, RecordQuerySetPlan {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("In-Union-Plan");
 
     @Nonnull
@@ -203,7 +204,7 @@ public abstract class RecordQueryInUnionPlan implements RecordQueryPlanWithChild
 
     @Nonnull
     @Override
-    public Set<CorrelationIdentifier> getCorrelatedTo() {
+    public Set<CorrelationIdentifier> computeCorrelatedTo() {
         final ImmutableSet.Builder<CorrelationIdentifier> builder = ImmutableSet.builder();
 
         final var inAliases = getInSources()
@@ -221,7 +222,7 @@ public abstract class RecordQueryInUnionPlan implements RecordQueryPlanWithChild
 
     @Nonnull
     @Override
-    public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
+    public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return ImmutableSet.of();
     }
 
@@ -298,7 +299,7 @@ public abstract class RecordQueryInUnionPlan implements RecordQueryPlanWithChild
     }
 
     @Override
-    public int hashCodeWithoutChildren() {
+    public int computeHashCodeWithoutChildren() {
         return Objects.hash(inSources, comparisonKeyFunction);
     }
 

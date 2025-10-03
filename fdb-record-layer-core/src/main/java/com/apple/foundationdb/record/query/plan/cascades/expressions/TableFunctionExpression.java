@@ -56,7 +56,7 @@ import java.util.Set;
  * effectively returns a stream of results.
  */
 @API(API.Status.EXPERIMENTAL)
-public class TableFunctionExpression implements RelationalExpression, InternalPlannerGraphRewritable {
+public class TableFunctionExpression extends AbstractRelationalExpressionWithoutChildren implements InternalPlannerGraphRewritable {
     @Nonnull
     private final StreamingValue value;
 
@@ -89,7 +89,7 @@ public class TableFunctionExpression implements RelationalExpression, InternalPl
 
     @Nonnull
     @Override
-    public Set<CorrelationIdentifier> getCorrelatedTo() {
+    public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return value.getCorrelatedTo();
     }
 
@@ -110,7 +110,7 @@ public class TableFunctionExpression implements RelationalExpression, InternalPl
     }
 
     @Override
-    public int hashCodeWithoutChildren() {
+    public int computeHashCodeWithoutChildren() {
         return Objects.hash(value);
     }
 

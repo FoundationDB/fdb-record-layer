@@ -31,6 +31,7 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
 
 import java.util.List;
 
@@ -61,6 +62,7 @@ public class LucenePlanSerializationTest {
                         false,
                         null,
                         COMPLEX_MULTIPLE_TEXT_INDEXES_WITH_AUTO_COMPLETE_STORED_FIELDS);
+        final int plannedPlanHashCode = plan.hashCode();
         PlanSerializationContext planSerializationContext = PlanSerializationContext.newForCurrentMode();
         final PPlanReference proto = planSerializationContext.toPlanReferenceProto(plan);
         final byte[] bytes = proto.toByteArray();
@@ -69,6 +71,7 @@ public class LucenePlanSerializationTest {
         planSerializationContext = PlanSerializationContext.newForCurrentMode();
         final RecordQueryPlan parsedPlan = planSerializationContext.fromPlanReferenceProto(parsedProto);
         Verify.verify(parsedPlan instanceof LuceneIndexQueryPlan);
+        Assertions.assertEquals(plannedPlanHashCode, plan.hashCode());
         // TODO proper verification as we currently do not properly round-trip;
     }
 }

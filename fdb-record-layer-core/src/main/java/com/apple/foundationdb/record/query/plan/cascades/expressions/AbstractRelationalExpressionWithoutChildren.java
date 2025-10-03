@@ -1,9 +1,9 @@
 /*
- * LeafValue.java
+ * AbstractRelationalExpressionWithoutChildren.java
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2022 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,39 +18,27 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.query.plan.cascades.values;
+package com.apple.foundationdb.record.query.plan.cascades.expressions;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
+import java.util.Set;
 
 /**
- * A scalar value type that has children.
+ * Abstract extension of {@link AbstractRelationalExpression} that provides memoization of correlatedTo sets.
+ * This class only applies to expressions that are leaf expressions.
  */
 @API(API.Status.EXPERIMENTAL)
-public interface LeafValue extends Value {
-
+public abstract class AbstractRelationalExpressionWithoutChildren extends AbstractRelationalExpression {
     /**
-     * Method to retrieve a list of children values.
-     * @return a list of children
+     * This override makes {@code getCorrelatedTo} final.
+     * @return a set of aliases this object is considered to be correlated to.
      */
     @Nonnull
     @Override
-    default Iterable<? extends Value> getChildren() {
-        return ImmutableList.of();
-    }
-
-    @Nonnull
-    @Override
-    default LeafValue withChildren(@Nonnull final Iterable<? extends Value> newChildren) {
-        return this;
-    }
-
-    @Nonnull
-    default Value rebaseLeaf(@Nonnull CorrelationIdentifier targetAlias) {
-        throw new RecordCoreException("implementor must override");
+    public final Set<CorrelationIdentifier> getCorrelatedTo() {
+        return getCorrelatedToWithoutChildren();
     }
 }
