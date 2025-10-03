@@ -35,6 +35,52 @@ public final class QuantizeHelpers {
     private static final int N_ENUM = 10;
 
     /**
+     * Method to quantize a vector.
+     *
+     * @param oAbs   absolute values of a L2-normalized residual vector (nonnegative; length = dim)
+     * @param exBits number of extra bits per coordinate (e.g., 1..8)
+     * @return       quantized levels (ex-bits), the chosen scale t, and ipnormInv
+     *
+     * Notes:
+     * - If the residual is the all-zero vector (or numerically so), this returns zero codes,
+     *   t = 0, and ipnormInv = 1 (benign fallback, matching the C++ guard with isnormal()).
+     * - Downstream code (ex_bits_code_with_factor) uses ipnormInv to compute f_rescale_ex, etc.
+     */
+    public static QuantizeExResult quantizeEx(double[] oAbs, int exBits) {
+        final int dim = oAbs.length;
+        final int maxLevel = (1 << exBits) - 1;
+
+        // Choose t via the sweep.
+        double t = bestRescaleFactor(oAbs, exBits);
+        // ipnorm = sum_i ( (k_i + 0.5) * |r_i| )
+        double ipnorm = 0.0;
+
+        // Build per-coordinate integer levels: k_i = floor(t * |r_i|)
+        int[] code = new int[dim];
+        for (int i = 0; i < dim; i++) {
+            int k = (int) Math.floor(t * oAbs[i] + EPS);
+            if (k > maxLevel) {
+                k = maxLevel;
+            }
+            code[i] = k;
+            ipnorm += (k + 0.5) * oAbs[i];
+        }
+
+        // ipnormInv = 1 / ipnorm, with a benign fallback (matches std::isnormal guard).
+        double ipnormInv;
+        if (ipnorm > 0.0 && Double.isFinite(ipnorm)) {
+            ipnormInv = 1.0 / ipnorm;
+            if (!Double.isFinite(ipnormInv) || ipnormInv == 0.0) {
+                ipnormInv = 1.0; // extremely defensive
+            }
+        } else {
+            ipnormInv = 1.0; // fallback used in the C++ (`std::isnormal` guard pattern)
+        }
+
+        return new QuantizeExResult(code, t, ipnormInv);
+    }
+
+    /**
      *  Method to compute the best factor {@code t}.
      *  @param oAbs   absolute values of a (row-wise) normalized residual; length = dim; nonnegative
      *  @param exBits number of extra bits per coordinate (1..8 supported by the constants)
@@ -81,9 +127,9 @@ public final class QuantizeHelpers {
 
         PriorityQueue<Node> pq = new PriorityQueue<>(Comparator.comparingDouble(n -> n.t));
         for (int i = 0; i < dim; i++) {
-            double oi = oAbs[i];
-            if (oi > 0) {
-                double tNext = (curOB[i] + 1) / oAbs[i];
+            final double curOAbs = oAbs[i];
+            if (curOAbs > 0.0) {
+                double tNext = (curOB[i] + 1) / curOAbs;
                 pq.add(new Node(tNext, i));
             }
         }
@@ -115,11 +161,9 @@ public final class QuantizeHelpers {
             // schedule next threshold for this coordinate, unless we've hit max level
             if (u < maxLevel) {
                 double oi = oAbs[i];
-                if (oi > 0) {
-                    double tNext = (u + 1) / oi;
-                    if (tNext < tEnd) {
-                        pq.add(new Node(tNext, i));
-                    }
+                double tNext = (u + 1) / oi;
+                if (tNext < tEnd) {
+                    pq.add(new Node(tNext, i));
                 }
             }
         }
@@ -128,7 +172,20 @@ public final class QuantizeHelpers {
     }
 
     @SuppressWarnings("checkstyle:MemberName")
-    private static class Node {
+    public static final class QuantizeExResult {
+        public final int[] code;       // k_i = floor(t * oAbs[i]) in [0, 2^exBits - 1]
+        public final double t;         // chosen global scale
+        public final double ipnormInv; // 1 / sum_i ( (k_i + 0.5) * oAbs[i] )
+
+        public QuantizeExResult(int[] code, double t, double ipnormInv) {
+            this.code = code;
+            this.t = t;
+            this.ipnormInv = ipnormInv;
+        }
+    }
+
+    @SuppressWarnings("checkstyle:MemberName")
+    private static final class Node {
         private final double t;
         private final int idx;
 
