@@ -334,12 +334,11 @@ query
     ;
 
 ctes
-    : WITH (RECURSIVE ( '(' TRAVERSAL '=' traversalStrategy ')')?)? namedQuery (COMMA namedQuery)*
+    : WITH (RECURSIVE)? namedQuery (COMMA namedQuery)* traversalOrderClause?
     ;
 
-traversalStrategy
-    : PREORDER
-    | LEVEL
+traversalOrderClause
+    : TRAVERSAL ORDER order=(PRE_ORDER | LEVEL_ORDER)
     ;
 
 namedQuery

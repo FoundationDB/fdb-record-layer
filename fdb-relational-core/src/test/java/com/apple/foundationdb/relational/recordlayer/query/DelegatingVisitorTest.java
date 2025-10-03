@@ -47,7 +47,7 @@ import java.util.stream.Stream;
 public class DelegatingVisitorTest {
 
     static Stream<String> traversalStrings() {
-        return Stream.of("LEVEL", "PREORDER");
+        return Stream.of("TRAVERSAL ORDER PRE_ORDER", "TRAVERSAL ORDER LEVEL_ORDER");
     }
 
     @Nonnull
@@ -135,21 +135,21 @@ public class DelegatingVisitorTest {
                 URI.create("/FDB/FRL1"),
                 false) {
 
-            @Override
-            public Object visitTraversalStrategy(final RelationalParser.TraversalStrategyContext ctx) {
+            public Object visitTraversalOrderClause(final RelationalParser.TraversalOrderClauseContext ctx) {
                 baseVisitorCalled.setTrue();
-                if (query.equals("LEVEL")) {
+                if (query.equals("TRAVERSAL ORDER LEVEL_ORDER")) {
                     return RecursiveUnionExpression.TraversalStrategy.LEVEL;
                 } else {
                     return RecursiveUnionExpression.TraversalStrategy.PREORDER;
                 }
             }
         };
+
         final var delegatingVisitor = new DelegatingVisitor<>(baseVisitor);
         final var tokenSource = new RelationalLexer(new CaseInsensitiveCharStream(query));
         final var parser = new RelationalParser(new CommonTokenStream(tokenSource));
-        final var predicatedExpression = parser.traversalStrategy();
-        delegatingVisitor.visitTraversalStrategy(predicatedExpression);
+        final var predicatedExpression = parser.traversalOrderClause();
+        delegatingVisitor.visitTraversalOrderClause(predicatedExpression);
         Assertions.assertThat(baseVisitorCalled.booleanValue()).isTrue();
     }
 }
