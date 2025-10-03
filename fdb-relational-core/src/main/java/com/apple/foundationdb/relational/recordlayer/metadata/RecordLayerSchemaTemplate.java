@@ -49,7 +49,6 @@ import com.google.common.collect.Multimap;
 import com.google.protobuf.Descriptors;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collection;
