@@ -26,7 +26,6 @@ import com.apple.foundationdb.relational.api.fluentsql.statement.StructuredQuery
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
 import com.apple.foundationdb.relational.recordlayer.Utils;
 import com.apple.foundationdb.relational.utils.Ddl;
-import com.google.common.collect.ImmutableList;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
@@ -37,6 +36,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
 import java.net.URI;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Stream;
 
@@ -274,7 +274,7 @@ public class StatementBuilderTests {
             final var updateBuilder = ddl.setSchemaAndGetConnection().createStatementBuilderFactory().updateStatementBuilder(updateStatement);
             final var ef = ddl.getConnection().createExpressionBuilderFactory();
             final var bField = ef.field("T1", "B");
-            updateBuilder.addSetClause(bField, bField.asLong().greatest(ImmutableList.of(ef.literal(42L))));
+            updateBuilder.addSetClause(bField, bField.asLong().greatest(List.of(ef.literal(42L))));
             assertThat(updateBuilder.getSetClauses())
                     .hasSize(2)
                     .allSatisfy((field, value) -> {

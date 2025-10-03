@@ -20,7 +20,12 @@
 
 package com.apple.foundationdb.relational.api;
 
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
+import com.apple.foundationdb.relational.api.fluentsql.expression.Field;
+import com.apple.foundationdb.relational.api.fluentsql.expression.UserDefinedField;
 import com.apple.foundationdb.relational.api.metadata.DataType;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -30,39 +35,44 @@ import java.util.List;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Basic tests for validating features of the {@link DataType} class.
  */
 class DataTypeSmokeTest {
+    @Nonnull
     private static final String OR_NULL = " ∪ ∅";
 
     @Nonnull
+    private static final DataType.StructType baseStructType = DataType.StructType.from("sample_type",
+            List.of(
+                    DataType.StructType.Field.from("a", DataType.LongType.nullable(), 1),
+                    DataType.StructType.Field.from("b", DataType.StringType.notNullable(), 2)
+            ),
+            false);
+
+    @Nonnull
+    private static final DataType.StructType structWithNested = DataType.StructType.from("par",
+            List.of(
+                    DataType.StructType.Field.from("x", baseStructType.withNullable(false), 1),
+                    DataType.StructType.Field.from("y", baseStructType.withNullable(true), 2)
+            ),
+            false);
+
+    @Nonnull
+    private static final DataType.EnumType suitsEnum = DataType.EnumType.from("suits",
+            List.of(
+                    DataType.EnumType.EnumValue.of("SPADES", 0),
+                    DataType.EnumType.EnumValue.of("HEARTS", 1),
+                    DataType.EnumType.EnumValue.of("CLUBS", 2),
+                    DataType.EnumType.EnumValue.of("DIAMONDS", 3)
+            ), false);
+
+    @Nonnull
     static Stream<Arguments> assertStringMatches() {
-        final DataType.StructType baseStructType = DataType.StructType.from("sample_type",
-                List.of(
-                        DataType.StructType.Field.from("a", DataType.LongType.nullable(), 1),
-                        DataType.StructType.Field.from("b", DataType.StringType.notNullable(), 2)
-                ),
-                false);
-
-        final DataType.StructType structWithNested = DataType.StructType.from("par",
-                List.of(
-                        DataType.StructType.Field.from("x", baseStructType.withNullable(false), 1),
-                        DataType.StructType.Field.from("y", baseStructType.withNullable(true), 2)
-                ),
-                false);
-
-        final DataType.EnumType suitsEnum = DataType.EnumType.from("suits",
-                List.of(
-                        DataType.EnumType.EnumValue.of("SPADES", 0),
-                        DataType.EnumType.EnumValue.of("HEARTS", 1),
-                        DataType.EnumType.EnumValue.of("CLUBS", 2),
-                        DataType.EnumType.EnumValue.of("DIAMONDS", 3)
-                ), false);
-
         return Stream.of(
-                // Primite types
+                // Primitive types
                 Arguments.of(DataType.NullType.nullable(), "∅"),
                 Arguments.of(DataType.BooleanType.notNullable(), "boolean"),
                 Arguments.of(DataType.BooleanType.nullable(), "boolean" + OR_NULL),
@@ -99,6 +109,7 @@ class DataTypeSmokeTest {
                 Arguments.of(suitsEnum.withNullable(false), "enum(suits){SPADES,HEARTS,CLUBS,DIAMONDS}"),
                 Arguments.of(suitsEnum.withNullable(true), "enum(suits){SPADES,HEARTS,CLUBS,DIAMONDS}"),
 
+                // Unknown
                 Arguments.of(DataType.UnknownType.instance(), "???")
         );
     }
@@ -108,5 +119,15 @@ class DataTypeSmokeTest {
     void assertStringMatches(@Nonnull DataType dataType, @Nonnull String string) {
         assertThat(dataType)
                 .hasToString(string);
+    }
+
+    @Test
+    void castToWrongType() {
+        Field<?> field = new UserDefinedField<>(DataType.LongType.notNullable(), List.of("a"));
+        assertThatThrownBy(field::asString)
+                .isInstanceOf(UncheckedRelationalException.class)
+                .hasMessageContaining("Type mismatch, expected type 'STRING', actual type 'LONG")
+                .extracting(e -> ((UncheckedRelationalException)e).unwrap().getErrorCode())
+                .isEqualTo(ErrorCode.DATATYPE_MISMATCH);
     }
 }
