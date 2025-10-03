@@ -987,7 +987,7 @@ public abstract class DataType {
 
         @Override
         public String toString() {
-            return String.format("enum(%s){%s}", name, values.stream().map(EnumValue::toString).collect(Collectors.joining(",")));
+            return "enum(" + name + "){" + values.stream().map(EnumValue::toString).collect(Collectors.joining(",")) + "}";
         }
 
         private EnumType(@Nonnull String name, @Nonnull final List<EnumValue> values, boolean isNullable) {

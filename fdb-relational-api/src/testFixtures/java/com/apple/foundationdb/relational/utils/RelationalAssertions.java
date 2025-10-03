@@ -21,10 +21,8 @@
 package com.apple.foundationdb.relational.utils;
 
 import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-
 import org.assertj.core.api.AbstractThrowableAssert;
 import org.assertj.core.api.Assertions;
 import org.assertj.core.api.IntegerAssert;
@@ -52,7 +50,7 @@ public final class RelationalAssertions {
     public static SQLExceptionAssert assertThrowsSqlException(ThrowableAssert.ThrowingCallable shouldThrow) {
         SQLException se = Assertions.catchThrowableOfType(SQLException.class, shouldThrow);
         if (se == null) {
-            Assertions.fail(String.format("expected an exception of type %s to be thrown, but no exception was thrown", SQLException.class.getSimpleName()));
+            Assertions.fail("expected an exception of type " + SQLException.class.getSimpleName() + " to be thrown, but no exception was thrown");
         }
         return new SQLExceptionAssert(se);
     }
