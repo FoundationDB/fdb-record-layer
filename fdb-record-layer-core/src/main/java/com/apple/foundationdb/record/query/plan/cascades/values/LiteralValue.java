@@ -107,12 +107,6 @@ public class LiteralValue<T> extends AbstractValue implements LeafValue, Value.R
         return new LiteralValue<>(type, value);
     }
 
-    @Nonnull
-    @Override
-    public Value replaceReferenceWithField(@Nonnull final FieldValue fieldValue) {
-        return this;
-    }
-
     @Override
     public boolean isFunctionallyDependentOn(@Nonnull final Value otherValue) {
         return false;

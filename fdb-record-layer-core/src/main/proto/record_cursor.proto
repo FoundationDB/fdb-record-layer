@@ -178,3 +178,11 @@ message KeyValueCursorContinuation {
     optional bytes inner_continuation = 1;
     optional sfixed64 magic_number = 2;
 }
+
+message RecursiveContinuation {
+    message LevelCursor {
+        optional bytes continuation = 1;
+        optional bytes check_value = 2;
+    }
+    repeated LevelCursor levels = 1;
+}

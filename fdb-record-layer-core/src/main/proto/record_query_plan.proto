@@ -256,6 +256,7 @@ message PValue {
     PEvaluatesToValue evaluates_to_value = 50;
     PArrayDistinctValue array_distinct_value = 51;
     PSubscriptValue subscript_value = 52;
+    PParameterObjectValue parameter_object_value = 53;
   }
 }
 
@@ -1270,6 +1271,11 @@ message PArrayDistinctValue {
   optional PValue child_value = 1;
 }
 
+message PParameterObjectValue {
+  optional string parameter_name = 1;
+  optional PType result_type = 2;
+}
+
 //
 // Comparisons
 //
@@ -1526,10 +1532,11 @@ message PRecordQueryPlan {
     PRecordQueryDefaultOnEmptyPlan default_on_empty_plan = 33;
     PTempTableScanPlan temp_table_scan_plan = 34;
     PTempTableInsertPlan temp_table_insert_plan = 35;
-    PRecursiveUnionQueryPlan recursive_union_query_plan = 36;
+    PRecordQueryRecursiveLevelUnionPlan recursive_level_union_plan = 36;
     PRecordQueryTableFunctionPlan table_function_plan = 37;
     PRecordQueryStreamingAggregationPlan2 streaming_aggregation_plan2 = 38;
     PRecordQueryMultiIntersectionOnValuesPlan multi_intersection_on_values_plan = 39;
+    PRecordQueryRecursiveDfsJoinPlan recursive_dfs_join_plan = 40;
   }
 }
 
@@ -2131,9 +2138,9 @@ message PComparableObject {
 }
 
 //
-// PRecursiveUnionQueryPlan
+// PRecordQueryRecursiveLevelUnionPlan
 //
-message PRecursiveUnionQueryPlan {
+message PRecordQueryRecursiveLevelUnionPlan {
   optional PPhysicalQuantifier initialStateQuantifier = 1;
   optional PPhysicalQuantifier recursiveStateQuantifier = 2;
   optional string initialTempTableAlias = 3;
@@ -2145,4 +2152,13 @@ message PRecursiveUnionQueryPlan {
 //
 message PRecordQueryTableFunctionPlan {
   optional PValue value = 1;
+}
+
+//
+// PRecordQueryRecursiveDfsJoinPlan
+//
+message PRecordQueryRecursiveDfsJoinPlan {
+  optional PPhysicalQuantifier root_quantifier = 1;
+  optional PPhysicalQuantifier child_quantifier = 2;
+  optional string prior_value_correlation = 3;
 }

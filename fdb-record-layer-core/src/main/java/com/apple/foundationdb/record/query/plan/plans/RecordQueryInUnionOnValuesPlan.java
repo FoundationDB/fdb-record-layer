@@ -146,7 +146,7 @@ public class RecordQueryInUnionOnValuesPlan extends RecordQueryInUnionPlan imple
     @Nonnull
     @Override
     public RecordQueryInUnionOnValuesPlan withChild(@Nonnull final Reference childRef) {
-        return new RecordQueryInUnionOnValuesPlan(Quantifier.physical(childRef),
+        return new RecordQueryInUnionOnValuesPlan(Quantifier.physical(childRef, inner.getAlias()),
                 getInSources(),
                 comparisonKeyOrderingParts,
                 getComparisonKeyValues(),

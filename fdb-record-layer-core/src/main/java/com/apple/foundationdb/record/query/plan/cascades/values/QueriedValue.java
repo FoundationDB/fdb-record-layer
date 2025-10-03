@@ -85,12 +85,6 @@ public class QueriedValue extends AbstractValue implements LeafValue, Value.NonE
         return recordTypeNames;
     }
 
-    @Nonnull
-    @Override
-    public Value replaceReferenceWithField(@Nonnull final FieldValue fieldValue) {
-        return this;
-    }
-
     @Override
     public boolean isFunctionallyDependentOn(@Nonnull final Value otherValue) {
         return false;

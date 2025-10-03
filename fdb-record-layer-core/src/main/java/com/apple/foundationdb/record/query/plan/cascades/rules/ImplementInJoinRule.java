@@ -45,6 +45,7 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Bind
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.CollectionMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.properties.OrderingProperty;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.ParameterObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.InComparandSource;
@@ -383,6 +384,7 @@ public class ImplementInJoinRule extends ImplementationCascadesRule<SelectExpres
     private static boolean isSupportedExplodeValue(@Nonnull final Value explodeValue) {
         return explodeValue instanceof LiteralValue<?> ||
                 explodeValue instanceof QuantifiedObjectValue ||
+                explodeValue instanceof ParameterObjectValue ||
                 explodeValue.isConstant();
     }
 
@@ -417,6 +419,11 @@ public class ImplementInJoinRule extends ImplementationCascadesRule<SelectExpres
             return attemptedSortOrder == null
                    ? new InParameterSource(bindingName, alias)
                    : new SortedInParameterSource(bindingName, alias, attemptedSortOrder.isAnyDescending()); // TODO needs to distinguish between different descending orders
+        } else if (explodeValue instanceof ParameterObjectValue) {
+            final var parameterName = ((ParameterObjectValue)explodeValue).getParameterName();
+            return attemptedSortOrder == null
+                   ? new InParameterSource(bindingName, parameterName)
+                   : new SortedInParameterSource(bindingName, parameterName, attemptedSortOrder.isAnyDescending()); // TODO needs to distinguish between different descending orders
         } else if (explodeValue.isConstant()) {
             return attemptedSortOrder == null
                    ? new InComparandSource(bindingName, new Comparisons.ValueComparison(Comparisons.Type.IN, explodeValue))

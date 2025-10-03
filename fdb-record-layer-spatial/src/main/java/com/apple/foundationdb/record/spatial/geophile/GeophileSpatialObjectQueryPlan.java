@@ -31,14 +31,15 @@ import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
-import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithNoChildren;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.AbstractRelationalExpressionWithoutChildren;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithNoChildren;
 import com.apple.foundationdb.tuple.Tuple;
 import com.geophile.z.SpatialIndex;
 import com.geophile.z.SpatialJoin;
@@ -60,7 +61,7 @@ import java.util.function.BiFunction;
  * Base class for query plans that execute a spatial join between a single spatial object and a spatial index.
  */
 @API(API.Status.EXPERIMENTAL)
-public abstract class GeophileSpatialObjectQueryPlan implements RecordQueryPlanWithNoChildren, RecordQueryPlanWithIndex {
+public abstract class GeophileSpatialObjectQueryPlan extends AbstractRelationalExpressionWithoutChildren implements RecordQueryPlanWithNoChildren, RecordQueryPlanWithIndex {
     @Nonnull
     private final String indexName;
     @Nonnull
@@ -197,7 +198,7 @@ public abstract class GeophileSpatialObjectQueryPlan implements RecordQueryPlanW
 
     @Nonnull
     @Override
-    public Set<CorrelationIdentifier> getCorrelatedTo() {
+    public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return ImmutableSet.of();
     }
 
@@ -236,7 +237,7 @@ public abstract class GeophileSpatialObjectQueryPlan implements RecordQueryPlanW
     }
 
     @Override
-    public int hashCodeWithoutChildren() {
+    public int computeHashCodeWithoutChildren() {
         return Objects.hash(indexName, prefixComparisons);
     }
 }
