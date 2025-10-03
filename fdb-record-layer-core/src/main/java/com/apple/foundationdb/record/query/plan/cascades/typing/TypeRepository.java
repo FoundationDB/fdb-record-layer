@@ -532,9 +532,7 @@ public class TypeRepository {
             final String existingTypeName = typeToNameMap.get(type);
             if (existingTypeName != null) {
                 // Type already registered, verify same protobuf name
-                Verify.verify(existingTypeName.equals(protoTypeName),
-                    "Type %s is already registered with name %s, cannot register with different name %s",
-                    type, existingTypeName, protoTypeName);
+                Verify.verify(existingTypeName.equals(protoTypeName), "Type %s is already registered with name %s, cannot register with different name %s", type, existingTypeName, protoTypeName);
                 return this;
             }
 
@@ -563,14 +561,19 @@ public class TypeRepository {
                 return false; // Same type, doesn't differ
             }
 
+            // Handle Type.Null specially - it can only be nullable, so it can't have a non-nullable variant
+            if (type1 instanceof Type.Null || type2 instanceof Type.Null) {
+                return false; // Type.Null can't have non-nullable variants
+            }
+
             // Check if they have different nullability
             if (type1.isNullable() == type2.isNullable()) {
                 return false; // Same nullability, so they differ in structure
             }
 
             // Create non-nullable versions to compare structure
-            final Type nonNullable1 = type1.isNullable() ? type1.withNullability(false) : type1;
-            final Type nonNullable2 = type2.isNullable() ? type2.withNullability(false) : type2;
+            final Type nonNullable1 = type1.isNullable() ? type1.notNullable() : type1;
+            final Type nonNullable2 = type2.isNullable() ? type2.notNullable() : type2;
 
             return nonNullable1.equals(nonNullable2);
         }
