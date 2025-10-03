@@ -26,7 +26,7 @@ import org.junit.jupiter.api.TestTemplate;
  * that as SQL syntax and capabilities evolve, the documentation remains consistent and up to date.
  */
 @YamlTest
-public class DocumentationQueriesTests {
+class DocumentationQueriesTests {
     private static final String PREFIX = "documentation-queries";
 
     @TestTemplate
