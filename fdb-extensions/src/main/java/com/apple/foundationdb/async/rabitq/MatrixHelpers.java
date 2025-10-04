@@ -20,10 +20,6 @@
 
 package com.apple.foundationdb.async.rabitq;
 
-import com.google.common.base.Preconditions;
-
-import javax.annotation.Nonnull;
-
 public class MatrixHelpers {
 
 }
