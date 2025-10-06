@@ -183,14 +183,15 @@ class RelationalArrayFacade implements RelationalArray {
         var resultSetBuilder = ResultSet.newBuilder();
 
         final var componentType = this.delegateMetadata.getType();
-        final var componentColumnBuilder = ColumnMetadata.newBuilder().setName("VALUE").setType(componentType);
+        final var componentSqlType = this.delegateMetadata.getJavaSqlTypesCode();
+        final var componentColumnBuilder = ColumnMetadata.newBuilder().setName("VALUE").setType(componentType).setJavaSqlTypesCode(componentSqlType);
         if (componentType == Type.ARRAY) {
             componentColumnBuilder.setArrayMetadata(this.delegateMetadata.getArrayMetadata());
         } else if (componentType == Type.STRUCT) {
             componentColumnBuilder.setStructMetadata(this.delegateMetadata.getStructMetadata());
         }
         resultSetBuilder.setMetadata(ResultSetMetadata.newBuilder().setColumnMetadata(ListColumnMetadata.newBuilder()
-                .addColumnMetadata(ColumnMetadata.newBuilder().setName("INDEX").setType(Type.INTEGER).build())
+                .addColumnMetadata(ColumnMetadata.newBuilder().setName("INDEX").setType(Type.INTEGER).setJavaSqlTypesCode(Types.INTEGER).build())
                 .addColumnMetadata(componentColumnBuilder.build()).build()).build());
         for (int i = index; i < count; i++) {
             final var listColumnBuilder = ListColumn.newBuilder();
@@ -276,7 +277,7 @@ class RelationalArrayFacade implements RelationalArray {
 
         private void initOrCheckMetadata(ListColumnMetadata innerMetadata) {
             if (metadata == null) {
-                final var builder = ColumnMetadata.newBuilder().setName("ARRAY").setType(Type.STRUCT);
+                final var builder = ColumnMetadata.newBuilder().setName("ARRAY").setJavaSqlTypesCode(Types.STRUCT).setType(Type.STRUCT);
                 builder.setStructMetadata(innerMetadata);
                 metadata = builder.build();
             } else {

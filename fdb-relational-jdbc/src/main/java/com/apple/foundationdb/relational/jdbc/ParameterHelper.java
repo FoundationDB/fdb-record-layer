@@ -30,6 +30,7 @@ import com.google.protobuf.ByteString;
 
 import java.sql.Array;
 import java.sql.SQLException;
+import java.sql.Types;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -39,6 +40,7 @@ public class ParameterHelper {
     public static Parameter ofBoolean(boolean b) {
         return Parameter.newBuilder()
                 .setType(Type.BOOLEAN)
+                .setJavaSqlTypesCode(Types.BOOLEAN)
                 .setParameter(Column.newBuilder().setBoolean(b))
                 .build();
     }
@@ -46,6 +48,7 @@ public class ParameterHelper {
     public static Parameter ofInt(int i) {
         return Parameter.newBuilder()
                 .setType(Type.INTEGER)
+                .setJavaSqlTypesCode(Types.INTEGER)
                 .setParameter(Column.newBuilder().setInteger(i))
                 .build();
     }
@@ -53,6 +56,7 @@ public class ParameterHelper {
     public static Parameter ofLong(long l) {
         return Parameter.newBuilder()
                 .setType(Type.LONG)
+                .setJavaSqlTypesCode(Types.BIGINT)
                 .setParameter(Column.newBuilder().setLong(l))
                 .build();
     }
@@ -60,6 +64,7 @@ public class ParameterHelper {
     public static Parameter ofFloat(float f) {
         return Parameter.newBuilder()
                 .setType(Type.FLOAT)
+                .setJavaSqlTypesCode(Types.FLOAT)
                 .setParameter(Column.newBuilder().setFloat(f))
                 .build();
     }
@@ -67,6 +72,7 @@ public class ParameterHelper {
     public static Parameter ofDouble(double d) {
         return Parameter.newBuilder()
                 .setType(Type.DOUBLE)
+                .setJavaSqlTypesCode(Types.DOUBLE)
                 .setParameter(Column.newBuilder().setDouble(d))
                 .build();
     }
@@ -74,6 +80,7 @@ public class ParameterHelper {
     public static Parameter ofString(String s) {
         return Parameter.newBuilder()
                 .setType(Type.STRING)
+                .setJavaSqlTypesCode(Types.VARCHAR)
                 .setParameter(Column.newBuilder().setString(s))
                 .build();
     }
@@ -81,6 +88,7 @@ public class ParameterHelper {
     public static Parameter ofUUID(UUID id) {
         return Parameter.newBuilder()
                 .setType(Type.UUID)
+                .setJavaSqlTypesCode(Types.OTHER)
                 .setParameter(Column.newBuilder().setUuid(Uuid.newBuilder()
                         .setMostSignificantBits(id.getMostSignificantBits())
                         .setLeastSignificantBits(id.getLeastSignificantBits())
@@ -91,6 +99,7 @@ public class ParameterHelper {
     public static Parameter ofBytes(byte[] bytes) {
         return Parameter.newBuilder()
                 .setType(Type.BYTES)
+                .setJavaSqlTypesCode(Types.BINARY)
                 .setParameter(Column.newBuilder().setBinary(ByteString.copyFrom(bytes)))
                 .build();
     }
@@ -98,6 +107,7 @@ public class ParameterHelper {
     public static Parameter ofNull(int sqlType) {
         return Parameter.newBuilder()
                 .setType(Type.NULL)
+                .setJavaSqlTypesCode(Types.NULL)
                 .setParameter(Column.newBuilder().setNullType(sqlType))
                 .build();
     }
@@ -113,6 +123,7 @@ public class ParameterHelper {
         }
         return Parameter.newBuilder()
                 .setType(Type.ARRAY)
+                .setJavaSqlTypesCode(Types.ARRAY)
                 .setParameter(Column.newBuilder()
                         .setArray(com.apple.foundationdb.relational.jdbc.grpc.v1.column.Array.newBuilder()
                                 .setElementType(a.getBaseType())
