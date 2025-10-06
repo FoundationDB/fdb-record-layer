@@ -42,6 +42,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.TreeMap;
 
@@ -516,26 +517,26 @@ public final class MetricsDiffAnalyzer {
                 final var fieldStats = stats.getFieldStatistics(fieldName);
                 final var regressionFieldStats = stats.getRegressionStatistics(fieldName);
                 if (fieldStats.hasChanges() || regressionFieldStats.hasChanges()) {
-                    report.append(String.format("**`%s`**:%n", fieldName));
-                    report.append(String.format("  - Average change: %s%.1f%n", sign(fieldStats.getMean()), fieldStats.getMean()));
+                    report.append(String.format(Locale.ROOT, "**`%s`**:%n", fieldName));
+                    report.append(String.format(Locale.ROOT, "  - Average change: %s%.1f%n", sign(fieldStats.getMean()), fieldStats.getMean()));
                     if (regressionFieldStats.hasChanges()) {
-                        report.append(String.format("  - Average regression: %s%.1f%n", sign(regressionFieldStats.getMean()), regressionFieldStats.getMean()));
+                        report.append(String.format(Locale.ROOT, "  - Average regression: %s%.1f%n", sign(regressionFieldStats.getMean()), regressionFieldStats.getMean()));
                     }
-                    report.append(String.format("  - Median change: %s%d%n", sign(fieldStats.getMedian()), fieldStats.getMedian()));
+                    report.append(String.format(Locale.ROOT, "  - Median change: %s%d%n", sign(fieldStats.getMedian()), fieldStats.getMedian()));
                     if (regressionFieldStats.hasChanges()) {
-                        report.append(String.format("  - Median regression: %s%d%n", sign(regressionFieldStats.getMedian()), regressionFieldStats.getMedian()));
+                        report.append(String.format(Locale.ROOT, "  - Median regression: %s%d%n", sign(regressionFieldStats.getMedian()), regressionFieldStats.getMedian()));
                     }
-                    report.append(String.format("  - Standard deviation: %.1f%n", fieldStats.getStandardDeviation()));
+                    report.append(String.format(Locale.ROOT, "  - Standard deviation: %.1f%n", fieldStats.getStandardDeviation()));
                     if (regressionFieldStats.hasChanges()) {
-                        report.append(String.format("  - Standard deviation of regressions: %.1f%n", regressionFieldStats.getStandardDeviation()));
+                        report.append(String.format(Locale.ROOT, "  - Standard deviation of regressions: %.1f%n", regressionFieldStats.getStandardDeviation()));
                     }
-                    report.append(String.format("  - Range: %s%d to %s%d%n", sign(fieldStats.getMin()), fieldStats.getMin(), sign(fieldStats.getMax()), fieldStats.getMax()));
+                    report.append(String.format(Locale.ROOT, "  - Range: %s%d to %s%d%n", sign(fieldStats.getMin()), fieldStats.getMin(), sign(fieldStats.getMax()), fieldStats.getMax()));
                     if (regressionFieldStats.hasChanges()) {
-                        report.append(String.format("  - Range of regressions: %s%d to %s%d%n", sign(regressionFieldStats.getMin()), regressionFieldStats.getMin(), sign(regressionFieldStats.getMax()), regressionFieldStats.getMax()));
+                        report.append(String.format(Locale.ROOT, "  - Range of regressions: %s%d to %s%d%n", sign(regressionFieldStats.getMin()), regressionFieldStats.getMin(), sign(regressionFieldStats.getMax()), regressionFieldStats.getMax()));
                     }
-                    report.append(String.format("  - Queries changed: %d%n", fieldStats.getChangedCount()));
+                    report.append(String.format(Locale.ROOT, "  - Queries changed: %d%n", fieldStats.getChangedCount()));
                     if (regressionFieldStats.hasChanges()) {
-                        report.append(String.format("  - Queries regressed: %d%n", regressionFieldStats.getChangedCount()));
+                        report.append(String.format(Locale.ROOT, "  - Queries regressed: %d%n", regressionFieldStats.getChangedCount()));
                     } else {
                         report.append("  - No regressions! 🎉\n");
                     }
@@ -572,7 +573,7 @@ public final class MetricsDiffAnalyzer {
                                 + "the mean or a large absolute increase (e.g., 100).\n\n");
 
                 for (final var change : metricsOutliers) {
-                    report.append(String.format("- %s", formatQueryDisplay(change))).append("\n");
+                    report.append(String.format(Locale.ROOT, "- %s", formatQueryDisplay(change))).append("\n");
                     if (change.oldInfo != null && change.newInfo != null) {
                         final String oldExplain = change.oldInfo.getExplain();
                         final String newExplain = change.newInfo.getExplain();
