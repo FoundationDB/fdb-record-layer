@@ -102,17 +102,6 @@ public class ParameterHelperTest {
         checkValue(value, ParameterHelper.ofBytes(value), Type.BYTES, Column::hasBinary, Column::getBinary, customAssert);
     }
 
-//    @Test
-//    void testArray() throws SQLException {
-//        final var value = new byte[]{1, 2, 3, 4};
-//        final Function<Object, Object> transform = actual -> {
-//            Assertions.assertInstanceOf(ByteString.class, actual);
-//            return ((ByteString) actual).toByteArray();
-//        };
-//        checkValue(value, ParameterHelper.ofObject(value), Type.BYTES, Column::hasBinary, Column::getBinary, transform);
-//        checkValue(value, ParameterHelper.ofBytes(value), Type.BYTES, Column::hasBinary, Column::getBinary, transform);
-//    }
-
     @Test
     void testGenericNull() throws SQLException {
         checkValue(null, ParameterHelper.ofObject(null), Type.NULL, Column::hasNull, Column::getNull, actual -> {
