@@ -132,11 +132,11 @@ public abstract class QueryConfig {
         } catch (AssertionFailedError e) {
             throw executionContext.wrapContext(e,
                     () -> "‼️Check result failed in config at line " + getLineNumber() + " against connection for versions " + connection.getVersions(),
-                    String.format(Locale.ROOT, "config [%s: %s] ", getConfigName(), getVal()), getLineNumber());
+                    "config [" + getConfigName() + ": " + getVal() + "] ", getLineNumber());
         } catch (Throwable e) {
             throw executionContext.wrapContext(e,
                     () -> "‼️Failed to test config at line " + getLineNumber() + " against connection for versions " + connection.getVersions(),
-                    String.format(Locale.ROOT, "config [%s: %s] ", getConfigName(), getVal()), getLineNumber());
+                    "config [" + getConfigName() + ": " + getVal() + "] ", getLineNumber());
         }
     }
 
@@ -146,11 +146,11 @@ public abstract class QueryConfig {
         } catch (AssertionFailedError e) {
             throw executionContext.wrapContext(e,
                     () -> "‼️Check result failed in config at line " + getLineNumber() + " against connection for versions " + connection.getVersions(),
-                    String.format(Locale.ROOT, "config [%s: %s] ", getConfigName(), getVal()), getLineNumber());
+                    "config [" + getConfigName() + ": " + getVal() + "] ", getLineNumber());
         } catch (Throwable e) {
             throw executionContext.wrapContext(e,
                     () -> "‼️Failed to test config at line " + getLineNumber() + " against connection for versions " + connection.getVersions(),
-                    String.format(Locale.ROOT, "config [%s: %s] ", getConfigName(), getVal()), getLineNumber());
+                    "config [" + getConfigName() + ": " + getVal() + "] ", getLineNumber());
         }
     }
 
@@ -158,11 +158,10 @@ public abstract class QueryConfig {
                                                 @Nonnull String queryDescription, @Nonnull List<String> setups) throws SQLException;
 
     void checkErrorInternal(@Nonnull SQLException e, @Nonnull String queryDescription) throws SQLException {
-        final var diffMessage = String.format(Locale.ROOT, "‼️ statement failed with the following error at line %s:%n" +
-                "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
-                "%s%n" +
-                "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n",
-                getLineNumber(), e.getMessage());
+        final var diffMessage = "‼️ statement failed with the following error at line " + getLineNumber() + ":\n" +
+                "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤\n" +
+                e.getMessage() + "\n" +
+                "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤\n";
         logger.error(diffMessage);
         throw e;
 
@@ -217,24 +216,19 @@ public abstract class QueryConfig {
                 Matchers.ResultSetPrettyPrinter resultSetPrettyPrinter = new Matchers.ResultSetPrettyPrinter();
                 if (actual instanceof ErrorCapturingResultSet) {
                     Matchers.printRemaining((ErrorCapturingResultSet) actual, resultSetPrettyPrinter);
-                    reportTestFailure(String.format(
+                    reportTestFailure(String.format(Locale.ROOT,
                             "‼️ expecting statement to throw an error, however it returned a result set at line %d%n" +
                                     "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
                                     "%s%n" +
                                     "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n",
                             getLineNumber(), resultSetPrettyPrinter));
                 } else if (actual instanceof Integer) {
-                    reportTestFailure(String.format(
-                            "‼️ expecting statement to throw an error, however it returned a count at line %d%n" +
-                                    "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
-                                    "%s%n" +
-                                    "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n",
-                            getLineNumber(), actual));
+                    reportTestFailure("‼️ expecting statement to throw an error, however it returned a count at line " + getLineNumber() + "\n" +
+                                    "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤\n" +
+                                    actual + "\n" +
+                                    "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤\n");
                 } else {
-                    reportTestFailure(String.format(Locale.ROOT, "‼️ unexpected query result of type '%s' (expecting '%s') at line %d%n",
-                            actual.getClass().getSimpleName(),
-                            ErrorCapturingResultSet.class.getSimpleName(),
-                            getLineNumber()));
+                    reportTestFailure("‼️ unexpected query result of type '" + actual.getClass().getSimpleName() + "' (expecting '" + ErrorCapturingResultSet.class.getSimpleName() + "') at line " + getLineNumber() + "\n");
                 }
             }
 
@@ -242,8 +236,7 @@ public abstract class QueryConfig {
             void checkErrorInternal(@Nonnull SQLException e, @Nonnull String queryDescription) {
                 logger.debug("⛳️ Checking error code resulted from executing '{}'", queryDescription);
                 if (!e.getSQLState().equals(getVal())) {
-                    reportTestFailure(String.format(Locale.ROOT, "‼️ expecting '%s' error code, got '%s' instead at line %d!",
-                            getVal(), e.getSQLState(), getLineNumber()), e);
+                    reportTestFailure("‼️ expecting '" + getVal() + "' error code, got '" + e.getSQLState() + "' instead at line " + getLineNumber() + "!", e);
                 } else {
                     logger.debug("✅ error codes '{}' match!", getVal());
                 }
@@ -259,8 +252,7 @@ public abstract class QueryConfig {
                                                @Nonnull String queryDescription, @Nonnull List<String> setups) {
                 logger.debug("⛳️ Matching count of update query '{}'", queryDescription);
                 if (!Matchers.matches(getVal(), actual)) {
-                    reportTestFailure(String.format(Locale.ROOT, "‼️ Expected count value %d, but got %d at line %d",
-                            (Integer) getVal(), (Integer) actual, getLineNumber()));
+                    reportTestFailure("‼️ Expected count value " + getVal() + ", but got " + actual + " at line " + getLineNumber());
                 } else {
                     logger.debug("✅ Results match!");
                 }
