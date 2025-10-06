@@ -22,8 +22,9 @@ Parameters
 * :sql:`TRAVERSAL ORDER`
     Optional clause for recursive CTEs that specifies the traversal strategy. This clause appears before the final SELECT statement:
 
-    - :sql:`pre_order` - Depth-first search traversal
-    - :sql:`level_order` - Breadth-first (level-order) traversal
+    - :sql:`pre_order` - Depth-first search (DFS) pre-order traversal: visits parent nodes before their children
+    - :sql:`post_order` - Depth-first search (DFS) post-order traversal: visits child nodes before their parents
+    - :sql:`level_order` - Breadth-first (level-order) traversal: visits all nodes at each level before proceeding to the next level
     - If not specified, the optimizer chooses the best traversal strategy (default)
 
 * :sql:`cteName`
@@ -236,6 +237,43 @@ Result with preorder traversal (depth-first):
 
 Notice how preorder explores Bob's entire subtree (David, Eve) before moving to Carol's subtree (Frank), while level traversal processes all level 1 employees (Bob, Carol) before any level 2 employees.
 
+Postorder Traversal
+^^^^^^^^^^^^^^^^^^^
+
+Using postorder traversal to process the hierarchy depth-first, visiting children before their parents. This is particularly useful for bottom-up computations like calculating team sizes, aggregating metrics, or determining dependencies where leaf nodes must be processed before their ancestors.
+
+.. code-block:: sql
+
+    WITH RECURSIVE subordinates AS (
+        SELECT id, name, manager_id FROM employees WHERE id = 1
+        UNION ALL
+        SELECT e.id, e.name, e.manager_id
+        FROM subordinates AS s, employees AS e
+        WHERE s.id = e.manager_id
+    )
+    TRAVERSAL ORDER post_order
+    SELECT name FROM subordinates WHERE id != 1
+
+Result with postorder traversal (children before parents):
+
+.. list-table::
+    :header-rows: 1
+
+    * - :sql:`name`
+    * - :json:`"David"`
+    * - :json:`"Eve"`
+    * - :json:`"Bob"`
+    * - :json:`"Frank"`
+    * - :json:`"Carol"`
+
+Notice how postorder processes all leaf employees (David, Eve, Frank) before their managers (Bob, Carol). This is in contrast to preorder which processes managers before their direct reports. Postorder is ideal for operations that require child data to be available before processing parents, such as calculating subtree sizes or propagating values up a hierarchy.
+
+The key difference between the traversal orders:
+
+- **Preorder** (top-down): Alice → Bob → David → Eve → Carol → Frank
+- **Postorder** (bottom-up): David → Eve → Bob → Frank → Carol → Alice
+- **Level-order** (breadth-first): Alice → (Bob, Carol) → (David, Eve, Frank)
+
 Nested Recursive CTEs
 ^^^^^^^^^^^^^^^^^^^^^
 
@@ -328,7 +366,7 @@ complex recursive hierarchies.
 Performance Characteristics
 ###########################
 
-The choice between LEVEL and PREORDER traversal strategies can impact query performance, but the behavior is heavily affected by the specific hierarchy profile and usage patterns. Users should carefully consider these factors when selecting a traversal strategy:
+The choice between LEVEL, PREORDER, and POSTORDER traversal strategies can impact query performance, but the behavior is heavily affected by the specific hierarchy profile and usage patterns. Users should carefully consider these factors when selecting a traversal strategy:
 
 **Key Considerations:**
 
@@ -340,7 +378,7 @@ The choice between LEVEL and PREORDER traversal strategies can impact query perf
 
 One clear difference between the strategies is continuation size:
 
-- **PREORDER**: Generates very small continuation sizes (typically <50 bytes)
+- **PREORDER & POSTORDER**: Generate very small continuation sizes (typically <50 bytes)
 - **LEVEL**: Produces much larger continuation sizes (often several KB to hundreds of KB)
 
 This difference can be critical if you're implementing pagination or need to serialize query state.

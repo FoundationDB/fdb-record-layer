@@ -17,6 +17,23 @@ recursive-cte-tests:
     insert_new_count: 261
     insert_reused_count: 11
 -   query: EXPLAIN with recursive c1 as ( select id, parent, 0 as level from t1 where
+        id = 250 union all select b.id, b.parent, a.y as level from t1 as b, (select
+        id, parent, level + 1 as y from c1) as a  where a.parent = b.id) traversal
+        order post_order select id, parent, level from c1
+    explain: 'RUNION-DFS q0 { COVERING(CHILDIDX [EQUALS promote(@c19 AS LONG)] ->
+        [ID: KEY[0], PARENT: KEY[1]]) | MAP (_.ID AS ID, _.PARENT AS PARENT, @c11
+        AS LEVEL) } { RECURSIVE COVERING(PARENTIDX <,> -> [ID: KEY[1], PARENT: KEY[0]])
+        | FILTER q0.PARENT EQUALS _.ID | MAP (_.ID AS ID, _.PARENT AS PARENT, q0.LEVEL
+        + @c49 AS LEVEL) } | MAP (_.ID AS ID, _.PARENT AS PARENT, _.LEVEL AS LEVEL)'
+    task_count: 1845
+    task_total_time_ms: 72
+    transform_count: 415
+    transform_time_ms: 26
+    transform_yield_count: 116
+    insert_time_ms: 6
+    insert_new_count: 261
+    insert_reused_count: 11
+-   query: EXPLAIN with recursive c1 as ( select id, parent, 0 as level from t1 where
         id = 250 union all select b.id, b.parent, a.y as level from (select id, parent,
         level + 1 as y from c1) as a, t1 as b where a.parent = b.id) traversal order
         level_order select id, parent, level from c1
@@ -48,6 +65,21 @@ recursive-cte-tests:
     transform_yield_count: 132
     insert_time_ms: 5
     insert_new_count: 327
+    insert_reused_count: 9
+-   query: EXPLAIN with recursive c1 as ( select id, parent from t1 where parent =
+        -1 union all select b.id, b.parent from c1 as a, t1 as b where a.id = b.parent)
+        traversal order post_order select id from c1
+    explain: 'RUNION-DFS q0 { ISCAN(PARENTIDX [EQUALS promote(@c15 AS LONG)]) } {
+        RECURSIVE COVERING(PARENTIDX <,> -> [ID: KEY[1], PARENT: KEY[0]]) | FILTER
+        q0.ID EQUALS _.PARENT | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP (_.ID
+        AS ID)'
+    task_count: 2168
+    task_total_time_ms: 59
+    transform_count: 434
+    transform_time_ms: 28
+    transform_yield_count: 129
+    insert_time_ms: 3
+    insert_new_count: 318
     insert_reused_count: 9
 -   query: EXPLAIN with recursive c1 as ( select id, parent from t1 where parent =
         -1 union all select b.id, b.parent from c1 as a, t1 as b where a.id = b.parent)
@@ -107,6 +139,20 @@ recursive-cte-tests:
     insert_time_ms: 3
     insert_new_count: 318
     insert_reused_count: 9
+-   query: EXPLAIN with recursive c1 as ( select id, parent from t1 where id = 250
+        union all select b.id, b.parent from c1 as a, t1 as b where a.parent = b.id)
+        traversal order post_order select id from c1
+    explain: 'RUNION-DFS q0 { ISCAN(CHILDIDX [EQUALS promote(@c15 AS LONG)]) } { RECURSIVE
+        COVERING(PARENTIDX <,> -> [ID: KEY[1], PARENT: KEY[0]]) | FILTER q0.PARENT
+        EQUALS _.ID | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP (_.ID AS ID)'
+    task_count: 2168
+    task_total_time_ms: 42
+    transform_count: 434
+    transform_time_ms: 17
+    transform_yield_count: 129
+    insert_time_ms: 3
+    insert_new_count: 318
+    insert_reused_count: 9
 -   query: EXPLAIN with recursive allDescendants as ( with recursive ancestorsOf250
         as ( select id, parent from t1 where id = 250 union all select b.id, b.parent
         from ancestorsOf250 as a, t1 as b where a.parent = b.id) select id, parent
@@ -125,6 +171,26 @@ recursive-cte-tests:
     transform_yield_count: 202
     insert_time_ms: 6
     insert_new_count: 516
+    insert_reused_count: 15
+-   query: EXPLAIN with recursive allDescendants as ( with recursive ancestorsOf250
+        as ( select id, parent from t1 where id = 250 union all select b.id, b.parent
+        from ancestorsOf250 as a, t1 as b where a.parent = b.id) traversal order post_order
+        select id, parent from ancestorsOf250 union all select b.id, b.parent from
+        allDescendants as a, t1 as b where a.id = b.parent) traversal order post_order
+        select id, parent from allDescendants
+    explain: 'RUNION-DFS q0 { RUNION-DFS q1 { ISCAN(CHILDIDX [EQUALS promote(@c20
+        AS LONG)]) } { RECURSIVE COVERING(PARENTIDX <,> -> [ID: KEY[1], PARENT: KEY[0]])
+        | FILTER q1.PARENT EQUALS _.ID | MAP (_.ID AS ID, _.PARENT AS PARENT) } |
+        MAP (_.ID AS ID, _.PARENT AS PARENT) } { RECURSIVE COVERING(PARENTIDX <,>
+        -> [ID: KEY[1], PARENT: KEY[0]]) | FILTER q0.ID EQUALS _.PARENT | MAP (_.ID
+        AS ID, _.PARENT AS PARENT) } | MAP (_.ID AS ID, _.PARENT AS PARENT)'
+    task_count: 3151
+    task_total_time_ms: 59
+    transform_count: 664
+    transform_time_ms: 17
+    transform_yield_count: 188
+    insert_time_ms: 3
+    insert_new_count: 464
     insert_reused_count: 15
 -   query: EXPLAIN with recursive c1 as ( select id, parent from t1 where parent =
         -1 union all select b.id, b.parent from c1 as a, t1 as b where a.id = b.parent)

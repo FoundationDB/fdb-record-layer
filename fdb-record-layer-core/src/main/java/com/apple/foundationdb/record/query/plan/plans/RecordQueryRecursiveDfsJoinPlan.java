@@ -202,6 +202,11 @@ public class RecordQueryRecursiveDfsJoinPlan extends AbstractRelationalExpressio
     }
 
     @Nonnull
+    public DfsTraversalStrategy getDfsTraversalStrategy() {
+        return dfsTraversalStrategy;
+    }
+
+    @Nonnull
     @Override
     public String toString() {
         return ExplainPlanVisitor.toStringForDebugging(this);
