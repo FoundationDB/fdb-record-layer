@@ -518,6 +518,9 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
             result = visitPreparedStatementParameter(ctx.preparedStatementParameter());
         } else if (ctx.fullColumnName() != null) {
             result = visitFullColumnName(ctx.fullColumnName());
+            // Validate that result is of type Array
+            Assert.thatUnchecked(result.getDataType().getCode() == DataType.Code.ARRAY, ErrorCode.UNSUPPORTED_QUERY,
+                "IN list with column reference must be of array type, but got: %s", result.getDataType().getCode());
         } else if (getDelegate().getPlanGenerationContext().shouldProcessLiteral() && ParseHelpers.isConstant(ctx.expressions())) {
             getDelegate().getPlanGenerationContext().startArrayLiteral();
             final var inListItems = visitExpressions(ctx.expressions());
@@ -530,12 +533,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
                     .processComplexLiteral(tokenIndex, arrayType));
         } else {
             final var inListItems = visitExpressions(ctx.expressions());
-            // if in (expressions), wrap it in an internal array
-            if (ctx.LEFT_ROUND_BRACKET() != null) {
-                result = getDelegate().resolveFunction("__internal_array", inListItems.asList().toArray(new Expression[0]));
-            } else {
-                result = inListItems.getSingleItem();
-            }
+            result = getDelegate().resolveFunction("__internal_array", inListItems.asList().toArray(new Expression[0]));
         }
         return result;
     }
