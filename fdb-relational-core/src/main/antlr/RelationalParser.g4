@@ -338,7 +338,7 @@ ctes
     ;
 
 traversalOrderClause
-    : TRAVERSAL ORDER order=(PRE_ORDER | LEVEL_ORDER)
+    : TRAVERSAL ORDER order=(PRE_ORDER | LEVEL_ORDER | POST_ORDER)
     ;
 
 namedQuery
