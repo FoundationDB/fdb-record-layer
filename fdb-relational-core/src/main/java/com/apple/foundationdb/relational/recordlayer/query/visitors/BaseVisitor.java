@@ -1388,13 +1388,6 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
         return expressionVisitor.visitUserDefinedScalarFunctionCall(ctx);
     }
 
-
-    @Nonnull
-    @Override
-    public Object visitUserDefinedScalarFunctionName(@Nonnull RelationalParser.UserDefinedScalarFunctionNameContext ctx) {
-        return visitChildren(ctx);
-    }
-
     @Nonnull
     @Override
     public Object visitSimpleFunctionCall(@Nonnull RelationalParser.SimpleFunctionCallContext ctx) {

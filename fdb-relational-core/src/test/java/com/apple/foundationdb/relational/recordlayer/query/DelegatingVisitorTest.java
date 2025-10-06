@@ -33,6 +33,7 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaT
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.recordlayer.query.visitors.BaseVisitor;
 import com.apple.foundationdb.relational.recordlayer.query.visitors.DelegatingVisitor;
+import com.apple.foundationdb.relational.recordlayer.query.Identifier;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.apache.commons.lang3.mutable.MutableBoolean;
 import org.assertj.core.api.Assertions;
@@ -119,6 +120,42 @@ public class DelegatingVisitorTest {
         final var parser = new RelationalParser(new CommonTokenStream(tokenSource));
         final var predicatedExpression = (RelationalParser.SubscriptExpressionContext)parser.expressionAtom();
         delegatingVisitor.visitSubscriptExpression(predicatedExpression);
+        Assertions.assertThat(baseVisitorCalled.booleanValue()).isTrue();
+    }
+
+    @Test
+    void visitUserDefinedScalarFunctionStatementBodyTest() {
+        final var query = "AS testIdentifier";
+        final MutableBoolean baseVisitorCalled = new MutableBoolean(false);
+        final var baseVisitor = new BaseVisitor(
+                new MutablePlanGenerationContext(PreparedParams.empty(),
+                        PlanHashable.PlanHashMode.VC0, query, query, 42),
+                generateMetadata(),
+                NoOpQueryFactory.INSTANCE,
+                NoOpMetadataOperationsFactory.INSTANCE,
+                URI.create("/FDB/FRL1"),
+                false) {
+
+            @Nonnull
+            @Override
+            public Identifier visitUserDefinedScalarFunctionStatementBody(@Nonnull final RelationalParser.UserDefinedScalarFunctionStatementBodyContext ctx) {
+                baseVisitorCalled.setTrue();
+                return Identifier.of("testIdentifier");
+            }
+        };
+        final var delegatingVisitor = new DelegatingVisitor<>(baseVisitor);
+        final var tokenSource = new RelationalLexer(new CaseInsensitiveCharStream(query));
+        final var parser = new RelationalParser(new CommonTokenStream(tokenSource));
+        final var routineBodyContext = parser.routineBody();
+
+        if (routineBodyContext instanceof RelationalParser.UserDefinedScalarFunctionStatementBodyContext) {
+            final var userDefinedScalarFunctionStatementBodyContext = (RelationalParser.UserDefinedScalarFunctionStatementBodyContext)routineBodyContext;
+            final var result = delegatingVisitor.visitUserDefinedScalarFunctionStatementBody(userDefinedScalarFunctionStatementBodyContext);
+            Assertions.assertThat(result).isEqualTo(Identifier.of("testIdentifier"));
+        } else {
+            Assertions.fail("Expected UserDefinedScalarFunctionStatementBodyContext but got " + routineBodyContext.getClass().getSimpleName());
+        }
+
         Assertions.assertThat(baseVisitorCalled.booleanValue()).isTrue();
     }
 

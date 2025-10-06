@@ -876,7 +876,7 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
     @Nonnull
     @Override
     public Identifier visitUserDefinedScalarFunctionStatementBody(@Nonnull RelationalParser.UserDefinedScalarFunctionStatementBodyContext ctx) {
-        return getDelegate().visitFullId(ctx.fullId());
+        return (Identifier)getDelegate().visitUserDefinedScalarFunctionStatementBody(ctx);
     }
 
     @Nonnull

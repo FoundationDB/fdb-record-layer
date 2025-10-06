@@ -415,7 +415,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
             Assert.thatUnchecked(parameters.asList().size() == 1, "we only support 1 input parameter for user defined scalar function now");
 
             // only support fullId functionBody now
-            final var functionBody = visitFullId((RelationalParser.FullIdContext)bodyCtx.getChild(1));
+            final var functionBody = visitUserDefinedScalarFunctionStatementBody(Assert.castUnchecked(bodyCtx, RelationalParser.UserDefinedScalarFunctionStatementBodyContext.class));
             Optional<Expression> result = semanticAnalyzer.lookupNestedField(functionBody, Expression.of(paramValueList.get(0), paramNameIdList.get(0)), Expression.of(paramValueList.get(0), paramNameIdList.get(0)), true);
             Assert.thatUnchecked(result.isPresent(), "cannot resolve user defined scalar function value");
             return new UserDefinedScalarFunction(functionName, paramValueList, result.get().getUnderlying());
