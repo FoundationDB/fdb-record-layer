@@ -33,7 +33,7 @@ public class QuantizerTest {
         final double[] v = createRandomVector(random, dims);
         final double[] centroid = new double[dims];
         final Quantizer.Result result =
-                Quantizer.exBitsCodeWithFactor(v, centroid, 4, Metrics.EUCLIDEAN_METRIC);
+                Quantizer.exBitsCodeWithFactor(v, centroid, 4, Metrics.EUCLIDEAN_SQUARE_METRIC);
         final double[] v_bar = normalize(v);
         final double[] recentered = new double[dims];
         for (int i = 0; i < dims; i ++) {
@@ -41,6 +41,34 @@ public class QuantizerTest {
         }
         final double[] recentered_bar = normalize(recentered);
         System.out.println(dot(v_bar, recentered_bar));
+    }
+
+    @Test
+    void basicEncodeWithEstimationTest() {
+        final int dims = 768;
+        final Random random = new Random(System.nanoTime());
+        final double[] v = createRandomVector(random, dims);
+        final double[] v_norm = normalize(v);
+        final double[] centroid = new double[dims];
+        final Quantizer.Result result =
+                Quantizer.exBitsCodeWithFactor(v, centroid, 4, Metrics.EUCLIDEAN_SQUARE_METRIC);
+
+        final double estimatedDistance =
+                Estimator.estimate(v, centroid, result.signedCode, 4, result.fAddEx, result.fRescaleEx);
+        System.out.println("estimated distance = " + estimatedDistance);
+    }
+
+    @Test
+    void basicEncodeWithEstimationTest1() {
+        final double[] v = new double[]{1.0d, 1.0d};
+        final double[] centroid = new double[v.length];
+        final Quantizer.Result result =
+                Quantizer.exBitsCodeWithFactor(v, centroid, 4, Metrics.EUCLIDEAN_SQUARE_METRIC);
+
+        final double[] q = new double[]{-1.0d, 1.0d};
+        final double estimatedDistance =
+                Estimator.estimate(q, centroid, result.signedCode, 4, result.fAddEx, result.fRescaleEx);
+        System.out.println("estimated distance = " + estimatedDistance);
     }
 
     private static double[] createRandomVector(final Random random, final int dims) {
