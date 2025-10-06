@@ -122,7 +122,7 @@ public final class Quantizer {
         double fRescaleEx;
         double fErrorEx;
 
-        if (metric == Metrics.EUCLIDEAN_METRIC) {
+        if (metric == Metrics.EUCLIDEAN_SQUARE_METRIC) {
             fAddEx = l2_sqr + 2.0 * l2_sqr * (ip_cent_xucb / ip_resi_xucb_safe);
             fRescaleEx = ipInv * (-2.0 * l2_norm);
             fErrorEx = 2.0 * tmp_error;
