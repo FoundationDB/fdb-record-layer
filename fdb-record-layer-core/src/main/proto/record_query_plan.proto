@@ -2158,7 +2158,12 @@ message PRecordQueryTableFunctionPlan {
 // PRecordQueryRecursiveDfsJoinPlan
 //
 message PRecordQueryRecursiveDfsJoinPlan {
+  enum PDfsTraversalStrategy {
+    PRE_ORDER = 1;
+    POST_ORDER = 2;
+  }
   optional PPhysicalQuantifier root_quantifier = 1;
   optional PPhysicalQuantifier child_quantifier = 2;
   optional string prior_value_correlation = 3;
+  optional PDfsTraversalStrategy dfs_traversal_strategy = 4;
 }
