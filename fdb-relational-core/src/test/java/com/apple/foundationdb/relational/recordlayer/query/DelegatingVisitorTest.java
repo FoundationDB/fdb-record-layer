@@ -33,7 +33,6 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaT
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.recordlayer.query.visitors.BaseVisitor;
 import com.apple.foundationdb.relational.recordlayer.query.visitors.DelegatingVisitor;
-import com.apple.foundationdb.relational.recordlayer.query.Identifier;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.apache.commons.lang3.mutable.MutableBoolean;
 import org.assertj.core.api.Assertions;
