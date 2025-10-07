@@ -36,6 +36,8 @@ import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.provider.common.RollingTestKeyManager;
+import com.apple.foundationdb.record.provider.common.SerializationKeyManager;
 import com.apple.foundationdb.record.provider.common.text.AllSuffixesTextTokenizer;
 import com.apple.foundationdb.record.provider.common.text.TextSamples;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
@@ -54,6 +56,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
+import com.apple.test.RandomSeedSource;
 import com.apple.test.RandomizedTestUtils;
 import com.apple.test.SuperSlow;
 import com.apple.test.Tags;
@@ -208,6 +211,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
     private static final Index COMPLEX_TEXT_BY_GROUP = new Index("Complex$text_by_group", function(LuceneFunctionNames.LUCENE_TEXT, field("text")).groupBy(field("group")), LuceneIndexTypes.LUCENE);
 
     private ExecutorService executorService = null;
+    private SerializationKeyManager keyManager;
 
     @Override
     public void setupPlanner(@Nullable PlannableIndexTypes indexTypes) {
@@ -229,7 +233,9 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
     @Override
     protected RecordLayerPropertyStorage.Builder addDefaultProps(final RecordLayerPropertyStorage.Builder props) {
         return super.addDefaultProps(props)
-                .addProp(LuceneRecordContextProperties.LUCENE_EXECUTOR_SERVICE, (Supplier<ExecutorService>)() -> executorService);
+                .addProp(LuceneRecordContextProperties.LUCENE_EXECUTOR_SERVICE, (Supplier<ExecutorService>)() -> executorService)
+                .addProp(LuceneRecordContextProperties.LUCENE_INDEX_ENCRYPTION_ENABLED, (Supplier<Boolean>)() -> keyManager != null)
+                .addProp(LuceneRecordContextProperties.LUCENE_INDEX_KEY_MANAGER, (Supplier<SerializationKeyManager>)() -> keyManager);
     }
 
     @SuppressWarnings("SameParameterValue")
@@ -1398,4 +1404,35 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
             assertPrimaryKeys("text:morningstart", false, Set.of());
         }
     }
+
+    @ParameterizedTest
+    @RandomSeedSource
+    void encrypted(long seed) throws Exception {
+        final RollingTestKeyManager rollingTestKeyManager = new RollingTestKeyManager(seed);
+        keyManager = rollingTestKeyManager;
+        // Save in many transactions to get more segments and so more blocks.
+        for (TestRecordsTextProto.SimpleDocument doc : DOCUMENTS) {
+            try (FDBRecordContext context = openContext()) {
+                openRecordStore(context);
+                recordStore.saveRecord(doc);
+                commit(context);
+            }
+        }
+        assertThat(rollingTestKeyManager.numberOfKeys(), greaterThan(10));
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context);
+            final QueryComponent filter = new LuceneQueryComponent("parents", Lists.newArrayList("text"), true);
+            RecordQuery.Builder query = RecordQuery.newBuilder()
+                    .setRecordType(TextIndexTestUtils.SIMPLE_DOC)
+                    .setFilter(filter);
+            RecordQueryPlan plan = planQuery(query.build());
+            List<Long> primaryKeys;
+            try (RecordCursor<FDBQueriedRecord<Message>> recordCursor = recordStore.executeQuery(plan)) {
+                primaryKeys = recordCursor.map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
+            }
+            assertEquals(Set.of(2L, 4L, 5L), new HashSet<>(primaryKeys));
+        }
+    }
+
+
 }
