@@ -356,7 +356,7 @@ public class QueryExecutor {
             int counter = 0;
             var paramList = new ArrayList<String>();
             for (var parameter : Objects.requireNonNull(parameters)) {
-                paramList.add(String.format(counter++ + " -> " + parameter));
+                paramList.add(counter++ + " -> " + parameter);
             }
             return query + " with parameters (" + String.join(", ", paramList) + ")";
         }
