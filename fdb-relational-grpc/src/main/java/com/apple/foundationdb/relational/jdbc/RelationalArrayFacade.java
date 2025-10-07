@@ -201,6 +201,12 @@ class RelationalArrayFacade implements RelationalArray {
                 valueColumnBuilder.setStruct(delegate.getElement(i).getStruct());
             } else if (componentSqlType == Types.INTEGER) {
                 valueColumnBuilder.setInteger(delegate.getElement(i).getInteger());
+            } else if (componentSqlType == Types.VARCHAR) {
+                valueColumnBuilder.setString(delegate.getElement(i).getString());
+            } else if (componentSqlType == Types.DOUBLE) {
+                valueColumnBuilder.setDouble(delegate.getElement(i).getDouble());
+            } else if (componentSqlType == Types.BOOLEAN) {
+                valueColumnBuilder.setBoolean(delegate.getElement(i).getBoolean());
             } else {
                 Assert.failUnchecked(ErrorCode.UNKNOWN_TYPE, "Type not supported: " + SqlTypeNamesSupport.getSqlTypeName(componentSqlType));
             }
