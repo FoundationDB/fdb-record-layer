@@ -334,6 +334,15 @@ public class CastValue extends AbstractValue implements ValueWithChild, Value.Ra
         if (childResult == null) {
             return null;
         }
+
+        // Special handling for array to array casts
+        if (physicalOperator.equals(PhysicalOperator.ARRAY_TO_ARRAY)) {
+            final Type inType = child.getResultType();
+            final var fromArray = (Type.Array) inType;
+            final var toArray = (Type.Array) castToType;
+            final var descriptor = new ArrayCastDescriptor(fromArray, toArray);
+            return castArrayToArray(descriptor, childResult);
+        }
         return physicalOperator.getCastFunction().apply(null, childResult);
     }
 
@@ -428,24 +437,7 @@ public class CastValue extends AbstractValue implements ValueWithChild, Value.Ra
                         "Cannot cast array with element type " + fromArray.getElementType() +
                         " to array with element type " + toArray.getElementType());
             }
-
-            // Create the array cast descriptor and use ARRAY_TO_ARRAY operator
-            final var descriptor = new ArrayCastDescriptor(fromArray, toArray);
-            return new CastValue(inValue, castToType, PhysicalOperator.ARRAY_TO_ARRAY) {
-                @Override
-                public Object evalWithoutStore(@Nonnull final EvaluationContext context) {
-                    @Nullable final var inputValue = getChild().evalWithoutStore(context);
-                    return castArrayToArray(descriptor, inputValue);
-                }
-
-                @Nullable
-                @Override
-                public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store,
-                                                       @Nonnull final EvaluationContext context) {
-                    @Nullable final var inputValue = getChild().eval(store, context);
-                    return castArrayToArray(descriptor, inputValue);
-                }
-            };
+            return new CastValue(inValue, castToType, PhysicalOperator.ARRAY_TO_ARRAY);
         }
 
         // Look up the cast operator for non-array types
