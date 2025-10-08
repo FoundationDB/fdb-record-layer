@@ -20,7 +20,9 @@
 
 package com.apple.foundationdb.async.rabitq;
 
+import com.apple.foundationdb.async.hnsw.DoubleVector;
 import com.apple.foundationdb.async.hnsw.Metrics;
+import com.apple.foundationdb.async.hnsw.Vector;
 import org.junit.jupiter.api.Test;
 
 import java.util.Random;
@@ -30,44 +32,45 @@ public class QuantizerTest {
     void basicEncodeTest() {
         final int dims = 768;
         final Random random = new Random(System.nanoTime());
-        final double[] v = createRandomVector(random, dims);
-        final double[] centroid = new double[dims];
-        final Quantizer.Result result =
-                Quantizer.exBitsCodeWithFactor(v, centroid, 4, Metrics.EUCLIDEAN_SQUARE_METRIC);
-        final double[] v_bar = normalize(v);
-        final double[] recentered = new double[dims];
+        final Vector v = new DoubleVector(createRandomVector(random, dims));
+        final Vector centroid = new DoubleVector(new double[dims]);
+        final Quantizer quantizer = new Quantizer(centroid, 4, Metrics.EUCLIDEAN_SQUARE_METRIC);
+        final Quantizer.Result result = quantizer.exBitsCodeWithFactor(v);
+        final EncodedVector encodedVector = result.encodedVector;
+        final Vector v_bar = v.normalize();
+        final double[] recentered_data = new double[dims];
         for (int i = 0; i < dims; i ++) {
-            recentered[i] = (double)result.signedCode[i] - 15.5d;
+            recentered_data[i] = (double)encodedVector.getEncodedComponent(i) - 15.5d;
         }
-        final double[] recentered_bar = normalize(recentered);
-        System.out.println(dot(v_bar, recentered_bar));
+        final Vector recentered = new DoubleVector(recentered_data);
+        final Vector recentered_bar = recentered.normalize();
+        System.out.println(v_bar.dot(recentered_bar));
     }
 
     @Test
     void basicEncodeWithEstimationTest() {
         final int dims = 768;
         final Random random = new Random(System.nanoTime());
-        final double[] v = createRandomVector(random, dims);
-        final double[] v_norm = normalize(v);
-        final double[] centroid = new double[dims];
-        final Quantizer.Result result =
-                Quantizer.exBitsCodeWithFactor(v, centroid, 4, Metrics.EUCLIDEAN_SQUARE_METRIC);
-
-        final double estimatedDistance =
-                Estimator.estimate(v, centroid, result.signedCode, 4, result.fAddEx, result.fRescaleEx);
+        final Vector v = new DoubleVector(createRandomVector(random, dims));
+        final Vector centroid = new DoubleVector(new double[dims]);
+        final Quantizer quantizer = new Quantizer(centroid, 4, Metrics.EUCLIDEAN_SQUARE_METRIC);
+        final Quantizer.Result result = quantizer.exBitsCodeWithFactor(v);
+        final Estimator estimator = quantizer.estimator();
+        final double estimatedDistance = estimator.estimate(v, result.encodedVector);
         System.out.println("estimated distance = " + estimatedDistance);
     }
 
     @Test
     void basicEncodeWithEstimationTest1() {
-        final double[] v = new double[]{1.0d, 1.0d};
-        final double[] centroid = new double[v.length];
+        final Vector v = new DoubleVector(new double[]{1.0d, 1.0d});
+        final Vector centroid = new DoubleVector(new double[2]);
+        final Quantizer quantizer = new Quantizer(centroid, 4, Metrics.EUCLIDEAN_SQUARE_METRIC);
         final Quantizer.Result result =
-                Quantizer.exBitsCodeWithFactor(v, centroid, 4, Metrics.EUCLIDEAN_SQUARE_METRIC);
+                quantizer.exBitsCodeWithFactor(v);
 
-        final double[] q = new double[]{-1.0d, 1.0d};
-        final double estimatedDistance =
-                Estimator.estimate(q, centroid, result.signedCode, 4, result.fAddEx, result.fRescaleEx);
+        final Vector q = new DoubleVector(new double[]{-1.0d, 1.0d});
+        final Estimator estimator = quantizer.estimator();
+        final double estimatedDistance = estimator.estimate(q, result.encodedVector);
         System.out.println("estimated distance = " + estimatedDistance);
     }
 

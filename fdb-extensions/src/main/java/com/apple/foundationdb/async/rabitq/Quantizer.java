@@ -20,51 +20,45 @@
 
 package com.apple.foundationdb.async.rabitq;
 
+import com.apple.foundationdb.async.hnsw.DoubleVector;
 import com.apple.foundationdb.async.hnsw.Metrics;
+import com.apple.foundationdb.async.hnsw.Vector;
 
+import javax.annotation.Nonnull;
 import java.util.Comparator;
 import java.util.PriorityQueue;
 
 public final class Quantizer {
-
     // Matches kTightStart[] from the C++ (index by ex_bits).
     // 0th entry unused; defined up to 8 extra bits in the source.
     private static final double[] TIGHT_START = {
             0.00, 0.15, 0.20, 0.52, 0.59, 0.71, 0.75, 0.77, 0.81
     };
 
+    @Nonnull
+    private final Vector centroid;
+    final int numExBits;
+    @Nonnull
+    private final Metrics metrics;
+
+    public Quantizer(@Nonnull final Vector centroid,
+                     final int numExBits,
+                     @Nonnull final Metrics metrics) {
+        this.centroid = centroid;
+        this.numExBits = numExBits;
+        this.metrics = metrics;
+    }
+
     private static final double EPS = 1e-5;
     private static final int N_ENUM = 10;
 
-    /** L2 norm. */
-    private static double l2(double[] x) {
-        double s = 0.0;
-        for (double v : x) {
-            s += v * v;
-        }
-        return Math.sqrt(s);
+    public int getNumDimensions() {
+        return centroid.getNumDimensions();
     }
 
-    /** abs(normalize(x)). If ||x||==0, returns a zero array. */
-    private static double[] absOfNormalized(double[] x) {
-        double n = l2(x);
-        double[] y = new double[x.length];
-        if (n == 0.0 || !Double.isFinite(n)) {
-            return y; // all zeros
-        }
-        double inv = 1.0 / n;
-        for (int i = 0; i < x.length; i++) {
-            y[i] = Math.abs(x[i] * inv);
-        }
-        return y;
-    }
-
-    private static double dot(double[] a, double[] b) {
-        double s = 0.0;
-        for (int i = 0; i < a.length; i++) {
-            s += a[i] * b[i];
-        }
-        return s;
+    @Nonnull
+    public Estimator estimator() {
+        return new Estimator(centroid, numExBits);
     }
 
     /**
@@ -74,67 +68,63 @@ public final class Quantizer {
      * - computes shifted signed vector here (sign(r)*(k+0.5))
      * - applies C++ metric-dependent formulas exactly.
      */
-    public static Result exBitsCodeWithFactor(double[] dataRot,
-                                              double[] centroidRot,
-                                              int exBits,
-                                              Metrics metric) {
-        final int dims = dataRot.length;
+    public Result exBitsCodeWithFactor(@Nonnull final Vector data) {
+        final int dims = data.getNumDimensions();
 
         // 2) Build residual again: r = data - centroid
-        double[] residual = new double[dims];
-        for (int i = 0; i < dims; i++) {
-            residual[i] = dataRot[i] - centroidRot[i];
-        }
+        final Vector residual = data.subtract(centroid);
 
         // 1) call ex_bits_code to get signedCode, t, ipnormInv
-        QuantizeExResult base = exBitsCode(residual, exBits);
+        QuantizeExResult base = exBitsCode(residual);
         int[] signedCode = base.code;
         double ipInv = base.ipnormInv;
 
         int[] totalCode = new int[dims];
         for (int i = 0; i < dims; i++) {
-            int sgn = (residual[i] >= 0.0) ? +1 : 0;
-            totalCode[i] = signedCode[i] + (sgn << exBits);
+            int sgn = (residual.getComponent(i) >= 0.0) ? +1 : 0;
+            totalCode[i] = signedCode[i] + (sgn << numExBits);
         }
 
         // 4) cb = -(2^b - 0.5), and xu_cb = signedShift + cb
-        final double cb = -(((1 << exBits) - 0.5));
-        double[] xu_cb = new double[dims];
+        final double cb = -(((1 << numExBits) - 0.5));
+        double[] xu_cb_data = new double[dims];
         for (int i = 0; i < dims; i++) {
-            xu_cb[i] = totalCode[i] + cb;
+            xu_cb_data[i] = totalCode[i] + cb;
         }
+        final Vector xu_cb = new DoubleVector(xu_cb_data);
 
         // 5) Precompute all needed values
-        final double l2_norm = l2(residual);
-        final double l2_sqr = l2_norm * l2_norm;
-        final double ip_resi_xucb = dot(residual, xu_cb);
-        final double ip_cent_xucb = dot(centroidRot, xu_cb);
-        final double xuCbNormSqr = dot(xu_cb, xu_cb);
+        final double residual_l2_norm = residual.l2Norm();
+        final double residual_l2_sqr = residual_l2_norm * residual_l2_norm;
+        final double ip_resi_xucb = residual.dot(xu_cb);
+        final double ip_cent_xucb = centroid.dot(xu_cb);
+        final double xuCbNorm = xu_cb.l2Norm();
+        final double xuCbNormSqr = xuCbNorm * xuCbNorm;
 
         final double ip_resi_xucb_safe =
                 (ip_resi_xucb == 0.0) ? Double.POSITIVE_INFINITY : ip_resi_xucb;
 
-        double tmp_error = l2_norm * EPS *
-                Math.sqrt(((l2_sqr * xuCbNormSqr) / (ip_resi_xucb_safe * ip_resi_xucb_safe) - 1.0)
+        double tmp_error = residual_l2_norm * EPS *
+                Math.sqrt(((residual_l2_sqr * xuCbNormSqr) / (ip_resi_xucb_safe * ip_resi_xucb_safe) - 1.0)
                         / (Math.max(1, dims - 1)));
 
         double fAddEx;
         double fRescaleEx;
         double fErrorEx;
 
-        if (metric == Metrics.EUCLIDEAN_SQUARE_METRIC) {
-            fAddEx = l2_sqr + 2.0 * l2_sqr * (ip_cent_xucb / ip_resi_xucb_safe);
-            fRescaleEx = ipInv * (-2.0 * l2_norm);
+        if (metrics == Metrics.EUCLIDEAN_SQUARE_METRIC) {
+            fAddEx = residual_l2_sqr + 2.0 * residual_l2_sqr * (ip_cent_xucb / ip_resi_xucb_safe);
+            fRescaleEx = ipInv * (-2.0 * residual_l2_norm);
             fErrorEx = 2.0 * tmp_error;
-        } else if (metric == Metrics.DOT_PRODUCT_METRIC) {
-            fAddEx = 1.0 - dot(residual, centroidRot) + l2_sqr * (ip_cent_xucb / ip_resi_xucb_safe);
-            fRescaleEx = ipInv * (-1.0 * l2_norm);
+        } else if (metrics == Metrics.DOT_PRODUCT_METRIC) {
+            fAddEx = 1.0 - residual.dot(centroid) + residual_l2_sqr * (ip_cent_xucb / ip_resi_xucb_safe);
+            fRescaleEx = ipInv * (-1.0 * residual_l2_norm);
             fErrorEx = tmp_error;
         } else {
             throw new IllegalArgumentException("Unsupported metric");
         }
 
-        return new Result(totalCode, base.t, ipInv, fAddEx, fRescaleEx, fErrorEx);
+        return new Result(new EncodedVector(totalCode, fAddEx, fRescaleEx), base.t, ipInv, fErrorEx);
     }
 
     /**
@@ -142,23 +132,21 @@ public final class Quantizer {
      * ipnormInv.
      * @param residual Rotated residual vector r (same thing the C++ feeds here).
      *                 This method internally uses |r| normalized to unit L2.
-     * @param exBits   # extra bits per dimension (e.g. 1..8)
      */
-    public static QuantizeExResult exBitsCode(double[] residual, int exBits) {
-        int dims = residual.length;
+    public QuantizeExResult exBitsCode(@Nonnull final Vector residual) {
+        int dims = residual.getNumDimensions();
 
         // oAbs = |r| normalized (RaBitQ does this before quantizeEx)
-        double[] oAbs = absOfNormalized(residual);
+        final Vector oAbs = absOfNormalized(residual);
 
-        final QuantizeExResult q = quantizeEx(oAbs, exBits);
+        final QuantizeExResult q = quantizeEx(oAbs);
 
         int[] k = q.code;
-
         // revert codes for negative dims
         int[] signed = new int[dims];
-        int mask = (1 << exBits) - 1;
+        int mask = (1 << numExBits) - 1;
         for (int j = 0; j < dims; ++j) {
-            if (residual[j] < 0) {
+            if (residual.getComponent(j) < 0) {
                 int tmp = k[j];
                 signed[j] = (~tmp) & mask;
             } else {
@@ -173,31 +161,30 @@ public final class Quantizer {
      * Method to quantize a vector.
      *
      * @param oAbs   absolute values of a L2-normalized residual vector (nonnegative; length = dim)
-     * @param exBits number of extra bits per coordinate (e.g., 1..8)
      * @return       quantized levels (ex-bits), the chosen scale t, and ipnormInv
      * Notes:
      * - If the residual is the all-zero vector (or numerically so), this returns zero codes,
      *   t = 0, and ipnormInv = 1 (benign fallback, matching the C++ guard with isnormal()).
      * - Downstream code (ex_bits_code_with_factor) uses ipnormInv to compute f_rescale_ex, etc.
      */
-    public static QuantizeExResult quantizeEx(double[] oAbs, int exBits) {
-        final int dim = oAbs.length;
-        final int maxLevel = (1 << exBits) - 1;
+    public QuantizeExResult quantizeEx(@Nonnull final Vector oAbs) {
+        final int dim = oAbs.getNumDimensions();
+        final int maxLevel = (1 << numExBits) - 1;
 
         // Choose t via the sweep.
-        double t = bestRescaleFactor(oAbs, exBits);
+        double t = bestRescaleFactor(oAbs);
         // ipnorm = sum_i ( (k_i + 0.5) * |r_i| )
         double ipnorm = 0.0;
 
         // Build per-coordinate integer levels: k_i = floor(t * |r_i|)
         int[] code = new int[dim];
         for (int i = 0; i < dim; i++) {
-            int k = (int) Math.floor(t * oAbs[i] + EPS);
+            int k = (int) Math.floor(t * oAbs.getComponent(i) + EPS);
             if (k > maxLevel) {
                 k = maxLevel;
             }
             code[i] = k;
-            ipnorm += (k + 0.5) * oAbs[i];
+            ipnorm += (k + 0.5) * oAbs.getComponent(i);
         }
 
         // ipnormInv = 1 / ipnorm, with a benign fallback (matches std::isnormal guard).
@@ -217,21 +204,16 @@ public final class Quantizer {
     /**
      *  Method to compute the best factor {@code t}.
      *  @param oAbs   absolute values of a (row-wise) normalized residual; length = dim; nonnegative
-     *  @param exBits number of extra bits per coordinate (1..8 supported by the constants)
      *  @return t     the rescale factor that maximizes the objective
      */
-    public static double bestRescaleFactor(double[] oAbs, int exBits) {
-        final int dim = oAbs.length;
-        if (dim == 0) {
-            throw new IllegalArgumentException("don't support 0 dimensions");
-        }
-        if (exBits < 0 || exBits >= TIGHT_START.length) {
-            throw new IllegalArgumentException("exBits out of supported range");
+    public double bestRescaleFactor(@Nonnull final Vector oAbs) {
+        if (numExBits < 0 || numExBits >= TIGHT_START.length) {
+            throw new IllegalArgumentException("numExBits out of supported range");
         }
 
         // max_o = max(oAbs)
         double maxO = 0.0d;
-        for (double v : oAbs) {
+        for (double v : oAbs.getData()) {
             if (v > maxO) {
                 maxO = v;
             }
@@ -241,27 +223,27 @@ public final class Quantizer {
         }
 
         // t_end and a "tight" t_start as in the C++ code
-        final int maxLevel = (1 << exBits) - 1;
+        final int maxLevel = (1 << numExBits) - 1;
         final double tEnd = ((maxLevel) + N_ENUM) / maxO;
-        final double tStart = tEnd * TIGHT_START[exBits];
+        final double tStart = tEnd * TIGHT_START[numExBits];
 
         // cur_o_bar[i] = floor(tStart * oAbs[i]), but stored as int
-        final int[] curOB = new int[dim];
-        double sqrDen = dim * 0.25; // Σ (cur^2 + cur) starts from D/4
+        final int[] curOB = new int[getNumDimensions()];
+        double sqrDen = getNumDimensions() * 0.25; // Σ (cur^2 + cur) starts from D/4
         double numer = 0.0;
-        for (int i = 0; i < dim; i++) {
-            int cur = (int) ((tStart * oAbs[i]) + EPS);
+        for (int i = 0; i < getNumDimensions(); i++) {
+            int cur = (int) ((tStart * oAbs.getComponent(i)) + EPS);
             curOB[i] = cur;
             sqrDen += (double) cur * cur + cur;
-            numer  += (cur + 0.5) * oAbs[i];
+            numer  += (cur + 0.5) * oAbs.getComponent(i);
         }
 
         // Min-heap keyed by next threshold t at which coord i increments:
         // t_i(k->k+1) = (curOB[i] + 1) / oAbs[i]
 
-        PriorityQueue<Node> pq = new PriorityQueue<>(Comparator.comparingDouble(n -> n.t));
-        for (int i = 0; i < dim; i++) {
-            final double curOAbs = oAbs[i];
+        final PriorityQueue<Node> pq = new PriorityQueue<>(Comparator.comparingDouble(n -> n.t));
+        for (int i = 0; i < getNumDimensions(); i++) {
+            final double curOAbs = oAbs.getComponent(i);
             if (curOAbs > 0.0) {
                 double tNext = (curOB[i] + 1) / curOAbs;
                 pq.add(new Node(tNext, i));
@@ -283,7 +265,7 @@ public final class Quantizer {
             // update denominator and numerator:
             // sqrDen += 2*u; numer += oAbs[i]
             sqrDen += 2.0 * u;
-            numer  += oAbs[i];
+            numer  += oAbs.getComponent(i);
 
             // objective value
             double curIp = numer / Math.sqrt(sqrDen);
@@ -294,7 +276,7 @@ public final class Quantizer {
 
             // schedule next threshold for this coordinate, unless we've hit max level
             if (u < maxLevel) {
-                double oi = oAbs[i];
+                double oi = oAbs.getComponent(i);
                 double tNext = (u + 1) / oi;
                 if (tNext < tEnd) {
                     pq.add(new Node(tNext, i));
@@ -305,22 +287,30 @@ public final class Quantizer {
         return bestT;
     }
 
+    private static Vector absOfNormalized(@Nonnull final Vector x) {
+        double n = x.l2Norm();
+        double[] y = new double[x.getNumDimensions()];
+        if (n == 0.0 || !Double.isFinite(n)) {
+            return new DoubleVector(y); // all zeros
+        }
+        double inv = 1.0 / n;
+        for (int i = 0; i < x.getNumDimensions(); i++) {
+            y[i] = Math.abs(x.getComponent(i) * inv);
+        }
+        return new DoubleVector(y);
+    }
+
     @SuppressWarnings("checkstyle:MemberName")
     public static final class Result {
-        public final int[] signedCode;   // sign ⊙ k
+        public EncodedVector encodedVector;
         public final double t;
         public final double ipnormInv;
-        public final double fAddEx;
-        public final double fRescaleEx;
         public final double fErrorEx;
 
-        public Result(int[] signedCode, double t, double ipnormInv,
-                      double fAddEx, double fRescaleEx, double fErrorEx) {
-            this.signedCode = signedCode;
+        public Result(@Nonnull final EncodedVector encodedVector, double t, double ipnormInv, double fErrorEx) {
+            this.encodedVector = encodedVector;
             this.t = t;
             this.ipnormInv = ipnormInv;
-            this.fAddEx = fAddEx;
-            this.fRescaleEx = fRescaleEx;
             this.fErrorEx = fErrorEx;
         }
     }

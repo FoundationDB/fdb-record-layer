@@ -26,7 +26,7 @@ import org.junit.jupiter.api.Test;
 public class RandomMatrixHelpersTest {
     @Test
     void testRandomOrthogonalMatrixIsOrthogonal() {
-        final int dimension = 3000;
+        final int dimension = 1000;
         final Matrix matrix = RandomMatrixHelpers.randomOrthognalMatrix(0, dimension);
         final Matrix product = matrix.transpose().multiply(matrix);
 

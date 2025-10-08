@@ -71,7 +71,7 @@ public class NodeReferenceWithVector extends NodeReference {
      * @return a non-null {@code Vector<Double>} containing the elements of this vector.
      */
     @Nonnull
-    public Vector.DoubleVector getDoubleVector() {
+    public DoubleVector getDoubleVector() {
         return vector.toDoubleVector();
     }
 
@@ -116,8 +116,6 @@ public class NodeReferenceWithVector extends NodeReference {
      */
     @Override
     public String toString() {
-        return "NRV[primaryKey=" + getPrimaryKey() +
-                ";vector=" + vector.toString(3) +
-                "]";
+        return "NRV[primaryKey=" + getPrimaryKey() + ";vector=" + vector + "]";
     }
 }
