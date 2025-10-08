@@ -110,7 +110,7 @@ test_block:
           )
           TRAVERSAL ORDER post_order
           SELECT name FROM subordinates WHERE id != 1
-      - supported_version: !current_version
+      - supported_version: 4.7.3.0
       - result: [{name: "David"},
                  {name: "Eve"},
                  {name: "Bob"},

@@ -122,6 +122,6 @@ test_block:
     -
       # subscript from empty array
       - query: select cast([] as string array)[0] AS ERR FROM F where pk = 1;
-      - supported_version: !current_version
+      - supported_version: 4.7.3.0
       - result: [{ERR: !null _}]
 ...
