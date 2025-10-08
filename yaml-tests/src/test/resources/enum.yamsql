@@ -119,8 +119,14 @@ test_block:
                           {15, 'bob', !null }]
     -
       - query: SELECT * From TABLE_A where "mood" = 'NOT_A_VALID_MOOD'
+      - initialVersionAtLeast: !current_version
+      - error: "XX000"
+      - initialVersionLessThan: !current_version
       - error: "XXXXX"
     -
       - query: SELECT * From TABLE_A where "mood" < 'NOT_A_VALID_MOOD'
+      - initialVersionAtLeast: !current_version
+      - error: "XX000"
+      - initialVersionLessThan: !current_version
       - error: "XXXXX"
 ...
