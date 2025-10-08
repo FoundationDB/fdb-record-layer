@@ -179,12 +179,6 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
-    @MaintainYamlTestConfig(YamlTestConfigFilters.CORRECT_EXPLAIN_AND_METRICS)
-    public void inPredicateDebug(YamlTest.Runner runner) throws Exception {
-        runner.runYamsql("in-predicate-debug.yamsql");
-    }
-
-    @TestTemplate
     void booleanTypes(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("boolean.yamsql");
     }
