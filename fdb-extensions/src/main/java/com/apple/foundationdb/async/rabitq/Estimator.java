@@ -20,44 +20,40 @@
 
 package com.apple.foundationdb.async.rabitq;
 
-public class Estimator {
-    /** Estimate metric(queryRot, encodedVector) using ex-bits-only factors. */
-    public static double estimate(final double[] queryRot,      // pre-rotated query q
-                                  final double[] centroidRot,   // centroid c for this code (same rotated space)
-                                  final int[] totalCode,        // packed sign+magnitude per dim
-                                  final int exBits,             // B
-                                  final double fAddEx,          // from ex_bits_code_with_factor at encode-time
-                                  final double fRescaleEx       // from ex_bits_code_with_factor at encode-time
-    ) {
-        final int D = queryRot.length;
-        final double cb = (1 << exBits) - 0.5;
+import com.apple.foundationdb.async.hnsw.DoubleVector;
+import com.apple.foundationdb.async.hnsw.Vector;
 
-        // dot((q - c), xu_cb), with xu_cb = totalCode - cb
-        double gAdd = 0.0;
-        double dot = 0.0;
-        for (int i = 0; i < D; i++) {
-            double qc  = queryRot[i] - centroidRot[i];
-            double xuc = totalCode[i] - cb;
-            gAdd += qc * qc;
-            dot += qc * xuc;
-        }
-        // Same formula for both metrics; just ensure fAddEx/fRescaleEx were computed for that metric.
-        return fAddEx + gAdd + fRescaleEx * dot;
+import javax.annotation.Nonnull;
+
+public class Estimator {
+    @Nonnull
+    private final Vector centroid;
+    private final int numExBits;
+
+    public Estimator(@Nonnull final Vector centroid,
+                     final int numExBits) {
+        this.centroid = centroid;
+        this.numExBits = numExBits;
     }
 
-    /** Optional: same estimate but avoids recomputing (q - c) each time. */
-    public static double estimateWithResidual(
-            double[] residualRot,    // r = q - c (precomputed)
-            int[] totalCode, int exBits,
-            double fAddEx, double fRescaleEx
+    public int getNumDimensions() {
+        return centroid.getNumDimensions();
+    }
+
+    /** Estimate metric(queryRot, encodedVector) using ex-bits-only factors. */
+    public double estimate(@Nonnull final Vector query, // pre-rotated query q
+                           @Nonnull final EncodedVector encodedVector
     ) {
-        final int D = residualRot.length;
-        final double cb = (1 << exBits) - 0.5;
-        double dot = 0.0;
-        for (int i = 0; i < D; i++) {
-            dot += residualRot[i] * (totalCode[i] - cb);
-        }
-        return fAddEx + fRescaleEx * dot;
+        final double cb = (1 << numExBits) - 0.5;
+
+        final Vector qc = query.subtract(centroid);
+        final double gAdd = qc.dot(qc);
+        final Vector totalCode = new DoubleVector(encodedVector.getEncodedData());
+        final Vector xuc = totalCode.subtract(cb);
+        final double dot = qc.dot(xuc);
+
+        // Same formula for both metrics; just ensure fAddEx/fRescaleEx were computed for that metric.
+        return encodedVector.getfAddEx() + gAdd + encodedVector.getfRescaleEx() * dot;
     }
 }
 
