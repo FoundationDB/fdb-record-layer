@@ -1,6 +1,6 @@
 ---
 options:
-  supported_version: !current_version
+  supported_version: 4.7.2.0
 ---
 schema_template:
     create table employees(id bigint, name string, manager_id bigint, dept string, primary key(id))
@@ -26,7 +26,7 @@ test_block:
               SELECT name FROM employees WHERE dept = 'Engineering'
           )
           SELECT * FROM engineering_team
-      - supported_version: !current_version
+      - supported_version: 4.7.2.0
       - unorderedResult: [{name: "Bob"},
                           {name: "David"},
                           {name: "Eve"}]
@@ -40,7 +40,7 @@ test_block:
               WHERE s.id = e.manager_id
           )
           SELECT name FROM subordinates WHERE id != 1
-      - supported_version: !current_version
+      - supported_version: 4.7.2.0
       - unorderedResult: [{name: "Bob"},
                           {name: "David"},
                           {name: "Eve"},
@@ -57,7 +57,7 @@ test_block:
               WHERE mc.manager_id = e.id
           )
           SELECT name FROM management_chain
-      - supported_version: !current_version
+      - supported_version: 4.7.2.0
       - result: [{name: "Eve"},
                  {name: "Bob"},
                  {name: "Alice"}]
@@ -73,7 +73,7 @@ test_block:
           )
           TRAVERSAL ORDER level_order
           SELECT name, level FROM org_levels
-      - supported_version: !current_version
+      - supported_version: 4.7.2.0
       - result: [{name: "Alice", level: 0},
                  {name: "Bob", level: 1},
                  {name: "Carol", level: 1},
@@ -92,12 +92,30 @@ test_block:
           )
           TRAVERSAL ORDER pre_order
           SELECT name FROM subordinates WHERE id != 1
-      - supported_version: !current_version
+      - supported_version: 4.7.2.0
       - result: [{name: "Bob"},
                  {name: "David"},
                  {name: "Eve"},
                  {name: "Carol"},
                  {name: "Frank"}]
+
+    # Postorder Traversal
+    -
+      - query: WITH RECURSIVE subordinates AS (
+              SELECT id, name, manager_id FROM employees WHERE id = 1
+              UNION ALL
+              SELECT e.id, e.name, e.manager_id
+              FROM subordinates AS s, employees AS e
+              WHERE s.id = e.manager_id
+          )
+          TRAVERSAL ORDER post_order
+          SELECT name FROM subordinates WHERE id != 1
+      - supported_version: 4.7.3.0
+      - result: [{name: "David"},
+                 {name: "Eve"},
+                 {name: "Bob"},
+                 {name: "Frank"},
+                 {name: "Carol"}]
     -
       - query: delete from employees
     -
@@ -135,7 +153,7 @@ test_block:
               WHERE c.id = e.manager_id AND NOT EXISTS (SELECT name FROM c WHERE name = e.name)
           )
           SELECT name FROM colleagues_of_bob WHERE name != 'Bob'
-      - supported_version: !current_version
+      - supported_version: 4.7.2.0
       - unorderedResult: [{name: "Alice"},
                           {name: "Carol"},
                           {name: "David"},

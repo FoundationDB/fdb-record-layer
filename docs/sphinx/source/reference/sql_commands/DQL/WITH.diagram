@@ -34,6 +34,7 @@ Diagram(
                 Terminal('ORDER'),
                 Choice(0,
                     Terminal('pre_order'),
+                    Terminal('post_order'),
                     Terminal('level_order')
                 )
             ),

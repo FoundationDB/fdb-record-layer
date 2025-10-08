@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.CastValue;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.metadata.DataType;
@@ -336,6 +337,25 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         arguments.add(Expression.ofUnnamed(new ConditionSelectorValue(implications.build())));
         arguments.addAll(pickerValues.build());
         return getDelegate().resolveFunction("__pick_value", arguments.build().toArray(new Expression[0]));
+    }
+
+    @Nonnull
+    @Override
+    public Expression visitDataTypeFunctionCall(@Nonnull RelationalParser.DataTypeFunctionCallContext ctx) {
+        if (ctx.CAST() != null) {
+            final var sourceExpression = Assert.castUnchecked(ctx.expression().accept(this), Expression.class);
+            final var targetTypeString = ctx.convertedDataType().typeName.getText();
+            final var isRepeated = ctx.convertedDataType().ARRAY() != null;
+            final var targetDataType = getDelegate().getSemanticAnalyzer().lookupType(
+                    Identifier.of(targetTypeString), false, isRepeated, ignored -> Optional.empty());
+            final var targetType = DataTypeUtils.toRecordLayerType(targetDataType);
+
+            final var castValue = CastValue.inject(sourceExpression.getUnderlying(), targetType);
+            return Expression.ofUnnamed(targetDataType, castValue);
+        }
+
+        Assert.failUnchecked(ErrorCode.UNSUPPORTED_OPERATION, "CONVERT function is not yet supported");
+        return null;
     }
 
     @Nonnull
@@ -806,9 +826,9 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         final var targetTypeMaybe = maybeState.flatMap(LogicalPlanFragment.State::getTargetType);
 
         if (ctx.expressions() == null) {
-            final var elementType = targetTypeMaybe.map(type -> Assert.castUnchecked(type, Type.Array.class).getElementType())
-                    .orElse(Type.any());
-            return Expression.ofUnnamed(AbstractArrayConstructorValue.LightArrayConstructorValue.emptyArray(elementType));
+            final var elementTypeMaybe = targetTypeMaybe.map(type -> Assert.castUnchecked(type, Type.Array.class).getElementType());
+            return Expression.ofUnnamed(elementTypeMaybe.map(AbstractArrayConstructorValue.LightArrayConstructorValue::emptyArray)
+                    .orElse(AbstractArrayConstructorValue.LightArrayConstructorValue.emptyArrayOfNone()));
         }
 
         if (targetTypeMaybe.isEmpty()) {

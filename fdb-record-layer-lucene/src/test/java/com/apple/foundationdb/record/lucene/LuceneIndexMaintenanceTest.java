@@ -35,6 +35,9 @@ import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectoryLockFactory;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectoryWrapper;
 import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.provider.common.FixedZeroKeyManager;
+import com.apple.foundationdb.record.provider.common.RollingTestKeyManager;
+import com.apple.foundationdb.record.provider.common.SerializationKeyManager;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBExceptions;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
@@ -69,7 +72,10 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import javax.crypto.KeyGenerator;
+import javax.crypto.SecretKey;
 import java.io.IOException;
+import java.security.GeneralSecurityException;
 import java.time.Duration;
 import java.util.ArrayDeque;
 import java.util.HashMap;
@@ -102,6 +108,8 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.function;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.instanceOf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -250,11 +258,13 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
 
     static Stream<Arguments> manyDocumentsArgumentsSlow() {
         return Stream.concat(
-                Stream.of(Arguments.of(true, true, true, 80, 2, 200, 234809),
+                Stream.of(Arguments.of(true, true, true, true, false, 80, 2, 200, 234809),
                 // I don't know why, but this took over an hour, I'm hoping my laptop slept, but I don't see it
-                Arguments.of(false, true, false, 50, 8, 212, 3125111852333110588L)),
+                Arguments.of(false, true, false, true, false, 50, 8, 212, 3125111852333110588L)),
                 RandomizedTestUtils.randomArguments(random ->
                         Arguments.of(random.nextBoolean(),
+                                random.nextBoolean(),
+                                random.nextBoolean(),
                                 random.nextBoolean(),
                                 random.nextBoolean(),
                                 // We want to have a high partitionHighWatermark so that the underlying lucene indexes
@@ -271,11 +281,13 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
     void manyDocumentSlow(boolean isGrouped,
                           boolean isSynthetic,
                           boolean primaryKeySegmentIndexEnabled,
+                          boolean compressed,
+                          boolean encrypted,
                           int partitionHighWatermark,
                           int repartitionCount,
                           int loopCount,
-                          long seed) throws IOException {
-        manyDocument(isGrouped, isSynthetic, primaryKeySegmentIndexEnabled, partitionHighWatermark,
+                          long seed) throws IOException, GeneralSecurityException {
+        manyDocuments(isGrouped, isSynthetic, primaryKeySegmentIndexEnabled, compressed, encrypted, partitionHighWatermark,
                 repartitionCount, loopCount, 10, seed);
     }
 
@@ -283,15 +295,17 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
     static Stream<Arguments> manyDocumentsArguments() {
         return Stream.concat(
                 Stream.concat(
-                        Stream.of(Arguments.of(true,  true,  true,  20, 4, 50, 3, -644766138635622644L)),
+                        Stream.of(Arguments.of(true,  true,  true,  true, false, 20, 4, 50, 3, -644766138635622644L)),
                         TestConfigurationUtils.onlyNightly(
                                 Stream.of(
-                                        Arguments.of(true,  false, false, 21, 3, 55, 3, 9237590782644L),
-                                        Arguments.of(false, true,  true,  18, 3, 46, 3, -1089113174774589435L),
-                                        Arguments.of(false, false, false, 24, 6, 59, 3, 6223372946177329440L),
-                                        Arguments.of(true,  false, false, 27, 9, 48, 3, 2451719304283565963L)))),
+                                        Arguments.of(true,  false, false, true, false, 21, 3, 55, 3, 9237590782644L),
+                                        Arguments.of(false, true,  true,  true, false, 18, 3, 46, 3, -1089113174774589435L),
+                                        Arguments.of(false, false, false, true, false, 24, 6, 59, 3, 6223372946177329440L),
+                                        Arguments.of(true,  false, false, true, false, 27, 9, 48, 3, 2451719304283565963L)))),
                 RandomizedTestUtils.randomArguments(random ->
                         Arguments.of(random.nextBoolean(),
+                                random.nextBoolean(),
+                                random.nextBoolean(),
                                 random.nextBoolean(),
                                 random.nextBoolean(),
                                 // We want to have a high partitionHighWatermark so that the underlying lucene indexes
@@ -305,14 +319,16 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
 
     @ParameterizedTest
     @MethodSource("manyDocumentsArguments")
-    void manyDocument(boolean isGrouped,
-                      boolean isSynthetic,
-                      boolean primaryKeySegmentIndexEnabled,
-                      int partitionHighWatermark,
-                      int repartitionCount,
-                      int loopCount,
-                      int maxTransactionsPerLoop,
-                      long seed) throws IOException {
+    void manyDocuments(boolean isGrouped,
+                       boolean isSynthetic,
+                       boolean primaryKeySegmentIndexEnabled,
+                       boolean compressed,
+                       boolean encrypted,
+                       int partitionHighWatermark,
+                       int repartitionCount,
+                       int loopCount,
+                       int maxTransactionsPerLoop,
+                       long seed) throws IOException, GeneralSecurityException {
         final LuceneIndexTestDataModel dataModel = new LuceneIndexTestDataModel.Builder(seed, this::getStoreBuilder, pathManager)
                 .setIsGrouped(isGrouped)
                 .setIsSynthetic(isSynthetic)
@@ -326,11 +342,16 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                 "seed", seed,
                 "loopCount", loopCount));
 
-        final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
+        final RecordLayerPropertyStorage.Builder contextPropsBuilder = RecordLayerPropertyStorage.newBuilder()
                 .addProp(LuceneRecordContextProperties.LUCENE_REPARTITION_DOCUMENT_COUNT, repartitionCount)
                 .addProp(LuceneRecordContextProperties.LUCENE_MAX_DOCUMENTS_TO_MOVE_DURING_REPARTITIONING, dataModel.nextInt(1000) + repartitionCount)
                 .addProp(LuceneRecordContextProperties.LUCENE_MERGE_SEGMENTS_PER_TIER, (double)dataModel.nextInt(10) + 2) // it must be at least 2.0
-                .build();
+                .addProp(LuceneRecordContextProperties.LUCENE_INDEX_COMPRESSION_ENABLED, compressed)
+                .addProp(LuceneRecordContextProperties.LUCENE_INDEX_ENCRYPTION_ENABLED, encrypted);
+        if (encrypted) {
+            contextPropsBuilder.addProp(LuceneRecordContextProperties.LUCENE_INDEX_KEY_MANAGER, new RollingTestKeyManager(seed));
+        }
+        final RecordLayerPropertyStorage contextProps = contextPropsBuilder.build();
         for (int i = 0; i < loopCount; i++) {
             LOGGER.info(KeyValueLogMessage.of("ManyDocument loop",
                     "iteration", i,
@@ -878,6 +899,52 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                 assertThat(partitionCounts, Matchers.contains(5, 3, 4)));
     }
 
+    static Stream<Arguments> changingEncryptionKey() {
+        return Stream.concat(Stream.of(Arguments.of(true, true, 288513),
+                Arguments.of(false, false, 792025)),
+                RandomizedTestUtils.randomArguments(random ->
+                        Arguments.of(random.nextBoolean(), random.nextBoolean(), random.nextLong())));
+    }
+
+    @ParameterizedTest
+    @MethodSource
+    void changingEncryptionKey(boolean isSynthetic, boolean isGrouped, long seed) throws IOException, GeneralSecurityException {
+        final LuceneIndexTestDataModel dataModel = new LuceneIndexTestDataModel.Builder(seed, this::getStoreBuilder, pathManager)
+                .setIsGrouped(isGrouped)
+                .setIsSynthetic(isSynthetic)
+                .setPrimaryKeySegmentIndexEnabled(true)
+                .build();
+
+        final RecordLayerPropertyStorage.Builder contextPropsBuilder = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_INDEX_COMPRESSION_ENABLED, true)
+                .addProp(LuceneRecordContextProperties.LUCENE_INDEX_ENCRYPTION_ENABLED, true);
+        final KeyGenerator keyGen = KeyGenerator.getInstance("AES");
+        keyGen.init(128);
+        final SecretKey key1 = keyGen.generateKey();
+        final SerializationKeyManager keyManager1 = new FixedZeroKeyManager(key1, null, null);
+        contextPropsBuilder.addProp(LuceneRecordContextProperties.LUCENE_INDEX_KEY_MANAGER, keyManager1);
+        final RecordLayerPropertyStorage contextProps1 = contextPropsBuilder.build();
+
+        try (FDBRecordContext context = openContext(contextProps1)) {
+            dataModel.saveRecordsToAllGroups(20, context);
+            commit(context);
+        }
+
+        explicitMergeIndex(dataModel.index, contextProps1, dataModel.schemaSetup);
+
+        final SecretKey key2 = keyGen.generateKey();
+        final SerializationKeyManager keyManager2 = new FixedZeroKeyManager(key2, null, null);
+        contextPropsBuilder.removeProp(LuceneRecordContextProperties.LUCENE_INDEX_KEY_MANAGER);
+        contextPropsBuilder.addProp(LuceneRecordContextProperties.LUCENE_INDEX_KEY_MANAGER, keyManager2);
+        final RecordLayerPropertyStorage contextProps2 = contextPropsBuilder.build();
+        IOException ioException = assertThrows(IOException.class,
+                () -> dataModel.validate(() -> openContext(contextProps2)));
+        assertThat(ioException.getCause(), instanceOf(RecordCoreException.class));
+        assertThat(ioException.getCause().getMessage(), containsString("Lucene data decoding failure"));
+        assertThat(ioException.getCause().getCause(), instanceOf(GeneralSecurityException.class));
+
+    }
+
     private static Stream<Arguments> concurrentParameters() {
         // only run the individual tests with synthetic during nightly, the mix runs both
         return Stream.concat(Stream.of(false),
@@ -1279,6 +1346,9 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
     }
 
     protected RecordLayerPropertyStorage.Builder addDefaultProps(final RecordLayerPropertyStorage.Builder props) {
+        if (props.hasProp(LuceneRecordContextProperties.LUCENE_INDEX_COMPRESSION_ENABLED)) {
+            return props;
+        }
         return super.addDefaultProps(props).addProp(LuceneRecordContextProperties.LUCENE_INDEX_COMPRESSION_ENABLED, true);
     }
 }

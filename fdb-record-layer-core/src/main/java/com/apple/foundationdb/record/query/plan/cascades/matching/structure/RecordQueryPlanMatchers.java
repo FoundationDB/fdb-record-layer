@@ -817,9 +817,9 @@ public class RecordQueryPlanMatchers {
     }
 
     @Nonnull
-    public static BindingMatcher<RecursiveUnionExpression> preOrderTraversalIsAllowed() {
+    public static BindingMatcher<RecursiveUnionExpression> dfsTraversalAllowed() {
         return typedWithDownstream(RecursiveUnionExpression.class,
-                Extractor.of(RecursiveUnionExpression::preOrderTraversalAllowed, name -> "preorderTraversal(" + name + ")"),
+                Extractor.of(RecursiveUnionExpression::dfsTraversalAllowed, name -> "dfsTraversal(" + name + ")"),
                 PrimitiveMatchers.equalsObject(true));
     }
 

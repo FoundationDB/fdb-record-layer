@@ -1,0 +1,274 @@
+cast-operator-tests:
+-   query: EXPLAIN select CAST([1, 2, 3] AS STRING ARRAY) from test_cast where id
+        = 1
+    explain: SCAN(<,>) | TFILTER TEST_CAST | FILTER _.ID EQUALS promote(@c20 AS LONG)
+        | MAP (CAST(array(@c20, @c7, @c9) AS ARRAY(STRING)) AS _0)
+    task_count: 230
+    task_total_time_ms: 43
+    transform_count: 61
+    transform_time_ms: 29
+    transform_yield_count: 15
+    insert_time_ms: 4
+    insert_new_count: 21
+    insert_reused_count: 2
+-   query: EXPLAIN select CAST([] AS STRING ARRAY) from test_cast where id = 1
+    explain: SCAN(<,>) | TFILTER TEST_CAST | FILTER _.ID EQUALS promote(@c15 AS LONG)
+        | MAP (array() AS _0)
+    task_count: 230
+    task_total_time_ms: 13
+    transform_count: 61
+    transform_time_ms: 7
+    transform_yield_count: 15
+    insert_time_ms: 1
+    insert_new_count: 21
+    insert_reused_count: 2
+-   query: EXPLAIN select CAST([1, 2, 3] AS DOUBLE ARRAY) from test_cast where id
+        = 1
+    explain: SCAN(<,>) | TFILTER TEST_CAST | FILTER _.ID EQUALS promote(@c20 AS LONG)
+        | MAP (CAST(array(@c20, @c7, @c9) AS ARRAY(DOUBLE)) AS _0)
+    task_count: 230
+    task_total_time_ms: 11
+    transform_count: 61
+    transform_time_ms: 5
+    transform_yield_count: 15
+    insert_time_ms: 1
+    insert_new_count: 21
+    insert_reused_count: 2
+-   query: EXPLAIN select CAST(['42', '100', '7'] AS INTEGER ARRAY) from test_cast
+        where id = 1
+    explain: SCAN(<,>) | TFILTER TEST_CAST | FILTER _.ID EQUALS promote(@c20 AS LONG)
+        | MAP (CAST(array(@c5, @c7, @c9) AS ARRAY(INT)) AS _0)
+    task_count: 230
+    task_total_time_ms: 12
+    transform_count: 61
+    transform_time_ms: 5
+    transform_yield_count: 15
+    insert_time_ms: 0
+    insert_new_count: 21
+    insert_reused_count: 2
+-   query: EXPLAIN select CAST([true, false, true] AS INTEGER ARRAY) from test_cast
+        where id = 1
+    explain: SCAN(<,>) | TFILTER TEST_CAST | FILTER _.ID EQUALS promote(@c20 AS LONG)
+        | MAP (CAST(array(@c5, @c7, @c5) AS ARRAY(INT)) AS _0)
+    task_count: 230
+    task_total_time_ms: 10
+    transform_count: 61
+    transform_time_ms: 6
+    transform_yield_count: 15
+    insert_time_ms: 0
+    insert_new_count: 21
+    insert_reused_count: 2
+-   query: EXPLAIN select CAST([1, 0, 42] AS BOOLEAN ARRAY) from test_cast where id
+        = 1
+    explain: SCAN(<,>) | TFILTER TEST_CAST | FILTER _.ID EQUALS promote(@c20 AS LONG)
+        | MAP (CAST(array(@c20, @c7, @c9) AS ARRAY(BOOLEAN)) AS _0)
+    task_count: 230
+    task_total_time_ms: 9
+    transform_count: 61
+    transform_time_ms: 5
+    transform_yield_count: 15
+    insert_time_ms: 0
+    insert_new_count: 21
+    insert_reused_count: 2
+-   query: EXPLAIN select CAST([] AS INTEGER ARRAY) from test_cast where id = 1
+    explain: SCAN(<,>) | TFILTER TEST_CAST | FILTER _.ID EQUALS promote(@c15 AS LONG)
+        | MAP (array() AS _0)
+    task_count: 230
+    task_total_time_ms: 7
+    transform_count: 61
+    transform_time_ms: 3
+    transform_yield_count: 15
+    insert_time_ms: 0
+    insert_new_count: 21
+    insert_reused_count: 2
+-   query: EXPLAIN select CAST([] AS DOUBLE ARRAY) from test_cast where id = 1
+    explain: SCAN(<,>) | TFILTER TEST_CAST | FILTER _.ID EQUALS promote(@c15 AS LONG)
+        | MAP (array() AS _0)
+    task_count: 230
+    task_total_time_ms: 18
+    transform_count: 61
+    transform_time_ms: 15
+    transform_yield_count: 15
+    insert_time_ms: 0
+    insert_new_count: 21
+    insert_reused_count: 2
+-   query: EXPLAIN select CAST([] AS BOOLEAN ARRAY) from test_cast where id = 1
+    explain: SCAN(<,>) | TFILTER TEST_CAST | FILTER _.ID EQUALS promote(@c15 AS LONG)
+        | MAP (array() AS _0)
+    task_count: 230
+    task_total_time_ms: 7
+    transform_count: 61
+    transform_time_ms: 4
+    transform_yield_count: 15
+    insert_time_ms: 0
+    insert_new_count: 21
+    insert_reused_count: 2
+-   query: EXPLAIN select CAST([1, 2, 3] AS INTEGER ARRAY) from test_cast where id
+        = 1
+    explain: SCAN(<,>) | TFILTER TEST_CAST | FILTER _.ID EQUALS promote(@c20 AS LONG)
+        | MAP (array(@c20, @c7, @c9) AS _0)
+    task_count: 230
+    task_total_time_ms: 11
+    transform_count: 61
+    transform_time_ms: 7
+    transform_yield_count: 15
+    insert_time_ms: 0
+    insert_new_count: 21
+    insert_reused_count: 2
+-   query: EXPLAIN select CAST([1, 2, 3, 4, 5, 6, 7, 8, 9, 10] AS STRING ARRAY) from
+        test_cast where id = 1
+    explain: SCAN(<,>) | TFILTER TEST_CAST | FILTER _.ID EQUALS promote(@c34 AS LONG)
+        | MAP (CAST(array(@c34, @c7, @c9, @c11, @c13, @c15, @c17, @c19, @c21, @c23)
+        AS ARRAY(STRING)) AS _0)
+    task_count: 230
+    task_total_time_ms: 9
+    transform_count: 61
+    transform_time_ms: 5
+    transform_yield_count: 15
+    insert_time_ms: 0
+    insert_new_count: 21
+    insert_reused_count: 2
+-   query: EXPLAIN select CAST(num_col AS STRING) as casted_value from test_cast where
+        id = 1
+    explain: SCAN(<,>) | TFILTER TEST_CAST | FILTER _.ID EQUALS promote(@c15 AS LONG)
+        | MAP (CAST(_.NUM_COL AS STRING) AS CASTED_VALUE)
+    task_count: 230
+    task_total_time_ms: 6
+    transform_count: 61
+    transform_time_ms: 2
+    transform_yield_count: 15
+    insert_time_ms: 0
+    insert_new_count: 21
+    insert_reused_count: 2
+-   query: EXPLAIN select CAST(num_col AS DOUBLE) as casted_value from test_cast where
+        id = 1
+    explain: SCAN(<,>) | TFILTER TEST_CAST | FILTER _.ID EQUALS promote(@c15 AS LONG)
+        | MAP (CAST(_.NUM_COL AS DOUBLE) AS CASTED_VALUE)
+    task_count: 230
+    task_total_time_ms: 5
+    transform_count: 61
+    transform_time_ms: 2
+    transform_yield_count: 15
+    insert_time_ms: 0
+    insert_new_count: 21
+    insert_reused_count: 2
+-   query: EXPLAIN select CAST(bool_col AS INTEGER) as casted_value from test_cast
+        where id = 1
+    explain: SCAN(<,>) | TFILTER TEST_CAST | FILTER _.ID EQUALS promote(@c15 AS LONG)
+        | MAP (CAST(_.BOOL_COL AS INT) AS CASTED_VALUE)
+    task_count: 230
+    task_total_time_ms: 7
+    transform_count: 61
+    transform_time_ms: 3
+    transform_yield_count: 15
+    insert_time_ms: 0
+    insert_new_count: 21
+    insert_reused_count: 2
+-   query: EXPLAIN select CAST(bool_col AS INTEGER) as casted_value from test_cast
+        where id = 2
+    explain: SCAN(<,>) | TFILTER TEST_CAST | FILTER _.ID EQUALS promote(@c15 AS LONG)
+        | MAP (CAST(_.BOOL_COL AS INT) AS CASTED_VALUE)
+    task_count: 230
+    task_total_time_ms: 7
+    transform_count: 61
+    transform_time_ms: 3
+    transform_yield_count: 15
+    insert_time_ms: 0
+    insert_new_count: 21
+    insert_reused_count: 2
+-   query: EXPLAIN select CAST(str_col AS INTEGER) as casted_value from test_cast
+        where id = 3
+    explain: SCAN(<,>) | TFILTER TEST_CAST | FILTER _.ID EQUALS promote(@c15 AS LONG)
+        | MAP (CAST(_.STR_COL AS INT) AS CASTED_VALUE)
+    task_count: 230
+    task_total_time_ms: 5
+    transform_count: 61
+    transform_time_ms: 2
+    transform_yield_count: 15
+    insert_time_ms: 0
+    insert_new_count: 21
+    insert_reused_count: 2
+-   query: EXPLAIN select CAST(CAST(CAST(num_col AS STRING) AS INTEGER) AS DOUBLE)
+        as nested_cast from test_cast where id = 1
+    explain: SCAN(<,>) | TFILTER TEST_CAST | FILTER _.ID EQUALS promote(@c25 AS LONG)
+        | MAP (CAST(CAST(CAST(_.NUM_COL AS STRING) AS INT) AS DOUBLE) AS NESTED_CAST)
+    task_count: 230
+    task_total_time_ms: 6
+    transform_count: 61
+    transform_time_ms: 3
+    transform_yield_count: 15
+    insert_time_ms: 0
+    insert_new_count: 21
+    insert_reused_count: 2
+-   query: EXPLAIN select CAST(num_col AS DOUBLE) * 2.5 as cast_arithmetic from test_cast
+        where id = 1
+    explain: SCAN(<,>) | TFILTER TEST_CAST | FILTER _.ID EQUALS promote(@c17 AS LONG)
+        | MAP (CAST(_.NUM_COL AS DOUBLE) * @c9 AS CAST_ARITHMETIC)
+    task_count: 230
+    task_total_time_ms: 5
+    transform_count: 61
+    transform_time_ms: 2
+    transform_yield_count: 15
+    insert_time_ms: 0
+    insert_new_count: 21
+    insert_reused_count: 2
+-   query: EXPLAIN select CAST(num_col AS BIGINT) + CAST(456 AS BIGINT) as cast_sum
+        from test_cast where id = 1
+    explain: SCAN(<,>) | TFILTER TEST_CAST | FILTER _.ID EQUALS promote(@c22 AS LONG)
+        | MAP (CAST(_.NUM_COL AS LONG) + CAST(@c11 AS LONG) AS CAST_SUM)
+    task_count: 230
+    task_total_time_ms: 7
+    transform_count: 61
+    transform_time_ms: 3
+    transform_yield_count: 15
+    insert_time_ms: 0
+    insert_new_count: 21
+    insert_reused_count: 2
+-   query: EXPLAIN select CASE WHEN CAST(bool_col AS INTEGER) = 1 THEN 'TRUE_CASE'
+        ELSE 'FALSE_CASE' END as cast_case from test_cast where id = 1
+    explain: SCAN(<,>) | TFILTER TEST_CAST | FILTER _.ID EQUALS promote(@c24 AS LONG)
+        | MAP (pick(ConditionSelector(CAST(_.BOOL_COL AS INT) equals @c24, TRUE),
+        @c13, @c15) AS CAST_CASE)
+    task_count: 230
+    task_total_time_ms: 5
+    transform_count: 61
+    transform_time_ms: 2
+    transform_yield_count: 15
+    insert_time_ms: 0
+    insert_new_count: 21
+    insert_reused_count: 2
+-   query: EXPLAIN select id from test_cast where CAST(num_col AS STRING) = CAST(123
+        AS STRING)
+    explain: SCAN(<,>) | TFILTER TEST_CAST | FILTER CAST(_.NUM_COL AS STRING) EQUALS
+        CAST(@c15 AS STRING) | MAP (_.ID AS ID)
+    task_count: 230
+    task_total_time_ms: 7
+    transform_count: 61
+    transform_time_ms: 4
+    transform_yield_count: 15
+    insert_time_ms: 0
+    insert_new_count: 21
+    insert_reused_count: 2
+-   query: EXPLAIN select id from test_cast where CAST(bool_col AS INTEGER) + 1 >
+        1
+    explain: SCAN(<,>) | TFILTER TEST_CAST | FILTER CAST(_.BOOL_COL AS INT) + @c13
+        GREATER_THAN promote(@c13 AS INT) | MAP (_.ID AS ID)
+    task_count: 246
+    task_total_time_ms: 10
+    transform_count: 66
+    transform_time_ms: 5
+    transform_yield_count: 17
+    insert_time_ms: 0
+    insert_new_count: 25
+    insert_reused_count: 2
+-   query: EXPLAIN select SUM(CAST(num_col AS DOUBLE)) as total from test_cast
+    explain: SCAN(<,>) | TFILTER TEST_CAST | MAP (_ AS _0) | AGG (sum_d(CAST(_._0.NUM_COL
+        AS DOUBLE)) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS TOTAL)
+    task_count: 260
+    task_total_time_ms: 9
+    transform_count: 63
+    transform_time_ms: 4
+    transform_yield_count: 17
+    insert_time_ms: 0
+    insert_new_count: 24
+    insert_reused_count: 2

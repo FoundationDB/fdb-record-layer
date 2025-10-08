@@ -335,7 +335,7 @@ ctes
     ;
 
 traversalOrderClause
-    : TRAVERSAL ORDER order=(PRE_ORDER | LEVEL_ORDER)
+    : TRAVERSAL ORDER order=(PRE_ORDER | LEVEL_ORDER | POST_ORDER)
     ;
 
 namedQuery
@@ -810,7 +810,7 @@ convertedDataType
     (
       typeName=(BINARY| NCHAR) lengthOneDimension?
       | typeName=CHAR lengthOneDimension? (charSet charsetName)?
-      | typeName=(DATE | DATETIME | TIME | JSON | INT | INTEGER)
+      | typeName=(DATE | DATETIME | TIME | JSON | INT | INTEGER | STRING | DOUBLE | BOOLEAN | FLOAT | BIGINT | BYTES | UUID)
       | typeName=DECIMAL lengthTwoOptionalDimension?
       | (SIGNED | UNSIGNED) INTEGER?
     ) ARRAY?

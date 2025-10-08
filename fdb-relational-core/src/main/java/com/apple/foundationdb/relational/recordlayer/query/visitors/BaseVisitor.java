@@ -1397,7 +1397,7 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
     @Nonnull
     @Override
     public Object visitDataTypeFunctionCall(@Nonnull RelationalParser.DataTypeFunctionCallContext ctx) {
-        return visitChildren(ctx);
+        return expressionVisitor.visitDataTypeFunctionCall(ctx);
     }
 
     @Nonnull

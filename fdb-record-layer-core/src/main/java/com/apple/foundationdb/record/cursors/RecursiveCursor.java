@@ -65,12 +65,16 @@ public final class RecursiveCursor<T> implements RecordCursor<RecursiveCursor.Re
     @Nullable
     private RecordCursorResult<RecursiveValue<T>> lastResult;
 
+    private final boolean isPreorder;
+
     private RecursiveCursor(@Nonnull ChildCursorFunction<T> childCursorFunction,
                             @Nullable Function<T, byte[]> checkValueFunction,
-                            @Nonnull List<RecursiveNode<T>> nodes) {
+                            @Nonnull List<RecursiveNode<T>> nodes,
+                            final boolean isPreorder) {
         this.childCursorFunction = childCursorFunction;
         this.checkValueFunction = checkValueFunction;
         this.nodes = nodes;
+        this.isPreorder = isPreorder;
     }
 
     /**
@@ -86,7 +90,8 @@ public final class RecursiveCursor<T> implements RecordCursor<RecursiveCursor.Re
     public static <T> RecursiveCursor<T> create(@Nonnull Function<byte[], ? extends RecordCursor<T>> rootCursorFunction,
                                                 @Nonnull ChildCursorFunction<T> childCursorFunction,
                                                 @Nullable Function<T, byte[]> checkValueFunction,
-                                                @Nullable byte[] continuation) {
+                                                @Nullable byte[] continuation,
+                                                final boolean isPreorder) {
         final List<RecursiveNode<T>> nodes = new ArrayList<>();
         if (continuation == null) {
             nodes.add(RecursiveNode.forRoot(RecordCursorStartContinuation.START, rootCursorFunction.apply(null)));
@@ -121,7 +126,7 @@ public final class RecursiveCursor<T> implements RecordCursor<RecursiveCursor.Re
                 }
             }
         }
-        return new RecursiveCursor<>(childCursorFunction, checkValueFunction, nodes);
+        return new RecursiveCursor<>(childCursorFunction, checkValueFunction, nodes, isPreorder);
     }
 
     @Nonnull
@@ -289,8 +294,8 @@ public final class RecursiveCursor<T> implements RecordCursor<RecursiveCursor.Re
             return new RecursiveNode<>(null, checkValue, false, childContinuationBefore, null);
         }
 
-        public RecursiveNode<T> withCheckedValue(@Nullable T value) {
-            return new RecursiveNode<>(value, null, false, childContinuationBefore, null);
+        public RecursiveNode<T> withCheckedValue(@Nullable T value, boolean emitPending) {
+            return new RecursiveNode<>(value, null, emitPending, childContinuationBefore, null);
         }
     }
 
@@ -316,12 +321,16 @@ public final class RecursiveCursor<T> implements RecordCursor<RecursiveCursor.Re
         if (childResult.hasNext()) {
             node.childContinuationAfter = childResult.getContinuation();
             addChildNode(childResult.get());
-            if (node.emitPending) {
-                lastResult = RecordCursorResult.withNextValue(
-                        new RecursiveValue<>(node.value, depth, false),
-                        buildContinuation(depth + 1));
-                node.emitPending = false;
-                return AsyncUtil.READY_FALSE;
+            if (isPreorder) {
+                if (node.emitPending) {
+                    lastResult = RecordCursorResult.withNextValue(
+                            new RecursiveValue<>(node.value, depth, false),
+                            buildContinuation(depth + 1));
+                    node.emitPending = false;
+                    return AsyncUtil.READY_FALSE;
+                }
+            } else {
+                return AsyncUtil.READY_TRUE;
             }
         } else {
             final NoNextReason noNextReason = childResult.getNoNextReason();
@@ -378,7 +387,7 @@ public final class RecursiveCursor<T> implements RecordCursor<RecursiveCursor.Re
             }
             if (!addNode) {
                 // Replace check value with actual value so can open cursors below there, but using the loaded continuation.
-                nodes.set(currentDepth, continuationChildNode.withCheckedValue(value));
+                nodes.set(currentDepth, continuationChildNode.withCheckedValue(value, !isPreorder));
                 return;
             }
         }

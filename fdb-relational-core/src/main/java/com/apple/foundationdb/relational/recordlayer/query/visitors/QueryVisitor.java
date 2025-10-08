@@ -125,6 +125,8 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
                     traversalStrategy = RecursiveUnionExpression.TraversalStrategy.LEVEL;
                 } else if (order.PRE_ORDER() != null) {
                     traversalStrategy = RecursiveUnionExpression.TraversalStrategy.PREORDER;
+                } else if (order.POST_ORDER() != null) {
+                    traversalStrategy = RecursiveUnionExpression.TraversalStrategy.POSTORDER;
                 } else {
                     traversalStrategy = RecursiveUnionExpression.TraversalStrategy.ANY;
                     Assert.failUnchecked(ErrorCode.INTERNAL_ERROR, "Unsupported traversal " + order.getText());
@@ -134,7 +136,7 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
             }
             return LogicalOperators.of(ctx.namedQuery().stream().map(namedQuery -> handleRecursiveNamedQuery(namedQuery, traversalStrategy)).collect(ImmutableList.toImmutableList()));
         } else {
-            Assert.thatUnchecked(ctx.traversalOrderClause() == null, ErrorCode.SYNTAX_ERROR, "traversal order claude can only be defined with recursive CTE");
+            Assert.thatUnchecked(ctx.traversalOrderClause() == null, ErrorCode.SYNTAX_ERROR, "traversal order clause can only be defined with recursive CTE");
         }
         return LogicalOperators.of(ctx.namedQuery().stream().map(this::visitNamedQuery).collect(ImmutableList.toImmutableList()));
     }

@@ -321,4 +321,19 @@ public class YamlIntegrationTests {
     public void caseSensitivityTest(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("case-sensitivity.yamsql");
     }
+
+    @TestTemplate
+    public void compositeAggregates(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("composite-aggregates.yamsql");
+    }
+
+    @TestTemplate
+    public void serializationOptions(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("serialization-options.yamsql");
+    }
+
+    @TestTemplate
+    public void castTests(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("cast-tests.yamsql");
+    }
 }

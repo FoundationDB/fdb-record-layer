@@ -576,10 +576,11 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
          * Starting from vertex 1:
          * - LEVEL traversal would return: [1, 10, 20, 40, 50, 70, 100, 210, 250]
          * - PREORDER traversal would return: [1, 10, 40, 50, 250, 70, 20, 100, 210]
+         * - POSTORDER traversal would return: [40, 250, 50, 70, 10, 100, 210, 20, 1]
          * - ANY traversal returns pre-order because the optimizer always prefers pre-order when given ANY order
          *
          * @param vertex The starting vertex to find descendants from. Must be >= ROOT.
-         * @param traversalStrategy The traversal order to use (LEVEL, PREORDER, or ANY).
+         * @param traversalStrategy The traversal order to use (LEVEL, PREORDER, POSTORDER, or ANY).
          * @return A list of all descendants (including the starting vertex) in the specified traversal order.
          */
         @Nonnull
@@ -590,9 +591,14 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
                 case PREORDER:
                 case ANY: // Optimizer always prefers pre-order when given ANY order
                     Verify.verify(vertex >= ROOT);
-                    final var result = ImmutableList.<Long>builder();
-                    calculateDescendantsPreOrder(vertex, result);
-                    return result.build();
+                    final var preResult = ImmutableList.<Long>builder();
+                    calculateDescendantsPreOrder(vertex, preResult);
+                    return preResult.build();
+                case POSTORDER:
+                    Verify.verify(vertex >= ROOT);
+                    final var postResult = ImmutableList.<Long>builder();
+                    calculateDescendantsPostOrder(vertex, postResult);
+                    return postResult.build();
                 default:
                     throw new IllegalArgumentException("Unsupported traversal type: " + traversalStrategy);
             }
@@ -665,6 +671,37 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
             for (final var child : children) {
                 calculateDescendantsPreOrder(child, result);
             }
+        }
+
+        /**
+         * Helper method for post-order (depth-first) traversal of descendants.
+         * This method recursively visits all of its children from left to right first, then visits the current vertex.
+         * Uses a recursive approach for depth-first traversal where children are processed before their parent.
+         * <br>
+         * For example, given the hierarchy:
+         * <pre>
+         * {@code
+         *         1
+         *       /   \
+         *      10    20
+         *    / | \   / \
+         *   40 50 70 100 210
+         *      |
+         *     250
+         * }
+         * </pre>
+         * Starting from vertex 1, this method would visit nodes in this order: [40, 250, 50, 70, 10, 100, 210, 20, 1]
+         * <br>
+         * @param vertex The current vertex being visited.
+         * @param result The builder to accumulate the traversal results.
+         */
+        private void calculateDescendantsPostOrder(long vertex,
+                                                   @Nonnull final ImmutableList.Builder<Long> result) {
+            final var children = reverseLookup.get().get(vertex);
+            for (final var child : children) {
+                calculateDescendantsPostOrder(child, result);
+            }
+            result.add(vertex);
         }
 
         @Nonnull
