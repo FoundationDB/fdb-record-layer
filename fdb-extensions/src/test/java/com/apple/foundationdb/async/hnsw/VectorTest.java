@@ -41,9 +41,9 @@ public class VectorTest {
     @MethodSource("randomSeeds")
     void testSerializationDeserializationHalfVector(final long seed) {
         final Random random = new Random(seed);
-        final Vector.HalfVector randomVector = createRandomHalfVector(random, 128);
+        final HalfVector randomVector = createRandomHalfVector(random, 128);
         final Vector deserializedVector = StorageAdapter.vectorFromBytes(randomVector.getRawData());
-        Assertions.assertThat(deserializedVector).isInstanceOf(Vector.HalfVector.class);
+        Assertions.assertThat(deserializedVector).isInstanceOf(HalfVector.class);
         Assertions.assertThat(deserializedVector).isEqualTo(randomVector);
     }
 
@@ -51,29 +51,27 @@ public class VectorTest {
     @MethodSource("randomSeeds")
     void testSerializationDeserializationDoubleVector(final long seed) {
         final Random random = new Random(seed);
-        final Vector.DoubleVector randomVector = createRandomDoubleVector(random, 128);
+        final DoubleVector randomVector = createRandomDoubleVector(random, 128);
         final Vector deserializedVector = StorageAdapter.vectorFromBytes(randomVector.getRawData());
-        Assertions.assertThat(deserializedVector).isInstanceOf(Vector.DoubleVector.class);
+        Assertions.assertThat(deserializedVector).isInstanceOf(DoubleVector.class);
         Assertions.assertThat(deserializedVector).isEqualTo(randomVector);
     }
 
     @Nonnull
-    static Vector.HalfVector createRandomHalfVector(@Nonnull final Random random, final int dimensionality) {
+    static HalfVector createRandomHalfVector(@Nonnull final Random random, final int dimensionality) {
         final Half[] components = new Half[dimensionality];
         for (int d = 0; d < dimensionality; d ++) {
-            // don't ask
             components[d] = HNSWHelpers.halfValueOf(random.nextDouble());
         }
-        return new Vector.HalfVector(components);
+        return new HalfVector(components);
     }
 
     @Nonnull
-    static Vector.DoubleVector createRandomDoubleVector(@Nonnull final Random random, final int dimensionality) {
+    public static DoubleVector createRandomDoubleVector(@Nonnull final Random random, final int dimensionality) {
         final double[] components = new double[dimensionality];
         for (int d = 0; d < dimensionality; d ++) {
-            // don't ask
             components[d] = random.nextDouble();
         }
-        return new Vector.DoubleVector(components);
+        return new DoubleVector(components);
     }
 }

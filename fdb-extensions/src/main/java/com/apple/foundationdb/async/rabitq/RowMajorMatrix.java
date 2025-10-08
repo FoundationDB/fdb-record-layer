@@ -58,6 +58,11 @@ public class RowMajorMatrix implements Matrix {
     }
 
     @Nonnull
+    public double[] getRow(final int row) {
+        return data[row];
+    }
+
+    @Nonnull
     @Override
     public Matrix transpose() {
         int n = getRowDimension();

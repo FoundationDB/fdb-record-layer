@@ -20,8 +20,13 @@
 
 package com.apple.foundationdb.async.rabitq;
 
+import com.apple.foundationdb.async.hnsw.DoubleVector;
+import com.apple.foundationdb.async.hnsw.Vector;
+
+import javax.annotation.Nonnull;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
 import java.util.Arrays;
-import java.util.concurrent.ThreadLocalRandom;
 
 /** FhtKac-like random orthogonal rotator.
  *  - R rounds (default 4)
@@ -29,28 +34,33 @@ import java.util.concurrent.ThreadLocalRandom;
  *  Time per apply: O(R * (n log n)) with tiny constants; memory: O(R * n) bits for signs.
  */
 @SuppressWarnings({"checkstyle:MethodName", "checkstyle:MemberName"})
-public final class FhtKacRotator {
+public final class FhtKacRotator implements LinearOperator {
+    private final long seed;
     private final int n;
     private final int rounds;
     private final byte[][] signs; // signs[r][i] in {-1, +1}
     private static final double INV_SQRT2 = 1.0 / Math.sqrt(2.0);
 
-    public FhtKacRotator(int n) {
-        this(n, 4);
-    }
-
-    public FhtKacRotator(int n, int rounds) {
+    public FhtKacRotator(final long seed, final int n, final int rounds) {
         if (n < 2) {
             throw new IllegalArgumentException("n must be >= 2");
         }
         if (rounds < 1) {
             throw new IllegalArgumentException("rounds must be >= 1");
         }
+        this.seed = seed;
         this.n = n;
         this.rounds = rounds;
 
         // Pre-generate Rademacher signs for determinism/reuse.
-        ThreadLocalRandom rng = ThreadLocalRandom.current();
+        final SecureRandom rng;
+        try {
+            rng = SecureRandom.getInstance("SHA1PRNG");
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException(e);
+        }
+        rng.setSeed(seed);
+
         this.signs = new byte[rounds][n];
         for (int r = 0; r < rounds; r++) {
             for (int i = 0; i < n; i++) {
@@ -59,20 +69,37 @@ public final class FhtKacRotator {
         }
     }
 
-    public int getN() {
+    public long getSeed() {
+        return seed;
+    }
+
+    @Override
+    public int getRowDimension() {
         return n;
     }
 
-    /** y = P x. (y may be x for in-place.) */
-    public double[] apply(double[] x, double[] y) {
+    @Override
+    public int getColumnDimension() {
+        return n;
+    }
+
+    @Override
+    public boolean isTransposable() {
+        return true;
+    }
+
+    @Nonnull
+    @Override
+    public Vector operate(@Nonnull final Vector x) {
+        return new DoubleVector(operate(x.getData()));
+    }
+
+    @Nonnull
+    private double[] operate(@Nonnull final double[] x) {
         if (x.length != n) {
-            throw new IllegalArgumentException("x.length != n");
+            throw new IllegalArgumentException("dimensionality of x != n");
         }
-        if (y == null) {
-            y = Arrays.copyOf(x, n);
-        } else if (y != x) {
-            System.arraycopy(x, 0, y, 0, n);
-        }
+        final double[] y = Arrays.copyOf(x, n);
 
         for (int r = 0; r < rounds; r++) {
             // 1) Rademacher signs
@@ -92,16 +119,18 @@ public final class FhtKacRotator {
         return y;
     }
 
-    /** y = P^T x (the inverse). */
-    public double[] applyTranspose(double[] x, double[] y) {
+    @Nonnull
+    @Override
+    public Vector operateTranspose(@Nonnull final Vector x) {
+        return new DoubleVector(operateTranspose(x.getData()));
+    }
+
+    @Nonnull
+    public double[] operateTranspose(@Nonnull final double[] x) {
         if (x.length != n) {
-            throw new IllegalArgumentException("x.length != n");
+            throw new IllegalArgumentException("dimensionality of x != n");
         }
-        if (y == null) {
-            y = Arrays.copyOf(x, n);
-        } else if (y != x) {
-            System.arraycopy(x, 0, y, 0, n);
-        }
+        final double[] y = Arrays.copyOf(x, n);
 
         for (int r = rounds - 1; r >= 0; r--) {
             // Inverse of step 3: Givens transpose (angle -> -π/4)
@@ -121,31 +150,21 @@ public final class FhtKacRotator {
         return y;
     }
 
-    @SuppressWarnings("SuspiciousNameCombination")
-    public void applyInPlace(double[] x) {
-        apply(x, x);
-    }
-
-    @SuppressWarnings("SuspiciousNameCombination")
-    public void applyTransposeInPlace(double[] x) {
-        applyTranspose(x, x);
-    }
-
     /**
      *  Build dense P as double[n][n] (row-major).
      */
-    public double[][] computeP() {
-        final double[][] P = new double[n][n];
+    public RowMajorMatrix computeP() {
+        final double[][] p = new double[n][n];
         final double[] e = new double[n];
         for (int j = 0; j < n; j++) {
             Arrays.fill(e, 0.0);
             e[j] = 1.0;
-            double[] y = apply(e, null);     // column j of P
+            double[] y = operate(e);     // column j of P
             for (int i = 0; i < n; i++) {
-                P[i][j] = y[i];
+                p[i][j] = y[i];
             }
         }
-        return P;
+        return new RowMajorMatrix(p);
     }
 
     // ----- internals -----
@@ -213,21 +232,5 @@ public final class FhtKacRotator {
 
     private static int nHalfFloor(int n) {
         return n >>> 1;
-    }
-
-    static double norm2(double[] a) {
-        double s = 0;
-        for (double v : a) {
-            s += v * v;
-        }
-        return Math.sqrt(s);
-    }
-
-    static double maxAbsDiff(double[] a, double[] b) {
-        double m = 0;
-        for (int i = 0; i < a.length; i++) {
-            m = Math.max(m, Math.abs(a[i] - b[i]));
-        }
-        return m;
     }
 }
