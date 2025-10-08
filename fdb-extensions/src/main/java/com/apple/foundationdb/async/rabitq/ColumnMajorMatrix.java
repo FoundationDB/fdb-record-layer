@@ -58,6 +58,11 @@ public class ColumnMajorMatrix implements Matrix {
     }
 
     @Nonnull
+    public double[] getColumn(final int column) {
+        return data[column];
+    }
+
+    @Nonnull
     @Override
     public Matrix transpose() {
         int n = getRowDimension();
@@ -74,7 +79,18 @@ public class ColumnMajorMatrix implements Matrix {
     @Nonnull
     @Override
     public Matrix multiply(@Nonnull final Matrix otherMatrix) {
-        throw new UnsupportedOperationException("not implemented yet");
+        int n = getRowDimension();
+        int m = otherMatrix.getColumnDimension();
+        int common = getColumnDimension();
+        double[][] result = new double[m][n];
+        for (int i = 0; i < n; i++) {
+            for (int j = 0; j < m; j++) {
+                for (int k = 0; k < common; k++) {
+                    result[j][i] += data[k][i] * otherMatrix.getEntry(k, j);
+                }
+            }
+        }
+        return new ColumnMajorMatrix(result);
     }
 
     @Override

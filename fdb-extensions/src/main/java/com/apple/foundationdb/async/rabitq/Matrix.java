@@ -20,24 +20,55 @@
 
 package com.apple.foundationdb.async.rabitq;
 
+import com.apple.foundationdb.async.hnsw.DoubleVector;
+import com.apple.foundationdb.async.hnsw.Vector;
+import com.google.common.base.Verify;
+
 import javax.annotation.Nonnull;
 
-public interface Matrix {
+public interface Matrix extends LinearOperator {
     @Nonnull
     double[][] getData();
 
-    int getRowDimension();
-
-    int getColumnDimension();
-
     double getEntry(final int row, final int column);
 
-    default boolean isSquare() {
-        return getRowDimension() == getColumnDimension();
+    @Override
+    default boolean isTransposable() {
+        return true;
     }
 
     @Nonnull
     Matrix transpose();
+
+    @Nonnull
+    @Override
+    default Vector operate(@Nonnull final Vector vector) {
+        Verify.verify(getColumnDimension() == vector.getNumDimensions());
+        final double[] result = new double[vector.getNumDimensions()];
+        for (int i = 0; i < getRowDimension(); i ++) {
+            double sum = 0.0d;
+            for (int j = 0; j < getColumnDimension(); j ++) {
+                sum += getEntry(i, j) * vector.getComponent(j);
+            }
+            result[i] = sum;
+        }
+        return new DoubleVector(result);
+    }
+
+    @Nonnull
+    @Override
+    default Vector operateTranspose(@Nonnull final Vector vector) {
+        Verify.verify(getRowDimension() == vector.getNumDimensions());
+        final double[] result = new double[vector.getNumDimensions()];
+        for (int j = 0; j < getColumnDimension(); j ++) {
+            double sum = 0.0d;
+            for (int i = 0; i < getRowDimension(); i ++) {
+                sum += getEntry(i, j) * vector.getComponent(i);
+            }
+            result[j] = sum;
+        }
+        return new DoubleVector(result);
+    }
 
     @Nonnull
     Matrix multiply(@Nonnull Matrix otherMatrix);

@@ -22,7 +22,6 @@ package com.apple.foundationdb.async.hnsw;
 
 import com.apple.foundationdb.Database;
 import com.apple.foundationdb.Transaction;
-import com.apple.foundationdb.async.hnsw.Vector.HalfVector;
 import com.apple.foundationdb.async.rtree.RTree;
 import com.apple.foundationdb.test.TestDatabaseExtension;
 import com.apple.foundationdb.test.TestExecutors;
@@ -179,9 +178,6 @@ public class HNSWTest {
     }
 
     static Stream<Arguments> randomSeedsWithOptions() {
-        Sets.cartesianProduct(ImmutableSet.of(true, false),
-                ImmutableSet.of(true, false),
-                ImmutableSet.of(true, false));
         return Sets.cartesianProduct(ImmutableSet.of(true, false),
                         ImmutableSet.of(true, false),
                         ImmutableSet.of(true, false))
@@ -327,7 +323,7 @@ public class HNSWTest {
         final Path siftSmallPath = Paths.get(".out/extracted/siftsmall/siftsmall_base.fvecs");
 
         try (final var fileChannel = FileChannel.open(siftSmallPath, StandardOpenOption.READ)) {
-            final Iterator<Vector.DoubleVector> vectorIterator = new Vector.StoredFVecsIterator(fileChannel);
+            final Iterator<DoubleVector> vectorIterator = new StoredVecsIterator.StoredFVecsIterator(fileChannel);
 
             int i = 0;
             while (vectorIterator.hasNext()) {
@@ -336,7 +332,7 @@ public class HNSWTest {
                             if (!vectorIterator.hasNext()) {
                                 return null;
                             }
-                            final Vector.DoubleVector doubleVector = vectorIterator.next();
+                            final DoubleVector doubleVector = vectorIterator.next();
                             final Tuple currentPrimaryKey = createNextPrimaryKey(nextNodeIdAtomic);
                             final HalfVector currentVector = doubleVector.toHalfVector();
                             return new NodeReferenceWithVector(currentPrimaryKey, currentVector);
@@ -355,8 +351,8 @@ public class HNSWTest {
 
         try (final var queryChannel = FileChannel.open(siftSmallQueryPath, StandardOpenOption.READ);
                 final var groundTruthChannel = FileChannel.open(siftSmallGroundTruthPath, StandardOpenOption.READ)) {
-            final Iterator<Vector.DoubleVector> queryIterator = new Vector.StoredFVecsIterator(queryChannel);
-            final Iterator<List<Integer>> groundTruthIterator = new Vector.StoredIVecsIterator(groundTruthChannel);
+            final Iterator<DoubleVector> queryIterator = new StoredVecsIterator.StoredFVecsIterator(queryChannel);
+            final Iterator<List<Integer>> groundTruthIterator = new StoredVecsIterator.StoredIVecsIterator(groundTruthChannel);
 
             Verify.verify(queryIterator.hasNext() == groundTruthIterator.hasNext());
 
@@ -408,7 +404,7 @@ public class HNSWTest {
         final Path siftSmallPath = Paths.get(".out/extracted/siftsmall/siftsmall_base.fvecs");
 
         try (final var fileChannel = FileChannel.open(siftSmallPath, StandardOpenOption.READ)) {
-            final Iterator<Vector.DoubleVector> vectorIterator = new Vector.StoredFVecsIterator(fileChannel);
+            final Iterator<DoubleVector> vectorIterator = new StoredVecsIterator.StoredFVecsIterator(fileChannel);
 
             int i = 0;
             while (vectorIterator.hasNext()) {
@@ -417,7 +413,7 @@ public class HNSWTest {
                             if (!vectorIterator.hasNext()) {
                                 return null;
                             }
-                            final Vector.DoubleVector doubleVector = vectorIterator.next();
+                            final DoubleVector doubleVector = vectorIterator.next();
                             final Tuple currentPrimaryKey = createNextPrimaryKey(nextNodeIdAtomic);
                             final HalfVector currentVector = doubleVector.toHalfVector();
                             return new NodeReferenceWithVector(currentPrimaryKey, currentVector);

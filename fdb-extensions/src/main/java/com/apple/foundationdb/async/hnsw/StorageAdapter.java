@@ -280,40 +280,40 @@ interface StorageAdapter<N extends NodeReference> {
     }
 
     /**
-     * Creates a {@link Vector.HalfVector} from a byte array.
+     * Creates a {@link HalfVector} from a byte array.
      * <p>
      * This method interprets the input byte array as a sequence of 16-bit half-precision floating-point numbers. Each
      * consecutive pair of bytes is converted into a {@code Half} value, which then becomes a component of the resulting
      * vector.
      * @param vectorBytes the non-null byte array to convert. The length of this array must be even, as each pair of
      *        bytes represents a single {@link Half} component.
-     * @return a new {@link Vector.HalfVector} instance created from the byte array.
+     * @return a new {@link HalfVector} instance created from the byte array.
      */
     @Nonnull
-    static Vector.HalfVector halfVectorFromBytes(@Nonnull final byte[] vectorBytes, final int offset, final int numDimensions) {
+    static HalfVector halfVectorFromBytes(@Nonnull final byte[] vectorBytes, final int offset, final int numDimensions) {
         final Half[] vectorHalfs = new Half[numDimensions];
         for (int i = 0; i < numDimensions; i ++) {
             vectorHalfs[i] = Half.shortBitsToHalf(shortFromBytes(vectorBytes, offset + (i << 1)));
         }
-        return new Vector.HalfVector(vectorHalfs);
+        return new HalfVector(vectorHalfs);
     }
 
     /**
-     * Creates a {@link Vector.DoubleVector} from a byte array.
+     * Creates a {@link DoubleVector} from a byte array.
      * <p>
      * This method interprets the input byte array as a sequence of 64-bit double-precision floating-point numbers. Each
      * run of eight bytes is converted into a {@code double} value, which then becomes a component of the resulting
      * vector.
      * @param vectorBytes the non-null byte array to convert.
-     * @return a new {@link Vector.DoubleVector} instance created from the byte array.
+     * @return a new {@link DoubleVector} instance created from the byte array.
      */
     @Nonnull
-    static Vector.DoubleVector doubleVectorFromBytes(@Nonnull final byte[] vectorBytes, int offset, final int numDimensions) {
+    static DoubleVector doubleVectorFromBytes(@Nonnull final byte[] vectorBytes, int offset, final int numDimensions) {
         final double[] vectorComponents = new double[numDimensions];
         for (int i = 0; i < numDimensions; i ++) {
             vectorComponents[i] = Double.longBitsToDouble(longFromBytes(vectorBytes, offset + (i << 3)));
         }
-        return new Vector.DoubleVector(vectorComponents);
+        return new DoubleVector(vectorComponents);
     }
 
     /**
@@ -328,56 +328,6 @@ interface StorageAdapter<N extends NodeReference> {
     @SuppressWarnings("PrimitiveArrayArgumentToVarargsMethod")
     static Tuple tupleFromVector(final Vector vector) {
         return Tuple.from(vector.getRawData());
-    }
-
-    /**
-     * Converts a {@link Vector} of {@link Half} precision floating-point numbers into a byte array.
-     * <p>
-     * This method iterates through the input vector, converting each {@link Half} element into its 16-bit short
-     * representation. It then serializes this short into two bytes, placing them sequentially into the resulting byte
-     * array. The final array's length will be {@code 2 * vector.size()}.
-     * @param halfVector the vector of {@link Half} precision numbers to convert. Must not be null.
-     * @return a new byte array representing the serialized vector data. This array is never null.
-     */
-    @Nonnull
-    static byte[] bytesFromVector(@Nonnull final Vector.HalfVector halfVector) {
-        final byte[] vectorBytes = new byte[1 + 2 * halfVector.size()];
-        vectorBytes[0] = (byte)halfVector.precisionShift();
-        for (int i = 0; i < halfVector.size(); i ++) {
-            final byte[] componentBytes = bytesFromShort(Half.halfToShortBits(Half.valueOf(halfVector.getComponent(i))));
-            final int offset = 1 + (i << 1);
-            vectorBytes[offset] = componentBytes[0];
-            vectorBytes[offset + 1] = componentBytes[1];
-        }
-        return vectorBytes;
-    }
-
-    /**
-     * Converts a {@link Vector} of {@code double} precision floating-point numbers into a byte array.
-     * <p>
-     * This method iterates through the input vector, converting each {@code double} element into its 16-bit short
-     * representation. It then serializes this short into eight bytes, placing them sequentially into the resulting byte
-     * array. The final array's length will be {@code 8 * vector.size()}.
-     * @param doubleVector the vector of {@code double} precision numbers to convert. Must not be null.
-     * @return a new byte array representing the serialized vector data. This array is never null.
-     */
-    @Nonnull
-    static byte[] bytesFromVector(final Vector.DoubleVector doubleVector) {
-        final byte[] vectorBytes = new byte[1 + 8 * doubleVector.size()];
-        vectorBytes[0] = (byte)doubleVector.precisionShift();
-        for (int i = 0; i < doubleVector.size(); i ++) {
-            final byte[] componentBytes = bytesFromLong(Double.doubleToLongBits(doubleVector.getComponent(i)));
-            final int offset = 1 + (i << 3);
-            vectorBytes[offset] = componentBytes[0];
-            vectorBytes[offset + 1] = componentBytes[1];
-            vectorBytes[offset + 2] = componentBytes[2];
-            vectorBytes[offset + 3] = componentBytes[3];
-            vectorBytes[offset + 4] = componentBytes[4];
-            vectorBytes[offset + 5] = componentBytes[5];
-            vectorBytes[offset + 6] = componentBytes[6];
-            vectorBytes[offset + 7] = componentBytes[7];
-        }
-        return vectorBytes;
     }
 
     /**
@@ -421,7 +371,7 @@ interface StorageAdapter<N extends NodeReference> {
      * @param offset the starting index in the byte array.
      * @return the long value constructed from the two bytes.
      */
-    private static long longFromBytes(final byte[] bytes, final int offset) {
+    static long longFromBytes(final byte[] bytes, final int offset) {
         return ((bytes[offset    ] & 0xFFL) << 56) |
                 ((bytes[offset + 1] & 0xFFL) << 48) |
                 ((bytes[offset + 2] & 0xFFL) << 40) |
@@ -440,7 +390,7 @@ interface StorageAdapter<N extends NodeReference> {
      * @return a new 8-element byte array representing the short value in big-endian order.
      */
     @Nonnull
-    private static byte[] bytesFromLong(final long value) {
+    static byte[] bytesFromLong(final long value) {
         byte[] result = new byte[8];
         result[0] = (byte)(value >>> 56);
         result[1] = (byte)(value >>> 48);
