@@ -98,6 +98,24 @@ test_block:
                  {name: "Eve"},
                  {name: "Carol"},
                  {name: "Frank"}]
+
+    # Postorder Traversal
+    -
+      - query: WITH RECURSIVE subordinates AS (
+              SELECT id, name, manager_id FROM employees WHERE id = 1
+              UNION ALL
+              SELECT e.id, e.name, e.manager_id
+              FROM subordinates AS s, employees AS e
+              WHERE s.id = e.manager_id
+          )
+          TRAVERSAL ORDER post_order
+          SELECT name FROM subordinates WHERE id != 1
+      - supported_version: 4.7.3.0
+      - result: [{name: "David"},
+                 {name: "Eve"},
+                 {name: "Bob"},
+                 {name: "Frank"},
+                 {name: "Carol"}]
     -
       - query: delete from employees
     -

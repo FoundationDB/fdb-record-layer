@@ -18,7 +18,7 @@
 # limitations under the License.
 ---
 options:
-    supported_version: !current_version
+    supported_version: 4.7.3.0
 ---
 schema_template:
     create table test_cast(id bigint, num_col integer, str_col string, bool_col boolean, primary key(id))

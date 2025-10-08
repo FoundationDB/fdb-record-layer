@@ -7,6 +7,26 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.7
 
+### 4.7.3.0
+
+<h4> New Features </h4>
+
+* Support rCTE `POSTORDER` Traversal - [PR #3666](https://github.com/FoundationDB/fdb-record-layer/pull/3666)
+* Support SQL `CAST` operator - [PR #3647](https://github.com/FoundationDB/fdb-record-layer/pull/3647)
+
+
+**[Full Changelog (4.7.2.0...4.7.3.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.7.2.0...4.7.3.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.5.10.0`, ✅`4.5.12.0`, ✅`4.5.13.0`, ✅`4.6.1.0`, ✅`4.6.2.0`, ✅`4.6.3.0`, ✅`4.6.4.0`, ✅`4.6.5.0`, ✅`4.7.1.0`, ✅`4.7.2.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/18348542292)
+
+
+
 ### 4.7.2.0
 
 <h4> New Features </h4>
