@@ -613,7 +613,7 @@ public class ExplainPlanVisitor extends ExplainTokens implements RecordQueryPlan
     @Override
     public ExplainTokens visitRecursiveDfsJoinPlan(@Nonnull final RecordQueryRecursiveDfsJoinPlan recursiveDfsJoinPlan) {
         Verify.verify(recursiveDfsJoinPlan.getChildren().size() == 2);
-        addKeyword("RUNION-DFS").addWhitespace();
+        addKeyword("RUNION-DFS").addWhitespace().addKeyword(recursiveDfsJoinPlan.getDfsTraversalStrategy().name()).addWhitespace();
         final var priorValueCorrelation = new ExplainTokens().addAliasDefinition(recursiveDfsJoinPlan.getPriorValueCorrelation());
         addNested(ExplainLevel.ALL_DETAILS, priorValueCorrelation).addWhitespace();
         addOpeningBrace().addWhitespace();

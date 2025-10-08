@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.cursors.RecursiveCursor;
 import com.apple.foundationdb.record.planprotos.PRecordQueryPlan;
@@ -68,6 +69,26 @@ import java.util.Set;
 public class RecordQueryRecursiveDfsJoinPlan extends AbstractRelationalExpressionWithChildren implements RecordQueryPlanWithChildren {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Recursive-Plan");
 
+    /**
+     * Defines the depth-first search (DFS) traversal order for recursive queries.
+     * <ul>
+     *   <li>{@link #PREORDER}: Emit each node before processing its descendants (parent-first)</li>
+     *   <li>{@link #POSTORDER}: Emit each node after processing its descendants (children-first)</li>
+     * </ul>
+     */
+    public enum DfsTraversalStrategy {
+        /**
+         * Pre-order traversal: visit and emit the current node, then recursively process all descendants.
+         * Results in parent nodes appearing before their children in the output.
+         */
+        PREORDER,
+        /**
+         * Post-order traversal: recursively process all descendants first, then visit and emit the current node.
+         * Results in child nodes appearing before their parents in the output.
+         */
+        POSTORDER
+    }
+
     @Nonnull
     private final Quantifier.Physical rootQuantifier;
     @Nonnull
@@ -76,13 +97,17 @@ public class RecordQueryRecursiveDfsJoinPlan extends AbstractRelationalExpressio
     private final CorrelationIdentifier priorValueCorrelation;
     @Nonnull
     private final Value resultValue;
+    @Nonnull
+    private final DfsTraversalStrategy dfsTraversalStrategy;
 
     public RecordQueryRecursiveDfsJoinPlan(@Nonnull final Quantifier.Physical rootQuantifier,
                                            @Nonnull final Quantifier.Physical childQuantifier,
-                                           @Nonnull final CorrelationIdentifier priorValueCorrelation) {
+                                           @Nonnull final CorrelationIdentifier priorValueCorrelation,
+                                           @Nonnull final DfsTraversalStrategy dfsTraversalStrategy) {
         this.rootQuantifier = rootQuantifier;
         this.childQuantifier = childQuantifier;
         this.priorValueCorrelation = priorValueCorrelation;
+        this.dfsTraversalStrategy = dfsTraversalStrategy;
         this.resultValue = RecordQuerySetPlan.mergeValues(ImmutableList.of(rootQuantifier, childQuantifier));
     }
 
@@ -114,7 +139,8 @@ public class RecordQueryRecursiveDfsJoinPlan extends AbstractRelationalExpressio
                             return childQuantifier.getRangesOverPlan().executePlan(store, childContext, innerContinuation, nestedExecuteProperties);
                         },
                         null,
-                        continuation
+                        continuation,
+                        dfsTraversalStrategy == DfsTraversalStrategy.PREORDER
                 ).skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit())
                 .map(RecursiveCursor.RecursiveValue::getValue);
     }
@@ -173,6 +199,11 @@ public class RecordQueryRecursiveDfsJoinPlan extends AbstractRelationalExpressio
     @Override
     public Value getResultValue() {
         return resultValue;
+    }
+
+    @Nonnull
+    public DfsTraversalStrategy getDfsTraversalStrategy() {
+        return dfsTraversalStrategy;
     }
 
     @Nonnull
@@ -268,7 +299,8 @@ public class RecordQueryRecursiveDfsJoinPlan extends AbstractRelationalExpressio
         return new RecordQueryRecursiveDfsJoinPlan(
                 translatedQuantifiers.get(0).narrow(Quantifier.Physical.class),
                 translatedQuantifiers.get(1).narrow(Quantifier.Physical.class),
-                priorValueCorrelation
+                priorValueCorrelation,
+                dfsTraversalStrategy
         );
     }
 
@@ -317,7 +349,32 @@ public class RecordQueryRecursiveDfsJoinPlan extends AbstractRelationalExpressio
                 .setRootQuantifier(rootQuantifier.toProto(serializationContext))
                 .setChildQuantifier(childQuantifier.toProto(serializationContext))
                 .setPriorValueCorrelation(priorValueCorrelation.getId())
+                .setDfsTraversalStrategy(toProto(dfsTraversalStrategy))
                 .build();
+    }
+
+    @Nonnull
+    private static PRecordQueryRecursiveDfsJoinPlan.PDfsTraversalStrategy toProto(@Nonnull final DfsTraversalStrategy dfsTraversalStrategy) {
+        switch (dfsTraversalStrategy) {
+            case PREORDER:
+                return PRecordQueryRecursiveDfsJoinPlan.PDfsTraversalStrategy.PRE_ORDER;
+            case POSTORDER:
+                return PRecordQueryRecursiveDfsJoinPlan.PDfsTraversalStrategy.POST_ORDER;
+            default:
+                throw new RecordCoreException("Unknown traversal strategy " + dfsTraversalStrategy.name());
+        }
+    }
+
+    @Nonnull
+    private static DfsTraversalStrategy fromProto(@Nonnull final PRecordQueryRecursiveDfsJoinPlan.PDfsTraversalStrategy dfsTraversalStrategyProto) {
+        switch (dfsTraversalStrategyProto) {
+            case PRE_ORDER:
+                return DfsTraversalStrategy.PREORDER;
+            case POST_ORDER:
+                return DfsTraversalStrategy.POSTORDER;
+            default:
+                throw new RecordCoreException("Unknown traversal strategy " + dfsTraversalStrategyProto.name());
+        }
     }
 
     @Nonnull
@@ -332,7 +389,8 @@ public class RecordQueryRecursiveDfsJoinPlan extends AbstractRelationalExpressio
         return new RecordQueryRecursiveDfsJoinPlan(
                 Quantifier.Physical.fromProto(serializationContext, Objects.requireNonNull(recordQueryRecursivePlanProto.getRootQuantifier())),
                 Quantifier.Physical.fromProto(serializationContext, Objects.requireNonNull(recordQueryRecursivePlanProto.getChildQuantifier())),
-                CorrelationIdentifier.of(Objects.requireNonNull(recordQueryRecursivePlanProto.getPriorValueCorrelation()))
+                CorrelationIdentifier.of(Objects.requireNonNull(recordQueryRecursivePlanProto.getPriorValueCorrelation())),
+                fromProto(recordQueryRecursivePlanProto.getDfsTraversalStrategy())
         );
     }
 

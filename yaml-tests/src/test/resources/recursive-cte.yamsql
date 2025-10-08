@@ -37,12 +37,25 @@ test_block:
             select b.id, b.parent, a.y as level from t1 as b, (select id, parent, level + 1 as y from c1) as a  where a.parent = b.id)
             traversal order pre_order
             select id, parent, level from c1
-      - supported_version: 4.7.2.0
-      - explain: "RUNION-DFS q0 { COVERING(CHILDIDX [EQUALS promote(@c19 AS LONG)] -> [ID: KEY[0], PARENT: KEY[1]]) | MAP (_.ID AS ID, _.PARENT AS PARENT, @c11 AS LEVEL) } { RECURSIVE COVERING(PARENTIDX <,> -> [ID: KEY[1], PARENT: KEY[0]]) | FILTER q0.PARENT EQUALS _.ID | MAP (_.ID AS ID, _.PARENT AS PARENT, q0.LEVEL + @c49 AS LEVEL) } | MAP (_.ID AS ID, _.PARENT AS PARENT, _.LEVEL AS LEVEL)"
+      - supported_version: !current_version
+      - explain: "RUNION-DFS PREORDER q0 { COVERING(CHILDIDX [EQUALS promote(@c19 AS LONG)] -> [ID: KEY[0], PARENT: KEY[1]]) | MAP (_.ID AS ID, _.PARENT AS PARENT, @c11 AS LEVEL) } { RECURSIVE COVERING(PARENTIDX <,> -> [ID: KEY[1], PARENT: KEY[0]]) | FILTER q0.PARENT EQUALS _.ID | MAP (_.ID AS ID, _.PARENT AS PARENT, q0.LEVEL + @c49 AS LEVEL) } | MAP (_.ID AS ID, _.PARENT AS PARENT, _.LEVEL AS LEVEL)"
       - result: [{ID: 250, PARENT: 50, LEVEL: 0},
                  {ID: 50, PARENT: 10, LEVEL: 1},
                  {ID: 10, PARENT: 1, LEVEL: 2},
                  {ID: 1, PARENT: -1, LEVEL: 3}]
+    -
+      - query: with recursive c1 as (
+            select id, parent, 0 as level from t1 where id = 250
+            union all
+            select b.id, b.parent, a.y as level from t1 as b, (select id, parent, level + 1 as y from c1) as a  where a.parent = b.id)
+            traversal order post_order
+            select id, parent, level from c1
+      - supported_version: !current_version
+      - explain: "RUNION-DFS POSTORDER q0 { COVERING(CHILDIDX [EQUALS promote(@c19 AS LONG)] -> [ID: KEY[0], PARENT: KEY[1]]) | MAP (_.ID AS ID, _.PARENT AS PARENT, @c11 AS LEVEL) } { RECURSIVE COVERING(PARENTIDX <,> -> [ID: KEY[1], PARENT: KEY[0]]) | FILTER q0.PARENT EQUALS _.ID | MAP (_.ID AS ID, _.PARENT AS PARENT, q0.LEVEL + @c49 AS LEVEL) } | MAP (_.ID AS ID, _.PARENT AS PARENT, _.LEVEL AS LEVEL)"
+      - result: [{ID: 1, PARENT: -1, LEVEL: 3},
+                 {ID: 10, PARENT: 1, LEVEL: 2},
+                 {ID: 50, PARENT: 10, LEVEL: 1},
+                 {ID: 250, PARENT: 50, LEVEL: 0}]
     -
       - query: with recursive c1 as (
             select id, parent, 0 as level from t1 where id = 250
@@ -61,7 +74,7 @@ test_block:
             select id, parent from t1 where parent = -1
             union all
             select b.id, b.parent from c1 as a, t1 as b where a.id = b.parent) select id from c1
-      - explain: "RUNION-DFS q0 { ISCAN(PARENTIDX [EQUALS promote(@c15 AS LONG)]) } { RECURSIVE COVERING(PARENTIDX <,> -> [ID: KEY[1], PARENT: KEY[0]]) | FILTER q0.ID EQUALS _.PARENT | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP (_.ID AS ID)"
+      - explain: "RUNION-DFS PREORDER q0 { ISCAN(PARENTIDX [EQUALS promote(@c15 AS LONG)]) } { RECURSIVE COVERING(PARENTIDX <,> -> [ID: KEY[1], PARENT: KEY[0]]) | FILTER q0.ID EQUALS _.PARENT | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP (_.ID AS ID)"
       - initialVersionAtLeast: 4.7.1.0
       - result: [{ID: 1},
                  {ID: 10},
@@ -88,6 +101,24 @@ test_block:
             select id, parent from t1 where parent = -1
             union all
             select b.id, b.parent from c1 as a, t1 as b where a.id = b.parent)
+            traversal order post_order
+            select id from c1
+      - supported_version: !current_version
+      - explain: "RUNION-DFS POSTORDER q0 { ISCAN(PARENTIDX [EQUALS promote(@c15 AS LONG)]) } { RECURSIVE COVERING(PARENTIDX <,> -> [ID: KEY[1], PARENT: KEY[0]]) | FILTER q0.ID EQUALS _.PARENT | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP (_.ID AS ID)"
+      - result: [{ID: 40},
+                 {ID: 250},
+                 {ID: 50},
+                 {ID: 70},
+                 {ID: 10},
+                 {ID: 100},
+                 {ID: 210},
+                 {ID: 20},
+                 {ID: 1}]
+    -
+      - query: with recursive c1 as (
+            select id, parent from t1 where parent = -1
+            union all
+            select b.id, b.parent from c1 as a, t1 as b where a.id = b.parent)
             traversal order level_order
             select id from c1
       - supported_version: 4.7.2.0
@@ -106,7 +137,7 @@ test_block:
             select id, parent from t1 where id = 250
             union all
             select b.id, b.parent from c1 as a, t1 as b where a.parent = b.id) select id from c1
-      - explain: "RUNION-DFS q0 { ISCAN(CHILDIDX [EQUALS promote(@c15 AS LONG)]) } { RECURSIVE COVERING(PARENTIDX <,> -> [ID: KEY[1], PARENT: KEY[0]]) | FILTER q0.PARENT EQUALS _.ID | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP (_.ID AS ID)"
+      - explain: "RUNION-DFS PREORDER q0 { ISCAN(CHILDIDX [EQUALS promote(@c15 AS LONG)]) } { RECURSIVE COVERING(PARENTIDX <,> -> [ID: KEY[1], PARENT: KEY[0]]) | FILTER q0.PARENT EQUALS _.ID | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP (_.ID AS ID)"
       - result: [{ID: 250},
                  {ID: 50},
                  {ID: 10},
@@ -131,12 +162,25 @@ test_block:
             select b.id, b.parent from c1 as a, t1 as b where a.parent = b.id)
             traversal order pre_order
             select id from c1
-      - supported_version: 4.7.2.0
-      - explain: "RUNION-DFS q0 { ISCAN(CHILDIDX [EQUALS promote(@c15 AS LONG)]) } { RECURSIVE COVERING(PARENTIDX <,> -> [ID: KEY[1], PARENT: KEY[0]]) | FILTER q0.PARENT EQUALS _.ID | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP (_.ID AS ID)"
+      - supported_version: !current_version
+      - explain: "RUNION-DFS PREORDER q0 { ISCAN(CHILDIDX [EQUALS promote(@c15 AS LONG)]) } { RECURSIVE COVERING(PARENTIDX <,> -> [ID: KEY[1], PARENT: KEY[0]]) | FILTER q0.PARENT EQUALS _.ID | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP (_.ID AS ID)"
       - result: [{ID: 250},
                  {ID: 50},
                  {ID: 10},
                  {ID: 1}]
+    -
+      - query: with recursive c1 as (
+            select id, parent from t1 where id = 250
+            union all
+            select b.id, b.parent from c1 as a, t1 as b where a.parent = b.id)
+            traversal order post_order
+            select id from c1
+      - supported_version: !current_version
+      - explain: "RUNION-DFS POSTORDER q0 { ISCAN(CHILDIDX [EQUALS promote(@c15 AS LONG)]) } { RECURSIVE COVERING(PARENTIDX <,> -> [ID: KEY[1], PARENT: KEY[0]]) | FILTER q0.PARENT EQUALS _.ID | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP (_.ID AS ID)"
+      - result: [{ID: 1},
+                 {ID: 10},
+                 {ID: 50},
+                 {ID: 250}]
     -
       - query: with recursive allDescendants as (
             with recursive ancestorsOf250 as (
@@ -145,7 +189,7 @@ test_block:
             select b.id, b.parent from ancestorsOf250 as a, t1 as b where a.parent = b.id) select id, parent from ancestorsOf250
             union all
             select b.id, b.parent from allDescendants as a, t1 as b where a.id = b.parent) select id, parent from allDescendants
-      - explain: "RUNION-DFS q0 { RUNION-DFS q1 { ISCAN(CHILDIDX [EQUALS promote(@c20 AS LONG)]) } { RECURSIVE COVERING(PARENTIDX <,> -> [ID: KEY[1], PARENT: KEY[0]]) | FILTER q1.PARENT EQUALS _.ID | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP (_.ID AS ID, _.PARENT AS PARENT) } { RECURSIVE COVERING(PARENTIDX <,> -> [ID: KEY[1], PARENT: KEY[0]]) | FILTER q0.ID EQUALS _.PARENT | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP (_.ID AS ID, _.PARENT AS PARENT)"
+      - explain: "RUNION-DFS PREORDER q0 { RUNION-DFS PREORDER q1 { ISCAN(CHILDIDX [EQUALS promote(@c20 AS LONG)]) } { RECURSIVE COVERING(PARENTIDX <,> -> [ID: KEY[1], PARENT: KEY[0]]) | FILTER q1.PARENT EQUALS _.ID | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP (_.ID AS ID, _.PARENT AS PARENT) } { RECURSIVE COVERING(PARENTIDX <,> -> [ID: KEY[1], PARENT: KEY[0]]) | FILTER q0.ID EQUALS _.PARENT | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP (_.ID AS ID, _.PARENT AS PARENT)"
       - initialVersionAtLeast: 4.7.1.0
       - result: [{250, 50},
                  {50, 10},
@@ -183,12 +227,43 @@ test_block:
                  {250, 50},
                  {250, 50}]
     -
+      - query: with recursive allDescendants as (
+            with recursive ancestorsOf250 as (
+            select id, parent from t1 where id = 250
+            union all
+            select b.id, b.parent from ancestorsOf250 as a, t1 as b where a.parent = b.id)
+            traversal order post_order
+            select id, parent from ancestorsOf250
+            union all
+            select b.id, b.parent from allDescendants as a, t1 as b where a.id = b.parent)
+            traversal order post_order
+            select id, parent from allDescendants
+      - supported_version: !current_version
+      - explain: "RUNION-DFS POSTORDER q0 { RUNION-DFS POSTORDER q1 { ISCAN(CHILDIDX [EQUALS promote(@c20 AS LONG)]) } { RECURSIVE COVERING(PARENTIDX <,> -> [ID: KEY[1], PARENT: KEY[0]]) | FILTER q1.PARENT EQUALS _.ID | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP (_.ID AS ID, _.PARENT AS PARENT) } { RECURSIVE COVERING(PARENTIDX <,> -> [ID: KEY[1], PARENT: KEY[0]]) | FILTER q0.ID EQUALS _.PARENT | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP (_.ID AS ID, _.PARENT AS PARENT)"
+      - result: [{40, 10},
+                 {250, 50},
+                 {50, 10},
+                 {70, 10},
+                 {10, 1},
+                 {100, 20},
+                 {210, 20},
+                 {20, 1},
+                 {1, -1},
+                 {40, 10},
+                 {250, 50},
+                 {50, 10},
+                 {70, 10},
+                 {10, 1},
+                 {250, 50},
+                 {50, 10},
+                 {250, 50}]
+    -
       - query: with recursive c1 as (
             select id, parent from t1 where parent = -1
             union all
             select b.id, b.parent from c1 as a, t1 as b where a.id = b.parent) select id from c1
       - supported_version: 4.7.1.0
-      - explain: "RUNION-DFS q0 { ISCAN(PARENTIDX [EQUALS promote(@c15 AS LONG)]) } { RECURSIVE COVERING(PARENTIDX <,> -> [ID: KEY[1], PARENT: KEY[0]]) | FILTER q0.ID EQUALS _.PARENT | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP (_.ID AS ID)"
+      - explain: "RUNION-DFS PREORDER q0 { ISCAN(PARENTIDX [EQUALS promote(@c15 AS LONG)]) } { RECURSIVE COVERING(PARENTIDX <,> -> [ID: KEY[1], PARENT: KEY[0]]) | FILTER q0.ID EQUALS _.PARENT | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP (_.ID AS ID)"
       - maxRows: 1
       - result: [{ID: 1}]
       - result: [{ID: 10}]
@@ -205,7 +280,7 @@ test_block:
             select id, parent from t1 where parent = -1
             union all
             select b.id, b.parent from c1 as a, t1 as b where a.id = b.parent) select id from c1
-      - explain: "RUNION-DFS q0 { ISCAN(PARENTIDX [EQUALS promote(@c15 AS LONG)]) } { RECURSIVE COVERING(PARENTIDX <,> -> [ID: KEY[1], PARENT: KEY[0]]) | FILTER q0.ID EQUALS _.PARENT | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP (_.ID AS ID)"
+      - explain: "RUNION-DFS PREORDER q0 { ISCAN(PARENTIDX [EQUALS promote(@c15 AS LONG)]) } { RECURSIVE COVERING(PARENTIDX <,> -> [ID: KEY[1], PARENT: KEY[0]]) | FILTER q0.ID EQUALS _.PARENT | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP (_.ID AS ID)"
       - maxRows: 1
       # new hierarchical plans contain a newly introduced physical operator, so new plan continuations can not be resumed on older versions
       # which is ok because we do not care about backward-compatibility for that particular scenario.
@@ -223,6 +298,26 @@ test_block:
       - result: [{ID: 250}]
       - result: []
     -
+      - query: with recursive c1 as (
+            select id, parent from t1 where parent = -1
+            union all
+            select b.id, b.parent from c1 as a, t1 as b where a.id = b.parent)
+            traversal order post_order
+            select id from c1
+      - supported_version: !current_version
+      - explain: "RUNION-DFS POSTORDER q0 { ISCAN(PARENTIDX [EQUALS promote(@c15 AS LONG)]) } { RECURSIVE COVERING(PARENTIDX <,> -> [ID: KEY[1], PARENT: KEY[0]]) | FILTER q0.ID EQUALS _.PARENT | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP (_.ID AS ID)"
+      - maxRows: 1
+      - result: [{ID: 40}]
+      - result: [{ID: 250}]
+      - result: [{ID: 50}]
+      - result: [{ID: 70}]
+      - result: [{ID: 10}]
+      - result: [{ID: 100}]
+      - result: [{ID: 210}]
+      - result: [{ID: 20}]
+      - result: [{ID: 1}]
+      - result: []
+    -
       - query: with recursive allDescendants as (
             with recursive ancestorsOf250 as (
             select id, parent from t1 where id = 250
@@ -231,7 +326,7 @@ test_block:
             union all
             select b.id, b.parent from allDescendants as a, t1 as b where a.id = b.parent) select id, parent from allDescendants
       - supported_version: 4.7.1.0
-      - explain: "RUNION-DFS q0 { RUNION-DFS q1 { ISCAN(CHILDIDX [EQUALS promote(@c20 AS LONG)]) } { RECURSIVE COVERING(PARENTIDX <,> -> [ID: KEY[1], PARENT: KEY[0]]) | FILTER q1.PARENT EQUALS _.ID | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP (_.ID AS ID, _.PARENT AS PARENT) } { RECURSIVE COVERING(PARENTIDX <,> -> [ID: KEY[1], PARENT: KEY[0]]) | FILTER q0.ID EQUALS _.PARENT | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP (_.ID AS ID, _.PARENT AS PARENT)"
+      - explain: "RUNION-DFS PREORDER q0 { RUNION-DFS PREORDER q1 { ISCAN(CHILDIDX [EQUALS promote(@c20 AS LONG)]) } { RECURSIVE COVERING(PARENTIDX <,> -> [ID: KEY[1], PARENT: KEY[0]]) | FILTER q1.PARENT EQUALS _.ID | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP (_.ID AS ID, _.PARENT AS PARENT) } { RECURSIVE COVERING(PARENTIDX <,> -> [ID: KEY[1], PARENT: KEY[0]]) | FILTER q0.ID EQUALS _.PARENT | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP (_.ID AS ID, _.PARENT AS PARENT)"
       - maxRows: 1
       - result: [{250, 50}]
       - result: [{50, 10}]
@@ -259,7 +354,7 @@ test_block:
             select b.id, b.parent from ancestorsOf250 as a, t1 as b where a.parent = b.id) select id, parent from ancestorsOf250
             union all
             select b.id, b.parent from allDescendants as a, t1 as b where a.id = b.parent) select id, parent from allDescendants
-      - explain: "RUNION-DFS q0 { RUNION-DFS q1 { ISCAN(CHILDIDX [EQUALS promote(@c20 AS LONG)]) } { RECURSIVE COVERING(PARENTIDX <,> -> [ID: KEY[1], PARENT: KEY[0]]) | FILTER q1.PARENT EQUALS _.ID | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP (_.ID AS ID, _.PARENT AS PARENT) } { RECURSIVE COVERING(PARENTIDX <,> -> [ID: KEY[1], PARENT: KEY[0]]) | FILTER q0.ID EQUALS _.PARENT | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP (_.ID AS ID, _.PARENT AS PARENT)"
+      - explain: "RUNION-DFS PREORDER q0 { RUNION-DFS PREORDER q1 { ISCAN(CHILDIDX [EQUALS promote(@c20 AS LONG)]) } { RECURSIVE COVERING(PARENTIDX <,> -> [ID: KEY[1], PARENT: KEY[0]]) | FILTER q1.PARENT EQUALS _.ID | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP (_.ID AS ID, _.PARENT AS PARENT) } { RECURSIVE COVERING(PARENTIDX <,> -> [ID: KEY[1], PARENT: KEY[0]]) | FILTER q0.ID EQUALS _.PARENT | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP (_.ID AS ID, _.PARENT AS PARENT)"
       - maxRows: 1
       # new hierarchical plans contain a newly introduced physical operator, so new plan continuations can not be resumed on older versions
       # which is ok because we do not care about backward-compatibility for that particular scenario.
@@ -281,6 +376,39 @@ test_block:
       - result: [{100, 20}]
       - result: [{210, 20}]
       - result: [{250, 50}]
+      - result: [{250, 50}]
+      - result: []
+    -
+      - query: with recursive allDescendants as (
+            with recursive ancestorsOf250 as (
+            select id, parent from t1 where id = 250
+            union all
+            select b.id, b.parent from ancestorsOf250 as a, t1 as b where a.parent = b.id)
+            traversal order post_order
+            select id, parent from ancestorsOf250
+            union all
+            select b.id, b.parent from allDescendants as a, t1 as b where a.id = b.parent)
+            traversal order post_order
+            select id, parent from allDescendants
+      - supported_version: !current_version
+      - explain: "RUNION-DFS POSTORDER q0 { RUNION-DFS POSTORDER q1 { ISCAN(CHILDIDX [EQUALS promote(@c20 AS LONG)]) } { RECURSIVE COVERING(PARENTIDX <,> -> [ID: KEY[1], PARENT: KEY[0]]) | FILTER q1.PARENT EQUALS _.ID | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP (_.ID AS ID, _.PARENT AS PARENT) } { RECURSIVE COVERING(PARENTIDX <,> -> [ID: KEY[1], PARENT: KEY[0]]) | FILTER q0.ID EQUALS _.PARENT | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP (_.ID AS ID, _.PARENT AS PARENT)"
+      - maxRows: 1
+      - result: [{40, 10}]
+      - result: [{250, 50}]
+      - result: [{50, 10}]
+      - result: [{70, 10}]
+      - result: [{10, 1}]
+      - result: [{100, 20}]
+      - result: [{210, 20}]
+      - result: [{20, 1}]
+      - result: [{1, -1}]
+      - result: [{40, 10}]
+      - result: [{250, 50}]
+      - result: [{50, 10}]
+      - result: [{70, 10}]
+      - result: [{10, 1}]
+      - result: [{250, 50}]
+      - result: [{50, 10}]
       - result: [{250, 50}]
       - result: []
 #    -

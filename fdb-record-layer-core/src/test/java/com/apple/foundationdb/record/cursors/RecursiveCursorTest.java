@@ -82,7 +82,7 @@ class RecursiveCursorTest {
     private static RecordCursor<String> stringPathsCursor(int nroot, int nchildren, int depth,
                                                           @Nullable byte[] continuation) {
         return RecursiveCursor.create(c -> numberStrings(nroot, c), stringPaths(nchildren, depth - 1),
-                        null, continuation)
+                        null, continuation, true)
                 .filter(v -> v.getDepth() == depth)
                 .map(RecursiveCursor.RecursiveValue::getValue);
     }

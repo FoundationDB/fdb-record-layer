@@ -70,6 +70,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -83,6 +84,7 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.query.plan.cascades.expressions.RecursiveUnionExpression.TraversalStrategy.ANY;
 import static com.apple.foundationdb.record.query.plan.cascades.expressions.RecursiveUnionExpression.TraversalStrategy.LEVEL;
+import static com.apple.foundationdb.record.query.plan.cascades.expressions.RecursiveUnionExpression.TraversalStrategy.POSTORDER;
 import static com.apple.foundationdb.record.query.plan.cascades.expressions.RecursiveUnionExpression.TraversalStrategy.PREORDER;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -220,9 +222,11 @@ class RecursiveQueriesTest extends TempTableTestBase {
         return Stream.of(
             Arguments.of(ImmutableMap.of(1L, -1L), LEVEL, List.of(1L, 10L, 20L, 40L, 50L, 70L, 100L, 210L, 250L)),
             Arguments.of(ImmutableMap.of(1L, -1L), PREORDER, List.of(1L, 10L, 40L, 50L, 250L, 70L, 20L, 100L, 210L)),
+            Arguments.of(ImmutableMap.of(1L, -1L), POSTORDER, List.of(40L, 250L, 50L, 70L, 10L, 100L, 210L, 20L, 1L)),
             Arguments.of(ImmutableMap.of(1L, -1L), ANY, List.of(1L, 10L, 40L, 50L, 250L, 70L, 20L, 100L, 210L)),
             Arguments.of(ImmutableMap.of(10L, 1L), LEVEL, List.of(10L, 40L, 50L, 70L, 250L)),
             Arguments.of(ImmutableMap.of(10L, 1L), PREORDER, List.of(10L, 40L, 50L, 250L, 70L)),
+            Arguments.of(ImmutableMap.of(10L, 1L), POSTORDER, List.of(40L, 250L, 50L, 70L, 10L)),
             Arguments.of(ImmutableMap.of(10L, 1L), ANY, List.of(10L, 40L, 50L, 250L, 70L))
         );
     }
@@ -264,12 +268,15 @@ class RecursiveQueriesTest extends TempTableTestBase {
         return Stream.of(
             Arguments.of(sampleHierarchy(), ImmutableMap.of(1L, -1L), List.of(1, -1), LEVEL, List.of(List.of(1L), List.of(10L, 20L, 40L, 50L, 70L, 100L, 210L, 250L))),
             Arguments.of(sampleHierarchy(), ImmutableMap.of(1L, -1L), List.of(1, -1), PREORDER, List.of(List.of(1L), List.of(10L, 40L, 50L, 250L, 70L, 20L, 100L, 210L))),
+            Arguments.of(sampleHierarchy(), ImmutableMap.of(1L, -1L), List.of(1, -1), POSTORDER, List.of(List.of(40L), List.of(250L, 50L, 70L, 10L, 100L, 210L, 20L, 1L))),
             Arguments.of(sampleHierarchy(), ImmutableMap.of(1L, -1L), List.of(1, -1), ANY, List.of(List.of(1L), List.of(10L, 40L, 50L, 250L, 70L, 20L, 100L, 210L))),
             Arguments.of(sampleHierarchy(), ImmutableMap.of(1L, -1L), List.of(1, 2, 4, -1), LEVEL, List.of(List.of(1L), List.of(10L, 20L), List.of(40L, 50L, 70L, 100L), List.of(210L, 250L))),
             Arguments.of(sampleHierarchy(), ImmutableMap.of(1L, -1L), List.of(1, 2, 4, -1), PREORDER, List.of(List.of(1L), List.of(10L, 40L), List.of(50L, 250L, 70L, 20L), List.of(100L, 210L))),
+            Arguments.of(sampleHierarchy(), ImmutableMap.of(1L, -1L), List.of(1, 2, 4, -1), POSTORDER, List.of(List.of(40L), List.of(250L, 50L), List.of(70L, 10L, 100L, 210L), List.of(20L, 1L))),
             Arguments.of(sampleHierarchy(), ImmutableMap.of(1L, -1L), List.of(1, 2, 4, -1), ANY, List.of(List.of(1L), List.of(10L, 40L), List.of(50L, 250L, 70L, 20L), List.of(100L, 210L))),
             Arguments.of(sampleForest(), ImmutableMap.of(1L, -1L, 500L, -1L), List.of(1, 2, 4, -1), LEVEL, List.of(List.of(1L), List.of(500L, 10L), List.of(20L, 510L, 520L, 40L), List.of(50L, 70L, 100L, 210L, 550L, 250L))),
             Arguments.of(sampleForest(), ImmutableMap.of(1L, -1L, 500L, -1L), List.of(1, 2, 4, -1), PREORDER, List.of(List.of(1L), List.of(10L, 40L), List.of(50L, 250L, 70L, 20L), List.of(100L, 210L, 500L, 510L, 550L, 520L))),
+            Arguments.of(sampleForest(), ImmutableMap.of(1L, -1L, 500L, -1L), List.of(1, 2, 4, -1), POSTORDER, List.of(List.of(40L), List.of(250L, 50L), List.of(70L, 10L, 100L, 210L), List.of(20L, 1L, 550L, 510L, 520L, 500L))),
             Arguments.of(sampleForest(), ImmutableMap.of(1L, -1L, 500L, -1L), List.of(1, 2, 4, -1), ANY, List.of(List.of(1L), List.of(10L, 40L), List.of(50L, 250L, 70L, 20L), List.of(100L, 210L, 500L, 510L, 550L, 520L)))
         );
     }
@@ -293,7 +300,9 @@ class RecursiveQueriesTest extends TempTableTestBase {
         final var randomHierarchy = Hierarchy.generateRandomHierarchy(maxChildrenCountPerLevel, maxDepth, effectiveParentsCount);
         final var splits = ListPartitioner.getSplitsUsingNormalDistribution(continuationsCount, randomHierarchy.size());
         return Stream.of(
-            Arguments.of(randomHierarchy, LEVEL, splits)
+            Arguments.of(randomHierarchy, LEVEL, splits),
+            Arguments.of(randomHierarchy, PREORDER, splits),
+            Arguments.of(randomHierarchy, POSTORDER, splits)
         );
     }
 
@@ -321,10 +330,13 @@ class RecursiveQueriesTest extends TempTableTestBase {
         final var leaf = randomHierarchy.getRandomLeaf();
         final var parent = randomHierarchy.getEdges().get(leaf);
         final var ancestors = randomHierarchy.calculateAncestors(leaf);
+        final var reversedAncestors = new ArrayList<>(ancestors);
+        Collections.reverse(reversedAncestors);
         final var splits = ListPartitioner.getSplitsUsingNormalDistribution(continuationsCount, randomHierarchy.size());
         return Stream.of(
             Arguments.of(randomHierarchy, leaf, parent, ancestors, splits, LEVEL),
             Arguments.of(randomHierarchy, leaf, parent, ancestors, splits, PREORDER),
+            Arguments.of(randomHierarchy, leaf, parent, reversedAncestors, splits, POSTORDER),
             Arguments.of(randomHierarchy, leaf, parent, ancestors, splits, ANY)
         );
     }
