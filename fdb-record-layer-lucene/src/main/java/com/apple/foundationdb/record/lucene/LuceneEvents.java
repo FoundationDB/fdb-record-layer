@@ -209,6 +209,8 @@ public class LuceneEvents {
         LUCENE_GET_INCREMENT_CALLS("lucene increments", false),
         /** The number of block reads that occur against the FDBDirectory.*/
         LUCENE_BLOCK_READS("lucene block reads", false),
+        /** The number of block writes that occur against the FDBDirectory.*/
+        LUCENE_BLOCK_WRITES("lucene block writes", false),
         /** Matched documents returned from lucene index reader scans. **/
         LUCENE_SCAN_MATCHED_DOCUMENTS("lucene scan matched documents", false),
         /** Matched auto complete suggestions returned from lucene auto complete suggestion lookup. **/

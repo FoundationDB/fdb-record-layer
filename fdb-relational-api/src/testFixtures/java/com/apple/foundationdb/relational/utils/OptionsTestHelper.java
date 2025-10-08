@@ -57,11 +57,11 @@ public class OptionsTestHelper {
         builder = builder.withOption(Options.Name.CASE_SENSITIVE_IDENTIFIERS, true);
         builder = builder.withOption(Options.Name.CURRENT_PLAN_HASH_MODE, "m1");
         builder = builder.withOption(Options.Name.VALID_PLAN_HASH_MODES, "m1,m2");
-        builder = builder.withOption(Options.Name.CONTINUATIONS_CONTAIN_COMPILED_STATEMENTS, false);
         builder = builder.withOption(Options.Name.ASYNC_OPERATIONS_TIMEOUT_MILLIS, 5000L);
         builder = builder.withOption(Options.Name.ENCRYPT_WHEN_SERIALIZING, true);
         builder = builder.withOption(Options.Name.ENCRYPTION_KEY_STORE, "secrets.ks");
         builder = builder.withOption(Options.Name.ENCRYPTION_KEY_ENTRY, "mykey");
+        builder = builder.withOption(Options.Name.ENCRYPTION_KEY_ENTRY_LIST, List.of("mykey", "anotherkey"));
         builder = builder.withOption(Options.Name.ENCRYPTION_KEY_PASSWORD, "mypass");
         builder = builder.withOption(Options.Name.COMPRESS_WHEN_SERIALIZING, false);
         Options options = builder.build();

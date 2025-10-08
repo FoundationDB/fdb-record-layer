@@ -21,7 +21,6 @@
 package com.apple.foundationdb.relational.autotest.engine;
 
 import com.apple.foundationdb.relational.autotest.Connector;
-
 import org.junit.platform.commons.JUnitException;
 
 import java.lang.reflect.Field;
@@ -53,14 +52,10 @@ abstract class ConnectionMaker {
                 Object o = field.get(testInstance);
                 return (Connector) o;
             } catch (ClassCastException ce) {
-                String message = String.format(
-                        "Connector field [%s] must be a single Connector instance.",
-                        field.getName());
+                String message = "Connector field [" + field.getName() + "] must be a single Connector instance.";
                 throw new JUnitException(message, ce);
             } catch (IllegalAccessException e) {
-                String message = String.format(
-                        "Connector field [%s] must be public.",
-                        field.getName());
+                String message = "Connector field [" + field.getName() + "] must be public.";
                 throw new JUnitException(message, e);
             }
         }
@@ -79,14 +74,10 @@ abstract class ConnectionMaker {
                 Object o = method.invoke(testInstance);
                 return (Connector) o;
             } catch (ClassCastException | InvocationTargetException ce) {
-                String message = String.format(
-                        "Connector method [%s] must return a Connector type",
-                        method.getName());
+                String message = "Connector method [" + method.getName() + "] must return a Connector type";
                 throw new JUnitException(message, ce);
             } catch (IllegalAccessException e) {
-                String message = String.format(
-                        "Connector method [%s] must be public.",
-                        method.getName());
+                String message = "Connector method [" + method.getName() + "] must be public.";
                 throw new JUnitException(message, e);
             }
         }

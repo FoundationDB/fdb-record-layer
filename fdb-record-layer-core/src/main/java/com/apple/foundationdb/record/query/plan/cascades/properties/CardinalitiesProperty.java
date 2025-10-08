@@ -83,7 +83,8 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryMapPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryMultiIntersectionOnValuesPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryRangePlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveUnionPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveDfsJoinPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveLevelUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScoreForRankPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQuerySelectorPlan;
@@ -460,7 +461,7 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
 
         @Nonnull
         @Override
-        public Cardinalities visitRecordQueryRecursiveUnionPlan(@Nonnull final RecordQueryRecursiveUnionPlan element) {
+        public Cardinalities visitRecordQueryRecursiveLevelUnionPlan(@Nonnull final RecordQueryRecursiveLevelUnionPlan element) {
             final var initialStateCardinality = fromChild(element.getChildren().get(0));
             // this can be improved by imposing an assertion on the cardinality of the recursive leg; if the recursive leg
             // has a known minimum cardinality of x | x > 0 then this query is infinitely recursive, so we should probably
@@ -689,6 +690,12 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
         @Override
         public Cardinalities visitRecordQuerySortPlan(@Nonnull final RecordQuerySortPlan querySortPlan) {
             return fromChild(querySortPlan);
+        }
+
+        @Nonnull
+        @Override
+        public Cardinalities visitRecordQueryRecursiveDfsJoinPlan(@Nonnull final RecordQueryRecursiveDfsJoinPlan recursiveDfsJoinPlan) {
+            return Cardinalities.unknownMaxCardinality();
         }
 
         @Nonnull

@@ -334,7 +334,11 @@ query
     ;
 
 ctes
-    : WITH (RECURSIVE)? namedQuery (COMMA namedQuery)*
+    : WITH (RECURSIVE)? namedQuery (COMMA namedQuery)* traversalOrderClause?
+    ;
+
+traversalOrderClause
+    : TRAVERSAL ORDER order=(PRE_ORDER | LEVEL_ORDER)
     ;
 
 namedQuery
@@ -517,7 +521,6 @@ queryOption
     : NOCACHE
     | LOG QUERY
     | DRY RUN
-    | CONTINUATION CONTAINS COMPILED STATEMENT
     ;
 
 // Transaction's Statements
@@ -810,7 +813,7 @@ convertedDataType
     (
       typeName=(BINARY| NCHAR) lengthOneDimension?
       | typeName=CHAR lengthOneDimension? (charSet charsetName)?
-      | typeName=(DATE | DATETIME | TIME | JSON | INT | INTEGER)
+      | typeName=(DATE | DATETIME | TIME | JSON | INT | INTEGER | STRING | DOUBLE | BOOLEAN | FLOAT | BIGINT | BYTES | UUID)
       | typeName=DECIMAL lengthTwoOptionalDimension?
       | (SIGNED | UNSIGNED) INTEGER?
     ) ARRAY?

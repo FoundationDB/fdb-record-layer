@@ -118,7 +118,23 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
     @Override
     public LogicalOperators visitCtes(@Nonnull RelationalParser.CtesContext ctx) {
         if (ctx.RECURSIVE() != null) {
-            return LogicalOperators.of(ctx.namedQuery().stream().map(this::handleRecursiveNamedQuery).collect(ImmutableList.toImmutableList()));
+            final RecursiveUnionExpression.TraversalStrategy traversalStrategy;
+            if (ctx.traversalOrderClause() != null) {
+                final var order = ctx.traversalOrderClause();
+                if (order.LEVEL_ORDER() != null) {
+                    traversalStrategy = RecursiveUnionExpression.TraversalStrategy.LEVEL;
+                } else if (order.PRE_ORDER() != null) {
+                    traversalStrategy = RecursiveUnionExpression.TraversalStrategy.PREORDER;
+                } else {
+                    traversalStrategy = RecursiveUnionExpression.TraversalStrategy.ANY;
+                    Assert.failUnchecked(ErrorCode.INTERNAL_ERROR, "Unsupported traversal " + order.getText());
+                }
+            } else {
+                traversalStrategy = RecursiveUnionExpression.TraversalStrategy.ANY;
+            }
+            return LogicalOperators.of(ctx.namedQuery().stream().map(namedQuery -> handleRecursiveNamedQuery(namedQuery, traversalStrategy)).collect(ImmutableList.toImmutableList()));
+        } else {
+            Assert.thatUnchecked(ctx.traversalOrderClause() == null, ErrorCode.SYNTAX_ERROR, "traversal order claude can only be defined with recursive CTE");
         }
         return LogicalOperators.of(ctx.namedQuery().stream().map(this::visitNamedQuery).collect(ImmutableList.toImmutableList()));
     }
@@ -142,7 +158,8 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
 
     @SuppressWarnings("UnstableApiUsage")
     @Nonnull
-    public LogicalOperator handleRecursiveNamedQuery(@Nonnull final RelationalParser.NamedQueryContext recursiveQueryContext) {
+    public LogicalOperator handleRecursiveNamedQuery(@Nonnull final RelationalParser.NamedQueryContext recursiveQueryContext,
+                                                     @Nonnull final RecursiveUnionExpression.TraversalStrategy traversalStrategy) {
         final var queryName = visitFullId(recursiveQueryContext.name);
         final Optional<Type> recursiveQueryType;
         final var memoized = MemoizedFunction.<ParserRuleContext, LogicalOperators>memoize(
@@ -179,7 +196,7 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         final var initialLegInsert = LogicalOperator.newTemporaryTableInsert(initialLeg, insertTempTableId, type);
         final var recursiveLegInsert = LogicalOperator.newTemporaryTableInsert(recursiveLeg, insertTempTableId, type);
         final var recursiveUnion = new RecursiveUnionExpression(initialLegInsert.getQuantifier(), recursiveLegInsert.getQuantifier(),
-                CorrelationIdentifier.of(scanId.getName()), CorrelationIdentifier.of(insertTempTableId.getName()));
+                CorrelationIdentifier.of(scanId.getName()), CorrelationIdentifier.of(insertTempTableId.getName()), traversalStrategy);
         final var quantifier = Quantifier.forEach(Reference.initialOf(recursiveUnion));
         var logicalOperator = LogicalOperator.newNamedOperator(queryName, Expressions.fromQuantifier(quantifier), quantifier);
         if (recursiveQueryContext.columnAliases != null) {

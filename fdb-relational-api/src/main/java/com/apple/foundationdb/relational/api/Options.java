@@ -25,6 +25,7 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.options.CollectionContract;
 import com.apple.foundationdb.relational.api.options.OptionContract;
 import com.apple.foundationdb.relational.api.options.OptionContractWithConversion;
+import com.apple.foundationdb.relational.api.options.OrderedCollectionContract;
 import com.apple.foundationdb.relational.api.options.RangeContract;
 import com.apple.foundationdb.relational.api.options.TypeContract;
 import com.google.common.annotations.VisibleForTesting;
@@ -214,12 +215,6 @@ public final class Options {
         VALID_PLAN_HASH_MODES,
 
         /**
-         * Boolean indicator if continuations generated for query responses may contain serialized compiled statements
-         * that can be used in EXECUTE CONTINUATION statements.
-         */
-        CONTINUATIONS_CONTAIN_COMPILED_STATEMENTS,
-
-        /**
          * Timeout for asynchronous operations in milliseconds, this is usually used to set an upperbound time limit for
          * operations interacting with FDB.
          * Scope: Engine
@@ -240,6 +235,11 @@ public final class Options {
          * The key store entry containing the encryption key to use.
          */
         ENCRYPTION_KEY_ENTRY,
+
+        /**
+         * All the key store entries available as encryption keys.
+         */
+        ENCRYPTION_KEY_ENTRY_LIST,
 
         /**
          * The integrity key of the key store and the encryption key of the key entry.
@@ -288,7 +288,6 @@ public final class Options {
         builder.put(Name.EXECUTION_SCANNED_ROWS_LIMIT, Integer.MAX_VALUE);
         builder.put(Name.DRY_RUN, false);
         builder.put(Name.CASE_SENSITIVE_IDENTIFIERS, false);
-        builder.put(Name.CONTINUATIONS_CONTAIN_COMPILED_STATEMENTS, true);
         builder.put(Name.ASYNC_OPERATIONS_TIMEOUT_MILLIS, 10_000L);
         builder.put(Name.ENCRYPT_WHEN_SERIALIZING, false);
         builder.put(Name.ENCRYPTION_KEY_PASSWORD, "");
@@ -496,6 +495,7 @@ public final class Options {
                     prop = bytesToHex(((Continuation)entry.getValue()).serialize());
                     break;
                 case DISABLED_PLANNER_RULES:
+                case ENCRYPTION_KEY_ENTRY_LIST:
                     prop = String.join(",", (Collection<String>)entry.getValue());
                     break;
                 default:
@@ -544,11 +544,11 @@ public final class Options {
         data.put(Name.CASE_SENSITIVE_IDENTIFIERS, List.of(TypeContract.booleanType()));
         data.put(Name.CURRENT_PLAN_HASH_MODE, List.of(TypeContract.stringType()));
         data.put(Name.VALID_PLAN_HASH_MODES, List.of(TypeContract.stringType()));
-        data.put(Name.CONTINUATIONS_CONTAIN_COMPILED_STATEMENTS, List.of(TypeContract.booleanType()));
         data.put(Name.ASYNC_OPERATIONS_TIMEOUT_MILLIS, List.of(TypeContract.longType(), RangeContract.of(0L, Long.MAX_VALUE)));
         data.put(Name.ENCRYPT_WHEN_SERIALIZING, List.of(TypeContract.booleanType()));
         data.put(Name.ENCRYPTION_KEY_STORE, List.of(TypeContract.nullableStringType()));
         data.put(Name.ENCRYPTION_KEY_ENTRY, List.of(TypeContract.nullableStringType()));
+        data.put(Name.ENCRYPTION_KEY_ENTRY_LIST, List.of(new OrderedCollectionContract<>(TypeContract.stringType())));
         data.put(Name.ENCRYPTION_KEY_PASSWORD, List.of(TypeContract.nullableStringType()));
         data.put(Name.COMPRESS_WHEN_SERIALIZING, List.of(TypeContract.booleanType()));
 

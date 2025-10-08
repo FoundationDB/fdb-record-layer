@@ -50,8 +50,7 @@ public interface TypeFilterExpression extends RelationalExpressionWithChildren {
         return ((TypeFilterExpression)otherExpression).getRecordTypes().equals(getRecordTypes());
     }
 
-    @Override
-    default int hashCodeWithoutChildren() {
+    default int computeHashCodeWithoutChildren() {
         return Objects.hash(getRecordTypes());
     }
 }
