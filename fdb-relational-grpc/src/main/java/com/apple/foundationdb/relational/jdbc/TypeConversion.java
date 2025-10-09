@@ -51,7 +51,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.ByteString;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
 import java.sql.Types;
@@ -61,8 +60,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.function.BiFunction;
-
-import static com.apple.foundationdb.relational.jdbc.RelationalStructFacade.RelationalStructFacadeMetaData.getDataType;
 
 /**
  * Utility for converting types used by JDBC from Relational and FDB such as KeySet, RelationalStruct and RelationalArray.
@@ -481,13 +478,12 @@ public class TypeConversion {
         return column;
     }
 
-    @Nullable
     static DataType.StructType getStructDataType(@Nonnull List<ColumnMetadata> columnMetadataList, boolean nullable) {
         final var structFields = new ArrayList<DataType.StructType.Field>();
         for (int i = 0; i < columnMetadataList.size(); i++) {
             final var colMetadata = columnMetadataList.get(i);
             if (colMetadata.getType() == Type.UNKNOWN) {
-                return null;
+                throw new RelationalException("Type UNKNOWN is not expected", ErrorCode.INTERNAL_ERROR).toUncheckedWrappedException();
             }
             final var dataType = getDataType(colMetadata.getType(), colMetadata, colMetadata.getNullable());
             structFields.add(DataType.StructType.Field.from(colMetadata.getName(), dataType, i));
@@ -854,6 +850,47 @@ public class TypeConversion {
                 return Types.DOUBLE;
             default:
                 throw new SQLException("JDBC Type: " + type + " not supported");
+        }
+    }
+
+    private static DataType.EnumType getEnumDataType(@Nonnull EnumMetadata enumMetadata, boolean nullable) {
+        final var enumValues = new ArrayList<DataType.EnumType.EnumValue>();
+        int i = 1;
+        for (var value: enumMetadata.getValuesList()) {
+            enumValues.add(DataType.EnumType.EnumValue.of(value, i++));
+        }
+        return DataType.EnumType.from(enumMetadata.getName(), enumValues, nullable);
+    }
+
+    static DataType getDataType(@Nonnull Type type, @Nonnull ColumnMetadata columnMetadata, boolean nullable) {
+        switch (type) {
+            case LONG:
+                return nullable ? DataType.Primitives.NULLABLE_LONG.type() : DataType.Primitives.LONG.type();
+            case INTEGER:
+                return nullable ? DataType.Primitives.NULLABLE_INTEGER.type() : DataType.Primitives.INTEGER.type();
+            case DOUBLE:
+                return nullable ? DataType.Primitives.NULLABLE_DOUBLE.type() : DataType.Primitives.DOUBLE.type();
+            case FLOAT:
+                return nullable ? DataType.Primitives.NULLABLE_FLOAT.type() : DataType.Primitives.FLOAT.type();
+            case BOOLEAN:
+                return nullable ? DataType.Primitives.NULLABLE_BOOLEAN.type() : DataType.Primitives.BOOLEAN.type();
+            case BYTES:
+                return nullable ? DataType.Primitives.NULLABLE_BYTES.type() : DataType.Primitives.BYTES.type();
+            case UUID:
+                return nullable ? DataType.Primitives.NULLABLE_UUID.type() : DataType.Primitives.UUID.type();
+            case STRING:
+                return nullable ? DataType.Primitives.NULLABLE_STRING.type() : DataType.Primitives.STRING.type();
+            case VERSION:
+                return nullable ? DataType.Primitives.NULLABLE_VERSION.type() : DataType.Primitives.VERSION.type();
+            case STRUCT:
+                return getStructDataType(columnMetadata.getStructMetadata().getColumnMetadataList(), nullable);
+            case ENUM:
+                return getEnumDataType(columnMetadata.getEnumMetadata(), nullable);
+            case ARRAY:
+                final var arrayMetadata = columnMetadata.getArrayMetadata();
+                return DataType.ArrayType.from(getDataType(arrayMetadata.getType(), arrayMetadata, arrayMetadata.getNullable()), nullable);
+            default:
+                throw new RelationalException("Not implemeneted: " + type.name(), ErrorCode.INTERNAL_ERROR).toUncheckedWrappedException();
         }
     }
 }

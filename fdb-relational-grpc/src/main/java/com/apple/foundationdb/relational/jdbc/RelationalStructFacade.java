@@ -20,18 +20,15 @@
 
 package com.apple.foundationdb.relational.jdbc;
 
-import com.apple.foundationdb.relational.api.ArrayMetaData;
 import com.apple.foundationdb.relational.api.RelationalArray;
 import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.RelationalStructBuilder;
 import com.apple.foundationdb.relational.api.RelationalStructMetaData;
 import com.apple.foundationdb.relational.api.StructMetaData;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
-import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.Column;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.ColumnMetadata;
-import com.apple.foundationdb.relational.jdbc.grpc.v1.column.EnumMetadata;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.ListColumn;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.ListColumnMetadata;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.Struct;
@@ -54,6 +51,8 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.function.Supplier;
 
+import static com.apple.foundationdb.relational.jdbc.TypeConversion.getStructDataType;
+
 /**
  * Facade over grpc protobuf objects that offers a {@link RelationalStruct} view.
  * Used by jdbc client but also serializable (protobuf) so can be passed over
@@ -69,7 +68,6 @@ class RelationalStructFacade implements RelationalStruct {
     /**
      * A StructMetaData facade over {@link #delegateMetadata}.
      */
-    private final StructMetaData structMetaData;
     private final Supplier<DataType.StructType> type;
 
     /**
@@ -87,10 +85,9 @@ class RelationalStructFacade implements RelationalStruct {
     private boolean wasNull;
 
     RelationalStructFacade(ListColumnMetadata delegateMetadata, Struct delegate) {
-        type = Suppliers.memoize(() -> TypeConversion.getStructDataType(delegateMetadata.getColumnMetadataList(), false));
+        type = Suppliers.memoize(() -> getStructDataType(delegateMetadata.getColumnMetadataList(), false));
         this.delegate = delegate;
         this.delegateMetadata = delegateMetadata;
-        this.structMetaData = new RelationalStructFacadeMetaData(delegateMetadata);
         this.wasNull = false;
     }
 
@@ -115,7 +112,7 @@ class RelationalStructFacade implements RelationalStruct {
      */
     @Override
     public StructMetaData getMetaData() {
-        return type.get() != null ? RelationalStructMetaData.of(type.get()) : structMetaData;
+        return RelationalStructMetaData.of(type.get());
     }
 
     @Override
@@ -538,154 +535,6 @@ class RelationalStructFacade implements RelationalStruct {
             this.fieldOrder.forEach(s -> columnListMetadataBuilder.addColumnMetadata(this.metadata.get(s)));
             var struct = Struct.newBuilder().setColumns(this.listColumnBuilder.build()).build();
             return new RelationalStructFacade(columnListMetadataBuilder.build(), struct);
-        }
-    }
-
-    /**
-     * Facade over protobuf column metadata to present a StructMetaData view.
-     */
-    static final class RelationalStructFacadeMetaData implements StructMetaData {
-        private final ListColumnMetadata metadata;
-        private final Supplier<DataType.StructType> type;
-
-        RelationalStructFacadeMetaData(ListColumnMetadata metadata) {
-            this.metadata = metadata;
-            this.type = Suppliers.memoize(this::computeType);
-        }
-
-        private DataType.StructType computeType() {
-            return getStructDataType(metadata.getColumnMetadataList(), false);
-        }
-
-        private static DataType.EnumType getEnumDataType(@Nonnull EnumMetadata enumMetadata, boolean nullable) {
-            final var enumValues = new ArrayList<DataType.EnumType.EnumValue>();
-            int i = 1;
-            for (var value: enumMetadata.getValuesList()) {
-                enumValues.add(DataType.EnumType.EnumValue.of(value, i++));
-            }
-            return DataType.EnumType.from(enumMetadata.getName(), enumValues, nullable);
-        }
-
-        private static DataType.StructType getStructDataType(@Nonnull List<ColumnMetadata> columnMetadataList, boolean nullable) {
-            final var fields = new ArrayList<DataType.StructType.Field>();
-            for (int i = 0; i < columnMetadataList.size(); i++) {
-                final var columnMetadata = columnMetadataList.get(i);
-                fields.add(DataType.StructType.Field.from(columnMetadata.getName(), getDataType(columnMetadata.getType(), columnMetadata, columnMetadata.getNullable()), i));
-            }
-            return DataType.StructType.from("ANONYMOUS_STRUCT", fields, nullable);
-        }
-
-        static DataType getDataType(@Nonnull Type type, @Nonnull ColumnMetadata columnMetadata, boolean nullable) {
-            switch (type) {
-                case LONG:
-                    return nullable ? DataType.Primitives.NULLABLE_LONG.type() : DataType.Primitives.LONG.type();
-                case INTEGER:
-                    return nullable ? DataType.Primitives.NULLABLE_INTEGER.type() : DataType.Primitives.INTEGER.type();
-                case DOUBLE:
-                    return nullable ? DataType.Primitives.NULLABLE_DOUBLE.type() : DataType.Primitives.DOUBLE.type();
-                case FLOAT:
-                    return nullable ? DataType.Primitives.NULLABLE_FLOAT.type() : DataType.Primitives.FLOAT.type();
-                case BOOLEAN:
-                    return nullable ? DataType.Primitives.NULLABLE_BOOLEAN.type() : DataType.Primitives.BOOLEAN.type();
-                case BYTES:
-                    return nullable ? DataType.Primitives.NULLABLE_BYTES.type() : DataType.Primitives.BYTES.type();
-                case UUID:
-                    return nullable ? DataType.Primitives.NULLABLE_UUID.type() : DataType.Primitives.UUID.type();
-                case STRING:
-                    return nullable ? DataType.Primitives.NULLABLE_STRING.type() : DataType.Primitives.STRING.type();
-                case VERSION:
-                    return nullable ? DataType.Primitives.NULLABLE_VERSION.type() : DataType.Primitives.VERSION.type();
-                case STRUCT:
-                    return getStructDataType(columnMetadata.getStructMetadata().getColumnMetadataList(), nullable);
-                case ENUM:
-                    return getEnumDataType(columnMetadata.getEnumMetadata(), nullable);
-                case ARRAY:
-                    final var arrayMetadata = columnMetadata.getArrayMetadata();
-                    return DataType.ArrayType.from(getDataType(arrayMetadata.getType(), arrayMetadata, arrayMetadata.getNullable()), nullable);
-                default:
-                    throw new RelationalException("Not implemeneted: " + type.name(), ErrorCode.INTERNAL_ERROR).toUncheckedWrappedException();
-            }
-        }
-
-        @Override
-        public int getColumnCount() throws SQLException {
-            return metadata.getColumnMetadataCount();
-        }
-
-        @Override
-        public int isNullable(int oneBasedColumn) throws SQLException {
-            throw new SQLException("Not implemented", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
-        }
-
-        @Override
-        public String getTypeName() throws SQLException {
-            throw new SQLException("Not implemented", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
-        }
-
-        @Override
-        public String getColumnLabel(int oneBasedColumn) throws SQLException {
-            throw new SQLException("Not implemented", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
-        }
-
-        @Override
-        public String getColumnName(int oneBasedColumn) throws SQLException {
-            return metadata.getColumnMetadata(PositionalIndex.toProtobuf(oneBasedColumn)).getName();
-        }
-
-        @Override
-        public String getSchemaName(int oneBasedColumn) throws SQLException {
-            throw new SQLException("Not implemented", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
-        }
-
-        @Override
-        public String getTableName(int oneBasedColumn) throws SQLException {
-            throw new SQLException("Not implemented", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
-        }
-
-        @Override
-        public String getCatalogName(int oneBasedColumn) throws SQLException {
-            throw new SQLException("Not implemented", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
-        }
-
-        @Override
-        public int getColumnType(int oneBasedColumn) throws SQLException {
-            return TypeConversion.toSqlType(metadata.getColumnMetadata(PositionalIndex.toProtobuf(oneBasedColumn)).getType());
-        }
-
-        @Override
-        public String getColumnTypeName(int oneBasedColumn) throws SQLException {
-            throw new SQLException("Not implemented", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
-        }
-
-        @Override
-        public StructMetaData getStructMetaData(int oneBasedColumn) throws SQLException {
-            throw new SQLException("Not implemented", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
-        }
-
-        @Override
-        public ArrayMetaData getArrayMetaData(int oneBasedColumn) throws SQLException {
-            throw new SQLException("Not implemented", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
-        }
-
-        @Override
-        public int getLeadingPhantomColumnCount() {
-            return -1000;
-        }
-
-        @Nonnull
-        @Override
-        public DataType.StructType getRelationalDataType() {
-            return type.get();
-        }
-
-        @Override
-        public <T> T unwrap(Class<T> iface) throws SQLException {
-            throw new SQLException("Not implemented", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
-        }
-
-        @Override
-        public boolean isWrapperFor(Class<?> iface) throws SQLException {
-            throw new SQLException("Not implemented", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
         }
     }
 }
