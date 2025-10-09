@@ -123,7 +123,7 @@ public class JDBCSimpleStatementTest {
         }
     }
 
-    private void checkSelectStarFromDatabasesResultSet(RelationalResultSet resultSet) throws SQLException {
+    private static void checkSelectStarFromDatabasesResultSet(RelationalResultSet resultSet) throws SQLException {
         Assertions.assertNotNull(resultSet);
         Assertions.assertTrue(resultSet.isWrapperFor(RelationalResultSetFacade.class));
         // Exercise some metadata methods to get our jacoco coverage up.
