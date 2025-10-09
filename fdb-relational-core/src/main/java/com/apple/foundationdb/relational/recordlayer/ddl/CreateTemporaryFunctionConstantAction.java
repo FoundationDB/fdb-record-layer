@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer.ddl;
 
+import com.apple.foundationdb.record.query.plan.cascades.RawSqlFunction;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.ddl.ConstantAction;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
@@ -71,10 +72,12 @@ public class CreateTemporaryFunctionConstantAction implements ConstantAction  {
         // transaction.
         // this should be simplified once https://github.com/FoundationDB/fdb-record-layer/issues/3394 is fixed.
         final var routineBuilder = invokedRoutine.toBuilder();
-        routineBuilder.withCompilableRoutine(isCaseSensitive ->
-                RoutineParser.sqlFunctionParser(transactionBoundSchemaTemplate)
+        routineBuilder
+                .withUserDefinedRoutine(isCaseSensitive ->
+                        RoutineParser.sqlFunctionParser(transactionBoundSchemaTemplate)
                         .parseTemporaryFunction(invokedRoutine.getName(), invokedRoutine.getDescription(),
-                                PreparedParams.copyOf(preparedParams), isCaseSensitive));
+                                PreparedParams.copyOf(preparedParams), isCaseSensitive))
+                .withSerializableFunction(new RawSqlFunction(invokedRoutine.getName(), invokedRoutine.getDescription()));
         final var schemaTemplateWithTempFunction = transactionBoundSchemaTemplate.toBuilder()
                 .replaceInvokedRoutine(routineBuilder.build()).build();
         txn.setBoundSchemaTemplate(schemaTemplateWithTempFunction);

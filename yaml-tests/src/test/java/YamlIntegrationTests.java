@@ -46,6 +46,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void userDefinedScalarFunctionTests(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("user-defined-scalar-function-tests.yamsql");
+    }
+
+    @TestTemplate
     public void standardTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("standard-tests.yamsql");
     }
