@@ -482,9 +482,6 @@ public class TypeConversion {
         final var structFields = new ArrayList<DataType.StructType.Field>();
         for (int i = 0; i < columnMetadataList.size(); i++) {
             final var colMetadata = columnMetadataList.get(i);
-            if (colMetadata.getType() == Type.UNKNOWN) {
-                throw new RelationalException("Type UNKNOWN is not expected", ErrorCode.INTERNAL_ERROR).toUncheckedWrappedException();
-            }
             final var dataType = getDataType(colMetadata.getType(), colMetadata, colMetadata.getNullable());
             structFields.add(DataType.StructType.Field.from(colMetadata.getName(), dataType, i));
         }

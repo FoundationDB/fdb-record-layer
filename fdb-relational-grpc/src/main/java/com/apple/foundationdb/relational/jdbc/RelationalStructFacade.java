@@ -500,7 +500,7 @@ class RelationalStructFacade implements RelationalStruct {
             // Insert the data portion of RelationalStruct here.
             RelationalStructFacade relationalStructFacade = struct.unwrap(RelationalStructFacade.class);
             int offset = addMetadata(ColumnMetadata.newBuilder().setName(fieldName)
-                    .setJavaSqlTypesCode(Types.STRUCT).setType(Type.STRUCT).setStructMetadata(relationalStructFacade.delegateMetadata).build());
+                    .setJavaSqlTypesCode(Types.STRUCT).setType(Type.STRUCT).setStructMetadata(relationalStructFacade.getDelegateMetadata()).build());
             this.listColumnBuilder
                     .addColumn(offset, Column.newBuilder().setStruct(relationalStructFacade.delegate).build());
             return this;

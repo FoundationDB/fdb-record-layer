@@ -44,7 +44,6 @@ import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Types;
@@ -78,10 +77,8 @@ class RelationalArrayFacade implements RelationalArray {
         this.delegate = array;
     }
 
-    @Nullable
     private DataType.ArrayType computeType() {
-        return delegateMetadata.getType() == Type.UNKNOWN ? null :
-               DataType.ArrayType.from(TypeConversion.getDataType(delegateMetadata.getType(), delegateMetadata, delegateMetadata.getNullable()));
+        return DataType.ArrayType.from(TypeConversion.getDataType(delegateMetadata.getType(), delegateMetadata, delegateMetadata.getNullable()));
     }
 
     /**
