@@ -1,0 +1,62 @@
+---
+schema_template:
+    create table numbers(id bigint, value integer, primary key(id))
+    create table data(id bigint, str_value string, primary key(id))
+    create table flags(id bigint, active boolean, primary key(id))
+    create table arrays(id bigint, primary key(id))
+---
+setup:
+  steps:
+    - query: insert into numbers values (1, 42)
+    - query: insert into data values (1, '123'), (2, 'invalid')
+    - query: insert into flags values (1, true), (2, false)
+    - query: insert into arrays values (1)
+---
+test_block:
+  name: cast-documentation-tests
+  preset: single_repetition_ordered
+  tests:
+    # Basic Numeric Conversions
+    -
+      - query: SELECT CAST(value AS DOUBLE) AS value_as_double FROM numbers WHERE id = 1
+      - result: [{value_as_double: 42.0}]
+
+    # String to Numeric Conversion
+    -
+      - query: SELECT CAST(str_value AS INTEGER) AS parsed_number FROM data WHERE id = 1
+      - result: [{parsed_number: 123}]
+
+    # Numeric to String Conversion
+    -
+      - query: SELECT CAST(value AS STRING) AS value_as_string FROM numbers WHERE id = 1
+      - result: [{value_as_string: "42"}]
+
+    # Boolean Conversions
+    -
+      - query: SELECT CAST(active AS INTEGER) AS active_as_int FROM flags
+      - unorderedResult: [{active_as_int: 1}, {active_as_int: 0}]
+
+    # Array Type Conversion
+    -
+      - query: SELECT CAST([1, 2, 3] AS STRING ARRAY) AS string_array FROM arrays WHERE id = 1
+      - result: [{string_array: ["1", "2", "3"]}]
+
+    # Empty Array Casting
+    -
+      - query: SELECT CAST([] AS INTEGER ARRAY) AS empty_int_array FROM arrays WHERE id = 1
+      - result: [{empty_int_array: []}]
+
+    # Nested Conversions
+    -
+      - query: SELECT CAST(CAST(value AS STRING) AS DOUBLE) AS nested_cast FROM numbers WHERE id = 1
+      - result: [{nested_cast: 42.0}]
+
+    # Invalid Conversions - String to Integer Error
+    -
+      - query: SELECT CAST(str_value AS INTEGER) FROM data WHERE id = 2
+      - error: "22F3H"
+
+    # Range Overflow - LONG to INT Error
+    -
+      - query: SELECT CAST(9223372036854775807 AS INTEGER) FROM numbers WHERE id = 1
+      - error: "22F3H"
