@@ -27,15 +27,18 @@ import com.apple.foundationdb.record.util.RandomUtil;
 import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.protobuf.ByteString;
-import com.google.protobuf.InvalidProtocolBufferException;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
+import java.security.GeneralSecurityException;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.stream.Stream;
 
 /**
  * Test for Lucene data compression/decompression and encryption/decryption validation.
@@ -43,8 +46,8 @@ import java.util.concurrent.ThreadLocalRandom;
 @Tag(Tags.RequiresFDB)
 class LuceneSerializerTest {
     @Test
-    void testEncodingWithoutCompression() throws InvalidProtocolBufferException {
-        final LuceneSerializer serializer = new LuceneSerializer(true, false, null);
+    void testEncodingWithoutCompression() throws Exception {
+        final LuceneSerializer serializer = getSerializer(true, false);
         final ByteString content = RandomUtil.randomByteString(ThreadLocalRandom.current(), 100);
         final LuceneFileSystemProto.LuceneFileReference reference = LuceneFileSystemProto.LuceneFileReference.newBuilder()
                 .setId(1)
@@ -73,8 +76,8 @@ class LuceneSerializerTest {
     }
 
     @Test
-    void testEncodingWithCompression() throws InvalidProtocolBufferException {
-        final LuceneSerializer serializer = new LuceneSerializer(true, false, null);
+    void testEncodingWithCompression() throws Exception {
+        final LuceneSerializer serializer = getSerializer(true, false);
         final String duplicateMsg = "abcdefghijklmnopqrstuvwxyz";
         final String content = "content_" + duplicateMsg + "_" + duplicateMsg;
         final LuceneFileSystemProto.LuceneFileReference reference = LuceneFileSystemProto.LuceneFileReference.newBuilder()
@@ -103,11 +106,7 @@ class LuceneSerializerTest {
     @ParameterizedTest
     @BooleanSource
     void testEncodingWithEncryption(boolean compressToo) throws Exception {
-        KeyGenerator keyGen = KeyGenerator.getInstance("AES");
-        keyGen.init(128);
-        SecretKey key = keyGen.generateKey();
-        final SerializationKeyManager keyManager = new FixedZeroKeyManager(key, null, null);
-        final LuceneSerializer serializer = new LuceneSerializer(compressToo, true, keyManager);
+        final LuceneSerializer serializer = getSerializer(compressToo, true);
         final ByteString content = RandomUtil.randomByteString(ThreadLocalRandom.current(), 100);
         final LuceneFileSystemProto.LuceneFileReference reference = LuceneFileSystemProto.LuceneFileReference.newBuilder()
                 .setId(1)
@@ -121,5 +120,53 @@ class LuceneSerializerTest {
         Assertions.assertArrayEquals(value, decodedValue);
         final LuceneFileSystemProto.LuceneFileReference decryptedReference = LuceneFileSystemProto.LuceneFileReference.parseFrom(decodedValue);
         Assertions.assertEquals(content, decryptedReference.getContent());
+    }
+
+    @ParameterizedTest
+    @MethodSource("encodedCompressedAndEncrypted")
+    void testProtobufMessageWithoutPrefix(boolean encode, boolean compress, boolean encrypt) throws Exception {
+        final LuceneSerializer serializer = getSerializer(compress, encrypt);
+        final String storedField = RandomUtil.randomAlphanumericString(ThreadLocalRandom.current(), 20);
+        final LuceneStoredFieldsProto.LuceneStoredFields.Builder builder = LuceneStoredFieldsProto.LuceneStoredFields.newBuilder();
+        builder.addStoredFieldsBuilder().setFieldNumber(5).setStringValue(storedField);
+        final byte[] value = builder.build().toByteArray();
+        final byte[] encodedValue = encode ? serializer.encode(value) : value;
+        final byte[] decodedValue = serializer.decodePossiblyWithoutPrefix(encodedValue);
+        Assertions.assertArrayEquals(value, decodedValue);
+        final LuceneStoredFieldsProto.LuceneStoredFields storedFields = LuceneStoredFieldsProto.LuceneStoredFields.parseFrom(decodedValue);
+        Assertions.assertEquals(storedField, storedFields.getStoredFields(0).getStringValue());
+    }
+
+    @ParameterizedTest
+    @MethodSource("encodedCompressedAndEncrypted")
+    void testEmpty(boolean encode, boolean compress, boolean encrypt) throws Exception {
+        final LuceneSerializer serializer = getSerializer(compress, encrypt);
+        final byte[] value = new byte[0];
+        final byte[] encodedValue = encode ? serializer.encode(value) : value;
+        final byte[] decodedValue = serializer.decodePossiblyWithoutPrefix(encodedValue);
+        Assertions.assertArrayEquals(value, decodedValue);
+    }
+
+    static Stream<Arguments> encodedCompressedAndEncrypted() {
+        return Stream.of(
+               Arguments.of(false, false, false),
+               Arguments.of(true, false, false),
+               Arguments.of(true, false, true),
+               Arguments.of(true, true, false),
+               Arguments.of(true, true, true)
+        );
+    }
+
+    private LuceneSerializer getSerializer(boolean compress, boolean encrypt) throws GeneralSecurityException {
+        final SerializationKeyManager keyManager;
+        if (encrypt) {
+            KeyGenerator keyGen = KeyGenerator.getInstance("AES");
+            keyGen.init(128);
+            SecretKey key = keyGen.generateKey();
+            keyManager = new FixedZeroKeyManager(key, null, null);
+        } else {
+            keyManager = null;
+        }
+        return new LuceneSerializer(compress, encrypt, keyManager);
     }
 }

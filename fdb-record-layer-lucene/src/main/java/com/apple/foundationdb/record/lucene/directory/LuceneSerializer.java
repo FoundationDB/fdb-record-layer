@@ -131,7 +131,7 @@ public class LuceneSerializer {
             return null;
         }
 
-        if (data.length < 2) {
+        if (data.length < 1) {
             throw new RecordCoreException("Invalid data")
                     .addLogInfo(LuceneLogMessageKeys.DATA_VALUE, data);
         }
@@ -269,5 +269,38 @@ public class LuceneSerializer {
             CipherPool.returnCipher(cipher);
         }
         encodedDataInput.reset(decrypted);
+    }
+
+    @Nullable
+    public byte[] decodePossiblyWithoutPrefix(@Nullable byte[] bytes) {
+        if (bytes == null) {
+            return null;
+        }
+
+        if (isProtobufMessageWithoutPrefix(bytes)) {
+            return bytes;
+        }
+        return decode(bytes);
+    }
+
+    // This can be removed once it is guaranteed that all indexes are using the encoded format.
+    // Only works for Protobuf messages all of whose fields are themselves length-delimited,
+    // such as LuceneStoredFields (StoredField or bytes) or FieldInfos (FieldInfo).
+    private boolean isProtobufMessageWithoutPrefix(@Nonnull byte[] bytes) {
+        if (bytes.length < 1) {
+            return true;    // No room for prefix; empty message.
+        }
+        final int byte0 = bytes[0];
+        final int fieldTypeOrPrefixFlags = byte0 & 7;
+        // Either Protobuf LEN or ENCODING_COMPRESSED.
+        if (fieldTypeOrPrefixFlags != 2) {
+            return false;
+        }
+        final int fieldNumberOrKeyNumber = byte0 >> 3;
+        // ENCODING_COMPRESSED will never have a key; 0 is not a valid field number.
+        if (fieldNumberOrKeyNumber == 0) {
+            return false;
+        }
+        return true;
     }
 }
