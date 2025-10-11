@@ -22,10 +22,10 @@ package com.apple.foundationdb.async.hnsw;
 
 import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.Transaction;
+import com.apple.foundationdb.async.rabitq.EncodedVector;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
-import com.christianheina.langx.half4j.Half;
-import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -42,6 +42,8 @@ import java.util.concurrent.CompletableFuture;
  * @param <N> the type of {@link NodeReference} this storage adapter manages
  */
 interface StorageAdapter<N extends NodeReference> {
+    ImmutableList<VectorType> VECTOR_TYPES = ImmutableList.copyOf(VectorType.values());
+
     /**
      * Subspace for entry nodes; these are kept separately from the data.
      */
@@ -182,7 +184,7 @@ interface StorageAdapter<N extends NodeReference> {
      * This method performs an asynchronous read to retrieve the stored entry point of the index. The entry point
      * information, which includes its primary key, vector, and the layer value, is packed into a single key-value
      * pair within a dedicated subspace. If no entry node is found, it indicates that the index is empty.
-     *
+     * @param config an HNSW configuration
      * @param readTransaction the transaction to use for the read operation
      * @param subspace the subspace where the HNSW index data is stored
      * @param onReadListener a listener to be notified of the key-value read operation
@@ -190,7 +192,8 @@ interface StorageAdapter<N extends NodeReference> {
      *         for the index's entry point, or with {@code null} if the index is empty
      */
     @Nonnull
-    static CompletableFuture<EntryNodeReference> fetchEntryNodeReference(@Nonnull final ReadTransaction readTransaction,
+    static CompletableFuture<EntryNodeReference> fetchEntryNodeReference(@Nonnull final HNSW.Config config,
+                                                                         @Nonnull final ReadTransaction readTransaction,
                                                                          @Nonnull final Subspace subspace,
                                                                          @Nonnull final OnReadListener onReadListener) {
         final Subspace entryNodeSubspace = subspace.subspace(Tuple.from(SUBSPACE_PREFIX_ENTRY_NODE));
@@ -207,7 +210,7 @@ interface StorageAdapter<N extends NodeReference> {
                     final int layer = (int)entryTuple.getLong(0);
                     final Tuple primaryKey = entryTuple.getNestedTuple(1);
                     final Tuple vectorTuple = entryTuple.getNestedTuple(2);
-                    return new EntryNodeReference(primaryKey, StorageAdapter.vectorFromTuple(vectorTuple), layer);
+                    return new EntryNodeReference(primaryKey, StorageAdapter.vectorFromTuple(config, vectorTuple), layer);
                 });
     }
 
@@ -240,15 +243,16 @@ interface StorageAdapter<N extends NodeReference> {
      * Creates a {@code HalfVector} from a given {@code Tuple}.
      * <p>
      * This method assumes the vector data is stored as a byte array at the first. position (index 0) of the tuple. It
-     * extracts this byte array and then delegates to the {@link #vectorFromBytes(byte[])} method for the actual
-     * conversion.
+     * extracts this byte array and then delegates to the {@link #vectorFromBytes(HNSW.Config, byte[])} method for the
+     * actual conversion.
+     * @param config an HNSW configuration
      * @param vectorTuple the tuple containing the vector data as a byte array at index 0. Must not be {@code null}.
      * @return a new {@code HalfVector} instance created from the tuple's data.
      *         This method never returns {@code null}.
      */
     @Nonnull
-    static Vector vectorFromTuple(final Tuple vectorTuple) {
-        return vectorFromBytes(vectorTuple.getBytes(0));
+    static Vector vectorFromTuple(@Nonnull final HNSW.Config config, @Nonnull final Tuple vectorTuple) {
+        return vectorFromBytes(config, vectorTuple.getBytes(0));
     }
 
     /**
@@ -257,63 +261,25 @@ interface StorageAdapter<N extends NodeReference> {
      * This method interprets the input byte array by interpreting the first byte of the array as the precision shift.
      * The byte array must have the proper size, i.e. the invariant {@code (bytesLength - 1) % precision == 0} must
      * hold.
+     * @param config an HNSW config
      * @param vectorBytes the non-null byte array to convert.
      * @return a new {@link Vector} instance created from the byte array.
      * @throws com.google.common.base.VerifyException if the length of {@code vectorBytes} does not meet the invariant
      *         {@code (bytesLength - 1) % precision == 0}
      */
     @Nonnull
-    static Vector vectorFromBytes(final byte[] vectorBytes) {
-        final int bytesLength = vectorBytes.length;
-        final int precisionShift = (int)vectorBytes[0];
-        final int precision = 1 << precisionShift;
-        Verify.verify((bytesLength - 1) % precision == 0);
-        final int numDimensions = bytesLength >>> precisionShift;
-        switch (precisionShift) {
-            case 1:
-                return halfVectorFromBytes(vectorBytes, 1, numDimensions);
-            case 3:
-                return doubleVectorFromBytes(vectorBytes, 1, numDimensions);
+    static Vector vectorFromBytes(@Nonnull final HNSW.Config config, @Nonnull final byte[] vectorBytes) {
+        final byte vectorTypeOrdinal = vectorBytes[0];
+        switch (fromVectorTypeOrdinal(vectorTypeOrdinal)) {
+            case HALF:
+                return HalfVector.fromBytes(vectorBytes, 1);
+            case DOUBLE:
+                return DoubleVector.fromBytes(vectorBytes, 1);
+            case RABITQ:
+                return EncodedVector.fromBytes(vectorBytes, config.getRabitQConfig().getNumExBits());
             default:
                 throw new RuntimeException("unable to serialize vector");
         }
-    }
-
-    /**
-     * Creates a {@link HalfVector} from a byte array.
-     * <p>
-     * This method interprets the input byte array as a sequence of 16-bit half-precision floating-point numbers. Each
-     * consecutive pair of bytes is converted into a {@code Half} value, which then becomes a component of the resulting
-     * vector.
-     * @param vectorBytes the non-null byte array to convert. The length of this array must be even, as each pair of
-     *        bytes represents a single {@link Half} component.
-     * @return a new {@link HalfVector} instance created from the byte array.
-     */
-    @Nonnull
-    static HalfVector halfVectorFromBytes(@Nonnull final byte[] vectorBytes, final int offset, final int numDimensions) {
-        final Half[] vectorHalfs = new Half[numDimensions];
-        for (int i = 0; i < numDimensions; i ++) {
-            vectorHalfs[i] = Half.shortBitsToHalf(shortFromBytes(vectorBytes, offset + (i << 1)));
-        }
-        return new HalfVector(vectorHalfs);
-    }
-
-    /**
-     * Creates a {@link DoubleVector} from a byte array.
-     * <p>
-     * This method interprets the input byte array as a sequence of 64-bit double-precision floating-point numbers. Each
-     * run of eight bytes is converted into a {@code double} value, which then becomes a component of the resulting
-     * vector.
-     * @param vectorBytes the non-null byte array to convert.
-     * @return a new {@link DoubleVector} instance created from the byte array.
-     */
-    @Nonnull
-    static DoubleVector doubleVectorFromBytes(@Nonnull final byte[] vectorBytes, int offset, final int numDimensions) {
-        final double[] vectorComponents = new double[numDimensions];
-        for (int i = 0; i < numDimensions; i ++) {
-            vectorComponents[i] = Double.longBitsToDouble(longFromBytes(vectorBytes, offset + (i << 3)));
-        }
-        return new DoubleVector(vectorComponents);
     }
 
     /**
@@ -330,76 +296,9 @@ interface StorageAdapter<N extends NodeReference> {
         return Tuple.from(vector.getRawData());
     }
 
-    /**
-     * Constructs a short from two bytes in a byte array in big-endian order.
-     * <p>
-     * This method reads two consecutive bytes from the {@code bytes} array, starting at the given {@code offset}. The
-     * byte at {@code offset} is treated as the most significant byte (MSB), and the byte at {@code offset + 1} is the
-     * least significant byte (LSB).
-     * @param bytes the source byte array from which to read the short.
-     * @param offset the starting index in the byte array.
-     * @return the short value constructed from the two bytes.
-     */
-    static short shortFromBytes(final byte[] bytes, final int offset) {
-        int high = bytes[offset] & 0xFF;   // Convert to unsigned int
-        int low  = bytes[offset + 1] & 0xFF;
-
-        return (short) ((high << 8) | low);
-    }
-
-    /**
-     * Converts a {@code short} value into a 2-element byte array.
-     * <p>
-     * The conversion is performed in big-endian byte order, where the most significant byte (MSB) is placed at index 0
-     * and the least significant byte (LSB) is at index 1.
-     * @param value the {@code short} value to be converted.
-     * @return a new 2-element byte array representing the short value in big-endian order.
-     */
-    static byte[] bytesFromShort(final short value) {
-        byte[] result = new byte[2];
-        result[0] = (byte) ((value >> 8) & 0xFF);  // high byte first
-        result[1] = (byte) (value & 0xFF);         // low byte second
-        return result;
-    }
-
-    /**
-     * Constructs a long from eight bytes in a byte array in big-endian order.
-     * <p>
-     * This method reads two consecutive bytes from the {@code bytes} array, starting at the given {@code offset}. The
-     * byte array is treated to be in big-endian order.
-     * @param bytes the source byte array from which to read the short.
-     * @param offset the starting index in the byte array.
-     * @return the long value constructed from the two bytes.
-     */
-    static long longFromBytes(final byte[] bytes, final int offset) {
-        return ((bytes[offset    ] & 0xFFL) << 56) |
-                ((bytes[offset + 1] & 0xFFL) << 48) |
-                ((bytes[offset + 2] & 0xFFL) << 40) |
-                ((bytes[offset + 3] & 0xFFL) << 32) |
-                ((bytes[offset + 4] & 0xFFL) << 24) |
-                ((bytes[offset + 5] & 0xFFL) << 16) |
-                ((bytes[offset + 6] & 0xFFL) <<  8) |
-                ((bytes[offset + 7] & 0xFFL));
-    }
-
-    /**
-     * Converts a {@code short} value into a 2-element byte array.
-     * <p>
-     * The conversion is performed in big-endian byte order.
-     * @param value the {@code long} value to be converted.
-     * @return a new 8-element byte array representing the short value in big-endian order.
-     */
     @Nonnull
-    static byte[] bytesFromLong(final long value) {
-        byte[] result = new byte[8];
-        result[0] = (byte)(value >>> 56);
-        result[1] = (byte)(value >>> 48);
-        result[2] = (byte)(value >>> 40);
-        result[3] = (byte)(value >>> 32);
-        result[4] = (byte)(value >>> 24);
-        result[5] = (byte)(value >>> 16);
-        result[6] = (byte)(value >>>  8);
-        result[7] = (byte)value;
-        return result;
+    static VectorType fromVectorTypeOrdinal(final int ordinal) {
+        return VECTOR_TYPES.get(ordinal);
     }
+
 }
