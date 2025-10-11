@@ -42,7 +42,8 @@ public class VectorTest {
     void testSerializationDeserializationHalfVector(final long seed) {
         final Random random = new Random(seed);
         final HalfVector randomVector = createRandomHalfVector(random, 128);
-        final Vector deserializedVector = StorageAdapter.vectorFromBytes(randomVector.getRawData());
+        final Vector deserializedVector =
+                StorageAdapter.vectorFromBytes(HNSW.DEFAULT_CONFIG, randomVector.getRawData());
         Assertions.assertThat(deserializedVector).isInstanceOf(HalfVector.class);
         Assertions.assertThat(deserializedVector).isEqualTo(randomVector);
     }
@@ -52,7 +53,8 @@ public class VectorTest {
     void testSerializationDeserializationDoubleVector(final long seed) {
         final Random random = new Random(seed);
         final DoubleVector randomVector = createRandomDoubleVector(random, 128);
-        final Vector deserializedVector = StorageAdapter.vectorFromBytes(randomVector.getRawData());
+        final Vector deserializedVector =
+                StorageAdapter.vectorFromBytes(HNSW.DEFAULT_CONFIG, randomVector.getRawData());
         Assertions.assertThat(deserializedVector).isInstanceOf(DoubleVector.class);
         Assertions.assertThat(deserializedVector).isEqualTo(randomVector);
     }

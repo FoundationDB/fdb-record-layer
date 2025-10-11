@@ -23,10 +23,20 @@ package com.apple.foundationdb.async.rabitq;
 import com.apple.foundationdb.async.hnsw.DoubleVector;
 import com.apple.foundationdb.async.hnsw.Metrics;
 import com.apple.foundationdb.async.hnsw.Vector;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ObjectArrays;
+import com.google.common.collect.Sets;
+import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
+import javax.annotation.Nonnull;
 import java.util.Objects;
 import java.util.Random;
+import java.util.stream.LongStream;
+import java.util.stream.Stream;
 
 public class QuantizerTest {
     @Test
@@ -110,7 +120,7 @@ public class QuantizerTest {
         final Estimator estimator = quantizer.estimator();
         final Estimator.Result estimatedDistance = estimator.estimateDistanceAndErrorBound(vRot, encodedVector);
         System.out.println("estimated distance = " + estimatedDistance);
-        System.out.println("true distance = " + Vector.distance(Metrics.EUCLIDEAN_SQUARE_METRIC.getMetric(), v, reconstructedV));
+        System.out.println("true distance = " + Vector.distance(Metrics.EUCLIDEAN_SQUARE_METRIC, v, reconstructedV));
     }
 
     @Test
@@ -169,7 +179,7 @@ public class QuantizerTest {
         final Estimator estimator = quantizer.estimator();
         final Estimator.Result estimatedDistance = estimator.estimateDistanceAndErrorBound(qRot, encodedV);
         System.out.println("estimated ||qRot - vRot||^2 = " + estimatedDistance);
-        System.out.println("true ||qRot - vRot||^2 = " + Vector.distance(Metrics.EUCLIDEAN_SQUARE_METRIC.getMetric(), vRot, qRot));
+        System.out.println("true ||qRot - vRot||^2 = " + Vector.distance(Metrics.EUCLIDEAN_SQUARE_METRIC, vRot, qRot));
 
         final Vector reconstructedV = rotator.operate(encodedV.add(centroidRot));
         System.out.println("reconstructed v = " + reconstructedV);
@@ -177,9 +187,34 @@ public class QuantizerTest {
         final Vector reconstructedQ = rotator.operate(encodedQ.add(centroidRot));
         System.out.println("reconstructed q = " + reconstructedQ);
 
-        System.out.println("true ||qDec - vDec||^2 = " + Vector.distance(Metrics.EUCLIDEAN_SQUARE_METRIC.getMetric(), reconstructedV, reconstructedQ));
+        System.out.println("true ||qDec - vDec||^2 = " + Vector.distance(Metrics.EUCLIDEAN_SQUARE_METRIC, reconstructedV, reconstructedQ));
 
         encodedV.getRawData();
+    }
+
+    @Nonnull
+    private static Stream<Arguments> randomSeedsWithDimensionalityAndNumExBits() {
+        return Sets.cartesianProduct(ImmutableSet.of(3, 5, 10, 128, 768, 1000),
+                        ImmutableSet.of(1, 2, 3, 4, 5, 6, 7, 8))
+                .stream()
+                .flatMap(arguments ->
+                        LongStream.generate(() -> new Random().nextLong())
+                                .limit(3)
+                                .mapToObj(seed -> Arguments.of(ObjectArrays.concat(seed, arguments.toArray()))));
+    }
+
+    @ParameterizedTest(name = "seed={0} dimensionality={1} numExBits={2}")
+    @MethodSource("randomSeedsWithDimensionalityAndNumExBits")
+    void serializationRoundTripTest(final long seed, final int numDimensions, final int numExBits) {
+        final Random random = new Random(seed);
+        final Vector v = new DoubleVector(createRandomVector(random, numDimensions));
+        final Vector centroid = new DoubleVector(new double[numDimensions]);
+        final Quantizer quantizer = new Quantizer(centroid, numExBits, Metrics.EUCLIDEAN_SQUARE_METRIC);
+        final Quantizer.Result result = quantizer.encode(v);
+        final EncodedVector encodedVector = result.encodedVector;
+        final byte[] rawData = encodedVector.getRawData();
+        final EncodedVector deserialized = EncodedVector.fromBytes(rawData, 1, numDimensions, numExBits);
+        Assertions.assertThat(deserialized).isEqualTo(encodedVector);
     }
 
     private static double[] createRandomVector(final Random random, final int dims) {

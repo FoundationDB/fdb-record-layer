@@ -86,7 +86,7 @@ public class HNSW {
     public static final int MAX_CONCURRENT_NEIGHBOR_FETCHES = 3;
     public static final int MAX_CONCURRENT_SEARCHES = 10;
     @Nonnull public static final Random DEFAULT_RANDOM = new Random(0L);
-    @Nonnull public static final Metric DEFAULT_METRIC = new Metric.EuclideanMetric();
+    @Nonnull public static final Metrics DEFAULT_METRIC = Metrics.EUCLIDEAN_METRIC;
     public static final boolean DEFAULT_USE_INLINING = false;
     public static final int DEFAULT_M = 16;
     public static final int DEFAULT_M_MAX = DEFAULT_M;
@@ -117,7 +117,7 @@ public class HNSW {
         @Nonnull
         private final Random random;
         @Nonnull
-        private final Metric metric;
+        private final Metrics metric;
         private final boolean useInlining;
         private final int m;
         private final int mMax;
@@ -138,7 +138,7 @@ public class HNSW {
             this.keepPrunedConnections = DEFAULT_KEEP_PRUNED_CONNECTIONS;
         }
 
-        protected Config(@Nonnull final Random random, @Nonnull final Metric metric, final boolean useInlining,
+        protected Config(@Nonnull final Random random, @Nonnull final Metrics metric, final boolean useInlining,
                          final int m, final int mMax, final int mMax0, final int efConstruction,
                          final boolean extendCandidates, final boolean keepPrunedConnections) {
             this.random = random;
@@ -158,7 +158,7 @@ public class HNSW {
         }
 
         @Nonnull
-        public Metric getMetric() {
+        public Metrics getMetric() {
             return metric;
         }
 
@@ -217,7 +217,7 @@ public class HNSW {
         @Nonnull
         private Random random = DEFAULT_RANDOM;
         @Nonnull
-        private Metric metric = DEFAULT_METRIC;
+        private Metrics metric = DEFAULT_METRIC;
         private boolean useInlining = DEFAULT_USE_INLINING;
         private int m = DEFAULT_M;
         private int mMax = DEFAULT_M_MAX;
@@ -229,7 +229,7 @@ public class HNSW {
         public ConfigBuilder() {
         }
 
-        public ConfigBuilder(@Nonnull final Random random, @Nonnull final Metric metric, final boolean useInlining,
+        public ConfigBuilder(@Nonnull final Random random, @Nonnull final Metrics metric, final boolean useInlining,
                              final int m, final int mMax, final int mMax0, final int efConstruction,
                              final boolean extendCandidates, final boolean keepPrunedConnections) {
             this.random = random;
@@ -255,12 +255,12 @@ public class HNSW {
         }
 
         @Nonnull
-        public Metric getMetric() {
+        public Metrics getMetric() {
             return metric;
         }
 
         @Nonnull
-        public ConfigBuilder setMetric(@Nonnull final Metric metric) {
+        public ConfigBuilder setMetric(@Nonnull final Metrics metric) {
             this.metric = metric;
             return this;
         }
@@ -462,13 +462,13 @@ public class HNSW {
                                                                                                                               final int k,
                                                                                                                               final int efSearch,
                                                                                                                               @Nonnull final Vector queryVector) {
-        return StorageAdapter.fetchEntryNodeReference(readTransaction, getSubspace(), getOnReadListener())
+        return StorageAdapter.fetchEntryNodeReference(getConfig(), readTransaction, getSubspace(), getOnReadListener())
                 .thenCompose(entryPointAndLayer -> {
                     if (entryPointAndLayer == null) {
                         return CompletableFuture.completedFuture(null); // not a single node in the index
                     }
 
-                    final Metric metric = getConfig().getMetric();
+                    final Metrics metric = getConfig().getMetric();
 
                     final NodeReferenceWithDistance entryState =
                             new NodeReferenceWithDistance(entryPointAndLayer.getPrimaryKey(),
@@ -594,7 +594,7 @@ public class HNSW {
                                                                                    final int layer,
                                                                                    @Nonnull final Vector queryVector) {
         Verify.verify(layer > 0);
-        final Metric metric = getConfig().getMetric();
+        final Metrics metric = getConfig().getMetric();
         final AtomicReference<NodeReferenceWithDistance> currentNodeReferenceAtomic =
                 new AtomicReference<>(entryNeighbor);
 
@@ -675,7 +675,7 @@ public class HNSW {
                 new PriorityBlockingQueue<>(config.getM(),
                         Comparator.comparing(NodeReferenceWithDistance::getDistance).reversed());
         nearestNeighbors.addAll(entryNeighbors);
-        final Metric metric = getConfig().getMetric();
+        final Metrics metric = getConfig().getMetric();
 
         return AsyncUtil.whileTrue(() -> {
             if (candidates.isEmpty()) {
@@ -976,14 +976,14 @@ public class HNSW {
     @Nonnull
     public CompletableFuture<Void> insert(@Nonnull final Transaction transaction, @Nonnull final Tuple newPrimaryKey,
                                           @Nonnull final Vector newVector) {
-        final Metric metric = getConfig().getMetric();
+        final Metrics metric = getConfig().getMetric();
 
         final int insertionLayer = insertionLayer(getConfig().getRandom());
         if (logger.isDebugEnabled()) {
             logger.debug("new node with key={} selected to be inserted into layer={}", newPrimaryKey, insertionLayer);
         }
 
-        return StorageAdapter.fetchEntryNodeReference(transaction, getSubspace(), getOnReadListener())
+        return StorageAdapter.fetchEntryNodeReference(getConfig(), transaction, getSubspace(), getOnReadListener())
                 .thenApply(entryNodeReference -> {
                     if (entryNodeReference == null) {
                         // this is the first node
@@ -1062,7 +1062,7 @@ public class HNSW {
     @Nonnull
     public CompletableFuture<Void> insertBatch(@Nonnull final Transaction transaction,
                                                @Nonnull List<NodeReferenceWithVector> batch) {
-        final Metric metric = getConfig().getMetric();
+        final Metrics metric = getConfig().getMetric();
 
         // determine the layer each item should be inserted at
         final Random random = getConfig().getRandom();
@@ -1074,7 +1074,7 @@ public class HNSW {
         // sort the layers in reverse order
         batchWithLayers.sort(Comparator.comparing(NodeReferenceWithLayer::getLayer).reversed());
 
-        return StorageAdapter.fetchEntryNodeReference(transaction, getSubspace(), getOnReadListener())
+        return StorageAdapter.fetchEntryNodeReference(getConfig(), transaction, getSubspace(), getOnReadListener())
                 .thenCompose(entryNodeReference -> {
                     final int lMax = entryNodeReference == null ? -1 : entryNodeReference.getLayer();
 
@@ -1400,7 +1400,7 @@ public class HNSW {
                                                                                                                  int mMax,
                                                                                                                  @Nonnull final NeighborsChangeSet<N> neighborChangeSet,
                                                                                                                  @Nonnull final Map<Tuple, Node<N>> nodeCache) {
-        final Metric metric = getConfig().getMetric();
+        final Metrics metric = getConfig().getMetric();
         final Node<N> selectedNeighborNode = selectedNeighbor.getNode();
         if (selectedNeighborNode.getNeighbors().size() < mMax) {
             return CompletableFuture.completedFuture(null);
@@ -1484,7 +1484,7 @@ public class HNSW {
                                     Comparator.comparing(NodeReferenceWithDistance::getDistance))
                             : null;
 
-                    final Metric metric = getConfig().getMetric();
+                    final Metrics metric = getConfig().getMetric();
 
                     while (!candidates.isEmpty() && selected.size() < m) {
                         final NodeReferenceWithDistance nearestCandidate = candidates.poll();
@@ -1557,7 +1557,7 @@ public class HNSW {
                                         @Nonnull final Map<Tuple, Node<N>> nodeCache,
                                         @Nonnull final Vector vector) {
         if (isExtendCandidates) {
-            final Metric metric = getConfig().getMetric();
+            final Metrics metric = getConfig().getMetric();
 
             final Set<Tuple> candidatesSeen = Sets.newConcurrentHashSet();
             for (final NodeReferenceAndNode<N> candidate : candidates) {

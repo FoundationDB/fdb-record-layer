@@ -21,42 +21,42 @@
 package com.apple.foundationdb.async.rabitq;
 
 import com.apple.foundationdb.async.hnsw.DoubleVector;
+import com.apple.foundationdb.async.hnsw.EncodingHelpers;
 import com.apple.foundationdb.async.hnsw.HalfVector;
 import com.apple.foundationdb.async.hnsw.Vector;
-import com.google.common.base.Supplier;
+import com.apple.foundationdb.async.hnsw.VectorType;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 
 import javax.annotation.Nonnull;
+import java.util.Arrays;
+import java.util.function.Supplier;
 
 @SuppressWarnings("checkstyle:MemberName")
 public class EncodedVector implements Vector {
     private static final double EPS0 = 1.9d;
 
-    private final int numExBits;
     @Nonnull
     private final int[] encoded;
-    final double fAddEx;
-    final double fRescaleEx;
-    final double fErrorEx;
+    private final double fAddEx;
+    private final double fRescaleEx;
+    private final double fErrorEx;
 
-    final Supplier<double[]> dataSupplier;
-    final Supplier<byte[]> rawDataSupplier;
+    @Nonnull
+    private final Supplier<Integer> hashCodeSupplier;
+    private final Supplier<double[]> dataSupplier;
+    private final Supplier<byte[]> rawDataSupplier;
 
     public EncodedVector(final int numExBits, @Nonnull final int[] encoded, final double fAddEx, final double fRescaleEx,
                          final double fErrorEx) {
-        this.numExBits = numExBits;
         this.encoded = encoded;
         this.fAddEx = fAddEx;
         this.fRescaleEx = fRescaleEx;
         this.fErrorEx = fErrorEx;
 
-        this.dataSupplier = Suppliers.memoize(this::computeData);
-        this.rawDataSupplier = Suppliers.memoize(this::computeRawData);
-    }
-
-    public int getNumExBits() {
-        return numExBits;
+        this.hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
+        this.dataSupplier = Suppliers.memoize(() -> computeData(numExBits));
+        this.rawDataSupplier = Suppliers.memoize(() -> computeRawData(numExBits));
     }
 
     @Nonnull
@@ -74,6 +74,32 @@ public class EncodedVector implements Vector {
 
     public double getErrorEx() {
         return fErrorEx;
+    }
+
+    @Override
+    public final boolean equals(final Object o) {
+        if (!(o instanceof EncodedVector)) {
+            return false;
+        }
+
+        final EncodedVector that = (EncodedVector)o;
+        return Double.compare(fAddEx, that.fAddEx) == 0 &&
+                Double.compare(fRescaleEx, that.fRescaleEx) == 0 &&
+                Double.compare(fErrorEx, that.fErrorEx) == 0 &&
+                Arrays.equals(encoded, that.encoded);
+    }
+
+    @Override
+    public int hashCode() {
+        return hashCodeSupplier.get();
+    }
+
+    public int computeHashCode() {
+        int result = Arrays.hashCode(encoded);
+        result = 31 * result + Double.hashCode(fAddEx);
+        result = 31 * result + Double.hashCode(fRescaleEx);
+        result = 31 * result + Double.hashCode(fErrorEx);
+        return result;
     }
 
     @Override
@@ -105,7 +131,7 @@ public class EncodedVector implements Vector {
     }
 
     @Nonnull
-    public double[] computeData() {
+    public double[] computeData(final int numExBits) {
         final int numDimensions = getNumDimensions();
         final double cB = (1 << numExBits) - 0.5;
         final Vector z = new DoubleVector(encoded).subtract(cB);
@@ -132,19 +158,22 @@ public class EncodedVector implements Vector {
     }
 
     @Nonnull
-    protected byte[] computeRawData() {
-        int totalBits = getNumDimensions() * (numExBits + 1); // congruency with paper
-
-        byte[] packedComponents = new byte[(totalBits - 1) / 8 + 1];
-        packEncodedComponents(packedComponents);
-        final int[] unpacked = unpackComponents(packedComponents, 0, getNumDimensions(), getNumExBits());
-        return packedComponents;
+    protected byte[] computeRawData(final int numExBits) {
+        int numBits = getNumDimensions() * (numExBits + 1); // congruency with paper
+        final int length = 25 +        // RABITQ (byte) + fAddEx (double) + fRescaleEx (double) + fErrorEx (double)
+                (numBits - 1) / 8 + 1; // snap byte array to the smallest length fitting all bits
+        final byte[] result = new byte[length];
+        result[0] = (byte)VectorType.RABITQ.ordinal();
+        EncodingHelpers.fromLongIntoBytes(Double.doubleToLongBits(fAddEx), result, 1);
+        EncodingHelpers.fromLongIntoBytes(Double.doubleToLongBits(fRescaleEx), result, 9);
+        EncodingHelpers.fromLongIntoBytes(Double.doubleToLongBits(fErrorEx), result, 17);
+        packEncodedComponents(numExBits, result, 25);
+        return result;
     }
 
-    private void packEncodedComponents(@Nonnull byte[] bytes) {
+    private void packEncodedComponents(final int numExBits, @Nonnull byte[] bytes, int offset) {
         // big-endian
-        final int bitsPerComponent = getNumExBits() + 1; // congruency with paper
-        int offset = 0;
+        final int bitsPerComponent = numExBits + 1; // congruency with paper
         int remainingBitsInByte = 8;
         for (int i = 0; i < getNumDimensions(); i++) {
             final int component = getEncodedComponent(i);
@@ -171,6 +200,27 @@ public class EncodedVector implements Vector {
                 offset ++;
             }
         }
+    }
+
+    @Nonnull
+    @Override
+    public HalfVector toHalfVector() {
+        return new HalfVector(getData());
+    }
+
+    @Nonnull
+    @Override
+    public DoubleVector toDoubleVector() {
+        return new DoubleVector(getData());
+    }
+
+    @Nonnull
+    public static EncodedVector fromBytes(@Nonnull byte[] bytes, int offset, int numDimensions, int numExBits) {
+        final double fAddEx = Double.longBitsToDouble(EncodingHelpers.longFromBytes(bytes, offset));
+        final double fRescaleEx = Double.longBitsToDouble(EncodingHelpers.longFromBytes(bytes, offset + 8));
+        final double fErrorEx = Double.longBitsToDouble(EncodingHelpers.longFromBytes(bytes, offset + 16));
+        final int[] components = unpackComponents(bytes, offset + 24, numDimensions, numExBits);
+        return new EncodedVector(numExBits, components, fAddEx, fRescaleEx, fErrorEx);
     }
 
     @Nonnull
@@ -206,17 +256,5 @@ public class EncodedVector implements Vector {
             }
         }
         return result;
-    }
-
-    @Nonnull
-    @Override
-    public HalfVector toHalfVector() {
-        return new HalfVector(getData());
-    }
-
-    @Nonnull
-    @Override
-    public DoubleVector toDoubleVector() {
-        return new DoubleVector(getData());
     }
 }
