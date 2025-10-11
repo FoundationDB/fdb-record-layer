@@ -50,6 +50,7 @@ public final class Quantizer {
     }
 
     private static final double EPS = 1e-5;
+    private static final double EPS0 = 1.9;
     private static final int N_ENUM = 10;
 
     public int getNumDimensions() {
@@ -68,16 +69,17 @@ public final class Quantizer {
      * - computes shifted signed vector here (sign(r)*(k+0.5))
      * - applies C++ metric-dependent formulas exactly.
      */
-    public Result exBitsCodeWithFactor(@Nonnull final Vector data) {
+    @Nonnull
+    public Result encode(@Nonnull final Vector data) {
         final int dims = data.getNumDimensions();
 
         // 2) Build residual again: r = data - centroid
         final Vector residual = data.subtract(centroid);
 
-        // 1) call ex_bits_code to get signedCode, t, ipnormInv
+        // 1) call ex_bits_code to get signedCode, t, ipNormInv
         QuantizeExResult base = exBitsCode(residual);
         int[] signedCode = base.code;
-        double ipInv = base.ipnormInv;
+        double ipInv = base.ipNormInv;
 
         int[] totalCode = new int[dims];
         for (int i = 0; i < dims; i++) {
@@ -104,7 +106,7 @@ public final class Quantizer {
         final double ip_resi_xucb_safe =
                 (ip_resi_xucb == 0.0) ? Double.POSITIVE_INFINITY : ip_resi_xucb;
 
-        double tmp_error = residual_l2_norm * EPS *
+        double tmp_error = residual_l2_norm * EPS0 *
                 Math.sqrt(((residual_l2_sqr * xuCbNormSqr) / (ip_resi_xucb_safe * ip_resi_xucb_safe) - 1.0)
                         / (Math.max(1, dims - 1)));
 
@@ -124,12 +126,12 @@ public final class Quantizer {
             throw new IllegalArgumentException("Unsupported metric");
         }
 
-        return new Result(new EncodedVector(totalCode, fAddEx, fRescaleEx), base.t, ipInv, fErrorEx);
+        return new Result(new EncodedVector(numExBits, totalCode, fAddEx, fRescaleEx, fErrorEx), base.t, ipInv);
     }
 
     /**
      * Builds per-dimension extra-bit levels using the best t found by bestRescaleFactor() and returns
-     * ipnormInv.
+     * ipNormInv.
      * @param residual Rotated residual vector r (same thing the C++ feeds here).
      *                 This method internally uses |r| normalized to unit L2.
      */
@@ -154,27 +156,27 @@ public final class Quantizer {
             }
         }
 
-        return new QuantizeExResult(signed, q.t, q.ipnormInv);
+        return new QuantizeExResult(signed, q.t, q.ipNormInv);
     }
 
     /**
      * Method to quantize a vector.
      *
      * @param oAbs   absolute values of a L2-normalized residual vector (nonnegative; length = dim)
-     * @return       quantized levels (ex-bits), the chosen scale t, and ipnormInv
+     * @return       quantized levels (ex-bits), the chosen scale t, and ipNormInv
      * Notes:
      * - If the residual is the all-zero vector (or numerically so), this returns zero codes,
-     *   t = 0, and ipnormInv = 1 (benign fallback, matching the C++ guard with isnormal()).
-     * - Downstream code (ex_bits_code_with_factor) uses ipnormInv to compute f_rescale_ex, etc.
+     *   t = 0, and ipNormInv = 1 (benign fallback).
+     * - Downstream code (ex_bits_code_with_factor) uses ipNormInv to compute f_rescale_ex, etc.
      */
-    public QuantizeExResult quantizeEx(@Nonnull final Vector oAbs) {
+    private QuantizeExResult quantizeEx(@Nonnull final Vector oAbs) {
         final int dim = oAbs.getNumDimensions();
         final int maxLevel = (1 << numExBits) - 1;
 
         // Choose t via the sweep.
         double t = bestRescaleFactor(oAbs);
-        // ipnorm = sum_i ( (k_i + 0.5) * |r_i| )
-        double ipnorm = 0.0;
+        // ipNorm = sum_i ( (k_i + 0.5) * |r_i| )
+        double ipNorm = 0.0;
 
         // Build per-coordinate integer levels: k_i = floor(t * |r_i|)
         int[] code = new int[dim];
@@ -184,21 +186,21 @@ public final class Quantizer {
                 k = maxLevel;
             }
             code[i] = k;
-            ipnorm += (k + 0.5) * oAbs.getComponent(i);
+            ipNorm += (k + 0.5) * oAbs.getComponent(i);
         }
 
-        // ipnormInv = 1 / ipnorm, with a benign fallback (matches std::isnormal guard).
-        double ipnormInv;
-        if (ipnorm > 0.0 && Double.isFinite(ipnorm)) {
-            ipnormInv = 1.0 / ipnorm;
-            if (!Double.isFinite(ipnormInv) || ipnormInv == 0.0) {
-                ipnormInv = 1.0; // extremely defensive
+        // ipNormInv = 1 / ipNorm, with a benign fallback.
+        double ipNormInv;
+        if (ipNorm > 0.0 && Double.isFinite(ipNorm)) {
+            ipNormInv = 1.0 / ipNorm;
+            if (!Double.isFinite(ipNormInv) || ipNormInv == 0.0) {
+                ipNormInv = 1.0; // extremely defensive
             }
         } else {
-            ipnormInv = 1.0; // fallback used in the C++ (`std::isnormal` guard pattern)
+            ipNormInv = 1.0; // fallback used in the C++ source
         }
 
-        return new QuantizeExResult(code, t, ipnormInv);
+        return new QuantizeExResult(code, t, ipNormInv);
     }
 
     /**
@@ -206,7 +208,7 @@ public final class Quantizer {
      *  @param oAbs   absolute values of a (row-wise) normalized residual; length = dim; nonnegative
      *  @return t     the rescale factor that maximizes the objective
      */
-    public double bestRescaleFactor(@Nonnull final Vector oAbs) {
+    private double bestRescaleFactor(@Nonnull final Vector oAbs) {
         if (numExBits < 0 || numExBits >= TIGHT_START.length) {
             throw new IllegalArgumentException("numExBits out of supported range");
         }
@@ -238,7 +240,7 @@ public final class Quantizer {
             numer  += (cur + 0.5) * oAbs.getComponent(i);
         }
 
-        // Min-heap keyed by next threshold t at which coord i increments:
+        // Min-heap keyed by next threshold t at which coordinate "i" increments:
         // t_i(k->k+1) = (curOB[i] + 1) / oAbs[i]
 
         final PriorityQueue<Node> pq = new PriorityQueue<>(Comparator.comparingDouble(n -> n.t));
@@ -304,14 +306,12 @@ public final class Quantizer {
     public static final class Result {
         public EncodedVector encodedVector;
         public final double t;
-        public final double ipnormInv;
-        public final double fErrorEx;
+        public final double ipNormInv;
 
-        public Result(@Nonnull final EncodedVector encodedVector, double t, double ipnormInv, double fErrorEx) {
+        public Result(@Nonnull final EncodedVector encodedVector, double t, double ipNormInv) {
             this.encodedVector = encodedVector;
             this.t = t;
-            this.ipnormInv = ipnormInv;
-            this.fErrorEx = fErrorEx;
+            this.ipNormInv = ipNormInv;
         }
     }
 
@@ -319,12 +319,12 @@ public final class Quantizer {
     public static final class QuantizeExResult {
         public final int[] code;       // k_i = floor(t * oAbs[i]) in [0, 2^exBits - 1]
         public final double t;         // chosen global scale
-        public final double ipnormInv; // 1 / sum_i ( (k_i + 0.5) * oAbs[i] )
+        public final double ipNormInv; // 1 / sum_i ( (k_i + 0.5) * oAbs[i] )
 
-        public QuantizeExResult(int[] code, double t, double ipnormInv) {
+        public QuantizeExResult(int[] code, double t, double ipNormInv) {
             this.code = code;
             this.t = t;
-            this.ipnormInv = ipnormInv;
+            this.ipNormInv = ipNormInv;
         }
     }
 

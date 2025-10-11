@@ -74,7 +74,7 @@ public class DoubleVector extends AbstractVector {
 
     @Nonnull
     @Override
-    protected Vector withData(@Nonnull final double[] data) {
+    public Vector withData(@Nonnull final double[] data) {
         return new DoubleVector(data);
     }
 
