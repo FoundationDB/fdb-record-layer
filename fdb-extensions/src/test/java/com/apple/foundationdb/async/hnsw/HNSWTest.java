@@ -193,14 +193,14 @@ public class HNSWTest {
     public void testBasicInsert(final long seed, final boolean useInlining, final boolean extendCandidates,
                                 final boolean keepPrunedConnections) {
         final Random random = new Random(seed);
-        final Metric metric = Metrics.EUCLIDEAN_METRIC.getMetric();
+        final Metrics metric = Metrics.EUCLIDEAN_METRIC;
         final AtomicLong nextNodeIdAtomic = new AtomicLong(0L);
 
         final TestOnReadListener onReadListener = new TestOnReadListener();
 
         final int dimensions = 128;
         final HNSW hnsw = new HNSW(rtSubspace.getSubspace(), TestExecutors.defaultThreadPool(),
-                HNSW.DEFAULT_CONFIG.toBuilder().setMetric(Metrics.EUCLIDEAN_METRIC.getMetric())
+                HNSW.DEFAULT_CONFIG.toBuilder().setMetric(metric)
                         .setUseInlining(useInlining).setExtendCandidates(extendCandidates)
                         .setKeepPrunedConnections(keepPrunedConnections)
                         .setM(32).setMMax(32).setMMax0(64).build(),
@@ -310,7 +310,7 @@ public class HNSWTest {
     @Test
     @Timeout(value = 10, unit = TimeUnit.MINUTES)
     public void testSIFTInsertSmall() throws Exception {
-        final Metric metric = Metrics.EUCLIDEAN_METRIC.getMetric();
+        final Metrics metric = Metrics.EUCLIDEAN_METRIC;
         final int k = 100;
         final AtomicLong nextNodeIdAtomic = new AtomicLong(0L);
 
@@ -391,7 +391,7 @@ public class HNSWTest {
     @Test
     @Timeout(value = 10, unit = TimeUnit.MINUTES)
     public void testSIFTInsertSmallUsingBatchAPI() throws Exception {
-        final Metric metric = Metrics.EUCLIDEAN_METRIC.getMetric();
+        final Metrics metric = Metrics.EUCLIDEAN_METRIC;
         final int k = 100;
         final AtomicLong nextNodeIdAtomic = new AtomicLong(0L);
 
@@ -429,8 +429,8 @@ public class HNSWTest {
         for (long l = 0L; l < 3000000; l ++) {
             final HalfVector randomVector = VectorTest.createRandomHalfVector(random, 768);
             final Tuple vectorTuple = StorageAdapter.tupleFromVector(randomVector);
-            final Vector roundTripVector = StorageAdapter.vectorFromTuple(vectorTuple);
-            Vector.comparativeDistance(Metrics.EUCLIDEAN_METRIC.getMetric(), randomVector, roundTripVector);
+            final Vector roundTripVector = StorageAdapter.vectorFromTuple(HNSW.DEFAULT_CONFIG, vectorTuple);
+            Vector.comparativeDistance(Metrics.EUCLIDEAN_METRIC, randomVector, roundTripVector);
             Assertions.assertEquals(randomVector, roundTripVector);
         }
     }
