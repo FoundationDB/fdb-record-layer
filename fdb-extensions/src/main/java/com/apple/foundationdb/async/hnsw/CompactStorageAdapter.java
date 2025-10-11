@@ -207,7 +207,7 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
     private Node<NodeReference> compactNodeFromTuples(@Nonnull final Tuple primaryKey,
                                                       @Nonnull final Tuple vectorTuple,
                                                       @Nonnull final Tuple neighborsTuple) {
-        final Vector vector = StorageAdapter.vectorFromTuple(vectorTuple);
+        final Vector vector = StorageAdapter.vectorFromTuple(getConfig(), vectorTuple);
         final List<NodeReference> nodeReferences = Lists.newArrayListWithExpectedSize(neighborsTuple.size());
 
         for (int i = 0; i < neighborsTuple.size(); i ++) {

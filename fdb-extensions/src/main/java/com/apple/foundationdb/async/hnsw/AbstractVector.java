@@ -121,21 +121,6 @@ public abstract class AbstractVector implements Vector {
     protected abstract byte[] computeRawData();
 
     /**
-     * Returns the number of bytes used for the serialization of this vector per component.
-     * @return the component size, i.e. the number of bytes used for the serialization of this vector per component.
-     */
-    public int precision() {
-        return (1 << precisionShift());
-    }
-
-    /**
-     * Returns the number of bits we need to shift {@code 1} to express {@link #precision()} used for the serialization
-     * of this vector per component.
-     * @return returns the number of bits we need to shift {@code 1} to express {@link #precision()}
-     */
-    public abstract int precisionShift();
-
-    /**
      * Compares this vector to the specified object for equality.
      * <p>
      * The result is {@code true} if and only if the argument is not {@code null} and is a {@code Vector} object that
@@ -150,7 +135,7 @@ public abstract class AbstractVector implements Vector {
             return false;
         }
         final AbstractVector vector = (AbstractVector)o;
-        return Objects.deepEquals(data, vector.data);
+        return Arrays.equals(data, vector.data);
     }
 
     /**

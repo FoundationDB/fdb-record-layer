@@ -67,11 +67,6 @@ public class DoubleVector extends AbstractVector {
         return new HalfVector(data);
     }
 
-    @Override
-    public int precisionShift() {
-        return 3;
-    }
-
     @Nonnull
     @Override
     public Vector withData(@Nonnull final double[] data) {
@@ -90,18 +85,10 @@ public class DoubleVector extends AbstractVector {
     @Override
     protected byte[] computeRawData() {
         final byte[] vectorBytes = new byte[1 + 8 * getNumDimensions()];
-        vectorBytes[0] = (byte)precisionShift();
+        vectorBytes[0] = (byte)VectorType.DOUBLE.ordinal();
         for (int i = 0; i < getNumDimensions(); i ++) {
-            final byte[] componentBytes = StorageAdapter.bytesFromLong(Double.doubleToLongBits(getComponent(i)));
-            final int offset = 1 + (i << 3);
-            vectorBytes[offset] = componentBytes[0];
-            vectorBytes[offset + 1] = componentBytes[1];
-            vectorBytes[offset + 2] = componentBytes[2];
-            vectorBytes[offset + 3] = componentBytes[3];
-            vectorBytes[offset + 4] = componentBytes[4];
-            vectorBytes[offset + 5] = componentBytes[5];
-            vectorBytes[offset + 6] = componentBytes[6];
-            vectorBytes[offset + 7] = componentBytes[7];
+            EncodingHelpers.fromLongIntoBytes(Double.doubleToLongBits(getComponent(i)), vectorBytes,
+                    1 + (i << 3));
         }
         return vectorBytes;
     }
@@ -113,5 +100,25 @@ public class DoubleVector extends AbstractVector {
             result[i] = doubleData[i];
         }
         return result;
+    }
+
+    /**
+     * Creates a {@link DoubleVector} from a byte array.
+     * <p>
+     * This method interprets the input byte array as a sequence of 64-bit double-precision floating-point numbers. Each
+     * run of eight bytes is converted into a {@code double} value, which then becomes a component of the resulting
+     * vector.
+     * @param vectorBytes the non-null byte array to convert
+     * @param offset to the first byte containing the vector-specific data
+     * @return a new {@link DoubleVector} instance created from the byte array
+     */
+    @Nonnull
+    public static DoubleVector fromBytes(@Nonnull final byte[] vectorBytes, int offset) {
+        final int numDimensions = (vectorBytes.length - offset) >> 3;
+        final double[] vectorComponents = new double[numDimensions];
+        for (int i = 0; i < numDimensions; i ++) {
+            vectorComponents[i] = Double.longBitsToDouble(EncodingHelpers.longFromBytes(vectorBytes, offset + (i << 3)));
+        }
+        return new DoubleVector(vectorComponents);
     }
 }

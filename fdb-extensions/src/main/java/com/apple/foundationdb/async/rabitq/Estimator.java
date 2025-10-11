@@ -66,7 +66,7 @@ public class Estimator {
 
         // Same formula for both metrics; just ensure fAddEx/fRescaleEx were computed for that metric.
         return new Result(encodedVector.getAddEx() + gAdd + encodedVector.getRescaleEx() * dot,
-                encodedVector.fErrorEx * gError);
+                encodedVector.getErrorEx() * gError);
     }
 
     public static class Result {
