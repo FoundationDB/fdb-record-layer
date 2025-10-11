@@ -36,20 +36,20 @@ import java.util.Arrays;
 @SuppressWarnings({"checkstyle:MethodName", "checkstyle:MemberName"})
 public final class FhtKacRotator implements LinearOperator {
     private final long seed;
-    private final int n;
+    private final int numDimensions;
     private final int rounds;
     private final byte[][] signs; // signs[r][i] in {-1, +1}
     private static final double INV_SQRT2 = 1.0 / Math.sqrt(2.0);
 
-    public FhtKacRotator(final long seed, final int n, final int rounds) {
-        if (n < 2) {
+    public FhtKacRotator(final long seed, final int numDimensions, final int rounds) {
+        if (numDimensions < 2) {
             throw new IllegalArgumentException("n must be >= 2");
         }
         if (rounds < 1) {
             throw new IllegalArgumentException("rounds must be >= 1");
         }
         this.seed = seed;
-        this.n = n;
+        this.numDimensions = numDimensions;
         this.rounds = rounds;
 
         // Pre-generate Rademacher signs for determinism/reuse.
@@ -61,9 +61,9 @@ public final class FhtKacRotator implements LinearOperator {
         }
         rng.setSeed(seed);
 
-        this.signs = new byte[rounds][n];
+        this.signs = new byte[rounds][numDimensions];
         for (int r = 0; r < rounds; r++) {
-            for (int i = 0; i < n; i++) {
+            for (int i = 0; i < numDimensions; i++) {
                 signs[r][i] = rng.nextBoolean() ? (byte)1 : (byte)-1;
             }
         }
@@ -75,12 +75,12 @@ public final class FhtKacRotator implements LinearOperator {
 
     @Override
     public int getRowDimension() {
-        return n;
+        return numDimensions;
     }
 
     @Override
     public int getColumnDimension() {
-        return n;
+        return numDimensions;
     }
 
     @Override
@@ -96,21 +96,21 @@ public final class FhtKacRotator implements LinearOperator {
 
     @Nonnull
     private double[] operate(@Nonnull final double[] x) {
-        if (x.length != n) {
+        if (x.length != numDimensions) {
             throw new IllegalArgumentException("dimensionality of x != n");
         }
-        final double[] y = Arrays.copyOf(x, n);
+        final double[] y = Arrays.copyOf(x, numDimensions);
 
         for (int r = 0; r < rounds; r++) {
             // 1) Rademacher signs
             byte[] s = signs[r];
-            for (int i = 0; i < n; i++) {
+            for (int i = 0; i < numDimensions; i++) {
                 y[i] = (s[i] == 1 ? y[i] : -y[i]);
             }
 
             // 2) FWHT on largest 2^k block; alternate head/tail
-            int m = largestPow2LE(n);
-            int start = ((r & 1) == 0) ? 0 : (n - m); // head on even rounds, tail on odd
+            int m = largestPow2LE(numDimensions);
+            int start = ((r & 1) == 0) ? 0 : (numDimensions - m); // head on even rounds, tail on odd
             fwhtNormalized(y, start, m);
 
             // 3) π/4 Givens between halves (pair i with i+h)
@@ -127,23 +127,23 @@ public final class FhtKacRotator implements LinearOperator {
 
     @Nonnull
     public double[] operateTranspose(@Nonnull final double[] x) {
-        if (x.length != n) {
+        if (x.length != numDimensions) {
             throw new IllegalArgumentException("dimensionality of x != n");
         }
-        final double[] y = Arrays.copyOf(x, n);
+        final double[] y = Arrays.copyOf(x, numDimensions);
 
         for (int r = rounds - 1; r >= 0; r--) {
             // Inverse of step 3: Givens transpose (angle -> -π/4)
             givensMinusPiOver4(y);
 
             // Inverse of step 2: FWHT is its own inverse (orthonormal)
-            int m = largestPow2LE(n);
-            int start = ((r & 1) == 0) ? 0 : (n - m);
+            int m = largestPow2LE(numDimensions);
+            int start = ((r & 1) == 0) ? 0 : (numDimensions - m);
             fwhtNormalized(y, start, m);
 
             // Inverse of step 1: Rademacher signs (self-inverse)
             byte[] s = signs[r];
-            for (int i = 0; i < n; i++) {
+            for (int i = 0; i < numDimensions; i++) {
                 y[i] = (s[i] == 1 ? y[i] : -y[i]);
             }
         }
@@ -154,13 +154,13 @@ public final class FhtKacRotator implements LinearOperator {
      *  Build dense P as double[n][n] (row-major).
      */
     public RowMajorMatrix computeP() {
-        final double[][] p = new double[n][n];
-        final double[] e = new double[n];
-        for (int j = 0; j < n; j++) {
+        final double[][] p = new double[numDimensions][numDimensions];
+        final double[] e = new double[numDimensions];
+        for (int j = 0; j < numDimensions; j++) {
             Arrays.fill(e, 0.0);
             e[j] = 1.0;
             double[] y = operate(e);     // column j of P
-            for (int i = 0; i < n; i++) {
+            for (int i = 0; i < numDimensions; i++) {
                 p[i][j] = y[i];
             }
         }

@@ -21,6 +21,7 @@
 package com.apple.foundationdb.async.hnsw;
 
 import com.christianheina.langx.half4j.Half;
+import com.google.common.base.Preconditions;
 
 import javax.annotation.Nonnull;
 
@@ -62,6 +63,9 @@ public interface Vector {
     @Nonnull
     double[] getData();
 
+    @Nonnull
+    Vector withData(@Nonnull double[] data);
+
     /**
      * Gets the raw byte data representation of this object.
      * <p>
@@ -96,24 +100,80 @@ public interface Vector {
     @Nonnull
     DoubleVector toDoubleVector();
 
-    double dot(@Nonnull final Vector other);
+    default double dot(@Nonnull final Vector other) {
+        Preconditions.checkArgument(getNumDimensions() == other.getNumDimensions());
+        double sum = 0.0d;
+        for (int i = 0; i < getNumDimensions(); i ++) {
+            sum += getComponent(i) * other.getComponent(i);
+        }
+        return sum;
+    }
 
-    double l2Norm();
-
-    @Nonnull
-    Vector normalize();
-
-    @Nonnull
-    Vector add(@Nonnull final Vector other);
-
-    @Nonnull
-    Vector add(final double scalar);
-
-    @Nonnull
-    Vector subtract(@Nonnull final Vector other);
+    default double l2Norm() {
+        return Math.sqrt(dot(this));
+    }
 
     @Nonnull
-    Vector subtract(final double scalar);
+    default Vector normalize() {
+        double n = l2Norm();
+        final int numDimensions = getNumDimensions();
+        double[] y = new double[numDimensions];
+        if (n == 0.0 || !Double.isFinite(n)) {
+            return withData(y); // all zeros
+        }
+        double inv = 1.0 / n;
+        for (int i = 0; i < numDimensions; i++) {
+            y[i] = getComponent(i) * inv;
+        }
+        return withData(y);
+    }
+
+    @Nonnull
+    default Vector add(@Nonnull final Vector other) {
+        Preconditions.checkArgument(getNumDimensions() == other.getNumDimensions());
+        final double[] result = new double[getNumDimensions()];
+        for (int i = 0; i < getNumDimensions(); i ++) {
+            result[i] = getComponent(i) + other.getComponent(i);
+        }
+        return withData(result);
+    }
+
+    @Nonnull
+    default Vector add(final double scalar) {
+        final double[] result = new double[getNumDimensions()];
+        for (int i = 0; i < getNumDimensions(); i ++) {
+            result[i] = getComponent(i) + scalar;
+        }
+        return withData(result);
+    }
+
+    @Nonnull
+    default Vector subtract(@Nonnull final Vector other) {
+        Preconditions.checkArgument(getNumDimensions() == other.getNumDimensions());
+        final double[] result = new double[getNumDimensions()];
+        for (int i = 0; i < getNumDimensions(); i ++) {
+            result[i] = getComponent(i) - other.getComponent(i);
+        }
+        return withData(result);
+    }
+
+    @Nonnull
+    default Vector subtract(final double scalar) {
+        final double[] result = new double[getNumDimensions()];
+        for (int i = 0; i < getNumDimensions(); i ++) {
+            result[i] = getComponent(i) - scalar;
+        }
+        return withData(result);
+    }
+
+    @Nonnull
+    default Vector multiply(final double scalar) {
+        final double[] result = new double[getNumDimensions()];
+        for (int i = 0; i < getNumDimensions(); i ++) {
+            result[i] = getComponent(i) * scalar;
+        }
+        return withData(result);
+    }
 
     /**
      * Calculates the distance between two vectors using a specified metric.

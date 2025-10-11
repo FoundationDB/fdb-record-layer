@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.async.hnsw;
 
-import com.google.common.base.Preconditions;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 
@@ -99,9 +98,6 @@ public abstract class AbstractVector implements Vector {
         return data;
     }
 
-    @Nonnull
-    protected abstract Vector withData(@Nonnull final double[] data);
-
     /**
      * Gets the raw byte data representation of this object.
      * <p>
@@ -138,79 +134,6 @@ public abstract class AbstractVector implements Vector {
      * @return returns the number of bits we need to shift {@code 1} to express {@link #precision()}
      */
     public abstract int precisionShift();
-
-    @Override
-    public double dot(@Nonnull final Vector other) {
-        Preconditions.checkArgument(getNumDimensions() == other.getNumDimensions());
-        double sum = 0.0d;
-        for (int i = 0; i < getNumDimensions(); i ++) {
-            sum += getComponent(i) * other.getComponent(i);
-        }
-        return sum;
-    }
-
-    @Override
-    public double l2Norm() {
-        return Math.sqrt(dot(this));
-    }
-
-    @Nonnull
-    @Override
-    public Vector normalize() {
-        double n = l2Norm();
-        final int numDimensions = getNumDimensions();
-        double[] y = new double[numDimensions];
-        if (n == 0.0 || !Double.isFinite(n)) {
-            return withData(y); // all zeros
-        }
-        double inv = 1.0 / n;
-        for (int i = 0; i < numDimensions; i++) {
-            y[i] = getComponent(i) * inv;
-        }
-        return withData(y);
-    }
-
-    @Nonnull
-    @Override
-    public Vector add(@Nonnull final Vector other) {
-        Preconditions.checkArgument(getNumDimensions() == other.getNumDimensions());
-        final double[] result = new double[getNumDimensions()];
-        for (int i = 0; i < getNumDimensions(); i ++) {
-            result[i] = getComponent(i) + other.getComponent(i);
-        }
-        return withData(result);
-    }
-
-    @Nonnull
-    @Override
-    public Vector add(final double scalar) {
-        final double[] result = new double[getNumDimensions()];
-        for (int i = 0; i < getNumDimensions(); i ++) {
-            result[i] = getComponent(i) + scalar;
-        }
-        return withData(result);
-    }
-
-    @Nonnull
-    @Override
-    public Vector subtract(@Nonnull final Vector other) {
-        Preconditions.checkArgument(getNumDimensions() == other.getNumDimensions());
-        final double[] result = new double[getNumDimensions()];
-        for (int i = 0; i < getNumDimensions(); i ++) {
-            result[i] = getComponent(i) - other.getComponent(i);
-        }
-        return withData(result);
-    }
-
-    @Nonnull
-    @Override
-    public Vector subtract(final double scalar) {
-        final double[] result = new double[getNumDimensions()];
-        for (int i = 0; i < getNumDimensions(); i ++) {
-            result[i] = getComponent(i) - scalar;
-        }
-        return withData(result);
-    }
 
     /**
      * Compares this vector to the specified object for equality.
@@ -257,7 +180,7 @@ public abstract class AbstractVector implements Vector {
      */
     @Override
     public String toString() {
-        return toString(3);
+        return toString(10);
     }
 
     /**
