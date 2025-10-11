@@ -25,6 +25,7 @@ import com.apple.foundationdb.async.hnsw.Metrics;
 import com.apple.foundationdb.async.hnsw.Vector;
 import org.junit.jupiter.api.Test;
 
+import java.util.Objects;
 import java.util.Random;
 
 public class QuantizerTest {
@@ -35,7 +36,7 @@ public class QuantizerTest {
         final Vector v = new DoubleVector(createRandomVector(random, dims));
         final Vector centroid = new DoubleVector(new double[dims]);
         final Quantizer quantizer = new Quantizer(centroid, 4, Metrics.EUCLIDEAN_SQUARE_METRIC);
-        final Quantizer.Result result = quantizer.exBitsCodeWithFactor(v);
+        final Quantizer.Result result = quantizer.encode(v);
         final EncodedVector encodedVector = result.encodedVector;
         final Vector v_bar = v.normalize();
         final double[] recentered_data = new double[dims];
@@ -54,24 +55,131 @@ public class QuantizerTest {
         final Vector v = new DoubleVector(createRandomVector(random, dims));
         final Vector centroid = new DoubleVector(new double[dims]);
         final Quantizer quantizer = new Quantizer(centroid, 4, Metrics.EUCLIDEAN_SQUARE_METRIC);
-        final Quantizer.Result result = quantizer.exBitsCodeWithFactor(v);
+        final Quantizer.Result result = quantizer.encode(v);
         final Estimator estimator = quantizer.estimator();
-        final double estimatedDistance = estimator.estimate(v, result.encodedVector);
+        final Estimator.Result estimatedDistance = estimator.estimateDistanceAndErrorBound(v, result.encodedVector);
         System.out.println("estimated distance = " + estimatedDistance);
     }
 
     @Test
     void basicEncodeWithEstimationTest1() {
         final Vector v = new DoubleVector(new double[]{1.0d, 1.0d});
-        final Vector centroid = new DoubleVector(new double[2]);
+        final Vector centroid = new DoubleVector(new double[]{0.5d, 0.5d});
         final Quantizer quantizer = new Quantizer(centroid, 4, Metrics.EUCLIDEAN_SQUARE_METRIC);
-        final Quantizer.Result result =
-                quantizer.exBitsCodeWithFactor(v);
+        final Quantizer.Result result = quantizer.encode(v);
 
-        final Vector q = new DoubleVector(new double[]{-1.0d, 1.0d});
+        final Vector q = new DoubleVector(new double[]{1.0d, 1.0d});
         final Estimator estimator = quantizer.estimator();
-        final double estimatedDistance = estimator.estimate(q, result.encodedVector);
+        final EncodedVector encodedVector = result.encodedVector;
+        final Estimator.Result estimatedDistance = estimator.estimateDistanceAndErrorBound(q, encodedVector);
         System.out.println("estimated distance = " + estimatedDistance);
+        System.out.println(encodedVector);
+    }
+
+    @Test
+    void encodeWithEstimationTest() {
+        final long seed = 0;
+        final int numDimensions = 3000;
+        final int numExBits = 7;
+        final Random random = new Random(seed);
+        final FhtKacRotator rotator = new FhtKacRotator(seed, numDimensions, 10);
+
+        Vector v = null;
+        Vector sum = null;
+        final int numVectorsForCentroid = 10;
+        for (int i = 0; i < numVectorsForCentroid; i ++) {
+            v = new DoubleVector(createRandomVector(random, numDimensions));
+            if (sum == null) {
+                sum = v;
+            } else {
+                sum.add(v);
+            }
+        }
+
+        final Vector centroid = sum.multiply(1.0d / numVectorsForCentroid);
+
+        System.out.println("v =" + v);
+        final Vector vRot = rotator.operateTranspose(v);
+        final Vector centroidRot = rotator.operateTranspose(centroid);
+
+        final Quantizer quantizer = new Quantizer(centroidRot, numExBits, Metrics.EUCLIDEAN_SQUARE_METRIC);
+        final Quantizer.Result result = quantizer.encode(vRot);
+        final EncodedVector encodedVector = result.encodedVector;
+        final Vector reconstructedV = rotator.operate(encodedVector.add(centroidRot));
+        System.out.println("reconstructed v = " + reconstructedV);
+        final Estimator estimator = quantizer.estimator();
+        final Estimator.Result estimatedDistance = estimator.estimateDistanceAndErrorBound(vRot, encodedVector);
+        System.out.println("estimated distance = " + estimatedDistance);
+        System.out.println("true distance = " + Vector.distance(Metrics.EUCLIDEAN_SQUARE_METRIC.getMetric(), v, reconstructedV));
+    }
+
+    @Test
+    void encodeWithEstimationTest2() {
+        final long seed = 10;
+        final int numDimensions = 3000;
+        final int numExBits = 4;
+        final Random random = new Random(seed);
+        final FhtKacRotator rotator = new FhtKacRotator(seed, numDimensions, 10);
+
+        Vector v = null;
+        Vector q = null;
+        Vector sum = null;
+        final int numVectorsForCentroid = 10;
+        for (int i = 0; i < numVectorsForCentroid; i ++) {
+            if (q == null) {
+                if (v != null) {
+                    q = v;
+                }
+            }
+
+            v = new DoubleVector(createRandomVector(random, numDimensions));
+            if (sum == null) {
+                sum = v;
+            } else {
+                sum.add(v);
+            }
+        }
+        Objects.requireNonNull(v);
+        Objects.requireNonNull(q);
+
+        final Vector centroid = sum.multiply(1.0d / numVectorsForCentroid);
+
+//        System.out.println("q =" + q);
+//        System.out.println("v =" + v);
+//        System.out.println("centroid =" + centroid);
+
+        final Vector vRot = rotator.operateTranspose(v);
+        final Vector centroidRot = rotator.operateTranspose(centroid);
+        final Vector qRot = rotator.operateTranspose(q);
+//        System.out.println("qRot =" + qRot);
+//        System.out.println("vRot =" + vRot);
+//        System.out.println("centroidRot =" + centroidRot);
+
+        final Quantizer quantizer = new Quantizer(centroidRot, numExBits, Metrics.EUCLIDEAN_SQUARE_METRIC);
+        final Quantizer.Result resultV = quantizer.encode(vRot);
+        final EncodedVector encodedV = resultV.encodedVector;
+//        System.out.println("fAddEx vor v = " + encodedV.fAddEx);
+//        System.out.println("fRescaleEx vor v = " + encodedV.fRescaleEx);
+//        System.out.println("fErrorEx vor v = " + encodedV.fErrorEx);
+
+
+        final Quantizer.Result resultQ = quantizer.encode(qRot);
+        final EncodedVector encodedQ = resultQ.encodedVector;
+
+        final Estimator estimator = quantizer.estimator();
+        final Estimator.Result estimatedDistance = estimator.estimateDistanceAndErrorBound(qRot, encodedV);
+        System.out.println("estimated ||qRot - vRot||^2 = " + estimatedDistance);
+        System.out.println("true ||qRot - vRot||^2 = " + Vector.distance(Metrics.EUCLIDEAN_SQUARE_METRIC.getMetric(), vRot, qRot));
+
+        final Vector reconstructedV = rotator.operate(encodedV.add(centroidRot));
+        System.out.println("reconstructed v = " + reconstructedV);
+
+        final Vector reconstructedQ = rotator.operate(encodedQ.add(centroidRot));
+        System.out.println("reconstructed q = " + reconstructedQ);
+
+        System.out.println("true ||qDec - vDec||^2 = " + Vector.distance(Metrics.EUCLIDEAN_SQUARE_METRIC.getMetric(), reconstructedV, reconstructedQ));
+
+        encodedV.getRawData();
     }
 
     private static double[] createRandomVector(final Random random, final int dims) {
@@ -80,34 +188,5 @@ public class QuantizerTest {
             components[d] = random.nextDouble() * (random.nextBoolean() ? -1 : 1);
         }
         return components;
-    }
-
-    private static double l2(double[] x) {
-        double s = 0.0;
-        for (double v : x) {
-            s += v * v;
-        }
-        return Math.sqrt(s);
-    }
-
-    private static double[] normalize(double[] x) {
-        double n = l2(x);
-        double[] y = new double[x.length];
-        if (n == 0.0 || !Double.isFinite(n)) {
-            return y; // all zeros
-        }
-        double inv = 1.0 / n;
-        for (int i = 0; i < x.length; i++) {
-            y[i] = x[i] * inv;
-        }
-        return y;
-    }
-
-    private static double dot(double[] a, double[] b) {
-        double s = 0.0;
-        for (int i = 0; i < a.length; i++) {
-            s += a[i] * b[i];
-        }
-        return s;
     }
 }

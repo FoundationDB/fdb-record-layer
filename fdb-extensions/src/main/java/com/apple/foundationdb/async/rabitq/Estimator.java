@@ -41,19 +41,55 @@ public class Estimator {
     }
 
     /** Estimate metric(queryRot, encodedVector) using ex-bits-only factors. */
-    public double estimate(@Nonnull final Vector query, // pre-rotated query q
-                           @Nonnull final EncodedVector encodedVector
-    ) {
+    public double estimateDistance(@Nonnull final Vector query, // pre-rotated query q
+                                   @Nonnull final EncodedVector encodedVector) {
         final double cb = (1 << numExBits) - 0.5;
-
         final Vector qc = query.subtract(centroid);
         final double gAdd = qc.dot(qc);
         final Vector totalCode = new DoubleVector(encodedVector.getEncodedData());
         final Vector xuc = totalCode.subtract(cb);
-        final double dot = qc.dot(xuc);
+        final double dot = query.dot(xuc);
 
         // Same formula for both metrics; just ensure fAddEx/fRescaleEx were computed for that metric.
-        return encodedVector.getfAddEx() + gAdd + encodedVector.getfRescaleEx() * dot;
+        return encodedVector.getAddEx() + gAdd + encodedVector.getRescaleEx() * dot;
+    }
+
+    public Result estimateDistanceAndErrorBound(@Nonnull final Vector query, // pre-rotated query q
+                                                @Nonnull final EncodedVector encodedVector) {
+        final double cb = (1 << numExBits) - 0.5;
+        final Vector qc = query.subtract(centroid);
+        final double gAdd = qc.dot(qc);
+        final double gError = Math.sqrt(gAdd);
+        final Vector totalCode = new DoubleVector(encodedVector.getEncodedData());
+        final Vector xuc = totalCode.subtract(cb);
+        final double dot = query.dot(xuc);
+
+        // Same formula for both metrics; just ensure fAddEx/fRescaleEx were computed for that metric.
+        return new Result(encodedVector.getAddEx() + gAdd + encodedVector.getRescaleEx() * dot,
+                encodedVector.fErrorEx * gError);
+    }
+
+    public static class Result {
+        private final double distance;
+        private final double err;
+
+        public Result(final double distance, final double err) {
+            this.distance = distance;
+            this.err = err;
+        }
+
+        public double getDistance() {
+            return distance;
+        }
+
+        public double getErr() {
+            return err;
+        }
+
+        @Override
+        public String toString() {
+            return "Estimate[" + "distance=" + distance + ", err=" + err + "]";
+        }
     }
 }
 
