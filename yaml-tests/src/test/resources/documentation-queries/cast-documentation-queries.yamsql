@@ -56,7 +56,7 @@ test_block:
       - query: SELECT CAST(str_value AS INTEGER) FROM data WHERE id = 2
       - error: "22F3H"
 
-    # Range Overflow - LONG to INT Error
+    # Range Overflow - BIGINT to INT Error
     -
       - query: SELECT CAST(9223372036854775807 AS INTEGER) FROM numbers WHERE id = 1
       - error: "22F3H"

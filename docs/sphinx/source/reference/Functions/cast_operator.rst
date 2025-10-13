@@ -18,7 +18,7 @@ Parameters
     The value or expression to be converted.
 
 * :sql:`target_type`
-    The target data type. Can be a primitive type (:sql:`INT`, :sql:`LONG`, :sql:`FLOAT`, :sql:`DOUBLE`, :sql:`STRING`, :sql:`BOOLEAN`) or an array type (e.g., :sql:`INTEGER ARRAY`, :sql:`STRING ARRAY`).
+    The target data type. Can be a primitive type (:sql:`INTEGER`, :sql:`BIGINT`, :sql:`FLOAT`, :sql:`DOUBLE`, :sql:`STRING`, :sql:`BOOLEAN`) or an array type (e.g., :sql:`INTEGER ARRAY`, :sql:`STRING ARRAY`).
 
 Supported Conversions
 #####################
@@ -26,24 +26,24 @@ Supported Conversions
 Numeric Conversions
 -------------------
 
-* Integer types: :sql:`INT` ↔ :sql:`LONG`
-* Floating-point types: :sql:`FLOAT` ↔ :sql:`DOUBLE`
-* Mixed numeric: :sql:`INT`/:sql:`LONG` ↔ :sql:`FLOAT`/:sql:`DOUBLE`
-* Narrowing conversions (e.g., :sql:`LONG` → :sql:`INT`, :sql:`DOUBLE` → :sql:`FLOAT`) validate range and throw errors on overflow
-* Floating-point to integer conversions use rounding (Math.round)
+* Integer types: :sql:`INTEGER` ↔ :sql:`BIGINT`
+* Floating-poINTEGER types: :sql:`FLOAT` ↔ :sql:`DOUBLE`
+* Mixed numeric: :sql:`INTEGER`/:sql:`BIGINT` ↔ :sql:`FLOAT`/:sql:`DOUBLE`
+* Narrowing conversions (e.g., :sql:`BIGINT` → :sql:`INTEGER`, :sql:`DOUBLE` → :sql:`FLOAT`) validate range and throw errors on overflow
+* Floating-poINTEGER to INTEGER conversions use rounding (Math.round)
 
 String Conversions
 ------------------
 
 * Any primitive type can be converted to :sql:`STRING`
-* :sql:`STRING` can be converted to numeric types (:sql:`INT`, :sql:`LONG`, :sql:`FLOAT`, :sql:`DOUBLE`) with validation
+* :sql:`STRING` can be converted to numeric types (:sql:`INTEGER`, :sql:`BIGINT`, :sql:`FLOAT`, :sql:`DOUBLE`) with validation
 * Invalid string-to-numeric conversions throw errors
 
 Boolean Conversions
 -------------------
 
-* :sql:`BOOLEAN` ↔ :sql:`INT`: true = 1, false = 0
-* :sql:`INT` → :sql:`BOOLEAN`: 0 = false, non-zero = true
+* :sql:`BOOLEAN` → :sql:`INTEGER`: true = 1, false = 0
+* :sql:`INTEGER` → :sql:`BOOLEAN`: 0 = false, non-zero = true
 * :sql:`STRING` → :sql:`BOOLEAN`: accepts "true"/"1" → true, "false"/"0" → false (case-insensitive)
 
 Array Conversions
@@ -72,7 +72,7 @@ Examples
 Basic Numeric Conversions
 --------------------------
 
-Convert integer to different numeric types:
+Convert INTEGER to different numeric types:
 
 .. code-block:: sql
 
@@ -132,7 +132,7 @@ Result:
 Boolean Conversions
 --------------------
 
-Convert between boolean and integer:
+Convert between boolean and INTEGER:
 
 .. code-block:: sql
 
@@ -232,7 +232,7 @@ String values that cannot be parsed as numbers result in errors:
     INSERT INTO data VALUES (1, 'invalid')
 
     SELECT CAST(str_value AS INTEGER) FROM data WHERE id = 1
-    -- Error: Cannot cast string 'invalid' to :sql:`INT`
+    -- Error: Cannot cast string 'invalid' to INT
     -- Error Code: 22F3H (INVALID_CAST)
 
 Range Overflow
@@ -246,5 +246,5 @@ Narrowing conversions that exceed target type range result in errors:
     INSERT INTO numbers VALUES (1)
 
     SELECT CAST(9223372036854775807 AS INTEGER) FROM numbers WHERE id = 1
-    -- Error: Value out of range for :sql:`INT`
+    -- Error: Value out of range for INT
     -- Error Code: 22F3H (INVALID_CAST)
