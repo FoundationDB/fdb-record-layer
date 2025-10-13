@@ -1,5 +1,5 @@
 /*
- * Estimator.java
+ * RaBitEstimator.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -21,37 +21,58 @@
 package com.apple.foundationdb.async.rabitq;
 
 import com.apple.foundationdb.async.hnsw.DoubleVector;
+import com.apple.foundationdb.async.hnsw.Estimator;
+import com.apple.foundationdb.async.hnsw.Metrics;
 import com.apple.foundationdb.async.hnsw.Vector;
 
 import javax.annotation.Nonnull;
 
-public class Estimator {
+public class RaBitEstimator implements Estimator {
+    @Nonnull
+    private final Metrics metric;
     @Nonnull
     private final Vector centroid;
     private final int numExBits;
 
-    public Estimator(@Nonnull final Vector centroid,
-                     final int numExBits) {
+    public RaBitEstimator(@Nonnull final Metrics metric,
+                          @Nonnull final Vector centroid,
+                          final int numExBits) {
+        this.metric = metric;
         this.centroid = centroid;
         this.numExBits = numExBits;
+    }
+
+    @Nonnull
+    public Metrics getMetric() {
+        return metric;
     }
 
     public int getNumDimensions() {
         return centroid.getNumDimensions();
     }
 
-    /** Estimate metric(queryRot, encodedVector) using ex-bits-only factors. */
-    public double estimateDistance(@Nonnull final Vector query, // pre-rotated query q
-                                   @Nonnull final EncodedVector encodedVector) {
-        final double cb = (1 << numExBits) - 0.5;
-        final Vector qc = query.subtract(centroid);
-        final double gAdd = qc.dot(qc);
-        final Vector totalCode = new DoubleVector(encodedVector.getEncodedData());
-        final Vector xuc = totalCode.subtract(cb);
-        final double dot = query.dot(xuc);
+    public int getNumExBits() {
+        return numExBits;
+    }
 
-        // Same formula for both metrics; just ensure fAddEx/fRescaleEx were computed for that metric.
-        return encodedVector.getAddEx() + gAdd + encodedVector.getRescaleEx() * dot;
+    /** Estimate metric(queryRot, encodedVector) using ex-bits-only factors. */
+    @Override
+    public double distance(@Nonnull final Vector query,
+                           @Nonnull final Vector storedVector) {
+        if (!(query instanceof EncodedVector) && storedVector instanceof EncodedVector) {
+            // only use the estimator if the first (by convention) vector is not encoded, but the second is
+            return distance(query, (EncodedVector)storedVector);
+        }
+        if (query instanceof EncodedVector && !(storedVector instanceof EncodedVector)) {
+            return distance(storedVector, (EncodedVector)query);
+        }
+        // use the regular metric for all other cases
+        return metric.comparativeDistance(query, storedVector);
+    }
+
+    public double distance(@Nonnull final Vector query, // pre-rotated query q
+                           @Nonnull final EncodedVector encodedVector) {
+        return estimateDistanceAndErrorBound(query, encodedVector).getDistance();
     }
 
     public Result estimateDistanceAndErrorBound(@Nonnull final Vector query, // pre-rotated query q
@@ -64,9 +85,17 @@ public class Estimator {
         final Vector xuc = totalCode.subtract(cb);
         final double dot = query.dot(xuc);
 
-        // Same formula for both metrics; just ensure fAddEx/fRescaleEx were computed for that metric.
-        return new Result(encodedVector.getAddEx() + gAdd + encodedVector.getRescaleEx() * dot,
-                encodedVector.getErrorEx() * gError);
+        switch (metric) {
+            case DOT_PRODUCT_METRIC:
+            case EUCLIDEAN_SQUARE_METRIC:
+                return new Result(encodedVector.getAddEx() + gAdd + encodedVector.getRescaleEx() * dot,
+                        encodedVector.getErrorEx() * gError);
+            case EUCLIDEAN_METRIC:
+                return new Result(Math.sqrt(encodedVector.getAddEx() + gAdd + encodedVector.getRescaleEx() * dot),
+                        Math.sqrt(encodedVector.getErrorEx() * gError));
+            default:
+                throw new UnsupportedOperationException("metric not supported by quantizer");
+        }
     }
 
     public static class Result {

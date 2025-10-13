@@ -1,5 +1,5 @@
 /*
- * Quantizer.java
+ * RaBitQuantizer.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -22,13 +22,14 @@ package com.apple.foundationdb.async.rabitq;
 
 import com.apple.foundationdb.async.hnsw.DoubleVector;
 import com.apple.foundationdb.async.hnsw.Metrics;
+import com.apple.foundationdb.async.hnsw.Quantizer;
 import com.apple.foundationdb.async.hnsw.Vector;
 
 import javax.annotation.Nonnull;
 import java.util.Comparator;
 import java.util.PriorityQueue;
 
-public final class Quantizer {
+public final class RaBitQuantizer implements Quantizer {
     // Matches kTightStart[] from the C++ (index by ex_bits).
     // 0th entry unused; defined up to 8 extra bits in the source.
     private static final double[] TIGHT_START = {
@@ -39,14 +40,14 @@ public final class Quantizer {
     private final Vector centroid;
     final int numExBits;
     @Nonnull
-    private final Metrics metrics;
+    private final Metrics metric;
 
-    public Quantizer(@Nonnull final Vector centroid,
-                     final int numExBits,
-                     @Nonnull final Metrics metrics) {
+    public RaBitQuantizer(@Nonnull final Metrics metric,
+                          @Nonnull final Vector centroid,
+                          final int numExBits) {
         this.centroid = centroid;
         this.numExBits = numExBits;
-        this.metrics = metrics;
+        this.metric = metric;
     }
 
     private static final double EPS = 1e-5;
@@ -58,8 +59,15 @@ public final class Quantizer {
     }
 
     @Nonnull
-    public Estimator estimator() {
-        return new Estimator(centroid, numExBits);
+    @Override
+    public RaBitEstimator estimator() {
+        return new RaBitEstimator(metric, centroid, numExBits);
+    }
+
+    @Nonnull
+    @Override
+    public EncodedVector encode(@Nonnull final Vector data) {
+        return encodeInternal(data).getEncodedVector();
     }
 
     /**
@@ -70,7 +78,7 @@ public final class Quantizer {
      * - applies C++ metric-dependent formulas exactly.
      */
     @Nonnull
-    public Result encode(@Nonnull final Vector data) {
+    Result encodeInternal(@Nonnull final Vector data) {
         final int dims = data.getNumDimensions();
 
         // 2) Build residual again: r = data - centroid
@@ -114,11 +122,11 @@ public final class Quantizer {
         double fRescaleEx;
         double fErrorEx;
 
-        if (metrics == Metrics.EUCLIDEAN_SQUARE_METRIC) {
+        if (metric == Metrics.EUCLIDEAN_SQUARE_METRIC || metric == Metrics.EUCLIDEAN_METRIC) {
             fAddEx = residual_l2_sqr + 2.0 * residual_l2_sqr * (ip_cent_xucb / ip_resi_xucb_safe);
             fRescaleEx = ipInv * (-2.0 * residual_l2_norm);
             fErrorEx = 2.0 * tmp_error;
-        } else if (metrics == Metrics.DOT_PRODUCT_METRIC) {
+        } else if (metric == Metrics.DOT_PRODUCT_METRIC) {
             fAddEx = 1.0 - residual.dot(centroid) + residual_l2_sqr * (ip_cent_xucb / ip_resi_xucb_safe);
             fRescaleEx = ipInv * (-1.0 * residual_l2_norm);
             fErrorEx = tmp_error;
@@ -135,7 +143,7 @@ public final class Quantizer {
      * @param residual Rotated residual vector r (same thing the C++ feeds here).
      *                 This method internally uses |r| normalized to unit L2.
      */
-    public QuantizeExResult exBitsCode(@Nonnull final Vector residual) {
+    private QuantizeExResult exBitsCode(@Nonnull final Vector residual) {
         int dims = residual.getNumDimensions();
 
         // oAbs = |r| normalized (RaBitQ does this before quantizeEx)
@@ -313,10 +321,22 @@ public final class Quantizer {
             this.t = t;
             this.ipNormInv = ipNormInv;
         }
+
+        public EncodedVector getEncodedVector() {
+            return encodedVector;
+        }
+
+        public double getT() {
+            return t;
+        }
+
+        public double getIpNormInv() {
+            return ipNormInv;
+        }
     }
 
     @SuppressWarnings("checkstyle:MemberName")
-    public static final class QuantizeExResult {
+    private static final class QuantizeExResult {
         public final int[] code;       // k_i = floor(t * oAbs[i]) in [0, 2^exBits - 1]
         public final double t;         // chosen global scale
         public final double ipNormInv; // 1 / sum_i ( (k_i + 0.5) * oAbs[i] )
