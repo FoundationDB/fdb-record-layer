@@ -53,13 +53,12 @@ test_block:
     -
       - query: select count(*) from t1
       - explain: "AISCAN(MV1 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
-      # Cannot run with FORCE_CONTINUATIONS due to: https://github.com/FoundationDB/fdb-record-layer/issues/3206
+      # https://github.com/FoundationDB/fdb-record-layer/issues/3206 is fixed since !current_version
       - maxRows: 1
       - initialVersionAtLeast: !current_version
       - result: [{4}]
       - result: []
       - initialVersionLessThan: !current_version
-      - error: 'X0000'
     -
       - query: select count(*) from t1 group by col2
       - explain: "AISCAN(MV2 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._1 AS _0)"
@@ -70,6 +69,15 @@ test_block:
       # Cannot run with FORCE_CONTINUATIONS due to: https://github.com/FoundationDB/fdb-record-layer/issues/3206
       - maxRows: 0
       - result: [{2}]
+    -
+      - query: select count(col1) from t1
+      - explain: "AISCAN(MV3 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
+      # https://github.com/FoundationDB/fdb-record-layer/issues/3206 is fixed since !current_version
+      - maxRows: 1
+      - initialVersionAtLeast: !current_version
+      - result: [{2}]
+      - result: []
+      - initialVersionLessThan: !current_version
     -
       - query: select count(col1) from t1 group by col2
       - explain: "AISCAN(MV4 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._1 AS _0)"
