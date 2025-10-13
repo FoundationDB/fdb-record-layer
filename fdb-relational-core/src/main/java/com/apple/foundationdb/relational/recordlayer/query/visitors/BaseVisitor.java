@@ -441,6 +441,7 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
         return ddlVisitor.visitStatementBody(ctx);
     }
 
+    @Nonnull
     @Override
     public Identifier visitUserDefinedScalarFunctionStatementBody(@Nonnull RelationalParser.UserDefinedScalarFunctionStatementBodyContext ctx) {
         return identifierVisitor.visitFullId(ctx.fullId());

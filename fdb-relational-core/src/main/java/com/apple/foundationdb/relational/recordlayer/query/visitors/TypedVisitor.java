@@ -189,6 +189,10 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
     @Override
     UserDefinedFunction visitSqlInvokedFunction(RelationalParser.SqlInvokedFunctionContext ctx);
 
+    @Nonnull
+    @Override
+    Identifier visitUserDefinedScalarFunctionStatementBody(@Nonnull RelationalParser.UserDefinedScalarFunctionStatementBodyContext ctx);
+
     @Override
     LogicalOperator visitStatementBody(RelationalParser.StatementBodyContext ctx);
 
@@ -759,6 +763,10 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
     @Nonnull
     @Override
     Expression visitAggregateFunctionCall(@Nonnull RelationalParser.AggregateFunctionCallContext ctx);
+
+    @Nonnull
+    @Override
+    Expression visitUserDefinedScalarFunctionCall(@Nonnull RelationalParser.UserDefinedScalarFunctionCallContext ctx);
 
     @Nonnull
     @Override
