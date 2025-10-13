@@ -1328,6 +1328,24 @@ public class AstNormalizerTests {
                 Map.of(constantId(7), List.of(true, false)));
     }
 
+    @Test
+    void visitNotInPredicateWithConstants() throws Exception {
+        // Test NOT IN predicate with constants - verifies that NOT token is handled correctly
+        // This tests the visitInPredicate method's handling of NOT token in AstNormalizer
+        validate("select * from t1 where col1 not in (10, 20, 30)",
+                "select * from \"T1\" where \"COL1\" not in ( [ ] ) ",
+                Map.of(constantId(8), List.of(10, 20, 30)));
+    }
+
+    @Test
+    void visitNotInPredicateWithColumnReference() throws Exception {
+        // Test NOT IN predicate with column reference - this tests lines 453-454 in AstNormalizer
+        // where ctx.inList().fullColumnName() != null for a NOT IN predicate
+        validate("select * from T where 'apple' not in T.fruits",
+                "select * from \"T\" where ? not in \"T\" . \"FRUITS\" ",
+                Map.of(constantId(5), "apple"));
+    }
+
     @Nonnull
     private String normalizeQuery(@Nonnull final String functionDdl) throws RelationalException {
         final var normalizer = AstNormalizer.normalizeAst(fakeSchemaTemplate,

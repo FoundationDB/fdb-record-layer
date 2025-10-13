@@ -17,9 +17,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ---
-options:
-  supported_version: !current_version
----
 schema_template:
     create type as struct ts(sa bigint, sb bigint)
     create type as struct fruit_type(name string, color string)
@@ -195,46 +192,57 @@ test_block:
     -
       # Test IN predicate with primitive array column - string in string array
       - query: select id from array_table where 'apple' in fruits
+      - supported_version: !current_version
       - unorderedResult: [{1}, {3}]
     -
       # Test IN predicate with primitive array column - multiple matches
       - query: select id from array_table where 'banana' in fruits
+      - supported_version: !current_version
       - unorderedResult: [{1}, {5}]
     -
       # Test IN predicate with primitive array column - no match
       - query: select id from array_table where 'pineapple' in fruits
+      - supported_version: !current_version
       - result: []
     -
       # Test IN predicate with primitive array column - bigint in bigint array
       - query: select id from array_table where 10 in numbers
+      - supported_version: !current_version
       - unorderedResult: [{1}, {3}]
     -
       # Test IN predicate with primitive array column - bigint no match
       - query: select id from array_table where 15 in numbers
+      - supported_version: !current_version
       - result: []
     -
       # Test IN predicate with record array column - struct in struct array
       - query: select id from array_table where ('apple', 'red') in fruit_records
+      - supported_version: !current_version
       - unorderedResult: [{1}]
     -
       # Test IN predicate with record array column - different struct match
       - query: select id from array_table where ('mango', 'orange') in fruit_records
+      - supported_version: !current_version
       - unorderedResult: [{3}]
     -
       # Test IN predicate with record array column - no match
       - query: select id from array_table where ('apple', 'blue') in fruit_records
+      - supported_version: !current_version
       - result: []
     -
       # Test IN predicate with record array column - partial field match (should not match)
       - query: select id from array_table where ('grape', 'green') in fruit_records
+      - supported_version: !current_version
       - result: []
     -
       # Test NOT IN predicate with primitive array column
       - query: select id from array_table where 'apple' not in fruits
+      - supported_version: !current_version
       - unorderedResult: [{2}, {4}, {5}]
     -
       # Test NOT IN predicate with record array column
       - query: select id from array_table where ('apple', 'red') not in fruit_records
+      - supported_version: !current_version
       - unorderedResult: [{2}, {3}, {4}, {5}]
 ---
 # Following tests are run once because running them the second time around causes the error to be different. This is

@@ -1,7 +1,7 @@
-ë
+ê
 @
-	unnamed-33EXPLAIN select a, b from ta where b in (1, 1, 1, 1)Ã
-ﬂÜÜùÑ§ ÖÓ¿D(B0·‰¯8|@êISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(promote(@c10 AS ARRAY(LONG))) | FILTER q0.B EQUALS _ AS q1 RETURN (q0.A AS A, q0.B AS B) }òdigraph G {
+	unnamed-23EXPLAIN select a, b from ta where b in (1, 1, 1, 1)À
+ﬂœíª7§ ‰»´(B0˘Ñ—8|@êISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(promote(@c10 AS ARRAY(LONG))) | FILTER q0.B EQUALS _ AS q1 RETURN (q0.A AS A, q0.B AS B) }òdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -19,10 +19,10 @@
     rankDir=LR;
     2 -> 4 [ color="red" style="invis" ];
   }
-}ë
+}ê
 @
-	unnamed-33EXPLAIN select a, b from ta where b in (1, 2, 1, 3)Ã
-ﬂÜÜùÑ§ ÖÓ¿D(B0·‰¯8|@êISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(promote(@c10 AS ARRAY(LONG))) | FILTER q0.B EQUALS _ AS q1 RETURN (q0.A AS A, q0.B AS B) }òdigraph G {
+	unnamed-23EXPLAIN select a, b from ta where b in (1, 2, 1, 3)À
+ﬂœíª7§ ‰»´(B0˘Ñ—8|@êISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(promote(@c10 AS ARRAY(LONG))) | FILTER q0.B EQUALS _ AS q1 RETURN (q0.A AS A, q0.B AS B) }òdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -42,8 +42,9 @@
   }
 }ä
 P
-	unnamed-3CEXPLAIN select a, b from ta where b in (1 + 0, 1 + 0, 1 + 0, 1 + 0)µ
-ﬂº±å)§ ç◊ß(B0˙¥Õ8|@≈ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(promote(array(@c11 + @c13, @c11 + @c13, @c11 + @c13, @c11 + @c13) AS ARRAY(LONG))) | FILTER q0.B EQUALS _ AS q1 RETURN (q0.A AS A, q0.B AS B) }Õdigraph G {
+	unnamed-2CEXPLAIN select a, b from ta where b in (1 + 0, 1 + 0, 1 + 0, 1 + 0)µ
+ﬂÕ∞ì%§ ≥œ…
+(B0 –Ö8|@≈ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(promote(array(@c11 + @c13, @c11 + @c13, @c11 + @c13, @c11 + @c13) AS ARRAY(LONG))) | FILTER q0.B EQUALS _ AS q1 RETURN (q0.A AS A, q0.B AS B) }Õdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -63,8 +64,8 @@ P
   }
 }»
 B
-	unnamed-35EXPLAIN select a, b from ta where b in (1 + 0, 0 + 1)Å
-ﬂî◊ﬁ6§ Ñ∞Ä(B0Ï‘µ8|@´ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(promote(array(@c11 + @c13, @c13 + @c11) AS ARRAY(LONG))) | FILTER q0.B EQUALS _ AS q1 RETURN (q0.A AS A, q0.B AS B) }≥digraph G {
+	unnamed-25EXPLAIN select a, b from ta where b in (1 + 0, 0 + 1)Å
+ﬂúÈ´$§ ı¥Ç(B0´†ù8|@´ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(promote(array(@c11 + @c13, @c13 + @c11) AS ARRAY(LONG))) | FILTER q0.B EQUALS _ AS q1 RETURN (q0.A AS A, q0.B AS B) }≥digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -82,11 +83,10 @@ B
     rankDir=LR;
     2 -> 4 [ color="red" style="invis" ];
   }
-}Î
+}Ï
 F
-	unnamed-39EXPLAIN select a, c from ta where c in (4.56, 3.45, 2.34)†
-ﬂ°î∞%§ À¬•
-(B0úˆ8|@xISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(@c10) | FILTER q0.C EQUALS _ AS q1 RETURN (q0.A AS A, q0.C AS C) }Üdigraph G {
+	unnamed-29EXPLAIN select a, c from ta where c in (4.56, 3.45, 2.34)°
+ﬂ”ëªõ§ ©Ì£T(B0√ìÎ8|@xISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(@c10) | FILTER q0.C EQUALS _ AS q1 RETURN (q0.A AS A, q0.C AS C) }Üdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -106,8 +106,8 @@ F
   }
 }Ì
 M
-	unnamed-3@EXPLAIN select a, b from ta where (a, b) in ((0L, 9L), (1L, 8L))õ
-â	–ïû+æ Ú≈ò(G0º¶ï8î@ÉISCAN(F1 <,>) | FILTER (_.A AS A, _.B AS B) IN array((@c16 AS _0, @c18 AS _1), (@c22 AS _0, @c24 AS _1)) | MAP (_.A AS A, _.B AS B)Ùdigraph G {
+	unnamed-2@EXPLAIN select a, b from ta where (a, b) in ((0L, 9L), (1L, 8L))õ
+â	»óŒ*æ Âöœ(G0úªé8î@ÉISCAN(F1 <,>) | FILTER (_.A AS A, _.B AS B) IN array((@c16 AS _0, @c18 AS _1), (@c22 AS _0, @c24 AS _1)) | MAP (_.A AS A, _.B AS B)Ùdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -120,8 +120,8 @@ M
   2 -> 1 [ label=<&nbsp;q43> label="q43" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
 }˜
 b
-	unnamed-3UEXPLAIN select a, b from ta where f in ((90L, 9L), (81L, 18L), (81L, 18L), (90L, 9L))ê
-π«ç√ñ¨ ÆÒÏ\(E0í°»8Ü@ÖEXPLODE arrayDistinct(array((@c12 AS _0, @c14 AS _1), (@c18 AS _0, @c20 AS _1), (@c18 AS _0, @c20 AS _1), (@c12 AS _0, @c14 AS _1))) | FLATMAP q0 -> { ISCAN(F1 [EQUALS promote(q0._0 AS LONG), EQUALS promote(q0._1 AS LONG)]) AS q1 RETURN (q1.A AS A, q1.B AS B) }Êdigraph G {
+	unnamed-2UEXPLAIN select a, b from ta where f in ((90L, 9L), (81L, 18L), (81L, 18L), (90L, 9L))ê
+πãˆÊ•¨ ˛ëôj(E0û…ñ8Ü@ÖEXPLODE arrayDistinct(array((@c12 AS _0, @c14 AS _1), (@c18 AS _0, @c20 AS _1), (@c18 AS _0, @c20 AS _1), (@c12 AS _0, @c14 AS _1))) | FLATMAP q0 -> { ISCAN(F1 [EQUALS promote(q0._0 AS LONG), EQUALS promote(q0._1 AS LONG)]) AS q1 RETURN (q1.A AS A, q1.B AS B) }Êdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
