@@ -186,6 +186,7 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
                     return ByteString.EMPTY;
                 }
                 ByteString base = ZeroCopyByteString.wrap(lastKey);
+                System.out.println("TO_OLD toByteString called");
                 // when prefixLength == lastKey.length, toByteString() also returns ByteString.EMPTY
                 return base.substring(prefixLength, lastKey.length);
             } else {
@@ -200,6 +201,7 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
                 return null;
             }
             ByteString byteString = toByteString();
+            System.out.println("TO_OLD toBytes called");
             return byteString.isEmpty() ? new byte[0] : byteString.toByteArray();
         }
 
@@ -281,7 +283,7 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
 
         protected Builder(@Nonnull Subspace subspace) {
             this.subspace = subspace;
-            this.serializationMode = SerializationMode.TO_OLD;
+            this.serializationMode = SerializationMode.TO_NEW;
         }
 
         /**
