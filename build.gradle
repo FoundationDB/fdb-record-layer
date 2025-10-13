@@ -243,6 +243,7 @@ subprojects {
                     // This is for dependent sub-projects so that their links to things in the Record Layer work
                     linksOffline "https://foundationdb.github.io/fdb-record-layer/api/fdb-extensions/", "${packageListDir}/fdb-extensions/"
                     linksOffline "https://foundationdb.github.io/fdb-record-layer/api/fdb-record-layer-core/", "${packageListDir}/fdb-record-layer-core/"
+                    linksOffline "https://foundationdb.github.io/fdb-record-layer/api/fdb-test-utils/", "${packageListDir}/fdb-test-utils/"
                 }
             }
             compileJava {

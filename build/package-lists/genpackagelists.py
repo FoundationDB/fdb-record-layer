@@ -48,6 +48,7 @@ PROJECT_TO_URL_MAP = {
     'protobuf': 'https://developers.google.com/protocol-buffers/docs/reference/java/',
     'fdb-extensions': 'https://javadoc.io/page/org.foundationdb/fdb-extensions/latest/',
     'fdb-record-layer-core': 'https://javadoc.io/page/org.foundationdb/fdb-record-layer-core/latest/',
+    'fdb-test-utils': 'https://javadoc.io/page/org.foundationdb/fdb-test-utils/latest/',
 }
 
 # Packages to filter out from each project
