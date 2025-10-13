@@ -95,8 +95,12 @@ public class HNSW {
     public static final boolean DEFAULT_EXTEND_CANDIDATES = false;
     public static final boolean DEFAULT_KEEP_PRUNED_CONNECTIONS = false;
 
+    // RaBitQ
+    public static final boolean DEFAULT_USE_RABITQ = false;
+    public static final int DEFAULT_RABITQ_NUM_EX_BITS = 4;
+
     @Nonnull
-    public static final Config DEFAULT_CONFIG = new Config();
+    public static final ConfigBuilder DEFAULT_CONFIG_BUILDER = new ConfigBuilder();
 
     @Nonnull
     private final Subspace subspace;
@@ -118,6 +122,7 @@ public class HNSW {
         private final Random random;
         @Nonnull
         private final Metrics metric;
+        private final int numDimensions;
         private final boolean useInlining;
         private final int m;
         private final int mMax;
@@ -126,9 +131,13 @@ public class HNSW {
         private final boolean extendCandidates;
         private final boolean keepPrunedConnections;
 
-        protected Config() {
+        private final boolean useRaBitQ;
+        private final int raBitQNumExBits;
+
+        protected Config(final int numDimensions) {
             this.random = DEFAULT_RANDOM;
             this.metric = DEFAULT_METRIC;
+            this.numDimensions = numDimensions;
             this.useInlining = DEFAULT_USE_INLINING;
             this.m = DEFAULT_M;
             this.mMax = DEFAULT_M_MAX;
@@ -136,13 +145,17 @@ public class HNSW {
             this.efConstruction = DEFAULT_EF_CONSTRUCTION;
             this.extendCandidates = DEFAULT_EXTEND_CANDIDATES;
             this.keepPrunedConnections = DEFAULT_KEEP_PRUNED_CONNECTIONS;
+            this.useRaBitQ = DEFAULT_USE_RABITQ;
+            this.raBitQNumExBits = DEFAULT_RABITQ_NUM_EX_BITS;
         }
 
-        protected Config(@Nonnull final Random random, @Nonnull final Metrics metric, final boolean useInlining,
-                         final int m, final int mMax, final int mMax0, final int efConstruction,
-                         final boolean extendCandidates, final boolean keepPrunedConnections) {
+        protected Config(@Nonnull final Random random, @Nonnull final Metrics metric, final int numDimensions,
+                         final boolean useInlining, final int m, final int mMax, final int mMax0,
+                         final int efConstruction, final boolean extendCandidates, final boolean keepPrunedConnections,
+                         final boolean useRaBitQ, final int raBitQNumExBits) {
             this.random = random;
             this.metric = metric;
+            this.numDimensions = numDimensions;
             this.useInlining = useInlining;
             this.m = m;
             this.mMax = mMax;
@@ -150,6 +163,8 @@ public class HNSW {
             this.efConstruction = efConstruction;
             this.extendCandidates = extendCandidates;
             this.keepPrunedConnections = keepPrunedConnections;
+            this.useRaBitQ = useRaBitQ;
+            this.raBitQNumExBits = raBitQNumExBits;
         }
 
         @Nonnull
@@ -160,6 +175,10 @@ public class HNSW {
         @Nonnull
         public Metrics getMetric() {
             return metric;
+        }
+
+        public int getNumDimensions() {
+            return numDimensions;
         }
 
         public boolean isUseInlining() {
@@ -190,19 +209,31 @@ public class HNSW {
             return keepPrunedConnections;
         }
 
+        public boolean isUseRaBitQ() {
+            return useRaBitQ;
+        }
+
+        public int getRaBitQNumExBits() {
+            return raBitQNumExBits;
+        }
+
         @Nonnull
         public ConfigBuilder toBuilder() {
             return new ConfigBuilder(getRandom(), getMetric(), isUseInlining(), getM(), getMMax(), getMMax0(),
-                    getEfConstruction(), isExtendCandidates(), isKeepPrunedConnections());
+                    getEfConstruction(), isExtendCandidates(), isKeepPrunedConnections(), isUseRaBitQ(),
+                    getRaBitQNumExBits());
         }
 
         @Override
         @Nonnull
         public String toString() {
-            return "Config[metric=" + getMetric() + "isUseInlining" + isUseInlining() + "M=" + getM() +
-                    " , MMax=" + getMMax() + " , MMax0=" + getMMax0() + ", efConstruction=" + getEfConstruction() +
+            return "Config[metric=" + getMetric() + ", numDimensions=" + numDimensions +
+                    ", isUseInlining=" + isUseInlining() + ", M=" + getM() +
+                    ", MMax=" + getMMax() + ", MMax0=" + getMMax0() + ", efConstruction=" + getEfConstruction() +
                     ", isExtendCandidates=" + isExtendCandidates() +
-                    ", isKeepPrunedConnections=" + isKeepPrunedConnections() + "]";
+                    ", isKeepPrunedConnections=" + isKeepPrunedConnections() +
+                    ", useRaBitQ=" + isUseRaBitQ() +
+                    ", raBitQNumExBits=" + getRaBitQNumExBits() + "]";
         }
     }
 
@@ -226,12 +257,16 @@ public class HNSW {
         private boolean extendCandidates = DEFAULT_EXTEND_CANDIDATES;
         private boolean keepPrunedConnections = DEFAULT_KEEP_PRUNED_CONNECTIONS;
 
+        private boolean useRaBitQ = DEFAULT_USE_RABITQ;
+        private int raBitQNumExBits = DEFAULT_RABITQ_NUM_EX_BITS;
+
         public ConfigBuilder() {
         }
 
         public ConfigBuilder(@Nonnull final Random random, @Nonnull final Metrics metric, final boolean useInlining,
                              final int m, final int mMax, final int mMax0, final int efConstruction,
-                             final boolean extendCandidates, final boolean keepPrunedConnections) {
+                             final boolean extendCandidates, final boolean keepPrunedConnections,
+                             final boolean useRaBitQ, final int raBitQNumExBits) {
             this.random = random;
             this.metric = metric;
             this.useInlining = useInlining;
@@ -241,6 +276,8 @@ public class HNSW {
             this.efConstruction = efConstruction;
             this.extendCandidates = extendCandidates;
             this.keepPrunedConnections = keepPrunedConnections;
+            this.useRaBitQ = useRaBitQ;
+            this.raBitQNumExBits = raBitQNumExBits;
         }
 
         @Nonnull
@@ -331,9 +368,28 @@ public class HNSW {
             return this;
         }
 
-        public Config build() {
-            return new Config(getRandom(), getMetric(), isUseInlining(), getM(), getMMax(), getMMax0(),
-                    getEfConstruction(), isExtendCandidates(), isKeepPrunedConnections());
+        public boolean isUseRaBitQ() {
+            return useRaBitQ;
+        }
+
+        public ConfigBuilder setUseRaBitQ(final boolean useRaBitQ) {
+            this.useRaBitQ = useRaBitQ;
+            return this;
+        }
+
+        public int getRaBitQNumExBits() {
+            return raBitQNumExBits;
+        }
+
+        public ConfigBuilder setRaBitQNumExBits(final int raBitQNumExBits) {
+            this.raBitQNumExBits = raBitQNumExBits;
+            return this;
+        }
+
+        public Config build(final int numDimensions) {
+            return new Config(getRandom(), getMetric(), numDimensions, isUseInlining(), getM(), getMMax(), getMMax0(),
+                    getEfConstruction(), isExtendCandidates(), isKeepPrunedConnections(), isUseRaBitQ(),
+                    getRaBitQNumExBits());
         }
     }
 
@@ -354,9 +410,10 @@ public class HNSW {
      *
      * @param subspace the non-null {@link Subspace} to build the HNSW graph for.
      * @param executor the non-null {@link Executor} for concurrent operations, such as building the graph.
+     * @param numDimensions the number of dimensions
      */
-    public HNSW(@Nonnull final Subspace subspace, @Nonnull final Executor executor) {
-        this(subspace, executor, DEFAULT_CONFIG, OnWriteListener.NOOP, OnReadListener.NOOP);
+    public HNSW(@Nonnull final Subspace subspace, @Nonnull final Executor executor, final int numDimensions) {
+        this(subspace, executor, DEFAULT_CONFIG_BUILDER.build(numDimensions), OnWriteListener.NOOP, OnReadListener.NOOP);
     }
 
     /**
@@ -374,7 +431,8 @@ public class HNSW {
      * @throws NullPointerException if any of the parameters are {@code null}.
      */
     public HNSW(@Nonnull final Subspace subspace,
-                @Nonnull final Executor executor, @Nonnull final Config config,
+                @Nonnull final Executor executor,
+                @Nonnull final Config config,
                 @Nonnull final OnWriteListener onWriteListener,
                 @Nonnull final OnReadListener onReadListener) {
         this.subspace = subspace;
@@ -396,7 +454,7 @@ public class HNSW {
     }
 
     /**
-     * Get the executer used by this r-tree.
+     * Get the executor used by this hnsw.
      * @return executor used when running asynchronous tasks
      */
     @Nonnull
@@ -405,8 +463,8 @@ public class HNSW {
     }
 
     /**
-     * Get this r-tree's configuration.
-     * @return r-tree configuration
+     * Get this hnsw's configuration.
+     * @return hnsw configuration
      */
     @Nonnull
     public Config getConfig() {
@@ -473,7 +531,7 @@ public class HNSW {
                     final NodeReferenceWithDistance entryState =
                             new NodeReferenceWithDistance(entryPointAndLayer.getPrimaryKey(),
                                     entryPointAndLayer.getVector(),
-                                    Vector.comparativeDistance(metric, entryPointAndLayer.getVector(), queryVector));
+                                    metric.comparativeDistance(entryPointAndLayer.getVector(), queryVector));
 
                     final var entryLayer = entryPointAndLayer.getLayer();
                     if (entryLayer == 0) {
@@ -613,7 +671,7 @@ public class HNSW {
                     NodeReferenceWithVector nearestNeighbor = null;
                     for (final NodeReferenceWithVector neighbor : neighbors) {
                         final double distance =
-                                Vector.comparativeDistance(metric, neighbor.getVector(), queryVector);
+                                metric.comparativeDistance(neighbor.getVector(), queryVector);
                         if (distance < minDistance) {
                             minDistance = distance;
                             nearestNeighbor = neighbor;
@@ -701,8 +759,7 @@ public class HNSW {
                             final double furthestDistance =
                                     Objects.requireNonNull(nearestNeighbors.peek()).getDistance();
 
-                            final double currentDistance =
-                                    Vector.comparativeDistance(metric, current.getVector(), queryVector);
+                            final double currentDistance = metric.comparativeDistance(current.getVector(), queryVector);
                             if (currentDistance < furthestDistance || nearestNeighbors.size() < efSearch) {
                                 final NodeReferenceWithDistance currentWithDistance =
                                         new NodeReferenceWithDistance(current.getPrimaryKey(), current.getVector(),
@@ -1019,7 +1076,7 @@ public class HNSW {
                     final NodeReferenceWithDistance initialNodeReference =
                             new NodeReferenceWithDistance(entryNodeReference.getPrimaryKey(),
                                     entryNodeReference.getVector(),
-                                    Vector.comparativeDistance(metric, entryNodeReference.getVector(), newVector));
+                                    metric.comparativeDistance(entryNodeReference.getVector(), newVector));
                     return forLoop(lMax, initialNodeReference,
                                     layer -> layer > insertionLayer,
                                     layer -> layer - 1,
@@ -1090,7 +1147,7 @@ public class HNSW {
                                 final NodeReferenceWithDistance initialNodeReference =
                                         new NodeReferenceWithDistance(entryNodeReference.getPrimaryKey(),
                                                 entryNodeReference.getVector(),
-                                                Vector.comparativeDistance(metric, entryNodeReference.getVector(), itemVector));
+                                                metric.comparativeDistance(entryNodeReference.getVector(), itemVector));
 
                                 return forLoop(lMax, initialNodeReference,
                                         layer -> layer > itemL,
@@ -1416,7 +1473,7 @@ public class HNSW {
                         for (final NodeReferenceWithVector nodeReferenceWithVector : nodeReferenceWithVectors) {
                             final var vector = nodeReferenceWithVector.getVector();
                             final double distance =
-                                    Vector.comparativeDistance(metric, vector,
+                                    metric.comparativeDistance(vector,
                                             selectedNeighbor.getNodeReferenceWithDistance().getVector());
                             nodeReferencesWithDistancesBuilder.add(
                                     new NodeReferenceWithDistance(nodeReferenceWithVector.getPrimaryKey(),
@@ -1490,7 +1547,7 @@ public class HNSW {
                         final NodeReferenceWithDistance nearestCandidate = candidates.poll();
                         boolean shouldSelect = true;
                         for (final NodeReferenceWithDistance alreadySelected : selected) {
-                            if (Vector.comparativeDistance(metric, nearestCandidate.getVector(),
+                            if (metric.comparativeDistance(nearestCandidate.getVector(),
                                     alreadySelected.getVector()) < nearestCandidate.getDistance()) {
                                 shouldSelect = false;
                                 break;
@@ -1586,7 +1643,7 @@ public class HNSW {
                         }
 
                         for (final NodeReferenceWithVector withVector : withVectors) {
-                            final double distance = Vector.comparativeDistance(metric, withVector.getVector(), vector);
+                            final double distance = metric.comparativeDistance(withVector.getVector(), vector);
                             extendedCandidatesBuilder.add(new NodeReferenceWithDistance(withVector.getPrimaryKey(),
                                     withVector.getVector(), distance));
                         }
