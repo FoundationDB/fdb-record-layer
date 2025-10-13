@@ -41,9 +41,10 @@ public class VectorTest {
     @MethodSource("randomSeeds")
     void testSerializationDeserializationHalfVector(final long seed) {
         final Random random = new Random(seed);
-        final HalfVector randomVector = createRandomHalfVector(random, 128);
+        final int numDimensions = 128;
+        final HalfVector randomVector = createRandomHalfVector(random, numDimensions);
         final Vector deserializedVector =
-                StorageAdapter.vectorFromBytes(HNSW.DEFAULT_CONFIG, randomVector.getRawData());
+                StorageAdapter.vectorFromBytes(HNSW.DEFAULT_CONFIG_BUILDER.build(numDimensions), randomVector.getRawData());
         Assertions.assertThat(deserializedVector).isInstanceOf(HalfVector.class);
         Assertions.assertThat(deserializedVector).isEqualTo(randomVector);
     }
@@ -52,9 +53,10 @@ public class VectorTest {
     @MethodSource("randomSeeds")
     void testSerializationDeserializationDoubleVector(final long seed) {
         final Random random = new Random(seed);
-        final DoubleVector randomVector = createRandomDoubleVector(random, 128);
+        final int numDimensions = 128;
+        final DoubleVector randomVector = createRandomDoubleVector(random, numDimensions);
         final Vector deserializedVector =
-                StorageAdapter.vectorFromBytes(HNSW.DEFAULT_CONFIG, randomVector.getRawData());
+                StorageAdapter.vectorFromBytes(HNSW.DEFAULT_CONFIG_BUILDER.build(numDimensions), randomVector.getRawData());
         Assertions.assertThat(deserializedVector).isInstanceOf(DoubleVector.class);
         Assertions.assertThat(deserializedVector).isEqualTo(randomVector);
     }

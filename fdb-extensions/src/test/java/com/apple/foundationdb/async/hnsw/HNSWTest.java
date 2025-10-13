@@ -80,8 +80,6 @@ import java.util.stream.Stream;
 @Tag(Tags.Slow)
 public class HNSWTest {
     private static final Logger logger = LoggerFactory.getLogger(HNSWTest.class);
-    private static final int NUM_TEST_RUNS = 5;
-    private static final int NUM_SAMPLES = 10_000;
 
     @RegisterExtension
     static final TestDatabaseExtension dbExtension = new TestDatabaseExtension();
@@ -107,15 +105,16 @@ public class HNSWTest {
     @MethodSource("randomSeeds")
     public void testCompactSerialization(final long seed) {
         final Random random = new Random(seed);
+        final int numDimensions = 768;
         final CompactStorageAdapter storageAdapter =
-                new CompactStorageAdapter(HNSW.DEFAULT_CONFIG, CompactNode.factory(), rtSubspace.getSubspace(),
-                        OnWriteListener.NOOP, OnReadListener.NOOP);
+                new CompactStorageAdapter(HNSW.DEFAULT_CONFIG_BUILDER.build(numDimensions), CompactNode.factory(),
+                        rtSubspace.getSubspace(), OnWriteListener.NOOP, OnReadListener.NOOP);
         final Node<NodeReference> originalNode =
                 db.run(tr -> {
                     final NodeFactory<NodeReference> nodeFactory = storageAdapter.getNodeFactory();
 
                     final Node<NodeReference> randomCompactNode =
-                            createRandomCompactNode(random, nodeFactory, 768, 16);
+                            createRandomCompactNode(random, nodeFactory, numDimensions, 16);
 
                     writeNode(tr, storageAdapter, randomCompactNode, 0);
                     return randomCompactNode;
@@ -146,15 +145,16 @@ public class HNSWTest {
     @MethodSource("randomSeeds")
     public void testInliningSerialization(final long seed) {
         final Random random = new Random(seed);
+        final int numDimensions = 768;
         final InliningStorageAdapter storageAdapter =
-                new InliningStorageAdapter(HNSW.DEFAULT_CONFIG, InliningNode.factory(), rtSubspace.getSubspace(),
+                new InliningStorageAdapter(HNSW.DEFAULT_CONFIG_BUILDER.build(numDimensions), InliningNode.factory(), rtSubspace.getSubspace(),
                         OnWriteListener.NOOP, OnReadListener.NOOP);
         final Node<NodeReferenceWithVector> originalNode =
                 db.run(tr -> {
                     final NodeFactory<NodeReferenceWithVector> nodeFactory = storageAdapter.getNodeFactory();
 
                     final Node<NodeReferenceWithVector> randomInliningNode =
-                            createRandomInliningNode(random, nodeFactory, 768, 16);
+                            createRandomInliningNode(random, nodeFactory, numDimensions, 16);
 
                     writeNode(tr, storageAdapter, randomInliningNode, 0);
                     return randomInliningNode;
@@ -198,16 +198,16 @@ public class HNSWTest {
 
         final TestOnReadListener onReadListener = new TestOnReadListener();
 
-        final int dimensions = 128;
+        final int numDimensions = 128;
         final HNSW hnsw = new HNSW(rtSubspace.getSubspace(), TestExecutors.defaultThreadPool(),
-                HNSW.DEFAULT_CONFIG.toBuilder().setMetric(metric)
+                HNSW.DEFAULT_CONFIG_BUILDER.setMetric(metric)
                         .setUseInlining(useInlining).setExtendCandidates(extendCandidates)
                         .setKeepPrunedConnections(keepPrunedConnections)
-                        .setM(32).setMMax(32).setMMax0(64).build(),
+                        .setM(32).setMMax(32).setMMax0(64).build(numDimensions),
                 OnWriteListener.NOOP, onReadListener);
 
         final int k = 10;
-        final HalfVector queryVector = VectorTest.createRandomHalfVector(random, dimensions);
+        final HalfVector queryVector = VectorTest.createRandomHalfVector(random, numDimensions);
         final TreeSet<NodeReferenceWithDistance> nodesOrderedByDistance =
                 new TreeSet<>(Comparator.comparing(NodeReferenceWithDistance::getDistance));
 
@@ -215,8 +215,8 @@ public class HNSWTest {
             i += basicInsertBatch(hnsw, 100, nextNodeIdAtomic, onReadListener,
                     tr -> {
                         final var primaryKey = createNextPrimaryKey(nextNodeIdAtomic);
-                        final HalfVector dataVector = VectorTest.createRandomHalfVector(random, dimensions);
-                        final double distance = Vector.comparativeDistance(metric, dataVector, queryVector);
+                        final HalfVector dataVector = VectorTest.createRandomHalfVector(random, numDimensions);
+                        final double distance = metric.comparativeDistance(dataVector, queryVector);
                         final NodeReferenceWithDistance nodeReferenceWithDistance =
                                 new NodeReferenceWithDistance(primaryKey, dataVector, distance);
                         nodesOrderedByDistance.add(nodeReferenceWithDistance);
@@ -317,7 +317,7 @@ public class HNSWTest {
         final TestOnReadListener onReadListener = new TestOnReadListener();
 
         final HNSW hnsw = new HNSW(rtSubspace.getSubspace(), TestExecutors.defaultThreadPool(),
-                HNSW.DEFAULT_CONFIG.toBuilder().setMetric(metric).setM(32).setMMax(32).setMMax0(64).build(),
+                HNSW.DEFAULT_CONFIG_BUILDER.setMetric(metric).setM(32).setMMax(32).setMMax0(64).build(128),
                 OnWriteListener.NOOP, onReadListener);
 
         final Path siftSmallPath = Paths.get(".out/extracted/siftsmall/siftsmall_base.fvecs");
@@ -398,7 +398,7 @@ public class HNSWTest {
         final TestOnReadListener onReadListener = new TestOnReadListener();
 
         final HNSW hnsw = new HNSW(rtSubspace.getSubspace(), TestExecutors.defaultThreadPool(),
-                HNSW.DEFAULT_CONFIG.toBuilder().setMetric(metric).setM(32).setMMax(32).setMMax0(64).build(),
+                HNSW.DEFAULT_CONFIG_BUILDER.setMetric(metric).setM(32).setMMax(32).setMMax0(64).build(128),
                 OnWriteListener.NOOP, onReadListener);
 
         final Path siftSmallPath = Paths.get(".out/extracted/siftsmall/siftsmall_base.fvecs");
@@ -426,11 +426,12 @@ public class HNSWTest {
     @Test
     public void testManyRandomVectors() {
         final Random random = new Random();
+        final int numDimensions = 768;
         for (long l = 0L; l < 3000000; l ++) {
-            final HalfVector randomVector = VectorTest.createRandomHalfVector(random, 768);
+            final HalfVector randomVector = VectorTest.createRandomHalfVector(random, numDimensions);
             final Tuple vectorTuple = StorageAdapter.tupleFromVector(randomVector);
-            final Vector roundTripVector = StorageAdapter.vectorFromTuple(HNSW.DEFAULT_CONFIG, vectorTuple);
-            Vector.comparativeDistance(Metrics.EUCLIDEAN_METRIC, randomVector, roundTripVector);
+            final Vector roundTripVector = StorageAdapter.vectorFromTuple(HNSW.DEFAULT_CONFIG_BUILDER.build(numDimensions), vectorTuple);
+            Metrics.EUCLIDEAN_METRIC.comparativeDistance(randomVector, roundTripVector);
             Assertions.assertEquals(randomVector, roundTripVector);
         }
     }
@@ -448,7 +449,7 @@ public class HNSWTest {
     @Nonnull
     private Node<NodeReference> createRandomCompactNode(@Nonnull final Random random,
                                                         @Nonnull final NodeFactory<NodeReference> nodeFactory,
-                                                        final int dimensionality,
+                                                        final int numDimensions,
                                                         final int numberOfNeighbors) {
         final Tuple primaryKey = createRandomPrimaryKey(random);
         final ImmutableList.Builder<NodeReference> neighborsBuilder = ImmutableList.builder();
@@ -456,21 +457,21 @@ public class HNSWTest {
             neighborsBuilder.add(createRandomNodeReference(random));
         }
 
-        return nodeFactory.create(primaryKey, VectorTest.createRandomHalfVector(random, dimensionality), neighborsBuilder.build());
+        return nodeFactory.create(primaryKey, VectorTest.createRandomHalfVector(random, numDimensions), neighborsBuilder.build());
     }
 
     @Nonnull
     private Node<NodeReferenceWithVector> createRandomInliningNode(@Nonnull final Random random,
                                                                    @Nonnull final NodeFactory<NodeReferenceWithVector> nodeFactory,
-                                                                   final int dimensionality,
+                                                                   final int numDimensions,
                                                                    final int numberOfNeighbors) {
         final Tuple primaryKey = createRandomPrimaryKey(random);
         final ImmutableList.Builder<NodeReferenceWithVector> neighborsBuilder = ImmutableList.builder();
         for (int i = 0; i < numberOfNeighbors; i ++) {
-            neighborsBuilder.add(createRandomNodeReferenceWithVector(random, dimensionality));
+            neighborsBuilder.add(createRandomNodeReferenceWithVector(random, numDimensions));
         }
 
-        return nodeFactory.create(primaryKey, VectorTest.createRandomHalfVector(random, dimensionality), neighborsBuilder.build());
+        return nodeFactory.create(primaryKey, VectorTest.createRandomHalfVector(random, numDimensions), neighborsBuilder.build());
     }
 
     @Nonnull

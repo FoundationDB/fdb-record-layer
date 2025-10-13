@@ -31,14 +31,30 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Random;
 import java.util.stream.LongStream;
 import java.util.stream.Stream;
 
 public class QuantizerTest {
+    private static final Logger logger = LoggerFactory.getLogger(QuantizerTest.class);
+
+    @Nonnull
+    private static Stream<Arguments> randomSeedsWithDimensionalityAndNumExBits() {
+        return Sets.cartesianProduct(ImmutableSet.of(3, 5, 10, 128, 768, 1000),
+                        ImmutableSet.of(1, 2, 3, 4, 5, 6, 7, 8))
+                .stream()
+                .flatMap(arguments ->
+                        LongStream.generate(() -> new Random().nextLong())
+                                .limit(3)
+                                .mapToObj(seed -> Arguments.of(ObjectArrays.concat(seed, arguments.toArray()))));
+    }
+
     @Test
     void basicEncodeTest() {
         final int dims = 768;
@@ -120,87 +136,89 @@ public class QuantizerTest {
         final Estimator estimator = quantizer.estimator();
         final Estimator.Result estimatedDistance = estimator.estimateDistanceAndErrorBound(vRot, encodedVector);
         System.out.println("estimated distance = " + estimatedDistance);
-        System.out.println("true distance = " + Vector.distance(Metrics.EUCLIDEAN_SQUARE_METRIC, v, reconstructedV));
+        System.out.println("true distance = " + Metrics.EUCLIDEAN_SQUARE_METRIC.distance(v, reconstructedV));
     }
 
-    @Test
-    void encodeWithEstimationTest2() {
-        final long seed = 10;
-        final int numDimensions = 3000;
-        final int numExBits = 4;
+    @ParameterizedTest(name = "seed={0} dimensionality={1} numExBits={2}")
+    @MethodSource("randomSeedsWithDimensionalityAndNumExBits")
+    void encodeWithEstimationTest2(final long seed, final int numDimensions, final int numExBits) {
         final Random random = new Random(seed);
         final FhtKacRotator rotator = new FhtKacRotator(seed, numDimensions, 10);
+        final int numRounds = 500;
+        int numEstimationWithinBounds = 0;
+        int numEstimationBetter = 0;
+        double sumRelativeError = 0.0d;
+        for (int round = 0; round < numRounds; round ++) {
+            Vector v = null;
+            Vector q = null;
+            Vector sum = null;
+            final int numVectorsForCentroid = 10;
+            for (int i = 0; i < numVectorsForCentroid; i++) {
+                if (q == null) {
+                    if (v != null) {
+                        q = v;
+                    }
+                }
 
-        Vector v = null;
-        Vector q = null;
-        Vector sum = null;
-        final int numVectorsForCentroid = 10;
-        for (int i = 0; i < numVectorsForCentroid; i ++) {
-            if (q == null) {
-                if (v != null) {
-                    q = v;
+                v = new DoubleVector(createRandomVector(random, numDimensions));
+                if (sum == null) {
+                    sum = v;
+                } else {
+                    sum.add(v);
                 }
             }
+            Objects.requireNonNull(v);
+            Objects.requireNonNull(q);
 
-            v = new DoubleVector(createRandomVector(random, numDimensions));
-            if (sum == null) {
-                sum = v;
-            } else {
-                sum.add(v);
+            final Vector centroid = sum.multiply(1.0d / numVectorsForCentroid);
+
+            logger.trace("q = {}", q);
+            logger.trace("v = {}", v);
+            logger.trace("centroid = {}", centroid);
+
+            final Vector vRot = rotator.operateTranspose(v);
+            final Vector centroidRot = rotator.operateTranspose(centroid);
+            final Vector qRot = rotator.operateTranspose(q);
+
+            logger.trace("qRot = {}", qRot);
+            logger.trace("vRot = {}", vRot);
+            logger.trace("centroidRot = {}", centroidRot);
+
+            final Quantizer quantizer = new Quantizer(centroidRot, numExBits, Metrics.EUCLIDEAN_SQUARE_METRIC);
+            final Quantizer.Result resultV = quantizer.encode(vRot);
+            final EncodedVector encodedV = resultV.encodedVector;
+            logger.trace("fAddEx vor v = {}", encodedV.getAddEx());
+            logger.trace("fRescaleEx vor v = {}", encodedV.getRescaleEx());
+            logger.trace("fErrorEx vor v = {}", encodedV.getErrorEx());
+
+            final Quantizer.Result resultQ = quantizer.encode(qRot);
+            final EncodedVector encodedQ = resultQ.encodedVector;
+
+            final Estimator estimator = quantizer.estimator();
+            final Vector reconstructedQ = rotator.operate(encodedQ.add(centroidRot));
+            final Vector reconstructedV = rotator.operate(encodedV.add(centroidRot));
+            final Estimator.Result estimatedDistance = estimator.estimateDistanceAndErrorBound(qRot, encodedV);
+            logger.trace("estimated ||qRot - vRot||^2 = {}", estimatedDistance);
+            final double trueDistance = Metrics.EUCLIDEAN_SQUARE_METRIC.distance(vRot, qRot);
+            logger.trace("true ||qRot - vRot||^2 = {}", trueDistance);
+            if (trueDistance >= estimatedDistance.getDistance() - estimatedDistance.getErr() &&
+                    trueDistance < estimatedDistance.getDistance() + estimatedDistance.getErr()) {
+                numEstimationWithinBounds++;
             }
+            logger.trace("reconstructed q = {}", reconstructedQ);
+            logger.trace("reconstructed v = {}", reconstructedV);
+            logger.trace("true ||qDec - vDec||^2 = {}", Metrics.EUCLIDEAN_SQUARE_METRIC.distance(reconstructedV, reconstructedQ));
+            final double reconstructedDistance = Metrics.EUCLIDEAN_SQUARE_METRIC.distance(reconstructedV, q);
+            logger.trace("true ||q - vDec||^2 = {}", reconstructedDistance);
+            double error = Math.abs(estimatedDistance.getDistance() - trueDistance);
+            if (error < Math.abs(reconstructedDistance - trueDistance)) {
+                numEstimationBetter ++;
+            }
+            sumRelativeError += error / trueDistance;
         }
-        Objects.requireNonNull(v);
-        Objects.requireNonNull(q);
-
-        final Vector centroid = sum.multiply(1.0d / numVectorsForCentroid);
-
-//        System.out.println("q =" + q);
-//        System.out.println("v =" + v);
-//        System.out.println("centroid =" + centroid);
-
-        final Vector vRot = rotator.operateTranspose(v);
-        final Vector centroidRot = rotator.operateTranspose(centroid);
-        final Vector qRot = rotator.operateTranspose(q);
-//        System.out.println("qRot =" + qRot);
-//        System.out.println("vRot =" + vRot);
-//        System.out.println("centroidRot =" + centroidRot);
-
-        final Quantizer quantizer = new Quantizer(centroidRot, numExBits, Metrics.EUCLIDEAN_SQUARE_METRIC);
-        final Quantizer.Result resultV = quantizer.encode(vRot);
-        final EncodedVector encodedV = resultV.encodedVector;
-//        System.out.println("fAddEx vor v = " + encodedV.fAddEx);
-//        System.out.println("fRescaleEx vor v = " + encodedV.fRescaleEx);
-//        System.out.println("fErrorEx vor v = " + encodedV.fErrorEx);
-
-
-        final Quantizer.Result resultQ = quantizer.encode(qRot);
-        final EncodedVector encodedQ = resultQ.encodedVector;
-
-        final Estimator estimator = quantizer.estimator();
-        final Estimator.Result estimatedDistance = estimator.estimateDistanceAndErrorBound(qRot, encodedV);
-        System.out.println("estimated ||qRot - vRot||^2 = " + estimatedDistance);
-        System.out.println("true ||qRot - vRot||^2 = " + Vector.distance(Metrics.EUCLIDEAN_SQUARE_METRIC, vRot, qRot));
-
-        final Vector reconstructedV = rotator.operate(encodedV.add(centroidRot));
-        System.out.println("reconstructed v = " + reconstructedV);
-
-        final Vector reconstructedQ = rotator.operate(encodedQ.add(centroidRot));
-        System.out.println("reconstructed q = " + reconstructedQ);
-
-        System.out.println("true ||qDec - vDec||^2 = " + Vector.distance(Metrics.EUCLIDEAN_SQUARE_METRIC, reconstructedV, reconstructedQ));
-
-        encodedV.getRawData();
-    }
-
-    @Nonnull
-    private static Stream<Arguments> randomSeedsWithDimensionalityAndNumExBits() {
-        return Sets.cartesianProduct(ImmutableSet.of(3, 5, 10, 128, 768, 1000),
-                        ImmutableSet.of(1, 2, 3, 4, 5, 6, 7, 8))
-                .stream()
-                .flatMap(arguments ->
-                        LongStream.generate(() -> new Random().nextLong())
-                                .limit(3)
-                                .mapToObj(seed -> Arguments.of(ObjectArrays.concat(seed, arguments.toArray()))));
+        logger.info("estimator within bounds = {}%", String.format(Locale.ROOT, "%.2f", (double)numEstimationWithinBounds * 100.0d / numRounds));
+        logger.info("estimator better than reconstructed distance = {}%", String.format(Locale.ROOT, "%.2f", (double)numEstimationBetter * 100.0d / numRounds));
+        logger.info("relative error = {}%", String.format(Locale.ROOT, "%.2f", sumRelativeError * 100.0d / numRounds));
     }
 
     @ParameterizedTest(name = "seed={0} dimensionality={1} numExBits={2}")
