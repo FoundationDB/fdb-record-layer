@@ -174,39 +174,4 @@ public interface Vector {
         }
         return withData(result);
     }
-
-    /**
-     * Calculates the distance between two vectors using a specified metric.
-     * <p>
-     * This static utility method provides a convenient way to compute the distance by handling the conversion of
-     * generic {@code Vector<R>} objects to primitive {@code double} arrays. The actual distance computation is then
-     * delegated to the provided {@link Metrics} instance.
-     * @param metric the {@link Metrics} to use for the distance calculation.
-     * @param vector1 the first vector.
-     * @param vector2 the second vector.
-     * @return the calculated distance between the two vectors as a {@code double}.
-     */
-    static double distance(@Nonnull final Metrics metric,
-                           @Nonnull final Vector vector1,
-                           @Nonnull final Vector vector2) {
-        return metric.distance(vector1.getData(), vector2.getData());
-    }
-
-    /**
-     * Calculates the comparative distance between two vectors using a specified metric.
-     * <p>
-     * This utility method converts the input vectors, which can contain any {@link Number} type, into primitive double
-     * arrays. It then delegates the actual distance computation to the {@code comparativeDistance} method of the
-     * provided {@link Metrics} object.
-     * @param metric the {@link Metrics} to use for the distance calculation. Must not be null.
-     * @param vector1 the first vector for the comparison. Must not be null.
-     * @param vector2 the second vector for the comparison. Must not be null.
-     * @return the calculated comparative distance as a {@code double}.
-     * @throws NullPointerException if {@code metric}, {@code vector1}, or {@code vector2} is null.
-     */
-    static double comparativeDistance(@Nonnull final Metrics metric,
-                                      @Nonnull final Vector vector1,
-                                      @Nonnull final Vector vector2) {
-        return metric.comparativeDistance(vector1.getData(), vector2.getData());
-    }
 }
