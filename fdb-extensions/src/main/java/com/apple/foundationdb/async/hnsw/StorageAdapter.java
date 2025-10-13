@@ -25,6 +25,7 @@ import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.async.rabitq.EncodedVector;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
@@ -276,7 +277,9 @@ interface StorageAdapter<N extends NodeReference> {
             case DOUBLE:
                 return DoubleVector.fromBytes(vectorBytes, 1);
             case RABITQ:
-                return EncodedVector.fromBytes(vectorBytes, config.getRabitQConfig().getNumExBits());
+                Verify.verify(config.isUseRaBitQ());
+                return EncodedVector.fromBytes(vectorBytes, 1, config.getNumDimensions(),
+                        config.getRaBitQNumExBits());
             default:
                 throw new RuntimeException("unable to serialize vector");
         }

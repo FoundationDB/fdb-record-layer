@@ -30,6 +30,10 @@ import javax.annotation.Nonnull;
  * comparing data vectors, like clustering or nearest neighbor searches.
  */
 public interface Metric {
+    default double distance(@Nonnull Vector vector1, @Nonnull final Vector vector2) {
+        return distance(vector1.getData(), vector2.getData());
+    }
+
     /**
      * Calculates a distance between two n-dimensional vectors.
      * <p>
@@ -46,6 +50,10 @@ public interface Metric {
      * @throws NullPointerException if either {@code vector1} or {@code vector2} is null.
      */
     double distance(@Nonnull double[] vector1, @Nonnull double[] vector2);
+
+    default double comparativeDistance(@Nonnull Vector vector1, @Nonnull final Vector vector2) {
+        return comparativeDistance(vector1.getData(), vector2.getData());
+    }
 
     /**
      * Calculates a comparative distance between two vectors. The comparative distance is used in contexts such as
