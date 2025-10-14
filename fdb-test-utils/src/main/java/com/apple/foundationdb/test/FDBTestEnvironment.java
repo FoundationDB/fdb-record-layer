@@ -48,6 +48,9 @@ public final class FDBTestEnvironment {
         }
     }
 
+    private FDBTestEnvironment() {
+    }
+
     @SuppressWarnings("unchecked")
     private static List<String> parseFDBEnvironmentYaml(final String fdbEnvironment) {
         Yaml yaml = new Yaml();
