@@ -82,7 +82,7 @@ public final class RaBitQuantizer implements Quantizer {
         final int dims = data.getNumDimensions();
 
         // 2) Build residual again: r = data - centroid
-        final Vector residual = data.subtract(centroid);
+        final Vector residual = data; //.subtract(centroid);
 
         // 1) call ex_bits_code to get signedCode, t, ipNormInv
         QuantizeExResult base = exBitsCode(residual);
@@ -107,7 +107,7 @@ public final class RaBitQuantizer implements Quantizer {
         final double residual_l2_norm = residual.l2Norm();
         final double residual_l2_sqr = residual_l2_norm * residual_l2_norm;
         final double ip_resi_xucb = residual.dot(xu_cb);
-        final double ip_cent_xucb = centroid.dot(xu_cb);
+        //final double ip_cent_xucb = centroid.dot(xu_cb);
         final double xuCbNorm = xu_cb.l2Norm();
         final double xuCbNormSqr = xuCbNorm * xuCbNorm;
 
@@ -123,11 +123,11 @@ public final class RaBitQuantizer implements Quantizer {
         double fErrorEx;
 
         if (metric == Metrics.EUCLIDEAN_SQUARE_METRIC || metric == Metrics.EUCLIDEAN_METRIC) {
-            fAddEx = residual_l2_sqr + 2.0 * residual_l2_sqr * (ip_cent_xucb / ip_resi_xucb_safe);
+            fAddEx = residual_l2_sqr; // + 2.0 * residual_l2_sqr * (ip_cent_xucb / ip_resi_xucb_safe);
             fRescaleEx = ipInv * (-2.0 * residual_l2_norm);
             fErrorEx = 2.0 * tmp_error;
         } else if (metric == Metrics.DOT_PRODUCT_METRIC) {
-            fAddEx = 1.0 - residual.dot(centroid) + residual_l2_sqr * (ip_cent_xucb / ip_resi_xucb_safe);
+            fAddEx = 1.0; //- residual.dot(centroid) + residual_l2_sqr * (ip_cent_xucb / ip_resi_xucb_safe);
             fRescaleEx = ipInv * (-1.0 * residual_l2_norm);
             fErrorEx = tmp_error;
         } else {

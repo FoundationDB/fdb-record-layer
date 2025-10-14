@@ -20,9 +20,14 @@
 
 package com.apple.foundationdb.async.hnsw;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import javax.annotation.Nonnull;
 
 public interface Quantizer {
+    Logger logger = LoggerFactory.getLogger(Quantizer.class);
+
     @Nonnull
     Estimator estimator();
 
@@ -35,7 +40,11 @@ public interface Quantizer {
             @Nonnull
             @Override
             public Estimator estimator() {
-                return metric::comparativeDistance;
+                return (vector1, vector2) -> {
+                    final double d = metric.comparativeDistance(vector1, vector2);
+                    //logger.info("estimator distance = {}", d);
+                    return d;
+                };
             }
 
             @Nonnull
