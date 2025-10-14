@@ -27,7 +27,6 @@ dependencies {
     }
     api(libs.fdbJava)
     implementation(libs.guava)
-    implementation(libs.half4j)
     implementation(libs.slf4j.api)
     compileOnly(libs.jsr305)
 

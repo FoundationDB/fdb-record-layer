@@ -20,8 +20,8 @@
 
 package com.apple.foundationdb.async.hnsw;
 
-import com.christianheina.langx.half4j.Half;
 import com.google.common.base.Preconditions;
+import com.apple.foundationdb.half.Half;
 
 import javax.annotation.Nonnull;
 
