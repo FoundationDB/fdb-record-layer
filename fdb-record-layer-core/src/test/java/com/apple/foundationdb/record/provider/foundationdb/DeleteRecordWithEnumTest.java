@@ -48,7 +48,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  * Test a specific problem - when deleting a record with enum (PermitRequestQueueEntry), An index entry containing the
  * enum value appears to be undeleted.
  */
-public class DeleteRecordWithEnumTest {
+class DeleteRecordWithEnumTest {
 
     @RegisterExtension
     final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
@@ -60,7 +60,6 @@ public class DeleteRecordWithEnumTest {
     RecordMetaData metaData;
     RecordQueryPlanner planner;
     FDBRecordStore recordStore;
-    private IndexMaintenanceFilter indexMaintenanceFilter;
 
     @BeforeEach
     void setup() {
