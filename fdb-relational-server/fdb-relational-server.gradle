@@ -112,13 +112,13 @@ dependencies {
     testFixturesImplementation(project(":fdb-java-annotations")) {
         exclude(group: "com.squareup", module: "javapoet")
     }
-    testFixturesImplementation testFixtures(project(':fdb-extensions'))
+    testFixturesImplementation(project(':fdb-test-utils'))
     testFixturesImplementation(libs.snakeyaml) // required for FDBTestEnvironment
     testFixturesImplementation(libs.promethus.simpleclient)
     testFixturesImplementation(libs.log4j.api)
 
     testImplementation(libs.bundles.test.impl)
-    testImplementation testFixtures(project(':fdb-extensions'))
+    testImplementation(project(':fdb-test-utils'))
     testRuntimeOnly(libs.bundles.test.runtime)
     testCompileOnly(libs.bundles.test.compileOnly)
     testImplementation(libs.grpc.testing)
