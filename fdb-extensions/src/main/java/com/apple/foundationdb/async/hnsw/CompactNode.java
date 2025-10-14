@@ -21,8 +21,8 @@
 package com.apple.foundationdb.async.hnsw;
 
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
+import com.apple.foundationdb.half.Half;
 import com.apple.foundationdb.tuple.Tuple;
-import com.christianheina.langx.half4j.Half;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;

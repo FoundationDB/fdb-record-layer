@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.async.hnsw;
 
-import com.christianheina.langx.half4j.Half;
+import com.apple.foundationdb.half.Half;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
