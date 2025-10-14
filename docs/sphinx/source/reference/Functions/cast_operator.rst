@@ -27,10 +27,10 @@ Numeric Conversions
 -------------------
 
 * Integer types: :sql:`INTEGER` ↔ :sql:`BIGINT`
-* Floating-poINTEGER types: :sql:`FLOAT` ↔ :sql:`DOUBLE`
+* Floating-point types: :sql:`FLOAT` ↔ :sql:`DOUBLE`
 * Mixed numeric: :sql:`INTEGER`/:sql:`BIGINT` ↔ :sql:`FLOAT`/:sql:`DOUBLE`
 * Narrowing conversions (e.g., :sql:`BIGINT` → :sql:`INTEGER`, :sql:`DOUBLE` → :sql:`FLOAT`) validate range and throw errors on overflow
-* Floating-poINTEGER to INTEGER conversions use rounding (Math.round)
+* Floating-point to INTEGER conversions use rounding (Math.round)
 
 String Conversions
 ------------------
