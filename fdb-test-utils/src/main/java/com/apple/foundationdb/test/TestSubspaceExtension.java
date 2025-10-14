@@ -23,7 +23,6 @@ package com.apple.foundationdb.test;
 import com.apple.foundationdb.Range;
 import com.apple.foundationdb.directory.DirectoryLayer;
 import com.apple.foundationdb.subspace.Subspace;
-import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
@@ -40,12 +39,12 @@ import java.util.UUID;
  * will be cleared out during the {@link AfterEachCallback} for this extension. To use, create a member variable
  * of the test and register the extension:
  *
- * <pre>{@code
- *     @RegisterExtension
- *     static final TestDatabaseExtension dbExtension = new TestDatabaseExtension();
- *     @RegisterExtension
- *     TestSubspaceExtension subspaceExtension = new TestSubspaceExtension(dbExtension);
- * }</pre>
+ * <pre>
+ * &#64;RegisterExtension
+ * static final TestDatabaseExtension dbExtension = new TestDatabaseExtension();
+ * &#64;RegisterExtension
+ * TestSubspaceExtension subspaceExtension = new TestSubspaceExtension(dbExtension);
+ * </pre>
  *
  * <p>
  * Within the test, call {@link #getSubspace()} to get the test's allocated exception. As long as all usage
@@ -72,7 +71,7 @@ public class TestSubspaceExtension implements AfterEachCallback {
                         .thenApply(directorySubspace -> directorySubspace.subspace(Tuple.from(UUID.randomUUID())))
             ).join();
             if (LOGGER.isDebugEnabled()) {
-                LOGGER.debug("created test subspace subspace=\"{}\"", ByteArrayUtil2.loggable(subspace.getKey()));
+                LOGGER.debug("created test subspace subspace=\"{}\"", subspace);
             }
         }
         return subspace;
@@ -82,7 +81,7 @@ public class TestSubspaceExtension implements AfterEachCallback {
     public void afterEach(final ExtensionContext extensionContext) {
         if (subspace != null) {
             if (LOGGER.isDebugEnabled()) {
-                LOGGER.debug("clearing test subspace subspace=\"{}\"", ByteArrayUtil2.loggable(subspace.getKey()));
+                LOGGER.debug("clearing test subspace subspace=\"{}\"", subspace);
             }
             dbExtension.getDatabase().run(tx -> {
                 tx.clear(Range.startsWith(subspace.pack()));
