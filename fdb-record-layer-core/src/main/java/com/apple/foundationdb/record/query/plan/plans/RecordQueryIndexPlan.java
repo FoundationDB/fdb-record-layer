@@ -219,7 +219,7 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
                                 @Nonnull final Optional<? extends MatchCandidate> matchCandidateOptional,
                                 @Nonnull final Type resultType,
                                 @Nonnull final QueryPlanConstraint constraint) {
-        this(indexName, commonPrimaryKey, scanParameters, indexFetchMethod, fetchIndexRecords, reverse, strictlySorted, matchCandidateOptional, resultType, constraint, KeyValueCursorBase.SerializationMode.TO_OLD);
+        this(indexName, commonPrimaryKey, scanParameters, indexFetchMethod, fetchIndexRecords, reverse, strictlySorted, matchCandidateOptional, resultType, constraint, KeyValueCursorBase.SerializationMode.TO_NEW);
     }
 
     @VisibleForTesting
@@ -834,7 +834,7 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
                 if (bytes == null) {
                     synchronized (this) {
                         if (bytes == null) {
-                            bytes = KeyValueCursorBase.Continuation.getInnerContinuation(new KeyValueCursorBase.Continuation(KeyValueCursorBase.Continuation.getInnerContinuation(baseContinuation.toBytes()), prefixLength, serializationMode).toBytes());
+                            bytes = new KeyValueCursorBase.Continuation(KeyValueCursorBase.Continuation.getInnerContinuation(baseContinuation.toBytes()), prefixLength, serializationMode).toBytes();
                         }
                     }
                 }

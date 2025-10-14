@@ -94,26 +94,7 @@ public class ForceContinuationQueryTests {
         statement.execute("delete from t3");
     }
 
-    @ParameterizedTest
-    @MethodSource("failedQueries")
-    void testOldSerializationFails(String sql, long result) throws Exception {
-        Continuation continuation;
-        statement.setMaxRows(1);
-        try (var resultSet = statement.executeQuery(sql)) {
-            Assertions.assertTrue(resultSet.next());
-            Assertions.assertEquals(result, resultSet.getLong(1));
-            continuation = resultSet.getContinuation();
-        }
-        // old kvCursorContinuation cause continuation at beginning exception
-        try (final var preparedStatement = connection.prepareStatement("EXECUTE CONTINUATION ?param")) {
-            preparedStatement.setMaxRows(1);
-            preparedStatement.setBytes("param", continuation.serialize());
-            Assertions.assertThrows(ContextualSQLException.class, preparedStatement::executeQuery);
-        }
-    }
-
     // disabled until SerializationMode = TO_NEW
-    @Disabled
     @ParameterizedTest
     @MethodSource("failedQueries")
     void testNewSerialization(String sql, long result) throws Exception {
