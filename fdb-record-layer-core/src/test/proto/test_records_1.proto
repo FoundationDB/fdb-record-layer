@@ -43,7 +43,22 @@ message MyOtherRecord {
   optional int32 num_value_3_indexed = 5;
 }
 
+enum PermitRequestQueueEntryStatus {
+  DEFAULT = 0;
+  PENDING = 1;
+}
+
+message PermitRequestQueueEntry {
+  required string id = 1 [(field).primary_key = true];
+  optional string queue_id = 2;
+  optional string task_id = 3;
+  optional PermitRequestQueueEntryStatus status = 4;
+  optional int64 vest_at = 5;
+  optional string action = 6;
+}
+
 message RecordTypeUnion {
   optional MySimpleRecord _MySimpleRecord = 1;
   optional MyOtherRecord _MyOtherRecord = 2;
+  optional PermitRequestQueueEntry _PermitRequestQueueEntry = 3;
 }
