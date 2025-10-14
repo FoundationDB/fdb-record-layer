@@ -24,9 +24,8 @@ import com.apple.foundationdb.async.hnsw.DoubleVector;
 import com.apple.foundationdb.async.hnsw.Vector;
 
 import javax.annotation.Nonnull;
-import java.security.NoSuchAlgorithmException;
-import java.security.SecureRandom;
 import java.util.Arrays;
+import java.util.Random;
 
 /** FhtKac-like random orthogonal rotator.
  *  - R rounds (default 4)
@@ -35,7 +34,6 @@ import java.util.Arrays;
  */
 @SuppressWarnings({"checkstyle:MethodName", "checkstyle:MemberName"})
 public final class FhtKacRotator implements LinearOperator {
-    private final long seed;
     private final int numDimensions;
     private final int rounds;
     private final byte[][] signs; // signs[r][i] in {-1, +1}
@@ -48,29 +46,17 @@ public final class FhtKacRotator implements LinearOperator {
         if (rounds < 1) {
             throw new IllegalArgumentException("rounds must be >= 1");
         }
-        this.seed = seed;
         this.numDimensions = numDimensions;
         this.rounds = rounds;
 
         // Pre-generate Rademacher signs for determinism/reuse.
-        final SecureRandom rng;
-        try {
-            rng = SecureRandom.getInstance("SHA1PRNG");
-        } catch (NoSuchAlgorithmException e) {
-            throw new RuntimeException(e);
-        }
-        rng.setSeed(seed);
-
+        final Random rng = new Random(seed);
         this.signs = new byte[rounds][numDimensions];
         for (int r = 0; r < rounds; r++) {
             for (int i = 0; i < numDimensions; i++) {
                 signs[r][i] = rng.nextBoolean() ? (byte)1 : (byte)-1;
             }
         }
-    }
-
-    public long getSeed() {
-        return seed;
     }
 
     @Override
@@ -165,6 +151,25 @@ public final class FhtKacRotator implements LinearOperator {
             }
         }
         return new RowMajorMatrix(p);
+    }
+
+    @Override
+    public boolean equals(final Object o) {
+        if (!(o instanceof FhtKacRotator)) {
+            return false;
+        }
+
+        final FhtKacRotator rotator = (FhtKacRotator)o;
+        return numDimensions == rotator.numDimensions && rounds == rotator.rounds &&
+                Arrays.deepEquals(signs, rotator.signs);
+    }
+
+    @Override
+    public int hashCode() {
+        int result = numDimensions;
+        result = 31 * result + rounds;
+        result = 31 * result + Arrays.deepHashCode(signs);
+        return result;
     }
 
     // ----- internals -----

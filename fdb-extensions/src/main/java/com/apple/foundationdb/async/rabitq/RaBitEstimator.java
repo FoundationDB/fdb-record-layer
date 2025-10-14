@@ -24,10 +24,15 @@ import com.apple.foundationdb.async.hnsw.DoubleVector;
 import com.apple.foundationdb.async.hnsw.Estimator;
 import com.apple.foundationdb.async.hnsw.Metrics;
 import com.apple.foundationdb.async.hnsw.Vector;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 
 public class RaBitEstimator implements Estimator {
+    @Nonnull
+    private static final Logger logger = LoggerFactory.getLogger(RaBitEstimator.class);
+
     @Nonnull
     private final Metrics metric;
     @Nonnull
@@ -55,9 +60,16 @@ public class RaBitEstimator implements Estimator {
         return numExBits;
     }
 
-    /** Estimate metric(queryRot, encodedVector) using ex-bits-only factors. */
     @Override
     public double distance(@Nonnull final Vector query,
+                            @Nonnull final Vector storedVector) {
+        double d = distance1(query, storedVector);
+        //logger.info("estimator distance = {}", d);
+        return d;
+    }
+
+    /** Estimate metric(queryRot, encodedVector) using ex-bits-only factors. */
+    public double distance1(@Nonnull final Vector query,
                            @Nonnull final Vector storedVector) {
         if (!(query instanceof EncodedVector) && storedVector instanceof EncodedVector) {
             // only use the estimator if the first (by convention) vector is not encoded, but the second is
@@ -70,15 +82,16 @@ public class RaBitEstimator implements Estimator {
         return metric.comparativeDistance(query, storedVector);
     }
 
-    public double distance(@Nonnull final Vector query, // pre-rotated query q
-                           @Nonnull final EncodedVector encodedVector) {
+    private double distance(@Nonnull final Vector query, // pre-rotated query q
+                            @Nonnull final EncodedVector encodedVector) {
         return estimateDistanceAndErrorBound(query, encodedVector).getDistance();
     }
 
+    @Nonnull
     public Result estimateDistanceAndErrorBound(@Nonnull final Vector query, // pre-rotated query q
                                                 @Nonnull final EncodedVector encodedVector) {
         final double cb = (1 << numExBits) - 0.5;
-        final Vector qc = query.subtract(centroid);
+        final Vector qc = query;
         final double gAdd = qc.dot(qc);
         final double gError = Math.sqrt(gAdd);
         final Vector totalCode = new DoubleVector(encodedVector.getEncodedData());
