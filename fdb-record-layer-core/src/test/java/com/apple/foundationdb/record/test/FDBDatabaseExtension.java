@@ -88,7 +88,7 @@ public class FDBDatabaseExtension implements AfterEachCallback {
             synchronized (FDBDatabaseExtension.class) {
                 if (fdb == null) {
                     // Note: in some ways, this mirrors the TestDatabaseExtension abstraction in the
-                    // fdb-extensions project. We could re-use this here, except that if we did, we'd
+                    // fdb-test-utils project. We could re-use this here, except that if we did, we'd
                     // never test the FDBDatabaseFactory's methods for initializing FDB
                     FDBDatabaseFactory baseFactory = FDBDatabaseFactory.instance();
                     if (TRACE) {

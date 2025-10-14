@@ -24,6 +24,7 @@
             <option value="$PROJECT_DIR$/fdb-relational-grpc" />
             <option value="$PROJECT_DIR$/fdb-relational-jdbc" />
             <option value="$PROJECT_DIR$/fdb-relational-server" />
+            <option value="$PROJECT_DIR$/fdb-test-utils" />
             <option value="$PROJECT_DIR$/yaml-tests" />
           </set>
         </option>

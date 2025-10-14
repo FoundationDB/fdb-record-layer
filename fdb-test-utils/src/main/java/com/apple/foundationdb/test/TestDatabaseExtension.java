@@ -37,10 +37,10 @@ import java.util.Objects;
  * create an instance of this as static member variable and then register the class as an extension so
  * that the callbacks associated with this extension are executed. Like so:
  *
- * <pre>{@code
- *     @RegisterExtension
- *     static final TestDatabaseExtension dbExtension = new TestDatabaseExtension();
- * }</pre>
+ * <pre>
+ * &#64;RegisterExtension
+ * static final TestDatabaseExtension dbExtension = new TestDatabaseExtension();
+ * </pre>
  *
  * <p>
  * The user can then call {@link #getDatabase() dbExtension.getDatabase()} to get an actual FDB handle.

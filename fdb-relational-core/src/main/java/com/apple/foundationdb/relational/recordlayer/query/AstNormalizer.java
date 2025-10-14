@@ -444,10 +444,16 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
 
     @Override
     public Object visitInPredicate(@Nonnull RelationalParser.InPredicateContext ctx) {
+        if (ctx.NOT() != null) {
+            ctx.NOT().accept(this);
+        }
+
         ctx.IN().accept(this);
 
         if (ctx.inList().preparedStatementParameter() != null) {
             visit(ctx.inList().preparedStatementParameter());
+        } else if (ctx.inList().fullColumnName() != null) {
+            visit(ctx.inList().fullColumnName());
         } else {
             sqlCanonicalizer.append("( ");
             if (ParseHelpers.isConstant(ctx.inList().expressions())) {

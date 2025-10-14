@@ -1,9 +1,9 @@
 /*
- * fdb-extensions.gradle
+ * fdb-test-utils.gradle
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2018 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,35 +18,27 @@
  * limitations under the License.
  */
 
-apply plugin: 'java-test-fixtures'
 apply from: rootProject.file('gradle/publishing.gradle')
 
 dependencies {
-    api(project(":fdb-java-annotations")) {
-        exclude(group: "com.squareup", module: "javapoet")
-    }
-    api(libs.fdbJava)
-    implementation(libs.guava)
-    implementation(libs.slf4j.api)
+    api(libs.bundles.test.impl)
+    api(libs.slf4j.api)
+    compileOnly(libs.bundles.test.compileOnly)
     compileOnly(libs.jsr305)
+    annotationProcessor(libs.autoService)
+    implementation(libs.fdbJava)
 
-    testImplementation project(':fdb-test-utils')
     testImplementation(libs.bundles.test.impl)
     testRuntimeOnly(libs.bundles.test.runtime)
     testCompileOnly(libs.bundles.test.compileOnly)
     testAnnotationProcessor(libs.autoService)
-
-    testFixturesImplementation(libs.bundles.test.impl)
-    testFixturesCompileOnly(libs.bundles.test.compileOnly)
-    testFixturesImplementation(libs.slf4j.api)
-    testFixturesAnnotationProcessor(libs.autoService)
 }
 
 publishing {
     publications {
         library(MavenPublication) {
             pom {
-                description = 'Extensions to the FoundationDB Java API.'
+                description = 'Test utilities for FoundationDB Record Layer projects.'
             }
         }
     }
