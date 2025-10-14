@@ -26,9 +26,7 @@ import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStruct;
-import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
-
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Order;
@@ -77,24 +75,21 @@ public class StructDataMetadataTest {
 
     @BeforeEach
     void setUp() throws SQLException {
-        final var t1 = EmbeddedRelationalStruct.newBuilder();
-        var m = t1.addString("NAME", "test_record_1")
+        var m = EmbeddedRelationalStruct.newBuilder()
+                .addString("NAME", "test_record_1")
                 .addStruct("ST1", EmbeddedRelationalStruct.newBuilder().addString("A", "Hello").build())
                 .build();
-
         statement.executeInsert("T", m);
 
-        final var ntBuilder = EmbeddedRelationalStruct.newBuilder();
-        final var stBuilder = EmbeddedRelationalStruct.newBuilder();
-        m = ntBuilder.addString("T_NAME", "nt_record")
-                .addStruct("ST1", stBuilder
+        m = EmbeddedRelationalStruct.newBuilder()
+                .addString("T_NAME", "nt_record")
+                .addStruct("ST1", EmbeddedRelationalStruct.newBuilder()
                         .addLong("C", 1234L)
                         .addStruct("D", EmbeddedRelationalStruct.newBuilder()
                                 .addString("A", "Goodbye")
                                 .build())
                         .build())
                 .build();
-
         statement.executeInsert("NT", m);
 
         final var atBuilder = EmbeddedRelationalStruct.newBuilder();
@@ -110,9 +105,7 @@ public class StructDataMetadataTest {
                                 .build())
                         .build())
                 .build();
-
         statement.executeInsert("AT", m);
-
     }
 
     @Test
@@ -127,6 +120,21 @@ public class StructDataMetadataTest {
 
             //check that the JDBC attributes methods work properly
             Assertions.assertArrayEquals(struct.getAttributes(), new Object[]{"Hello"}, "Incorrect attributes!");
+        }
+    }
+
+    @Test
+    void errorAccessingNonExistentColumn() throws Exception {
+        try (final RelationalResultSet resultSet = statement.executeGet("T", new KeySet().setKeyColumn("NAME", "test_record_1"), Options.NONE)) {
+            Assertions.assertTrue(resultSet.next(), "Did not find a record!");
+            final var actualStruct = resultSet.getStruct("ST1");
+            Assertions.assertNotNull(actualStruct, "No struct found for column!");
+            // Directly accessing the value throws SQLException
+            var actualException = Assertions.assertThrows(SQLException.class, () -> actualStruct.getString(100));
+            Assertions.assertTrue(actualException.getMessage().contains("Invalid column position"));
+            // Accessing info in metadata throws SQLException as well
+            actualException = Assertions.assertThrows(SQLException.class, () -> actualStruct.getMetaData().getColumnType(100), "foo");
+            Assertions.assertTrue(actualException.getMessage().contains("Position <100> is not valid."));
         }
     }
 
@@ -190,7 +198,7 @@ public class StructDataMetadataTest {
     }
 
     @Test
-    void canReadRepeatedStructWithArray() throws RelationalException, SQLException {
+    void canReadRepeatedStructWithArray() throws SQLException {
         final KeySet key = new KeySet().setKeyColumn("A_NAME", "a_test_rec");
         try (final RelationalResultSet resultSet = statement.executeGet("AT", key, Options.NONE)) {
             Assertions.assertTrue(resultSet.next(), "Did not find a record!");
