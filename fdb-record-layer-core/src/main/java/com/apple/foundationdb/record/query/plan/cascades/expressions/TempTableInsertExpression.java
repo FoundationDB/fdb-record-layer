@@ -52,7 +52,7 @@ import java.util.Set;
  *
  * @see ImplementTempTableInsertRule for more information.
  */
-public class TempTableInsertExpression implements RelationalExpressionWithChildren, PlannerGraphRewritable {
+public class TempTableInsertExpression extends AbstractRelationalExpressionWithChildren implements PlannerGraphRewritable {
 
     @Nonnull
     private final Quantifier.ForEach inner;
@@ -83,7 +83,7 @@ public class TempTableInsertExpression implements RelationalExpressionWithChildr
 
     @Nonnull
     @Override
-    public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
+    public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return tempTableReferenceValue.getCorrelatedToWithoutChildren();
     }
 
@@ -148,7 +148,7 @@ public class TempTableInsertExpression implements RelationalExpressionWithChildr
     }
 
     @Override
-    public int hashCodeWithoutChildren() {
+    public int computeHashCodeWithoutChildren() {
         return Objects.hash(tempTableReferenceValue);
     }
 

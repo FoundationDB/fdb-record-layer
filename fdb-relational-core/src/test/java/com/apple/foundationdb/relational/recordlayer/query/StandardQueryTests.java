@@ -159,7 +159,6 @@ public class StandardQueryTests {
 
     @Test
     void simpleSelectWithNonNullableArrays() throws Exception {
-        //        var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplateWithNonNullableArrays).build();
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplateWithNonNullableArrays).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 var insertedRecord = insertRestaurantComplexRecord(statement);
@@ -1358,6 +1357,69 @@ public class StandardQueryTests {
                         ((EmbeddedRelationalStatement) statement)
                                 .executeInternal("select * from t1 union select * from t1"))
                         .hasErrorCode(ErrorCode.UNSUPPORTED_QUERY);
+            }
+        }
+    }
+
+    @Test
+    void structArrayContains() throws Exception {
+        final String schemaTemplate = "CREATE TYPE AS STRUCT A(col2 string, col3 bigint, col4 bigint) " +
+                "CREATE TABLE T1(col1 bigint, a A Array, col5 bigint, primary key(col1))";
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.executeUpdate("insert into t1 values (42, [('Apple', 1, 100), ('Orange', 2, 200)], 142), (44, [('Grape', 3, 300), ('Pear', 4, 400)], 144)");
+                Assertions.assertTrue(statement.execute("SELECT T1.col5 FROM T1 where exists (SELECT 1 FROM T1.A r where r.col2 = 'Grape') "));
+                try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                    ResultSetAssert.assertThat(resultSet).hasNextRow()
+                            .isRowExactly(144L)
+                            .hasNoNextRow();
+                }
+                // another way of query
+                Assertions.assertTrue(statement.execute("SELECT T1.col5 FROM T1, (SELECT col2, col3 FROM T1.A) X where X.col2 = 'Grape'"));
+                try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                    ResultSetAssert.assertThat(resultSet).hasNextRow()
+                            .isRowExactly(144L)
+                            .hasNoNextRow();
+                }
+                Assertions.assertTrue(statement.execute("SELECT T1.col5 FROM T1 where exists (SELECT 1 FROM T1.A r where r.col2 in ('Grape', 'Orange'))"));
+                try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                    ResultSetAssert.assertThat(resultSet).hasNextRow()
+                            .isRowExactly(142L)
+                            .hasNextRow()
+                            .isRowExactly(144L)
+                            .hasNoNextRow();
+                }
+            }
+        }
+    }
+
+    @Test
+    void primitiveArrayContains() throws Exception {
+        final String schemaTemplate = "CREATE TABLE T1(col1 bigint, a string Array, primary key(col1))";
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.executeUpdate("insert into t1 values (42, ['Apple', 'Orange']), (44, ['Grape', 'Pear'])");
+                Assertions.assertTrue(statement.execute("SELECT * FROM T1 where exists (SELECT 1 FROM T1.A r where r = 'Grape')"));
+                try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                    ResultSetAssert.assertThat(resultSet).hasNextRow()
+                            .isRowExactly(44L, EmbeddedRelationalArray.newBuilder().addString("Grape").addString("Pear").build())
+                            .hasNoNextRow();
+                }
+                Assertions.assertTrue(statement.execute("SELECT * FROM T1 where exists (SELECT 1 FROM T1.A r where r in ('Grape', 'Orange'))"));
+                try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                    ResultSetAssert.assertThat(resultSet).hasNextRow()
+                            .isRowExactly(42L, EmbeddedRelationalArray.newBuilder().addString("Apple").addString("Orange").build())
+                            .hasNextRow()
+                            .isRowExactly(44L, EmbeddedRelationalArray.newBuilder().addString("Grape").addString("Pear").build())
+                            .hasNoNextRow();
+                }
+
+                Assertions.assertTrue(statement.execute("SELECT * FROM T1 where 'Grape' in a"));
+                try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                    ResultSetAssert.assertThat(resultSet).hasNextRow()
+                            .isRowExactly(44L, EmbeddedRelationalArray.newBuilder().addString("Grape").addString("Pear").build())
+                            .hasNoNextRow();
+                }
             }
         }
     }

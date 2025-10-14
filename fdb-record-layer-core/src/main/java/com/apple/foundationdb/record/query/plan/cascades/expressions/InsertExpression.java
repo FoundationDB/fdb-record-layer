@@ -50,7 +50,7 @@ import java.util.Set;
  *
  * @see com.apple.foundationdb.record.query.plan.cascades.rules.ImplementInsertRule
  */
-public class InsertExpression implements RelationalExpressionWithChildren, PlannerGraphRewritable {
+public class InsertExpression extends AbstractRelationalExpressionWithChildren implements PlannerGraphRewritable {
 
     @Nonnull
     private final Quantifier.ForEach inner;
@@ -78,7 +78,7 @@ public class InsertExpression implements RelationalExpressionWithChildren, Plann
 
     @Nonnull
     @Override
-    public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
+    public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return ImmutableSet.of();
     }
 
@@ -140,7 +140,7 @@ public class InsertExpression implements RelationalExpressionWithChildren, Plann
     }
 
     @Override
-    public int hashCodeWithoutChildren() {
+    public int computeHashCodeWithoutChildren() {
         return Objects.hash(targetRecordType, targetType);
     }
 

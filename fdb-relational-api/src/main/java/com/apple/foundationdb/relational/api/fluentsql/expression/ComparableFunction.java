@@ -21,10 +21,8 @@
 package com.apple.foundationdb.relational.api.fluentsql.expression;
 
 import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.relational.api.fluentsql.FluentVisitor;
 import com.apple.foundationdb.relational.api.metadata.DataType;
-
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
@@ -84,7 +82,7 @@ public class ComparableFunction<P extends DataType, T extends Expression<P>> imp
 
     @Override
     public String toString() {
-        return String.format("%s(%s) : %s", operator, args.stream().map(Object::toString).collect(Collectors.joining(",")), type);
+        return operator + "(" + args.stream().map(Object::toString).collect(Collectors.joining(",")) + ") : " + type;
     }
 
     @Override

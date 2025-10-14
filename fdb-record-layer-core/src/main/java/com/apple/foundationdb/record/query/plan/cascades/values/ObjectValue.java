@@ -28,15 +28,14 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
-import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.planprotos.PObjectValue;
 import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -89,12 +88,6 @@ public class ObjectValue extends AbstractValue implements LeafValue {
     @Override
     public Value rebaseLeaf(@Nonnull final CorrelationIdentifier targetAlias) {
         return ObjectValue.of(targetAlias, resultType);
-    }
-
-    @Nonnull
-    @Override
-    public Value replaceReferenceWithField(@Nonnull final FieldValue fieldValue) {
-        throw new RecordCoreException("this method should not be replaced with this method call.");
     }
 
     @Nullable

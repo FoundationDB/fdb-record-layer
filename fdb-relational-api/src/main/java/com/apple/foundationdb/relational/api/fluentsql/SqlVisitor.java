@@ -21,7 +21,6 @@
 package com.apple.foundationdb.relational.api.fluentsql;
 
 import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.fluentsql.expression.BooleanFunction;
@@ -36,7 +35,6 @@ import com.apple.foundationdb.relational.api.fluentsql.expression.NumericLiteral
 import com.apple.foundationdb.relational.api.fluentsql.expression.Operation;
 import com.apple.foundationdb.relational.api.fluentsql.expression.StringLiteral;
 import com.apple.foundationdb.relational.api.fluentsql.expression.UserDefinedField;
-
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 
@@ -144,7 +142,7 @@ public class SqlVisitor implements FluentVisitor<Void, StringBuilder> {
             }
                 break;
             default:
-                throw new RelationalException(String.format("unknown symbol '%s'", function.getName()), ErrorCode.INTERNAL_ERROR).toUncheckedWrappedException();
+                throw new RelationalException("unknown symbol '" + function.getName() + "'", ErrorCode.INTERNAL_ERROR).toUncheckedWrappedException();
         }
         return null;
     }

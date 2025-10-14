@@ -22,8 +22,10 @@ package com.apple.foundationdb.record.lucene.directory;
 
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
-import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.lucene.LuceneLogMessageKeys;
+import com.apple.foundationdb.record.provider.common.CipherPool;
+import com.apple.foundationdb.record.provider.common.CompressedAndEncryptedSerializerState;
+import com.apple.foundationdb.record.provider.common.SerializationKeyManager;
 import org.apache.lucene.codecs.compressing.CompressionMode;
 import org.apache.lucene.codecs.compressing.Compressor;
 import org.apache.lucene.codecs.compressing.Decompressor;
@@ -35,7 +37,10 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Arrays;
+import javax.crypto.Cipher;
+import javax.crypto.spec.IvParameterSpec;
+import java.io.IOException;
+import java.security.GeneralSecurityException;
 
 /**
  * Serialize a Lucene directory block to/from an FDB key-value byte array.
@@ -46,69 +51,82 @@ public class LuceneSerializer {
     private static final int ENCODING_ENCRYPTED = 1;
     private static final int ENCODING_COMPRESSED = 2;
     private static final byte COMPRESSION_VERSION_FOR_HIGH_COMPRESSION = 0;
+    private static final int ENCRYPTION_KEY_SHIFT = 3;
 
-    private static class EncodingState {
-        private boolean compressed;
-        private boolean encrypted;
+    private final boolean compressionEnabled;
+    private final boolean encryptionEnabled;
+    @Nullable
+    private final SerializationKeyManager keyManager;
 
-        private EncodingState() {
-            this.compressed = false;
-            this.encrypted = false;
-        }
+    public LuceneSerializer(boolean compressionEnabled,
+                            boolean encryptionEnabled, @Nullable SerializationKeyManager keyManager) {
+        this.compressionEnabled = compressionEnabled;
+        this.encryptionEnabled = encryptionEnabled;
+        this.keyManager = keyManager;
+    }
 
-        void setCompressed(boolean compressed) {
-            this.compressed = compressed;
-        }
+    public boolean isCompressionEnabled() {
+        return compressionEnabled;
+    }
 
-        void setEncrypted(boolean encrypted) {
-            this.encrypted = encrypted;
-        }
-
-        boolean isCompressed() {
-            return compressed;
-        }
-
-        boolean isEncrypted() {
-            return encrypted;
-        }
+    public boolean isEncryptionEnabled() {
+        return encryptionEnabled;
     }
 
     @Nullable
-    public static byte[] encode(@Nullable byte[] data, boolean compress, boolean encrypt) {
+    public SerializationKeyManager getKeyManager() {
+        return keyManager;
+    }
+
+    @Nullable
+    public byte[] encode(@Nullable byte[] data) {
         if (data == null) {
             return null;
         }
 
-        final EncodingState state = new EncodingState();
-        final ByteBuffersDataOutput decodedDataOutput = new ByteBuffersDataOutput();
-        // Placeholder for the code byte at beginning, will be modified in output byte array if needed
-        decodedDataOutput.writeByte((byte) 0);
-
-        byte[] encoded = compressIfNeeded(compress, data, decodedDataOutput, state, 1);
-
-        int code = 0;
-        if (state.isCompressed()) {
-            code = code | ENCODING_COMPRESSED;
+        final CompressedAndEncryptedSerializerState state = new CompressedAndEncryptedSerializerState();
+        long prefix = 0;
+        if (compressionEnabled) {
+            prefix |= ENCODING_COMPRESSED;
+            state.setCompressed(true);
         }
-        // Encryption will be supported in future
-        if (state.isEncrypted()) {
-            code = code | ENCODING_ENCRYPTED;
+        if (encryptionEnabled) {
+            if (keyManager == null) {
+                throw new RecordCoreException("cannot encrypt Lucene blocks without keys");
+            }
+            int key = keyManager.getSerializationKey();
+            prefix |= ENCODING_ENCRYPTED | ((key & 0xFFFFFFFFL) << ENCRYPTION_KEY_SHIFT);
+            state.setEncrypted(true);
+            state.setKeyNumber(key);
         }
-        encoded[0] = (byte) code;
+
+        byte[] encoded;
+        try {
+            final ByteBuffersDataOutput decodedDataOutput = new ByteBuffersDataOutput();
+            // Placeholder for the code byte at beginning, will be modified in output byte array if needed
+            decodedDataOutput.writeVLong(prefix);
+            final int prefixLength = (int)decodedDataOutput.size();
+            encoded = compressIfNeeded(state, decodedDataOutput, data, prefixLength);
+            encoded = encryptIfNeeded(state, encoded, prefixLength);
+        } catch (IOException | GeneralSecurityException ex) {
+            throw new RecordCoreException("Lucene data encoding failure", ex);
+        }
+
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(KeyValueLogMessage.of("Encoded lucene data",
-                    LuceneLogMessageKeys.COMPRESSION_SUPPOSED, compress,
-                    LuceneLogMessageKeys.ENCRYPTION_SUPPOSED, encrypt,
+                    LuceneLogMessageKeys.COMPRESSION_SUPPOSED, compressionEnabled,
+                    LuceneLogMessageKeys.ENCRYPTION_SUPPOSED, encryptionEnabled,
                     LuceneLogMessageKeys.COMPRESSED_EVENTUALLY, state.isCompressed(),
                     LuceneLogMessageKeys.ENCRYPTED_EVENTUALLY, state.isEncrypted(),
                     LuceneLogMessageKeys.ORIGINAL_DATA_SIZE, data.length,
                     LuceneLogMessageKeys.ENCODED_DATA_SIZE, encoded.length));
         }
+
         return encoded;
     }
 
     @Nullable
-    public static byte[] decode(@Nullable byte[] data) {
+    public byte[] decode(@Nullable byte[] data) {
         if (data == null) {
             return null;
         }
@@ -118,81 +136,138 @@ public class LuceneSerializer {
                     .addLogInfo(LuceneLogMessageKeys.DATA_VALUE, data);
         }
 
-        final byte encoding = data[0];
-        final boolean encrypted = (encoding & ENCODING_ENCRYPTED) == ENCODING_ENCRYPTED;
-        final boolean compressed = (encoding & ENCODING_COMPRESSED) == ENCODING_COMPRESSED;
+        final CompressedAndEncryptedSerializerState state = new CompressedAndEncryptedSerializerState();
+        byte[] decoded;
+        try {
+            final ByteArrayDataInput encodedDataInput = new ByteArrayDataInput(data);
+            final long prefix = encodedDataInput.readVLong();
 
-        byte[] decoded = decompressIfNeeded(compressed, data, 1);
+            state.setCompressed((prefix & ENCODING_COMPRESSED) != 0);
+            state.setEncrypted((prefix & ENCODING_ENCRYPTED) != 0);
+            state.setKeyNumber((int)(prefix >> ENCRYPTION_KEY_SHIFT));
+
+            decryptIfNeeded(state, encodedDataInput);
+            decompressIfNeeded(state, encodedDataInput);
+
+            decoded = new byte[encodedDataInput.length() - encodedDataInput.getPosition()];
+            encodedDataInput.readBytes(decoded, 0, decoded.length);
+        } catch (IOException | GeneralSecurityException ex) {
+            throw new RecordCoreException("Lucene data decoding failure", ex);
+        }
+
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(KeyValueLogMessage.of("Decoded lucene data",
-                    LuceneLogMessageKeys.COMPRESSED_EVENTUALLY, compressed,
-                    LuceneLogMessageKeys.ENCRYPTED_EVENTUALLY, encrypted,
+                    LuceneLogMessageKeys.COMPRESSED_EVENTUALLY, state.isCompressed(),
+                    LuceneLogMessageKeys.ENCRYPTED_EVENTUALLY, state.isEncrypted(),
                     LuceneLogMessageKeys.ENCODED_DATA_SIZE, data.length,
                     LuceneLogMessageKeys.ORIGINAL_DATA_SIZE, decoded.length));
         }
+
         return decoded;
     }
 
     @Nonnull
-    private static byte[] compressIfNeeded(boolean compressionNeeded, @Nonnull byte[] data, @Nonnull ByteBuffersDataOutput encodedDataOutput,
-                                           @Nonnull EncodingState state, int offset) {
-        if (!compressionNeeded) {
-            return fallBackToUncompressed(encodedDataOutput.toArrayCopy(), data, state, offset);
+    private static byte[] compressIfNeeded(@Nonnull CompressedAndEncryptedSerializerState state, @Nonnull ByteBuffersDataOutput encodedDataOutput,
+                                           @Nonnull byte[] uncompressedData, int prefixLength)
+            throws IOException {
+        if (!state.isCompressed()) {
+            return fallBackToUncompressed(state, uncompressedData, encodedDataOutput.toArrayCopy(), prefixLength);
         }
 
         try (Compressor compressor = CompressionMode.HIGH_COMPRESSION.newCompressor()) {
             encodedDataOutput.writeByte(COMPRESSION_VERSION_FOR_HIGH_COMPRESSION);
-            encodedDataOutput.writeVInt(data.length);
-            compressor.compress(data, 0, data.length, encodedDataOutput);
+            encodedDataOutput.writeVInt(uncompressedData.length);
+            compressor.compress(uncompressedData, 0, uncompressedData.length, encodedDataOutput);
             final byte[] compressedData = encodedDataOutput.toArrayCopy();
 
             // Compress only if it helps to shorten the bytes
-            if (compressedData.length < data.length) {
+            if (compressedData.length < uncompressedData.length) {
                 state.setCompressed(true);
                 return compressedData;
             } else {
-                return fallBackToUncompressed(compressedData, data, state, offset);
+                return fallBackToUncompressed(state, uncompressedData, compressedData, prefixLength);
             }
-        } catch (Exception e) {
-            throw new RecordCoreException("Lucene data compression failure", e);
         }
     }
 
-    private static byte[] fallBackToUncompressed(@Nonnull byte[] compressedData, @Nonnull byte[] originalData,
-                                                 @Nonnull EncodingState state, int offset) {
+    private static byte[] fallBackToUncompressed(@Nonnull CompressedAndEncryptedSerializerState state, @Nonnull byte[] originalData,
+                                                 @Nonnull byte[] encodedData, int prefixLength) {
+        final byte[] encoded = new byte[originalData.length + prefixLength];
+        System.arraycopy(encodedData, 0, encoded, 0, prefixLength);
+        // This bit is always in the lowest (first) byte, even if the prefix is longer.
+        encoded[0] &= ~ENCODING_COMPRESSED;
+        System.arraycopy(originalData, 0, encoded, prefixLength, originalData.length);
         state.setCompressed(false);
-        final byte[] encoded = new byte[originalData.length + offset];
-        System.arraycopy(compressedData, 0, encoded, 0, offset);
-        System.arraycopy(originalData, 0, encoded, offset, originalData.length);
         return encoded;
     }
 
-    @Nonnull
-    private static byte[] decompressIfNeeded(boolean decompressionNeeded, @Nonnull byte[] data, int offset) {
-        if (!decompressionNeeded) {
-            // Return the array to be the final output for decoding, so the offset bytes need to be removed
-            return Arrays.copyOfRange(data, offset, data.length);
+    private void decompressIfNeeded(@Nonnull CompressedAndEncryptedSerializerState state, @Nonnull ByteArrayDataInput encodedDataInput)
+            throws IOException {
+        if (!state.isCompressed()) {
+            return;
         }
 
-        if (data.length < 2 + offset) {
-            throw new RecordCoreException("Invalid data for decompression")
-                    .addLogInfo(LogMessageKeys.DIR_VALUE, data);
-        }
-        byte version = data[offset];
+        final byte version = encodedDataInput.readByte();
         if (version != COMPRESSION_VERSION_FOR_HIGH_COMPRESSION) {
             throw new RecordCoreException("Un-supported compression version")
                     .addLogInfo(LuceneLogMessageKeys.COMPRESSION_VERSION, version);
         }
 
-        try {
-            BytesRef ref = new BytesRef();
-            ByteArrayDataInput input = new ByteArrayDataInput(data, offset + 1, data.length - offset - 1);
-            int originalLength = input.readVInt();
-            Decompressor decompressor = CompressionMode.HIGH_COMPRESSION.newDecompressor();
-            decompressor.decompress(input, originalLength, 0, originalLength, ref);
-            return Arrays.copyOfRange(ref.bytes, ref.offset, ref.length);
-        } catch (Exception e) {
-            throw new RecordCoreException("Lucene data decompression failure", e);
+        BytesRef ref = new BytesRef();
+        int originalLength = encodedDataInput.readVInt();
+        Decompressor decompressor = CompressionMode.HIGH_COMPRESSION.newDecompressor();
+        decompressor.decompress(encodedDataInput, originalLength, 0, originalLength, ref);
+        encodedDataInput.reset(ref.bytes, ref.offset, ref.length);
+    }
+
+    private byte[] encryptIfNeeded(@Nonnull CompressedAndEncryptedSerializerState state, @Nonnull byte[] encoded, int prefixLength) throws GeneralSecurityException {
+        if (!state.isEncrypted()) {
+            return encoded;
         }
+
+        final byte[] encrypted;
+        final byte[] ivData = new byte[CipherPool.IV_SIZE];
+        keyManager.getRandom(state.getKeyNumber()).nextBytes(ivData);
+        final IvParameterSpec iv = new IvParameterSpec(ivData);
+        final Cipher cipher = CipherPool.borrowCipher(keyManager.getCipher(state.getKeyNumber()));
+        try {
+            cipher.init(Cipher.ENCRYPT_MODE, keyManager.getKey(state.getKeyNumber()), iv);
+            encrypted = cipher.doFinal(encoded, prefixLength, encoded.length - prefixLength);
+        } finally {
+            CipherPool.returnCipher(cipher);
+        }
+        final int totalSize = prefixLength + CipherPool.IV_SIZE + encrypted.length;
+        final byte[] withIv = new byte[totalSize];
+        System.arraycopy(encoded, 0, withIv, 0, prefixLength);
+        System.arraycopy(iv.getIV(), 0, withIv, prefixLength, CipherPool.IV_SIZE);
+        System.arraycopy(encrypted, 0, withIv, prefixLength + CipherPool.IV_SIZE, encrypted.length);
+        return withIv;
+    }
+
+    private void decryptIfNeeded(@Nonnull CompressedAndEncryptedSerializerState state, @Nonnull ByteArrayDataInput encodedDataInput)
+            throws GeneralSecurityException {
+        if (!state.isEncrypted()) {
+            return;
+        }
+
+        if (keyManager == null) {
+            throw new RecordCoreException("cannot decrypt Lucene blocks without keys");
+        }
+
+        final byte[] ivData = new byte[CipherPool.IV_SIZE];
+        encodedDataInput.readBytes(ivData, 0, CipherPool.IV_SIZE);
+        final IvParameterSpec iv = new IvParameterSpec(ivData);
+
+        final byte[] decrypted;
+        final byte[] encrypted = new byte[encodedDataInput.length() - encodedDataInput.getPosition()];
+        encodedDataInput.readBytes(encrypted, 0, encrypted.length);
+        final Cipher cipher = CipherPool.borrowCipher(keyManager.getCipher(state.getKeyNumber()));
+        try {
+            cipher.init(Cipher.DECRYPT_MODE, keyManager.getKey(state.getKeyNumber()), iv);
+            decrypted = cipher.doFinal(encrypted);
+        } finally {
+            CipherPool.returnCipher(cipher);
+        }
+        encodedDataInput.reset(decrypted);
     }
 }

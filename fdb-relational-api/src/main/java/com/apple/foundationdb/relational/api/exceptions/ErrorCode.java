@@ -84,6 +84,7 @@ public enum ErrorCode {
     ARRAY_ELEMENT_ERROR("2202E"),
     INVALID_BINARY_REPRESENTATION("22F03"),
     INVALID_ARGUMENT_FOR_FUNCTION("22F00"),
+    INVALID_CAST("22F3H"),
 
     // Class 23 - Integrity Constraint Violation
     NOT_NULL_VIOLATION("23502"),

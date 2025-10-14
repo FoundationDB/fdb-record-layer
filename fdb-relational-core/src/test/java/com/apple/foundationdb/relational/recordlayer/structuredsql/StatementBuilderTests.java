@@ -26,8 +26,6 @@ import com.apple.foundationdb.relational.api.fluentsql.statement.StructuredQuery
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
 import com.apple.foundationdb.relational.recordlayer.Utils;
 import com.apple.foundationdb.relational.utils.Ddl;
-
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
@@ -38,9 +36,12 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
 import java.net.URI;
+import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class StatementBuilderTests {
 
@@ -53,7 +54,7 @@ public class StatementBuilderTests {
     }
 
     @Test
-    public void addExtraSetClauseToUpdate() throws Exception {
+    void addExtraSetClauseToUpdate() throws Exception {
         final String schemaTemplateString = "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))";
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplateString).build()) {
             final var updateStatement = "update T1 set a = 42 where pk = 444";
@@ -61,12 +62,13 @@ public class StatementBuilderTests {
             final var ef = ddl.getConnection().createExpressionBuilderFactory();
             updateBuilder.addSetClause(ef.field("T1", "B"), ef.literal(55).add(ef.literal(44)));
             var generatedQuery = updateBuilder.build().getSqlQuery();
-            Assertions.assertEquals("UPDATE \"T1\" SET \"A\" = 42,\"B\" = 55 + 44 WHERE pk = 444", generatedQuery);
+            assertThat(generatedQuery)
+                    .isEqualTo("UPDATE \"T1\" SET \"A\" = 42,\"B\" = 55 + 44 WHERE pk = 444");
         }
     }
 
     @Test
-    public void setSameFieldMultipleTimes() throws Exception {
+    void setSameFieldMultipleTimes() throws Exception {
         final String schemaTemplateString = "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))";
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplateString).build()) {
             final var updateStatement = "update T1 set a = 42 where pk = 444";
@@ -76,12 +78,13 @@ public class StatementBuilderTests {
             // case-sensitivity rule is followed for set fields.
             updateBuilder.addSetClause(ef.field("T1", "b"), ef.literal(55).add(ef.literal(44)));
             var generatedQuery = updateBuilder.build().getSqlQuery();
-            Assertions.assertEquals("UPDATE \"T1\" SET \"A\" = 42,\"B\" = 55 + 44 WHERE pk = 444", generatedQuery);
+            assertThat(generatedQuery)
+                    .isEqualTo("UPDATE \"T1\" SET \"A\" = 42,\"B\" = 55 + 44 WHERE pk = 444");
         }
     }
 
     @Test
-    public void removeSetFieldClause() throws Exception {
+    void removeSetFieldClause() throws Exception {
         final String schemaTemplateString = "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))";
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplateString).build()) {
             final var updateStatement = "update T1 set a = 42, b = 44 where pk = 444";
@@ -89,59 +92,69 @@ public class StatementBuilderTests {
             final var ef = ddl.getConnection().createExpressionBuilderFactory();
             updateBuilder.removeSetClause(ef.field("T1", "B"));
             var generatedQuery = updateBuilder.build().getSqlQuery();
-            Assertions.assertEquals("UPDATE \"T1\" SET \"A\" = 42 WHERE pk = 444", generatedQuery);
+            assertThat(generatedQuery)
+                    .isEqualTo("UPDATE \"T1\" SET \"A\" = 42 WHERE pk = 444");
         }
     }
 
     @Test
-    public void removeAllSetFieldClausesThrows() throws Exception {
+    void removeAllSetFieldClausesThrows() throws Exception {
         final String schemaTemplateString = "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))";
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplateString).build()) {
             final var updateStatement = "update T1 set b = 44 where pk = 444";
             final var updateBuilder = ddl.setSchemaAndGetConnection().createStatementBuilderFactory().updateStatementBuilder(updateStatement);
             final var ef = ddl.getConnection().createExpressionBuilderFactory();
             updateBuilder.removeSetClause(ef.field("T1", "B"));
-            final var ex = Assertions.assertThrows(RelationalException.class, updateBuilder::build);
-            Assertions.assertEquals(ex.getMessage(), "update set clauses is empty");
+            assertThatThrownBy(updateBuilder::build)
+                    .isInstanceOf(RelationalException.class)
+                    .hasMessageContaining("update set clauses is empty");
         }
     }
 
     @Test
-    public void examineSetFields() throws Exception {
+    void examineSetFields() throws Exception {
         final String schemaTemplateString = "CREATE TABLE T1(pk bigint, a bigint, b bigint, c string, PRIMARY KEY(pk))";
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplateString).build()) {
             final var updateStatement = "update T1 set a = 42, c = 'bla' where pk = 444";
             final var updateBuilder = ddl.setSchemaAndGetConnection().createStatementBuilderFactory().updateStatementBuilder(updateStatement);
             var setFields = updateBuilder.getSetClauses().keySet();
-            Assertions.assertEquals(Set.of("A", "C"), setFields.stream().map(Field::getName).collect(Collectors.toUnmodifiableSet()));
+            assertThat(setFields)
+                    .map(Field::getName)
+                    .containsExactlyInAnyOrder("A", "C");
             final var ef = ddl.getConnection().createExpressionBuilderFactory();
             updateBuilder.addSetClause(ef.field("T1", "B"), ef.literal(55).add(ef.literal(44)));
             setFields = updateBuilder.getSetClauses().keySet();
-            Assertions.assertEquals(Set.of("A", "C", "B"), setFields.stream().map(Field::getName).collect(Collectors.toUnmodifiableSet()));
+            assertThat(setFields)
+                    .map(Field::getName)
+                    .containsExactlyInAnyOrder("A", "C", "B");
         }
     }
 
     @Test
-    public void examineWhereClause() throws Exception {
+    void examineWhereClause() throws Exception {
         final String schemaTemplateString = "CREATE TABLE T1(pk bigint, a bigint, b bigint, c string, PRIMARY KEY(pk))";
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplateString).build()) {
             final var updateStatement = "update T1 set a = 42, c = 'bla' where pk = 444";
             final var updateBuilder = ddl.setSchemaAndGetConnection().createStatementBuilderFactory().updateStatementBuilder(updateStatement);
             var whereClause = updateBuilder.getWhereClause();
-            Assertions.assertNotNull(whereClause);
-            Assertions.assertTrue(whereClause.toString().contains("{pk = 444}"));
+            assertThat(whereClause)
+                    .isNotNull();
+            assertThat(whereClause.toString())
+                    .contains("{pk = 444}");
         }
     }
 
     @Test
-    public void examineMultipleWhereClauses() throws Exception {
+    void examineMultipleWhereClauses() throws Exception {
         final String schemaTemplateString = "CREATE TABLE T1(pk bigint, a bigint, b bigint, c string, PRIMARY KEY(pk))";
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplateString).build()) {
             final var updateStatement = "update T1 set a = 42, c = 'bla' where pk = 444 AND (a < 42)";
             final var updateBuilder = ddl.setSchemaAndGetConnection().createStatementBuilderFactory().updateStatementBuilder(updateStatement);
             var whereClause = updateBuilder.getWhereClause();
-            Assertions.assertNotNull(whereClause);
-            Assertions.assertTrue(whereClause.toString().contains("{pk = 444 AND ( a < 42 )}"));
+            assertThat(whereClause)
+                    .isNotNull();
+            assertThat(whereClause.toString())
+                    .contains("{pk = 444 AND ( a < 42 )}");
         }
     }
 
@@ -159,17 +172,18 @@ public class StatementBuilderTests {
     @DisplayName("examining query options")
     @ParameterizedTest(name = "{index}: {0} should parse into {1}")
     @MethodSource("queryOptionsParameters")
-    public void examineQueryOptions(@Nonnull final String queryOptionsClause, @Nonnull final Set<StructuredQuery.QueryOptions> expectedOptions) throws Exception {
+    void examineQueryOptions(@Nonnull final String queryOptionsClause, @Nonnull final Set<StructuredQuery.QueryOptions> expectedOptions) throws Exception {
         final String schemaTemplateString = "CREATE TABLE T1(pk bigint, a bigint, b bigint, c string, PRIMARY KEY(pk))";
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplateString).build()) {
             var updateStatement = "update T1 set a = 42, c = 'bla' where pk = 444 AND (a < 42) " + queryOptionsClause;
             var updateBuilder = ddl.setSchemaAndGetConnection().createStatementBuilderFactory().updateStatementBuilder(updateStatement);
-            Assertions.assertEquals(expectedOptions, updateBuilder.getOptions());
+            assertThat(updateBuilder.getOptions())
+                    .isEqualTo(expectedOptions);
         }
     }
 
     @Test
-    public void addWhereClauses() throws Exception {
+    void addWhereClauses() throws Exception {
         final String schemaTemplateString = "CREATE TABLE T1(pk bigint, a bigint, b bigint, c string, PRIMARY KEY(pk))";
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplateString).build()) {
             final var updateStatement = "update T1 set a = 42, c = 'bla' where pk = 444 AND (a < 42)";
@@ -177,60 +191,128 @@ public class StatementBuilderTests {
             final var ef = ddl.getConnection().createExpressionBuilderFactory();
             updateBuilder.addWhereClause(ef.field("T1", "B").asLong().lessThan(ef.literal(42L)));
             var whereClause = updateBuilder.getWhereClause();
-            Assertions.assertNotNull(whereClause);
+            assertThat(whereClause)
+                    .isNotNull();
             // this is not very nice output, but I don't want to use the SQL visitor to check the string, i.e. I want the test to focus on one API call at a time if possible.
-            Assertions.assertTrue(whereClause.toString().contains("AND(({pk = 444 AND ( a < 42 )} : ???) : boolean ∪ ∅,LESS_THAN((B : long ∪ ∅) : long ∪ ∅,42 : long) : boolean ∪ ∅) : boolean ∪ ∅"));
+            assertThat(whereClause.toString())
+                    .contains("AND(({pk = 444 AND ( a < 42 )} : ???) : boolean ∪ ∅,LESS_THAN((B : long ∪ ∅) : long ∪ ∅,42 : long) : boolean ∪ ∅) : boolean ∪ ∅");
         }
     }
 
     @Test
-    public void examineReturning() throws Exception {
+    void examineReturning() throws Exception {
         final String schemaTemplateString = "CREATE TABLE T1(pk bigint, a bigint, b bigint, c string, PRIMARY KEY(pk))";
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplateString).build()) {
             final var updateStatement = "update T1 set a = 42, c = 'bla' returning *";
             final var updateBuilder = ddl.setSchemaAndGetConnection().createStatementBuilderFactory().updateStatementBuilder(updateStatement);
             final var returning = updateBuilder.getReturning();
-            Assertions.assertEquals(1, returning.size());
-            Assertions.assertTrue(returning.get(0).toString().contains("{*} : ???"));
+            assertThat(returning)
+                    .hasSize(1);
+            assertThat(returning.get(0).toString())
+                    .contains("{*} : ???");
         }
     }
 
     @Test
-    public void examineReturningMultipleColumns() throws Exception {
+    void examineReturningMultipleColumns() throws Exception {
         final String schemaTemplateString = "CREATE TABLE T1(pk bigint, a bigint, b bigint, c string, PRIMARY KEY(pk))";
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplateString).build()) {
             final var updateStatement = "update T1 set a = 42, c = 'bla' returning \"old\".a, b, *, c+1, d + (5 + 4)";
             final var updateBuilder = ddl.setSchemaAndGetConnection().createStatementBuilderFactory().updateStatementBuilder(updateStatement);
             final var returning = updateBuilder.getReturning();
-            Assertions.assertEquals(5, returning.size());
-            Assertions.assertTrue(returning.get(0).toString().contains("{\"old\" . a} : ???"));
-            Assertions.assertTrue(returning.get(1).toString().contains("{b} : ???"));
-            Assertions.assertTrue(returning.get(2).toString().contains("{*} : ???"));
-            Assertions.assertTrue(returning.get(3).toString().contains("{c + 1} : ???"));
-            Assertions.assertTrue(returning.get(4).toString().contains("{d + ( 5 + 4 )} : ???"));
+            assertThat(returning)
+                    .hasSize(5);
+            assertThat(returning.get(0).toString())
+                    .contains("{\"old\" . a} : ???");
+            assertThat(returning.get(1).toString())
+                    .contains("{b} : ???");
+            assertThat(returning.get(2).toString())
+                    .contains("{*} : ???");
+            assertThat(returning.get(3).toString())
+                    .contains("{c + 1} : ???");
+            assertThat(returning.get(4).toString())
+                    .contains("{d + ( 5 + 4 )} : ???");
         }
     }
 
     @Test
-    public void setReturningClause() throws Exception {
+    void setReturningClause() throws Exception {
         final String schemaTemplateString = "CREATE TABLE T1(pk bigint, a bigint, b bigint, c string, PRIMARY KEY(pk))";
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplateString).build()) {
             final var updateStatement = "update T1 set a = 42, c = 'bla' returning \"old\".a, b, *, c+1, d + (5 + 4)";
             final var updateBuilder = ddl.setSchemaAndGetConnection().createStatementBuilderFactory().updateStatementBuilder(updateStatement);
             var returning = updateBuilder.getReturning();
-            Assertions.assertEquals(5, returning.size());
-            Assertions.assertTrue(returning.get(0).toString().contains("{\"old\" . a} : ???"));
-            Assertions.assertTrue(returning.get(1).toString().contains("{b} : ???"));
-            Assertions.assertTrue(returning.get(2).toString().contains("{*} : ???"));
-            Assertions.assertTrue(returning.get(3).toString().contains("{c + 1} : ???"));
-            Assertions.assertTrue(returning.get(4).toString().contains("{d + ( 5 + 4 )} : ???"));
+            assertThat(returning)
+                    .hasSize(5);
+            assertThat(returning.get(0).toString())
+                    .contains("{\"old\" . a} : ???");
+            assertThat(returning.get(1).toString())
+                    .contains("{b} : ???");
+            assertThat(returning.get(2).toString())
+                    .contains("{*} : ???");
+            assertThat(returning.get(3).toString())
+                    .contains("{c + 1} : ???");
+            assertThat(returning.get(4).toString())
+                    .contains("{d + ( 5 + 4 )} : ???");
             updateBuilder.clearReturning();
             final var ef = ddl.getConnection().createExpressionBuilderFactory();
             // old and new psuedo identifiers are special, they can't be used in field resolution.
             updateBuilder.addReturning(ef.parseFragment("\"old\".*"));
             returning = updateBuilder.getReturning();
-            Assertions.assertEquals(1, returning.size());
-            Assertions.assertTrue(returning.get(0).toString().contains("{\"old\".*} : ???"));
+            assertThat(returning)
+                    .hasSize(1);
+            assertThat(returning.get(0).toString())
+                    .contains("{\"old\".*} : ???");
+        }
+    }
+
+    @Test
+    void greatestFunction() throws Exception {
+        final String schemaTemplateString = "CREATE TABLE T1(pk bigint, a bigint, b bigint, c string, PRIMARY KEY(pk))";
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplateString).build()) {
+            final var updateStatement = "update T1 set a = 42";
+            final var updateBuilder = ddl.setSchemaAndGetConnection().createStatementBuilderFactory().updateStatementBuilder(updateStatement);
+            final var ef = ddl.getConnection().createExpressionBuilderFactory();
+            final var bField = ef.field("T1", "B");
+            updateBuilder.addSetClause(bField, bField.asLong().greatest(List.of(ef.literal(42L))));
+            assertThat(updateBuilder.getSetClauses())
+                    .hasSize(2)
+                    .allSatisfy((field, value) -> {
+                        assertThat(field.getName())
+                                .isIn("A", "B");
+                        if ("A".equals(field.getName())) {
+                            assertThat(value.toString())
+                                    .contains("{42} : ???");
+                        } else {
+                            assertThat(value.toString())
+                                    .contains("GREATEST((B : long ∪ ∅) : long ∪ ∅,42 : long) : long");
+                        }
+                    });
+        }
+    }
+
+    @Test
+    void mathInSetClause() throws Exception {
+        final String schemaTemplateString = "CREATE TABLE T1(pk bigint, a bigint, b bigint, c string, PRIMARY KEY(pk))";
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplateString).build()) {
+            final var updateStatement = "update T1 set a = 42";
+            final var updateBuilder = ddl.setSchemaAndGetConnection().createStatementBuilderFactory().updateStatementBuilder(updateStatement);
+            final var ef = ddl.getConnection().createExpressionBuilderFactory();
+            final var bField = ef.field("T1", "B");
+            updateBuilder.addSetClause(bField, bField.asLong().add(ef.literal(1L)));
+            assertThat(updateBuilder.getSetClauses())
+                    .hasSize(2)
+                    .allSatisfy((field, value) -> {
+                        assertThat(field.getName())
+                                .isIn("A", "B");
+                        if ("A".equals(field.getName())) {
+                            assertThat(value.toString())
+                                    .contains("{42} : ???");
+                        } else {
+                            assertThat(value.toString())
+                                    .contains("ADD((B : long ∪ ∅) : long ∪ ∅,1 : long) : long ∪ ∅");
+                        }
+                    });
         }
     }
 }

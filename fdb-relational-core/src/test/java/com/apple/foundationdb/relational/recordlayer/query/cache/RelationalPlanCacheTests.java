@@ -371,7 +371,7 @@ public class RelationalPlanCacheTests {
                 .withPlannerConfiguration(PlannerConfiguration.of(Optional.of(readableIndexes), options))
                 .withUserVersion(userVersion)
                 .build();
-        return PlanGenerator.create(Optional.of(cache), planContext, store.getRecordMetaData(), storeState, options);
+        return PlanGenerator.create(Optional.of(cache), planContext, store.getRecordMetaData(), storeState, store.getIndexMaintainerRegistry(), options);
     }
 
     @Nonnull

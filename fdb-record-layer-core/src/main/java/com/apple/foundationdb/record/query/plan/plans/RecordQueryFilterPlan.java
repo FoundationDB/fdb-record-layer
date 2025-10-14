@@ -118,7 +118,7 @@ public class RecordQueryFilterPlan extends RecordQueryFilterPlanBase {
 
     @Nonnull
     @Override
-    public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
+    public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return ImmutableSet.of();
     }
 
@@ -134,7 +134,7 @@ public class RecordQueryFilterPlan extends RecordQueryFilterPlanBase {
     @Nonnull
     @Override
     public RecordQueryPlanWithChild withChild(@Nonnull final Reference childRef) {
-        return new RecordQueryFilterPlan(Quantifier.physical(childRef), getFilters());
+        return new RecordQueryFilterPlan(Quantifier.physical(childRef, getInner().getAlias()), getFilters());
     }
 
     @Nonnull
@@ -169,7 +169,7 @@ public class RecordQueryFilterPlan extends RecordQueryFilterPlanBase {
     }
 
     @Override
-    public int hashCodeWithoutChildren() {
+    public int computeHashCodeWithoutChildren() {
         return Objects.hash(getConjunctedFilter());
     }
 

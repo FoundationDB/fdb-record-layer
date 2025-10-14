@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
+import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactoryRegistryImpl;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
@@ -58,7 +59,7 @@ public class QueryPlanFullySortedTest extends FDBRecordStoreQueryTestBase {
         }
         metaData = builder.getRecordMetaData();
         planner = isUseCascadesPlanner() ?
-                  new CascadesPlanner(metaData, new RecordStoreState(null, null)) :
+                  new CascadesPlanner(metaData, new RecordStoreState(null, null), IndexMaintainerFactoryRegistryImpl.instance()) :
                   new RecordQueryPlanner(metaData, new RecordStoreState(null, null));
     }
 

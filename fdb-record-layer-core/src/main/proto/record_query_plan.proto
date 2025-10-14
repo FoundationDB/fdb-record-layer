@@ -256,6 +256,8 @@ message PValue {
     PEvaluatesToValue evaluates_to_value = 50;
     PArrayDistinctValue array_distinct_value = 51;
     PSubscriptValue subscript_value = 52;
+    PParameterObjectValue parameter_object_value = 53;
+    PCastValue cast_value = 54;
   }
 }
 
@@ -1270,6 +1272,69 @@ message PArrayDistinctValue {
   optional PValue child_value = 1;
 }
 
+message PParameterObjectValue {
+  optional string parameter_name = 1;
+  optional PType result_type = 2;
+}
+
+message PCastValue {
+  enum PPhysicalOperator {
+    // Numeric to numeric conversions
+    INT_TO_LONG = 1;
+    INT_TO_FLOAT = 2;
+    INT_TO_DOUBLE = 3;
+    LONG_TO_INT = 4;
+    LONG_TO_FLOAT = 5;
+    LONG_TO_DOUBLE = 6;
+    FLOAT_TO_INT = 7;
+    FLOAT_TO_LONG = 8;
+    FLOAT_TO_DOUBLE = 9;
+    DOUBLE_TO_INT = 10;
+    DOUBLE_TO_LONG = 11;
+    DOUBLE_TO_FLOAT = 12;
+
+    // Numeric to string conversions
+    INT_TO_STRING = 13;
+    LONG_TO_STRING = 14;
+    FLOAT_TO_STRING = 15;
+    DOUBLE_TO_STRING = 16;
+    BOOLEAN_TO_STRING = 17;
+
+    // String to numeric conversions
+    STRING_TO_INT = 18;
+    STRING_TO_LONG = 19;
+    STRING_TO_FLOAT = 20;
+    STRING_TO_DOUBLE = 21;
+
+    // Boolean conversions
+    STRING_TO_BOOLEAN = 22;
+    INT_TO_BOOLEAN = 23;
+    BOOLEAN_TO_INT = 24;
+
+    // NULL conversions
+    NULL_TO_INT = 25;
+    NULL_TO_LONG = 26;
+    NULL_TO_FLOAT = 27;
+    NULL_TO_DOUBLE = 28;
+    NULL_TO_BOOLEAN = 29;
+    NULL_TO_STRING = 30;
+    NULL_TO_ARRAY = 31;
+    NULL_TO_RECORD = 32;
+    NULL_TO_ENUM = 33;
+    NULL_TO_UUID = 34;
+
+    // ARRAY conversion
+    ARRAY_TO_ARRAY = 35;
+
+    // STRING to complex types.
+    STRING_TO_ENUM = 36;
+    STRING_TO_UUID = 37;
+  }
+  optional PValue child = 1;
+  optional PType cast_to_type = 2;
+  optional PPhysicalOperator operator = 3;
+}
+
 //
 // Comparisons
 //
@@ -1526,10 +1591,11 @@ message PRecordQueryPlan {
     PRecordQueryDefaultOnEmptyPlan default_on_empty_plan = 33;
     PTempTableScanPlan temp_table_scan_plan = 34;
     PTempTableInsertPlan temp_table_insert_plan = 35;
-    PRecursiveUnionQueryPlan recursive_union_query_plan = 36;
+    PRecordQueryRecursiveLevelUnionPlan recursive_level_union_plan = 36;
     PRecordQueryTableFunctionPlan table_function_plan = 37;
     PRecordQueryStreamingAggregationPlan2 streaming_aggregation_plan2 = 38;
     PRecordQueryMultiIntersectionOnValuesPlan multi_intersection_on_values_plan = 39;
+    PRecordQueryRecursiveDfsJoinPlan recursive_dfs_join_plan = 40;
   }
 }
 
@@ -2131,9 +2197,9 @@ message PComparableObject {
 }
 
 //
-// PRecursiveUnionQueryPlan
+// PRecordQueryRecursiveLevelUnionPlan
 //
-message PRecursiveUnionQueryPlan {
+message PRecordQueryRecursiveLevelUnionPlan {
   optional PPhysicalQuantifier initialStateQuantifier = 1;
   optional PPhysicalQuantifier recursiveStateQuantifier = 2;
   optional string initialTempTableAlias = 3;
@@ -2145,4 +2211,18 @@ message PRecursiveUnionQueryPlan {
 //
 message PRecordQueryTableFunctionPlan {
   optional PValue value = 1;
+}
+
+//
+// PRecordQueryRecursiveDfsJoinPlan
+//
+message PRecordQueryRecursiveDfsJoinPlan {
+  enum PDfsTraversalStrategy {
+    PRE_ORDER = 1;
+    POST_ORDER = 2;
+  }
+  optional PPhysicalQuantifier root_quantifier = 1;
+  optional PPhysicalQuantifier child_quantifier = 2;
+  optional string prior_value_correlation = 3;
+  optional PDfsTraversalStrategy dfs_traversal_strategy = 4;
 }

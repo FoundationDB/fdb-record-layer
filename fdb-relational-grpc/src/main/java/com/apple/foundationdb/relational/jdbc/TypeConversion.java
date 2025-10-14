@@ -51,7 +51,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.ByteString;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
 import java.sql.Types;
@@ -61,8 +60,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.function.BiFunction;
-
-import static com.apple.foundationdb.relational.jdbc.RelationalStructFacade.RelationalStructFacadeMetaData.getDataType;
 
 /**
  * Utility for converting types used by JDBC from Relational and FDB such as KeySet, RelationalStruct and RelationalArray.
@@ -481,14 +478,10 @@ public class TypeConversion {
         return column;
     }
 
-    @Nullable
     static DataType.StructType getStructDataType(@Nonnull List<ColumnMetadata> columnMetadataList, boolean nullable) {
         final var structFields = new ArrayList<DataType.StructType.Field>();
         for (int i = 0; i < columnMetadataList.size(); i++) {
             final var colMetadata = columnMetadataList.get(i);
-            if (colMetadata.getType() == Type.UNKNOWN) {
-                return null;
-            }
             final var dataType = getDataType(colMetadata.getType(), colMetadata, colMetadata.getNullable());
             structFields.add(DataType.StructType.Field.from(colMetadata.getName(), dataType, i));
         }
@@ -581,6 +574,8 @@ public class TypeConversion {
     @SuppressWarnings("unchecked")
     static com.apple.foundationdb.relational.jdbc.grpc.v1.Options.Builder toProtobuf(@Nonnull Options options) throws SQLException {
         final var builder = com.apple.foundationdb.relational.jdbc.grpc.v1.Options.newBuilder();
+        // Switched-on by default on JDBC driver until the option is deprecated and removed.
+        builder.setContinuationsContainCompiledStatements(true);
         for (Map.Entry<Options.Name, ?> entry : options.entries()) {
             switch (entry.getKey()) {
                 case MAX_ROWS:
@@ -669,9 +664,6 @@ public class TypeConversion {
                 case VALID_PLAN_HASH_MODES:
                     builder.setValidPlanHashModes((String)entry.getValue());
                     break;
-                case CONTINUATIONS_CONTAIN_COMPILED_STATEMENTS:
-                    builder.setContinuationsContainCompiledStatements((Boolean)entry.getValue());
-                    break;
                 case ASYNC_OPERATIONS_TIMEOUT_MILLIS:
                     builder.setAsyncOperationsTimeoutMillis((Long)entry.getValue());
                     break;
@@ -690,6 +682,11 @@ public class TypeConversion {
                         builder.clearEncryptionKeyEntry();
                     } else {
                         builder.setEncryptionKeyEntry((String)entry.getValue());
+                    }
+                    break;
+                case ENCRYPTION_KEY_ENTRY_LIST:
+                    for (String rule : (List<String>)entry.getValue()) {
+                        builder.addEncryptionKeyEntryList(rule);
                     }
                     break;
                 case ENCRYPTION_KEY_PASSWORD:
@@ -798,8 +795,8 @@ public class TypeConversion {
         if (protoOptions.hasValidPlanHashModes()) {
             builder.withOption(Options.Name.VALID_PLAN_HASH_MODES, protoOptions.getValidPlanHashModes());
         }
-        if (protoOptions.hasContinuationsContainCompiledStatements()) {
-            builder.withOption(Options.Name.CONTINUATIONS_CONTAIN_COMPILED_STATEMENTS, protoOptions.getContinuationsContainCompiledStatements());
+        if (protoOptions.hasContinuationsContainCompiledStatements() && !protoOptions.getContinuationsContainCompiledStatements()) {
+            throw new RelationalException("Option CONTINUATIONS_CONTAIN_COMPILED_STATEMENTS=false not supported anymore!", ErrorCode.UNSUPPORTED_OPERATION).toUncheckedWrappedException();
         }
         if (protoOptions.hasAsyncOperationsTimeoutMillis()) {
             builder.withOption(Options.Name.ASYNC_OPERATIONS_TIMEOUT_MILLIS, protoOptions.getAsyncOperationsTimeoutMillis());
@@ -813,6 +810,9 @@ public class TypeConversion {
         if (protoOptions.hasEncryptionKeyEntry()) {
             builder.withOption(Options.Name.ENCRYPTION_KEY_ENTRY, protoOptions.getEncryptionKeyEntry());
         }
+        if (protoOptions.getEncryptionKeyEntryListCount() > 0) {
+            builder.withOption(Options.Name.ENCRYPTION_KEY_ENTRY_LIST, protoOptions.getEncryptionKeyEntryListList());
+        }
         if (protoOptions.hasEncryptionKeyPassword()) {
             builder.withOption(Options.Name.ENCRYPTION_KEY_PASSWORD, protoOptions.getEncryptionKeyPassword());
         }
@@ -820,5 +820,74 @@ public class TypeConversion {
             builder.withOption(Options.Name.COMPRESS_WHEN_SERIALIZING, protoOptions.getCompressWhenSerializing());
         }
         return builder.build();
+    }
+
+    static int toSqlType(Type type) throws SQLException {
+        switch (type) {
+            case INTEGER:
+                return Types.INTEGER;
+            case LONG:
+                return Types.BIGINT;
+            case STRING:
+                return Types.VARCHAR;
+            case ENUM:
+            case UUID:
+                return Types.OTHER;
+            case BOOLEAN:
+                return Types.BOOLEAN;
+            case ARRAY:
+                return Types.ARRAY;
+            case STRUCT:
+                return Types.STRUCT;
+            case BYTES:
+                return Types.BINARY;
+            case FLOAT:
+                return Types.FLOAT;
+            case DOUBLE:
+                return Types.DOUBLE;
+            default:
+                throw new SQLException("JDBC Type: " + type + " not supported");
+        }
+    }
+
+    private static DataType.EnumType getEnumDataType(@Nonnull EnumMetadata enumMetadata, boolean nullable) {
+        final var enumValues = new ArrayList<DataType.EnumType.EnumValue>();
+        int i = 1;
+        for (var value: enumMetadata.getValuesList()) {
+            enumValues.add(DataType.EnumType.EnumValue.of(value, i++));
+        }
+        return DataType.EnumType.from(enumMetadata.getName(), enumValues, nullable);
+    }
+
+    static DataType getDataType(@Nonnull Type type, @Nonnull ColumnMetadata columnMetadata, boolean nullable) {
+        switch (type) {
+            case LONG:
+                return nullable ? DataType.Primitives.NULLABLE_LONG.type() : DataType.Primitives.LONG.type();
+            case INTEGER:
+                return nullable ? DataType.Primitives.NULLABLE_INTEGER.type() : DataType.Primitives.INTEGER.type();
+            case DOUBLE:
+                return nullable ? DataType.Primitives.NULLABLE_DOUBLE.type() : DataType.Primitives.DOUBLE.type();
+            case FLOAT:
+                return nullable ? DataType.Primitives.NULLABLE_FLOAT.type() : DataType.Primitives.FLOAT.type();
+            case BOOLEAN:
+                return nullable ? DataType.Primitives.NULLABLE_BOOLEAN.type() : DataType.Primitives.BOOLEAN.type();
+            case BYTES:
+                return nullable ? DataType.Primitives.NULLABLE_BYTES.type() : DataType.Primitives.BYTES.type();
+            case UUID:
+                return nullable ? DataType.Primitives.NULLABLE_UUID.type() : DataType.Primitives.UUID.type();
+            case STRING:
+                return nullable ? DataType.Primitives.NULLABLE_STRING.type() : DataType.Primitives.STRING.type();
+            case VERSION:
+                return nullable ? DataType.Primitives.NULLABLE_VERSION.type() : DataType.Primitives.VERSION.type();
+            case STRUCT:
+                return getStructDataType(columnMetadata.getStructMetadata().getColumnMetadataList(), nullable);
+            case ENUM:
+                return getEnumDataType(columnMetadata.getEnumMetadata(), nullable);
+            case ARRAY:
+                final var arrayMetadata = columnMetadata.getArrayMetadata();
+                return DataType.ArrayType.from(getDataType(arrayMetadata.getType(), arrayMetadata, arrayMetadata.getNullable()), nullable);
+            default:
+                throw new RelationalException("Not implemeneted: " + type.name(), ErrorCode.INTERNAL_ERROR).toUncheckedWrappedException();
+        }
     }
 }

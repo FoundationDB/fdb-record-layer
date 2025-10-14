@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.AbstractRelationalExpressionWithChildren;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
@@ -47,7 +48,7 @@ import java.util.concurrent.CompletableFuture;
  * A base class for all query plans that filter based on predicates.
  */
 @API(API.Status.INTERNAL)
-public abstract class RecordQueryFilterPlanBase implements RecordQueryPlanWithChild {
+public abstract class RecordQueryFilterPlanBase extends AbstractRelationalExpressionWithChildren implements RecordQueryPlanWithChild {
     @Nonnull
     private final Quantifier.Physical inner;
 

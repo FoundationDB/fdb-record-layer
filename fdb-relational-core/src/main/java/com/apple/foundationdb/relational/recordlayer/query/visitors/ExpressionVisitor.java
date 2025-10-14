@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.CastValue;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.metadata.DataType;
@@ -330,6 +331,25 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
 
     @Nonnull
     @Override
+    public Expression visitDataTypeFunctionCall(@Nonnull RelationalParser.DataTypeFunctionCallContext ctx) {
+        if (ctx.CAST() != null) {
+            final var sourceExpression = Assert.castUnchecked(ctx.expression().accept(this), Expression.class);
+            final var targetTypeString = ctx.convertedDataType().typeName.getText();
+            final var isRepeated = ctx.convertedDataType().ARRAY() != null;
+            final var targetDataType = getDelegate().getSemanticAnalyzer().lookupType(
+                    Identifier.of(targetTypeString), false, isRepeated, ignored -> Optional.empty());
+            final var targetType = DataTypeUtils.toRecordLayerType(targetDataType);
+
+            final var castValue = CastValue.inject(sourceExpression.getUnderlying(), targetType);
+            return Expression.ofUnnamed(targetDataType, castValue);
+        }
+
+        Assert.failUnchecked(ErrorCode.UNSUPPORTED_OPERATION, "CONVERT function is not yet supported");
+        return null;
+    }
+
+    @Nonnull
+    @Override
     public Expression visitFunctionCallExpressionAtom(@Nonnull RelationalParser.FunctionCallExpressionAtomContext ctx) {
         return parseChild(ctx);
     }
@@ -516,6 +536,10 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         final Expression result;
         if (ctx.preparedStatementParameter() != null) {
             result = visitPreparedStatementParameter(ctx.preparedStatementParameter());
+        } else if (ctx.fullColumnName() != null) {
+            result = visitFullColumnName(ctx.fullColumnName());
+            // Validate that result is of type Array
+            Assert.thatUnchecked(result.getDataType().getCode() == DataType.Code.ARRAY, ErrorCode.UNSUPPORTED_QUERY, "IN list with column reference must be of array type, but got: %s", result.getDataType().getCode());
         } else if (getDelegate().getPlanGenerationContext().shouldProcessLiteral() && ParseHelpers.isConstant(ctx.expressions())) {
             getDelegate().getPlanGenerationContext().startArrayLiteral();
             final var inListItems = visitExpressions(ctx.expressions());
@@ -796,9 +820,9 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         final var targetTypeMaybe = maybeState.flatMap(LogicalPlanFragment.State::getTargetType);
 
         if (ctx.expressions() == null) {
-            final var elementType = targetTypeMaybe.map(type -> Assert.castUnchecked(type, Type.Array.class).getElementType())
-                    .orElse(Type.any());
-            return Expression.ofUnnamed(AbstractArrayConstructorValue.LightArrayConstructorValue.emptyArray(elementType));
+            final var elementTypeMaybe = targetTypeMaybe.map(type -> Assert.castUnchecked(type, Type.Array.class).getElementType());
+            return Expression.ofUnnamed(elementTypeMaybe.map(AbstractArrayConstructorValue.LightArrayConstructorValue::emptyArray)
+                    .orElse(AbstractArrayConstructorValue.LightArrayConstructorValue.emptyArrayOfNone()));
         }
 
         if (targetTypeMaybe.isEmpty()) {

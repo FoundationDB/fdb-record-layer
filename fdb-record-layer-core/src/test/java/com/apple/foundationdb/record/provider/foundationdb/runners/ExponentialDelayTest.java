@@ -31,6 +31,7 @@ import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -93,7 +94,7 @@ class ExponentialDelayTest {
             }
             if (allDelays.size() == 500) {
                 LOGGER.debug("avg " + averaged.stream()
-                        .map(val -> String.format("%10d", val.longValue()))
+                        .map(val -> String.format(Locale.ROOT, "%10d", val.longValue()))
                         .collect(Collectors.joining(" ")));
                 Stream.concat(Stream.of("^^^^^^^^^^"),
                                 Stream.of((averaged.get(firstBadIndex - 1)).longValue(),
@@ -101,7 +102,7 @@ class ExponentialDelayTest {
                                         (long)(averaged.get(firstBadIndex - 1) * 2),
                                         (long)(averaged.get(firstBadIndex - 1) * 2.5),
                                         (long)(maxDelayMillis * 0.4),
-                                        (long)(maxDelayMillis * 0.6)).map(l -> String.format("%010d", l)))
+                                        (long)(maxDelayMillis * 0.6)).map(l -> String.format(Locale.ROOT, "%010d", l)))
                         .forEachOrdered(
                                 str -> {
                                     LOGGER.debug("    " + IntStream.range(0, averaged.size())

@@ -41,8 +41,8 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.cascades.explain.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.AbstractRelationalExpressionWithChildren;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionWithChildren;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.DerivedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -65,7 +65,7 @@ import java.util.Set;
  * produce any records, a default value that is passed into the constructor is returned in place of the first record.
  */
 @API(API.Status.INTERNAL)
-public class RecordQueryDefaultOnEmptyPlan implements RecordQueryPlanWithChild, RelationalExpressionWithChildren {
+public class RecordQueryDefaultOnEmptyPlan extends AbstractRelationalExpressionWithChildren implements RecordQueryPlanWithChild {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Default-On-Empty-Plan");
 
     @Nonnull
@@ -132,7 +132,7 @@ public class RecordQueryDefaultOnEmptyPlan implements RecordQueryPlanWithChild, 
 
     @Nonnull
     @Override
-    public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
+    public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return onEmptyResultValue.getCorrelatedTo();
     }
 
@@ -201,7 +201,7 @@ public class RecordQueryDefaultOnEmptyPlan implements RecordQueryPlanWithChild, 
     }
 
     @Override
-    public int hashCodeWithoutChildren() {
+    public int computeHashCodeWithoutChildren() {
         return Objects.hash(getResultValue());
     }
 

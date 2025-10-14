@@ -70,12 +70,6 @@ public class IndexedValue extends AbstractValue implements LeafValue, Value.NonE
         return resultType;
     }
 
-    @Nonnull
-    @Override
-    public Value replaceReferenceWithField(@Nonnull final FieldValue fieldValue) {
-        return this;
-    }
-
     @Override
     public boolean isFunctionallyDependentOn(@Nonnull final Value otherValue) {
         return false;

@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.lucene;
 
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.IndexFetchMethod;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanSerializationContext;
@@ -56,6 +57,8 @@ import java.util.Set;
 /**
  * Lucene query plan for including search-related scan parameters.
  */
+@SuppressWarnings("PMD.OverrideBothEqualsAndHashcode")
+@SpotBugsSuppressWarnings("HE_EQUALS_NO_HASHCODE")
 public class LuceneIndexQueryPlan extends RecordQueryIndexPlan implements PlanWithOrderingKey, PlanWithStoredFields, RecordQueryPlanWithExplain {
     @Nullable
     private final PlanOrderingKey planOrderingKey;
@@ -213,8 +216,8 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan implements PlanWi
     }
 
     @Override
-    public int hashCode() {
-        return Objects.hash(super.hashCode(), planOrderingKey, storedFields);
+    public int computeHashCodeWithoutChildren() {
+        return Objects.hash(super.computeHashCodeWithoutChildren(), planOrderingKey, storedFields);
     }
 
     @Nonnull

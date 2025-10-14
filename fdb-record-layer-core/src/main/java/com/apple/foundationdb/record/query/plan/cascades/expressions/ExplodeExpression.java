@@ -54,7 +54,7 @@ import java.util.Set;
  * A table function expression that "explodes" a repeated field into a stream of its values.
  */
 @API(API.Status.EXPERIMENTAL)
-public class ExplodeExpression implements RelationalExpression, InternalPlannerGraphRewritable {
+public class ExplodeExpression extends AbstractRelationalExpressionWithoutChildren implements InternalPlannerGraphRewritable {
     @Nonnull
     private final Value collectionValue;
 
@@ -89,7 +89,7 @@ public class ExplodeExpression implements RelationalExpression, InternalPlannerG
 
     @Nonnull
     @Override
-    public Set<CorrelationIdentifier> getCorrelatedTo() {
+    public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return collectionValue.getCorrelatedTo();
     }
 
@@ -111,7 +111,7 @@ public class ExplodeExpression implements RelationalExpression, InternalPlannerG
     }
 
     @Override
-    public int hashCodeWithoutChildren() {
+    public int computeHashCodeWithoutChildren() {
         return Objects.hash(collectionValue);
     }
 

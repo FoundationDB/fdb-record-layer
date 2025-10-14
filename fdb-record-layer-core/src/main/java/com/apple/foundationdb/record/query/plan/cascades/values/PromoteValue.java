@@ -88,6 +88,7 @@ public class PromoteValue extends AbstractValue implements CreatesDynamicTypesVa
         NULL_TO_RECORD(Type.TypeCode.NULL, Type.TypeCode.RECORD, (descriptor, in) -> null),
         NONE_TO_ARRAY(Type.TypeCode.NONE, Type.TypeCode.ARRAY, (descriptor, in) -> in),
         NULL_TO_ENUM(Type.TypeCode.NULL, Type.TypeCode.ENUM, (descriptor, in) -> null),
+        // TODO: remove, an explicit CAST should be used instead.
         STRING_TO_ENUM(Type.TypeCode.STRING, Type.TypeCode.ENUM, ((descriptor, in) -> stringToEnumValue((Descriptors.EnumDescriptor)descriptor, (String)in))),
         STRING_TO_UUID(Type.TypeCode.STRING, Type.TypeCode.UUID, ((descriptor, in) -> stringToUuidValue((String) in)));
 

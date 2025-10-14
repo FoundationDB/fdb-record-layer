@@ -1,0 +1,169 @@
+#
+# cast-tests.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+---
+options:
+    supported_version: 4.7.3.0
+---
+schema_template:
+    create table test_cast(id bigint, num_col integer, str_col string, bool_col boolean, primary key(id))
+    create table test_cast_arrays(id bigint, arr integer array, primary key(id))
+---
+setup:
+  steps:
+    - query: insert into test_cast values (1, 123, 'hello', true), (2, 456, 'world', false), (3, 789, '123', null)
+    - query: insert into test_cast_arrays values(1, [1, 2, 3]), (2, [10, 100, 1000, 10000])
+---
+test_block:
+  name: cast-operator-tests
+  preset: single_repetition_ordered
+  tests:
+    -
+      - query: select cast([ arr[1] + arr[2], arr[2] + arr[3] ] as string array) from test_cast_arrays
+      - result: [{['3', '5']}, {['110', '1100']}]
+    -
+      - query: select CAST([1, 2, 3] AS STRING ARRAY) from test_cast where id = 1
+      - explain: "SCAN(<,>) | TFILTER TEST_CAST | FILTER _.ID EQUALS promote(@c20 AS LONG) | MAP (CAST(array(@c20, @c7, @c9) AS ARRAY(STRING)) AS _0)"
+      - result: [{['1', '2', '3']}]
+    -
+      - query: select CAST([] AS STRING ARRAY) from test_cast where id = 1
+      - explain: "SCAN(<,>) | TFILTER TEST_CAST | FILTER _.ID EQUALS promote(@c15 AS LONG) | MAP (array() AS _0)"
+      - result: [{[]}]
+    -
+      - query: select [] from test_cast where id = 1
+      - error: "XXXXX"
+    -
+      # Array casting: INT array to DOUBLE array
+      - query: select CAST([1, 2, 3] AS DOUBLE ARRAY) from test_cast where id = 1
+      - explain: "SCAN(<,>) | TFILTER TEST_CAST | FILTER _.ID EQUALS promote(@c20 AS LONG) | MAP (CAST(array(@c20, @c7, @c9) AS ARRAY(DOUBLE)) AS _0)"
+      - result: [{[1.0, 2.0, 3.0]}]
+    -
+      # Array casting: STRING array to INT array
+      - query: select CAST(['42', '100', '7'] AS INTEGER ARRAY) from test_cast where id = 1
+      - explain: "SCAN(<,>) | TFILTER TEST_CAST | FILTER _.ID EQUALS promote(@c20 AS LONG) | MAP (CAST(array(@c5, @c7, @c9) AS ARRAY(INT)) AS _0)"
+      - result: [{[42, 100, 7]}]
+    -
+      # Array casting: BOOLEAN array to INT array
+      - query: select CAST([true, false, true] AS INTEGER ARRAY) from test_cast where id = 1
+      - explain: "SCAN(<,>) | TFILTER TEST_CAST | FILTER _.ID EQUALS promote(@c20 AS LONG) | MAP (CAST(array(@c5, @c7, @c5) AS ARRAY(INT)) AS _0)"
+      - result: [{[1, 0, 1]}]
+    -
+      # Array casting: INT array to BOOLEAN array (non-zero = true, zero = false)
+      - query: select CAST([1, 0, 42] AS BOOLEAN ARRAY) from test_cast where id = 1
+      - explain: "SCAN(<,>) | TFILTER TEST_CAST | FILTER _.ID EQUALS promote(@c20 AS LONG) | MAP (CAST(array(@c20, @c7, @c9) AS ARRAY(BOOLEAN)) AS _0)"
+      - result: [{[true, false, true]}]
+    -
+      # Array casting: Empty array to different types
+      - query: select CAST([] AS INTEGER ARRAY) from test_cast where id = 1
+      - explain: "SCAN(<,>) | TFILTER TEST_CAST | FILTER _.ID EQUALS promote(@c15 AS LONG) | MAP (array() AS _0)"
+      - result: [{[]}]
+    -
+      - query: select CAST([] AS DOUBLE ARRAY) from test_cast where id = 1
+      - explain: "SCAN(<,>) | TFILTER TEST_CAST | FILTER _.ID EQUALS promote(@c15 AS LONG) | MAP (array() AS _0)"
+      - result: [{[]}]
+    -
+      - query: select CAST([] AS BOOLEAN ARRAY) from test_cast where id = 1
+      - explain: "SCAN(<,>) | TFILTER TEST_CAST | FILTER _.ID EQUALS promote(@c15 AS LONG) | MAP (array() AS _0)"
+      - result: [{[]}]
+#    -
+      # Array casting: Arrays with null elements, enable this once we have support for adding `null` elements in arrays.
+      # https://github.com/FoundationDB/fdb-record-layer/issues/3646
+      # - query: select CAST([1, null, 3] AS STRING ARRAY) from test_cast where id = 1
+      # - result: [{['1', null, '3']}]
+#    -
+      # Array casting: Arrays with null elements, enable this once we have support for adding `null` elements in arrays.
+      # https://github.com/FoundationDB/fdb-record-layer/issues/3646
+      # - query: select CAST(['true', null, 'false'] AS BOOLEAN ARRAY) from test_cast where id = 1
+      # - result: [{[true, null, false]}]
+    -
+      # Array casting: Same type (should be identity)
+      - query: select CAST([1, 2, 3] AS INTEGER ARRAY) from test_cast where id = 1
+      - explain: "SCAN(<,>) | TFILTER TEST_CAST | FILTER _.ID EQUALS promote(@c20 AS LONG) | MAP (array(@c20, @c7, @c9) AS _0)"
+      - result: [{[1, 2, 3]}]
+    -
+      # Array casting: Large arrays
+      - query: select CAST([1, 2, 3, 4, 5, 6, 7, 8, 9, 10] AS STRING ARRAY) from test_cast where id = 1
+      - explain: "SCAN(<,>) | TFILTER TEST_CAST | FILTER _.ID EQUALS promote(@c34 AS LONG) | MAP (CAST(array(@c34, @c7, @c9, @c11, @c13, @c15, @c17, @c19, @c21, @c23) AS ARRAY(STRING)) AS _0)"
+      - result: [{['1', '2', '3', '4', '5', '6', '7', '8', '9', '10']}]
+    -
+      # Array casting: Invalid string to number conversion (should error)
+      - query: select CAST(['invalid', 'not_a_number'] AS INTEGER ARRAY) from test_cast where id = 1
+      - error: "22F3H"
+    -
+      # Array casting: Mixed valid/invalid strings (should error on first invalid)
+      - query: select CAST(['42', 'invalid'] AS INTEGER ARRAY) from test_cast where id = 1
+      - error: "22F3H"
+    -
+      - query: select CAST(num_col AS STRING) as casted_value from test_cast where id = 1
+      - explain: "SCAN(<,>) | TFILTER TEST_CAST | FILTER _.ID EQUALS promote(@c15 AS LONG) | MAP (CAST(_.NUM_COL AS STRING) AS CASTED_VALUE)"
+      - result: [{'123'}]
+    -
+      - query: select CAST(num_col AS DOUBLE) as casted_value from test_cast where id = 1
+      - explain: "SCAN(<,>) | TFILTER TEST_CAST | FILTER _.ID EQUALS promote(@c15 AS LONG) | MAP (CAST(_.NUM_COL AS DOUBLE) AS CASTED_VALUE)"
+      - result: [{123.0}]
+    -
+      - query: select CAST(bool_col AS INTEGER) as casted_value from test_cast where id = 1
+      - explain: "SCAN(<,>) | TFILTER TEST_CAST | FILTER _.ID EQUALS promote(@c15 AS LONG) | MAP (CAST(_.BOOL_COL AS INT) AS CASTED_VALUE)"
+      - result: [{1}]
+    -
+      - query: select CAST(bool_col AS INTEGER) as casted_value from test_cast where id = 2
+      - explain: "SCAN(<,>) | TFILTER TEST_CAST | FILTER _.ID EQUALS promote(@c15 AS LONG) | MAP (CAST(_.BOOL_COL AS INT) AS CASTED_VALUE)"
+      - result: [{0}]
+    -
+      - query: select CAST(str_col AS INTEGER) as casted_value from test_cast where id = 3
+      - explain: "SCAN(<,>) | TFILTER TEST_CAST | FILTER _.ID EQUALS promote(@c15 AS LONG) | MAP (CAST(_.STR_COL AS INT) AS CASTED_VALUE)"
+      - result: [{123}]
+    -
+      # Nested CAST expressions
+      - query: select CAST(CAST(CAST(num_col AS STRING) AS INTEGER) AS DOUBLE) as nested_cast from test_cast where id = 1
+      - explain: "SCAN(<,>) | TFILTER TEST_CAST | FILTER _.ID EQUALS promote(@c25 AS LONG) | MAP (CAST(CAST(CAST(_.NUM_COL AS STRING) AS INT) AS DOUBLE) AS NESTED_CAST)"
+      - result: [{123.0}]
+    -
+      # CAST with arithmetic operations
+      - query: select CAST(num_col AS DOUBLE) * 2.5 as cast_arithmetic from test_cast where id = 1
+      - explain: "SCAN(<,>) | TFILTER TEST_CAST | FILTER _.ID EQUALS promote(@c17 AS LONG) | MAP (CAST(_.NUM_COL AS DOUBLE) * @c9 AS CAST_ARITHMETIC)"
+      - result: [{307.5}]
+    -
+      # CAST in arithmetic expression
+      - query: select CAST(num_col AS BIGINT) + CAST(456 AS BIGINT) as cast_sum from test_cast where id = 1
+      - explain: "SCAN(<,>) | TFILTER TEST_CAST | FILTER _.ID EQUALS promote(@c22 AS LONG) | MAP (CAST(_.NUM_COL AS LONG) + CAST(@c11 AS LONG) AS CAST_SUM)"
+      - result: [{579}]
+    -
+      # CAST with CASE expression
+      - query: select CASE WHEN CAST(bool_col AS INTEGER) = 1 THEN 'TRUE_CASE' ELSE 'FALSE_CASE' END as cast_case from test_cast where id = 1
+      - explain: "SCAN(<,>) | TFILTER TEST_CAST | FILTER _.ID EQUALS promote(@c24 AS LONG) | MAP (pick(ConditionSelector(CAST(_.BOOL_COL AS INT) equals @c24, TRUE), @c13, @c15) AS CAST_CASE)"
+      - result: [{'TRUE_CASE'}]
+    -
+      # Multiple CAST operations in WHERE clause
+      - query: select id from test_cast where CAST(num_col AS STRING) = CAST(123 AS STRING)
+      - explain: "SCAN(<,>) | TFILTER TEST_CAST | FILTER CAST(_.NUM_COL AS STRING) EQUALS CAST(@c15 AS STRING) | MAP (_.ID AS ID)"
+      - result: [{1}]
+    -
+      # CAST with boolean arithmetic and comparison
+      - query: select id from test_cast where CAST(bool_col AS INTEGER) + 1 > 1
+      - explain: "SCAN(<,>) | TFILTER TEST_CAST | FILTER CAST(_.BOOL_COL AS INT) + @c13 GREATER_THAN promote(@c13 AS INT) | MAP (_.ID AS ID)"
+      - result: [{1}]
+    -
+      # CAST with aggregation
+      - query: select SUM(CAST(num_col AS DOUBLE)) as total from test_cast
+      - explain: "SCAN(<,>) | TFILTER TEST_CAST | MAP (_ AS _0) | AGG (sum_d(CAST(_._0.NUM_COL AS DOUBLE)) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS TOTAL)"
+      - result: [{1368.0}]
+    -
+      # LONG to INT overflow (should throw error)
+      - query: select CAST(9223372036854775807 AS INTEGER) as overflow_test from test_cast where id = 1
+      - error: "22F3H"
