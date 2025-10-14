@@ -21,7 +21,6 @@
 package com.apple.foundationdb.async.hnsw;
 
 import com.christianheina.langx.half4j.Half;
-import com.google.common.base.Suppliers;
 
 import javax.annotation.Nonnull;
 import java.util.function.Supplier;
@@ -40,7 +39,7 @@ public class HalfVector extends AbstractVector {
 
     public HalfVector(@Nonnull final double[] data) {
         super(data);
-        this.toDoubleVectorSupplier = Suppliers.memoize(this::computeDoubleVector);
+        this.toDoubleVectorSupplier = () -> new DoubleVector(data);
     }
 
     public HalfVector(@Nonnull final int[] intData) {

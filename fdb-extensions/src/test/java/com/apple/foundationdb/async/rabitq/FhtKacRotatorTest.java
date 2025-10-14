@@ -27,6 +27,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ObjectArrays;
 import com.google.common.collect.Sets;
 import org.assertj.core.api.Assertions;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -63,6 +64,20 @@ public class FhtKacRotatorTest {
         double ny = norm2(y);
         double maxErr = maxAbsDiff(x, z);
         System.out.printf("||x|| = %.6f  ||Px|| = %.6f  max|x - P^T P x|=%.3e%n", nx, ny, maxErr);
+    }
+
+    @Test
+    void testRotationIsStable() {
+        final FhtKacRotator rotator1 = new FhtKacRotator(0, 128, 10);
+        final FhtKacRotator rotator2 = new FhtKacRotator(0, 128, 10);
+        Assertions.assertThat(rotator1).isEqualTo(rotator2);
+
+        final Random random = new Random(0);
+        final Vector x = VectorTest.createRandomDoubleVector(random, 128);
+        final Vector x_ = rotator1.operate(x);
+        final Vector x__ = rotator2.operate(x);
+
+        Assertions.assertThat(x_).isEqualTo(x__);
     }
 
     @ParameterizedTest(name = "seed={0} dimensionality={1}")
