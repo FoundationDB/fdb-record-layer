@@ -86,10 +86,6 @@ public class RelationalServer implements Closeable {
     private final String clusterFile;
 
     // Visible for the test fixture only so it can pass a CollectorRegistry.
-    @VisibleForTesting
-    RelationalServer(int grpcPort, int httpPort, CollectorRegistry collectorRegistry) {
-        this(grpcPort, httpPort, collectorRegistry, null);
-    }
 
     @VisibleForTesting
     RelationalServer(int grpcPort, int httpPort, CollectorRegistry collectorRegistry, String clusterFile) {
@@ -100,7 +96,7 @@ public class RelationalServer implements Closeable {
     }
 
     public RelationalServer(int grpcPort, int httpPort) {
-        this(grpcPort, httpPort, CollectorRegistry.defaultRegistry);
+        this(grpcPort, httpPort, CollectorRegistry.defaultRegistry, null);
     }
 
     @Override
