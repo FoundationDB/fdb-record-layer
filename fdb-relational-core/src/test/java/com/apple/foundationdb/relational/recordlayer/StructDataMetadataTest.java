@@ -38,6 +38,8 @@ import java.sql.Array;
 import java.sql.SQLException;
 import java.util.Set;
 
+import static com.apple.foundationdb.relational.utils.RelationalAssertions.assertThrowsSqlException;
+
 /**
  * Tests around using Struct data types in Returned ResultSets.
  */
@@ -130,11 +132,9 @@ public class StructDataMetadataTest {
             final var actualStruct = resultSet.getStruct("ST1");
             Assertions.assertNotNull(actualStruct, "No struct found for column!");
             // Directly accessing the value throws SQLException
-            var actualException = Assertions.assertThrows(SQLException.class, () -> actualStruct.getString(100));
-            Assertions.assertTrue(actualException.getMessage().contains("Invalid column position"));
+            assertThrowsSqlException(() -> actualStruct.getString(100)).containsInMessage("Invalid column position");
             // Accessing info in metadata throws SQLException as well
-            actualException = Assertions.assertThrows(SQLException.class, () -> actualStruct.getMetaData().getColumnType(100), "foo");
-            Assertions.assertTrue(actualException.getMessage().contains("Position <100> is not valid."));
+            assertThrowsSqlException(() -> actualStruct.getMetaData().getColumnType(100)).containsInMessage("Position <100> is not valid.");
         }
     }
 
