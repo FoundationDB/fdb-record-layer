@@ -33,6 +33,7 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerInvokedRoutine;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerView;
 import com.apple.foundationdb.relational.recordlayer.query.Expression;
 import com.apple.foundationdb.relational.recordlayer.query.Expressions;
 import com.apple.foundationdb.relational.recordlayer.query.Identifier;
@@ -121,7 +122,8 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
         this.queryVisitor = QueryVisitor.of(this);
         this.metadataPlanVisitor = MetadataPlanVisitor.of(this);
         this.ddlVisitor = DdlVisitor.of(this, metadataOperationsFactory, dbUri);
-        this.semanticAnalyzer = new SemanticAnalyzer(getSchemaTemplate(), createFunctionCatalog(getSchemaTemplate()), mutablePlanGenerationContext);
+        this.semanticAnalyzer = new SemanticAnalyzer(getSchemaTemplate(), createFunctionCatalog(getSchemaTemplate()),
+                mutablePlanGenerationContext, isCaseSensitive());
         this.logicalOperatorCatalog = LogicalOperatorCatalog.newInstance();
     }
 
@@ -145,7 +147,7 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
     public RecordLayerSchemaTemplate replaceSchemaTemplate(@Nonnull RecordLayerSchemaTemplate newCatalog) {
         final var oldMetadata = metadata;
         metadata = newCatalog;
-        semanticAnalyzer = new SemanticAnalyzer(metadata, createFunctionCatalog(metadata), mutablePlanGenerationContext);
+        semanticAnalyzer = new SemanticAnalyzer(metadata, createFunctionCatalog(metadata), mutablePlanGenerationContext, isCaseSensitive());
         return oldMetadata;
     }
 
@@ -424,6 +426,11 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
     @Override
     public ProceduralPlan visitDropTempFunction(final RelationalParser.DropTempFunctionContext ctx) {
         return ddlVisitor.visitDropTempFunction(ctx);
+    }
+
+    @Override
+    public RecordLayerView visitViewDefinition(final RelationalParser.ViewDefinitionContext ctx) {
+        return ddlVisitor.visitViewDefinition(ctx);
     }
 
     @Override

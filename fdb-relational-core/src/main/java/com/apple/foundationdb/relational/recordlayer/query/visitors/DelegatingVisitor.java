@@ -28,6 +28,7 @@ import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerInvokedRoutine;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerView;
 import com.apple.foundationdb.relational.recordlayer.query.Expression;
 import com.apple.foundationdb.relational.recordlayer.query.Expressions;
 import com.apple.foundationdb.relational.recordlayer.query.Identifier;
@@ -256,6 +257,11 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
     @Override
     public ProceduralPlan visitDropTempFunction(final RelationalParser.DropTempFunctionContext ctx) {
         return getDelegate().visitDropTempFunction(ctx);
+    }
+
+    @Override
+    public RecordLayerView visitViewDefinition(final RelationalParser.ViewDefinitionContext ctx) {
+        return getDelegate().visitViewDefinition(ctx);
     }
 
     @Override

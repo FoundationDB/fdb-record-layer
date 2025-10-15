@@ -557,6 +557,262 @@ public class SchemaTemplateSerDeTests {
         }
     }
 
+    @Test
+    public void testViewCreationInSchemaTemplate() {
+        // Create a schema template with a table and a view
+        final var schemaTemplate = RecordLayerSchemaTemplate.newBuilder()
+                .setName("TestSchemaTemplate")
+                .setVersion(1)
+                .addTable(RecordLayerTable.newBuilder(false)
+                        .setName("employees")
+                        .addColumn(RecordLayerColumn.newBuilder()
+                                .setName("id")
+                                .setDataType(DataType.Primitives.LONG.type())
+                                .build())
+                        .addColumn(RecordLayerColumn.newBuilder()
+                                .setName("salary")
+                                .setDataType(DataType.Primitives.LONG.type())
+                                .build())
+                        .build())
+                .addView(RecordLayerView.newBuilder()
+                        .setName("high_salary_view")
+                        .setDescription("SELECT * FROM employees WHERE salary > 50000")
+                        .setViewCompiler(ignored -> null)  // Stub for now, view expansion not implemented
+                        .build())
+                .build();
+
+        // Verify the view was added
+        Assertions.assertEquals(1, schemaTemplate.getViews().size());
+        final var viewOpt = schemaTemplate.findViewByName("high_salary_view");
+        Assertions.assertTrue(viewOpt.isPresent());
+        Assertions.assertEquals("high_salary_view", viewOpt.get().getName());
+        Assertions.assertEquals("SELECT * FROM employees WHERE salary > 50000", viewOpt.get().getDescription());
+    }
+
+    @Test
+    public void testMultipleViewsInSchemaTemplate() {
+        // Create a schema template with multiple views
+        final var schemaTemplate = RecordLayerSchemaTemplate.newBuilder()
+                .setName("TestSchemaTemplate")
+                .setVersion(1)
+                .addTable(RecordLayerTable.newBuilder(false)
+                        .setName("employees")
+                        .addColumn(RecordLayerColumn.newBuilder()
+                                .setName("id")
+                                .setDataType(DataType.Primitives.LONG.type())
+                                .build())
+                        .build())
+                .addView(RecordLayerView.newBuilder()
+                        .setName("view1")
+                        .setDescription("SELECT * FROM employees")
+                        .setViewCompiler(ignored -> null)
+                        .build())
+                .addView(RecordLayerView.newBuilder()
+                        .setName("view2")
+                        .setDescription("SELECT id FROM employees")
+                        .setViewCompiler(ignored -> null)
+                        .build())
+                .build();
+
+        // Verify both views exist
+        Assertions.assertEquals(2, schemaTemplate.getViews().size());
+        Assertions.assertTrue(schemaTemplate.findViewByName("view1").isPresent());
+        Assertions.assertTrue(schemaTemplate.findViewByName("view2").isPresent());
+    }
+
+    @Test
+    public void testReplaceViewInSchemaTemplate() {
+        // Create initial schema template with a view
+        final var initialTemplate = RecordLayerSchemaTemplate.newBuilder()
+                .setName("TestSchemaTemplate")
+                .setVersion(1)
+                .addTable(RecordLayerTable.newBuilder(false)
+                        .setName("employees")
+                        .addColumn(RecordLayerColumn.newBuilder()
+                                .setName("id")
+                                .setDataType(DataType.Primitives.LONG.type())
+                                .build())
+                        .build())
+                .addView(RecordLayerView.newBuilder()
+                        .setName("test_view")
+                        .setDescription("SELECT * FROM employees WHERE id > 10")
+                        .setViewCompiler(ignored -> null)
+                        .build())
+                .build();
+
+        // Replace the view with a new definition
+        final var updatedTemplate = initialTemplate.toBuilder()
+                .replaceView(RecordLayerView.newBuilder()
+                        .setName("test_view")
+                        .setDescription("SELECT * FROM employees WHERE id > 100")
+                        .setViewCompiler(ignored -> null)
+                        .build())
+                .build();
+
+        // Verify the view was replaced
+        Assertions.assertEquals(1, updatedTemplate.getViews().size());
+        final var viewOpt = updatedTemplate.findViewByName("test_view");
+        Assertions.assertTrue(viewOpt.isPresent());
+        Assertions.assertEquals("SELECT * FROM employees WHERE id > 100", viewOpt.get().getDescription());
+    }
+
+    @Test
+    public void testRemoveViewFromSchemaTemplate() {
+        // Create schema template with a view
+        final var schemaTemplate = RecordLayerSchemaTemplate.newBuilder()
+                .setName("TestSchemaTemplate")
+                .setVersion(1)
+                .addTable(RecordLayerTable.newBuilder(false)
+                        .setName("employees")
+                        .addColumn(RecordLayerColumn.newBuilder()
+                                .setName("id")
+                                .setDataType(DataType.Primitives.LONG.type())
+                                .build())
+                        .build())
+                .addView(RecordLayerView.newBuilder()
+                        .setName("test_view")
+                        .setDescription("SELECT * FROM employees")
+                        .setViewCompiler(ignored -> null)
+                        .build())
+                .build();
+
+        Assertions.assertEquals(1, schemaTemplate.getViews().size());
+
+        // Remove the view
+        final var updatedTemplate = schemaTemplate.toBuilder()
+                .removeView("test_view")
+                .build();
+
+        // Verify the view was removed
+        Assertions.assertEquals(0, updatedTemplate.getViews().size());
+        Assertions.assertFalse(updatedTemplate.findViewByName("test_view").isPresent());
+    }
+
+    @Test
+    public void testViewSerializationAndDeserialization() {
+        // Create a schema template with a view
+        final var originalTemplate = RecordLayerSchemaTemplate.newBuilder()
+                .setName("TestSchemaTemplate")
+                .setVersion(42)
+                .addTable(RecordLayerTable.newBuilder(false)
+                        .setName("employees")
+                        .addColumn(RecordLayerColumn.newBuilder()
+                                .setName("id")
+                                .setDataType(DataType.Primitives.LONG.type())
+                                .build())
+                        .addColumn(RecordLayerColumn.newBuilder()
+                                .setName("name")
+                                .setDataType(DataType.Primitives.STRING.type())
+                                .build())
+                        .build())
+                .addView(RecordLayerView.newBuilder()
+                        .setName("employee_view")
+                        .setDescription("SELECT id, name FROM employees WHERE id > 100")
+                        .setViewCompiler(ignored -> null)
+                        .build())
+                .build();
+
+        // Verify the view is stored in the original template
+        Assertions.assertEquals(1, originalTemplate.getViews().size());
+        final var viewOpt = originalTemplate.findViewByName("employee_view");
+        Assertions.assertTrue(viewOpt.isPresent());
+        Assertions.assertEquals("employee_view", viewOpt.get().getName());
+        Assertions.assertEquals("SELECT id, name FROM employees WHERE id > 100", viewOpt.get().getDescription());
+
+        // Test serialization through RecordMetaData
+        final var recordMetaData = originalTemplate.toRecordMetadata();
+        final var deserializedTemplate = RecordLayerSchemaTemplate.fromRecordMetadata(
+                recordMetaData, "TestSchemaTemplate", 42);
+
+        // Verify the view was preserved through serialization
+        Assertions.assertEquals(1, deserializedTemplate.getViews().size());
+        final var deserializedViewOpt = deserializedTemplate.findViewByName("employee_view");
+        Assertions.assertTrue(deserializedViewOpt.isPresent());
+        Assertions.assertEquals("employee_view", deserializedViewOpt.get().getName());
+        Assertions.assertEquals("SELECT id, name FROM employees WHERE id > 100", deserializedViewOpt.get().getDescription());
+    }
+
+    @Test
+    public void testSchemaTemplateWithTablesAndViews() {
+        // Create a complex schema with multiple tables and views
+        final var schemaTemplate = RecordLayerSchemaTemplate.newBuilder()
+                .setName("TestSchemaTemplate")
+                .setVersion(1)
+                .addTable(RecordLayerTable.newBuilder(false)
+                        .setName("employees")
+                        .addColumn(RecordLayerColumn.newBuilder()
+                                .setName("id")
+                                .setDataType(DataType.Primitives.LONG.type())
+                                .build())
+                        .addColumn(RecordLayerColumn.newBuilder()
+                                .setName("department")
+                                .setDataType(DataType.Primitives.STRING.type())
+                                .build())
+                        .build())
+                .addTable(RecordLayerTable.newBuilder(false)
+                        .setName("departments")
+                        .addColumn(RecordLayerColumn.newBuilder()
+                                .setName("dept_id")
+                                .setDataType(DataType.Primitives.LONG.type())
+                                .build())
+                        .build())
+                .addView(RecordLayerView.newBuilder()
+                        .setName("employee_view")
+                        .setDescription("SELECT * FROM employees")
+                        .setViewCompiler(ignored -> null)
+                        .build())
+                .addView(RecordLayerView.newBuilder()
+                        .setName("department_view")
+                        .setDescription("SELECT * FROM departments")
+                        .setViewCompiler(ignored -> null)
+                        .build())
+                .build();
+
+        // Verify both tables and views exist
+        Assertions.assertEquals(2, schemaTemplate.getTables().size());
+        Assertions.assertEquals(2, schemaTemplate.getViews().size());
+        Assertions.assertTrue(schemaTemplate.findTableByName("employees").isPresent());
+        Assertions.assertTrue(schemaTemplate.findTableByName("departments").isPresent());
+        Assertions.assertTrue(schemaTemplate.findViewByName("employee_view").isPresent());
+        Assertions.assertTrue(schemaTemplate.findViewByName("department_view").isPresent());
+    }
+
+    @Test
+    public void testViewBuilderToBuilder() {
+        // Create a view and convert to builder and back
+        final var originalView = RecordLayerView.newBuilder()
+                .setName("test_view")
+                .setDescription("SELECT * FROM employees")
+                .setViewCompiler(ignored -> null)
+                .build();
+
+        // Convert to builder and back
+        final var rebuiltView = originalView.toBuilder().build();
+
+        // Verify all properties are preserved
+        Assertions.assertEquals(originalView.getName(), rebuiltView.getName());
+        Assertions.assertEquals(originalView.getDescription(), rebuiltView.getDescription());
+    }
+
+    @Test
+    public void testFindViewByNameReturnsEmpty() {
+        final var schemaTemplate = RecordLayerSchemaTemplate.newBuilder()
+                .setName("TestSchemaTemplate")
+                .setVersion(1)
+                .addTable(RecordLayerTable.newBuilder(false)
+                        .setName("employees")
+                        .addColumn(RecordLayerColumn.newBuilder()
+                                .setName("id")
+                                .setDataType(DataType.Primitives.LONG.type())
+                                .build())
+                        .build())
+                .build();
+
+        // Verify that finding a non-existent view returns empty
+        final var viewOpt = schemaTemplate.findViewByName("non_existent_view");
+        Assertions.assertFalse(viewOpt.isPresent());
+    }
+
     private static final class RecordMetadataDeserializerWithPeekingFunctionSupplier extends RecordMetadataDeserializer {
 
         @Nonnull

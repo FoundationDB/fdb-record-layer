@@ -195,6 +195,7 @@ message MetaData {
   repeated JoinedRecordType joined_record_types = 12;
   repeated UnnestedRecordType unnested_record_types = 13;
   repeated PUserDefinedFunction user_defined_functions = 14;
+  repeated PView views = 15;
   extensions 1000 to 2000;
 }
 
@@ -203,6 +204,17 @@ message PUserDefinedFunction {
     com.apple.foundationdb.record.planprotos.PMacroFunctionValue macro_function = 1;
     PRawSqlFunction sql_function = 2;
   }
+}
+
+message PView {
+  oneof specific_view {
+    PRawView raw_view = 1;
+  }
+}
+
+message PRawView {
+  optional string name = 1;
+  optional string definition = 2;
 }
 
 message JoinedRecordType {

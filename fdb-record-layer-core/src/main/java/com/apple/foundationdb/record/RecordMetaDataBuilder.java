@@ -42,6 +42,7 @@ import com.apple.foundationdb.record.metadata.expressions.LiteralKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerRegistry;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactoryRegistryImpl;
 import com.apple.foundationdb.record.provider.foundationdb.MetaDataProtoEditor;
+import com.apple.foundationdb.record.query.plan.cascades.RawView;
 import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
@@ -115,6 +116,8 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
     @Nonnull
     private final Map<String, UserDefinedFunction> userDefinedFunctionMap;
     @Nonnull
+    private final Map<String, RawView> viewMap;
+    @Nonnull
     private final Map<String, Index> indexes;
     @Nonnull
     private final Map<String, Index> universalIndexes;
@@ -150,6 +153,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         evolutionValidator = MetaDataEvolutionValidator.getDefaultInstance();
         syntheticRecordTypes = new HashMap<>();
         userDefinedFunctionMap = new HashMap<>();
+        viewMap = new HashMap<>();
     }
 
     private void processSchemaOptions(boolean processExtensionOptions) {
@@ -233,6 +237,12 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
                     new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE,
                             PlanHashable.CURRENT_FOR_CONTINUATION), function);
             userDefinedFunctionMap.put(func.getFunctionName(), func);
+        }
+        for (RecordMetaDataProto.PView viewProto: metaDataProto.getViewsList()) {
+            final RawView rawView = (RawView)PlanSerialization.dispatchFromProtoContainer(
+                    new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE,
+                            PlanHashable.CURRENT_FOR_CONTINUATION), viewProto);
+            viewMap.put(rawView.getName(), rawView);
         }
         if (metaDataProto.hasSplitLongRecords()) {
             splitLongRecords = metaDataProto.getSplitLongRecords();
@@ -1207,6 +1217,14 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         functions.forEach(this::addUserDefinedFunction);
     }
 
+    public void addUserDefinedView(@Nonnull RawView rawView) {
+        viewMap.put(rawView.getName(), rawView);
+    }
+
+    public void addUserDefinedViews(@Nonnull Iterable<? extends RawView> views) {
+        views.forEach(this::addUserDefinedView);
+    }
+
     public boolean isSplitLongRecords() {
         return splitLongRecords;
     }
@@ -1448,7 +1466,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         Map<Object, SyntheticRecordType<?>> recordTypeKeyToSyntheticRecordTypeMap = Maps.newHashMapWithExpectedSize(syntheticRecordTypes.size());
         RecordMetaData metaData = new RecordMetaData(recordsDescriptor, getUnionDescriptor(), unionFields,
                 builtRecordTypes, builtSyntheticRecordTypes, recordTypeKeyToSyntheticRecordTypeMap,
-                indexes, universalIndexes, formerIndexes, userDefinedFunctionMap,
+                indexes, universalIndexes, formerIndexes, userDefinedFunctionMap, viewMap,
                 splitLongRecords, storeRecordVersions, version, subspaceKeyCounter, usesSubspaceKeyCounter, recordCountKey, localFileDescriptor != null);
         for (RecordTypeBuilder recordTypeBuilder : recordTypes.values()) {
             KeyExpression primaryKey = recordTypeBuilder.getPrimaryKey();
