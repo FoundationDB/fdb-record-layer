@@ -18,7 +18,7 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.async.hnsw;
+package com.apple.foundationdb.linear;
 
 import javax.annotation.Nonnull;
 
@@ -115,7 +115,7 @@ public enum Metrics {
      * @throws IllegalArgumentException if the vectors have different lengths.
      * @throws NullPointerException if either {@code vector1} or {@code vector2} is null.
      */
-    public double distance(@Nonnull Vector vector1, @Nonnull Vector vector2) {
+    public double distance(@Nonnull RealVector vector1, @Nonnull RealVector vector2) {
         return metric.distance(vector1, vector2);
     }
 
@@ -125,7 +125,7 @@ public enum Metrics {
      * by this method do not need to follow proper metric invariants: The distance can be negative; the distance
      * does not need to follow triangle inequality.
      * <p>
-     * This method is an alias for {@link #distance(Vector, Vector)} under normal circumstances. It is not for e.g.
+     * This method is an alias for {@link #distance(RealVector, RealVector)} under normal circumstances. It is not for e.g.
      * {@link Metric.DotProductMetric} where the distance is the negative dot product.
      *
      * @param vector1 the first vector, represented as an array of {@code double}.
@@ -133,7 +133,7 @@ public enum Metrics {
      *
      * @return the distance between the two vectors.
      */
-    public double comparativeDistance(@Nonnull Vector vector1, @Nonnull Vector vector2) {
+    public double comparativeDistance(@Nonnull RealVector vector1, @Nonnull RealVector vector2) {
         return metric.comparativeDistance(vector1, vector2);
     }
 }

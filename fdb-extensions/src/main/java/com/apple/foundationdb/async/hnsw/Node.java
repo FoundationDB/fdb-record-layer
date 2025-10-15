@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.async.hnsw;
 
+import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.tuple.Tuple;
 
 import javax.annotation.Nonnull;
@@ -59,7 +60,7 @@ public interface Node<N extends NodeReference> {
      * method calls.
      */
     @Nonnull
-    N getSelfReference(@Nullable Vector vector);
+    N getSelfReference(@Nullable RealVector vector);
 
     /**
      * Gets the list of neighboring nodes.

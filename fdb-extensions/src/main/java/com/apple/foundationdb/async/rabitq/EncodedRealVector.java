@@ -1,5 +1,5 @@
 /*
- * EncodedVector.java
+ * EncodedRealVector.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -20,11 +20,11 @@
 
 package com.apple.foundationdb.async.rabitq;
 
-import com.apple.foundationdb.async.hnsw.DoubleVector;
+import com.apple.foundationdb.linear.DoubleRealVector;
 import com.apple.foundationdb.async.hnsw.EncodingHelpers;
-import com.apple.foundationdb.async.hnsw.HalfVector;
-import com.apple.foundationdb.async.hnsw.Vector;
-import com.apple.foundationdb.async.hnsw.VectorType;
+import com.apple.foundationdb.linear.HalfRealVector;
+import com.apple.foundationdb.linear.RealVector;
+import com.apple.foundationdb.linear.VectorType;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 
@@ -33,7 +33,7 @@ import java.util.Arrays;
 import java.util.function.Supplier;
 
 @SuppressWarnings("checkstyle:MemberName")
-public class EncodedVector implements Vector {
+public class EncodedRealVector implements RealVector {
     private static final double EPS0 = 1.9d;
 
     @Nonnull
@@ -47,8 +47,8 @@ public class EncodedVector implements Vector {
     private final Supplier<double[]> dataSupplier;
     private final Supplier<byte[]> rawDataSupplier;
 
-    public EncodedVector(final int numExBits, @Nonnull final int[] encoded, final double fAddEx, final double fRescaleEx,
-                         final double fErrorEx) {
+    public EncodedRealVector(final int numExBits, @Nonnull final int[] encoded, final double fAddEx, final double fRescaleEx,
+                             final double fErrorEx) {
         this.encoded = encoded;
         this.fAddEx = fAddEx;
         this.fRescaleEx = fRescaleEx;
@@ -78,11 +78,11 @@ public class EncodedVector implements Vector {
 
     @Override
     public final boolean equals(final Object o) {
-        if (!(o instanceof EncodedVector)) {
+        if (!(o instanceof EncodedRealVector)) {
             return false;
         }
 
-        final EncodedVector that = (EncodedVector)o;
+        final EncodedRealVector that = (EncodedRealVector)o;
         return Double.compare(fAddEx, that.fAddEx) == 0 &&
                 Double.compare(fRescaleEx, that.fRescaleEx) == 0 &&
                 Double.compare(fErrorEx, that.fErrorEx) == 0 &&
@@ -125,16 +125,16 @@ public class EncodedVector implements Vector {
 
     @Nonnull
     @Override
-    public Vector withData(@Nonnull final double[] data) {
+    public RealVector withData(@Nonnull final double[] data) {
         // we explicitly make this a normal double vector instead of an encoded vector
-        return new DoubleVector(data);
+        return new DoubleRealVector(data);
     }
 
     @Nonnull
     public double[] computeData(final int numExBits) {
         final int numDimensions = getNumDimensions();
         final double cB = (1 << numExBits) - 0.5;
-        final Vector z = new DoubleVector(encoded).subtract(cB);
+        final RealVector z = new DoubleRealVector(encoded).subtract(cB);
         final double normZ = z.l2Norm();
 
         // Solve for rho and Δx from fErrorEx and fRescaleEx
@@ -204,23 +204,23 @@ public class EncodedVector implements Vector {
 
     @Nonnull
     @Override
-    public HalfVector toHalfVector() {
-        return new HalfVector(getData());
+    public HalfRealVector toHalfRealVector() {
+        return new HalfRealVector(getData());
     }
 
     @Nonnull
     @Override
-    public DoubleVector toDoubleVector() {
-        return new DoubleVector(getData());
+    public DoubleRealVector toDoubleRealVector() {
+        return new DoubleRealVector(getData());
     }
 
     @Nonnull
-    public static EncodedVector fromBytes(@Nonnull byte[] bytes, int offset, int numDimensions, int numExBits) {
+    public static EncodedRealVector fromBytes(@Nonnull byte[] bytes, int offset, int numDimensions, int numExBits) {
         final double fAddEx = Double.longBitsToDouble(EncodingHelpers.longFromBytes(bytes, offset));
         final double fRescaleEx = Double.longBitsToDouble(EncodingHelpers.longFromBytes(bytes, offset + 8));
         final double fErrorEx = Double.longBitsToDouble(EncodingHelpers.longFromBytes(bytes, offset + 16));
         final int[] components = unpackComponents(bytes, offset + 24, numDimensions, numExBits);
-        return new EncodedVector(numExBits, components, fAddEx, fRescaleEx, fErrorEx);
+        return new EncodedRealVector(numExBits, components, fAddEx, fRescaleEx, fErrorEx);
     }
 
     @Nonnull

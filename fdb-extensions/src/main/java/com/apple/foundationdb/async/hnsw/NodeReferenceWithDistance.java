@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.async.hnsw;
 
+import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.tuple.Tuple;
 
 import javax.annotation.Nonnull;
@@ -44,7 +45,7 @@ public class NodeReferenceWithDistance extends NodeReferenceWithVector {
      * @param vector the vector associated with the referenced node. Must not be null.
      * @param distance the calculated distance of this node reference to some query vector or similar.
      */
-    public NodeReferenceWithDistance(@Nonnull final Tuple primaryKey, @Nonnull final Vector vector,
+    public NodeReferenceWithDistance(@Nonnull final Tuple primaryKey, @Nonnull final RealVector vector,
                                      final double distance) {
         super(primaryKey, vector);
         this.distance = distance;
