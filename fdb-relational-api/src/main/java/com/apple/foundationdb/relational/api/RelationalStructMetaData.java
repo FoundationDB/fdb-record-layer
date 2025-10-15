@@ -165,7 +165,7 @@ public class RelationalStructMetaData implements StructMetaData {
         try {
             int adjustedColPosition = leadingPhantomColumnOffset + (oneBasedColumn - 1);
             return type.getFields().get(adjustedColPosition);
-        } catch (ArrayIndexOutOfBoundsException aie) {
+        } catch (IndexOutOfBoundsException exception) {
             throw new InvalidColumnReferenceException("Position <" + oneBasedColumn + "> is not valid. Struct has " + getColumnCount() + " columns")
                     .toSqlException();
         }
