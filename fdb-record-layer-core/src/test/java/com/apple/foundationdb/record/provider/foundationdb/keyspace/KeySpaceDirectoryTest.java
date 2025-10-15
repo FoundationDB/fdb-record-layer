@@ -1500,7 +1500,7 @@ public class KeySpaceDirectoryTest {
      * we'll want to look at other solutions, such as ignoring the hierarchy, or something more tricky.
      */
     @Test
-    public void testKeySpaceDirectoryEqualsUsesReferenceEquality() {
+    void testKeySpaceDirectoryEqualsUsesReferenceEquality() {
         // Create two directories with identical properties
         KeySpaceDirectory dir1 = new KeySpaceDirectory("test", KeyType.STRING, "value");
         KeySpaceDirectory dir2 = new KeySpaceDirectory("test", KeyType.STRING, "value");
@@ -1521,7 +1521,7 @@ public class KeySpaceDirectoryTest {
     }
 
     @Test
-    public void testKeySpaceDirectoryHashCodeFollowsReferenceSemantics() {
+    void testKeySpaceDirectoryHashCodeFollowsReferenceSemantics() {
         // Create two directories with identical properties
         KeySpaceDirectory dir1 = new KeySpaceDirectory("test", KeyType.STRING, "value");
         KeySpaceDirectory dir2 = new KeySpaceDirectory("test", KeyType.STRING, "value");
