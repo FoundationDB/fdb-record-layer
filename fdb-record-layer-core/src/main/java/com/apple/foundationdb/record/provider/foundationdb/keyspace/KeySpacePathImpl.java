@@ -276,9 +276,9 @@ class KeySpacePathImpl implements KeySpacePath {
         }
         KeySpacePath that = (KeySpacePath) obj;
 
-        // We don't care whether the two objects exist in the same hierarchy, we validate the relevant bits by comparing
-        // parents.
-        boolean directoriesEqual = this.getDirectory().equalsIgnoringHierarchy(that.getDirectory());
+        // Directories use reference equality, because the expected usage is that they go into a
+        // singleton KeySpace.
+        boolean directoriesEqual = this.getDirectory().equals(that.getDirectory());
 
         // the values might be byte[]
         return directoriesEqual &&
@@ -289,8 +289,7 @@ class KeySpacePathImpl implements KeySpacePath {
     @Override
     public int hashCode() {
         return Objects.hash(
-                getDirectory().getKeyType(),
-                getDirectory().getName(),
+                getDirectory(),
                 KeySpaceDirectory.valueHashCode(getValue()),
                 parent);
     }

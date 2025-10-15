@@ -48,9 +48,6 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.FieldSource;
-import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -71,7 +68,6 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.TestHelpers.assertThrows;
 import static com.apple.foundationdb.record.TestHelpers.eventually;
@@ -1227,131 +1223,8 @@ public class KeySpaceDirectoryTest {
         assertEquals(directoryEntries.size(), idx);
     }
 
-    static Stream<Arguments> testEqualsIgnoringHierarchyWithVariousTypes() {
-        // Basic type equality tests
-        KeySpaceDirectory stringDir1 = new KeySpaceDirectory("dir", KeyType.STRING, "hello");
-        KeySpaceDirectory stringDir2 = new KeySpaceDirectory("dir", KeyType.STRING, "hello");
-        KeySpaceDirectory stringDir3 = new KeySpaceDirectory("dir", KeyType.STRING, "goodbye");
-        KeySpaceDirectory stringDir4 = new KeySpaceDirectory("different_name", KeyType.STRING, "hello");
-
-        KeySpaceDirectory longDir1 = new KeySpaceDirectory("dir", KeyType.LONG, 42L);
-        KeySpaceDirectory longDir2 = new KeySpaceDirectory("dir", KeyType.LONG, 42L);
-        KeySpaceDirectory longDir3 = new KeySpaceDirectory("dir", KeyType.LONG, 100L);
-        KeySpaceDirectory longDirAsString = new KeySpaceDirectory("dir", KeyType.STRING, "42");
-
-        // bytes is, important here because testEqualsIgnoringHierarchyWithAllKeyTypes could pass if calling
-        // .equals on the two values, but this one would not.
-        KeySpaceDirectory bytesDir1 = new KeySpaceDirectory("dir", KeyType.BYTES, new byte[] { 0x01, 0x02 });
-        KeySpaceDirectory bytesDir2 = new KeySpaceDirectory("dir", KeyType.BYTES, new byte[] { 0x01, 0x02 });
-        KeySpaceDirectory bytesDir3 = new KeySpaceDirectory("dir", KeyType.BYTES, new byte[] { 0x05, 0x06 });
-
-        // Wrapper tests
-        Function<KeySpacePath, KeySpacePath> wrapper1 = TestWrapper1::new;
-        Function<KeySpacePath, KeySpacePath> wrapper2 = TestWrapper2::new;
-        KeySpaceDirectory dirWithWrapper1 = new KeySpaceDirectory("test", KeyType.STRING, "value", wrapper1);
-        KeySpaceDirectory dirWithWrapper2 = new KeySpaceDirectory("test", KeyType.STRING, "value", wrapper2);
-        KeySpaceDirectory dirWithoutWrapper = new KeySpaceDirectory("test", KeyType.STRING, "value", null);
-
-        // ANY_VALUE tests
-        KeySpaceDirectory anyValueDir1 = new KeySpaceDirectory("test", KeyType.STRING);
-        KeySpaceDirectory anyValueDir2 = new KeySpaceDirectory("test", KeyType.STRING);
-        KeySpaceDirectory specificValueDir = new KeySpaceDirectory("test", KeyType.STRING, "specificValue");
-
-        return Stream.of(
-                // Basic equality/inequality
-                Arguments.of(stringDir1, stringDir2, true),
-                Arguments.of(stringDir1, stringDir3, false),
-                Arguments.of(stringDir4, stringDir1, false),
-                Arguments.of(longDir1, longDir2, true),
-                Arguments.of(longDir1, longDir3, false),
-                Arguments.of(longDir1, longDirAsString, false),
-                Arguments.of(bytesDir1, bytesDir2, true),
-                Arguments.of(bytesDir1, bytesDir3, false),
-                Arguments.of(stringDir1, longDir1, false),
-
-                // Wrapper tests - different wrappers should be equal
-                Arguments.of(dirWithWrapper1, dirWithWrapper2, true),
-                Arguments.of(dirWithWrapper1, dirWithoutWrapper, true),
-                Arguments.of(dirWithWrapper2, dirWithoutWrapper, true),
-
-                // ANY_VALUE tests
-                Arguments.of(anyValueDir1, anyValueDir2, true),
-                Arguments.of(anyValueDir1, specificValueDir, false)
-        );
-    }
-
-    @ParameterizedTest
-    @MethodSource("testEqualsIgnoringHierarchyWithVariousTypes")
-    void testEqualsIgnoringHierarchyWithVariousTypes(KeySpaceDirectory dir1, KeySpaceDirectory dir2, boolean shouldBeEqual) {
-        if (shouldBeEqual) {
-            assertTrue(dir1.equalsIgnoringHierarchy(dir2), "Directories should be equal for " + dir1.getKeyType());
-            assertTrue(dir2.equalsIgnoringHierarchy(dir1), "Directories should be equal for " + dir2.getKeyType() + " (reversed)");
-        } else {
-            assertFalse(dir1.equalsIgnoringHierarchy(dir2), "Directories should not be equal");
-            assertFalse(dir2.equalsIgnoringHierarchy(dir1), "Directories should not be equal (reversed)");
-        }
-        assertTrue(dir1.equalsIgnoringHierarchy(dir1), "Directories should always equal themselves");
-        assertTrue(dir2.equalsIgnoringHierarchy(dir2), "Directories should always equal themselves");
-        assertFalse(dir1.equalsIgnoringHierarchy(null), "Directory should not equal null");
-        assertFalse(dir1.equalsIgnoringHierarchy(dir1.value), "Directory should not equal other classes");
-    }
-
-    @Test
-    void testEqualsIgnoringHierarchyWithSubdirectories() {
-        KeySpaceDirectory parent1 = new KeySpaceDirectory("parent", KeyType.STRING, "test");
-        KeySpaceDirectory parent2 = new KeySpaceDirectory("parent", KeyType.STRING, "test");
-
-        KeySpaceDirectory child1 = new KeySpaceDirectory("child", KeyType.LONG);
-        KeySpaceDirectory child2 = new KeySpaceDirectory("child", KeyType.LONG);
-
-        parent1.addSubdirectory(child1);
-        parent2.addSubdirectory(child2);
-
-        assertTrue(parent1.equalsIgnoringHierarchy(parent2), "Parents with equivalent subdirectories should be equal when ignoring hierarchy");
-        assertTrue(child1.equalsIgnoringHierarchy(child2), "Children should be equal when ignoring hierarchy");
-
-        KeySpaceDirectory parent3 = new KeySpaceDirectory("parent", KeyType.STRING, "test");
-        KeySpaceDirectory child3 = new KeySpaceDirectory("child", KeyType.STRING);
-        parent3.addSubdirectory(child3);
-
-        assertTrue(parent1.equalsIgnoringHierarchy(parent3), "Parents should be equal when ignoring subdirectories");
-    }
-
-    @Test
-    void testEqualsIgnoringHierarchyWithParentRelationship() {
-        KeySpaceDirectory root1 = new KeySpaceDirectory("root", KeyType.STRING, "test");
-        KeySpaceDirectory root2 = new KeySpaceDirectory("root", KeyType.STRING, "test");
-
-        KeySpaceDirectory child1 = new KeySpaceDirectory("child", KeyType.LONG);
-        KeySpaceDirectory child2 = new KeySpaceDirectory("child", KeyType.LONG);
-
-        root1.addSubdirectory(child1);
-        root2.addSubdirectory(child2);
-
-        assertTrue(child1.equalsIgnoringHierarchy(child2), "Children with different parents should be equal when ignoring hierarchy");
-    }
-
-    @ParameterizedTest
-    @FieldSource("valueOfEveryType")
-    void testEqualsIgnoringHierarchyWithAllKeyTypes(KeyTypeValue keyTypeValue) {
-        KeySpaceDirectory dir1 = new KeySpaceDirectory("dir", keyTypeValue.keyType, keyTypeValue.value);
-        KeySpaceDirectory dir2 = new KeySpaceDirectory("dir", keyTypeValue.keyType, keyTypeValue.value);
-
-        assertTrue(dir1.equalsIgnoringHierarchy(dir2), "Directories should be equal");
-        if (keyTypeValue.keyType != KeyType.NULL) {
-            assertFalse(dir1.equalsIgnoringHierarchy(new KeySpaceDirectory("dir", keyTypeValue.keyType, keyTypeValue.value2)),
-                    "Directories should not be equal");
-        }
-    }
-
     private static class TestWrapper1 extends KeySpacePathWrapper {
         public TestWrapper1(KeySpacePath inner) {
-            super(inner);
-        }
-    }
-
-    private static class TestWrapper2 extends KeySpacePathWrapper {
-        public TestWrapper2(KeySpacePath inner) {
             super(inner);
         }
     }
@@ -1617,6 +1490,65 @@ public class KeySpaceDirectoryTest {
         assertNotSame(p1, sameAsP1, "the paths are not equal by reference");
         assertEquals(p1, sameAsP1, "they are equal by value");
         assertEquals(p1.hashCode(), sameAsP1.hashCode(), "they have the same hash code");
+    }
+
+    /**
+     * {@code KeySpaceDirectory}s are supposed to be inserted into a singleton {@link KeySpace}, thus we can use
+     * reference equality to do comparisons. This is particularly important for the efficiency of
+     * {@link KeySpacePathImpl#equals(Object)}, because we don't want it to have to re-compare all of the children of the
+     * directory as you go up through the parents. If using reference equality turns out to be problematic,
+     * we'll want to look at other solutions, such as ignoring the hierarchy, or something more tricky.
+     */
+    @Test
+    public void testKeySpaceDirectoryEqualsUsesReferenceEquality() {
+        // Create two directories with identical properties
+        KeySpaceDirectory dir1 = new KeySpaceDirectory("test", KeyType.STRING, "value");
+        KeySpaceDirectory dir2 = new KeySpaceDirectory("test", KeyType.STRING, "value");
+
+        // KeySpaceDirectory.equals should use reference equality
+        assertEquals(dir1, dir1, "Directory should equal itself");
+        assertNotEquals(dir1, dir2, "Directories with same properties should not be equal (reference equality)");
+
+        // Test with different properties
+        KeySpaceDirectory dir3 = new KeySpaceDirectory("different", KeyType.LONG, 42L);
+        assertNotEquals(dir1, dir3, "Directories with different properties should not be equal");
+
+        // Test with null
+        assertNotEquals(dir1, null, "Directory should not equal null, and calling with null shouldn't error");
+
+        // Test with different object type
+        assertNotEquals(dir1, "not a directory", "Directory should not equal a different type");
+    }
+
+    @Test
+    public void testKeySpaceDirectoryHashCodeFollowsReferenceSemantics() {
+        // Create two directories with identical properties
+        KeySpaceDirectory dir1 = new KeySpaceDirectory("test", KeyType.STRING, "value");
+        KeySpaceDirectory dir2 = new KeySpaceDirectory("test", KeyType.STRING, "value");
+
+        // Since equals uses reference equality, hashCode should be consistent with that
+        // (i.e., objects that are equal should have the same hashCode, but since these
+        // objects are not equal by reference, their hashCodes may differ)
+
+        // The same object should always have the same hashCode
+        int hashCode1 = dir1.hashCode();
+        assertEquals(hashCode1, dir1.hashCode(), "Same object should produce same hashCode");
+
+        // Different instances (even with same properties) may have different hashCodes
+        // We can't assert they're different, but we can verify the hashCode is stable
+        int hashCode2 = dir2.hashCode();
+        assertEquals(hashCode2, dir2.hashCode(), "Same object should produce same hashCode");
+
+        // Test that hashCode is consistent across multiple calls
+        for (int i = 0; i < 10; i++) {
+            assertEquals(hashCode1, dir1.hashCode(), "hashCode should be stable across calls");
+            assertEquals(hashCode2, dir2.hashCode(), "hashCode should be stable across calls");
+        }
+        // two difference references may have the same hash code, but eventually we should find a different one, even
+        // though all properties are the same
+        for (int i = 0; i < 100; i++) {
+            assertNotEquals(hashCode1, new KeySpaceDirectory("test", KeyType.STRING, "value").hashCode());
+        }
     }
 
     private List<Long> resolveBatch(FDBRecordContext context, String... names) {

@@ -930,27 +930,6 @@ public class KeySpaceDirectory {
         }
     }
 
-    /**
-     * Compares two KeySpaceDirectory objects for equality based on their intrinsic properties,
-     * ignoring their position in the directory hierarchy (parent, subdirectories) and wrapper functions.
-     *
-     * @param other the other KeySpaceDirectory to compare with
-     * @return true if the directories have the same name, keyType, and value; false otherwise
-     */
-    @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public boolean equalsIgnoringHierarchy(@Nullable Object other) {
-        if (this == other) {
-            return true;
-        }
-        if (other == null || getClass() != other.getClass()) {
-            return false;
-        }
-        KeySpaceDirectory that = (KeySpaceDirectory) other;
-        return Objects.equals(name, that.name) &&
-                Objects.equals(keyType, that.keyType) &&
-                areEqual(value, that.value);
-    }
-
     private static class AnyValue {
         private AnyValue() {
         }
