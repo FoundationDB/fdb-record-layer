@@ -1,5 +1,5 @@
 /*
- * VectorTest.java
+ * RealVectorTest.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -21,6 +21,9 @@
 package com.apple.foundationdb.async.hnsw;
 
 import com.apple.foundationdb.half.Half;
+import com.apple.foundationdb.linear.DoubleRealVector;
+import com.apple.foundationdb.linear.HalfRealVector;
+import com.apple.foundationdb.linear.RealVector;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -30,7 +33,7 @@ import java.util.Random;
 import java.util.stream.LongStream;
 import java.util.stream.Stream;
 
-public class VectorTest {
+public class RealVectorTest {
     private static Stream<Long> randomSeeds() {
         return LongStream.generate(() -> new Random().nextLong())
                 .limit(5)
@@ -42,10 +45,10 @@ public class VectorTest {
     void testSerializationDeserializationHalfVector(final long seed) {
         final Random random = new Random(seed);
         final int numDimensions = 128;
-        final HalfVector randomVector = createRandomHalfVector(random, numDimensions);
-        final Vector deserializedVector =
+        final HalfRealVector randomVector = createRandomHalfVector(random, numDimensions);
+        final RealVector deserializedVector =
                 StorageAdapter.vectorFromBytes(HNSW.DEFAULT_CONFIG_BUILDER.build(numDimensions), randomVector.getRawData());
-        Assertions.assertThat(deserializedVector).isInstanceOf(HalfVector.class);
+        Assertions.assertThat(deserializedVector).isInstanceOf(HalfRealVector.class);
         Assertions.assertThat(deserializedVector).isEqualTo(randomVector);
     }
 
@@ -54,28 +57,28 @@ public class VectorTest {
     void testSerializationDeserializationDoubleVector(final long seed) {
         final Random random = new Random(seed);
         final int numDimensions = 128;
-        final DoubleVector randomVector = createRandomDoubleVector(random, numDimensions);
-        final Vector deserializedVector =
+        final DoubleRealVector randomVector = createRandomDoubleVector(random, numDimensions);
+        final RealVector deserializedVector =
                 StorageAdapter.vectorFromBytes(HNSW.DEFAULT_CONFIG_BUILDER.build(numDimensions), randomVector.getRawData());
-        Assertions.assertThat(deserializedVector).isInstanceOf(DoubleVector.class);
+        Assertions.assertThat(deserializedVector).isInstanceOf(DoubleRealVector.class);
         Assertions.assertThat(deserializedVector).isEqualTo(randomVector);
     }
 
     @Nonnull
-    static HalfVector createRandomHalfVector(@Nonnull final Random random, final int dimensionality) {
+    static HalfRealVector createRandomHalfVector(@Nonnull final Random random, final int dimensionality) {
         final Half[] components = new Half[dimensionality];
         for (int d = 0; d < dimensionality; d ++) {
             components[d] = HNSWHelpers.halfValueOf(random.nextDouble());
         }
-        return new HalfVector(components);
+        return new HalfRealVector(components);
     }
 
     @Nonnull
-    public static DoubleVector createRandomDoubleVector(@Nonnull final Random random, final int dimensionality) {
+    public static DoubleRealVector createRandomDoubleVector(@Nonnull final Random random, final int dimensionality) {
         final double[] components = new double[dimensionality];
         for (int d = 0; d < dimensionality; d ++) {
             components[d] = random.nextDouble();
         }
-        return new DoubleVector(components);
+        return new DoubleRealVector(components);
     }
 }

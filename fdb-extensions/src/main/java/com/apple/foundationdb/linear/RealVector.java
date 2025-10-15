@@ -1,9 +1,9 @@
 /*
- * Vector.java
+ * RealVector.java
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2023 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.async.hnsw;
+package com.apple.foundationdb.linear;
 
 import com.google.common.base.Preconditions;
 import com.apple.foundationdb.half.Half;
@@ -33,7 +33,7 @@ import javax.annotation.Nonnull;
  * component access, equality checks, and conversions. Concrete implementations must provide specific logic for
  * data type conversions and raw data representation.
  */
-public interface Vector {
+public interface RealVector {
     /**
      * Returns the number of elements in the vector, i.e. the number of dimensions.
      * @return the number of dimensions
@@ -64,7 +64,7 @@ public interface Vector {
     double[] getData();
 
     @Nonnull
-    Vector withData(@Nonnull double[] data);
+    RealVector withData(@Nonnull double[] data);
 
     /**
      * Gets the raw byte data representation of this object.
@@ -77,30 +77,30 @@ public interface Vector {
     byte[] getRawData();
 
     /**
-     * Converts this object into a {@code Vector} of {@link Half} precision floating-point numbers.
+     * Converts this object into a {@code RealVector} of {@link Half} precision floating-point numbers.
      * <p>
      * As this is an abstract method, implementing classes are responsible for defining the specific conversion logic
-     * from their internal representation to a {@code Vector} of {@link Half} objects. If this object already is a
-     * {@code HalfVector} this method should return {@code this}.
-     * @return a non-null {@link Vector} containing the {@link Half} precision floating-point representation of this
-     *         object.
+     * from their internal representation to a {@code RealVector} using {@link Half} objects to serialize and
+     * deserialize the vector. If this object already is a {@code HalfRealVector} this method should return {@code this}.
+     * @return a non-null {@link HalfRealVector} containing the {@link Half} precision floating-point representation of
+     *         this object.
      */
     @Nonnull
-    HalfVector toHalfVector();
+    HalfRealVector toHalfRealVector();
 
     /**
-     * Converts this vector into a {@link DoubleVector}.
+     * Converts this vector into a {@link DoubleRealVector}.
      * <p>
      * This method provides a way to obtain a double-precision floating-point representation of the vector. If the
-     * vector is already an instance of {@code DoubleVector}, this method may return the instance itself. Otherwise,
-     * it will create a new {@code DoubleVector} containing the same elements, which may involve a conversion of the
+     * vector is already an instance of {@code DoubleRealVector}, this method may return the instance itself. Otherwise,
+     * it will create a new {@code DoubleRealVector} containing the same elements, which may involve a conversion of the
      * underlying data type.
-     * @return a non-null {@link DoubleVector} representation of this vector.
+     * @return a non-null {@link DoubleRealVector} representation of this vector.
      */
     @Nonnull
-    DoubleVector toDoubleVector();
+    DoubleRealVector toDoubleRealVector();
 
-    default double dot(@Nonnull final Vector other) {
+    default double dot(@Nonnull final RealVector other) {
         Preconditions.checkArgument(getNumDimensions() == other.getNumDimensions());
         double sum = 0.0d;
         for (int i = 0; i < getNumDimensions(); i ++) {
@@ -114,7 +114,7 @@ public interface Vector {
     }
 
     @Nonnull
-    default Vector normalize() {
+    default RealVector normalize() {
         double n = l2Norm();
         final int numDimensions = getNumDimensions();
         double[] y = new double[numDimensions];
@@ -129,7 +129,7 @@ public interface Vector {
     }
 
     @Nonnull
-    default Vector add(@Nonnull final Vector other) {
+    default RealVector add(@Nonnull final RealVector other) {
         Preconditions.checkArgument(getNumDimensions() == other.getNumDimensions());
         final double[] result = new double[getNumDimensions()];
         for (int i = 0; i < getNumDimensions(); i ++) {
@@ -139,7 +139,7 @@ public interface Vector {
     }
 
     @Nonnull
-    default Vector add(final double scalar) {
+    default RealVector add(final double scalar) {
         final double[] result = new double[getNumDimensions()];
         for (int i = 0; i < getNumDimensions(); i ++) {
             result[i] = getComponent(i) + scalar;
@@ -148,7 +148,7 @@ public interface Vector {
     }
 
     @Nonnull
-    default Vector subtract(@Nonnull final Vector other) {
+    default RealVector subtract(@Nonnull final RealVector other) {
         Preconditions.checkArgument(getNumDimensions() == other.getNumDimensions());
         final double[] result = new double[getNumDimensions()];
         for (int i = 0; i < getNumDimensions(); i ++) {
@@ -158,7 +158,7 @@ public interface Vector {
     }
 
     @Nonnull
-    default Vector subtract(final double scalar) {
+    default RealVector subtract(final double scalar) {
         final double[] result = new double[getNumDimensions()];
         for (int i = 0; i < getNumDimensions(); i ++) {
             result[i] = getComponent(i) - scalar;
@@ -167,7 +167,7 @@ public interface Vector {
     }
 
     @Nonnull
-    default Vector multiply(final double scalar) {
+    default RealVector multiply(final double scalar) {
         final double[] result = new double[getNumDimensions()];
         for (int i = 0; i < getNumDimensions(); i ++) {
             result[i] = getComponent(i) * scalar;

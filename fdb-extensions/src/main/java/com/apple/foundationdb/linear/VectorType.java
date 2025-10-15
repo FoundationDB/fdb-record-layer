@@ -1,5 +1,5 @@
 /*
- * MatrixHelpers.java
+ * VectorType.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,8 +18,10 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.async.rabitq;
+package com.apple.foundationdb.linear;
 
-public class MatrixHelpers {
-
+public enum VectorType {
+    HALF,
+    DOUBLE,
+    RABITQ
 }

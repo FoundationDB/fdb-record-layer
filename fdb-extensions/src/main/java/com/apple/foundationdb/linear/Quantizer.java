@@ -18,7 +18,7 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.async.hnsw;
+package com.apple.foundationdb.linear;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,7 +32,7 @@ public interface Quantizer {
     Estimator estimator();
 
     @Nonnull
-    Vector encode(@Nonnull final Vector data);
+    RealVector encode(@Nonnull final RealVector data);
 
     @Nonnull
     static Quantizer noOpQuantizer(@Nonnull final Metrics metric) {
@@ -49,7 +49,7 @@ public interface Quantizer {
 
             @Nonnull
             @Override
-            public Vector encode(@Nonnull final Vector data) {
+            public RealVector encode(@Nonnull final RealVector data) {
                 return data;
             }
         };

@@ -22,7 +22,11 @@ package com.apple.foundationdb.async.hnsw;
 
 import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.Transaction;
-import com.apple.foundationdb.async.rabitq.EncodedVector;
+import com.apple.foundationdb.async.rabitq.EncodedRealVector;
+import com.apple.foundationdb.linear.DoubleRealVector;
+import com.apple.foundationdb.linear.HalfRealVector;
+import com.apple.foundationdb.linear.RealVector;
+import com.apple.foundationdb.linear.VectorType;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.base.Verify;
@@ -241,44 +245,44 @@ interface StorageAdapter<N extends NodeReference> {
     }
 
     /**
-     * Creates a {@code HalfVector} from a given {@code Tuple}.
+     * Creates a {@code HalfRealVector} from a given {@code Tuple}.
      * <p>
      * This method assumes the vector data is stored as a byte array at the first. position (index 0) of the tuple. It
      * extracts this byte array and then delegates to the {@link #vectorFromBytes(HNSW.Config, byte[])} method for the
      * actual conversion.
      * @param config an HNSW configuration
      * @param vectorTuple the tuple containing the vector data as a byte array at index 0. Must not be {@code null}.
-     * @return a new {@code HalfVector} instance created from the tuple's data.
+     * @return a new {@code HalfRealVector} instance created from the tuple's data.
      *         This method never returns {@code null}.
      */
     @Nonnull
-    static Vector vectorFromTuple(@Nonnull final HNSW.Config config, @Nonnull final Tuple vectorTuple) {
+    static RealVector vectorFromTuple(@Nonnull final HNSW.Config config, @Nonnull final Tuple vectorTuple) {
         return vectorFromBytes(config, vectorTuple.getBytes(0));
     }
 
     /**
-     * Creates a {@link Vector} from a byte array.
+     * Creates a {@link RealVector} from a byte array.
      * <p>
      * This method interprets the input byte array by interpreting the first byte of the array as the precision shift.
      * The byte array must have the proper size, i.e. the invariant {@code (bytesLength - 1) % precision == 0} must
      * hold.
      * @param config an HNSW config
      * @param vectorBytes the non-null byte array to convert.
-     * @return a new {@link Vector} instance created from the byte array.
+     * @return a new {@link RealVector} instance created from the byte array.
      * @throws com.google.common.base.VerifyException if the length of {@code vectorBytes} does not meet the invariant
      *         {@code (bytesLength - 1) % precision == 0}
      */
     @Nonnull
-    static Vector vectorFromBytes(@Nonnull final HNSW.Config config, @Nonnull final byte[] vectorBytes) {
+    static RealVector vectorFromBytes(@Nonnull final HNSW.Config config, @Nonnull final byte[] vectorBytes) {
         final byte vectorTypeOrdinal = vectorBytes[0];
         switch (fromVectorTypeOrdinal(vectorTypeOrdinal)) {
             case HALF:
-                return HalfVector.fromBytes(vectorBytes, 1);
+                return HalfRealVector.fromBytes(vectorBytes, 1);
             case DOUBLE:
-                return DoubleVector.fromBytes(vectorBytes, 1);
+                return DoubleRealVector.fromBytes(vectorBytes, 1);
             case RABITQ:
                 Verify.verify(config.isUseRaBitQ());
-                return EncodedVector.fromBytes(vectorBytes, 1, config.getNumDimensions(),
+                return EncodedRealVector.fromBytes(vectorBytes, 1, config.getNumDimensions(),
                         config.getRaBitQNumExBits());
             default:
                 throw new RuntimeException("unable to serialize vector");
@@ -286,16 +290,16 @@ interface StorageAdapter<N extends NodeReference> {
     }
 
     /**
-     * Converts a {@link Vector} into a {@link Tuple}.
+     * Converts a {@link RealVector} into a {@link Tuple}.
      * <p>
-     * This method first serializes the given vector into a byte array using the {@link Vector#getRawData()} getter
+     * This method first serializes the given vector into a byte array using the {@link RealVector#getRawData()} getter
      * method. It then creates a {@link Tuple} from the resulting byte array.
      * @param vector the vector of {@code Half} precision floating-point numbers to convert. Cannot be null.
      * @return a new, non-null {@code Tuple} instance representing the contents of the vector.
      */
     @Nonnull
     @SuppressWarnings("PrimitiveArrayArgumentToVarargsMethod")
-    static Tuple tupleFromVector(final Vector vector) {
+    static Tuple tupleFromVector(final RealVector vector) {
         return Tuple.from(vector.getRawData());
     }
 

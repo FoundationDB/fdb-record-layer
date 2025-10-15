@@ -1,5 +1,5 @@
 /*
- * HalfVector.java
+ * HalfRealVector.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,63 +18,64 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.async.hnsw;
+package com.apple.foundationdb.linear;
 
+import com.apple.foundationdb.async.hnsw.EncodingHelpers;
 import com.apple.foundationdb.half.Half;
 
 import javax.annotation.Nonnull;
 import java.util.function.Supplier;
 
 /**
- * A vector class encoding a vector over half components. Conversion to {@link DoubleVector} is supported and
+ * A vector class encoding a vector over half components. Conversion to {@link DoubleRealVector} is supported and
  * memoized.
  */
-public class HalfVector extends AbstractVector {
+public class HalfRealVector extends AbstractRealVector {
     @Nonnull
-    private final Supplier<DoubleVector> toDoubleVectorSupplier;
+    private final Supplier<DoubleRealVector> toDoubleVectorSupplier;
 
-    public HalfVector(@Nonnull final Half[] halfData) {
+    public HalfRealVector(@Nonnull final Half[] halfData) {
         this(computeDoubleData(halfData));
     }
 
-    public HalfVector(@Nonnull final double[] data) {
+    public HalfRealVector(@Nonnull final double[] data) {
         super(data);
-        this.toDoubleVectorSupplier = () -> new DoubleVector(data);
+        this.toDoubleVectorSupplier = () -> new DoubleRealVector(data);
     }
 
-    public HalfVector(@Nonnull final int[] intData) {
+    public HalfRealVector(@Nonnull final int[] intData) {
         this(fromInts(intData));
     }
 
-    public HalfVector(@Nonnull final long[] longData) {
+    public HalfRealVector(@Nonnull final long[] longData) {
         this(fromLongs(longData));
     }
 
     @Nonnull
     @Override
-    public com.apple.foundationdb.async.hnsw.HalfVector toHalfVector() {
+    public HalfRealVector toHalfRealVector() {
         return this;
     }
 
     @Nonnull
     @Override
-    public DoubleVector toDoubleVector() {
+    public DoubleRealVector toDoubleRealVector() {
         return toDoubleVectorSupplier.get();
     }
 
     @Nonnull
-    public DoubleVector computeDoubleVector() {
-        return new DoubleVector(data);
+    public DoubleRealVector computeDoubleVector() {
+        return new DoubleRealVector(data);
     }
 
     @Nonnull
     @Override
-    public Vector withData(@Nonnull final double[] data) {
-        return new HalfVector(data);
+    public RealVector withData(@Nonnull final double[] data) {
+        return new HalfRealVector(data);
     }
 
     /**
-     * Converts this {@link Vector} of {@link Half} precision floating-point numbers into a byte array.
+     * Converts this {@link RealVector} of {@link Half} precision floating-point numbers into a byte array.
      * <p>
      * This method iterates through the input vector, converting each {@link Half} element into its 16-bit short
      * representation. It then serializes this short into two bytes, placing them sequentially into the resulting byte
@@ -105,22 +106,22 @@ public class HalfVector extends AbstractVector {
     }
 
     /**
-     * Creates a {@link HalfVector} from a byte array.
+     * Creates a {@link HalfRealVector} from a byte array.
      * <p>
      * This method interprets the input byte array as a sequence of 16-bit half-precision floating-point numbers. Each
      * consecutive pair of bytes is converted into a {@code Half} value, which then becomes a component of the resulting
      * vector.
      * @param vectorBytes the non-null byte array to convert
      * @param offset to the first byte containing the vector-specific data
-     * @return a new {@link HalfVector} instance created from the byte array
+     * @return a new {@link HalfRealVector} instance created from the byte array
      */
     @Nonnull
-    public static HalfVector fromBytes(@Nonnull final byte[] vectorBytes, final int offset) {
+    public static HalfRealVector fromBytes(@Nonnull final byte[] vectorBytes, final int offset) {
         final int numDimensions = (vectorBytes.length - offset) >> 1;
         final Half[] vectorHalfs = new Half[numDimensions];
         for (int i = 0; i < numDimensions; i ++) {
             vectorHalfs[i] = Half.shortBitsToHalf(EncodingHelpers.shortFromBytes(vectorBytes, offset + (i << 1)));
         }
-        return new HalfVector(vectorHalfs);
+        return new HalfRealVector(vectorHalfs);
     }
 }

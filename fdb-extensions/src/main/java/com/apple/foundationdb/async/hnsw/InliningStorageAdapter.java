@@ -27,6 +27,7 @@ import com.apple.foundationdb.StreamingMode;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.async.AsyncIterable;
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
@@ -181,7 +182,7 @@ class InliningStorageAdapter extends AbstractStorageAdapter<NodeReferenceWithVec
         final Tuple neighborValueTuple = Tuple.fromBytes(value);
 
         final Tuple neighborPrimaryKey = neighborKeyTuple.getNestedTuple(2); // neighbor primary key
-        final Vector neighborVector = StorageAdapter.vectorFromTuple(getConfig(), neighborValueTuple); // the entire value is the vector
+        final RealVector neighborVector = StorageAdapter.vectorFromTuple(getConfig(), neighborValueTuple); // the entire value is the vector
         return new NodeReferenceWithVector(neighborPrimaryKey, neighborVector);
     }
 

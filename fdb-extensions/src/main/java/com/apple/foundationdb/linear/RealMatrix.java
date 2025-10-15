@@ -1,5 +1,5 @@
 /*
- * RowMajorMatrix.java
+ * RealMatrix.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,15 +18,13 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.async.rabitq;
+package com.apple.foundationdb.linear;
 
-import com.apple.foundationdb.async.hnsw.DoubleVector;
-import com.apple.foundationdb.async.hnsw.Vector;
 import com.google.common.base.Verify;
 
 import javax.annotation.Nonnull;
 
-public interface Matrix extends LinearOperator {
+public interface RealMatrix extends LinearOperator {
     @Nonnull
     double[][] getData();
 
@@ -38,11 +36,11 @@ public interface Matrix extends LinearOperator {
     }
 
     @Nonnull
-    Matrix transpose();
+    RealMatrix transpose();
 
     @Nonnull
     @Override
-    default Vector operate(@Nonnull final Vector vector) {
+    default RealVector operate(@Nonnull final RealVector vector) {
         Verify.verify(getColumnDimension() == vector.getNumDimensions());
         final double[] result = new double[vector.getNumDimensions()];
         for (int i = 0; i < getRowDimension(); i ++) {
@@ -52,12 +50,12 @@ public interface Matrix extends LinearOperator {
             }
             result[i] = sum;
         }
-        return new DoubleVector(result);
+        return new DoubleRealVector(result);
     }
 
     @Nonnull
     @Override
-    default Vector operateTranspose(@Nonnull final Vector vector) {
+    default RealVector operateTranspose(@Nonnull final RealVector vector) {
         Verify.verify(getRowDimension() == vector.getNumDimensions());
         final double[] result = new double[vector.getNumDimensions()];
         for (int j = 0; j < getColumnDimension(); j ++) {
@@ -67,9 +65,9 @@ public interface Matrix extends LinearOperator {
             }
             result[j] = sum;
         }
-        return new DoubleVector(result);
+        return new DoubleRealVector(result);
     }
 
     @Nonnull
-    Matrix multiply(@Nonnull Matrix otherMatrix);
+    RealMatrix multiply(@Nonnull RealMatrix otherMatrix);
 }

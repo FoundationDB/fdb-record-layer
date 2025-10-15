@@ -18,7 +18,7 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.async.hnsw;
+package com.apple.foundationdb.linear;
 
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
@@ -97,9 +97,9 @@ public abstract class StoredVecsIterator<N extends Number, T> extends AbstractIt
 
     /**
      * Iterator to read floating point vectors from a {@link FileChannel} providing an iterator of
-     * {@link DoubleVector}s.
+     * {@link DoubleRealVector}s.
      */
-    public static class StoredFVecsIterator extends StoredVecsIterator<Double, DoubleVector> {
+    public static class StoredFVecsIterator extends StoredVecsIterator<Double, DoubleRealVector> {
         public StoredFVecsIterator(@Nonnull final FileChannel fileChannel) {
             super(fileChannel);
         }
@@ -118,8 +118,8 @@ public abstract class StoredVecsIterator<N extends Number, T> extends AbstractIt
 
         @Nonnull
         @Override
-        protected DoubleVector toTarget(@Nonnull final Double[] components) {
-            return new DoubleVector(components);
+        protected DoubleRealVector toTarget(@Nonnull final Double[] components) {
+            return new DoubleRealVector(components);
         }
     }
 
