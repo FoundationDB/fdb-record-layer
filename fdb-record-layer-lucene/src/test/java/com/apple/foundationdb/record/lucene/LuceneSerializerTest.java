@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.util.RandomUtil;
 import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -124,27 +125,57 @@ class LuceneSerializerTest {
 
     @ParameterizedTest
     @MethodSource("encodedCompressedAndEncrypted")
-    void testProtobufMessageWithoutPrefix(boolean encode, boolean compress, boolean encrypt) throws Exception {
-        final LuceneSerializer serializer = getSerializer(compress, encrypt);
-        final String storedField = RandomUtil.randomAlphanumericString(ThreadLocalRandom.current(), 20);
-        final LuceneStoredFieldsProto.LuceneStoredFields.Builder builder = LuceneStoredFieldsProto.LuceneStoredFields.newBuilder();
-        builder.addStoredFieldsBuilder().setFieldNumber(5).setStringValue(storedField);
-        final byte[] value = builder.build().toByteArray();
-        final byte[] encodedValue = encode ? serializer.encode(value) : value;
-        final byte[] decodedValue = serializer.decodePossiblyWithoutPrefix(encodedValue);
-        Assertions.assertArrayEquals(value, decodedValue);
-        final LuceneStoredFieldsProto.LuceneStoredFields storedFields = LuceneStoredFieldsProto.LuceneStoredFields.parseFrom(decodedValue);
-        Assertions.assertEquals(storedField, storedFields.getStoredFields(0).getStringValue());
+    void testStoredFieldsEncoding(boolean encode, boolean compress, boolean encrypt) throws Exception {
+        testProtobufMessageWithoutPrefix(encode, compress, encrypt,
+                () -> {
+                    final String storedField = RandomUtil.randomAlphanumericString(ThreadLocalRandom.current(), 20);
+                    final LuceneStoredFieldsProto.LuceneStoredFields.Builder builder = LuceneStoredFieldsProto.LuceneStoredFields.newBuilder();
+                    builder.addStoredFieldsBuilder().setFieldNumber(5).setStringValue(storedField);
+                    return builder.build();
+                },
+                LuceneStoredFieldsProto.LuceneStoredFields::parseFrom);
     }
 
     @ParameterizedTest
     @MethodSource("encodedCompressedAndEncrypted")
-    void testEmpty(boolean encode, boolean compress, boolean encrypt) throws Exception {
-        final LuceneSerializer serializer = getSerializer(compress, encrypt);
-        final byte[] value = new byte[0];
-        final byte[] encodedValue = encode ? serializer.encode(value) : value;
-        final byte[] decodedValue = serializer.decodePossiblyWithoutPrefix(encodedValue);
-        Assertions.assertArrayEquals(value, decodedValue);
+    void testStoredFieldsKeyOnly(boolean encode, boolean compress, boolean encrypt) throws Exception {
+        testProtobufMessageWithoutPrefix(encode, compress, encrypt,
+                () -> {
+                    final ByteString key = RandomUtil.randomByteString(ThreadLocalRandom.current(), 20);
+                    final LuceneStoredFieldsProto.LuceneStoredFields.Builder builder = LuceneStoredFieldsProto.LuceneStoredFields.newBuilder();
+                    builder.setPrimaryKey(key);
+                    return builder.build();
+                },
+                LuceneStoredFieldsProto.LuceneStoredFields::parseFrom);
+    }
+
+    @ParameterizedTest
+    @MethodSource("encodedCompressedAndEncrypted")
+    void testFieldInfosEncoding(boolean encode, boolean compress, boolean encrypt) throws Exception {
+        testProtobufMessageWithoutPrefix(encode, compress, encrypt,
+                () -> {
+                    final String name = RandomUtil.randomAlphanumericString(ThreadLocalRandom.current(), 10);
+                    final LuceneFieldInfosProto.FieldInfos.Builder builder = LuceneFieldInfosProto.FieldInfos.newBuilder();
+                    builder.addFieldInfoBuilder().setName(name).setNumber(2);
+                    return builder.build();
+                },
+                LuceneFieldInfosProto.FieldInfos::parseFrom);
+    }
+
+    @ParameterizedTest
+    @MethodSource("encodedCompressedAndEncrypted")
+    void testStoredFieldsEmpty(boolean encode, boolean compress, boolean encrypt) throws Exception {
+        testProtobufMessageWithoutPrefix(encode, compress, encrypt,
+                LuceneStoredFieldsProto.LuceneStoredFields::getDefaultInstance,
+                LuceneStoredFieldsProto.LuceneStoredFields::parseFrom);
+    }
+
+    @ParameterizedTest
+    @MethodSource("encodedCompressedAndEncrypted")
+    void testFieldInfosEmpty(boolean encode, boolean compress, boolean encrypt) throws Exception {
+        testProtobufMessageWithoutPrefix(encode, compress, encrypt,
+                LuceneFieldInfosProto.FieldInfos::getDefaultInstance,
+                LuceneFieldInfosProto.FieldInfos::parseFrom);
     }
 
     static Stream<Arguments> encodedCompressedAndEncrypted() {
@@ -155,6 +186,28 @@ class LuceneSerializerTest {
                Arguments.of(true, true, false),
                Arguments.of(true, true, true)
         );
+    }
+
+    @FunctionalInterface
+    private interface MessageBuilder {
+        Message build() throws Exception;
+    }
+
+    @FunctionalInterface
+    private interface MessageParser {
+        Message parse(byte[] bytes) throws Exception;
+    }
+
+    private void testProtobufMessageWithoutPrefix(boolean encode, boolean compress, boolean encrypt,
+                                                  MessageBuilder build, MessageParser parse) throws Exception {
+        final LuceneSerializer serializer = getSerializer(compress, encrypt);
+        final Message built = build.build();
+        final byte[] value = built.toByteArray();
+        final byte[] encodedValue = encode ? serializer.encode(value) : value;
+        final byte[] decodedValue = serializer.decodePossiblyWithoutPrefix(encodedValue);
+        Assertions.assertArrayEquals(value, decodedValue);
+        final Message parsed = parse.parse(decodedValue);
+        Assertions.assertEquals(built, parsed);
     }
 
     private LuceneSerializer getSerializer(boolean compress, boolean encrypt) throws GeneralSecurityException {
