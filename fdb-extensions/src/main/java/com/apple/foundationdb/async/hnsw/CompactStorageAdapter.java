@@ -27,6 +27,7 @@ import com.apple.foundationdb.StreamingMode;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.async.AsyncIterable;
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
@@ -207,7 +208,7 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
     private Node<NodeReference> compactNodeFromTuples(@Nonnull final Tuple primaryKey,
                                                       @Nonnull final Tuple vectorTuple,
                                                       @Nonnull final Tuple neighborsTuple) {
-        final Vector vector = StorageAdapter.vectorFromTuple(getConfig(), vectorTuple);
+        final RealVector vector = StorageAdapter.vectorFromTuple(getConfig(), vectorTuple);
         final List<NodeReference> nodeReferences = Lists.newArrayListWithExpectedSize(neighborsTuple.size());
 
         for (int i = 0; i < neighborsTuple.size(); i ++) {
@@ -223,7 +224,7 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
      * This method handles the serialization of the node's vector and its final set of neighbors based on the
      * provided {@code neighborsChangeSet}.
      *
-     * <p>The node is stored as a {@link Tuple} with the structure {@code (NodeKind, Vector, NeighborPrimaryKeys)}.
+     * <p>The node is stored as a {@link Tuple} with the structure {@code (NodeKind, RealVector, NeighborPrimaryKeys)}.
      * The key for the storage is derived from the node's layer and its primary key. After writing, it notifies any
      * registered write listeners via {@code onNodeWritten} and {@code onKeyValueWritten}.
      *

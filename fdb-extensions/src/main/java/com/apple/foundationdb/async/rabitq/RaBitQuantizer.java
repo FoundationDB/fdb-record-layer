@@ -20,10 +20,10 @@
 
 package com.apple.foundationdb.async.rabitq;
 
-import com.apple.foundationdb.async.hnsw.DoubleVector;
-import com.apple.foundationdb.async.hnsw.Metrics;
-import com.apple.foundationdb.async.hnsw.Quantizer;
-import com.apple.foundationdb.async.hnsw.Vector;
+import com.apple.foundationdb.linear.DoubleRealVector;
+import com.apple.foundationdb.linear.Metrics;
+import com.apple.foundationdb.linear.Quantizer;
+import com.apple.foundationdb.linear.RealVector;
 
 import javax.annotation.Nonnull;
 import java.util.Comparator;
@@ -37,13 +37,13 @@ public final class RaBitQuantizer implements Quantizer {
     };
 
     @Nonnull
-    private final Vector centroid;
+    private final RealVector centroid;
     final int numExBits;
     @Nonnull
     private final Metrics metric;
 
     public RaBitQuantizer(@Nonnull final Metrics metric,
-                          @Nonnull final Vector centroid,
+                          @Nonnull final RealVector centroid,
                           final int numExBits) {
         this.centroid = centroid;
         this.numExBits = numExBits;
@@ -66,7 +66,7 @@ public final class RaBitQuantizer implements Quantizer {
 
     @Nonnull
     @Override
-    public EncodedVector encode(@Nonnull final Vector data) {
+    public EncodedRealVector encode(@Nonnull final RealVector data) {
         return encodeInternal(data).getEncodedVector();
     }
 
@@ -78,11 +78,11 @@ public final class RaBitQuantizer implements Quantizer {
      * - applies C++ metric-dependent formulas exactly.
      */
     @Nonnull
-    Result encodeInternal(@Nonnull final Vector data) {
+    Result encodeInternal(@Nonnull final RealVector data) {
         final int dims = data.getNumDimensions();
 
         // 2) Build residual again: r = data - centroid
-        final Vector residual = data; //.subtract(centroid);
+        final RealVector residual = data; //.subtract(centroid);
 
         // 1) call ex_bits_code to get signedCode, t, ipNormInv
         QuantizeExResult base = exBitsCode(residual);
@@ -101,7 +101,7 @@ public final class RaBitQuantizer implements Quantizer {
         for (int i = 0; i < dims; i++) {
             xu_cb_data[i] = totalCode[i] + cb;
         }
-        final Vector xu_cb = new DoubleVector(xu_cb_data);
+        final RealVector xu_cb = new DoubleRealVector(xu_cb_data);
 
         // 5) Precompute all needed values
         final double residual_l2_norm = residual.l2Norm();
@@ -134,7 +134,7 @@ public final class RaBitQuantizer implements Quantizer {
             throw new IllegalArgumentException("Unsupported metric");
         }
 
-        return new Result(new EncodedVector(numExBits, totalCode, fAddEx, fRescaleEx, fErrorEx), base.t, ipInv);
+        return new Result(new EncodedRealVector(numExBits, totalCode, fAddEx, fRescaleEx, fErrorEx), base.t, ipInv);
     }
 
     /**
@@ -143,11 +143,11 @@ public final class RaBitQuantizer implements Quantizer {
      * @param residual Rotated residual vector r (same thing the C++ feeds here).
      *                 This method internally uses |r| normalized to unit L2.
      */
-    private QuantizeExResult exBitsCode(@Nonnull final Vector residual) {
+    private QuantizeExResult exBitsCode(@Nonnull final RealVector residual) {
         int dims = residual.getNumDimensions();
 
         // oAbs = |r| normalized (RaBitQ does this before quantizeEx)
-        final Vector oAbs = absOfNormalized(residual);
+        final RealVector oAbs = absOfNormalized(residual);
 
         final QuantizeExResult q = quantizeEx(oAbs);
 
@@ -177,7 +177,7 @@ public final class RaBitQuantizer implements Quantizer {
      *   t = 0, and ipNormInv = 1 (benign fallback).
      * - Downstream code (ex_bits_code_with_factor) uses ipNormInv to compute f_rescale_ex, etc.
      */
-    private QuantizeExResult quantizeEx(@Nonnull final Vector oAbs) {
+    private QuantizeExResult quantizeEx(@Nonnull final RealVector oAbs) {
         final int dim = oAbs.getNumDimensions();
         final int maxLevel = (1 << numExBits) - 1;
 
@@ -216,7 +216,7 @@ public final class RaBitQuantizer implements Quantizer {
      *  @param oAbs   absolute values of a (row-wise) normalized residual; length = dim; nonnegative
      *  @return t     the rescale factor that maximizes the objective
      */
-    private double bestRescaleFactor(@Nonnull final Vector oAbs) {
+    private double bestRescaleFactor(@Nonnull final RealVector oAbs) {
         if (numExBits < 0 || numExBits >= TIGHT_START.length) {
             throw new IllegalArgumentException("numExBits out of supported range");
         }
@@ -297,32 +297,32 @@ public final class RaBitQuantizer implements Quantizer {
         return bestT;
     }
 
-    private static Vector absOfNormalized(@Nonnull final Vector x) {
+    private static RealVector absOfNormalized(@Nonnull final RealVector x) {
         double n = x.l2Norm();
         double[] y = new double[x.getNumDimensions()];
         if (n == 0.0 || !Double.isFinite(n)) {
-            return new DoubleVector(y); // all zeros
+            return new DoubleRealVector(y); // all zeros
         }
         double inv = 1.0 / n;
         for (int i = 0; i < x.getNumDimensions(); i++) {
             y[i] = Math.abs(x.getComponent(i) * inv);
         }
-        return new DoubleVector(y);
+        return new DoubleRealVector(y);
     }
 
     @SuppressWarnings("checkstyle:MemberName")
     public static final class Result {
-        public EncodedVector encodedVector;
+        public EncodedRealVector encodedVector;
         public final double t;
         public final double ipNormInv;
 
-        public Result(@Nonnull final EncodedVector encodedVector, double t, double ipNormInv) {
+        public Result(@Nonnull final EncodedRealVector encodedVector, double t, double ipNormInv) {
             this.encodedVector = encodedVector;
             this.t = t;
             this.ipNormInv = ipNormInv;
         }
 
-        public EncodedVector getEncodedVector() {
+        public EncodedRealVector getEncodedVector() {
             return encodedVector;
         }
 

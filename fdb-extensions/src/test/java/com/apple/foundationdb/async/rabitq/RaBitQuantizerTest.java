@@ -20,9 +20,10 @@
 
 package com.apple.foundationdb.async.rabitq;
 
-import com.apple.foundationdb.async.hnsw.DoubleVector;
-import com.apple.foundationdb.async.hnsw.Metrics;
-import com.apple.foundationdb.async.hnsw.Vector;
+import com.apple.foundationdb.linear.DoubleRealVector;
+import com.apple.foundationdb.linear.FhtKacRotator;
+import com.apple.foundationdb.linear.Metrics;
+import com.apple.foundationdb.linear.RealVector;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ObjectArrays;
 import com.google.common.collect.Sets;
@@ -59,17 +60,17 @@ public class RaBitQuantizerTest {
     void basicEncodeTest() {
         final int dims = 768;
         final Random random = new Random(System.nanoTime());
-        final Vector v = new DoubleVector(createRandomVector(random, dims));
-        final Vector centroid = new DoubleVector(new double[dims]);
+        final RealVector v = new DoubleRealVector(createRandomVector(random, dims));
+        final RealVector centroid = new DoubleRealVector(new double[dims]);
         final RaBitQuantizer quantizer = new RaBitQuantizer(Metrics.EUCLIDEAN_SQUARE_METRIC, centroid, 4);
-        final EncodedVector encodedVector = quantizer.encode(v);
-        final Vector v_bar = v.normalize();
+        final EncodedRealVector encodedVector = quantizer.encode(v);
+        final RealVector v_bar = v.normalize();
         final double[] reCenteredData = new double[dims];
         for (int i = 0; i < dims; i ++) {
             reCenteredData[i] = (double)encodedVector.getEncodedComponent(i) - 15.5d;
         }
-        final Vector reCentered = new DoubleVector(reCenteredData);
-        final Vector reCenteredBar = reCentered.normalize();
+        final RealVector reCentered = new DoubleRealVector(reCenteredData);
+        final RealVector reCenteredBar = reCentered.normalize();
         System.out.println(v_bar.dot(reCenteredBar));
     }
 
@@ -77,10 +78,10 @@ public class RaBitQuantizerTest {
     void basicEncodeWithEstimationTest() {
         final int dims = 768;
         final Random random = new Random(System.nanoTime());
-        final Vector v = new DoubleVector(createRandomVector(random, dims));
-        final Vector centroid = new DoubleVector(new double[dims]);
+        final RealVector v = new DoubleRealVector(createRandomVector(random, dims));
+        final RealVector centroid = new DoubleRealVector(new double[dims]);
         final RaBitQuantizer quantizer = new RaBitQuantizer(Metrics.EUCLIDEAN_SQUARE_METRIC, centroid, 4);
-        final EncodedVector encodedVector = quantizer.encode(v);
+        final EncodedRealVector encodedVector = quantizer.encode(v);
         final RaBitEstimator estimator = quantizer.estimator();
         final RaBitEstimator.Result estimatedDistance = estimator.estimateDistanceAndErrorBound(v, encodedVector);
         System.out.println("estimated distance = " + estimatedDistance);
@@ -88,12 +89,12 @@ public class RaBitQuantizerTest {
 
     @Test
     void basicEncodeWithEstimationTest1() {
-        final Vector v = new DoubleVector(new double[]{1.0d, 1.0d});
-        final Vector centroid = new DoubleVector(new double[]{0.5d, 0.5d});
+        final RealVector v = new DoubleRealVector(new double[]{1.0d, 1.0d});
+        final RealVector centroid = new DoubleRealVector(new double[]{0.5d, 0.5d});
         final RaBitQuantizer quantizer = new RaBitQuantizer(Metrics.EUCLIDEAN_SQUARE_METRIC, centroid, 4);
-        final EncodedVector encodedVector = quantizer.encode(v);
+        final EncodedRealVector encodedVector = quantizer.encode(v);
 
-        final Vector q = new DoubleVector(new double[]{1.0d, 1.0d});
+        final RealVector q = new DoubleRealVector(new double[]{1.0d, 1.0d});
         final RaBitEstimator estimator = quantizer.estimator();
         final RaBitEstimator.Result estimatedDistance = estimator.estimateDistanceAndErrorBound(q, encodedVector);
         System.out.println("estimated distance = " + estimatedDistance);
@@ -108,11 +109,11 @@ public class RaBitQuantizerTest {
         final Random random = new Random(seed);
         final FhtKacRotator rotator = new FhtKacRotator(seed, numDimensions, 10);
 
-        Vector v = null;
-        Vector sum = null;
+        RealVector v = null;
+        RealVector sum = null;
         final int numVectorsForCentroid = 10;
         for (int i = 0; i < numVectorsForCentroid; i ++) {
-            v = new DoubleVector(createRandomVector(random, numDimensions));
+            v = new DoubleRealVector(createRandomVector(random, numDimensions));
             if (sum == null) {
                 sum = v;
             } else {
@@ -120,16 +121,16 @@ public class RaBitQuantizerTest {
             }
         }
 
-        final Vector centroid = sum.multiply(1.0d / numVectorsForCentroid);
+        final RealVector centroid = sum.multiply(1.0d / numVectorsForCentroid);
 
         System.out.println("v =" + v);
-        final Vector vRot = rotator.operateTranspose(v);
-        final Vector centroidRot = rotator.operateTranspose(centroid);
-        final Vector vTrans = vRot.subtract(centroidRot);
+        final RealVector vRot = rotator.operateTranspose(v);
+        final RealVector centroidRot = rotator.operateTranspose(centroid);
+        final RealVector vTrans = vRot.subtract(centroidRot);
 
         final RaBitQuantizer quantizer = new RaBitQuantizer(Metrics.EUCLIDEAN_SQUARE_METRIC, centroidRot, numExBits);
-        final EncodedVector encodedVector = quantizer.encode(vTrans);
-        final Vector reconstructedV = rotator.operate(encodedVector.add(centroidRot));
+        final EncodedRealVector encodedVector = quantizer.encode(vTrans);
+        final RealVector reconstructedV = rotator.operate(encodedVector.add(centroidRot));
         System.out.println("reconstructed v = " + reconstructedV);
         final RaBitEstimator estimator = quantizer.estimator();
         final RaBitEstimator.Result estimatedDistance = estimator.estimateDistanceAndErrorBound(vTrans, encodedVector);
@@ -147,9 +148,9 @@ public class RaBitQuantizerTest {
         int numEstimationBetter = 0;
         double sumRelativeError = 0.0d;
         for (int round = 0; round < numRounds; round ++) {
-            Vector v = null;
-            Vector q = null;
-            Vector sum = null;
+            RealVector v = null;
+            RealVector q = null;
+            RealVector sum = null;
             final int numVectorsForCentroid = 10;
             for (int i = 0; i < numVectorsForCentroid; i++) {
                 if (q == null) {
@@ -158,7 +159,7 @@ public class RaBitQuantizerTest {
                     }
                 }
 
-                v = new DoubleVector(createRandomVector(random, numDimensions));
+                v = new DoubleRealVector(createRandomVector(random, numDimensions));
                 if (sum == null) {
                     sum = v;
                 } else {
@@ -168,15 +169,15 @@ public class RaBitQuantizerTest {
             Objects.requireNonNull(v);
             Objects.requireNonNull(q);
 
-            final Vector centroid = sum.multiply(1.0d / numVectorsForCentroid);
+            final RealVector centroid = sum.multiply(1.0d / numVectorsForCentroid);
 
             logger.trace("q = {}", q);
             logger.trace("v = {}", v);
             logger.trace("centroid = {}", centroid);
 
-            final Vector centroidRot = rotator.operateTranspose(centroid);
-            final Vector qTrans = rotator.operateTranspose(q).subtract(centroidRot);
-            final Vector vTrans = rotator.operateTranspose(v).subtract(centroidRot);
+            final RealVector centroidRot = rotator.operateTranspose(centroid);
+            final RealVector qTrans = rotator.operateTranspose(q).subtract(centroidRot);
+            final RealVector vTrans = rotator.operateTranspose(v).subtract(centroidRot);
 
             logger.trace("qTrans = {}", qTrans);
             logger.trace("vTrans = {}", vTrans);
@@ -184,15 +185,15 @@ public class RaBitQuantizerTest {
 
             final RaBitQuantizer quantizer = new RaBitQuantizer(Metrics.EUCLIDEAN_SQUARE_METRIC, centroidRot, numExBits);
             final RaBitQuantizer.Result resultV = quantizer.encodeInternal(vTrans);
-            final EncodedVector encodedV = resultV.encodedVector;
+            final EncodedRealVector encodedV = resultV.encodedVector;
             logger.trace("fAddEx vor v = {}", encodedV.getAddEx());
             logger.trace("fRescaleEx vor v = {}", encodedV.getRescaleEx());
             logger.trace("fErrorEx vor v = {}", encodedV.getErrorEx());
 
-            final EncodedVector encodedQ = quantizer.encode(qTrans);
+            final EncodedRealVector encodedQ = quantizer.encode(qTrans);
             final RaBitEstimator estimator = quantizer.estimator();
-            final Vector reconstructedQ = rotator.operate(encodedQ.add(centroidRot));
-            final Vector reconstructedV = rotator.operate(encodedV.add(centroidRot));
+            final RealVector reconstructedQ = rotator.operate(encodedQ.add(centroidRot));
+            final RealVector reconstructedV = rotator.operate(encodedV.add(centroidRot));
             final RaBitEstimator.Result estimatedDistance = estimator.estimateDistanceAndErrorBound(qTrans, encodedV);
             logger.trace("estimated ||qRot - vRot||^2 = {}", estimatedDistance);
             final double trueDistance = Metrics.EUCLIDEAN_SQUARE_METRIC.distance(vTrans, qTrans);
@@ -221,12 +222,12 @@ public class RaBitQuantizerTest {
     @MethodSource("randomSeedsWithDimensionalityAndNumExBits")
     void serializationRoundTripTest(final long seed, final int numDimensions, final int numExBits) {
         final Random random = new Random(seed);
-        final Vector v = new DoubleVector(createRandomVector(random, numDimensions));
-        final Vector centroid = new DoubleVector(new double[numDimensions]);
+        final RealVector v = new DoubleRealVector(createRandomVector(random, numDimensions));
+        final RealVector centroid = new DoubleRealVector(new double[numDimensions]);
         final RaBitQuantizer quantizer = new RaBitQuantizer(Metrics.EUCLIDEAN_SQUARE_METRIC, centroid, numExBits);
-        final EncodedVector encodedVector = quantizer.encode(v);
+        final EncodedRealVector encodedVector = quantizer.encode(v);
         final byte[] rawData = encodedVector.getRawData();
-        final EncodedVector deserialized = EncodedVector.fromBytes(rawData, 1, numDimensions, numExBits);
+        final EncodedRealVector deserialized = EncodedRealVector.fromBytes(rawData, 1, numDimensions, numExBits);
         Assertions.assertThat(deserialized).isEqualTo(encodedVector);
     }
 

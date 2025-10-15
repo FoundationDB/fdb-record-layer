@@ -1,5 +1,5 @@
 /*
- * VectorType.java
+ * Estimator.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,10 +18,11 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.async.hnsw;
+package com.apple.foundationdb.linear;
 
-public enum VectorType {
-    HALF,
-    DOUBLE,
-    RABITQ
+import javax.annotation.Nonnull;
+
+public interface Estimator {
+    double distance(@Nonnull final RealVector query, // pre-rotated query q
+                    @Nonnull final RealVector storedVector);
 }

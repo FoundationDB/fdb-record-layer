@@ -1,5 +1,5 @@
 /*
- * LinearOperator.java
+ * package-info.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,26 +18,8 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.async.rabitq;
-
-import com.apple.foundationdb.async.hnsw.Vector;
-
-import javax.annotation.Nonnull;
-
-public interface LinearOperator {
-    int getRowDimension();
-
-    int getColumnDimension();
-
-    default boolean isSquare() {
-        return getRowDimension() == getColumnDimension();
-    }
-
-    boolean isTransposable();
-
-    @Nonnull
-    Vector operate(@Nonnull final Vector vector);
-
-    @Nonnull
-    Vector operateTranspose(@Nonnull final Vector vector);
-}
+/**
+ * Package that implements basic mathematical objects such as vectors and matrices as well as
+ * operations on these objects.
+ */
+package com.apple.foundationdb.linear;

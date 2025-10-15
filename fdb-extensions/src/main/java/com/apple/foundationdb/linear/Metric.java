@@ -18,7 +18,7 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.async.hnsw;
+package com.apple.foundationdb.linear;
 
 import javax.annotation.Nonnull;
 
@@ -30,7 +30,7 @@ import javax.annotation.Nonnull;
  * comparing data vectors, like clustering or nearest neighbor searches.
  */
 public interface Metric {
-    default double distance(@Nonnull Vector vector1, @Nonnull final Vector vector2) {
+    default double distance(@Nonnull RealVector vector1, @Nonnull final RealVector vector2) {
         return distance(vector1.getData(), vector2.getData());
     }
 
@@ -51,7 +51,7 @@ public interface Metric {
      */
     double distance(@Nonnull double[] vector1, @Nonnull double[] vector2);
 
-    default double comparativeDistance(@Nonnull Vector vector1, @Nonnull final Vector vector2) {
+    default double comparativeDistance(@Nonnull RealVector vector1, @Nonnull final RealVector vector2) {
         return comparativeDistance(vector1.getData(), vector2.getData());
     }
 

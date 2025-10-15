@@ -1,5 +1,5 @@
 /*
- * Estimator.java
+ * LinearOperator.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,11 +18,24 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.async.hnsw;
+package com.apple.foundationdb.linear;
 
 import javax.annotation.Nonnull;
 
-public interface Estimator {
-    double distance(@Nonnull final Vector query, // pre-rotated query q
-                    @Nonnull final Vector storedVector);
+public interface LinearOperator {
+    int getRowDimension();
+
+    int getColumnDimension();
+
+    default boolean isSquare() {
+        return getRowDimension() == getColumnDimension();
+    }
+
+    boolean isTransposable();
+
+    @Nonnull
+    RealVector operate(@Nonnull final RealVector vector);
+
+    @Nonnull
+    RealVector operateTranspose(@Nonnull final RealVector vector);
 }

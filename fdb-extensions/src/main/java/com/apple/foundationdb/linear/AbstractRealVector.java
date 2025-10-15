@@ -1,9 +1,9 @@
 /*
- * Vector.java
+ * AbstractRealVector.java
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2023 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.async.hnsw;
+package com.apple.foundationdb.linear;
 
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
@@ -37,7 +37,7 @@ import java.util.stream.Collectors;
  * component access, equality checks, and conversions. Concrete implementations must provide specific logic for
  * data type conversions and raw data representation.
  */
-public abstract class AbstractVector implements Vector {
+public abstract class AbstractRealVector implements RealVector {
     @Nonnull
     final double[] data;
 
@@ -48,7 +48,7 @@ public abstract class AbstractVector implements Vector {
     private final Supplier<byte[]> toRawDataSupplier;
 
     /**
-     * Constructs a new Vector with the given data.
+     * Constructs a new RealVector with the given data.
      * <p>
      * This constructor uses the provided array directly as the backing store for the vector. It does not create a
      * defensive copy. Therefore, any subsequent modifications to the input array will be reflected in this vector's
@@ -57,7 +57,7 @@ public abstract class AbstractVector implements Vector {
      * @param data the components of this vector
      * @throws NullPointerException if the provided {@code data} array is null.
      */
-    protected AbstractVector(@Nonnull final double[] data) {
+    protected AbstractRealVector(@Nonnull final double[] data) {
         this.data = data;
         this.hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
         this.toRawDataSupplier = Suppliers.memoize(this::computeRawData);
@@ -123,18 +123,18 @@ public abstract class AbstractVector implements Vector {
     /**
      * Compares this vector to the specified object for equality.
      * <p>
-     * The result is {@code true} if and only if the argument is not {@code null} and is a {@code Vector} object that
+     * The result is {@code true} if and only if the argument is not {@code null} and is a {@code RealVector} object that
      * has the same data elements as this object. This method performs a deep equality check on the underlying data
      * elements using {@link Objects#deepEquals(Object, Object)}.
-     * @param o the object to compare with this {@code Vector} for equality.
-     * @return {@code true} if the given object is a {@code Vector} equivalent to this vector, {@code false} otherwise.
+     * @param o the object to compare with this {@code RealVector} for equality.
+     * @return {@code true} if the given object is a {@code RealVector} equivalent to this vector, {@code false} otherwise.
      */
     @Override
     public boolean equals(final Object o) {
-        if (!(o instanceof AbstractVector)) {
+        if (!(o instanceof AbstractRealVector)) {
             return false;
         }
-        final AbstractVector vector = (AbstractVector)o;
+        final AbstractRealVector vector = (AbstractRealVector)o;
         return Arrays.equals(data, vector.data);
     }
 

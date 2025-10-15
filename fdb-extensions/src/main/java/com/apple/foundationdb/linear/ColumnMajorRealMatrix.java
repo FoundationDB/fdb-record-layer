@@ -1,5 +1,5 @@
 /*
- * RowMajorMatrix.java
+ * ColumnMajorRealMatrix.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,21 +18,20 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.async.rabitq;
+package com.apple.foundationdb.linear;
 
 import com.google.common.base.Preconditions;
 
 import javax.annotation.Nonnull;
 import java.util.Arrays;
 
-public class RowMajorMatrix implements Matrix {
+public class ColumnMajorRealMatrix implements RealMatrix {
     @Nonnull
     final double[][] data;
 
-    public RowMajorMatrix(@Nonnull final double[][] data) {
+    public ColumnMajorRealMatrix(@Nonnull final double[][] data) {
         Preconditions.checkArgument(data.length > 0);
         Preconditions.checkArgument(data[0].length > 0);
-
         this.data = data;
     }
 
@@ -44,62 +43,62 @@ public class RowMajorMatrix implements Matrix {
 
     @Override
     public int getRowDimension() {
-        return data.length;
-    }
-
-    @Override
-    public int getColumnDimension() {
         return data[0].length;
     }
 
     @Override
+    public int getColumnDimension() {
+        return data.length;
+    }
+
+    @Override
     public double getEntry(final int row, final int column) {
-        return data[row][column];
+        return data[column][row];
     }
 
     @Nonnull
-    public double[] getRow(final int row) {
-        return data[row];
+    public double[] getColumn(final int column) {
+        return data[column];
     }
 
     @Nonnull
     @Override
-    public Matrix transpose() {
+    public RealMatrix transpose() {
         int n = getRowDimension();
         int m = getColumnDimension();
-        double[][] result = new double[m][n];
-        for (int i = 0; i < n; i++) {
-            for (int j = 0; j < m; j++) {
-                result[j][i] = getEntry(i, j);
-            }
-        }
-        return new RowMajorMatrix(result);
-    }
-
-    @Nonnull
-    @Override
-    public Matrix multiply(@Nonnull final Matrix otherMatrix) {
-        int n = getRowDimension();
-        int m = otherMatrix.getColumnDimension();
-        int common = getColumnDimension();
         double[][] result = new double[n][m];
         for (int i = 0; i < n; i++) {
             for (int j = 0; j < m; j++) {
+                result[i][j] = getEntry(i, j);
+            }
+        }
+        return new ColumnMajorRealMatrix(result);
+    }
+
+    @Nonnull
+    @Override
+    public RealMatrix multiply(@Nonnull final RealMatrix otherMatrix) {
+        int n = getRowDimension();
+        int m = otherMatrix.getColumnDimension();
+        int common = getColumnDimension();
+        double[][] result = new double[m][n];
+        for (int i = 0; i < n; i++) {
+            for (int j = 0; j < m; j++) {
                 for (int k = 0; k < common; k++) {
-                    result[i][j] += data[i][k] * otherMatrix.getEntry(k, j);
+                    result[j][i] += data[k][i] * otherMatrix.getEntry(k, j);
                 }
             }
         }
-        return new RowMajorMatrix(result);
+        return new ColumnMajorRealMatrix(result);
     }
 
     @Override
     public final boolean equals(final Object o) {
-        if (!(o instanceof RowMajorMatrix)) {
+        if (!(o instanceof ColumnMajorRealMatrix)) {
             return false;
         }
 
-        final RowMajorMatrix that = (RowMajorMatrix)o;
+        final ColumnMajorRealMatrix that = (ColumnMajorRealMatrix)o;
         return Arrays.deepEquals(data, that.data);
     }
 

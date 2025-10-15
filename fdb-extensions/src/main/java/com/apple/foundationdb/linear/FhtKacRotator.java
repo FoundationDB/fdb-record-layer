@@ -18,10 +18,7 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.async.rabitq;
-
-import com.apple.foundationdb.async.hnsw.DoubleVector;
-import com.apple.foundationdb.async.hnsw.Vector;
+package com.apple.foundationdb.linear;
 
 import javax.annotation.Nonnull;
 import java.util.Arrays;
@@ -76,8 +73,8 @@ public final class FhtKacRotator implements LinearOperator {
 
     @Nonnull
     @Override
-    public Vector operate(@Nonnull final Vector x) {
-        return new DoubleVector(operate(x.getData()));
+    public RealVector operate(@Nonnull final RealVector x) {
+        return new DoubleRealVector(operate(x.getData()));
     }
 
     @Nonnull
@@ -107,8 +104,8 @@ public final class FhtKacRotator implements LinearOperator {
 
     @Nonnull
     @Override
-    public Vector operateTranspose(@Nonnull final Vector x) {
-        return new DoubleVector(operateTranspose(x.getData()));
+    public RealVector operateTranspose(@Nonnull final RealVector x) {
+        return new DoubleRealVector(operateTranspose(x.getData()));
     }
 
     @Nonnull
@@ -139,7 +136,7 @@ public final class FhtKacRotator implements LinearOperator {
     /**
      *  Build dense P as double[n][n] (row-major).
      */
-    public RowMajorMatrix computeP() {
+    public RowMajorRealMatrix computeP() {
         final double[][] p = new double[numDimensions][numDimensions];
         final double[] e = new double[numDimensions];
         for (int j = 0; j < numDimensions; j++) {
@@ -150,7 +147,7 @@ public final class FhtKacRotator implements LinearOperator {
                 p[i][j] = y[i];
             }
         }
-        return new RowMajorMatrix(p);
+        return new RowMajorRealMatrix(p);
     }
 
     @Override

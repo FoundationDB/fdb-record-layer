@@ -20,9 +20,12 @@
 
 package com.apple.foundationdb.async.rabitq;
 
-import com.apple.foundationdb.async.hnsw.DoubleVector;
-import com.apple.foundationdb.async.hnsw.Vector;
-import com.apple.foundationdb.async.hnsw.VectorTest;
+import com.apple.foundationdb.linear.ColumnMajorRealMatrix;
+import com.apple.foundationdb.linear.DoubleRealVector;
+import com.apple.foundationdb.linear.FhtKacRotator;
+import com.apple.foundationdb.linear.RealMatrix;
+import com.apple.foundationdb.linear.RealVector;
+import com.apple.foundationdb.async.hnsw.RealVectorTest;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ObjectArrays;
 import com.google.common.collect.Sets;
@@ -54,10 +57,10 @@ public class FhtKacRotatorTest {
         final FhtKacRotator rotator = new FhtKacRotator(seed, dimensionality, 10);
 
         final Random random = new Random(seed);
-        final Vector x = VectorTest.createRandomDoubleVector(random, dimensionality);
+        final RealVector x = RealVectorTest.createRandomDoubleVector(random, dimensionality);
 
-        final Vector y = rotator.operate(x);
-        final Vector z = rotator.operateTranspose(y);
+        final RealVector y = rotator.operate(x);
+        final RealVector z = rotator.operateTranspose(y);
 
         // Verify ||x|| ≈ ||y|| and P^T P ≈ I
         double nx = norm2(x);
@@ -73,9 +76,9 @@ public class FhtKacRotatorTest {
         Assertions.assertThat(rotator1).isEqualTo(rotator2);
 
         final Random random = new Random(0);
-        final Vector x = VectorTest.createRandomDoubleVector(random, 128);
-        final Vector x_ = rotator1.operate(x);
-        final Vector x__ = rotator2.operate(x);
+        final RealVector x = RealVectorTest.createRandomDoubleVector(random, 128);
+        final RealVector x_ = rotator1.operate(x);
+        final RealVector x__ = rotator2.operate(x);
 
         Assertions.assertThat(x_).isEqualTo(x__);
     }
@@ -84,10 +87,10 @@ public class FhtKacRotatorTest {
     @MethodSource("randomSeedsWithDimensionality")
     void testOrthogonality(final long seed, final int dimensionality) {
         final FhtKacRotator rotator = new FhtKacRotator(seed, dimensionality, 10);
-        final ColumnMajorMatrix p = new ColumnMajorMatrix(rotator.computeP().transpose().getData());
+        final ColumnMajorRealMatrix p = new ColumnMajorRealMatrix(rotator.computeP().transpose().getData());
 
         for (int j = 0; j < dimensionality; j ++) {
-            final Vector rotated = rotator.operateTranspose(new DoubleVector(p.getColumn(j)));
+            final RealVector rotated = rotator.operateTranspose(new DoubleRealVector(p.getColumn(j)));
             for (int i = 0; i < dimensionality; i++) {
                 double expected = (i == j) ? 1.0 : 0.0;
                 Assertions.assertThat(Math.abs(rotated.getComponent(i) - expected))
@@ -100,8 +103,8 @@ public class FhtKacRotatorTest {
     @MethodSource("randomSeedsWithDimensionality")
     void testOrthogonalityWithP(final long seed, final int dimensionality) {
         final FhtKacRotator rotator = new FhtKacRotator(seed, dimensionality, 10);
-        final Matrix p = rotator.computeP();
-        final Matrix product = p.transpose().multiply(p);
+        final RealMatrix p = rotator.computeP();
+        final RealMatrix product = p.transpose().multiply(p);
 
         for (int i = 0; i < dimensionality; i++) {
             for (int j = 0; j < dimensionality; j++) {
@@ -112,7 +115,7 @@ public class FhtKacRotatorTest {
         }
     }
 
-    private static double norm2(@Nonnull final Vector a) {
+    private static double norm2(@Nonnull final RealVector a) {
         double s = 0;
         for (double v : a.getData()) {
             s += v * v;
@@ -120,7 +123,7 @@ public class FhtKacRotatorTest {
         return Math.sqrt(s);
     }
 
-    private static double maxAbsDiff(@Nonnull final Vector a, @Nonnull final Vector b) {
+    private static double maxAbsDiff(@Nonnull final RealVector a, @Nonnull final RealVector b) {
         double m = 0;
         for (int i = 0; i < a.getNumDimensions(); i++) {
             m = Math.max(m, Math.abs(a.getComponent(i) - b.getComponent(i)));
