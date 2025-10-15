@@ -83,30 +83,97 @@ class ResolvedKeySpacePathTest {
     @MethodSource("testEqualsHashCode")
     void testEqualsHashCode(@Nonnull KeyType keyType, boolean constantDirectory, boolean differenceInParent) {
         @Nonnull TestValuePair values = TYPE_TEST_VALUES.get(keyType);
-        // Test case 1: Same logical and resolved values (existing test)
-        ResolvedKeySpacePath path1 = createResolvedPath(keyType, values.getValue1(), values.getValue1(),
-                createRootParent(), constantDirectory, differenceInParent);
-        ResolvedKeySpacePath path2 = createResolvedPath(keyType, values.getValue1(), values.getValue1(),
-                createRootParent(), constantDirectory, differenceInParent);
+
+        // Create a single KeySpace with the appropriate directory structure
+        KeySpaceDirectory rootDir = new KeySpaceDirectory("root", KeyType.STRING, "root");
+        KeySpaceDirectory childDir = constantDirectory
+                ? new KeySpaceDirectory("test", keyType, values.getValue1())
+                : new KeySpaceDirectory("test", keyType);
+        rootDir.addSubdirectory(childDir);
+
+        // Optionally add a constant child for the differenceInParent test
+        if (differenceInParent) {
+            KeySpaceDirectory constantChild = new KeySpaceDirectory("constant", KeyType.STRING, "Constant");
+            childDir.addSubdirectory(constantChild);
+        }
+
+        KeySpace keySpace = new KeySpace(rootDir);
+
+        // Create paths from the same KeySpace
+        KeySpacePath rootPath1 = keySpace.path("root");
+        KeySpacePath rootPath2 = keySpace.path("root");
+
+        KeySpacePath childPath1;
+        KeySpacePath childPath2;
+        if (constantDirectory) {
+            childPath1 = rootPath1.add("test");
+            childPath2 = rootPath2.add("test");
+        } else {
+            childPath1 = rootPath1.add("test", values.getValue1());
+            childPath2 = rootPath2.add("test", values.getValue1());
+        }
+
+        // Create ResolvedKeySpacePath instances
+        ResolvedKeySpacePath resolvedRoot1 = new ResolvedKeySpacePath(null, rootPath1, new PathValue("root", null), null);
+        ResolvedKeySpacePath resolvedRoot2 = new ResolvedKeySpacePath(null, rootPath2, new PathValue("root", null), null);
+
+        ResolvedKeySpacePath path1 = new ResolvedKeySpacePath(resolvedRoot1, childPath1, new PathValue(values.getValue1(), null), null);
+        ResolvedKeySpacePath path2 = new ResolvedKeySpacePath(resolvedRoot2, childPath2, new PathValue(values.getValue1(), null), null);
+
+        if (differenceInParent) {
+            KeySpacePath constantChildPath1 = childPath1.add("constant");
+            KeySpacePath constantChildPath2 = childPath2.add("constant");
+            path1 = new ResolvedKeySpacePath(path1, constantChildPath1, new PathValue("Constant", null), null);
+            path2 = new ResolvedKeySpacePath(path2, constantChildPath2, new PathValue("Constant", null), null);
+        }
 
         // Test equality contracts
         assertEquals(path1, path2, "Identical paths should be equal");
         assertEquals(path2, path1, "Symmetry: path2.equals(path1)");
         assertEquals(path1.hashCode(), path2.hashCode(), "Equal objects must have equal hash codes");
-            
+
         // Test inequality when values differ (except NULL type which only has null values)
         if (keyType != KeyType.NULL) {
-            ResolvedKeySpacePath path3 = createResolvedPath(keyType, values.getValue2(), createRootParent(), constantDirectory);
-            assertNotEquals(path1, path3, "Paths with different values should not be equal");
+            if (constantDirectory) {
+                // For constant directories, we need a different directory (and thus different KeySpace) to test different values
+                // this doesn't really need to be parameterized by value type, since they will always be non-equal due
+                // to the directories being different
+                KeySpaceDirectory rootDir3 = new KeySpaceDirectory("root", KeyType.STRING, "root");
+                KeySpaceDirectory childDir3 = new KeySpaceDirectory("test", keyType, values.getValue2());
+                rootDir3.addSubdirectory(childDir3);
+                KeySpace keySpace3 = new KeySpace(rootDir3);
 
-            assertNotEquals(createResolvedPath(keyType, values.getValue1(), values.getValue2(), createRootParent(), constantDirectory, differenceInParent),
-                    path1, "Paths with different resolved values should not be equal");
-            assertNotEquals(createResolvedPath(keyType, values.getValue2(), values.getValue1(), createRootParent(), constantDirectory, differenceInParent),
-                    path1, "Paths with different logical values should not be equal");
+                KeySpacePath rootPath3 = keySpace3.path("root");
+                KeySpacePath childPath3 = rootPath3.add("test");
+
+                ResolvedKeySpacePath resolvedRoot3 = new ResolvedKeySpacePath(null, rootPath3, new PathValue("root", null), null);
+                ResolvedKeySpacePath path3 = new ResolvedKeySpacePath(resolvedRoot3, childPath3, new PathValue(values.getValue2(), null), null);
+
+                assertNotEquals(path1, path3, "Paths with different constant values should not be equal");
+            } else {
+                // For non-constant directories, we can use the same directory with different values
+                KeySpacePath childPath3 = rootPath1.add("test", values.getValue2());
+                ResolvedKeySpacePath path3 = new ResolvedKeySpacePath(resolvedRoot1, childPath3, new PathValue(values.getValue2(), null), null);
+                assertNotEquals(path1, path3, "Paths with different values should not be equal");
+            }
+
+            // Test different resolved value (same logical, different resolved)
+            KeySpacePath childPath4 = constantDirectory
+                    ? rootPath1.add("test")
+                    : rootPath1.add("test", values.getValue1());
+            ResolvedKeySpacePath path4 = new ResolvedKeySpacePath(resolvedRoot1, childPath4, new PathValue(values.getValue2(), null), null);
+            assertNotEquals(path4, path1, "Paths with different resolved values should not be equal");
+
+            // Test different logical value (different logical, same resolved)
+            if (!constantDirectory) {
+                KeySpacePath childPath5 = rootPath1.add("test", values.getValue2());
+                ResolvedKeySpacePath path5 = new ResolvedKeySpacePath(resolvedRoot1, childPath5, new PathValue(values.getValue1(), null), null);
+                assertNotEquals(path5, path1, "Paths with different logical values should not be equal");
+            }
         } else {
             assertNull(values.getValue2());
         }
-            
+
         // Test basic contracts
         assertEquals(path1, path1, "Reflexivity");
         assertNotEquals(path1, null, "Null comparison");
@@ -155,29 +222,6 @@ class ResolvedKeySpacePathTest {
                 .filter(path -> path.hashCode() != path1.hashCode())
                 .findAny()
                 .orElseThrow(() -> new AssertionError("Paths with different remainders should sometimes have different hash codes"));
-    }
-
-    @Nonnull
-    private ResolvedKeySpacePath createResolvedPath(@Nonnull KeyType keyType, @Nullable Object value,
-                                                    @Nonnull ResolvedKeySpacePath parent, boolean constantDirectory) {
-        return createResolvedPath(keyType, value, value, parent, constantDirectory, false);
-    }
-
-    @Nonnull
-    private ResolvedKeySpacePath createResolvedPath(@Nonnull KeyType keyType,
-                                                    @Nullable Object logicalValue, @Nullable Object resolvedValue,
-                                                    @Nonnull ResolvedKeySpacePath parent,
-                                                    boolean constantDirectory, final boolean addConstantChild) {
-        KeySpacePath innerPath = createKeySpacePath(parent, keyType, logicalValue, constantDirectory);
-        PathValue pathValue = new PathValue(resolvedValue, null);
-        final ResolvedKeySpacePath resolvedKeySpacePath = new ResolvedKeySpacePath(parent, innerPath, pathValue, null);
-        if (addConstantChild) {
-            final ResolvedKeySpacePath resolvedPath = createResolvedPath(KeyType.STRING,
-                    "Constant", "Constant", resolvedKeySpacePath, true, false);
-            return resolvedPath;
-        } else {
-            return resolvedKeySpacePath;
-        }
     }
 
     @Nonnull
