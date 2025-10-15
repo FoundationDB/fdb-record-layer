@@ -20,10 +20,10 @@
 
 package com.apple.foundationdb.async.rabitq;
 
-import com.apple.foundationdb.async.hnsw.DoubleVector;
-import com.apple.foundationdb.async.hnsw.Estimator;
-import com.apple.foundationdb.async.hnsw.Metrics;
-import com.apple.foundationdb.async.hnsw.Vector;
+import com.apple.foundationdb.linear.DoubleRealVector;
+import com.apple.foundationdb.linear.Estimator;
+import com.apple.foundationdb.linear.Metrics;
+import com.apple.foundationdb.linear.RealVector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -36,11 +36,11 @@ public class RaBitEstimator implements Estimator {
     @Nonnull
     private final Metrics metric;
     @Nonnull
-    private final Vector centroid;
+    private final RealVector centroid;
     private final int numExBits;
 
     public RaBitEstimator(@Nonnull final Metrics metric,
-                          @Nonnull final Vector centroid,
+                          @Nonnull final RealVector centroid,
                           final int numExBits) {
         this.metric = metric;
         this.centroid = centroid;
@@ -61,41 +61,41 @@ public class RaBitEstimator implements Estimator {
     }
 
     @Override
-    public double distance(@Nonnull final Vector query,
-                            @Nonnull final Vector storedVector) {
+    public double distance(@Nonnull final RealVector query,
+                            @Nonnull final RealVector storedVector) {
         double d = distance1(query, storedVector);
         //logger.info("estimator distance = {}", d);
         return d;
     }
 
     /** Estimate metric(queryRot, encodedVector) using ex-bits-only factors. */
-    public double distance1(@Nonnull final Vector query,
-                           @Nonnull final Vector storedVector) {
-        if (!(query instanceof EncodedVector) && storedVector instanceof EncodedVector) {
+    public double distance1(@Nonnull final RealVector query,
+                           @Nonnull final RealVector storedVector) {
+        if (!(query instanceof EncodedRealVector) && storedVector instanceof EncodedRealVector) {
             // only use the estimator if the first (by convention) vector is not encoded, but the second is
-            return distance(query, (EncodedVector)storedVector);
+            return distance(query, (EncodedRealVector)storedVector);
         }
-        if (query instanceof EncodedVector && !(storedVector instanceof EncodedVector)) {
-            return distance(storedVector, (EncodedVector)query);
+        if (query instanceof EncodedRealVector && !(storedVector instanceof EncodedRealVector)) {
+            return distance(storedVector, (EncodedRealVector)query);
         }
         // use the regular metric for all other cases
         return metric.comparativeDistance(query, storedVector);
     }
 
-    private double distance(@Nonnull final Vector query, // pre-rotated query q
-                            @Nonnull final EncodedVector encodedVector) {
+    private double distance(@Nonnull final RealVector query, // pre-rotated query q
+                            @Nonnull final EncodedRealVector encodedVector) {
         return estimateDistanceAndErrorBound(query, encodedVector).getDistance();
     }
 
     @Nonnull
-    public Result estimateDistanceAndErrorBound(@Nonnull final Vector query, // pre-rotated query q
-                                                @Nonnull final EncodedVector encodedVector) {
+    public Result estimateDistanceAndErrorBound(@Nonnull final RealVector query, // pre-rotated query q
+                                                @Nonnull final EncodedRealVector encodedVector) {
         final double cb = (1 << numExBits) - 0.5;
-        final Vector qc = query;
+        final RealVector qc = query;
         final double gAdd = qc.dot(qc);
         final double gError = Math.sqrt(gAdd);
-        final Vector totalCode = new DoubleVector(encodedVector.getEncodedData());
-        final Vector xuc = totalCode.subtract(cb);
+        final RealVector totalCode = new DoubleRealVector(encodedVector.getEncodedData());
+        final RealVector xuc = totalCode.subtract(cb);
         final double dot = query.dot(xuc);
 
         switch (metric) {

@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.async.hnsw;
 
+import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.tuple.Tuple;
 
 import javax.annotation.Nonnull;
@@ -43,7 +44,7 @@ public interface NodeFactory<N extends NodeReference> {
      *
      * @param primaryKey the {@link Tuple} representing the unique primary key for the new node. Must not be
      *        {@code null}.
-     * @param vector the optional feature {@link Vector} associated with the node, which can be used for similarity
+     * @param vector the optional feature {@link RealVector} associated with the node, which can be used for similarity
      *        calculations. May be {@code null} if the node does not encode a vector (see {@link CompactNode} versus
      *        {@link InliningNode}.
      * @param neighbors the list of initial {@link NodeReference}s for the new node,
@@ -52,7 +53,7 @@ public interface NodeFactory<N extends NodeReference> {
      * @return a new, non-null {@link Node} instance configured with the provided parameters.
      */
     @Nonnull
-    Node<N> create(@Nonnull Tuple primaryKey, @Nullable Vector vector,
+    Node<N> create(@Nonnull Tuple primaryKey, @Nullable RealVector vector,
                    @Nonnull List<? extends NodeReference> neighbors);
 
     /**

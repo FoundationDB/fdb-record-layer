@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.async.hnsw;
 
+import com.apple.foundationdb.linear.Metric;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 

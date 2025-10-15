@@ -1,5 +1,5 @@
 /*
- * MatrixHelpers.java
+ * RandomMatrixHelpers.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,7 +18,7 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.async.rabitq;
+package com.apple.foundationdb.linear;
 
 import com.google.common.base.Preconditions;
 
@@ -32,12 +32,12 @@ public class RandomMatrixHelpers {
     }
 
     @Nonnull
-    public static Matrix randomOrthognalMatrix(int seed, int dimension) {
+    public static RealMatrix randomOrthognalMatrix(int seed, int dimension) {
         return decomposeMatrix(randomGaussianMatrix(seed, dimension, dimension));
     }
 
     @Nonnull
-    public static Matrix randomGaussianMatrix(int seed, int rowDimension, int columnDimension) {
+    public static RealMatrix randomGaussianMatrix(int seed, int rowDimension, int columnDimension) {
         final SecureRandom rng;
         try {
             rng = SecureRandom.getInstance("SHA1PRNG");
@@ -53,7 +53,7 @@ public class RandomMatrixHelpers {
             }
         }
 
-        return new RowMajorMatrix(resultMatrix);
+        return new RowMajorRealMatrix(resultMatrix);
     }
 
     private static double nextGaussian(@Nonnull final SecureRandom rng) {
@@ -70,7 +70,7 @@ public class RandomMatrixHelpers {
     }
 
     @Nonnull
-    private static Matrix decomposeMatrix(@Nonnull final Matrix matrix) {
+    private static RealMatrix decomposeMatrix(@Nonnull final RealMatrix matrix) {
         Preconditions.checkArgument(matrix.isSquare());
 
         final double[] rDiag = new double[matrix.getRowDimension()];
@@ -149,7 +149,7 @@ public class RandomMatrixHelpers {
      * @return the Q matrix
      */
     @Nonnull
-    private static Matrix getQ(final double[][] qrt, final double[] rDiag) {
+    private static RealMatrix getQ(final double[][] qrt, final double[] rDiag) {
         final int m = qrt.length;
         double[][] q = new double[m][m];
 
@@ -170,6 +170,6 @@ public class RandomMatrixHelpers {
                 }
             }
         }
-        return new RowMajorMatrix(q);
+        return new RowMajorRealMatrix(q);
     }
 }

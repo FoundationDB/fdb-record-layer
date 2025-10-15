@@ -21,6 +21,7 @@
 package com.apple.foundationdb.async.hnsw;
 
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
+import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.tuple.Tuple;
 
 import javax.annotation.Nonnull;
@@ -43,7 +44,7 @@ public class InliningNode extends AbstractNode<NodeReferenceWithVector> {
         @Nonnull
         @Override
         public Node<NodeReferenceWithVector> create(@Nonnull final Tuple primaryKey,
-                                                    @Nullable final Vector vector,
+                                                    @Nullable final RealVector vector,
                                                     @Nonnull final List<? extends NodeReference> neighbors) {
             return new InliningNode(primaryKey, (List<NodeReferenceWithVector>)neighbors);
         }
@@ -84,7 +85,7 @@ public class InliningNode extends AbstractNode<NodeReferenceWithVector> {
     @Nonnull
     @Override
     @SpotBugsSuppressWarnings("NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE")
-    public NodeReferenceWithVector getSelfReference(@Nullable final Vector vector) {
+    public NodeReferenceWithVector getSelfReference(@Nullable final RealVector vector) {
         return new NodeReferenceWithVector(getPrimaryKey(), Objects.requireNonNull(vector));
     }
 

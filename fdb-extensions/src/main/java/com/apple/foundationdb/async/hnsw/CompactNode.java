@@ -22,6 +22,7 @@ package com.apple.foundationdb.async.hnsw;
 
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.half.Half;
+import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.tuple.Tuple;
 
 import javax.annotation.Nonnull;
@@ -33,7 +34,7 @@ import java.util.Objects;
  * Represents a compact node within a graph structure, extending {@link AbstractNode}.
  * <p>
  * This node type is considered "compact" because it directly stores its associated
- * data vector of type {@link Vector}. It is used to represent a vector in a
+ * data vector of type {@link RealVector}. It is used to represent a vector in a
  * vector space and maintains references to its neighbors via {@link NodeReference} objects.
  *
  * @see AbstractNode
@@ -46,7 +47,7 @@ public class CompactNode extends AbstractNode<NodeReference> {
         @Nonnull
         @Override
         @SpotBugsSuppressWarnings("NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE")
-        public Node<NodeReference> create(@Nonnull final Tuple primaryKey, @Nullable final Vector vector,
+        public Node<NodeReference> create(@Nonnull final Tuple primaryKey, @Nullable final RealVector vector,
                                           @Nonnull final List<? extends NodeReference> neighbors) {
             return new CompactNode(primaryKey, Objects.requireNonNull(vector), (List<NodeReference>)neighbors);
         }
@@ -59,7 +60,7 @@ public class CompactNode extends AbstractNode<NodeReference> {
     };
 
     @Nonnull
-    private final Vector vector;
+    private final RealVector vector;
 
     /**
      * Constructs a new {@code CompactNode} instance.
@@ -69,11 +70,11 @@ public class CompactNode extends AbstractNode<NodeReference> {
      * {@code primaryKey} and {@code neighbors} to the superclass constructor.
      *
      * @param primaryKey the primary key that uniquely identifies this node; must not be {@code null}.
-     * @param vector the data vector of type {@code Vector} associated with this node; must not be {@code null}.
+     * @param vector the data vector of type {@code RealVector} associated with this node; must not be {@code null}.
      * @param neighbors a list of {@link NodeReference} objects representing the neighbors of this node; must not be
      *                  {@code null}.
      */
-    public CompactNode(@Nonnull final Tuple primaryKey, @Nonnull final Vector vector,
+    public CompactNode(@Nonnull final Tuple primaryKey, @Nonnull final RealVector vector,
                        @Nonnull final List<NodeReference> neighbors) {
         super(primaryKey, neighbors);
         this.vector = vector;
@@ -92,7 +93,7 @@ public class CompactNode extends AbstractNode<NodeReference> {
      */
     @Nonnull
     @Override
-    public NodeReference getSelfReference(@Nullable final Vector vector) {
+    public NodeReference getSelfReference(@Nullable final RealVector vector) {
         return new NodeReference(getPrimaryKey());
     }
 
@@ -112,7 +113,7 @@ public class CompactNode extends AbstractNode<NodeReference> {
      * @return the non-null vector of {@link Half} objects.
      */
     @Nonnull
-    public Vector getVector() {
+    public RealVector getVector() {
         return vector;
     }
 

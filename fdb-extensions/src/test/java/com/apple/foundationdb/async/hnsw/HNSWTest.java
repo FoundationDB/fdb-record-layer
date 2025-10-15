@@ -23,6 +23,11 @@ package com.apple.foundationdb.async.hnsw;
 import com.apple.foundationdb.Database;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.async.rtree.RTree;
+import com.apple.foundationdb.linear.DoubleRealVector;
+import com.apple.foundationdb.linear.HalfRealVector;
+import com.apple.foundationdb.linear.Metrics;
+import com.apple.foundationdb.linear.StoredVecsIterator;
+import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.test.TestDatabaseExtension;
 import com.apple.foundationdb.test.TestExecutors;
 import com.apple.foundationdb.test.TestSubspaceExtension;
@@ -208,7 +213,7 @@ public class HNSWTest {
                 OnWriteListener.NOOP, onReadListener);
 
         final int k = 10;
-        final HalfVector queryVector = VectorTest.createRandomHalfVector(random, numDimensions);
+        final HalfRealVector queryVector = RealVectorTest.createRandomHalfVector(random, numDimensions);
         final TreeSet<NodeReferenceWithDistance> nodesOrderedByDistance =
                 new TreeSet<>(Comparator.comparing(NodeReferenceWithDistance::getDistance));
 
@@ -216,7 +221,7 @@ public class HNSWTest {
             i += basicInsertBatch(hnsw, 100, nextNodeIdAtomic, onReadListener,
                     tr -> {
                         final var primaryKey = createNextPrimaryKey(nextNodeIdAtomic);
-                        final HalfVector dataVector = VectorTest.createRandomHalfVector(random, numDimensions);
+                        final HalfRealVector dataVector = RealVectorTest.createRandomHalfVector(random, numDimensions);
                         final double distance = metric.comparativeDistance(dataVector, queryVector);
                         final NodeReferenceWithDistance nodeReferenceWithDistance =
                                 new NodeReferenceWithDistance(primaryKey, dataVector, distance);
@@ -324,19 +329,19 @@ public class HNSWTest {
         final Path siftSmallPath = Paths.get(".out/extracted/siftsmall/siftsmall_base.fvecs");
 
         try (final var fileChannel = FileChannel.open(siftSmallPath, StandardOpenOption.READ)) {
-            final Iterator<DoubleVector> vectorIterator = new StoredVecsIterator.StoredFVecsIterator(fileChannel);
+            final Iterator<DoubleRealVector> vectorIterator = new StoredVecsIterator.StoredFVecsIterator(fileChannel);
 
             int i = 0;
-            final AtomicReference<Vector> sumReference = new AtomicReference<>(null);
+            final AtomicReference<RealVector> sumReference = new AtomicReference<>(null);
             while (vectorIterator.hasNext()) {
                 i += basicInsertBatch(hnsw, 100, nextNodeIdAtomic, onReadListener,
                         tr -> {
                             if (!vectorIterator.hasNext()) {
                                 return null;
                             }
-                            final DoubleVector doubleVector = vectorIterator.next();
+                            final DoubleRealVector doubleVector = vectorIterator.next();
                             final Tuple currentPrimaryKey = createNextPrimaryKey(nextNodeIdAtomic);
-                            final HalfVector currentVector = doubleVector.toHalfVector();
+                            final HalfRealVector currentVector = doubleVector.toHalfRealVector();
 
                             if (sumReference.get() == null) {
                                 sumReference.set(currentVector);
@@ -347,7 +352,7 @@ public class HNSWTest {
                             return new NodeReferenceWithVector(currentPrimaryKey, currentVector);
                         });
             }
-            final DoubleVector centroid = sumReference.get().multiply(1.0d / i).toDoubleVector();
+            final DoubleRealVector centroid = sumReference.get().multiply(1.0d / i).toDoubleRealVector();
             System.out.println("centroid =" + centroid.toString(1000));
         }
 
@@ -362,13 +367,13 @@ public class HNSWTest {
 
         try (final var queryChannel = FileChannel.open(siftSmallQueryPath, StandardOpenOption.READ);
                 final var groundTruthChannel = FileChannel.open(siftSmallGroundTruthPath, StandardOpenOption.READ)) {
-            final Iterator<DoubleVector> queryIterator = new StoredVecsIterator.StoredFVecsIterator(queryChannel);
+            final Iterator<DoubleRealVector> queryIterator = new StoredVecsIterator.StoredFVecsIterator(queryChannel);
             final Iterator<List<Integer>> groundTruthIterator = new StoredVecsIterator.StoredIVecsIterator(groundTruthChannel);
 
             Verify.verify(queryIterator.hasNext() == groundTruthIterator.hasNext());
 
             while (queryIterator.hasNext()) {
-                final HalfVector queryVector = queryIterator.next().toHalfVector();
+                final HalfRealVector queryVector = queryIterator.next().toHalfRealVector();
                 final Set<Integer> groundTruthIndices = ImmutableSet.copyOf(groundTruthIterator.next());
                 onReadListener.reset();
                 final long beginTs = System.nanoTime();
@@ -415,7 +420,7 @@ public class HNSWTest {
         final Path siftSmallPath = Paths.get(".out/extracted/siftsmall/siftsmall_base.fvecs");
 
         try (final var fileChannel = FileChannel.open(siftSmallPath, StandardOpenOption.READ)) {
-            final Iterator<DoubleVector> vectorIterator = new StoredVecsIterator.StoredFVecsIterator(fileChannel);
+            final Iterator<DoubleRealVector> vectorIterator = new StoredVecsIterator.StoredFVecsIterator(fileChannel);
 
             int i = 0;
             while (vectorIterator.hasNext()) {
@@ -424,9 +429,9 @@ public class HNSWTest {
                             if (!vectorIterator.hasNext()) {
                                 return null;
                             }
-                            final DoubleVector doubleVector = vectorIterator.next();
+                            final DoubleRealVector doubleVector = vectorIterator.next();
                             final Tuple currentPrimaryKey = createNextPrimaryKey(nextNodeIdAtomic);
-                            final HalfVector currentVector = doubleVector.toHalfVector();
+                            final HalfRealVector currentVector = doubleVector.toHalfRealVector();
                             return new NodeReferenceWithVector(currentPrimaryKey, currentVector);
                         });
             }
@@ -439,9 +444,9 @@ public class HNSWTest {
         final Random random = new Random();
         final int numDimensions = 768;
         for (long l = 0L; l < 3000000; l ++) {
-            final HalfVector randomVector = VectorTest.createRandomHalfVector(random, numDimensions);
+            final HalfRealVector randomVector = RealVectorTest.createRandomHalfVector(random, numDimensions);
             final Tuple vectorTuple = StorageAdapter.tupleFromVector(randomVector);
-            final Vector roundTripVector = StorageAdapter.vectorFromTuple(HNSW.DEFAULT_CONFIG_BUILDER.build(numDimensions), vectorTuple);
+            final RealVector roundTripVector = StorageAdapter.vectorFromTuple(HNSW.DEFAULT_CONFIG_BUILDER.build(numDimensions), vectorTuple);
             Metrics.EUCLIDEAN_METRIC.comparativeDistance(randomVector, roundTripVector);
             Assertions.assertEquals(randomVector, roundTripVector);
         }
@@ -468,7 +473,7 @@ public class HNSWTest {
             neighborsBuilder.add(createRandomNodeReference(random));
         }
 
-        return nodeFactory.create(primaryKey, VectorTest.createRandomHalfVector(random, numDimensions), neighborsBuilder.build());
+        return nodeFactory.create(primaryKey, RealVectorTest.createRandomHalfVector(random, numDimensions), neighborsBuilder.build());
     }
 
     @Nonnull
@@ -482,7 +487,7 @@ public class HNSWTest {
             neighborsBuilder.add(createRandomNodeReferenceWithVector(random, numDimensions));
         }
 
-        return nodeFactory.create(primaryKey, VectorTest.createRandomHalfVector(random, numDimensions), neighborsBuilder.build());
+        return nodeFactory.create(primaryKey, RealVectorTest.createRandomHalfVector(random, numDimensions), neighborsBuilder.build());
     }
 
     @Nonnull
@@ -492,7 +497,7 @@ public class HNSWTest {
 
     @Nonnull
     private NodeReferenceWithVector createRandomNodeReferenceWithVector(@Nonnull final Random random, final int dimensionality) {
-        return new NodeReferenceWithVector(createRandomPrimaryKey(random), VectorTest.createRandomHalfVector(random, dimensionality));
+        return new NodeReferenceWithVector(createRandomPrimaryKey(random), RealVectorTest.createRandomHalfVector(random, dimensionality));
     }
 
     @Nonnull
