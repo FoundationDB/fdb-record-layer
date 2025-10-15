@@ -30,7 +30,10 @@ import java.util.stream.Stream;
 /**
  * Helper utility class for interacting with {@link org.junit.jupiter.params.ParameterizedTest}s.
  */
-public class ParameterizedTestUtils {
+public final class ParameterizedTestUtils {
+
+    private ParameterizedTestUtils() {
+    }
 
     /**
      * Provides a stream of boolean, named arguments.
