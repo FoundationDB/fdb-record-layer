@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.async.hnsw;
 
+import com.apple.foundationdb.linear.DoubleRealVector;
+import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.base.Objects;
 
@@ -28,7 +30,7 @@ import javax.annotation.Nonnull;
 /**
  * Represents a reference to a node that includes an associated vector.
  * <p>
- * This class extends {@link NodeReference} by adding a {@link Vector} field. It encapsulates both the primary key
+ * This class extends {@link NodeReference} by adding a {@link RealVector} field. It encapsulates both the primary key
  * of a node and its corresponding vector data, which is particularly useful in vector-based search and
  * indexing scenarios. Primarily, node references are used to refer to {@link Node}s in a storage-independent way, i.e.
  * a node reference always contains the vector of a node while the node itself (depending on the storage adapter)
@@ -36,7 +38,7 @@ import javax.annotation.Nonnull;
  */
 public class NodeReferenceWithVector extends NodeReference {
     @Nonnull
-    private final Vector vector;
+    private final RealVector vector;
 
     /**
      * Constructs a new {@code NodeReferenceWithVector} with a specified primary key and vector.
@@ -48,7 +50,7 @@ public class NodeReferenceWithVector extends NodeReference {
      * @param primaryKey the primary key of the node, must not be null
      * @param vector the vector associated with the node, must not be null
      */
-    public NodeReferenceWithVector(@Nonnull final Tuple primaryKey, @Nonnull final Vector vector) {
+    public NodeReferenceWithVector(@Nonnull final Tuple primaryKey, @Nonnull final RealVector vector) {
         super(primaryKey);
         this.vector = vector;
     }
@@ -62,17 +64,17 @@ public class NodeReferenceWithVector extends NodeReference {
      * @return the vector of {@code Half} objects; will never be {@code null}.
      */
     @Nonnull
-    public Vector getVector() {
+    public RealVector getVector() {
         return vector;
     }
 
     /**
-     * Gets the vector as a {@code Vector} of {@code Double}s.
-     * @return a non-null {@code Vector<Double>} containing the elements of this vector.
+     * Gets the vector as a {@code RealVector} of {@code Double}s.
+     * @return a non-null {@code RealVector<Double>} containing the elements of this vector.
      */
     @Nonnull
-    public DoubleVector getDoubleVector() {
-        return vector.toDoubleVector();
+    public DoubleRealVector getDoubleVector() {
+        return vector.toDoubleRealVector();
     }
 
     /**

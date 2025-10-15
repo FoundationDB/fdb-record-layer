@@ -20,6 +20,10 @@
 
 package com.apple.foundationdb.async.rabitq;
 
+import com.apple.foundationdb.linear.ColumnMajorRealMatrix;
+import com.apple.foundationdb.linear.RealMatrix;
+import com.apple.foundationdb.linear.RandomMatrixHelpers;
+import com.apple.foundationdb.linear.RowMajorRealMatrix;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -27,8 +31,8 @@ public class RandomMatrixHelpersTest {
     @Test
     void testRandomOrthogonalMatrixIsOrthogonal() {
         final int dimension = 1000;
-        final Matrix matrix = RandomMatrixHelpers.randomOrthognalMatrix(0, dimension);
-        final Matrix product = matrix.transpose().multiply(matrix);
+        final RealMatrix matrix = RandomMatrixHelpers.randomOrthognalMatrix(0, dimension);
+        final RealMatrix product = matrix.transpose().multiply(matrix);
 
         for (int i = 0; i < dimension; i++) {
             for (int j = 0; j < dimension; j++) {
@@ -41,16 +45,16 @@ public class RandomMatrixHelpersTest {
 
     @Test
     void transposeRowMajorMatrix() {
-        final Matrix m = new RowMajorMatrix(new double[][]{{0, 1, 2}, {3, 4, 5}});
-        final Matrix expected = new RowMajorMatrix(new double[][]{{0, 3}, {1, 4}, {2, 5}});
+        final RealMatrix m = new RowMajorRealMatrix(new double[][]{{0, 1, 2}, {3, 4, 5}});
+        final RealMatrix expected = new RowMajorRealMatrix(new double[][]{{0, 3}, {1, 4}, {2, 5}});
 
         Assertions.assertThat(m.transpose()).isEqualTo(expected);
     }
 
     @Test
     void transposeColumnMajorMatrix() {
-        final Matrix m = new ColumnMajorMatrix(new double[][]{{0, 3}, {1, 4}, {2, 5}});
-        final Matrix expected = new ColumnMajorMatrix(new double[][]{{0, 1, 2}, {3, 4, 5}});
+        final RealMatrix m = new ColumnMajorRealMatrix(new double[][]{{0, 3}, {1, 4}, {2, 5}});
+        final RealMatrix expected = new ColumnMajorRealMatrix(new double[][]{{0, 1, 2}, {3, 4, 5}});
 
         Assertions.assertThat(m.transpose()).isEqualTo(expected);
     }
