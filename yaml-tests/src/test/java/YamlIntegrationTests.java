@@ -228,7 +228,7 @@ public class YamlIntegrationTests {
 
     @TestTemplate
     public void structTypeVariants(YamlTest.Runner runner) throws Exception {
-        runner.runYamsql("struct-type-variants.yamsql");
+        runner.runYamsql("struct-type-nullability-variants.yamsql");
     }
 
     @TestTemplate

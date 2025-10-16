@@ -1,5 +1,5 @@
 #
-# struct-type-variants.yamsql
+# struct-type-nullability-variants.yamsql
 #
 # This source file is part of the FoundationDB open source project
 #
@@ -21,9 +21,6 @@
 # This validates that a struct type like "Address" can exist in both:
 # - Nullable form (for table columns)  
 # - Non-nullable form (for array elements)
----
-options:
-    supported_version: !current_version
 ---
 schema_template:
     create type as struct Address(street string, city string, zipcode integer)
@@ -92,21 +89,25 @@ test_block:
     # Test 1: Query nullable Address columns by checking a field
     -
       - query: SELECT id, name, home_address FROM users WHERE home_address.city = 'Anytown'
+      - explain: "SCAN(<,>) | TFILTER USERS | FILTER _.HOME_ADDRESS.CITY EQUALS promote(@c14 AS STRING) | MAP (_.ID AS ID, _.NAME AS NAME, _.HOME_ADDRESS AS HOME_ADDRESS)"
       - result: [{1, 'John Doe', {street: '123 Main St', city: 'Anytown', zipcode: 12345}}]
 
     # Test 2: Query nullable Address columns by checking another field
     -
       - query: SELECT id, name, home_address FROM users WHERE home_address.city = 'Somewhere'
+      - explain: "SCAN(<,>) | TFILTER USERS | FILTER _.HOME_ADDRESS.CITY EQUALS promote(@c14 AS STRING) | MAP (_.ID AS ID, _.NAME AS NAME, _.HOME_ADDRESS AS HOME_ADDRESS)"
       - result: [{2, 'Jane Smith', {street: '456 Oak Ave', city: 'Somewhere', zipcode: 67890}}]
 
     # Test 3: Query Address arrays (non-nullable elements)
     -
       - query: SELECT id, name, addresses FROM locations WHERE id = 1
+      - explain: "SCAN(<,>) | TFILTER LOCATIONS | FILTER _.ID EQUALS promote(@c12 AS INT) | MAP (_.ID AS ID, _.NAME AS NAME, _.ADDRESSES AS ADDRESSES)"
       - result: [{1, 'Shopping Center', [{street: '100 Mall Dr', city: 'Big City', zipcode: 11111}, {street: '200 Plaza Way', city: 'Big City', zipcode: 11112}]}]
 
     # Test 4: Query locations by name
     -
       - query: SELECT id, name FROM locations WHERE name = 'Office Complex'
+      - explain: "SCAN(<,>) | TFILTER LOCATIONS | FILTER _.NAME EQUALS promote(@c10 AS STRING) | MAP (_.ID AS ID, _.NAME AS NAME)"
       - result: [{2, 'Office Complex'}]
 
     # Test 5: Mixed usage - query by headquarters city
@@ -114,5 +115,6 @@ test_block:
       - query: SELECT id, name, headquarters, branch_offices
           FROM businesses
           WHERE headquarters.city = 'Silicon Valley'
+      - explain: "SCAN(<,>) | TFILTER BUSINESSES | FILTER _.HEADQUARTERS.CITY EQUALS promote(@c16 AS STRING) | MAP (_.ID AS ID, _.NAME AS NAME, _.HEADQUARTERS AS HEADQUARTERS, _.BRANCH_OFFICES AS BRANCH_OFFICES)"
       - result: [{1, 'Tech Corp', {street: '999 Innovation Way', city: 'Silicon Valley', zipcode: 94000}, [{street: '101 Branch St', city: 'New York', zipcode: 10001}, {street: '202 Office Rd', city: 'Boston', zipcode: 2101}]}]
 ...
