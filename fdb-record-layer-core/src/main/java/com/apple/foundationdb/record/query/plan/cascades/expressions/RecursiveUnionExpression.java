@@ -90,7 +90,15 @@ public class RecursiveUnionExpression extends AbstractRelationalExpressionWithCh
          * This ensures that all records at depth N are processed before any records
          * at depth N+1, which is useful for scenarios requiring level-by-level processing.
          */
-        LEVEL
+        LEVEL,
+
+        /**
+         * Depth-First Search (DFS) post-order traversal. In this strategy, each node is
+         * processed after its children, ensuring that descendant records are handled before
+         * their parents in the recursive hierarchy. This is useful for scenarios where you
+         * need to process children before processing their parent records.
+         */
+        POSTORDER
     }
 
     public RecursiveUnionExpression(@Nonnull final Quantifier initialState,
@@ -216,6 +224,14 @@ public class RecursiveUnionExpression extends AbstractRelationalExpressionWithCh
 
     public boolean preOrderTraversalAllowed() {
         return traversalStrategy == TraversalStrategy.ANY || traversalStrategy == TraversalStrategy.PREORDER;
+    }
+
+    public boolean postOrderTraversalAllowed() {
+        return traversalStrategy == TraversalStrategy.ANY || traversalStrategy == TraversalStrategy.POSTORDER;
+    }
+
+    public boolean dfsTraversalAllowed() {
+        return preOrderTraversalAllowed() || postOrderTraversalAllowed();
     }
 
     public boolean levelTraversalAllowed() {

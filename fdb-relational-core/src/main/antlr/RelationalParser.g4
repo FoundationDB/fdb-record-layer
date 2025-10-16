@@ -338,12 +338,11 @@ query
     ;
 
 ctes
-    : WITH (RECURSIVE ( '(' TRAVERSAL '=' traversalStrategy ')')?)? namedQuery (COMMA namedQuery)*
+    : WITH (RECURSIVE)? namedQuery (COMMA namedQuery)* traversalOrderClause?
     ;
 
-traversalStrategy
-    : PREORDER
-    | LEVEL
+traversalOrderClause
+    : TRAVERSAL ORDER order=(PRE_ORDER | LEVEL_ORDER | POST_ORDER)
     ;
 
 namedQuery
@@ -818,7 +817,7 @@ convertedDataType
     (
       typeName=(BINARY| NCHAR) lengthOneDimension?
       | typeName=CHAR lengthOneDimension? (charSet charsetName)?
-      | typeName=(DATE | DATETIME | TIME | JSON | INT | INTEGER)
+      | typeName=(DATE | DATETIME | TIME | JSON | INT | INTEGER | STRING | DOUBLE | BOOLEAN | FLOAT | BIGINT | BYTES | UUID)
       | typeName=DECIMAL lengthTwoOptionalDimension?
       | (SIGNED | UNSIGNED) INTEGER?
     ) ARRAY?
@@ -1167,6 +1166,7 @@ expressionAtom
 inList
     : '(' (queryExpressionBody | expressions) ')'
     | preparedStatementParameter
+    | fullColumnName
     ;
 
 preparedStatementParameter

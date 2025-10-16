@@ -265,7 +265,15 @@ public class LogicalOperator {
                 () -> String.format(Locale.ROOT, "join correlation can occur only on column of repeated type, not %s type", expression.getDataType()));
         final var explode = new ExplodeExpression(expression.getUnderlying());
         final var resultingQuantifier = Quantifier.forEach(Reference.initialOf(explode));
-        final var outputAttributes = Expressions.of(convertToExpressions(resultingQuantifier));
+
+        Expressions outputAttributes;
+        if (resultingQuantifier.getFlowedObjectType().isPrimitive()) {
+            final ImmutableList.Builder<Expression> attributesBuilder = ImmutableList.builder();
+            attributesBuilder.add(new Expression(alias, DataTypeUtils.toRelationalType(explode.getResultValue().getResultType()), resultingQuantifier.getFlowedObjectValue()));
+            outputAttributes = Expressions.of(attributesBuilder.build());
+        } else {
+            outputAttributes = Expressions.of(convertToExpressions(resultingQuantifier));
+        }
         return LogicalOperator.newOperator(alias, outputAttributes, resultingQuantifier);
     }
 

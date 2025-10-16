@@ -445,8 +445,8 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
     }
 
     @Override
-    public Object visitTraversalStrategy(final RelationalParser.TraversalStrategyContext ctx) {
-        return getDelegate().visitTraversalStrategy(ctx);
+    public Object visitTraversalOrderClause(final RelationalParser.TraversalOrderClauseContext ctx) {
+        return getDelegate().visitTraversalOrderClause(ctx);
     }
 
     @Nonnull

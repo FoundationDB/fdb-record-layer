@@ -331,4 +331,9 @@ public class YamlIntegrationTests {
     public void serializationOptions(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("serialization-options.yamsql");
     }
+
+    @TestTemplate
+    public void castTests(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("cast-tests.yamsql");
+    }
 }

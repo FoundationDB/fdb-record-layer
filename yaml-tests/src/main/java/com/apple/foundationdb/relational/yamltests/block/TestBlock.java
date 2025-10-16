@@ -46,7 +46,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -328,7 +327,7 @@ public final class TestBlock extends ConnectedBlock {
 
         @Override
         public String toString() {
-            return String.format(Locale.ROOT, "mode: %s, repetition: %d, seed: %d, check_cache: %s, connection_lifecycle: %s, statement_type: %s", mode, repetition, seed, checkCache, connectionLifecycle, statementType);
+            return "mode: " + mode + ", repetition: " + repetition + ", seed: " + seed + ", check_cache: " + checkCache + ", connection_lifecycle: " + connectionLifecycle + ", statement_type: " + statementType;
         }
     }
 
@@ -433,8 +432,8 @@ public final class TestBlock extends ConnectedBlock {
                     e -> {
                         final Throwable unwrappedException = unwrapExecutionExceptionIfNeeded(e);
                         maybeFailureException = executionContext.wrapContext(unwrappedException,
-                                () -> String.format(Locale.ROOT, "‼️ Some failed/unsuccessful test in test block at line %d. Options: %s", getLineNumber(), options),
-                                String.format(TEST_BLOCK + " [%s] ", options), getLineNumber());
+                                () -> "‼️ Some failed/unsuccessful test in test block at line " + getLineNumber() + ". Options: " + options,
+                                TEST_BLOCK + " [" + options + "] ", getLineNumber());
                     });
         } catch (TestAbortedException tAE) {
             throw tAE;
@@ -444,8 +443,8 @@ public final class TestBlock extends ConnectedBlock {
                 throw (TestAbortedException)unwrappedException;
             }
             maybeFailureException = executionContext.wrapContext(unwrappedException,
-                    () -> String.format(Locale.ROOT, "‼️ Failed to execute test block at line %d. Options: %s", getLineNumber(), options),
-                    String.format(TEST_BLOCK + " [%s] ", options), getLineNumber());
+                    () -> "‼️ Failed to execute test block at line " + getLineNumber() + ". Options: " + options,
+                    TEST_BLOCK + " [" + options + "] ", getLineNumber());
         }
         executables.clear();
         executableTestsWithCacheCheck.clear();

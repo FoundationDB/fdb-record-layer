@@ -30,6 +30,7 @@ dependencies {
     implementation(libs.slf4j.api)
     compileOnly(libs.jsr305)
 
+    testImplementation project(':fdb-test-utils')
     testImplementation(libs.bundles.test.impl)
     testRuntimeOnly(libs.bundles.test.runtime)
     testCompileOnly(libs.bundles.test.compileOnly)

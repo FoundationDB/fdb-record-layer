@@ -21,7 +21,6 @@
 package com.apple.foundationdb.relational.yamltests;
 
 import javax.annotation.Nonnull;
-import java.util.Locale;
 import java.util.UUID;
 
 @SuppressWarnings("PMD.AbstractClassWithoutAbstractMethod")
@@ -59,10 +58,10 @@ public abstract class CustomTag {
                 if (otherStr.contains(value)) {
                     return Matchers.ResultSetMatchResult.success();
                 } else {
-                    return Matchers.ResultSetMatchResult.fail(String.format(Locale.ROOT, "String mismatch at row: %d cellRef: %s%n The string '%s' does not contain '%s'", rowNumber, cellRef, otherStr, value));
+                    return Matchers.ResultSetMatchResult.fail("String mismatch at row: " + rowNumber + " cellRef: " + cellRef + "\n The string '" + otherStr + "' does not contain '" + value + "'");
                 }
             } else {
-                return Matchers.ResultSetMatchResult.fail(String.format(Locale.ROOT, "expected to match against a %s value, however we got %s which is %s", String.class.getSimpleName(), other, other.getClass().getSimpleName()));
+                return Matchers.ResultSetMatchResult.fail("expected to match against a " + String.class.getSimpleName() + " value, however we got " + other + " which is " + other.getClass().getSimpleName());
             }
         }
 
@@ -91,7 +90,7 @@ public abstract class CustomTag {
             try {
                 otherUUID = UUID.fromString(value);
             } catch (IllegalArgumentException e) {
-                return Matchers.ResultSetMatchResult.fail(String.format("Provided string is not a valid UUID format at row: %d cellRef: %s%n. Provided String '%s'", rowNumber, cellRef, value));
+                return Matchers.ResultSetMatchResult.fail("Provided string is not a valid UUID format at row: " + rowNumber + " cellRef: " + cellRef + "\n. Provided String '" + value + "'");
 
             }
             if (other instanceof UUID) {
@@ -100,7 +99,7 @@ public abstract class CustomTag {
                 }
             }
             // not matched
-            return Matchers.ResultSetMatchResult.fail(String.format("UUID mismatch at row: %d cellRef: %s%n The actual '%s' does not match UUID '%s'", rowNumber, cellRef, other, value));
+            return Matchers.ResultSetMatchResult.fail("UUID mismatch at row: " + rowNumber + " cellRef: " + cellRef + "\n The actual '" + other + "' does not match UUID '" + value + "'");
         }
 
         @Override

@@ -29,7 +29,13 @@ import java.util.concurrent.atomic.AtomicInteger;
 /**
  * Executors to use during testing.
  */
-public class TestExecutors {
+public final class TestExecutors {
+    @Nonnull
+    private static final Executor DEFAULT_THREAD_POOL = newThreadPool("fdb-unit-test");
+
+    private TestExecutors() {
+    }
+
     /**
      * Thread factory for creating threads used by test thread pools.
      */
@@ -50,9 +56,6 @@ public class TestExecutors {
             return t;
         }
     }
-
-    @Nonnull
-    private static final Executor DEFAULT_THREAD_POOL = newThreadPool("fdb-unit-test");
 
     public static Executor newThreadPool(@Nonnull String namePrefix) {
         return Executors.newCachedThreadPool(new TestThreadFactory(namePrefix));

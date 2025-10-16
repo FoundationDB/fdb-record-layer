@@ -34,6 +34,7 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.google.common.base.VerifyException;
 
+import javax.annotation.Nonnull;
 import java.sql.SQLException;
 import java.util.Map;
 
@@ -72,19 +73,30 @@ public final class ExceptionUtil {
             //TODO(bfines) map this to specific error codes based on the violation
             code = ErrorCode.SYNTAX_OR_ACCESS_VIOLATION;
         } else if (re instanceof SemanticException) {
-            if (((SemanticException) re).getErrorCode().equals(SemanticException.ErrorCode.INCOMPATIBLE_TYPE)) {
-                code = ErrorCode.CANNOT_CONVERT_TYPE;
-            } else if (((SemanticException) re).getErrorCode().equals(SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES)) {
-                code = ErrorCode.INVALID_ARGUMENT_FOR_FUNCTION;
-            } else {
-                code = ErrorCode.INTERNAL_ERROR;
-            }
+            code = translateErrorCode((SemanticException)re);
+        } else if (re.getCause() instanceof SemanticException) {
+            code = translateErrorCode((SemanticException)(re.getCause()));
         } else if (re instanceof UnableToPlanException) {
             code = ErrorCode.UNSUPPORTED_QUERY;
         }
 
         Map<String, Object> extraContext = re.getLogInfo();
         return new RelationalException(code, re).withContext(extraContext);
+    }
+
+    @Nonnull
+    private static ErrorCode translateErrorCode(@Nonnull final SemanticException semanticException) {
+        final var semanticErrorCode = semanticException.getErrorCode();
+        switch (semanticErrorCode) {
+            case INCOMPATIBLE_TYPE:
+                return ErrorCode.CANNOT_CONVERT_TYPE;
+            case FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES:
+                return ErrorCode.INVALID_ARGUMENT_FOR_FUNCTION;
+            case INVALID_CAST:
+                return ErrorCode.INVALID_CAST;
+            default:
+                return ErrorCode.INTERNAL_ERROR;
+        }
     }
 
     private ExceptionUtil() {

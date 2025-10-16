@@ -119,19 +119,24 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
     public LogicalOperators visitCtes(@Nonnull RelationalParser.CtesContext ctx) {
         if (ctx.RECURSIVE() != null) {
             final RecursiveUnionExpression.TraversalStrategy traversalStrategy;
-            if (ctx.traversalStrategy() != null) {
-                if (ctx.traversalStrategy().LEVEL() != null) {
+            if (ctx.traversalOrderClause() != null) {
+                final var order = ctx.traversalOrderClause();
+                if (order.LEVEL_ORDER() != null) {
                     traversalStrategy = RecursiveUnionExpression.TraversalStrategy.LEVEL;
-                } else if (ctx.traversalStrategy().PREORDER() != null) {
+                } else if (order.PRE_ORDER() != null) {
                     traversalStrategy = RecursiveUnionExpression.TraversalStrategy.PREORDER;
+                } else if (order.POST_ORDER() != null) {
+                    traversalStrategy = RecursiveUnionExpression.TraversalStrategy.POSTORDER;
                 } else {
                     traversalStrategy = RecursiveUnionExpression.TraversalStrategy.ANY;
-                    Assert.failUnchecked(ErrorCode.INTERNAL_ERROR, "Unsupported traversal " + ctx.traversalStrategy().getText());
+                    Assert.failUnchecked(ErrorCode.INTERNAL_ERROR, "Unsupported traversal " + order.getText());
                 }
             } else {
                 traversalStrategy = RecursiveUnionExpression.TraversalStrategy.ANY;
             }
             return LogicalOperators.of(ctx.namedQuery().stream().map(namedQuery -> handleRecursiveNamedQuery(namedQuery, traversalStrategy)).collect(ImmutableList.toImmutableList()));
+        } else {
+            Assert.thatUnchecked(ctx.traversalOrderClause() == null, ErrorCode.SYNTAX_ERROR, "traversal order clause can only be defined with recursive CTE");
         }
         return LogicalOperators.of(ctx.namedQuery().stream().map(this::visitNamedQuery).collect(ImmutableList.toImmutableList()));
     }

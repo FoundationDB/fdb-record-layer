@@ -121,7 +121,7 @@ public class FDBDirectoryFailuresTest extends FDBDirectoryBaseTest {
         assertTrue(ex.getCause() instanceof TimeoutException);
 
         directory.getCallerContext().commit();
-        assertCorrectMetricSize(LuceneEvents.SizeEvents.LUCENE_WRITE, 1, LuceneSerializer.encode(data, true, false).length);
+        assertCorrectMetricSize(LuceneEvents.SizeEvents.LUCENE_WRITE, 1, directory.getSerializer().encode(data).length);
     }
 
     @Test
