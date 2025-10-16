@@ -35,16 +35,12 @@ public interface Quantizer {
     RealVector encode(@Nonnull final RealVector data);
 
     @Nonnull
-    static Quantizer noOpQuantizer(@Nonnull final Metrics metric) {
+    static Quantizer noOpQuantizer(@Nonnull final Metric metric) {
         return new Quantizer() {
             @Nonnull
             @Override
             public Estimator estimator() {
-                return (vector1, vector2) -> {
-                    final double d = metric.comparativeDistance(vector1, vector2);
-                    //logger.info("estimator distance = {}", d);
-                    return d;
-                };
+                return metric::distance;
             }
 
             @Nonnull

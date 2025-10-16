@@ -20,10 +20,12 @@
 
 package com.apple.foundationdb.linear;
 
-import com.apple.foundationdb.async.hnsw.EncodingHelpers;
 import com.google.common.base.Suppliers;
+import com.google.common.base.Verify;
 
 import javax.annotation.Nonnull;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.function.Supplier;
 
 /**
@@ -86,10 +88,10 @@ public class DoubleRealVector extends AbstractRealVector {
     @Override
     protected byte[] computeRawData() {
         final byte[] vectorBytes = new byte[1 + 8 * getNumDimensions()];
-        vectorBytes[0] = (byte)VectorType.DOUBLE.ordinal();
+        final ByteBuffer buffer = ByteBuffer.wrap(vectorBytes).order(ByteOrder.BIG_ENDIAN);
+        buffer.put((byte)VectorType.DOUBLE.ordinal());
         for (int i = 0; i < getNumDimensions(); i ++) {
-            EncodingHelpers.fromLongIntoBytes(Double.doubleToLongBits(getComponent(i)), vectorBytes,
-                    1 + (i << 3));
+            buffer.putDouble(getComponent(i));
         }
         return vectorBytes;
     }
@@ -110,15 +112,16 @@ public class DoubleRealVector extends AbstractRealVector {
      * run of eight bytes is converted into a {@code double} value, which then becomes a component of the resulting
      * vector.
      * @param vectorBytes the non-null byte array to convert
-     * @param offset to the first byte containing the vector-specific data
      * @return a new {@link DoubleRealVector} instance created from the byte array
      */
     @Nonnull
-    public static DoubleRealVector fromBytes(@Nonnull final byte[] vectorBytes, int offset) {
-        final int numDimensions = (vectorBytes.length - offset) >> 3;
+    public static DoubleRealVector fromBytes(@Nonnull final byte[] vectorBytes) {
+        final ByteBuffer buffer = ByteBuffer.wrap(vectorBytes).order(ByteOrder.BIG_ENDIAN);
+        Verify.verify(buffer.get() == VectorType.DOUBLE.ordinal());
+        final int numDimensions = vectorBytes.length >> 3;
         final double[] vectorComponents = new double[numDimensions];
         for (int i = 0; i < numDimensions; i ++) {
-            vectorComponents[i] = Double.longBitsToDouble(EncodingHelpers.longFromBytes(vectorBytes, offset + (i << 3)));
+            vectorComponents[i] = buffer.getDouble();
         }
         return new DoubleRealVector(vectorComponents);
     }

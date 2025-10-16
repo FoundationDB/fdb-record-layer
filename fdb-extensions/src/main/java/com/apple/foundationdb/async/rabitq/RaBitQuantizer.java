@@ -21,7 +21,7 @@
 package com.apple.foundationdb.async.rabitq;
 
 import com.apple.foundationdb.linear.DoubleRealVector;
-import com.apple.foundationdb.linear.Metrics;
+import com.apple.foundationdb.linear.Metric;
 import com.apple.foundationdb.linear.Quantizer;
 import com.apple.foundationdb.linear.RealVector;
 
@@ -40,9 +40,9 @@ public final class RaBitQuantizer implements Quantizer {
     private final RealVector centroid;
     final int numExBits;
     @Nonnull
-    private final Metrics metric;
+    private final Metric metric;
 
-    public RaBitQuantizer(@Nonnull final Metrics metric,
+    public RaBitQuantizer(@Nonnull final Metric metric,
                           @Nonnull final RealVector centroid,
                           final int numExBits) {
         this.centroid = centroid;
@@ -122,11 +122,11 @@ public final class RaBitQuantizer implements Quantizer {
         double fRescaleEx;
         double fErrorEx;
 
-        if (metric == Metrics.EUCLIDEAN_SQUARE_METRIC || metric == Metrics.EUCLIDEAN_METRIC) {
+        if (metric == Metric.EUCLIDEAN_SQUARE_METRIC || metric == Metric.EUCLIDEAN_METRIC) {
             fAddEx = residual_l2_sqr; // + 2.0 * residual_l2_sqr * (ip_cent_xucb / ip_resi_xucb_safe);
             fRescaleEx = ipInv * (-2.0 * residual_l2_norm);
             fErrorEx = 2.0 * tmp_error;
-        } else if (metric == Metrics.DOT_PRODUCT_METRIC) {
+        } else if (metric == Metric.DOT_PRODUCT_METRIC) {
             fAddEx = 1.0; //- residual.dot(centroid) + residual_l2_sqr * (ip_cent_xucb / ip_resi_xucb_safe);
             fRescaleEx = ipInv * (-1.0 * residual_l2_norm);
             fErrorEx = tmp_error;

@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.async.hnsw;
 
-import com.apple.foundationdb.half.Half;
 import com.apple.foundationdb.linear.DoubleRealVector;
 import com.apple.foundationdb.linear.HalfRealVector;
 import com.apple.foundationdb.linear.RealVector;
@@ -66,9 +65,9 @@ public class RealVectorTest {
 
     @Nonnull
     static HalfRealVector createRandomHalfVector(@Nonnull final Random random, final int dimensionality) {
-        final Half[] components = new Half[dimensionality];
+        final double[] components = new double[dimensionality];
         for (int d = 0; d < dimensionality; d ++) {
-            components[d] = HNSWHelpers.halfValueOf(random.nextDouble());
+            components[d] = random.nextDouble();
         }
         return new HalfRealVector(components);
     }
