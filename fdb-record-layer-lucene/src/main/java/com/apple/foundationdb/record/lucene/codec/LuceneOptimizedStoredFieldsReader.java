@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.lucene.codec;
 
-import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.lucene.LuceneExceptions;
@@ -65,10 +64,10 @@ public class LuceneOptimizedStoredFieldsReader extends StoredFieldsReader implem
 
     public static List<byte[]> getPrimaryKeys(final String segmentName, final FDBDirectory directory) throws IOException {
         try {
-            final List<KeyValue> rawStoredFields = directory.readAllStoredFields(segmentName);
+            final List<byte[]> rawStoredFields = directory.readAllStoredFields(segmentName);
             List<byte[]> primaryKeys = new ArrayList<>();
-            for (final KeyValue rawStoredField : rawStoredFields) {
-                final var storedFields = LuceneStoredFieldsProto.LuceneStoredFields.parseFrom(rawStoredField.getValue());
+            for (final byte[] rawStoredField : rawStoredFields) {
+                final var storedFields = LuceneStoredFieldsProto.LuceneStoredFields.parseFrom(rawStoredField);
                 primaryKeys.add(storedFields.getPrimaryKey().toByteArray());
             }
             return primaryKeys;
