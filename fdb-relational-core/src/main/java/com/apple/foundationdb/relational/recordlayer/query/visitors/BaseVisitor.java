@@ -33,7 +33,6 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerInvokedRoutine;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
-import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerView;
 import com.apple.foundationdb.relational.recordlayer.query.Expression;
 import com.apple.foundationdb.relational.recordlayer.query.Expressions;
 import com.apple.foundationdb.relational.recordlayer.query.Identifier;
@@ -426,11 +425,6 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
     @Override
     public ProceduralPlan visitDropTempFunction(final RelationalParser.DropTempFunctionContext ctx) {
         return ddlVisitor.visitDropTempFunction(ctx);
-    }
-
-    @Override
-    public RecordLayerView visitViewDefinition(final RelationalParser.ViewDefinitionContext ctx) {
-        return ddlVisitor.visitViewDefinition(ctx);
     }
 
     @Override

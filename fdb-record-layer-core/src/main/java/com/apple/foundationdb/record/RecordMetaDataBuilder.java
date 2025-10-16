@@ -1217,12 +1217,8 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         functions.forEach(this::addUserDefinedFunction);
     }
 
-    public void addUserDefinedView(@Nonnull RawView rawView) {
+    public void addView(@Nonnull RawView rawView) {
         viewMap.put(rawView.getName(), rawView);
-    }
-
-    public void addUserDefinedViews(@Nonnull Iterable<? extends RawView> views) {
-        views.forEach(this::addUserDefinedView);
     }
 
     public boolean isSplitLongRecords() {

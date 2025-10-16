@@ -101,7 +101,7 @@ public class RecordMetadataSerializer extends SkeletonVisitor {
     @Override
     public void visit(@Nonnull final View view) {
         Assert.thatUnchecked(view instanceof RecordLayerView);
-        getBuilder().addUserDefinedView(((RecordLayerView)view).asRawView());
+        getBuilder().addView(((RecordLayerView)view).asRawView());
     }
 
     @Override
