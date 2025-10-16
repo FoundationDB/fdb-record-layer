@@ -30,7 +30,7 @@ import com.apple.foundationdb.linear.DoubleRealVector;
 import com.apple.foundationdb.linear.FhtKacRotator;
 import com.apple.foundationdb.async.rabitq.RaBitQuantizer;
 import com.apple.foundationdb.linear.Estimator;
-import com.apple.foundationdb.linear.Metrics;
+import com.apple.foundationdb.linear.Metric;
 import com.apple.foundationdb.linear.Quantizer;
 import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.subspace.Subspace;
@@ -93,7 +93,7 @@ public class HNSW {
     public static final int MAX_CONCURRENT_NEIGHBOR_FETCHES = 3;
     public static final int MAX_CONCURRENT_SEARCHES = 10;
     @Nonnull public static final Random DEFAULT_RANDOM = new Random(0L);
-    @Nonnull public static final Metrics DEFAULT_METRIC = Metrics.EUCLIDEAN_METRIC;
+    @Nonnull public static final Metric DEFAULT_METRIC = Metric.EUCLIDEAN_METRIC;
     public static final boolean DEFAULT_USE_INLINING = false;
     public static final int DEFAULT_M = 16;
     public static final int DEFAULT_M_MAX = DEFAULT_M;
@@ -128,7 +128,7 @@ public class HNSW {
         @Nonnull
         private final Random random;
         @Nonnull
-        private final Metrics metric;
+        private final Metric metric;
         private final int numDimensions;
         private final boolean useInlining;
         private final int m;
@@ -156,7 +156,7 @@ public class HNSW {
             this.raBitQNumExBits = DEFAULT_RABITQ_NUM_EX_BITS;
         }
 
-        protected Config(@Nonnull final Random random, @Nonnull final Metrics metric, final int numDimensions,
+        protected Config(@Nonnull final Random random, @Nonnull final Metric metric, final int numDimensions,
                          final boolean useInlining, final int m, final int mMax, final int mMax0,
                          final int efConstruction, final boolean extendCandidates, final boolean keepPrunedConnections,
                          final boolean useRaBitQ, final int raBitQNumExBits) {
@@ -180,7 +180,7 @@ public class HNSW {
         }
 
         @Nonnull
-        public Metrics getMetric() {
+        public Metric getMetric() {
             return metric;
         }
 
@@ -255,7 +255,7 @@ public class HNSW {
         @Nonnull
         private Random random = DEFAULT_RANDOM;
         @Nonnull
-        private Metrics metric = DEFAULT_METRIC;
+        private Metric metric = DEFAULT_METRIC;
         private boolean useInlining = DEFAULT_USE_INLINING;
         private int m = DEFAULT_M;
         private int mMax = DEFAULT_M_MAX;
@@ -270,7 +270,7 @@ public class HNSW {
         public ConfigBuilder() {
         }
 
-        public ConfigBuilder(@Nonnull final Random random, @Nonnull final Metrics metric, final boolean useInlining,
+        public ConfigBuilder(@Nonnull final Random random, @Nonnull final Metric metric, final boolean useInlining,
                              final int m, final int mMax, final int mMax0, final int efConstruction,
                              final boolean extendCandidates, final boolean keepPrunedConnections,
                              final boolean useRaBitQ, final int raBitQNumExBits) {
@@ -299,12 +299,12 @@ public class HNSW {
         }
 
         @Nonnull
-        public Metrics getMetric() {
+        public Metric getMetric() {
             return metric;
         }
 
         @Nonnull
-        public ConfigBuilder setMetric(@Nonnull final Metrics metric) {
+        public ConfigBuilder setMetric(@Nonnull final Metric metric) {
             this.metric = metric;
             return this;
         }
@@ -521,7 +521,7 @@ public class HNSW {
 
     @Nonnull
     Quantizer raBitQuantizer(@Nonnull final RealVector centroidRot) {
-        return new RaBitQuantizer(Metrics.EUCLIDEAN_METRIC, centroidRot, getConfig().getRaBitQNumExBits());
+        return new RaBitQuantizer(Metric.EUCLIDEAN_METRIC, centroidRot, getConfig().getRaBitQNumExBits());
     }
 
     //
@@ -571,7 +571,7 @@ public class HNSW {
                         quantizer = raBitQuantizer(centroidRot);
                     } else {
                         queryVectorTrans = queryVector;
-                        quantizer = Quantizer.noOpQuantizer(Metrics.EUCLIDEAN_METRIC);
+                        quantizer = Quantizer.noOpQuantizer(Metric.EUCLIDEAN_METRIC);
                     }
                     final Estimator estimator = quantizer.estimator();
 
@@ -1101,7 +1101,7 @@ public class HNSW {
                         quantizer = raBitQuantizer(centroidRot);
                     } else {
                         newVectorTrans = newVector;
-                        quantizer = Quantizer.noOpQuantizer(Metrics.EUCLIDEAN_METRIC);
+                        quantizer = Quantizer.noOpQuantizer(Metric.EUCLIDEAN_METRIC);
                     }
                     final Estimator estimator = quantizer.estimator();
 
@@ -1180,7 +1180,7 @@ public class HNSW {
     @Nonnull
     public CompletableFuture<Void> insertBatch(@Nonnull final Transaction transaction,
                                                @Nonnull List<NodeReferenceWithVector> batch) {
-        final Metrics metric = getConfig().getMetric();
+        final Metric metric = getConfig().getMetric();
 
         // determine the layer each item should be inserted at
         final Random random = getConfig().getRandom();
@@ -1206,7 +1206,7 @@ public class HNSW {
                     } else {
                         rotator = null;
                         centroidRot = null;
-                        quantizer = Quantizer.noOpQuantizer(Metrics.EUCLIDEAN_METRIC);
+                        quantizer = Quantizer.noOpQuantizer(Metric.EUCLIDEAN_METRIC);
                     }
                     final Estimator estimator = quantizer.estimator();
 
