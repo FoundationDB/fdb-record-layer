@@ -39,6 +39,7 @@ import com.apple.foundationdb.record.sorting.FileSortCursor;
 import com.apple.foundationdb.record.sorting.MemorySortAdapter;
 import com.apple.foundationdb.record.sorting.MemorySortCursor;
 import com.apple.foundationdb.record.sorting.MemorySorter;
+import com.apple.foundationdb.record.util.RandomSecretUtil;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import com.beust.jcommander.internal.Lists;
@@ -52,7 +53,6 @@ import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
 import java.io.File;
 import java.io.IOException;
@@ -393,9 +393,7 @@ public class SortCursorTests extends FDBRecordStoreTestBase {
 
     private FileSortAdapterBase fileSortEncryptedAdapter() throws Exception {
         final SecureRandom secureRandom = new SecureRandom();
-        final KeyGenerator keyGen = KeyGenerator.getInstance("AES");
-        keyGen.init(128, secureRandom);
-        final SecretKey secretKey = keyGen.generateKey();
+        final SecretKey secretKey = RandomSecretUtil.randomSecretKey(secureRandom);
         return new FileSortAdapterBase() {
             @Override
             public int getMinFileRecordCount() {
