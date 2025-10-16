@@ -103,8 +103,10 @@ public interface RealVector {
     default double dot(@Nonnull final RealVector other) {
         Preconditions.checkArgument(getNumDimensions() == other.getNumDimensions());
         double sum = 0.0d;
-        for (int i = 0; i < getNumDimensions(); i ++) {
-            sum += getComponent(i) * other.getComponent(i);
+        final double[] thisData = getData();
+        final double[] otherData = other.getData();
+        for (int i = 0; i < thisData.length; i++) {
+            sum += thisData[i] * otherData[i];
         }
         return sum;
     }

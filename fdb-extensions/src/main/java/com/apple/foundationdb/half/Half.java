@@ -202,7 +202,7 @@ public class Half extends Number implements Comparable<Half> {
         return new Half(halfShortToFloat(shortBits));
     }
 
-    private static float halfShortToFloat(short shortBits) {
+    public static float halfShortToFloat(short shortBits) {
         int intBits = (int) shortBits;
         int exponent = (intBits & HalfConstants.EXP_BIT_MASK) >> 10;
         int significand = (intBits & HalfConstants.SIGNIF_BIT_MASK) << 13;
@@ -259,6 +259,42 @@ public class Half extends Number implements Comparable<Half> {
 
     /**
      * Returns a representation of the specified floating-point value according to the IEEE 754 floating-point "single
+     * format" bit layout.
+     *
+     * <p>
+     * Bit 15 (the bit that is selected by the mask {@code 0x8000}) represents the sign of the floating-point number.
+     * Bits 14-10 (the bits that are selected by the mask {@code 0x7c00}) represent the exponent. Bits 9-0 (the bits
+     * that are selected by the mask {@code 0x03ff}) represent the significand (sometimes called the mantissa) of the
+     * floating-point number.
+     *
+     * <p>
+     * If the argument is positive infinity, the result is {@code 0x7c00}.
+     *
+     * <p>
+     * If the argument is negative infinity, the result is {@code 0xfc00}.
+     *
+     * <p>
+     * If the argument is NaN, the result is {@code 0x7e00}.
+     *
+     * <p>
+     * In all cases, the result is a short that, when given to the {@link #shortBitsToHalf(short)} method, will produce
+     * a floating-point value the same as the argument to {@code halfToShortBits} (except all NaN values are collapsed
+     * to a single "canonical" NaN value).
+     *
+     * @param floatRepresentation
+     *            a float representation as used within a {@code Half} object.
+     *
+     * @return the bits that represent the floating-point number.
+     */
+    public static short floatRepresentationToShortBits(final float floatRepresentation) {
+        if (!Float.isNaN(floatRepresentation)) {
+            return floatToHalfShortBits(floatRepresentation);
+        }
+        return 0x7e00;
+    }
+
+    /**
+     * Returns a representation of the specified floating-point value according to the IEEE 754 floating-point "single
      * format" bit layout, preserving Not-a-Number (NaN) values.
      *
      * <p>
@@ -291,7 +327,7 @@ public class Half extends Number implements Comparable<Half> {
         return floatToHalfShortBits(half.floatRepresentation);
     }
 
-    private static short floatToHalfShortBits(float floatValue) {
+    public static short floatToHalfShortBits(float floatValue) {
         int intBits = Float.floatToRawIntBits(floatValue);
         int exponent = (intBits & 0x7F800000) >> 23;
         int significand = intBits & 0x007FFFFF;
@@ -470,11 +506,15 @@ public class Half extends Number implements Comparable<Half> {
      * @return a {@code Half} instance representing {@code floatValue}.
      */
     public static Half valueOf(float floatValue) {
+        return new Half(floatRepresentationOf(floatValue));
+    }
+
+    public static float floatRepresentationOf(final float floatValue) {
         // check for infinities
         if (floatValue > 65504.0f || floatValue < -65504.0f) {
-            return Half.shortBitsToHalf((short) ((Float.floatToIntBits(floatValue) & 0x80000000) >> 16 | 0x7c00));
+            return Half.halfShortToFloat((short) ((Float.floatToIntBits(floatValue) & 0x80000000) >> 16 | 0x7c00));
         }
-        return new Half(floatValue);
+        return floatValue;
     }
 
     /**
