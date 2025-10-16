@@ -20,156 +20,146 @@
 
 package com.apple.foundationdb.async.hnsw;
 
+import com.apple.foundationdb.linear.DoubleRealVector;
 import com.apple.foundationdb.linear.Metric;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
+import com.apple.foundationdb.linear.RealVector;
+import com.apple.test.RandomizedTestUtils;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
+import org.assertj.core.api.Assertions;
+import org.assertj.core.data.Offset;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import javax.annotation.Nonnull;
+import java.util.Random;
+import java.util.stream.Stream;
+
+import static com.apple.foundationdb.linear.Metric.COSINE_METRIC;
+import static com.apple.foundationdb.linear.Metric.DOT_PRODUCT_METRIC;
+import static com.apple.foundationdb.linear.Metric.EUCLIDEAN_METRIC;
+import static com.apple.foundationdb.linear.Metric.EUCLIDEAN_SQUARE_METRIC;
+import static com.apple.foundationdb.linear.Metric.MANHATTAN_METRIC;
 
 public class MetricTest {
-    private final Metric.ManhattanMetric manhattanMetric = new Metric.ManhattanMetric();
-    private final Metric.EuclideanMetric euclideanMetric = new Metric.EuclideanMetric();
-    private final Metric.EuclideanSquareMetric euclideanSquareMetric = new Metric.EuclideanSquareMetric();
-    private final Metric.CosineMetric cosineMetric = new Metric.CosineMetric();
-    private Metric.DotProductMetric dotProductMetric;
-
-    @BeforeEach
-
-    public void setUp() {
-        dotProductMetric = new Metric.DotProductMetric();
+    static Stream<Arguments> metricAndExpectedDistance() {
+        // Distance between (1.0, 2.0) and (4.0, 6.0)
+        final RealVector v1 = v(1.0, 2.0);
+        final RealVector v2 = v(4.0, 6.0);
+        return Stream.of(
+                Arguments.of(MANHATTAN_METRIC, v1, v2, 7.0),         // |1 - 4| + |2 - 6| = 7
+                Arguments.of(EUCLIDEAN_METRIC, v1, v2, 5.0),         // sqrt((1-4)^2 + (2-6)^2) = sqrt(9 + 16) = 5
+                Arguments.of(EUCLIDEAN_SQUARE_METRIC, v1, v2, 25.0), // (1-4)^2 + (2-6)^2 = 9 + 16 = 25
+                Arguments.of(COSINE_METRIC, v1, v2, 0.007722),       // ((1 * 4) + (2 * 6)) / (sqrt(1^2 + 2^2) * sqrt(4^2 + 6^2) = 16 / (sqrt(5) * sqrt(52)) ≈ 1 - 0.992277 ≈ 0.007722
+                Arguments.of(DOT_PRODUCT_METRIC, v1, v2, -16.0)      // -((1 * 4) + (2 * 6)) = -(4 + 12) = -16
+        );
     }
 
-    @Test
-    public void manhattanMetricDistanceWithIdenticalVectorsShouldReturnZeroTest() {
-        // Arrange
-        double[] vector1 = {1.0, 2.5, -3.0};
-        double[] vector2 = {1.0, 2.5, -3.0};
-        double expectedDistance = 0.0;
-
-        // Act
-        double actualDistance = manhattanMetric.distance(vector1, vector2);
-
-        // Assert
-        assertEquals(expectedDistance, actualDistance, 0.00001);
+    @ParameterizedTest
+    @MethodSource("metricAndExpectedDistance")
+    void basicMetricTest(@Nonnull final Metric metric, @Nonnull final RealVector v1, @Nonnull final RealVector v2, final double expectedDistance) {
+        Assertions.assertThat(metric.distance(v1, v2)).isCloseTo(expectedDistance, Offset.offset(2E-4d));
     }
 
-    @Test
-    public void manhattanMetricDistanceWithPositiveValueVectorsShouldReturnCorrectDistanceTest() {
-        // Arrange
-        double[] vector1 = {1.0, 2.0, 3.0};
-        double[] vector2 = {4.0, 5.0, 6.0};
-        double expectedDistance = 9.0; // |1-4| + |2-5| + |3-6| = 3 + 3 + 3
-
-        // Act
-        double actualDistance = manhattanMetric.distance(vector1, vector2);
-
-        // Assert
-        assertEquals(expectedDistance, actualDistance, 0.00001);
+    @Nonnull
+    private static Stream<Arguments> randomSeedsWithMetrics() {
+        return RandomizedTestUtils.randomSeeds(12345, 987654, 423, 18378195)
+                .flatMap(seed ->
+                        Sets.cartesianProduct(
+                                ImmutableSet.of(MANHATTAN_METRIC,
+                                        EUCLIDEAN_METRIC,
+                                        EUCLIDEAN_SQUARE_METRIC,
+                                        COSINE_METRIC,
+                                        DOT_PRODUCT_METRIC), ImmutableSet.of(3, 5, 128, 768)).stream()
+                                .map(metricsAndNumDimensions ->
+                                        Arguments.of(seed, metricsAndNumDimensions.get(0), metricsAndNumDimensions.get(1))));
     }
 
-    @Test
-    public void euclideanMetricDistanceWithIdenticalVectorsShouldReturnZeroTest() {
-        // Arrange
-        double[] vector1 = {1.0, 2.5, -3.0};
-        double[] vector2 = {1.0, 2.5, -3.0};
-        double expectedDistance = 0.0;
+    @ParameterizedTest
+    @MethodSource("randomSeedsWithMetrics")
+    void basicPropertyTest(final long seed, @Nonnull final Metric metric, final int numDimensions) {
+        final Random random = new Random(seed);
 
-        // Act
-        double actualDistance = euclideanMetric.distance(vector1, vector2);
+        for (int i = 0; i < 1000; i ++) {
+            // either use vectors that draw from [0, 1) or use the entire full double range
+            final RealVector x = (i % 2 == 1) ? randomV(random, numDimensions) : randomVFull(random, numDimensions);
+            final RealVector y = (i % 2 == 1) ? randomV(random, numDimensions) : randomVFull(random, numDimensions);
+            final RealVector z = (i % 2 == 1) ? randomV(random, numDimensions) : randomVFull(random, numDimensions);
 
-        // Assert
-        assertEquals(expectedDistance, actualDistance, 0.00001);
+            final double distanceXX = metric.distance(x, x);
+            final double distanceXY = metric.distance(x, y);
+            final double distanceYX = metric.distance(y, x);
+            final double distanceYZ = metric.distance(y, z);
+            final double distanceXZ = metric.distance(x, z);
+
+            if (!Double.isFinite(distanceXX) || !Double.isFinite(distanceXY)) {
+                //
+                // Some metrics are numerically unstable across the entire numerical range.
+                // For instance COSINE_METRIC may return Double.NaN or Double.POSITIVE_INFINITY which is ok.
+                //
+                continue;
+            }
+
+            Assertions.assertThat(distanceXX).satisfiesAnyOf(
+                    d -> Assertions.assertThat(metric.satisfiesZeroSelfDistance()).isFalse(),
+                    d -> Assertions.assertThat(d).isCloseTo(0, Offset.offset(2E-10d)));
+
+            Assertions.assertThat(distanceXY).satisfiesAnyOf(
+                    d -> Assertions.assertThat(metric.satisfiesPositivity()).isFalse(),
+                    d -> Assertions.assertThat(d).isGreaterThanOrEqualTo(0));
+
+            Assertions.assertThat(distanceXY).satisfiesAnyOf(
+                    d -> Assertions.assertThat(metric.satisfiesSymmetry()).isFalse(),
+                    d -> Assertions.assertThat(d).isCloseTo(distanceYX, Offset.offset(2E-10d)));
+
+            Assertions.assertThat(distanceXY).satisfiesAnyOf(
+                    d -> Assertions.assertThat(metric.satisfiesTriangleInequality()).isFalse(),
+                    d -> Assertions.assertThat(d + distanceYZ).isGreaterThanOrEqualTo(distanceXZ),
+                    d -> Assertions.assertThat(triangleHolds(distanceXY, distanceYZ, distanceXZ, numDimensions * 3)).isTrue());
+        }
     }
 
-    @Test
-    public void euclideanMetricDistanceWithDifferentPositiveVectorsShouldReturnCorrectDistanceTest() {
-        // Arrange
-        double[] vector1 = {1.0, 2.0};
-        double[] vector2 = {4.0, 6.0};
-        double expectedDistance = 5.0; // sqrt((1-4)^2 + (2-6)^2) = sqrt(9 + 16) = 5.0
-
-        // Act
-        double actualDistance = euclideanMetric.distance(vector1, vector2);
-
-        // Assert
-        assertEquals(expectedDistance, actualDistance, 0.00001);
+    static boolean triangleHolds(double distanceXY, double distanceYZ, double distanceXZ, int numOperations) {
+        double u = 0x1p-53;                                           // relative error ~1.11e-16
+        double gamma = (numOperations * u) / (1 - numOperations * u); // ~ n*u
+        double scale = distanceXY + distanceYZ + distanceXZ;          // magnitude to scale tol
+        double tol = 4 * gamma * scale +
+                (Math.ulp(distanceXY + distanceYZ) + Math.ulp(distanceXZ)); // small guard
+        return distanceXZ <= distanceXY + distanceYZ + tol;
     }
 
-    @Test
-    public void euclideanSquareMetricDistanceWithIdenticalVectorsShouldReturnZeroTest() {
-        // Arrange
-        double[] vector1 = {1.0, 2.5, -3.0};
-        double[] vector2 = {1.0, 2.5, -3.0};
-        double expectedDistance = 0.0;
-
-        // Act
-        double actualDistance = euclideanSquareMetric.distance(vector1, vector2);
-
-        // Assert
-        assertEquals(expectedDistance, actualDistance, 0.00001);
+    @Nonnull
+    @SuppressWarnings("checkstyle:MethodName")
+    private static RealVector v(final double... components) {
+        return new DoubleRealVector(components);
     }
 
-    @Test
-    public void euclideanSquareMetricDistanceWithDifferentPositiveVectorsShouldReturnCorrectDistanceTest() {
-        // Arrange
-        double[] vector1 = {1.0, 2.0};
-        double[] vector2 = {4.0, 6.0};
-        double expectedDistance = 25.0; // (1-4)^2 + (2-6)^2 = 9 + 16 = 25.0
-
-        // Act
-        double actualDistance = euclideanSquareMetric.distance(vector1, vector2);
-
-        // Assert
-        assertEquals(expectedDistance, actualDistance, 0.00001);
+    @Nonnull
+    @SuppressWarnings("checkstyle:MethodName")
+    private static RealVector randomV(@Nonnull final Random random, final int numDimensions) {
+        final double[] components = new double[numDimensions];
+        for (int i = 0; i < numDimensions; i++) {
+            components[i] = random.nextDouble();
+        }
+        return new DoubleRealVector(components);
     }
 
-    @Test
-    public void cosineMetricDistanceWithIdenticalVectorsReturnsZeroTest() {
-        // Arrange
-        double[] vector1 = {5.0, 3.0, -2.0};
-        double[] vector2 = {5.0, 3.0, -2.0};
-        double expectedDistance = 0.0;
-
-        // Act
-        double actualDistance = cosineMetric.distance(vector1, vector2);
-
-        // Assert
-        assertEquals(expectedDistance, actualDistance, 0.00001);
+    @Nonnull
+    @SuppressWarnings("checkstyle:MethodName")
+    private static RealVector randomVFull(@Nonnull final Random random, final int numDimensions) {
+        final double[] components = new double[numDimensions];
+        for (int i = 0; i < numDimensions; i++) {
+            components[i] = randomDouble(random);
+        }
+        return new DoubleRealVector(components);
     }
 
-    @Test
-    public void cosineMetricDistanceWithOrthogonalVectorsReturnsOneTest() {
-        // Arrange
-        double[] vector1 = {1.0, 0.0};
-        double[] vector2 = {0.0, 1.0};
-        double expectedDistance = 1.0;
-
-        // Act
-        double actualDistance = cosineMetric.distance(vector1, vector2);
-
-        // Assert
-        assertEquals(expectedDistance, actualDistance, 0.00001);
-    }
-
-    @Test
-    public void dotProductMetricComparativeDistanceWithPositiveVectorsTest() {
-        double[] vector1 = {1.0, 2.0, 3.0};
-        double[] vector2 = {4.0, 5.0, 6.0};
-        double expected = -32.0;
-
-        double actual = dotProductMetric.comparativeDistance(vector1, vector2);
-
-        assertEquals(expected, actual, 0.00001);
-    }
-
-    @Test
-    public void dotProductMetricComparativeDistanceWithOrthogonalVectorsReturnsZeroTest() {
-        double[] vector1 = {1.0, 0.0};
-        double[] vector2 = {0.0, 1.0};
-        double expected = -0.0;
-
-        double actual = dotProductMetric.comparativeDistance(vector1, vector2);
-
-        assertEquals(expected, actual, 0.00001);
+    private static double randomDouble(@Nonnull final Random random) {
+        double d;
+        do {
+            d = Double.longBitsToDouble(random.nextLong());
+        } while (!Double.isFinite(d));
+        return d;
     }
 }

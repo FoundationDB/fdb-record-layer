@@ -22,7 +22,7 @@ package com.apple.foundationdb.async.rabitq;
 
 import com.apple.foundationdb.linear.DoubleRealVector;
 import com.apple.foundationdb.linear.Estimator;
-import com.apple.foundationdb.linear.Metrics;
+import com.apple.foundationdb.linear.Metric;
 import com.apple.foundationdb.linear.RealVector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,12 +34,12 @@ public class RaBitEstimator implements Estimator {
     private static final Logger logger = LoggerFactory.getLogger(RaBitEstimator.class);
 
     @Nonnull
-    private final Metrics metric;
+    private final Metric metric;
     @Nonnull
     private final RealVector centroid;
     private final int numExBits;
 
-    public RaBitEstimator(@Nonnull final Metrics metric,
+    public RaBitEstimator(@Nonnull final Metric metric,
                           @Nonnull final RealVector centroid,
                           final int numExBits) {
         this.metric = metric;
@@ -48,7 +48,7 @@ public class RaBitEstimator implements Estimator {
     }
 
     @Nonnull
-    public Metrics getMetric() {
+    public Metric getMetric() {
         return metric;
     }
 
@@ -79,7 +79,7 @@ public class RaBitEstimator implements Estimator {
             return distance(storedVector, (EncodedRealVector)query);
         }
         // use the regular metric for all other cases
-        return metric.comparativeDistance(query, storedVector);
+        return metric.distance(query, storedVector);
     }
 
     private double distance(@Nonnull final RealVector query, // pre-rotated query q

@@ -19,8 +19,15 @@
 
 package com.apple.foundationdb.half;
 
+import com.apple.test.RandomizedTestUtils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
+
+import javax.annotation.Nonnull;
+import java.util.Random;
+import java.util.stream.Stream;
 
 /**
  * Unit test for {@link Half}.
@@ -497,5 +504,37 @@ public class HalfTest {
         Assertions.assertEquals(Half.NEGATIVE_ZERO, Half.min(Half.POSITIVE_ZERO, Half.NEGATIVE_ZERO));
 
         Assertions.assertEquals(Half.NaN, Half.min(Half.NaN, LOWEST_ABOVE_ONE));
+    }
+
+    private static final double HALF_MIN_NORMAL = Math.scalb(1.0, -14);
+    private static final double REL_BOUND = Math.scalb(1.0, -11);      // 2^-11
+    private static final double ABS_BOUND_SUB = Math.scalb(1.0, -25);  // 2^-25
+
+    @Nonnull
+    private static Stream<Long> randomSeeds() {
+        return RandomizedTestUtils.randomSeeds(12345, 987654, 423, 18378195);
+    }
+
+    @ParameterizedTest
+    @MethodSource("randomSeeds")
+    void roundTripTest(final long seed) {
+        final Random rnd = new Random(seed);
+        for (int i = 0; i < 10_000; i ++) {
+            // uniform in [-2 * HALF_MAX, 2 * HALF_MAX]
+            double x = (rnd.nextDouble() * 2 - 1) * 2 * Half.MAX_VALUE.doubleValue();
+            double y = Half.valueOf(x).doubleValue();
+
+            if (Math.abs(x) > Half.MAX_VALUE.doubleValue()) {
+                if (x > 0) {
+                    Assertions.assertEquals(Double.POSITIVE_INFINITY, y);
+                } else {
+                    Assertions.assertEquals(Double.NEGATIVE_INFINITY, y);
+                }
+            } else if (Math.abs(x) >= HALF_MIN_NORMAL) {
+                Assertions.assertTrue(Math.abs(y - x) / Math.abs(x) <= REL_BOUND);
+            } else {
+                Assertions.assertTrue(Math.abs(y - x) <= ABS_BOUND_SUB);
+            }
+        }
     }
 }

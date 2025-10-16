@@ -21,7 +21,6 @@
 package com.apple.foundationdb.async.rabitq;
 
 import com.apple.foundationdb.linear.DoubleRealVector;
-import com.apple.foundationdb.async.hnsw.EncodingHelpers;
 import com.apple.foundationdb.linear.HalfRealVector;
 import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.linear.VectorType;
@@ -29,6 +28,8 @@ import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 
 import javax.annotation.Nonnull;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.Arrays;
 import java.util.function.Supplier;
 
@@ -162,19 +163,21 @@ public class EncodedRealVector implements RealVector {
         int numBits = getNumDimensions() * (numExBits + 1); // congruency with paper
         final int length = 25 +        // RABITQ (byte) + fAddEx (double) + fRescaleEx (double) + fErrorEx (double)
                 (numBits - 1) / 8 + 1; // snap byte array to the smallest length fitting all bits
-        final byte[] result = new byte[length];
-        result[0] = (byte)VectorType.RABITQ.ordinal();
-        EncodingHelpers.fromLongIntoBytes(Double.doubleToLongBits(fAddEx), result, 1);
-        EncodingHelpers.fromLongIntoBytes(Double.doubleToLongBits(fRescaleEx), result, 9);
-        EncodingHelpers.fromLongIntoBytes(Double.doubleToLongBits(fErrorEx), result, 17);
-        packEncodedComponents(numExBits, result, 25);
-        return result;
+        final byte[] vectorBytes = new byte[length];
+        final ByteBuffer buffer = ByteBuffer.wrap(vectorBytes).order(ByteOrder.BIG_ENDIAN);
+        buffer.put((byte)VectorType.RABITQ.ordinal());
+        buffer.putDouble(fAddEx);
+        buffer.putDouble(fRescaleEx);
+        buffer.putDouble(fErrorEx);
+        packEncodedComponents(numExBits, buffer);
+        return vectorBytes;
     }
 
-    private void packEncodedComponents(final int numExBits, @Nonnull byte[] bytes, int offset) {
+    private void packEncodedComponents(final int numExBits, @Nonnull final ByteBuffer buffer) {
         // big-endian
         final int bitsPerComponent = numExBits + 1; // congruency with paper
         int remainingBitsInByte = 8;
+        byte currentByte = 0;
         for (int i = 0; i < getNumDimensions(); i++) {
             final int component = getEncodedComponent(i);
             int remainingBitsInComponent = bitsPerComponent;
@@ -184,21 +187,27 @@ public class EncodedRealVector implements RealVector {
                 final int remainingComponent = component & remainingMask;
 
                 if (remainingBitsInComponent <= remainingBitsInByte) {
-                    bytes[offset] = (byte)((int)bytes[offset] | (remainingComponent << (remainingBitsInByte - remainingBitsInComponent)));
+                    currentByte = (byte)(currentByte | (remainingComponent << (remainingBitsInByte - remainingBitsInComponent)));
                     remainingBitsInByte -= remainingBitsInComponent;
                     if (remainingBitsInByte == 0) {
                         remainingBitsInByte = 8;
-                        offset ++;
+                        buffer.put(currentByte);
+                        currentByte = 0;
                     }
                     break;
                 }
 
                 // remainingBitsInComponent > bitOffset
-                bytes[offset] = (byte)((int)bytes[offset] | (remainingComponent >> (remainingBitsInComponent - remainingBitsInByte)));
+                currentByte = (byte)(currentByte | (remainingComponent >> (remainingBitsInComponent - remainingBitsInByte)));
                 remainingBitsInComponent -= remainingBitsInByte;
                 remainingBitsInByte = 8;
-                offset ++;
+                buffer.put(currentByte);
+                currentByte = 0;
             }
+        }
+
+        if (remainingBitsInByte < 8) {
+            buffer.put(currentByte);
         }
     }
 
@@ -215,27 +224,35 @@ public class EncodedRealVector implements RealVector {
     }
 
     @Nonnull
-    public static EncodedRealVector fromBytes(@Nonnull byte[] bytes, int offset, int numDimensions, int numExBits) {
-        final double fAddEx = Double.longBitsToDouble(EncodingHelpers.longFromBytes(bytes, offset));
-        final double fRescaleEx = Double.longBitsToDouble(EncodingHelpers.longFromBytes(bytes, offset + 8));
-        final double fErrorEx = Double.longBitsToDouble(EncodingHelpers.longFromBytes(bytes, offset + 16));
-        final int[] components = unpackComponents(bytes, offset + 24, numDimensions, numExBits);
+    public static EncodedRealVector fromBytes(@Nonnull final byte[] vectorBytes,
+                                              final int numDimensions,
+                                              final int numExBits) {
+        final ByteBuffer buffer = ByteBuffer.wrap(vectorBytes).order(ByteOrder.BIG_ENDIAN);
+        Verify.verify(buffer.get() == VectorType.RABITQ.ordinal());
+
+        final double fAddEx = buffer.getDouble();
+        final double fRescaleEx = buffer.getDouble();
+        final double fErrorEx = buffer.getDouble();
+        final int[] components = unpackComponents(buffer, numDimensions, numExBits);
         return new EncodedRealVector(numExBits, components, fAddEx, fRescaleEx, fErrorEx);
     }
 
     @Nonnull
-    private static int[] unpackComponents(@Nonnull byte[] bytes, int offset, int numDimensions, int numExBits) {
+    private static int[] unpackComponents(@Nonnull final ByteBuffer buffer,
+                                          final int numDimensions,
+                                          final int numExBits) {
         int[] result = new int[numDimensions];
 
         // big-endian
         final int bitsPerComponent = numExBits + 1; // congruency with paper
         int remainingBitsInByte = 8;
+        byte currentByte = buffer.get();
         for (int i = 0; i < numDimensions; i++) {
             int remainingBitsForComponent = bitsPerComponent;
 
             while (remainingBitsForComponent > 0) {
                 final int mask = (1 << remainingBitsInByte) - 1;
-                int maskedByte = bytes[offset] & mask;
+                int maskedByte = currentByte & mask;
 
                 if (remainingBitsForComponent <= remainingBitsInByte) {
                     result[i] |= maskedByte >> (remainingBitsInByte - remainingBitsForComponent);
@@ -243,7 +260,7 @@ public class EncodedRealVector implements RealVector {
                     remainingBitsInByte -= remainingBitsForComponent;
                     if (remainingBitsInByte == 0) {
                         remainingBitsInByte = 8;
-                        offset++;
+                        currentByte = (i + 1 == numDimensions) ? 0 : buffer.get();
                     }
                     break;
                 }
@@ -252,7 +269,7 @@ public class EncodedRealVector implements RealVector {
                 result[i] |= maskedByte << remainingBitsForComponent - remainingBitsInByte;
                 remainingBitsForComponent -= remainingBitsInByte;
                 remainingBitsInByte = 8;
-                offset++;
+                currentByte = buffer.get();
             }
         }
         return result;

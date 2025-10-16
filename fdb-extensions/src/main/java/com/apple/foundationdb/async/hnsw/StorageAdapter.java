@@ -277,12 +277,12 @@ interface StorageAdapter<N extends NodeReference> {
         final byte vectorTypeOrdinal = vectorBytes[0];
         switch (fromVectorTypeOrdinal(vectorTypeOrdinal)) {
             case HALF:
-                return HalfRealVector.fromBytes(vectorBytes, 1);
+                return HalfRealVector.fromBytes(vectorBytes);
             case DOUBLE:
-                return DoubleRealVector.fromBytes(vectorBytes, 1);
+                return DoubleRealVector.fromBytes(vectorBytes);
             case RABITQ:
                 Verify.verify(config.isUseRaBitQ());
-                return EncodedRealVector.fromBytes(vectorBytes, 1, config.getNumDimensions(),
+                return EncodedRealVector.fromBytes(vectorBytes, config.getNumDimensions(),
                         config.getRaBitQNumExBits());
             default:
                 throw new RuntimeException("unable to serialize vector");
