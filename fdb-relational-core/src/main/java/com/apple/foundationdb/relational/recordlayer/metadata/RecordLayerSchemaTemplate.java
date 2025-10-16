@@ -332,6 +332,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
     }
 
     @Nonnull
+    @Override
     public Set<RecordLayerView> getViews() {
         return views;
     }

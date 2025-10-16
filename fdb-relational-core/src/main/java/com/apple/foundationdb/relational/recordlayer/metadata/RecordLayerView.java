@@ -35,14 +35,29 @@ import java.util.function.Function;
  */
 public class RecordLayerView implements View {
 
+    /**
+     * The SQL query definition of the view (e.g., "SELECT * FROM employees WHERE salary > 50000").
+     * This contains only the query portion, not the CREATE VIEW DDL statement.
+     */
     @Nonnull
     private final String description;
 
+    /**
+     * The SQL name of the view as it appears in queries (e.g., "employee_view").
+     */
     @Nonnull
     private final String name;
 
+    /**
+     * Whether this view is temporary and exists only for the duration of a transaction.
+     */
     private final boolean isTemporary;
 
+    /**
+     * A function that compiles the view's SQL query into a logical operator tree.
+     * The boolean parameter indicates whether to compile with the view with case-sensitive processing
+     * of identifiers, see {@code Options.Name.CASE_SENSITIVE_IDENTIFIERS} for more information.
+     */
     @Nonnull
     private final Function<Boolean, LogicalOperator> compilableViewSupplier;
 
@@ -54,6 +69,7 @@ public class RecordLayerView implements View {
         this.name = name;
         this.isTemporary = isTemporary;
         this.compilableViewSupplier = compilableViewSupplier;
+
     }
 
     @Nonnull
@@ -97,17 +113,18 @@ public class RecordLayerView implements View {
             return false;
         }
         final RecordLayerView that = (RecordLayerView) o;
-        return Objects.equals(description, that.description) && Objects.equals(name, that.name);
+        return Objects.equals(description, that.description) && Objects.equals(name, that.name)
+                && Objects.equals(isTemporary, that.isTemporary);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(description, name);
+        return Objects.hash(description, name, isTemporary);
     }
 
     @Override
     public String toString() {
-        return "view (name '" + name + "', definition '" + description + "')";
+        return "view (name '" + name + "', definition '" + description + "', temporary=" + isTemporary + ")";
     }
 
     @Nonnull
@@ -115,6 +132,7 @@ public class RecordLayerView implements View {
         return newBuilder()
                 .setName(getName())
                 .setDescription(getDescription())
+                .setTemporary(isTemporary())
                 .setViewCompiler(getCompilableViewSupplier());
     }
 

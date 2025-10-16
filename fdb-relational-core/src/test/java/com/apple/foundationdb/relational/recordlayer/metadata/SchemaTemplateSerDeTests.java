@@ -44,9 +44,7 @@ import com.apple.foundationdb.relational.recordlayer.query.PlanGenerator;
 import com.apple.foundationdb.relational.recordlayer.query.PlannerConfiguration;
 import com.apple.foundationdb.relational.recordlayer.query.functions.CompiledSqlFunction;
 import com.apple.foundationdb.relational.util.Assert;
-import com.google.common.base.Function;
 import com.google.common.base.Supplier;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.DescriptorProtos;
 import org.hamcrest.MatcherAssert;
@@ -70,6 +68,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -150,7 +149,7 @@ public class SchemaTemplateSerDeTests {
     }
 
     @Test
-    public void testGoodSchemaTemplate() {
+    void testGoodSchemaTemplate() {
         var testcase = new HashMap<String, List<NonnullPair<Integer, DescriptorProtos.FieldOptions>>>();
         testcase.put("T1", List.of());
         testcase.put("T2", List.of());
@@ -169,7 +168,7 @@ public class SchemaTemplateSerDeTests {
         Assertions.assertTrue(unionDesc.getFieldList().stream().allMatch(e -> expectedTableNameSet.contains(e.getTypeName())));
 
         // Check if the number of fields in union descriptor are equal to the tables in the template.
-        final var expectedNumUnionFields = testcase.values().size();
+        final var expectedNumUnionFields = testcase.size();
         Assertions.assertEquals(expectedNumUnionFields, unionDesc.getFieldList().size());
 
         // Check if field numbers are assigned sequentially from [1, n]
@@ -216,7 +215,7 @@ public class SchemaTemplateSerDeTests {
     }
 
     @Test
-    public void testGoodSchemaTemplateWithGenerations() {
+    void testGoodSchemaTemplateWithGenerations() {
         final var fieldOptions1 = DescriptorProtos.FieldOptions.newBuilder().setDeprecated(true).build();
         final var fieldOptions2 = DescriptorProtos.FieldOptions.newBuilder().setDeprecated(false).build();
         var testcase = new HashMap<String, List<NonnullPair<Integer, DescriptorProtos.FieldOptions>>>();
@@ -246,7 +245,7 @@ public class SchemaTemplateSerDeTests {
     }
 
     @Test
-    public void readableIndexBitsetWorksCorrectly() throws RelationalException {
+    void readableIndexBitsetWorksCorrectly() throws RelationalException {
         final var template = basicTestTemplate();
         // we have table "t1" with four indexes "i1, i2, i3, i4".
         Assertions.assertEquals(BitSet.valueOf(new long[]{0b00000001}), template.getIndexEntriesAsBitset(Optional.of(Set.of("i1"))));
@@ -301,7 +300,7 @@ public class SchemaTemplateSerDeTests {
     }
 
     @Test
-    public void deserializationNestedTypesPreservesNamesCorrectly() {
+    void deserializationNestedTypesPreservesNamesCorrectly() {
         final var sampleRecordSchemaTemplate = RecordLayerSchemaTemplate.newBuilder()
                 .setName("TestSchemaTemplate")
                 .setVersion(42)
@@ -334,7 +333,7 @@ public class SchemaTemplateSerDeTests {
     }
 
     @Test
-    public void findTableByNameWorksCorrectly() {
+    void findTableByNameWorksCorrectly() {
         final var sampleRecordSchemaTemplate = RecordLayerSchemaTemplate.newBuilder()
                 .setName("TestSchemaTemplate")
                 .setVersion(42)
@@ -365,7 +364,7 @@ public class SchemaTemplateSerDeTests {
 
     @Disabled
     @Test
-    public void sqlFunctionsAreLazilyParsed() throws RelationalException {
+    void sqlFunctionsAreLazilyParsed() throws RelationalException {
         final var peekingDeserializer = recMetadataSampleWithFunctions(
                 "CREATE FUNCTION SqlFunction1(IN Q BIGINT) AS SELECT * FROM T1 WHERE col1 < Q");
         Assertions.assertTrue(peekingDeserializer.hasNoCompilationRequestsFor("SqlFunction1"));
@@ -373,6 +372,7 @@ public class SchemaTemplateSerDeTests {
         final var planGenerator = peekingDeserializer.getPlanGenerator();
         var plan = planGenerator.getPlan("select * from SqlFunction1(100)");
         Assertions.assertTrue(peekingDeserializer.hasOneCompilationRequestFor("SqlFunction1"));
+        Assertions.assertNotNull(plan);
 
         plan = planGenerator.getPlan("select * from SqlFunction1(200)");
         Assertions.assertTrue(peekingDeserializer.hasOneCompilationRequestFor("SqlFunction1"));
@@ -404,7 +404,7 @@ public class SchemaTemplateSerDeTests {
 
     @Disabled
     @Test
-    public void onlyQueriedSqlFunctionsAreCompiled() throws RelationalException {
+    void onlyQueriedSqlFunctionsAreCompiled() throws RelationalException {
         final var peekingDeserializer = recMetadataSampleWithFunctions(
                 "CREATE FUNCTION SqlFunction1(IN Q BIGINT) AS SELECT * FROM T1 WHERE col1 < Q",
                 "CREATE FUNCTION SqlFunction2(IN Q BIGINT) AS SELECT * FROM SqlFunction1(100) WHERE col1 < Q",
@@ -515,15 +515,14 @@ public class SchemaTemplateSerDeTests {
             schemaTemplateBuilder.addInvokedRoutine(RecordLayerInvokedRoutine.newBuilder()
                     .setName(functionName)
                     .setDescription(functionDescription)
-                    .withCompilableRoutine(igored -> new CompiledFunctionStub())
+                    .withCompilableRoutine(ignored -> new CompiledFunctionStub())
                     .build());
         }
 
         final var recordMetadata = schemaTemplateBuilder.build().toRecordMetadata();
         final var invokedRoutines = recordMetadata.getUserDefinedFunctionMap();
         final var actualFunctionMap = invokedRoutines.entrySet().stream().collect(Collectors.toMap(
-                Map.Entry::getKey,
-                   e -> ((RawSqlFunction)e.getValue()).getDefinition()));
+                Map.Entry::getKey, e -> ((RawSqlFunction)e.getValue()).getDefinition()));
 
         // Verify that the provided functions match the ones we just deserialized
         Assertions.assertEquals(expectedFunctionMap, actualFunctionMap);
@@ -542,7 +541,7 @@ public class SchemaTemplateSerDeTests {
         for (final var functionName : expectedFunctionMap.keySet()) {
             Assertions.assertTrue(deserializerWithPeekingCompilationSupplier.hasNoCompilationRequestsFor(functionName));
         }
-        final var ignored = deserializerWithPeekingCompilationSupplier.getSchemaTemplate("schemaUnderTest", 42);
+        deserializerWithPeekingCompilationSupplier.getSchemaTemplate("schemaUnderTest", 42);
         for (final var functionName : expectedFunctionMap.keySet()) {
             Assertions.assertTrue(deserializerWithPeekingCompilationSupplier.hasNoCompilationRequestsFor(functionName));
         }
@@ -552,13 +551,13 @@ public class SchemaTemplateSerDeTests {
     private static final class CompiledFunctionStub extends CompiledSqlFunction {
         @SuppressWarnings("DataFlowIssue") // only for test.
         CompiledFunctionStub() {
-            super("something", ImmutableList.of(), ImmutableList.of(), ImmutableList.of(),
+            super("something", List.of(), List.of(), List.of(),
                     Optional.empty(), null, Literals.empty());
         }
     }
 
     @Test
-    public void testViewCreationInSchemaTemplate() {
+    void testViewCreationInSchemaTemplate() {
         // Create a schema template with a table and a view
         final var schemaTemplate = RecordLayerSchemaTemplate.newBuilder()
                 .setName("TestSchemaTemplate")
@@ -590,7 +589,7 @@ public class SchemaTemplateSerDeTests {
     }
 
     @Test
-    public void testMultipleViewsInSchemaTemplate() {
+    void testMultipleViewsInSchemaTemplate() {
         // Create a schema template with multiple views
         final var schemaTemplate = RecordLayerSchemaTemplate.newBuilder()
                 .setName("TestSchemaTemplate")
@@ -621,7 +620,7 @@ public class SchemaTemplateSerDeTests {
     }
 
     @Test
-    public void testReplaceViewInSchemaTemplate() {
+    void testReplaceViewInSchemaTemplate() {
         // Create initial schema template with a view
         final var initialTemplate = RecordLayerSchemaTemplate.newBuilder()
                 .setName("TestSchemaTemplate")
@@ -657,7 +656,7 @@ public class SchemaTemplateSerDeTests {
     }
 
     @Test
-    public void testRemoveViewFromSchemaTemplate() {
+    void testRemoveViewFromSchemaTemplate() {
         // Create schema template with a view
         final var schemaTemplate = RecordLayerSchemaTemplate.newBuilder()
                 .setName("TestSchemaTemplate")
@@ -689,7 +688,7 @@ public class SchemaTemplateSerDeTests {
     }
 
     @Test
-    public void testViewSerializationAndDeserialization() {
+    void testViewSerializationAndDeserialization() {
         // Create a schema template with a view
         final var originalTemplate = RecordLayerSchemaTemplate.newBuilder()
                 .setName("TestSchemaTemplate")
@@ -733,7 +732,7 @@ public class SchemaTemplateSerDeTests {
     }
 
     @Test
-    public void testSchemaTemplateWithTablesAndViews() {
+    void testSchemaTemplateWithTablesAndViews() {
         // Create a complex schema with multiple tables and views
         final var schemaTemplate = RecordLayerSchemaTemplate.newBuilder()
                 .setName("TestSchemaTemplate")
@@ -778,7 +777,7 @@ public class SchemaTemplateSerDeTests {
     }
 
     @Test
-    public void testViewBuilderToBuilder() {
+    void testViewBuilderToBuilder() {
         // Create a view and convert to builder and back
         final var originalView = RecordLayerView.newBuilder()
                 .setName("test_view")
@@ -795,7 +794,7 @@ public class SchemaTemplateSerDeTests {
     }
 
     @Test
-    public void testFindViewByNameReturnsEmpty() {
+    void testFindViewByNameReturnsEmpty() {
         final var schemaTemplate = RecordLayerSchemaTemplate.newBuilder()
                 .setName("TestSchemaTemplate")
                 .setVersion(1)

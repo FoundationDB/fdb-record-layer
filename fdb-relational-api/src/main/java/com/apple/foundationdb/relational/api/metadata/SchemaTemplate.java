@@ -85,7 +85,7 @@ public interface SchemaTemplate extends Metadata {
     Optional<Table> findTableByName(@Nonnull String tableName) throws RelationalException;
 
     @Nonnull
-    Optional<? extends View> findViewByName(@Nonnull final String viewName) throws RelationalException;
+    Optional<? extends View> findViewByName(@Nonnull String viewName) throws RelationalException;
 
     @Nonnull
     Multimap<String, String> getTableIndexMapping() throws RelationalException;

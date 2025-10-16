@@ -167,7 +167,7 @@ public class QueryParser {
 
     @Nonnull
     public static RelationalParser.TempSqlInvokedFunctionContext parseTemporaryFunction(@Nonnull final String functionString) {
-        return parse(functionString, ignored -> { }, RelationalParser::tempSqlInvokedFunction);
+        return parse(functionString, ignored -> { }, parser -> parser.createTempFunction().tempSqlInvokedFunction());
     }
 
     @Nonnull
