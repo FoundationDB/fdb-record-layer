@@ -366,62 +366,6 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         visitor.finishVisit(this);
     }
 
-    /**
-     * Manages nullable and non-nullable variants of a struct type with the same name.
-     * This allows a struct type to exist in both nullable (for table columns) and 
-     * non-nullable (for array elements) forms within the same schema template.
-     */
-    private static final class TypeVariants {
-        private DataType.Named nullableVariant;
-        private DataType.Named nonNullableVariant;
-
-        /**
-         * Adds or updates a type variant based on its nullability.
-         * 
-         * @param type The type to add/update
-         */
-        public void addVariant(@Nonnull DataType.Named type) {
-            // Cast to DataType to access isNullable() method
-            // All named types (StructType, EnumType, etc.) extend DataType and implement Named
-            DataType dataType = (DataType) type;
-            if (dataType.isNullable()) {
-                this.nullableVariant = type;
-            } else {
-                this.nonNullableVariant = type;
-            }
-        }
-
-        /**
-         * Gets the primary variant (nullable if available, otherwise non-nullable).
-         * This maintains backward compatibility by preferring nullable variants.
-         */
-        @Nonnull
-        public DataType.Named getPrimaryVariant() {
-            if (nullableVariant != null) {
-                return nullableVariant;
-            }
-            if (nonNullableVariant != null) {
-                return nonNullableVariant;
-            }
-            throw new RelationalException("No variants available", ErrorCode.INTERNAL_ERROR).toUncheckedWrappedException();
-        }
-
-        /**
-         * Gets all non-null variants.
-         */
-        @Nonnull
-        public Collection<DataType.Named> getAllVariants() {
-            final var variants = new ArrayList<DataType.Named>();
-            if (nullableVariant != null) {
-                variants.add(nullableVariant);
-            }
-            if (nonNullableVariant != null) {
-                variants.add(nonNullableVariant);
-            }
-            return variants;
-        }
-    }
-
     public static final class Builder {
         private static final String TABLE_ALREADY_EXISTS = "table '%s' already exists";
         private static final String TYPE_WITH_NAME_ALREADY_EXISTS = "type with name '%s' already exists";
@@ -440,7 +384,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         private final Map<String, RecordLayerTable> tables;
 
         @Nonnull
-        private final Map<String, TypeVariants> auxiliaryTypes; // for quick lookup
+        private final Map<String, DataType.Named> auxiliaryTypes; // for quick lookup
 
         @Nonnull
         private final Map<String, RecordLayerInvokedRoutine> invokedRoutines;
@@ -546,8 +490,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         /**
          * Adds an auxiliary type, an auxiliary type is a type that is merely created, so it can be referenced later on
          * in a table definition. Any {@link DataType.Named} data type can be added as an auxiliary type such as {@code enum}s
-         * and {@code struct}s. For struct types, this method supports adding both nullable and non-nullable
-         * variants of the same named type.
+         * and {@code struct}s.
          *
          * @param auxiliaryType The auxiliary {@link DataType} to add.
          * @return {@code this} {@link Builder}.
@@ -555,18 +498,8 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         @Nonnull
         public Builder addAuxiliaryType(@Nonnull DataType.Named auxiliaryType) {
             Assert.thatUnchecked(!tables.containsKey(auxiliaryType.getName()), ErrorCode.INVALID_SCHEMA_TEMPLATE, TABLE_ALREADY_EXISTS, auxiliaryType.getName());
-            
-            // For struct types, allow both nullable and non-nullable variants
-            if (auxiliaryType instanceof DataType.StructType) {
-                TypeVariants variants = auxiliaryTypes.computeIfAbsent(auxiliaryType.getName(), k -> new TypeVariants());
-                variants.addVariant(auxiliaryType);
-            } else {
-                // For non-struct types (enums, etc.), maintain existing behavior
-                Assert.thatUnchecked(!auxiliaryTypes.containsKey(auxiliaryType.getName()), ErrorCode.INVALID_SCHEMA_TEMPLATE, TYPE_WITH_NAME_ALREADY_EXISTS, auxiliaryType.getName());
-                TypeVariants variants = new TypeVariants();
-                variants.addVariant(auxiliaryType);
-                auxiliaryTypes.put(auxiliaryType.getName(), variants);
-            }
+            Assert.thatUnchecked(!auxiliaryTypes.containsKey(auxiliaryType.getName()), ErrorCode.INVALID_SCHEMA_TEMPLATE, TYPE_WITH_NAME_ALREADY_EXISTS, auxiliaryType.getName());
+            auxiliaryTypes.put(auxiliaryType.getName(), auxiliaryType);
             return this;
         }
 
@@ -610,9 +543,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
             }
 
             if (auxiliaryTypes.containsKey(name)) {
-                // Return the primary variant (nullable if available, otherwise non-nullable)
-                // This maintains backward compatibility
-                return Optional.of((DataType) auxiliaryTypes.get(name).getPrimaryVariant());
+                return Optional.of((DataType) auxiliaryTypes.get(name));
             }
 
             return Optional.empty();
@@ -632,14 +563,9 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
             }
 
             if (!needsResolution) {
-                for (final var typeVariants : auxiliaryTypes.values()) {
-                    for (final var variant : typeVariants.getAllVariants()) {
-                        if (!((DataType) variant).isResolved()) {
-                            needsResolution = true;
-                            break;
-                        }
-                    }
-                    if (needsResolution) {
+                for (final var auxiliaryType : auxiliaryTypes.values()) {
+                    if (!((DataType) auxiliaryType).isResolved()) {
+                        needsResolution = true;
                         break;
                     }
                 }
@@ -664,11 +590,8 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
             for (final var table : tables.values()) {
                 mapBuilder.put(table.getName(), table.getDatatype());
             }
-            for (final var auxiliaryTypeEntry : auxiliaryTypes.entrySet()) {
-                // For each type name, add the primary variant to the map for backward compatibility
-                // This ensures existing type resolution logic works
-                TypeVariants typeVariants = auxiliaryTypeEntry.getValue();
-                mapBuilder.put(auxiliaryTypeEntry.getKey(), (DataType) typeVariants.getPrimaryVariant());
+            for (final var auxiliaryType : auxiliaryTypes.entrySet()) {
+                mapBuilder.put(auxiliaryType.getKey(), (DataType) auxiliaryType.getValue());
             }
             final var namedTypes = mapBuilder.build();
 
@@ -677,12 +600,8 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
             for (final var table : tables.values()) {
                 depsBuilder.put(table.getDatatype(), getDependencies(table.getDatatype(), namedTypes));
             }
-            for (final var auxiliaryTypeEntry : auxiliaryTypes.entrySet()) {
-                TypeVariants typeVariants = auxiliaryTypeEntry.getValue();
-                // Add dependencies for all variants of this type
-                for (final var variant : typeVariants.getAllVariants()) {
-                    depsBuilder.put((DataType) variant, getDependencies((DataType) variant, namedTypes));
-                }
+            for (final var auxiliaryType : auxiliaryTypes.entrySet()) {
+                depsBuilder.put((DataType) auxiliaryType.getValue(), getDependencies((DataType) auxiliaryType.getValue(), namedTypes));
             }
             final var deps = depsBuilder.build();
 
@@ -721,26 +640,14 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
             tables.clear();
             tables.putAll(resolvedTables.build());
 
-            final var resolvedAuxiliaryTypes = ImmutableMap.<String, TypeVariants>builder();
-            for (final var auxiliaryTypeEntry : auxiliaryTypes.entrySet()) {
-                final String typeName = auxiliaryTypeEntry.getKey();
-                final TypeVariants typeVariants = auxiliaryTypeEntry.getValue();
-                
-                TypeVariants resolvedVariants = new TypeVariants();
-                
-                // Resolve each variant
-                for (final var variant : typeVariants.getAllVariants()) {
-                    DataType.Named resolvedVariant;
-                    DataType variantAsDataType = (DataType) variant;
-                    if (!variantAsDataType.isResolved()) {
-                        resolvedVariant = (DataType.Named) ((DataType) resolvedTypes.get(typeName)).withNullable(variantAsDataType.isNullable());
-                    } else {
-                        resolvedVariant = variant;
-                    }
-                    resolvedVariants.addVariant(resolvedVariant);
+            final var resolvedAuxiliaryTypes = ImmutableMap.<String, DataType.Named>builder();
+            for (final var auxiliaryType : auxiliaryTypes.entrySet()) {
+                final var dataType = (DataType) auxiliaryType.getValue();
+                if (!dataType.isResolved()) {
+                    resolvedAuxiliaryTypes.put(auxiliaryType.getKey(), (DataType.Named) ((DataType) resolvedTypes.get(auxiliaryType.getKey())).withNullable(dataType.isNullable()));
+                } else {
+                    resolvedAuxiliaryTypes.put(auxiliaryType.getKey(), auxiliaryType.getValue());
                 }
-                
-                resolvedAuxiliaryTypes.put(typeName, resolvedVariants);
             }
 
             auxiliaryTypes.clear();

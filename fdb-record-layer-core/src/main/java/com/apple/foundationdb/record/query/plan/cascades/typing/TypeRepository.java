@@ -435,7 +435,6 @@ public class TypeRepository {
         private @Nonnull final FileDescriptorSet.Builder fileDescSetBuilder;
         private @Nonnull final Map<Type, String> typeToNameMap;
         private @Nonnull final Map<String, Type> nameToCanonicalTypeMap;
-        private @Nonnull final Set<String> typesWithBothNullabilityVariants;
 
         private Builder() {
             fileDescProtoBuilder = FileDescriptorProto.newBuilder();
@@ -443,7 +442,6 @@ public class TypeRepository {
             fileDescSetBuilder = FileDescriptorSet.newBuilder();
             typeToNameMap = new HashMap<>();
             nameToCanonicalTypeMap = new HashMap<>();
-            typesWithBothNullabilityVariants = new HashSet<>();
         }
 
         @Nonnull
@@ -479,7 +477,6 @@ public class TypeRepository {
                     // Use the same protobuf name as the canonical type
                     String existingProtoName = typeToNameMap.get(canonicalType);
                     if (existingProtoName != null) {
-                        typesWithBothNullabilityVariants.add(existingProtoName);
                         typeToNameMap.put(type, existingProtoName);
                         return this;
                     }
@@ -492,9 +489,10 @@ public class TypeRepository {
         }
 
         /**
-         * Finds a type that has the same structure as the given type but different nullability.
+         * Finds a type in typeToNameMap that has the same structure as the given type but different nullability.
          * Returns null if no such type exists.
          */
+        @Nullable
         private Type findCanonicalTypeForStructure(@Nonnull final Type type) {
             for (Map.Entry<Type, String> entry : typeToNameMap.entrySet()) {
                 Type existingType = entry.getKey();
