@@ -22,6 +22,9 @@
 # - Nullable form (for table columns)  
 # - Non-nullable form (for array elements)
 ---
+options:
+    supported_version: !current_version
+---
 schema_template:
     create type as struct Address(street string, city string, zipcode integer)
     
