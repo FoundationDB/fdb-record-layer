@@ -347,7 +347,8 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                 .addProp(LuceneRecordContextProperties.LUCENE_MAX_DOCUMENTS_TO_MOVE_DURING_REPARTITIONING, dataModel.nextInt(1000) + repartitionCount)
                 .addProp(LuceneRecordContextProperties.LUCENE_MERGE_SEGMENTS_PER_TIER, (double)dataModel.nextInt(10) + 2) // it must be at least 2.0
                 .addProp(LuceneRecordContextProperties.LUCENE_INDEX_COMPRESSION_ENABLED, compressed)
-                .addProp(LuceneRecordContextProperties.LUCENE_INDEX_ENCRYPTION_ENABLED, encrypted);
+                .addProp(LuceneRecordContextProperties.LUCENE_INDEX_ENCRYPTION_ENABLED, encrypted)
+                .addProp(LuceneRecordContextProperties.LUCENE_FIELD_PROTOBUF_PREFIX_ENABLED, encrypted);
         if (encrypted) {
             contextPropsBuilder.addProp(LuceneRecordContextProperties.LUCENE_INDEX_KEY_MANAGER, new RollingTestKeyManager(seed));
         }
@@ -917,7 +918,8 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
 
         final RecordLayerPropertyStorage.Builder contextPropsBuilder = RecordLayerPropertyStorage.newBuilder()
                 .addProp(LuceneRecordContextProperties.LUCENE_INDEX_COMPRESSION_ENABLED, true)
-                .addProp(LuceneRecordContextProperties.LUCENE_INDEX_ENCRYPTION_ENABLED, true);
+                .addProp(LuceneRecordContextProperties.LUCENE_INDEX_ENCRYPTION_ENABLED, true)
+                .addProp(LuceneRecordContextProperties.LUCENE_FIELD_PROTOBUF_PREFIX_ENABLED, true);
         final KeyGenerator keyGen = KeyGenerator.getInstance("AES");
         keyGen.init(128);
         final SecretKey key1 = keyGen.generateKey();

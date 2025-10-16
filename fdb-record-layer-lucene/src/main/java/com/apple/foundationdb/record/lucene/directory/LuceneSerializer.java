@@ -57,12 +57,15 @@ public class LuceneSerializer {
     private final boolean encryptionEnabled;
     @Nullable
     private final SerializationKeyManager keyManager;
+    private final boolean fieldProtobufPrefixEnabled;
 
     public LuceneSerializer(boolean compressionEnabled,
-                            boolean encryptionEnabled, @Nullable SerializationKeyManager keyManager) {
+                            boolean encryptionEnabled, @Nullable SerializationKeyManager keyManager,
+                            boolean fieldProtobufPrefixEnabled) {
         this.compressionEnabled = compressionEnabled;
         this.encryptionEnabled = encryptionEnabled;
         this.keyManager = keyManager;
+        this.fieldProtobufPrefixEnabled = fieldProtobufPrefixEnabled;
     }
 
     public boolean isCompressionEnabled() {
@@ -71,6 +74,10 @@ public class LuceneSerializer {
 
     public boolean isEncryptionEnabled() {
         return encryptionEnabled;
+    }
+
+    public boolean isFieldProtobufPrefixEnabled() {
+        return fieldProtobufPrefixEnabled;
     }
 
     @Nullable
@@ -272,7 +279,16 @@ public class LuceneSerializer {
     }
 
     @Nullable
-    public byte[] decodePossiblyWithoutPrefix(@Nullable byte[] bytes) {
+    public byte[] encodeFieldProtobuf(@Nullable byte[] bytes) {
+        if (fieldProtobufPrefixEnabled) {
+            return encode(bytes);
+        } else {
+            return bytes;
+        }
+    }
+
+    @Nullable
+    public byte[] decodeFieldProtobuf(@Nullable byte[] bytes) {
         if (bytes == null) {
             return null;
         }

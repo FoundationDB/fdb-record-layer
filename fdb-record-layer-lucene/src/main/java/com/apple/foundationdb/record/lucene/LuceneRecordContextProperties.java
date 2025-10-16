@@ -50,6 +50,11 @@ public final class LuceneRecordContextProperties {
     public static final RecordLayerPropertyKey<SerializationKeyManager> LUCENE_INDEX_KEY_MANAGER = new RecordLayerPropertyKey<>("com.apple.foundationdb.record.lucene.keyManager", null, SerializationKeyManager.class);
 
     /**
+     * Whether {@code StoredField} and {@code FieldInfo} are also encoded, allowing compression and encryption.
+     */
+    public static final RecordLayerPropertyKey<Boolean> LUCENE_FIELD_PROTOBUF_PREFIX_ENABLED = RecordLayerPropertyKey.booleanPropertyKey("com.apple.foundationdb.record.lucene.fieldProtobufPrefixEnabled", false);
+
+    /**
      * An {@link ExecutorService} to use for parallel execution in {@link LuceneRecordCursor}.
      */
     public static final RecordLayerPropertyKey<ExecutorService> LUCENE_EXECUTOR_SERVICE = new RecordLayerPropertyKey<>("com.apple.foundationdb.record.lucene.executorService", null, ExecutorService.class);

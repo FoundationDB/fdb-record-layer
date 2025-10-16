@@ -164,7 +164,7 @@ public class TestFDBDirectory extends FDBDirectory {
                                     getAgilityContext().getRange(key, ByteArrayUtil.strinc(key))));
                     final Map<Long, byte[]> storedFields = rawStoredFields.stream().collect(Collectors.toMap(
                             keyValue -> storedFieldsSubspace.unpack(keyValue.getKey()).getLong(1),
-                            keyValue -> Objects.requireNonNull(Objects.requireNonNull(getSerializer()).decodePossiblyWithoutPrefix(keyValue.getValue()))
+                            keyValue -> Objects.requireNonNull(Objects.requireNonNull(getSerializer()).decodeFieldProtobuf(keyValue.getValue()))
                     ));
                     final NonnullPair<String, Map<Long, byte[]>> previous = previousStoredFields.getAndSet(NonnullPair.of(name, storedFields));
                     if (previous != null) {

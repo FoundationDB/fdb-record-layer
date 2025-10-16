@@ -48,7 +48,7 @@ import java.util.stream.Stream;
 class LuceneSerializerTest {
     @Test
     void testEncodingWithoutCompression() throws Exception {
-        final LuceneSerializer serializer = getSerializer(true, false);
+        final LuceneSerializer serializer = getSerializer(false, true, false);
         final ByteString content = RandomUtil.randomByteString(ThreadLocalRandom.current(), 100);
         final LuceneFileSystemProto.LuceneFileReference reference = LuceneFileSystemProto.LuceneFileReference.newBuilder()
                 .setId(1)
@@ -78,7 +78,7 @@ class LuceneSerializerTest {
 
     @Test
     void testEncodingWithCompression() throws Exception {
-        final LuceneSerializer serializer = getSerializer(true, false);
+        final LuceneSerializer serializer = getSerializer(false, true, false);
         final String duplicateMsg = "abcdefghijklmnopqrstuvwxyz";
         final String content = "content_" + duplicateMsg + "_" + duplicateMsg;
         final LuceneFileSystemProto.LuceneFileReference reference = LuceneFileSystemProto.LuceneFileReference.newBuilder()
@@ -107,7 +107,7 @@ class LuceneSerializerTest {
     @ParameterizedTest
     @BooleanSource
     void testEncodingWithEncryption(boolean compressToo) throws Exception {
-        final LuceneSerializer serializer = getSerializer(compressToo, true);
+        final LuceneSerializer serializer = getSerializer(false, compressToo, true);
         final ByteString content = RandomUtil.randomByteString(ThreadLocalRandom.current(), 100);
         final LuceneFileSystemProto.LuceneFileReference reference = LuceneFileSystemProto.LuceneFileReference.newBuilder()
                 .setId(1)
@@ -126,7 +126,7 @@ class LuceneSerializerTest {
     @ParameterizedTest
     @MethodSource("encodedCompressedAndEncrypted")
     void testStoredFieldsEncoding(boolean encode, boolean compress, boolean encrypt) throws Exception {
-        testProtobufMessageWithoutPrefix(encode, compress, encrypt,
+        testFieldProtobuf(encode, compress, encrypt,
                 () -> {
                     final String storedField = RandomUtil.randomAlphanumericString(ThreadLocalRandom.current(), 20);
                     final LuceneStoredFieldsProto.LuceneStoredFields.Builder builder = LuceneStoredFieldsProto.LuceneStoredFields.newBuilder();
@@ -139,7 +139,7 @@ class LuceneSerializerTest {
     @ParameterizedTest
     @MethodSource("encodedCompressedAndEncrypted")
     void testStoredFieldsKeyOnly(boolean encode, boolean compress, boolean encrypt) throws Exception {
-        testProtobufMessageWithoutPrefix(encode, compress, encrypt,
+        testFieldProtobuf(encode, compress, encrypt,
                 () -> {
                     final ByteString key = RandomUtil.randomByteString(ThreadLocalRandom.current(), 20);
                     final LuceneStoredFieldsProto.LuceneStoredFields.Builder builder = LuceneStoredFieldsProto.LuceneStoredFields.newBuilder();
@@ -152,7 +152,7 @@ class LuceneSerializerTest {
     @ParameterizedTest
     @MethodSource("encodedCompressedAndEncrypted")
     void testFieldInfosEncoding(boolean encode, boolean compress, boolean encrypt) throws Exception {
-        testProtobufMessageWithoutPrefix(encode, compress, encrypt,
+        testFieldProtobuf(encode, compress, encrypt,
                 () -> {
                     final String name = RandomUtil.randomAlphanumericString(ThreadLocalRandom.current(), 10);
                     final LuceneFieldInfosProto.FieldInfos.Builder builder = LuceneFieldInfosProto.FieldInfos.newBuilder();
@@ -165,7 +165,7 @@ class LuceneSerializerTest {
     @ParameterizedTest
     @MethodSource("encodedCompressedAndEncrypted")
     void testStoredFieldsEmpty(boolean encode, boolean compress, boolean encrypt) throws Exception {
-        testProtobufMessageWithoutPrefix(encode, compress, encrypt,
+        testFieldProtobuf(encode, compress, encrypt,
                 LuceneStoredFieldsProto.LuceneStoredFields::getDefaultInstance,
                 LuceneStoredFieldsProto.LuceneStoredFields::parseFrom);
     }
@@ -173,7 +173,7 @@ class LuceneSerializerTest {
     @ParameterizedTest
     @MethodSource("encodedCompressedAndEncrypted")
     void testFieldInfosEmpty(boolean encode, boolean compress, boolean encrypt) throws Exception {
-        testProtobufMessageWithoutPrefix(encode, compress, encrypt,
+        testFieldProtobuf(encode, compress, encrypt,
                 LuceneFieldInfosProto.FieldInfos::getDefaultInstance,
                 LuceneFieldInfosProto.FieldInfos::parseFrom);
     }
@@ -198,19 +198,19 @@ class LuceneSerializerTest {
         Message parse(byte[] bytes) throws Exception;
     }
 
-    private void testProtobufMessageWithoutPrefix(boolean encode, boolean compress, boolean encrypt,
-                                                  MessageBuilder build, MessageParser parse) throws Exception {
-        final LuceneSerializer serializer = getSerializer(compress, encrypt);
+    private void testFieldProtobuf(boolean encode, boolean compress, boolean encrypt,
+                                   MessageBuilder build, MessageParser parse) throws Exception {
+        final LuceneSerializer serializer = getSerializer(encode, compress, encrypt);
         final Message built = build.build();
         final byte[] value = built.toByteArray();
-        final byte[] encodedValue = encode ? serializer.encode(value) : value;
-        final byte[] decodedValue = serializer.decodePossiblyWithoutPrefix(encodedValue);
+        final byte[] encodedValue = serializer.encodeFieldProtobuf(value);
+        final byte[] decodedValue = serializer.decodeFieldProtobuf(encodedValue);
         Assertions.assertArrayEquals(value, decodedValue);
         final Message parsed = parse.parse(decodedValue);
         Assertions.assertEquals(built, parsed);
     }
 
-    private LuceneSerializer getSerializer(boolean compress, boolean encrypt) throws GeneralSecurityException {
+    private LuceneSerializer getSerializer(boolean encodeFieldProtobuf, boolean compress, boolean encrypt) throws GeneralSecurityException {
         final SerializationKeyManager keyManager;
         if (encrypt) {
             KeyGenerator keyGen = KeyGenerator.getInstance("AES");
@@ -220,6 +220,6 @@ class LuceneSerializerTest {
         } else {
             keyManager = null;
         }
-        return new LuceneSerializer(compress, encrypt, keyManager);
+        return new LuceneSerializer(compress, encrypt, keyManager, encodeFieldProtobuf);
     }
 }

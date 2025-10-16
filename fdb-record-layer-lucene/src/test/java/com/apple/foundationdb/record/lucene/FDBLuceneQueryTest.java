@@ -235,7 +235,8 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
         return super.addDefaultProps(props)
                 .addProp(LuceneRecordContextProperties.LUCENE_EXECUTOR_SERVICE, (Supplier<ExecutorService>)() -> executorService)
                 .addProp(LuceneRecordContextProperties.LUCENE_INDEX_ENCRYPTION_ENABLED, (Supplier<Boolean>)() -> keyManager != null)
-                .addProp(LuceneRecordContextProperties.LUCENE_INDEX_KEY_MANAGER, (Supplier<SerializationKeyManager>)() -> keyManager);
+                .addProp(LuceneRecordContextProperties.LUCENE_INDEX_KEY_MANAGER, (Supplier<SerializationKeyManager>)() -> keyManager)
+                .addProp(LuceneRecordContextProperties.LUCENE_FIELD_PROTOBUF_PREFIX_ENABLED, (Supplier<Boolean>)() -> keyManager != null);
     }
 
     @SuppressWarnings("SameParameterValue")

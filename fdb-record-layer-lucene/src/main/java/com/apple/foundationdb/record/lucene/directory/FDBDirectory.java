@@ -230,7 +230,8 @@ public class FDBDirectory extends Directory  {
         this.fileSequenceCounter = new AtomicLong(-1);
         this.serializer = new LuceneSerializer(Objects.requireNonNullElse(agilityContext.getPropertyValue(LuceneRecordContextProperties.LUCENE_INDEX_COMPRESSION_ENABLED), false),
                 Objects.requireNonNullElse(agilityContext.getPropertyValue(LuceneRecordContextProperties.LUCENE_INDEX_ENCRYPTION_ENABLED), false),
-                agilityContext.getPropertyValue(LuceneRecordContextProperties.LUCENE_INDEX_KEY_MANAGER));
+                agilityContext.getPropertyValue(LuceneRecordContextProperties.LUCENE_INDEX_KEY_MANAGER),
+                Objects.requireNonNullElse(agilityContext.getPropertyValue(LuceneRecordContextProperties.LUCENE_FIELD_PROTOBUF_PREFIX_ENABLED), false));
         this.fileReferenceMapSupplier = Suppliers.memoize(this::loadFileReferenceCacheForMemoization);
         this.sharedCacheManager = sharedCacheManager;
         this.sharedCacheKey = sharedCacheKey;
@@ -344,7 +345,7 @@ public class FDBDirectory extends Directory  {
             throw new RecordCoreArgumentException("FieldInfo id should never be 0");
         }
         byte[] key = fieldInfosSubspace.pack(id);
-        byte[] value = serializer.encode(rawBytes);
+        byte[] value = serializer.encodeFieldProtobuf(rawBytes);
         agilityContext.recordSize(LuceneEvents.SizeEvents.LUCENE_WRITE, key.length + value.length);
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(getLogMessage("Write lucene stored field infos data",
@@ -361,7 +362,7 @@ public class FDBDirectory extends Directory  {
                 .stream()
                 .map(keyValue -> NonnullPair.of(
                         fieldInfosSubspace.unpack(keyValue.getKey()).getLong(0),
-                        serializer.decodePossiblyWithoutPrefix(keyValue.getValue())));
+                        serializer.decodeFieldProtobuf(keyValue.getValue())));
     }
 
     public CompletableFuture<Integer> getFieldInfosCount() {
@@ -452,7 +453,7 @@ public class FDBDirectory extends Directory  {
      */
     public void writeStoredFields(@Nonnull String segmentName, int docID, @Nonnull final byte[] rawBytes) {
         byte[] key = storedFieldsSubspace.pack(Tuple.from(segmentName, docID));
-        byte[] value = serializer.encode(rawBytes);
+        byte[] value = serializer.encodeFieldProtobuf(rawBytes);
         agilityContext.recordSize(LuceneEvents.SizeEvents.LUCENE_WRITE_STORED_FIELDS, key.length + value.length);
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(getLogMessage("Write lucene stored fields data",
@@ -558,7 +559,7 @@ public class FDBDirectory extends Directory  {
                     .addLogInfo(LuceneLogMessageKeys.DOC_ID, docId)
                     .addLogInfo(LogMessageKeys.KEY, ByteArrayUtil2.loggable(key));
         }
-        return Objects.requireNonNull(serializer.decodePossiblyWithoutPrefix(rawBytes));
+        return Objects.requireNonNull(serializer.decodeFieldProtobuf(rawBytes));
     }
 
     @Nonnull
@@ -572,7 +573,7 @@ public class FDBDirectory extends Directory  {
                     .addLogInfo(LogMessageKeys.RANGE_START, ByteArrayUtil2.loggable(range.begin))
                     .addLogInfo(LogMessageKeys.RANGE_END, ByteArrayUtil2.loggable(range.end));
         }
-        return list.stream().map(KeyValue::getValue).map(serializer::decodePossiblyWithoutPrefix).collect(Collectors.toList());
+        return list.stream().map(KeyValue::getValue).map(serializer::decodeFieldProtobuf).collect(Collectors.toList());
     }
 
     /**
@@ -1060,7 +1061,8 @@ public class FDBDirectory extends Directory  {
         return KeyValueLogMessage.build(staticMsg, keysAndValues)
                 .addKeyAndValue(LogMessageKeys.SUBSPACE, subspace)
                 .addKeyAndValue(LuceneLogMessageKeys.COMPRESSION_SUPPOSED, serializer.isCompressionEnabled())
-                .addKeyAndValue(LuceneLogMessageKeys.ENCRYPTION_SUPPOSED, serializer.isEncryptionEnabled());
+                .addKeyAndValue(LuceneLogMessageKeys.ENCRYPTION_SUPPOSED, serializer.isEncryptionEnabled())
+                .addKeyAndValue(LuceneLogMessageKeys.FIELD_PROTOBUF_ENCODED, serializer.isFieldProtobufPrefixEnabled());
     }
 
     /**
