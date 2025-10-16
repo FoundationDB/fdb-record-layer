@@ -75,7 +75,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.crypto.SecretKey;
 import java.io.IOException;
-import java.security.GeneralSecurityException;
 import java.time.Duration;
 import java.util.ArrayDeque;
 import java.util.HashMap;
@@ -108,6 +107,7 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.function;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.anyOf;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -940,9 +940,10 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
         IOException ioException = assertThrows(IOException.class,
                 () -> dataModel.validate(() -> openContext(contextProps2)));
         assertThat(ioException.getCause(), instanceOf(RecordCoreException.class));
-        assertThat(ioException.getCause().getMessage(), containsString("Lucene data decoding failure"));
-        assertThat(ioException.getCause().getCause(), instanceOf(GeneralSecurityException.class));
-
+        // Possible failures: (1) does not decrypt; (2) decrypts to garbage with bad compression level; (3) does not decompress.
+        assertThat(ioException.getCause().getMessage(), anyOf(
+                containsString("Lucene data decoding failure"),
+                containsString("Un-supported compression version")));
     }
 
     private static Stream<Arguments> concurrentParameters() {
