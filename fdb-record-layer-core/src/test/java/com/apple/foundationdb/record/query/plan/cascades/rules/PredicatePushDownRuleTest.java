@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 import com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerStage;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
@@ -124,6 +125,53 @@ public class PredicatePushDownRuleTest {
         SelectExpression newHigher = selectWithPredicates(
                 newLowerQun, List.of("b")
         );
+
+        testHelper.assertYields(higher, newHigher);
+    }
+
+    /**
+     * Test a simple rewrite of a single parameter predicate with the existence of other predicates. It should go from:
+     * <pre>{@code
+     * SELECT a FROM (SELECT a, b, d FROM T) WHERE a = 42 AND EXISTS (SELECT alpha FROM TAU)
+     * }</pre>
+     * <p>
+     * And become:
+     * </p>
+     * <pre>{@code
+     * SELECT a FROM (SELECT a, b FROM T WHERE a = 42) WHERE EXISTS (SELECT alpha FROM TAU)
+     * }</pre>
+     */
+    @Test
+    void pushDownOnePredicateOfMultiple() {
+        Quantifier baseQun = baseT();
+
+        Quantifier lowerQun = forEach(selectWithPredicates(
+                baseQun, List.of("a", "b")
+        ));
+        Quantifier existentialQun = exists(selectWithPredicates(
+                baseTau(), List.of("alpha")
+        ));
+
+        GraphExpansion.Builder builder = GraphExpansion.builder().addQuantifier(lowerQun).addQuantifier(existentialQun);
+        builder.addResultColumn(column(lowerQun, "b", "b"));
+        builder.addAllPredicates(List.of(
+                fieldPredicate(lowerQun, "a", EQUALS_42),
+                new ExistsPredicate(existentialQun.getAlias())
+        ));
+        SelectExpression higher = builder.build().buildSelect();
+
+
+        Quantifier newLowerQun = forEach(selectWithPredicates(
+                baseQun, List.of("a", "b"),
+                fieldPredicate(baseQun, "a", EQUALS_42)
+        ));
+
+        GraphExpansion.Builder newBuilder = GraphExpansion.builder().addQuantifier(newLowerQun).addQuantifier(existentialQun);
+        newBuilder.addResultColumn(column(newLowerQun, "b", "b"));
+        newBuilder.addAllPredicates(List.of(
+                new ExistsPredicate(existentialQun.getAlias())
+        ));
+        SelectExpression newHigher = newBuilder.build().buildSelect();
 
         testHelper.assertYields(higher, newHigher);
     }
