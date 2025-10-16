@@ -25,7 +25,7 @@ import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.async.rtree.RTree;
 import com.apple.foundationdb.linear.DoubleRealVector;
 import com.apple.foundationdb.linear.HalfRealVector;
-import com.apple.foundationdb.linear.Metrics;
+import com.apple.foundationdb.linear.Metric;
 import com.apple.foundationdb.linear.StoredVecsIterator;
 import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.test.TestDatabaseExtension;
@@ -199,7 +199,7 @@ public class HNSWTest {
     public void testBasicInsert(final long seed, final boolean useInlining, final boolean extendCandidates,
                                 final boolean keepPrunedConnections) {
         final Random random = new Random(seed);
-        final Metrics metric = Metrics.EUCLIDEAN_METRIC;
+        final Metric metric = Metric.EUCLIDEAN_METRIC;
         final AtomicLong nextNodeIdAtomic = new AtomicLong(0L);
 
         final TestOnReadListener onReadListener = new TestOnReadListener();
@@ -222,7 +222,7 @@ public class HNSWTest {
                     tr -> {
                         final var primaryKey = createNextPrimaryKey(nextNodeIdAtomic);
                         final HalfRealVector dataVector = RealVectorTest.createRandomHalfVector(random, numDimensions);
-                        final double distance = metric.comparativeDistance(dataVector, queryVector);
+                        final double distance = metric.distance(dataVector, queryVector);
                         final NodeReferenceWithDistance nodeReferenceWithDistance =
                                 new NodeReferenceWithDistance(primaryKey, dataVector, distance);
                         nodesOrderedByDistance.add(nodeReferenceWithDistance);
@@ -316,7 +316,7 @@ public class HNSWTest {
     @Test
     @Timeout(value = 10, unit = TimeUnit.MINUTES)
     public void testSIFTInsertSmall() throws Exception {
-        final Metrics metric = Metrics.EUCLIDEAN_METRIC;
+        final Metric metric = Metric.EUCLIDEAN_METRIC;
         final int k = 100;
         final AtomicLong nextNodeIdAtomic = new AtomicLong(0L);
 
@@ -407,7 +407,7 @@ public class HNSWTest {
     @Test
     @Timeout(value = 10, unit = TimeUnit.MINUTES)
     public void testSIFTInsertSmallUsingBatchAPI() throws Exception {
-        final Metrics metric = Metrics.EUCLIDEAN_METRIC;
+        final Metric metric = Metric.EUCLIDEAN_METRIC;
         final int k = 100;
         final AtomicLong nextNodeIdAtomic = new AtomicLong(0L);
 
@@ -447,7 +447,7 @@ public class HNSWTest {
             final HalfRealVector randomVector = RealVectorTest.createRandomHalfVector(random, numDimensions);
             final Tuple vectorTuple = StorageAdapter.tupleFromVector(randomVector);
             final RealVector roundTripVector = StorageAdapter.vectorFromTuple(HNSW.DEFAULT_CONFIG_BUILDER.build(numDimensions), vectorTuple);
-            Metrics.EUCLIDEAN_METRIC.comparativeDistance(randomVector, roundTripVector);
+            Metric.EUCLIDEAN_METRIC.distance(randomVector, roundTripVector);
             Assertions.assertEquals(randomVector, roundTripVector);
         }
     }
