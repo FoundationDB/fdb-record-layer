@@ -536,7 +536,8 @@ public class TypeRepository {
 
             // Check if a type with same structure but different nullability is already registered
             final Type existingTypeForName = nameToCanonicalTypeMap.get(protoTypeName);
-            if (existingTypeForName != null && differsOnlyInNullability(type, existingTypeForName)) {
+            if (existingTypeForName != null) {
+                Verify.verify(differsOnlyInNullability(type, existingTypeForName), "Name %s is already registered with a different type, cannot register different types with same name", existingTypeName);
                 // Allow both nullable and non-nullable variants to map to the same protobuf type
                 // Don't update nameToCanonicalTypeMap - keep the first registered type as canonical
                 typeToNameMap.put(type, protoTypeName);
