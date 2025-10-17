@@ -827,8 +827,8 @@ public class HNSW {
         }).thenCompose(ignored ->
                 fetchSomeNodesIfNotCached(storageAdapter, readTransaction, layer, nearestNeighbors, nodeCache))
                 .thenApply(searchResult -> {
-                    if (logger.isDebugEnabled()) {
-                        logger.debug("searched layer={} for efSearch={} with result=={}", layer, efSearch,
+                    if (logger.isTraceEnabled()) {
+                        logger.trace("searched layer={} for efSearch={} with result=={}", layer, efSearch,
                                 searchResult.stream()
                                         .map(nodeReferenceAndNode ->
                                                 "(primaryKey=" +
@@ -1085,8 +1085,8 @@ public class HNSW {
     public CompletableFuture<Void> insert(@Nonnull final Transaction transaction, @Nonnull final Tuple newPrimaryKey,
                                           @Nonnull final RealVector newVector) {
         final int insertionLayer = insertionLayer(getConfig().getRandom());
-        if (logger.isDebugEnabled()) {
-            logger.debug("new node with key={} selected to be inserted into layer={}", newPrimaryKey, insertionLayer);
+        if (logger.isTraceEnabled()) {
+            logger.trace("new node with key={} selected to be inserted into layer={}", newPrimaryKey, insertionLayer);
         }
 
         return StorageAdapter.fetchEntryNodeReference(getConfig(), transaction, getSubspace(), getOnReadListener())
@@ -1110,8 +1110,8 @@ public class HNSW {
                         writeLonelyNodes(quantizer, transaction, newPrimaryKey, newVectorTrans, insertionLayer, -1);
                         StorageAdapter.writeEntryNodeReference(transaction, getSubspace(),
                                 new EntryNodeReference(newPrimaryKey, newVectorTrans, insertionLayer), getOnWriteListener());
-                        if (logger.isDebugEnabled()) {
-                            logger.debug("written entry node reference with key={} on layer={}", newPrimaryKey, insertionLayer);
+                        if (logger.isTraceEnabled()) {
+                            logger.trace("written entry node reference with key={} on layer={}", newPrimaryKey, insertionLayer);
                         }
                     } else {
                         final int lMax = entryNodeReference.getLayer();
@@ -1119,8 +1119,8 @@ public class HNSW {
                             writeLonelyNodes(quantizer, transaction, newPrimaryKey, newVectorTrans, insertionLayer, lMax);
                             StorageAdapter.writeEntryNodeReference(transaction, getSubspace(),
                                     new EntryNodeReference(newPrimaryKey, newVectorTrans, insertionLayer), getOnWriteListener());
-                            if (logger.isDebugEnabled()) {
-                                logger.debug("written entry node reference with key={} on layer={}", newPrimaryKey, insertionLayer);
+                            if (logger.isTraceEnabled()) {
+                                logger.trace("written entry node reference with key={} on layer={}", newPrimaryKey, insertionLayer);
                             }
                         }
                     }
@@ -1130,8 +1130,8 @@ public class HNSW {
                     }
 
                     final int lMax = entryNodeReference.getLayer();
-                    if (logger.isDebugEnabled()) {
-                        logger.debug("entry node with key {} at layer {}", entryNodeReference.getPrimaryKey(), lMax);
+                    if (logger.isTraceEnabled()) {
+                        logger.trace("entry node with key {} at layer {}", entryNodeReference.getPrimaryKey(), lMax);
                     }
 
                     final NodeReferenceWithDistance initialNodeReference =
@@ -1261,8 +1261,8 @@ public class HNSW {
                                                             new EntryNodeReference(itemPrimaryKey, itemVector, itemL);
                                                     StorageAdapter.writeEntryNodeReference(transaction, getSubspace(),
                                                             newEntryNodeReference, getOnWriteListener());
-                                                    if (logger.isDebugEnabled()) {
-                                                        logger.debug("written entry node reference with key={} on layer={}", itemPrimaryKey, itemL);
+                                                    if (logger.isTraceEnabled()) {
+                                                        logger.trace("written entry node reference with key={} on layer={}", itemPrimaryKey, itemL);
                                                     }
 
                                                     return CompletableFuture.completedFuture(newEntryNodeReference);
@@ -1274,16 +1274,16 @@ public class HNSW {
                                                                 new EntryNodeReference(itemPrimaryKey, itemVector, itemL);
                                                         StorageAdapter.writeEntryNodeReference(transaction, getSubspace(),
                                                                 newEntryNodeReference, getOnWriteListener());
-                                                        if (logger.isDebugEnabled()) {
-                                                            logger.debug("written entry node reference with key={} on layer={}", itemPrimaryKey, itemL);
+                                                        if (logger.isTraceEnabled()) {
+                                                            logger.trace("written entry node reference with key={} on layer={}", itemPrimaryKey, itemL);
                                                         }
                                                     } else {
                                                         newEntryNodeReference = entryNodeReference;
                                                     }
                                                 }
 
-                                                if (logger.isDebugEnabled()) {
-                                                    logger.debug("entry node with key {} at layer {}",
+                                                if (logger.isTraceEnabled()) {
+                                                    logger.trace("entry node with key {} at layer {}",
                                                             currentEntryNodeReference.getPrimaryKey(), currentLMax);
                                                 }
 
@@ -1329,8 +1329,8 @@ public class HNSW {
                                                      @Nonnull final NodeReferenceWithDistance nodeReference,
                                                      final int lMax,
                                                      final int insertionLayer) {
-        if (logger.isDebugEnabled()) {
-            logger.debug("nearest entry point at lMax={} is at key={}", lMax, nodeReference.getPrimaryKey());
+        if (logger.isTraceEnabled()) {
+            logger.trace("nearest entry point at lMax={} is at key={}", lMax, nodeReference.getPrimaryKey());
         }
         return MoreAsyncUtil.<List<NodeReferenceWithDistance>>forLoop(Math.min(lMax, insertionLayer), ImmutableList.of(nodeReference),
                 layer -> layer >= 0,
@@ -1385,8 +1385,8 @@ public class HNSW {
                             final int layer,
                             @Nonnull final Tuple newPrimaryKey,
                             @Nonnull final RealVector newVector) {
-        if (logger.isDebugEnabled()) {
-            logger.debug("begin insert key={} at layer={}", newPrimaryKey, layer);
+        if (logger.isTraceEnabled()) {
+            logger.trace("begin insert key={} at layer={}", newPrimaryKey, layer);
         }
         final Map<Tuple, Node<N>> nodeCache = Maps.newConcurrentMap();
         final Estimator estimator = quantizer.estimator();
@@ -1449,8 +1449,8 @@ public class HNSW {
                                         });
                             });
                 }).thenApply(nodeReferencesWithDistances -> {
-                    if (logger.isDebugEnabled()) {
-                        logger.debug("end insert key={} at layer={}", newPrimaryKey, layer);
+                    if (logger.isTraceEnabled()) {
+                        logger.trace("end insert key={} at layer={}", newPrimaryKey, layer);
                     }
                     return nodeReferencesWithDistances;
                 });
@@ -1553,8 +1553,8 @@ public class HNSW {
         if (selectedNeighborNode.getNeighbors().size() < mMax) {
             return CompletableFuture.completedFuture(null);
         } else {
-            if (logger.isDebugEnabled()) {
-                logger.debug("pruning neighborhood of key={} which has numNeighbors={} out of mMax={}",
+            if (logger.isTraceEnabled()) {
+                logger.trace("pruning neighborhood of key={} which has numNeighbors={} out of mMax={}",
                         selectedNeighborNode.getPrimaryKey(), selectedNeighborNode.getNeighbors().size(), mMax);
             }
             return fetchNeighborhood(storageAdapter, transaction, layer, neighborChangeSet.merge(), nodeCache)
@@ -1663,8 +1663,8 @@ public class HNSW {
                 }).thenCompose(selectedNeighbors ->
                         fetchSomeNodesIfNotCached(storageAdapter, readTransaction, layer, selectedNeighbors, nodeCache))
                 .thenApply(selectedNeighbors -> {
-                    if (logger.isDebugEnabled()) {
-                        logger.debug("selected neighbors={}",
+                    if (logger.isTraceEnabled()) {
+                        logger.trace("selected neighbors={}",
                                 selectedNeighbors.stream()
                                         .map(selectedNeighbor ->
                                                 "(primaryKey=" + selectedNeighbor.getNodeReferenceWithDistance().getPrimaryKey() +
@@ -1806,8 +1806,8 @@ public class HNSW {
                 storageAdapter.getNodeFactory()
                         .create(primaryKey, quantizer.encode(vector), ImmutableList.of()), layer,
                 new BaseNeighborsChangeSet<>(ImmutableList.of()));
-        if (logger.isDebugEnabled()) {
-            logger.debug("written lonely node at key={} on layer={}", primaryKey, layer);
+        if (logger.isTraceEnabled()) {
+            logger.trace("written lonely node at key={} on layer={}", primaryKey, layer);
         }
     }
 
