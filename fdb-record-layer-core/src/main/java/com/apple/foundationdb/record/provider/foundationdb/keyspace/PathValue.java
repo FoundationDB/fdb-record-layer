@@ -24,13 +24,14 @@ import com.apple.foundationdb.annotation.API;
 
 import javax.annotation.Nullable;
 import java.util.Arrays;
+import java.util.Objects;
 
 /**
  * A class to represent the value stored at a particular element of a {@link KeySpacePath}. The <code>resolvedValue</code>
  * is the object that will appear in the {@link com.apple.foundationdb.tuple.Tuple} when
  * {@link KeySpacePath#toTuple(com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext)} is invoked.
  * The <code>metadata</code> is left null by {@link KeySpaceDirectory} but other implementations may make use of
- * it (e.g. {@link DirectoryLayerDirectory}.
+ * it (e.g. {@link DirectoryLayerDirectory}).
  */
 @API(API.Status.UNSTABLE)
 public class PathValue {
@@ -68,5 +69,23 @@ public class PathValue {
     @Nullable
     public byte[] getMetadata() {
         return metadata == null ? null : Arrays.copyOf(metadata, metadata.length);
+    }
+
+    @Override
+    public boolean equals(Object other) {
+        if (this == other) {
+            return true;
+        }
+        if (!(other instanceof PathValue)) {
+            return false;
+        }
+        PathValue that = (PathValue) other;
+        return KeySpaceDirectory.areEqual(this.resolvedValue, that.resolvedValue) &&
+                Arrays.equals(this.metadata, that.metadata);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(KeySpaceDirectory.valueHashCode(resolvedValue), Arrays.hashCode(metadata));
     }
 }
