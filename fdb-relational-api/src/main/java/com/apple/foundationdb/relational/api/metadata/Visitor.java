@@ -49,4 +49,6 @@ public interface Visitor {
     void visit(@Nonnull Index index);
 
     void visit(@Nonnull InvokedRoutine invokedRoutine);
+
+    void visit(@Nonnull View view);
 }

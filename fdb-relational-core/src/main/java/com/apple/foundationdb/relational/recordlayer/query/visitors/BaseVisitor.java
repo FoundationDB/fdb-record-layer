@@ -121,7 +121,8 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
         this.queryVisitor = QueryVisitor.of(this);
         this.metadataPlanVisitor = MetadataPlanVisitor.of(this);
         this.ddlVisitor = DdlVisitor.of(this, metadataOperationsFactory, dbUri);
-        this.semanticAnalyzer = new SemanticAnalyzer(getSchemaTemplate(), createFunctionCatalog(getSchemaTemplate()), mutablePlanGenerationContext);
+        this.semanticAnalyzer = new SemanticAnalyzer(getSchemaTemplate(), createFunctionCatalog(getSchemaTemplate()),
+                mutablePlanGenerationContext, isCaseSensitive());
         this.logicalOperatorCatalog = LogicalOperatorCatalog.newInstance();
     }
 
@@ -145,7 +146,7 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
     public RecordLayerSchemaTemplate replaceSchemaTemplate(@Nonnull RecordLayerSchemaTemplate newCatalog) {
         final var oldMetadata = metadata;
         metadata = newCatalog;
-        semanticAnalyzer = new SemanticAnalyzer(metadata, createFunctionCatalog(metadata), mutablePlanGenerationContext);
+        semanticAnalyzer = new SemanticAnalyzer(metadata, createFunctionCatalog(metadata), mutablePlanGenerationContext, isCaseSensitive());
         return oldMetadata;
     }
 

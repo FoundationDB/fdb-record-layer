@@ -32,6 +32,7 @@ import com.apple.foundationdb.relational.util.Environment;
 
 import com.google.common.annotations.VisibleForTesting;
 import org.antlr.v4.runtime.BaseErrorListener;
+import org.antlr.v4.runtime.BufferedTokenStream;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.Parser;
 import org.antlr.v4.runtime.RecognitionException;
@@ -49,6 +50,7 @@ import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 /**
@@ -135,35 +137,42 @@ public class QueryParser {
     }
 
     @Nonnull
-    public static RelationalParser.SqlInvokedFunctionContext parseFunction(@Nonnull final String functionString)
-            throws RelationalException {
-        final var tokenSource = new RelationalLexer(new CaseInsensitiveCharStream(functionString));
+    private static <P> P parse(@Nonnull final String query, @Nonnull final Consumer<CommonTokenStream> tokenConsumer,
+                               @Nonnull final Function<RelationalParser, P> parse) {
+        final var tokenSource = new RelationalLexer(new CaseInsensitiveCharStream(query));
         final var tokensStream = new CommonTokenStream(tokenSource);
+        tokenConsumer.accept(tokensStream);
+        final var parser = getParserInstance(tokensStream);
+
+        try {
+            return ErrorStringifier.withParseErrorHandling(listener -> {
+                parser.removeErrorListeners();
+                parser.addErrorListener(listener);
+                return parse.apply(parser);
+            });
+        } catch (RelationalException e) {
+            throw e.toUncheckedWrappedException();
+        }
+    }
+
+
+    @Nonnull
+    public static RelationalParser.SqlInvokedFunctionContext parseFunction(@Nonnull final String functionString) {
         // the routine here is assumed to start with CREATE,
         // however due to how the parser rules are structured,
         // parsing invoked function starts immediately after CREATE
         // therefore, to trigger it correctly, we'll remove the first (CREATE) token.
-        tokensStream.consume();
-        final var parser = getParserInstance(tokensStream);
-
-        return ErrorStringifier.withParseErrorHandling(listener -> {
-            parser.removeErrorListeners();
-            parser.addErrorListener(listener);
-            return parser.sqlInvokedFunction();
-        });
+        return parse(functionString, BufferedTokenStream::consume, RelationalParser::sqlInvokedFunction);
     }
 
     @Nonnull
-    public static RelationalParser.TempSqlInvokedFunctionContext parseTemporaryFunction(@Nonnull final String functionString)
-            throws RelationalException {
-        final var tokenSource = new RelationalLexer(new CaseInsensitiveCharStream(functionString));
-        final var parser = getParserInstance(new CommonTokenStream(tokenSource));
+    public static RelationalParser.TempSqlInvokedFunctionContext parseTemporaryFunction(@Nonnull final String functionString) {
+        return parse(functionString, ignored -> { }, parser -> parser.createTempFunction().tempSqlInvokedFunction());
+    }
 
-        return ErrorStringifier.withParseErrorHandling(listener -> {
-            parser.removeErrorListeners();
-            parser.addErrorListener(listener);
-            return parser.createTempFunction().tempSqlInvokedFunction();
-        });
+    @Nonnull
+    public static RelationalParser.QueryContext parseView(@Nonnull final String viewDefinition) {
+        return parse(viewDefinition, ignored -> { } , RelationalParser::query);
     }
 
     private static final class PreparedParamsValidator extends RelationalParserBaseVisitor<Void> {

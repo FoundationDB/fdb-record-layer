@@ -65,6 +65,8 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
+import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
+
 /**
  * Tests that verify that the language behaves correctly and has nice features and stuff. It does _not_ verify
  * that the underlying execution is correct, only that the language is parsed as expected.
@@ -895,6 +897,238 @@ public class DdlStatementParsingTest {
             @Override
             public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
                                                                       @Nonnull Options templateProperties) {
+                return txn -> {
+                };
+            }
+        });
+    }
+
+    @Test
+    void createViewWorks() throws Exception {
+        final String schemaStatement = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT baz (a bigint, b bigint) " +
+                "CREATE TYPE AS ENUM foo ('OPTION_1', 'OPTION_2') " +
+                "CREATE TABLE bar (id bigint, baz_field baz, foo_field foo, PRIMARY KEY(id)) " +
+                "CREATE VIEW v AS SELECT * FROM bar";
+
+        shouldWorkWithInjectedFactory(schemaStatement, new AbstractMetadataOperationsFactory() {
+            @Nonnull
+            @Override
+            public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
+                                                                      @Nonnull Options templateProperties) {
+                final var viewMaybe = Assertions.assertDoesNotThrow(() -> template.findViewByName("V"));
+                assertThat(viewMaybe).isPresent();
+                assertThat(Assert.optionalUnchecked(viewMaybe).getDescription()).isEqualTo("SELECT * FROM bar");
+                return txn -> {
+                };
+            }
+        });
+    }
+
+    @Test
+    void createNestedViewWorks() throws Exception {
+        final String schemaStatement = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT baz (a bigint, b bigint) " +
+                "CREATE TYPE AS ENUM foo ('OPTION_1', 'OPTION_2') " +
+                "CREATE TABLE bar (id bigint, baz_field baz, foo_field foo, PRIMARY KEY(id)) " +
+                "CREATE VIEW v1 AS SELECT * FROM bar " +
+                "CREATE VIEW v2 AS SELECT * FROM v1";
+
+        shouldWorkWithInjectedFactory(schemaStatement, new AbstractMetadataOperationsFactory() {
+            @Nonnull
+            @Override
+            public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
+                                                                      @Nonnull Options templateProperties) {
+                final var view1Maybe = Assertions.assertDoesNotThrow(() -> template.findViewByName("V1"));
+                assertThat(view1Maybe).isPresent();
+                assertThat(Assert.optionalUnchecked(view1Maybe).getDescription()).isEqualTo("SELECT * FROM bar");
+                final var view2Maybe = Assertions.assertDoesNotThrow(() -> template.findViewByName("V2"));
+                assertThat(view2Maybe).isPresent();
+                assertThat(Assert.optionalUnchecked(view2Maybe).getDescription()).isEqualTo("SELECT * FROM v1");
+                return txn -> {
+                };
+            }
+        });
+    }
+
+    @Test
+    void createViewWithJoinWorks() throws Exception {
+        final String schemaStatement = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT baz (a bigint, b bigint) " +
+                "CREATE TYPE AS ENUM foo ('OPTION_1', 'OPTION_2') " +
+                "CREATE TABLE bar (id bigint, baz_field baz, foo_field foo, PRIMARY KEY(id)) " +
+                "CREATE VIEW v1 AS SELECT * FROM bar, bar " +
+                "CREATE VIEW v2 AS SELECT * FROM v1, v1";
+
+        shouldWorkWithInjectedFactory(schemaStatement, NoOpMetadataOperationsFactory.INSTANCE);
+    }
+
+    @Test
+    void createViewWithCollidingNameDoesNotWorkCase1() throws Exception {
+        final String schemaStatement = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT baz (a bigint, b bigint) " +
+                "CREATE TYPE AS ENUM foo ('OPTION_1', 'OPTION_2') " +
+                "CREATE TABLE bar (id bigint, baz_field baz, foo_field foo, PRIMARY KEY(id)) " +
+                "CREATE VIEW bar AS SELECT * FROM bar";
+
+        shouldFailWithInjectedQueryFactory(schemaStatement, ErrorCode.INVALID_SCHEMA_TEMPLATE, new AbstractQueryFactory() {
+            @Override
+            public DdlQuery getDescribeSchemaTemplateQueryAction(@Nonnull String schemaId) {
+                Assertions.fail("Should not call the query!");
+                return DdlQuery.NoOpDdlQuery.INSTANCE;
+            }
+        });
+    }
+
+    @Test
+    void createViewWithCollidingNameDoesNotWorkCase2() throws Exception {
+        final String schemaStatement = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT baz (a bigint, b bigint) " +
+                "CREATE TYPE AS ENUM foo ('OPTION_1', 'OPTION_2') " +
+                "CREATE TABLE bar (id bigint, baz_field baz, foo_field foo, PRIMARY KEY(id)) " +
+                "CREATE VIEW v AS SELECT * FROM bar " +
+                "CREATE TABLE v(id bigint, primary key(id))";
+
+        shouldFailWithInjectedQueryFactory(schemaStatement, ErrorCode.INVALID_SCHEMA_TEMPLATE, new AbstractQueryFactory() {
+            @Override
+            public DdlQuery getDescribeSchemaTemplateQueryAction(@Nonnull String schemaId) {
+                Assertions.fail("Should not call the query!");
+                return DdlQuery.NoOpDdlQuery.INSTANCE;
+            }
+        });
+    }
+
+    @Test
+    void createInvalidViewDefinitionDoesNotWork() throws Exception {
+        final String schemaStatement = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT baz (a bigint, b bigint) " +
+                "CREATE TYPE AS ENUM foo ('OPTION_1', 'OPTION_2') " +
+                "CREATE TABLE bar (id bigint, baz_field baz, foo_field foo, PRIMARY KEY(id)) " +
+                "CREATE VIEW v AS SELECTBLA * FROM bar ";
+
+        shouldFailWithInjectedQueryFactory(schemaStatement, ErrorCode.SYNTAX_ERROR, new AbstractQueryFactory() {
+            @Override
+            public DdlQuery getDescribeSchemaTemplateQueryAction(@Nonnull String schemaId) {
+                Assertions.fail("Should not call the query!");
+                return DdlQuery.NoOpDdlQuery.INSTANCE;
+            }
+        });
+    }
+
+    @Test
+    void createViewWithReferencesToSubsequentlyDefinedTableWorks() throws Exception {
+        final String schemaStatement = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT baz (a bigint, b bigint) " +
+                "CREATE TYPE AS ENUM foo ('OPTION_1', 'OPTION_2') " +
+                "CREATE VIEW v AS SELECT * FROM bar " +
+                "CREATE TABLE bar (id bigint, baz_field baz, foo_field foo, PRIMARY KEY(id)) ";
+
+        shouldWorkWithInjectedFactory(schemaStatement, NoOpMetadataOperationsFactory.INSTANCE);
+    }
+
+    @Test
+    void createViewWithCteWorks() throws Exception {
+        final String schemaStatement = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT baz (a bigint, b bigint) " +
+                "CREATE TYPE AS ENUM foo ('OPTION_1', 'OPTION_2') " +
+                "CREATE VIEW v AS WITH C1 AS (SELECT foo_field, id, baz_field FROM bar where id > 20) SELECT * FROM C1 " +
+                "CREATE TABLE bar (id bigint, baz_field baz, foo_field foo, PRIMARY KEY(id)) ";
+
+        shouldWorkWithInjectedFactory(schemaStatement, new AbstractMetadataOperationsFactory() {
+            @Nonnull
+            @Override
+            public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
+                                                                      @Nonnull Options templateProperties) {
+                final var viewMaybe = Assertions.assertDoesNotThrow(() -> template.findViewByName("V"));
+                assertThat(viewMaybe).isPresent();
+                assertThat(Assert.optionalUnchecked(viewMaybe).getDescription()).isEqualTo("WITH C1 AS (SELECT foo_field, id, baz_field FROM bar where id > 20) SELECT * FROM C1");
+                return txn -> {
+                };
+            }
+        });
+    }
+
+    @Test
+    void createViewWithNestedCteWorks() throws Exception {
+        final String schemaStatement = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT baz (a bigint, b bigint) " +
+                "CREATE TYPE AS ENUM foo ('OPTION_1', 'OPTION_2') " +
+                "CREATE VIEW v AS WITH C1 AS (WITH C2 AS (SELECT foo_field, id, baz_field FROM bar where id > 20) SELECT * FROM C2) SELECT * FROM C1 " +
+                "CREATE TABLE bar (id bigint, baz_field baz, foo_field foo, PRIMARY KEY(id)) ";
+
+        shouldWorkWithInjectedFactory(schemaStatement, new AbstractMetadataOperationsFactory() {
+            @Nonnull
+            @Override
+            public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
+                                                                      @Nonnull Options templateProperties) {
+                final var viewMaybe = Assertions.assertDoesNotThrow(() -> template.findViewByName("V"));
+                assertThat(viewMaybe).isPresent();
+                assertThat(Assert.optionalUnchecked(viewMaybe).getDescription()).isEqualTo("WITH C1 AS (WITH C2 AS (SELECT foo_field, id, baz_field FROM bar where id > 20) SELECT * FROM C2) SELECT * FROM C1");
+                return txn -> {
+                };
+            }
+        });
+    }
+
+    @Test
+    void createViewWithFunctionAndCteComplexNestingWorks() throws Exception {
+        final String schemaStatement = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT baz (a bigint, b bigint) " +
+                "CREATE TYPE AS ENUM foo ('OPTION_1', 'OPTION_2') " +
+                "CREATE FUNCTION F1 (IN A BIGINT) AS SELECT id, baz_field, foo_field FROM bar WHERE id > A " +
+                "CREATE VIEW v AS WITH C1 AS (WITH C2 AS (SELECT foo_field, id, baz_field FROM F1(20)) SELECT * FROM C2) SELECT * FROM C1 " +
+                "CREATE TABLE bar (id bigint, baz_field baz, foo_field foo, PRIMARY KEY(id)) ";
+
+        shouldWorkWithInjectedFactory(schemaStatement, new AbstractMetadataOperationsFactory() {
+            @Nonnull
+            @Override
+            public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
+                                                                      @Nonnull Options templateProperties) {
+                final var viewMaybe = Assertions.assertDoesNotThrow(() -> template.findViewByName("V"));
+                assertThat(viewMaybe).isPresent();
+                assertThat(Assert.optionalUnchecked(viewMaybe).getDescription()).isEqualTo("WITH C1 AS (WITH C2 AS (SELECT foo_field, id, baz_field FROM F1(20)) SELECT * FROM C2) SELECT * FROM C1");
+                return txn -> {
+                };
+            }
+        });
+    }
+
+    // This will be resolved once https://github.com/FoundationDB/fdb-record-layer/issues/3493 is fixed.
+    @Test
+    void createViewWithFunctionAndCteReferencingAnotherViewDoesNotWork() throws Exception {
+        final String schemaStatement = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT baz (a bigint, b bigint) " +
+                "CREATE TYPE AS ENUM foo ('OPTION_1', 'OPTION_2') " +
+                "CREATE VIEW p AS SELECT * FROM bar " +
+                "CREATE FUNCTION F1 (IN A BIGINT) AS SELECT id, baz_field, foo_field FROM p WHERE id > A " +
+                "CREATE VIEW v AS WITH C1 AS (WITH C2 AS (SELECT foo_field, id, baz_field FROM F1(20)) SELECT * FROM C2) SELECT * FROM C1 " +
+                "CREATE TABLE bar (id bigint, baz_field baz, foo_field foo, PRIMARY KEY(id)) ";
+
+        shouldFailWithInjectedQueryFactory(schemaStatement, ErrorCode.UNDEFINED_TABLE, new AbstractQueryFactory() {
+            @Override
+            public DdlQuery getDescribeSchemaTemplateQueryAction(@Nonnull String schemaId) {
+                Assertions.fail("Should not call the query!");
+                return DdlQuery.NoOpDdlQuery.INSTANCE;
+            }
+        });
+    }
+
+    @Test
+    void createViewWithReferencesToSubsequentlyDefinedTableAndTypeWorks() throws Exception {
+        final String schemaStatement = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE VIEW v AS SELECT * FROM bar " +
+                "CREATE TABLE bar (id bigint, baz_field baz, foo_field foo, PRIMARY KEY(id)) " +
+                "CREATE TYPE AS ENUM foo ('OPTION_1', 'OPTION_2') " +
+                "CREATE TYPE AS STRUCT baz (a bigint, b bigint) ";
+
+        shouldWorkWithInjectedFactory(schemaStatement, new AbstractMetadataOperationsFactory() {
+            @Nonnull
+            @Override
+            public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
+                                                                      @Nonnull Options templateProperties) {
+                final var viewMaybe = Assertions.assertDoesNotThrow(() -> template.findViewByName("V"));
+                assertThat(viewMaybe).isPresent();
+                assertThat(Assert.optionalUnchecked(viewMaybe).getDescription()).isEqualTo("SELECT * FROM bar");
                 return txn -> {
                 };
             }

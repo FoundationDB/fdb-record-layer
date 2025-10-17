@@ -239,7 +239,7 @@ public class DdlRecordLayerSchemaTemplateTest {
 
         run(statement -> RelationalAssertions.assertThrowsSqlException(() -> statement.executeUpdate(template))
                 .hasErrorCode(ErrorCode.INVALID_SCHEMA_TEMPLATE)
-                .hasMessageContaining("table 'T1' already exists"));
+                .hasMessageContaining("table with name 'T1' already exists"));
     }
 
     @Test
@@ -250,7 +250,7 @@ public class DdlRecordLayerSchemaTemplateTest {
 
         run(statement -> RelationalAssertions.assertThrowsSqlException(() -> statement.executeUpdate(template))
                 .hasErrorCode(ErrorCode.INVALID_SCHEMA_TEMPLATE)
-                .hasMessageContaining("table 'ATYPENAME' already exists"));
+                .hasMessageContaining("table with name 'ATYPENAME' already exists"));
     }
 
     @Test

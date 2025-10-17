@@ -29,6 +29,7 @@ import com.apple.foundationdb.relational.api.metadata.Schema;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.api.metadata.Table;
 
+import com.apple.foundationdb.relational.api.metadata.View;
 import com.google.common.collect.Multimap;
 
 import javax.annotation.Nonnull;
@@ -86,8 +87,20 @@ public class NoOpSchemaTemplate implements SchemaTemplate {
 
     @Nonnull
     @Override
+    public Set<? extends View> getViews() throws RelationalException {
+        throw new RelationalException("NoOpSchemaTemplate doesn't have views!", ErrorCode.INVALID_PARAMETER);
+    }
+
+    @Nonnull
+    @Override
     public Optional<Table> findTableByName(@Nonnull final String tableName) throws RelationalException {
         throw new RelationalException("NoOpSchemaTemplate doesn't have tables!", ErrorCode.INVALID_PARAMETER);
+    }
+
+    @Nonnull
+    @Override
+    public Optional<? extends View> findViewByName(@Nonnull final String viewName) throws RelationalException {
+        throw new RelationalException("NoOpSchemaTemplate doesn't have views!", ErrorCode.INVALID_PARAMETER);
     }
 
     @Nonnull

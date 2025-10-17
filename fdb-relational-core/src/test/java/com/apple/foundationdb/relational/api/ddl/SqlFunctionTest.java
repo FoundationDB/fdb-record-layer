@@ -326,7 +326,7 @@ public class SqlFunctionTest {
                         "CREATE TABLE T(a BIGINT, b BIGINT, primary key(a)) " +
                         "CREATE FUNCTION T(IN Q BIGINT, IN R BIGINT) AS SELECT * FROM T WHERE b < Q "))
                 .hasErrorCode(ErrorCode.INVALID_SCHEMA_TEMPLATE)
-                .containsInMessage("routine T cannot be defined because a table with the same name exists");
+                .containsInMessage("table with name 'T' already exists");
     }
 
     @Test
@@ -336,6 +336,6 @@ public class SqlFunctionTest {
                 "CREATE FUNCTION U(IN Q BIGINT DEFAULT 0, IN R BIGINT DEFAULT 0) AS SELECT * FROM T WHERE b < Q " +
                 "CREATE TABLE U(a BIGINT, b BIGINT, primary key(a))"))
                 .hasErrorCode(ErrorCode.INVALID_SCHEMA_TEMPLATE)
-                .containsInMessage("routine U cannot be defined because a table with the same name exists");
+                .containsInMessage("table with name 'U' already exists");
     }
 }
