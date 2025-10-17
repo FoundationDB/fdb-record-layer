@@ -707,6 +707,10 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
 
         System.out.printf("%d indexes, %d records. Single build took %d milliSeconds, MultiIndex took %d%n",
                 indexes.size(), numRecords, endSingle - startSingle, endMulti - startMulti);
+
+        // validate
+        assertReadable(indexes);
+        scrubAndValidate(indexes);
     }
 
     @Test
