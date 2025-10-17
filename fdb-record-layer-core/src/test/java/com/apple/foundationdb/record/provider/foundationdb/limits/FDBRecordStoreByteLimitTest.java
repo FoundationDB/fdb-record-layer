@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
+import com.apple.foundationdb.record.RecordMetaDataProvider;
 import com.apple.foundationdb.record.ScanLimitReachedException;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestRecords1Proto;
@@ -40,6 +41,7 @@ import com.apple.foundationdb.record.provider.common.text.TextSamples;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
+import com.apple.foundationdb.record.provider.foundationdb.FormatVersion;
 import com.apple.foundationdb.record.provider.foundationdb.SplitHelper;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
@@ -369,6 +371,61 @@ public class FDBRecordStoreByteLimitTest extends FDBRecordStoreLimitTestBase {
                 assertFalse(result.getContinuation().isEnd());
                 assertNotNull(result.getContinuation().toBytes());
             }
+        }
+    }
+
+    @BooleanSource({"reverse", "split"})
+    @ParameterizedTest
+    void testScanByteLimit(boolean reverse, boolean split) {
+        try (FDBRecordContext context = openContext()) {
+            path.deleteAllData(context);
+            context.commit();
+        }
+
+        final FormatVersion formatVersion = split
+                                            ? FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX
+                                            : FormatVersion.RECORD_COUNT_KEY_ADDED;
+
+        RecordMetaDataProvider metaData = simpleMetaData(metadata -> { });
+
+        // Insert a single small record
+        FDBStoredRecord<Message> savedRecord;
+        try (FDBRecordContext context = openContext()) {
+            recordStore = getStoreBuilder(context, metaData, path)
+                    .setFormatVersion(formatVersion).createOrOpen();
+
+            TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
+            myrec.setRecNo(1L);
+            myrec.setStrValueIndexed("unsplit");
+            myrec.setNumValueUnique(1);
+            FDBStoredRecord<Message> savedRecordInitial = recordStore.saveRecord(myrec.build());
+            commit(context);
+
+            savedRecord = savedRecordInitial.withCommittedVersion(context.getVersionStamp());
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            recordStore = getStoreBuilder(context, metaData, path)
+                    .setFormatVersion(formatVersion).createOrOpen();
+
+            // Create a limit that will be hit while reading the first record
+            ScanProperties properties = new ScanProperties(ExecuteProperties.newBuilder()
+                    .setScannedBytesLimit(1)
+                    .setIsolationLevel(IsolationLevel.SERIALIZABLE)
+                    .build(), reverse);
+            final RecordCursor<FDBStoredRecord<Message>> messageCursor = recordStore.scanRecords(null, properties);
+
+            RecordCursorResult<FDBStoredRecord<Message>> result = messageCursor.getNext();
+            assertTrue(result.hasNext());
+            assertEquals(savedRecord, result.get());
+
+            // Limit hit and also exhausted. Either one is a valid response, but the data should be internally
+            // consistent (i.e., it should not return a non-end continuation if the source is exhausted)
+            result = messageCursor.getNext();
+            assertFalse(result.hasNext());
+            assertEquals(RecordCursor.NoNextReason.BYTE_LIMIT_REACHED, result.getNoNextReason());
+            assertFalse(result.getContinuation().isEnd());
+            assertNotNull(result.getContinuation().toBytes());
         }
     }
 
