@@ -259,8 +259,8 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
         getOnWriteListener().onNodeWritten(layer, node);
         getOnWriteListener().onKeyValueWritten(layer, key, value);
 
-        if (logger.isDebugEnabled()) {
-            logger.debug("written neighbors of primaryKey={}, oldSize={}, newSize={}", node.getPrimaryKey(),
+        if (logger.isTraceEnabled()) {
+            logger.trace("written neighbors of primaryKey={}, oldSize={}, newSize={}", node.getPrimaryKey(),
                     node.getNeighbors().size(), neighborItems.size());
         }
     }
