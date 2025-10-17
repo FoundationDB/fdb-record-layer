@@ -81,17 +81,13 @@ public final class RaBitQuantizer implements Quantizer {
     Result encodeInternal(@Nonnull final RealVector data) {
         final int dims = data.getNumDimensions();
 
-        // 2) Build residual again: r = data - centroid
-        final RealVector residual = data; //.subtract(centroid);
-
-        // 1) call ex_bits_code to get signedCode, t, ipNormInv
-        QuantizeExResult base = exBitsCode(residual);
+        QuantizeExResult base = exBitsCode(data);
         int[] signedCode = base.code;
         double ipInv = base.ipNormInv;
 
         int[] totalCode = new int[dims];
         for (int i = 0; i < dims; i++) {
-            int sgn = (residual.getComponent(i) >= 0.0) ? +1 : 0;
+            int sgn = (data.getComponent(i) >= 0.0) ? +1 : 0;
             totalCode[i] = signedCode[i] + (sgn << numExBits);
         }
 
@@ -104,10 +100,9 @@ public final class RaBitQuantizer implements Quantizer {
         final RealVector xu_cb = new DoubleRealVector(xu_cb_data);
 
         // 5) Precompute all needed values
-        final double residual_l2_norm = residual.l2Norm();
-        final double residual_l2_sqr = residual_l2_norm * residual_l2_norm;
-        final double ip_resi_xucb = residual.dot(xu_cb);
-        //final double ip_cent_xucb = centroid.dot(xu_cb);
+        final double residual_l2_sqr = data.dot(data);
+        final double residual_l2_norm = Math.sqrt(residual_l2_sqr);
+        final double ip_resi_xucb = data.dot(xu_cb);
         final double xuCbNorm = xu_cb.l2Norm();
         final double xuCbNormSqr = xuCbNorm * xuCbNorm;
 
@@ -123,11 +118,11 @@ public final class RaBitQuantizer implements Quantizer {
         double fErrorEx;
 
         if (metric == Metric.EUCLIDEAN_SQUARE_METRIC || metric == Metric.EUCLIDEAN_METRIC) {
-            fAddEx = residual_l2_sqr; // + 2.0 * residual_l2_sqr * (ip_cent_xucb / ip_resi_xucb_safe);
+            fAddEx = residual_l2_sqr;
             fRescaleEx = ipInv * (-2.0 * residual_l2_norm);
             fErrorEx = 2.0 * tmp_error;
         } else if (metric == Metric.DOT_PRODUCT_METRIC) {
-            fAddEx = 1.0; //- residual.dot(centroid) + residual_l2_sqr * (ip_cent_xucb / ip_resi_xucb_safe);
+            fAddEx = 1.0;
             fRescaleEx = ipInv * (-1.0 * residual_l2_norm);
             fErrorEx = tmp_error;
         } else {

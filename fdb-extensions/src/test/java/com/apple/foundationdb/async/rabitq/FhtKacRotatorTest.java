@@ -20,86 +20,79 @@
 
 package com.apple.foundationdb.async.rabitq;
 
+import com.apple.foundationdb.async.hnsw.RealVectorSerializationTest;
 import com.apple.foundationdb.linear.ColumnMajorRealMatrix;
 import com.apple.foundationdb.linear.DoubleRealVector;
 import com.apple.foundationdb.linear.FhtKacRotator;
+import com.apple.foundationdb.linear.Metric;
 import com.apple.foundationdb.linear.RealMatrix;
 import com.apple.foundationdb.linear.RealVector;
-import com.apple.foundationdb.async.hnsw.RealVectorSerializationTest;
+import com.apple.test.RandomizedTestUtils;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ObjectArrays;
-import com.google.common.collect.Sets;
 import org.assertj.core.api.Assertions;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
 import java.util.Random;
-import java.util.stream.LongStream;
 import java.util.stream.Stream;
+
+import static org.assertj.core.api.Assertions.within;
 
 public class FhtKacRotatorTest {
     @Nonnull
-    private static Stream<Arguments> randomSeedsWithDimensionality() {
-        return Sets.cartesianProduct(ImmutableSet.of(3, 5, 10, 128, 768, 1000))
-                .stream()
-                .flatMap(arguments ->
-                        LongStream.generate(() -> new Random().nextLong())
-                                .limit(3)
-                                .mapToObj(seed -> Arguments.of(ObjectArrays.concat(seed, arguments.toArray()))));
+    static Stream<Arguments> randomSeedsWithDimensionality() {
+        return RandomizedTestUtils.randomSeeds(0xdeadc0deL, 0xfdb5ca1eL, 0xf005ba1L)
+                .flatMap(seed -> ImmutableSet.of(3, 5, 10, 128, 768, 1000).stream()
+                        .map(numDimensions -> Arguments.of(seed, numDimensions)));
     }
 
-    @ParameterizedTest(name = "seed={0} dimensionality={1}")
+    @ParameterizedTest
     @MethodSource("randomSeedsWithDimensionality")
-    void testSimpleTest(final long seed, final int dimensionality) {
-        final FhtKacRotator rotator = new FhtKacRotator(seed, dimensionality, 10);
+    void testSimpleRotationAndBack(final long seed, final int numDimenstions) {
+        final FhtKacRotator rotator = new FhtKacRotator(seed, numDimenstions, 10);
 
         final Random random = new Random(seed);
-        final RealVector x = RealVectorSerializationTest.createRandomDoubleVector(random, dimensionality);
-
+        final RealVector x = RealVectorSerializationTest.createRandomDoubleVector(random, numDimenstions);
         final RealVector y = rotator.operate(x);
         final RealVector z = rotator.operateTranspose(y);
 
-        // Verify ||x|| ≈ ||y|| and P^T P ≈ I
-        double nx = norm2(x);
-        double ny = norm2(y);
-        double maxErr = maxAbsDiff(x, z);
-        System.out.printf("||x|| = %.6f  ||Px|| = %.6f  max|x - P^T P x|=%.3e%n", nx, ny, maxErr);
+        Assertions.assertThat(Metric.EUCLIDEAN_METRIC.distance(x, z)).isCloseTo(0, within(2E-10));
     }
 
-    @Test
-    void testRotationIsStable() {
-        final FhtKacRotator rotator1 = new FhtKacRotator(0, 128, 10);
-        final FhtKacRotator rotator2 = new FhtKacRotator(0, 128, 10);
+    @ParameterizedTest
+    @MethodSource("randomSeedsWithDimensionality")
+    void testRotationIsStable(final long seed, final int numDimensions) {
+        final FhtKacRotator rotator1 = new FhtKacRotator(seed, numDimensions, 10);
+        final FhtKacRotator rotator2 = new FhtKacRotator(seed, numDimensions, 10);
         Assertions.assertThat(rotator1).isEqualTo(rotator2);
 
-        final Random random = new Random(0);
-        final RealVector x = RealVectorSerializationTest.createRandomDoubleVector(random, 128);
+        final Random random = new Random(seed);
+        final RealVector x = RealVectorSerializationTest.createRandomDoubleVector(random, numDimensions);
         final RealVector x_ = rotator1.operate(x);
         final RealVector x__ = rotator2.operate(x);
 
         Assertions.assertThat(x_).isEqualTo(x__);
     }
 
-    @ParameterizedTest(name = "seed={0} dimensionality={1}")
+    @ParameterizedTest
     @MethodSource("randomSeedsWithDimensionality")
-    void testOrthogonality(final long seed, final int dimensionality) {
-        final FhtKacRotator rotator = new FhtKacRotator(seed, dimensionality, 10);
+    void testOrthogonality(final long seed, final int numDimensions) {
+        final FhtKacRotator rotator = new FhtKacRotator(seed, numDimensions, 10);
         final ColumnMajorRealMatrix p = new ColumnMajorRealMatrix(rotator.computeP().transpose().getData());
 
-        for (int j = 0; j < dimensionality; j ++) {
+        for (int j = 0; j < numDimensions; j ++) {
             final RealVector rotated = rotator.operateTranspose(new DoubleRealVector(p.getColumn(j)));
-            for (int i = 0; i < dimensionality; i++) {
+            for (int i = 0; i < numDimensions; i++) {
                 double expected = (i == j) ? 1.0 : 0.0;
                 Assertions.assertThat(Math.abs(rotated.getComponent(i) - expected))
-                        .satisfies(difference -> Assertions.assertThat(difference).isLessThan(10E-9d));
+                                .isCloseTo(0, within(2E-14));
             }
         }
     }
 
-    @ParameterizedTest(name = "seed={0} dimensionality={1}")
+    @ParameterizedTest
     @MethodSource("randomSeedsWithDimensionality")
     void testOrthogonalityWithP(final long seed, final int dimensionality) {
         final FhtKacRotator rotator = new FhtKacRotator(seed, dimensionality, 10);
@@ -110,24 +103,8 @@ public class FhtKacRotatorTest {
             for (int j = 0; j < dimensionality; j++) {
                 double expected = (i == j) ? 1.0 : 0.0;
                 Assertions.assertThat(Math.abs(product.getEntry(i, j) - expected))
-                        .satisfies(difference -> Assertions.assertThat(difference).isLessThan(10E-9d));
+                        .isCloseTo(0, within(2E-14));
             }
         }
-    }
-
-    private static double norm2(@Nonnull final RealVector a) {
-        double s = 0;
-        for (double v : a.getData()) {
-            s += v * v;
-        }
-        return Math.sqrt(s);
-    }
-
-    private static double maxAbsDiff(@Nonnull final RealVector a, @Nonnull final RealVector b) {
-        double m = 0;
-        for (int i = 0; i < a.getNumDimensions(); i++) {
-            m = Math.max(m, Math.abs(a.getComponent(i) - b.getComponent(i)));
-        }
-        return m;
     }
 }

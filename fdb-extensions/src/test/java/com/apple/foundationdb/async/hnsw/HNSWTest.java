@@ -32,6 +32,7 @@ import com.apple.foundationdb.test.TestDatabaseExtension;
 import com.apple.foundationdb.test.TestExecutors;
 import com.apple.foundationdb.test.TestSubspaceExtension;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.test.RandomizedTestUtils;
 import com.apple.test.Tags;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -184,14 +185,11 @@ public class HNSWTest {
     }
 
     static Stream<Arguments> randomSeedsWithOptions() {
-        return Sets.cartesianProduct(ImmutableSet.of(true, false),
-                        ImmutableSet.of(true, false),
-                        ImmutableSet.of(true, false))
-                .stream()
-                .flatMap(arguments ->
-                        LongStream.generate(() -> new Random().nextLong())
-                                .limit(2)
-                                .mapToObj(seed -> Arguments.of(ObjectArrays.concat(seed, arguments.toArray()))));
+        return RandomizedTestUtils.randomSeeds(0xdeadc0deL, 0xfdb5ca1eL, 0xf005ba1L)
+                .flatMap(seed -> Sets.cartesianProduct(ImmutableSet.of(true, false),
+                                ImmutableSet.of(true, false),
+                                ImmutableSet.of(true, false)).stream()
+                        .map(arguments -> Arguments.of(ObjectArrays.concat(seed, arguments.toArray()))));
     }
 
     @ParameterizedTest(name = "seed={0} useInlining={1} extendCandidates={2} keepPrunedConnections={3}")
