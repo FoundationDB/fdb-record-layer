@@ -26,10 +26,15 @@ import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.ValueRange;
+import com.apple.foundationdb.record.cursors.LazyCursor;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursor;
+import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.foundationdb.tuple.TupleHelpers;
 import com.google.common.collect.Lists;
+
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
@@ -329,6 +334,58 @@ class KeySpacePathImpl implements KeySpacePath {
     @Override
     public String toString() {
         return toString(null);
+    }
+
+    @Nonnull
+    @Override
+    public RecordCursor<DataInKeySpacePath> exportAllData(@Nonnull FDBRecordContext context,
+                                                          @Nullable byte[] continuation,
+                                                          @Nonnull ScanProperties scanProperties) {
+        return new LazyCursor<>(toTupleAsync(context)
+                .thenApply(tuple -> KeyValueCursor.Builder.withSubspace(new Subspace(tuple))
+                        .setContext(context)
+                        .setContinuation(continuation)
+                        .setScanProperties(scanProperties)
+                        .build()),
+                context.getExecutor())
+                .map(keyValue -> new DataInKeySpacePath(this, keyValue, context));
+    }
+
+    @Nonnull
+    @Override
+    public CompletableFuture<Void> importData(@Nonnull FDBRecordContext context,
+                                              @Nonnull Iterable<DataInKeySpacePath> dataToImport) {
+        return toTupleAsync(context).thenCompose(targetTuple -> {
+            List<CompletableFuture<Void>> importFutures = new ArrayList<>();
+            
+            for (DataInKeySpacePath dataItem : dataToImport) {
+                CompletableFuture<Void> importFuture = dataItem.getResolvedPath().thenCompose(resolvedPath -> {
+                    // Validate that this data belongs under this path
+                    Tuple itemTuple = resolvedPath.toTuple();
+                    if (!TupleHelpers.isPrefix(targetTuple, itemTuple)) {
+                        throw new RecordCoreIllegalImportDataException(
+                                "Data item path does not belong under target path",
+                                "target", targetTuple, "item", itemTuple);
+                    }
+                    
+                    // Reconstruct the key using logical values from the resolved path
+                    Tuple keyTuple = itemTuple;
+                    if (resolvedPath.getRemainder() != null) {
+                        keyTuple = keyTuple.addAll(resolvedPath.getRemainder());
+                    }
+                    
+                    // Store the data
+                    byte[] keyBytes = keyTuple.pack();
+                    byte[] valueBytes = dataItem.getRawKeyValue().getValue();
+                    context.ensureActive().set(keyBytes, valueBytes);
+                    
+                    return AsyncUtil.DONE;
+                });
+                importFutures.add(importFuture);
+            }
+            
+            return AsyncUtil.whenAll(importFutures);
+        });
     }
 
     /**
