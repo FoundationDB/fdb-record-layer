@@ -33,6 +33,7 @@ dependencies {
     testImplementation(libs.bundles.test.impl)
     testRuntimeOnly(libs.bundles.test.runtime)
     testCompileOnly(libs.bundles.test.compileOnly)
+    testImplementation(libs.snakeyaml)
 }
 
 apply from: rootProject.file('gradle/publishing.gradle')

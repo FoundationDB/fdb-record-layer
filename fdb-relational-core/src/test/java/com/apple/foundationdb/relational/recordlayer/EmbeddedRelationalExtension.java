@@ -33,6 +33,7 @@ import com.apple.foundationdb.relational.recordlayer.catalog.StoreCatalogProvide
 import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerMetadataOperationsFactory;
 import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanCache;
 
+import com.apple.foundationdb.test.FDBTestEnvironment;
 import com.codahale.metrics.MetricRegistry;
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
@@ -94,7 +95,7 @@ public class EmbeddedRelationalExtension implements RelationalExtension, BeforeE
         // This needs to be done prior to the first call to factory.getDatabase()
         FDBDatabaseFactory.instance().setAPIVersion(APIVersion.API_VERSION_7_1);
 
-        final var database = FDBDatabaseFactory.instance().getDatabase();
+        final var database = FDBDatabaseFactory.instance().getDatabase(FDBTestEnvironment.randomClusterFile());
         final StoreCatalog storeCatalog;
         try (var connection = new DirectFdbConnection(database);
                 var txn = connection.getTransactionManager().createTransaction(Options.NONE)) {

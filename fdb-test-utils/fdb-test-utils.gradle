@@ -27,6 +27,7 @@ dependencies {
     compileOnly(libs.jsr305)
     annotationProcessor(libs.autoService)
     implementation(libs.fdbJava)
+    implementation(libs.snakeyaml)
 
     testImplementation(libs.bundles.test.impl)
     testRuntimeOnly(libs.bundles.test.runtime)

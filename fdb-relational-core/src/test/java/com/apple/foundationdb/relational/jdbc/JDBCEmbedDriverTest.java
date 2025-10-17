@@ -23,6 +23,7 @@ package com.apple.foundationdb.relational.jdbc;
 import com.apple.foundationdb.record.provider.foundationdb.APIVersion;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
+import com.apple.foundationdb.test.FDBTestEnvironment;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalDriver;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalDriver;
@@ -73,7 +74,7 @@ public class JDBCEmbedDriverTest {
         // This needs to be done prior to the first call to factory.getDatabase()
         FDBDatabaseFactory.instance().setAPIVersion(APIVersion.API_VERSION_7_1);
 
-        final FDBDatabase database = FDBDatabaseFactory.instance().getDatabase();
+        final FDBDatabase database = FDBDatabaseFactory.instance().getDatabase(FDBTestEnvironment.randomClusterFile());
         StoreCatalog storeCatalog;
         try (var txn = new DirectFdbConnection(database).getTransactionManager().createTransaction(Options.NONE)) {
             storeCatalog = StoreCatalogProvider.getCatalog(txn, RelationalKeyspaceProvider.instance().getKeySpace());

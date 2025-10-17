@@ -80,6 +80,7 @@ protogen/
 
 # Local FDB settings
 fdb-environment.properties
+fdb-environment.yaml
 
 # Docker local support
 run/

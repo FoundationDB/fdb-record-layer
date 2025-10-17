@@ -83,17 +83,20 @@ public class RelationalServer implements Closeable {
     private final int httpPort;
     private FRL frl;
     private final CollectorRegistry collectorRegistry;
+    private final String clusterFile;
 
     // Visible for the test fixture only so it can pass a CollectorRegistry.
+
     @VisibleForTesting
-    RelationalServer(int grpcPort, int httpPort, CollectorRegistry collectorRegistry) {
+    RelationalServer(int grpcPort, int httpPort, CollectorRegistry collectorRegistry, String clusterFile) {
         this.grpcPort = grpcPort;
         this.httpPort = httpPort;
         this.collectorRegistry = collectorRegistry;
+        this.clusterFile = clusterFile;
     }
 
-    public RelationalServer(int grpcPort, int httpPort) {
-        this(grpcPort, httpPort, CollectorRegistry.defaultRegistry);
+    public RelationalServer(int grpcPort, int httpPort, String clusterFile) {
+        this(grpcPort, httpPort, CollectorRegistry.defaultRegistry, clusterFile);
     }
 
     @Override
@@ -131,7 +134,7 @@ public class RelationalServer implements Closeable {
         // Create access to backing database.
         // TODO: Make this multi-query/-tenant/-database!
         try {
-            frl = new FRL();
+            frl = new FRL(com.apple.foundationdb.relational.api.Options.NONE, clusterFile);
         } catch (RelationalException ve) {
             throw new IOException(ve);
         }
@@ -250,6 +253,10 @@ public class RelationalServer implements Closeable {
         Option httpPortOption = Option.builder().option("p").longOpt("httpPort").hasArg(true).type(Number.class)
                 .desc("Port for HTTP to listen on; default=" + DEFAULT_HTTP_PORT + ".").build();
         options.addOption(httpPortOption);
+        Option clusterFileOption = Option.builder().option("c").longOpt("clusterFile").optionalArg(true)
+                .hasArg(true).type(String.class)
+                .desc("Path to the cluster file; default=null.").build();
+        options.addOption(clusterFileOption);
         CommandLineParser parser = new DefaultParser();
         CommandLine cli = null;
         try {
@@ -264,12 +271,22 @@ public class RelationalServer implements Closeable {
             return;
         }
 
+        final String clusterFile;
+        if (cli.hasOption(clusterFileOption)) {
+            clusterFile = cli.getOptionValue(clusterFileOption);
+        } else {
+            clusterFile = System.getenv("FDB_CLUSTER_FILE");
+        }
+
         if (logger.isInfoEnabled()) {
             logger.info("FDB_CLUSTER_FILE: " + System.getenv("FDB_CLUSTER_FILE"));
             logger.info("DYLD_LIBRARY_PATH: " + System.getenv("DYLD_LIBRARY_PATH"));
         }
         int grpcPort = getPort(cli, grpcPortOption, GrpcConstants.DEFAULT_SERVER_PORT);
         int httpPort = getPort(cli, httpPortOption, DEFAULT_HTTP_PORT);
-        new RelationalServer(grpcPort, httpPort).start().awaitTermination();
+        try (RelationalServer relationalServer = new RelationalServer(grpcPort, httpPort, clusterFile)) {
+            relationalServer.start();
+            relationalServer.awaitTermination();
+        }
     }
 }

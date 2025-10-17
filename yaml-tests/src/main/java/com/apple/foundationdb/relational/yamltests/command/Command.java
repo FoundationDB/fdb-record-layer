@@ -41,11 +41,11 @@ import com.apple.foundationdb.relational.yamltests.Matchers;
 import com.apple.foundationdb.relational.yamltests.YamlConnection;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import com.apple.foundationdb.relational.yamltests.generated.schemainstance.SchemaInstanceOuterClass;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.net.URI;
 import java.sql.SQLException;
 import java.util.Locale;
@@ -126,8 +126,9 @@ public abstract class Command {
         connection.setAutoCommit(true);
     }
 
-    private static void applyMetadataOperationDirectly(@Nonnull RecordLayerConfig rlConfig, @Nonnull ApplyState applyState) throws RelationalException {
-        final FDBDatabase fdbDb = FDBDatabaseFactory.instance().getDatabase();
+    private static void applyMetadataOperationDirectly(@Nonnull RecordLayerConfig rlConfig, @Nonnull ApplyState applyState,
+                                                       @Nullable String clusterFile) throws RelationalException {
+        final FDBDatabase fdbDb = FDBDatabaseFactory.instance().getDatabase(clusterFile);
         final RelationalKeyspaceProvider keyspaceProvider = RelationalKeyspaceProvider.instance();
         keyspaceProvider.registerDomainIfNotExists("FRL");
         KeySpace keySpace = keyspaceProvider.getKeySpace();
@@ -164,7 +165,7 @@ public abstract class Command {
                 if (embedded != null) {
                     Command.applyMetadataOperationEmbedded(embedded, RecordLayerConfig.getDefault(), applyState);
                 } else {
-                    Command.applyMetadataOperationDirectly(RecordLayerConfig.getDefault(), applyState);
+                    Command.applyMetadataOperationDirectly(RecordLayerConfig.getDefault(), applyState, connection.getClusterFile());
                 }
             }
         };
@@ -189,7 +190,7 @@ public abstract class Command {
                 if (embedded != null) {
                     Command.applyMetadataOperationEmbedded(embedded, rlConfig, applyState);
                 } else {
-                    Command.applyMetadataOperationDirectly(rlConfig, applyState);
+                    Command.applyMetadataOperationDirectly(rlConfig, applyState, connection.getClusterFile());
                 }
             }
         };
