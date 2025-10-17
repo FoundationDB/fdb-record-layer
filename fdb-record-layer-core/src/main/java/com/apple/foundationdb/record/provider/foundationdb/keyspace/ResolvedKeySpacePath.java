@@ -271,4 +271,10 @@ public class ResolvedKeySpacePath {
             sb.append(value);
         }
     }
+
+    // TODO test this specifically
+    public ResolvedKeySpacePath withRemainder(final Tuple newRemainder) {
+        // this could probably copy the cachedTuple & cachedSubspace
+        return new ResolvedKeySpacePath(parent, inner, value, newRemainder);
+    }
 }

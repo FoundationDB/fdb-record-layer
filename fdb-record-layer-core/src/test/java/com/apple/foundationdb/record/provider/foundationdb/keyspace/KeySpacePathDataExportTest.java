@@ -596,12 +596,13 @@ class KeySpacePathDataExportTest {
     }
 
     private static void assertStartsWith(final ResolvedKeySpacePath rootResolvedPath, ResolvedKeySpacePath resolvedPath) {
+        ResolvedKeySpacePath searchPath = resolvedPath.withRemainder(null);
         do {
-            if (resolvedPath.equals(rootResolvedPath)) {
+            if (searchPath.equals(rootResolvedPath)) {
                 return;
             }
-            resolvedPath = resolvedPath.getParent();
-        } while (resolvedPath != null);
+            searchPath = searchPath.getParent();
+        } while (searchPath != null);
         Assertions.fail("Expected <" + resolvedPath + "> to start with <" + rootResolvedPath + "> but it didn't");
     }
 
