@@ -514,7 +514,8 @@ public class Half extends Number implements Comparable<Half> {
         if (floatValue > 65504.0f || floatValue < -65504.0f) {
             return Half.halfShortToFloat((short) ((Float.floatToIntBits(floatValue) & 0x80000000) >> 16 | 0x7c00));
         }
-        return floatValue;
+        //return floatValue;
+        return Half.halfShortToFloat(floatRepresentationToShortBits(floatValue));
     }
 
     /**
@@ -829,7 +830,7 @@ public class Half extends Number implements Comparable<Half> {
      * @see java.util.function.BinaryOperator
      */
     public static Half max(Half a, Half b) {
-        return new Half(Float.max(a.floatRepresentation, b.floatRepresentation));
+        return a.floatRepresentation > b.floatRepresentation ? a : b;
     }
 
     /**
@@ -847,6 +848,6 @@ public class Half extends Number implements Comparable<Half> {
      * @see java.util.function.BinaryOperator
      */
     public static Half min(Half a, Half b) {
-        return new Half(Float.min(a.floatRepresentation, b.floatRepresentation));
+        return a.floatRepresentation < b.floatRepresentation ? a : b;
     }
 }

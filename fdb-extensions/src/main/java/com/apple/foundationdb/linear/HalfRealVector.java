@@ -41,8 +41,8 @@ public class HalfRealVector extends AbstractRealVector {
     }
 
     public HalfRealVector(@Nonnull final double[] data) {
-        super(data);
-        this.toDoubleVectorSupplier = () -> new DoubleRealVector(data);
+        super(truncateDoubleData(data));
+        this.toDoubleVectorSupplier = () -> new DoubleRealVector(this.data);
     }
 
     public HalfRealVector(@Nonnull final int[] intData) {
@@ -101,6 +101,15 @@ public class HalfRealVector extends AbstractRealVector {
         double[] result = new double[halfData.length];
         for (int i = 0; i < halfData.length; i++) {
             result[i] = halfData[i].doubleValue();
+        }
+        return result;
+    }
+
+    @Nonnull
+    private static double[] truncateDoubleData(@Nonnull double[] doubleData) {
+        double[] result = new double[doubleData.length];
+        for (int i = 0; i < doubleData.length; i++) {
+            result[i] = Half.valueOf(doubleData[i]).doubleValue();
         }
         return result;
     }

@@ -251,8 +251,8 @@ abstract class AbstractStorageAdapter<N extends NodeReference> implements Storag
     public void writeNode(@Nonnull Transaction transaction, @Nonnull Node<N> node, int layer,
                           @Nonnull NeighborsChangeSet<N> changeSet) {
         writeNodeInternal(transaction, node, layer, changeSet);
-        if (logger.isDebugEnabled()) {
-            logger.debug("written node with key={} at layer={}", node.getPrimaryKey(), layer);
+        if (logger.isTraceEnabled()) {
+            logger.trace("written node with key={} at layer={}", node.getPrimaryKey(), layer);
         }
     }
 

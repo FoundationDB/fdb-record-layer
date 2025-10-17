@@ -32,7 +32,7 @@ public class RandomMatrixHelpers {
     }
 
     @Nonnull
-    public static RealMatrix randomOrthognalMatrix(int seed, int dimension) {
+    public static RealMatrix randomOrthogonalMatrix(int seed, int dimension) {
         return decomposeMatrix(randomGaussianMatrix(seed, dimension, dimension));
     }
 
