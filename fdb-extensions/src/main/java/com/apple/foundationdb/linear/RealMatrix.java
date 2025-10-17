@@ -23,6 +23,7 @@ package com.apple.foundationdb.linear;
 import com.google.common.base.Verify;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 public interface RealMatrix extends LinearOperator {
     @Nonnull
@@ -42,7 +43,7 @@ public interface RealMatrix extends LinearOperator {
     @Override
     default RealVector operate(@Nonnull final RealVector vector) {
         Verify.verify(getColumnDimension() == vector.getNumDimensions());
-        final double[] result = new double[vector.getNumDimensions()];
+        final double[] result = new double[getRowDimension()];
         for (int i = 0; i < getRowDimension(); i ++) {
             double sum = 0.0d;
             for (int j = 0; j < getColumnDimension(); j ++) {
@@ -57,7 +58,7 @@ public interface RealMatrix extends LinearOperator {
     @Override
     default RealVector operateTranspose(@Nonnull final RealVector vector) {
         Verify.verify(getRowDimension() == vector.getNumDimensions());
-        final double[] result = new double[vector.getNumDimensions()];
+        final double[] result = new double[getColumnDimension()];
         for (int j = 0; j < getColumnDimension(); j ++) {
             double sum = 0.0d;
             for (int i = 0; i < getRowDimension(); i ++) {
@@ -69,5 +70,49 @@ public interface RealMatrix extends LinearOperator {
     }
 
     @Nonnull
-    RealMatrix multiply(@Nonnull RealMatrix otherMatrix);
+    default RealMatrix multiply(@Nonnull RealMatrix otherMatrix) {
+        int n = getRowDimension();
+        int m = otherMatrix.getColumnDimension();
+        int common = getColumnDimension();
+        double[][] result = new double[n][m];
+        for (int i = 0; i < n; i++) {
+            for (int j = 0; j < m; j++) {
+                for (int k = 0; k < common; k++) {
+                    result[i][j] += getEntry(i, k) * otherMatrix.getEntry(k, j);
+                }
+            }
+        }
+        return new RowMajorRealMatrix(result);
+    }
+
+    default boolean valueEquals(@Nullable final Object o) {
+        if (!(o instanceof RealMatrix)) {
+            return false;
+        }
+
+        final RealMatrix that = (RealMatrix)o;
+        if (getRowDimension() != that.getRowDimension() ||
+                getColumnDimension() != that.getColumnDimension()) {
+            return false;
+        }
+
+        for (int i = 0; i < getRowDimension(); i ++) {
+            for (int j = 0; j < getRowDimension(); j ++) {
+                if (getEntry(i, j) != that.getEntry(i, j)) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    default int valueBasedHashCode() {
+        int hashCode = 0;
+        for (int i = 0; i < getRowDimension(); i ++) {
+            for (int j = 0; j < getRowDimension(); j ++) {
+                hashCode += 31 * Double.hashCode(getEntry(i, j));
+            }
+        }
+        return hashCode;
+    }
 }

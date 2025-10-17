@@ -1,5 +1,5 @@
 /*
- * RandomMatrixHelpersTest.java
+ * RealMatrixTest.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,31 +18,12 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.async.rabitq;
+package com.apple.foundationdb.linear;
 
-import com.apple.foundationdb.linear.ColumnMajorRealMatrix;
-import com.apple.foundationdb.linear.RealMatrix;
-import com.apple.foundationdb.linear.RandomMatrixHelpers;
-import com.apple.foundationdb.linear.RowMajorRealMatrix;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class RandomMatrixHelpersTest {
-    @Test
-    void testRandomOrthogonalMatrixIsOrthogonal() {
-        final int dimension = 1000;
-        final RealMatrix matrix = RandomMatrixHelpers.randomOrthognalMatrix(0, dimension);
-        final RealMatrix product = matrix.transpose().multiply(matrix);
-
-        for (int i = 0; i < dimension; i++) {
-            for (int j = 0; j < dimension; j++) {
-                double expected = (i == j) ? 1.0 : 0.0;
-                Assertions.assertThat(Math.abs(product.getEntry(i, j) - expected))
-                        .satisfies(difference -> Assertions.assertThat(difference).isLessThan(10E-9d));
-            }
-        }
-    }
-
+public class RealMatrixTest {
     @Test
     void transposeRowMajorMatrix() {
         final RealMatrix m = new RowMajorRealMatrix(new double[][]{{0, 1, 2}, {3, 4, 5}});

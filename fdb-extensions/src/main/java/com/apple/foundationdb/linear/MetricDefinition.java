@@ -29,7 +29,7 @@ import javax.annotation.Nonnull;
  * and Cosine distance. Implementations of this interface can be used in algorithms that require a metric for
  * comparing data vectors, like clustering or nearest neighbor searches.
  */
-public interface MetricDefinition {
+interface MetricDefinition {
     /**
      * Method to be implemented by the specific metric.
      * @return {@code true} iff for all {@link RealVector}s {@code x} holds that {@code distance(x, x) == 0}
@@ -118,7 +118,7 @@ public interface MetricDefinition {
      * orthogonal lines. In 2D this resembles the street structure in Manhattan where one would have to go {@code x}
      * blocks north/south and {@code y} blocks east/west leading to a total distance of {@code x + y}.
      */
-    class ManhattanMetric implements MetricDefinition {
+    final class ManhattanMetric implements MetricDefinition {
         @Override
         public double distance(@Nonnull final double[] vector1, @Nonnull final double[] vector2) {
             MetricDefinition.validate(vector1, vector2);
@@ -143,7 +143,7 @@ public interface MetricDefinition {
      * in Euclidean space. The distance is the square root of the sum of the
      * squared differences between the corresponding coordinates of the two points.
      */
-    class EuclideanMetric implements MetricDefinition {
+    final class EuclideanMetric implements MetricDefinition {
         @Override
         public double distance(@Nonnull final double[] vector1, @Nonnull final double[] vector2) {
             MetricDefinition.validate(vector1, vector2);
@@ -171,7 +171,7 @@ public interface MetricDefinition {
      * @see <a href="https://en.wikipedia.org/wiki/Euclidean_distance#Squared_Euclidean_distance">Squared Euclidean
      * distance</a>
      */
-    class EuclideanSquareMetric implements MetricDefinition {
+    final class EuclideanSquareMetric implements MetricDefinition {
         @Override
         public boolean satisfiesTriangleInequality() {
             return false;
@@ -207,7 +207,7 @@ public interface MetricDefinition {
      * the distance is {@code 0} while if {@code v1} is orthogonal to {@code v2} it is {@code 1}.
      * @see MetricDefinition.CosineMetric
      */
-    class CosineMetric implements MetricDefinition {
+    final class CosineMetric implements MetricDefinition {
         @Override
         public boolean satisfiesTriangleInequality() {
             return false;
@@ -256,7 +256,7 @@ public interface MetricDefinition {
      * @see <a href="https://en.wikipedia.org/wiki/Dot_product">Dot Product</a>
      * @see DotProductMetric
      */
-    class DotProductMetric implements MetricDefinition {
+    final class DotProductMetric implements MetricDefinition {
         @Override
         public boolean satisfiesZeroSelfDistance() {
             return false;

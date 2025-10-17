@@ -20,19 +20,21 @@
 
 package com.apple.foundationdb.linear;
 
-import com.google.common.base.Preconditions;
+import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
 
 import javax.annotation.Nonnull;
 import java.util.Arrays;
 
 public class ColumnMajorRealMatrix implements RealMatrix {
     @Nonnull
-    final double[][] data;
+    private final double[][] data;
+    @Nonnull
+    private final Supplier<Integer> hashCodeSupplier;
 
     public ColumnMajorRealMatrix(@Nonnull final double[][] data) {
-        Preconditions.checkArgument(data.length > 0);
-        Preconditions.checkArgument(data[0].length > 0);
         this.data = data;
+        this.hashCodeSupplier = Suppliers.memoize(this::valueBasedHashCode);
     }
 
     @Nonnull
@@ -75,35 +77,17 @@ public class ColumnMajorRealMatrix implements RealMatrix {
         return new ColumnMajorRealMatrix(result);
     }
 
-    @Nonnull
-    @Override
-    public RealMatrix multiply(@Nonnull final RealMatrix otherMatrix) {
-        int n = getRowDimension();
-        int m = otherMatrix.getColumnDimension();
-        int common = getColumnDimension();
-        double[][] result = new double[m][n];
-        for (int i = 0; i < n; i++) {
-            for (int j = 0; j < m; j++) {
-                for (int k = 0; k < common; k++) {
-                    result[j][i] += data[k][i] * otherMatrix.getEntry(k, j);
-                }
-            }
-        }
-        return new ColumnMajorRealMatrix(result);
-    }
-
     @Override
     public final boolean equals(final Object o) {
-        if (!(o instanceof ColumnMajorRealMatrix)) {
-            return false;
+        if (o instanceof ColumnMajorRealMatrix) {
+            final ColumnMajorRealMatrix that = (ColumnMajorRealMatrix)o;
+            return Arrays.deepEquals(data, that.data);
         }
-
-        final ColumnMajorRealMatrix that = (ColumnMajorRealMatrix)o;
-        return Arrays.deepEquals(data, that.data);
+        return valueEquals(o);
     }
 
     @Override
     public int hashCode() {
-        return Arrays.deepHashCode(data);
+        return hashCodeSupplier.get();
     }
 }

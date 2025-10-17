@@ -20,14 +20,49 @@
 
 package com.apple.foundationdb.linear;
 
+import com.google.common.annotations.VisibleForTesting;
+
 import javax.annotation.Nonnull;
 import java.util.Arrays;
 import java.util.Random;
 
-/** FhtKac-like random orthogonal rotator.
- *  - R rounds (default 4)
- *  - Per round: random ±1 -> FWHT on largest 2^k block (head/tail alternation) -> π/4 Givens across halves
- *  Time per apply: O(R * (n log n)) with tiny constants; memory: O(R * n) bits for signs.
+/**
+ * FhtKac-like random orthogonal rotator which implements {@link LinearOperator}.
+ * <p>
+ * An orthogonal rotator conceptually is an orthogonal matrix that is applied to some vector {@code x} yielding a
+ * new vector {@code y} that is rotated in some way along its n dimensions. Important to notice here is that such a
+ * rotation preserves distances/lengths as well as angles between vectors.
+ * <p>
+ * Practically, we do not want to materialize such a rotator in memory as for {@code n} dimensions that would amount
+ * to {@code n^2} cells. In addition to that multiplying a matrix with a vector computationally is {@code O(n^2)} which
+ * is prohibitively expensive for large {@code n}.
+ * <p>
+ * We also want to achieve some sort of randomness with these rotations. For small {@code n}, we can start by creating a
+ * randomly generated matrix and decompose it using QR-decomposition into an orthogonal matrix {@code Q} and an upper
+ * triangular matrix {@code R}. That matrix {@code Q} is indeed random (see matrix Haar randomness) and what we are
+ * actually trying to find. For larger {@code R} this approach becomes impractical as {@code Q} needs to be represented
+ * as a dense matrix which increases memory footprint and makes rotations slow (see above).
+ * <p>
+ * The main idea is to use several operators in conjunction:
+ * <ul>
+ *     <li>{@code K} which is orthogonal and applies several
+ *          <a href="https://en.wikipedia.org/wiki/Givens_rotation">Givens rotation</a> at once.</li>
+ *     <li>{@code D_n} which are Random Rademacher diagonal sign matrices, i.e. matrices that are conceptually all
+ *         {@code 0} except for the diagonal which contains any combination {@code -1}, {@code 1}. These matrices
+ *         are also orthogonal. In particular, it flips only the signs of the elements of some other matrix when applied
+ *         to it.</li>
+ *     <li>{@code H} a <a href="https://en.wikipedia.org/wiki/Hadamard_matrix">Hadamard matrix </a> of a suitable size.
+ *     </li>
+ * </ul>
+ * <p>
+ * All these linear operators are combined in a way that we eventually compute the result of
+ * <pre>
+ * {@code
+ *     x' = D1 H D_2 H ... D_(R-1) H D_(R) H K x
+ * }
+ * </pre>
+ * (for {@code R} rotations). None of these operators require a significant amount of memory (O(R * n) bits for signs).
+ * They perform the complete rotation in {@code O(R * (n log n))}.
  */
 @SuppressWarnings({"checkstyle:MethodName", "checkstyle:MemberName"})
 public final class FhtKacRotator implements LinearOperator {
@@ -88,13 +123,13 @@ public final class FhtKacRotator implements LinearOperator {
             // 1) Rademacher signs
             byte[] s = signs[r];
             for (int i = 0; i < numDimensions; i++) {
-                y[i] = (s[i] == 1 ? y[i] : -y[i]);
+                y[i] *= s[i];
             }
 
-            // 2) FWHT on largest 2^k block; alternate head/tail
+            // 2) FHT on largest 2^k block; alternate head/tail
             int m = largestPow2LE(numDimensions);
             int start = ((r & 1) == 0) ? 0 : (numDimensions - m); // head on even rounds, tail on odd
-            fwhtNormalized(y, start, m);
+            fhtNormalized(y, start, m);
 
             // 3) π/4 Givens between halves (pair i with i+h)
             givensPiOver4(y);
@@ -122,7 +157,7 @@ public final class FhtKacRotator implements LinearOperator {
             // Inverse of step 2: FWHT is its own inverse (orthonormal)
             int m = largestPow2LE(numDimensions);
             int start = ((r & 1) == 0) ? 0 : (numDimensions - m);
-            fwhtNormalized(y, start, m);
+            fhtNormalized(y, start, m);
 
             // Inverse of step 1: Rademacher signs (self-inverse)
             byte[] s = signs[r];
@@ -134,8 +169,10 @@ public final class FhtKacRotator implements LinearOperator {
     }
 
     /**
-     *  Build dense P as double[n][n] (row-major).
+     *  Build dense P as double[n][n] (row-major). This method exists for testing purposes only.
      */
+    @Nonnull
+    @VisibleForTesting
     public RowMajorRealMatrix computeP() {
         final double[][] p = new double[numDimensions][numDimensions];
         final double[] e = new double[numDimensions];
@@ -176,8 +213,10 @@ public final class FhtKacRotator implements LinearOperator {
         return 1 << (31 - Integer.numberOfLeadingZeros(n));
     }
 
-    /** In-place normalized FWHT on y[start .. start+m-1], where m is a power of two. */
-    private static void fwhtNormalized(double[] y, int start, int m) {
+    /**
+     *  In-place normalized FHT on y[start ... start+m-1], where m is a power of two.
+     */
+    private static void fhtNormalized(double[] y, int start, int m) {
         // Cooley-Tukey style
         for (int len = 1; len < m; len <<= 1) {
             int step = len << 1;
@@ -198,7 +237,23 @@ public final class FhtKacRotator implements LinearOperator {
         }
     }
 
-    /** Apply π/4 Givens: [u'; v'] = [ c  s; -s  c ] [u; v], with c=s=1/sqrt(2). */
+    /**
+     *  Apply π/4 Givens rotation.
+     *  <pre>
+     *  {@code
+     *  [u'; v'] = [  cos(π/4)  sin(π/4) ] [u]
+     *             [ -sin(π/4)  cos(π/4) ] [v]
+     *
+     *  Since cos(π/4) = sin(π/4) = 1/sqrt(2) this can be rewritten as
+     *
+     *  [u'; v'] = 1/ sqrt(2) * [  1  1 ] [u]
+     *                          [ -1  1 ] [v]
+     *
+     *  which allows for fast computation. Note that we rotate the incoming vector along many axes at once, the
+     *  two-dimensional example is for illustrative purposes only.
+     *  }
+     *  </pre>
+     */
     private static void givensPiOver4(double[] y) {
         int h = nHalfFloor(y.length);
         for (int i = 0; i < h; i++) {
@@ -215,7 +270,10 @@ public final class FhtKacRotator implements LinearOperator {
         }
     }
 
-    /** Apply transpose (inverse) of the π/4 Givens: [u'; v'] = [ c -s; s  c ] [u; v]. */
+    /**
+     * Apply transpose (inverse) of the π/4 Givens.
+     * @see #givensPiOver4(double[])
+     */
     private static void givensMinusPiOver4(double[] y) {
         int h = nHalfFloor(y.length);
         for (int i = 0; i < h; i++) {

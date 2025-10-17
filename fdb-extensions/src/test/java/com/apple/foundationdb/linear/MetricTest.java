@@ -18,11 +18,8 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.async.hnsw;
+package com.apple.foundationdb.linear;
 
-import com.apple.foundationdb.linear.DoubleRealVector;
-import com.apple.foundationdb.linear.Metric;
-import com.apple.foundationdb.linear.RealVector;
 import com.apple.test.RandomizedTestUtils;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
