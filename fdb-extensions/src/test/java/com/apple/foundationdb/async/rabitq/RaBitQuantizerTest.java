@@ -24,8 +24,8 @@ import com.apple.foundationdb.linear.DoubleRealVector;
 import com.apple.foundationdb.linear.FhtKacRotator;
 import com.apple.foundationdb.linear.Metric;
 import com.apple.foundationdb.linear.RealVector;
+import com.apple.test.RandomizedTestUtils;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ObjectArrays;
 import com.google.common.collect.Sets;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -39,7 +39,6 @@ import javax.annotation.Nonnull;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Random;
-import java.util.stream.LongStream;
 import java.util.stream.Stream;
 
 public class RaBitQuantizerTest {
@@ -47,13 +46,12 @@ public class RaBitQuantizerTest {
 
     @Nonnull
     private static Stream<Arguments> randomSeedsWithDimensionalityAndNumExBits() {
-        return Sets.cartesianProduct(ImmutableSet.of(3, 5, 10, 128, 768, 1000),
-                        ImmutableSet.of(1, 2, 3, 4, 5, 6, 7, 8))
-                .stream()
-                .flatMap(arguments ->
-                        LongStream.generate(() -> new Random().nextLong())
-                                .limit(3)
-                                .mapToObj(seed -> Arguments.of(ObjectArrays.concat(seed, arguments.toArray()))));
+        return RandomizedTestUtils.randomSeeds(0xdeadc0deL, 0xfdb5ca1eL, 0xf005ba1L)
+                .flatMap(seed ->
+                        Sets.cartesianProduct(ImmutableSet.of(3, 5, 10, 128, 768, 1000),
+                                        ImmutableSet.of(1, 2, 3, 4, 5, 6, 7, 8))
+                                .stream()
+                                .map(arguments -> Arguments.of(seed, arguments.get(0), arguments.get(1))));
     }
 
     @Test
