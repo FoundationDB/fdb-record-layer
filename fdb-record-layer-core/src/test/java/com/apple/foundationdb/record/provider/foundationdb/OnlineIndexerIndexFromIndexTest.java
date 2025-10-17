@@ -58,7 +58,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
 
-    private void populateData(final long numRecords, final long numOtherRecords) {
+    private void populateDataSimpleAndOther(final long numRecords, final long numOtherRecords) {
         openSimpleMetaData();
         List<TestRecords1Proto.MySimpleRecord> simpleRecords = LongStream.range(0, numRecords).mapToObj(val ->
                 TestRecords1Proto.MySimpleRecord.newBuilder()
@@ -177,7 +177,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         Index tgtIndex = new Index("tgt_index", field("num_value_3_indexed").ungrouped(), IndexTypes.SUM);
         FDBRecordStoreTestBase.RecordMetaDataHook hook = myHook(srcIndex, tgtIndex);
 
-        populateData(numRecords, otherRecords);
+        populateDataSimpleAndOther(numRecords, otherRecords);
 
         openSimpleMetaData(hook);
         buildIndexClean(srcIndex);
@@ -208,7 +208,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         Index tgtIndex = new Index("tgt_index", field("num_value_3_indexed").ungrouped(), IndexTypes.SUM);
         FDBRecordStoreTestBase.RecordMetaDataHook hook = myHook(srcIndex, tgtIndex);
 
-        populateData(numRecords, otherRecords);
+        populateDataSimpleAndOther(numRecords, otherRecords);
 
         openSimpleMetaData(hook);
         buildIndexClean(srcIndex);
@@ -244,7 +244,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         Index tgtIndex = new Index("tgt_index", field("num_value_3_indexed").ungrouped(), IndexTypes.SUM);
         FDBRecordStoreTestBase.RecordMetaDataHook hook = myHook(srcIndex, tgtIndex);
 
-        populateData(numRecords, otherRecords);
+        populateDataSimpleAndOther(numRecords, otherRecords);
 
         openSimpleMetaData(hook);
         buildIndexClean(srcIndex);
@@ -277,7 +277,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         Index tgtIndex = new Index("tgt_index", field("num_value_3_indexed").ungrouped(), IndexTypes.SUM);
         FDBRecordStoreTestBase.RecordMetaDataHook hook = myHook(srcIndex, tgtIndex);
 
-        populateData(numRecords, otherRecords);
+        populateDataSimpleAndOther(numRecords, otherRecords);
 
         openSimpleMetaData(hook);
         buildIndexClean(srcIndex);
