@@ -280,27 +280,21 @@ class KeySpacePathImpl implements KeySpacePath {
         }
         KeySpacePath that = (KeySpacePath) obj;
 
-        // Check that the KeySpaceDirectories of the two paths are "equal enough".
-        // Even this is probably overkill since the isCompatible check in KeySpaceDirectory
-        // will keep us from doing anything too bad. We could move this check into KeySpaceDirectory
-        // but comparing two directories by value would necessitate traversing the entire directory
-        // tree, so instead we will use a narrower definition of equality here.
-        boolean directoriesEqual = Objects.equals(this.getDirectory().getKeyType(), that.getDirectory().getKeyType()) &&
-                                   Objects.equals(this.getDirectory().getName(), that.getDirectory().getName()) &&
-                                   Objects.equals(this.getDirectory().getValue(), that.getDirectory().getValue());
+        // Directories use reference equality, because the expected usage is that they go into a
+        // singleton KeySpace.
+        boolean directoriesEqual = this.getDirectory().equals(that.getDirectory());
 
+        // the values might be byte[]
         return directoriesEqual &&
-               Objects.equals(this.getValue(), that.getValue()) &&
-               Objects.equals(this.getParent(), that.getParent());
+                KeySpaceDirectory.areEqual(this.getValue(), that.getValue()) &&
+                Objects.equals(this.getParent(), that.getParent());
     }
 
     @Override
     public int hashCode() {
         return Objects.hash(
-                getDirectory().getKeyType(),
-                getDirectory().getName(),
-                getDirectory().getValue(),
-                getValue(),
+                getDirectory(),
+                KeySpaceDirectory.valueHashCode(getValue()),
                 parent);
     }
 

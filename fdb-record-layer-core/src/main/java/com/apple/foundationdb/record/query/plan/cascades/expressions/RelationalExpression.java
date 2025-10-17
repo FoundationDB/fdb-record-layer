@@ -250,6 +250,9 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
         return false;
     }
 
+    @Nonnull
+    Set<CorrelationIdentifier> getCorrelatedToWithoutChildren();
+
     /**
      * Method to compute the correlation order as a {@link PartiallyOrderedSet}.
      * @return a partial order representing the transitive closure of all dependencies between quantifiers in this
@@ -750,7 +753,8 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
 
     /**
      * Override that is called by {@link AdjustMatchRule} to improve an already existing {@link PartialMatch}.
-     * @param partialMatch the partial match already existing between {@code expression} and {@code this}
+     * @param partialMatch the partial match already existing between {@code expression} and the only child of
+     *        {@code this}
      * @return {@code Optional.empty()} if the match could not be adjusted, Optional.of(matchInfo) for a new adjusted
      *         match, otherwise.
      */
@@ -788,7 +792,7 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
     default Compensation compensate(@Nonnull final PartialMatch partialMatch,
                                     @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
                                     @Nullable final PullUp pullUp,
-                                    @Nonnull final CorrelationIdentifier nestingAlias) {
+                                    @Nonnull final CorrelationIdentifier candidateAlias) {
         throw new RecordCoreException("expression matched but no compensation logic implemented");
     }
 

@@ -30,7 +30,6 @@ import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
 import java.util.Arrays;
-import java.util.Objects;
 import java.util.Set;
 
 @API(API.Status.INTERNAL)
@@ -54,10 +53,6 @@ public final class OptionsUtils {
         return Arrays.stream(planHashModesAsString.split(","))
                 .map(planHashModeAsString -> PlanHashable.PlanHashMode.valueOf(planHashModeAsString.trim()))
                 .collect(ImmutableSet.toImmutableSet());
-    }
-
-    public static boolean getContinuationsContainsCompiledStatements(@Nonnull final Options options) {
-        return Objects.requireNonNull(options.getOption(Options.Name.CONTINUATIONS_CONTAIN_COMPILED_STATEMENTS));
     }
 
     @Nonnull

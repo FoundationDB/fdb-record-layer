@@ -51,12 +51,12 @@ import java.util.stream.Collectors;
  * To work, each child cursor must order its children the same way according to the comparison key.
  */
 @API(API.Status.INTERNAL)
-public class LogicalIntersectionExpression implements RelationalExpressionWithChildren.ChildrenAsSet, InternalPlannerGraphRewritable {
+public class LogicalIntersectionExpression extends AbstractRelationalExpressionWithChildren implements RelationalExpressionWithChildren.ChildrenAsSet, InternalPlannerGraphRewritable {
     public static final Logger LOGGER = LoggerFactory.getLogger(LogicalIntersectionExpression.class);
 
     private static final String INTERSECT = "∩"; // U+2229
     /* The current implementations of equals() and hashCode() treat RecordQueryIntersectionPlan as if it were isomorphic under
-     * a reordering of its children. In particular, all of the tests assume that a RecordQueryIntersectionPlan with its children
+     * a reordering of its children. In particular, all tests assume that a RecordQueryIntersectionPlan with its children
      * reordered is identical. This is accurate in the current implementation (except that the continuation might no longer
      * be valid); if this ever changes, equals() and hashCode() must be updated.
      */
@@ -94,7 +94,7 @@ public class LogicalIntersectionExpression implements RelationalExpressionWithCh
 
     @Nonnull
     @Override
-    public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
+    public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return ImmutableSet.of();
     }
 
@@ -140,7 +140,7 @@ public class LogicalIntersectionExpression implements RelationalExpressionWithCh
     }
 
     @Override
-    public int hashCodeWithoutChildren() {
+    public int computeHashCodeWithoutChildren() {
         return getComparisonKeyProvidedOrderingParts().hashCode();
     }
 
@@ -151,7 +151,7 @@ public class LogicalIntersectionExpression implements RelationalExpressionWithCh
 
     /**
      * Construct a new union of two or more compatibly-ordered plans. The resulting plan will return all results that are
-     * returned by all of the child plans. Each plan should return results in the same order according to the provided
+     * returned by all child plans. Each plan should return results in the same order according to the provided
      * {@code comparisonKey}.
      *
      * @param children the list of plans to take the intersection of

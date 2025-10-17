@@ -534,7 +534,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     @Nonnull
     public Transaction ensureActive() {
         if (transaction == null) {
-            throw new RecordCoreStorageException("Transaction is no longer active.");
+            throw new RecordContextNotActiveException("Transaction is no longer active.");
         }
         return transaction;
     }

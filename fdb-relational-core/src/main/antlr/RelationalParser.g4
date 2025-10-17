@@ -334,7 +334,11 @@ query
     ;
 
 ctes
-    : WITH (RECURSIVE)? namedQuery (COMMA namedQuery)*
+    : WITH (RECURSIVE)? namedQuery (COMMA namedQuery)* traversalOrderClause?
+    ;
+
+traversalOrderClause
+    : TRAVERSAL ORDER order=(PRE_ORDER | LEVEL_ORDER | POST_ORDER)
     ;
 
 namedQuery
@@ -517,7 +521,6 @@ queryOption
     : NOCACHE
     | LOG QUERY
     | DRY RUN
-    | CONTINUATION CONTAINS COMPILED STATEMENT
     ;
 
 // Transaction's Statements
@@ -810,7 +813,7 @@ convertedDataType
     (
       typeName=(BINARY| NCHAR) lengthOneDimension?
       | typeName=CHAR lengthOneDimension? (charSet charsetName)?
-      | typeName=(DATE | DATETIME | TIME | JSON | INT | INTEGER)
+      | typeName=(DATE | DATETIME | TIME | JSON | INT | INTEGER | STRING | DOUBLE | BOOLEAN | FLOAT | BIGINT | BYTES | UUID)
       | typeName=DECIMAL lengthTwoOptionalDimension?
       | (SIGNED | UNSIGNED) INTEGER?
     ) ARRAY?
@@ -880,7 +883,7 @@ ofTypeClause
     ;
 
 arrayConstructor
-    : LEFT_SQUARE_BRACKET expression (',' expression)* RIGHT_SQUARE_BRACKET
+    : LEFT_SQUARE_BRACKET expressions? RIGHT_SQUARE_BRACKET
     ;
 
 userVariables
@@ -1129,41 +1132,37 @@ namedFunctionArg
 
 //    Expressions, predicates
 
-// Simplified approach for expression
 expression
-    : notOperator=(NOT | '!') expression                                                #notExpression     // done
-    | expression logicalOperator expression                                             #logicalExpression // done
-    | predicate IS NOT? testValue=(TRUE | FALSE | NULL_LITERAL)                         #isExpression      // done
-    | predicate NOT? LIKE pattern=STRING_LITERAL (ESCAPE escape=STRING_LITERAL)?        #likePredicate // done
-    | predicate                                                                         #predicateExpression // done
+    : notOperator=(NOT | '!') expression                                                 #notExpression     // done
+    | EXISTS '(' query ')'                                                               #existsExpressionAtom // done
+    | expressionAtom predicate?                                                          #predicatedExpression
+    | expression logicalOperator expression                                              #logicalExpression // done
     ;
 
 predicate
-    : expressionAtom IN inList                                          #inPredicate // done
-    | left=predicate comparisonOperator right=predicate                 #binaryComparisonPredicate // done
-    | operand=predicate NOT? BETWEEN left=predicate AND right=predicate #betweenComparisonPredicate // done
-    | expressionAtom                                                    #expressionAtomPredicate // done
+    : NOT? BETWEEN left=expressionAtom AND right=expressionAtom           #betweenComparisonPredicate // done
+    | NOT? IN inList                                                      #inPredicate // done
+    | NOT? LIKE pattern=STRING_LITERAL (ESCAPE escape=STRING_LITERAL)?    #likePredicate // done
+    | IS NOT? testValue=(TRUE | FALSE | NULL_LITERAL)                     #isExpression      // done
+    ;
+
+expressionAtom
+    : constant                                                                            #constantExpressionAtom // done
+    | fullColumnName                                                                      #fullColumnNameExpressionAtom // done
+    | functionCall                                                                        #functionCallExpressionAtom // done
+    | preparedStatementParameter                                                          #preparedStatementParameterAtom // done
+    | recordConstructor                                                                   #recordConstructorExpressionAtom // done
+    | arrayConstructor                                                                    #arrayConstructorExpressionAtom // done
+    | base=expressionAtom LEFT_SQUARE_BRACKET index=expressionAtom RIGHT_SQUARE_BRACKET   #subscriptExpression // done
+    | left=expressionAtom bitOperator right=expressionAtom                                #bitExpressionAtom // done
+    | left=expressionAtom mathOperator right=expressionAtom                               #mathExpressionAtom // done
+    | left=expressionAtom comparisonOperator right=expressionAtom                         #binaryComparisonPredicate // done
     ;
 
 inList
     : '(' (queryExpressionBody | expressions) ')'
     | preparedStatementParameter
-    ;
-
-// Add in ASTVisitor nullNotnull in constant
-expressionAtom
-    : constant                                                      #constantExpressionAtom // done
-    | fullColumnName                                                #fullColumnNameExpressionAtom // done
-    | functionCall                                                  #functionCallExpressionAtom // done
-    | preparedStatementParameter                                    #preparedStatementParameterAtom // done
-    | recordConstructor                                             #recordConstructorExpressionAtom // done
-    | arrayConstructor                                              #arrayConstructorExpressionAtom // done
-    | EXISTS '(' query ')'                                          #existsExpressionAtom // done
-    | '(' queryExpressionBody ')'                                   #subqueryExpressionAtom // done (unsupported)
-    | INTERVAL expression intervalType                              #intervalExpressionAtom // done (unsupported)
-    | left=expressionAtom bitOperator right=expressionAtom          #bitExpressionAtom // done
-    | left=expressionAtom mathOperator right=expressionAtom         #mathExpressionAtom // done
-    | left=expressionAtom jsonOperator right=expressionAtom         #jsonExpressionAtom // done (unsupported)
+    | fullColumnName
     ;
 
 preparedStatementParameter

@@ -45,7 +45,9 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionOnValues
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInValuesJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInsertPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveUnionPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryMultiIntersectionOnValuesPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveDfsJoinPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveLevelUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTableFunctionPlan;
 import com.apple.foundationdb.record.query.plan.plans.TempTableInsertPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnKeyExpressionPlan;
@@ -254,7 +256,7 @@ public class StoredRecordProperty implements ExpressionProperty<Boolean> {
 
         @Nonnull
         @Override
-        public Boolean visitRecursiveUnionPlan(@Nonnull final RecordQueryRecursiveUnionPlan recursiveUnionPlan) {
+        public Boolean visitRecursiveLevelUnionPlan(@Nonnull final RecordQueryRecursiveLevelUnionPlan recursiveUnionPlan) {
             return storedRecordsFromChildren(recursiveUnionPlan).stream().allMatch(s -> s);
         }
 
@@ -319,6 +321,12 @@ public class StoredRecordProperty implements ExpressionProperty<Boolean> {
 
         @Nonnull
         @Override
+        public Boolean visitMultiIntersectionOnValuesPlan(@Nonnull final RecordQueryMultiIntersectionOnValuesPlan element) {
+            return false;
+        }
+
+        @Nonnull
+        @Override
         public Boolean visitInParameterJoinPlan(@Nonnull final RecordQueryInParameterJoinPlan inParameterJoinPlan) {
             return visitInJoinPlan(inParameterJoinPlan);
         }
@@ -378,6 +386,12 @@ public class StoredRecordProperty implements ExpressionProperty<Boolean> {
         @Override
         public Boolean visitSortPlan(@Nonnull final RecordQuerySortPlan sortPlan) {
             return storedRecordsFromSingleChild(sortPlan);
+        }
+
+        @Nonnull
+        @Override
+        public Boolean visitRecursiveDfsJoinPlan(@Nonnull final RecordQueryRecursiveDfsJoinPlan recursiveDfsJoinPlan) {
+            return storedRecordsFromChildren(recursiveDfsJoinPlan).stream().allMatch(s -> s);
         }
 
         @Nonnull

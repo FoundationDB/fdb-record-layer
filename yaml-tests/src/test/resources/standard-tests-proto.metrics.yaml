@@ -5,8 +5,8 @@ unnamed-2:
         _.COL2 AS COL2)
     task_count: 291
     task_total_time_ms: 17
-    transform_count: 70
-    transform_time_ms: 2
+    transform_count: 74
+    transform_time_ms: 3
     transform_yield_count: 23
     insert_time_ms: 0
     insert_new_count: 32
@@ -17,7 +17,7 @@ unnamed-2:
         _.COL2 AS COL2)
     task_count: 333
     task_total_time_ms: 19
-    transform_count: 79
+    transform_count: 83
     transform_time_ms: 3
     transform_yield_count: 27
     insert_time_ms: 0
@@ -29,9 +29,9 @@ unnamed-2:
         AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG))
         AS _0)
     task_count: 375
-    task_total_time_ms: 17
-    transform_count: 86
-    transform_time_ms: 3
+    task_total_time_ms: 16
+    transform_count: 90
+    transform_time_ms: 2
     transform_yield_count: 25
     insert_time_ms: 0
     insert_new_count: 38
@@ -41,8 +41,8 @@ unnamed-2:
     explain: SCAN([[GREATER_THAN promote(@c24 AS LONG)]]) | MAP (_.ID AS ID, _.COL1
         AS COL1, _.COL2 AS COL2)
     task_count: 284
-    task_total_time_ms: 17
-    transform_count: 65
+    task_total_time_ms: 15
+    transform_count: 69
     transform_time_ms: 2
     transform_yield_count: 22
     insert_time_ms: 0

@@ -61,7 +61,10 @@ public final class TestSchemas {
     @Nonnull
     private static final String PLAYING_CARD =
             "CREATE TYPE AS ENUM suit ('SPADES', 'HEARTS', 'DIAMONDS', 'CLUBS') " +
+                    "CREATE TYPE AS STRUCT SuitAndRank (suit suit, rank bigint)" +
                     "CREATE TABLE Card (id bigint, suit suit, rank bigint, PRIMARY KEY(id))" +
+                    "CREATE TABLE Card_Nested (id bigint, info SuitAndRank, PRIMARY KEY(id))" +
+                    "CREATE TABLE Card_Array (id bigint, collection SuitAndRank array, PRIMARY KEY(id))" +
                     "CREATE INDEX suit_idx AS SELECT suit FROM Card ORDER BY suit";
 
     @Nonnull

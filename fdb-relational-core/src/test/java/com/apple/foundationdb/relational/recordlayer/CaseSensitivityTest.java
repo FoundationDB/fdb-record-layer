@@ -185,7 +185,7 @@ public class CaseSensitivityTest {
                 try (RelationalStatement statement = conn.createStatement()) {
                     for (String struct : structs) {
                         Assertions.assertDoesNotThrow(() ->
-                                statement.executeUpdate(String.format(
+                                statement.executeUpdate(String.format(Locale.ROOT,
                                         "CREATE SCHEMA TEMPLATE temp_various_struct_%s CREATE TYPE AS STRUCT %s (a bigint) CREATE TABLE foo(a %s, PRIMARY KEY(a))",
                                         struct, quote(struct, quoted), quoted ? quote(struct, true) : struct.toLowerCase(Locale.ROOT))));
                     }
@@ -211,10 +211,10 @@ public class CaseSensitivityTest {
                     statement.executeUpdate("DROP DATABASE if exists /test/various_tables_db");
                     statement.executeUpdate("CREATE DATABASE /test/various_tables_db");
                     for (String table : tables) {
-                        statement.executeUpdate(String.format(
+                        statement.executeUpdate(String.format(Locale.ROOT,
                                 "CREATE SCHEMA TEMPLATE temp_various_table_%s CREATE TABLE %s (a bigint, PRIMARY KEY(a))",
                                 table, quoted ? quote(table, true) : table.toLowerCase(Locale.ROOT)));
-                        statement.executeUpdate(String.format(
+                        statement.executeUpdate(String.format(Locale.ROOT,
                                 "CREATE SCHEMA /test/various_tables_db/various_table_%s with template temp_various_table_%s",
                                 table, table));
                     }
@@ -251,12 +251,12 @@ public class CaseSensitivityTest {
                 try (RelationalStatement statement = conn.createStatement()) {
                     statement.executeUpdate("CREATE DATABASE /test/various_columns_db");
                     for (String column : columns) {
-                        statement.executeUpdate(String.format(
+                        statement.executeUpdate(String.format(Locale.ROOT,
                                 "CREATE SCHEMA TEMPLATE temp_various_column_%s CREATE TABLE tbl_various_columns (%s bigint, PRIMARY KEY(%s))",
                                 column,
                                 quoted ? quote(column, true) : column.toLowerCase(Locale.ROOT),
                                 quoted ? quote(column, true) : column.toLowerCase(Locale.ROOT)));
-                        statement.executeUpdate(String.format(
+                        statement.executeUpdate(String.format(Locale.ROOT,
                                 "CREATE SCHEMA /test/various_columns_db/various_columns_%s with template temp_various_column_%s",
                                 column, column));
                     }
@@ -305,7 +305,7 @@ public class CaseSensitivityTest {
                 for (String database : databases) {
                     // DDL
                     try (RelationalStatement statement = conn.createStatement()) {
-                        statement.executeUpdate(String.format(
+                        statement.executeUpdate(String.format(Locale.ROOT,
                                 "CREATE DATABASE \"%s\"",
                                 database)
                         );

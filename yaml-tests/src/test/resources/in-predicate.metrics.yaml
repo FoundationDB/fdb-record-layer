@@ -1,0 +1,83 @@
+unnamed-2:
+-   query: EXPLAIN select a, b from ta where b in (1, 1, 1, 1)
+    explain: ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(promote(@c10 AS
+        ARRAY(LONG))) | FILTER q0.B EQUALS _ AS q1 RETURN (q0.A AS A, q0.B AS B) }
+    task_count: 991
+    task_total_time_ms: 116
+    transform_count: 292
+    transform_time_ms: 30
+    transform_yield_count: 66
+    insert_time_ms: 5
+    insert_new_count: 124
+    insert_reused_count: 8
+-   query: EXPLAIN select a, b from ta where b in (1, 2, 1, 3)
+    explain: ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(promote(@c10 AS
+        ARRAY(LONG))) | FILTER q0.B EQUALS _ AS q1 RETURN (q0.A AS A, q0.B AS B) }
+    task_count: 991
+    task_total_time_ms: 116
+    transform_count: 292
+    transform_time_ms: 30
+    transform_yield_count: 66
+    insert_time_ms: 5
+    insert_new_count: 124
+    insert_reused_count: 8
+-   query: EXPLAIN select a, b from ta where b in (1 + 0, 1 + 0, 1 + 0, 1 + 0)
+    explain: ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(promote(array(@c11
+        + @c13, @c11 + @c13, @c11 + @c13, @c11 + @c13) AS ARRAY(LONG))) | FILTER q0.B
+        EQUALS _ AS q1 RETURN (q0.A AS A, q0.B AS B) }
+    task_count: 991
+    task_total_time_ms: 77
+    transform_count: 292
+    transform_time_ms: 22
+    transform_yield_count: 66
+    insert_time_ms: 4
+    insert_new_count: 124
+    insert_reused_count: 8
+-   query: EXPLAIN select a, b from ta where b in (1 + 0, 0 + 1)
+    explain: ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(promote(array(@c11
+        + @c13, @c13 + @c11) AS ARRAY(LONG))) | FILTER q0.B EQUALS _ AS q1 RETURN
+        (q0.A AS A, q0.B AS B) }
+    task_count: 991
+    task_total_time_ms: 76
+    transform_count: 292
+    transform_time_ms: 23
+    transform_yield_count: 66
+    insert_time_ms: 4
+    insert_new_count: 124
+    insert_reused_count: 8
+-   query: EXPLAIN select a, c from ta where c in (4.56, 3.45, 2.34)
+    explain: ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(@c10) | FILTER
+        q0.C EQUALS _ AS q1 RETURN (q0.A AS A, q0.C AS C) }
+    task_count: 991
+    task_total_time_ms: 326
+    transform_count: 292
+    transform_time_ms: 176
+    transform_yield_count: 66
+    insert_time_ms: 14
+    insert_new_count: 124
+    insert_reused_count: 8
+-   query: EXPLAIN select a, b from ta where (a, b) in ((0L, 9L), (1L, 8L))
+    explain: ISCAN(F1 <,>) | FILTER (_.A AS A, _.B AS B) IN array((@c16 AS _0, @c18
+        AS _1), (@c22 AS _0, @c24 AS _1)) | MAP (_.A AS A, _.B AS B)
+    task_count: 1161
+    task_total_time_ms: 89
+    transform_count: 318
+    transform_time_ms: 28
+    transform_yield_count: 71
+    insert_time_ms: 4
+    insert_new_count: 148
+    insert_reused_count: 8
+-   query: EXPLAIN select a, b from ta where f in ((90L, 9L), (81L, 18L), (81L, 18L),
+        (90L, 9L))
+    explain: EXPLODE arrayDistinct(array((@c12 AS _0, @c14 AS _1), (@c18 AS _0, @c20
+        AS _1), (@c18 AS _0, @c20 AS _1), (@c12 AS _0, @c14 AS _1))) | FLATMAP q0
+        -> { ISCAN(F1 [EQUALS promote(q0._0 AS LONG), EQUALS promote(q0._1 AS LONG)])
+        AS q1 RETURN (q1.A AS A, q1.B AS B) }
+    task_count: 1081
+    task_total_time_ms: 347
+    transform_count: 300
+    transform_time_ms: 222
+    transform_yield_count: 69
+    insert_time_ms: 10
+    insert_new_count: 134
+    insert_reused_count: 8

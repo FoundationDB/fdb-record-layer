@@ -34,6 +34,7 @@ import org.junit.jupiter.api.TestTemplate;
  */
 @YamlTest
 public class YamlIntegrationTests {
+
     @TestTemplate
     public void showcasingTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("showcasing-tests.yamsql");
@@ -302,6 +303,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void setupWithConnectionOptionsTest(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("setup-with-connection-options.yamsql");
+    }
+
+    @TestTemplate
     public void literalExtractionTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("null-extraction-tests.yamsql");
     }
@@ -309,5 +315,20 @@ public class YamlIntegrationTests {
     @TestTemplate
     public void caseSensitivityTest(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("case-sensitivity.yamsql");
+    }
+
+    @TestTemplate
+    public void compositeAggregates(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("composite-aggregates.yamsql");
+    }
+
+    @TestTemplate
+    public void serializationOptions(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("serialization-options.yamsql");
+    }
+
+    @TestTemplate
+    public void castTests(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("cast-tests.yamsql");
     }
 }

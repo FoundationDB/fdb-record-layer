@@ -867,15 +867,7 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
 
     @Nonnull
     @Override
-    Expression visitIsExpression(@Nonnull RelationalParser.IsExpressionContext ctx);
-
-    @Nonnull
-    @Override
     Expression visitNotExpression(@Nonnull RelationalParser.NotExpressionContext ctx);
-
-    @Nonnull
-    @Override
-    Expression visitLikePredicate(@Nonnull RelationalParser.LikePredicateContext ctx);
 
     @Nonnull
     @Override
@@ -883,35 +875,18 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
 
     @Nonnull
     @Override
-    Object visitPredicateExpression(@Nonnull RelationalParser.PredicateExpressionContext ctx);
-
-    @Nonnull
-    @Override
-    Object visitExpressionAtomPredicate(@Nonnull RelationalParser.ExpressionAtomPredicateContext ctx);
+    Expression visitPredicatedExpression(@Nonnull RelationalParser.PredicatedExpressionContext ctx);
 
     @Nonnull
     @Override
     Expression visitBinaryComparisonPredicate(@Nonnull RelationalParser.BinaryComparisonPredicateContext ctx);
 
-    @Nonnull
     @Override
-    Expression visitBetweenComparisonPredicate(@Nonnull RelationalParser.BetweenComparisonPredicateContext ctx);
-
-    @Nonnull
-    @Override
-    Expression visitInPredicate(@Nonnull RelationalParser.InPredicateContext ctx);
+    Expression visitSubscriptExpression(@Nonnull RelationalParser.SubscriptExpressionContext ctx);
 
     @Nonnull
     @Override
     Expression visitInList(@Nonnull RelationalParser.InListContext ctx);
-
-    @Nonnull
-    @Override
-    Object visitJsonExpressionAtom(@Nonnull RelationalParser.JsonExpressionAtomContext ctx);
-
-    @Nonnull
-    @Override
-    Expression visitSubqueryExpressionAtom(@Nonnull RelationalParser.SubqueryExpressionAtomContext ctx);
 
     @Nonnull
     @Override
@@ -948,10 +923,6 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
     @Nonnull
     @Override
     Expression visitExistsExpressionAtom(@Nonnull RelationalParser.ExistsExpressionAtomContext ctx);
-
-    @Nonnull
-    @Override
-    Object visitIntervalExpressionAtom(@Nonnull RelationalParser.IntervalExpressionAtomContext ctx);
 
     @Nonnull
     @Override

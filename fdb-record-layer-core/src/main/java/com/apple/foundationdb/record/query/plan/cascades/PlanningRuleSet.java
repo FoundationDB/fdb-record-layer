@@ -24,7 +24,9 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.rules.AdjustMatchRule;
-import com.apple.foundationdb.record.query.plan.cascades.rules.DataAccessRule;
+import com.apple.foundationdb.record.query.plan.cascades.rules.AggregateDataAccessRule;
+import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementRecursiveDfsJoinRule;
+import com.apple.foundationdb.record.query.plan.cascades.rules.WithPrimaryKeyDataAccessRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementDeleteRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementDistinctRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementDistinctUnionRule;
@@ -35,7 +37,7 @@ import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementInUnionR
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementInsertRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementIntersectionRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementNestedLoopJoinRule;
-import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementRecursiveUnionRule;
+import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementRecursiveLevelUnionRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementSimpleSelectRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementStreamingAggregationRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementTableFunctionRule;
@@ -81,7 +83,6 @@ import com.apple.foundationdb.record.query.plan.cascades.rules.PushSetOperationT
 import com.apple.foundationdb.record.query.plan.cascades.rules.PushTypeFilterBelowFilterRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.RemoveProjectionRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.RemoveSortRule;
-import com.apple.foundationdb.record.query.plan.cascades.rules.SelectDataAccessRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.SplitSelectExtractIndependentQuantifiersRule;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInParameterJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionOnValuesPlan;
@@ -169,7 +170,8 @@ public class PlanningRuleSet extends CascadesRuleSet {
             new ImplementInsertRule(),
             new ImplementTempTableInsertRule(),
             new ImplementUpdateRule(),
-            new ImplementRecursiveUnionRule(),
+            new ImplementRecursiveLevelUnionRule(),
+            new ImplementRecursiveDfsJoinRule(),
             new ImplementTableFunctionRule()
     );
 
@@ -182,8 +184,8 @@ public class PlanningRuleSet extends CascadesRuleSet {
             new AdjustMatchRule()
     );
     private static final Set<CascadesRule<? extends MatchPartition>> MATCH_PARTITION_RULES = ImmutableSet.of(
-            new DataAccessRule(),
-            new SelectDataAccessRule(),
+            new WithPrimaryKeyDataAccessRule(),
+            new AggregateDataAccessRule(),
             new PredicateToLogicalUnionRule()
     );
     private static final Set<CascadesRule<? extends RelationalExpression>> ALL_RULES =

@@ -21,10 +21,8 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.relational.api.Continuation;
-import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
-
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -54,7 +52,6 @@ public class JoinWithLimitTest {
     @RegisterExtension
     @Order(2)
     public final RelationalConnectionRule connection = new RelationalConnectionRule(db::getConnectionUri)
-            .withOptions(Options.builder().withOption(Options.Name.CONTINUATIONS_CONTAIN_COMPILED_STATEMENTS, true).build())
             .withSchema(db.getSchemaName());
 
     @RegisterExtension

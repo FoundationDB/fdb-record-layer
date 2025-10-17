@@ -399,6 +399,9 @@ public class LuceneIndexTestDataModel {
         }
     }
 
+    public Random getRandom() {
+        return random;
+    }
 
     public Integer nextInt(final int bound) {
         return random.nextInt(bound);

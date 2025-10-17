@@ -53,7 +53,7 @@ import java.util.stream.Stream;
  * <p>
  * To add a new Error Code:
  * <p>
- * First, look at https://en.wikipedia.org/wiki/SQLSTATE to see if the standard has already
+ * First, look at <a href="https://en.wikipedia.org/wiki/SQLSTATE">Wikipedia</a> to see if the standard has already
  * defined an error code that would be applicable for your purpose. If so, use that one (this means that we
  * are in-line with published SQL codes whenever possible). However, often you'll find that the standard does
  * not have an error code that matches what you're trying to do. In that case, choose a class from
@@ -84,6 +84,7 @@ public enum ErrorCode {
     ARRAY_ELEMENT_ERROR("2202E"),
     INVALID_BINARY_REPRESENTATION("22F03"),
     INVALID_ARGUMENT_FOR_FUNCTION("22F00"),
+    INVALID_CAST("22F3H"),
 
     // Class 23 - Integrity Constraint Violation
     NOT_NULL_VIOLATION("23502"),
@@ -166,7 +167,8 @@ public enum ErrorCode {
      * Used for the exceptions due to internal issue of Relational, which is caused by neither clients nor upstream
      * system.
      */
-    INTERNAL_ERROR("XX000");
+    INTERNAL_ERROR("XX000"),
+    DESERIALIZATION_FAILURE("XXF01");
 
     private final String errorCode;
 

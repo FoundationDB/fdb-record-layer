@@ -39,6 +39,7 @@ import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.AbstractRelationalExpressionWithoutChildren;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -65,7 +66,7 @@ import java.util.stream.Collectors;
  * A query plan implementing a bit-wise merge of two or more covering index scans of {@code BITMAP_VALUE} indexes.
  */
 @API(API.Status.EXPERIMENTAL)
-public class ComposedBitmapIndexQueryPlan implements RecordQueryPlanWithNoChildren {
+public class ComposedBitmapIndexQueryPlan extends AbstractRelationalExpressionWithoutChildren implements RecordQueryPlanWithNoChildren {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Composed-Bitmap-Index-Query-Plan");
 
     @Nonnull
@@ -184,7 +185,7 @@ public class ComposedBitmapIndexQueryPlan implements RecordQueryPlanWithNoChildr
 
     @Nonnull
     @Override
-    public Set<CorrelationIdentifier> getCorrelatedTo() {
+    public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return indexPlans.stream().map(RecordQueryPlan::getCorrelatedTo).flatMap(Set::stream).collect(Collectors.toSet());
     }
 
@@ -261,7 +262,7 @@ public class ComposedBitmapIndexQueryPlan implements RecordQueryPlanWithNoChildr
     }
 
     @Override
-    public int hashCodeWithoutChildren() {
+    public int computeHashCodeWithoutChildren() {
         return Objects.hash(indexPlans, composer);
     }
 

@@ -3,66 +3,66 @@ distinct-from-tests:
     explain: 'COVERING(I2 <,> -> [COL2: KEY[0], ID: KEY[2]]) | FILTER _.COL2 IS_DISTINCT_FROM
         NULL | FETCH'
     task_count: 434
-    task_total_time_ms: 42
-    transform_count: 103
-    transform_time_ms: 20
+    task_total_time_ms: 24
+    transform_count: 107
+    transform_time_ms: 7
     transform_yield_count: 46
-    insert_time_ms: 2
+    insert_time_ms: 0
     insert_new_count: 50
     insert_reused_count: 7
 -   query: EXPLAIN select * from t1 WHERE col1 is DISTINCT from 10
     explain: 'COVERING(I1 <,> -> [COL1: KEY[0], ID: KEY[2]]) | FILTER _.COL1 IS_DISTINCT_FROM
         promote(@c10 AS INT) | FETCH'
     task_count: 450
-    task_total_time_ms: 241
-    transform_count: 108
-    transform_time_ms: 160
+    task_total_time_ms: 25
+    transform_count: 112
+    transform_time_ms: 7
     transform_yield_count: 48
-    insert_time_ms: 15
+    insert_time_ms: 0
     insert_new_count: 54
     insert_reused_count: 7
 -   query: EXPLAIN select * from t1 WHERE null is distinct from col2
     explain: 'COVERING(I2 <,> -> [COL2: KEY[0], ID: KEY[2]]) | FILTER _.COL2 IS_DISTINCT_FROM
         NULL | FETCH'
     task_count: 434
-    task_total_time_ms: 42
-    transform_count: 103
-    transform_time_ms: 20
+    task_total_time_ms: 24
+    transform_count: 107
+    transform_time_ms: 7
     transform_yield_count: 46
-    insert_time_ms: 2
+    insert_time_ms: 0
     insert_new_count: 50
     insert_reused_count: 7
 -   query: EXPLAIN select * from t1 WHERE 10 is distinct from col1
     explain: 'COVERING(I1 <,> -> [COL1: KEY[0], ID: KEY[2]]) | FILTER _.COL1 IS_DISTINCT_FROM
         promote(@c6 AS INT) | FETCH'
     task_count: 450
-    task_total_time_ms: 240
-    transform_count: 108
-    transform_time_ms: 160
+    task_total_time_ms: 25
+    transform_count: 112
+    transform_time_ms: 7
     transform_yield_count: 48
-    insert_time_ms: 14
+    insert_time_ms: 3
     insert_new_count: 54
     insert_reused_count: 7
 -   query: EXPLAIN select * from t1 WHERE null is distinct from null
     explain: 'COVERING(I1 <,> -> [COL1: KEY[0], ID: KEY[2]]) | FILTER NULL IS_DISTINCT_FROM
         NULL | FETCH'
     task_count: 473
-    task_total_time_ms: 239
-    transform_count: 108
-    transform_time_ms: 168
+    task_total_time_ms: 25
+    transform_count: 112
+    transform_time_ms: 7
     transform_yield_count: 48
-    insert_time_ms: 8
+    insert_time_ms: 0
     insert_new_count: 56
     insert_reused_count: 8
 -   query: EXPLAIN select * from t1 WHERE 10 is distinct from 10
     explain: 'COVERING(I1 <,> -> [COL1: KEY[0], ID: KEY[2]]) | FILTER @c6 IS_DISTINCT_FROM
         @c6 | FETCH'
     task_count: 473
-    task_total_time_ms: 43
-    transform_count: 108
-    transform_time_ms: 20
+    task_total_time_ms: 25
+    transform_count: 112
+    transform_time_ms: 7
     transform_yield_count: 48
-    insert_time_ms: 3
+    insert_time_ms: 1
     insert_new_count: 56
     insert_reused_count: 8
 not-distinct-from-tests:
@@ -70,67 +70,67 @@ not-distinct-from-tests:
     explain: 'COVERING(I2 <,> -> [COL2: KEY[0], ID: KEY[2]]) | FILTER _.COL2 NOT_DISTINCT_FROM
         NULL | FETCH'
     task_count: 434
-    task_total_time_ms: 26
-    transform_count: 102
-    transform_time_ms: 11
+    task_total_time_ms: 22
+    transform_count: 106
+    transform_time_ms: 7
     transform_yield_count: 46
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 50
     insert_reused_count: 7
 -   query: EXPLAIN select * from t1 WHERE col1 is not distinct from 20
     explain: 'COVERING(I1 <,> -> [COL1: KEY[0], ID: KEY[2]]) | FILTER _.COL1 NOT_DISTINCT_FROM
         promote(@c11 AS INT) | FETCH'
     task_count: 450
-    task_total_time_ms: 43
-    transform_count: 107
-    transform_time_ms: 19
+    task_total_time_ms: 24
+    transform_count: 111
+    transform_time_ms: 8
     transform_yield_count: 48
-    insert_time_ms: 2
+    insert_time_ms: 1
     insert_new_count: 54
     insert_reused_count: 7
 -   query: EXPLAIN select * from t1 WHERE null is not distinct from col2
     explain: 'COVERING(I2 <,> -> [COL2: KEY[0], ID: KEY[2]]) | FILTER _.COL2 NOT_DISTINCT_FROM
         NULL | FETCH'
     task_count: 434
-    task_total_time_ms: 32
-    transform_count: 102
-    transform_time_ms: 15
+    task_total_time_ms: 22
+    transform_count: 106
+    transform_time_ms: 7
     transform_yield_count: 46
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 50
     insert_reused_count: 7
 -   query: EXPLAIN select * from t1 WHERE 20 is not distinct from col1
     explain: 'COVERING(I1 <,> -> [COL1: KEY[0], ID: KEY[2]]) | FILTER _.COL1 NOT_DISTINCT_FROM
         promote(@c6 AS INT) | FETCH'
     task_count: 450
-    task_total_time_ms: 42
-    transform_count: 107
-    transform_time_ms: 18
+    task_total_time_ms: 23
+    transform_count: 111
+    transform_time_ms: 8
     transform_yield_count: 48
-    insert_time_ms: 3
+    insert_time_ms: 1
     insert_new_count: 54
     insert_reused_count: 7
 -   query: EXPLAIN select count(*) from t1 WHERE null is not distinct from null
-    explain: 'COVERING(I2 <,> -> [COL2: KEY[0], ID: KEY[2]]) | FILTER NULL NOT_DISTINCT_FROM
-        NULL | FETCH | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL |
-        MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)'
-    task_count: 755
-    task_total_time_ms: 65
-    transform_count: 180
-    transform_time_ms: 37
-    transform_yield_count: 57
-    insert_time_ms: 4
-    insert_new_count: 85
-    insert_reused_count: 4
+    explain: 'AISCAN(CNT <,> BY_GROUP -> [_0: VALUE:[0]]) | FILTER NULL NOT_DISTINCT_FROM
+        NULL | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l
+        AS LONG)) AS _0)'
+    task_count: 995
+    task_total_time_ms: 31
+    transform_count: 254
+    transform_time_ms: 10
+    transform_yield_count: 69
+    insert_time_ms: 1
+    insert_new_count: 113
+    insert_reused_count: 7
 -   query: EXPLAIN select count(*) from t1 WHERE 10 is not distinct from 10
-    explain: 'COVERING(I2 <,> -> [COL2: KEY[0], ID: KEY[2]]) | FILTER @c9 NOT_DISTINCT_FROM
-        @c9 | FETCH | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL |
-        MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)'
-    task_count: 755
-    task_total_time_ms: 39
-    transform_count: 180
-    transform_time_ms: 19
-    transform_yield_count: 57
-    insert_time_ms: 2
-    insert_new_count: 85
-    insert_reused_count: 4
+    explain: 'AISCAN(CNT <,> BY_GROUP -> [_0: VALUE:[0]]) | FILTER @c9 NOT_DISTINCT_FROM
+        @c9 | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l
+        AS LONG)) AS _0)'
+    task_count: 995
+    task_total_time_ms: 24
+    transform_count: 254
+    transform_time_ms: 8
+    transform_yield_count: 69
+    insert_time_ms: 0
+    insert_new_count: 113
+    insert_reused_count: 7

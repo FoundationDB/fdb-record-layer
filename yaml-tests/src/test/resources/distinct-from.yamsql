@@ -20,7 +20,7 @@
 
 ---
 options:
-  supported_version: !current_version
+  supported_version: 4.5.6.0
 ---
 schema_template:
     create table t1(id integer, col1 integer, col2 integer, primary key(id))
@@ -92,10 +92,16 @@ test_block:
       - result: [{ID: 6, 20, !null }, {ID: 7, 20, !null }, {ID: 8, 20, !null }, {ID: 9, 20, 9}, {ID: 10, 20, 10}]
     -
       - query: select count(*) from t1 WHERE null is not distinct from null
-      - explain: "COVERING(I2 <,> -> [COL2: KEY[0], ID: KEY[2]]) | FILTER NULL NOT_DISTINCT_FROM NULL | FETCH | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
+        # Cannot support FORCE_CONTINUATIONS due to non-empty aggregate scan returning a begin continuation.
+        # See: https://github.com/FoundationDB/fdb-record-layer/issues/3206
+      - maxRows: 0
+      - explain: "AISCAN(CNT <,> BY_GROUP -> [_0: VALUE:[0]]) | FILTER NULL NOT_DISTINCT_FROM NULL | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
       - result: [{10}]
     -
       - query: select count(*) from t1 WHERE 10 is not distinct from 10
-      - explain: "COVERING(I2 <,> -> [COL2: KEY[0], ID: KEY[2]]) | FILTER @c9 NOT_DISTINCT_FROM @c9 | FETCH | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
+        # Cannot support FORCE_CONTINUATIONS due to non-empty aggregate scan returning a begin continuation.
+        # See: https://github.com/FoundationDB/fdb-record-layer/issues/3206
+      - maxRows: 0
+      - explain: "AISCAN(CNT <,> BY_GROUP -> [_0: VALUE:[0]]) | FILTER @c9 NOT_DISTINCT_FROM @c9 | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
       - result: [{10}]
 ...

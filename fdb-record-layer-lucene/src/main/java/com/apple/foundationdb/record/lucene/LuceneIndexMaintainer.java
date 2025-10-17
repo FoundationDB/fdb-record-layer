@@ -39,6 +39,7 @@ import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.lucene.directory.AgilityContext;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectoryManager;
+import com.apple.foundationdb.record.lucene.directory.FDBLuceneFileReference;
 import com.apple.foundationdb.record.lucene.idformat.LuceneIndexKeySerializer;
 import com.apple.foundationdb.record.lucene.idformat.RecordCoreFormatException;
 import com.apple.foundationdb.record.lucene.search.BooleanPointsConfig;
@@ -705,15 +706,26 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
             try (IndexReader indexReader = directoryManager.getIndexReader(groupingKey, partitionId)) {
                 final FDBDirectory directory = getDirectory(groupingKey, partitionId);
                 final CompletableFuture<Integer> fieldInfosFuture = directory.getFieldInfosCount();
-                return directory.listAllAsync()
+                return directory.getAllAsync()
                         .thenCombine(fieldInfosFuture, (fileList, fieldInfosCount) ->
                                 new LuceneMetadataInfo.LuceneInfo(
                                         indexReader.numDocs(),
-                                        fileList, fieldInfosCount));
+                                        fieldInfosCount,
+                                        toLuceneFileInfo(fileList)));
             }
         } catch (IOException e) {
             return CompletableFuture.failedFuture(e);
         }
+    }
+
+    @Nonnull
+    private static List<LuceneMetadataInfo.LuceneFileInfo> toLuceneFileInfo(final Map<String, FDBLuceneFileReference> fileList) {
+        return fileList.entrySet().stream()
+                .map(entry -> new LuceneMetadataInfo.LuceneFileInfo(
+                        entry.getKey(),
+                        entry.getValue().getId(),
+                        entry.getValue().getSize()))
+                .collect(Collectors.toList());
     }
 
     @VisibleForTesting

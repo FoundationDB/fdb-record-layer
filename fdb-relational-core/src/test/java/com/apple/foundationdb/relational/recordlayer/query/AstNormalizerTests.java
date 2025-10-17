@@ -1284,6 +1284,68 @@ public class AstNormalizerTests {
                 Map.of(Options.Name.LOG_QUERY, false));
     }
 
+    @Test
+    void visitInPredicateWithColumnReference() throws Exception {
+        // Test IN predicate with column reference instead of all constants
+        validate("select * from t1 where col1 in (fullColumnName)",
+                "select * from \"T1\" where \"COL1\" in ( \"FULLCOLUMNNAME\" ) ");
+    }
+
+    @Test
+    void visitInPredicateWithPreparedParameter() throws Exception {
+        // Test IN predicate with prepared parameter
+        java.sql.Array arrayParam = toArrayParameter(List.of("value1", "value2", "value3"));
+        validate("select * from t1 where col1 in ?",
+                PreparedParams.ofUnnamed(Map.of(1, arrayParam)),
+                "select * from \"T1\" where \"COL1\" in ? ",
+                Map.of(constantId(7), List.of("value1", "value2", "value3")));
+    }
+
+    @Test
+    void visitInPredicateWithMixedTypes() throws Exception {
+        // Test IN predicate with mixed constants and expressions
+        validate("select * from t1 where col1 in (10, col2 + 5, 'literal')",
+                "select * from \"T1\" where \"COL1\" in ( ? , \"COL2\" + ? , ? ) ",
+                Map.of(constantId(8), 10,
+                        constantId(12), 5,
+                        constantId(14), "literal"));
+    }
+
+    @Test
+    void visitInPredicateWithFullColumnNameInList() throws Exception {
+        // Test IN predicate with fullColumnName in the IN list - targets lines 453-454 in AstNormalizer
+        // This tests the case: 'apple' IN T.fruits where T.fruits is a column reference
+        validate("select * from T where 'apple' in T.fruits",
+                "select * from \"T\" where ? in \"T\" . \"FRUITS\" ",
+                Map.of(constantId(5), "apple"));
+    }
+
+    @Test
+    void visitInPredicateWithBooleanConstants() throws Exception {
+        // Test IN predicate with boolean constants
+        validate("select * from t1 where col1 in (true, false)",
+                "select * from \"T1\" where \"COL1\" in ( [ ] ) ",
+                Map.of(constantId(7), List.of(true, false)));
+    }
+
+    @Test
+    void visitNotInPredicateWithConstants() throws Exception {
+        // Test NOT IN predicate with constants - verifies that NOT token is handled correctly
+        // This tests the visitInPredicate method's handling of NOT token in AstNormalizer
+        validate("select * from t1 where col1 not in (10, 20, 30)",
+                "select * from \"T1\" where \"COL1\" not in ( [ ] ) ",
+                Map.of(constantId(8), List.of(10, 20, 30)));
+    }
+
+    @Test
+    void visitNotInPredicateWithColumnReference() throws Exception {
+        // Test NOT IN predicate with column reference - this tests lines 453-454 in AstNormalizer
+        // where ctx.inList().fullColumnName() != null for a NOT IN predicate
+        validate("select * from T where 'apple' not in T.fruits",
+                "select * from \"T\" where ? not in \"T\" . \"FRUITS\" ",
+                Map.of(constantId(5), "apple"));
+    }
+
     @Nonnull
     private String normalizeQuery(@Nonnull final String functionDdl) throws RelationalException {
         final var normalizer = AstNormalizer.normalizeAst(fakeSchemaTemplate,

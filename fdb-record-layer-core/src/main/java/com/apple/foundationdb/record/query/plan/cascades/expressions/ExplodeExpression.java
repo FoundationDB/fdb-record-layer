@@ -54,7 +54,7 @@ import java.util.Set;
  * A table function expression that "explodes" a repeated field into a stream of its values.
  */
 @API(API.Status.EXPERIMENTAL)
-public class ExplodeExpression implements RelationalExpression, InternalPlannerGraphRewritable {
+public class ExplodeExpression extends AbstractRelationalExpressionWithoutChildren implements InternalPlannerGraphRewritable {
     @Nonnull
     private final Value collectionValue;
 
@@ -89,7 +89,7 @@ public class ExplodeExpression implements RelationalExpression, InternalPlannerG
 
     @Nonnull
     @Override
-    public Set<CorrelationIdentifier> getCorrelatedTo() {
+    public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return collectionValue.getCorrelatedTo();
     }
 
@@ -111,7 +111,7 @@ public class ExplodeExpression implements RelationalExpression, InternalPlannerG
     }
 
     @Override
-    public int hashCodeWithoutChildren() {
+    public int computeHashCodeWithoutChildren() {
         return Objects.hash(collectionValue);
     }
 
@@ -149,7 +149,7 @@ public class ExplodeExpression implements RelationalExpression, InternalPlannerG
     public Compensation compensate(@Nonnull final PartialMatch partialMatch,
                                    @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
                                    @Nullable final PullUp pullUp,
-                                   @Nonnull final CorrelationIdentifier nestingAlias) {
+                                   @Nonnull final CorrelationIdentifier candidateAlias) {
         // subsumedBy() is based on equality and this expression is always a leaf, thus we return empty here as
         // if there is a match, it's exact
         return Compensation.noCompensation();

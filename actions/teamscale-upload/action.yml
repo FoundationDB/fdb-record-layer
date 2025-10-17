@@ -1,0 +1,32 @@
+name: Upload Teamscale Coverage
+
+inputs:
+  partition:
+    description: 'Partition for the test coverage'
+    required: true
+  revision:
+    description: 'Git sha'
+    required: true
+  files:
+    description: 'Path to coverage xml file from jacoco'
+    required: true
+  teamscaleKey:
+    description: 'Access key to teamscale'
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+  - name: Upload coverage to teamscale
+    # temporary until we validate that this is working correctly
+    continue-on-error: true
+    uses: 'cqse/teamscale-upload-action@8d10b6693b9242420ef2062dbefc36af6e88d587'
+    with:
+      server: 'https://fdb.teamscale.io'
+      project: 'foundationdb-fdb-record-layer'
+      user: 'fdb-record-layer-build'
+      partition: ${{ inputs.partition }}
+      accesskey: ${{ inputs.teamscaleKey }}
+      format: 'JACOCO'
+      revision: ${{ inputs.revision }}
+      files: ${{ inputs.files }}

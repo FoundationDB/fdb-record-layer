@@ -36,9 +36,6 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoolean;
 import com.apple.foundationdb.record.query.plan.cascades.Correlated;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
-import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
-import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentityMap;
 import com.apple.foundationdb.record.query.plan.cascades.Narrowable;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.OrderingPartCreator;
@@ -65,6 +62,8 @@ import com.apple.foundationdb.record.query.plan.cascades.values.simplification.P
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.Simplification;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.ValueSimplificationRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.google.common.base.Functions;
@@ -522,17 +521,17 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
         }
 
         final var matchedValuesMap = resultPair.getRight();
-        final var resultsMap = new LinkedIdentityMap<Value, Value>();
+        final var resultsMapBuilder = ImmutableMap.<Value, Value>builder();
         for (final var toBePulledUpValue : toBePulledUpValues) {
             final var compensation = matchedValuesMap.get(toBePulledUpValue);
             if (compensation != null) {
-                resultsMap.put(toBePulledUpValue,
+                resultsMapBuilder.put(toBePulledUpValue,
                         compensation.compensate(
                                 QuantifiedObjectValue.of(upperBaseAlias, this.getResultType())));
             }
         }
 
-        return resultsMap;
+        return resultsMapBuilder.buildKeepingLast();
     }
 
     /**

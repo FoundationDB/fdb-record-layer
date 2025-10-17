@@ -120,7 +120,7 @@ import java.util.Set;
  * property.
  */
 @API(API.Status.EXPERIMENTAL)
-public class MatchableSortExpression implements RelationalExpressionWithChildren, InternalPlannerGraphRewritable {
+public class MatchableSortExpression extends AbstractRelationalExpressionWithChildren implements InternalPlannerGraphRewritable {
     /**
      * A list of {@link CorrelationIdentifier}s that refer to parameter ids of this match candidate. This
      * restricts the expressiveness of this operator to only use index keys (or non-repeateds in primary scans) to
@@ -196,7 +196,7 @@ public class MatchableSortExpression implements RelationalExpressionWithChildren
 
     @Nonnull
     @Override
-    public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
+    public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return ImmutableSet.of();
     }
 
@@ -215,14 +215,14 @@ public class MatchableSortExpression implements RelationalExpressionWithChildren
     public Optional<MatchInfo> adjustMatch(@Nonnull final PartialMatch partialMatch) {
         final var childMatchInfo = partialMatch.getMatchInfo();
         final var maxMatchMap = childMatchInfo.getMaxMatchMap();
-        final var innerQuantifier = Iterables.getOnlyElement(getQuantifiers());
         final var adjustedMaxMatchMapOptional =
-                maxMatchMap.adjustMaybe(innerQuantifier.getAlias(), getResultValue(), ImmutableSet.of(innerQuantifier.getAlias()));
+                maxMatchMap.adjustMaybe(inner.getAlias(), getResultValue(), ImmutableSet.of(inner.getAlias()));
         return adjustedMaxMatchMapOptional
                 .map(adjustedMaxMatchMap ->
                         childMatchInfo.adjustedBuilder()
                                 .setMaxMatchMap(adjustedMaxMatchMap)
                                 .setMatchedOrderingParts(forPartialMatch(partialMatch))
+                                .setGroupByMappings(childMatchInfo.adjustGroupByMappings(inner))
                                 .build());
     }
 
@@ -276,7 +276,7 @@ public class MatchableSortExpression implements RelationalExpressionWithChildren
     }
 
     @Override
-    public int hashCodeWithoutChildren() {
+    public int computeHashCodeWithoutChildren() {
         return Objects.hash(getSortParameterIds(), isReverse());
     }
 

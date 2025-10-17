@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.EndpointType;
 import com.apple.foundationdb.record.KeyRange;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursorContinuation;
+import com.apple.foundationdb.record.RecordCursorProto;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
@@ -42,11 +43,12 @@ import com.apple.foundationdb.record.cursors.CursorLimitManager;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.ZeroCopyByteString;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Arrays;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
@@ -61,22 +63,26 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
     private final int prefixLength;
     @Nonnull
     private final CursorLimitManager limitManager;
-    private int valuesLimit;
+    private final int valuesLimit;
     // the pointer may be mutated, but the actual array must never be mutated or continuations will break
     @Nullable
     private byte[] lastKey;
+    @Nonnull
+    private final SerializationMode serializationMode;
 
     protected KeyValueCursorBase(@Nonnull final FDBRecordContext context,
                                  @Nonnull final AsyncIterator<K> iterator,
                                  int prefixLength,
                                  @Nonnull final CursorLimitManager limitManager,
-                                 int valuesLimit) {
+                                 int valuesLimit,
+                                 @Nonnull final SerializationMode serializationMode) {
         super(context.getExecutor(), iterator);
 
         this.context = context;
         this.prefixLength = prefixLength;
         this.limitManager = limitManager;
         this.valuesLimit = valuesLimit;
+        this.serializationMode = serializationMode;
 
         context.instrument(FDBStoreTimer.DetailEvents.GET_SCAN_RANGE_RAW_FIRST_CHUNK, iterator.onHasNext());
     }
@@ -131,21 +137,39 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
 
     @Nonnull
     private RecordCursorContinuation continuationHelper() {
-        return new Continuation(lastKey, prefixLength);
+        return new Continuation(lastKey, prefixLength, serializationMode);
     }
 
-    private static class Continuation implements RecordCursorContinuation {
+    public static class Continuation implements RecordCursorContinuation {
         @Nullable
         private final byte[] lastKey;
         private final int prefixLength;
+        private final SerializationMode serializationMode;
+        /*
+        how we chose this "magic number":
+        The goal is to make sure an old continuation won't be accidentally parsed as: {magic_number = 6773487359078157740L, inner_continuation = some byte array}
+        In little endian, MAGIC_NUMBER: 6773487359078157740L is:
+        new byte[]{ (byte) 0xAC, (byte) 0xCD, 0x73, (byte) 0x98, (byte) 0xDD, 0x42, 0x00, 0x5E };
+        Note that none of those bytes are valid Tuple codes (except for the 0x00--which is also deliberate).
+        Note that the Protobuf tag for the magic_number field is \x11, which is a valid Tuple type code, corresponding to a three-byte
+        negative integer. So a Tuple may legitimately begin \x11\xAC\xCD\x73, but then the next byte would need to be
+        \x98 to match the magic number, and as that is not a Tuple code, a valid serialized Tuple cannot begin with a sequence
+        that deserializes to a Protobuf that sets the magic number.
+        The choice of 0x00 as the penultimate byte is there to protect against the only case where we don't get a valid Tuple back from a scan,
+        namely PREFIX_STRING scan. In that case, the byte string will begin with some String suffix, which theoretically could be a valid Protobuf value.
+        But that String suffix will have any \x00 bytes escaped by following it with an \xff byte.
+        So the sequence \x00\x5e would mean "end-of-string" followed by the beginning of a new Tuple value with code \x5e, which again, is invalid.
+         */
+        private static final long MAGIC_NUMBER = 6_773_487_359_078_157_740L;
 
-        public Continuation(@Nullable final byte[] lastKey, final int prefixLength) {
+        public Continuation(@Nullable final byte[] lastKey, final int prefixLength, final SerializationMode serializationMode) {
             // Note that doing this without a full copy is dangerous if the array is ever mutated.
             // Currently, this never happens and the only thing that changes is which array lastKey points to.
             // However, if logic in KeyValueCursor or KeyValue changes, this could break continuations.
             // To resolve it, we could resort to doing a full copy here, although that's somewhat expensive.
             this.lastKey = lastKey;
             this.prefixLength = prefixLength;
+            this.serializationMode = serializationMode;
         }
 
         @Override
@@ -156,11 +180,17 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
         @Nonnull
         @Override
         public ByteString toByteString() {
-            if (lastKey == null) {
-                return ByteString.EMPTY;
+            if (serializationMode == SerializationMode.TO_OLD) {
+                // lastKey = null when source iterator hit limit that we passed down.
+                if (lastKey == null) {
+                    return ByteString.EMPTY;
+                }
+                ByteString base = ZeroCopyByteString.wrap(lastKey);
+                // when prefixLength == lastKey.length, toByteString() also returns ByteString.EMPTY
+                return base.substring(prefixLength, lastKey.length);
+            } else {
+                return toProto().toByteString();
             }
-            ByteString base = ZeroCopyByteString.wrap(lastKey);
-            return base.substring(prefixLength, lastKey.length);
         }
 
         @Nullable
@@ -169,8 +199,47 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
             if (lastKey == null) {
                 return null;
             }
-            return Arrays.copyOfRange(lastKey, prefixLength, lastKey.length);
+            ByteString byteString = toByteString();
+            return byteString.isEmpty() ? new byte[0] : byteString.toByteArray();
         }
+
+        public static byte[] getInnerContinuation(@Nullable byte[] rawBytes) {
+            if (rawBytes == null) {
+                return null;
+            }
+            try {
+                RecordCursorProto.KeyValueCursorContinuation continuationProto = RecordCursorProto.KeyValueCursorContinuation.parseFrom(rawBytes);
+                if (continuationProto.getMagicNumber() != MAGIC_NUMBER) {
+                    // an old continuation was accidentally deserialized as proto
+                    // after all versions we care is in TO_NEW, should throw an exception here.
+                    return rawBytes;
+                }
+                return continuationProto.getInnerContinuation().toByteArray();
+            } catch (InvalidProtocolBufferException ipbe) {
+                // in intermediate step when serializationMode is TO_OLD in old version, and TO_NEW in new version
+                // in version TO_NEW, we could try to deserialization a continuation generated by TO_OLD, in this case we'd like to return rawBytes, so that it behaves like TO_OLD
+                // after all versions we care is in TO_NEW, InvalidProtocolBufferException should throw an exception.
+                return rawBytes;
+            }
+        }
+
+        @Nonnull
+        private RecordCursorProto.KeyValueCursorContinuation toProto() {
+            RecordCursorProto.KeyValueCursorContinuation.Builder builder = RecordCursorProto.KeyValueCursorContinuation.newBuilder();
+            if (lastKey == null) {
+                // when lastKey is null, proto.hasInnerContinuation() = false
+                return builder.setMagicNumber(MAGIC_NUMBER).build();
+            } else {
+                ByteString base = ZeroCopyByteString.wrap(Objects.requireNonNull(lastKey));
+                // even when prefixLength = lastKey.length, proto.getInnerContinuation() = ByteString.EMPTY, proto.hasContinuation() = true
+                return builder.setInnerContinuation(base.substring(prefixLength, lastKey.length)).setMagicNumber(MAGIC_NUMBER).build();
+            }
+        }
+    }
+
+    public enum SerializationMode {
+        TO_OLD,
+        TO_NEW
     }
 
     /**
@@ -208,9 +277,11 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
         private StreamingMode streamingMode;
         private KeySelector begin;
         private KeySelector end;
+        protected SerializationMode serializationMode;
 
         protected Builder(@Nonnull Subspace subspace) {
             this.subspace = subspace;
+            this.serializationMode = SerializationMode.TO_NEW;
         }
 
         /**
@@ -246,11 +317,18 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
             // left (inclusive) and another on the right (exclusive).
             prefixLength = calculatePrefixLength();
 
+            // When both endpoints are prefix strings, we should strip off the last byte \x00 from Tuple
+            if (lowEndpoint == EndpointType.PREFIX_STRING && highEndpoint == EndpointType.PREFIX_STRING) {
+                prefixLength--;
+            }
+
             reverse = scanProperties.isReverse();
+
             if (continuation != null) {
-                final byte[] continuationBytes = new byte[prefixLength + continuation.length];
+                byte[] realContinuation = KeyValueCursorBase.Continuation.getInnerContinuation(continuation);
+                final byte[] continuationBytes = new byte[prefixLength + realContinuation.length];
                 System.arraycopy(lowBytes, 0, continuationBytes, 0, prefixLength);
-                System.arraycopy(continuation, 0, continuationBytes, prefixLength, continuation.length);
+                System.arraycopy(realContinuation, 0, continuationBytes, prefixLength, realContinuation.length);
                 if (reverse) {
                     highBytes = continuationBytes;
                     highEndpoint = EndpointType.CONTINUATION;
@@ -331,6 +409,11 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
         public T setHigh(@Nonnull byte[] highBytes, @Nonnull EndpointType highEndpoint) {
             this.highBytes = highBytes;
             this.highEndpoint = highEndpoint;
+            return self();
+        }
+
+        public T setSerializationMode(@Nonnull final SerializationMode serializationMode) {
+            this.serializationMode = serializationMode;
             return self();
         }
 

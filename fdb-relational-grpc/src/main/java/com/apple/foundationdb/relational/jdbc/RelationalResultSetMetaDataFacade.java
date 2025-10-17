@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.jdbc;
 
 import com.apple.foundationdb.relational.api.ArrayMetaData;
+import com.apple.foundationdb.relational.api.RelationalStructMetaData;
 import com.apple.foundationdb.relational.api.StructMetaData;
 import com.apple.foundationdb.relational.api.RelationalResultSetMetaData;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
@@ -56,9 +57,10 @@ class RelationalResultSetMetaDataFacade implements RelationalResultSetMetaData  
     }
 
     @Override
-    public StructMetaData getStructMetaData(int oneBasedColumn) throws SQLException {
-        return new RelationalStructFacade.RelationalStructFacadeMetaData(
-                this.delegate.getColumnMetadata().getColumnMetadata(PositionalIndex.toProtobuf(oneBasedColumn)).getStructMetadata());
+    public StructMetaData getStructMetaData(int oneBasedColumn) {
+        return RelationalStructMetaData.of(TypeConversion.getStructDataType(
+                this.delegate.getColumnMetadata().getColumnMetadata(
+                        PositionalIndex.toProtobuf(oneBasedColumn)).getStructMetadata().getColumnMetadataList(), false));
     }
 
     @Override
@@ -85,8 +87,8 @@ class RelationalResultSetMetaDataFacade implements RelationalResultSetMetaData  
 
     @Override
     public int getColumnType(int oneBasedColumn) throws SQLException {
-        return this.delegate.getColumnMetadata()
-                .getColumnMetadata(PositionalIndex.toProtobuf(oneBasedColumn)).getJavaSqlTypesCode();
+        return TypeConversion.toSqlType(this.delegate.getColumnMetadata()
+                .getColumnMetadata(PositionalIndex.toProtobuf(oneBasedColumn)).getType());
     }
 
     @Override

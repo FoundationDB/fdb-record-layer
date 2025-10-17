@@ -115,7 +115,7 @@ public class RecordQueryInsertPlan extends RecordQueryAbstractDataModificationPl
     @Nonnull
     @Override
     public RecordQueryInsertPlan withChild(@Nonnull final Reference childRef) {
-        return new RecordQueryInsertPlan(Quantifier.physical(childRef),
+        return new RecordQueryInsertPlan(Quantifier.physical(childRef, getInner().getAlias()),
                 getTargetRecordType(),
                 getTargetType(),
                 getCoercionTrie(),
@@ -123,8 +123,8 @@ public class RecordQueryInsertPlan extends RecordQueryAbstractDataModificationPl
     }
 
     @Override
-    public int hashCodeWithoutChildren() {
-        return Objects.hash(BASE_HASH.planHash(PlanHashable.CURRENT_FOR_CONTINUATION), super.hashCodeWithoutChildren());
+    public int computeHashCodeWithoutChildren() {
+        return Objects.hash(BASE_HASH.hashCode(), super.computeHashCodeWithoutChildren());
     }
 
     @Override

@@ -27,6 +27,8 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.metadata.MetaDataException;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.provider.foundationdb.IndexMatchCandidateRegistry;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
@@ -208,7 +210,8 @@ public final class PlanGenerator {
                                          @Nonnull Set<PlanHashable.PlanHashMode> validPlanHashModes,
                                          @Nonnull PlanHashable.PlanHashMode currentPlanHashMode) throws RelationalException {
         if (ast.getQueryCachingFlags().contains(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_EXECUTE_CONTINUATION_STATEMENT)) {
-            return generatePhysicalPlanForExecuteContinuation(ast, validPlanHashModes, currentPlanHashMode);
+            return planContext.getMetricsCollector().clock(RelationalMetric.RelationalEvent.GENERATE_CONTINUED_PLAN, () ->
+                    generatePhysicalPlanForExecuteContinuation(ast, validPlanHashModes, currentPlanHashMode));
         } else {
             return generatePhysicalPlanForCompilableStatement(ast, isCaseSensitive(), currentPlanHashMode);
         }
@@ -386,15 +389,6 @@ public final class PlanGenerator {
 
     }
 
-    @Nonnull
-    private static CascadesPlanner createPlanner(@Nonnull final RecordMetaData metaData,
-                                                 @Nonnull final RecordStoreState recordStoreState,
-                                                 @Nonnull final PlanContext planContext) {
-        final var planner = new CascadesPlanner(metaData, recordStoreState);
-        planner.setConfiguration(planContext.getRecordQueryPlannerConfiguration());
-        return planner;
-    }
-
     /**
      * Creates a new instance of the plan generator.
      *
@@ -411,8 +405,28 @@ public final class PlanGenerator {
                                        @Nonnull final PlanContext planContext,
                                        @Nonnull final RecordMetaData metaData,
                                        @Nonnull final RecordStoreState recordStoreState,
+                                       @Nonnull final IndexMatchCandidateRegistry matchCandidateRegistry,
                                        @Nonnull final Options options) throws RelationalException {
-        final var planner = createPlanner(metaData, recordStoreState, planContext);
+        final var planner = new CascadesPlanner(metaData, recordStoreState, matchCandidateRegistry);
+        planner.setConfiguration(planContext.getRecordQueryPlannerConfiguration());
         return new PlanGenerator(cache, planContext, planner, options);
+    }
+
+    /**
+     * Create a new instance of the plan generator for a given store.
+     *
+     * @param cache An optional instance of the query plan cache
+     * @param planContext The context related for planning the query and looking it in the cache
+     * @param store The record store to generate the planner for
+     * @param options a set of planner options
+     * @return a new instance of the plan generator
+     * @throws RelationalException if creation of the plan generator fails
+     */
+    @Nonnull
+    public static PlanGenerator create(@Nonnull final Optional<RelationalPlanCache> cache,
+                                       @Nonnull final PlanContext planContext,
+                                       @Nonnull FDBRecordStoreBase<?> store,
+                                       @Nonnull final Options options) throws RelationalException {
+        return create(cache, planContext, store.getRecordMetaData(), store.getRecordStoreState(), store.getIndexMaintainerRegistry(), options);
     }
 }

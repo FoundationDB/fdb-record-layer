@@ -32,7 +32,6 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.MatchableSo
 import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValueAndRanges;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
@@ -53,15 +52,9 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
  * class {@link KeyExpressionExpansionVisitor}, this class merely provides a specific {@link #expand} method.
  */
 public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor implements ExpansionVisitor<KeyExpressionExpansionVisitor.VisitorState> {
-    @Nonnull
-    private static final Set<String> SUPPORTED_INDEX_TYPES = Set.of(
-            IndexTypes.VALUE,
-            IndexTypes.VERSION,
-            IndexTypes.RANK,
-            IndexTypes.PERMUTED_MAX,
-            IndexTypes.PERMUTED_MIN
-    );
-
+    // We may need to rethink this as it limits the set of indexes that can support a grouping key expression
+    // this hard-coded list, which limits the ability of this visitor to work on types not defined
+    // in the core sub-project
     @Nonnull
     private static final Set<String> GROUPED_INDEX_TYPES = Set.of(
             IndexTypes.RANK,
@@ -75,7 +68,6 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
     private final List<RecordType> queriedRecordTypes;
 
     public ValueIndexExpansionVisitor(@Nonnull Index index, @Nonnull Collection<RecordType> queriedRecordTypes) {
-        Preconditions.checkArgument(SUPPORTED_INDEX_TYPES.contains(index.getType()));
         this.index = index;
         this.queriedRecordTypes = ImmutableList.copyOf(queriedRecordTypes);
     }

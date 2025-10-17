@@ -42,7 +42,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 /**
- * This class represents a Relational data type. A data type has the following characterstics:
+ * This class represents a Relational data type. A data type has the following characteristics:
  *
  * <ul>
  *   <li>it can be either flat or nested.
@@ -987,7 +987,7 @@ public abstract class DataType {
 
         @Override
         public String toString() {
-            return String.format("enum(%s){%s}", name, values.stream().map(EnumValue::toString).collect(Collectors.joining(",")));
+            return "enum(" + name + "){" + values.stream().map(EnumValue::toString).collect(Collectors.joining(",")) + "}";
         }
 
         private EnumType(@Nonnull String name, @Nonnull final List<EnumValue> values, boolean isNullable) {

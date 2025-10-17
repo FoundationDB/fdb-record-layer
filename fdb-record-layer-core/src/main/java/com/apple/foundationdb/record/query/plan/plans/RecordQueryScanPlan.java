@@ -45,11 +45,12 @@ import com.apple.foundationdb.record.query.plan.cascades.FinalMemoizer;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.WithPrimaryKeyMatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
+import com.apple.foundationdb.record.query.plan.cascades.explain.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphRewritable;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.AbstractRelationalExpressionWithoutChildren;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.cascades.explain.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -77,7 +78,10 @@ import java.util.function.Supplier;
  */
 @API(API.Status.INTERNAL)
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, RecordQueryPlanWithComparisons, PlannerGraphRewritable, RecordQueryPlanWithMatchCandidate {
+public class RecordQueryScanPlan extends AbstractRelationalExpressionWithoutChildren implements RecordQueryPlanWithNoChildren,
+                                                                                                RecordQueryPlanWithComparisons,
+                                                                                                PlannerGraphRewritable,
+                                                                                                RecordQueryPlanWithMatchCandidate {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Scan-Plan");
 
     @Nullable
@@ -143,7 +147,6 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
         this(recordTypes, flowedType, commonPrimaryKey, comparisons, reverse, strictlySorted, Optional.of(matchCandidate));
     }
 
-
     /**
      * Overloaded constructor.
      * @param recordTypes a super set of record types of the records that this scan operator can produce
@@ -157,12 +160,12 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
      */
     @VisibleForTesting
     public RecordQueryScanPlan(@Nullable Set<String> recordTypes,
-                                @Nonnull Type flowedType,
-                                @Nullable KeyExpression commonPrimaryKey,
-                                @Nonnull ScanComparisons comparisons,
-                                boolean reverse,
-                                boolean strictlySorted,
-                                @Nonnull final Optional<? extends WithPrimaryKeyMatchCandidate> matchCandidateOptional) {
+                               @Nonnull Type flowedType,
+                               @Nullable KeyExpression commonPrimaryKey,
+                               @Nonnull ScanComparisons comparisons,
+                               boolean reverse,
+                               boolean strictlySorted,
+                               @Nonnull final Optional<? extends WithPrimaryKeyMatchCandidate> matchCandidateOptional) {
         this.recordTypes = recordTypes == null ? null : ImmutableSet.copyOf(recordTypes);
         this.flowedType = flowedType;
         this.commonPrimaryKey = commonPrimaryKey;
@@ -175,6 +178,7 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
 
     @Nonnull
     @Override
+    @SuppressWarnings("resource")
     public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
                                                                      @Nonnull final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,
@@ -286,7 +290,7 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
 
     @Nonnull
     @Override
-    public Set<CorrelationIdentifier> getCorrelatedTo() {
+    public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return comparisons.getCorrelatedTo();
     }
 
@@ -364,7 +368,7 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
     }
 
     @Override
-    public int hashCodeWithoutChildren() {
+    public int computeHashCodeWithoutChildren() {
         return Objects.hash(recordTypes, flowedType, commonPrimaryKey, comparisons, reverse);
     }
 

@@ -83,6 +83,7 @@ import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.common.DynamicMessageRecordSerializer;
 import com.apple.foundationdb.record.provider.common.RecordSerializer;
+import com.apple.foundationdb.record.provider.foundationdb.indexing.IndexingHeartbeat;
 import com.apple.foundationdb.record.provider.foundationdb.indexing.IndexingRangeSet;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.provider.foundationdb.storestate.FDBRecordStoreStateCache;
@@ -281,7 +282,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     protected final RecordSerializer<Message> serializer;
 
     @Nonnull
-    protected final IndexMaintainerRegistry indexMaintainerRegistry;
+    protected final IndexMaintainerFactoryRegistry indexMaintainerRegistry;
 
     @Nonnull
     protected final IndexMaintenanceFilter indexMaintenanceFilter;
@@ -321,7 +322,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                              @Nonnull FormatVersion formatVersion,
                              @Nonnull RecordMetaDataProvider metaDataProvider,
                              @Nonnull RecordSerializer<Message> serializer,
-                             @Nonnull IndexMaintainerRegistry indexMaintainerRegistry,
+                             @Nonnull IndexMaintainerFactoryRegistry indexMaintainerRegistry,
                              @Nonnull IndexMaintenanceFilter indexMaintenanceFilter,
                              @Nonnull PipelineSizer pipelineSizer,
                              @Nullable FDBRecordStoreStateCache storeStateCache,
@@ -462,8 +463,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         return serializer;
     }
 
+    @Override
     @Nonnull
-    public IndexMaintainerRegistry getIndexMaintainerRegistry() {
+    public IndexMaintainerFactoryRegistry getIndexMaintainerRegistry() {
         return indexMaintainerRegistry;
     }
 
@@ -1322,7 +1324,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                     .setContext(context).setContinuation(continuation)
                     .setLow(low, lowEndpoint)
                     .setHigh(high, highEndpoint)
-                    .setScanProperties(scanProperties.with(ExecuteProperties::clearRowAndTimeLimits).with(ExecuteProperties::clearState))
+                    .setScanProperties(scanProperties.with(ExecuteProperties::clearRowAndTimeLimits).with(ExecuteProperties::clearSkipAndLimit).with(ExecuteProperties::clearState))
                     .build();
             rawRecords = new SplitHelper.KeyValueUnsplitter(context, recordsSubspace, keyValues, useOldVersionFormat(), sizeInfo, scanProperties.isReverse(),
                     new CursorLimitManager(context, scanProperties.with(ExecuteProperties::clearReturnedRowLimit)))
@@ -4965,7 +4967,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     private void clearReadableIndexBuildData(Index index) {
+        // Clear index maintenance data that is unneeded once the index becomes readable
         IndexingRangeSet.forIndexBuild(this, index).clear();
+        IndexingHeartbeat.clearAllHeartbeats(this, index);
     }
 
     @SuppressWarnings("PMD.CloseResource")
@@ -5323,7 +5327,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         private FDBRecordStoreBase.UserVersionChecker userVersionChecker;
 
         @Nonnull
-        private IndexMaintainerRegistry indexMaintainerRegistry = IndexMaintainerRegistryImpl.instance();
+        private IndexMaintainerFactoryRegistry indexMaintainerRegistry = IndexMaintainerFactoryRegistryImpl.instance();
 
         @Nonnull
         private IndexMaintenanceFilter indexMaintenanceFilter = IndexMaintenanceFilter.NORMAL;
@@ -5520,13 +5524,13 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
         @Override
         @Nonnull
-        public IndexMaintainerRegistry getIndexMaintainerRegistry() {
+        public IndexMaintainerFactoryRegistry getIndexMaintainerRegistry() {
             return indexMaintainerRegistry;
         }
 
         @Override
         @Nonnull
-        public Builder setIndexMaintainerRegistry(@Nonnull IndexMaintainerRegistry indexMaintainerRegistry) {
+        public Builder setIndexMaintainerRegistry(@Nonnull IndexMaintainerFactoryRegistry indexMaintainerRegistry) {
             this.indexMaintainerRegistry = indexMaintainerRegistry;
             return this;
         }

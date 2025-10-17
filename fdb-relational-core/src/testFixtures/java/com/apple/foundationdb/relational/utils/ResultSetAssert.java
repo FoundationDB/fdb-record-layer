@@ -155,6 +155,7 @@ public class ResultSetAssert extends AbstractAssert<ResultSetAssert, RelationalR
                 return rs.getBoolean(position);
             case Types.SMALLINT:
             case Types.INTEGER:
+                return rs.getInt(position);
             case Types.BIGINT:
                 return rs.getLong(position);
             case Types.FLOAT:
@@ -237,7 +238,7 @@ public class ResultSetAssert extends AbstractAssert<ResultSetAssert, RelationalR
                     RelationalStructAssert.assertThat((RelationalStruct) o).isEqualTo((RelationalStruct) expected);
                 } else if (expected instanceof Array) {
                     Assertions.assertThat(o).isInstanceOf(Array.class);
-                    ArrayAssert.assertThat((Array) o).isEqualTo((Array) expected);
+                    ArrayAssert.assertThat((Array) o).isEqualTo(expected);
                 } else if (expected instanceof Descriptors.EnumValueDescriptor) {
                     Assertions.assertThat(o).isInstanceOf(Descriptors.EnumValueDescriptor.class);
                     Assertions.assertThat(((Descriptors.EnumValueDescriptor) expected).getName()).isEqualTo(((Descriptors.EnumValueDescriptor) o).getName());

@@ -24,7 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.provider.common.RecordSerializer;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.ExtendedDirectoryLayer;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveUnionPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveLevelUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryStreamingAggregationPlan;
 import com.google.common.collect.ImmutableSet;
 
@@ -413,6 +413,10 @@ public class FDBStoreTimer extends StoreTimer {
         WAIT_INDEX_OPERATION("wait for index operation"),
         /** Wait for indexing type stamp operation. */
         WAIT_INDEX_TYPESTAMP_OPERATION("wait for indexing type stamp operation"),
+        /** Wait for clearing indexing heartbeats. */
+        WAIT_INDEX_CLEAR_HEARTBEATS("Wait for clearing indexing heartbeats"),
+        /** Wait for reading indexing heartbeats. */
+        WAIT_INDEX_READ_HEARTBEATS("Wait for reading indexing heartbeats"),
         /** Wait for adding an index. */
         WAIT_ADD_INDEX("wait for adding an index"),
         /** Wait for dropping an index. */
@@ -611,7 +615,7 @@ public class FDBStoreTimer extends StoreTimer {
         PLAN_DAM("number of dam plans", false),
         /** The number of synthetic record type plans. */
         PLAN_SYNTHETIC_TYPE("number of synthetic record types plans", false),
-        /** The number of plans that include a {@link RecordQueryRecursiveUnionPlan}. */
+        /** The number of plans that include a {@link RecordQueryRecursiveLevelUnionPlan}. */
         PLAN_RECURSIVE_UNION("number of recursive union plans", false),
         /** The number of records given given to any filter within any plan. */
         QUERY_FILTER_GIVEN("number of records given to any filter within any plan", false),

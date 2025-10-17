@@ -36,6 +36,7 @@ import com.apple.foundationdb.record.query.plan.explain.ExplainSelfContainedSymb
 import com.apple.foundationdb.record.query.plan.explain.ExplainSymbolMap;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
 import com.apple.foundationdb.record.query.plan.explain.PrettyExplainFormatter;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryAggregateIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryComparatorPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
@@ -60,12 +61,14 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnV
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryLoadByKeysPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryMapPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryMultiIntersectionOnValuesPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanVisitor;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithExplain;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryRangePlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveUnionPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveDfsJoinPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveLevelUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScoreForRankPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQuerySelectorPlan;
@@ -89,6 +92,7 @@ import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
 import java.util.Arrays;
+import java.util.List;
 import java.util.function.Supplier;
 
 /**
@@ -340,6 +344,30 @@ public class ExplainPlanVisitor extends ExplainTokens implements RecordQueryPlan
 
     @Nonnull
     @Override
+    public ExplainTokens visitMultiIntersectionOnValuesPlan(@Nonnull final RecordQueryMultiIntersectionOnValuesPlan multiIntersectionOnValuesPlan) {
+        visitAndJoin(() -> new ExplainTokens().addWhitespace().addToString("∩").addWhitespace(),
+                multiIntersectionOnValuesPlan.getChildren());
+        final var compareByExplainTokens = new ExplainTokens().addWhitespace().addKeyword("COMPARE")
+                .addWhitespace().addKeyword("BY").addWhitespace()
+                .addNested(multiIntersectionOnValuesPlan.getComparisonKeyFunction().explain().getExplainTokens());
+        addNested(ExplainLevel.SOME_DETAILS, compareByExplainTokens);
+
+        final List<? extends Quantifier> quantifiers = multiIntersectionOnValuesPlan.getQuantifiers();
+        final var withExplainTokens =
+                new ExplainTokens().addWhitespace().addKeyword("WITH").addWhitespace()
+                        .addSequence(() -> new ExplainTokens().addCommaAndWhiteSpace(),
+                                () -> quantifiers.stream()
+                                        .map(quantifier -> new ExplainTokens()
+                                                .addAliasDefinition(quantifier.getAlias()))
+                                        .iterator());
+        addNested(ExplainLevel.SOME_DETAILS, withExplainTokens);
+        final var returnExplainTokens = new ExplainTokens().addWhitespace().addKeyword("RETURN")
+                .addWhitespace().addNested(multiIntersectionOnValuesPlan.getResultValue().explain().getExplainTokens());
+        return addNested(ExplainLevel.SOME_DETAILS, returnExplainTokens);
+    }
+
+    @Nonnull
+    @Override
     public ExplainTokens visitInParameterJoinPlan(@Nonnull final RecordQueryInParameterJoinPlan inParameterJoinPlan) {
         return visitInJoinPlan(inParameterJoinPlan);
     }
@@ -401,7 +429,7 @@ public class ExplainPlanVisitor extends ExplainTokens implements RecordQueryPlan
 
     @Nonnull
     @Override
-    public ExplainTokens visitRecursiveUnionPlan(@Nonnull final RecordQueryRecursiveUnionPlan recursiveUnionPlan) {
+    public ExplainTokens visitRecursiveLevelUnionPlan(@Nonnull final RecordQueryRecursiveLevelUnionPlan recursiveUnionPlan) {
         Verify.verify(recursiveUnionPlan.getChildren().size() == 2);
         addKeyword("RUNION").addWhitespace()
                 .addSequence(() -> new ExplainTokens().addCommaAndWhiteSpace(),
@@ -445,10 +473,10 @@ public class ExplainPlanVisitor extends ExplainTokens implements RecordQueryPlan
     private ExplainTokens visitIntersectionPlan(@Nonnull final RecordQueryIntersectionPlan intersectionPlan) {
         visitAndJoin(() -> new ExplainTokens().addWhitespace().addToString("∩").addWhitespace(),
                 intersectionPlan.getChildren());
-        final var comparyByExplainTokens = new ExplainTokens().addWhitespace().addKeyword("COMPARE")
+        final var compareByExplainTokens = new ExplainTokens().addWhitespace().addKeyword("COMPARE")
                 .addWhitespace().addKeyword("BY").addWhitespace()
                 .addNested(intersectionPlan.getComparisonKeyFunction().explain().getExplainTokens());
-        return addNested(ExplainLevel.SOME_DETAILS, comparyByExplainTokens);
+        return addNested(ExplainLevel.SOME_DETAILS, compareByExplainTokens);
     }
 
     @Nonnull
@@ -582,14 +610,30 @@ public class ExplainPlanVisitor extends ExplainTokens implements RecordQueryPlan
     }
 
     @Nonnull
+    @Override
+    public ExplainTokens visitRecursiveDfsJoinPlan(@Nonnull final RecordQueryRecursiveDfsJoinPlan recursiveDfsJoinPlan) {
+        Verify.verify(recursiveDfsJoinPlan.getChildren().size() == 2);
+        addKeyword("RUNION-DFS").addWhitespace().addKeyword(recursiveDfsJoinPlan.getDfsTraversalStrategy().name()).addWhitespace();
+        final var priorValueCorrelation = new ExplainTokens().addAliasDefinition(recursiveDfsJoinPlan.getPriorValueCorrelation());
+        addNested(ExplainLevel.ALL_DETAILS, priorValueCorrelation).addWhitespace();
+        addOpeningBrace().addWhitespace();
+        visit(recursiveDfsJoinPlan.getChildren().get(0)).addWhitespace();
+        addClosingBrace().addLinebreakOrWhitespace();
+        addOpeningBrace().addWhitespace();
+        addKeyword("RECURSIVE").addWhitespace();
+        return visit(recursiveDfsJoinPlan.getChildren().get(1)).addWhitespace()
+                .addOptionalWhitespace().addClosingBrace();
+    }
+
+    @Nonnull
     private ExplainTokens visitUnionPlan(@Nonnull final RecordQueryUnionPlan unionPlan) {
         visitAndJoin(() -> new ExplainTokens().addWhitespace().addToString("∪").addWhitespace(),
                 unionPlan.getChildren());
 
-        final var comparyByExplainTokens = new ExplainTokens().addWhitespace().addKeyword("COMPARE")
+        final var compareByExplainTokens = new ExplainTokens().addWhitespace().addKeyword("COMPARE")
                 .addWhitespace().addKeyword("BY").addWhitespace()
                 .addNested(unionPlan.getComparisonKeyFunction().explain().getExplainTokens());
-        return addNested(ExplainLevel.SOME_DETAILS, comparyByExplainTokens);
+        return addNested(ExplainLevel.SOME_DETAILS, compareByExplainTokens);
     }
 
     @Nonnull

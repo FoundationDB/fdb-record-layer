@@ -58,14 +58,13 @@ import java.util.Set;
  * {@link com.apple.foundationdb.record.query.plan.ScanComparisons#EMPTY}. Unlike a
  * {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan}, a {@code FullUnorderedScanExpression}
  * is not implicitly ordered by the primary key.
- *
- *
+ * <p>
  * This expression is useful as the source of records for the initial planner expression produced from a
  * {@link com.apple.foundationdb.record.query.RecordQuery}.
- *
+ * </p>
  */
 @API(API.Status.EXPERIMENTAL)
-public class FullUnorderedScanExpression implements RelationalExpression, PlannerGraphRewritable {
+public class FullUnorderedScanExpression extends AbstractRelationalExpressionWithoutChildren implements PlannerGraphRewritable {
     @Nonnull
     private final Set<String> recordTypes;
     @Nonnull
@@ -104,7 +103,7 @@ public class FullUnorderedScanExpression implements RelationalExpression, Planne
 
     @Nonnull
     @Override
-    public Set<CorrelationIdentifier> getCorrelatedTo() {
+    public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return ImmutableSet.of();
     }
 
@@ -146,7 +145,7 @@ public class FullUnorderedScanExpression implements RelationalExpression, Planne
     }
 
     @Override
-    public int hashCodeWithoutChildren() {
+    public int computeHashCodeWithoutChildren() {
         return Objects.hash(recordTypes, flowedType);
     }
 
@@ -182,7 +181,7 @@ public class FullUnorderedScanExpression implements RelationalExpression, Planne
     public Compensation compensate(@Nonnull final PartialMatch partialMatch,
                                    @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
                                    @Nullable final PullUp pullUp,
-                                   @Nonnull final CorrelationIdentifier nestingAlias) {
+                                   @Nonnull final CorrelationIdentifier candidateAlias) {
         return Compensation.noCompensation();
     }
 

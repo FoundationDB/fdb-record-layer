@@ -23,25 +23,25 @@ package com.apple.foundationdb.record.provider.foundationdb;
 import com.apple.foundationdb.record.IndexBuildProto;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.TestRecords1Proto;
-import com.apple.foundationdb.record.logging.KeyValueLogMessage;
-import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.synchronizedsession.SynchronizedSessionLockedException;
 import com.apple.test.BooleanSource;
 import com.google.common.collect.Comparators;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -57,8 +57,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Tests for building indexes from other indexes with {@link OnlineIndexer}.
  */
 class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
-    private static final Logger LOGGER = LoggerFactory.getLogger(OnlineIndexerIndexFromIndexTest.class);
-
 
     private void populateData(final long numRecords, final long numOtherRecords) {
         openSimpleMetaData();
@@ -368,6 +366,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
             try (FDBRecordContext context = openContext()) {
                 e = assertThrows(IndexingBase.ValidationException.class, () -> indexBuilder.rebuildIndex(recordStore));
                 assertTrue(e.getMessage().contains("source index is not a VALUE index"));
+                context.commit();
             }
         }
 
@@ -406,6 +405,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
             try (FDBRecordContext context = openContext()) {
                 e = assertThrows(IndexingBase.ValidationException.class, () -> indexBuilder.rebuildIndex(recordStore));
                 assertTrue(e.getMessage().contains("source index creates duplicates"));
+                context.commit();
             }
         }
 
@@ -1160,43 +1160,53 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
     }
 
     @Test
-    void testIndexFromIndexIgnoreSyncLock() {
-
-        final long numRecords = 180;
-
-        Index srcIndex = new Index("src_index", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
-        Index tgtIndex = new Index("tgt_index", field("num_value_3_indexed"), IndexTypes.VALUE);
-        FDBRecordStoreTestBase.RecordMetaDataHook hook = myHook(srcIndex, tgtIndex);
-
+    void testForbidConcurrentIndexFromIndexSessions() throws InterruptedException {
+        // Do not let a conversion of few indexes of an active multi-target session
+        final int numRecords = 59;
         populateData(numRecords);
 
-        openSimpleMetaData(hook);
-        buildIndexClean(srcIndex);
-        disableAll(List.of(tgtIndex));
+        Index sourceIndex = new Index("src_index", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
+        openSimpleMetaData(metaDataBuilder -> metaDataBuilder.addIndex("MySimpleRecord", sourceIndex));
+        buildIndexClean(sourceIndex);
 
+        // Partly build index
+        Index tgtIndex = new Index("tgt_index", field("num_value_3_indexed"), IndexTypes.VALUE);
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = myHook(sourceIndex, tgtIndex);
         openSimpleMetaData(hook);
 
-        IntStream.rangeClosed(0, 4).parallel().forEach(id -> {
-            snooze(100 - id);
-            try {
-                try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex)
-                        .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
-                                        .setSourceIndex("src_index")
-                                        .forbidRecordScan())
-                        .setLimit(5)
-                        .setUseSynchronizedSession(id == 0)
-                        .setMaxRetries(100) // enough to avoid giving up
-                        .build()) {
-                    indexBuilder.buildIndex(true);
-                }
-            } catch (IndexingBase.UnexpectedReadableException ex) {
-                LOGGER.info(KeyValueLogMessage.of("Ignoring lock, got exception",
-                        LogMessageKeys.SESSION_ID, id,
-                        LogMessageKeys.ERROR, ex.getMessage()));
+        Semaphore pauseMutualBuildSemaphore = new Semaphore(1);
+        Semaphore startBuildingSemaphore =  new Semaphore(1);
+        pauseMutualBuildSemaphore.acquire();
+        startBuildingSemaphore.acquire();
+        AtomicBoolean passed = new AtomicBoolean(false);
+        Thread t1 = new Thread(() -> {
+            // build index and pause halfway, allowing an active session test
+            try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex)
+                    .setLeaseLengthMillis(TimeUnit.SECONDS.toMillis(20))
+                    .setLimit(4)
+                    .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                            .setSourceIndex("src_index")
+                            .forbidRecordScan())
+                    .setConfigLoader(old -> pauseAfterOnePass(old, passed, startBuildingSemaphore, pauseMutualBuildSemaphore))
+                    .build()) {
+                indexBuilder.buildIndex();
             }
         });
-
-        assertReadable(List.of(tgtIndex));
-        scrubAndValidate(List.of(tgtIndex));
+        t1.start();
+        startBuildingSemaphore.acquire();
+        startBuildingSemaphore.release();
+        // Try one index at a time
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex)
+                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                        .setSourceIndex("src_index")
+                        .forbidRecordScan())
+                .build()) {
+            assertThrows(SynchronizedSessionLockedException.class, indexBuilder::buildIndex);
+        }
+        // let the other thread finish indexing
+        pauseMutualBuildSemaphore.release();
+        t1.join();
+        // happy indexes assertion
+        assertReadable(tgtIndex);
     }
 }

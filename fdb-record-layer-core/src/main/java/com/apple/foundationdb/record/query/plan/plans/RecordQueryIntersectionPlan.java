@@ -47,9 +47,11 @@ import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.AbstractRelationalExpressionWithChildren;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.explain.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -64,6 +66,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -72,7 +75,7 @@ import java.util.stream.Stream;
  * To work, each child cursor must order its children the same way according to the comparison key.
  */
 @API(API.Status.INTERNAL)
-public abstract class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren, RecordQuerySetPlan {
+public abstract class RecordQueryIntersectionPlan extends AbstractRelationalExpressionWithChildren implements RecordQueryPlanWithChildren, RecordQuerySetPlan {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Intersection-Plan");
 
     public static final Logger LOGGER = LoggerFactory.getLogger(RecordQueryIntersectionPlan.class);
@@ -90,7 +93,7 @@ public abstract class RecordQueryIntersectionPlan implements RecordQueryPlanWith
     protected final boolean reverse;
 
     @Nonnull
-    private final Value resultValue;
+    private final Supplier<Value> resultValueSupplier;
 
     protected RecordQueryIntersectionPlan(@Nonnull final PlanSerializationContext serializationContext,
                                           @Nonnull final PRecordQueryIntersectionPlan recordQueryIntersectionPlanProto) {
@@ -102,7 +105,7 @@ public abstract class RecordQueryIntersectionPlan implements RecordQueryPlanWith
         this.quantifiers = quantifiersBuilder.build();
         this.comparisonKeyFunction = ComparisonKeyFunction.fromComparisonKeyFunctionProto(serializationContext, Objects.requireNonNull(recordQueryIntersectionPlanProto.getComparisonKeyFunction()));
         this.reverse = recordQueryIntersectionPlanProto.getReverse();
-        this.resultValue = RecordQuerySetPlan.mergeValues(quantifiers);
+        this.resultValueSupplier = Suppliers.memoize(this::computeResultValue);
     }
 
     @SuppressWarnings("PMD.UnusedFormalParameter")
@@ -112,7 +115,7 @@ public abstract class RecordQueryIntersectionPlan implements RecordQueryPlanWith
         this.quantifiers = ImmutableList.copyOf(quantifiers);
         this.comparisonKeyFunction = comparisonKeyFunction;
         this.reverse = reverse;
-        this.resultValue = RecordQuerySetPlan.mergeValues(quantifiers);
+        this.resultValueSupplier = Suppliers.memoize(this::computeResultValue);
     }
 
     @Nonnull
@@ -172,14 +175,19 @@ public abstract class RecordQueryIntersectionPlan implements RecordQueryPlanWith
 
     @Nonnull
     @Override
-    public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
+    public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return ImmutableSet.of();
     }
 
     @Nonnull
     @Override
     public Value getResultValue() {
-        return resultValue;
+        return resultValueSupplier.get();
+    }
+
+    @Nonnull
+    protected Value computeResultValue() {
+        return RecordQuerySetPlan.mergeValues(quantifiers);
     }
 
     @Override
@@ -217,7 +225,7 @@ public abstract class RecordQueryIntersectionPlan implements RecordQueryPlanWith
     }
 
     @Override
-    public int hashCodeWithoutChildren() {
+    public int computeHashCodeWithoutChildren() {
         return Objects.hash(comparisonKeyFunction, reverse);
     }
 

@@ -33,7 +33,7 @@ dependencies {
     compileOnly(libs.autoService)
     annotationProcessor(libs.autoService)
 
-    testImplementation project(path: ':fdb-extensions', configuration: 'tests')
+    testImplementation project(':fdb-test-utils')
     testImplementation project(path: coreProject, configuration: 'tests')
     testImplementation(libs.bundles.test.impl)
     testImplementation(libs.lucene.testFramework)

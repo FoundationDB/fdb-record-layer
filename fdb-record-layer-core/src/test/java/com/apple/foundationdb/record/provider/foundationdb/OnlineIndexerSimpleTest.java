@@ -32,12 +32,15 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.util.pair.Pair;
+import com.apple.foundationdb.synchronizedsession.SynchronizedSessionLockedException;
+import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableMap;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -48,6 +51,9 @@ import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
@@ -406,7 +412,6 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
                 // once" may not hold true. With the two options, it is running doBuildIndexAsync effectively. Probably
                 // it would be better if this test can test the config loader with bare metal OnlineIndexer.runAsync
                 // instead.
-                .setUseSynchronizedSession(false)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .setIfReadable(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR)
                         .setIfWriteOnly(OnlineIndexer.IndexingPolicy.DesiredAction.CONTINUE)
@@ -887,5 +892,89 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
             fdb.setTrackLastSeenVersionOnRead(dbTracksReadVersionOnRead);
             fdb.setTrackLastSeenVersionOnRead(dbTracksReadVersionOnCommit);
         }
+    }
+
+    @ParameterizedTest
+    @BooleanSource
+    @SuppressWarnings("removal")
+    void testExclusiveBuildRegardlessOfSettingDeprecatedSynchronizedSession(boolean useSynchronizedSession) throws InterruptedException {
+        // regardless of useSynchronizedSession's value, the build should be exclusive
+        Index index = new Index("simple$value_2", field("num_value_2").ungrouped(), IndexTypes.SUM);
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = metaDataBuilder -> metaDataBuilder.addIndex("MySimpleRecord", index);
+        populateData(21);
+        openSimpleMetaData(hook);
+        disableAll(List.of(index));
+
+        // ensure exclusive build
+        Semaphore pauseMutualBuildSemaphore = new Semaphore(1);
+        Semaphore startBuildingSemaphore =  new Semaphore(1);
+        pauseMutualBuildSemaphore.acquire();
+        startBuildingSemaphore.acquire();
+        AtomicBoolean passed = new AtomicBoolean(false);
+        Thread t1 = new Thread(() -> {
+            // build index and pause halfway, allowing an active session test
+            try (OnlineIndexer indexBuilder = newIndexerBuilder(index)
+                    .setUseSynchronizedSession(useSynchronizedSession)
+                    .setLeaseLengthMillis(TimeUnit.SECONDS.toMillis(20))
+                    .setLimit(4)
+                    .setConfigLoader(old -> pauseAfterOnePass(old, passed, startBuildingSemaphore, pauseMutualBuildSemaphore))
+                    .build()) {
+                indexBuilder.buildIndex();
+            }
+        });
+        t1.start();
+        startBuildingSemaphore.acquire();
+        startBuildingSemaphore.release();
+
+        // Fail to start another indexer
+        try (FDBRecordContext context = openContext()) {
+            try (OnlineIndexer indexBuilder = newIndexerBuilder(index)
+                    .build()) {
+                assertTrue(OnlineIndexer.checkAnyOngoingOnlineIndexBuildsAsync(recordStore, index).join());
+                assertThrows(SynchronizedSessionLockedException.class, indexBuilder::buildIndex);
+            }
+            context.commit();
+        }
+
+        // Successfully convert to a mutual indexer
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(index)
+                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                        .setMutualIndexing()
+                        .allowTakeoverContinue()
+                        .build())
+                .build()) {
+            assertTrue(indexBuilder.checkAnyOngoingOnlineIndexBuildsAsync().join());
+            indexBuilder.buildIndex();
+        }
+        // let the other thread finish indexing
+        pauseMutualBuildSemaphore.release();
+        t1.join();
+        // happy indexes assertion
+        assertReadable(index);
+    }
+
+    @ParameterizedTest
+    @BooleanSource
+    @SuppressWarnings("removal")
+    void testSuccessfullyBuildWithDeprecatedApiFunctions(final boolean useSynchronizedSession) {
+        Index index = new Index("simple$value_2", field("num_value_2").ungrouped(), IndexTypes.SUM);
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = metaDataBuilder -> metaDataBuilder.addIndex("MySimpleRecord", index);
+        populateData(20);
+
+        openSimpleMetaData(hook);
+        disableAll(List.of(index));
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(index)
+                .setLimit(3)
+                .setUseSynchronizedSession(useSynchronizedSession) // ignored value
+                .setConfigLoader(old -> {
+                    assertTrue(old.shouldUseSynchronizedSession());
+                    return old.toBuilder().setUseSynchronizedSession(useSynchronizedSession).build(); // ignored value
+                })
+                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                        .checkIndexingStampFrequencyMilliseconds(useSynchronizedSession ? 5_000 : 0)) // ignored value
+                .build()) {
+            indexBuilder.buildIndex();
+        }
+        assertReadable(index);
     }
 }

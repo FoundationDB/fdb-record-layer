@@ -88,6 +88,7 @@ public class PromoteValue extends AbstractValue implements CreatesDynamicTypesVa
         NULL_TO_RECORD(Type.TypeCode.NULL, Type.TypeCode.RECORD, (descriptor, in) -> null),
         NONE_TO_ARRAY(Type.TypeCode.NONE, Type.TypeCode.ARRAY, (descriptor, in) -> in),
         NULL_TO_ENUM(Type.TypeCode.NULL, Type.TypeCode.ENUM, (descriptor, in) -> null),
+        // TODO: remove, an explicit CAST should be used instead.
         STRING_TO_ENUM(Type.TypeCode.STRING, Type.TypeCode.ENUM, ((descriptor, in) -> stringToEnumValue((Descriptors.EnumDescriptor)descriptor, (String)in))),
         STRING_TO_UUID(Type.TypeCode.STRING, Type.TypeCode.UUID, ((descriptor, in) -> stringToUuidValue((String) in)));
 
@@ -451,10 +452,13 @@ public class PromoteValue extends AbstractValue implements CreatesDynamicTypesVa
             final List<Type> inTypeElements = Objects.requireNonNull(((Type.Record) inType).getElementTypes());
             final List<Type> promoteToTypeElements = Objects.requireNonNull(((Type.Record) promoteToType).getElementTypes());
             SemanticException.check(inTypeElements.size() == promoteToTypeElements.size(), SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
+            var promotionNeeded = false;
             for (int i = 0; i < inTypeElements.size(); i++) {
-                SemanticException.check(!isPromotionNeeded(inTypeElements.get(i), promoteToTypeElements.get(i)), SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
+                if (isPromotionNeeded(inTypeElements.get(i), promoteToTypeElements.get(i))) {
+                    promotionNeeded = true;
+                }
             }
-            return false;
+            return promotionNeeded;
         }
         SemanticException.check((inType.isPrimitive() || inType.isEnum() || inType.isUuid()) &&
                 (promoteToType.isPrimitive() || promoteToType.isEnum() || promoteToType.isUuid()), SemanticException.ErrorCode.INCOMPATIBLE_TYPE);

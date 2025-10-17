@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.query.combinatorics.CrossProduct;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.bitmap.ComposedBitmapIndexQueryPlan;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
@@ -31,18 +32,19 @@ import com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionVisitor;
-import com.apple.foundationdb.record.query.plan.cascades.values.FirstOrDefaultStreamingValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.TreeLike;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValue;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.FirstOrDefaultStreamingValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FirstOrDefaultValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ThrowsValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.RegularTranslationMap;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryAggregateIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryComparatorPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
@@ -62,25 +64,25 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInValuesJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInsertPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveUnionPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryTableFunctionPlan;
-import com.apple.foundationdb.record.query.plan.plans.TempTableInsertPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnKeyExpressionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnValuesPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryLoadByKeysPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryMapPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryMultiIntersectionOnValuesPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanVisitor;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithComparisonKeyValues;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithComparisons;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryRangePlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveDfsJoinPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveLevelUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScoreForRankPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQuerySelectorPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQuerySetPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryStreamingAggregationPlan;
-import com.apple.foundationdb.record.query.plan.plans.TempTableScanPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryTableFunctionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTextIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionOnKeyExpressionPlan;
@@ -89,12 +91,15 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedDistin
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUpdatePlan;
+import com.apple.foundationdb.record.query.plan.plans.TempTableInsertPlan;
+import com.apple.foundationdb.record.query.plan.plans.TempTableScanPlan;
 import com.apple.foundationdb.record.query.plan.sorting.RecordQueryDamPlan;
 import com.apple.foundationdb.record.query.plan.sorting.RecordQuerySortPlan;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
 import java.util.List;
@@ -255,8 +260,8 @@ public class DerivationsProperty implements ExpressionProperty<DerivationsProper
         @Nonnull
         @Override
         public Derivations visitAggregateIndexPlan(@Nonnull final RecordQueryAggregateIndexPlan aggregateIndexPlan) {
-            final var matchCandidate = aggregateIndexPlan.getMatchCandidate();
-            return visitPlanWithComparisons(aggregateIndexPlan, matchCandidate.getQueriedRecordTypeNames());
+            final var localValues = localValuesForComparisons(aggregateIndexPlan.getComparisons());
+            return new Derivations(ImmutableList.of(), localValues);
         }
 
         @Nonnull
@@ -280,7 +285,7 @@ public class DerivationsProperty implements ExpressionProperty<DerivationsProper
         @Nonnull
         @Override
         public Derivations visitMapPlan(@Nonnull final RecordQueryMapPlan mapPlan) {
-            final Quantifier rangesOver = Iterables.getOnlyElement(mapPlan.getQuantifiers());
+            final var rangesOver = Iterables.getOnlyElement(mapPlan.getQuantifiers());
             final var childDerivations = derivationsFromQuantifier(rangesOver);
             final var childResultValues = childDerivations.getResultValues();
             final var resultValue = mapPlan.getResultValue();
@@ -395,22 +400,26 @@ public class DerivationsProperty implements ExpressionProperty<DerivationsProper
 
         @Nonnull
         @Override
-        public Derivations visitRecursiveUnionPlan(@Nonnull final RecordQueryRecursiveUnionPlan element) {
-            return Derivations.EMPTY; // todo https://github.com/FoundationDB/fdb-record-layer/issues/2974
+        public Derivations visitRecursiveLevelUnionPlan(@Nonnull final RecordQueryRecursiveLevelUnionPlan recursiveLevelUnionPlan) {
+            // todo this is still not entirely correct: https://github.com/FoundationDB/fdb-record-layer/issues/2974
+            return Derivations.EMPTY;
         }
 
         @Nonnull
         private Derivations visitPlanWithComparisons(@Nonnull final RecordQueryPlanWithComparisons planWithComparisons,
                                                      @Nonnull final Iterable<String> recordTypeNames) {
-            final var comparisons = planWithComparisons.getComparisons();
-            final var comparisonValues = comparisons.stream()
+            final var comparisonValues = localValuesForComparisons(planWithComparisons.getComparisons());
+            final var resultValueFromPlan = planWithComparisons.getResultValue();
+            final var resultValue = new QueriedValue(resultValueFromPlan.getResultType(), recordTypeNames);
+            return new Derivations(ImmutableList.of(resultValue), comparisonValues);
+        }
+
+        @Nonnull
+        private List<Value> localValuesForComparisons(@Nonnull final Iterable<Comparisons.Comparison> comparisons) {
+            return Streams.stream(comparisons)
                     .map(Comparisons.Comparison::getValue)
                     .filter(Objects::nonNull)
                     .collect(ImmutableList.toImmutableList());
-            final var resultValueFromPlan = planWithComparisons.getResultValue();
-            final var resultValue = new QueriedValue(resultValueFromPlan.getResultType(), recordTypeNames);
-
-            return new Derivations(ImmutableList.of(resultValue), comparisonValues);
         }
 
         @Nonnull
@@ -559,6 +568,44 @@ public class DerivationsProperty implements ExpressionProperty<DerivationsProper
 
         @Nonnull
         @Override
+        public Derivations visitMultiIntersectionOnValuesPlan(@Nonnull final RecordQueryMultiIntersectionOnValuesPlan multiIntersectionOnValuesPlan) {
+            final var intersectionResultValue = multiIntersectionOnValuesPlan.getResultValue();
+            final var resultValuesBuilder = ImmutableList.<Value>builder();
+            final var localValuesBuilder = ImmutableList.<Value>builder();
+
+            final var resultDerivationsBuilder = ImmutableList.<List<Value>>builder();
+
+            final var quantifiers = multiIntersectionOnValuesPlan.getQuantifiers();
+
+            for (final var quantifier : quantifiers) {
+                final var childDerivations = derivationsFromQuantifier(quantifier);
+                resultDerivationsBuilder.add(childDerivations.getResultValues());
+                localValuesBuilder.addAll(childDerivations.getLocalValues());
+            }
+
+            final var crossProductIterable =
+                    CrossProduct.crossProduct(resultDerivationsBuilder.build());
+
+            for (final var element : crossProductIterable) {
+                final var translationMapBuilder = RegularTranslationMap.builder();
+                for (int i = 0; i < quantifiers.size(); i++) {
+                    final var quantifier = quantifiers.get(i);
+                    final var derivationResultValue = element.get(i);
+                    translationMapBuilder.when(quantifier.getAlias())
+                            .then((alias, leafValue) -> derivationResultValue);
+                }
+                resultValuesBuilder.add(intersectionResultValue.translateCorrelations(translationMapBuilder.build()));
+            }
+            final var resultValues = resultValuesBuilder.build();
+
+            localValuesBuilder.addAll(derivationsFromComparisonKeyValues(multiIntersectionOnValuesPlan, resultValues));
+
+            return new Derivations(resultValues, localValuesBuilder.build());
+
+        }
+
+        @Nonnull
+        @Override
         public Derivations visitInParameterJoinPlan(@Nonnull final RecordQueryInParameterJoinPlan inParameterJoinPlan) {
             return visitInJoinPlan(inParameterJoinPlan);
         }
@@ -687,18 +734,25 @@ public class DerivationsProperty implements ExpressionProperty<DerivationsProper
 
             final var resultValues = resultValuesBuilder.build();
 
+            localValuesBuilder.addAll(derivationsFromComparisonKeyValues(setPlan, resultValues));
+
+            return new Derivations(resultValues, localValuesBuilder.build());
+        }
+
+        private static List<Value> derivationsFromComparisonKeyValues(@Nonnull final RecordQuerySetPlan setPlan,
+                                                                      @Nonnull final ImmutableList<Value> resultValues) {
+            final var resultBuilder = ImmutableList.<Value>builder();
             if (setPlan instanceof RecordQueryPlanWithComparisonKeyValues) {
                 for (final var comparisonKeyValue : ((RecordQueryPlanWithComparisonKeyValues)setPlan).getComparisonKeyValues()) {
                     for (final var resultValue : resultValues) {
                         final var translationMap = TranslationMap.regularBuilder()
                                 .when(Quantifier.current()).then((sourceAlias, leafValue) -> resultValue)
                                 .build();
-                        localValuesBuilder.add(comparisonKeyValue.translateCorrelations(translationMap, true));
+                        resultBuilder.add(comparisonKeyValue.translateCorrelations(translationMap, true));
                     }
                 }
             }
-
-            return new Derivations(resultValues, localValuesBuilder.build());
+            return resultBuilder.build();
         }
 
         @Nonnull
@@ -785,6 +839,13 @@ public class DerivationsProperty implements ExpressionProperty<DerivationsProper
         @Override
         public Derivations visitSortPlan(@Nonnull final RecordQuerySortPlan sortPlan) {
             return derivationsFromSingleChild(sortPlan);
+        }
+
+        @Nonnull
+        @Override
+        public Derivations visitRecursiveDfsJoinPlan(@Nonnull final RecordQueryRecursiveDfsJoinPlan recursiveDfsJoinPlan) {
+            // todo: https://github.com/FoundationDB/fdb-record-layer/issues/2974
+            return Derivations.EMPTY;
         }
 
         @Nonnull

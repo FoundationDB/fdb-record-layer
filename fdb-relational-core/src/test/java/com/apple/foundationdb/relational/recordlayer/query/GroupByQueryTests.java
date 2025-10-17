@@ -59,7 +59,6 @@ public class GroupByQueryTests {
             try (var conn = ddl.setSchemaAndGetConnection()) {
                 Continuation continuation = null;
                 conn.setOption(Options.Name.EXECUTION_SCANNED_ROWS_LIMIT, 2);
-                conn.setOption(Options.Name.CONTINUATIONS_CONTAIN_COMPILED_STATEMENTS, true);
                 try (var statement = conn.createStatement()) {
                     insertT1Record(statement, 2, 1, 1, 20);
                     insertT1Record(statement, 3, 1, 2, 5);
@@ -82,7 +81,6 @@ public class GroupByQueryTests {
                 }
                 try (var preparedStatement = conn.prepareStatement("EXECUTE CONTINUATION ?param")) {
                     conn.setOption(Options.Name.EXECUTION_SCANNED_ROWS_LIMIT, 2);
-                    conn.setOption(Options.Name.CONTINUATIONS_CONTAIN_COMPILED_STATEMENTS, true);
                     // scan pk = 5 and pk = 4 rows, hit SCAN_LIMIT_REACHED
                     preparedStatement.setBytes("param", continuation.serialize());
                     try (final RelationalResultSet resultSet = preparedStatement.executeQuery()) {

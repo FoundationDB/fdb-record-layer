@@ -244,6 +244,8 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                     EvaluationContext.empty()).getPlan();
 
             assertMatchesExactly(plan, insertPlan(explodePlan()).where(target(equalsObject("RestaurantRecord"))));
+            Assertions.assertEquals(959543174, plan.hashCode());
+
             // dry run insert 2 records
             var resultValues = fetchResultValues(context, plan, record -> {
                 final var recordDescriptor = record.getDescriptorForType();

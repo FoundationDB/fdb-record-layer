@@ -99,13 +99,11 @@ public class QueryWithContinuationTest {
             executeInsert(ddl);
             Continuation continuation;
             try (final var connection = ddl.setSchemaAndGetConnection()) {
-                connection.setOption(Options.Name.CONTINUATIONS_CONTAIN_COMPILED_STATEMENTS, true);
                 try (var statement = connection.prepareStatement("SELECT * FROM RestaurantComplexRecord")) {
                     statement.setMaxRows(2);
                     continuation = assertResult(statement, 10L, 11L);
                     assertContinuation(continuation, false, false);
                 }
-                connection.setOption(Options.Name.CONTINUATIONS_CONTAIN_COMPILED_STATEMENTS, true);
                 try (var statement = connection.prepareStatement("EXECUTE CONTINUATION ?continuation")) {
                     statement.setMaxRows(2);
                     statement.setBytes("continuation", continuation.serialize());
@@ -116,35 +114,6 @@ public class QueryWithContinuationTest {
                     continuation = assertResult(statement, 14L);
                     assertContinuation(continuation, false, true);
                 }
-            }
-        }
-    }
-
-    @Test
-    void preparedStatementWithExecuteContinuationWithOption() throws Exception {
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
-            executeInsert(ddl);
-            Continuation continuation;
-            try (final var connection = ddl.setSchemaAndGetConnection()) {
-                try (var statement =
-                        connection.prepareStatement("SELECT * FROM RestaurantComplexRecord OPTIONS(CONTINUATION CONTAINS COMPILED STATEMENT)")) {
-                    statement.setMaxRows(2);
-                    continuation = assertResult(statement, 10L, 11L);
-                    assertContinuation(continuation, false, false);
-                }
-
-                try (var statement =
-                        connection.prepareStatement("EXECUTE CONTINUATION ?continuation OPTIONS(CONTINUATION CONTAINS COMPILED STATEMENT)")) {
-                    statement.setMaxRows(2);
-                    statement.setBytes("continuation", continuation.serialize());
-                    continuation = assertResult(statement, 12L, 13L);
-                    assertContinuation(continuation, false, false);
-
-                    statement.setBytes("continuation", continuation.serialize());
-                    continuation = assertResult(statement, 14L);
-                    assertContinuation(continuation, false, true);
-                }
-
             }
         }
     }
