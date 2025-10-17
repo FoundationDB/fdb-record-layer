@@ -7,6 +7,36 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.8
 
+### 4.8.2.0
+
+<h4> New Features </h4>
+
+* Use the LuceneSerializer to encode stored fields and field infos, too. - [PR #3669](https://github.com/FoundationDB/fdb-record-layer/pull/3669)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Add documentation to `CAST` operator. - [PR #3668](https://github.com/FoundationDB/fdb-record-layer/pull/3668)
+
+</details>
+
+
+**[Full Changelog (4.8.1.0...4.8.2.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.8.1.0...4.8.2.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+❌`4.5.13.0`, ❌`4.6.1.0`, ❌`4.6.2.0`, ❌`4.6.3.0`, ❌`4.6.4.0`, ❌`4.6.5.0`, ❌`4.7.1.0`, ❌`4.7.2.0`, ✅`4.7.3.0`, ✅`4.8.1.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/18580596733)
+
+
+
 ### 4.8.1.0
 
 <h4> Breaking Changes </h4>
