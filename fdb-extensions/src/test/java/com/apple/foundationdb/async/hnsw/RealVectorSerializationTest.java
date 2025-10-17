@@ -1,5 +1,5 @@
 /*
- * RealVectorTest.java
+ * RealVectorSerializationTest.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -23,20 +23,18 @@ package com.apple.foundationdb.async.hnsw;
 import com.apple.foundationdb.linear.DoubleRealVector;
 import com.apple.foundationdb.linear.HalfRealVector;
 import com.apple.foundationdb.linear.RealVector;
+import com.apple.test.RandomizedTestUtils;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
 import java.util.Random;
-import java.util.stream.LongStream;
 import java.util.stream.Stream;
 
-public class RealVectorTest {
+public class RealVectorSerializationTest {
     private static Stream<Long> randomSeeds() {
-        return LongStream.generate(() -> new Random().nextLong())
-                .limit(5)
-                .boxed();
+        return RandomizedTestUtils.randomSeeds(12345, 987654, 423, 18378195);
     }
 
     @ParameterizedTest(name = "seed={0}")

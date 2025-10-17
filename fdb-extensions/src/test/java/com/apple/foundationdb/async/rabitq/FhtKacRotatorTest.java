@@ -25,7 +25,7 @@ import com.apple.foundationdb.linear.DoubleRealVector;
 import com.apple.foundationdb.linear.FhtKacRotator;
 import com.apple.foundationdb.linear.RealMatrix;
 import com.apple.foundationdb.linear.RealVector;
-import com.apple.foundationdb.async.hnsw.RealVectorTest;
+import com.apple.foundationdb.async.hnsw.RealVectorSerializationTest;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ObjectArrays;
 import com.google.common.collect.Sets;
@@ -57,7 +57,7 @@ public class FhtKacRotatorTest {
         final FhtKacRotator rotator = new FhtKacRotator(seed, dimensionality, 10);
 
         final Random random = new Random(seed);
-        final RealVector x = RealVectorTest.createRandomDoubleVector(random, dimensionality);
+        final RealVector x = RealVectorSerializationTest.createRandomDoubleVector(random, dimensionality);
 
         final RealVector y = rotator.operate(x);
         final RealVector z = rotator.operateTranspose(y);
@@ -76,7 +76,7 @@ public class FhtKacRotatorTest {
         Assertions.assertThat(rotator1).isEqualTo(rotator2);
 
         final Random random = new Random(0);
-        final RealVector x = RealVectorTest.createRandomDoubleVector(random, 128);
+        final RealVector x = RealVectorSerializationTest.createRandomDoubleVector(random, 128);
         final RealVector x_ = rotator1.operate(x);
         final RealVector x__ = rotator2.operate(x);
 
