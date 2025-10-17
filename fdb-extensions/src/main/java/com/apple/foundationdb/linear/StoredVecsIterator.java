@@ -56,7 +56,6 @@ public abstract class StoredVecsIterator<N extends Number, T> extends AbstractIt
     @Nonnull
     protected abstract T toTarget(@Nonnull N[] components);
 
-
     @Nullable
     @Override
     protected T computeNext() {
