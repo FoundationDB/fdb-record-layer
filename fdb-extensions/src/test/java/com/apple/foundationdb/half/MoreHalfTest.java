@@ -79,6 +79,15 @@ public class MoreHalfTest {
     @SuppressWarnings("checkstyle:AbbreviationAsWordInName")
     @Test
     void conversionRoundingTestMinValue() {
+        //
+        // This conversion in Half implements round-to-nearest, ties-to-even for the half subnormal case by adding
+        // 0x007FF000 (which is 0x00800000 - 0x00001000), then shifting and final rounding. A consequence of this
+        // particular rounding scheme is:
+        // At the boundary we’re probing (mid = 2^-25, float exponent = 102), the expression
+        // ((0x007FF000 + significand) >> 23) stays 0 until significand >= 0x00001000 (4096 float-ULPs at that
+        // exponent), which means Math.nextUp(2^-25f) (only 1 ULP above the midpoint) still rounds to 0 in this
+        // implementation.
+        //
         float midF = Math.scalb(1.0f, -25);               // 2^-25 exact in float
         int bits   = Float.floatToRawIntBits(midF);
         bits      += 0x00001000;                          // +4096 ULPs at this exponent

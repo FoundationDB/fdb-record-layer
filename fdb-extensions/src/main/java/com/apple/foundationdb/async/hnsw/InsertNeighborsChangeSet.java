@@ -122,8 +122,8 @@ class InsertNeighborsChangeSet<N extends NodeReference> implements NeighborsChan
             if (tuplePredicate.test(primaryKey)) {
                 storageAdapter.writeNeighbor(transaction, layer, node.asInliningNode(),
                         entry.getValue().asNodeReferenceWithVector());
-                if (logger.isDebugEnabled()) {
-                    logger.debug("inserted neighbor of primaryKey={} targeting primaryKey={}", node.getPrimaryKey(),
+                if (logger.isTraceEnabled()) {
+                    logger.trace("inserted neighbor of primaryKey={} targeting primaryKey={}", node.getPrimaryKey(),
                             primaryKey);
                 }
             }

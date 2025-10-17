@@ -127,8 +127,8 @@ class DeleteNeighborsChangeSet<N extends NodeReference> implements NeighborsChan
         for (final Tuple deletedNeighborPrimaryKey : deletedNeighborsPrimaryKeys) {
             if (tuplePredicate.test(deletedNeighborPrimaryKey)) {
                 storageAdapter.deleteNeighbor(transaction, layer, node.asInliningNode(), deletedNeighborPrimaryKey);
-                if (logger.isDebugEnabled()) {
-                    logger.debug("deleted neighbor of primaryKey={} targeting primaryKey={}", node.getPrimaryKey(),
+                if (logger.isTraceEnabled()) {
+                    logger.trace("deleted neighbor of primaryKey={} targeting primaryKey={}", node.getPrimaryKey(),
                             deletedNeighborPrimaryKey);
                 }
             }

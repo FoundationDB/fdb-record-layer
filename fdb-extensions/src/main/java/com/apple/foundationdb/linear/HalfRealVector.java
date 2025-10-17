@@ -26,23 +26,18 @@ import com.google.common.base.Verify;
 import javax.annotation.Nonnull;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.util.function.Supplier;
 
 /**
  * A vector class encoding a vector over half components. Conversion to {@link DoubleRealVector} is supported and
  * memoized.
  */
 public class HalfRealVector extends AbstractRealVector {
-    @Nonnull
-    private final Supplier<DoubleRealVector> toDoubleVectorSupplier;
-
     public HalfRealVector(@Nonnull final Half[] halfData) {
         this(computeDoubleData(halfData));
     }
 
     public HalfRealVector(@Nonnull final double[] data) {
         super(truncateDoubleData(data));
-        this.toDoubleVectorSupplier = () -> new DoubleRealVector(this.data);
     }
 
     public HalfRealVector(@Nonnull final int[] intData) {
@@ -62,7 +57,7 @@ public class HalfRealVector extends AbstractRealVector {
     @Nonnull
     @Override
     public DoubleRealVector toDoubleRealVector() {
-        return toDoubleVectorSupplier.get();
+        return new DoubleRealVector(data);
     }
 
     @Nonnull
