@@ -24,15 +24,10 @@ import com.apple.foundationdb.linear.DoubleRealVector;
 import com.apple.foundationdb.linear.Estimator;
 import com.apple.foundationdb.linear.Metric;
 import com.apple.foundationdb.linear.RealVector;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 
 public class RaBitEstimator implements Estimator {
-    @Nonnull
-    private static final Logger logger = LoggerFactory.getLogger(RaBitEstimator.class);
-
     @Nonnull
     private final Metric metric;
     @Nonnull
@@ -62,14 +57,6 @@ public class RaBitEstimator implements Estimator {
 
     @Override
     public double distance(@Nonnull final RealVector query,
-                            @Nonnull final RealVector storedVector) {
-        double d = distance1(query, storedVector);
-        //logger.info("estimator distance = {}", d);
-        return d;
-    }
-
-    /** Estimate metric(queryRot, encodedVector) using ex-bits-only factors. */
-    public double distance1(@Nonnull final RealVector query,
                            @Nonnull final RealVector storedVector) {
         if (!(query instanceof EncodedRealVector) && storedVector instanceof EncodedRealVector) {
             // only use the estimator if the first (by convention) vector is not encoded, but the second is

@@ -30,6 +30,10 @@ import java.util.Comparator;
 import java.util.PriorityQueue;
 
 public final class RaBitQuantizer implements Quantizer {
+    private static final double EPS = 1e-5;
+    private static final double EPS0 = 1.9;
+    private static final int N_ENUM = 10;
+
     // Matches kTightStart[] from the C++ (index by ex_bits).
     // 0th entry unused; defined up to 8 extra bits in the source.
     private static final double[] TIGHT_START = {
@@ -49,10 +53,6 @@ public final class RaBitQuantizer implements Quantizer {
         this.numExBits = numExBits;
         this.metric = metric;
     }
-
-    private static final double EPS = 1e-5;
-    private static final double EPS0 = 1.9;
-    private static final int N_ENUM = 10;
 
     public int getNumDimensions() {
         return centroid.getNumDimensions();
@@ -91,26 +91,26 @@ public final class RaBitQuantizer implements Quantizer {
             totalCode[i] = signedCode[i] + (sgn << numExBits);
         }
 
-        // 4) cb = -(2^b - 0.5), and xu_cb = signedShift + cb
+        // 4) cb = -(2^b - 0.5), and xuCb = signedShift + cb
         final double cb = -(((1 << numExBits) - 0.5));
-        double[] xu_cb_data = new double[dims];
+        double[] xuCbData = new double[dims];
         for (int i = 0; i < dims; i++) {
-            xu_cb_data[i] = totalCode[i] + cb;
+            xuCbData[i] = totalCode[i] + cb;
         }
-        final RealVector xu_cb = new DoubleRealVector(xu_cb_data);
+        final RealVector xuCb = new DoubleRealVector(xuCbData);
 
         // 5) Precompute all needed values
-        final double residual_l2_sqr = data.dot(data);
-        final double residual_l2_norm = Math.sqrt(residual_l2_sqr);
-        final double ip_resi_xucb = data.dot(xu_cb);
-        final double xuCbNorm = xu_cb.l2Norm();
+        final double residualL2Sqr = data.dot(data);
+        final double residualL2Norm = Math.sqrt(residualL2Sqr);
+        final double ipResidualXuCb = data.dot(xuCb);
+        final double xuCbNorm = xuCb.l2Norm();
         final double xuCbNormSqr = xuCbNorm * xuCbNorm;
 
-        final double ip_resi_xucb_safe =
-                (ip_resi_xucb == 0.0) ? Double.POSITIVE_INFINITY : ip_resi_xucb;
+        final double ipResidualXuCbSafe =
+                (ipResidualXuCb == 0.0) ? Double.POSITIVE_INFINITY : ipResidualXuCb;
 
-        double tmp_error = residual_l2_norm * EPS0 *
-                Math.sqrt(((residual_l2_sqr * xuCbNormSqr) / (ip_resi_xucb_safe * ip_resi_xucb_safe) - 1.0)
+        double tmpError = residualL2Norm * EPS0 *
+                Math.sqrt(((residualL2Sqr * xuCbNormSqr) / (ipResidualXuCbSafe * ipResidualXuCbSafe) - 1.0)
                         / (Math.max(1, dims - 1)));
 
         double fAddEx;
@@ -118,13 +118,13 @@ public final class RaBitQuantizer implements Quantizer {
         double fErrorEx;
 
         if (metric == Metric.EUCLIDEAN_SQUARE_METRIC || metric == Metric.EUCLIDEAN_METRIC) {
-            fAddEx = residual_l2_sqr;
-            fRescaleEx = ipInv * (-2.0 * residual_l2_norm);
-            fErrorEx = 2.0 * tmp_error;
+            fAddEx = residualL2Sqr;
+            fRescaleEx = ipInv * (-2.0 * residualL2Norm);
+            fErrorEx = 2.0 * tmpError;
         } else if (metric == Metric.DOT_PRODUCT_METRIC) {
             fAddEx = 1.0;
-            fRescaleEx = ipInv * (-1.0 * residual_l2_norm);
-            fErrorEx = tmp_error;
+            fRescaleEx = ipInv * (-1.0 * residualL2Norm);
+            fErrorEx = tmpError;
         } else {
             throw new IllegalArgumentException("Unsupported metric");
         }
@@ -259,13 +259,13 @@ public final class RaBitQuantizer implements Quantizer {
         double bestT = 0.0;
 
         while (!pq.isEmpty()) {
-            Node node = pq.poll();
-            double curT = node.t;
-            int i = node.idx;
+            final Node node = pq.poll();
+            final double curT = node.t;
+            final int i = node.idx;
 
             // increment cur_o_bar[i]
             curOB[i]++;
-            int u = curOB[i];
+            final int u = curOB[i];
 
             // update denominator and numerator:
             // sqrDen += 2*u; numer += oAbs[i]
@@ -273,7 +273,7 @@ public final class RaBitQuantizer implements Quantizer {
             numer  += oAbs.getComponent(i);
 
             // objective value
-            double curIp = numer / Math.sqrt(sqrDen);
+            final double curIp = numer / Math.sqrt(sqrDen);
             if (curIp > maxIp) {
                 maxIp = curIp;
                 bestT = curT;
@@ -281,8 +281,8 @@ public final class RaBitQuantizer implements Quantizer {
 
             // schedule next threshold for this coordinate, unless we've hit max level
             if (u < maxLevel) {
-                double oi = oAbs.getComponent(i);
-                double tNext = (u + 1) / oi;
+                final double oi = oAbs.getComponent(i);
+                final double tNext = (u + 1) / oi;
                 if (tNext < tEnd) {
                     pq.add(new Node(tNext, i));
                 }
