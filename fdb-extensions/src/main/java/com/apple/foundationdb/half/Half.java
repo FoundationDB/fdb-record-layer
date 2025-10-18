@@ -53,6 +53,7 @@ public class Half extends Number implements Comparable<Half> {
      * <p>
      * It is equivalent to the value returned by {@link #shortBitsToHalf(short) shortBitsToHalf((short)0x7e00)}.
      */
+    @SuppressWarnings("PMD.FieldNamingConventions")
     public static final Half NaN = shortBitsToHalf((short) 0x7e00);
 
     /**
@@ -286,7 +287,7 @@ public class Half extends Number implements Comparable<Half> {
      *
      * @return the bits that represent the floating-point number.
      */
-    public static short floatRepresentationToShortBits(final float floatRepresentation) {
+    public static short floatToShortBitsCollapseNaN(final float floatRepresentation) {
         if (!Float.isNaN(floatRepresentation)) {
             return floatToHalfShortBits(floatRepresentation);
         }
@@ -506,16 +507,15 @@ public class Half extends Number implements Comparable<Half> {
      * @return a {@code Half} instance representing {@code floatValue}.
      */
     public static Half valueOf(float floatValue) {
-        return new Half(floatRepresentationOf(floatValue));
+        return new Half(quantizeFloat(floatValue));
     }
 
-    public static float floatRepresentationOf(final float floatValue) {
+    public static float quantizeFloat(final float floatValue) {
         // check for infinities
-        if (floatValue > 65504.0f || floatValue < -65504.0f) {
+        if (floatValue > 65_504.0f || floatValue < -65_504.0f) {
             return Half.halfShortToFloat((short) ((Float.floatToIntBits(floatValue) & 0x80000000) >> 16 | 0x7c00));
         }
-        //return floatValue;
-        return Half.halfShortToFloat(floatRepresentationToShortBits(floatValue));
+        return Half.halfShortToFloat(floatToShortBitsCollapseNaN(floatValue));
     }
 
     /**
@@ -830,7 +830,7 @@ public class Half extends Number implements Comparable<Half> {
      * @see java.util.function.BinaryOperator
      */
     public static Half max(Half a, Half b) {
-        return a.floatRepresentation > b.floatRepresentation ? a : b;
+        return Half.valueOf(Math.max(a.floatRepresentation, b.floatRepresentation));
     }
 
     /**
@@ -848,6 +848,6 @@ public class Half extends Number implements Comparable<Half> {
      * @see java.util.function.BinaryOperator
      */
     public static Half min(Half a, Half b) {
-        return a.floatRepresentation < b.floatRepresentation ? a : b;
+        return Half.valueOf(Math.min(a.floatRepresentation, b.floatRepresentation));
     }
 }

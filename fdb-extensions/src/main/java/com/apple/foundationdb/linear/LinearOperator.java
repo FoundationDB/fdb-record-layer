@@ -34,8 +34,8 @@ public interface LinearOperator {
     boolean isTransposable();
 
     @Nonnull
-    RealVector operate(@Nonnull final RealVector vector);
+    RealVector operate(@Nonnull RealVector vector);
 
     @Nonnull
-    RealVector operateTranspose(@Nonnull final RealVector vector);
+    RealVector operateTranspose(@Nonnull RealVector vector);
 }

@@ -67,6 +67,7 @@ public abstract class AbstractRealVector implements RealVector {
      * Returns the number of elements in the vector.
      * @return the number of elements
      */
+    @Override
     public int getNumDimensions() {
         return data.length;
     }
@@ -82,6 +83,7 @@ public abstract class AbstractRealVector implements RealVector {
      * @throws IndexOutOfBoundsException if the {@code dimension} is negative or
      *         greater than or equal to the number of dimensions of this object.
      */
+    @Override
     public double getComponent(int dimension) {
         return data[dimension];
     }
@@ -94,6 +96,7 @@ public abstract class AbstractRealVector implements RealVector {
      * @return the data array of type {@code R[]}, never {@code null}.
      */
     @Nonnull
+    @Override
     public double[] getData() {
         return data;
     }
@@ -106,6 +109,7 @@ public abstract class AbstractRealVector implements RealVector {
      * @return a non-null byte array containing the raw data.
      */
     @Nonnull
+    @Override
     public byte[] getRawData() {
         return toRawDataSupplier.get();
     }

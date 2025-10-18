@@ -86,7 +86,7 @@ public class HalfRealVector extends AbstractRealVector {
         final ByteBuffer buffer = ByteBuffer.wrap(vectorBytes).order(ByteOrder.BIG_ENDIAN);
         buffer.put((byte)VectorType.HALF.ordinal());
         for (int i = 0; i < getNumDimensions(); i ++) {
-            buffer.putShort(Half.floatRepresentationToShortBits(Half.floatRepresentationOf((float)getComponent(i))));
+            buffer.putShort(Half.floatToShortBitsCollapseNaN(Half.quantizeFloat((float)getComponent(i))));
         }
         return vectorBytes;
     }

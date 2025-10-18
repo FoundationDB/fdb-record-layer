@@ -24,6 +24,7 @@ import com.google.common.annotations.VisibleForTesting;
 
 import javax.annotation.Nonnull;
 import java.util.Arrays;
+import java.util.BitSet;
 import java.util.Random;
 
 /**
@@ -68,7 +69,7 @@ import java.util.Random;
 public final class FhtKacRotator implements LinearOperator {
     private final int numDimensions;
     private final int rounds;
-    private final byte[][] signs; // signs[r][i] in {-1, +1}
+    private final BitSet[] signs; // signs[r] of i bits in {not set: -1, set: +1}
     private static final double INV_SQRT2 = 1.0 / Math.sqrt(2.0);
 
     public FhtKacRotator(final long seed, final int numDimensions, final int rounds) {
@@ -83,11 +84,13 @@ public final class FhtKacRotator implements LinearOperator {
 
         // Pre-generate Rademacher signs for determinism/reuse.
         final Random rng = new Random(seed);
-        this.signs = new byte[rounds][numDimensions];
+        this.signs = new BitSet[rounds];
         for (int r = 0; r < rounds; r++) {
+            final BitSet s = new BitSet(numDimensions);
             for (int i = 0; i < numDimensions; i++) {
-                signs[r][i] = rng.nextBoolean() ? (byte)1 : (byte)-1;
+                s.set(i, rng.nextBoolean());
             }
+            signs[r] = s;
         }
     }
 
@@ -121,9 +124,9 @@ public final class FhtKacRotator implements LinearOperator {
 
         for (int r = 0; r < rounds; r++) {
             // 1) Rademacher signs
-            byte[] s = signs[r];
+            final BitSet s = signs[r];
             for (int i = 0; i < numDimensions; i++) {
-                y[i] *= s[i];
+                y[i] *= s.get(i) ? 1 : -1;
             }
 
             // 2) FHT on largest 2^k block; alternate head/tail
@@ -160,9 +163,9 @@ public final class FhtKacRotator implements LinearOperator {
             fhtNormalized(y, start, m);
 
             // Inverse of step 1: Rademacher signs (self-inverse)
-            byte[] s = signs[r];
+            final BitSet s = signs[r];
             for (int i = 0; i < numDimensions; i++) {
-                y[i] = (s[i] == 1 ? y[i] : -y[i]);
+                y[i] *= s.get(i) ? 1 : -1;
             }
         }
         return y;

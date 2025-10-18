@@ -139,8 +139,8 @@ public class EncodedRealVector implements RealVector {
         final double normZ = z.l2Norm();
 
         // Solve for rho and Δx from fErrorEx and fRescaleEx
-        final double A = (2.0 * EPS0) / Math.sqrt(numDimensions - 1.0);
-        final double denom = A * Math.abs(fRescaleEx) * normZ;
+        final double a = (2.0 * EPS0) / Math.sqrt(numDimensions - 1.0);
+        final double denom = a * Math.abs(fRescaleEx) * normZ;
         Verify.verify(denom != 0.0, "degenerate parameters: denom == 0");
 
         final double r = Math.min(1.0, (2.0 * Math.abs(fErrorEx)) / denom); // clamp for safety

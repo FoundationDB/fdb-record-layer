@@ -23,6 +23,6 @@ package com.apple.foundationdb.linear;
 import javax.annotation.Nonnull;
 
 public interface Estimator {
-    double distance(@Nonnull final RealVector query, // pre-rotated query q
-                    @Nonnull final RealVector storedVector);
+    double distance(@Nonnull RealVector query, // pre-rotated query q
+                    @Nonnull RealVector storedVector);
 }

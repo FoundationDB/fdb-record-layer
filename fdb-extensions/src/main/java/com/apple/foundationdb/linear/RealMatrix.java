@@ -29,7 +29,7 @@ public interface RealMatrix extends LinearOperator {
     @Nonnull
     double[][] getData();
 
-    double getEntry(final int row, final int column);
+    double getEntry(int row, int column);
 
     @Override
     default boolean isTransposable() {
@@ -70,7 +70,7 @@ public interface RealMatrix extends LinearOperator {
     }
 
     @Nonnull
-    default RealMatrix multiply(@Nonnull RealMatrix otherMatrix) {
+    default RealMatrix multiply(@Nonnull final RealMatrix otherMatrix) {
         int n = getRowDimension();
         int m = otherMatrix.getColumnDimension();
         int common = getColumnDimension();

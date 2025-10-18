@@ -20,19 +20,14 @@
 
 package com.apple.foundationdb.linear;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import javax.annotation.Nonnull;
 
 public interface Quantizer {
-    Logger logger = LoggerFactory.getLogger(Quantizer.class);
-
     @Nonnull
     Estimator estimator();
 
     @Nonnull
-    RealVector encode(@Nonnull final RealVector data);
+    RealVector encode(@Nonnull RealVector data);
 
     @Nonnull
     static Quantizer noOpQuantizer(@Nonnull final Metric metric) {
