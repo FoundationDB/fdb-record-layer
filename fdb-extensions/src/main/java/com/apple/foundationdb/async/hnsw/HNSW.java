@@ -497,6 +497,7 @@ public class HNSW {
     }
 
     @Nonnull
+    @SuppressWarnings("PMD.UseUnderscoresInNumericLiterals")
     RealVector centroidRot(@Nonnull final FhtKacRotator rotator) {
         final double[] centroidData = {29.0548, 16.785500000000003, 10.708300000000001, 9.7645, 11.3086, 13.3,
                 15.288300000000001, 17.6192, 32.8404, 31.009500000000003, 35.9102, 21.5091, 16.005300000000002, 28.0939,
@@ -1180,8 +1181,6 @@ public class HNSW {
     @Nonnull
     public CompletableFuture<Void> insertBatch(@Nonnull final Transaction transaction,
                                                @Nonnull List<NodeReferenceWithVector> batch) {
-        final Metric metric = getConfig().getMetric();
-
         // determine the layer each item should be inserted at
         final Random random = getConfig().getRandom();
         final List<NodeReferenceWithLayer> batchWithLayers = Lists.newArrayListWithCapacity(batch.size());
