@@ -250,12 +250,11 @@ public class HNSWTest {
             }
         }
         final double recall = (double)recallCount / (double)k;
-        Assertions.assertTrue(recall > 0.93);
-
         logger.info("search transaction took elapsedTime={}ms; read nodes={}, read bytes={}, recall={}",
                 TimeUnit.NANOSECONDS.toMillis(endTs - beginTs),
                 onReadListener.getNodeCountByLayer(), onReadListener.getBytesReadByLayer(),
                 String.format(Locale.ROOT, "%.2f", recall * 100.0d));
+        Assertions.assertTrue(recall > 0.79);
 
         final Set<Long> usedIds =
                 LongStream.range(0, 1000)

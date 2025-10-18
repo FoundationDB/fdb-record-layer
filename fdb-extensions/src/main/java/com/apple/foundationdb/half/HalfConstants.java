@@ -28,10 +28,6 @@ package com.apple.foundationdb.half;
  * @author Christian Heina (developer@christianheina.com)
  */
 public class HalfConstants {
-    private HalfConstants() {
-        /* Hidden Constructor */
-    }
-
     /**
      * The number of logical bits in the significand of a {@code half} number, including the implicit bit.
      */
@@ -62,6 +58,9 @@ public class HalfConstants {
      */
     public static final int SIGNIF_BIT_MASK = 0x03FF;
 
+    private HalfConstants() {
+        /* Hidden Constructor */
+    }
 }
 /*
  * Copyright 2023 Christian Heina
