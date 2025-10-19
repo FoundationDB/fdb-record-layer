@@ -23,8 +23,7 @@ package com.apple.foundationdb.linear;
 import com.google.common.base.Preconditions;
 
 import javax.annotation.Nonnull;
-import java.security.NoSuchAlgorithmException;
-import java.security.SecureRandom;
+import java.util.Random;
 
 public class RandomMatrixHelpers {
     private RandomMatrixHelpers() {
@@ -32,41 +31,19 @@ public class RandomMatrixHelpers {
     }
 
     @Nonnull
-    public static RealMatrix randomOrthogonalMatrix(int seed, int dimension) {
-        return decomposeMatrix(randomGaussianMatrix(seed, dimension, dimension));
+    public static RealMatrix randomOrthogonalMatrix(@Nonnull final Random random, final int dimension) {
+        return decomposeMatrix(randomGaussianMatrix(random, dimension, dimension));
     }
 
     @Nonnull
-    public static RealMatrix randomGaussianMatrix(int seed, int rowDimension, int columnDimension) {
-        final SecureRandom rng;
-        try {
-            rng = SecureRandom.getInstance("SHA1PRNG");
-        } catch (NoSuchAlgorithmException e) {
-            throw new RuntimeException(e);
-        }
-        rng.setSeed(seed);
-
+    public static RealMatrix randomGaussianMatrix(@Nonnull final Random random, final int rowDimension, final int columnDimension) {
         final double[][] resultMatrix = new double[rowDimension][columnDimension];
         for (int row = 0; row < rowDimension; row++) {
             for (int column = 0; column < columnDimension; column++) {
-                resultMatrix[row][column] = nextGaussian(rng);
+                resultMatrix[row][column] = random.nextGaussian();
             }
         }
-
         return new RowMajorRealMatrix(resultMatrix);
-    }
-
-    private static double nextGaussian(@Nonnull final SecureRandom rng) {
-        double v1;
-        double v2;
-        double s;
-        do {
-            v1 = 2 * rng.nextDouble() - 1; // between -1 and 1
-            v2 = 2 * rng.nextDouble() - 1; // between -1 and 1
-            s = v1 * v1 + v2 * v2;
-        } while (s >= 1 || s == 0);
-        double multiplier = StrictMath.sqrt(-2 * StrictMath.log(s) / s);
-        return v1 * multiplier;
     }
 
     @Nonnull
