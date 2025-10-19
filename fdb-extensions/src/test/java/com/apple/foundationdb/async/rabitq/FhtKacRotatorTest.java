@@ -42,19 +42,19 @@ import static org.assertj.core.api.Assertions.within;
 
 public class FhtKacRotatorTest {
     @Nonnull
-    static Stream<Arguments> randomSeedsWithDimensionality() {
+    static Stream<Arguments> randomSeedsWithNumDimensions() {
         return RandomizedTestUtils.randomSeeds(0xdeadc0deL, 0xfdb5ca1eL, 0xf005ba1L)
                 .flatMap(seed -> ImmutableSet.of(3, 5, 10, 128, 768, 1000).stream()
                         .map(numDimensions -> Arguments.of(seed, numDimensions)));
     }
 
     @ParameterizedTest
-    @MethodSource("randomSeedsWithDimensionality")
-    void testSimpleRotationAndBack(final long seed, final int numDimenstions) {
-        final FhtKacRotator rotator = new FhtKacRotator(seed, numDimenstions, 10);
+    @MethodSource("randomSeedsWithNumDimensions")
+    void testSimpleRotationAndBack(final long seed, final int numDimensions) {
+        final FhtKacRotator rotator = new FhtKacRotator(seed, numDimensions, 10);
 
         final Random random = new Random(seed);
-        final RealVector x = RealVectorSerializationTest.createRandomDoubleVector(random, numDimenstions);
+        final RealVector x = RealVectorSerializationTest.createRandomDoubleVector(random, numDimensions);
         final RealVector y = rotator.operate(x);
         final RealVector z = rotator.operateTranspose(y);
 
@@ -62,7 +62,7 @@ public class FhtKacRotatorTest {
     }
 
     @ParameterizedTest
-    @MethodSource("randomSeedsWithDimensionality")
+    @MethodSource("randomSeedsWithNumDimensions")
     void testRotationIsStable(final long seed, final int numDimensions) {
         final FhtKacRotator rotator1 = new FhtKacRotator(seed, numDimensions, 10);
         final FhtKacRotator rotator2 = new FhtKacRotator(seed, numDimensions, 10);
@@ -77,7 +77,7 @@ public class FhtKacRotatorTest {
     }
 
     @ParameterizedTest
-    @MethodSource("randomSeedsWithDimensionality")
+    @MethodSource("randomSeedsWithNumDimensions")
     void testOrthogonality(final long seed, final int numDimensions) {
         final FhtKacRotator rotator = new FhtKacRotator(seed, numDimensions, 10);
         final ColumnMajorRealMatrix p = new ColumnMajorRealMatrix(rotator.computeP().transpose().getData());
@@ -93,7 +93,7 @@ public class FhtKacRotatorTest {
     }
 
     @ParameterizedTest
-    @MethodSource("randomSeedsWithDimensionality")
+    @MethodSource("randomSeedsWithNumDimensions")
     void testOrthogonalityWithP(final long seed, final int dimensionality) {
         final FhtKacRotator rotator = new FhtKacRotator(seed, dimensionality, 10);
         final RealMatrix p = rotator.computeP();
