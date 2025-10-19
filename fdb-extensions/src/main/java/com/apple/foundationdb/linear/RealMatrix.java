@@ -70,20 +70,10 @@ public interface RealMatrix extends LinearOperator {
     }
 
     @Nonnull
-    default RealMatrix multiply(@Nonnull final RealMatrix otherMatrix) {
-        int n = getRowDimension();
-        int m = otherMatrix.getColumnDimension();
-        int common = getColumnDimension();
-        double[][] result = new double[n][m];
-        for (int i = 0; i < n; i++) {
-            for (int j = 0; j < m; j++) {
-                for (int k = 0; k < common; k++) {
-                    result[i][j] += getEntry(i, k) * otherMatrix.getEntry(k, j);
-                }
-            }
-        }
-        return new RowMajorRealMatrix(result);
-    }
+    RealMatrix multiply(@Nonnull RealMatrix otherMatrix);
+
+    @Nonnull
+    RealMatrix subMatrix(int startRow, int lengthRow, int startColumn, int lengthColumn);
 
     default boolean valueEquals(@Nullable final Object o) {
         if (!(o instanceof RealMatrix)) {
@@ -97,7 +87,7 @@ public interface RealMatrix extends LinearOperator {
         }
 
         for (int i = 0; i < getRowDimension(); i ++) {
-            for (int j = 0; j < getRowDimension(); j ++) {
+            for (int j = 0; j < getColumnDimension(); j ++) {
                 if (getEntry(i, j) != that.getEntry(i, j)) {
                     return false;
                 }
@@ -109,7 +99,7 @@ public interface RealMatrix extends LinearOperator {
     default int valueBasedHashCode() {
         int hashCode = 0;
         for (int i = 0; i < getRowDimension(); i ++) {
-            for (int j = 0; j < getRowDimension(); j ++) {
+            for (int j = 0; j < getColumnDimension(); j ++) {
                 hashCode += 31 * Double.hashCode(getEntry(i, j));
             }
         }

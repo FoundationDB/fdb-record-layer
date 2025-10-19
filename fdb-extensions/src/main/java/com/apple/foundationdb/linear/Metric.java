@@ -140,6 +140,6 @@ public enum Metric implements MetricDefinition {
      * @throws NullPointerException if either {@code vector1} or {@code vector2} is null.
      */
     public double distance(@Nonnull RealVector vector1, @Nonnull RealVector vector2) {
-        return metricDefinition.distance(vector1.getData(), vector2.getData());
+        return distance(vector1.getData(), vector2.getData());
     }
 }

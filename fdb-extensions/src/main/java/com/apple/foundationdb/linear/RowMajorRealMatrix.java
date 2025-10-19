@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.linear;
 
+import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 
@@ -75,6 +76,36 @@ public class RowMajorRealMatrix implements RealMatrix {
             }
         }
         return new RowMajorRealMatrix(result);
+    }
+
+    @Nonnull
+    @Override
+    public RealMatrix multiply(@Nonnull final RealMatrix otherMatrix) {
+        Preconditions.checkArgument(getColumnDimension() == otherMatrix.getRowDimension());
+        final int n = getRowDimension();
+        final int m = otherMatrix.getColumnDimension();
+        final int common = getColumnDimension();
+        double[][] result = new double[n][m];
+        for (int i = 0; i < n; i++) {
+            for (int j = 0; j < m; j++) {
+                for (int k = 0; k < common; k++) {
+                    result[i][j] += getEntry(i, k) * otherMatrix.getEntry(k, j);
+                }
+            }
+        }
+        return new RowMajorRealMatrix(result);
+    }
+
+    @Nonnull
+    @Override
+    public RealMatrix subMatrix(final int startRow, final int lengthRow, final int startColumn, final int lengthColumn) {
+        final double[][] subData = new double[lengthRow][lengthColumn];
+
+        for (int i = startRow; i < startRow + lengthRow; i ++) {
+            System.arraycopy(data[i], startColumn, subData[i - startRow], 0, lengthColumn);
+        }
+
+        return new RowMajorRealMatrix(subData);
     }
 
     @Override

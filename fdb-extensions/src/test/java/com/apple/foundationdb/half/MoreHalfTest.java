@@ -52,6 +52,8 @@ public class MoreHalfTest {
                        : ((rnd.nextDouble() * 2 - 1) * 2 * Half.MAX_VALUE.doubleValue());
             double y = Half.valueOf(x).doubleValue();
 
+            Assertions.assertThat(sameSign(x, y)).isTrue();
+
             if (Math.abs(x) > Half.MAX_VALUE.doubleValue()) {
                 if (x > 0) {
                     Assertions.assertThat(y).isEqualTo(Double.POSITIVE_INFINITY);
@@ -67,6 +69,20 @@ public class MoreHalfTest {
             double z = Half.valueOf(y).doubleValue();
             Assertions.assertThat(z).isEqualTo(y);
         }
+    }
+
+    /**
+     * Method to return if two doubles have the same sign including {@code Inf, -Inf, NaN, +-0}, etc.
+     * @param a a double
+     * @param b another double
+     * @return {@code true} iff {@code a} and {@code b} have the same sign
+     */
+    private static boolean sameSign(final double a, final double b) {
+        // extract raw bit representations
+        long bitsA = Double.doubleToRawLongBits(a);
+        long bitsB = Double.doubleToRawLongBits(b);
+        // the sign bit is the most significant bit (bit 63)
+        return ((bitsA ^ bitsB) & 0x8000_0000_0000_0000L) == 0;
     }
 
     @SuppressWarnings("checkstyle:AbbreviationAsWordInName")
@@ -88,13 +104,12 @@ public class MoreHalfTest {
         // exponent), which means Math.nextUp(2^-25f) (only 1 ULP above the midpoint) still rounds to 0 in this
         // implementation.
         //
-        float midF = Math.scalb(1.0f, -25);               // 2^-25 exact in float
-        int bits   = Float.floatToRawIntBits(midF);
-        bits      += 0x00001000;                          // +4096 ULPs at this exponent
-        float aboveF = Float.intBitsToFloat(bits);
+        final float midF = Math.scalb(1.0f, -25);                      // 2^-25 exact in float
+        final int bits   = Float.floatToRawIntBits(midF) + 0x00001000; // +4096 ULPs at this exponent
+        final float aboveF = Float.intBitsToFloat(bits);
 
-        Half h0 = Half.valueOf(Math.nextDown(midF));      // -> 0.0
-        Half h1 = Half.valueOf(aboveF);                   // -> 2^-24
+        final Half h0 = Half.valueOf(Math.nextDown(midF));             // -> 0.0
+        final Half h1 = Half.valueOf(aboveF);                          // -> 2^-24
 
         Assertions.assertThat(h0.doubleValue()).isEqualTo(0.0);
         Assertions.assertThat(h1.doubleValue()).isEqualTo(Math.scalb(1.0, -24));
