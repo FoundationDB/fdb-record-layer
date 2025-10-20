@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.keyspace;
 
-import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorContinuation;
@@ -49,6 +48,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -60,7 +60,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Tests for the new KeySpacePath data export feature that fetches all data stored under a KeySpacePath
- * and returns it in a {@code RecordCursor<KeyValue>}.
+ * and returns it in a {@code RecordCursor<DataInKeySpacePath>}.
  */
 @Tag(Tags.RequiresFDB)
 class KeySpacePathDataExportTest {
@@ -68,7 +68,7 @@ class KeySpacePathDataExportTest {
     final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
 
     @Test
-    void exportAllDataFromSimplePath() {
+    void exportAllDataFromSimplePath() throws ExecutionException, InterruptedException {
         KeySpace root = new KeySpace(
                 new KeySpaceDirectory("root", KeyType.STRING, UUID.randomUUID().toString())
                         .addSubdirectory(new KeySpaceDirectory("level1", KeyType.LONG)));
@@ -97,16 +97,25 @@ class KeySpacePathDataExportTest {
         // Export all data from the root path
         try (FDBRecordContext context = database.openContext()) {
             KeySpacePath rootPath = root.path("root");
-            final List<KeyValue> allData = exportAllData(rootPath, context);
+            final List<DataInKeySpacePath> allData = exportAllData(rootPath, context);
 
             // Should have 5 main entries + 15 sub-entries = 20 total
             assertEquals(20, allData.size());
-            
+
             // Verify the data is sorted by key
             for (int i = 1; i < allData.size(); i++) {
-                assertTrue(Tuple.fromBytes(allData.get(i - 1).getKey()).compareTo(
-                          Tuple.fromBytes(allData.get(i).getKey())) < 0);
+                assertTrue(getKey(allData.get(i - 1)).compareTo(getKey(allData.get(i))) < 0);
             }
+        }
+    }
+
+    // `toTuple` does not include the remainder, I'm not sure if that is intentional, or an oversight.
+    private Tuple getKey(final DataInKeySpacePath dataInKeySpacePath) throws ExecutionException, InterruptedException {
+        final ResolvedKeySpacePath resolvedKeySpacePath = dataInKeySpacePath.getResolvedPath().get();
+        if (resolvedKeySpacePath.getRemainder() != null) {
+            return resolvedKeySpacePath.toTuple().addAll(resolvedKeySpacePath.getRemainder());
+        } else {
+            return resolvedKeySpacePath.toTuple();
         }
     }
 
@@ -139,14 +148,14 @@ class KeySpacePathDataExportTest {
         // Export data only for user 2
         try (FDBRecordContext context = database.openContext()) {
             KeySpacePath user2Path = root.path("app").add("user", 2L);
-            final List<KeyValue> userData = exportAllData(user2Path, context);
+            final List<DataInKeySpacePath> userData = exportAllData(user2Path, context);
 
             // Should have 4 records for user 2
             assertEquals(4, userData.size());
-            
+
             // Verify all data belongs to user 2
-            for (KeyValue kv : userData) {
-                String value = Tuple.fromBytes(kv.getValue()).getString(0);
+            for (DataInKeySpacePath data : userData) {
+                String value = Tuple.fromBytes(data.getValue()).getString(0);
                 assertTrue(value.startsWith("user2_"));
             }
         }
@@ -184,15 +193,15 @@ class KeySpacePathDataExportTest {
         // Export all data from tenant path
         try (FDBRecordContext context = database.openContext()) {
             KeySpacePath tenantPath = root.path("env").add("tenant", 100L);
-            final List<KeyValue> allData = exportAllData(tenantPath, context);
+            final List<DataInKeySpacePath> allData = exportAllData(tenantPath, context);
 
             // Should have 6 records (3 services * 2 configs each)
             assertEquals(6, allData.size());
-            
+
             // Verify we have data for all three services
             Set<String> serviceNames = new HashSet<>();
-            for (KeyValue kv : allData) {
-                String value = Tuple.fromBytes(kv.getValue()).getString(0);
+            for (DataInKeySpacePath data : allData) {
+                String value = Tuple.fromBytes(data.getValue()).getString(0);
                 String serviceName = value.split("_")[0];
                 serviceNames.add(serviceName);
             }
@@ -238,14 +247,14 @@ class KeySpacePathDataExportTest {
         // Export all data and verify different key types
         try (FDBRecordContext context = database.openContext()) {
             KeySpacePath mixedPath = root.path("mixed");
-            final List<KeyValue> allData = exportAllData(mixedPath, context);
+            final List<DataInKeySpacePath> allData = exportAllData(mixedPath, context);
 
             // Should have 12 records total (3+3+2+2+2)
             assertEquals(12, allData.size());
-            
+
             // Verify we have different value types
             Set<String> valueTypes = allData.stream()
-                    .map(kv -> Tuple.fromBytes(kv.getValue()).getString(0).split("_")[0])
+                    .map(data -> Tuple.fromBytes(data.getValue()).getString(0).split("_")[0])
                     .collect(Collectors.toSet());
             assertEquals(5, valueTypes.size());
             assertTrue(valueTypes.containsAll(Arrays.asList("string", "long", "bytes", "uuid", "boolean")));
@@ -279,14 +288,14 @@ class KeySpacePathDataExportTest {
         // Export data from path with constant values
         try (FDBRecordContext context = database.openContext()) {
             KeySpacePath appPath = root.path("app");
-            final List<KeyValue> allData = exportAllData(appPath, context);
+            final List<DataInKeySpacePath> allData = exportAllData(appPath, context);
 
             // Should have 4 records
             assertEquals(4, allData.size());
-            
+
             // Verify all data has expected prefix
-            for (KeyValue kv : allData) {
-                String value = Tuple.fromBytes(kv.getValue()).getString(0);
+            for (DataInKeySpacePath data : allData) {
+                String value = Tuple.fromBytes(data.getValue()).getString(0);
                 assertTrue(value.startsWith("constant_path_data_"));
             }
         }
@@ -303,7 +312,7 @@ class KeySpacePathDataExportTest {
         // Don't store any data
         try (FDBRecordContext context = database.openContext()) {
             KeySpacePath emptyPath = root.path("empty");
-            final List<KeyValue> allData = exportAllData(emptyPath, context);
+            final List<DataInKeySpacePath> allData = exportAllData(emptyPath, context);
 
             // Should be empty
             assertEquals(0, allData.size());
@@ -350,23 +359,23 @@ class KeySpacePathDataExportTest {
         // Export all data from organization root
         try (FDBRecordContext context = database.openContext()) {
             KeySpacePath orgPath = root.path("org");
-            final List<KeyValue> allData = exportAllData(orgPath, context);
+            final List<DataInKeySpacePath> allData = exportAllData(orgPath, context);
 
             // Should have 16 records (2 departments * 2 teams * 2 members * 2 records each)
             assertEquals(16, allData.size());
         }
-        
+
         // Export data from specific department
         try (FDBRecordContext context = database.openContext()) {
             KeySpacePath engPath = root.path("org").add("dept", "engineering");
-            final List<KeyValue> allData = exportAllData(engPath, context);
+            final List<DataInKeySpacePath> allData = exportAllData(engPath, context);
 
             // Should have 8 records (1 dept * 2 teams * 2 members * 2 records each)
             assertEquals(8, allData.size());
-            
+
             // Verify all belong to engineering
-            for (KeyValue kv : allData) {
-                String value = Tuple.fromBytes(kv.getValue()).getString(0);
+            for (DataInKeySpacePath data : allData) {
+                String value = Tuple.fromBytes(data.getValue()).getString(0);
                 if (value.startsWith("engineering_")) {
                     assertTrue(value.contains("engineering_"));
                 }
@@ -405,13 +414,13 @@ class KeySpacePathDataExportTest {
         // Export binary data
         try (FDBRecordContext context = database.openContext()) {
             KeySpacePath binaryPath = root.path("binary");
-            final List<KeyValue> allData = exportAllData(binaryPath, context);
+            final List<DataInKeySpacePath> allData = exportAllData(binaryPath, context);
 
             assertEquals(3, allData.size());
-            
+
             // Verify binary data integrity
-            for (KeyValue kv : allData) {
-                String valueStr = new String(kv.getValue());
+            for (DataInKeySpacePath data : allData) {
+                String valueStr = new String(data.getValue());
                 assertTrue(valueStr.startsWith("binary_data_"));
             }
         }
@@ -476,8 +485,7 @@ class KeySpacePathDataExportTest {
                         scanProperties);
                 final AtomicReference<RecordCursorResult<Tuple>> tupleResult = new AtomicReference<>();
                 final List<Tuple> batch = cursor.map(dataInPath -> {
-                    KeyValue kv = dataInPath.getRawKeyValue();
-                    return Tuple.fromBytes(kv.getValue());
+                    return Tuple.fromBytes(dataInPath.getValue());
                 }).asList(tupleResult).join();
                 actual.add(batch);
                 continuation = tupleResult.get().getContinuation();
@@ -495,9 +503,9 @@ class KeySpacePathDataExportTest {
         try (FDBRecordContext context = database.openContext()) {
             // Export from root level (should get all data)
             EnvironmentKeySpace.EnvironmentRoot root = keySpace.root();
-            List<KeyValue> allData = exportAllData(root, context);
+            List<DataInKeySpacePath> allData = exportAllData(root, context);
             assertEquals(6, allData.size(), "Root level should export all data");
-            
+
             // Export from specific user level (should get data for user 100 only)
             EnvironmentKeySpace.UserPath user100Path = keySpace.root().userid(100L);
             verifyExtractedData(exportAllData(user100Path, context),
@@ -512,11 +520,11 @@ class KeySpacePathDataExportTest {
 
             // Export from specific data store level
             EnvironmentKeySpace.DataPath dataStore = app1User100.dataStore();
-            List<KeyValue> dataStoreData = exportAllData(dataStore, context);
+            List<DataInKeySpacePath> dataStoreData = exportAllData(dataStore, context);
             verifyExtractedData(dataStoreData,
                     3, "Data store should have exactly 3 records",
                     "user100_app1_data", "Data should be from user100 app1 data store");
-            
+
             // Export from metadata store level
             EnvironmentKeySpace.MetadataPath metadataStore = app1User100.metadataStore();
             verifyExtractedData(exportAllData(metadataStore, context),
@@ -572,11 +580,11 @@ class KeySpacePathDataExportTest {
      * that {@link KeySpacePath#exportAllData} is built on.
      * @param pathToExport the path being exported
      * @param context the context in which to export
-     * @return a list of the raw {@code KeyValue}s being exported
+     * @return a list of {@code DataInKeySpacePath}s being exported
      */
-    private static List<KeyValue> exportAllData(final KeySpacePath pathToExport, final FDBRecordContext context) {
-        final List<KeyValue> asSingleExport = pathToExport.exportAllData(context, null, ScanProperties.FORWARD_SCAN)
-                .map(DataInKeySpacePath::getRawKeyValue).asList().join();
+    private static List<DataInKeySpacePath> exportAllData(final KeySpacePath pathToExport, final FDBRecordContext context) {
+        final List<DataInKeySpacePath> asSingleExport = pathToExport.exportAllData(context, null, ScanProperties.FORWARD_SCAN)
+                .asList().join();
 
         // assert that the resolved paths contain the right prefix
         final List<ResolvedKeySpacePath> resolvedPaths = pathToExport.exportAllData(context, null, ScanProperties.FORWARD_SCAN)
@@ -587,31 +595,40 @@ class KeySpacePathDataExportTest {
         }
 
         // assert that the reverse scan is the same as the forward scan, but in reverse
-        final List<KeyValue> reversed = pathToExport.exportAllData(context, null, ScanProperties.REVERSE_SCAN)
-                .map(DataInKeySpacePath::getRawKeyValue).asList().join();
+        final List<DataInKeySpacePath> reversed = pathToExport.exportAllData(context, null, ScanProperties.REVERSE_SCAN)
+                .asList().join();
         Collections.reverse(reversed);
-        assertEquals(asSingleExport, reversed);
+        assertDataInKeySpacePathEquals(asSingleExport, reversed);
 
         // Assert continuations work correctly
         final ScanProperties scanProperties = ScanProperties.FORWARD_SCAN.with(props -> props.setReturnedRowLimit(1));
-        List<KeyValue> asContinuations = new ArrayList<>();
+        List<DataInKeySpacePath> asContinuations = new ArrayList<>();
         RecordCursorContinuation continuation = RecordCursorStartContinuation.START;
         while (!continuation.isEnd()) {
             final RecordCursor<DataInKeySpacePath> cursor = pathToExport.exportAllData(context, continuation.toBytes(),
                     scanProperties);
-            final AtomicReference<RecordCursorResult<KeyValue>> keyValueResult = new AtomicReference<>();
-            final List<KeyValue> batch = cursor.map(DataInKeySpacePath::getRawKeyValue).asList(keyValueResult).join();
+            final AtomicReference<RecordCursorResult<DataInKeySpacePath>> dataInPathResult = new AtomicReference<>();
+            final List<DataInKeySpacePath> batch = cursor.asList(dataInPathResult).join();
             asContinuations.addAll(batch);
-            continuation = keyValueResult.get().getContinuation();
-            if (keyValueResult.get().hasNext()) {
+            continuation = dataInPathResult.get().getContinuation();
+            if (dataInPathResult.get().hasNext()) {
                 assertEquals(1, batch.size());
             } else {
                 assertThat(batch.size()).isLessThanOrEqualTo(1);
             }
         }
 
-        assertEquals(asSingleExport, asContinuations);
+        assertDataInKeySpacePathEquals(asSingleExport, asContinuations);
         return asSingleExport;
+    }
+
+    private static void assertDataInKeySpacePathEquals(final List<DataInKeySpacePath> expectedList,
+                                                       final List<DataInKeySpacePath> actualList) {
+        assertThat(actualList).zipSatisfy(expectedList,
+                (actual, other) -> {
+                    assertThat(actual.getResolvedPath().join()).isEqualTo(other.getResolvedPath().join());
+                    assertThat(actual.getValue()).isEqualTo(other.getValue());
+                });
     }
 
     private static void assertStartsWith(final ResolvedKeySpacePath rootResolvedPath, ResolvedKeySpacePath resolvedPath) {
@@ -625,13 +642,13 @@ class KeySpacePathDataExportTest {
         Assertions.fail("Expected <" + resolvedPath + "> to start with <" + rootResolvedPath + "> but it didn't");
     }
 
-    private static void verifyExtractedData(final List<KeyValue> app1User100Data,
+    private static void verifyExtractedData(final List<DataInKeySpacePath> app1User100Data,
                                             int expectedCount, String expectedCountMessage,
                                             String expectedValueContents, String contentMessage) {
         assertEquals(expectedCount, app1User100Data.size(), expectedCountMessage);
 
-        for (KeyValue kv : app1User100Data) {
-            String value = Tuple.fromBytes(kv.getValue()).getString(0);
+        for (DataInKeySpacePath data : app1User100Data) {
+            String value = Tuple.fromBytes(data.getValue()).getString(0);
             assertTrue(value.contains(expectedValueContents), contentMessage);
         }
     }

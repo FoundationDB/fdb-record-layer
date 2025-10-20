@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 
+import javax.annotation.Nonnull;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -32,12 +33,12 @@ import java.util.concurrent.CompletableFuture;
  */
 public class DataInKeySpacePath {
 
-    final CompletableFuture<ResolvedKeySpacePath> resolvedPath;
-    final KeyValue rawKeyValue;
+    @Nonnull
+    private final CompletableFuture<ResolvedKeySpacePath> resolvedPath;
+    @Nonnull
+    private final byte[] value;
 
     public DataInKeySpacePath(KeySpacePath path, KeyValue rawKeyValue, FDBRecordContext context) {
-        this.rawKeyValue = rawKeyValue;
-
         // Convert the raw key to a Tuple and resolve it starting from the provided path
         Tuple keyTuple = Tuple.fromBytes(rawKeyValue.getKey());
         
@@ -64,13 +65,15 @@ public class DataInKeySpacePath {
                 return CompletableFuture.completedFuture(resolvedPath);
             }
         });
+
+        this.value = rawKeyValue.getValue();
     }
 
     public CompletableFuture<ResolvedKeySpacePath> getResolvedPath() {
         return resolvedPath;
     }
 
-    public KeyValue getRawKeyValue() {
-        return rawKeyValue;
+    public byte[] getValue() {
+        return this.value;
     }
 }

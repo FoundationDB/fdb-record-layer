@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDire
 import com.apple.foundationdb.record.test.FDBDatabaseExtension;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
+import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -37,6 +38,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -249,8 +251,9 @@ class DataInKeySpacePathTest {
         }
     }
 
-    @Test
-    void keyValueAccessors() {
+    @ParameterizedTest
+    @BooleanSource("withRemainder")
+    void keyValueAccessors(boolean withRemainder) throws ExecutionException, InterruptedException {
         KeySpace root = new KeySpace(
                 new KeySpaceDirectory("test", KeyType.STRING, UUID.randomUUID().toString()));
 
@@ -258,23 +261,26 @@ class DataInKeySpacePathTest {
 
         try (FDBRecordContext context = database.openContext()) {
             KeySpacePath testPath = root.path("test");
-            Tuple keyTuple = testPath.toTuple(context);
-            byte[] keyBytes = keyTuple.pack();
+            Tuple pathTuple = testPath.toTuple(context);
+            byte[] keyBytes = withRemainder ? pathTuple.add("Remainder").pack() : pathTuple.pack();
             byte[] valueBytes = Tuple.from("accessor_test").pack();
             
             KeyValue originalKeyValue = new KeyValue(keyBytes, valueBytes);
             DataInKeySpacePath dataInPath = new DataInKeySpacePath(testPath, originalKeyValue, context);
-            
-            // Verify accessor methods
-            KeyValue retrievedKeyValue = dataInPath.getRawKeyValue();
-            assertNotNull(retrievedKeyValue);
-            assertEquals(originalKeyValue.getKey(), retrievedKeyValue.getKey());
-            assertEquals(originalKeyValue.getValue(), retrievedKeyValue.getValue());
-            
+
             // Verify resolved path future is not null
             CompletableFuture<ResolvedKeySpacePath> resolvedFuture = dataInPath.getResolvedPath();
             assertNotNull(resolvedFuture);
             assertTrue(resolvedFuture.isDone() || !resolvedFuture.isCancelled());
+
+            final ResolvedKeySpacePath resolvedPath = resolvedFuture.get();
+            assertEquals(pathTuple, resolvedPath.toTuple());
+            assertEquals(originalKeyValue.getValue(), dataInPath.getValue());
+            if (withRemainder) {
+                assertEquals(Tuple.from("Remainder"), resolvedPath.getRemainder());
+            } else {
+                assertNull(resolvedPath.getRemainder());
+            }
         }
     }
 
