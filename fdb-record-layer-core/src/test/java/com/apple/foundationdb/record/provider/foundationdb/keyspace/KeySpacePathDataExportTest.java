@@ -445,9 +445,9 @@ class KeySpacePathDataExportTest {
         // Store test data
         final List<List<Tuple>> expectedBatches = new ArrayList<>();
         expectedBatches.add(new ArrayList<>());
+        final KeySpacePath pathToExport = root.path("continuation");
         try (FDBRecordContext context = database.openContext()) {
             Transaction tr = context.ensureActive();
-            KeySpacePath basePath = root.path("continuation");
 
             IntStream sourceStream;
             if (forward) {
@@ -456,7 +456,7 @@ class KeySpacePathDataExportTest {
                 sourceStream = IntStream.iterate(19, i -> i >= 0, i -> i - 1);
             }
             sourceStream.forEach(i -> {
-                Tuple key = basePath.add("item", (long)i).toTuple(context);
+                Tuple key = pathToExport.add("item", (long)i).toTuple(context);
                 final Tuple value = Tuple.from("continuation_item_" + i);
                 tr.set(key.pack(), value.pack());
                 if (expectedBatches.get(expectedBatches.size() - 1).size() == limit) {
@@ -472,8 +472,52 @@ class KeySpacePathDataExportTest {
         }
 
         // Export with continuation support
+        exportWithContinuations(pathToExport, forward, limit, database, expectedBatches);
+    }
+
+    static Stream<Arguments> exportSingleKeyWithContinuation() {
+        return ParameterizedTestUtils.cartesianProduct(
+                ParameterizedTestUtils.booleans("forward"),
+                ParameterizedTestUtils.booleans("withRemainder"),
+                Stream.of(1, 3)
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource
+    void exportSingleKeyWithContinuation(boolean forward, boolean withRemainder, int limit) {
+        KeySpace root = new KeySpace(
+                new KeySpaceDirectory("continuation", KeyType.STRING, UUID.randomUUID().toString())
+                        .addSubdirectory(new KeySpaceDirectory("item", KeyType.LONG)));
+
+        final FDBDatabase database = dbExtension.getDatabase();
+
+        // Store test data
+        final List<List<Tuple>> expectedBatches;
+        final KeySpacePath pathToExport = root.path("continuation");
         try (FDBRecordContext context = database.openContext()) {
-            KeySpacePath continuationPath = root.path("continuation");
+            Transaction tr = context.ensureActive();
+            byte[] key;
+            if (withRemainder) {
+                key = pathToExport.toSubspace(context).pack(Tuple.from("continuation"));
+            } else {
+                key = pathToExport.toSubspace(context).pack();
+            }
+            final Tuple value = Tuple.from("My Value");
+            tr.set(key, value.pack());
+            expectedBatches = limit == 1 ? List.of(List.of(value), List.of()) : List.of(List.of(value));
+            context.commit();
+        }
+
+        // Export with continuation support
+        exportWithContinuations(pathToExport, forward, limit, database, expectedBatches);
+    }
+
+    private static void exportWithContinuations(final KeySpacePath pathToExport,
+                                                final boolean forward, final int limit,
+                                                final FDBDatabase database,
+                                                final List<List<Tuple>> expectedBatches) {
+        try (FDBRecordContext context = database.openContext()) {
 
             final ScanProperties directionalProperties = forward ? ScanProperties.FORWARD_SCAN : ScanProperties.REVERSE_SCAN;
 
@@ -481,7 +525,7 @@ class KeySpacePathDataExportTest {
             List<List<Tuple>> actual = new ArrayList<>();
             RecordCursorContinuation continuation = RecordCursorStartContinuation.START;
             while (!continuation.isEnd()) {
-                final RecordCursor<DataInKeySpacePath> cursor = continuationPath.exportAllData(context, continuation.toBytes(),
+                final RecordCursor<DataInKeySpacePath> cursor = pathToExport.exportAllData(context, continuation.toBytes(),
                         scanProperties);
                 final AtomicReference<RecordCursorResult<Tuple>> tupleResult = new AtomicReference<>();
                 final List<Tuple> batch = cursor.map(dataInPath -> {
