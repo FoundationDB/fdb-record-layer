@@ -21,11 +21,14 @@
 package com.apple.foundationdb.async.hnsw;
 
 import com.apple.foundationdb.linear.DoubleRealVector;
+import com.apple.foundationdb.linear.FloatRealVector;
 import com.apple.foundationdb.linear.HalfRealVector;
 import com.apple.foundationdb.linear.RealVector;
 import com.apple.test.RandomizedTestUtils;
+import com.google.common.collect.ImmutableSet;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
@@ -33,15 +36,17 @@ import java.util.Random;
 import java.util.stream.Stream;
 
 public class RealVectorSerializationTest {
-    private static Stream<Long> randomSeeds() {
-        return RandomizedTestUtils.randomSeeds(12345, 987654, 423, 18378195);
+    @Nonnull
+    private static Stream<Arguments> randomSeedsWithNumDimensions() {
+        return RandomizedTestUtils.randomSeeds(0xdeadc0deL, 0xfdb5ca1eL, 0xf005ba1L)
+                .flatMap(seed -> ImmutableSet.of(3, 5, 10, 128, 768, 1000).stream()
+                        .map(numDimensions -> Arguments.of(seed, numDimensions)));
     }
 
-    @ParameterizedTest(name = "seed={0}")
-    @MethodSource("randomSeeds")
-    void testSerializationDeserializationHalfVector(final long seed) {
+    @ParameterizedTest
+    @MethodSource("randomSeedsWithNumDimensions")
+    void testSerializationDeserializationHalfVector(final long seed, final int numDimensions) {
         final Random random = new Random(seed);
-        final int numDimensions = 128;
         final HalfRealVector randomVector = createRandomHalfVector(random, numDimensions);
         final RealVector deserializedVector =
                 StorageAdapter.vectorFromBytes(HNSW.DEFAULT_CONFIG_BUILDER.build(numDimensions), randomVector.getRawData());
@@ -49,11 +54,21 @@ public class RealVectorSerializationTest {
         Assertions.assertThat(deserializedVector).isEqualTo(randomVector);
     }
 
-    @ParameterizedTest(name = "seed={0}")
-    @MethodSource("randomSeeds")
-    void testSerializationDeserializationDoubleVector(final long seed) {
+    @ParameterizedTest
+    @MethodSource("randomSeedsWithNumDimensions")
+    void testSerializationDeserializationFloatVector(final long seed, final int numDimensions) {
         final Random random = new Random(seed);
-        final int numDimensions = 128;
+        final FloatRealVector randomVector = createRandomFloatVector(random, numDimensions);
+        final RealVector deserializedVector =
+                StorageAdapter.vectorFromBytes(HNSW.DEFAULT_CONFIG_BUILDER.build(numDimensions), randomVector.getRawData());
+        Assertions.assertThat(deserializedVector).isInstanceOf(FloatRealVector.class);
+        Assertions.assertThat(deserializedVector).isEqualTo(randomVector);
+    }
+
+    @ParameterizedTest
+    @MethodSource("randomSeedsWithNumDimensions")
+    void testSerializationDeserializationDoubleVector(final long seed, final int numDimensions) {
+        final Random random = new Random(seed);
         final DoubleRealVector randomVector = createRandomDoubleVector(random, numDimensions);
         final RealVector deserializedVector =
                 StorageAdapter.vectorFromBytes(HNSW.DEFAULT_CONFIG_BUILDER.build(numDimensions), randomVector.getRawData());
@@ -68,6 +83,15 @@ public class RealVectorSerializationTest {
             components[d] = random.nextDouble();
         }
         return new HalfRealVector(components);
+    }
+
+    @Nonnull
+    public static FloatRealVector createRandomFloatVector(@Nonnull final Random random, final int dimensionality) {
+        final float[] components = new float[dimensionality];
+        for (int d = 0; d < dimensionality; d ++) {
+            components[d] = random.nextFloat();
+        }
+        return new FloatRealVector(components);
     }
 
     @Nonnull
