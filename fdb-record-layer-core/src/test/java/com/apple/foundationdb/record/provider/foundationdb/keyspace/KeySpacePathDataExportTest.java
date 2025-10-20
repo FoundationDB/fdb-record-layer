@@ -32,13 +32,15 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory.KeyType;
 import com.apple.foundationdb.record.test.FDBDatabaseExtension;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.test.ParameterizedTestUtils;
 import com.apple.test.Tags;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -50,6 +52,7 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -414,9 +417,16 @@ class KeySpacePathDataExportTest {
         }
     }
 
+    static Stream<Arguments> exportAllDataWithContinuation() {
+        return ParameterizedTestUtils.cartesianProduct(
+                ParameterizedTestUtils.booleans("forward"),
+                Stream.of(1, 2, 3, 30)
+        );
+    }
+
     @ParameterizedTest
-    @ValueSource(ints = {1, 2, 3, 30})
-    void exportAllDataWithContinuation(int limit) {
+    @MethodSource
+    void exportAllDataWithContinuation(boolean forward, int limit) {
         KeySpace root = new KeySpace(
                 new KeySpaceDirectory("continuation", KeyType.STRING, UUID.randomUUID().toString())
                         .addSubdirectory(new KeySpaceDirectory("item", KeyType.LONG)));
@@ -430,7 +440,13 @@ class KeySpacePathDataExportTest {
             Transaction tr = context.ensureActive();
             KeySpacePath basePath = root.path("continuation");
 
-            IntStream.range(0, 20).forEach(i -> {
+            IntStream sourceStream;
+            if (forward) {
+                sourceStream = IntStream.range(0, 20);
+            } else {
+                sourceStream = IntStream.iterate(19, i -> i >= 0, i -> i - 1);
+            }
+            sourceStream.forEach(i -> {
                 Tuple key = basePath.add("item", (long)i).toTuple(context);
                 final Tuple value = Tuple.from("continuation_item_" + i);
                 tr.set(key.pack(), value.pack());
@@ -441,15 +457,18 @@ class KeySpacePathDataExportTest {
             });
             context.commit();
         }
+
         if (20 % limit == 0) {
             expectedBatches.add(List.of());
         }
-        
+
         // Export with continuation support
         try (FDBRecordContext context = database.openContext()) {
             KeySpacePath continuationPath = root.path("continuation");
 
-            final ScanProperties scanProperties = ScanProperties.FORWARD_SCAN.with(props -> props.setReturnedRowLimit(limit));
+            final ScanProperties directionalProperties = forward ? ScanProperties.FORWARD_SCAN : ScanProperties.REVERSE_SCAN;
+
+            final ScanProperties scanProperties = directionalProperties.with(props -> props.setReturnedRowLimit(limit));
             List<List<Tuple>> actual = new ArrayList<>();
             RecordCursorContinuation continuation = RecordCursorStartContinuation.START;
             while (!continuation.isEnd()) {
