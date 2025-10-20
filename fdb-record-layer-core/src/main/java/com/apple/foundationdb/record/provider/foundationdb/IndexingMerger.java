@@ -25,12 +25,17 @@ import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.provider.common.StoreTimer;
+import com.apple.foundationdb.record.provider.common.StoreTimerSnapshot;
 import com.apple.foundationdb.record.util.Result;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -52,6 +57,8 @@ public class IndexingMerger {
     private final IndexingCommon common;
     private int repartitionDocumentCount = 0;
     private int repartitionSecondChances = 0;
+    private StoreTimerSnapshot lastProgressSnapshot = null;
+
 
     public IndexingMerger(final Index index,  IndexingCommon common, long initialMergesCountLimit) {
         this.index = index;
@@ -75,6 +82,7 @@ public class IndexingMerger {
                 // Note: this runAsync will retry according to the runner's "maxAttempts" setting
                 common.getRunner().runAsync(context -> openRecordStore(context)
                                 .thenCompose(store -> {
+                                    startFdbMetricsMeasurement(timer);
                                     mergeStartTime.set(System.nanoTime());
                                     final IndexDeferredMaintenanceControl mergeControl = store.getIndexDeferredMaintenanceControl();
                                     mergeControlRef.set(mergeControl);
@@ -229,7 +237,7 @@ public class IndexingMerger {
         throw common.getRunner().getDatabase().mapAsyncToSyncException(e);
     }
 
-    List<Object> mergerKeysAndValues(final IndexDeferredMaintenanceControl mergeControl) {
+    private List<Object> mergerKeysAndValues(final IndexDeferredMaintenanceControl mergeControl) {
         return List.of(
                 LogMessageKeys.INDEX_NAME, index.getName(),
                 LogMessageKeys.INDEX_MERGES_LAST_LIMIT, mergeControl.getMergesLimit(),
@@ -242,9 +250,11 @@ public class IndexingMerger {
         );
     }
 
-    String mergerLogMessage(String ttl, final IndexDeferredMaintenanceControl mergeControl) {
+    private String mergerLogMessage(String ttl, final IndexDeferredMaintenanceControl mergeControl) {
         final KeyValueLogMessage msg = KeyValueLogMessage.build(ttl);
         msg.addKeysAndValues(mergerKeysAndValues(mergeControl));
+        // Note: this fdb metrics represents fdb activity within a single merge operation
+        msg.addKeysAndValues(getFdbMetricsMeasurement(common.getRunner().getTimer()));
         SubspaceProvider subspaceProvider = common.getRecordStoreBuilder().getSubspaceProvider();
         if (subspaceProvider != null) {
             msg.addKeyAndValue(subspaceProvider.logKey(), subspaceProvider);
@@ -252,4 +262,15 @@ public class IndexingMerger {
         return msg.toString();
     }
 
+    private void startFdbMetricsMeasurement(@Nullable FDBStoreTimer timer) {
+        if (timer != null) {
+            lastProgressSnapshot = StoreTimerSnapshot.from(timer);
+        }
+    }
+
+    private Map<String, Number> getFdbMetricsMeasurement(@Nullable FDBStoreTimer timer) {
+        return (timer == null || lastProgressSnapshot == null) ?
+               Collections.emptyMap() :
+               StoreTimer.getDifference(timer, lastProgressSnapshot).getKeysAndValues();
+    }
 }
