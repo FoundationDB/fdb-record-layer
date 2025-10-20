@@ -89,6 +89,19 @@ public interface RealVector {
     HalfRealVector toHalfRealVector();
 
     /**
+     * Converts this object into a {@code RealVector} of single precision floating-point numbers.
+     * <p>
+     * As this is an abstract method, implementing classes are responsible for defining the specific conversion logic
+     * from their internal representation to a {@code RealVector} using floating point numbers to serialize and
+     * deserialize the vector. If this object already is a {@code FloatRealVector} this method should return
+     * {@code this}.
+     * @return a non-null {@link FloatRealVector} containing the single precision floating-point representation of
+     *         this object.
+     */
+    @Nonnull
+    FloatRealVector toFloatRealVector();
+
+    /**
      * Converts this vector into a {@link DoubleRealVector}.
      * <p>
      * This method provides a way to obtain a double-precision floating-point representation of the vector. If the

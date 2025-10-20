@@ -42,7 +42,7 @@ import static org.assertj.core.api.Assertions.within;
 
 public class FhtKacRotatorTest {
     @Nonnull
-    static Stream<Arguments> randomSeedsWithNumDimensions() {
+    private static Stream<Arguments> randomSeedsWithNumDimensions() {
         return RandomizedTestUtils.randomSeeds(0xdeadc0deL, 0xfdb5ca1eL, 0xf005ba1L)
                 .flatMap(seed -> ImmutableSet.of(3, 5, 10, 128, 768, 1000).stream()
                         .map(numDimensions -> Arguments.of(seed, numDimensions)));

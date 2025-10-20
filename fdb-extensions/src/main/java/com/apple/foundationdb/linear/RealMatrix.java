@@ -75,6 +75,15 @@ public interface RealMatrix extends LinearOperator {
     @Nonnull
     RealMatrix subMatrix(int startRow, int lengthRow, int startColumn, int lengthColumn);
 
+    @Nonnull
+    RowMajorRealMatrix toRowMajor();
+
+    @Nonnull
+    ColumnMajorRealMatrix toColumnMajor();
+
+    @Nonnull
+    RealMatrix quickTranspose();
+
     default boolean valueEquals(@Nullable final Object o) {
         if (!(o instanceof RealMatrix)) {
             return false;

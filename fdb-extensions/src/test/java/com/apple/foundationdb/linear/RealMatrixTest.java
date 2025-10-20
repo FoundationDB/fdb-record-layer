@@ -23,7 +23,6 @@ package com.apple.foundationdb.linear;
 import com.apple.foundationdb.async.hnsw.RealVectorSerializationTest;
 import com.apple.test.RandomizedTestUtils;
 import com.google.common.collect.ImmutableSet;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -49,7 +48,7 @@ public class RealMatrixTest {
         final Random random = new Random(seed);
         final int numRows = random.nextInt(numDimensions) + 1;
         final int numColumns = random.nextInt(numDimensions) + 1;
-        final RealMatrix matrix = RandomMatrixHelpers.randomGaussianMatrix(random, numRows, numColumns);
+        final RealMatrix matrix = MatrixHelpers.randomGaussianMatrix(random, numRows, numColumns);
         final RealMatrix otherMatrix = flip(matrix);
         assertThat(otherMatrix).isEqualTo(matrix);
         final RealMatrix anotherMatrix = flip(otherMatrix);
@@ -57,6 +56,36 @@ public class RealMatrixTest {
         assertThat(anotherMatrix).isEqualTo(matrix);
         assertThat(anotherMatrix.getClass()).isSameAs(matrix.getClass());
     }
+
+    @ParameterizedTest
+    @MethodSource("randomSeedsWithNumDimensions")
+    void testQuickTranspose(final long seed, final int numDimensions) {
+        final Random random = new Random(seed);
+        final int numRows = random.nextInt(numDimensions) + 1;
+        final int numColumns = random.nextInt(numDimensions) + 1;
+        final RealMatrix matrix = MatrixHelpers.randomGaussianMatrix(random, numRows, numColumns);
+        final RealMatrix otherMatrix = matrix.quickTranspose().transpose();
+        assertThat(otherMatrix).isEqualTo(matrix);
+        final RealMatrix anotherMatrix = matrix.quickTranspose().quickTranspose();
+        assertThat(anotherMatrix).isEqualTo(matrix);
+    }
+
+    @ParameterizedTest
+    @MethodSource("randomSeedsWithNumDimensions")
+    void testDifferentMajor(final long seed, final int numDimensions) {
+        final Random random = new Random(seed);
+        final int numRows = random.nextInt(numDimensions) + 1;
+        final int numColumns = random.nextInt(numDimensions) + 1;
+        final RealMatrix matrix = MatrixHelpers.randomGaussianMatrix(random, numRows, numColumns);
+        assertThat(matrix).isInstanceOf(RowMajorRealMatrix.class);
+        final RealMatrix otherMatrix = matrix.toColumnMajor();
+        assertThat(otherMatrix.hashCode()).isEqualTo(matrix.hashCode());
+        assertThat(otherMatrix).isEqualTo(matrix);
+        final RealMatrix anotherMatrix = otherMatrix.toRowMajor();
+        assertThat(anotherMatrix.hashCode()).isEqualTo(matrix.hashCode());
+        assertThat(anotherMatrix).isEqualTo(matrix);
+    }
+
 
     @Nonnull
     private static RealMatrix flip(@Nonnull final RealMatrix matrix) {
@@ -71,34 +100,15 @@ public class RealMatrixTest {
         }
     }
 
-    @Test
-    void transposeRowMajorMatrix() {
-        final RealMatrix m = new RowMajorRealMatrix(new double[][]{{0, 1, 2}, {3, 4, 5}});
-        final RealMatrix expected = new RowMajorRealMatrix(new double[][]{{0, 3}, {1, 4}, {2, 5}});
-
-        assertThat(m.isTransposable()).isTrue();
-        assertThat(m.transpose()).isEqualTo(expected);
-    }
-
-    @Test
-    void transposeColumnMajorMatrix() {
-        final RealMatrix m = new ColumnMajorRealMatrix(new double[][]{{0, 3}, {1, 4}, {2, 5}});
-        final RealMatrix expected = new ColumnMajorRealMatrix(new double[][]{{0, 1, 2}, {3, 4, 5}});
-
-        assertThat(m.isTransposable()).isTrue();
-        assertThat(m.transpose()).isEqualTo(expected);
-    }
-
     @ParameterizedTest
     @MethodSource("randomSeedsWithNumDimensions")
     void testOperateAndBack(final long seed, final int numDimensions) {
         final Random random = new Random(seed);
-        final RealMatrix matrix = RandomMatrixHelpers.randomOrthogonalMatrix(random, numDimensions);
+        final RealMatrix matrix = MatrixHelpers.randomOrthogonalMatrix(random, numDimensions);
         assertThat(matrix.isTransposable()).isTrue();
         final RealVector x = RealVectorSerializationTest.createRandomDoubleVector(random, numDimensions);
         final RealVector y = matrix.operate(x);
         final RealVector z = matrix.operateTranspose(y);
-
         assertThat(Metric.EUCLIDEAN_METRIC.distance(x, z)).isCloseTo(0, within(2E-10));
     }
 
@@ -122,7 +132,7 @@ public class RealMatrixTest {
     @MethodSource("randomSeedsWithNumDimensions")
     void testMultiplyRowMajorMatrix(final long seed, final int d) {
         final Random random = new Random(seed);
-        final RealMatrix r = RandomMatrixHelpers.randomOrthogonalMatrix(random, d);
+        final RealMatrix r = MatrixHelpers.randomOrthogonalMatrix(random, d);
         assertMultiplyMxMT(d, random, r);
     }
 
@@ -130,7 +140,7 @@ public class RealMatrixTest {
     @MethodSource("randomSeedsWithNumDimensions")
     void testMultiplyColumnMajorMatrix(final long seed, final int d) {
         final Random random = new Random(seed);
-        final RealMatrix r = flip(RandomMatrixHelpers.randomOrthogonalMatrix(random, d));
+        final RealMatrix r = flip(MatrixHelpers.randomOrthogonalMatrix(random, d));
         assertMultiplyMxMT(d, random, r);
     }
 

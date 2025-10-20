@@ -1,5 +1,5 @@
 /*
- * RandomMatrixHelpers.java
+ * QRDecomposition.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -23,41 +23,26 @@ package com.apple.foundationdb.linear;
 import com.google.common.base.Preconditions;
 
 import javax.annotation.Nonnull;
-import java.util.Random;
+import java.util.function.Supplier;
 
-public class RandomMatrixHelpers {
-    private RandomMatrixHelpers() {
+@SuppressWarnings("checkstyle:AbbreviationAsWordInName")
+public class QRDecomposition {
+    private QRDecomposition() {
         // nothing
     }
 
     @Nonnull
-    public static RealMatrix randomOrthogonalMatrix(@Nonnull final Random random, final int dimension) {
-        return decomposeMatrix(randomGaussianMatrix(random, dimension, dimension));
-    }
-
-    @Nonnull
-    public static RealMatrix randomGaussianMatrix(@Nonnull final Random random, final int rowDimension, final int columnDimension) {
-        final double[][] resultMatrix = new double[rowDimension][columnDimension];
-        for (int row = 0; row < rowDimension; row++) {
-            for (int column = 0; column < columnDimension; column++) {
-                resultMatrix[row][column] = random.nextGaussian();
-            }
-        }
-        return new RowMajorRealMatrix(resultMatrix);
-    }
-
-    @Nonnull
-    private static RealMatrix decomposeMatrix(@Nonnull final RealMatrix matrix) {
+    public static Result decomposeMatrix(@Nonnull final RealMatrix matrix) {
         Preconditions.checkArgument(matrix.isSquare());
 
         final double[] rDiag = new double[matrix.getRowDimension()];
-        final double[][] qrt = matrix.transpose().getData();
+        final double[][] qrt = matrix.toRowMajor().transpose().getData();
 
         for (int minor = 0; minor < matrix.getRowDimension(); minor++) {
             performHouseholderReflection(minor, qrt, rDiag);
         }
 
-        return getQ(qrt, rDiag);
+        return new Result(() -> getQ(qrt, rDiag), () -> getR(qrt, rDiag));
     }
 
     private static void performHouseholderReflection(final int minor, final double[][] qrt,
@@ -81,7 +66,6 @@ public class RandomMatrixHelpers {
         rDiag[minor] = a;
 
         if (a != 0.0) {
-
             /*
              * Calculate the normalized reflection vector v and transform
              * the first column. We know the norm of v beforehand: v = x-ae
@@ -121,7 +105,7 @@ public class RandomMatrixHelpers {
     }
 
     /**
-     * Returns the transpose of the matrix Q of the decomposition.
+     * Returns the matrix Q of the decomposition.
      * <p>Q is an orthogonal matrix</p>
      * @return the Q matrix
      */
@@ -148,5 +132,51 @@ public class RandomMatrixHelpers {
             }
         }
         return new RowMajorRealMatrix(q);
+    }
+
+    @Nonnull
+    private static RealMatrix getR(final double[][] qrt, final double[] rDiag) {
+        final int m = qrt.length; // square in this helper
+        final double[][] r = new double[m][m];
+
+        // R is upper-triangular. With Commons-Math style storage:
+        // - for i < j, R[i][j] is in qrt[j][i]
+        // - for i == j, R[i][i] comes from rDiag[i]
+        // - for i > j, R[i][j] = 0
+        for (int i = 0; i < m; i++) {
+            for (int j = 0; j < m; j++) {
+                if (i < j) {
+                    r[i][j] = qrt[j][i];
+                } else if (i == j) {
+                    r[i][j] = rDiag[i];
+                } else {
+                    r[i][j] = 0.0;
+                }
+            }
+        }
+        return new RowMajorRealMatrix(r);
+    }
+
+    @SuppressWarnings("checkstyle:MemberName")
+    public static class Result {
+        @Nonnull
+        private final Supplier<RealMatrix> qSupplier;
+        @Nonnull
+        private final Supplier<RealMatrix> rSupplier;
+
+        public Result(@Nonnull final Supplier<RealMatrix> qSupplier, @Nonnull final Supplier<RealMatrix> rSupplier) {
+            this.qSupplier = qSupplier;
+            this.rSupplier = rSupplier;
+        }
+
+        @Nonnull
+        RealMatrix getQ() {
+            return qSupplier.get();
+        }
+
+        @Nonnull
+        RealMatrix getR() {
+            return rSupplier.get();
+        }
     }
 }

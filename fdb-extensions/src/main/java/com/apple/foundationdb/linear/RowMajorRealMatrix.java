@@ -108,6 +108,24 @@ public class RowMajorRealMatrix implements RealMatrix {
         return new RowMajorRealMatrix(subData);
     }
 
+    @Nonnull
+    @Override
+    public RowMajorRealMatrix toRowMajor() {
+        return this;
+    }
+
+    @Nonnull
+    @Override
+    public ColumnMajorRealMatrix toColumnMajor() {
+        return new ColumnMajorRealMatrix(transpose().getData());
+    }
+
+    @Nonnull
+    @Override
+    public RealMatrix quickTranspose() {
+        return new ColumnMajorRealMatrix(data);
+    }
+
     @Override
     public final boolean equals(final Object o) {
         if (o instanceof RowMajorRealMatrix) {

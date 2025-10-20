@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import org.assertj.core.api.Assertions;
 import org.assertj.core.data.Offset;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -71,6 +72,20 @@ public class MetricTest {
                                         DOT_PRODUCT_METRIC), ImmutableSet.of(3, 5, 128, 768)).stream()
                                 .map(metricsAndNumDimensions ->
                                         Arguments.of(seed, metricsAndNumDimensions.get(0), metricsAndNumDimensions.get(1))));
+    }
+
+    @Test
+    void testMetricDefinitionBasics() {
+        Assertions.assertThat(MANHATTAN_METRIC.toString()).contains(MetricDefinition.ManhattanMetric.class.getSimpleName());
+        Assertions.assertThat(MANHATTAN_METRIC.isTrueMetric()).isTrue();
+        Assertions.assertThat(EUCLIDEAN_METRIC.toString()).contains(MetricDefinition.EuclideanMetric.class.getSimpleName());
+        Assertions.assertThat(EUCLIDEAN_METRIC.isTrueMetric()).isTrue();
+        Assertions.assertThat(EUCLIDEAN_SQUARE_METRIC.toString()).contains(MetricDefinition.EuclideanSquareMetric.class.getSimpleName());
+        Assertions.assertThat(EUCLIDEAN_SQUARE_METRIC.isTrueMetric()).isFalse();
+        Assertions.assertThat(COSINE_METRIC.toString()).contains(MetricDefinition.CosineMetric.class.getSimpleName());
+        Assertions.assertThat(COSINE_METRIC.isTrueMetric()).isFalse();
+        Assertions.assertThat(DOT_PRODUCT_METRIC.toString()).contains(MetricDefinition.DotProductMetric.class.getSimpleName());
+        Assertions.assertThat(DOT_PRODUCT_METRIC.isTrueMetric()).isFalse();
     }
 
     @ParameterizedTest

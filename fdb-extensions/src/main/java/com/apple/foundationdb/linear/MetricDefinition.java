@@ -75,6 +75,11 @@ interface MetricDefinition {
                 satisfiesTriangleInequality();
     }
 
+    @Nonnull
+    static String toString(@Nonnull final MetricDefinition metricDefinition) {
+        return metricDefinition.getClass().getSimpleName() + ";" + metricDefinition.isTrueMetric() + " metric";
+    }
+
     /**
      * Calculates a distance between two n-dimensional vectors.
      * <p>
@@ -132,7 +137,7 @@ interface MetricDefinition {
         @Override
         @Nonnull
         public String toString() {
-            return this.getClass().getSimpleName();
+            return MetricDefinition.toString(this);
         }
     }
 
@@ -154,7 +159,7 @@ interface MetricDefinition {
         @Override
         @Nonnull
         public String toString() {
-            return this.getClass().getSimpleName();
+            return MetricDefinition.toString(this);
         }
     }
 
@@ -195,7 +200,7 @@ interface MetricDefinition {
         @Override
         @Nonnull
         public String toString() {
-            return this.getClass().getSimpleName();
+            return MetricDefinition.toString(this);
         }
     }
 
@@ -242,7 +247,7 @@ interface MetricDefinition {
         @Override
         @Nonnull
         public String toString() {
-            return this.getClass().getSimpleName();
+            return MetricDefinition.toString(this);
         }
     }
 
@@ -290,7 +295,7 @@ interface MetricDefinition {
         @Override
         @Nonnull
         public String toString() {
-            return this.getClass().getSimpleName();
+            return MetricDefinition.toString(this);
         }
     }
 }

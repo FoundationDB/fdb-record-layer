@@ -142,4 +142,9 @@ public enum Metric implements MetricDefinition {
     public double distance(@Nonnull RealVector vector1, @Nonnull RealVector vector2) {
         return distance(vector1.getData(), vector2.getData());
     }
+
+    @Override
+    public String toString() {
+        return metricDefinition.toString();
+    }
 }

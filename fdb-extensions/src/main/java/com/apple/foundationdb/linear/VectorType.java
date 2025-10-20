@@ -22,6 +22,7 @@ package com.apple.foundationdb.linear;
 
 public enum VectorType {
     HALF,
+    SINGLE,
     DOUBLE,
     RABITQ
 }

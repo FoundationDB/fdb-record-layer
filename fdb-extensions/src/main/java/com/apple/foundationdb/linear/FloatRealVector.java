@@ -21,43 +21,53 @@
 package com.apple.foundationdb.linear;
 
 import com.apple.foundationdb.half.Half;
+import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 
 import javax.annotation.Nonnull;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.function.Supplier;
 
 /**
- * A vector class encoding a vector over half components. Conversion to {@link DoubleRealVector} is supported and
- * memoized.
+ * A vector class encoding a vector over float components.
  */
-public class HalfRealVector extends AbstractRealVector {
-    public HalfRealVector(@Nonnull final Half[] halfData) {
-        this(computeDoubleData(halfData));
+public class FloatRealVector extends AbstractRealVector {
+    @Nonnull
+    private final Supplier<HalfRealVector> toHalfRealVectorSupplier;
+
+    public FloatRealVector(@Nonnull final float[] floatData) {
+        this(computeDoubleData(floatData));
     }
 
-    public HalfRealVector(@Nonnull final double[] data) {
+    public FloatRealVector(@Nonnull final double[] data) {
         super(truncateDoubleData(data));
+        this.toHalfRealVectorSupplier = Suppliers.memoize(this::computeHalfRealVector);
     }
 
-    public HalfRealVector(@Nonnull final int[] intData) {
+    public FloatRealVector(@Nonnull final int[] intData) {
         this(fromInts(intData));
     }
 
-    public HalfRealVector(@Nonnull final long[] longData) {
+    public FloatRealVector(@Nonnull final long[] longData) {
         this(fromLongs(longData));
     }
 
     @Nonnull
     @Override
     public HalfRealVector toHalfRealVector() {
-        return this;
+        return toHalfRealVectorSupplier.get();
+    }
+
+    @Nonnull
+    public HalfRealVector computeHalfRealVector() {
+        return new HalfRealVector(data);
     }
 
     @Nonnull
     @Override
     public FloatRealVector toFloatRealVector() {
-        return new FloatRealVector(data);
+        return this;
     }
 
     @Nonnull
@@ -69,11 +79,11 @@ public class HalfRealVector extends AbstractRealVector {
     @Nonnull
     @Override
     public RealVector withData(@Nonnull final double[] data) {
-        return new HalfRealVector(data);
+        return new FloatRealVector(data);
     }
 
     /**
-     * Converts this {@link RealVector} of {@link Half} precision floating-point numbers into a byte array.
+     * Converts this {@link RealVector} of single precision floating-point numbers into a byte array.
      * <p>
      * This method iterates through the input vector, converting each {@link Half} element into its 16-bit short
      * representation. It then serializes this short into two bytes, placing them sequentially into the resulting byte
@@ -83,20 +93,20 @@ public class HalfRealVector extends AbstractRealVector {
     @Nonnull
     @Override
     protected byte[] computeRawData() {
-        final byte[] vectorBytes = new byte[1 + 2 * getNumDimensions()];
+        final byte[] vectorBytes = new byte[1 + 4 * getNumDimensions()];
         final ByteBuffer buffer = ByteBuffer.wrap(vectorBytes).order(ByteOrder.BIG_ENDIAN);
-        buffer.put((byte)VectorType.HALF.ordinal());
+        buffer.put((byte)VectorType.SINGLE.ordinal());
         for (int i = 0; i < getNumDimensions(); i ++) {
-            buffer.putShort(Half.floatToShortBitsCollapseNaN(Half.quantizeFloat((float)getComponent(i))));
+            buffer.putFloat((float)data[i]);
         }
         return vectorBytes;
     }
 
     @Nonnull
-    private static double[] computeDoubleData(@Nonnull Half[] halfData) {
-        double[] result = new double[halfData.length];
-        for (int i = 0; i < halfData.length; i++) {
-            result[i] = halfData[i].doubleValue();
+    private static double[] computeDoubleData(@Nonnull float[] floatData) {
+        double[] result = new double[floatData.length];
+        for (int i = 0; i < floatData.length; i++) {
+            result[i] = floatData[i];
         }
         return result;
     }
@@ -105,29 +115,29 @@ public class HalfRealVector extends AbstractRealVector {
     private static double[] truncateDoubleData(@Nonnull double[] doubleData) {
         double[] result = new double[doubleData.length];
         for (int i = 0; i < doubleData.length; i++) {
-            result[i] = Half.valueOf(doubleData[i]).doubleValue();
+            result[i] = (float)doubleData[i];
         }
         return result;
     }
 
     /**
-     * Creates a {@link HalfRealVector} from a byte array.
+     * Creates a {@link FloatRealVector} from a byte array.
      * <p>
      * This method interprets the input byte array as a sequence of 16-bit half-precision floating-point numbers. Each
      * consecutive pair of bytes is converted into a {@code Half} value, which then becomes a component of the resulting
      * vector.
      * @param vectorBytes the non-null byte array to convert
-     * @return a new {@link HalfRealVector} instance created from the byte array
+     * @return a new {@link FloatRealVector} instance created from the byte array
      */
     @Nonnull
-    public static HalfRealVector fromBytes(@Nonnull final byte[] vectorBytes) {
+    public static FloatRealVector fromBytes(@Nonnull final byte[] vectorBytes) {
         final ByteBuffer buffer = ByteBuffer.wrap(vectorBytes).order(ByteOrder.BIG_ENDIAN);
-        Verify.verify(buffer.get() == VectorType.HALF.ordinal());
-        final int numDimensions = vectorBytes.length >> 1;
+        Verify.verify(buffer.get() == VectorType.SINGLE.ordinal());
+        final int numDimensions = vectorBytes.length >> 2;
         final double[] vectorComponents = new double[numDimensions];
         for (int i = 0; i < numDimensions; i ++) {
-            vectorComponents[i] = Half.halfShortToFloat(buffer.getShort());
+            vectorComponents[i] = buffer.getFloat();
         }
-        return new HalfRealVector(vectorComponents);
+        return new FloatRealVector(vectorComponents);
     }
 }

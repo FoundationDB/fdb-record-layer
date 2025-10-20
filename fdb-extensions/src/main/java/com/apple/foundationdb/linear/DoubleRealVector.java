@@ -35,6 +35,8 @@ import java.util.function.Supplier;
 public class DoubleRealVector extends AbstractRealVector {
     @Nonnull
     private final Supplier<HalfRealVector> toHalfVectorSupplier;
+    @Nonnull
+    private final Supplier<FloatRealVector> toFloatVectorSupplier;
 
     public DoubleRealVector(@Nonnull final Double[] doubleData) {
         this(computeDoubleData(doubleData));
@@ -42,7 +44,8 @@ public class DoubleRealVector extends AbstractRealVector {
 
     public DoubleRealVector(@Nonnull final double[] data) {
         super(data);
-        this.toHalfVectorSupplier = Suppliers.memoize(this::computeHalfVector);
+        this.toHalfVectorSupplier = Suppliers.memoize(this::computeHalfRealVector);
+        this.toFloatVectorSupplier = Suppliers.memoize(this::computeFloatRealVector);
     }
 
     public DoubleRealVector(@Nonnull final int[] intData) {
@@ -60,14 +63,25 @@ public class DoubleRealVector extends AbstractRealVector {
     }
 
     @Nonnull
-    @Override
-    public DoubleRealVector toDoubleRealVector() {
-        return this;
+    public HalfRealVector computeHalfRealVector() {
+        return new HalfRealVector(data);
     }
 
     @Nonnull
-    public HalfRealVector computeHalfVector() {
-        return new HalfRealVector(data);
+    @Override
+    public FloatRealVector toFloatRealVector() {
+        return toFloatVectorSupplier.get();
+    }
+
+    @Nonnull
+    private FloatRealVector computeFloatRealVector() {
+        return new FloatRealVector(data);
+    }
+
+    @Nonnull
+    @Override
+    public DoubleRealVector toDoubleRealVector() {
+        return this;
     }
 
     @Nonnull
