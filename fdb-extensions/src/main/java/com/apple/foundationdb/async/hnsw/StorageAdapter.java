@@ -24,6 +24,7 @@ import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.async.rabitq.EncodedRealVector;
 import com.apple.foundationdb.linear.DoubleRealVector;
+import com.apple.foundationdb.linear.FloatRealVector;
 import com.apple.foundationdb.linear.HalfRealVector;
 import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.linear.VectorType;
@@ -278,6 +279,8 @@ interface StorageAdapter<N extends NodeReference> {
         switch (fromVectorTypeOrdinal(vectorTypeOrdinal)) {
             case HALF:
                 return HalfRealVector.fromBytes(vectorBytes);
+            case SINGLE:
+                return FloatRealVector.fromBytes(vectorBytes);
             case DOUBLE:
                 return DoubleRealVector.fromBytes(vectorBytes);
             case RABITQ:

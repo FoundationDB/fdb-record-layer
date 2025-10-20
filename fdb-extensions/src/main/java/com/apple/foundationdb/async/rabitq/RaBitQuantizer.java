@@ -91,7 +91,6 @@ public final class RaBitQuantizer implements Quantizer {
             totalCode[i] = signedCode[i] + (sgn << numExBits);
         }
 
-        // 4) cb = -(2^b - 0.5), and xuCb = signedShift + cb
         final double cb = -(((1 << numExBits) - 0.5));
         double[] xuCbData = new double[dims];
         for (int i = 0; i < dims; i++) {

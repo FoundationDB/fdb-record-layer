@@ -21,6 +21,7 @@
 package com.apple.foundationdb.async.rabitq;
 
 import com.apple.foundationdb.linear.DoubleRealVector;
+import com.apple.foundationdb.linear.FloatRealVector;
 import com.apple.foundationdb.linear.HalfRealVector;
 import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.linear.VectorType;
@@ -45,8 +46,14 @@ public class EncodedRealVector implements RealVector {
 
     @Nonnull
     private final Supplier<Integer> hashCodeSupplier;
+    @Nonnull
     private final Supplier<double[]> dataSupplier;
+    @Nonnull
     private final Supplier<byte[]> rawDataSupplier;
+    @Nonnull
+    private final Supplier<HalfRealVector> toHalfRealVectorSupplier;
+    @Nonnull
+    private final Supplier<FloatRealVector> toFloatRealVectorSupplier;
 
     public EncodedRealVector(final int numExBits, @Nonnull final int[] encoded, final double fAddEx, final double fRescaleEx,
                              final double fErrorEx) {
@@ -56,8 +63,10 @@ public class EncodedRealVector implements RealVector {
         this.fErrorEx = fErrorEx;
 
         this.hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
-        this.dataSupplier = Suppliers.memoize(() -> computeData(numExBits));
         this.rawDataSupplier = Suppliers.memoize(() -> computeRawData(numExBits));
+        this.dataSupplier = Suppliers.memoize(() -> computeData(numExBits));
+        this.toHalfRealVectorSupplier = Suppliers.memoize(this::computeHalfRealVector);
+        this.toFloatRealVectorSupplier = Suppliers.memoize(this::computeFloatRealVector);
     }
 
     @Nonnull
@@ -214,7 +223,23 @@ public class EncodedRealVector implements RealVector {
     @Nonnull
     @Override
     public HalfRealVector toHalfRealVector() {
+        return toHalfRealVectorSupplier.get();
+    }
+
+    @Nonnull
+    private HalfRealVector computeHalfRealVector() {
         return new HalfRealVector(getData());
+    }
+
+    @Nonnull
+    @Override
+    public FloatRealVector toFloatRealVector() {
+        return toFloatRealVectorSupplier.get();
+    }
+
+    @Nonnull
+    private FloatRealVector computeFloatRealVector() {
+        return new FloatRealVector(getData());
     }
 
     @Nonnull
