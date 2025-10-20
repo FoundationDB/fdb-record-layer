@@ -272,8 +272,13 @@ public class ResolvedKeySpacePath {
         }
     }
 
-    // TODO test this specifically
-    public ResolvedKeySpacePath withRemainder(final Tuple newRemainder) {
+    /**
+     * Returns a new {@code ResolvedKeySpacePath} that is the same, except with the provided {@link #getRemainder()}.
+     * @param newRemainder a new remainder. This can be {@code null} to remove the remainder entirely.
+     * @return a new {@code ResolvedKeySpacePath} that is the same as this, except with a different {@link #getRemainder()}.
+     */
+    @Nonnull
+    public ResolvedKeySpacePath withRemainder(@Nullable final Tuple newRemainder) {
         // this could probably copy the cachedTuple & cachedSubspace
         return new ResolvedKeySpacePath(parent, inner, value, newRemainder);
     }
