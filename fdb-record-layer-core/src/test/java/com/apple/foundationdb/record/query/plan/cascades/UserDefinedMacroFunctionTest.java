@@ -1,5 +1,5 @@
 /*
- * MacroFunctionTest.java
+ * UserDefinedMacroFunctionTest.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -35,9 +35,9 @@ import org.junit.jupiter.api.Test;
 import java.util.Optional;
 
 /**
- * Tests of {@link UserDefinedScalarFunction}.
+ * Tests of {@link UserDefinedMacroFunction}.
  */
-public class UserDefinedScalarFunctionTest {
+public class UserDefinedMacroFunctionTest {
     @Test
     void testColumnProjection() {
         ImmutableList<Type.Record.Field> fields = ImmutableList.of(
@@ -46,7 +46,7 @@ public class UserDefinedScalarFunctionTest {
         Type record = Type.Record.fromFields(false, fields);
         QuantifiedObjectValue param = QuantifiedObjectValue.of(CorrelationIdentifier.uniqueId(), record);
         FieldValue bodyValue = FieldValue.ofFieldName(param, "name");
-        UserDefinedScalarFunction macroFunction = new UserDefinedScalarFunction("getName", ImmutableList.of(param), bodyValue);
+        UserDefinedMacroFunction macroFunction = new UserDefinedMacroFunction("getName", ImmutableList.of(param), bodyValue);
 
         RecordConstructorValue testValue1 = RecordConstructorValue.ofColumns(ImmutableList.of(
                 Column.of(fields.get(0), new LiteralValue<>(fields.get(0).getFieldType(), "Rose")),
@@ -65,7 +65,7 @@ public class UserDefinedScalarFunctionTest {
         QuantifiedObjectValue param2 = QuantifiedObjectValue.of(CorrelationIdentifier.uniqueId(), record);
 
         ArithmeticValue bodyValue = new ArithmeticValue(ArithmeticValue.PhysicalOperator.ADD_LL, param1, param2);
-        UserDefinedScalarFunction macroFunction = new UserDefinedScalarFunction("add", ImmutableList.of(param1, param2), bodyValue);
+        UserDefinedMacroFunction macroFunction = new UserDefinedMacroFunction("add", ImmutableList.of(param1, param2), bodyValue);
 
         RecordConstructorValue testValue1 = RecordConstructorValue.ofColumns(ImmutableList.of(
                 Column.of(fields.get(0), new LiteralValue<>(fields.get(0).getFieldType(), 1L))
@@ -84,7 +84,7 @@ public class UserDefinedScalarFunctionTest {
         QuantifiedObjectValue param = QuantifiedObjectValue.of(CorrelationIdentifier.uniqueId(), longType);
 
         LiteralValue<Long> literalBody = new LiteralValue<>(longType, 42L);
-        UserDefinedScalarFunction constantFunction = new UserDefinedScalarFunction("constant", ImmutableList.of(param), literalBody);
+        UserDefinedMacroFunction constantFunction = new UserDefinedMacroFunction("constant", ImmutableList.of(param), literalBody);
 
         LiteralValue<Long> inputValue = new LiteralValue<>(longType, 123L);
 
@@ -104,7 +104,7 @@ public class UserDefinedScalarFunctionTest {
 
         // Function returns firstName field
         FieldValue bodyValue = FieldValue.ofFieldName(param, "firstName");
-        UserDefinedScalarFunction getFirstNameFunction = new UserDefinedScalarFunction("getFirstName", ImmutableList.of(param), bodyValue);
+        UserDefinedMacroFunction getFirstNameFunction = new UserDefinedMacroFunction("getFirstName", ImmutableList.of(param), bodyValue);
 
         RecordConstructorValue testValue = RecordConstructorValue.ofColumns(ImmutableList.of(
                 Column.of(fields.get(0), new LiteralValue<>(fields.get(0).getFieldType(), "John")),
@@ -123,7 +123,7 @@ public class UserDefinedScalarFunctionTest {
         QuantifiedObjectValue param2 = QuantifiedObjectValue.of(CorrelationIdentifier.uniqueId(), longType);
 
         ArithmeticValue bodyValue = new ArithmeticValue(ArithmeticValue.PhysicalOperator.ADD_LL, param1, param2);
-        UserDefinedScalarFunction addFunction = new UserDefinedScalarFunction("add", ImmutableList.of(param1, param2), bodyValue);
+        UserDefinedMacroFunction addFunction = new UserDefinedMacroFunction("add", ImmutableList.of(param1, param2), bodyValue);
 
         LiteralValue<Long> singleArg = new LiteralValue<>(longType, 42L);
 
@@ -144,7 +144,7 @@ public class UserDefinedScalarFunctionTest {
         // Function computes: (param1 + param2) * param3
         ArithmeticValue addValue = new ArithmeticValue(ArithmeticValue.PhysicalOperator.ADD_LL, param1, param2);
         ArithmeticValue bodyValue = new ArithmeticValue(ArithmeticValue.PhysicalOperator.MUL_LL, addValue, param3);
-        UserDefinedScalarFunction complexFunction = new UserDefinedScalarFunction("complexCalc", ImmutableList.of(param1, param2, param3), bodyValue);
+        UserDefinedMacroFunction complexFunction = new UserDefinedMacroFunction("complexCalc", ImmutableList.of(param1, param2, param3), bodyValue);
 
         LiteralValue<Long> arg1 = new LiteralValue<>(longType, 10L);
         LiteralValue<Long> arg2 = new LiteralValue<>(longType, 20L);
@@ -162,7 +162,7 @@ public class UserDefinedScalarFunctionTest {
         Type longType = Type.primitiveType(Type.TypeCode.LONG);
         QuantifiedObjectValue param = QuantifiedObjectValue.of(CorrelationIdentifier.uniqueId(), longType);
 
-        UserDefinedScalarFunction identityFunction = new UserDefinedScalarFunction("identity", ImmutableList.of(param), param);
+        UserDefinedMacroFunction identityFunction = new UserDefinedMacroFunction("identity", ImmutableList.of(param), param);
 
         LiteralValue<Long> argValue = new LiteralValue<>(longType, 42L);
 

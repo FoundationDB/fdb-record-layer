@@ -200,7 +200,7 @@ message MetaData {
 
 message PUserDefinedFunction {
   oneof specific_function {
-    com.apple.foundationdb.record.planprotos.PUserDefinedScalarFunctionValue user_defined_scalar_function = 1;
+    com.apple.foundationdb.record.planprotos.PUserDefinedMacroFunctionValue user_defined_scalar_function = 1;
     PRawSqlFunction sql_function = 2;
   }
 }

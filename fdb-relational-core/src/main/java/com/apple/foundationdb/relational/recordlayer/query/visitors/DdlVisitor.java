@@ -23,7 +23,7 @@ package com.apple.foundationdb.relational.recordlayer.query.visitors;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.RawSqlFunction;
-import com.apple.foundationdb.record.query.plan.cascades.UserDefinedScalarFunction;
+import com.apple.foundationdb.record.query.plan.cascades.UserDefinedMacroFunction;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
 import com.apple.foundationdb.record.query.plan.cascades.values.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
@@ -352,7 +352,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
                 .setNormalizedDescription(getDelegate().getPlanGenerationContext().getCanonicalQueryString())
                 .setTemporary(isTemporary);
         // 4. Return it.
-        if (userDefinedFunction instanceof UserDefinedScalarFunction) {
+        if (userDefinedFunction instanceof UserDefinedMacroFunction) {
             return builder.withSerializableFunction(userDefinedFunction).build();
         } else {
             return builder.withSerializableFunction(new RawSqlFunction(functionName, functionDefinition)).build();
@@ -418,7 +418,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
             final var functionBody = visitUserDefinedScalarFunctionStatementBody(Assert.castUnchecked(bodyCtx, RelationalParser.UserDefinedScalarFunctionStatementBodyContext.class));
             Optional<Expression> result = semanticAnalyzer.lookupNestedField(functionBody, Expression.of(paramValueList.get(0), paramNameIdList.get(0)), Expression.of(paramValueList.get(0), paramNameIdList.get(0)), true);
             Assert.thatUnchecked(result.isPresent(), "cannot resolve user defined scalar function value");
-            return new UserDefinedScalarFunction(functionName, paramValueList, result.get().getUnderlying());
+            return new UserDefinedMacroFunction(functionName, paramValueList, result.get().getUnderlying());
         } else {
             // table functions
             Assert.thatUnchecked(isSqlParameterStyle, ErrorCode.UNSUPPORTED_OPERATION, "only sql-style parameters are supported");

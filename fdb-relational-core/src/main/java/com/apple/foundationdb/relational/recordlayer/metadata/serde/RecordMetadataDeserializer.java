@@ -24,7 +24,7 @@ import com.apple.foundationdb.annotation.API;
 
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.RecordType;
-import com.apple.foundationdb.record.query.plan.cascades.UserDefinedScalarFunction;
+import com.apple.foundationdb.record.query.plan.cascades.UserDefinedMacroFunction;
 import com.apple.foundationdb.record.query.plan.cascades.RawSqlFunction;
 import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -108,9 +108,9 @@ public class RecordMetadataDeserializer {
                 if (function.getValue() instanceof RawSqlFunction) {
                     schemaTemplateBuilder.addInvokedRoutine(generateInvokedRoutineBuilder(metadataProvider, function.getKey(),
                             Assert.castUnchecked(function.getValue(), RawSqlFunction.class).getDefinition()).build());
-                } else if (function.getValue() instanceof UserDefinedScalarFunction) {
+                } else if (function.getValue() instanceof UserDefinedMacroFunction) {
                     schemaTemplateBuilder.addInvokedRoutine(generateInvokedRoutineBuilder(function.getKey(), function.getValue().toString(),
-                            Assert.castUnchecked(function.getValue(), UserDefinedScalarFunction.class)).build());
+                            Assert.castUnchecked(function.getValue(), UserDefinedMacroFunction.class)).build());
                 }
             }
         }
@@ -176,7 +176,7 @@ public class RecordMetadataDeserializer {
     @Nonnull
     private RecordLayerInvokedRoutine.Builder generateInvokedRoutineBuilder(@Nonnull final String name,
                                                                             @Nonnull final String body,
-                                                                            @Nonnull final UserDefinedScalarFunction userDefinedScalarFunction) {
+                                                                            @Nonnull final UserDefinedMacroFunction userDefinedScalarFunction) {
         return RecordLayerInvokedRoutine.newBuilder()
                 .setName(name)
                 .setDescription(body)

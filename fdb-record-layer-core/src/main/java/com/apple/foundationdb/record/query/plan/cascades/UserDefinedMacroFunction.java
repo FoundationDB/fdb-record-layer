@@ -1,5 +1,5 @@
 /*
- * UserDefinedScalarFunction.java
+ * UserDefinedMacroFunction.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -24,7 +24,7 @@ import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaDataProto;
-import com.apple.foundationdb.record.planprotos.PUserDefinedScalarFunctionValue;
+import com.apple.foundationdb.record.planprotos.PUserDefinedMacroFunctionValue;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -40,13 +40,13 @@ import java.util.stream.Collectors;
 /**
  * UserDefinedScalarFunction that expands a body (referring to parameters) into a {@link Value} (through encapsulation) call site.
  */
-public class UserDefinedScalarFunction extends UserDefinedFunction {
+public class UserDefinedMacroFunction extends UserDefinedFunction {
     @Nonnull
     private final Value bodyValue;
     @Nonnull
     private final List<CorrelationIdentifier> parameterIdentifiers;
 
-    public UserDefinedScalarFunction(@Nonnull final String functionName, @Nonnull final List<QuantifiedObjectValue> parameters, @Nonnull final Value bodyValue) {
+    public UserDefinedMacroFunction(@Nonnull final String functionName, @Nonnull final List<QuantifiedObjectValue> parameters, @Nonnull final Value bodyValue) {
         super(functionName, parameters.stream().map(QuantifiedObjectValue::getResultType).collect(Collectors.toUnmodifiableList()));
         this.parameterIdentifiers = parameters.stream().map(QuantifiedObjectValue::getAlias).collect(Collectors.toList());
         this.bodyValue = bodyValue;
@@ -70,7 +70,7 @@ public class UserDefinedScalarFunction extends UserDefinedFunction {
     @Nonnull
     @Override
     public RecordMetaDataProto.PUserDefinedFunction toProto(@Nonnull PlanSerializationContext serializationContext) {
-        PUserDefinedScalarFunctionValue.Builder builder = PUserDefinedScalarFunctionValue.newBuilder();
+        PUserDefinedMacroFunctionValue.Builder builder = PUserDefinedMacroFunctionValue.newBuilder();
         for (int i = 0; i < parameterTypes.size(); i++) {
             builder.addArguments(QuantifiedObjectValue.of(parameterIdentifiers.get(i), parameterTypes.get(i)).toValueProto(serializationContext));
         }
@@ -89,8 +89,8 @@ public class UserDefinedScalarFunction extends UserDefinedFunction {
     }
 
     @Nonnull
-    public static UserDefinedScalarFunction fromProto(@Nonnull final PlanSerializationContext serializationContext, @Nonnull final PUserDefinedScalarFunctionValue functionValue) {
-        return new UserDefinedScalarFunction(
+    public static UserDefinedMacroFunction fromProto(@Nonnull final PlanSerializationContext serializationContext, @Nonnull final PUserDefinedMacroFunctionValue functionValue) {
+        return new UserDefinedMacroFunction(
                 functionValue.getFunctionName(),
                 functionValue.getArgumentsList().stream().map(pvalue -> ((QuantifiedObjectValue)Value.fromValueProto(serializationContext, pvalue))).collect(Collectors.toList()),
                 Value.fromValueProto(serializationContext, functionValue.getBody()));
@@ -100,18 +100,18 @@ public class UserDefinedScalarFunction extends UserDefinedFunction {
      * Deserializer.
      */
     @AutoService(PlanDeserializer.class)
-    public static class Deserializer implements PlanDeserializer<PUserDefinedScalarFunctionValue, UserDefinedScalarFunction> {
+    public static class Deserializer implements PlanDeserializer<PUserDefinedMacroFunctionValue, UserDefinedMacroFunction> {
         @Nonnull
         @Override
-        public Class<PUserDefinedScalarFunctionValue> getProtoMessageClass() {
-            return PUserDefinedScalarFunctionValue.class;
+        public Class<PUserDefinedMacroFunctionValue> getProtoMessageClass() {
+            return PUserDefinedMacroFunctionValue.class;
         }
 
         @Nonnull
         @Override
-        public UserDefinedScalarFunction fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                   @Nonnull final PUserDefinedScalarFunctionValue functionValue) {
-            return UserDefinedScalarFunction.fromProto(serializationContext, functionValue);
+        public UserDefinedMacroFunction fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                  @Nonnull final PUserDefinedMacroFunctionValue functionValue) {
+            return UserDefinedMacroFunction.fromProto(serializationContext, functionValue);
         }
     }
 }
