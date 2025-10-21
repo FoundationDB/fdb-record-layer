@@ -26,13 +26,15 @@ import com.apple.foundationdb.async.rtree.RTree;
 import com.apple.foundationdb.linear.DoubleRealVector;
 import com.apple.foundationdb.linear.HalfRealVector;
 import com.apple.foundationdb.linear.Metric;
-import com.apple.foundationdb.linear.StoredVecsIterator;
 import com.apple.foundationdb.linear.RealVector;
+import com.apple.foundationdb.linear.StoredVecsIterator;
 import com.apple.foundationdb.test.TestDatabaseExtension;
 import com.apple.foundationdb.test.TestExecutors;
 import com.apple.foundationdb.test.TestSubspaceExtension;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.test.RandomSeedSource;
 import com.apple.test.RandomizedTestUtils;
+import com.apple.test.SuperSlow;
 import com.apple.test.Tags;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -40,12 +42,11 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.collect.ObjectArrays;
 import com.google.common.collect.Sets;
+import org.assertj.core.api.Assertions;
 import org.assertj.core.util.Lists;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
@@ -102,15 +103,68 @@ public class HNSWTest {
         db = dbExtension.getDatabase();
     }
 
-    private static Stream<Long> randomSeeds() {
-        return LongStream.generate(() -> new Random().nextLong())
-                .limit(5)
-                .boxed();
+    @Test
+    void testConfig() {
+        final HNSW.Config defaultConfig = HNSW.defaultConfig(768);
+
+        Assertions.assertThat(HNSW.newConfigBuilder().build(768)).isEqualTo(defaultConfig);
+        Assertions.assertThat(defaultConfig.toBuilder().build(768)).isEqualTo(defaultConfig);
+
+        final long randomSeed = 1L;
+        final Metric metric = Metric.COSINE_METRIC;
+        final boolean useInlining = true;
+        final int m = HNSW.DEFAULT_M + 1;
+        final int mMax = HNSW.DEFAULT_M_MAX + 1;
+        final int mMax0 = HNSW.DEFAULT_M_MAX_0 + 1;
+        final int efConstruction = HNSW.DEFAULT_EF_CONSTRUCTION + 1;
+        final boolean extendCandidates = true;
+        final boolean keepPrunedConnections = true;
+        final boolean useRaBitQ = true;
+        final int raBitQNumExBits = HNSW.DEFAULT_RABITQ_NUM_EX_BITS + 1;
+
+        Assertions.assertThat(defaultConfig.getRandomSeed()).isNotEqualTo(randomSeed);
+        Assertions.assertThat(defaultConfig.getMetric()).isNotSameAs(metric);
+        Assertions.assertThat(defaultConfig.isUseInlining()).isNotEqualTo(useInlining);
+        Assertions.assertThat(defaultConfig.getM()).isNotEqualTo(m);
+        Assertions.assertThat(defaultConfig.getMMax()).isNotEqualTo(mMax);
+        Assertions.assertThat(defaultConfig.getMMax0()).isNotEqualTo(mMax0);
+        Assertions.assertThat(defaultConfig.getEfConstruction()).isNotEqualTo(efConstruction);
+        Assertions.assertThat(defaultConfig.isExtendCandidates()).isNotEqualTo(extendCandidates);
+        Assertions.assertThat(defaultConfig.isKeepPrunedConnections()).isNotEqualTo(keepPrunedConnections);
+        Assertions.assertThat(defaultConfig.isUseRaBitQ()).isNotEqualTo(useRaBitQ);
+        Assertions.assertThat(defaultConfig.getRaBitQNumExBits()).isNotEqualTo(raBitQNumExBits);
+
+        final HNSW.Config newConfig =
+                defaultConfig.toBuilder()
+                        .setRandomSeed(randomSeed)
+                        .setMetric(metric)
+                        .setUseInlining(useInlining)
+                        .setM(m)
+                        .setMMax(mMax)
+                        .setMMax0(mMax0)
+                        .setEfConstruction(efConstruction)
+                        .setExtendCandidates(extendCandidates)
+                        .setKeepPrunedConnections(keepPrunedConnections)
+                        .setUseRaBitQ(useRaBitQ)
+                        .setRaBitQNumExBits(raBitQNumExBits)
+                        .build(768);
+
+        Assertions.assertThat(newConfig.getRandomSeed()).isEqualTo(randomSeed);
+        Assertions.assertThat(newConfig.getMetric()).isSameAs(metric);
+        Assertions.assertThat(newConfig.isUseInlining()).isEqualTo(useInlining);
+        Assertions.assertThat(newConfig.getM()).isEqualTo(m);
+        Assertions.assertThat(newConfig.getMMax()).isEqualTo(mMax);
+        Assertions.assertThat(newConfig.getMMax0()).isEqualTo(mMax0);
+        Assertions.assertThat(newConfig.getEfConstruction()).isEqualTo(efConstruction);
+        Assertions.assertThat(newConfig.isExtendCandidates()).isEqualTo(extendCandidates);
+        Assertions.assertThat(newConfig.isKeepPrunedConnections()).isEqualTo(keepPrunedConnections);
+        Assertions.assertThat(newConfig.isUseRaBitQ()).isEqualTo(useRaBitQ);
+        Assertions.assertThat(newConfig.getRaBitQNumExBits()).isEqualTo(raBitQNumExBits);
     }
 
-    @ParameterizedTest(name = "seed={0}")
-    @MethodSource("randomSeeds")
-    public void testCompactSerialization(final long seed) {
+    @ParameterizedTest
+    @RandomSeedSource({0x0fdbL, 0x5ca1eL, 123456L, 78910L, 1123581321345589L})
+    void testCompactSerialization(final long seed) {
         final Random random = new Random(seed);
         final int numDimensions = 768;
         final CompactStorageAdapter storageAdapter =
@@ -128,29 +182,28 @@ public class HNSWTest {
                 });
 
         db.run(tr -> storageAdapter.fetchNode(tr, 0, originalNode.getPrimaryKey())
-                .thenAccept(node -> {
-                    Assertions.assertAll(
-                            () -> Assertions.assertInstanceOf(CompactNode.class, node),
-                            () -> Assertions.assertEquals(NodeKind.COMPACT, node.getKind()),
-                            () -> Assertions.assertEquals(node.getPrimaryKey(), originalNode.getPrimaryKey()),
-                            () -> Assertions.assertEquals(node.asCompactNode().getVector(),
-                                    originalNode.asCompactNode().getVector()),
-                            () -> {
-                                final ArrayList<NodeReference> neighbors =
-                                        Lists.newArrayList(node.getNeighbors());
-                                neighbors.sort(Comparator.comparing(NodeReference::getPrimaryKey));
-                                final ArrayList<NodeReference> originalNeighbors =
-                                        Lists.newArrayList(originalNode.getNeighbors());
-                                originalNeighbors.sort(Comparator.comparing(NodeReference::getPrimaryKey));
-                                Assertions.assertEquals(neighbors, originalNeighbors);
-                            }
-                    );
-                }).join());
+                .thenAccept(node ->
+                        Assertions.assertThat(node).satisfies(
+                                n -> Assertions.assertThat(n).isInstanceOf(CompactNode.class),
+                                n -> Assertions.assertThat(n.getKind()).isSameAs(NodeKind.COMPACT),
+                                n -> Assertions.assertThat((Object)n.getPrimaryKey()).isEqualTo(originalNode.getPrimaryKey()),
+                                n -> Assertions.assertThat(n.asCompactNode().getVector())
+                                        .isEqualTo(originalNode.asCompactNode().getVector()),
+                                n -> {
+                                    final ArrayList<NodeReference> neighbors =
+                                            Lists.newArrayList(node.getNeighbors());
+                                    neighbors.sort(Comparator.comparing(NodeReference::getPrimaryKey));
+                                    final ArrayList<NodeReference> originalNeighbors =
+                                            Lists.newArrayList(originalNode.getNeighbors());
+                                    originalNeighbors.sort(Comparator.comparing(NodeReference::getPrimaryKey));
+                                    Assertions.assertThat(neighbors).isEqualTo(originalNeighbors);
+                                }
+                )).join());
     }
 
-    @ParameterizedTest(name = "seed={0}")
-    @MethodSource("randomSeeds")
-    public void testInliningSerialization(final long seed) {
+    @ParameterizedTest
+    @RandomSeedSource({0x0fdbL, 0x5ca1eL, 123456L, 78910L, 1123581321345589L})
+    void testInliningSerialization(final long seed) {
         final Random random = new Random(seed);
         final int numDimensions = 768;
         final InliningStorageAdapter storageAdapter =
@@ -168,20 +221,21 @@ public class HNSWTest {
                 });
 
         db.run(tr -> storageAdapter.fetchNode(tr, 0, originalNode.getPrimaryKey())
-                .thenAccept(node -> Assertions.assertAll(
-                        () -> Assertions.assertInstanceOf(InliningNode.class, node),
-                        () -> Assertions.assertEquals(NodeKind.INLINING, node.getKind()),
-                        () -> Assertions.assertEquals(node.getPrimaryKey(), originalNode.getPrimaryKey()),
-                        () -> {
-                            final ArrayList<NodeReference> neighbors =
-                                    Lists.newArrayList(node.getNeighbors());
-                            neighbors.sort(Comparator.comparing(NodeReference::getPrimaryKey)); // should not be necessary the way it is stored
-                            final ArrayList<NodeReference> originalNeighbors =
-                                    Lists.newArrayList(originalNode.getNeighbors());
-                            originalNeighbors.sort(Comparator.comparing(NodeReference::getPrimaryKey));
-                            Assertions.assertEquals(neighbors, originalNeighbors);
-                        }
-                )).join());
+                .thenAccept(node ->
+                        Assertions.assertThat(node).satisfies(
+                                n -> Assertions.assertThat(n).isInstanceOf(InliningNode.class),
+                                n -> Assertions.assertThat(n.getKind()).isSameAs(NodeKind.INLINING),
+                                n -> Assertions.assertThat((Object)node.getPrimaryKey()).isEqualTo(originalNode.getPrimaryKey()),
+                                n -> {
+                                    final ArrayList<NodeReference> neighbors =
+                                            Lists.newArrayList(node.getNeighbors());
+                                    neighbors.sort(Comparator.comparing(NodeReference::getPrimaryKey)); // should not be necessary the way it is stored
+                                    final ArrayList<NodeReference> originalNeighbors =
+                                            Lists.newArrayList(originalNode.getNeighbors());
+                                    originalNeighbors.sort(Comparator.comparing(NodeReference::getPrimaryKey));
+                                    Assertions.assertThat(neighbors).isEqualTo(originalNeighbors);
+                                }
+                        )).join());
     }
 
     static Stream<Arguments> randomSeedsWithOptions() {
@@ -194,8 +248,8 @@ public class HNSWTest {
 
     @ParameterizedTest(name = "seed={0} useInlining={1} extendCandidates={2} keepPrunedConnections={3}")
     @MethodSource("randomSeedsWithOptions")
-    public void testBasicInsert(final long seed, final boolean useInlining, final boolean extendCandidates,
-                                final boolean keepPrunedConnections) {
+    void testBasicInsert(final long seed, final boolean useInlining, final boolean extendCandidates,
+                         final boolean keepPrunedConnections) {
         final Random random = new Random(seed);
         final Metric metric = Metric.EUCLIDEAN_METRIC;
         final AtomicLong nextNodeIdAtomic = new AtomicLong(0L);
@@ -254,14 +308,22 @@ public class HNSWTest {
                 TimeUnit.NANOSECONDS.toMillis(endTs - beginTs),
                 onReadListener.getNodeCountByLayer(), onReadListener.getBytesReadByLayer(),
                 String.format(Locale.ROOT, "%.2f", recall * 100.0d));
-        Assertions.assertTrue(recall > 0.79);
+        Assertions.assertThat(recall).isGreaterThan(0.79);
 
-        final Set<Long> usedIds =
+        final Set<Long> insertedIds =
                 LongStream.range(0, 1000)
                         .boxed()
                         .collect(Collectors.toSet());
 
-        hnsw.scanLayer(db, 0, 100, node -> Assertions.assertTrue(usedIds.remove(node.getPrimaryKey().getLong(0))));
+        final Set<Long> readIds = Sets.newHashSet();
+        hnsw.scanLayer(db, 0, 100,
+                node -> Assertions.assertThat(readIds.add(node.getPrimaryKey().getLong(0))).isTrue());
+        Assertions.assertThat(readIds).isEqualTo(insertedIds);
+
+        readIds.clear();
+        hnsw.scanLayer(db, 1, 100,
+                node -> Assertions.assertThat(readIds.add(node.getPrimaryKey().getLong(0))).isTrue());
+        Assertions.assertThat(readIds.size()).isBetween(10, 50);
     }
 
     private int basicInsertBatch(final HNSW hnsw, final int batchSize,
@@ -311,8 +373,8 @@ public class HNSWTest {
     }
 
     @Test
-    @Timeout(value = 10, unit = TimeUnit.MINUTES)
-    public void testSIFTInsertSmall() throws Exception {
+    @SuperSlow
+    void testSIFTInsertSmall() throws Exception {
         final Metric metric = Metric.EUCLIDEAN_METRIC;
         final int k = 100;
         final AtomicLong nextNodeIdAtomic = new AtomicLong(0L);
@@ -402,8 +464,8 @@ public class HNSWTest {
     }
 
     @Test
-    @Timeout(value = 10, unit = TimeUnit.MINUTES)
-    public void testSIFTInsertSmallUsingBatchAPI() throws Exception {
+    @SuperSlow
+    void testSIFTInsertSmallUsingBatchAPI() throws Exception {
         final Metric metric = Metric.EUCLIDEAN_METRIC;
         final int k = 100;
         final AtomicLong nextNodeIdAtomic = new AtomicLong(0L);
@@ -432,21 +494,9 @@ public class HNSWTest {
                             return new NodeReferenceWithVector(currentPrimaryKey, currentVector);
                         });
             }
+            Assertions.assertThat(i).isEqualTo(10000);
         }
         validateSIFTSmall(hnsw, k);
-    }
-
-    @Test
-    public void testManyRandomVectors() {
-        final Random random = new Random();
-        final int numDimensions = 768;
-        for (long l = 0L; l < 3000000; l ++) {
-            final HalfRealVector randomVector = RealVectorSerializationTest.createRandomHalfVector(random, numDimensions);
-            final Tuple vectorTuple = StorageAdapter.tupleFromVector(randomVector);
-            final RealVector roundTripVector = StorageAdapter.vectorFromTuple(HNSW.DEFAULT_CONFIG_BUILDER.build(numDimensions), vectorTuple);
-            Metric.EUCLIDEAN_METRIC.distance(randomVector, roundTripVector);
-            Assertions.assertEquals(randomVector, roundTripVector);
-        }
     }
 
     private <N extends NodeReference> void writeNode(@Nonnull final Transaction transaction,

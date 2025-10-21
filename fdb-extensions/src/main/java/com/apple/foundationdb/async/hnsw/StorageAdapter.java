@@ -168,7 +168,7 @@ interface StorageAdapter<N extends NodeReference> {
                    @Nonnull NeighborsChangeSet<N> changeSet);
 
     /**
-     * Scans a specified layer of the directory, returning an iterable sequence of nodes.
+     * Scans a specified layer of the structure, returning an iterable sequence of nodes.
      * <p>
      * This method allows for paginated scanning of a layer. The scan can be started from the beginning of the layer by
      * passing {@code null} for the {@code lastPrimaryKey}, or it can be resumed from a previous point by providing the
