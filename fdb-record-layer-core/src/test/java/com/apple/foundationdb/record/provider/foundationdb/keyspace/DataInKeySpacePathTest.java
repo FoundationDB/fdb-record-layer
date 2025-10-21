@@ -36,9 +36,11 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.function.Function;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -56,7 +58,7 @@ class DataInKeySpacePathTest {
 
     @ParameterizedTest
     @ValueSource(ints = {0, 1, 2, 3, 4, 5})
-    void resolution() {
+    void resolution(int depth) {
         // Include some extra children to make sure resolution doesn't get confused
         final String companyUuid = UUID.randomUUID().toString();
         KeySpace root = new KeySpace(
@@ -75,6 +77,7 @@ class DataInKeySpacePathTest {
             Transaction tr = context.ensureActive();
 
             UUID employeeId = UUID.randomUUID();
+
             KeySpacePath employeePath = root.path("company")
                     .add("department", "engineering")
                     .add("team_id", 42L)
@@ -91,8 +94,18 @@ class DataInKeySpacePathTest {
             KeyValue keyValue = new KeyValue(keyBytes, valueBytes);
 
             // Create DataInKeySpacePath from the company-level path
-            KeySpacePath companyPath = root.path("company");
-            DataInKeySpacePath dataInPath = new DataInKeySpacePath(companyPath, keyValue, context);
+            List<Function<KeySpacePath, KeySpacePath>> pathNavigation = List.of(
+                    path -> path.add("department", "engineering"),
+                    path -> path.add("team_id", 42L),
+                    path -> path.add("employee_uuid", employeeId),
+                    path -> path.add("active", true),
+                    path -> path.add("data")
+            );
+            KeySpacePath toResolve = root.path("company");
+            for (final Function<KeySpacePath, KeySpacePath> function : pathNavigation.subList(0, depth)) {
+                toResolve = function.apply(toResolve);
+            }
+            DataInKeySpacePath dataInPath = new DataInKeySpacePath(toResolve, keyValue, context);
 
             ResolvedKeySpacePath resolved = dataInPath.getResolvedPath().join();
 
