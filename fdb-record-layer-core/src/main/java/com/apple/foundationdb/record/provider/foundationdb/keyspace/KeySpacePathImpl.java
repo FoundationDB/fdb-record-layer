@@ -258,20 +258,10 @@ class KeySpacePathImpl implements KeySpacePath {
             Tuple pathTuple = resolvedPath.toTuple();
             int pathLength = pathTuple.size();
 
-            // Validate that the key starts with the path
-            if (keyTuple.size() < pathLength) {
+            if (!TupleHelpers.isPrefix(pathTuple, keyTuple)) {
                 throw new RecordCoreArgumentException("Key is not under this path")
                         .addLogInfo(LogMessageKeys.EXPECTED, pathTuple,
                                 LogMessageKeys.ACTUAL, keyTuple);
-            }
-
-            // Verify that the key's prefix matches the path
-            for (int i = 0; i < pathLength; i++) {
-                if (!Objects.equals(keyTuple.get(i), pathTuple.get(i))) {
-                    throw new RecordCoreArgumentException("Key is not under this path")
-                            .addLogInfo(LogMessageKeys.EXPECTED, pathTuple,
-                                    LogMessageKeys.ACTUAL, keyTuple);
-                }
             }
 
             // The remaining part of the key should be resolved from the resolved path's directory
