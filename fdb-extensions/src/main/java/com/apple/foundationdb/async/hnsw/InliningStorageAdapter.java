@@ -176,13 +176,26 @@ class InliningStorageAdapter extends AbstractStorageAdapter<NodeReferenceWithVec
     @Nonnull
     private NodeReferenceWithVector neighborFromRaw(final int layer, final @Nonnull byte[] key, final byte[] value) {
         final OnReadListener onReadListener = getOnReadListener();
-
         onReadListener.onKeyValueRead(layer, key, value);
+
         final Tuple neighborKeyTuple = getDataSubspace().unpack(key);
         final Tuple neighborValueTuple = Tuple.fromBytes(value);
 
-        final Tuple neighborPrimaryKey = neighborKeyTuple.getNestedTuple(2); // neighbor primary key
-        final RealVector neighborVector = StorageAdapter.vectorFromTuple(getConfig(), neighborValueTuple); // the entire value is the vector
+        return neighborFromTuples(neighborKeyTuple, neighborValueTuple);
+    }
+
+    /**
+     * Constructs a {@code NodeReferenceWithVector} from tuples retrieved from storage.
+     * <p>
+     * @param keyTuple the key tuple from the database, which contains the neighbor's primary key.
+     * @param valueTuple the value tuple from the database, which represents the neighbor's vector.
+     * @return a new {@link NodeReferenceWithVector} instance representing the deserialized neighbor.
+     * @throws IllegalArgumentException if the key or value byte arrays are malformed and cannot be unpacked.
+     */
+    @Nonnull
+    private NodeReferenceWithVector neighborFromTuples(final @Nonnull Tuple keyTuple, final Tuple valueTuple) {
+        final Tuple neighborPrimaryKey = keyTuple.getNestedTuple(2); // neighbor primary key
+        final RealVector neighborVector = StorageAdapter.vectorFromTuple(getConfig(), valueTuple); // the entire value is the vector
         return new NodeReferenceWithVector(neighborPrimaryKey, neighborVector);
     }
 
@@ -308,6 +321,7 @@ class InliningStorageAdapter extends AbstractStorageAdapter<NodeReferenceWithVec
     @Override
     public Iterable<Node<NodeReferenceWithVector>> scanLayer(@Nonnull final ReadTransaction readTransaction, int layer,
                                                              @Nullable final Tuple lastPrimaryKey, int maxNumRead) {
+        final OnReadListener onReadListener = getOnReadListener();
         final byte[] layerPrefix = getDataSubspace().pack(Tuple.from(layer));
         final Range range =
                 lastPrimaryKey == null
@@ -317,30 +331,29 @@ class InliningStorageAdapter extends AbstractStorageAdapter<NodeReferenceWithVec
         final AsyncIterable<KeyValue> itemsIterable =
                 readTransaction.getRange(range,
                         maxNumRead, false, StreamingMode.ITERATOR);
-        int numRead = 0;
         Tuple nodePrimaryKey = null;
         ImmutableList.Builder<Node<NodeReferenceWithVector>> nodeBuilder = ImmutableList.builder();
-        ImmutableList.Builder<NodeReferenceWithVector> neighborsBuilder = ImmutableList.builder();
+        ImmutableList.Builder<NodeReferenceWithVector> neighborsBuilder = null;
         for (final KeyValue item: itemsIterable) {
-            final NodeReferenceWithVector neighbor =
-                    neighborFromRaw(layer, item.getKey(), item.getValue());
-            final Tuple primaryKeyFromNodeReference = neighbor.getPrimaryKey();
-            if (nodePrimaryKey == null) {
-                nodePrimaryKey = primaryKeyFromNodeReference;
-            } else {
-                if (!nodePrimaryKey.equals(primaryKeyFromNodeReference)) {
+            final byte[] key = item.getKey();
+            final byte[] value = item.getValue();
+            onReadListener.onKeyValueRead(layer, key, value);
+
+            final Tuple neighborKeyTuple = getDataSubspace().unpack(key);
+            final Tuple neighborValueTuple = Tuple.fromBytes(value);
+            final NodeReferenceWithVector neighbor = neighborFromTuples(neighborKeyTuple, neighborValueTuple);
+            final Tuple nodePrimaryKeyFromNeighbor = neighborKeyTuple.getNestedTuple(1);
+            if (nodePrimaryKey == null || !nodePrimaryKey.equals(nodePrimaryKeyFromNeighbor)) {
+                if (nodePrimaryKey != null) {
                     nodeBuilder.add(getNodeFactory().create(nodePrimaryKey, null, neighborsBuilder.build()));
                 }
+                nodePrimaryKey = nodePrimaryKeyFromNeighbor;
+                neighborsBuilder = ImmutableList.builder();
             }
             neighborsBuilder.add(neighbor);
-            numRead ++;
         }
 
-        // there may be a rest
-        if (numRead > 0 && numRead < maxNumRead) {
-            nodeBuilder.add(getNodeFactory().create(nodePrimaryKey, null, neighborsBuilder.build()));
-        }
-
+        // there may be a rest; throw it away
         return nodeBuilder.build();
     }
 }

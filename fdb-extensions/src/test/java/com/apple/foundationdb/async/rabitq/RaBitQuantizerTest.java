@@ -96,8 +96,8 @@ public class RaBitQuantizerTest {
         final RaBitQuantizer quantizer = new RaBitQuantizer(Metric.EUCLIDEAN_SQUARE_METRIC, centroid, numExBits);
         final EncodedRealVector encodedV = quantizer.encode(v);
         final RaBitEstimator estimator = quantizer.estimator();
-        final RaBitEstimator.Result estimatedDistanceResult = estimator.estimateDistanceAndErrorBound(v, encodedV);
-        Assertions.assertThat(estimatedDistanceResult.getDistance()).isCloseTo(0.0d, Offset.offset(0.01));
+        final double estimatedDistance = estimator.distance(v, encodedV);
+        Assertions.assertThat(estimatedDistance).isCloseTo(0.0d, Offset.offset(0.01));
     }
 
     @Nonnull
