@@ -20,13 +20,13 @@
 
 package com.apple.foundationdb.async.rabitq;
 
-import com.apple.foundationdb.async.hnsw.RealVectorSerializationTest;
 import com.apple.foundationdb.linear.ColumnMajorRealMatrix;
 import com.apple.foundationdb.linear.DoubleRealVector;
 import com.apple.foundationdb.linear.FhtKacRotator;
 import com.apple.foundationdb.linear.Metric;
 import com.apple.foundationdb.linear.RealMatrix;
 import com.apple.foundationdb.linear.RealVector;
+import com.apple.foundationdb.linear.RealVectorTest;
 import com.apple.test.RandomizedTestUtils;
 import com.google.common.collect.ImmutableSet;
 import org.assertj.core.api.Assertions;
@@ -54,7 +54,7 @@ public class FhtKacRotatorTest {
         final FhtKacRotator rotator = new FhtKacRotator(seed, numDimensions, 10);
 
         final Random random = new Random(seed);
-        final RealVector x = RealVectorSerializationTest.createRandomDoubleVector(random, numDimensions);
+        final RealVector x = RealVectorTest.createRandomDoubleVector(random, numDimensions);
         final RealVector y = rotator.operate(x);
         final RealVector z = rotator.operateTranspose(y);
 
@@ -66,10 +66,11 @@ public class FhtKacRotatorTest {
     void testRotationIsStable(final long seed, final int numDimensions) {
         final FhtKacRotator rotator1 = new FhtKacRotator(seed, numDimensions, 10);
         final FhtKacRotator rotator2 = new FhtKacRotator(seed, numDimensions, 10);
+        Assertions.assertThat(rotator1.hashCode()).isEqualTo(rotator2.hashCode());
         Assertions.assertThat(rotator1).isEqualTo(rotator2);
 
         final Random random = new Random(seed);
-        final RealVector x = RealVectorSerializationTest.createRandomDoubleVector(random, numDimensions);
+        final RealVector x = RealVectorTest.createRandomDoubleVector(random, numDimensions);
         final RealVector x_ = rotator1.operate(x);
         final RealVector x__ = rotator2.operate(x);
 
