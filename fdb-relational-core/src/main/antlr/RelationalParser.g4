@@ -1165,6 +1165,7 @@ expressionAtom
 inList
     : '(' (queryExpressionBody | expressions) ')'
     | preparedStatementParameter
+    | fullColumnName
     ;
 
 preparedStatementParameter

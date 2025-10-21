@@ -51,6 +51,7 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath
 import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyStorage;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.test.TestKeySpace;
+import com.apple.foundationdb.record.util.RandomSecretUtil;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.util.LoggableKeysAndValues;
@@ -72,10 +73,8 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
 import java.io.IOException;
-import java.security.GeneralSecurityException;
 import java.time.Duration;
 import java.util.ArrayDeque;
 import java.util.HashMap;
@@ -108,6 +107,7 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.function;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.anyOf;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -286,7 +286,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                           int partitionHighWatermark,
                           int repartitionCount,
                           int loopCount,
-                          long seed) throws IOException, GeneralSecurityException {
+                          long seed) throws IOException {
         manyDocuments(isGrouped, isSynthetic, primaryKeySegmentIndexEnabled, compressed, encrypted, partitionHighWatermark,
                 repartitionCount, loopCount, 10, seed);
     }
@@ -328,7 +328,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                        int repartitionCount,
                        int loopCount,
                        int maxTransactionsPerLoop,
-                       long seed) throws IOException, GeneralSecurityException {
+                       long seed) throws IOException {
         final LuceneIndexTestDataModel dataModel = new LuceneIndexTestDataModel.Builder(seed, this::getStoreBuilder, pathManager)
                 .setIsGrouped(isGrouped)
                 .setIsSynthetic(isSynthetic)
@@ -347,7 +347,8 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                 .addProp(LuceneRecordContextProperties.LUCENE_MAX_DOCUMENTS_TO_MOVE_DURING_REPARTITIONING, dataModel.nextInt(1000) + repartitionCount)
                 .addProp(LuceneRecordContextProperties.LUCENE_MERGE_SEGMENTS_PER_TIER, (double)dataModel.nextInt(10) + 2) // it must be at least 2.0
                 .addProp(LuceneRecordContextProperties.LUCENE_INDEX_COMPRESSION_ENABLED, compressed)
-                .addProp(LuceneRecordContextProperties.LUCENE_INDEX_ENCRYPTION_ENABLED, encrypted);
+                .addProp(LuceneRecordContextProperties.LUCENE_INDEX_ENCRYPTION_ENABLED, encrypted)
+                .addProp(LuceneRecordContextProperties.LUCENE_FIELD_PROTOBUF_PREFIX_ENABLED, encrypted);
         if (encrypted) {
             contextPropsBuilder.addProp(LuceneRecordContextProperties.LUCENE_INDEX_KEY_MANAGER, new RollingTestKeyManager(seed));
         }
@@ -908,7 +909,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
 
     @ParameterizedTest
     @MethodSource
-    void changingEncryptionKey(boolean isSynthetic, boolean isGrouped, long seed) throws IOException, GeneralSecurityException {
+    void changingEncryptionKey(boolean isSynthetic, boolean isGrouped, long seed) {
         final LuceneIndexTestDataModel dataModel = new LuceneIndexTestDataModel.Builder(seed, this::getStoreBuilder, pathManager)
                 .setIsGrouped(isGrouped)
                 .setIsSynthetic(isSynthetic)
@@ -917,11 +918,10 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
 
         final RecordLayerPropertyStorage.Builder contextPropsBuilder = RecordLayerPropertyStorage.newBuilder()
                 .addProp(LuceneRecordContextProperties.LUCENE_INDEX_COMPRESSION_ENABLED, true)
-                .addProp(LuceneRecordContextProperties.LUCENE_INDEX_ENCRYPTION_ENABLED, true);
-        final KeyGenerator keyGen = KeyGenerator.getInstance("AES");
-        keyGen.init(128);
-        final SecretKey key1 = keyGen.generateKey();
-        final SerializationKeyManager keyManager1 = new FixedZeroKeyManager(key1, null, null);
+                .addProp(LuceneRecordContextProperties.LUCENE_INDEX_ENCRYPTION_ENABLED, true)
+                .addProp(LuceneRecordContextProperties.LUCENE_FIELD_PROTOBUF_PREFIX_ENABLED, true);
+        final SecretKey key1 = RandomSecretUtil.randomSecretKey(dataModel.getRandom());
+        final SerializationKeyManager keyManager1 = new FixedZeroKeyManager(key1, null, dataModel.getRandom());
         contextPropsBuilder.addProp(LuceneRecordContextProperties.LUCENE_INDEX_KEY_MANAGER, keyManager1);
         final RecordLayerPropertyStorage contextProps1 = contextPropsBuilder.build();
 
@@ -932,17 +932,18 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
 
         explicitMergeIndex(dataModel.index, contextProps1, dataModel.schemaSetup);
 
-        final SecretKey key2 = keyGen.generateKey();
-        final SerializationKeyManager keyManager2 = new FixedZeroKeyManager(key2, null, null);
+        final SecretKey key2 = RandomSecretUtil.randomSecretKey(dataModel.getRandom());
+        final SerializationKeyManager keyManager2 = new FixedZeroKeyManager(key2, null, dataModel.getRandom());
         contextPropsBuilder.removeProp(LuceneRecordContextProperties.LUCENE_INDEX_KEY_MANAGER);
         contextPropsBuilder.addProp(LuceneRecordContextProperties.LUCENE_INDEX_KEY_MANAGER, keyManager2);
         final RecordLayerPropertyStorage contextProps2 = contextPropsBuilder.build();
         IOException ioException = assertThrows(IOException.class,
                 () -> dataModel.validate(() -> openContext(contextProps2)));
         assertThat(ioException.getCause(), instanceOf(RecordCoreException.class));
-        assertThat(ioException.getCause().getMessage(), containsString("Lucene data decoding failure"));
-        assertThat(ioException.getCause().getCause(), instanceOf(GeneralSecurityException.class));
-
+        // Possible failures: (1) does not decrypt; (2) decrypts to garbage with bad compression level; (3) does not decompress.
+        assertThat(ioException.getCause().getMessage(), anyOf(
+                containsString("Lucene data decoding failure"),
+                containsString("Un-supported compression version")));
     }
 
     private static Stream<Arguments> concurrentParameters() {

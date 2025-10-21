@@ -5,6 +5,78 @@ This document contains a log of changes to the FoundationDB Record Layer. It aim
 
 As the [versioning guide](Versioning.md) details, it cannot always be determined solely by looking at the version numbers whether one Record Layer version contains all changes included in another. In particular, bug fixes and backwards-compatible changes might be back-ported to or introduced as patches against older versions. To track when a patch version has been included in the main release train, some releases will say as a note that they contain all changes from a specific patch.
 
+## 4.8
+
+### 4.8.2.0
+
+<h4> New Features </h4>
+
+* Use the LuceneSerializer to encode stored fields and field infos, too. - [PR #3669](https://github.com/FoundationDB/fdb-record-layer/pull/3669)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Add documentation to `CAST` operator. - [PR #3668](https://github.com/FoundationDB/fdb-record-layer/pull/3668)
+
+</details>
+
+
+**[Full Changelog (4.8.1.0...4.8.2.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.8.1.0...4.8.2.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+❌`4.5.13.0`, ❌`4.6.1.0`, ❌`4.6.2.0`, ❌`4.6.3.0`, ❌`4.6.4.0`, ❌`4.6.5.0`, ❌`4.7.1.0`, ❌`4.7.2.0`, ✅`4.7.3.0`, ✅`4.8.1.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/18580596733)
+
+
+
+### 4.8.1.0
+
+<h4> Breaking Changes </h4>
+
+* Update minor version to 4.8 - [PR #3678](https://github.com/FoundationDB/fdb-record-layer/pull/3678)
+<h4> New Features </h4>
+
+* Support primitive type arrays contains - [PR #3300](https://github.com/FoundationDB/fdb-record-layer/pull/3300)
+<h4> Bug Fixes </h4>
+
+* catch IndexOutOfBoundsException when accessing fields from metadata - [PR #3672](https://github.com/FoundationDB/fdb-record-layer/pull/3672)
+* Enable new KeyValueCursorBaseContinuation serialization - [PR #3671](https://github.com/FoundationDB/fdb-record-layer/pull/3671)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Deprecate compiled statement continuations in jdbc - [PR #3659](https://github.com/FoundationDB/fdb-record-layer/pull/3659)
+* Create a new fdb-test-utils sub-project for some test utilities - [PR #3631](https://github.com/FoundationDB/fdb-record-layer/pull/3631)
+* remove sql_type_code remove usage - [PR #3651](https://github.com/FoundationDB/fdb-record-layer/pull/3651)
+* Fix code coverage for nightly when run with the tests - [PR #3667](https://github.com/FoundationDB/fdb-record-layer/pull/3667)
+
+</details>
+
+
+**[Full Changelog (4.7.3.0...4.8.1.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.7.3.0...4.8.1.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+❌`4.5.12.0`, ❌`4.5.13.0`, ❌`4.6.1.0`, ❌`4.6.2.0`, ❌`4.6.3.0`, ✅`4.6.4.0`, ✅`4.6.5.0`, ✅`4.7.1.0`, ✅`4.7.2.0`, ✅`4.7.3.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/18526871065)
+
+
+
 ## 4.7
 
 ### 4.7.3.0

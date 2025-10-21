@@ -32,18 +32,18 @@ import java.util.Random;
 public class FixedZeroKeyManager implements SerializationKeyManager {
     private final Key encryptionKey;
     private final String cipherName;
-    private final SecureRandom secureRandom;
+    private final Random random;
 
-    public FixedZeroKeyManager(@Nonnull Key encryptionKey, @Nullable String cipherName, @Nullable SecureRandom secureRandom) {
+    public FixedZeroKeyManager(@Nonnull Key encryptionKey, @Nullable String cipherName, @Nullable Random random) {
         if (cipherName == null) {
             cipherName = CipherPool.DEFAULT_CIPHER;
         }
-        if (secureRandom == null) {
-            secureRandom = new SecureRandom();
+        if (random == null) {
+            random = new SecureRandom();
         }
         this.encryptionKey = encryptionKey;
         this.cipherName = cipherName;
-        this.secureRandom = secureRandom;
+        this.random = random;
     }
 
     @Override
@@ -72,6 +72,6 @@ public class FixedZeroKeyManager implements SerializationKeyManager {
         if (keyNumber != 0) {
             throw new RecordSerializationException("only provide key number 0");
         }
-        return secureRandom;
+        return random;
     }
 }

@@ -546,6 +546,10 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         final Expression result;
         if (ctx.preparedStatementParameter() != null) {
             result = visitPreparedStatementParameter(ctx.preparedStatementParameter());
+        } else if (ctx.fullColumnName() != null) {
+            result = visitFullColumnName(ctx.fullColumnName());
+            // Validate that result is of type Array
+            Assert.thatUnchecked(result.getDataType().getCode() == DataType.Code.ARRAY, ErrorCode.UNSUPPORTED_QUERY, "IN list with column reference must be of array type, but got: %s", result.getDataType().getCode());
         } else if (getDelegate().getPlanGenerationContext().shouldProcessLiteral() && ParseHelpers.isConstant(ctx.expressions())) {
             getDelegate().getPlanGenerationContext().startArrayLiteral();
             final var inListItems = visitExpressions(ctx.expressions());
