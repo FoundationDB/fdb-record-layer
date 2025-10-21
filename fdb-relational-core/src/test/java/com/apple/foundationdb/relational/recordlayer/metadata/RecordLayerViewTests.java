@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer.metadata;
 
-import com.apple.foundationdb.record.query.plan.cascades.RawView;
+import com.apple.foundationdb.record.metadata.View;
 import com.apple.foundationdb.relational.recordlayer.query.LogicalOperator;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -260,7 +260,7 @@ public class RecordLayerViewTests {
                 .setViewCompiler(createMockCompiler())
                 .build();
 
-        final RawView rawView = view.asRawView();
+        final View rawView = view.asRawView();
 
         assertThat(rawView.getName()).isEqualTo("test_view");
         assertThat(rawView.getDefinition()).isEqualTo("SELECT * FROM employees WHERE salary > 50000");

@@ -1,5 +1,5 @@
 /*
- * RawSqlView.java
+ * View.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,12 +18,9 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.query.plan.cascades;
+package com.apple.foundationdb.record.metadata;
 
-import com.apple.foundationdb.record.PlanDeserializer;
-import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordMetaDataProto;
-import com.google.auto.service.AutoService;
 
 import javax.annotation.Nonnull;
 import java.util.Objects;
@@ -33,23 +30,22 @@ import java.util.Objects;
  * Views are stored as raw SQL text and compiled lazily when referenced in queries.
  * This class is used for serialization/deserialization of view definitions.
  */
-public class RawView extends View {
+public class View {
 
     @Nonnull
-    private final String viewName;
+    private final String name;
 
     @Nonnull
     private final String definition;
 
-    public RawView(@Nonnull final String viewName, @Nonnull final String definition) {
-        this.viewName = viewName;
+    public View(@Nonnull final String name, @Nonnull final String definition) {
+        this.name = name;
         this.definition = definition;
     }
 
     @Nonnull
-    @Override
     public String getName() {
-        return viewName;
+        return name;
     }
 
     @Nonnull
@@ -58,13 +54,10 @@ public class RawView extends View {
     }
 
     @Nonnull
-    @Override
-    public RecordMetaDataProto.PView toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public RecordMetaDataProto.PView toProto() {
         return RecordMetaDataProto.PView.newBuilder()
-                .setRawView(RecordMetaDataProto.PRawView.newBuilder()
-                    .setName(viewName)
-                    .setDefinition(definition)
-                    .build())
+                .setName(name)
+                .setDefinition(definition)
                 .build();
     }
 
@@ -76,36 +69,25 @@ public class RawView extends View {
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        final RawView that = (RawView) o;
-        return Objects.equals(viewName, that.viewName) && Objects.equals(definition, that.definition);
+        final View that = (View) o;
+        return Objects.equals(name, that.name) && Objects.equals(definition, that.definition);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(viewName, definition);
+        return Objects.hash(name, definition);
     }
 
     @Override
     public String toString() {
-        return "PRawView{" +
-                "viewName='" + viewName + '\'' +
+        return "View{" +
+                "name='" + name + '\'' +
                 ", definition='" + definition + '\'' +
                 '}';
     }
 
-    @AutoService(PlanDeserializer.class)
-    public static class Deserializer implements PlanDeserializer<RecordMetaDataProto.PRawView, RawView> {
-        @Nonnull
-        @Override
-        public Class<RecordMetaDataProto.PRawView> getProtoMessageClass() {
-            return RecordMetaDataProto.PRawView.class;
-        }
-
-        @Nonnull
-        @Override
-        public RawView fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                 @Nonnull final RecordMetaDataProto.PRawView sqlView) {
-            return new RawView(sqlView.getName(), sqlView.getDefinition());
-        }
+    @Nonnull
+    public static View fromProto(@Nonnull final RecordMetaDataProto.PView sqlView) {
+        return new View(sqlView.getName(), sqlView.getDefinition());
     }
 }

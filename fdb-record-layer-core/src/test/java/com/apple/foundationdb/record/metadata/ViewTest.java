@@ -1,5 +1,5 @@
 /*
- * RawViewTests.java
+ * ViewTest.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,12 +18,9 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.query.plan.cascades;
+package com.apple.foundationdb.record.metadata;
 
-import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordMetaDataProto;
-import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -31,16 +28,16 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Test cases for {@link RawView}.
+ * Test cases for {@link View}.
  */
-public class RawViewTest {
+public class ViewTest {
 
     @Test
     public void testConstructorAndGetters() {
         final String viewName = "test_view";
         final String definition = "SELECT * FROM table1";
 
-        final RawView view = new RawView(viewName, definition);
+        final View view = new View(viewName, definition);
 
         assertEquals(viewName, view.getName());
         assertEquals(definition, view.getDefinition());
@@ -48,10 +45,10 @@ public class RawViewTest {
 
     @Test
     public void testEqualsAndHashCode() {
-        final RawView view1 = new RawView("view1", "SELECT * FROM t1");
-        final RawView view2 = new RawView("view1", "SELECT * FROM t1");
-        final RawView view3 = new RawView("view2", "SELECT * FROM t1");
-        final RawView view4 = new RawView("view1", "SELECT * FROM t2");
+        final View view1 = new View("view1", "SELECT * FROM t1");
+        final View view2 = new View("view1", "SELECT * FROM t1");
+        final View view3 = new View("view2", "SELECT * FROM t1");
+        final View view4 = new View("view1", "SELECT * FROM t2");
 
         // Test equality
         assertEquals(view1, view2);
@@ -72,7 +69,7 @@ public class RawViewTest {
 
     @Test
     public void testToString() {
-        final RawView view = new RawView("my_view", "SELECT id, name FROM users");
+        final View view = new View("my_view", "SELECT id, name FROM users");
         final String result = view.toString();
 
         assertTrue(result.contains("my_view"));
@@ -83,14 +80,12 @@ public class RawViewTest {
     public void testProtoSerialization() {
         final String viewName = "serialization_test";
         final String definition = "SELECT a, b FROM table WHERE c > 10";
-        final RawView originalView = new RawView(viewName, definition);
+        final View originalView = new View(viewName, definition);
 
-        final PlanSerializationContext context = new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE, PlanHashable.CURRENT_FOR_CONTINUATION);
-        final RecordMetaDataProto.PView proto = originalView.toProto(context);
+        final RecordMetaDataProto.PView proto = originalView.toProto();
 
-        assertTrue(proto.hasRawView());
-        assertEquals(viewName, proto.getRawView().getName());
-        assertEquals(definition, proto.getRawView().getDefinition());
+        assertEquals(viewName, proto.getName());
+        assertEquals(definition, proto.getDefinition());
     }
 
     @Test
@@ -98,14 +93,12 @@ public class RawViewTest {
         final String viewName = "deserialization_test";
         final String definition = "SELECT x, y, z FROM test_table";
 
-        final RecordMetaDataProto.PRawView protoView = RecordMetaDataProto.PRawView.newBuilder()
+        final RecordMetaDataProto.PView protoView = RecordMetaDataProto.PView.newBuilder()
                 .setName(viewName)
                 .setDefinition(definition)
                 .build();
 
-        final RawView.Deserializer deserializer = new RawView.Deserializer();
-        final PlanSerializationContext context = new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE, PlanHashable.CURRENT_FOR_CONTINUATION);
-        final RawView view = deserializer.fromProto(context, protoView);
+        final View view = View.fromProto(protoView);
 
         assertEquals(viewName, view.getName());
         assertEquals(definition, view.getDefinition());
@@ -113,25 +106,16 @@ public class RawViewTest {
 
     @Test
     public void testRoundTripSerialization() {
-        final RawView originalView = new RawView("round_trip_view", "SELECT * FROM employees WHERE salary > 50000");
-        final PlanSerializationContext context = new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE, PlanHashable.CURRENT_FOR_CONTINUATION);
+        final View originalView = new View("round_trip_view", "SELECT * FROM employees WHERE salary > 50000");
 
         // Serialize to proto
-        final RecordMetaDataProto.PView proto = originalView.toProto(context);
+        final RecordMetaDataProto.PView proto = originalView.toProto();
 
         // Deserialize from proto
-        final RawView.Deserializer deserializer = new RawView.Deserializer();
-        final RawView deserializedView = deserializer.fromProto(context, proto.getRawView());
+        final View deserializedView = View.fromProto(proto);
 
         // Verify equality
-        assertEquals(originalView, deserializedView);
         assertEquals(originalView.getName(), deserializedView.getName());
         assertEquals(originalView.getDefinition(), deserializedView.getDefinition());
-    }
-
-    @Test
-    public void testDeserializerGetProtoMessageClass() {
-        final RawView.Deserializer deserializer = new RawView.Deserializer();
-        assertEquals(RecordMetaDataProto.PRawView.class, deserializer.getProtoMessageClass());
     }
 }

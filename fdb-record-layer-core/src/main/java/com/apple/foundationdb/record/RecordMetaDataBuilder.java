@@ -42,7 +42,7 @@ import com.apple.foundationdb.record.metadata.expressions.LiteralKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerRegistry;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactoryRegistryImpl;
 import com.apple.foundationdb.record.provider.foundationdb.MetaDataProtoEditor;
-import com.apple.foundationdb.record.query.plan.cascades.RawView;
+import com.apple.foundationdb.record.metadata.View;
 import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
@@ -116,7 +116,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
     @Nonnull
     private final Map<String, UserDefinedFunction> userDefinedFunctionMap;
     @Nonnull
-    private final Map<String, RawView> viewMap;
+    private final Map<String, View> viewMap;
     @Nonnull
     private final Map<String, Index> indexes;
     @Nonnull
@@ -238,11 +238,9 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
                             PlanHashable.CURRENT_FOR_CONTINUATION), function);
             userDefinedFunctionMap.put(func.getFunctionName(), func);
         }
-        for (RecordMetaDataProto.PView viewProto: metaDataProto.getViewsList()) {
-            final RawView rawView = (RawView)PlanSerialization.dispatchFromProtoContainer(
-                    new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE,
-                            PlanHashable.CURRENT_FOR_CONTINUATION), viewProto);
-            viewMap.put(rawView.getName(), rawView);
+        for (final RecordMetaDataProto.PView viewProto: metaDataProto.getViewsList()) {
+            final View view = View.fromProto(viewProto);
+            viewMap.put(view.getName(), view);
         }
         if (metaDataProto.hasSplitLongRecords()) {
             splitLongRecords = metaDataProto.getSplitLongRecords();
@@ -1217,8 +1215,8 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         functions.forEach(this::addUserDefinedFunction);
     }
 
-    public void addView(@Nonnull RawView rawView) {
-        viewMap.put(rawView.getName(), rawView);
+    public void addView(@Nonnull View view) {
+        viewMap.put(view.getName(), view);
     }
 
     public boolean isSplitLongRecords() {

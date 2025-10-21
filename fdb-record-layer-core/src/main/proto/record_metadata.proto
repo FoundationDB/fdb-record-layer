@@ -207,12 +207,6 @@ message PUserDefinedFunction {
 }
 
 message PView {
-  oneof specific_view {
-    PRawView raw_view = 1;
-  }
-}
-
-message PRawView {
   optional string name = 1;
   optional string definition = 2;
 }

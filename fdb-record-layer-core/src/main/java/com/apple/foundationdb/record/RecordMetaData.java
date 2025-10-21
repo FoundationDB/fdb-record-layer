@@ -31,7 +31,7 @@ import com.apple.foundationdb.record.metadata.SyntheticRecordType;
 import com.apple.foundationdb.record.metadata.UnnestedRecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.LiteralKeyExpression;
-import com.apple.foundationdb.record.query.plan.cascades.RawView;
+import com.apple.foundationdb.record.metadata.View;
 import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
@@ -88,7 +88,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
     @Nonnull
     private final Map<String, UserDefinedFunction> userDefinedFunctionMap;
     @Nonnull
-    private final Map<String, RawView> viewMap;
+    private final Map<String, View> viewMap;
     @Nonnull
     private final Map<String, Index> indexes;
     @Nonnull
@@ -141,7 +141,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
                              @Nonnull Map<String, Index> universalIndexes,
                              @Nonnull List<FormerIndex> formerIndexes,
                              @Nonnull Map<String, UserDefinedFunction> userDefinedFunctionMap,
-                             @Nonnull Map<String, RawView> viewMap,
+                             @Nonnull Map<String, View> viewMap,
                              boolean splitLongRecords,
                              boolean storeRecordVersions,
                              int version,
@@ -708,7 +708,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
         PlanSerializationContext serializationContext = new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE,
                 PlanHashable.CURRENT_FOR_CONTINUATION);
         builder.addAllUserDefinedFunctions(userDefinedFunctionMap.values().stream().map(func -> func.toProto(serializationContext)).collect(Collectors.toList()));
-        builder.addAllViews(viewMap.values().stream().map(rawView -> rawView.toProto(serializationContext)).collect(Collectors.toList()));
+        builder.addAllViews(viewMap.values().stream().map(View::toProto).collect(Collectors.toList()));
         builder.setSplitLongRecords(splitLongRecords);
         builder.setStoreRecordVersions(storeRecordVersions);
         builder.setVersion(version);
@@ -734,7 +734,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
     }
 
     @Nonnull
-    public Map<String, RawView> getViewMap() {
+    public Map<String, View> getViewMap() {
         return viewMap;
     }
 

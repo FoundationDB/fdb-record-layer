@@ -20,8 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer.metadata;
 
-import com.apple.foundationdb.record.query.plan.cascades.RawView;
-import com.apple.foundationdb.relational.api.metadata.View;
+import com.apple.foundationdb.record.metadata.View;
 import com.apple.foundationdb.relational.recordlayer.query.LogicalOperator;
 import com.apple.foundationdb.relational.util.Assert;
 
@@ -33,7 +32,7 @@ import java.util.function.Function;
  * Represents a SQL view in the Record Layer metadata system.
  * Views are stored as raw SQL definitions and compiled lazily when referenced.
  */
-public class RecordLayerView implements View {
+public class RecordLayerView implements com.apple.foundationdb.relational.api.metadata.View {
 
     /**
      * The SQL query definition of the view (e.g., "SELECT * FROM employees WHERE salary > 50000").
@@ -100,8 +99,8 @@ public class RecordLayerView implements View {
     }
 
     @Nonnull
-    public RawView asRawView() {
-        return new RawView(getName(), getDescription());
+    public View asRawView() {
+        return new View(getName(), getDescription());
     }
 
     @Override
