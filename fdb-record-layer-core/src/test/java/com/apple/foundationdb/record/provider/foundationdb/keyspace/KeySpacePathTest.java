@@ -43,7 +43,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  * Tests for {@link KeySpacePath}.
  * See also {@link KeySpacePathDataExportTest} and {@link ResolvedKeySpacePathTest}.
  */
-public class KeySpacePathTest {
+class KeySpacePathTest {
 
     @RegisterExtension
     final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
@@ -161,15 +161,13 @@ public class KeySpacePathTest {
         try (FDBRecordContext context = database.openContext()) {
             KeySpacePath rootPath = keySpace.path("test_root");
             KeySpacePath branchPath = rootPath.add("branch");
-            KeySpacePath leafPath = branchPath.add("leaf", "leaf_value");
 
             // Create a key that is shorter than branchPath - it stops at root
             byte[] shorterKeyBytes = rootPath.toSubspace(context).pack();
 
             // Attempting to resolve a key that is not under branchPath should error
-            ExecutionException ex = assertThrows(ExecutionException.class, () -> {
-                branchPath.toResolvedPathAsync(context, shorterKeyBytes).get();
-            });
+            ExecutionException ex = assertThrows(ExecutionException.class,
+                    () -> branchPath.toResolvedPathAsync(context, shorterKeyBytes).get());
             assertEquals(RecordCoreArgumentException.class, ex.getCause().getClass());
         }
     }
@@ -188,9 +186,7 @@ public class KeySpacePathTest {
 
             // Attempting to resolve invalid tuple bytes should error
             // The exception is thrown synchronously from Tuple.fromBytes, not wrapped in ExecutionException
-            assertThrows(IllegalArgumentException.class, () -> {
-                branchPath.toResolvedPathAsync(context, invalidBytes);
-            });
+            assertThrows(IllegalArgumentException.class, () -> branchPath.toResolvedPathAsync(context, invalidBytes));
         }
     }
 
