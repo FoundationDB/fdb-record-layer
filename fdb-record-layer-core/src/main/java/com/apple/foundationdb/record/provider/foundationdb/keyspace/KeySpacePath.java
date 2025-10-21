@@ -592,8 +592,8 @@ public interface KeySpacePath {
     @API(API.Status.EXPERIMENTAL)
     @Nonnull
     default RecordCursor<DataInKeySpacePath> exportAllData(@Nonnull FDBRecordContext context,
-                                                   @Nullable byte[] continuation,
-                                                   @Nonnull ScanProperties scanProperties) {
+                                                           @Nullable byte[] continuation,
+                                                           @Nonnull ScanProperties scanProperties) {
         throw new UnsupportedOperationException("exportAllData is not supported");
     }
 }

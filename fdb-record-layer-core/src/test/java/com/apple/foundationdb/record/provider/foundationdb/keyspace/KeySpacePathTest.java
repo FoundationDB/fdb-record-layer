@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.provider.foundationdb.keyspace;
 
 import com.apple.foundationdb.record.RecordCoreArgumentException;
+import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.test.FDBDatabaseExtension;
@@ -29,6 +30,7 @@ import com.apple.test.BooleanSource;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.mockito.Mockito;
 
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
@@ -189,6 +191,26 @@ public class KeySpacePathTest {
             assertThrows(IllegalArgumentException.class, () -> {
                 branchPath.toResolvedPathAsync(context, invalidBytes);
             });
+        }
+    }
+
+    /**
+     * Test of methods with default implementations to ensure backwards compatibility,
+     * in case someone is implementing {@link KeySpacePath}.
+     **/
+    @Test
+    void testDefaultMethods() {
+        final KeySpacePath mock = Mockito.mock(KeySpacePath.class);
+        final FDBDatabase database = dbExtension.getDatabase();
+
+        try (FDBRecordContext context = database.openContext()) {
+            // thenCallReadMethod throws an error if there is not a default implementation
+            Mockito.when(mock.toResolvedPathAsync(Mockito.any(), Mockito.any())).thenCallRealMethod();
+            assertThrows(UnsupportedOperationException.class,
+                    () -> mock.toResolvedPathAsync(context, Tuple.from("foo").pack()));
+            Mockito.when(mock.exportAllData(Mockito.any(), Mockito.any(), Mockito.any())).thenCallRealMethod();
+            assertThrows(UnsupportedOperationException.class,
+                    () -> mock.exportAllData(context, null, ScanProperties.FORWARD_SCAN));
         }
     }
 }
