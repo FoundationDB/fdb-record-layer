@@ -359,49 +359,18 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
         if (savedRecord == null) {
             return null;
         }
-        // Apply both filters:
-        // 1. Index predicates (if exist)
-        // 2. IndexMaintenanceFilter
-        // In the longer term, we will probably think about deprecating the index maintenance filter.
-        final FDBStoreTimer timer = state.store.getTimer();
-        final IndexPredicate predicate = state.index.getPredicate();
-        if (predicate != null) {
-            final long startTime = System.nanoTime();
-            final boolean useMe = predicate.shouldIndexThisRecord(state.store, savedRecord);
-            // Note: for now, IndexPredicate will not support filtering of certain index entries
-            if (timer != null) {
-                final FDBStoreTimer.Events event =
-                        useMe ?
-                        FDBStoreTimer.Events.USE_INDEX_RECORD_BY_PREDICATE :
-                        FDBStoreTimer.Events.SKIP_INDEX_RECORD_BY_PREDICATE;
-                timer.recordSinceNanoTime(event, startTime);
-            }
-            if (!useMe) {
-                // Here: index predicate filters out this record
-                return null;
-            }
-        }
-        final Message record = savedRecord.getRecord();
-        long startTime = System.nanoTime();
-        boolean filterIndexKeys = false;
-        switch (state.filter.maintainIndex(state.index, record)) {
-            case NONE:
-                if (timer != null) {
-                    timer.recordSinceNanoTime(FDBStoreTimer.Events.SKIP_INDEX_RECORD, startTime);
-                }
-                return null;
-            case SOME:
-                filterIndexKeys = true;
-                break;
-            case ALL:
-            default:
-                break;
+        final IndexMaintenanceFilter.IndexValues filterType = getFilterTypeFor(savedRecord);
+        if (filterType == IndexMaintenanceFilter.IndexValues.NONE) {
+            return null;
         }
         List<IndexEntry> indexEntries = evaluateIndex(savedRecord);
-        if (!filterIndexKeys) {
+        if (filterType == IndexMaintenanceFilter.IndexValues.ALL) {
             return indexEntries;
         }
+        // Here: filterType is SOME. Check each index entry
+        long startTime = System.nanoTime();
         int i = 0;
+        final Message record = savedRecord.getRecord();
         while (i < indexEntries.size()) {
             if (state.filter.maintainIndexValue(state.index, record, indexEntries.get(i))) {
                 i++;
@@ -416,6 +385,37 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
             }
         }
         return indexEntries;
+    }
+
+    protected <M extends Message> IndexMaintenanceFilter.IndexValues getFilterTypeFor(@Nonnull final FDBIndexableRecord<M> savedRecord) {
+        // Apply both filters:
+        // 1. Index predicates (if exist) - currently supports filtering out (i.e. NONE). If not filtered out, fallthrough to the next filter
+        // 2. IndexMaintenanceFilter - supports ALL, NONE, and SOME
+        // In the longer term, we will probably think about deprecating the index maintenance filter.
+        final FDBStoreTimer timer = state.store.getTimer();
+        final IndexPredicate predicate = state.index.getPredicate();
+        if (predicate != null) {
+            final long startTime = timer != null ? System.nanoTime() : 0L;
+            final boolean useMe = predicate.shouldIndexThisRecord(state.store, savedRecord);
+            // Note: for now, IndexPredicate will not support filtering of certain index entries
+            if (timer != null) {
+                final FDBStoreTimer.Events event =
+                        useMe ?
+                        FDBStoreTimer.Events.USE_INDEX_RECORD_BY_PREDICATE :
+                        FDBStoreTimer.Events.SKIP_INDEX_RECORD_BY_PREDICATE;
+                timer.recordSinceNanoTime(event, startTime);
+            }
+            if (!useMe) {
+                return IndexMaintenanceFilter.IndexValues.NONE;
+            }
+        }
+        long startTime = System.nanoTime();
+        IndexMaintenanceFilter.IndexValues ret = state.filter.maintainIndex(state.index, savedRecord.getRecord());
+        if (ret == IndexMaintenanceFilter.IndexValues.NONE && timer != null) {
+            // events are backward compatible
+            timer.recordSinceNanoTime(FDBStoreTimer.Events.SKIP_INDEX_RECORD, startTime);
+        }
+        return ret;
     }
 
     @Nonnull

@@ -56,6 +56,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexDeferredMaintenanceControl;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
+import com.apple.foundationdb.record.provider.foundationdb.IndexMaintenanceFilter;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOperation;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOperationResult;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanBounds;
@@ -458,9 +459,11 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     }
 
     @Nonnull
-    <M extends Message> CompletableFuture<Void> update(@Nullable FDBIndexableRecord<M> oldRecord,
-                                                       @Nullable FDBIndexableRecord<M> newRecord,
+    <M extends Message> CompletableFuture<Void> update(@Nullable FDBIndexableRecord<M> oldRecordUnfiltered,
+                                                       @Nullable FDBIndexableRecord<M> newRecordUnfiltered,
                                                        @Nullable Integer destinationPartitionIdHint) {
+        FDBIndexableRecord<M> oldRecord = maybeFilterRecord(oldRecordUnfiltered);
+        FDBIndexableRecord<M> newRecord = maybeFilterRecord(newRecordUnfiltered);
         LOG.trace("update oldRecord={}, newRecord={}", oldRecord, newRecord);
 
         // Extract information for grouping from old and new records
@@ -505,6 +508,20 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         return tryDeleteInWriteOnlyMode(Objects.requireNonNull(newRecord), entry.getKey()).thenCompose(countDeleted ->
                 partitioner.addToAndSavePartitionMetadata(newRecord, entry.getKey(), destinationPartitionIdHint)
                         .thenAccept(partitionId -> writeDocument(newRecord, entry, partitionId)));
+    }
+
+    @Nullable
+    private <M extends Message> FDBIndexableRecord<M> maybeFilterRecord(FDBIndexableRecord<M> record) {
+        final IndexMaintenanceFilter.IndexValues filterType = getFilterTypeFor(record);
+        switch (filterType) {
+            case ALL:
+                return record;
+            case NONE:
+                return null;
+            case SOME:
+            default:
+                throw new RecordCoreException("Lucene does not support this kind of filtering");
+        }
     }
 
     /**
