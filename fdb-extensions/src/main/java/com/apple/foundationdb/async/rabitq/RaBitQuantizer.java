@@ -24,46 +24,88 @@ import com.apple.foundationdb.linear.DoubleRealVector;
 import com.apple.foundationdb.linear.Metric;
 import com.apple.foundationdb.linear.Quantizer;
 import com.apple.foundationdb.linear.RealVector;
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 
 import javax.annotation.Nonnull;
 import java.util.Comparator;
 import java.util.PriorityQueue;
 
+/**
+ * Implements the RaBit quantization scheme, a technique for compressing high-dimensional vectors into a compact
+ * integer-based representation.
+ * <p>
+ * This class provides the logic to encode a {@link RealVector} into an {@link EncodedRealVector}.
+ * The encoding process involves finding an optimal scaling factor, quantizing the vector's components,
+ * and pre-calculating values that facilitate efficient distance estimation in the quantized space.
+ * It is configured with a specific {@link Metric} and a number of "extra bits" ({@code numExBits})
+ * which control the precision of the quantization.
+ * <p>
+ * Note that this implementation largely follows this <a href="https://arxiv.org/pdf/2409.09913">paper</a>
+ * by Jianyang Gao et al. It also mirrors algorithmic similarity, terms, and variable/method naming-conventions of the
+ * C++ implementation that can be found <a href="https://github.com/VectorDB-NTU/RaBitQ-Library">here</a>.
+ *
+ * @see Quantizer
+ * @see RaBitEstimator
+ * @see EncodedRealVector
+ */
 public final class RaBitQuantizer implements Quantizer {
     private static final double EPS = 1e-5;
     private static final double EPS0 = 1.9;
     private static final int N_ENUM = 10;
 
-    // Matches kTightStart[] from the C++ (index by ex_bits).
     // 0th entry unused; defined up to 8 extra bits in the source.
     private static final double[] TIGHT_START = {
             0.00, 0.15, 0.20, 0.52, 0.59, 0.71, 0.75, 0.77, 0.81
     };
 
-    @Nonnull
-    private final RealVector centroid;
     final int numExBits;
     @Nonnull
     private final Metric metric;
 
-    public RaBitQuantizer(@Nonnull final Metric metric,
-                          @Nonnull final RealVector centroid,
-                          final int numExBits) {
-        this.centroid = centroid;
+    /**
+     * Constructs a new {@code RaBitQuantizer} instance.
+     * <p>
+     * This constructor initializes the quantizer with a specific metric and the number of
+     * extra bits to be used in the quantization process.
+     *
+     * @param metric the {@link Metric} to be used for quantization; must not be null.
+     * @param numExBits the number of extra bits for quantization.
+     */
+    public RaBitQuantizer(@Nonnull final Metric metric, final int numExBits) {
+        Preconditions.checkArgument(numExBits > 0 && numExBits < TIGHT_START.length);
+
         this.numExBits = numExBits;
         this.metric = metric;
     }
 
-    public int getNumDimensions() {
-        return centroid.getNumDimensions();
-    }
-
+    /**
+     * Creates and returns a new {@link RaBitEstimator} instance.
+     * <p>
+     * This method acts as a factory, constructing the estimator based on the
+     * {@code metric} and {@code numExBits} configuration of this object.
+     * The {@code @Override} annotation indicates that this is an implementation
+     * of a method from a superclass or interface.
+     *
+     * @return a new, non-null instance of {@link RaBitEstimator}
+     */
     @Nonnull
     @Override
     public RaBitEstimator estimator() {
-        return new RaBitEstimator(metric, centroid, numExBits);
+        return new RaBitEstimator(metric, numExBits);
     }
 
+    /**
+     * Encodes a given {@link RealVector} into its corresponding encoded representation.
+     * <p>
+     * This method overrides the parent's {@code encode} method. It delegates the
+     * core encoding logic to an internal helper method and returns the final
+     * {@link EncodedRealVector}.
+     *
+     * @param data the {@link RealVector} to be encoded; must not be null.
+     *
+     * @return the resulting {@link EncodedRealVector}, guaranteed to be non-null.
+     */
     @Nonnull
     @Override
     public EncodedRealVector encode(@Nonnull final RealVector data) {
@@ -71,13 +113,23 @@ public final class RaBitQuantizer implements Quantizer {
     }
 
     /**
-     * Port of ex_bits_code_with_factor:
-     * - params: data & centroid (rotated)
-     * - forms residual internally
-     * - computes shifted signed vector here (sign(r)*(k+0.5))
-     * - applies C++ metric-dependent formulas exactly.
+     * Encodes a real-valued vector into a quantized representation.
+     * <p>
+     * This is an internal method that performs the core encoding logic. It first
+     * generates a base code using {@link #exBitsCode(RealVector)}, then incorporates
+     * sign information to create the final code. It precomputes various geometric
+     * properties (norms, dot products) of the original vector and its quantized
+     * counterpart to calculate metric-specific scaling and error factors. These
+     * factors are used for efficient distance calculations with the encoded vector.
+     *
+     * @param data the real-valued vector to be encoded. Must not be null.
+     * @return a {@code Result} object containing the {@link EncodedRealVector} and
+     * other intermediate values from the encoding process. The result is never null.
+     *
+     * @throws IllegalArgumentException if the configured {@code metric} is not supported for encoding.
      */
     @Nonnull
+    @VisibleForTesting
     Result encodeInternal(@Nonnull final RealVector data) {
         final int dims = data.getNumDimensions();
 
@@ -132,10 +184,9 @@ public final class RaBitQuantizer implements Quantizer {
     }
 
     /**
-     * Builds per-dimension extra-bit levels using the best t found by bestRescaleFactor() and returns
-     * ipNormInv.
-     * @param residual Rotated residual vector r (same thing the C++ feeds here).
-     *                 This method internally uses |r| normalized to unit L2.
+     * Builds per-dimension extra-bit code using the best {@code t} found by {@link #bestRescaleFactor(RealVector)} and
+     * returns the code, {@code t}, and {@code ipNormInv}.
+     * @param residual rotated residual vector r.
      */
     private QuantizeExResult exBitsCode(@Nonnull final RealVector residual) {
         int dims = residual.getNumDimensions();
@@ -164,12 +215,11 @@ public final class RaBitQuantizer implements Quantizer {
     /**
      * Method to quantize a vector.
      *
-     * @param oAbs   absolute values of a L2-normalized residual vector (nonnegative; length = dim)
-     * @return       quantized levels (ex-bits), the chosen scale t, and ipNormInv
-     * Notes:
-     * - If the residual is the all-zero vector (or numerically so), this returns zero codes,
-     *   t = 0, and ipNormInv = 1 (benign fallback).
-     * - Downstream code (ex_bits_code_with_factor) uses ipNormInv to compute f_rescale_ex, etc.
+     * @param oAbs absolute values of a L2-normalized residual vector (nonnegative; length = dim)
+     * @return quantized levels (ex-bits), the chosen scale t, and ipNormInv
+     *         Notes: If the residual is the all-zero vector (or numerically so), this returns zero codes,
+     *         {@code t = 0}, and {@code ipNormInv = 1} (benign fallback). Downstream code uses {@code ipNormInv} to
+     *         compute {@code fRescaleEx}, etc.
      */
     private QuantizeExResult quantizeEx(@Nonnull final RealVector oAbs) {
         final int dim = oAbs.getNumDimensions();
@@ -206,14 +256,28 @@ public final class RaBitQuantizer implements Quantizer {
     }
 
     /**
-     *  Method to compute the best factor {@code t}.
-     *  @param oAbs   absolute values of a (row-wise) normalized residual; length = dim; nonnegative
-     *  @return t     the rescale factor that maximizes the objective
+     * Calculates the best rescaling factor {@code t} for a given vector of absolute values.
+     * <p>
+     * This method implements an efficient algorithm to find a scaling factor {@code t}
+     * that maximizes an objective function related to the quantization of the input vector.
+     * The objective function being maximized is effectively
+     * {@code sum(u_i * o_i) / sqrt(sum(u_i^2 + u_i))}, where {@code u_i = floor(t * o_i)}
+     * and {@code o_i} are the components of the input vector {@code oAbs}.
+     * <p>
+     * The algorithm performs a sweep over the scaling factor {@code t}. It uses a
+     * min-priority queue to efficiently jump between critical values of {@code t} where
+     * the floor of {@code t * o_i} changes for some coordinate {@code i}. The search is
+     * bounded within a pre-calculated "tight" range {@code [tStart, tEnd]} to ensure
+     * efficiency.
+     *
+     * @param oAbs The vector of absolute values for which to find the best rescale factor.
+     * Components must be non-negative.
+     *
+     * @return The optimal scaling factor {@code t} that maximizes the objective function,
+     * or 0.0 if the input vector is all zeros.
      */
     private double bestRescaleFactor(@Nonnull final RealVector oAbs) {
-        if (numExBits < 0 || numExBits >= TIGHT_START.length) {
-            throw new IllegalArgumentException("numExBits out of supported range");
-        }
+        final int numDimensions = oAbs.getNumDimensions();
 
         // max_o = max(oAbs)
         double maxO = 0.0d;
@@ -232,10 +296,10 @@ public final class RaBitQuantizer implements Quantizer {
         final double tStart = tEnd * TIGHT_START[numExBits];
 
         // cur_o_bar[i] = floor(tStart * oAbs[i]), but stored as int
-        final int[] curOB = new int[getNumDimensions()];
-        double sqrDen = getNumDimensions() * 0.25; // Σ (cur^2 + cur) starts from D/4
+        final int[] curOB = new int[numDimensions];
+        double sqrDen = numDimensions * 0.25; // Σ (cur^2 + cur) starts from D/4
         double numer = 0.0;
-        for (int i = 0; i < getNumDimensions(); i++) {
+        for (int i = 0; i < numDimensions; i++) {
             int cur = (int) ((tStart * oAbs.getComponent(i)) + EPS);
             curOB[i] = cur;
             sqrDen += (double) cur * cur + cur;
@@ -246,7 +310,7 @@ public final class RaBitQuantizer implements Quantizer {
         // t_i(k->k+1) = (curOB[i] + 1) / oAbs[i]
 
         final PriorityQueue<Node> pq = new PriorityQueue<>(Comparator.comparingDouble(n -> n.t));
-        for (int i = 0; i < getNumDimensions(); i++) {
+        for (int i = 0; i < numDimensions; i++) {
             final double curOAbs = oAbs.getComponent(i);
             if (curOAbs > 0.0) {
                 double tNext = (curOB[i] + 1) / curOAbs;
@@ -291,6 +355,19 @@ public final class RaBitQuantizer implements Quantizer {
         return bestT;
     }
 
+    /**
+     * Computes a new vector containing the element-wise absolute values of the L2-normalized input vector.
+     * <p>
+     * This operation is equivalent to first normalizing the vector {@code x} by its L2 norm,
+     * and then taking the absolute value of each resulting component. If the L2 norm of {@code x}
+     * is zero or not finite (e.g., {@link Double#POSITIVE_INFINITY}), a new zero vector of the
+     * same dimension is returned.
+     *
+     * @param x the input vector to be normalized and processed. Must not be null.
+     *
+     * @return a new {@code RealVector} containing the absolute values of the components of the
+     * normalized input vector.
+     */
     private static RealVector absOfNormalized(@Nonnull final RealVector x) {
         double n = x.l2Norm();
         double[] y = new double[x.getNumDimensions()];
