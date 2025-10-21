@@ -24,6 +24,11 @@ import javax.annotation.Nonnull;
 import java.util.Random;
 
 public class MatrixHelpers {
+
+    private MatrixHelpers() {
+        // nothing
+    }
+    
     @Nonnull
     public static RealMatrix randomOrthogonalMatrix(@Nonnull final Random random, final int dimension) {
         return QRDecomposition.decomposeMatrix(randomGaussianMatrix(random, dimension, dimension)).getQ();

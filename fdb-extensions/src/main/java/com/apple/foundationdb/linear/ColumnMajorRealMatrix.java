@@ -34,6 +34,8 @@ public class ColumnMajorRealMatrix implements RealMatrix {
     private final Supplier<Integer> hashCodeSupplier;
 
     public ColumnMajorRealMatrix(@Nonnull final double[][] data) {
+        Preconditions.checkArgument(data.length > 0);
+        Preconditions.checkArgument(data[0].length > 0);
         this.data = data;
         this.hashCodeSupplier = Suppliers.memoize(this::valueBasedHashCode);
     }

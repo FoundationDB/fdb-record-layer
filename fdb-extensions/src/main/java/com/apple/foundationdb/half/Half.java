@@ -29,7 +29,7 @@ package com.apple.foundationdb.half;
  *
  * @author Christian Heina (developer@christianheina.com)
  */
-public class Half extends Number implements Comparable<Half> {
+public final class Half extends Number implements Comparable<Half> {
 
     /**
      * A constant holding the positive infinity of type {@code Half}.

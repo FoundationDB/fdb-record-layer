@@ -21,11 +21,11 @@
 package com.apple.foundationdb.linear;
 
 import com.google.common.base.Preconditions;
-import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 
 import javax.annotation.Nonnull;
 import java.util.Arrays;
+import java.util.function.Supplier;
 
 public class RowMajorRealMatrix implements RealMatrix {
     @Nonnull
@@ -34,6 +34,8 @@ public class RowMajorRealMatrix implements RealMatrix {
     private final Supplier<Integer> hashCodeSupplier;
 
     public RowMajorRealMatrix(@Nonnull final double[][] data) {
+        Preconditions.checkArgument(data.length > 0);
+        Preconditions.checkArgument(data[0].length > 0);
         this.data = data;
         this.hashCodeSupplier = Suppliers.memoize(this::valueBasedHashCode);
     }

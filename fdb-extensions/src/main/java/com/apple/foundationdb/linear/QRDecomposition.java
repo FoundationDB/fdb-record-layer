@@ -25,37 +25,81 @@ import com.google.common.base.Preconditions;
 import javax.annotation.Nonnull;
 import java.util.function.Supplier;
 
+/**
+ * Provides a static method to compute the QR decomposition of a matrix.
+ * <p>
+ * This class is a utility class and cannot be instantiated. The decomposition
+ * is performed using the Householder reflection method. The result of the
+ * decomposition of a matrix A is an orthogonal matrix Q and an upper-triangular
+ * matrix R such that {@code A = QR}.
+ */
 @SuppressWarnings("checkstyle:AbbreviationAsWordInName")
 public class QRDecomposition {
+    /**
+     * Private constructor to prevent instantiation of this utility class.
+     */
     private QRDecomposition() {
         // nothing
     }
 
+    /**
+     * Decomposes a square matrix A into an orthogonal matrix Q and an upper
+     * triangular matrix R, such that A = QR.
+     * <p>
+     * This implementation uses the Householder reflection method to perform the
+     * decomposition. The resulting Q and R matrices are not computed immediately but are
+     * available through suppliers within the returned {@link Result} object, allowing for
+     * lazy evaluation. The decomposition is performed on the transpose of the input matrix
+     * for efficiency.
+     *
+     * @param matrix the square matrix to decompose. Must not be null.
+     *
+     * @return a {@link Result} object containing suppliers for the Q and R matrices.
+     *
+     * @throws IllegalArgumentException if the provided {@code matrix} is not square.
+     */
     @Nonnull
     public static Result decomposeMatrix(@Nonnull final RealMatrix matrix) {
         Preconditions.checkArgument(matrix.isSquare());
 
-        final double[] rDiag = new double[matrix.getRowDimension()];
+        final double[] rDiagonal = new double[matrix.getRowDimension()];
         final double[][] qrt = matrix.toRowMajor().transpose().getData();
 
         for (int minor = 0; minor < matrix.getRowDimension(); minor++) {
-            performHouseholderReflection(minor, qrt, rDiag);
+            performHouseholderReflection(minor, qrt, rDiagonal);
         }
 
-        return new Result(() -> getQ(qrt, rDiag), () -> getR(qrt, rDiag));
+        return new Result(() -> getQ(qrt, rDiagonal), () -> getR(qrt, rDiagonal));
     }
 
+    /**
+     * Performs a Householder reflection on a minor of a matrix.
+     * <p>
+     * This method is a core step in QR decomposition. It transforms the {@code minor}-th
+     * column of the {@code qrt} matrix into a vector with a single non-zero element {@code a}
+     * (which becomes the new diagonal element of the R matrix), and applies the same
+     * transformation to the remaining columns of the minor. The transformation is done in-place.
+     * </p>
+     * The reflection is defined by a matrix {@code H = I - 2vv'/|v|^2}, where the vector {@code v}
+     * is derived from the {@code minor}-th column of the matrix.
+     *
+     * @param minor the index of the minor matrix to be transformed.
+     * @param qrt the matrix to be transformed in-place. On exit, this matrix is
+     *        updated to reflect the Householder transformation.
+     * @param rDiagonal an array where the diagonal element of the R matrix for the
+     *        current {@code minor} will be stored.
+     */
     private static void performHouseholderReflection(final int minor, final double[][] qrt,
-                                                     final double[] rDiag) {
+                                                     final double[] rDiagonal) {
 
         final double[] qrtMinor = qrt[minor];
 
         /*
          * Let x be the first column of the minor, and a^2 = |x|^2.
          * x will be in the positions qr[minor][minor] through qr[m][minor].
-         * The first column of the transformed minor will be (a,0,0,..)'
-         * The sign of a is chosen to be opposite to the sign of the first
-         * component of x. Let's find a:
+         * The first column of the transformed minor will be (a, 0, 0, ...)'
+         * The sign of "a" is chosen to be opposite to the sign of the first
+         * component of x. Let's find "a":
          */
         double xNormSqr = 0;
         for (int row = minor; row < qrtMinor.length; row++) {
@@ -63,7 +107,7 @@ public class QRDecomposition {
             xNormSqr += c * c;
         }
         final double a = (qrtMinor[minor] > 0) ? -Math.sqrt(xNormSqr) : Math.sqrt(xNormSqr);
-        rDiag[minor] = a;
+        rDiagonal[minor] = a;
 
         if (a != 0.0) {
             /*
@@ -80,7 +124,7 @@ public class QRDecomposition {
              * Transform the rest of the columns of the minor:
              * They will be transformed by the matrix H = I-2vv'/|v|^2.
              * If x is a column vector of the minor, then
-             * Hx = (I-2vv'/|v|^2)x = x-2vv'x/|v|^2 = x - 2<x,v>/|v|^2 v.
+             * Hx = (I-2vv'/|v|^2)x = x-2v*v'x/|v|^2 = x - 2<x,v>/|v|^2 v.
              * Therefore, the transformation is easily calculated by
              * subtracting the column vector (2<x,v>/|v|^2)v from x.
              *
@@ -105,12 +149,11 @@ public class QRDecomposition {
     }
 
     /**
-     * Returns the matrix Q of the decomposition.
-     * <p>Q is an orthogonal matrix</p>
-     * @return the Q matrix
+     * Returns the matrix {@code Q} of the decomposition where {@code Q} is an orthogonal matrix.
+     * @return the {@code Q} matrix
      */
     @Nonnull
-    private static RealMatrix getQ(final double[][] qrt, final double[] rDiag) {
+    private static RealMatrix getQ(final double[][] qrt, final double[] rDiagonal) {
         final int m = qrt.length;
         double[][] q = new double[m][m];
 
@@ -123,7 +166,7 @@ public class QRDecomposition {
                     for (int row = minor; row < m; row++) {
                         alpha -= q[row][col] * qrtMinor[row];
                     }
-                    alpha /= rDiag[minor] * qrtMinor[minor];
+                    alpha /= rDiagonal[minor] * qrtMinor[minor];
 
                     for (int row = minor; row < m; row++) {
                         q[row][col] += -alpha * qrtMinor[row];
@@ -134,8 +177,27 @@ public class QRDecomposition {
         return new RowMajorRealMatrix(q);
     }
 
+    /**
+     * Constructs the upper-triangular R matrix from a QRT decomposition's packed storage.
+     * <p>
+     * This is a helper method that reconstructs the {@code R} matrix from the compact
+     * representation used by some QR decomposition algorithms. The resulting matrix @{code R}
+     * is upper-triangular.
+     * </p><p>
+     * The upper-triangular elements (where row index {@code i < j}) are extracted
+     * from the {@code qrt} matrix at transposed indices ({@code qrt[j][i]}). The
+     * diagonal elements (where {@code i == j}) are taken from the {@code rDiagonal}
+     * array. All lower-triangular elements (where {@code i > j}) are set to 0.0.
+     * </p>
+     *
+     * @param qrt The packed QRT decomposition data. The strict upper-triangular
+     *        part of {@code R} is stored in this matrix.
+     * @param rDiagonal An array containing the diagonal elements of the R matrix.
+     *
+     * @return The reconstructed upper-triangular R matrix as a {@link RealMatrix}.
+     */
     @Nonnull
-    private static RealMatrix getR(final double[][] qrt, final double[] rDiag) {
+    private static RealMatrix getR(final double[][] qrt, final double[] rDiagonal) {
         final int m = qrt.length; // square in this helper
         final double[][] r = new double[m][m];
 
@@ -148,7 +210,7 @@ public class QRDecomposition {
                 if (i < j) {
                     r[i][j] = qrt[j][i];
                 } else if (i == j) {
-                    r[i][j] = rDiag[i];
+                    r[i][j] = rDiagonal[i];
                 } else {
                     r[i][j] = 0.0;
                 }

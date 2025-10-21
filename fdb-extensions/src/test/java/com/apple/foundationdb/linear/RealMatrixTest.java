@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.linear;
 
-import com.apple.foundationdb.async.hnsw.RealVectorSerializationTest;
 import com.apple.test.RandomizedTestUtils;
 import com.google.common.collect.ImmutableSet;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -79,9 +78,11 @@ public class RealMatrixTest {
         final RealMatrix matrix = MatrixHelpers.randomGaussianMatrix(random, numRows, numColumns);
         assertThat(matrix).isInstanceOf(RowMajorRealMatrix.class);
         final RealMatrix otherMatrix = matrix.toColumnMajor();
+        assertThat(otherMatrix.toColumnMajor()).isSameAs(otherMatrix);
         assertThat(otherMatrix.hashCode()).isEqualTo(matrix.hashCode());
         assertThat(otherMatrix).isEqualTo(matrix);
         final RealMatrix anotherMatrix = otherMatrix.toRowMajor();
+        assertThat(anotherMatrix.toRowMajor()).isSameAs(anotherMatrix);
         assertThat(anotherMatrix.hashCode()).isEqualTo(matrix.hashCode());
         assertThat(anotherMatrix).isEqualTo(matrix);
     }
@@ -106,7 +107,7 @@ public class RealMatrixTest {
         final Random random = new Random(seed);
         final RealMatrix matrix = MatrixHelpers.randomOrthogonalMatrix(random, numDimensions);
         assertThat(matrix.isTransposable()).isTrue();
-        final RealVector x = RealVectorSerializationTest.createRandomDoubleVector(random, numDimensions);
+        final RealVector x = RealVectorTest.createRandomDoubleVector(random, numDimensions);
         final RealVector y = matrix.operate(x);
         final RealVector z = matrix.operateTranspose(y);
         assertThat(Metric.EUCLIDEAN_METRIC.distance(x, z)).isCloseTo(0, within(2E-10));
@@ -144,7 +145,7 @@ public class RealMatrixTest {
         assertMultiplyMxMT(d, random, r);
     }
 
-    private static void assertMultiplyMxMT(final int d, final Random random, final RealMatrix r) {
+    private static void assertMultiplyMxMT(final int d, @Nonnull final Random random, @Nonnull final RealMatrix r) {
         final int k = random.nextInt(d);
         final int l = random.nextInt(d);
 
@@ -163,6 +164,27 @@ public class RealMatrixTest {
         for (int i = 0; i < product.getRowDimension(); i++) {
             for (int j = 0; j < product.getColumnDimension(); j++) {
                 double expected = (i == j) ? 1.0 : 0.0;
+                assertThat(Math.abs(product.getEntry(i, j) - expected))
+                        .isCloseTo(0, within(2E-14));
+            }
+        }
+    }
+
+    @ParameterizedTest
+    @MethodSource("randomSeedsWithNumDimensions")
+    void testMultiplyMatrix2(final long seed, final int d) {
+        final Random random = new Random(seed);
+        final int k = random.nextInt(d) + 1;
+        final int l = random.nextInt(d) + 1;
+
+        final RowMajorRealMatrix m1 = MatrixHelpers.randomGaussianMatrix(random, k, l).toRowMajor();
+        final ColumnMajorRealMatrix m2 = MatrixHelpers.randomGaussianMatrix(random, l, k).toColumnMajor();
+
+        final RealMatrix product = m1.multiply(m2);
+
+        for (int i = 0; i < product.getRowDimension(); i++) {
+            for (int j = 0; j < product.getColumnDimension(); j++) {
+                final double expected = new DoubleRealVector(m1.getRow(i)).dot(new DoubleRealVector(m2.getColumn(j)));
                 assertThat(Math.abs(product.getEntry(i, j) - expected))
                         .isCloseTo(0, within(2E-14));
             }

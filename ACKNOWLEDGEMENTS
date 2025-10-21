@@ -232,3 +232,11 @@ Christian Heina (HALF4J)
   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
   See the License for the specific language governing permissions and
   limitations under the License.
+
+Jianyang Gao, Yutong Gou, Yuexuan Xu, Yongyi Yang, Cheng Long, Raymond Chi-Wing Wong,
+  "Practical and Asymptotically Optimal Quantization of High-Dimensional Vectors in Euclidean Space for
+   Approximate Nearest Neighbor Search",
+  SIGMOD 2025, available at https://arxiv.org/abs/2409.09913
+
+Yutong Gou, Jianyang Gao, Yuexuan Xu, Jifan Shi and Zhonghao Yang
+  https://github.com/VectorDB-NTU/RaBitQ-Library/blob/main/LICENSE

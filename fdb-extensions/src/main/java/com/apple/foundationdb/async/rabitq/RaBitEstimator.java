@@ -30,25 +30,17 @@ import javax.annotation.Nonnull;
 public class RaBitEstimator implements Estimator {
     @Nonnull
     private final Metric metric;
-    @Nonnull
-    private final RealVector centroid;
     private final int numExBits;
 
     public RaBitEstimator(@Nonnull final Metric metric,
-                          @Nonnull final RealVector centroid,
                           final int numExBits) {
         this.metric = metric;
-        this.centroid = centroid;
         this.numExBits = numExBits;
     }
 
     @Nonnull
     public Metric getMetric() {
         return metric;
-    }
-
-    public int getNumDimensions() {
-        return centroid.getNumDimensions();
     }
 
     public int getNumExBits() {
@@ -78,8 +70,7 @@ public class RaBitEstimator implements Estimator {
     public Result estimateDistanceAndErrorBound(@Nonnull final RealVector query, // pre-rotated query q
                                                 @Nonnull final EncodedRealVector encodedVector) {
         final double cb = (1 << numExBits) - 0.5;
-        final RealVector qc = query;
-        final double gAdd = qc.dot(qc);
+        final double gAdd = query.dot(query);
         final double gError = Math.sqrt(gAdd);
         final RealVector totalCode = new DoubleRealVector(encodedVector.getEncodedData());
         final RealVector xuc = totalCode.subtract(cb);
@@ -117,7 +108,7 @@ public class RaBitEstimator implements Estimator {
 
         @Override
         public String toString() {
-            return "Estimate[" + "distance=" + distance + ", err=" + err + "]";
+            return "estimate[" + "distance=" + distance + ", err=" + err + "]";
         }
     }
 }

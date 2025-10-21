@@ -36,6 +36,10 @@ public class FloatRealVector extends AbstractRealVector {
     @Nonnull
     private final Supplier<HalfRealVector> toHalfRealVectorSupplier;
 
+    public FloatRealVector(@Nonnull final Float[] floatData) {
+        this(computeDoubleData(floatData));
+    }
+
     public FloatRealVector(@Nonnull final float[] floatData) {
         this(computeDoubleData(floatData));
     }
@@ -100,6 +104,15 @@ public class FloatRealVector extends AbstractRealVector {
             buffer.putFloat((float)data[i]);
         }
         return vectorBytes;
+    }
+
+    @Nonnull
+    private static double[] computeDoubleData(@Nonnull Float[] floatData) {
+        double[] result = new double[floatData.length];
+        for (int i = 0; i < floatData.length; i++) {
+            result[i] = floatData[i];
+        }
+        return result;
     }
 
     @Nonnull
