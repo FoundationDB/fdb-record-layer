@@ -92,7 +92,7 @@ public class HNSW {
     public static final int MAX_CONCURRENT_NODE_READS = 16;
     public static final int MAX_CONCURRENT_NEIGHBOR_FETCHES = 3;
     public static final int MAX_CONCURRENT_SEARCHES = 10;
-    @Nonnull public static final Random DEFAULT_RANDOM = new Random(0L);
+    public static final long DEFAULT_RANDOM_SEED = 0L;
     @Nonnull public static final Metric DEFAULT_METRIC = Metric.EUCLIDEAN_METRIC;
     public static final boolean DEFAULT_USE_INLINING = false;
     public static final int DEFAULT_M = 16;
@@ -110,6 +110,8 @@ public class HNSW {
     public static final ConfigBuilder DEFAULT_CONFIG_BUILDER = new ConfigBuilder();
 
     @Nonnull
+    private final Random random;
+    @Nonnull
     private final Subspace subspace;
     @Nonnull
     private final Executor executor;
@@ -125,8 +127,7 @@ public class HNSW {
      */
     @SuppressWarnings("checkstyle:MemberName")
     public static class Config {
-        @Nonnull
-        private final Random random;
+        private final long randomSeed;
         @Nonnull
         private final Metric metric;
         private final int numDimensions;
@@ -141,26 +142,11 @@ public class HNSW {
         private final boolean useRaBitQ;
         private final int raBitQNumExBits;
 
-        protected Config(final int numDimensions) {
-            this.random = DEFAULT_RANDOM;
-            this.metric = DEFAULT_METRIC;
-            this.numDimensions = numDimensions;
-            this.useInlining = DEFAULT_USE_INLINING;
-            this.m = DEFAULT_M;
-            this.mMax = DEFAULT_M_MAX;
-            this.mMax0 = DEFAULT_M_MAX_0;
-            this.efConstruction = DEFAULT_EF_CONSTRUCTION;
-            this.extendCandidates = DEFAULT_EXTEND_CANDIDATES;
-            this.keepPrunedConnections = DEFAULT_KEEP_PRUNED_CONNECTIONS;
-            this.useRaBitQ = DEFAULT_USE_RABITQ;
-            this.raBitQNumExBits = DEFAULT_RABITQ_NUM_EX_BITS;
-        }
-
-        protected Config(@Nonnull final Random random, @Nonnull final Metric metric, final int numDimensions,
+        protected Config(final long randomSeed, @Nonnull final Metric metric, final int numDimensions,
                          final boolean useInlining, final int m, final int mMax, final int mMax0,
                          final int efConstruction, final boolean extendCandidates, final boolean keepPrunedConnections,
                          final boolean useRaBitQ, final int raBitQNumExBits) {
-            this.random = random;
+            this.randomSeed = randomSeed;
             this.metric = metric;
             this.numDimensions = numDimensions;
             this.useInlining = useInlining;
@@ -174,9 +160,8 @@ public class HNSW {
             this.raBitQNumExBits = raBitQNumExBits;
         }
 
-        @Nonnull
-        public Random getRandom() {
-            return random;
+        public long getRandomSeed() {
+            return randomSeed;
         }
 
         @Nonnull
@@ -226,16 +211,48 @@ public class HNSW {
 
         @Nonnull
         public ConfigBuilder toBuilder() {
-            return new ConfigBuilder(getRandom(), getMetric(), isUseInlining(), getM(), getMMax(), getMMax0(),
+            return new ConfigBuilder(getRandomSeed(), getMetric(), isUseInlining(), getM(), getMMax(), getMMax0(),
                     getEfConstruction(), isExtendCandidates(), isKeepPrunedConnections(), isUseRaBitQ(),
                     getRaBitQNumExBits());
         }
 
         @Override
+        public final boolean equals(final Object o) {
+            if (!(o instanceof Config)) {
+                return false;
+            }
+
+            final Config config = (Config)o;
+            return randomSeed == config.randomSeed && numDimensions == config.numDimensions &&
+                    useInlining == config.useInlining && m == config.m && mMax == config.mMax &&
+                    mMax0 == config.mMax0 && efConstruction == config.efConstruction &&
+                    extendCandidates == config.extendCandidates &&
+                    keepPrunedConnections == config.keepPrunedConnections && useRaBitQ == config.useRaBitQ &&
+                    raBitQNumExBits == config.raBitQNumExBits && metric == config.metric;
+        }
+
+        @Override
+        public int hashCode() {
+            int result = Long.hashCode(randomSeed);
+            result = 31 * result + metric.name().hashCode();
+            result = 31 * result + numDimensions;
+            result = 31 * result + Boolean.hashCode(useInlining);
+            result = 31 * result + m;
+            result = 31 * result + mMax;
+            result = 31 * result + mMax0;
+            result = 31 * result + efConstruction;
+            result = 31 * result + Boolean.hashCode(extendCandidates);
+            result = 31 * result + Boolean.hashCode(keepPrunedConnections);
+            result = 31 * result + Boolean.hashCode(useRaBitQ);
+            result = 31 * result + raBitQNumExBits;
+            return result;
+        }
+
+        @Override
         @Nonnull
         public String toString() {
-            return "Config[metric=" + getMetric() + ", numDimensions=" + numDimensions +
-                    ", isUseInlining=" + isUseInlining() + ", M=" + getM() +
+            return "Config[randomSeed=" + getRandomSeed() + ", metric=" + getMetric() +
+                    ", numDimensions=" + getNumDimensions() + ", isUseInlining=" + isUseInlining() + ", M=" + getM() +
                     ", MMax=" + getMMax() + ", MMax0=" + getMMax0() + ", efConstruction=" + getEfConstruction() +
                     ", isExtendCandidates=" + isExtendCandidates() +
                     ", isKeepPrunedConnections=" + isKeepPrunedConnections() +
@@ -252,8 +269,7 @@ public class HNSW {
     @CanIgnoreReturnValue
     @SuppressWarnings("checkstyle:MemberName")
     public static class ConfigBuilder {
-        @Nonnull
-        private Random random = DEFAULT_RANDOM;
+        private long randomSeed = DEFAULT_RANDOM_SEED;
         @Nonnull
         private Metric metric = DEFAULT_METRIC;
         private boolean useInlining = DEFAULT_USE_INLINING;
@@ -270,11 +286,11 @@ public class HNSW {
         public ConfigBuilder() {
         }
 
-        public ConfigBuilder(@Nonnull final Random random, @Nonnull final Metric metric, final boolean useInlining,
+        public ConfigBuilder(final long randomSeed, @Nonnull final Metric metric, final boolean useInlining,
                              final int m, final int mMax, final int mMax0, final int efConstruction,
                              final boolean extendCandidates, final boolean keepPrunedConnections,
                              final boolean useRaBitQ, final int raBitQNumExBits) {
-            this.random = random;
+            this.randomSeed = randomSeed;
             this.metric = metric;
             this.useInlining = useInlining;
             this.m = m;
@@ -287,14 +303,13 @@ public class HNSW {
             this.raBitQNumExBits = raBitQNumExBits;
         }
 
-        @Nonnull
-        public Random getRandom() {
-            return random;
+        public long getRandomSeed() {
+            return randomSeed;
         }
 
         @Nonnull
-        public ConfigBuilder setRandom(@Nonnull final Random random) {
-            this.random = random;
+        public ConfigBuilder setRandomSeed(final long randomSeed) {
+            this.randomSeed = randomSeed;
             return this;
         }
 
@@ -394,7 +409,7 @@ public class HNSW {
         }
 
         public Config build(final int numDimensions) {
-            return new Config(getRandom(), getMetric(), numDimensions, isUseInlining(), getM(), getMMax(), getMMax0(),
+            return new Config(getRandomSeed(), getMetric(), numDimensions, isUseInlining(), getM(), getMMax(), getMMax0(),
                     getEfConstruction(), isExtendCandidates(), isKeepPrunedConnections(), isUseRaBitQ(),
                     getRaBitQNumExBits());
         }
@@ -407,6 +422,17 @@ public class HNSW {
      */
     public static ConfigBuilder newConfigBuilder() {
         return new ConfigBuilder();
+    }
+
+    /**
+     * Returns a default {@link Config}.
+     * @param numDimensions number of dimensions
+     * @return a new default {@code Config}.
+     * @see ConfigBuilder#build
+     */
+    @Nonnull
+    public static Config defaultConfig(int numDimensions) {
+        return new ConfigBuilder().build(numDimensions);
     }
 
     /**
@@ -442,6 +468,7 @@ public class HNSW {
                 @Nonnull final Config config,
                 @Nonnull final OnWriteListener onWriteListener,
                 @Nonnull final OnReadListener onReadListener) {
+        this.random = new Random(config.getRandomSeed());
         this.subspace = subspace;
         this.executor = executor;
         this.config = config;
@@ -1033,12 +1060,13 @@ public class HNSW {
      * of type {@code U}, corresponding to each processed node reference.
      */
     @Nonnull
-    private <R extends NodeReference, N extends NodeReference, U> CompletableFuture<List<U>> fetchSomeNodesAndApply(@Nonnull final StorageAdapter<N> storageAdapter,
-                                                                                                                    @Nonnull final ReadTransaction readTransaction,
-                                                                                                                    final int layer,
-                                                                                                                    @Nonnull final Iterable<R> nodeReferences,
-                                                                                                                    @Nonnull final Function<R, U> fetchBypassFunction,
-                                                                                                                    @Nonnull final BiFunction<R, Node<N>, U> biMapFunction) {
+    private <R extends NodeReference, N extends NodeReference, U> CompletableFuture<List<U>>
+            fetchSomeNodesAndApply(@Nonnull final StorageAdapter<N> storageAdapter,
+                                   @Nonnull final ReadTransaction readTransaction,
+                                   final int layer,
+                                   @Nonnull final Iterable<R> nodeReferences,
+                                   @Nonnull final Function<R, U> fetchBypassFunction,
+                                   @Nonnull final BiFunction<R, Node<N>, U> biMapFunction) {
         return forEach(nodeReferences,
                 currentNeighborReference -> fetchNodeIfNecessaryAndApply(storageAdapter, readTransaction, layer,
                         currentNeighborReference, fetchBypassFunction, biMapFunction), MAX_CONCURRENT_NODE_READS,
@@ -1085,7 +1113,7 @@ public class HNSW {
     @Nonnull
     public CompletableFuture<Void> insert(@Nonnull final Transaction transaction, @Nonnull final Tuple newPrimaryKey,
                                           @Nonnull final RealVector newVector) {
-        final int insertionLayer = insertionLayer(getConfig().getRandom());
+        final int insertionLayer = insertionLayer();
         if (logger.isTraceEnabled()) {
             logger.trace("new node with key={} selected to be inserted into layer={}", newPrimaryKey, insertionLayer);
         }
@@ -1182,11 +1210,10 @@ public class HNSW {
     public CompletableFuture<Void> insertBatch(@Nonnull final Transaction transaction,
                                                @Nonnull List<NodeReferenceWithVector> batch) {
         // determine the layer each item should be inserted at
-        final Random random = getConfig().getRandom();
         final List<NodeReferenceWithLayer> batchWithLayers = Lists.newArrayListWithCapacity(batch.size());
         for (final NodeReferenceWithVector current : batch) {
-            batchWithLayers.add(new NodeReferenceWithLayer(current.getPrimaryKey(), current.getVector(),
-                    insertionLayer(random)));
+            batchWithLayers.add(
+                    new NodeReferenceWithLayer(current.getPrimaryKey(), current.getVector(), insertionLayer()));
         }
         // sort the layers in reverse order
         batchWithLayers.sort(Comparator.comparing(NodeReferenceWithLayer::getLayer).reversed());
@@ -1878,12 +1905,9 @@ public class HNSW {
      * number and {@code lambda} is a normalization factor derived from a system
      * configuration parameter {@code M}.
      *
-     * @param random the {@link Random} object used for generating a random number.
-     * It must not be null.
-     *
      * @return a non-negative integer representing the randomly selected layer.
      */
-    private int insertionLayer(@Nonnull final Random random) {
+    private int insertionLayer() {
         double lambda = 1.0 / Math.log(getConfig().getM());
         double u = 1.0 - random.nextDouble();  // Avoid log(0)
         return (int) Math.floor(-Math.log(u) * lambda);
