@@ -206,7 +206,9 @@ public interface KeySpacePath {
      */
     @API(API.Status.EXPERIMENTAL)
     @Nonnull
-    CompletableFuture<ResolvedKeySpacePath> toResolvedPathAsync(@Nonnull FDBRecordContext context, byte[] key);
+    default CompletableFuture<ResolvedKeySpacePath> toResolvedPathAsync(@Nonnull FDBRecordContext context, byte[] key) {
+        throw new UnsupportedOperationException("toResolvedPath is not supported");
+    }
 
     /**
      * Resolves the path into a {@link ResolvedKeySpacePath}, a form the retains all of the information about
@@ -587,9 +589,11 @@ public interface KeySpacePath {
      * @param scanProperties properties controlling how the scan should be performed
      * @return a RecordCursor that iterates over all KeyValue pairs under this path
      */
-    @API(API.Status.UNSTABLE)
+    @API(API.Status.EXPERIMENTAL)
     @Nonnull
-    RecordCursor<DataInKeySpacePath> exportAllData(@Nonnull FDBRecordContext context,
+    default RecordCursor<DataInKeySpacePath> exportAllData(@Nonnull FDBRecordContext context,
                                                    @Nullable byte[] continuation,
-                                                   @Nonnull ScanProperties scanProperties);
+                                                   @Nonnull ScanProperties scanProperties) {
+        throw new UnsupportedOperationException("exportAllData is not supported");
+    }
 }
