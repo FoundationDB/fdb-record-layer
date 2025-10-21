@@ -548,8 +548,8 @@ public class HNSW {
     }
 
     @Nonnull
-    Quantizer raBitQuantizer(@Nonnull final RealVector centroidRot) {
-        return new RaBitQuantizer(Metric.EUCLIDEAN_METRIC, centroidRot, getConfig().getRaBitQNumExBits());
+    Quantizer raBitQuantizer() {
+        return new RaBitQuantizer(Metric.EUCLIDEAN_METRIC, getConfig().getRaBitQNumExBits());
     }
 
     //
@@ -596,7 +596,7 @@ public class HNSW {
                         final RealVector centroidRot = centroidRot(rotator);
                         final RealVector queryVectorRot = rotator.operateTranspose(queryVector);
                         queryVectorTrans = queryVectorRot.subtract(centroidRot);
-                        quantizer = raBitQuantizer(centroidRot);
+                        quantizer = raBitQuantizer();
                     } else {
                         queryVectorTrans = queryVector;
                         quantizer = Quantizer.noOpQuantizer(Metric.EUCLIDEAN_METRIC);
@@ -1127,7 +1127,7 @@ public class HNSW {
                         final RealVector centroidRot = centroidRot(rotator);
                         final RealVector newVectorRot = rotator.operateTranspose(newVector);
                         newVectorTrans = newVectorRot.subtract(centroidRot);
-                        quantizer = raBitQuantizer(centroidRot);
+                        quantizer = raBitQuantizer();
                     } else {
                         newVectorTrans = newVector;
                         quantizer = Quantizer.noOpQuantizer(Metric.EUCLIDEAN_METRIC);
@@ -1228,7 +1228,7 @@ public class HNSW {
                     if (getConfig().isUseRaBitQ()) {
                         rotator = new FhtKacRotator(0, getConfig().getNumDimensions(), 10);
                         centroidRot = centroidRot(rotator);
-                        quantizer = raBitQuantizer(centroidRot);
+                        quantizer = raBitQuantizer();
                     } else {
                         rotator = null;
                         centroidRot = null;
@@ -1911,24 +1911,6 @@ public class HNSW {
         double lambda = 1.0 / Math.log(getConfig().getM());
         double u = 1.0 - random.nextDouble();  // Avoid log(0)
         return (int) Math.floor(-Math.log(u) * lambda);
-    }
-
-    /**
-     * Logs a message at the INFO level, using a consumer for lazy evaluation.
-     * <p>
-     * This approach avoids the cost of constructing the log message if the INFO
-     * level is disabled. The provided {@link java.util.function.Consumer} will be
-     * executed only when {@code logger.isInfoEnabled()} returns {@code true}.
-     *
-     * @param loggerConsumer the {@link java.util.function.Consumer} that will be
-     * accepted if logging is enabled. It receives the
-     * {@code Logger} instance and must not be null.
-     */
-    @SuppressWarnings("PMD.UnusedPrivateMethod")
-    private void info(@Nonnull final Consumer<Logger> loggerConsumer) {
-        if (logger.isInfoEnabled()) {
-            loggerConsumer.accept(logger);
-        }
     }
 
     private static class NodeReferenceWithLayer extends NodeReferenceWithVector {

@@ -79,6 +79,8 @@ import java.util.stream.Collectors;
 import java.util.stream.LongStream;
 import java.util.stream.Stream;
 
+import static com.apple.foundationdb.linear.RealVectorTest.createRandomHalfVector;
+
 /**
  * Tests testing insert/update/deletes of data into/in/from {@link RTree}s.
  */
@@ -265,7 +267,7 @@ public class HNSWTest {
                 OnWriteListener.NOOP, onReadListener);
 
         final int k = 10;
-        final HalfRealVector queryVector = RealVectorSerializationTest.createRandomHalfVector(random, numDimensions);
+        final HalfRealVector queryVector = createRandomHalfVector(random, numDimensions);
         final TreeSet<NodeReferenceWithDistance> nodesOrderedByDistance =
                 new TreeSet<>(Comparator.comparing(NodeReferenceWithDistance::getDistance));
 
@@ -273,7 +275,7 @@ public class HNSWTest {
             i += basicInsertBatch(hnsw, 100, nextNodeIdAtomic, onReadListener,
                     tr -> {
                         final var primaryKey = createNextPrimaryKey(nextNodeIdAtomic);
-                        final HalfRealVector dataVector = RealVectorSerializationTest.createRandomHalfVector(random, numDimensions);
+                        final HalfRealVector dataVector = createRandomHalfVector(random, numDimensions);
                         final double distance = metric.distance(dataVector, queryVector);
                         final NodeReferenceWithDistance nodeReferenceWithDistance =
                                 new NodeReferenceWithDistance(primaryKey, dataVector, distance);
@@ -382,7 +384,8 @@ public class HNSWTest {
         final TestOnReadListener onReadListener = new TestOnReadListener();
 
         final HNSW hnsw = new HNSW(rtSubspace.getSubspace(), TestExecutors.defaultThreadPool(),
-                HNSW.DEFAULT_CONFIG_BUILDER.setUseRaBitQ(true).setRaBitQNumExBits(2).setMetric(metric).setM(32).setMMax(32).setMMax0(64).build(128),
+                HNSW.DEFAULT_CONFIG_BUILDER.setUseRaBitQ(true).setRaBitQNumExBits(2)
+                        .setMetric(metric).setM(32).setMMax(32).setMMax0(64).build(128),
                 OnWriteListener.NOOP, onReadListener);
 
         final Path siftSmallPath = Paths.get(".out/extracted/siftsmall/siftsmall_base.fvecs");
@@ -411,8 +414,7 @@ public class HNSWTest {
                             return new NodeReferenceWithVector(currentPrimaryKey, currentVector);
                         });
             }
-            final DoubleRealVector centroid = sumReference.get().multiply(1.0d / i).toDoubleRealVector();
-            System.out.println("centroid =" + centroid.toString(1000));
+            Assertions.assertThat(i).isEqualTo(10000);
         }
 
         validateSIFTSmall(hnsw, k);
@@ -520,7 +522,7 @@ public class HNSWTest {
             neighborsBuilder.add(createRandomNodeReference(random));
         }
 
-        return nodeFactory.create(primaryKey, RealVectorSerializationTest.createRandomHalfVector(random, numDimensions), neighborsBuilder.build());
+        return nodeFactory.create(primaryKey, createRandomHalfVector(random, numDimensions), neighborsBuilder.build());
     }
 
     @Nonnull
@@ -534,7 +536,7 @@ public class HNSWTest {
             neighborsBuilder.add(createRandomNodeReferenceWithVector(random, numDimensions));
         }
 
-        return nodeFactory.create(primaryKey, RealVectorSerializationTest.createRandomHalfVector(random, numDimensions), neighborsBuilder.build());
+        return nodeFactory.create(primaryKey, createRandomHalfVector(random, numDimensions), neighborsBuilder.build());
     }
 
     @Nonnull
@@ -543,8 +545,10 @@ public class HNSWTest {
     }
 
     @Nonnull
-    private NodeReferenceWithVector createRandomNodeReferenceWithVector(@Nonnull final Random random, final int dimensionality) {
-        return new NodeReferenceWithVector(createRandomPrimaryKey(random), RealVectorSerializationTest.createRandomHalfVector(random, dimensionality));
+    private NodeReferenceWithVector createRandomNodeReferenceWithVector(@Nonnull final Random random,
+                                                                        final int dimensionality) {
+        return new NodeReferenceWithVector(createRandomPrimaryKey(random),
+                createRandomHalfVector(random, dimensionality));
     }
 
     @Nonnull
