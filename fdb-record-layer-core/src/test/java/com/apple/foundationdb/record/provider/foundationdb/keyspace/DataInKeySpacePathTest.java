@@ -288,7 +288,7 @@ class DataInKeySpacePathTest {
 
             final ResolvedKeySpacePath resolvedPath = resolvedFuture.get();
             assertEquals(pathTuple, resolvedPath.toTuple());
-            assertEquals(originalKeyValue.getValue(), dataInPath.getValue());
+            assertArrayEquals(originalKeyValue.getValue(), dataInPath.getValue());
             if (withRemainder) {
                 assertEquals(Tuple.from("Remainder"), resolvedPath.getRemainder());
             } else {
