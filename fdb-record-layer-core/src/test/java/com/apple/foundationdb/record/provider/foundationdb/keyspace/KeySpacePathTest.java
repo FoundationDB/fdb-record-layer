@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.keyspace;
 
+import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.test.FDBDatabaseExtension;
@@ -30,9 +31,11 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 
 import java.util.UUID;
+import java.util.concurrent.ExecutionException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
  * Tests for {@link KeySpacePath}.
@@ -145,6 +148,47 @@ public class KeySpacePathTest {
             assertNotNull(userLevel);
             assertEquals(EnvironmentKeySpace.USER_KEY, userLevel.getDirectoryName());
             assertEquals(100L, userLevel.getResolvedValue());
+        }
+    }
+
+    @Test
+    void testToResolvedPathAsyncWithKeyNotSubPath() {
+        final FDBDatabase database = dbExtension.getDatabase();
+        final KeySpace keySpace = createKeySpace(false, false);
+
+        try (FDBRecordContext context = database.openContext()) {
+            KeySpacePath rootPath = keySpace.path("test_root");
+            KeySpacePath branchPath = rootPath.add("branch");
+            KeySpacePath leafPath = branchPath.add("leaf", "leaf_value");
+
+            // Create a key that is shorter than branchPath - it stops at root
+            byte[] shorterKeyBytes = rootPath.toSubspace(context).pack();
+
+            // Attempting to resolve a key that is not under branchPath should error
+            ExecutionException ex = assertThrows(ExecutionException.class, () -> {
+                branchPath.toResolvedPathAsync(context, shorterKeyBytes).get();
+            });
+            assertEquals(RecordCoreArgumentException.class, ex.getCause().getClass());
+        }
+    }
+
+    @Test
+    void testToResolvedPathAsyncWithInvalidTuple() {
+        final FDBDatabase database = dbExtension.getDatabase();
+        final KeySpace keySpace = createKeySpace(false, false);
+
+        try (FDBRecordContext context = database.openContext()) {
+            KeySpacePath rootPath = keySpace.path("test_root");
+            KeySpacePath branchPath = rootPath.add("branch");
+
+            // Create a byte array that is not a valid tuple
+            byte[] invalidBytes = new byte[]{(byte) 0xFF, (byte) 0xFF, (byte) 0xFF};
+
+            // Attempting to resolve invalid tuple bytes should error
+            // The exception is thrown synchronously from Tuple.fromBytes, not wrapped in ExecutionException
+            assertThrows(IllegalArgumentException.class, () -> {
+                branchPath.toResolvedPathAsync(context, invalidBytes);
+            });
         }
     }
 }
