@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursor;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.foundationdb.tuple.TupleHelpers;
 import com.google.common.collect.Lists;
 
 import javax.annotation.Nonnull;
@@ -243,6 +244,34 @@ class KeySpacePathImpl implements KeySpacePath {
                         path.getDirectory().wrap(path), pathValues.get(i), null);
             }
             return current;
+        });
+    }
+
+    @Nonnull
+    @Override
+    public CompletableFuture<ResolvedKeySpacePath> toResolvedPathAsync(@Nonnull final FDBRecordContext context, final byte[] key) {
+        final Tuple keyTuple = Tuple.fromBytes(key);
+        return toResolvedPathAsync(context).thenCompose(resolvedPath -> {
+            // Now use the resolved path to find the child for the key
+            // We need to figure out how much of the key corresponds to the resolved path
+            Tuple pathTuple = resolvedPath.toTuple();
+            int pathLength = pathTuple.size();
+
+            // The remaining part of the key should be resolved from the resolved path's directory
+            if (keyTuple.size() > pathLength) {
+                // There's more in the key than just the path, so resolve the rest
+                if (resolvedPath.getDirectory().getSubdirectories().isEmpty()) {
+                    return CompletableFuture.completedFuture(
+                            new ResolvedKeySpacePath(resolvedPath.getParent(), resolvedPath.toPath(),
+                                    resolvedPath.getResolvedPathValue(),
+                                    TupleHelpers.subTuple(keyTuple, pathTuple.size(), keyTuple.size())));
+                } else {
+                    return resolvedPath.getDirectory().findChildForKey(context, resolvedPath, keyTuple, keyTuple.size(), pathLength);
+                }
+            } else {
+                // The key exactly matches the path
+                return CompletableFuture.completedFuture(resolvedPath);
+            }
         });
     }
 

@@ -22,8 +22,6 @@ package com.apple.foundationdb.record.provider.foundationdb.keyspace;
 
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
-import com.apple.foundationdb.tuple.Tuple;
-import com.apple.foundationdb.tuple.TupleHelpers;
 
 import javax.annotation.Nonnull;
 import java.util.concurrent.CompletableFuture;
@@ -39,33 +37,7 @@ public class DataInKeySpacePath {
     private final byte[] value;
 
     public DataInKeySpacePath(KeySpacePath path, KeyValue rawKeyValue, FDBRecordContext context) {
-        // Convert the raw key to a Tuple and resolve it starting from the provided path
-        Tuple keyTuple = Tuple.fromBytes(rawKeyValue.getKey());
-        
-        // First resolve the provided path to get its resolved form
-        this.resolvedPath = path.toResolvedPathAsync(context).thenCompose(resolvedPath -> {
-            // Now use the resolved path to find the child for the key
-            // We need to figure out how much of the key corresponds to the resolved path
-            Tuple pathTuple = resolvedPath.toTuple();
-            int pathLength = pathTuple.size();
-            
-            // The remaining part of the key should be resolved from the resolved path's directory
-            if (keyTuple.size() > pathLength) {
-                // There's more in the key than just the path, so resolve the rest
-                if (resolvedPath.getDirectory().getSubdirectories().isEmpty()) {
-                    return CompletableFuture.completedFuture(
-                            new ResolvedKeySpacePath(resolvedPath.getParent(), resolvedPath.toPath(),
-                                    resolvedPath.getResolvedPathValue(),
-                                    TupleHelpers.subTuple(keyTuple, pathTuple.size(), keyTuple.size())));
-                } else {
-                    return resolvedPath.getDirectory().findChildForKey(context, resolvedPath, keyTuple, keyTuple.size(), pathLength);
-                }
-            } else {
-                // The key exactly matches the path
-                return CompletableFuture.completedFuture(resolvedPath);
-            }
-        });
-
+        this.resolvedPath = path.toResolvedPathAsync(context, rawKeyValue.getKey());
         this.value = rawKeyValue.getValue();
     }
 

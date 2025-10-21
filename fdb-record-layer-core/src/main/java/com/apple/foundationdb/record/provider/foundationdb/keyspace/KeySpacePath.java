@@ -199,6 +199,16 @@ public interface KeySpacePath {
     CompletableFuture<ResolvedKeySpacePath> toResolvedPathAsync(@Nonnull FDBRecordContext context);
 
     /**
+     * Resolves the given key within this path.
+     * @param context the transaction to lookup any necessary directory layer entries.
+     * @param key a raw key from the database
+     * @return the {@link ResolvedKeySpacePath} corresponding to that key, with a potential remainder.
+     */
+    @API(API.Status.EXPERIMENTAL)
+    @Nonnull
+    CompletableFuture<ResolvedKeySpacePath> toResolvedPathAsync(@Nonnull FDBRecordContext context, byte[] key);
+
+    /**
      * Resolves the path into a {@link ResolvedKeySpacePath}, a form the retains all of the information about
      * the path itself along with the value to which each path entry is resolved.
      *
