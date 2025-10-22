@@ -74,6 +74,10 @@ public final class RaBitQuantizer implements Quantizer {
      */
     public RaBitQuantizer(@Nonnull final Metric metric, final int numExBits) {
         Preconditions.checkArgument(numExBits > 0 && numExBits < TIGHT_START.length);
+        Preconditions.checkArgument(
+                metric == Metric.EUCLIDEAN_METRIC ||
+                        metric == Metric.EUCLIDEAN_SQUARE_METRIC ||
+                        metric == Metric.DOT_PRODUCT_METRIC);
 
         this.numExBits = numExBits;
         this.metric = metric;
@@ -102,7 +106,8 @@ public final class RaBitQuantizer implements Quantizer {
      * core encoding logic to an internal helper method and returns the final
      * {@link EncodedRealVector}.
      *
-     * @param data the {@link RealVector} to be encoded; must not be null.
+     * @param data the {@link RealVector} to be encoded; must not be null. The vector must be pre-rotated and
+     *        translated.
      *
      * @return the resulting {@link EncodedRealVector}, guaranteed to be non-null.
      */
