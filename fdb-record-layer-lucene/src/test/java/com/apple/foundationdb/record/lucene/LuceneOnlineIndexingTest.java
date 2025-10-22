@@ -46,6 +46,7 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexDeferredMaintena
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactory;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
+import com.apple.foundationdb.record.provider.foundationdb.IndexMaintenanceFilter;
 import com.apple.foundationdb.record.provider.foundationdb.OnlineIndexer;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils;
 import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyStorage;
@@ -55,6 +56,7 @@ import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.test.BooleanSource;
 import com.apple.test.RandomSeedSource;
 import com.apple.test.RandomizedTestUtils;
 import com.google.auto.service.AutoService;
@@ -106,6 +108,7 @@ import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIn
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils.MAP_DOC;
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils.SIMPLE_DOC;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -633,7 +636,6 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
         }
     }
 
-
     protected void openRecordStore(FDBRecordContext context, FDBRecordStoreTestBase.RecordMetaDataHook hook) {
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecordsTextProto.getDescriptor());
         metaDataBuilder.getRecordType(COMPLEX_DOC).setPrimaryKey(concatenateFields("group", "doc_id"));
@@ -641,6 +643,24 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
         recordStore = getStoreBuilder(context, metaDataBuilder.getRecordMetaData())
                 .setSerializer(TextIndexTestUtils.COMPRESSING_SERIALIZER)
                 .createOrOpen();
+        setupPlanner(null);
+    }
+
+    protected void openRecordStoreWithFilter(FDBRecordContext context, FDBRecordStoreTestBase.RecordMetaDataHook hook, boolean filterOut) {
+        RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecordsTextProto.getDescriptor());
+        metaDataBuilder.getRecordType(COMPLEX_DOC).setPrimaryKey(concatenateFields("group", "doc_id"));
+        hook.apply(metaDataBuilder);
+        final FDBRecordStore.Builder builder = getStoreBuilder(context, metaDataBuilder.getRecordMetaData())
+                .setSerializer(TextIndexTestUtils.COMPRESSING_SERIALIZER);
+        if (filterOut) {
+            recordStore = builder
+                    .setIndexMaintenanceFilter((i, r) -> IndexMaintenanceFilter.IndexValues.NONE)
+                    .createOrOpen();
+        } else {
+            recordStore = builder
+                    .setIndexMaintenanceFilter(IndexMaintenanceFilter.NORMAL)
+                    .createOrOpen();
+        }
         setupPlanner(null);
     }
 
@@ -758,6 +778,46 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
         LOGGER.debug("Merge test: number of files: old=" + oldLength + " new=" + newLength);
         assertTrue(newLength > 0);
         assertTrue(newLength < oldLength);
+    }
+
+    @SuppressWarnings("checkstyle:VariableDeclarationUsageDistance")
+    @ParameterizedTest
+    @BooleanSource
+    void luceneOnlineIndexingTestFilterOutRecords(boolean filterOut) throws IOException {
+        int groupingCount = 1;
+        final int groupedCount = 4 - groupingCount;
+        Index index = new Index(
+                "Map_with_auto_complete$entry-value",
+                new GroupingKeyExpression(field("entry",
+                        KeyExpression.FanType.FanOut).nest(concat(LuceneIndexTestUtils.keys)), groupedCount),
+                LuceneIndexTypes.LUCENE,
+                ImmutableMap.of());
+
+        RecordMetaDataHook hook = metaDataBuilder -> {
+            metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
+            TextIndexTestUtils.addRecordTypePrefix(metaDataBuilder);
+            metaDataBuilder.addIndex(MAP_DOC, index);
+        };
+        int group = 3;
+
+        // write/overwrite records
+        boolean needMerge = false;
+        for (int iLast = 60; iLast > 40; iLast --) {
+            try (FDBRecordContext context = openContext()) {
+                openRecordStoreWithFilter(context, hook, filterOut);
+                for (int i = 0; i < iLast; i++) {
+                    recordStore.saveRecord(multiEntryMapDoc(77L * i, ENGINEER_JOKE + iLast, group));
+                }
+                final Set<Index> indexSet = recordStore.getIndexDeferredMaintenanceControl().getMergeRequiredIndexes();
+                if (indexSet != null && !indexSet.isEmpty()) {
+                    assertEquals(1, indexSet.size());
+                    assertEquals(indexSet.stream().findFirst().get().getName(), index.getName());
+                    needMerge = true;
+                }
+                commit(context);
+            }
+        }
+        assertNotEquals(needMerge, filterOut);
     }
 
     private TestRecordsTextProto.MapDocument multiEntryMapDoc(long id, String text, int group) {
