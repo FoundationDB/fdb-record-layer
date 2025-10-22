@@ -18,15 +18,8 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.async.rabitq;
+package com.apple.foundationdb.linear;
 
-import com.apple.foundationdb.linear.ColumnMajorRealMatrix;
-import com.apple.foundationdb.linear.DoubleRealVector;
-import com.apple.foundationdb.linear.FhtKacRotator;
-import com.apple.foundationdb.linear.Metric;
-import com.apple.foundationdb.linear.RealMatrix;
-import com.apple.foundationdb.linear.RealVector;
-import com.apple.foundationdb.linear.RealVectorTest;
 import com.apple.test.RandomizedTestUtils;
 import com.google.common.collect.ImmutableSet;
 import org.assertj.core.api.Assertions;

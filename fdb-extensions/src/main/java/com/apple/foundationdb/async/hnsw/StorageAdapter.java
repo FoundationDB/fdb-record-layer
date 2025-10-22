@@ -22,7 +22,7 @@ package com.apple.foundationdb.async.hnsw;
 
 import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.Transaction;
-import com.apple.foundationdb.async.rabitq.EncodedRealVector;
+import com.apple.foundationdb.rabitq.EncodedRealVector;
 import com.apple.foundationdb.linear.DoubleRealVector;
 import com.apple.foundationdb.linear.FloatRealVector;
 import com.apple.foundationdb.linear.HalfRealVector;

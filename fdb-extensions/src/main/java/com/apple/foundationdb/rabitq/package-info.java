@@ -21,4 +21,4 @@
 /**
  * RaBitQ implementation.
  */
-package com.apple.foundationdb.async.rabitq;
+package com.apple.foundationdb.rabitq;
