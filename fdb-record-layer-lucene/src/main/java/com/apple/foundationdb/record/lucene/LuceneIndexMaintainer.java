@@ -513,7 +513,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     @Nullable
     private <M extends Message> FDBIndexableRecord<M> maybeFilterRecord(FDBIndexableRecord<M> record) {
         if (record != null) {
-            final IndexMaintenanceFilter.IndexValues filterType = getFilterTypeFor(record);
+            final IndexMaintenanceFilter.IndexValues filterType = getFilterTypeForRecord(record);
             if (filterType == IndexMaintenanceFilter.IndexValues.NONE) {
                 return null;
             } else if (filterType == IndexMaintenanceFilter.IndexValues.SOME) {

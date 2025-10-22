@@ -359,7 +359,7 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
         if (savedRecord == null) {
             return null;
         }
-        final IndexMaintenanceFilter.IndexValues filterType = getFilterTypeFor(savedRecord);
+        final IndexMaintenanceFilter.IndexValues filterType = getFilterTypeForRecord(savedRecord);
         if (filterType == IndexMaintenanceFilter.IndexValues.NONE) {
             return null;
         }
@@ -387,7 +387,7 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
         return indexEntries;
     }
 
-    protected <M extends Message> IndexMaintenanceFilter.IndexValues getFilterTypeFor(@Nonnull final FDBIndexableRecord<M> savedRecord) {
+    protected <M extends Message> IndexMaintenanceFilter.IndexValues getFilterTypeForRecord(@Nonnull final FDBIndexableRecord<M> savedRecord) {
         // Apply both filters:
         // 1. Index predicates (if exist) - currently supports filtering out (i.e. NONE). If not filtered out, fallthrough to the next filter
         // 2. IndexMaintenanceFilter - supports ALL, NONE, and SOME
