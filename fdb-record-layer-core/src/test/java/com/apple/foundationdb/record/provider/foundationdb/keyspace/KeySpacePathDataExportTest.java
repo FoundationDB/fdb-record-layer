@@ -46,6 +46,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
@@ -212,35 +213,30 @@ class KeySpacePathDataExportTest {
 
     @Test
     void exportAllDataWithDifferentKeyTypes() {
-        KeySpace root = new KeySpace(
-                new KeySpaceDirectory("mixed", KeyType.STRING, UUID.randomUUID().toString())
-                        .addSubdirectory(new KeySpaceDirectory("strings", KeyType.STRING))
-                        .addSubdirectory(new KeySpaceDirectory("longs", KeyType.LONG))
-                        .addSubdirectory(new KeySpaceDirectory("bytes", KeyType.BYTES))
-                        .addSubdirectory(new KeySpaceDirectory("uuids", KeyType.UUID))
-                        .addSubdirectory(new KeySpaceDirectory("booleans", KeyType.BOOLEAN)));
+        final KeySpaceDirectory rootDirectory = new KeySpaceDirectory("mixed", KeyType.STRING, UUID.randomUUID().toString());
+        Map<KeyType, List<Object>> dataByType = Map.of(
+                KeyType.STRING, List.of("str0", "str1", "str2"),
+                KeyType.LONG, List.of(10L, 11L, 12L),
+                KeyType.BYTES, List.of(new byte[]{0, 1}, new byte[]{1, 2}),
+                KeyType.UUID, List.of(new UUID(0, 0), new UUID(1, 1)),
+                KeyType.BOOLEAN, List.of(true, false),
+                KeyType.NULL, Collections.singletonList(null),
+                KeyType.DOUBLE, List.of(3.1415, -2.718281, 13.23E8),
+                KeyType.FLOAT, List.of(1.4142135f, -5.8f, 130.23f)
+        );
+        dataByType.keySet().forEach(keyType ->
+                rootDirectory.addSubdirectory(new KeySpaceDirectory(keyType.name(), keyType)));
+        KeySpace root = new KeySpace(rootDirectory);
+        assertEquals(Set.of(KeyType.values()), dataByType.keySet());
 
         final FDBDatabase database = dbExtension.getDatabase();
         
         // Store test data with different key types
         try (FDBRecordContext context = database.openContext()) {
             KeySpacePath basePath = root.path("mixed");
-            
-            // String keys (str0, str1, str2 -> string_value_0, string_value_1, string_value_2)
-            setData(List.of("str0", "str1", "str2"), context, basePath, "strings", "string_value_");
-            
-            // Long keys (10, 11, 12 -> long_value_10, long_value_11, long_value_12)
-            setData(List.of(10L, 11L, 12L), context, basePath, "longs", "long_value_");
-            
-            // Bytes keys (arrays -> bytes_value_[0, 1], bytes_value_[1, 2])
-            setData(List.of(new byte[]{0, 1}, new byte[]{1, 2}), context, basePath, "bytes", "bytes_value_");
-            
-            // UUID keys (UUIDs -> uuid_value_UUID)
-            setData(List.of(new UUID(0, 0), new UUID(1, 1)), context, basePath, "uuids", "uuid_value_");
-            
-            // Boolean keys (true, false -> boolean_value_true, boolean_value_false)
-            setData(List.of(true, false), context, basePath, "booleans", "boolean_value_");
-            
+            dataByType.forEach((keyType, data) ->
+                    setData(data, context, basePath, keyType.name(), keyType + "_value_")
+            );
             context.commit();
         }
         
@@ -249,15 +245,15 @@ class KeySpacePathDataExportTest {
             KeySpacePath mixedPath = root.path("mixed");
             final List<DataInKeySpacePath> allData = exportAllData(mixedPath, context);
 
-            // Should have 12 records total (3+3+2+2+2)
-            assertEquals(12, allData.size());
+            assertEquals(dataByType.values().stream().mapToLong(List::size).sum(),
+                    allData.size());
 
             // Verify we have different value types
             Set<String> valueTypes = allData.stream()
                     .map(data -> Tuple.fromBytes(data.getValue()).getString(0).split("_")[0])
                     .collect(Collectors.toSet());
-            assertEquals(5, valueTypes.size());
-            assertTrue(valueTypes.containsAll(Arrays.asList("string", "long", "bytes", "uuid", "boolean")));
+            assertEquals((Arrays.stream(KeyType.values()).map(Enum::name).collect(Collectors.toSet())),
+                    valueTypes);
         }
     }
 

@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.provider.foundationdb.keyspace;
 
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.Transaction;
+import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory.KeyType;
@@ -39,13 +40,16 @@ import org.junit.jupiter.params.provider.ValueSource;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -325,6 +329,50 @@ class DataInKeySpacePathTest {
             ResolvedKeySpacePath envLevel = assertNameAndValue(userLevel, "userid", 100L);
             assertNull(assertNameAndDirectoryScopedValue(envLevel, keySpace.root().getDirectoryName(),
                     keySpace.root().getValue(), keySpace.root(), context));
+        }
+    }
+
+    @Test
+    void badPath() {
+        final String rootUuid = UUID.randomUUID().toString();
+        KeySpace root = new KeySpace(
+                new KeySpaceDirectory("test", KeyType.STRING, rootUuid));
+
+        final FDBDatabase database = dbExtension.getDatabase();
+
+        try (FDBRecordContext context = database.openContext()) {
+            KeySpacePath testPath = root.path("test");
+            byte[] keyBytes = Tuple.from("banana", rootUuid).pack();
+            byte[] valueBytes = Tuple.from("accessor_test").pack();
+
+            KeyValue originalKeyValue = new KeyValue(keyBytes, valueBytes);
+            DataInKeySpacePath dataInPath = new DataInKeySpacePath(testPath, originalKeyValue, context);
+            final CompletionException completionException = assertThrows(CompletionException.class,
+                    () -> dataInPath.getResolvedPath().join());
+            assertInstanceOf(RecordCoreArgumentException.class, completionException.getCause());
+        }
+    }
+
+    /**
+     * Test if there is a null value. FDB shouldn't ever return this, and if you got it somehow, you wouldn't be
+     * able to insert it back into a database because {@link com.apple.foundationdb.FDBTransaction#set(byte[], byte[])}
+     * does not support a {@code null} key or value.
+     */
+    @Test
+    void nullValue() {
+        KeySpace root = new KeySpace(
+                new KeySpaceDirectory("test", KeyType.STRING, UUID.randomUUID().toString()));
+
+        final FDBDatabase database = dbExtension.getDatabase();
+
+        try (FDBRecordContext context = database.openContext()) {
+            KeySpacePath testPath = root.path("test");
+            byte[] keyBytes = testPath.toTuple(context).pack();
+            byte[] valueBytes = null;
+
+            KeyValue originalKeyValue = new KeyValue(keyBytes, valueBytes);
+            assertThrows(RecordCoreArgumentException.class,
+                    () -> new DataInKeySpacePath(testPath, originalKeyValue, context));
         }
     }
 

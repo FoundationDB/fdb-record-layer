@@ -21,7 +21,10 @@
 package com.apple.foundationdb.record.provider.foundationdb.keyspace;
 
 import com.apple.foundationdb.KeyValue;
+import com.apple.foundationdb.record.RecordCoreArgumentException;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.tuple.ByteArrayUtil2;
 
 import javax.annotation.Nonnull;
 import java.util.concurrent.CompletableFuture;
@@ -39,6 +42,10 @@ public class DataInKeySpacePath {
     public DataInKeySpacePath(KeySpacePath path, KeyValue rawKeyValue, FDBRecordContext context) {
         this.resolvedPath = path.toResolvedPathAsync(context, rawKeyValue.getKey());
         this.value = rawKeyValue.getValue();
+        if (this.value == null) {
+            throw new RecordCoreArgumentException("Value cannot be null")
+                    .addLogInfo(LogMessageKeys.KEY, ByteArrayUtil2.loggable(rawKeyValue.getKey()));
+        }
     }
 
     public CompletableFuture<ResolvedKeySpacePath> getResolvedPath() {
