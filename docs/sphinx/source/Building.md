@@ -63,7 +63,24 @@ If you enable the local repo in whatever uses the Record Layer, the following wi
 ./gradlew publishToMavenLocal -PpublishBuild=true
 ```
 
-## Configuring tests for a non-standard FDB cluster file location
+## Configuring tests for a non-standard FDB cluster file location, or to run against multiple clusters
+
+If a file `fdb-environment.yaml` exists in the root of the working directory, it contains the configuration for the C API library
+and a list of cluster files. Most tests will chose randomly from the provided cluster files when testing.
+
+Here is an example file:
+``` yaml
+libraryPath: /Users/scott/fdb/bin/fdb-server-7.3.42-macos_arm64/lib
+clusterFiles:
+  - /Users/scott/fdb/data/fdb-one.cluster
+  - /Users/scott/fdb/data/fdb-two.cluster
+```
+
+
+
+### deprecated properties file
+
+[ this is being replaced by the yaml file described above, to better support multiple cluster files ]
 
 If a file `fdb-environment.properties` exists in the root of the working directory, it contains environment variables that specify where to find
 the local FDB. These settings will apply when running inside IntelliJ as well as from a command line and so are easier to manage than a shell script.

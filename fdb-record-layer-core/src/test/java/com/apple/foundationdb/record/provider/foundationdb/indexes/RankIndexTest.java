@@ -93,7 +93,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Random;
 import java.util.Set;
-import java.util.concurrent.ExecutionException;
+import java.util.concurrent.CompletionException;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -135,6 +135,7 @@ import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexN
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexScan;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexScanType;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.scoreForRank;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.anyOf;
@@ -745,34 +746,27 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
     }
 
     @DualPlannerTest
-    void writeOnlyRankQuery() {
-        assertThrows(RecordCoreException.class, () -> {
-            fdb = dbExtension.getDatabase();
-            try (FDBRecordContext context = openContext()) {
-                openRecordStore(context);
-                recordStore.markIndexWriteOnly("rank_by_gender").join();
-
-                // Re-open to reload state.
-                openRecordStore(context);
-                final QueryComponent filter =
-                        Query.rank(field("score").groupBy(field("gender"))).equalsValue(1L);
-                RecordQuery query = RecordQuery.newBuilder()
-                        .setRecordType("BasicRankedRecord")
-                        .setFilter(filter)
-                        .build();
-                RecordQueryPlan plan = recordStore.planQuery(query);
-                assertMatchesExactly(plan,
-                        filterPlan(
-                                typeFilterPlan(
-                                        scanPlan().where(scanComparisons(unbounded())))
-                                        .where(recordTypes(containsAll(ImmutableSet.of("BasicRankedRecord")))))
-                                .where(queryComponents(exactly(equalsObject(filter)))));
-                recordStore.executeQuery(plan)
-                        .map(rec -> TestRecordsRankProto.BasicRankedRecord.newBuilder().mergeFrom(rec.getRecord()).build()).asList().get();
-            } catch (ExecutionException e) {
-                throw e.getCause();
-            }
-        });
+    void writeOnlyRankQuery() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context);
+            recordStore.markIndexWriteOnly("rank_by_gender").join();
+            final QueryComponent filter =
+                    Query.rank(field("score").groupBy(field("gender"))).equalsValue(1L);
+            RecordQuery query = RecordQuery.newBuilder()
+                    .setRecordType("BasicRankedRecord")
+                    .setFilter(filter)
+                    .build();
+            RecordQueryPlan plan = recordStore.planQuery(query);
+            assertMatchesExactly(plan,
+                    filterPlan(
+                            typeFilterPlan(
+                                    scanPlan().where(scanComparisons(unbounded())))
+                                    .where(recordTypes(containsAll(ImmutableSet.of("BasicRankedRecord")))))
+                            .where(queryComponents(exactly(equalsObject(filter)))));
+            assertThatThrownBy(() -> recordStore.executeQuery(plan).asList().join(), "Plan: " + plan + " " )
+                    .isInstanceOf(CompletionException.class)
+                    .hasCauseInstanceOf(RecordCoreException.class);
+        }
     }
 
     @Test

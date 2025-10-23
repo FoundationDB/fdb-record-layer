@@ -108,4 +108,11 @@ public interface YamlConnection extends AutoCloseable {
     SemanticVersion getInitialVersion();
 
     <T> T executeTransactionally(SQLFunction<YamlConnection, T> transactionalWork) throws SQLException, RelationalException;
+
+    /**
+     * The Cluster File that this connection is connected to, so that other connections can point to the same
+     * FDB instance.
+     * @return the cluster file for the underlying FDB cluster
+     */
+    String getClusterFile();
 }

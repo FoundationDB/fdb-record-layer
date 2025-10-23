@@ -31,6 +31,7 @@ import com.apple.foundationdb.relational.yamltests.configs.JDBCMultiServerConfig
 import com.apple.foundationdb.relational.yamltests.configs.ShowPlanOnDiff;
 import com.apple.foundationdb.relational.yamltests.configs.YamlTestConfig;
 import com.apple.foundationdb.relational.yamltests.server.ExternalServer;
+import com.apple.foundationdb.test.FDBTestEnvironment;
 import com.google.common.collect.Iterables;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -69,8 +70,9 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
     private final String clusterFile;
     private final boolean includeMethodInDescriptions;
 
+    @SuppressWarnings("unused") // Used implicitly with @ExtendWith(YamlTestExtension.class)
     public YamlTestExtension() {
-        this(null, false);
+        this(FDBTestEnvironment.randomClusterFile(), false);
     }
 
     /**

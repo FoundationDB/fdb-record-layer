@@ -32,11 +32,13 @@ dependencies {
 
     testImplementation project(':fdb-test-utils')
     testImplementation(libs.bundles.test.impl)
+    testImplementation(libs.snakeyaml)
     testRuntimeOnly(libs.bundles.test.runtime)
     testCompileOnly(libs.bundles.test.compileOnly)
     testAnnotationProcessor(libs.autoService)
 
     testFixturesImplementation(libs.bundles.test.impl)
+    testFixturesImplementation(libs.snakeyaml)
     testFixturesCompileOnly(libs.bundles.test.compileOnly)
     testFixturesImplementation(libs.slf4j.api)
     testFixturesAnnotationProcessor(libs.autoService)
