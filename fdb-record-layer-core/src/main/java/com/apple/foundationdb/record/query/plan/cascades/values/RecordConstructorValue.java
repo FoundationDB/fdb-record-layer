@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades.values;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
+import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
@@ -224,6 +225,8 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
             }
         } else if (type.getTypeCode() == Type.TypeCode.VERSION) {
             return ZeroCopyByteString.wrap(((FDBRecordVersion)field).toBytes(false));
+        } else if (type.getTypeCode() == Type.TypeCode.VECTOR) {
+            return ZeroCopyByteString.wrap(((RealVector)field).getRawData());
         }
         return field;
     }

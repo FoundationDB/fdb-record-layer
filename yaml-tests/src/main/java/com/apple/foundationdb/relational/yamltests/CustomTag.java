@@ -20,6 +20,12 @@
 
 package com.apple.foundationdb.relational.yamltests;
 
+import com.apple.foundationdb.linear.HalfRealVector;
+import com.apple.foundationdb.relational.util.Assert;
+import org.yaml.snakeyaml.nodes.Node;
+import org.yaml.snakeyaml.nodes.ScalarNode;
+import org.yaml.snakeyaml.nodes.SequenceNode;
+
 import javax.annotation.Nonnull;
 import java.util.UUID;
 
@@ -129,6 +135,43 @@ public abstract class CustomTag {
         @Override
         public String toString() {
             return "!not_null";
+        }
+    }
+
+    static final class Vector16Field {
+        @Nonnull
+        private final SequenceNode yamlNode;
+
+        HalfRealVector vector;
+
+        Vector16Field(@Nonnull final Node node) {
+            this.yamlNode = Assert.castUnchecked(node, SequenceNode.class);
+        }
+
+        @Nonnull
+        public Matchers.ResultSetMatchResult matchWith(@Nonnull Object other, int rowNumber, @Nonnull String cellRef) {
+            HalfRealVector thisVector = (HalfRealVector)Matchers.constructVectorFromString(16, Assert.castUnchecked(yamlNode, SequenceNode.class));
+            if (other instanceof HalfRealVector) {
+                if (other.equals(thisVector)) {
+                    return Matchers.ResultSetMatchResult.success();
+                }
+            }
+            // not matched
+            return Matchers.ResultSetMatchResult.fail("vector mismatch at row " + rowNumber + ", " + cellRef + " expected: " + this + ", got: " + other);
+        }
+
+        @Override
+        public String toString() {
+            return prettyPrintYamlNode(yamlNode);
+        }
+
+        @Nonnull
+        private static String prettyPrintYamlNode(@Nonnull final SequenceNode sequenceNode) {
+            final var stringBuilder = new StringBuilder();
+            stringBuilder.append(sequenceNode.getTag()).append(" [");
+            sequenceNode.getValue().forEach(v -> stringBuilder.append(Assert.castUnchecked(v, ScalarNode.class).getValue()));
+            stringBuilder.append("]");
+            return stringBuilder.toString();
         }
     }
 }

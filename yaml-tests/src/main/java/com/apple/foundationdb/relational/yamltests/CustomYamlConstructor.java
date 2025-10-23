@@ -28,11 +28,14 @@ import com.apple.foundationdb.relational.yamltests.block.TestBlock;
 import com.apple.foundationdb.relational.yamltests.block.TransactionSetupsBlock;
 import com.apple.foundationdb.relational.yamltests.command.Command;
 import com.apple.foundationdb.relational.yamltests.command.QueryConfig;
+import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableList;
 import org.yaml.snakeyaml.LoaderOptions;
 import org.yaml.snakeyaml.constructor.AbstractConstruct;
 import org.yaml.snakeyaml.constructor.SafeConstructor;
 import org.yaml.snakeyaml.nodes.Node;
 import org.yaml.snakeyaml.nodes.ScalarNode;
+import org.yaml.snakeyaml.nodes.SequenceNode;
 import org.yaml.snakeyaml.nodes.Tag;
 
 import javax.annotation.Nonnull;
@@ -56,6 +59,7 @@ public class CustomYamlConstructor extends SafeConstructor {
         yamlConstructors.put(new Tag("!null"), new ConstructNullPlaceholder());
         yamlConstructors.put(new Tag("!not_null"), new ConstructNotNull());
         yamlConstructors.put(new Tag("!current_version"), new ConstructCurrentVersion());
+        yamlConstructors.put(new Tag("!v16"), new ConstructVector16Field());
 
         //blocks
         requireLineNumber.add(PreambleBlock.OPTIONS);
@@ -175,9 +179,16 @@ public class CustomYamlConstructor extends SafeConstructor {
         @Override
         public Object construct(Node node) {
             if (!(node instanceof ScalarNode)) {
-                Assert.failUnchecked("The value of uuid (!sc) tag must be a scalar, however '" + node + "' is found!");
+                Assert.failUnchecked("The value of uuid (!uuid) tag must be a scalar, however '" + node + "' is found!");
             }
             return new CustomTag.UuidField(((ScalarNode) node).getValue());
+        }
+    }
+
+    private static class ConstructVector16Field extends AbstractConstruct {
+        @Override
+        public Object construct(Node node) {
+            return new CustomTag.Vector16Field(node);
         }
     }
 

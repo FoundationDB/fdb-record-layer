@@ -52,6 +52,7 @@ message PType {
     RELATION = 15;
     NONE = 16;
     UUID = 17;
+    VECTOR = 18;
   }
 
   message PPrimitiveType {
@@ -73,6 +74,12 @@ message PType {
 
   message PAnyType {
     // nothing
+  }
+
+  message PVectorType {
+    optional bool is_nullable = 1;
+    optional int32 precision = 2;
+    optional int32 dimensions = 3;
   }
 
   message PAnyRecordType {
@@ -123,6 +130,7 @@ message PType {
     PArrayType array_type = 8;
     PAnyRecordType any_record_type = 9;
     PUuidType uuid_type = 10;
+    PVectorType vector_type = 11;
   }
 }
 

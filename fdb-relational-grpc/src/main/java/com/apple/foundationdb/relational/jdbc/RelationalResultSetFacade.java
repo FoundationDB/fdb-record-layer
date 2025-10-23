@@ -20,6 +20,10 @@
 
 package com.apple.foundationdb.relational.jdbc;
 
+import com.apple.foundationdb.linear.DoubleRealVector;
+import com.apple.foundationdb.linear.FloatRealVector;
+import com.apple.foundationdb.linear.HalfRealVector;
+import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.RelationalArray;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
@@ -36,6 +40,7 @@ import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 import com.apple.foundationdb.relational.util.PositionalIndex;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 import com.google.common.base.Suppliers;
+import com.google.protobuf.ByteString;
 
 import javax.annotation.Nonnull;
 import java.sql.SQLException;
@@ -343,13 +348,20 @@ class RelationalResultSetFacade implements RelationalResultSet {
                 break;
             case Types.OTHER:
                 int index = PositionalIndex.toProtobuf(oneBasedColumn);
-                Column column = this.delegate.getRow(rowIndex).getColumns().getColumn(index);
-                if (column.hasUuid()) {
-                    o = getUUID(oneBasedColumn);
-                } else {
-                    // Probably an enum, it's not clear exactly how we should handle this, but we currently only have one
-                    // thing which appears as OTHER
-                    o = getString(oneBasedColumn);
+                final var relationalType = getMetaData().getRelationalDataType().getFields().get(index).getType();
+                final var typeCode = relationalType.getCode();
+                switch (typeCode) {
+                    case UUID:
+                        o = getUUID(oneBasedColumn);
+                        break;
+                    case ENUM:
+                        o = getString(oneBasedColumn);
+                        break;
+                    case VECTOR:
+                        o = parseVector(getBytes(oneBasedColumn), ((DataType.VectorType)relationalType).getPrecision());
+                        break;
+                    default:
+                        throw new SQLException("Unsupported type " + type);
                 }
                 break;
             default:
@@ -392,5 +404,19 @@ class RelationalResultSetFacade implements RelationalResultSet {
     @Override
     public boolean isWrapperFor(Class<?> iface) throws SQLException {
         return iface.isInstance(this);
+    }
+
+    @Nonnull
+    public static RealVector parseVector(@Nonnull final byte[] bytes, int precision) throws SQLException {
+        if (precision == 16) {
+            return HalfRealVector.fromBytes(bytes);
+        }
+        if (precision == 32) {
+            return FloatRealVector.fromBytes(bytes);
+        }
+        if (precision == 64) {
+            return DoubleRealVector.fromBytes(bytes);
+        }
+        throw new SQLException("unexpected vector type with precision " + precision);
     }
 }

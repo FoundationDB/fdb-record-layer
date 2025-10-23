@@ -61,6 +61,11 @@ public class DataTypeUtils {
 
         final var typeCode = type.getTypeCode();
 
+        if (typeCode == Type.TypeCode.VECTOR) {
+            final var vectorType = (Type.Vector)type;
+            return DataType.VectorType.of(vectorType.getPrecision(), vectorType.getDimensions(), vectorType.isNullable());
+        }
+
         if (typeCode == Type.TypeCode.ANY || typeCode == Type.TypeCode.NONE || typeCode == Type.TypeCode.NULL || typeCode == Type.TypeCode.UNKNOWN) {
             return DataType.UnknownType.instance();
         }
@@ -129,6 +134,11 @@ public class DataTypeUtils {
                 final var asEnum = (DataType.EnumType) type;
                 final List<Type.Enum.EnumValue> enumValues = asEnum.getValues().stream().map(v -> new Type.Enum.EnumValue(v.getName(), v.getNumber())).collect(Collectors.toList());
                 return new Type.Enum(asEnum.isNullable(), enumValues, asEnum.getName());
+            case VECTOR:
+                final var vectorType = (DataType.VectorType)type;
+                final var precision = vectorType.getPrecision();
+                final var dimensions = vectorType.getDimensions();
+                return Type.Vector.of(type.isNullable(), precision, dimensions);
             case UNKNOWN:
                 return new Type.Any();
             default:

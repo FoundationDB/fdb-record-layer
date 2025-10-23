@@ -20,8 +20,13 @@
 
 package com.apple.foundationdb.relational.yamltests;
 
+import com.apple.foundationdb.linear.DoubleRealVector;
+import com.apple.foundationdb.linear.FloatRealVector;
+import com.apple.foundationdb.linear.HalfRealVector;
+import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.record.util.pair.ImmutablePair;
 import com.apple.foundationdb.record.util.pair.Pair;
+import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.relational.api.RelationalArray;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
@@ -30,10 +35,13 @@ import com.apple.foundationdb.relational.recordlayer.query.ParseHelpers;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 
 import com.google.common.collect.HashMultiset;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multiset;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 import de.vandermeer.asciitable.AsciiTable;
+import org.yaml.snakeyaml.nodes.ScalarNode;
+import org.yaml.snakeyaml.nodes.SequenceNode;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -576,6 +584,9 @@ public class Matchers {
         if (expected instanceof CustomTag.UuidField) {
             return ((CustomTag.UuidField) expected).matchWith(actual, rowNumber, cellRef);
         }
+        if (expected instanceof CustomTag.Vector16Field) {
+            return ((CustomTag.Vector16Field) expected).matchWith(actual, rowNumber, cellRef);
+        }
 
         // (nested) message
         if (expected instanceof Map<?, ?>) {
@@ -674,5 +685,40 @@ public class Matchers {
             }
         }
         return ResultSetMatchResult.fail(String.format(Locale.ROOT, "cell mismatch at row: %d cellRef: %s%n expected 🟢 does not match 🟡.%n🟢 %s (Integer) %n🟡 %s (%s)", rowNumber, cellRef, expected, actual, actual.getClass().getSimpleName()));
+    }
+
+    @Nonnull
+    public static RealVector constructVectorFromString(int precision, @Nonnull final SequenceNode yamlElementsNode) {
+        final var elements = yamlElementsNode.getValue().stream().map(v -> Assert.castUnchecked(v, ScalarNode.class).getValue())
+                .collect(ImmutableList.toImmutableList());
+
+        // Handle empty vector case
+        if (elements.isEmpty()) {
+            switch (precision) {
+                case 16:
+                    return new HalfRealVector(new double[0]);
+                case 32:
+                    return new FloatRealVector(new double[0]);
+                case 64:
+                    return new DoubleRealVector(new double[0]);
+                default:
+                    throw new IllegalArgumentException("Unsupported vector precision: " + precision + ". Expected 16, 32, or 64.");
+            }
+        }
+
+        // Split by comma and parse each element as double
+        final double[] values = elements.stream().map(Double::parseDouble).mapToDouble(d -> d).toArray();
+
+        // Create appropriate vector based on precision
+        switch (precision) {
+            case 16:
+                return new HalfRealVector(values);
+            case 32:
+                return new FloatRealVector(values);
+            case 64:
+                return new DoubleRealVector(values);
+            default:
+                throw new IllegalArgumentException("Unsupported vector precision: " + precision + ". Expected 16, 32, or 64.");
+        }
     }
 }

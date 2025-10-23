@@ -21,10 +21,15 @@
 package com.apple.foundationdb.relational.server;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.linear.DoubleRealVector;
+import com.apple.foundationdb.linear.FloatRealVector;
+import com.apple.foundationdb.linear.HalfRealVector;
+import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalDriver;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
@@ -38,6 +43,7 @@ import com.apple.foundationdb.relational.api.SqlTypeNamesSupport;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.api.metrics.NoOpMetricRegistry;
 import com.apple.foundationdb.relational.jdbc.TypeConversion;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.Parameter;
@@ -51,6 +57,7 @@ import com.apple.foundationdb.relational.recordlayer.catalog.StoreCatalogProvide
 import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerMetadataOperationsFactory;
 import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanCache;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
+import com.google.protobuf.ByteString;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -251,6 +258,20 @@ public class FRL implements AutoCloseable {
         }
     }
 
+    @Nonnull
+    public static RealVector parseVector(@Nonnull final ByteString byteString, int precision) {
+        if (precision == 16) {
+            return HalfRealVector.fromBytes(byteString.toByteArray());
+        }
+        if (precision == 32) {
+            return FloatRealVector.fromBytes(byteString.toByteArray());
+        }
+        if (precision == 64) {
+            return DoubleRealVector.fromBytes(byteString.toByteArray());
+        }
+        throw new RecordCoreException("unexpected vector type with precision " + precision);
+    }
+
     private static void addPreparedStatementParameter(@Nonnull RelationalPreparedStatement relationalPreparedStatement,
                                                       @Nonnull Parameter parameter, int index) throws SQLException {
         final var oneOfValue = parameter.getParameter();
@@ -267,7 +288,12 @@ public class FRL implements AutoCloseable {
         } else if (oneOfValue.hasBoolean()) {
             relationalPreparedStatement.setBoolean(index, oneOfValue.getBoolean());
         } else if (oneOfValue.hasBinary()) {
-            relationalPreparedStatement.setBytes(index, oneOfValue.getBinary().toByteArray());
+            if (parameter.hasMetadata() && parameter.getMetadata().hasVectorMetadata()) {
+                final var vectorProtoType = parameter.getMetadata().getVectorMetadata();
+                relationalPreparedStatement.setObject(index, parseVector(oneOfValue.getBinary(), vectorProtoType.getPrecision()));
+            } else {
+                relationalPreparedStatement.setBytes(index, oneOfValue.getBinary().toByteArray());
+            }
         } else if (oneOfValue.hasNullType()) {
             relationalPreparedStatement.setNull(index, oneOfValue.getNullType());
         } else if (oneOfValue.hasUuid()) {

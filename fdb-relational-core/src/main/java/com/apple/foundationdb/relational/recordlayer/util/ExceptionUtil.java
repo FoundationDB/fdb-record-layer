@@ -59,7 +59,11 @@ public final class ExceptionUtil {
         if (re.getCause() instanceof RelationalException) {
             return (RelationalException) re.getCause();
         }
-
+        try {
+            Thread.sleep(10000L);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
         ErrorCode code = ErrorCode.UNKNOWN;
         if (re instanceof FDBExceptions.FDBStoreTransactionTimeoutException) {
             code = ErrorCode.TRANSACTION_TIMEOUT;
@@ -87,6 +91,7 @@ public final class ExceptionUtil {
     @Nonnull
     private static ErrorCode translateErrorCode(@Nonnull final SemanticException semanticException) {
         final var semanticErrorCode = semanticException.getErrorCode();
+
         switch (semanticErrorCode) {
             case INCOMPATIBLE_TYPE:
                 return ErrorCode.CANNOT_CONVERT_TYPE;

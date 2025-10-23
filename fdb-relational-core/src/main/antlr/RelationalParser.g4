@@ -138,7 +138,17 @@ columnType
     : primitiveType | customType=uid;
 
 primitiveType
-    : BOOLEAN | INTEGER | BIGINT | FLOAT | DOUBLE | STRING | BYTES | UUID;
+    : BOOLEAN | INTEGER | BIGINT | FLOAT | DOUBLE | STRING | BYTES | UUID | vectorType;
+
+vectorType
+    : VECTOR '(' dimensions=DECIMAL_LITERAL ',' elementType=vectorElementType ')'
+    ;
+
+vectorElementType
+    : FLOAT
+    | DOUBLE
+    | HALF
+    ;
 
 columnConstraint
     : nullNotnull                                                   #nullColumnConstraint
