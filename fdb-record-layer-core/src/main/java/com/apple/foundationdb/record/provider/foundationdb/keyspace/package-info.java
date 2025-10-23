@@ -37,17 +37,73 @@
  * {@link com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory}) are there to define and enforce
  * type safety and consistency allowing data to be uniquely interpreted.
  * Each {@link com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory} has a {@code name}, a {@code type}
- * and a {@code value}. The invariant enforced by the system is that for each {@link com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory},
- * there can only be a single value of a certain type. For example, for a directory node named
- * "database" there can be one child of type {@code long}, one child of type {@code String}, one child of type {@code NULL},
- * etc. The guarantee that this provides is that when retrieving a {@link com.apple.foundationdb.KeyValue} from the
- * database and observing the prefix of the {@code Key} - for example, {@code ["root", 8, 15, "user data"]} - we can unambiguously
- * parse the key and assign the elements of the {@code Tuple} to individual named {@link com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory}
- * instances - for example, the first element is of type {@code String} therefore it has to be the "database name", the second
- * element is a {@code long}, therefore it has to be the "owner ID", etc.
- * In fact, the implementation is slightly more nuanced: Each {@link com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory}
+ * and potentially a {@code value}.
+ * The invariants enforced by the system are:
+ * <ul>
+ *  <li>
+ *      For each {@link com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory}, there can only be
+ *      a single sub-directory value of a certain type. For example, for a directory node named "database" there can be one
+ *      child of type {@code long}, one child of type {@code String}, one child of type {@code NULL}, etc
+ *  </li>
+ *  <li>
+ *      All children names within a parent directory are unique
+ *  </li>
+ * </ul>
+ * The benefits provided by the KeySpace structures and these invariants are:
+ * <ul>
+ *     <li>
+ *         A well-defined and type-safe structure for the raw {@link com.apple.foundationdb.tuple.Tuple}s that define the
+ *         way in which a key is structured. The {@link com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace}
+ *         API can be used to generate Tuples for the keys that are guaranteed to follow the defined structure.
+ *     </li>
+ *     <li>
+ *         A way to parse the raw keys from the database and an API to assign semantics to them. For example, the Key Tuple
+ *         {@code ["sys", 8, 15, "user data"]} can be unambiguously parsed and assigns {@code "sys"} to "database name",
+ *         {@code 8} to "user ID" etc.
+ *     </li>
+ *     <li>
+ *         An extensible structure that can add functionality to the keyspace structure. One such example is the directory layer
+ *         encoding, where (potentially long) string constituents of the key are replaced by {@code long} values and thus reduce the
+ *         storage required for representation. This is done through subclassing {@link com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory}
+ *         (see {@link com.apple.foundationdb.record.provider.foundationdb.keyspace.DirectoryLayerDirectory}) where the encoding and decoding is managed.
+ *     </li>
+ * </ul>
+ * </p>
+ * <p>
+ * To illustrate the issues that this is meant to solve, imagine a structure of
+ * <pre>
+ *           permissions
+ *                |
+ *      ---------------------
+ *      |                   |
+ *   users(id)           groups(id)
+ * </pre>
+ * One way to represent this structure is by defining the method:
+ * <pre>
+ *     Subspace userSubspace(long id) { return permissionsTuple.add(id); }
+ * </pre>
+ * and then, in some other part of the code, define this method:
+ * <pre>
+ *     Subspace groupSubspace(long id) { return permissionsTuple.add(id); }
+ * </pre>
+ * but then the key tuple {@code ["permissions", 8]} is ambiguous and cannot be determined whether it refers to userId 8 or groupId 8.
+ * The {@link com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace} will prevent this from happening. a properly
+ * formed (and allowed) structure would look like
+ * <pre>
+ *           "permissions"
+ *                |
+ *      ---------------------
+ *      |                   |
+ *   "users"           "groups"
+ *      |                  |
+ *    userId(long)     groupId(long)
+ * </pre>
+ * and the tuple {@code ["permissions", "users", 8]} is unambiguous.
+ * </p>
+ * <p>
+ * In reality, the implementation is slightly more nuanced: Each {@link com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory}
  * can have many children of a certain type as long as they are all defined as {@code Constants} - that is, they have a predefined value,
- * or a single {@link com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory.AnyValue} value of that type.
+ * or a single {@link com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory#ANY_VALUE} value of that type.
  * For example, the node for "database" can have children (with {@code String} type)
  * for "schema", "permissions" and "records" - where these values are known ahead of time. One cannot then add a value of type {@code String}
  * as a child with the value "user-442233".
