@@ -59,11 +59,6 @@ public final class ExceptionUtil {
         if (re.getCause() instanceof RelationalException) {
             return (RelationalException) re.getCause();
         }
-        try {
-            Thread.sleep(10000L);
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
         ErrorCode code = ErrorCode.UNKNOWN;
         if (re instanceof FDBExceptions.FDBStoreTransactionTimeoutException) {
             code = ErrorCode.TRANSACTION_TIMEOUT;

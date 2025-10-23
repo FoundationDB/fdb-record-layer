@@ -27,6 +27,9 @@ import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.record.util.pair.ImmutablePair;
 import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.foundationdb.relational.util.Assert;
+import com.apple.foundationdb.relational.yamltests.tags.IgnoreTag;
+import com.apple.foundationdb.relational.yamltests.tags.Matchable;
+import com.apple.foundationdb.relational.yamltests.tags.IsNullTag;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.relational.api.RelationalArray;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
@@ -241,7 +244,7 @@ public class Matchers {
     @Nonnull
     public static Object valueElseKey(@Nonnull final Map.Entry<?, ?> entry) {
         if (isNull(entry.getKey()) && isNull(entry.getValue())) {
-            fail(String.format(Locale.ROOT, "encountered YAML-style 'null' which is not supported, consider using '%s' instead", CustomTag.NullPlaceholder.INSTANCE));
+            fail(String.format(Locale.ROOT, "encountered YAML-style 'null' which is not supported, consider using '%s' instead", IsNullTag.usage()));
         }
         return entry.getValue() == null ? entry.getKey() : entry.getValue();
     }
@@ -406,7 +409,7 @@ public class Matchers {
     }
 
     public static Pair<ResultSetMatchResult, ResultSetPrettyPrinter> matchResultSet(final Object expected, final RelationalResultSet actual, final boolean isExpectedOrdered) throws SQLException {
-        if (expected instanceof CustomTag.Ignore) {
+        if (expected instanceof IgnoreTag) {
             return ImmutablePair.of(ResultSetMatchResult.success(), null);
         }
         if (expected == null) {
@@ -558,34 +561,18 @@ public class Matchers {
                                                    @Nullable final Object actual,
                                                    int rowNumber,
                                                    @Nonnull String cellRef) throws SQLException {
-        // the test does not care about the incoming value.
-        if (expected instanceof CustomTag.Ignore) {
+        if (expected == null && actual == null) {
             return ResultSetMatchResult.success();
         }
-        final var expectedIsNull = expected instanceof CustomTag.NullPlaceholder;
+        if (expected == null) {
+            return ResultSetMatchResult.fail("actual result set is non-NULL, expecting NULL result set");
+        }
+        if (!(expected instanceof IsNullTag.IsNullMatcher) && actual == null) {
+            return ResultSetMatchResult.fail("actual result set is NULL, expecting non-NULL result set");
+        }
 
-        if (expectedIsNull && actual == null) {
-            return ResultSetMatchResult.success();
-        }
-        if (expectedIsNull || actual == null) {
-            if (expectedIsNull) {
-                return ResultSetMatchResult.fail("actual result set is non-NULL, expecting NULL result set");
-            } else {
-                return ResultSetMatchResult.fail("actual result set is NULL, expecting non-NULL result set");
-            }
-        }
-        if (expected instanceof CustomTag.NotNull) {
-            // Actual value is not null, which is all the test cares about
-            return ResultSetMatchResult.success();
-        }
-        if (expected instanceof CustomTag.StringContains) {
-            return ((CustomTag.StringContains) expected).matchWith(actual, rowNumber, cellRef);
-        }
-        if (expected instanceof CustomTag.UuidField) {
-            return ((CustomTag.UuidField) expected).matchWith(actual, rowNumber, cellRef);
-        }
-        if (expected instanceof CustomTag.Vector16Field) {
-            return ((CustomTag.Vector16Field) expected).matchWith(actual, rowNumber, cellRef);
+        if (expected instanceof Matchable) {
+            return ((Matchable)expected).matches(actual, rowNumber, cellRef);
         }
 
         // (nested) message
@@ -662,7 +649,7 @@ public class Matchers {
         if (Objects.equals(expected, actual)) {
             return ResultSetMatchResult.success();
         } else {
-            return ResultSetMatchResult.fail(String.format(Locale.ROOT, "cell mismatch at row: %d cellRef: %s%n expected 🟢 does not match 🟡.%n🟢 %s (%s)%n🟡 %s (%s)", rowNumber, cellRef, expected, expected == null ? "NULL" : expected.getClass().getSimpleName(), actual, actual.getClass().getSimpleName()));
+            return ResultSetMatchResult.fail(String.format(Locale.ROOT, "cell mismatch at row: %d cellRef: %s%n expected 🟢 does not match 🟡.%n🟢 %s (%s)%n🟡 %s (%s)", rowNumber, cellRef, expected, expected.getClass().getSimpleName(), actual, actual.getClass().getSimpleName()));
         }
     }
 

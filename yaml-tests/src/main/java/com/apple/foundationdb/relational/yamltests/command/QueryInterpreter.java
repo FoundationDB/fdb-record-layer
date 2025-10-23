@@ -21,7 +21,6 @@
 package com.apple.foundationdb.relational.yamltests.command;
 
 import com.apple.foundationdb.relational.util.Assert;
-import com.apple.foundationdb.relational.yamltests.CustomYamlConstructor;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import com.apple.foundationdb.relational.yamltests.command.parameterinjection.InListParameter;
 import com.apple.foundationdb.relational.yamltests.command.parameterinjection.ListParameter;
@@ -29,6 +28,7 @@ import com.apple.foundationdb.relational.yamltests.command.parameterinjection.Pa
 import com.apple.foundationdb.relational.yamltests.command.parameterinjection.PrimitiveParameter;
 import com.apple.foundationdb.relational.yamltests.command.parameterinjection.TupleParameter;
 import com.apple.foundationdb.relational.yamltests.command.parameterinjection.UnboundParameter;
+import com.apple.foundationdb.relational.yamltests.tags.LongTag;
 import org.apache.commons.lang3.tuple.Pair;
 import org.yaml.snakeyaml.LoaderOptions;
 import org.yaml.snakeyaml.Yaml;
@@ -99,6 +99,8 @@ public final class QueryInterpreter {
         private static final Tag NULL_TAG = new Tag("!n");
         private static final Tag UUID_TAG = new Tag("!uuid");
         private static final Tag VECTOR16_TAG = new Tag("!v16");
+        private static final Tag VECTOR32_TAG = new Tag("!v32");
+        private static final Tag VECTOR64_TAG = new Tag("!v64");
 
         private QueryParameterYamlConstructor(LoaderOptions loaderOptions) {
             super(loaderOptions);
@@ -109,14 +111,18 @@ public final class QueryInterpreter {
             this.yamlConstructors.put(NULL_TAG, new ConstructNull());
             this.yamlConstructors.put(UUID_TAG, new ConstructUuid());
             this.yamlConstructors.put(VECTOR16_TAG, new ConstructVector16());
+            this.yamlConstructors.put(VECTOR32_TAG, new ConstructVector32());
+            this.yamlConstructors.put(VECTOR64_TAG, new ConstructVector64());
 
-            this.yamlConstructors.put(new Tag("!l"), new CustomYamlConstructor.ConstructLong());
+            final var longTag = new LongTag();
+            this.yamlConstructors.put(longTag.getTag(), longTag.getConstruct());
         }
 
         @Override
         public Parameter constructObject(Node node) {
             if (node.getTag().equals(RANDOM_TAG) || node.getTag().equals(ARRAY_GENERATOR_TAG) || node.getTag().equals(IN_LIST_TAG)
-                    || node.getTag().equals(NULL_TAG) || node.getTag().equals(UUID_TAG) || node.getTag().equals(VECTOR16_TAG)) {
+                    || node.getTag().equals(NULL_TAG) || node.getTag().equals(UUID_TAG) || node.getTag().equals(VECTOR16_TAG)
+                    || node.getTag().equals(VECTOR32_TAG) || node.getTag().equals(VECTOR64_TAG)) {
                 return (Parameter) super.constructObject(node);
             } else if (node instanceof SequenceNode) {
                 // simple list
@@ -221,6 +227,28 @@ public final class QueryInterpreter {
             @Override
             public Object construct(Node node) {
                 return new PrimitiveParameter(constructVectorFromString(16, Assert.castUnchecked(node, SequenceNode.class)));
+            }
+        }
+
+        /**
+         * Constructor for Vector32 (FloatVector) literal value.
+         */
+        private static class ConstructVector32 extends AbstractConstruct {
+
+            @Override
+            public Object construct(Node node) {
+                return new PrimitiveParameter(constructVectorFromString(32, Assert.castUnchecked(node, SequenceNode.class)));
+            }
+        }
+
+        /**
+         * Constructor for Vector64 (DoubleVector) literal value.
+         */
+        private static class ConstructVector64 extends AbstractConstruct {
+
+            @Override
+            public Object construct(Node node) {
+                return new PrimitiveParameter(constructVectorFromString(64, Assert.castUnchecked(node, SequenceNode.class)));
             }
         }
     }

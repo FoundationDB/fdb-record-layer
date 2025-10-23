@@ -40,7 +40,6 @@ import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 import com.apple.foundationdb.relational.util.PositionalIndex;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 import com.google.common.base.Suppliers;
-import com.google.protobuf.ByteString;
 
 import javax.annotation.Nonnull;
 import java.sql.SQLException;

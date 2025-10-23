@@ -143,7 +143,6 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         //       but a way to represent it in RecordMetadata.
         Assert.thatUnchecked(isRepeated || isNullable, ErrorCode.UNSUPPORTED_OPERATION, "NOT NULL is only allowed for ARRAY column type");
         containsNullableArray = containsNullableArray || (isRepeated && isNullable);
-        final var columnTypeId = ctx.columnType().customType != null ? visitUid(ctx.columnType().customType) : Identifier.of(ctx.columnType().getText());
         final var semanticAnalyzer = getDelegate().getSemanticAnalyzer();
         final SemanticAnalyzer.ParsedTypeInfo typeInfo;
         if (ctx.columnType().customType != null) {
