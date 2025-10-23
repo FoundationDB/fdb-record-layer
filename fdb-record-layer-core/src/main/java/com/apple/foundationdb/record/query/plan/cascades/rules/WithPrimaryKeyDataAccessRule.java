@@ -48,6 +48,7 @@ import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
 import java.util.BitSet;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -148,6 +149,7 @@ public class WithPrimaryKeyDataAccessRule extends AbstractDataAccessRule {
 
         boolean hasCommonOrdering = false;
         final var expressionsBuilder = ImmutableList.<RelationalExpression>builder();
+        final var seenComparisonOrderingParts = new HashSet<List<OrderingPart.ProvidedOrderingPart>>();
         for (final var requestedOrdering : requestedOrderings) {
             final var translatedRequestedOrdering =
                     requestedOrdering.translateCorrelations(topToTopTranslationMap, true);
@@ -168,6 +170,11 @@ public class WithPrimaryKeyDataAccessRule extends AbstractDataAccessRule {
                     final var comparisonIsReverse =
                             RecordQuerySetPlan.resolveComparisonDirection(comparisonOrderingParts);
                     comparisonOrderingParts = RecordQuerySetPlan.adjustFixedBindings(comparisonOrderingParts, comparisonIsReverse);
+
+                    if (seenComparisonOrderingParts.contains(comparisonOrderingParts)) {
+                        continue;
+                    }
+                    seenComparisonOrderingParts.add(comparisonOrderingParts);
 
                     final var newQuantifiers =
                             partition

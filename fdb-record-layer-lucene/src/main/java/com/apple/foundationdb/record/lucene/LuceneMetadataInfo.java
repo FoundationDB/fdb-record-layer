@@ -20,17 +20,22 @@
 
 package com.apple.foundationdb.record.lucene;
 
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOperationResult;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 /**
  * Metadata information about a lucene index, in response to {@link LuceneGetMetadataInfo}.
  */
+@API(API.Status.EXPERIMENTAL)
 public class LuceneMetadataInfo extends IndexOperationResult {
     private List<LucenePartitionInfoProto.LucenePartitionInfo> partitionInfo;
     private Map<Integer, LuceneInfo> luceneInfo;
@@ -62,13 +67,27 @@ public class LuceneMetadataInfo extends IndexOperationResult {
      */
     public static class LuceneInfo {
         private final int documentCount;
+        @API(API.Status.DEPRECATED) // replaced by the detailedFileInfos field
         private final Collection<String> files;
         private final int fieldInfoCount;
+        @Nullable
+        private final List<LuceneFileInfo> detailedFileInfos;
 
+        @API(API.Status.DEPRECATED)
         public LuceneInfo(final int documentCount, final Collection<String> files, final int fieldInfoCount) {
             this.documentCount = documentCount;
             this.files = files;
             this.fieldInfoCount = fieldInfoCount;
+            this.detailedFileInfos = null;
+        }
+
+        public LuceneInfo(final int documentCount,
+                          final int fieldInfoCount,
+                          @Nonnull final List<LuceneFileInfo> detailedFileInfos) {
+            this.documentCount = documentCount;
+            this.files = detailedFileInfos.stream().map(LuceneFileInfo::getName).collect(Collectors.toList());
+            this.fieldInfoCount = fieldInfoCount;
+            this.detailedFileInfos = Collections.unmodifiableList(detailedFileInfos);
         }
 
         /**
@@ -84,6 +103,7 @@ public class LuceneMetadataInfo extends IndexOperationResult {
          *
          * @return the list of files in the directory
          */
+        @API(API.Status.DEPRECATED) // Use the getDetailedFileInfos instead
         public Collection<String> getFiles() {
             return files;
         }
@@ -96,6 +116,16 @@ public class LuceneMetadataInfo extends IndexOperationResult {
             return fieldInfoCount;
         }
 
+        /**
+         * The detailed file info from the directory.
+         * (Optional) - if the request did not specify that this is needed, this would be null.
+         * @return the list of fileInfos in the directory
+         */
+        @Nullable
+        public List<LuceneFileInfo> getDetailedFileInfos() {
+            return detailedFileInfos;
+        }
+
         @Override
         public boolean equals(final Object o) {
             if (this == o) {
@@ -105,12 +135,59 @@ public class LuceneMetadataInfo extends IndexOperationResult {
                 return false;
             }
             final LuceneInfo that = (LuceneInfo)o;
-            return documentCount == that.documentCount && fieldInfoCount == that.fieldInfoCount && Objects.equals(files, that.files);
+            return documentCount == that.documentCount &&
+                    fieldInfoCount == that.fieldInfoCount &&
+                    Objects.equals(files, that.files) &&
+                    Objects.equals(detailedFileInfos, that.detailedFileInfos);
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(documentCount, files, fieldInfoCount);
+            return Objects.hash(documentCount, files, fieldInfoCount, detailedFileInfos);
+        }
+    }
+
+    /**
+     * Detailed file info class for the case where the response contains this information.
+     */
+    public static class LuceneFileInfo {
+        private final String name;
+        private final long id;
+        private final long size;
+
+        public LuceneFileInfo(final String name, final long id, final long size) {
+            this.name = name;
+            this.id = id;
+            this.size = size;
+        }
+
+        public String getName() {
+            return name;
+        }
+
+        public long getId() {
+            return id;
+        }
+
+        public long getSize() {
+            return size;
+        }
+
+        @Override
+        public boolean equals(final Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (!(o instanceof LuceneFileInfo)) {
+                return false;
+            }
+            final LuceneFileInfo that = (LuceneFileInfo)o;
+            return id == that.id && size == that.size && Objects.equals(name, that.name);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(name, id, size);
         }
     }
 }

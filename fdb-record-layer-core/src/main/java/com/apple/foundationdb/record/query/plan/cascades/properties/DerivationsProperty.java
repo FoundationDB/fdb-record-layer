@@ -75,7 +75,8 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithCompari
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithComparisons;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryRangePlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveUnionPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveDfsJoinPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveLevelUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScoreForRankPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQuerySelectorPlan;
@@ -399,8 +400,9 @@ public class DerivationsProperty implements ExpressionProperty<DerivationsProper
 
         @Nonnull
         @Override
-        public Derivations visitRecursiveUnionPlan(@Nonnull final RecordQueryRecursiveUnionPlan element) {
-            return Derivations.EMPTY; // todo https://github.com/FoundationDB/fdb-record-layer/issues/2974
+        public Derivations visitRecursiveLevelUnionPlan(@Nonnull final RecordQueryRecursiveLevelUnionPlan recursiveLevelUnionPlan) {
+            // todo this is still not entirely correct: https://github.com/FoundationDB/fdb-record-layer/issues/2974
+            return Derivations.EMPTY;
         }
 
         @Nonnull
@@ -837,6 +839,13 @@ public class DerivationsProperty implements ExpressionProperty<DerivationsProper
         @Override
         public Derivations visitSortPlan(@Nonnull final RecordQuerySortPlan sortPlan) {
             return derivationsFromSingleChild(sortPlan);
+        }
+
+        @Nonnull
+        @Override
+        public Derivations visitRecursiveDfsJoinPlan(@Nonnull final RecordQueryRecursiveDfsJoinPlan recursiveDfsJoinPlan) {
+            // todo: https://github.com/FoundationDB/fdb-record-layer/issues/2974
+            return Derivations.EMPTY;
         }
 
         @Nonnull

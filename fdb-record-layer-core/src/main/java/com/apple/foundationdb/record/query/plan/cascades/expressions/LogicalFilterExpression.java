@@ -50,7 +50,7 @@ import java.util.Set;
  * @see com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan for the fallback implementation
  */
 @API(API.Status.EXPERIMENTAL)
-public class LogicalFilterExpression implements RelationalExpressionWithChildren, RelationalExpressionWithPredicates, PlannerGraphRewritable {
+public class LogicalFilterExpression extends AbstractRelationalExpressionWithChildren implements RelationalExpressionWithPredicates, PlannerGraphRewritable {
     @Nonnull
     private final List<QueryPredicate> queryPredicates;
     @Nonnull
@@ -87,7 +87,7 @@ public class LogicalFilterExpression implements RelationalExpressionWithChildren
 
     @Nonnull
     @Override
-    public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
+    public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return queryPredicates.stream()
                 .flatMap(queryPredicate -> queryPredicate.getCorrelatedTo().stream())
                 .collect(ImmutableSet.toImmutableSet());
@@ -146,7 +146,7 @@ public class LogicalFilterExpression implements RelationalExpressionWithChildren
     }
 
     @Override
-    public int hashCodeWithoutChildren() {
+    public int computeHashCodeWithoutChildren() {
         return Objects.hash(getPredicates());
     }
 

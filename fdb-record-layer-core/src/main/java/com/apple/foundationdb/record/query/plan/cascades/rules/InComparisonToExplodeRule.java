@@ -24,7 +24,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
-import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ExplorationCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.ExplorationCascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
@@ -36,9 +35,11 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.NotPredicate
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.ArrayDistinctValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.BooleanValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.ParameterObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RelOpValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -163,7 +164,7 @@ public class InComparisonToExplodeRule extends ExplorationCascadesRule<SelectExp
                     Verify.verify(comparisonValue.getComparandValue().getResultType().isArray());
                     Type arrayElementType = ((Type.Array) comparisonValue.getComparandValue().getResultType()).getElementType();
                     Verify.verify(arrayElementType != null);
-                    explodeExpression = new ExplodeExpression(comparisonValue.getComparandValue());
+                    explodeExpression = new ExplodeExpression(new ArrayDistinctValue(comparisonValue.getComparandValue()));
                     newQuantifier = Quantifier.forEach(call.memoizeExploratoryExpression(explodeExpression));
                     if (arrayElementType.isRecord()) {
                         transformedPredicates.addAll(createSimpleEqualitiesForRecordTypeValue(value, newQuantifier));
@@ -179,7 +180,7 @@ public class InComparisonToExplodeRule extends ExplorationCascadesRule<SelectExp
                             new Comparisons.ValueComparison(Comparisons.Type.EQUALS, QuantifiedObjectValue.of(newQuantifier.getAlias(), elementType))));
 
                 } else if (comparison instanceof Comparisons.ParameterComparison) {
-                    explodeExpression = new ExplodeExpression(QuantifiedObjectValue.of(CorrelationIdentifier.of(((Comparisons.ParameterComparison)comparison).getParameter()), new Type.Array(elementType)));
+                    explodeExpression = new ExplodeExpression(ParameterObjectValue.of(((Comparisons.ParameterComparison)comparison).getParameter(), new Type.Array(elementType)));
                     newQuantifier = Quantifier.forEach(call.memoizeExploratoryExpression(explodeExpression));
                     transformedPredicates.add(new ValuePredicate(value,
                             new Comparisons.ValueComparison(Comparisons.Type.EQUALS, QuantifiedObjectValue.of(newQuantifier.getAlias(), elementType))));

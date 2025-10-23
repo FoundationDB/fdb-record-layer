@@ -40,6 +40,7 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -48,7 +49,9 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import java.util.stream.LongStream;
 
@@ -225,8 +228,12 @@ public abstract class OnlineIndexerTest {
     }
 
     protected void populateData(final long numRecords) {
+        populateData(numRecords, 0L);
+    }
+
+    protected void populateData(final long numRecords, final long start) {
         openSimpleMetaData();
-        List<TestRecords1Proto.MySimpleRecord> records = LongStream.range(0, numRecords).mapToObj(val ->
+        List<TestRecords1Proto.MySimpleRecord> records = LongStream.range(start, start + numRecords).mapToObj(val ->
                 TestRecords1Proto.MySimpleRecord.newBuilder()
                         .setRecNo(val)
                         .setNumValue2((int)val * 19)
@@ -369,12 +376,23 @@ public abstract class OnlineIndexerTest {
         return boundaries;
     }
 
-    protected void snooze(int millis) {
+    protected static void snooze(int millis) {
         try {
             Thread.sleep(millis);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();  //set the flag back to true
             throw new RuntimeException(e);
         }
+    }
+
+    protected static OnlineIndexOperationConfig pauseAfterOnePass(final OnlineIndexOperationConfig oldConfig, final AtomicBoolean passed, final Semaphore inPauseSemaphore, final Semaphore pauseSemaphore) {
+        if (passed.get()) {
+            inPauseSemaphore.release();
+            Assertions.assertDoesNotThrow(() -> pauseSemaphore.acquire());
+            pauseSemaphore.release();
+        } else {
+            passed.set(true);
+        }
+        return oldConfig;
     }
 }

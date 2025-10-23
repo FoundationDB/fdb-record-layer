@@ -44,7 +44,6 @@ import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Types;
@@ -78,10 +77,8 @@ class RelationalArrayFacade implements RelationalArray {
         this.delegate = array;
     }
 
-    @Nullable
     private DataType.ArrayType computeType() {
-        return delegateMetadata.getType() == Type.UNKNOWN ? null :
-               DataType.ArrayType.from(RelationalStructFacade.RelationalStructFacadeMetaData.getDataType(delegateMetadata.getType(), delegateMetadata, delegateMetadata.getNullable()));
+        return DataType.ArrayType.from(TypeConversion.getDataType(delegateMetadata.getType(), delegateMetadata, delegateMetadata.getNullable()));
     }
 
     /**
@@ -153,12 +150,12 @@ class RelationalArrayFacade implements RelationalArray {
         int count = getCount(askedForCount, this.delegate.getElementCount(), index);
         final var array = new Object[count];
         int j = 0;
-        final var componentType = this.delegateMetadata.getJavaSqlTypesCode();
+        final var componentType = this.delegateMetadata.getType();
         for (int i = index; i < count; i++) {
-            if (componentType == Types.STRUCT) {
+            if (componentType == Type.STRUCT) {
                 array[j++] = new RelationalStructFacade(delegateMetadata.getStructMetadata(), delegate.getElement(i).getStruct());
             } else {
-                Assert.failUnchecked(ErrorCode.UNKNOWN_TYPE, "Type not supported: " + SqlTypeNamesSupport.getSqlTypeName(componentType));
+                Assert.failUnchecked(ErrorCode.UNKNOWN_TYPE, "Type not supported: " + componentType.name());
             }
         }
         return array;
@@ -185,9 +182,9 @@ class RelationalArrayFacade implements RelationalArray {
         final var componentType = this.delegateMetadata.getType();
         final var componentSqlType = this.delegateMetadata.getJavaSqlTypesCode();
         final var componentColumnBuilder = ColumnMetadata.newBuilder().setName("VALUE").setType(componentType).setJavaSqlTypesCode(componentSqlType);
-        if (componentSqlType == Types.ARRAY) {
+        if (componentType == Type.ARRAY) {
             componentColumnBuilder.setArrayMetadata(this.delegateMetadata.getArrayMetadata());
-        } else if (componentSqlType == Types.STRUCT) {
+        } else if (componentType == Type.STRUCT) {
             componentColumnBuilder.setStructMetadata(this.delegateMetadata.getStructMetadata());
         }
         resultSetBuilder.setMetadata(ResultSetMetadata.newBuilder().setColumnMetadata(ListColumnMetadata.newBuilder()
@@ -197,12 +194,18 @@ class RelationalArrayFacade implements RelationalArray {
             final var listColumnBuilder = ListColumn.newBuilder();
             listColumnBuilder.addColumn(Column.newBuilder().setInteger(i + 1).build());
             final var valueColumnBuilder = Column.newBuilder();
-            if (componentSqlType == Types.STRUCT) {
+            if (componentType == Type.STRUCT) {
                 valueColumnBuilder.setStruct(delegate.getElement(i).getStruct());
-            } else if (componentSqlType == Types.INTEGER) {
+            } else if (componentType == Type.INTEGER) {
                 valueColumnBuilder.setInteger(delegate.getElement(i).getInteger());
+            } else if (componentSqlType == Types.VARCHAR) {
+                valueColumnBuilder.setString(delegate.getElement(i).getString());
+            } else if (componentSqlType == Types.DOUBLE) {
+                valueColumnBuilder.setDouble(delegate.getElement(i).getDouble());
+            } else if (componentSqlType == Types.BOOLEAN) {
+                valueColumnBuilder.setBoolean(delegate.getElement(i).getBoolean());
             } else {
-                Assert.failUnchecked(ErrorCode.UNKNOWN_TYPE, "Type not supported: " + SqlTypeNamesSupport.getSqlTypeName(componentSqlType));
+                Assert.failUnchecked(ErrorCode.UNKNOWN_TYPE, "Type not supported: " + componentType.name());
             }
             resultSetBuilder.addRow(Struct.newBuilder()
                     .setColumns(listColumnBuilder
@@ -281,7 +284,7 @@ class RelationalArrayFacade implements RelationalArray {
                 builder.setStructMetadata(innerMetadata);
                 metadata = builder.build();
             } else {
-                Assert.thatUnchecked(metadata.getJavaSqlTypesCode() == Types.STRUCT, ErrorCode.DATATYPE_MISMATCH, "dataType mismatch!");
+                Assert.thatUnchecked(metadata.getType() == Type.ARRAY, ErrorCode.DATATYPE_MISMATCH, "dataType mismatch!");
             }
         }
     }

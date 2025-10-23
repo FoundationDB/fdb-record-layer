@@ -96,6 +96,14 @@ public class RecordLayerPropertyStorage {
             this.propertyMap = new HashMap<>(properties);
         }
 
+        public <T> boolean hasProp(@Nonnull RecordLayerPropertyKey<T> propKey) {
+            return propertyMap.containsKey(propKey);
+        }
+
+        public <T> void removeProp(@Nonnull RecordLayerPropertyKey<T> propKey) {
+            propertyMap.remove(propKey);
+        }
+
         public <T> Builder addProp(@Nonnull RecordLayerPropertyValue<T> propValue) {
             if (this.propertyMap.putIfAbsent(propValue.getKey(), propValue) != null) {
                 throw new RecordCoreException("Duplicate property name is added")

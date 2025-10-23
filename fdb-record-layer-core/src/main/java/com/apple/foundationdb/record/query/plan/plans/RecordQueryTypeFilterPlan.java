@@ -41,6 +41,7 @@ import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.AbstractRelationalExpressionWithChildren;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.TypeFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.explain.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -70,7 +71,7 @@ import java.util.Set;
  * A query plan that filters out records from a child plan that are not of the designated record type(s).
  */
 @API(API.Status.INTERNAL)
-public class RecordQueryTypeFilterPlan implements RecordQueryPlanWithChild, TypeFilterExpression {
+public class RecordQueryTypeFilterPlan extends AbstractRelationalExpressionWithChildren implements RecordQueryPlanWithChild, TypeFilterExpression {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Type-Filter-Plan");
 
     public static final Logger LOGGER = LoggerFactory.getLogger(RecordQueryTypeFilterPlan.class);
@@ -103,15 +104,17 @@ public class RecordQueryTypeFilterPlan implements RecordQueryPlanWithChild, Type
 
     @Nonnull
     @Override
-    @SuppressWarnings("PMD.CloseResource")
+    @SuppressWarnings({"PMD.CloseResource", "resource"})
     public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
                                                                      @Nonnull final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,
                                                                      @Nonnull final ExecuteProperties executeProperties) {
-        final RecordCursor<QueryResult> results = getInnerPlan().executePlan(store, context, continuation, executeProperties.clearSkipAndLimit());
+        final RecordCursor<QueryResult> results =
+                getInnerPlan().executePlan(store, context, continuation, executeProperties.clearSkipAndLimit());
 
         return results
-                .filterInstrumented(result -> recordTypes.contains(Objects.requireNonNull(result.getRecordType()).getName()), store.getTimer(),
+                .filterInstrumented(result -> recordTypes.contains(
+                                Objects.requireNonNull(result.getRecordType()).getName()), store.getTimer(),
                         inCounts, duringEvents, successCounts, failureCounts)
                 .skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit());
     }
@@ -135,7 +138,7 @@ public class RecordQueryTypeFilterPlan implements RecordQueryPlanWithChild, Type
 
     @Nonnull
     @Override
-    public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
+    public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return ImmutableSet.of();
     }
 
@@ -153,7 +156,7 @@ public class RecordQueryTypeFilterPlan implements RecordQueryPlanWithChild, Type
     @Nonnull
     @Override
     public RecordQueryPlanWithChild withChild(@Nonnull final Reference childRef) {
-        return new RecordQueryTypeFilterPlan(Quantifier.physical(childRef), getRecordTypes(), resultType);
+        return new RecordQueryTypeFilterPlan(Quantifier.physical(childRef, inner.getAlias()), getRecordTypes(), resultType);
     }
 
     @Nonnull
@@ -171,6 +174,11 @@ public class RecordQueryTypeFilterPlan implements RecordQueryPlanWithChild, Type
     @Override
     public int hashCode() {
         return structuralHashCode();
+    }
+
+    @Override
+    public int computeHashCodeWithoutChildren() {
+        return TypeFilterExpression.super.computeHashCodeWithoutChildren();
     }
 
     @Override

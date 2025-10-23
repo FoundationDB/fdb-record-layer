@@ -20,6 +20,7 @@
 
 plugins {
     id 'application'
+    alias(libs.plugins.shadow)
 }
 
 apply from: rootProject.file('gradle/publishing.gradle')
@@ -74,27 +75,25 @@ dependencies {
     antlr(libs.antlr)
 }
 
+def mainCliClass = 'com.apple.foundationdb.relational.cli.sqlline.RelationalSQLLine'
+
 jar {
-    duplicatesStrategy = "exclude"
     manifest {
         attributes(
-                'Main-Class': 'com.apple.foundationdb.relational.cli.sqlline.RelationalSQLLine',
+                'Main-Class': mainCliClass,
                 'Class-Path': 'catalog.jar'
         )
     }
-    from {
-        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
-    }
-
-    dependsOn ':fdb-extensions:jar'
-    dependsOn ':fdb-record-layer-core:jar'
-    dependsOn ':fdb-record-layer-debugger:jar'
-    dependsOn ':fdb-relational-api:jar'
-    dependsOn ':fdb-relational-core:jar'
-    dependsOn ':fdb-relational-grpc:jar'
-    dependsOn ':fdb-relational-server:jar'
-    dependsOn ':fdb-relational-jdbc:jar'
 }
+
+shadowJar {
+    application {
+        mainClass = mainCliClass
+    }
+    mergeServiceFiles()
+}
+
+build.dependsOn(shadowJar)
 
 tasks.withType(Jar) { task ->
     dependsOn(tasks.withType(AntlrTask))
@@ -112,29 +111,44 @@ application {
     applicationName = "fdb-relational-sqlline"
     // JUL => log4j2 https://logging.apache.org/log4j/2.x/log4j-jul/index.html
     // TODO: Allow overriding default fdb.cluster file with FDB_CLUSTER_FILE.
+
+    // The gradle application defaultJvmOpts and applicationDefaultJvmArgs don't work if
+    // you try to pass more than one -D option and/or you want to use a variable from
+    // surrounding script. The value of the DEFAULT_JVM_OPTS has weird quoting that can't
+    // be worked around and that prevents environment variable interpolation working.
+    // So, we do the below crass substitution. It sets log4j as our log manager and it
+    // points at log4j2.xml in the `conf` dir copied from `src/main/conf` on assembly.
+    // We need to point at an explicit log configuration file because there are a bunch on
+    // the CLASSPATH as it is with recordlayer stealing the pole position by bundling a
+    // `log4j2-test.properties` in its jar which log4j2 will favor over all others (this
+    // configuration sets the root logger to be DEBUG which spews loads of unrelated stuff
+    // on the console when shell is trying to start up).
+    var jvmOps =  'DEFAULT_JVM_OPTS=\"-Djava.util.logging.manager=org.apache.logging.log4j.jul.LogManager -Dlog4j2.configurationFile=file:$APP_HOME/conf/log4j2.xml\"'
     startScripts {
         doLast {
-            // The gradle application defaultJvmOpts and applicationDefaultJvmArgs don't work if
-            // you try to pass more than one -D option and/or you want to use a variable from
-            // surrounding script. The value of the DEFAULT_JVM_OPTS has weird quoting that can't
-            // be worked around and that prevents environment variable interpolation working.
-            // So, we do the below crass substitution. It sets log4j as our log manager and it
-            // points at log4j2.xml in the `conf` dir copied from `src/main/conf` on assembly.
-            // We need to point at an explicit log configuration file because there are a bunch on
-            // the CLASSPATH as it is with recordlayer stealing the pole position by bundling a
-            // `log4j2-test.properties` in its jar which log4j2 will favor over all others (this
-            // configuration sets the root logger to be DEBUG which spews loads of unrelated stuff
-            // on the console when shell is trying to start up).
-            unixScript.text = unixScript.text.replace('DEFAULT_JVM_OPTS=\"\"',
-                    'DEFAULT_JVM_OPTS=\"-Djava.util.logging.manager=org.apache.logging.log4j.jul.LogManager -Dlog4j2.configurationFile=file:$APP_HOME/conf/log4j2.xml\"')
+            unixScript.text = unixScript.text.replace('DEFAULT_JVM_OPTS=\"\"', jvmOps)
+        }
+    }
+
+    startShadowScripts {
+        doLast {
+            unixScript.text = unixScript.text.replace('DEFAULT_JVM_OPTS=\"\"', jvmOps)
         }
     }
 }
 
 distTar {
-    dependsOn "javadoc"
+    dependsOn javadoc
+    dependsOn shadowJar
     compression = Compression.GZIP
     archiveExtension = "tar.gz"
+}
+
+createDistribution.configure {
+    afterEvaluate {
+        dependsOn shadowJar
+        from tasks.shadowJar
+    }
 }
 
 publishing {

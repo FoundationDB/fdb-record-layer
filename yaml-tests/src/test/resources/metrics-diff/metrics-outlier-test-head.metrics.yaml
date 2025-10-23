@@ -1,0 +1,155 @@
+outlier_test:
+  - query: "normal_query_1"
+    setup: []
+    explain: "Index(normal_index)"
+    task_count: 11
+    task_total_time_ms: 5
+    transform_count: 6
+    transform_time_ms: 2
+    transform_yield_count: 1
+    insert_time_ms: 1
+    insert_new_count: 2
+    insert_reused_count: 3
+  - query: "normal_query_2"
+    setup: []
+    explain: "Index(normal_index)"
+    task_count: 11
+    task_total_time_ms: 5
+    transform_count: 6
+    transform_time_ms: 2
+    transform_yield_count: 1
+    insert_time_ms: 1
+    insert_new_count: 2
+    insert_reused_count: 3
+  - query: "normal_query_3"
+    setup: []
+    explain: "Index(normal_index)"
+    task_count: 11
+    task_total_time_ms: 5
+    transform_count: 6
+    transform_time_ms: 2
+    transform_yield_count: 1
+    insert_time_ms: 1
+    insert_new_count: 2
+    insert_reused_count: 3
+  - query: "normal_query_4"
+    setup: []
+    explain: "Index(normal_index)"
+    task_count: 11
+    task_total_time_ms: 5
+    transform_count: 6
+    transform_time_ms: 2
+    transform_yield_count: 1
+    insert_time_ms: 1
+    insert_new_count: 2
+    insert_reused_count: 3
+  - query: "normal_query_5"
+    setup: []
+    explain: "Index(normal_index)"
+    task_count: 11
+    task_total_time_ms: 5
+    transform_count: 6
+    transform_time_ms: 2
+    transform_yield_count: 1
+    insert_time_ms: 1
+    insert_new_count: 2
+    insert_reused_count: 3
+  - query: "normal_query_6"
+    setup: []
+    explain: "Index(normal_index)"
+    task_count: 11
+    task_total_time_ms: 5
+    transform_count: 6
+    transform_time_ms: 2
+    transform_yield_count: 1
+    insert_time_ms: 1
+    insert_new_count: 2
+    insert_reused_count: 3
+  - query: "normal_query_7"
+    setup: []
+    explain: "Index(normal_index)"
+    task_count: 11
+    task_total_time_ms: 5
+    transform_count: 6
+    transform_time_ms: 2
+    transform_yield_count: 1
+    insert_time_ms: 1
+    insert_new_count: 2
+    insert_reused_count: 3
+  - query: "normal_query_8"
+    setup: []
+    explain: "Index(normal_index)"
+    task_count: 11
+    task_total_time_ms: 5
+    transform_count: 6
+    transform_time_ms: 2
+    transform_yield_count: 1
+    insert_time_ms: 1
+    insert_new_count: 2
+    insert_reused_count: 3
+  - query: "normal_query_9"
+    setup: []
+    explain: "Index(normal_index)"
+    task_count: 11
+    task_total_time_ms: 5
+    transform_count: 6
+    transform_time_ms: 2
+    transform_yield_count: 1
+    insert_time_ms: 1
+    insert_new_count: 2
+    insert_reused_count: 3
+  - query: "normal_query_10"
+    setup: []
+    explain: "Index(normal_index)"
+    task_count: 11
+    task_total_time_ms: 5
+    transform_count: 6
+    transform_time_ms: 2
+    transform_yield_count: 1
+    insert_time_ms: 1
+    insert_new_count: 2
+    insert_reused_count: 3
+  - query: "normal_query_11"
+    setup: []
+    explain: "Index(normal_index)"
+    task_count: 11
+    task_total_time_ms: 5
+    transform_count: 6
+    transform_time_ms: 2
+    transform_yield_count: 1
+    insert_time_ms: 1
+    insert_new_count: 2
+    insert_reused_count: 3
+  - query: "normal_query_12"
+    setup: []
+    explain: "Index(normal_index)"
+    task_count: 11
+    task_total_time_ms: 5
+    transform_count: 6
+    transform_time_ms: 2
+    transform_yield_count: 1
+    insert_time_ms: 1
+    insert_new_count: 2
+    insert_reused_count: 3
+  - query: "normal_query_13"
+    setup: []
+    explain: "Index(normal_index)"
+    task_count: 11
+    task_total_time_ms: 5
+    transform_count: 6
+    transform_time_ms: 2
+    transform_yield_count: 1
+    insert_time_ms: 1
+    insert_new_count: 2
+    insert_reused_count: 3
+  - query: "outlier_query"
+    setup: []
+    explain: "Index(outlier_index)"
+    task_count: 200
+    task_total_time_ms: 100
+    transform_count: 100
+    transform_time_ms: 50
+    transform_yield_count: 1
+    insert_time_ms: 20
+    insert_new_count: 2
+    insert_reused_count: 3

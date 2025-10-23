@@ -180,8 +180,8 @@ public class GeophilePointWithinDistanceQueryPlan extends GeophileSpatialObjectQ
     }
 
     @Override
-    public int hashCodeWithoutChildren() {
-        return Objects.hash(super.hashCodeWithoutChildren(), centerLatitude, centerLongitude, distance, covering);
+    public int computeHashCodeWithoutChildren() {
+        return Objects.hash(super.computeHashCodeWithoutChildren(), centerLatitude, centerLongitude, distance, covering);
     }
 
     @Nonnull

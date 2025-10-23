@@ -23,8 +23,9 @@ package com.apple.foundationdb.record.metadata;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
+import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactoryRegistry;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerRegistry;
-import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerRegistryImpl;
+import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactoryRegistryImpl;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
@@ -90,7 +91,7 @@ public class MetaDataEvolutionValidator {
     private static final MetaDataEvolutionValidator DEFAULT_INSTANCE = new MetaDataEvolutionValidator();
 
     @Nonnull
-    private final IndexMaintainerRegistry indexMaintainerRegistry;
+    private final IndexValidatorRegistry indexValidatorRegistry;
     private final boolean allowNoVersionChange;
     private final boolean allowNoSinceVersion;
     private final boolean allowIndexRebuilds;
@@ -100,7 +101,7 @@ public class MetaDataEvolutionValidator {
     private final boolean disallowTypeRenames;
 
     private MetaDataEvolutionValidator() {
-        this.indexMaintainerRegistry = IndexMaintainerRegistryImpl.instance();
+        this.indexValidatorRegistry = IndexMaintainerFactoryRegistryImpl.instance();
         this.allowNoVersionChange = false;
         this.allowNoSinceVersion = false;
         this.allowIndexRebuilds = false;
@@ -111,7 +112,7 @@ public class MetaDataEvolutionValidator {
     }
 
     private MetaDataEvolutionValidator(@Nonnull Builder builder) {
-        this.indexMaintainerRegistry = builder.indexMaintainerRegistry;
+        this.indexValidatorRegistry = builder.indexValidatorRegistry;
         this.allowNoVersionChange = builder.allowNoVersionChange;
         this.allowNoSinceVersion = builder.allowNoSinceVersion;
         this.allowIndexRebuilds = builder.allowIndexRebuilds;
@@ -668,7 +669,7 @@ public class MetaDataEvolutionValidator {
         // If there have been any changes to the index options, ask the index validator for that type
         // to validate the changed options.
         if (!oldIndex.getOptions().equals(newIndex.getOptions())) {
-            IndexValidator validatorForIndex = indexMaintainerRegistry.getIndexValidator(newIndex);
+            IndexValidator validatorForIndex = indexValidatorRegistry.getIndexValidator(newIndex);
             validatorForIndex.validateChangedOptions(oldIndex);
         }
     }
@@ -676,14 +677,14 @@ public class MetaDataEvolutionValidator {
     /**
      * Get the registry of index maintainers used to validate indexes. This registry should generally
      * be the same registry as the registry that will be used by any record stores that may use
-     * the meta-data. By default, this uses the default {@link IndexMaintainerRegistryImpl} instance.
+     * the meta-data. By default, this uses the default {@link IndexMaintainerFactoryRegistryImpl} instance.
      *
      * @return the index maintainer registry used to validate indexes
-     * @see com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase.BaseBuilder#setIndexMaintainerRegistry(IndexMaintainerRegistry)
+     * @see com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase.BaseBuilder#setIndexMaintainerRegistry(IndexMaintainerFactoryRegistry)
      */
     @Nonnull
-    public IndexMaintainerRegistry getIndexMaintainerRegistry() {
-        return indexMaintainerRegistry;
+    public IndexValidatorRegistry getIndexValidatorRegistry() {
+        return indexValidatorRegistry;
     }
 
     /**
@@ -823,7 +824,7 @@ public class MetaDataEvolutionValidator {
      */
     public static class Builder {
         @Nonnull
-        private IndexMaintainerRegistry indexMaintainerRegistry;
+        private IndexValidatorRegistry indexValidatorRegistry;
         private boolean allowNoVersionChange;
         private boolean allowNoSinceVersion;
         private boolean allowIndexRebuilds;
@@ -833,7 +834,7 @@ public class MetaDataEvolutionValidator {
         private boolean disallowTypeRenames;
 
         private Builder(@Nonnull MetaDataEvolutionValidator validator) {
-            this.indexMaintainerRegistry = validator.indexMaintainerRegistry;
+            this.indexValidatorRegistry = validator.indexValidatorRegistry;
             this.allowNoVersionChange = validator.allowNoVersionChange;
             this.allowNoSinceVersion = validator.allowNoSinceVersion;
             this.allowIndexRebuilds = validator.allowIndexRebuilds;
@@ -844,29 +845,29 @@ public class MetaDataEvolutionValidator {
         }
 
         /**
-         * Set the registry of index maintainers used to validate indexes.
+         * Set the registry of index validators used to validate indexes.
          *
-         * @param indexMaintainerRegistry the index maintainer registry used to validate indexes
+         * @param indexValidatorRegistry the index validator registry used to validate indexes
          * @return this builder
-         * @see com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase.BaseBuilder#setIndexMaintainerRegistry(IndexMaintainerRegistry)
-         * @see MetaDataEvolutionValidator#getIndexMaintainerRegistry()
+         * @see com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase.BaseBuilder#setIndexMaintainerRegistry(IndexMaintainerFactoryRegistry)
+         * @see MetaDataEvolutionValidator#getIndexValidatorRegistry()
          */
         @Nonnull
-        public Builder setIndexMaintainerRegistry(@Nonnull IndexMaintainerRegistry indexMaintainerRegistry) {
-            this.indexMaintainerRegistry = indexMaintainerRegistry;
+        public Builder setIndexValidatorRegistry(@Nonnull IndexMaintainerRegistry indexValidatorRegistry) {
+            this.indexValidatorRegistry = indexValidatorRegistry;
             return this;
         }
 
         /**
-         * Get the registry of index maintainers used to validate indexes.
+         * Get the registry of index validators used to validate indexes.
          *
          * @return the index maintainer registry used to validate indexes
-         * @see com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase.BaseBuilder#setIndexMaintainerRegistry(IndexMaintainerRegistry)
-         * @see MetaDataEvolutionValidator#getIndexMaintainerRegistry()
+         * @see com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase.BaseBuilder#setIndexMaintainerRegistry(IndexMaintainerFactoryRegistry)
+         * @see MetaDataEvolutionValidator#getIndexValidatorRegistry()
          */
         @Nonnull
-        public IndexMaintainerRegistry getIndexMaintainerRegistry() {
-            return indexMaintainerRegistry;
+        public IndexValidatorRegistry getIndexValidatorRegistry() {
+            return indexValidatorRegistry;
         }
 
         /**

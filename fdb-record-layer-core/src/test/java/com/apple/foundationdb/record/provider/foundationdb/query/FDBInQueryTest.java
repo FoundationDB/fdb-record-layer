@@ -351,10 +351,15 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
             assertThat(results2, hasSize(20));
             results2.forEach(res -> assertThat(res.get("num_value_3_indexed"), in(ints2.toArray())));
 
-            final List<Integer> ints3 = List.of(1, 3, 3);
+            final List<Integer> ints3 = List.of(1, 3);
             final List<Map<String, Object>> results3 = queryAsMaps(plan, constantBindings(constant, ints3));
-            assertThat(results3, hasSize(60)); // todo: de-dupe
+            assertThat(results3, hasSize(40));
             results3.forEach(res -> assertThat(res.get("num_value_3_indexed"), in(ints3.toArray())));
+
+            final List<Integer> ints4 = List.of(3, 1, 1, 3);
+            final List<Map<String, Object>> results4 = queryAsMaps(plan, constantBindings(constant, ints4));
+            assertThat(results3, hasSize(40));
+            results4.forEach(res -> assertThat(res.get("num_value_3_indexed"), in(ints4.toArray())));
 
             TestHelpers.assertDiscardedNone(context);
         }
@@ -381,12 +386,17 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                             FieldValue.ofFieldName(qun.getFlowedObjectValue(), "num_value_3_indexed");
 
                     final var inArrayValue = RecordConstructorValue.ofUnnamed(List.of(strValueIndexed, numValue3Indexed));
-                    Column<LiteralValue<?>> str1 = resultColumn(new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), "foo"), "str_value_indexed");
-                    Column<LiteralValue<?>> str2 = resultColumn(new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), "bar"), "str_value_indexed");
+                    Column<LiteralValue<?>> str1 = resultColumn(new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), "odd"), "str_value_indexed");
+                    Column<LiteralValue<?>> str2 = resultColumn(new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), "even"), "str_value_indexed");
                     Column<LiteralValue<?>> n1 = resultColumn(new LiteralValue<>(Type.primitiveType(Type.TypeCode.INT), 1), "num_value_3_indexed");
                     Column<LiteralValue<?>> n2 = resultColumn(new LiteralValue<>(Type.primitiveType(Type.TypeCode.INT), 2), "num_value_3_indexed");
 
-                    final var comparandValue = AbstractArrayConstructorValue.LightArrayConstructorValue.of(RecordConstructorValue.ofColumns(List.of(str1, n1)), RecordConstructorValue.ofColumns(List.of(str2, n2)));
+                    final var comparandValue = AbstractArrayConstructorValue.LightArrayConstructorValue.of(
+                            RecordConstructorValue.ofColumns(List.of(str1, n1)),
+                            RecordConstructorValue.ofColumns(List.of(str2, n2)),
+                            RecordConstructorValue.ofColumns(List.of(str1, n1)),
+                            RecordConstructorValue.ofColumns(List.of(str2, n2))
+                        );
 
                     final var encapsulatedIn = (BooleanValue)new InOpValue.InFn().encapsulate(ImmutableList.of(inArrayValue, comparandValue));
                     graphExpansionBuilder.addPredicate(encapsulatedIn.toQueryPredicate(null, Quantifier.current()).orElseThrow());
@@ -408,6 +418,14 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                                         ))
                         )));
         assertEquals(-379608724, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+        final var usedTypes = usedTypes().evaluate(plan);
+        final var evaluationContext =
+                EvaluationContext.forTypeRepository(TypeRepository.newBuilder().addAllTypes(usedTypes).build());
+        assertEquals(20, querySimpleRecordStore(hook, plan, () -> evaluationContext,
+                rec -> {
+                    assertThat(rec.getNumValue3Indexed(), anyOf(is(1), is(2)));
+                    assertThat(rec.getStrValueIndexed(), anyOf(is("odd"), is("even")));
+                }, TestHelpers::assertDiscardedNone));
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
@@ -436,7 +454,12 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                     Column<LiteralValue<Integer>> n1 = resultColumn(new LiteralValue<>(Type.primitiveType(Type.TypeCode.INT), 1), "num_value_3_indexed");
                     Column<LiteralValue<Integer>> n2 = resultColumn(new LiteralValue<>(Type.primitiveType(Type.TypeCode.INT), 2), "num_value_3_indexed");
 
-                    final var comparandValue = AbstractArrayConstructorValue.LightArrayConstructorValue.of(RecordConstructorValue.ofColumns(List.of(str1, n1)), RecordConstructorValue.ofColumns(List.of(str2, n2)));
+                    final var comparandValue = AbstractArrayConstructorValue.LightArrayConstructorValue.of(
+                            RecordConstructorValue.ofColumns(List.of(str2, n2)),
+                            RecordConstructorValue.ofColumns(List.of(str1, n1)),
+                            RecordConstructorValue.ofColumns(List.of(str1, n1)),
+                            RecordConstructorValue.ofColumns(List.of(str2, n2))
+                    );
 
                     final var encapsulatedIn = (BooleanValue)new InOpValue.InFn().encapsulate(ImmutableList.of(inArrayValue, comparandValue));
                     graphExpansionBuilder.addPredicate(encapsulatedIn.toQueryPredicate(null, Quantifier.current()).orElseThrow());
@@ -1145,7 +1168,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
 
-            List<Map<String, Object>> results = queryAsMaps(plan, constantBindings(Map.of(nv2Constant, 1, listConstant, List.of(1, 2, 4))));
+            List<Map<String, Object>> results = queryAsMaps(plan, constantBindings(Map.of(nv2Constant, 1, listConstant, List.of(1, 1, 2, 2, 4, 4))));
             assertThat(results, hasSize(21));
             int lastNumUnique = reverse ? Integer.MAX_VALUE : Integer.MIN_VALUE;
             for (Map<String, Object> res : results) {
@@ -1155,6 +1178,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 lastNumUnique = numUnique;
             }
 
+            // Make sure that the duplicates in the in-list didn't result in duplicate inputs to the Union plan.
             TestHelpers.assertDiscardedNone(context);
             commit(context);
         }

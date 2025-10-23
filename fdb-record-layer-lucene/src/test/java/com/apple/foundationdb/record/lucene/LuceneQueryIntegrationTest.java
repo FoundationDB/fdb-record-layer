@@ -34,7 +34,6 @@ import com.apple.foundationdb.record.query.expressions.NotComponent;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.PlannableIndexTypes;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.test.Tags;
 import com.google.common.collect.Sets;
 import org.junit.jupiter.api.Assertions;
@@ -78,7 +77,7 @@ public class LuceneQueryIntegrationTest extends FDBRecordStoreQueryTestBase {
     @Override
     public void setupPlanner(@Nullable PlannableIndexTypes indexTypes) {
         if (isUseCascadesPlanner()) {
-            planner = new CascadesPlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState());
+            planner = recordStore.getCascadesPlanner();
         } else {
             if (indexTypes == null) {
                 indexTypes = new PlannableIndexTypes(

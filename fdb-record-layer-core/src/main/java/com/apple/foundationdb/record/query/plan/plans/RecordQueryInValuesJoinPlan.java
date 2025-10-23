@@ -131,7 +131,7 @@ public class RecordQueryInValuesJoinPlan extends RecordQueryInJoinPlan {
     @Nonnull
     @Override
     public RecordQueryPlanWithChild withChild(@Nonnull final Reference childRef) {
-        return new RecordQueryInValuesJoinPlan(Quantifier.physical(childRef), inValuesSource(), internal);
+        return new RecordQueryInValuesJoinPlan(Quantifier.physical(childRef, inner.getAlias()), inValuesSource(), internal);
     }
 
     @Override

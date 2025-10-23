@@ -37,14 +37,13 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.FormatVersion;
-import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerRegistry;
+import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactoryRegistry;
 import com.apple.foundationdb.record.provider.foundationdb.OnlineIndexer;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.query.plan.PlannableIndexTypes;
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.debug.DebuggerWithSymbolTables;
 import com.apple.foundationdb.record.util.pair.Pair;
@@ -566,7 +565,7 @@ public class LuceneIndexTestUtils {
                                                                           final String document,
                                                                           final Index index,
                                                                           boolean useCascadesPlanner,
-                                                                          @Nullable IndexMaintainerRegistry indexMaintainerRegistry) {
+                                                                          @Nullable IndexMaintainerFactoryRegistry indexMaintainerRegistry) {
         FDBRecordStore store = openRecordStore(context,
                 path,
                 metaDataBuilder -> {
@@ -588,7 +587,7 @@ public class LuceneIndexTestUtils {
     static FDBRecordStore openRecordStore(FDBRecordContext context,
                                           @Nonnull KeySpacePath path,
                                           FDBRecordStoreTestBase.RecordMetaDataHook hook,
-                                          @Nullable IndexMaintainerRegistry indexMaintainerRegistry) {
+                                          @Nullable IndexMaintainerFactoryRegistry indexMaintainerRegistry) {
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecordsTextProto.getDescriptor());
         metaDataBuilder.getRecordType(COMPLEX_DOC).setPrimaryKey(concatenateFields("group", "doc_id"));
         hook.apply(metaDataBuilder);
@@ -601,7 +600,7 @@ public class LuceneIndexTestUtils {
     private static FDBRecordStore.Builder getStoreBuilder(@Nonnull FDBRecordContext context,
                                                           @Nonnull KeySpacePath path,
                                                           @Nonnull RecordMetaData metaData,
-                                                          @Nullable IndexMaintainerRegistry indexMaintainerRegistry) {
+                                                          @Nullable IndexMaintainerFactoryRegistry indexMaintainerRegistry) {
         final FDBRecordStore.Builder builder = FDBRecordStore.newBuilder()
                 .setFormatVersion(FormatVersion.getMaximumSupportedVersion()) // set to max to test newest features (unsafe for real deployments)
                 .setKeySpacePath(path)
@@ -617,7 +616,7 @@ public class LuceneIndexTestUtils {
                                      @Nullable PlannableIndexTypes indexTypes, boolean useRewritePlanner) {
         QueryPlanner planner;
         if (useRewritePlanner) {
-            planner = new CascadesPlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState());
+            planner = recordStore.getCascadesPlanner();
             if (Debugger.getDebugger() == null) {
                 Debugger.setDebugger(DebuggerWithSymbolTables.withSanityChecks());
             }

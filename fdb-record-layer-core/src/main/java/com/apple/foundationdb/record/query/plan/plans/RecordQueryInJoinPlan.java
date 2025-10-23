@@ -36,6 +36,7 @@ import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.AbstractRelationalExpressionWithChildren;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -56,7 +57,7 @@ import java.util.Set;
  * A query plan that executes a child plan once for each of the elements of some {@code IN} list.
  */
 @API(API.Status.INTERNAL)
-public abstract class RecordQueryInJoinPlan implements RecordQueryPlanWithChild {
+public abstract class RecordQueryInJoinPlan extends AbstractRelationalExpressionWithChildren implements RecordQueryPlanWithChild {
     @Nonnull
     protected final Quantifier.Physical inner;
     @Nonnull
@@ -107,6 +108,7 @@ public abstract class RecordQueryInJoinPlan implements RecordQueryPlanWithChild 
 
     @Nonnull
     @Override
+    @SuppressWarnings("resource")
     public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
                                                                      @Nonnull final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,
@@ -179,7 +181,7 @@ public abstract class RecordQueryInJoinPlan implements RecordQueryPlanWithChild 
 
     @Nonnull
     @Override
-    public Set<CorrelationIdentifier> getCorrelatedTo() {
+    public Set<CorrelationIdentifier> computeCorrelatedTo() {
         final ImmutableSet.Builder<CorrelationIdentifier> builder = ImmutableSet.builder();
 
         final var inAlias = getInAlias();
@@ -194,7 +196,7 @@ public abstract class RecordQueryInJoinPlan implements RecordQueryPlanWithChild 
 
     @Nonnull
     @Override
-    public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
+    public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return ImmutableSet.of();
     }
 
@@ -229,7 +231,7 @@ public abstract class RecordQueryInJoinPlan implements RecordQueryPlanWithChild 
     }
 
     @Override
-    public int hashCodeWithoutChildren() {
+    public int computeHashCodeWithoutChildren() {
         return inSource.hashCode();
     }
 

@@ -89,7 +89,7 @@ import java.util.function.Supplier;
  * A logical {@code group by} expression that represents grouping incoming tuples and aggregating each group.
  */
 @API(API.Status.EXPERIMENTAL)
-public class GroupByExpression implements RelationalExpressionWithChildren, InternalPlannerGraphRewritable {
+public class GroupByExpression extends AbstractRelationalExpressionWithChildren implements InternalPlannerGraphRewritable {
 
     @Nullable
     private final Value groupingValue;
@@ -137,7 +137,7 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
 
     @Nonnull
     @Override
-    public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
+    public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return getResultValue().getCorrelatedTo();
     }
 
@@ -187,7 +187,7 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
     }
 
     @Override
-    public int hashCodeWithoutChildren() {
+    public int computeHashCodeWithoutChildren() {
         return Objects.hash(getResultValue());
     }
 

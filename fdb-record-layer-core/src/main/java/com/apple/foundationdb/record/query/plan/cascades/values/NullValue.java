@@ -71,12 +71,6 @@ public class NullValue extends AbstractValue implements LeafValue {
         return null;
     }
 
-    @Nonnull
-    @Override
-    public Value replaceReferenceWithField(@Nonnull final FieldValue fieldValue) {
-        return this;
-    }
-
     @Override
     public boolean isFunctionallyDependentOn(@Nonnull final Value otherValue) {
         return false;

@@ -27,7 +27,6 @@ import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.RecordType;
-import com.apple.foundationdb.record.provider.foundationdb.synchronizedsession.SynchronizedSessionRunner;
 import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordPlanner;
 import com.apple.foundationdb.tuple.Tuple;
 
@@ -50,10 +49,9 @@ import java.util.stream.Collectors;
 
 @API(API.Status.INTERNAL)
 public class IndexingCommon {
-    private final UUID uuid = UUID.randomUUID();
+    private final UUID indexerId = UUID.randomUUID();
 
     @Nonnull private final FDBDatabaseRunner runner;
-    @Nullable private SynchronizedSessionRunner synchronizedSessionRunner = null;
 
     @Nonnull private final FDBRecordStore.Builder recordStoreBuilder;
     @Nonnull private final AtomicLong totalRecordsScanned;
@@ -137,8 +135,8 @@ public class IndexingCommon {
         }
     }
 
-    public UUID getUuid() {
-        return uuid;
+    public UUID getIndexerId() {
+        return indexerId;
     }
 
     public List<Object> indexLogMessageKeyValues() {
@@ -158,7 +156,13 @@ public class IndexingCommon {
         logIf(true, keyValues,
                 LogMessageKeys.TARGET_INDEX_NAME, getTargetIndexesNames(),
                 LogMessageKeys.RECORDS_SCANNED, totalRecordsScanned.get(),
-                LogMessageKeys.INDEXER_ID, uuid);
+                LogMessageKeys.INDEXER_ID, indexerId);
+
+        SubspaceProvider subspaceProvider = getRecordStoreBuilder().getSubspaceProvider();
+        if (subspaceProvider != null) {
+            keyValues.add(subspaceProvider.logKey());
+            keyValues.add(subspaceProvider);
+        }
 
         if (moreKeyValues != null && !moreKeyValues.isEmpty()) {
             keyValues.addAll(moreKeyValues);
@@ -176,11 +180,6 @@ public class IndexingCommon {
 
     @Nonnull
     public FDBDatabaseRunner getRunner() {
-        return synchronizedSessionRunner == null ? runner : synchronizedSessionRunner;
-    }
-
-    @Nonnull
-    public FDBDatabaseRunner getNonSynchronizedRunner() {
         return runner;
     }
 
@@ -258,15 +257,6 @@ public class IndexingCommon {
         return recordStoreBuilder;
     }
 
-    @Nullable
-    public SynchronizedSessionRunner getSynchronizedSessionRunner() {
-        return synchronizedSessionRunner;
-    }
-
-    public void setSynchronizedSessionRunner(@Nullable final SynchronizedSessionRunner synchronizedSessionRunner) {
-        this.synchronizedSessionRunner = synchronizedSessionRunner;
-    }
-
     @Nonnull
     public AtomicLong getTotalRecordsScanned() {
         return totalRecordsScanned;
@@ -287,8 +277,5 @@ public class IndexingCommon {
 
     public void close() {
         runner.close();
-        if (synchronizedSessionRunner != null) {
-            synchronizedSessionRunner.close();
-        }
     }
 }

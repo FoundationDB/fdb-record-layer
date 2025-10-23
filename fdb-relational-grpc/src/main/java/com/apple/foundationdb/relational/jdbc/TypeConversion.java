@@ -23,6 +23,7 @@ package com.apple.foundationdb.relational.jdbc;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.relational.api.ArrayMetaData;
 import com.apple.foundationdb.relational.api.Continuation;
+import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalArray;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStruct;
@@ -50,17 +51,15 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.ByteString;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.function.BiFunction;
-
-import static com.apple.foundationdb.relational.jdbc.RelationalStructFacade.RelationalStructFacadeMetaData.getDataType;
 
 /**
  * Utility for converting types used by JDBC from Relational and FDB such as KeySet, RelationalStruct and RelationalArray.
@@ -479,14 +478,10 @@ public class TypeConversion {
         return column;
     }
 
-    @Nullable
     static DataType.StructType getStructDataType(@Nonnull List<ColumnMetadata> columnMetadataList, boolean nullable) {
         final var structFields = new ArrayList<DataType.StructType.Field>();
         for (int i = 0; i < columnMetadataList.size(); i++) {
             final var colMetadata = columnMetadataList.get(i);
-            if (colMetadata.getType() == Type.UNKNOWN) {
-                return null;
-            }
             final var dataType = getDataType(colMetadata.getType(), colMetadata, colMetadata.getNullable());
             structFields.add(DataType.StructType.Field.from(colMetadata.getName(), dataType, i));
         }
@@ -572,6 +567,322 @@ public class TypeConversion {
                 return Continuation.Reason.CURSOR_AFTER_LAST;
             default:
                 throw new IllegalStateException("Unrecognized continuation reason: " + reason);
+        }
+    }
+
+    @VisibleForTesting
+    @SuppressWarnings("unchecked")
+    static com.apple.foundationdb.relational.jdbc.grpc.v1.Options.Builder toProtobuf(@Nonnull Options options) throws SQLException {
+        final var builder = com.apple.foundationdb.relational.jdbc.grpc.v1.Options.newBuilder();
+        for (Map.Entry<Options.Name, ?> entry : options.entries()) {
+            switch (entry.getKey()) {
+                case MAX_ROWS:
+                    builder.setMaxRows((Integer)entry.getValue());
+                    break;
+                case CONTINUATION:
+                    builder.setContinuation(ByteString.copyFrom(((Continuation)entry.getValue()).serialize()));
+                    break;
+                case INDEX_HINT:
+                    builder.setIndexHint((String)entry.getValue());
+                    break;
+                case REQUIRED_METADATA_TABLE_VERSION:
+                    builder.setRequiredMetadataTableVersion((Integer)entry.getValue());
+                    break;
+                case TRANSACTION_TIMEOUT:
+                    builder.setTransactionTimeout((Long)entry.getValue());
+                    break;
+                case REPLACE_ON_DUPLICATE_PK:
+                    builder.setReplaceOnDuplicatePk((Boolean)entry.getValue());
+                    break;
+                case PLAN_CACHE_PRIMARY_MAX_ENTRIES:
+                    builder.setPlanCachePrimaryMaxEntries((Integer)entry.getValue());
+                    break;
+                case PLAN_CACHE_SECONDARY_MAX_ENTRIES:
+                    builder.setPlanCacheSecondaryMaxEntries((Integer)entry.getValue());
+                    break;
+                case PLAN_CACHE_TERTIARY_MAX_ENTRIES:
+                    builder.setPlanCacheTertiaryMaxEntries((Integer)entry.getValue());
+                    break;
+                case PLAN_CACHE_PRIMARY_TIME_TO_LIVE_MILLIS:
+                    builder.setPlanCachePrimaryTimeToLiveMillis((Long)entry.getValue());
+                    break;
+                case PLAN_CACHE_SECONDARY_TIME_TO_LIVE_MILLIS:
+                    builder.setPlanCacheSecondaryTimeToLiveMillis((Long)entry.getValue());
+                    break;
+                case PLAN_CACHE_TERTIARY_TIME_TO_LIVE_MILLIS:
+                    builder.setPlanCacheTertiaryTimeToLiveMillis((Long)entry.getValue());
+                    break;
+                case INDEX_FETCH_METHOD:
+                    switch ((Options.IndexFetchMethod)entry.getValue()) {
+                        case SCAN_AND_FETCH:
+                            builder.setIndexFetchMethod(com.apple.foundationdb.relational.jdbc.grpc.v1.Options.IndexFetchMethod.SCAN_AND_FETCH);
+                            break;
+                        case USE_REMOTE_FETCH:
+                            builder.setIndexFetchMethod(com.apple.foundationdb.relational.jdbc.grpc.v1.Options.IndexFetchMethod.USE_REMOTE_FETCH);
+                            break;
+                        case USE_REMOTE_FETCH_WITH_FALLBACK:
+                            builder.setIndexFetchMethod(com.apple.foundationdb.relational.jdbc.grpc.v1.Options.IndexFetchMethod.USE_REMOTE_FETCH_WITH_FALLBACK);
+                            break;
+                        default:
+                            throw new SQLException("Unknown fetch method");
+                    }
+                    break;
+                case DISABLED_PLANNER_RULES:
+                    for (String rule : (Collection<String>)entry.getValue()) {
+                        builder.addDisabledPlannerRules(rule);
+                    }
+                    break;
+                case DISABLE_PLANNER_REWRITING:
+                    builder.setDisablePlannerRewriting((Boolean)entry.getValue());
+                    break;
+                case LOG_QUERY:
+                    builder.setLogQuery((Boolean)entry.getValue());
+                    break;
+                case LOG_SLOW_QUERY_THRESHOLD_MICROS:
+                    builder.setLogSlowQueryThresholdMicros((Long)entry.getValue());
+                    break;
+                case EXECUTION_TIME_LIMIT:
+                    builder.setExecutionTimeLimit((Long)entry.getValue());
+                    break;
+                case EXECUTION_SCANNED_BYTES_LIMIT:
+                    builder.setExecutionScannedBytesLimit((Long)entry.getValue());
+                    break;
+                case EXECUTION_SCANNED_ROWS_LIMIT:
+                    builder.setExecutionScannedRowsLimit((Integer)entry.getValue());
+                    break;
+                case DRY_RUN:
+                    builder.setDryRun((Boolean)entry.getValue());
+                    break;
+                case CASE_SENSITIVE_IDENTIFIERS:
+                    builder.setCaseSensitiveIdentifiers((Boolean)entry.getValue());
+                    break;
+                case CURRENT_PLAN_HASH_MODE:
+                    builder.setCurrentPlanHashMode((String)entry.getValue());
+                    break;
+                case VALID_PLAN_HASH_MODES:
+                    builder.setValidPlanHashModes((String)entry.getValue());
+                    break;
+                case ASYNC_OPERATIONS_TIMEOUT_MILLIS:
+                    builder.setAsyncOperationsTimeoutMillis((Long)entry.getValue());
+                    break;
+                case ENCRYPT_WHEN_SERIALIZING:
+                    builder.setEncryptWhenSerializing((Boolean)entry.getValue());
+                    break;
+                case ENCRYPTION_KEY_STORE:
+                    if (Options.isNull(entry.getValue())) {
+                        builder.clearEncryptionKeyStore();
+                    } else {
+                        builder.setEncryptionKeyStore((String)entry.getValue());
+                    }
+                    break;
+                case ENCRYPTION_KEY_ENTRY:
+                    if (Options.isNull(entry.getValue())) {
+                        builder.clearEncryptionKeyEntry();
+                    } else {
+                        builder.setEncryptionKeyEntry((String)entry.getValue());
+                    }
+                    break;
+                case ENCRYPTION_KEY_ENTRY_LIST:
+                    for (String rule : (List<String>)entry.getValue()) {
+                        builder.addEncryptionKeyEntryList(rule);
+                    }
+                    break;
+                case ENCRYPTION_KEY_PASSWORD:
+                    if (Options.isNull(entry.getValue())) {
+                        builder.clearEncryptionKeyPassword();
+                    } else {
+                        builder.setEncryptionKeyPassword((String)entry.getValue());
+                    }
+                    break;
+                case COMPRESS_WHEN_SERIALIZING:
+                    builder.setCompressWhenSerializing((Boolean)entry.getValue());
+                    break;
+                default:
+                    throw new SQLException("Cannot encode option in protobuf");
+            }
+        }
+        return builder;
+    }
+
+    public static Options fromProtobuf(com.apple.foundationdb.relational.jdbc.grpc.v1.Options protoOptions) throws SQLException {
+        final Options.Builder builder = Options.builder();
+        if (protoOptions.hasMaxRows()) {
+            builder.withOption(Options.Name.MAX_ROWS, protoOptions.getMaxRows());
+        }
+        if (protoOptions.hasContinuation()) {
+            // TODO: The Impl class lives in relational-core.
+            builder.withOption(Options.Name.CONTINUATION, protoOptions.getContinuation().toByteArray());
+        }
+        if (protoOptions.hasIndexHint()) {
+            builder.withOption(Options.Name.INDEX_HINT, protoOptions.getIndexHint());
+        }
+        if (protoOptions.hasRequiredMetadataTableVersion()) {
+            builder.withOption(Options.Name.REQUIRED_METADATA_TABLE_VERSION, protoOptions.getRequiredMetadataTableVersion());
+        }
+        if (protoOptions.hasTransactionTimeout()) {
+            builder.withOption(Options.Name.TRANSACTION_TIMEOUT, protoOptions.getTransactionTimeout());
+        }
+        if (protoOptions.hasReplaceOnDuplicatePk()) {
+            builder.withOption(Options.Name.REPLACE_ON_DUPLICATE_PK, protoOptions.getReplaceOnDuplicatePk());
+        }
+        if (protoOptions.hasPlanCachePrimaryMaxEntries()) {
+            builder.withOption(Options.Name.PLAN_CACHE_PRIMARY_MAX_ENTRIES, protoOptions.getPlanCachePrimaryMaxEntries());
+        }
+        if (protoOptions.hasPlanCacheSecondaryMaxEntries()) {
+            builder.withOption(Options.Name.PLAN_CACHE_SECONDARY_MAX_ENTRIES, protoOptions.getPlanCacheSecondaryMaxEntries());
+        }
+        if (protoOptions.hasPlanCacheTertiaryMaxEntries()) {
+            builder.withOption(Options.Name.PLAN_CACHE_TERTIARY_MAX_ENTRIES, protoOptions.getPlanCacheTertiaryMaxEntries());
+        }
+        if (protoOptions.hasPlanCachePrimaryTimeToLiveMillis()) {
+            builder.withOption(Options.Name.PLAN_CACHE_PRIMARY_TIME_TO_LIVE_MILLIS, protoOptions.getPlanCachePrimaryTimeToLiveMillis());
+        }
+        if (protoOptions.hasPlanCacheSecondaryTimeToLiveMillis()) {
+            builder.withOption(Options.Name.PLAN_CACHE_SECONDARY_TIME_TO_LIVE_MILLIS, protoOptions.getPlanCacheSecondaryTimeToLiveMillis());
+        }
+        if (protoOptions.hasPlanCacheTertiaryTimeToLiveMillis()) {
+            builder.withOption(Options.Name.PLAN_CACHE_TERTIARY_TIME_TO_LIVE_MILLIS, protoOptions.getPlanCacheTertiaryTimeToLiveMillis());
+        }
+        if (protoOptions.hasIndexFetchMethod()) {
+            Options.IndexFetchMethod indexFetchMethod;
+            switch (protoOptions.getIndexFetchMethod()) {
+                case SCAN_AND_FETCH:
+                    indexFetchMethod = Options.IndexFetchMethod.SCAN_AND_FETCH;
+                    break;
+                case USE_REMOTE_FETCH:
+                    indexFetchMethod = Options.IndexFetchMethod.USE_REMOTE_FETCH;
+                    break;
+                case USE_REMOTE_FETCH_WITH_FALLBACK:
+                    indexFetchMethod = Options.IndexFetchMethod.USE_REMOTE_FETCH_WITH_FALLBACK;
+                    break;
+                default:
+                    throw new SQLException("Unknown fetch method");
+            }
+            builder.withOption(Options.Name.INDEX_FETCH_METHOD, indexFetchMethod);
+        }
+        if (protoOptions.getDisabledPlannerRulesCount() > 0) {
+            builder.withOption(Options.Name.DISABLED_PLANNER_RULES, protoOptions.getDisabledPlannerRulesList());
+        }
+        if (protoOptions.hasDisablePlannerRewriting()) {
+            builder.withOption(Options.Name.DISABLE_PLANNER_REWRITING, protoOptions.getDisablePlannerRewriting());
+        }
+        if (protoOptions.hasLogQuery()) {
+            builder.withOption(Options.Name.LOG_QUERY, protoOptions.getLogQuery());
+        }
+        if (protoOptions.hasLogSlowQueryThresholdMicros()) {
+            builder.withOption(Options.Name.LOG_SLOW_QUERY_THRESHOLD_MICROS, protoOptions.getLogSlowQueryThresholdMicros());
+        }
+        if (protoOptions.hasExecutionTimeLimit()) {
+            builder.withOption(Options.Name.EXECUTION_TIME_LIMIT, protoOptions.getExecutionTimeLimit());
+        }
+        if (protoOptions.hasExecutionScannedBytesLimit()) {
+            builder.withOption(Options.Name.EXECUTION_SCANNED_BYTES_LIMIT, protoOptions.getExecutionScannedBytesLimit());
+        }
+        if (protoOptions.hasExecutionScannedRowsLimit()) {
+            builder.withOption(Options.Name.EXECUTION_SCANNED_ROWS_LIMIT, protoOptions.getExecutionScannedRowsLimit());
+        }
+        if (protoOptions.hasDryRun()) {
+            builder.withOption(Options.Name.DRY_RUN, protoOptions.getDryRun());
+        }
+        if (protoOptions.hasCaseSensitiveIdentifiers()) {
+            builder.withOption(Options.Name.CASE_SENSITIVE_IDENTIFIERS, protoOptions.getCaseSensitiveIdentifiers());
+        }
+        if (protoOptions.hasCurrentPlanHashMode()) {
+            builder.withOption(Options.Name.CURRENT_PLAN_HASH_MODE, protoOptions.getCurrentPlanHashMode());
+        }
+        if (protoOptions.hasValidPlanHashModes()) {
+            builder.withOption(Options.Name.VALID_PLAN_HASH_MODES, protoOptions.getValidPlanHashModes());
+        }
+        if (protoOptions.hasAsyncOperationsTimeoutMillis()) {
+            builder.withOption(Options.Name.ASYNC_OPERATIONS_TIMEOUT_MILLIS, protoOptions.getAsyncOperationsTimeoutMillis());
+        }
+        if (protoOptions.hasEncryptWhenSerializing()) {
+            builder.withOption(Options.Name.ENCRYPT_WHEN_SERIALIZING, protoOptions.getEncryptWhenSerializing());
+        }
+        if (protoOptions.hasEncryptionKeyStore()) {
+            builder.withOption(Options.Name.ENCRYPTION_KEY_STORE, protoOptions.getEncryptionKeyStore());
+        }
+        if (protoOptions.hasEncryptionKeyEntry()) {
+            builder.withOption(Options.Name.ENCRYPTION_KEY_ENTRY, protoOptions.getEncryptionKeyEntry());
+        }
+        if (protoOptions.getEncryptionKeyEntryListCount() > 0) {
+            builder.withOption(Options.Name.ENCRYPTION_KEY_ENTRY_LIST, protoOptions.getEncryptionKeyEntryListList());
+        }
+        if (protoOptions.hasEncryptionKeyPassword()) {
+            builder.withOption(Options.Name.ENCRYPTION_KEY_PASSWORD, protoOptions.getEncryptionKeyPassword());
+        }
+        if (protoOptions.hasCompressWhenSerializing()) {
+            builder.withOption(Options.Name.COMPRESS_WHEN_SERIALIZING, protoOptions.getCompressWhenSerializing());
+        }
+        return builder.build();
+    }
+
+    static int toSqlType(Type type) throws SQLException {
+        switch (type) {
+            case INTEGER:
+                return Types.INTEGER;
+            case LONG:
+                return Types.BIGINT;
+            case STRING:
+                return Types.VARCHAR;
+            case ENUM:
+            case UUID:
+                return Types.OTHER;
+            case BOOLEAN:
+                return Types.BOOLEAN;
+            case ARRAY:
+                return Types.ARRAY;
+            case STRUCT:
+                return Types.STRUCT;
+            case BYTES:
+                return Types.BINARY;
+            case FLOAT:
+                return Types.FLOAT;
+            case DOUBLE:
+                return Types.DOUBLE;
+            default:
+                throw new SQLException("JDBC Type: " + type + " not supported");
+        }
+    }
+
+    private static DataType.EnumType getEnumDataType(@Nonnull EnumMetadata enumMetadata, boolean nullable) {
+        final var enumValues = new ArrayList<DataType.EnumType.EnumValue>();
+        int i = 1;
+        for (var value: enumMetadata.getValuesList()) {
+            enumValues.add(DataType.EnumType.EnumValue.of(value, i++));
+        }
+        return DataType.EnumType.from(enumMetadata.getName(), enumValues, nullable);
+    }
+
+    static DataType getDataType(@Nonnull Type type, @Nonnull ColumnMetadata columnMetadata, boolean nullable) {
+        switch (type) {
+            case LONG:
+                return nullable ? DataType.Primitives.NULLABLE_LONG.type() : DataType.Primitives.LONG.type();
+            case INTEGER:
+                return nullable ? DataType.Primitives.NULLABLE_INTEGER.type() : DataType.Primitives.INTEGER.type();
+            case DOUBLE:
+                return nullable ? DataType.Primitives.NULLABLE_DOUBLE.type() : DataType.Primitives.DOUBLE.type();
+            case FLOAT:
+                return nullable ? DataType.Primitives.NULLABLE_FLOAT.type() : DataType.Primitives.FLOAT.type();
+            case BOOLEAN:
+                return nullable ? DataType.Primitives.NULLABLE_BOOLEAN.type() : DataType.Primitives.BOOLEAN.type();
+            case BYTES:
+                return nullable ? DataType.Primitives.NULLABLE_BYTES.type() : DataType.Primitives.BYTES.type();
+            case UUID:
+                return nullable ? DataType.Primitives.NULLABLE_UUID.type() : DataType.Primitives.UUID.type();
+            case STRING:
+                return nullable ? DataType.Primitives.NULLABLE_STRING.type() : DataType.Primitives.STRING.type();
+            case VERSION:
+                return nullable ? DataType.Primitives.NULLABLE_VERSION.type() : DataType.Primitives.VERSION.type();
+            case STRUCT:
+                return getStructDataType(columnMetadata.getStructMetadata().getColumnMetadataList(), nullable);
+            case ENUM:
+                return getEnumDataType(columnMetadata.getEnumMetadata(), nullable);
+            case ARRAY:
+                final var arrayMetadata = columnMetadata.getArrayMetadata();
+                return DataType.ArrayType.from(getDataType(arrayMetadata.getType(), arrayMetadata, arrayMetadata.getNullable()), nullable);
+            default:
+                throw new RelationalException("Not implemeneted: " + type.name(), ErrorCode.INTERNAL_ERROR).toUncheckedWrappedException();
         }
     }
 }
