@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.TestRecordsGroupedParentChildProto;
 import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.IndexPredicate;
 import com.apple.foundationdb.record.metadata.JoinedRecordTypeBuilder;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
@@ -316,9 +317,10 @@ public class LuceneIndexTestDataModel {
 
     @Nonnull
     static Index addIndex(final boolean isSynthetic, final KeyExpression rootExpression,
-                          final Map<String, String> options, final RecordMetaDataBuilder metaDataBuilder) {
+                          final Map<String, String> options, final RecordMetaDataBuilder metaDataBuilder,
+                          @Nullable IndexPredicate predicate) {
         Index index;
-        index = new Index("joinNestedConcat", rootExpression, LuceneIndexTypes.LUCENE, options);
+        index = new Index("joinNestedConcat", rootExpression, LuceneIndexTypes.LUCENE, options, predicate);
 
         if (isSynthetic) {
             final JoinedRecordTypeBuilder joinBuilder = metaDataBuilder.addJoinedRecordType("JoinChildren");
@@ -429,6 +431,8 @@ public class LuceneIndexTestDataModel {
         private Index index;
         @Nullable
         private RecordMetaData metadata;
+        @Nullable
+        IndexPredicate predicate = null;
 
         public Builder(final long seed, StoreBuilderSupplier storeBuilderSupplier,
                        TestKeySpacePathManagerExtension pathManager) {
@@ -461,6 +465,12 @@ public class LuceneIndexTestDataModel {
             return this;
         }
 
+        public Builder setPredicate(@Nullable final IndexPredicate predicate) {
+            this.predicate = predicate;
+            metadata = null;
+            return this;
+        }
+
         public Builder setTextGeneratorWithNewRandom(final RandomTextGenerator textGenerator) {
             this.textGenerator = textGenerator.withNewRandom(random);
             return this;
@@ -484,7 +494,7 @@ public class LuceneIndexTestDataModel {
                 final Map<String, String> options = getOptions();
                 final RecordMetaDataBuilder metaDataBuilder = LuceneIndexTestDataModel.createBaseMetaDataBuilder();
                 final KeyExpression rootExpression = LuceneIndexTestDataModel.createRootExpression(isGrouped, isSynthetic);
-                this.index = LuceneIndexTestDataModel.addIndex(isSynthetic, rootExpression, options, metaDataBuilder);
+                this.index = LuceneIndexTestDataModel.addIndex(isSynthetic, rootExpression, options, metaDataBuilder, predicate);
                 this.metadata = metaDataBuilder.build();
             }
             final Function<FDBRecordContext, FDBRecordStore> schemaSetup = context -> {

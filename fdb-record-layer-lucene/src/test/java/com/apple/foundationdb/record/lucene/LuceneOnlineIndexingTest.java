@@ -780,16 +780,13 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
         assertTrue(newLength < oldLength);
     }
 
-    @SuppressWarnings("checkstyle:VariableDeclarationUsageDistance")
     @ParameterizedTest
     @BooleanSource
-    void luceneOnlineIndexingTestFilterOutRecords(boolean filterOut) throws IOException {
-        int groupingCount = 1;
-        final int groupedCount = 4 - groupingCount;
+    void luceneOnlineIndexingTestNoMergeIfFilteredOutRecords(boolean filterOut) throws IOException {
         Index index = new Index(
                 "Map_with_auto_complete$entry-value",
                 new GroupingKeyExpression(field("entry",
-                        KeyExpression.FanType.FanOut).nest(concat(LuceneIndexTestUtils.keys)), groupedCount),
+                        KeyExpression.FanType.FanOut).nest(concat(LuceneIndexTestUtils.keys)), 3),
                 LuceneIndexTypes.LUCENE,
                 ImmutableMap.of());
 

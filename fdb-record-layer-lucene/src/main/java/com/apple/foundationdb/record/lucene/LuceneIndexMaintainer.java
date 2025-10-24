@@ -511,16 +511,16 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     }
 
     @Nullable
-    private <M extends Message> FDBIndexableRecord<M> maybeFilterRecord(FDBIndexableRecord<M> record) {
-        if (record != null) {
-            final IndexMaintenanceFilter.IndexValues filterType = getFilterTypeForRecord(record);
+    private <M extends Message> FDBIndexableRecord<M> maybeFilterRecord(FDBIndexableRecord<M> rec) {
+        if (rec != null) {
+            final IndexMaintenanceFilter.IndexValues filterType = getFilterTypeForRecord(rec);
             if (filterType == IndexMaintenanceFilter.IndexValues.NONE) {
                 return null;
             } else if (filterType == IndexMaintenanceFilter.IndexValues.SOME) {
                 throw new RecordCoreException("Lucene does not support this kind of filtering");
             }
         }
-        return record;
+        return rec;
     }
 
     /**
