@@ -89,7 +89,7 @@
  * but then the key tuple {@code ["permissions", 8]} is ambiguous and cannot be determined whether it refers to userId 8 or groupId 8.
  * This can cause data corruption where data meant to be written to one area of the model overwrites other pieces of data from
  * another part of the model.
- * The {@link com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace} will prevent this from happening. a properly
+ * The {@link com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace} will prevent this from happening. A properly
  * formed (and allowed) structure would look like
  * <pre>
  *           "permissions"
