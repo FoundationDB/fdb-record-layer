@@ -30,17 +30,22 @@ import com.apple.foundationdb.relational.api.metadata.Index;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.api.metadata.Table;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
+import com.apple.foundationdb.relational.recordlayer.RecordContextTransaction;
 import com.apple.foundationdb.relational.recordlayer.RelationalConnectionRule;
 import com.apple.foundationdb.relational.recordlayer.Utils;
 import com.apple.foundationdb.relational.recordlayer.ddl.AbstractMetadataOperationsFactory;
 import com.apple.foundationdb.relational.recordlayer.ddl.NoOpMetadataOperationsFactory;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
+import com.apple.foundationdb.relational.recordlayer.metric.RecordLayerMetricCollector;
+import com.apple.foundationdb.relational.recordlayer.query.Plan;
+import com.apple.foundationdb.relational.recordlayer.query.PreparedParams;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.utils.PermutationIterator;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
+import com.google.common.collect.ImmutableList;
 import com.google.protobuf.DescriptorProtos;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Assumptions;
@@ -57,6 +62,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.net.URI;
+import java.sql.SQLException;
 import java.sql.Types;
 import java.util.ArrayList;
 import java.util.List;
@@ -76,12 +82,17 @@ public class DdlStatementParsingTest {
 
     @RegisterExtension
     @Order(2)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(DdlStatementParsingTest.class, TestSchemas.books());
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(DdlStatementParsingTest.class, TestSchemas.books(),
+            Options.builder().withOption(Options.Name.CASE_SENSITIVE_IDENTIFIERS, true).build(), null);
 
     @RegisterExtension
     @Order(3)
     public final RelationalConnectionRule connection = new RelationalConnectionRule(database::getConnectionUri)
-            .withSchema("TEST_SCHEMA");
+            .withSchema("TEST_SCHEMA")
+            .withOptions(Options.builder().withOption(Options.Name.CASE_SENSITIVE_IDENTIFIERS, true).build());
+
+    public DdlStatementParsingTest() throws SQLException {
+    }
 
     @BeforeAll
     public static void setup() {
@@ -89,7 +100,7 @@ public class DdlStatementParsingTest {
     }
 
     private static final String[] validPrimitiveDataTypes = new String[]{
-            "integer", "bigint", "double", "boolean", "string", "bytes"
+            "integer", "bigint", "double", "boolean", "string", "bytes", "vector(3, float)", "vector(4, double)", "vector(5, half)"
     };
 
     @Nonnull
@@ -128,8 +139,13 @@ public class DdlStatementParsingTest {
                                        @Nonnull final MetadataOperationsFactory metadataOperationsFactory) throws Exception {
         connection.setAutoCommit(false);
         (connection.getUnderlyingEmbeddedConnection()).createNewTransaction();
-        DdlTestUtil.getPlanGenerator(connection.getUnderlyingEmbeddedConnection(), database.getSchemaTemplateName(),
-                "/DdlStatementParsingTest", metadataOperationsFactory).getPlan(query);
+        final var transaction = connection.getUnderlyingEmbeddedConnection().getTransaction();
+        final var plan = DdlTestUtil.getPlanGenerator(connection.getUnderlyingEmbeddedConnection(), database.getSchemaTemplateName(),
+                "/DdlStatementParsingTest", metadataOperationsFactory, PreparedParams.empty(),
+                Options.builder().withOption(Options.Name.CASE_SENSITIVE_IDENTIFIERS, true).build()).getPlan(query);
+        // execute the plan so we run any extra test-driven verifications within the transactional closure.
+        plan.execute(Plan.ExecutionContext.of(transaction, Options.NONE, connection,
+                new RecordLayerMetricCollector(transaction.unwrap(RecordContextTransaction.class).getContext())));
         connection.rollback();
         connection.setAutoCommit(true);
     }
@@ -149,8 +165,12 @@ public class DdlStatementParsingTest {
     void shouldWorkWithInjectedQueryFactory(@Nonnull final String query, @Nonnull DdlQueryFactory queryFactory) throws Exception {
         connection.setAutoCommit(false);
         (connection.getUnderlyingEmbeddedConnection()).createNewTransaction();
-        DdlTestUtil.getPlanGenerator(connection.getUnderlyingEmbeddedConnection(), database.getSchemaTemplateName(),
+        final var transaction = connection.getUnderlyingEmbeddedConnection().getTransaction();
+        final var plan = DdlTestUtil.getPlanGenerator(connection.getUnderlyingEmbeddedConnection(), database.getSchemaTemplateName(),
                 "/DdlStatementParsingTest", queryFactory).getPlan(query);
+        // execute the plan so we run any extra test-driven verifications within the transactional closure.
+        plan.execute(Plan.ExecutionContext.of(transaction, Options.NONE, connection,
+                new RecordLayerMetricCollector(transaction.unwrap(RecordContextTransaction.class).getContext())));
         connection.rollback();
         connection.setAutoCommit(true);
     }
@@ -215,7 +235,7 @@ public class DdlStatementParsingTest {
                 DescriptorProtos.FileDescriptorProto fileDescriptorProto = getProtoDescriptor(template);
                 Assertions.assertEquals(1, fileDescriptorProto.getEnumTypeCount(), "should have one enum defined");
                 fileDescriptorProto.getEnumTypeList().forEach(enumDescriptorProto -> {
-                    Assertions.assertEquals("MY_ENUM", enumDescriptorProto.getName());
+                    Assertions.assertEquals("my_enum", enumDescriptorProto.getName());
                     Assertions.assertEquals(2, enumDescriptorProto.getValueCount());
                     Assertions.assertEquals(List.of("VAL_1", "VAL_2"), enumDescriptorProto.getValueList().stream()
                             .map(DescriptorProtos.EnumValueDescriptorProto::getName)
@@ -237,7 +257,7 @@ public class DdlStatementParsingTest {
                 Arguments.of(Types.VARCHAR, "STRING"),
                 Arguments.of(Types.BOOLEAN, "BOOLEAN"),
                 Arguments.of(Types.BINARY, "BYTES"),
-                Arguments.of(Types.STRUCT, "BAZ"),
+                Arguments.of(Types.STRUCT, "baz"),
                 Arguments.of(Types.ARRAY, "STRING ARRAY")
         );
     }
@@ -280,22 +300,6 @@ public class DdlStatementParsingTest {
         }
     }
 
-    private static void checkColumnNullability(@Nonnull final SchemaTemplate template, int sqlType, boolean isNullable) {
-        Assertions.assertInstanceOf(RecordLayerSchemaTemplate.class, template);
-        Assertions.assertEquals(1, ((RecordLayerSchemaTemplate) template).getTables().size(), "should have only 1 table");
-        final var table = ((RecordLayerSchemaTemplate) template).findTableByName("BAR");
-        Assertions.assertTrue(table.isPresent());
-        final var columns = table.get().getColumns();
-        Assertions.assertEquals(2, columns.size());
-        final var maybeNullableArrayColumn = columns.stream().filter(c -> c.getName().equals("FOO_FIELD")).findFirst();
-        Assertions.assertTrue(maybeNullableArrayColumn.isPresent());
-        if (isNullable) {
-            Assertions.assertTrue(maybeNullableArrayColumn.get().getDataType().isNullable());
-        } else {
-            Assertions.assertFalse(maybeNullableArrayColumn.get().getDataType().isNullable());
-        }
-        Assertions.assertEquals(sqlType, maybeNullableArrayColumn.get().getDataType().getJdbcSqlCode());
-    }
 
     @Test
     void failsToParseEmptyTemplateStatements() throws Exception {
@@ -333,6 +337,50 @@ public class DdlStatementParsingTest {
         });
     }
 
+    @Nonnull
+    private static Stream<Arguments> invalidVectorTypes() {
+        return Stream.of(
+                // Zero dimensions
+                Arguments.of("vector(0, float)"),
+                // Negative dimensions
+                Arguments.of("vector(-1, float)"),
+                // Invalid element type
+                Arguments.of("vector(3, integer)"),
+                Arguments.of("vector(3, bigint)"),
+                Arguments.of("vector(3, string)"),
+                Arguments.of("vector(3, boolean)"),
+                Arguments.of("vector(3, bytes)"),
+                Arguments.of("vector(3, int)"),
+                // Missing dimensions
+                Arguments.of("vector(float)"),
+                // Missing element type
+                Arguments.of("vector(3)"),
+                // Empty vector
+                Arguments.of("vector()"),
+                // Wrong order (type, dimensions)
+                Arguments.of("vector(float, 3)"),
+                // Non-numeric dimensions
+                Arguments.of("vector(abc, float)"),
+                // Decimal dimensions
+                Arguments.of("vector(3.5, float)"),
+                // Multiple commas
+                Arguments.of("vector(3,, float)"),
+                // Extra parameters
+                Arguments.of("vector(3, float, extra)"),
+                // Case variations of invalid types
+                Arguments.of("vector(3, FLOAT32)"),
+                Arguments.of("vector(3, DOUBLE64)")
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("invalidVectorTypes")
+    void createInvalidVectorType(String vectorType) throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE test_table (id bigint, vec_col " + vectorType + ", PRIMARY KEY(id))";
+        shouldFailWith(stmt, ErrorCode.SYNTAX_ERROR);
+    }
+
     @ParameterizedTest
     @MethodSource("columnTypePermutations")
     void createSchemaTemplateWithOutOfOrderDefinitionsWork(List<String> columns) throws Exception {
@@ -358,14 +406,14 @@ public class DdlStatementParsingTest {
     @MethodSource("columnTypePermutations")
     void createSchemaTemplates(List<String> columns) throws Exception {
         final String columnStatement = "CREATE SCHEMA TEMPLATE test_template " +
-                " CREATE TYPE AS STRUCT FOO " + makeColumnDefinition(columns, false) +
-                " CREATE TABLE BAR (col0 bigint, col1 FOO, PRIMARY KEY(col0))";
+                " CREATE TYPE AS STRUCT foo " + makeColumnDefinition(columns, false) +
+                " CREATE TABLE bar (col0 bigint, col1 foo, PRIMARY KEY(col0))";
         shouldWorkWithInjectedFactory(columnStatement, new AbstractMetadataOperationsFactory() {
             @Nonnull
             @Override
             public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
                                                                       @Nonnull Options templateProperties) {
-                Assertions.assertEquals("TEST_TEMPLATE", template.getName(), "incorrect template name!");
+                Assertions.assertEquals("test_template", template.getName(), "incorrect template name!");
                 DdlTestUtil.ParsedSchema schema = new DdlTestUtil.ParsedSchema(getProtoDescriptor(template));
                 Assertions.assertEquals(1, schema.getTables().size(), "Incorrect number of tables");
                 return txn -> {
@@ -383,16 +431,16 @@ public class DdlStatementParsingTest {
     @ParameterizedTest
     @MethodSource("columnTypePermutations")
     void createSchemaTemplateTableWithOnlyRecordType(List<String> columns) throws Exception {
-        final String baseTableDef = makeColumnDefinition(columns, false).replace(")", ", SINGLE ROW ONLY)");
+        final String baseTableDef = replaceLast(makeColumnDefinition(columns, false), ')', ", SINGLE ROW ONLY)");
         final String columnStatement = "CREATE SCHEMA TEMPLATE test_template  " +
-                "CREATE TABLE FOO " + baseTableDef;
+                "CREATE TABLE foo " + baseTableDef;
 
         shouldWorkWithInjectedFactory(columnStatement, new AbstractMetadataOperationsFactory() {
             @Nonnull
             @Override
             public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
                                                                       @Nonnull Options templateProperties) {
-                Assertions.assertEquals("TEST_TEMPLATE", template.getName(), "incorrect template name!");
+                Assertions.assertEquals("test_template", template.getName(), "incorrect template name!");
                 DdlTestUtil.ParsedSchema schema = new DdlTestUtil.ParsedSchema(getProtoDescriptor(template));
                 Assertions.assertEquals(1, schema.getTables().size(), "Incorrect number of tables");
                 return txn -> {
@@ -433,8 +481,8 @@ public class DdlStatementParsingTest {
     void createSchemaTemplateWithIndex(List<String> columns) throws Exception {
         final String indexColumns = String.join(",", chooseIndexColumns(columns, n -> n % 2 == 0));
         final String templateStatement = "CREATE SCHEMA TEMPLATE test_template  " +
-                "CREATE TYPE AS STRUCT FOO " + makeColumnDefinition(columns, false) +
-                "CREATE TABLE TBL " + makeColumnDefinition(columns, true) +
+                "CREATE TYPE AS STRUCT foo " + makeColumnDefinition(columns, false) +
+                "CREATE TABLE tbl " + makeColumnDefinition(columns, true) +
                 "CREATE INDEX v_idx as select " + indexColumns + " from tbl order by " + indexColumns;
 
         shouldWorkWithInjectedFactory(templateStatement, new AbstractMetadataOperationsFactory() {
@@ -447,7 +495,7 @@ public class DdlStatementParsingTest {
                 Table info = ((RecordLayerSchemaTemplate) template).getTables().stream().findFirst().orElseThrow();
                 Assertions.assertEquals(1, info.getIndexes().size(), "Incorrect number of indexes!");
                 final Index index = Assert.optionalUnchecked(info.getIndexes().stream().findFirst());
-                Assertions.assertEquals("V_IDX", index.getName(), "Incorrect index name!");
+                Assertions.assertEquals("v_idx", index.getName(), "Incorrect index name!");
 
                 final var actualKe = ((RecordLayerIndex) index).getKeyExpression().toKeyExpression();
                 List<RecordKeyExpressionProto.KeyExpression> keys = null;
@@ -481,8 +529,8 @@ public class DdlStatementParsingTest {
         final List<String> indexedColumns = chooseIndexColumns(columns, n -> n % 2 == 0); //choose every other column
         final List<String> unindexedColumns = chooseIndexColumns(columns, n -> n % 2 != 0);
         final String templateStatement = "CREATE SCHEMA TEMPLATE test_template " +
-                " CREATE TYPE AS STRUCT FOO " + makeColumnDefinition(columns, false) +
-                " CREATE TABLE TBL " + makeColumnDefinition(columns, true) +
+                " CREATE TYPE AS STRUCT foo " + makeColumnDefinition(columns, false) +
+                " CREATE TABLE tbl " + makeColumnDefinition(columns, true) +
                 " CREATE INDEX v_idx as select " + Stream.concat(indexedColumns.stream(), unindexedColumns.stream()).collect(Collectors.joining(",")) + " from tbl order by " + String.join(",", indexedColumns);
         shouldWorkWithInjectedFactory(templateStatement, new AbstractMetadataOperationsFactory() {
             @Nonnull
@@ -493,7 +541,7 @@ public class DdlStatementParsingTest {
                 Table info = ((RecordLayerSchemaTemplate) template).getTables().stream().findFirst().orElseThrow();
                 Assertions.assertEquals(1, info.getIndexes().size(), "Incorrect number of indexes!");
                 final Index index = Assert.optionalUnchecked(info.getIndexes().stream().findFirst());
-                Assertions.assertEquals("V_IDX", index.getName(), "Incorrect index name!");
+                Assertions.assertEquals("v_idx", index.getName(), "Incorrect index name!");
 
                 RecordKeyExpressionProto.KeyExpression actualKe = ((RecordLayerIndex) index).getKeyExpression().toKeyExpression();
                 Assertions.assertNotNull(actualKe.getKeyWithValue(), "Null KeyExpression for included columns!");
@@ -559,7 +607,7 @@ public class DdlStatementParsingTest {
             @Nonnull
             @Override
             public ConstantAction getDropSchemaTemplateConstantAction(@Nonnull String templateId, boolean throwIfDoesNotExist, @Nonnull Options options) {
-                Assertions.assertEquals("TEST_TEMPLATE", templateId, "Incorrect schema template name!");
+                Assertions.assertEquals("test_template", templateId, "Incorrect schema template name!");
                 called[0] = true;
                 return txn -> {
                 };
@@ -585,14 +633,14 @@ public class DdlStatementParsingTest {
     @ParameterizedTest
     @MethodSource("columnTypePermutations")
     void createTable(List<String> columns) throws Exception {
-        final String columnStatement = "CREATE SCHEMA TEMPLATE test_template CREATE TABLE FOO " +
+        final String columnStatement = "CREATE SCHEMA TEMPLATE test_template CREATE TABLE foo " +
                 makeColumnDefinition(columns, true);
         shouldWorkWithInjectedFactory(columnStatement, new AbstractMetadataOperationsFactory() {
             @Nonnull
             @Override
             public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
                                                                       @Nonnull Options templateProperties) {
-                Assertions.assertEquals("TEST_TEMPLATE", template.getName(), "incorrect template name!");
+                Assertions.assertEquals("test_template", template.getName(), "incorrect template name!");
                 DdlTestUtil.ParsedSchema schema = new DdlTestUtil.ParsedSchema(getProtoDescriptor(template));
                 Assertions.assertEquals(1, schema.getTables().size(), "Incorrect number of tables");
                 return txn -> {
@@ -610,8 +658,11 @@ public class DdlStatementParsingTest {
     @ParameterizedTest
     @MethodSource("columnTypePermutations")
     void createTableAndType(List<String> columns) throws Exception {
-        final String tableDef = "CREATE TABLE tbl " + makeColumnDefinition(columns, true);
         final String typeDef = "CREATE TYPE AS STRUCT typ " + makeColumnDefinition(columns, false);
+        // current implementation of metadata prunes unused types in the serialization, this may or may not
+        // be something we want to commit to long term.
+        final var columnsWithType = ImmutableList.<String>builder().addAll(columns).add("typ").build();
+        final String tableDef = "CREATE TABLE tbl " + makeColumnDefinition(columnsWithType, true);
         final String templateStatement = "CREATE SCHEMA TEMPLATE test_template " +
                 typeDef + " " +
                 tableDef;
@@ -621,12 +672,12 @@ public class DdlStatementParsingTest {
             @Override
             public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
                                                                       @Nonnull Options templateProperties) {
-                Assertions.assertEquals("TEST_TEMPLATE", template.getName(), "incorrect template name!");
+                Assertions.assertEquals("test_template", template.getName(), "incorrect template name!");
                 DdlTestUtil.ParsedSchema schema = new DdlTestUtil.ParsedSchema(getProtoDescriptor(template));
                 Assertions.assertEquals(1, schema.getTables().size(), "Incorrect number of tables");
                 return txn -> {
                     try {
-                        assertColumnsMatch(schema.getTable("tbl"), columns);
+                        assertColumnsMatch(schema.getTable("tbl"), columnsWithType);
                         assertColumnsMatch(schema.getType("typ"), columns);
                     } catch (Exception ve) {
                         throw ExceptionUtil.toRelationalException(ve);
@@ -645,7 +696,7 @@ public class DdlStatementParsingTest {
             @Nonnull
             @Override
             public ConstantAction getCreateDatabaseConstantAction(@Nonnull URI dbPath, @Nonnull Options constantActionOptions) {
-                Assertions.assertEquals(URI.create("/DB_PATH"), dbPath, "Incorrect database path!");
+                Assertions.assertEquals(URI.create("/db_path"), dbPath, "Incorrect database path!");
                 return NoOpMetadataOperationsFactory.INSTANCE.getCreateDatabaseConstantAction(dbPath, constantActionOptions);
             }
         });
@@ -924,7 +975,7 @@ public class DdlStatementParsingTest {
         //choose every other column
         return IntStream.range(0, columns.size())
                 .filter(indexChoice)
-                .mapToObj(n -> "COL" + n)
+                .mapToObj(n -> "col" + n)
                 .collect(Collectors.toList());
     }
 
@@ -935,5 +986,36 @@ public class DdlStatementParsingTest {
                 .mapToObj(i -> ("col" + i + " " + expectedColumns.get(i)))
                 .collect(Collectors.toList());
         Assertions.assertEquals(expectedColStrings, columnStrings, "Incorrect columns for type <" + type.getName() + ">");
+    }
+
+    private static void checkColumnNullability(@Nonnull final SchemaTemplate template, int sqlType, boolean isNullable) {
+        Assertions.assertInstanceOf(RecordLayerSchemaTemplate.class, template);
+        Assertions.assertEquals(1, ((RecordLayerSchemaTemplate) template).getTables().size(), "should have only 1 table");
+        final var table = ((RecordLayerSchemaTemplate) template).findTableByName("bar");
+        Assertions.assertTrue(table.isPresent());
+        final var columns = table.get().getColumns();
+        Assertions.assertEquals(2, columns.size());
+        final var maybeNullableArrayColumn = columns.stream().filter(c -> c.getName().equals("foo_field")).findFirst();
+        Assertions.assertTrue(maybeNullableArrayColumn.isPresent());
+        if (isNullable) {
+            Assertions.assertTrue(maybeNullableArrayColumn.get().getDataType().isNullable());
+        } else {
+            Assertions.assertFalse(maybeNullableArrayColumn.get().getDataType().isNullable());
+        }
+        Assertions.assertEquals(sqlType, maybeNullableArrayColumn.get().getDataType().getJdbcSqlCode());
+    }
+
+    @Nonnull
+    private static String replaceLast(@Nonnull final String str, final char oldChar, @Nonnull final String replacement) {
+        if (str.isEmpty()) {
+            return str;
+        }
+
+        int lastIndex = str.lastIndexOf(oldChar);
+        if (lastIndex == -1) {
+            return str;
+        }
+
+        return str.substring(0, lastIndex) + replacement + str.substring(lastIndex + 1);
     }
 }

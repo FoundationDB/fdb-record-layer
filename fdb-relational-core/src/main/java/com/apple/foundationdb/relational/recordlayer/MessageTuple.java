@@ -57,10 +57,10 @@ public class MessageTuple extends AbstractRow {
             throw InvalidColumnReferenceException.getExceptionForInvalidPositionNumber(position);
         }
         final Descriptors.FieldDescriptor fieldDescriptor = message.getDescriptorForType().getFields().get(position);
-        final var recordTypeOptions = fieldDescriptor.getOptions().getExtension(RecordMetaDataOptionsProto.field);
+        final var fieldOptions = fieldDescriptor.getOptions().getExtension(RecordMetaDataOptionsProto.field);
         final var fieldValue = message.getField(message.getDescriptorForType().getFields().get(position));
-        if (recordTypeOptions.hasVectorOptions()) {
-            final var precision = recordTypeOptions.getVectorOptions().getPrecision();
+        if (fieldOptions.hasVectorOptions()) {
+            final var precision = fieldOptions.getVectorOptions().getPrecision();
             final var byteStringFieldValue = (ByteString)fieldValue;
             return getVectorFromBytes(byteStringFieldValue, precision);
         }

@@ -147,9 +147,9 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         final SemanticAnalyzer.ParsedTypeInfo typeInfo;
         if (ctx.columnType().customType != null) {
             final var columnType = visitUid(ctx.columnType().customType);
-            typeInfo = SemanticAnalyzer.ParsedTypeInfo.ofCustomType(columnType, true, isRepeated);
+            typeInfo = SemanticAnalyzer.ParsedTypeInfo.ofCustomType(columnType, isNullable, isRepeated);
         } else {
-            typeInfo = SemanticAnalyzer.ParsedTypeInfo.ofPrimitiveType(ctx.columnType().primitiveType(), true, isRepeated);
+            typeInfo = SemanticAnalyzer.ParsedTypeInfo.ofPrimitiveType(ctx.columnType().primitiveType(), isNullable, isRepeated);
         }
         final var columnType = semanticAnalyzer.lookupType(typeInfo, metadataBuilder::findType);
         return RecordLayerColumn.newBuilder().setName(columnId.getName()).setDataType(columnType).build();

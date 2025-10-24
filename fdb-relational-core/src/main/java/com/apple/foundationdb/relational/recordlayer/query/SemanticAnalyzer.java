@@ -581,9 +581,10 @@ public class SemanticAnalyzer {
                 } else if (vectorElementTypeCtx.DOUBLE() != null) {
                     precision = 64;
                 } else {
-                    Assert.notNullUnchecked(vectorElementTypeCtx.HALF());
+                    Assert.notNullUnchecked(vectorElementTypeCtx.HALF(), ErrorCode.SYNTAX_ERROR, "unsupported vector element type " + vectorTypeCtx.getText());
                 }
                 int length = Assert.castUnchecked(ParseHelpers.parseDecimal(vectorTypeCtx.dimensions.getText()), Integer.class);
+                Assert.thatUnchecked(length > 0, ErrorCode.SYNTAX_ERROR, "vector dimension must be positive");
                 type = DataType.VectorType.of(precision, length, isNullable);
             } else {
                 final var primitiveTypeName = parsedTypeInfo.getPrimitiveTypeContext().getText();
