@@ -33,7 +33,6 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.LiteralKeyExpression;
 import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
 import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordPlanner;
 import com.apple.foundationdb.record.util.MapUtils;
 import com.google.common.base.Verify;
@@ -699,9 +698,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
             builder.addFormerIndexes(formerIndex.toProto());
         }
 
-        PlanSerializationContext serializationContext = new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE,
-                PlanHashable.CURRENT_FOR_CONTINUATION);
-        builder.addAllUserDefinedFunctions(userDefinedFunctionMap.values().stream().map(func -> func.toProto(serializationContext)).collect(Collectors.toList()));
+        builder.addAllUserDefinedFunctions(userDefinedFunctionMap.values().stream().map(UserDefinedFunction::toProto).collect(Collectors.toList()));
         builder.setSplitLongRecords(splitLongRecords);
         builder.setStoreRecordVersions(storeRecordVersions);
         builder.setVersion(version);

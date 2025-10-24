@@ -46,7 +46,7 @@ import com.apple.foundationdb.relational.recordlayer.query.Plan;
 import com.apple.foundationdb.relational.recordlayer.query.ProceduralPlan;
 import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
 import com.apple.foundationdb.relational.recordlayer.query.SemanticAnalyzer;
-import com.apple.foundationdb.relational.recordlayer.query.functions.CompiledSqlFunction;
+import com.apple.foundationdb.relational.recordlayer.query.functions.CompilableSqlFunction;
 import com.apple.foundationdb.relational.recordlayer.query.functions.SqlFunctionCatalog;
 import com.apple.foundationdb.relational.util.Assert;
 import org.antlr.v4.runtime.tree.ParseTree;
@@ -427,23 +427,24 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
     }
 
     @Override
-    public CompiledSqlFunction visitCreateFunction(final RelationalParser.CreateFunctionContext ctx) {
-        return ddlVisitor.visitCreateFunction(ctx);
-    }
-
-    @Override
-    public CompiledSqlFunction visitTempSqlInvokedFunction(final RelationalParser.TempSqlInvokedFunctionContext ctx) {
+    public CompilableSqlFunction visitTempSqlInvokedFunction(final RelationalParser.TempSqlInvokedFunctionContext ctx) {
         return ddlVisitor.visitTempSqlInvokedFunction(ctx);
     }
 
     @Override
-    public CompiledSqlFunction visitSqlInvokedFunction(RelationalParser.SqlInvokedFunctionContext ctx) {
+    public com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction visitSqlInvokedFunction(RelationalParser.SqlInvokedFunctionContext ctx) {
         return ddlVisitor.visitSqlInvokedFunction(ctx);
     }
 
     @Override
     public LogicalOperator visitStatementBody(final RelationalParser.StatementBodyContext ctx) {
         return ddlVisitor.visitStatementBody(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public Identifier visitUserDefinedScalarFunctionStatementBody(@Nonnull RelationalParser.UserDefinedScalarFunctionStatementBodyContext ctx) {
+        return identifierVisitor.visitFullId(ctx.fullId());
     }
 
     @Override
@@ -1380,6 +1381,12 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
     @Override
     public Expression visitScalarFunctionCall(@Nonnull RelationalParser.ScalarFunctionCallContext ctx) {
         return expressionVisitor.visitScalarFunctionCall(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public Expression visitUserDefinedScalarFunctionCall(@Nonnull RelationalParser.UserDefinedScalarFunctionCallContext ctx) {
+        return expressionVisitor.visitUserDefinedScalarFunctionCall(ctx);
     }
 
     @Nonnull

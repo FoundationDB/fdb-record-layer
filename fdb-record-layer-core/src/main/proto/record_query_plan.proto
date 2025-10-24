@@ -250,7 +250,6 @@ message PValue {
     PCollateValue collate_value = 44;
     PNumericAggregationValue.PBitmapConstructAgg numeric_aggregation_value_bitmap_construct_agg = 45;
     PQuantifiedRecordValue quantified_record_value = 46;
-    PMacroFunctionValue macro_function_value = 47;
     PRangeValue range_value = 48;
     PFirstOrDefaultStreamingValue first_or_default_streaming_value = 49;
     PEvaluatesToValue evaluates_to_value = 50;
@@ -261,7 +260,7 @@ message PValue {
   }
 }
 
-message PMacroFunctionValue {
+message PUserDefinedMacroFunction {
   optional string function_name = 1;
   repeated PValue arguments = 2;
   optional PValue body = 3;

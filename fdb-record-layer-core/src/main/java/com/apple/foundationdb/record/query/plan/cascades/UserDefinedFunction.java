@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
@@ -63,9 +62,17 @@ public abstract class UserDefinedFunction extends CatalogedFunction {
 
     /**
      * Serializes the {@link UserDefinedFunction} instance as a protobuf message.
-     * @param serializationContext The serialization context.
      * @return A serialized version of the {@link UserDefinedFunction} as a protobuf message.
      */
     @Nonnull
-    public abstract RecordMetaDataProto.PUserDefinedFunction toProto(@Nonnull PlanSerializationContext serializationContext);
+    public abstract RecordMetaDataProto.PUserDefinedFunction toProto();
+
+    @Nonnull
+    public static UserDefinedFunction fromProto(@Nonnull final RecordMetaDataProto.PUserDefinedFunction function) {
+        if (function.hasUserDefinedMacroFunction()) {
+            return UserDefinedMacroFunction.fromProto(function.getUserDefinedMacroFunction());
+        } else {
+            return RawSqlFunction.fromProto(function.getSqlFunction());
+        }
+    }
 }
