@@ -341,7 +341,7 @@ class KeySpacePathImpl implements KeySpacePath {
                     
                     // Store the data
                     byte[] keyBytes = keyTuple.pack();
-                    byte[] valueBytes = dataItem.getRawKeyValue().getValue();
+                    byte[] valueBytes = dataItem.getValue();
                     context.ensureActive().set(keyBytes, valueBytes);
                     
                     return AsyncUtil.DONE;
