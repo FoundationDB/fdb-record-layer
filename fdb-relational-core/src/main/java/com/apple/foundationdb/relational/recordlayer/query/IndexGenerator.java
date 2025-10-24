@@ -70,6 +70,7 @@ import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.NullableArrayUtils;
@@ -146,7 +147,7 @@ public final class IndexGenerator {
     public RecordLayerIndex generate(@Nonnull String indexName, boolean isUnique, @Nonnull Type.Record tableType, boolean containsNullableArray) {
         final var indexBuilder = RecordLayerIndex.newBuilder()
                 .setName(indexName)
-                .setTableName(getRecordTypeName())
+                .setTableName(getTableName())
                 .setUnique(isUnique);
 
         collectQuantifiers(relationalExpression);
@@ -755,7 +756,7 @@ public final class IndexGenerator {
     }
 
     @Nonnull
-    public String getRecordTypeName() {
+    public String getTableName() {
         final var expressionRefs = relationalExpressions.stream()
                 .filter(r -> r instanceof LogicalTypeFilterExpression)
                 .map(r -> (LogicalTypeFilterExpression) r)
@@ -763,7 +764,7 @@ public final class IndexGenerator {
         Assert.thatUnchecked(expressionRefs.size() == 1, ErrorCode.UNSUPPORTED_OPERATION, "Unsupported query, expected to find exactly one type filter operator");
         final var recordTypes = expressionRefs.get(0).getRecordTypes();
         Assert.thatUnchecked(recordTypes.size() == 1, ErrorCode.UNSUPPORTED_OPERATION, () -> String.format(Locale.ROOT, "Unsupported query, expected to find exactly one record type in type filter operator, however found %s", recordTypes.isEmpty() ? "nothing" : String.join(",", recordTypes)));
-        return recordTypes.stream().findFirst().orElseThrow();
+        return DataTypeUtils.toUserIdentifier(recordTypes.stream().findFirst().orElseThrow());
     }
 
     @Nonnull

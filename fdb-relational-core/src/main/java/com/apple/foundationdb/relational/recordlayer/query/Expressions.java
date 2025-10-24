@@ -242,7 +242,7 @@ public final class Expressions implements Iterable<Expression> {
     @Nonnull
     public List<String> argumentNames() {
         Assert.thatUnchecked(allNamedArguments());
-        return Streams.stream(this).map(Expression::getName).flatMap(Optional::stream).map(Identifier::toString)
+        return Streams.stream(this).map(Expression::getName).flatMap(Optional::stream).map(Identifier::getName)
                 .collect(ImmutableList.toImmutableList());
     }
 
@@ -257,7 +257,7 @@ public final class Expressions implements Iterable<Expression> {
         for (final var argument : this) {
             final var argumentName = argument.getName();
             Verify.verify(argumentName.isPresent());
-            resultBuilder.put(argumentName.get().toString(), argument.getUnderlying());
+            resultBuilder.put(argumentName.get().getName(), argument.getUnderlying());
         }
         return resultBuilder.build();
     }

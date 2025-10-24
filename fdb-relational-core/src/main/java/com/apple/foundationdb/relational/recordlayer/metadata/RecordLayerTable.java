@@ -52,7 +52,7 @@ import java.util.stream.Collectors;
  * Represents a {@link com.apple.foundationdb.relational.api.metadata.Table} that is backed by the Record Layer.
  */
 @API(API.Status.EXPERIMENTAL)
-public final class RecordLayerTable implements Table {
+public final class RecordLayerTable implements Table, RecordLayerMetadata {
 
     @Nonnull
     private final String name;
@@ -314,10 +314,11 @@ public final class RecordLayerTable implements Table {
         @Nonnull
         private static KeyExpression toKeyExpression(@Nonnull final List<String> fields, int i) {
             Assert.thatUnchecked(0 <= i && i < fields.size());
+            final var component = DataTypeUtils.toProtoBufCompliantName(fields.get(i));
             if (i == fields.size() - 1) {
-                return Key.Expressions.field(fields.get(i));
+                return Key.Expressions.field(component);
             }
-            return Key.Expressions.field(fields.get(i)).nest(toKeyExpression(fields, i + 1));
+            return Key.Expressions.field(component).nest(toKeyExpression(fields, i + 1));
         }
 
         private KeyExpression getPrimaryKey() {

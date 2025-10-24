@@ -21,13 +21,11 @@
 package com.apple.foundationdb.relational.recordlayer.metadata;
 
 import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
-
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 
@@ -40,6 +38,10 @@ import java.util.stream.Collectors;
 
 @API(API.Status.EXPERIMENTAL)
 public class DataTypeUtils {
+
+    private static final String DOUBLE_UNDERSCORE_ESCAPE = "__0";
+    private static final String DOLLAR_ESCAPE = "__1";
+    private static final String DOT_ESCAPE = "__2";
 
     @Nonnull
     private static final BiMap<DataType, Type> primitivesMap;
@@ -70,15 +72,15 @@ public class DataTypeUtils {
         switch (typeCode) {
             case RECORD:
                 final var record = (Type.Record) type;
-                final var columns = record.getFields().stream().map(field -> DataType.StructType.Field.from(field.getFieldName(), toRelationalType(field.getFieldType()), field.getFieldIndex())).collect(Collectors.toList());
-                return DataType.StructType.from(record.getName() == null ? toProtoBufCompliantName(UUID.randomUUID().toString()) : record.getName(), columns, record.isNullable());
+                final var columns = record.getFields().stream().map(field -> DataType.StructType.Field.from(DataTypeUtils.toUserIdentifier(field.getFieldName()), toRelationalType(field.getFieldType()), field.getFieldIndex())).collect(Collectors.toList());
+                return DataType.StructType.from(record.getName() == null ? UUID.randomUUID().toString() : toUserIdentifier(record.getName()), columns, record.isNullable());
             case ARRAY:
                 final var asArray = (Type.Array) type;
                 return DataType.ArrayType.from(toRelationalType(Assert.notNullUnchecked(asArray.getElementType())), asArray.isNullable());
             case ENUM:
                 final var asEnum = (Type.Enum) type;
                 final var enumValues = asEnum.getEnumValues().stream().map(v -> DataType.EnumType.EnumValue.of(v.getName(), v.getNumber())).collect(Collectors.toList());
-                return DataType.EnumType.from(asEnum.getName() == null ? toProtoBufCompliantName(UUID.randomUUID().toString()) : asEnum.getName(), enumValues, asEnum.isNullable());
+                return DataType.EnumType.from(asEnum.getName() == null ? UUID.randomUUID().toString() : toUserIdentifier(asEnum.getName()), enumValues, asEnum.isNullable());
             default:
                 Assert.failUnchecked(String.format(Locale.ROOT, "unexpected type %s", type));
                 return null; // make compiler happy.
@@ -86,14 +88,22 @@ public class DataTypeUtils {
     }
 
     @Nonnull
-    private static String toProtoBufCompliantName(@Nonnull final String input) {
-        Assert.thatUnchecked(input.length() > 0);
-        final var modified = input.replace("-", "_");
-        final char c = input.charAt(0);
+    private static String getUniqueName() {
+        final var uuid = UUID.randomUUID().toString();
+        final var modified = uuid.replace("-", "_");
+        final char c = uuid.charAt(0);
         if (c == '_' || ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z')) {
             return modified;
         }
         return "id" + modified;
+    }
+
+    public static String toProtoBufCompliantName(String userIdentifier) {
+        return userIdentifier.replace("__", DOUBLE_UNDERSCORE_ESCAPE).replace("$", DOLLAR_ESCAPE).replace(".", DOT_ESCAPE);
+    }
+
+    public static String toUserIdentifier(String protoIdentifier) {
+        return protoIdentifier.replace(DOT_ESCAPE, ".").replace(DOLLAR_ESCAPE, "$").replace(DOUBLE_UNDERSCORE_ESCAPE, "__");
     }
 
     /**
@@ -115,8 +125,8 @@ public class DataTypeUtils {
         switch (type.getCode()) {
             case STRUCT:
                 final var struct = (DataType.StructType) type;
-                final var fields = struct.getFields().stream().map(field -> Type.Record.Field.of(DataTypeUtils.toRecordLayerType(field.getType()), Optional.of(field.getName()), Optional.of(field.getIndex()))).collect(Collectors.toList());
-                return Type.Record.fromFieldsWithName(struct.getName(), struct.isNullable(), fields);
+                final var fields = struct.getFields().stream().map(field -> Type.Record.Field.of(DataTypeUtils.toRecordLayerType(field.getType()), Optional.of(toProtoBufCompliantName(field.getName())), Optional.of(field.getIndex()))).collect(Collectors.toList());
+                return Type.Record.fromFieldsWithName(toProtoBufCompliantName(struct.getName()), struct.isNullable(), fields);
             case ARRAY:
                 final var asArray = (DataType.ArrayType) type;
                 // Currently, Record-Layer does not support Nullable array elements. In the Postgres world, the elements of an array are by default nullable,
