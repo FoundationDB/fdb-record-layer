@@ -61,7 +61,7 @@ abstract class AbstractNode<N extends NodeReference> implements Node<N> {
 
     /**
      * Gets the primary key that uniquely identifies this object.
-     * @return the primary key {@link  Tuple}, which will never be {@code null}.
+     * @return the primary key {@link Tuple}, which will never be {@code null}.
      */
     @Nonnull
     @Override
