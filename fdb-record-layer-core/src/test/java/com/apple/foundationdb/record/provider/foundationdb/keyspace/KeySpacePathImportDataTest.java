@@ -55,10 +55,12 @@ class KeySpacePathImportDataTest {
     @RegisterExtension
     final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
     private FDBDatabase database;
+    private List<FDBDatabase> databases;
 
     @BeforeEach
     void setUp() {
-        database = dbExtension.getDatabase();
+        databases = dbExtension.getDatabases(2);
+        database = databases.get(0);
     }
 
     @Test
@@ -395,8 +397,12 @@ class KeySpacePathImportDataTest {
         // Export the data
         final List<DataInKeySpacePath> exportedData = getExportedData(path);
 
-        // Clear the data and import it back
-        clearPath(database, path);
+        if (databases.size() > 1) {
+            database = databases.get(1);
+        } else {
+            // Clear the data and import it back
+            clearPath(database, path);
+        }
 
         // Import the data
         importData(database, path, exportedData);
