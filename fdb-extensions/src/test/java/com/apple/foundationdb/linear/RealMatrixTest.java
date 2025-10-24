@@ -48,9 +48,9 @@ public class RealMatrixTest {
         final int numRows = random.nextInt(numDimensions) + 1;
         final int numColumns = random.nextInt(numDimensions) + 1;
         final RealMatrix matrix = MatrixHelpers.randomGaussianMatrix(random, numRows, numColumns);
-        final RealMatrix otherMatrix = flip(matrix);
+        final RealMatrix otherMatrix = matrix.flipMajor();
         assertThat(otherMatrix).isEqualTo(matrix);
-        final RealMatrix anotherMatrix = flip(otherMatrix);
+        final RealMatrix anotherMatrix = otherMatrix.flipMajor();
         assertThat(anotherMatrix).isEqualTo(otherMatrix);
         assertThat(anotherMatrix).isEqualTo(matrix);
         assertThat(anotherMatrix.getClass()).isSameAs(matrix.getClass());
@@ -85,20 +85,6 @@ public class RealMatrixTest {
         assertThat(anotherMatrix.toRowMajor()).isSameAs(anotherMatrix);
         assertThat(anotherMatrix.hashCode()).isEqualTo(matrix.hashCode());
         assertThat(anotherMatrix).isEqualTo(matrix);
-    }
-
-
-    @Nonnull
-    private static RealMatrix flip(@Nonnull final RealMatrix matrix) {
-        assertThat(matrix)
-                .satisfiesAnyOf(m -> assertThat(m).isInstanceOf(RowMajorRealMatrix.class),
-                        m -> assertThat(m).isInstanceOf(ColumnMajorRealMatrix.class));
-        final double[][] data = matrix.transpose().getData();
-        if (matrix instanceof RowMajorRealMatrix) {
-            return new ColumnMajorRealMatrix(data);
-        } else {
-            return new RowMajorRealMatrix(data);
-        }
     }
 
     @ParameterizedTest
@@ -141,7 +127,7 @@ public class RealMatrixTest {
     @MethodSource("randomSeedsWithNumDimensions")
     void testMultiplyColumnMajorMatrix(final long seed, final int d) {
         final Random random = new Random(seed);
-        final RealMatrix r = flip(MatrixHelpers.randomOrthogonalMatrix(random, d));
+        final RealMatrix r = MatrixHelpers.randomOrthogonalMatrix(random, d).flipMajor();
         assertMultiplyMxMT(d, random, r);
     }
 

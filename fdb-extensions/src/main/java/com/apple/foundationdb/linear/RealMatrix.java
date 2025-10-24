@@ -26,9 +26,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 public interface RealMatrix extends LinearOperator {
-    @Nonnull
-    double[][] getData();
-
     double getEntry(int row, int column);
 
     @Override
@@ -79,10 +76,21 @@ public interface RealMatrix extends LinearOperator {
     RowMajorRealMatrix toRowMajor();
 
     @Nonnull
+    double[][] getRowMajorData();
+
+    @Nonnull
     ColumnMajorRealMatrix toColumnMajor();
 
     @Nonnull
+    double[][] getColumnMajorData();
+
+    @Nonnull
     RealMatrix quickTranspose();
+
+    @Nonnull
+    default RealMatrix flipMajor() {
+        return transpose().quickTranspose();
+    }
 
     default boolean valueEquals(@Nullable final Object o) {
         if (!(o instanceof RealMatrix)) {
