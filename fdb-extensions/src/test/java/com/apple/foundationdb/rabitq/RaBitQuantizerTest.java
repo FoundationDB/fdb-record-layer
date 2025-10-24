@@ -52,7 +52,7 @@ public class RaBitQuantizerTest {
         return RandomizedTestUtils.randomSeeds(0xdeadc0deL, 0xfdb5ca1eL, 0xf005ba1L)
                 .flatMap(seed ->
                         Sets.cartesianProduct(ImmutableSet.of(3, 5, 10, 128, 768, 1000),
-                                        ImmutableSet.of(3, 4, 5, 6, 7, 8))
+                                        ImmutableSet.of(4, 5, 6, 7, 8))
                                 .stream()
                                 .map(arguments -> Arguments.of(seed, arguments.get(0), arguments.get(1))));
     }

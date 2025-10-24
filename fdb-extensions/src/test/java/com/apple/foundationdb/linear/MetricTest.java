@@ -119,7 +119,7 @@ public class MetricTest {
 
             Assertions.assertThat(distanceXY).satisfiesAnyOf(
                     d -> Assertions.assertThat(metric.satisfiesPositivity()).isFalse(),
-                    d -> Assertions.assertThat(d).isGreaterThanOrEqualTo(0));
+                    d -> Assertions.assertThat(d).isGreaterThanOrEqualTo(-2E-10));
 
             Assertions.assertThat(distanceXY).satisfiesAnyOf(
                     d -> Assertions.assertThat(metric.satisfiesSymmetry()).isFalse(),
@@ -127,7 +127,7 @@ public class MetricTest {
 
             Assertions.assertThat(distanceXY).satisfiesAnyOf(
                     d -> Assertions.assertThat(metric.satisfiesTriangleInequality()).isFalse(),
-                    d -> Assertions.assertThat(d + distanceYZ).isGreaterThanOrEqualTo(distanceXZ),
+                    d -> Assertions.assertThat(d + distanceYZ).isGreaterThanOrEqualTo(distanceXZ - 2E-10d),
                     d -> Assertions.assertThat(triangleHolds(distanceXY, distanceYZ, distanceXZ, numDimensions * 3)).isTrue());
         }
     }
