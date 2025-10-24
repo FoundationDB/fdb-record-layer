@@ -22,7 +22,6 @@ package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.RawSqlFunction;
@@ -412,7 +411,7 @@ public class AstNormalizerTests {
                                 List.of(), Optional.empty(), null, Literals.empty()) {
                             @Nonnull
                             @Override
-                            public RecordMetaDataProto.PUserDefinedFunction toProto(@Nonnull final PlanSerializationContext serializationContext) {
+                            public RecordMetaDataProto.PUserDefinedFunction toProto() {
                                 throw new NotImplementedException("unexpected call");
                             }
 
