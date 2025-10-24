@@ -579,15 +579,17 @@ public class HNSW {
      */
     @SuppressWarnings("checkstyle:MethodName") // method name introduced by paper
     @Nonnull
-    public CompletableFuture<? extends List<? extends NodeReferenceAndNode<? extends NodeReference>>> kNearestNeighborsSearch(@Nonnull final ReadTransaction readTransaction,
-                                                                                                                              final int k,
-                                                                                                                              final int efSearch,
-                                                                                                                              @Nonnull final RealVector queryVector) {
-        return StorageAdapter.fetchEntryNodeReference(getConfig(), readTransaction, getSubspace(), getOnReadListener())
-                .thenCompose(entryPointAndLayer -> {
-                    if (entryPointAndLayer == null) {
+    public CompletableFuture<? extends List<? extends NodeReferenceAndNode<? extends NodeReference>>>
+            kNearestNeighborsSearch(@Nonnull final ReadTransaction readTransaction,
+                                    final int k,
+                                    final int efSearch,
+                                    @Nonnull final RealVector queryVector) {
+        return StorageAdapter.fetchAccessInfo(getConfig(), readTransaction, getSubspace(), getOnReadListener())
+                .thenCompose(indexAccessInfo -> {
+                    if (indexAccessInfo == null) {
                         return CompletableFuture.completedFuture(null); // not a single node in the index
                     }
+                    final EntryNodeReference entryNodeReference = indexAccessInfo.getEntryNodeReference();
 
                     final RealVector queryVectorTrans;
                     final Quantizer quantizer;
@@ -604,11 +606,11 @@ public class HNSW {
                     final Estimator estimator = quantizer.estimator();
 
                     final NodeReferenceWithDistance entryState =
-                            new NodeReferenceWithDistance(entryPointAndLayer.getPrimaryKey(),
-                                    entryPointAndLayer.getVector(),
-                                    estimator.distance(queryVectorTrans, entryPointAndLayer.getVector()));
+                            new NodeReferenceWithDistance(entryNodeReference.getPrimaryKey(),
+                                    entryNodeReference.getVector(),
+                                    estimator.distance(queryVectorTrans, entryNodeReference.getVector()));
 
-                    final var entryLayer = entryPointAndLayer.getLayer();
+                    final var entryLayer = entryNodeReference.getLayer();
                     return forLoop(entryLayer, entryState,
                             layer -> layer >= 0,
                             layer -> layer - 1,
@@ -635,10 +637,11 @@ public class HNSW {
                                             // reverse the original queue
                                             final TreeMultimap<Double, NodeReferenceAndNode<? extends NodeReference>> sortedTopK =
                                                     TreeMultimap.create(Comparator.naturalOrder(),
-                                                            Comparator.comparing(nodeReferenceAndNode -> nodeReferenceAndNode.getNode().getPrimaryKey()));
+                                                            Comparator.comparing(nodeReferenceAndNode ->
+                                                                    nodeReferenceAndNode.getNode().getPrimaryKey()));
 
                                             for (final NodeReferenceAndNode<?> nodeReferenceAndNode : searchResult) {
-                                                if (sortedTopK.size() < k || sortedTopK.keySet().last() >
+                                                if (sortedTopK.size() < k || Objects.requireNonNull(sortedTopK.keySet().last()) >
                                                         nodeReferenceAndNode.getNodeReferenceWithDistance().getDistance()) {
                                                     sortedTopK.put(nodeReferenceAndNode.getNodeReferenceWithDistance().getDistance(),
                                                             nodeReferenceAndNode);
@@ -682,12 +685,13 @@ public class HNSW {
      * represented as a {@link NodeReferenceWithDistance}
      */
     @Nonnull
-    private <N extends NodeReference> CompletableFuture<NodeReferenceWithDistance> greedySearchLayer(@Nonnull final Estimator estimator,
-                                                                                                     @Nonnull final StorageAdapter<N> storageAdapter,
-                                                                                                     @Nonnull final ReadTransaction readTransaction,
-                                                                                                     @Nonnull final NodeReferenceWithDistance entryNeighbor,
-                                                                                                     final int layer,
-                                                                                                     @Nonnull final RealVector queryVector) {
+    private <N extends NodeReference> CompletableFuture<NodeReferenceWithDistance>
+            greedySearchLayer(@Nonnull final Estimator estimator,
+                              @Nonnull final StorageAdapter<N> storageAdapter,
+                              @Nonnull final ReadTransaction readTransaction,
+                              @Nonnull final NodeReferenceWithDistance entryNeighbor,
+                              final int layer,
+                              @Nonnull final RealVector queryVector) {
         if (storageAdapter.getNodeKind() == NodeKind.INLINING) {
             return greedySearchInliningLayer(estimator, storageAdapter.asInliningStorageAdapter(),
                     readTransaction, entryNeighbor, layer, queryVector);
@@ -726,12 +730,13 @@ public class HNSW {
      * {@code storageAdapter} during the search
      */
     @Nonnull
-    private CompletableFuture<NodeReferenceWithDistance> greedySearchInliningLayer(@Nonnull final Estimator estimator,
-                                                                                   @Nonnull final StorageAdapter<NodeReferenceWithVector> storageAdapter,
-                                                                                   @Nonnull final ReadTransaction readTransaction,
-                                                                                   @Nonnull final NodeReferenceWithDistance entryNeighbor,
-                                                                                   final int layer,
-                                                                                   @Nonnull final RealVector queryVector) {
+    private CompletableFuture<NodeReferenceWithDistance>
+            greedySearchInliningLayer(@Nonnull final Estimator estimator,
+                                      @Nonnull final StorageAdapter<NodeReferenceWithVector> storageAdapter,
+                                      @Nonnull final ReadTransaction readTransaction,
+                                      @Nonnull final NodeReferenceWithDistance entryNeighbor,
+                                      final int layer,
+                                      @Nonnull final RealVector queryVector) {
         Verify.verify(layer > 0);
         final AtomicReference<NodeReferenceWithDistance> currentNodeReferenceAtomic =
                 new AtomicReference<>(entryNeighbor);
@@ -796,14 +801,15 @@ public class HNSW {
      * best candidate nodes found in this layer, paired with their full node data.
      */
     @Nonnull
-    private <N extends NodeReference> CompletableFuture<List<NodeReferenceAndNode<N>>> searchLayer(@Nonnull final Estimator estimator,
-                                                                                                   @Nonnull final StorageAdapter<N> storageAdapter,
-                                                                                                   @Nonnull final ReadTransaction readTransaction,
-                                                                                                   @Nonnull final Collection<NodeReferenceWithDistance> entryNeighbors,
-                                                                                                   final int layer,
-                                                                                                   final int efSearch,
-                                                                                                   @Nonnull final Map<Tuple, Node<N>> nodeCache,
-                                                                                                   @Nonnull final RealVector queryVector) {
+    private <N extends NodeReference> CompletableFuture<List<NodeReferenceAndNode<N>>>
+            searchLayer(@Nonnull final Estimator estimator,
+                        @Nonnull final StorageAdapter<N> storageAdapter,
+                        @Nonnull final ReadTransaction readTransaction,
+                        @Nonnull final Collection<NodeReferenceWithDistance> entryNeighbors,
+                        final int layer,
+                        final int efSearch,
+                        @Nonnull final Map<Tuple, Node<N>> nodeCache,
+                        @Nonnull final RealVector queryVector) {
         final Set<Tuple> visited = Sets.newConcurrentHashSet(NodeReference.primaryKeys(entryNeighbors));
         final Queue<NodeReferenceWithDistance> candidates =
                 new PriorityBlockingQueue<>(config.getM(),
@@ -829,7 +835,7 @@ public class HNSW {
             return fetchNodeIfNotCached(storageAdapter, readTransaction, layer, candidate, nodeCache)
                     .thenApply(candidateNode ->
                             Iterables.filter(candidateNode.getNeighbors(),
-                                    neighbor -> !visited.contains(neighbor.getPrimaryKey())))
+                                    neighbor -> !visited.contains(Objects.requireNonNull(neighbor).getPrimaryKey())))
                     .thenCompose(neighborReferences -> fetchNeighborhood(storageAdapter, readTransaction,
                             layer, neighborReferences, nodeCache))
                     .thenApply(neighborReferences -> {
@@ -891,11 +897,12 @@ public class HNSW {
      * @return a {@link CompletableFuture} that will be completed with the fetched or cached {@link Node}
      */
     @Nonnull
-    private <N extends NodeReference> CompletableFuture<Node<N>> fetchNodeIfNotCached(@Nonnull final StorageAdapter<N> storageAdapter,
-                                                                                      @Nonnull final ReadTransaction readTransaction,
-                                                                                      final int layer,
-                                                                                      @Nonnull final NodeReference nodeReference,
-                                                                                      @Nonnull final Map<Tuple, Node<N>> nodeCache) {
+    private <N extends NodeReference> CompletableFuture<Node<N>>
+            fetchNodeIfNotCached(@Nonnull final StorageAdapter<N> storageAdapter,
+                                 @Nonnull final ReadTransaction readTransaction,
+                                 final int layer,
+                                 @Nonnull final NodeReference nodeReference,
+                                 @Nonnull final Map<Tuple, Node<N>> nodeCache) {
         return fetchNodeIfNecessaryAndApply(storageAdapter, readTransaction, layer, nodeReference,
                 nR -> nodeCache.get(nR.getPrimaryKey()),
                 (nR, node) -> {
@@ -933,12 +940,13 @@ public class HNSW {
      * {@code fetchBypassFunction} or the {@code biMapFunction}.
      */
     @Nonnull
-    private <R extends NodeReference, N extends NodeReference, U> CompletableFuture<U> fetchNodeIfNecessaryAndApply(@Nonnull final StorageAdapter<N> storageAdapter,
-                                                                                                                    @Nonnull final ReadTransaction readTransaction,
-                                                                                                                    final int layer,
-                                                                                                                    @Nonnull final R nodeReference,
-                                                                                                                    @Nonnull final Function<R, U> fetchBypassFunction,
-                                                                                                                    @Nonnull final BiFunction<R, Node<N>, U> biMapFunction) {
+    private <R extends NodeReference, N extends NodeReference, U> CompletableFuture<U>
+            fetchNodeIfNecessaryAndApply(@Nonnull final StorageAdapter<N> storageAdapter,
+                                         @Nonnull final ReadTransaction readTransaction,
+                                         final int layer,
+                                         @Nonnull final R nodeReference,
+                                         @Nonnull final Function<R, U> fetchBypassFunction,
+                                         @Nonnull final BiFunction<R, Node<N>, U> biMapFunction) {
         final U bypass = fetchBypassFunction.apply(nodeReference);
         if (bypass != null) {
             return CompletableFuture.completedFuture(bypass);
@@ -970,11 +978,12 @@ public class HNSW {
      * {@link NodeReferenceWithVector} objects for the specified neighbors
      */
     @Nonnull
-    private <N extends NodeReference> CompletableFuture<List<NodeReferenceWithVector>> fetchNeighborhood(@Nonnull final StorageAdapter<N> storageAdapter,
-                                                                                                         @Nonnull final ReadTransaction readTransaction,
-                                                                                                         final int layer,
-                                                                                                         @Nonnull final Iterable<? extends NodeReference> neighborReferences,
-                                                                                                         @Nonnull final Map<Tuple, Node<N>> nodeCache) {
+    private <N extends NodeReference> CompletableFuture<List<NodeReferenceWithVector>>
+            fetchNeighborhood(@Nonnull final StorageAdapter<N> storageAdapter,
+                              @Nonnull final ReadTransaction readTransaction,
+                              final int layer,
+                              @Nonnull final Iterable<? extends NodeReference> neighborReferences,
+                              @Nonnull final Map<Tuple, Node<N>> nodeCache) {
         return fetchSomeNodesAndApply(storageAdapter, readTransaction, layer, neighborReferences,
                 neighborReference -> {
                     if (neighborReference instanceof NodeReferenceWithVector) {
@@ -1015,11 +1024,12 @@ public class HNSW {
      * {@link NodeReferenceAndNode} objects, pairing each requested reference with its corresponding node.
      */
     @Nonnull
-    private <N extends NodeReference> CompletableFuture<List<NodeReferenceAndNode<N>>> fetchSomeNodesIfNotCached(@Nonnull final StorageAdapter<N> storageAdapter,
-                                                                                                                 @Nonnull final ReadTransaction readTransaction,
-                                                                                                                 final int layer,
-                                                                                                                 @Nonnull final Iterable<NodeReferenceWithDistance> nodeReferences,
-                                                                                                                 @Nonnull final Map<Tuple, Node<N>> nodeCache) {
+    private <N extends NodeReference> CompletableFuture<List<NodeReferenceAndNode<N>>>
+            fetchSomeNodesIfNotCached(@Nonnull final StorageAdapter<N> storageAdapter,
+                                      @Nonnull final ReadTransaction readTransaction,
+                                      final int layer,
+                                      @Nonnull final Iterable<NodeReferenceWithDistance> nodeReferences,
+                                      @Nonnull final Map<Tuple, Node<N>> nodeCache) {
         return fetchSomeNodesAndApply(storageAdapter, readTransaction, layer, nodeReferences,
                 nodeReference -> {
                     final Node<N> node = nodeCache.get(nodeReference.getPrimaryKey());
@@ -1087,7 +1097,8 @@ public class HNSW {
      * @return a {@link CompletableFuture} that will complete when the insertion operation is finished.
      */
     @Nonnull
-    public CompletableFuture<Void> insert(@Nonnull final Transaction transaction, @Nonnull final NodeReferenceWithVector nodeReferenceWithVector) {
+    public CompletableFuture<Void> insert(@Nonnull final Transaction transaction,
+                                          @Nonnull final NodeReferenceWithVector nodeReferenceWithVector) {
         return insert(transaction, nodeReferenceWithVector.getPrimaryKey(), nodeReferenceWithVector.getVector());
     }
 
@@ -1118,8 +1129,8 @@ public class HNSW {
             logger.trace("new node with key={} selected to be inserted into layer={}", newPrimaryKey, insertionLayer);
         }
 
-        return StorageAdapter.fetchEntryNodeReference(getConfig(), transaction, getSubspace(), getOnReadListener())
-                .thenCompose(entryNodeReference -> {
+        return StorageAdapter.fetchAccessInfo(getConfig(), transaction, getSubspace(), getOnReadListener())
+                .thenCompose(accessInfo -> {
                     final RealVector newVectorTrans;
                     final Quantizer quantizer;
                     if (getConfig().isUseRaBitQ()) {
@@ -1134,33 +1145,39 @@ public class HNSW {
                     }
                     final Estimator estimator = quantizer.estimator();
 
-                    if (entryNodeReference == null) {
+                    if (accessInfo == null) {
                         // this is the first node
                         writeLonelyNodes(quantizer, transaction, newPrimaryKey, newVectorTrans, insertionLayer, -1);
-                        StorageAdapter.writeEntryNodeReference(transaction, getSubspace(),
-                                new EntryNodeReference(newPrimaryKey, newVectorTrans, insertionLayer), getOnWriteListener());
+                        StorageAdapter.writeAccessInfo(transaction, getSubspace(),
+                                new AccessInfo(
+                                        new EntryNodeReference(newPrimaryKey, newVectorTrans, insertionLayer),
+                                        null), getOnWriteListener());
                         if (logger.isTraceEnabled()) {
-                            logger.trace("written entry node reference with key={} on layer={}", newPrimaryKey, insertionLayer);
+                            logger.trace("written initial entry node reference with key={} on layer={}", newPrimaryKey, insertionLayer);
                         }
                     } else {
+                        final EntryNodeReference entryNodeReference = accessInfo.getEntryNodeReference();
                         final int lMax = entryNodeReference.getLayer();
                         if (insertionLayer > lMax) {
                             writeLonelyNodes(quantizer, transaction, newPrimaryKey, newVectorTrans, insertionLayer, lMax);
-                            StorageAdapter.writeEntryNodeReference(transaction, getSubspace(),
-                                    new EntryNodeReference(newPrimaryKey, newVectorTrans, insertionLayer), getOnWriteListener());
+                            StorageAdapter.writeAccessInfo(transaction, getSubspace(),
+                                    accessInfo.withNewEntryNodeReference(
+                                            new EntryNodeReference(newPrimaryKey, newVectorTrans, insertionLayer)),
+                                    getOnWriteListener());
                             if (logger.isTraceEnabled()) {
-                                logger.trace("written entry node reference with key={} on layer={}", newPrimaryKey, insertionLayer);
+                                logger.trace("written higher entry node reference with key={} on layer={}", newPrimaryKey, insertionLayer);
                             }
                         }
                     }
 
-                    if (entryNodeReference == null) {
+                    if (accessInfo == null) {
                         return AsyncUtil.DONE;
                     }
 
+                    final EntryNodeReference entryNodeReference = accessInfo.getEntryNodeReference();
                     final int lMax = entryNodeReference.getLayer();
                     if (logger.isTraceEnabled()) {
-                        logger.trace("entry node with key {} at layer {}", entryNodeReference.getPrimaryKey(), lMax);
+                        logger.trace("entry node read with key {} at layer {}", entryNodeReference.getPrimaryKey(), lMax);
                     }
 
                     final NodeReferenceWithDistance initialNodeReference =
@@ -1218,9 +1235,10 @@ public class HNSW {
         // sort the layers in reverse order
         batchWithLayers.sort(Comparator.comparing(NodeReferenceWithLayer::getLayer).reversed());
 
-        return StorageAdapter.fetchEntryNodeReference(getConfig(), transaction, getSubspace(), getOnReadListener())
-                .thenCompose(entryNodeReference -> {
-                    final int lMax = entryNodeReference == null ? -1 : entryNodeReference.getLayer();
+        return StorageAdapter.fetchAccessInfo(getConfig(), transaction, getSubspace(), getOnReadListener())
+                .thenCompose(accessInfo -> {
+                    final int lMax =
+                            accessInfo == null ? -1 : accessInfo.getEntryNodeReference().getLayer();
 
                     final Quantizer quantizer;
                     final FhtKacRotator rotator;
@@ -1241,6 +1259,8 @@ public class HNSW {
                                 if (lMax == -1) {
                                     return CompletableFuture.completedFuture(null);
                                 }
+
+                                final EntryNodeReference entryNodeReference = accessInfo.getEntryNodeReference();
 
                                 final RealVector itemVector = item.getVector();
                                 final RealVector itemVectorTrans;
@@ -1268,7 +1288,7 @@ public class HNSW {
                                         }, executor);
                             }, MAX_CONCURRENT_SEARCHES, getExecutor())
                             .thenCompose(searchEntryReferences ->
-                                    forLoop(0, entryNodeReference,
+                                    forLoop(0, accessInfo == null ? null : accessInfo.getEntryNodeReference(),
                                             index -> index < batchWithLayers.size(),
                                             index -> index + 1,
                                             (index, currentEntryNodeReference) -> {
@@ -1280,15 +1300,15 @@ public class HNSW {
                                                 final EntryNodeReference newEntryNodeReference;
                                                 final int currentLMax;
 
-                                                if (entryNodeReference == null) {
+                                                if (accessInfo == null) {
                                                     // this is the first node
                                                     writeLonelyNodes(quantizer, transaction, itemPrimaryKey, itemVector, itemL, -1);
                                                     newEntryNodeReference =
                                                             new EntryNodeReference(itemPrimaryKey, itemVector, itemL);
-                                                    StorageAdapter.writeEntryNodeReference(transaction, getSubspace(),
-                                                            newEntryNodeReference, getOnWriteListener());
+                                                    StorageAdapter.writeAccessInfo(transaction, getSubspace(),
+                                                            new AccessInfo(newEntryNodeReference, null), getOnWriteListener());
                                                     if (logger.isTraceEnabled()) {
-                                                        logger.trace("written entry node reference with key={} on layer={}", itemPrimaryKey, itemL);
+                                                        logger.trace("written initial entry node reference for batch with key={} on layer={}", itemPrimaryKey, itemL);
                                                     }
 
                                                     return CompletableFuture.completedFuture(newEntryNodeReference);
@@ -1298,18 +1318,20 @@ public class HNSW {
                                                         writeLonelyNodes(quantizer, transaction, itemPrimaryKey, itemVector, itemL, lMax);
                                                         newEntryNodeReference =
                                                                 new EntryNodeReference(itemPrimaryKey, itemVector, itemL);
-                                                        StorageAdapter.writeEntryNodeReference(transaction, getSubspace(),
-                                                                newEntryNodeReference, getOnWriteListener());
+                                                        StorageAdapter.writeAccessInfo(transaction, getSubspace(),
+                                                                accessInfo.withNewEntryNodeReference(newEntryNodeReference),
+                                                                getOnWriteListener());
                                                         if (logger.isTraceEnabled()) {
-                                                            logger.trace("written entry node reference with key={} on layer={}", itemPrimaryKey, itemL);
+                                                            logger.trace("written higher entry node reference for batch with key={} on layer={}", itemPrimaryKey, itemL);
                                                         }
                                                     } else {
-                                                        newEntryNodeReference = entryNodeReference;
+                                                        // entry node stays the same
+                                                        newEntryNodeReference = accessInfo.getEntryNodeReference();
                                                     }
                                                 }
 
                                                 if (logger.isTraceEnabled()) {
-                                                    logger.trace("entry node with key {} at layer {}",
+                                                    logger.trace("entry node read for batch with key {} at layer {}",
                                                             currentEntryNodeReference.getPrimaryKey(), currentLMax);
                                                 }
 
@@ -1864,7 +1886,7 @@ public class HNSW {
             newPrimaryKey = db.run(tr -> {
                 Streams.stream(storageAdapter.scanLayer(tr, layer, lastPrimaryKey, batchSize))
                         .forEach(node -> {
-                            nodeConsumer.accept(node);
+                            nodeConsumer.accept(Objects.requireNonNull(node));
                             lastPrimaryKeyAtomic.set(node.getPrimaryKey());
                         });
                 return lastPrimaryKeyAtomic.get();

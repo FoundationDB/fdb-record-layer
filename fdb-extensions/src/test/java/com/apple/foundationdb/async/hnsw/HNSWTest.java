@@ -34,7 +34,6 @@ import com.apple.foundationdb.test.TestSubspaceExtension;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.RandomSeedSource;
 import com.apple.test.RandomizedTestUtils;
-import com.apple.test.SuperSlow;
 import com.apple.test.Tags;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -375,7 +374,7 @@ public class HNSWTest {
     }
 
     @Test
-    @SuperSlow
+    //@SuperSlow
     void testSIFTInsertSmall() throws Exception {
         final Metric metric = Metric.EUCLIDEAN_METRIC;
         final int k = 100;
@@ -458,7 +457,7 @@ public class HNSWTest {
                 }
 
                 final double recall = (double)recallCount / k;
-                //Assertions.assertTrue(recall > 0.93);
+                Assertions.assertThat(recall).isGreaterThan(0.8);
 
                 logger.info("query returned results recall={}", String.format(Locale.ROOT, "%.2f", recall * 100.0d));
             }
@@ -466,7 +465,7 @@ public class HNSWTest {
     }
 
     @Test
-    @SuperSlow
+    //@SuperSlow
     void testSIFTInsertSmallUsingBatchAPI() throws Exception {
         final Metric metric = Metric.EUCLIDEAN_METRIC;
         final int k = 100;
