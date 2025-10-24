@@ -24,12 +24,25 @@ import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordMetaDataProvider;
 import com.apple.foundationdb.record.ScanProperties;
+import com.apple.foundationdb.record.TestRecordsGroupedParentChildProto;
 import com.apple.foundationdb.record.cursors.AutoContinuingCursor;
+import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.IndexPredicate;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseRunner;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreConcurrentTestBase;
+import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
+import com.apple.foundationdb.record.provider.foundationdb.IndexMaintenanceFilter;
+import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
+import com.apple.foundationdb.record.query.expressions.Comparisons;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
@@ -38,8 +51,11 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import javax.annotation.Nonnull;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -47,6 +63,8 @@ import java.util.stream.Stream;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestDataModel.CHILD_SEARCH_TERM;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestDataModel.PARENT_SEARCH_TERM;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Test for Lucene index scanning where the query contains "*:*" term matching all documents.
@@ -210,5 +228,182 @@ public class LuceneScanAllEntriesTest extends FDBRecordStoreConcurrentTestBase {
         List<IndexEntry> indexEntries = cursor.asList().join();
         assertEquals(primaryKeys,
                 indexEntries.stream().map(IndexEntry::getPrimaryKey).collect(Collectors.toSet()));
+    }
+
+    @ParameterizedTest
+    @BooleanSource
+    public void indexScanWithEvenRecNoFilterTest(boolean isGrouped) throws Exception {
+        final long seed = 9876543L;
+        final boolean isSynthetic = false;
+
+        final LuceneIndexTestDataModel dataModel =
+                new LuceneIndexTestDataModel.Builder(seed, this::getStoreBuilderFilterOddRecNo, pathManager)
+                .setIsGrouped(isGrouped)
+                .setIsSynthetic(isSynthetic)
+                .setPrimaryKeySegmentIndexEnabled(true)
+                .setPartitionHighWatermark(10)
+                .build();
+
+        // Save records with a filter that only indexes records with even recNo
+        try (FDBRecordContext context = openContext()) {
+            // Save 10 records - only even recNo values should be indexed
+            // Based on LuceneIndexTestDataModel:267, recNo = 1001 + uniqueCounter
+            // So uniqueCounter values will be 1-10, making recNo values 1002-1011
+            // Even recNos: 1002, 1004, 1006, 1008, 1010 (5 records)
+            dataModel.saveRecords(10, context, 2);
+            commit(context);
+        }
+
+        // Query using match-all to verify only even recNo records are in the index
+        LuceneQueryClause search = LuceneQuerySearchClause.MATCH_ALL_DOCS_QUERY;
+
+        try (FDBRecordContext context = openContext()) {
+            final FDBRecordStore store = dataModel.createOrOpenRecordStore(context);
+            LuceneScanBounds scanBounds = isGrouped
+                                          ? LuceneIndexTestValidator.groupedSortedTextSearch(store, dataModel.index, search, null, 2)
+                                          : LuceneIndexTestUtils.fullTextSearch(store, dataModel.index, search, false);
+
+            // Run the scan and collect results
+            List<IndexEntry> indexEntries = store.scanIndex(dataModel.index, scanBounds, null, ScanProperties.FORWARD_SCAN)
+                    .asList().join();
+
+            // We expect 5 records with even recNo values to be indexed
+            assertEquals(5, indexEntries.size(), "Should have indexed only records with even recNo");
+
+            // Verify that all indexed records have even recNo
+            for (IndexEntry entry : indexEntries) {
+                Tuple primaryKey = entry.getPrimaryKey();
+                // The recNo is part of the primary key - need to extract and verify it's even
+                // For grouped records, structure is (group, recNo) or similar
+                // For non-synthetic parent records, the recNo is in the tuple
+                try (FDBRecordContext verifyContext = openContext()) {
+                    FDBRecordStore verifyStore = dataModel.createOrOpenRecordStore(verifyContext);
+                    FDBStoredRecord<?> storedRecord = verifyStore.loadRecord(primaryKey);
+                    assertNotNull(storedRecord, "Record should exist");
+                    com.google.protobuf.Message message = storedRecord.getRecord();
+                    com.google.protobuf.Descriptors.FieldDescriptor recNoField =
+                            message.getDescriptorForType().findFieldByName("rec_no");
+                    long recNo = (long) message.getField(recNoField);
+                    assertEquals(0, recNo % 2, "All indexed records should have even recNo, but found: " + recNo);
+                }
+            }
+        }
+    }
+
+    @Nonnull
+    private FDBRecordStore.Builder getStoreBuilderFilterOddRecNo(@Nonnull FDBRecordContext context,
+                                                                   @Nonnull RecordMetaDataProvider metaData,
+                                                                   @Nonnull final KeySpacePath path) {
+        // Create an index maintenance filter that only indexes records with even recNo
+        IndexMaintenanceFilter evenRecNoFilter = (index, record) -> {
+            com.google.protobuf.Descriptors.FieldDescriptor recNoField =
+                    record.getDescriptorForType().findFieldByName("rec_no");
+            if (recNoField != null && record.hasField(recNoField)) {
+                long recNo = (long) record.getField(recNoField);
+                if (recNo % 2 == 0) {
+                    return IndexMaintenanceFilter.IndexValues.ALL;
+                }
+            }
+            return IndexMaintenanceFilter.IndexValues.NONE;
+        };
+
+        return getStoreBuilder(context, metaData, path)
+                .setIndexMaintenanceFilter(evenRecNoFilter);
+    }
+
+    @ParameterizedTest
+    @BooleanSource
+    public void indexScanWithRecNoIndexPredicateTest(boolean isGrouped) throws Exception {
+        final long seed = 5432198L;
+
+        // Create an index predicate that only indexes records with even recNo
+        // We'll create a predicate: rec_no % 2 == 0
+        // Since there's no modulo operator, we'll use an OR of specific even values
+        final Type.Record recordType = Type.Record.fromDescriptor(
+                TestRecordsGroupedParentChildProto.MyParentRecord.getDescriptor());
+        final QuantifiedObjectValue recordValue = QuantifiedObjectValue.of(Quantifier.current(), recordType);
+        final FieldValue recNoField = FieldValue.ofFieldName(recordValue, "rec_no");
+
+        // Create predicate for even rec_no values: recNo IN (1002, 1004, 1006, 1008, 1010)
+        final com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate evenRecNoPredicate =
+                com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate.or(List.of(
+                        new com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate(
+                                recNoField, new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 1002L)),
+                        new com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate(
+                                recNoField, new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 1004L)),
+                        new com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate(
+                                recNoField, new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 1006L)),
+                        new com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate(
+                                recNoField, new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 1008L)),
+                        new com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate(
+                                recNoField, new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 1010L))
+                ));
+
+        // Convert to IndexPredicate
+        final IndexPredicate indexPredicate = IndexPredicate.fromQueryPredicate(evenRecNoPredicate);
+
+        // Create the root expression and options for the index
+        final KeyExpression rootExpression = LuceneIndexTestDataModel.createRootExpression(isGrouped, false);
+        final Map<String, String> options = new HashMap<>();
+        options.put(LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED, String.valueOf(true));
+        options.put(LuceneIndexOptions.INDEX_PARTITION_BY_FIELD_NAME, "timestamp");
+        options.put(LuceneIndexOptions.INDEX_PARTITION_HIGH_WATERMARK, String.valueOf(10));
+
+        // Create the base index without predicate
+        final Index baseIndex = new Index("joinNestedConcat", rootExpression, LuceneIndexTypes.LUCENE, options);
+
+        // Create a new index with the predicate
+        final Index indexWithPredicate = new Index(baseIndex, indexPredicate);
+
+        // Build the data model using the Builder
+        final LuceneIndexTestDataModel dataModel = new LuceneIndexTestDataModel.Builder(seed, this::getStoreBuilder, pathManager)
+                .setIsGrouped(isGrouped)
+                .setIsSynthetic(false)
+                .setPrimaryKeySegmentIndexEnabled(true)
+                .setPartitionHighWatermark(10)
+                .setPredicate(indexPredicate)
+                .build();
+
+        // Save 10 records - the index predicate will filter to only even recNo
+        try (FDBRecordContext context = openContext()) {
+            // Save 10 records - recNo values will be 1002-1011
+            // Even recNos: 1002, 1004, 1006, 1008, 1010 (5 records) - will be indexed
+            // Odd recNos: 1003, 1005, 1007, 1009, 1011 (5 records) - will NOT be indexed
+            dataModel.saveRecords(10, context, 2);
+            commit(context);
+        }
+
+        // Query using match-all to verify only even recNo records are in the index
+        LuceneQueryClause search = LuceneQuerySearchClause.MATCH_ALL_DOCS_QUERY;
+
+        try (FDBRecordContext context = openContext()) {
+            final FDBRecordStore store = dataModel.createOrOpenRecordStore(context);
+            LuceneScanBounds scanBounds = isGrouped
+                                          ? LuceneIndexTestValidator.groupedSortedTextSearch(store, dataModel.index, search, null, 2)
+                                          : LuceneIndexTestUtils.fullTextSearch(store, dataModel.index, search, false);
+
+            // Run the scan and collect results
+            List<IndexEntry> indexEntries = store.scanIndex(dataModel.index, scanBounds, null, ScanProperties.FORWARD_SCAN)
+                    .asList().join();
+
+            // We expect 5 records with even recNo values to be indexed
+            assertEquals(5, indexEntries.size(), "Should have indexed only records with even recNo");
+
+            // Verify that all indexed records have even recNo
+            for (IndexEntry entry : indexEntries) {
+                Tuple primaryKey = entry.getPrimaryKey();
+                try (FDBRecordContext verifyContext = openContext()) {
+                    FDBRecordStore verifyStore = dataModel.createOrOpenRecordStore(verifyContext);
+                    FDBStoredRecord<?> storedRecord = verifyStore.loadRecord(primaryKey);
+                    assertNotNull(storedRecord, "Record should exist");
+                    com.google.protobuf.Message message = storedRecord.getRecord();
+                    com.google.protobuf.Descriptors.FieldDescriptor recNoFieldDesc =
+                            message.getDescriptorForType().findFieldByName("rec_no");
+                    long recNo = (long) message.getField(recNoFieldDesc);
+                    assertEquals(0, recNo % 2, "All indexed records should have even recNo, but found: " + recNo);
+                    assertTrue(recNo >= 1002 && recNo <= 1010, "recNo should be in expected range");
+                }
+            }
+        }
     }
 }
