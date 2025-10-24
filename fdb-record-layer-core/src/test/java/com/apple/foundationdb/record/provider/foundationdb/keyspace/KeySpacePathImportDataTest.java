@@ -125,14 +125,7 @@ class KeySpacePathImportDataTest {
             context.commit();
         }
 
-        // Export the data
-        final List<DataInKeySpacePath> exportedData = getExportedData(root.path("company"));
-
-        // Clear the data and import it back
-        clearPath(database, root.path("company"));
-
-        // Import the data
-        importData(database, root.path("company"), exportedData);
+        copyData(root.path("company"));
 
         // Verify all different KeyType values were handled correctly during import
         try (FDBRecordContext context = database.openContext()) {
@@ -211,11 +204,7 @@ class KeySpacePathImportDataTest {
         final KeySpacePath dataPath = root.path("tenant").add("user_id", 999L);
         setSingleKey(dataPath, Tuple.from("data"), Tuple.from("directory_test"));
 
-        List<DataInKeySpacePath> exportedData = getExportedData(root.path("tenant"));
-
-        clearPath(database, root.path("tenant"));
-
-        importData(database, root.path("tenant"), exportedData);
+        copyData(root.path("tenant"));
 
         verifySingleKey(dataPath, Tuple.from("data"), Tuple.from("directory_test"));
     }
@@ -341,11 +330,9 @@ class KeySpacePathImportDataTest {
         final EnvironmentKeySpace keySpace = EnvironmentKeySpace.setupSampleData(database);
 
         EnvironmentKeySpace.DataPath dataStore = keySpace.root().userid(100L).application("app1").dataStore();
-        List<DataInKeySpacePath> exportedData = getExportedData(dataStore);
 
-        clearPath(database, keySpace.root());
+        copyData(keySpace.root());
 
-        importData(database, keySpace.root(), exportedData);
         verifySingleKey(dataStore, Tuple.from("record2", 0), Tuple.from("user100_app1_data2_0"));
     }
 
@@ -402,6 +389,17 @@ class KeySpacePathImportDataTest {
 
     private static Tuple getTuple(final FDBRecordContext context, final byte[] key) {
         return Tuple.fromBytes(context.ensureActive().get(key).join());
+    }
+
+    private void copyData(final KeySpacePath path) {
+        // Export the data
+        final List<DataInKeySpacePath> exportedData = getExportedData(path);
+
+        // Clear the data and import it back
+        clearPath(database, path);
+
+        // Import the data
+        importData(database, path, exportedData);
     }
 
     private static void importData(final FDBDatabase database, final KeySpacePath path, final List<DataInKeySpacePath> exportedData) {
