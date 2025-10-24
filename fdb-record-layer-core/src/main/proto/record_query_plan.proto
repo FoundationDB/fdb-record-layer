@@ -1331,12 +1331,15 @@ message PCastValue {
     NULL_TO_ENUM = 33;
     NULL_TO_UUID = 34;
 
-    // ARRAY conversion
+    // ARRAY to ARRAY conversion
     ARRAY_TO_ARRAY = 35;
 
     // STRING to complex types.
     STRING_TO_ENUM = 36;
     STRING_TO_UUID = 37;
+
+    // ARRAY to VECTOR conversion
+    ARRAY_TO_VECTOR = 38;
   }
   optional PValue child = 1;
   optional PType cast_to_type = 2;

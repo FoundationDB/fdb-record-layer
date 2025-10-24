@@ -22,11 +22,17 @@ package com.apple.foundationdb.record.query.plan.cascades.values;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
+import com.apple.foundationdb.half.Half;
+import com.apple.foundationdb.linear.DoubleRealVector;
+import com.apple.foundationdb.linear.FloatRealVector;
+import com.apple.foundationdb.linear.HalfRealVector;
+import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.planprotos.PCastValue;
 import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
@@ -50,11 +56,14 @@ import com.google.protobuf.Message;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.BiFunction;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * A value that casts an object of a type to an object of another type using SQL CAST semantics.
@@ -237,7 +246,9 @@ public class CastValue extends AbstractValue implements ValueWithChild, Value.Ra
 
         // STRING to complex types.
         STRING_TO_ENUM(Type.TypeCode.STRING, Type.TypeCode.ENUM, ((descriptor, in) -> PromoteValue.PhysicalOperator.stringToEnumValue((Descriptors.EnumDescriptor)descriptor, (String)in))),
-        STRING_TO_UUID(Type.TypeCode.STRING, Type.TypeCode.UUID, ((descriptor, in) -> PromoteValue.PhysicalOperator.stringToUuidValue((String) in)));
+        STRING_TO_UUID(Type.TypeCode.STRING, Type.TypeCode.UUID, ((descriptor, in) -> PromoteValue.PhysicalOperator.stringToUuidValue((String) in))),
+
+        ARRAY_TO_VECTOR(Type.TypeCode.ARRAY, Type.TypeCode.VECTOR, CastValue::castArrayToVector);
 
         @Nonnull
         private final Type.TypeCode from;
@@ -335,14 +346,20 @@ public class CastValue extends AbstractValue implements ValueWithChild, Value.Ra
             return null;
         }
 
-        // Special handling for array to array casts
+        // Special handling for array to other types.
         if (physicalOperator.equals(PhysicalOperator.ARRAY_TO_ARRAY)) {
             final Type inType = child.getResultType();
             final var fromArray = (Type.Array) inType;
             final var toArray = (Type.Array) castToType;
             final var descriptor = new ArrayCastDescriptor(fromArray, toArray);
             return castArrayToArray(descriptor, childResult);
+        } else if (physicalOperator.equals(PhysicalOperator.ARRAY_TO_VECTOR)) {
+            final Type inType = child.getResultType();
+            final var fromArray = (Type.Array) inType;
+            final var descriptor = new ArrayCastDescriptor(fromArray, castToType);
+            return castArrayToVector(descriptor, childResult);
         }
+
         return physicalOperator.getCastFunction().apply(null, childResult);
     }
 
@@ -527,6 +544,7 @@ public class CastValue extends AbstractValue implements ValueWithChild, Value.Ra
      * @param in the input array to cast
      * @return the cast array
      */
+    @Nullable
     @SuppressWarnings("unchecked")
     private static Object castArrayToArray(Object descriptor, Object in) {
         if (in == null) {
@@ -537,7 +555,8 @@ public class CastValue extends AbstractValue implements ValueWithChild, Value.Ra
         final var sourceArrayType = typeDescriptor.getFromType();
         final var targetArrayType = typeDescriptor.getToType();
         final var sourceElementType = sourceArrayType.getElementType();
-        final var targetElementType = targetArrayType.getElementType();
+        Verify.verify(targetArrayType.isArray());
+        final var targetElementType = ((Type.Array)targetArrayType).getElementType();
 
         // Check for null element types
         if (targetElementType == null) {
@@ -575,14 +594,41 @@ public class CastValue extends AbstractValue implements ValueWithChild, Value.Ra
         return resultList;
     }
 
+    @Nullable
+    @SuppressWarnings("unchecked")
+    private static Object castArrayToVector(Object descriptor, Object in) {
+        if (in == null) {
+            return null;
+        }
+
+        final var typeDescriptor = (ArrayCastDescriptor) descriptor;
+        final var sourceArrayType = typeDescriptor.getFromType();
+        final var targetArrayType = typeDescriptor.getToType();
+        final var sourceElementType = sourceArrayType.getElementType();
+        Verify.verify(targetArrayType.isVector());
+        final var targetVectorType = (Type.Vector)targetArrayType;
+
+        final var inputList = (java.util.List<Object>) in;
+
+        if (sourceElementType == null) {
+            SemanticException.fail(SemanticException.ErrorCode.INVALID_CAST, "Source array element type cannot be null");
+        }
+
+        if (inputList.size() != targetVectorType.getDimensions()) {
+            SemanticException.fail(SemanticException.ErrorCode.INVALID_CAST, "Source array is not the same size of the vector");
+        }
+
+        return parseVector(inputList, targetVectorType, sourceElementType);
+    }
+
     /**
      * Descriptor for array to array casting operations.
      */
-    private static class ArrayCastDescriptor {
+    private static final class ArrayCastDescriptor {
         private final Type.Array fromType;
-        private final Type.Array toType;
+        private final Type toType;
 
-        public ArrayCastDescriptor(Type.Array fromType, Type.Array toType) {
+        public ArrayCastDescriptor(Type.Array fromType, Type toType) {
             this.fromType = fromType;
             this.toType = toType;
         }
@@ -591,8 +637,101 @@ public class CastValue extends AbstractValue implements ValueWithChild, Value.Ra
             return fromType;
         }
 
-        public Type.Array getToType() {
+        public Type getToType() {
             return toType;
         }
+    }
+
+    @Nonnull
+    private static RealVector parseHalfVector(@Nonnull final List<Object> array, @Nonnull final Type sourceElementType) {
+        final var sourceTypeCode = sourceElementType.getTypeCode();
+        if (sourceTypeCode == Type.TypeCode.FLOAT) {
+            final var halfArray = array.stream().map(obj -> Half.valueOf((Float)obj)).toArray(Half[]::new);
+            return new HalfRealVector(halfArray);
+        }
+        if (sourceTypeCode == Type.TypeCode.DOUBLE) {
+
+
+            final var doubleArray = array.stream().map(obj -> ((Number)obj).doubleValue()).mapToDouble(Double::doubleValue).toArray();
+            return new HalfRealVector(doubleArray);
+        }
+        if (sourceTypeCode == Type.TypeCode.INT) {
+            final var intArray = array.stream().map(obj -> ((Number)obj).intValue()).mapToInt(Integer::intValue).toArray();
+            return new HalfRealVector(intArray);
+        }
+        if (sourceTypeCode == Type.TypeCode.LONG) {
+            final var longArray = array.stream().map(obj -> ((Number)obj).longValue()).mapToLong(Long::longValue).toArray();
+            return new HalfRealVector(longArray);
+        }
+        SemanticException.fail(SemanticException.ErrorCode.INVALID_CAST, "can not cast array of " + sourceElementType + " to half vector");
+        return null; // not reachable.
+    }
+
+    @Nonnull
+    private static RealVector parseFloatVector(@Nonnull final List<Object> array, @Nonnull final Type sourceElementType) {
+        final var sourceTypeCode = sourceElementType.getTypeCode();
+        if (sourceTypeCode == Type.TypeCode.FLOAT) {
+            final var floatArray = toFloatArray(array.stream().map(obj -> ((Number)obj).floatValue()));
+            return new FloatRealVector(floatArray);
+        }
+        if (sourceTypeCode == Type.TypeCode.DOUBLE) {
+            final var doubleArray = array.stream().map(obj -> ((Number)obj).doubleValue()).mapToDouble(Double::doubleValue).toArray();
+            return new FloatRealVector(doubleArray);
+        }
+        if (sourceTypeCode == Type.TypeCode.INT) {
+            final var intArray = array.stream().map(obj -> ((Number)obj).intValue()).mapToInt(Integer::intValue).toArray();
+            return new FloatRealVector(intArray);
+        }
+        if (sourceTypeCode == Type.TypeCode.LONG) {
+            final var longArray = array.stream().map(obj -> ((Number)obj).longValue()).mapToLong(Long::longValue).toArray();
+            return new FloatRealVector(longArray);
+        }
+        SemanticException.fail(SemanticException.ErrorCode.INVALID_CAST, "can not cast array of " + sourceElementType + " to float vector");
+        return null; // not reachable.
+    }
+
+    @Nonnull
+    private static RealVector parseDoubleVector(@Nonnull final List<Object> array, @Nonnull final Type sourceElementType) {
+        final var sourceTypeCode = sourceElementType.getTypeCode();
+        if (sourceTypeCode == Type.TypeCode.DOUBLE) {
+            final var doubleArray = array.stream().map(obj -> ((Number)obj).doubleValue()).toArray(Double[]::new);
+            return new DoubleRealVector(doubleArray);
+        }
+        if (sourceTypeCode == Type.TypeCode.INT) {
+            final var intArray = array.stream().map(obj -> ((Number)obj).intValue()).mapToInt(Integer::intValue).toArray();
+            return new DoubleRealVector(intArray);
+        }
+        if (sourceTypeCode == Type.TypeCode.LONG) {
+            final var longArray = array.stream().map(obj -> ((Number)obj).longValue()).mapToLong(Long::longValue).toArray();
+            return new DoubleRealVector(longArray);
+        }
+        SemanticException.fail(SemanticException.ErrorCode.INVALID_CAST, "can not cast array of " + sourceElementType + " to double vector");
+        return null; // not reachable.
+    }
+
+
+    @Nonnull
+    private static RealVector parseVector(@Nonnull final List<Object> array, @Nonnull final Type.Vector vectorType,
+                                         @Nonnull final Type sourceElementType) {
+        if (vectorType.getPrecision() == 16) {
+            return parseHalfVector(array, sourceElementType);
+        }
+        if (vectorType.getPrecision() == 32) {
+            return parseFloatVector(array, sourceElementType);
+        }
+        if (vectorType.getPrecision() == 64) {
+            return parseDoubleVector(array, sourceElementType);
+        }
+        throw new RecordCoreException("unexpected vector type " + vectorType);
+    }
+
+    @Nonnull
+    private static float[] toFloatArray(@Nonnull final Stream<Float> floatStream) {
+        List<Float> floatList = floatStream.collect(Collectors.toList());
+        float[] floatArray = new float[floatList.size()];
+        for (int i = 0; i < floatList.size(); i++) {
+            floatArray[i] = floatList.get(i);
+        }
+        return floatArray;
     }
 }

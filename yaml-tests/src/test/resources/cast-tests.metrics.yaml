@@ -34,6 +34,30 @@ cast-operator-tests:
     insert_time_ms: 1
     insert_new_count: 21
     insert_reused_count: 2
+-   query: EXPLAIN select CAST([1.2d, 4.3d, 5.9d] AS INTEGER ARRAY) from test_cast
+        where id = 1
+    explain: SCAN(<,>) | TFILTER TEST_CAST | FILTER _.ID EQUALS promote(@c20 AS LONG)
+        | MAP (CAST(array(@c5, @c7, @c9) AS ARRAY(INT)) AS _0)
+    task_count: 230
+    task_total_time_ms: 15
+    transform_count: 61
+    transform_time_ms: 6
+    transform_yield_count: 15
+    insert_time_ms: 1
+    insert_new_count: 21
+    insert_reused_count: 2
+-   query: EXPLAIN select CAST([80.90f, 25.76f, 16.7f] AS INTEGER ARRAY) from test_cast
+        where id = 1
+    explain: SCAN(<,>) | TFILTER TEST_CAST | FILTER _.ID EQUALS promote(@c20 AS LONG)
+        | MAP (CAST(array(@c5, @c7, @c9) AS ARRAY(INT)) AS _0)
+    task_count: 230
+    task_total_time_ms: 14
+    transform_count: 61
+    transform_time_ms: 7
+    transform_yield_count: 15
+    insert_time_ms: 0
+    insert_new_count: 21
+    insert_reused_count: 2
 -   query: EXPLAIN select CAST(['42', '100', '7'] AS INTEGER ARRAY) from test_cast
         where id = 1
     explain: SCAN(<,>) | TFILTER TEST_CAST | FILTER _.ID EQUALS promote(@c20 AS LONG)

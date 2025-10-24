@@ -29,7 +29,7 @@ test_block:
   preset: single_repetition_ordered
   options:
     statement_type: prepared
-  name: basic-vector-tests
+  name: vector-tests
   tests:
 #    -
 #      # inserting vector literal is not yet supported.
@@ -53,3 +53,105 @@ test_block:
     -
       - query: select * from tDoubleVector
       - result: [{100, !v64 [1.3, 1.4, 1.6]}]
+    -
+      - query: select cast([1.2f, 4.3f, 5.9f] as VECTOR(3, FLOAT)) from tDoubleVector where a = 100
+      - explain: "SCAN(<,>) | TFILTER TDOUBLEVECTOR | FILTER _.A EQUALS promote(@c24 AS LONG) | MAP (CAST(array(@c5, @c7, @c9) AS VECTOR(32, 3)) AS _0)"
+      - result: [{!v32 [1.2, 4.3, 5.9]}]
+    # FLOAT array to HALF vector
+    -
+      - query: select cast([1.2f, 4.3f, 5.9f] as VECTOR(3, HALF)) from tDoubleVector where a = 100
+      - explain: "SCAN(<,>) | TFILTER TDOUBLEVECTOR | FILTER _.A EQUALS promote(@c24 AS LONG) | MAP (CAST(array(@c5, @c7, @c9) AS VECTOR(16, 3)) AS _0)"
+      - result: [{!v16 [1.2, 4.3, 5.9]}]
+    # DOUBLE array to HALF vector
+    -
+      - query: select cast([1.2, 4.3, 5.9] as VECTOR(3, HALF)) from tDoubleVector where a = 100
+      - explain: "SCAN(<,>) | TFILTER TDOUBLEVECTOR | FILTER _.A EQUALS promote(@c24 AS LONG) | MAP (CAST(array(@c5, @c7, @c9) AS VECTOR(16, 3)) AS _0)"
+      - result: [{!v16 [1.2, 4.3, 5.9]}]
+    # INT array to HALF vector
+    -
+      - query: select cast([1, 4, 5] as VECTOR(3, HALF)) from tDoubleVector where a = 100
+      - explain: "SCAN(<,>) | TFILTER TDOUBLEVECTOR | FILTER _.A EQUALS promote(@c24 AS LONG) | MAP (CAST(array(@c5, @c7, @c9) AS VECTOR(16, 3)) AS _0)"
+      - result: [{!v16 [1.0, 4.0, 5.0]}]
+    # LONG array to HALF vector
+    -
+      - query: select cast([1L, 4L, 5L] as VECTOR(3, HALF)) from tDoubleVector where a = 100
+      - explain: "SCAN(<,>) | TFILTER TDOUBLEVECTOR | FILTER _.A EQUALS promote(@c24 AS LONG) | MAP (CAST(array(@c5, @c7, @c9) AS VECTOR(16, 3)) AS _0)"
+      - result: [{!v16 [1.0, 4.0, 5.0]}]
+    # DOUBLE array to FLOAT vector
+    -
+      - query: select cast([1.2, 4.3, 5.9] as VECTOR(3, FLOAT)) from tDoubleVector where a = 100
+      - explain: "SCAN(<,>) | TFILTER TDOUBLEVECTOR | FILTER _.A EQUALS promote(@c24 AS LONG) | MAP (CAST(array(@c5, @c7, @c9) AS VECTOR(32, 3)) AS _0)"
+      - result: [{!v32 [1.2, 4.3, 5.9]}]
+    # INT array to FLOAT vector
+    -
+      - query: select cast([1, 4, 5] as VECTOR(3, FLOAT)) from tDoubleVector where a = 100
+      - explain: "SCAN(<,>) | TFILTER TDOUBLEVECTOR | FILTER _.A EQUALS promote(@c24 AS LONG) | MAP (CAST(array(@c5, @c7, @c9) AS VECTOR(32, 3)) AS _0)"
+      - result: [{!v32 [1.0, 4.0, 5.0]}]
+    # LONG array to FLOAT vector
+    -
+      - query: select cast([1L, 4L, 5L] as VECTOR(3, FLOAT)) from tDoubleVector where a = 100
+      - explain: "SCAN(<,>) | TFILTER TDOUBLEVECTOR | FILTER _.A EQUALS promote(@c24 AS LONG) | MAP (CAST(array(@c5, @c7, @c9) AS VECTOR(32, 3)) AS _0)"
+      - result: [{!v32 [1.0, 4.0, 5.0]}]
+    # DOUBLE array to DOUBLE vector
+    -
+      - query: select cast([1.2, 4.3, 5.9] as VECTOR(3, DOUBLE)) from tDoubleVector where a = 100
+      - result: [{!v64 [1.2, 4.3, 5.9]}]
+    # INT array to DOUBLE vector
+    -
+      - query: select cast([1, 4, 5] as VECTOR(3, DOUBLE)) from tDoubleVector where a = 100
+      - explain: "SCAN(<,>) | TFILTER TDOUBLEVECTOR | FILTER _.A EQUALS promote(@c24 AS LONG) | MAP (CAST(array(@c5, @c7, @c9) AS VECTOR(64, 3)) AS _0)"
+      - result: [{!v64 [1.0, 4.0, 5.0]}]
+    # LONG array to DOUBLE vector
+    -
+      - query: select cast([1L, 4L, 5L] as VECTOR(3, DOUBLE)) from tDoubleVector where a = 100
+      - explain: "SCAN(<,>) | TFILTER TDOUBLEVECTOR | FILTER _.A EQUALS promote(@c24 AS LONG) | MAP (CAST(array(@c5, @c7, @c9) AS VECTOR(64, 3)) AS _0)"
+      - result: [{!v64 [1.0, 4.0, 5.0]}]
+    # Mix of integer and float conversions to HALF
+    -
+      - query: select cast([1, 2.5, 3L] as VECTOR(3, HALF)) from tDoubleVector where a = 100
+      - explain: "SCAN(<,>) | TFILTER TDOUBLEVECTOR | FILTER _.A EQUALS promote(@c24 AS LONG) | MAP (CAST(array(@c5, @c7, @c9) AS VECTOR(16, 3)) AS _0)"
+      - result: [{!v16 [1.0, 2.5, 3.0]}]
+    # Mix of integer and double conversions to FLOAT
+    -
+      - query: select cast([1, 2.5, 3L] as VECTOR(3, FLOAT)) from tDoubleVector where a = 100
+      - explain: "SCAN(<,>) | TFILTER TDOUBLEVECTOR | FILTER _.A EQUALS promote(@c24 AS LONG) | MAP (CAST(array(@c5, @c7, @c9) AS VECTOR(32, 3)) AS _0)"
+      - result: [{!v32 [1.0, 2.5, 3.0]}]
+    # Large numbers in LONG array to HALF vector
+    -
+      - query: select cast([1000L, 2000L, 3000L] as VECTOR(3, HALF)) from tDoubleVector where a = 100
+      - explain: "SCAN(<,>) | TFILTER TDOUBLEVECTOR | FILTER _.A EQUALS promote(@c24 AS LONG) | MAP (CAST(array(@c5, @c7, @c9) AS VECTOR(16, 3)) AS _0)"
+      - result: [{!v16 [1000.0, 2000.0, 3000.0]}]
+    # Large numbers in LONG array to FLOAT vector
+    -
+      - query: select cast([1000000L, 2000000L, 3000000L] as VECTOR(3, FLOAT)) from tDoubleVector where a = 100
+      - explain: "SCAN(<,>) | TFILTER TDOUBLEVECTOR | FILTER _.A EQUALS promote(@c24 AS LONG) | MAP (CAST(array(@c5, @c7, @c9) AS VECTOR(32, 3)) AS _0)"
+      - result: [{!v32 [1000000.0, 2000000.0, 3000000.0]}]
+    # Negative numbers to vectors
+    -
+      - query: select cast([-1.5, -2.5, -3.5] as VECTOR(3, HALF)) from tDoubleVector where a = 100
+      - explain: "SCAN(<,>) | TFILTER TDOUBLEVECTOR | FILTER _.A EQUALS promote(@c27 AS LONG) | MAP (CAST(array(@c5, @c8, @c11) AS VECTOR(16, 3)) AS _0)"
+      - result: [{!v16 [-1.5, -2.5, -3.5]}]
+    -
+      - query: select cast([-1.5f, -2.5f, -3.5f] as VECTOR(3, FLOAT)) from tDoubleVector where a = 100
+      - explain: "SCAN(<,>) | TFILTER TDOUBLEVECTOR | FILTER _.A EQUALS promote(@c27 AS LONG) | MAP (CAST(array(@c5, @c8, @c11) AS VECTOR(32, 3)) AS _0)"
+      - result: [{!v32 [-1.5, -2.5, -3.5]}]
+    -
+      - query: select cast([-100, -200, -300] as VECTOR(3, DOUBLE)) from tDoubleVector where a = 100
+      - explain: "SCAN(<,>) | TFILTER TDOUBLEVECTOR | FILTER _.A EQUALS promote(@c27 AS LONG) | MAP (CAST(array(@c5, @c8, @c11) AS VECTOR(64, 3)) AS _0)"
+      - result: [{!v64 [-100.0, -200.0, -300.0]}]
+    # STRING array to vector should fail
+    -
+      - query: select cast(['a', 'b', 'c'] as VECTOR(3, FLOAT)) from tDoubleVector where a = 100
+      - error: "22F3H"
+    # BOOLEAN array to vector should fail
+    -
+      - query: select cast([true, false, true] as VECTOR(3, HALF)) from tDoubleVector where a = 100
+      - error: "22F3H"
+    # Mismatched dimensions should fail (array has 4 elements, vector expects 3)
+    -
+      - query: select cast([1.0, 2.0, 3.0, 4.0] as VECTOR(3, FLOAT)) from tDoubleVector where a = 100
+      - error: "22F3H"
+    # Mismatched dimensions should fail (array has 2 elements, vector expects 3)
+    -
+      - query: select cast([1.0, 2.0] as VECTOR(3, DOUBLE)) from tDoubleVector where a = 100
+      - error: "22F3H"
