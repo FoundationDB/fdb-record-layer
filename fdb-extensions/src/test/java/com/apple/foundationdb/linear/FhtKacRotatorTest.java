@@ -74,7 +74,7 @@ public class FhtKacRotatorTest {
     @MethodSource("randomSeedsWithNumDimensions")
     void testOrthogonality(final long seed, final int numDimensions) {
         final FhtKacRotator rotator = new FhtKacRotator(seed, numDimensions, 10);
-        final ColumnMajorRealMatrix p = new ColumnMajorRealMatrix(rotator.computeP().transpose().getData());
+        final ColumnMajorRealMatrix p = rotator.computeP().transpose().quickTranspose();
 
         for (int j = 0; j < numDimensions; j ++) {
             final RealVector rotated = rotator.operateTranspose(new DoubleRealVector(p.getColumn(j)));

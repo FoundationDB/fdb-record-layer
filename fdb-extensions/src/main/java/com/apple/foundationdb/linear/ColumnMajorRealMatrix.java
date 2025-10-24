@@ -41,8 +41,7 @@ public class ColumnMajorRealMatrix implements RealMatrix {
     }
 
     @Nonnull
-    @Override
-    public double[][] getData() {
+    private double[][] getData() {
         return data;
     }
 
@@ -68,7 +67,7 @@ public class ColumnMajorRealMatrix implements RealMatrix {
 
     @Nonnull
     @Override
-    public RealMatrix transpose() {
+    public ColumnMajorRealMatrix transpose() {
         int n = getRowDimension();
         int m = getColumnDimension();
         double[][] result = new double[n][m];
@@ -82,7 +81,7 @@ public class ColumnMajorRealMatrix implements RealMatrix {
 
     @Nonnull
     @Override
-    public RealMatrix multiply(@Nonnull final RealMatrix otherMatrix) {
+    public ColumnMajorRealMatrix multiply(@Nonnull final RealMatrix otherMatrix) {
         Preconditions.checkArgument(getColumnDimension() == otherMatrix.getRowDimension());
         int n = getRowDimension();
         int m = otherMatrix.getColumnDimension();
@@ -100,7 +99,8 @@ public class ColumnMajorRealMatrix implements RealMatrix {
 
     @Nonnull
     @Override
-    public RealMatrix subMatrix(final int startRow, final int lengthRow, final int startColumn, final int lengthColumn) {
+    public ColumnMajorRealMatrix subMatrix(final int startRow, final int lengthRow,
+                                           final int startColumn, final int lengthColumn) {
         final double[][] subData = new double[lengthColumn][lengthRow];
 
         for (int j = startColumn; j < startColumn + lengthColumn; j ++) {
@@ -113,7 +113,13 @@ public class ColumnMajorRealMatrix implements RealMatrix {
     @Nonnull
     @Override
     public RowMajorRealMatrix toRowMajor() {
-        return new RowMajorRealMatrix(transpose().getData());
+        return new RowMajorRealMatrix(getRowMajorData());
+    }
+
+    @Nonnull
+    @Override
+    public double[][] getRowMajorData() {
+        return transpose().getData();
     }
 
     @Nonnull
@@ -124,8 +130,20 @@ public class ColumnMajorRealMatrix implements RealMatrix {
 
     @Nonnull
     @Override
-    public RealMatrix quickTranspose() {
+    public double[][] getColumnMajorData() {
+        return getData();
+    }
+
+    @Nonnull
+    @Override
+    public RowMajorRealMatrix quickTranspose() {
         return new RowMajorRealMatrix(data);
+    }
+
+    @Nonnull
+    @Override
+    public RowMajorRealMatrix flipMajor() {
+        return (RowMajorRealMatrix)RealMatrix.super.flipMajor();
     }
 
     @Override
