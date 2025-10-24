@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.provider.foundationdb.keyspace;
 
 import com.apple.foundationdb.KeyValue;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
@@ -32,6 +33,7 @@ import java.util.concurrent.CompletableFuture;
 /**
  * Class representing a {@link KeyValue} pair within in {@link KeySpacePath}.
  */
+@API(API.Status.EXPERIMENTAL)
 public class DataInKeySpacePath {
 
     @Nonnull
