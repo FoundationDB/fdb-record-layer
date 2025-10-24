@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
+import com.google.common.annotations.VisibleForTesting;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -270,5 +271,17 @@ public class ResolvedKeySpacePath {
         } else {
             sb.append(value);
         }
+    }
+
+    /**
+     * Returns a new {@code ResolvedKeySpacePath} that is the same, except with the provided {@link #getRemainder()}.
+     * @param newRemainder a new remainder. This can be {@code null} to remove the remainder entirely.
+     * @return a new {@code ResolvedKeySpacePath} that is the same as this, except with a different {@link #getRemainder()}.
+     */
+    @Nonnull
+    @VisibleForTesting
+    ResolvedKeySpacePath withRemainder(@Nullable final Tuple newRemainder) {
+        // this could probably copy the cachedTuple & cachedSubspace
+        return new ResolvedKeySpacePath(parent, inner, value, newRemainder);
     }
 }
