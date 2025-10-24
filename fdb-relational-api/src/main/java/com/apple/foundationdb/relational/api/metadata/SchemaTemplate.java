@@ -67,6 +67,15 @@ public interface SchemaTemplate extends Metadata {
     Set<? extends Table> getTables() throws RelationalException;
 
     /**
+     * Returns the {@link View}s inside the schema template.
+     *
+     * @return The {@link View}s inside the schema template.
+     * @throws RelationalException if it is a NoOpSchemaTemplate
+     */
+    @Nonnull
+    Set<? extends View> getViews() throws RelationalException;
+
+    /**
      * Retrieves a {@link Table} by looking up its name.
      *
      * @param tableName The name of the {@link Table}.
@@ -74,6 +83,9 @@ public interface SchemaTemplate extends Metadata {
      */
     @Nonnull
     Optional<Table> findTableByName(@Nonnull String tableName) throws RelationalException;
+
+    @Nonnull
+    Optional<? extends View> findViewByName(@Nonnull String viewName) throws RelationalException;
 
     @Nonnull
     Multimap<String, String> getTableIndexMapping() throws RelationalException;

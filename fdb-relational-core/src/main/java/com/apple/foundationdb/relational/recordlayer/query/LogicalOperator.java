@@ -183,6 +183,8 @@ public class LogicalOperator {
             return cteMaybe.get().withNewSharedReferenceAndAlias(alias);
         } else if (semanticAnalyzer.tableExists(identifier)) {
             return logicalOperatorCatalog.lookupTableAccess(identifier, alias, requestedIndexes, semanticAnalyzer);
+        } else if (semanticAnalyzer.viewExists(identifier)) {
+            return semanticAnalyzer.resolveView(identifier);
         } else if (semanticAnalyzer.functionExists(identifier)) {
             return semanticAnalyzer.resolveTableFunction(identifier, Expressions.empty(), false);
         } else {
