@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.relational.recordlayer.query.functions;
 
-import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
@@ -86,7 +85,7 @@ public class CompilableSqlFunction extends UserDefinedFunction implements WithPl
 
     @Nonnull
     @Override
-    public RecordMetaDataProto.PUserDefinedFunction toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public RecordMetaDataProto.PUserDefinedFunction toProto() {
         throw new RecordCoreException("attempt to serialize compiled SQL function");
     }
 

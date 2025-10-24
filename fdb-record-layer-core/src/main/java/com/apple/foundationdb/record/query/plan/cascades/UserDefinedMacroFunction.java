@@ -20,17 +20,17 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
-import com.apple.foundationdb.record.PlanDeserializer;
+import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaDataProto;
-import com.apple.foundationdb.record.planprotos.PUserDefinedMacroFunctionValue;
+import com.apple.foundationdb.record.planprotos.PUserDefinedMacroFunction;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.RegularTranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
-import com.google.auto.service.AutoService;
+import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
 
 import javax.annotation.Nonnull;
 import java.util.List;
@@ -69,13 +69,15 @@ public class UserDefinedMacroFunction extends UserDefinedFunction {
 
     @Nonnull
     @Override
-    public RecordMetaDataProto.PUserDefinedFunction toProto(@Nonnull PlanSerializationContext serializationContext) {
-        PUserDefinedMacroFunctionValue.Builder builder = PUserDefinedMacroFunctionValue.newBuilder();
+    public RecordMetaDataProto.PUserDefinedFunction toProto() {
+        PlanSerializationContext serializationContext = new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE,
+                PlanHashable.CURRENT_FOR_CONTINUATION);
+        PUserDefinedMacroFunction.Builder builder = PUserDefinedMacroFunction.newBuilder();
         for (int i = 0; i < parameterTypes.size(); i++) {
             builder.addArguments(QuantifiedObjectValue.of(parameterIdentifiers.get(i), parameterTypes.get(i)).toValueProto(serializationContext));
         }
         return RecordMetaDataProto.PUserDefinedFunction.newBuilder()
-                .setUserDefinedScalarFunction(builder
+                .setUserDefinedMacroFunction(builder
                         .setFunctionName(functionName)
                         .setBody(bodyValue.toValueProto(serializationContext)))
                 .build();
@@ -89,29 +91,12 @@ public class UserDefinedMacroFunction extends UserDefinedFunction {
     }
 
     @Nonnull
-    public static UserDefinedMacroFunction fromProto(@Nonnull final PlanSerializationContext serializationContext, @Nonnull final PUserDefinedMacroFunctionValue functionValue) {
+    public static UserDefinedMacroFunction fromProto(@Nonnull final PUserDefinedMacroFunction function) {
+        PlanSerializationContext serializationContext = new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE,
+                PlanHashable.CURRENT_FOR_CONTINUATION);
         return new UserDefinedMacroFunction(
-                functionValue.getFunctionName(),
-                functionValue.getArgumentsList().stream().map(pvalue -> ((QuantifiedObjectValue)Value.fromValueProto(serializationContext, pvalue))).collect(Collectors.toList()),
-                Value.fromValueProto(serializationContext, functionValue.getBody()));
-    }
-
-    /**
-     * Deserializer.
-     */
-    @AutoService(PlanDeserializer.class)
-    public static class Deserializer implements PlanDeserializer<PUserDefinedMacroFunctionValue, UserDefinedMacroFunction> {
-        @Nonnull
-        @Override
-        public Class<PUserDefinedMacroFunctionValue> getProtoMessageClass() {
-            return PUserDefinedMacroFunctionValue.class;
-        }
-
-        @Nonnull
-        @Override
-        public UserDefinedMacroFunction fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                  @Nonnull final PUserDefinedMacroFunctionValue functionValue) {
-            return UserDefinedMacroFunction.fromProto(serializationContext, functionValue);
-        }
+                function.getFunctionName(),
+                function.getArgumentsList().stream().map(pvalue -> ((QuantifiedObjectValue)Value.fromValueProto(serializationContext, pvalue))).collect(Collectors.toList()),
+                Value.fromValueProto(serializationContext, function.getBody()));
     }
 }
