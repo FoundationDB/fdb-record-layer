@@ -95,6 +95,13 @@ FDB_CLUSTER_FILE=${FDB_CLUSTER_FILE}
 ${LIBRARY_PATH}=${RUNDIR}
 EOF
 
+cat >${ROOTDIR}/fdb-environment.yaml <<EOF
+# docker-local
+clusterFiles:
+  - ${FDB_CLUSTER_FILE}
+libraryPath: ${RUNDIR}
+EOF
+
 cat ${ROOTDIR}/fdb-environment.properties
 
 echo "Docker-based FDB cluster is now up."

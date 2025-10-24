@@ -105,6 +105,10 @@ public class ExternalServer {
         return version;
     }
 
+    public String getClusterFile() {
+        return clusterFile;
+    }
+
     public void start() throws Exception {
         grpcPort = getAvailablePort(-1);
         final int httpPort = getAvailablePort(grpcPort);

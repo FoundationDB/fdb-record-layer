@@ -31,12 +31,57 @@ runs:
     - name: Install FDB Server
       shell: bash
       run: sudo dpkg -i ~/.fdb-cache/${{ steps.fdb_filenames.outputs.client_deb }} ~/.fdb-cache/${{ steps.fdb_filenames.outputs.server_deb }}
-    - name: Fix FDB Network Addresses
+    - name: Stop default fdb
       shell: bash
-      run: sudo sed -i -e "s/public_address = auto:\$ID/public_address = 127.0.0.1:\$ID/g" -e "s/listen_address = public/listen_address = 0.0.0.0:\$ID/g" /etc/foundationdb/foundationdb.conf
-    - name: Start FDB Server
+      run: sudo service foundationdb stop
+
+    - name: Create cluster1 config
       shell: bash
-      run: sudo /usr/lib/foundationdb/fdbmonitor /etc/foundationdb/foundationdb.conf --daemonize
-    - name: Switch FDB to SSD
+      run: |
+        sudo cp /etc/foundationdb/foundationdb.conf /etc/foundationdb/foundationdb1.conf
+
+        sudo sed -i -e "s/\/etc\/foundationdb\/fdb.cluster/\/etc\/foundationdb\/fdb1.cluster/g" \
+        -e "s/\/var\/log\/foundationdb/\/var\/log\/foundationdb1/" \
+        -e "s/fdbserver.4500/fdbserver.4600/g" \
+        /etc/foundationdb/foundationdb1.conf
+        
+        sudo bash -c "echo 'fdb1:$(mktemp -u XXXXXXXX)@127.0.0.1:4600' > /etc/foundationdb/fdb1.cluster"
+    - name: Create cluster2 config
       shell: bash
-      run: fdbcli --exec "configure single ssd storage_migration_type=aggressive; status"
+      run: |
+        sudo cp /etc/foundationdb/foundationdb.conf /etc/foundationdb/foundationdb2.conf
+        
+        sudo sed -i -e "s/\/etc\/foundationdb\/fdb.cluster/\/etc\/foundationdb\/fdb2.cluster/g" \
+        -e "s/\/var\/log\/foundationdb/\/var\/log\/foundationdb2/" \
+        -e "s/fdbserver.4500/fdbserver.4700/g" \
+        /etc/foundationdb/foundationdb2.conf
+        
+        sudo bash -c "echo 'fdb2:$(mktemp -u XXXXXXXX)@127.0.0.1:4700' > /etc/foundationdb/fdb2.cluster"
+
+    - name: create dirs & set permissions
+      shell: bash
+      run: |
+        sudo mkdir /var/log/foundationdb1 /var/log/foundationdb2
+        sudo chown foundationdb:foundationdb /etc/foundationdb/fdb1.cluster /etc/foundationdb/fdb2.cluster /var/log/foundationdb1 /var/log/foundationdb2
+        sudo chmod 664 /etc/foundationdb/fdb1.cluster /etc/foundationdb/fdb2.cluster
+        sudo chmod 700 /var/log/foundationdb1 /var/log/foundationdb2
+
+    - name: Start FDB Server 1
+      shell: bash
+      run: sudo /usr/lib/foundationdb/fdbmonitor --conffile /etc/foundationdb/foundationdb1.conf --lockfile /var/run/fdbmonitor1.pid --loggroup fdb1 --daemonize
+    - name: Start FDB Server 2
+      shell: bash
+      run: sudo /usr/lib/foundationdb/fdbmonitor --conffile /etc/foundationdb/foundationdb2.conf --lockfile /var/run/fdbmonitor2.pid --loggroup fdb2 --daemonize
+
+    - name: Switch FDB 1 to SSD
+      shell: bash
+      run: fdbcli -C /etc/foundationdb/fdb1.cluster --exec "configure new single ssd storage_migration_type=aggressive; status"
+    - name: Switch FDB 2 to SSD
+      shell: bash
+      run: fdbcli -C /etc/foundationdb/fdb2.cluster --exec "configure new single ssd storage_migration_type=aggressive; status"
+    - name: Create fdb-environment.yaml
+      shell: bash
+      run: |
+        echo "clusterFiles: " >> fdb-environment.yaml
+        echo "  - /etc/foundationdb/fdb1.cluster" >> fdb-environment.yaml
+        echo "  - /etc/foundationdb/fdb2.cluster" >> fdb-environment.yaml

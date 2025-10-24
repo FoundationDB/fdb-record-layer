@@ -38,9 +38,11 @@ import java.util.Set;
 public class JDBCInProcessYamlConnectionFactory implements YamlConnectionFactory {
     private static final Logger LOG = LogManager.getLogger(JDBCInProcessYamlConnectionFactory.class);
     private final InProcessRelationalServer server;
+    private final String clusterFile;
 
-    public JDBCInProcessYamlConnectionFactory(final InProcessRelationalServer server) {
+    public JDBCInProcessYamlConnectionFactory(final InProcessRelationalServer server, final String clusterFile) {
         this.server = server;
+        this.clusterFile = clusterFile;
     }
 
     @Override
@@ -49,7 +51,7 @@ public class JDBCInProcessYamlConnectionFactory implements YamlConnectionFactory
         URI connectPathPlusServerName = JDBCURI.addQueryParameter(connectPath, JDBCURI.INPROCESS_URI_QUERY_SERVERNAME_KEY, server.getServerName());
         String uriStr = connectPathPlusServerName.toString().replaceFirst("embed:", "relational://");
         LOG.info("Rewrote {} as {}", connectPath, uriStr);
-        return new SimpleYamlConnection(DriverManager.getConnection(uriStr), SemanticVersion.current(), "JDBC In-Process");
+        return new SimpleYamlConnection(DriverManager.getConnection(uriStr), SemanticVersion.current(), "JDBC In-Process", clusterFile);
     }
 
     @Override

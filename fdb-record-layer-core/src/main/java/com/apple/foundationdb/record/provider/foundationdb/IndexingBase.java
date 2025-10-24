@@ -510,6 +510,7 @@ public abstract class IndexingBase {
             StoreTimer metricsDiff = null;
             if (timer != null) {
                 metricsDiff = lastProgressSnapshot == null ? timer : StoreTimer.getDifference(timer, lastProgressSnapshot);
+                // Note: this fdb metrics represents all the fdb activity (including merges, heartbeats, etc.) since the previous log message.
                 lastProgressSnapshot = StoreTimerSnapshot.from(timer);
             }
             LOGGER.info(KeyValueLogMessage.build("Indexer: Built Range",
