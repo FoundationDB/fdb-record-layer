@@ -28,9 +28,7 @@ import com.apple.foundationdb.record.RecordMetaDataProvider;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestRecordsGroupedParentChildProto;
 import com.apple.foundationdb.record.cursors.AutoContinuingCursor;
-import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexPredicate;
-import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseRunner;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
@@ -52,10 +50,8 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -64,7 +60,6 @@ import static com.apple.foundationdb.record.lucene.LuceneIndexTestDataModel.CHIL
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestDataModel.PARENT_SEARCH_TERM;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Test for Lucene index scanning where the query contains "*:*" term matching all documents.
@@ -269,23 +264,26 @@ public class LuceneScanAllEntriesTest extends FDBRecordStoreConcurrentTestBase {
 
             // We expect 5 records with even recNo values to be indexed
             assertEquals(5, indexEntries.size(), "Should have indexed only records with even recNo");
+            verifyEvenRecNoOnly(indexEntries, dataModel);
+        }
+    }
 
-            // Verify that all indexed records have even recNo
-            for (IndexEntry entry : indexEntries) {
-                Tuple primaryKey = entry.getPrimaryKey();
-                // The recNo is part of the primary key - need to extract and verify it's even
-                // For grouped records, structure is (group, recNo) or similar
-                // For non-synthetic parent records, the recNo is in the tuple
-                try (FDBRecordContext verifyContext = openContext()) {
-                    FDBRecordStore verifyStore = dataModel.createOrOpenRecordStore(verifyContext);
-                    FDBStoredRecord<?> storedRecord = verifyStore.loadRecord(primaryKey);
-                    assertNotNull(storedRecord, "Record should exist");
-                    com.google.protobuf.Message message = storedRecord.getRecord();
-                    com.google.protobuf.Descriptors.FieldDescriptor recNoField =
-                            message.getDescriptorForType().findFieldByName("rec_no");
-                    long recNo = (long) message.getField(recNoField);
-                    assertEquals(0, recNo % 2, "All indexed records should have even recNo, but found: " + recNo);
-                }
+    private void verifyEvenRecNoOnly(final List<IndexEntry> indexEntries, final LuceneIndexTestDataModel dataModel) {
+        // Verify that all indexed records have even recNo
+        for (IndexEntry entry : indexEntries) {
+            Tuple primaryKey = entry.getPrimaryKey();
+            // The recNo is part of the primary key - need to extract and verify it's even
+            // For grouped records, structure is (group, recNo) or similar
+            // For non-synthetic parent records, the recNo is in the tuple
+            try (FDBRecordContext verifyContext = openContext()) {
+                FDBRecordStore verifyStore = dataModel.createOrOpenRecordStore(verifyContext);
+                FDBStoredRecord<?> storedRecord = verifyStore.loadRecord(primaryKey);
+                assertNotNull(storedRecord, "Record should exist");
+                com.google.protobuf.Message message = storedRecord.getRecord();
+                com.google.protobuf.Descriptors.FieldDescriptor recNoField =
+                        message.getDescriptorForType().findFieldByName("rec_no");
+                long recNo = (long) message.getField(recNoField);
+                assertEquals(0, recNo % 2, "All indexed records should have even recNo, but found: " + recNo);
             }
         }
     }
@@ -295,11 +293,11 @@ public class LuceneScanAllEntriesTest extends FDBRecordStoreConcurrentTestBase {
                                                                    @Nonnull RecordMetaDataProvider metaData,
                                                                    @Nonnull final KeySpacePath path) {
         // Create an index maintenance filter that only indexes records with even recNo
-        IndexMaintenanceFilter evenRecNoFilter = (index, record) -> {
+        IndexMaintenanceFilter evenRecNoFilter = (index, rec) -> {
             com.google.protobuf.Descriptors.FieldDescriptor recNoField =
-                    record.getDescriptorForType().findFieldByName("rec_no");
-            if (recNoField != null && record.hasField(recNoField)) {
-                long recNo = (long) record.getField(recNoField);
+                    rec.getDescriptorForType().findFieldByName("rec_no");
+            if (recNoField != null && rec.hasField(recNoField)) {
+                long recNo = (long) rec.getField(recNoField);
                 if (recNo % 2 == 0) {
                     return IndexMaintenanceFilter.IndexValues.ALL;
                 }
@@ -342,19 +340,6 @@ public class LuceneScanAllEntriesTest extends FDBRecordStoreConcurrentTestBase {
         // Convert to IndexPredicate
         final IndexPredicate indexPredicate = IndexPredicate.fromQueryPredicate(evenRecNoPredicate);
 
-        // Create the root expression and options for the index
-        final KeyExpression rootExpression = LuceneIndexTestDataModel.createRootExpression(isGrouped, false);
-        final Map<String, String> options = new HashMap<>();
-        options.put(LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED, String.valueOf(true));
-        options.put(LuceneIndexOptions.INDEX_PARTITION_BY_FIELD_NAME, "timestamp");
-        options.put(LuceneIndexOptions.INDEX_PARTITION_HIGH_WATERMARK, String.valueOf(10));
-
-        // Create the base index without predicate
-        final Index baseIndex = new Index("joinNestedConcat", rootExpression, LuceneIndexTypes.LUCENE, options);
-
-        // Create a new index with the predicate
-        final Index indexWithPredicate = new Index(baseIndex, indexPredicate);
-
         // Build the data model using the Builder
         final LuceneIndexTestDataModel dataModel = new LuceneIndexTestDataModel.Builder(seed, this::getStoreBuilder, pathManager)
                 .setIsGrouped(isGrouped)
@@ -388,22 +373,7 @@ public class LuceneScanAllEntriesTest extends FDBRecordStoreConcurrentTestBase {
 
             // We expect 5 records with even recNo values to be indexed
             assertEquals(5, indexEntries.size(), "Should have indexed only records with even recNo");
-
-            // Verify that all indexed records have even recNo
-            for (IndexEntry entry : indexEntries) {
-                Tuple primaryKey = entry.getPrimaryKey();
-                try (FDBRecordContext verifyContext = openContext()) {
-                    FDBRecordStore verifyStore = dataModel.createOrOpenRecordStore(verifyContext);
-                    FDBStoredRecord<?> storedRecord = verifyStore.loadRecord(primaryKey);
-                    assertNotNull(storedRecord, "Record should exist");
-                    com.google.protobuf.Message message = storedRecord.getRecord();
-                    com.google.protobuf.Descriptors.FieldDescriptor recNoFieldDesc =
-                            message.getDescriptorForType().findFieldByName("rec_no");
-                    long recNo = (long) message.getField(recNoFieldDesc);
-                    assertEquals(0, recNo % 2, "All indexed records should have even recNo, but found: " + recNo);
-                    assertTrue(recNo >= 1002 && recNo <= 1010, "recNo should be in expected range");
-                }
-            }
+            verifyEvenRecNoOnly(indexEntries, dataModel);
         }
     }
 }
