@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.annotation.API;
 
+import com.apple.foundationdb.half.Half;
 import com.apple.foundationdb.record.query.plan.cascades.TreeLike;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -75,6 +76,9 @@ public final class ParseHelpers {
                 case 'd': // fallthrough
                 case 'D':
                     return Double.parseDouble(valueAsString.substring(0, lastCharIdx));
+                case 'h': // fallthrough
+                case 'H':
+                    return Half.valueOf(valueAsString.substring(0, lastCharIdx));
                 default:
                     return Double.parseDouble(valueAsString);
             }

@@ -60,6 +60,11 @@ message FieldOptions {
     repeated Index.Option options = 3; // Note: there is no way to specify these in a .proto file.
   }
   optional IndexOption index = 3;
+  message VectorOptions {
+    optional int32 precision = 1 [default = 16];
+    optional int32 dimensions = 2 [default = 768];
+  }
+  optional VectorOptions vectorOptions = 4;
 }
 
 extend google.protobuf.FieldOptions {

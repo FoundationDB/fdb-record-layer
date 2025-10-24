@@ -108,11 +108,23 @@ message Parameters {
 
 // A parameter has java sql type as well as actual parameter.
 message Parameter {
-  int32 java_sql_types_code = 1;
+  int32 java_sql_types_code = 1; // deprecated
   // Reuse the column type here. It has much of what we need carrying
   // across parameters as well as null support, etc.
-  Column parameter = 2;
-  Type type = 3;
+  Column parameter = 2; // deprecated
+  Type type = 3; // deprecated
+  ParameterMetadata metadata = 4;
+}
+
+message ParameterMetadata {
+  int32 java_sql_types_code = 1;
+  Type type = 2;
+  oneof metadata {
+    ListColumnMetadata structMetadata = 3;
+    ColumnMetadata arrayMetadata = 4;
+    EnumMetadata enumMetadata = 5;
+    VectorMetadata vectorMetadata = 6;
+  }
 }
 
 message Options {

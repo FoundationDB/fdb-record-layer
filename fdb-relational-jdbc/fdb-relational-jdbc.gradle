@@ -31,6 +31,7 @@ apply from: rootProject.file('gradle/publishing.gradle')
 dependencies {
     implementation project(":fdb-relational-api")
     implementation project(":fdb-relational-grpc")
+    implementation project(":fdb-extensions")
     implementation(libs.grpc.inprocess)
     implementation(libs.grpc.netty)
     implementation(libs.grpc.protobuf)

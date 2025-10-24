@@ -115,7 +115,7 @@ public class ParameterHelperTest {
 
     private static void checkValue(Object value, Parameter actual, Type expectedType, Function<Column, Boolean> typeChecker,
                                    Function<Column, Object> typeGetter, @Nullable Consumer<Object> customAssert) {
-        Assertions.assertEquals(expectedType, actual.getType());
+        Assertions.assertEquals(expectedType, actual.getMetadata().getType());
         Assertions.assertTrue(actual.hasParameter());
         if (value != null) {
             Assertions.assertTrue(typeChecker.apply(actual.getParameter()));
