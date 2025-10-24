@@ -1,0 +1,108 @@
+#
+# select-a-star.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+---
+schema_template:
+    CREATE TYPE AS STRUCT "foo.struct"(S1 bigint, S2 bigint)
+    create table "foo.tableA"("foo.tableA.A1" bigint, "foo.tableA.A2" bigint, "foo.tableA.A3" bigint, primary key("foo.tableA.A1"))
+    create table "foo.tableB"("foo.tableB.B1" bigint, "foo.tableB.B2" bigint, "foo.tableB.B3" "foo.struct", primary key("foo.tableB.B1"))
+    create index "foo.tableA.idx" as select "foo.tableA.A1", "foo.tableA.A2", "foo.tableA.A3" FROM "foo.tableA" order by "foo.tableA.A1", "foo.tableA.A2", "foo.tableA.A3"
+---
+setup:
+  steps:
+    - query: INSERT INTO "foo.tableA"
+        VALUES (1, 10, 1),
+               (2, 10, 2),
+               (3, 10, 3)
+    - query: INSERT INTO "foo.tableB"
+        VALUES (1, 20, (4, 40)),
+               (2, 20, (5, 50)),
+               (3, 20, (6, 60))
+---
+test_block:
+  name: select-star-tests
+  preset: single_repetition_ordered
+  tests:
+    -
+      - query: select "foo.tableB.B1" from "foo.tableB" where exists (select "foo.tableA".*, "foo.tableB.B1" from "foo.tableA" group by "foo.tableA.A1","foo.tableA.A2","foo.tableA.A3");
+      - explain: "SCAN(<,>) | TFILTER foo__2tableB | FLATMAP q0 -> { ISCAN(foo.tableA.idx <,>) | MAP (_ AS _0) | AGG () GROUP BY (_._0.foo__2tableA__2A1 AS _0, _._0.foo__2tableA__2A2 AS _1, _._0.foo__2tableA__2A3 AS _2) | MAP (_._0._0 AS foo__2tableA__2A1, _._0._1 AS foo__2tableA__2A2, _._0._2 AS foo__2tableA__2A3, q0.foo__2tableB__2B1 AS foo__2tableB__2B1) | DEFAULT NULL | FILTER _ NOT_NULL AS q0 RETURN (q0.foo__2tableB__2B1 AS foo__2tableB__2B1) }"
+      - result: [{1}, {2}, {3}]
+    -
+      - query: select "foo.tableA".* from "foo.tableA";
+      - result: [{"foo.tableA.A1": 1 , "foo.tableA.A2": 10, "foo.tableA.A3": 1}, {"foo.tableA.A1": 2, "foo.tableA.A2": 10, "foo.tableA.A3": 2}, {"foo.tableA.A1": 3, "foo.tableA.A2": 10, "foo.tableA.A3": 3}]
+    -
+      - query: select "foo.tableA".* from "foo.tableA" where "foo.tableA.A3" >= 2;
+      - result: [{"foo.tableA.A1": 2, "foo.tableA.A2": 10, "foo.tableA.A3": 2}, {"foo.tableA.A1": 3, "foo.tableA.A2": 10, "foo.tableA.A3": 3}]
+    -
+      - query: select X.* from "foo.tableA" as X;
+      - result: [{"foo.tableA.A1": 1 , 10, 1}, {"foo.tableA.A1": 2, 10, 2}, {"foo.tableA.A1": 3, 10, 3}]
+    -
+      - query: select "foo.tableA".* from "foo.tableA" group by "foo.tableA.A1";
+      - error: "42803"
+    -
+      - query: select * from "foo.tableA", "foo.tableB" where "foo.tableA"."foo.tableA.A1" = "foo.tableB"."foo.tableB.B1";
+      - result: [{"foo.tableA.A1": 1 , "foo.tableA.A2": 10, "foo.tableA.A3": 1, "foo.tableB.B1": 1, "foo.tableB.B2": 20, "foo.tableB.B3": {4, 40}},
+                 {"foo.tableA.A1": 2, "foo.tableA.A2": 10, "foo.tableA.A3": 2, "foo.tableB.B1": 2, "foo.tableB.B2": 20, "foo.tableB.B3": {5, 50}},
+                 {"foo.tableA.A1": 3, "foo.tableA.A2": 10, "foo.tableA.A3": 3, "foo.tableB.B1": 3, "foo.tableB.B2": 20, "foo.tableB.B3": {6, 60}}]
+    -
+      - query: select "foo.tableA".*, "foo.tableB".* from "foo.tableA", "foo.tableB" where "foo.tableA"."foo.tableA.A1" = "foo.tableB"."foo.tableB.B1";
+      - result: [{"foo.tableA.A1": 1 , "foo.tableA.A2": 10, "foo.tableA.A3": 1, "foo.tableB.B1": 1, "foo.tableB.B2": 20, "foo.tableB.B3": {4, 40}},
+                 {"foo.tableA.A1": 2, "foo.tableA.A2": 10, "foo.tableA.A3": 2, "foo.tableB.B1": 2, "foo.tableB.B2": 20, "foo.tableB.B3": {5, 50}},
+                 {"foo.tableA.A1": 3, "foo.tableA.A2": 10, "foo.tableA.A3": 3, "foo.tableB.B1": 3, "foo.tableB.B2": 20, "foo.tableB.B3": {6, 60}}]
+    -
+      - query: select X.*, Y.* from "foo.tableA" as X, "foo.tableB" as Y where X."foo.tableA.A1" = Y."foo.tableB.B1";
+      - result: [{"foo.tableA.A1": 1 , "foo.tableA.A2": 10, "foo.tableA.A3": 1, "foo.tableB.B1": 1, "foo.tableB.B2": 20, "foo.tableB.B3": {4, 40}},
+                 {"foo.tableA.A1": 2, "foo.tableA.A2": 10, "foo.tableA.A3": 2, "foo.tableB.B1": 2, "foo.tableB.B2": 20, "foo.tableB.B3": {5, 50}},
+                 {"foo.tableA.A1": 3, "foo.tableA.A2": 10, "foo.tableA.A3": 3, "foo.tableB.B1": 3, "foo.tableB.B2": 20, "foo.tableB.B3": {6, 60}}]
+    -
+      - query: select Y.*, X.* from "foo.tableA" as X, "foo.tableB" as Y where X."foo.tableA.A1" = Y."foo.tableB.B1";
+      - result: [{"foo.tableB.B1": 1, "foo.tableB.B2": 20, "foo.tableB.B3": {4, 40}, "foo.tableA.A1": 1 , "foo.tableA.A2": 10, "foo.tableA.A3": 1},
+                 {"foo.tableB.B1": 2, "foo.tableB.B2": 20, "foo.tableB.B3": {5, 50}, "foo.tableA.A1": 2, "foo.tableA.A2": 10, "foo.tableA.A3": 2},
+                 {"foo.tableB.B1": 3, "foo.tableB.B2": 20, "foo.tableB.B3": {6, 60}, "foo.tableA.A1": 3, "foo.tableA.A2": 10, "foo.tableA.A3": 3}]
+    -
+      - query: select "foo.tableA".*, "foo.tableB".* from "foo.tableA", "foo.tableB" where "foo.tableA"."foo.tableA.A1" = "foo.tableB"."foo.tableB.B1" group by "foo.tableA.A1";
+      - error: "42803"
+    -
+      - query: select "foo.tableB.B1" from "foo.tableB" where exists (select "foo.tableA".*, "foo.tableB.B1" from "foo.tableA" group by "foo.tableA.A1","foo.tableA.A2","foo.tableA.A3");
+      - explain: "SCAN(<,>) | TFILTER foo__2tableB | FLATMAP q0 -> { ISCAN(foo.tableA.idx <,>) | MAP (_ AS _0) | AGG () GROUP BY (_._0.foo__2tableA__2A1 AS _0, _._0.foo__2tableA__2A2 AS _1, _._0.foo__2tableA__2A3 AS _2) | MAP (_._0._0 AS foo__2tableA__2A1, _._0._1 AS foo__2tableA__2A2, _._0._2 AS foo__2tableA__2A3, q0.foo__2tableB__2B1 AS foo__2tableB__2B1) | DEFAULT NULL | FILTER _ NOT_NULL AS q0 RETURN (q0.foo__2tableB__2B1 AS foo__2tableB__2B1) }"
+      - result: [{1}, {2}, {3}]
+    -
+      - query: select "foo.tableB".* from "foo.tableB" where exists (select "foo.tableA".*, "foo.tableB".* from "foo.tableA" group by "foo.tableA.A1","foo.tableA.A2","foo.tableA.A3");
+      - explain: "SCAN(<,>) | TFILTER foo__2tableB | FLATMAP q0 -> { ISCAN(foo.tableA.idx <,>) | MAP (_ AS _0) | AGG () GROUP BY (_._0.foo__2tableA__2A1 AS _0, _._0.foo__2tableA__2A2 AS _1, _._0.foo__2tableA__2A3 AS _2) | MAP (_._0._0 AS foo__2tableA__2A1, _._0._1 AS foo__2tableA__2A2, _._0._2 AS foo__2tableA__2A3, q0.foo__2tableB__2B1 AS foo__2tableB__2B1, q0.foo__2tableB__2B2 AS foo__2tableB__2B2, q0.foo__2tableB__2B3 AS foo__2tableB__2B3) | DEFAULT NULL | FILTER _ NOT_NULL AS q0 RETURN q0 }"
+      - result: [{1, 20, {4, 40}},
+                 {2, 20, {5, 50}},
+                 {3, 20, {6, 60}}]
+    -
+      # Not yet supported
+      - query: select "foo.tableB"."foo.tableB.B3".* from "foo.tableB";
+      - error: "42601"
+    -
+      # Should never be supported
+      - query: select "foo.tableB".*.S1 from "foo.tableB";
+      - error: "42601"
+    -
+      # Ambiguous column "foo.tableA.A1" (error code is now correct).
+      - query: select "foo.tableA.A1" from (select "foo.tableA".*, "foo.tableA".* from "foo.tableA") as nested
+      - error: "42702"
+#    -
+#      - query: select A.*, SUM("foo.tableB.B1") from A, B where A."foo.tableA.A1" = B."foo.tableB.B1" group by "foo.tableA.A1", "foo.tableA.A2", "foo.tableA.A3";
+#      - result: [{"foo.tableA.A1": 1 , "foo.tableA.A2": 10, "foo.tableA.A3": 1, 1},
+#                 {"foo.tableA.A1": 2, "foo.tableA.A2": 10, "foo.tableA.A3": 2, 2},
+#                 {"foo.tableA.A1": 3, "foo.tableA.A2": 10, "foo.tableA.A3": 3, 3}]
+...

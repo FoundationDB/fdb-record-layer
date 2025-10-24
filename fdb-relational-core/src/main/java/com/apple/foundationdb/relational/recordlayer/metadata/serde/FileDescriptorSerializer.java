@@ -104,7 +104,7 @@ public class FileDescriptorSerializer extends SkeletonVisitor {
         for (var version : generations.entrySet()) {
             final var tableEntryInUnionDescriptor = DescriptorProtos.FieldDescriptorProto.newBuilder()
                     .setNumber(version.getKey())
-                    .setName(recordLayerTable.getName() + "_" + (fieldCounter++))
+                    .setName(recordLayerTable.getProtoBufCompliantName() + "_" + (fieldCounter++))
                     .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_MESSAGE)
                     .setTypeName(typeDescriptor)
                     .setOptions(version.getValue())

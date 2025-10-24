@@ -21,10 +21,10 @@
 package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.annotation.API;
-
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
@@ -59,7 +59,10 @@ public class Identifier {
 
     @Override
     public String toString() {
-        return String.join(".", qualifier) + (qualifier.isEmpty() ? "" : ".") + name;
+        final var components = new ArrayList<String>();
+        qualifier.forEach(component -> components.add("\"" + component + "\""));
+        components.add("\"" + name + "\"");
+        return String.join(".", components);
     }
 
     @Nonnull

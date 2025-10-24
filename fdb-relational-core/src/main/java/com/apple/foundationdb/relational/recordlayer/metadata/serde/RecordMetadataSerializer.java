@@ -21,7 +21,6 @@
 package com.apple.foundationdb.relational.recordlayer.metadata.serde;
 
 import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.metadata.Index;
@@ -41,6 +40,8 @@ import com.apple.foundationdb.relational.util.Assert;
 import com.google.protobuf.Descriptors;
 
 import javax.annotation.Nonnull;
+import java.util.HashSet;
+import java.util.Set;
 
 @API(API.Status.EXPERIMENTAL)
 public class RecordMetadataSerializer extends SkeletonVisitor {
@@ -49,6 +50,8 @@ public class RecordMetadataSerializer extends SkeletonVisitor {
     private final RecordMetaDataBuilder builder;
 
     private int recordTypeCounter;
+
+    private final Set<RecordLayerTable> tables = new HashSet<>();
 
     public RecordMetadataSerializer(@Nonnull final Descriptors.FileDescriptor fileDescriptor) {
         this(RecordMetaData.newBuilder().setRecords(fileDescriptor));
@@ -63,8 +66,9 @@ public class RecordMetadataSerializer extends SkeletonVisitor {
     public void visit(@Nonnull Table table) {
         Assert.thatUnchecked(table instanceof RecordLayerTable);
         final var recLayerTable = (RecordLayerTable) table;
+        tables.add(recLayerTable);
         final KeyExpression keyExpression = recLayerTable.getPrimaryKey();
-        final RecordTypeBuilder recordType = getBuilder().getRecordType(table.getName());
+        final RecordTypeBuilder recordType = getBuilder().getRecordType(((RecordLayerTable)table).getProtoBufCompliantName());
         recordType.setRecordTypeKey(recordTypeCounter++);
         recordType.setPrimaryKey(keyExpression);
     }
@@ -77,8 +81,9 @@ public class RecordMetadataSerializer extends SkeletonVisitor {
         // have a version that matches the schema template's version
         // See: TODO (Relational index misses version information)
         Assert.thatUnchecked(index instanceof RecordLayerIndex);
+        final var sourceTable = tables.stream().filter(table -> table.getName().equals(index.getTableName())).findFirst();
         final var recLayerIndex = (RecordLayerIndex) index;
-        getBuilder().addIndex(index.getTableName(),
+        getBuilder().addIndex(sourceTable.orElseThrow().getProtoBufCompliantName(),
                 new Index(index.getName(),
                         recLayerIndex.getKeyExpression(),
                         index.getIndexType(),

@@ -234,7 +234,7 @@ public class TemporaryFunctionTests {
                         .containsInMessage("Attempt to DROP an undefined temporary function: SQ2");
                 statement.execute("drop temporary function sq1");
                 RelationalAssertions.assertThrowsSqlException(() -> statement.execute("select * from sq1(x => 34)"))
-                        .containsInMessage("Unknown function SQ1");
+                        .containsInMessage("Unknown function \"SQ1\"");
             }
             connection.rollback();
             // no temporary functions defined
@@ -285,7 +285,7 @@ public class TemporaryFunctionTests {
                 statement.execute("drop temporary function if exists sq2");
                 statement.execute("drop temporary function if exists sq1");
                 RelationalAssertions.assertThrowsSqlException(() -> statement.execute("select * from sq1(x => 34)"))
-                        .containsInMessage("Unknown function SQ1");
+                        .containsInMessage("Unknown function \"SQ1\"");
             }
             connection.rollback();
             // function is not defined
@@ -1023,7 +1023,7 @@ public class TemporaryFunctionTests {
                 RelationalAssertions.assertThrowsSqlException(() -> statement.execute("create temporary function sq1(in x bigint) " +
                                 "on commit drop function as select * from t1 where a < 40 + x "))
                         .hasErrorCode(ErrorCode.UNDEFINED_TABLE)
-                        .hasMessageContaining("Unknown table T1");
+                        .hasMessageContaining("Unknown table \"T1\"");
             }
             connection.rollback();
         }
@@ -1045,7 +1045,7 @@ public class TemporaryFunctionTests {
                 RelationalAssertions.assertThrowsSqlException(() -> statement.execute("create temporary function sq1(in x bigint) " +
                                 "on commit drop function as select * from t1 where a < 40 + x "))
                         .hasErrorCode(ErrorCode.UNDEFINED_TABLE)
-                        .hasMessageContaining("Unknown table t1");
+                        .hasMessageContaining("Unknown table \"t1\"");
             }
             connection.rollback();
         }

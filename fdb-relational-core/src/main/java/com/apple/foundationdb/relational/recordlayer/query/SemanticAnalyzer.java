@@ -248,9 +248,9 @@ public class SemanticAnalyzer {
     }
 
     @Nonnull
-    public Set<String> getAllTableNames() {
+    public Set<? extends Table> getAllTables() {
         try {
-            return metadataCatalog.getTables().stream().map(Metadata::getName).collect(ImmutableSet.toImmutableSet());
+            return metadataCatalog.getTables();
         } catch (RelationalException e) {
             throw e.toUncheckedWrappedException();
         }
@@ -377,7 +377,8 @@ public class SemanticAnalyzer {
     private List<Expression> lookup(@Nonnull Identifier referenceIdentifier,
                                     @Nonnull LogicalOperators operators,
                                     boolean matchQualifiedOnly) {
-        if (matchQualifiedOnly && !referenceIdentifier.isQualified()) {
+        final var flowingIdentifier = Identifier.of(DataTypeUtils.toProtoBufCompliantName(referenceIdentifier.getName()), referenceIdentifier.getQualifier());
+        if (matchQualifiedOnly && !flowingIdentifier.isQualified()) {
             return ImmutableList.of();
         }
         final ImmutableList.Builder<Expression> matchedAttributes = ImmutableList.builder();
@@ -392,23 +393,23 @@ public class SemanticAnalyzer {
                     continue;
                 }
                 final var attributeIdentifier = attribute.getName().get();
-                if (attributeIdentifier.equals(referenceIdentifier)) {
+                if (attributeIdentifier.equals(flowingIdentifier)) {
                     matchedAttributes.add(attribute);
                     checkForPseudoColumns = false;
                     continue;
-                } else if (!matchQualifiedOnly && attributeIdentifier.withoutQualifier().equals(referenceIdentifier)) {
+                } else if (!matchQualifiedOnly && attributeIdentifier.withoutQualifier().equals(flowingIdentifier)) {
                     matchedAttributes.add(attribute);
                     checkForPseudoColumns = false;
                     continue;
                 }
                 if (matchQualifiedOnly && operatorNameMaybe.isPresent()) {
-                    if (attributeIdentifier.withQualifier(operatorNameMaybe.get().getName()).equals(referenceIdentifier)) {
+                    if (attributeIdentifier.withQualifier(operatorNameMaybe.get().getName()).equals(flowingIdentifier)) {
                         matchedAttributes.add(attribute);
                         checkForPseudoColumns = false;
                         continue;
                     }
                 }
-                final var nestedFieldMaybe = lookupNestedField(referenceIdentifier, attribute, operator, matchQualifiedOnly);
+                final var nestedFieldMaybe = lookupNestedField(flowingIdentifier, attribute, operator, matchQualifiedOnly);
                 if (nestedFieldMaybe.isPresent()) {
                     matchedAttributes.add(nestedFieldMaybe.get());
                     checkForPseudoColumns = false;

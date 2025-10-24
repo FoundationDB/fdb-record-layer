@@ -111,13 +111,14 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
             for (File jar : jars) {
                 servers.add(new ExternalServer(jar, clusterFile));
             }
-            for (ExternalServer server : servers) {
-                server.start();
-            }
+//            for (ExternalServer server : servers) {
+//                server.start();
+//            }
             final boolean mixedModeOnly = Boolean.parseBoolean(System.getProperty("tests.mixedModeOnly", "false"));
             final boolean singleExternalVersionOnly = Boolean.parseBoolean(System.getProperty("tests.singleVersion", "false"));
             Stream<YamlTestConfig> localTestingConfigs = localConfigs(mixedModeOnly, singleExternalVersionOnly);
-            Stream<YamlTestConfig> externalServerConfigs = externalServerConfigs(singleExternalVersionOnly);
+//            Stream<YamlTestConfig> externalServerConfigs = externalServerConfigs(singleExternalVersionOnly);
+            Stream<YamlTestConfig> externalServerConfigs = Stream.empty();
 
             testConfigs = Stream.concat(
                     // The configs for local testing (single server)

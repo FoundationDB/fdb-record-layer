@@ -29,7 +29,7 @@ import com.apple.foundationdb.relational.util.Assert;
 import javax.annotation.Nonnull;
 
 @API(API.Status.EXPERIMENTAL)
-public class RecordLayerColumn implements Column {
+public class RecordLayerColumn implements Column, RecordLayerMetadata {
     @Nonnull
     private final String name;
 

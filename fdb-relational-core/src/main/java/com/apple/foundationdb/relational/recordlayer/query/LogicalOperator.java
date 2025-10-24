@@ -21,7 +21,6 @@
 package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.record.query.plan.cascades.AccessHint;
 import com.apple.foundationdb.record.query.plan.cascades.AccessHints;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
@@ -55,7 +54,6 @@ import com.apple.foundationdb.relational.api.metadata.Table;
 import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.util.Assert;
-
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -230,22 +228,22 @@ public class LogicalOperator {
     public static LogicalOperator generateTableAccess(@Nonnull Identifier tableId,
                                                       @Nonnull Set<AccessHint> indexAccessHints,
                                                       @Nonnull SemanticAnalyzer semanticAnalyzer) {
-        final var tableNames = semanticAnalyzer.getAllTableNames();
         semanticAnalyzer.validateIndexes(tableId, indexAccessHints);
+        final var typeNames = semanticAnalyzer.getAllTables().stream()
+                .map(table -> Assert.castUnchecked(table, RecordLayerTable.class))
+                .map(RecordLayerTable::getProtoBufCompliantName)
+                .collect(Collectors.toSet());
         final var scanExpression = Quantifier.forEach(Reference.initialOf(
-                new FullUnorderedScanExpression(tableNames,
-                        new Type.AnyRecord(false),
-                        new AccessHints(indexAccessHints.toArray(new AccessHint[0])))));
-        final var table = semanticAnalyzer.getTable(tableId);
-        final var type = Assert.castUnchecked(table, RecordLayerTable.class).getType();
-        final var typeFilterExpression = new LogicalTypeFilterExpression(ImmutableSet.of(tableId.getName()), scanExpression, type);
+                new FullUnorderedScanExpression(typeNames, new Type.AnyRecord(false), new AccessHints(indexAccessHints.toArray(new AccessHint[0])))));
+        final var recordLayerTable = Assert.castUnchecked(semanticAnalyzer.getTable(tableId), RecordLayerTable.class);
+        final var typeFilterExpression = new LogicalTypeFilterExpression(ImmutableSet.of(recordLayerTable.getProtoBufCompliantName()), scanExpression, recordLayerTable.getType());
         final var resultingQuantifier = Quantifier.forEach(Reference.initialOf(typeFilterExpression));
         final ImmutableList.Builder<Expression> attributesBuilder = ImmutableList.builder();
         int colCount = 0;
-        for (final var column : table.getColumns()) {
-            final var attributeName = Identifier.of(column.getName());
+        for (final var column : recordLayerTable.getColumns()) {
+            final var attributeName = Identifier.of(column.getProtoBufCompliantName());
             final var attributeType = column.getDataType();
-            final var fieldType = type.getField(colCount);
+            final var fieldType = recordLayerTable.getType().getField(colCount);
             final var attributeExpression = FieldValue.ofFields(resultingQuantifier.getFlowedObjectValue(),
                     FieldValue.FieldPath.ofSingle(FieldValue.ResolvedAccessor.of(fieldType, colCount)));
             attributesBuilder.add(new Expression(Optional.of(attributeName), attributeType, attributeExpression));
@@ -468,11 +466,11 @@ public class LogicalOperator {
 
     @Nonnull
     public static LogicalOperator generateInsert(@Nonnull LogicalOperator insertSource, @Nonnull Table target) {
-        final var targetType = Assert.castUnchecked(target, RecordLayerTable.class).getType();
+        final var recordLayerTable = Assert.castUnchecked(target, RecordLayerTable.class);
         final var insertExpression = new InsertExpression(Assert.castUnchecked(insertSource.getQuantifier(),
                         Quantifier.ForEach.class),
-                target.getName(),
-                targetType);
+                recordLayerTable.getProtoBufCompliantName(),
+                recordLayerTable.getType());
         final var resultingQuantifier = Quantifier.forEach(Reference.initialOf(insertExpression));
         final var output = Expressions.fromQuantifier(resultingQuantifier);
         final var insertOperator = LogicalOperator.newUnnamedOperator(output, resultingQuantifier);
