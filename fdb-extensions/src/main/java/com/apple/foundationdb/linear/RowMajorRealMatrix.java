@@ -46,12 +46,12 @@ public class RowMajorRealMatrix implements RealMatrix {
     }
 
     @Override
-    public int getRowDimension() {
+    public int getNumRowDimensions() {
         return data.length;
     }
 
     @Override
-    public int getColumnDimension() {
+    public int getNumColumnDimensions() {
         return data[0].length;
     }
 
@@ -68,8 +68,8 @@ public class RowMajorRealMatrix implements RealMatrix {
     @Nonnull
     @Override
     public RowMajorRealMatrix transpose() {
-        int n = getRowDimension();
-        int m = getColumnDimension();
+        int n = getNumRowDimensions();
+        int m = getNumColumnDimensions();
         double[][] result = new double[m][n];
         for (int i = 0; i < n; i++) {
             for (int j = 0; j < m; j++) {
@@ -82,10 +82,10 @@ public class RowMajorRealMatrix implements RealMatrix {
     @Nonnull
     @Override
     public RowMajorRealMatrix multiply(@Nonnull final RealMatrix otherMatrix) {
-        Preconditions.checkArgument(getColumnDimension() == otherMatrix.getRowDimension());
-        final int n = getRowDimension();
-        final int m = otherMatrix.getColumnDimension();
-        final int common = getColumnDimension();
+        Preconditions.checkArgument(getNumColumnDimensions() == otherMatrix.getNumRowDimensions());
+        final int n = getNumRowDimensions();
+        final int m = otherMatrix.getNumColumnDimensions();
+        final int common = getNumColumnDimensions();
         double[][] result = new double[n][m];
         for (int i = 0; i < n; i++) {
             for (int j = 0; j < m; j++) {

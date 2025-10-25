@@ -50,8 +50,8 @@ public class QRDecompositionTest {
         final RealMatrix m = MatrixHelpers.randomOrthogonalMatrix(random, numDimensions);
         final QRDecomposition.Result result = QRDecomposition.decomposeMatrix(m);
         final RealMatrix product = result.getQ().multiply(result.getR());
-        for (int i = 0; i < product.getRowDimension(); i++) {
-            for (int j = 0; j < product.getColumnDimension(); j++) {
+        for (int i = 0; i < product.getNumRowDimensions(); i++) {
+            for (int j = 0; j < product.getNumColumnDimensions(); j++) {
                 assertThat(product.getEntry(i, j)).isCloseTo(m.getEntry(i, j), within(2E-14));
             }
         }
@@ -66,8 +66,8 @@ public class QRDecompositionTest {
         final QRDecomposition.Result secondResult = QRDecomposition.decomposeMatrix(firstResult.getQ());
 
         final RealMatrix r = secondResult.getR();
-        for (int i = 0; i < r.getRowDimension(); i++) {
-            for (int j = 0; j < r.getColumnDimension(); j++) {
+        for (int i = 0; i < r.getNumRowDimensions(); i++) {
+            for (int j = 0; j < r.getNumColumnDimensions(); j++) {
                 assertThat(Math.abs(r.getEntry(i, j))).isCloseTo((i == j) ? 1.0d : 0.0d, within(2E-14));
             }
         }
@@ -91,8 +91,8 @@ public class QRDecompositionTest {
         final QRDecomposition.Result result = QRDecomposition.decomposeMatrix(m);
         final RealMatrix product = result.getQ().multiply(result.getR());
 
-        for (int i = 0; i < product.getRowDimension(); i++) {
-            for (int j = 0; j < product.getColumnDimension(); j++) {
+        for (int i = 0; i < product.getNumRowDimensions(); i++) {
+            for (int j = 0; j < product.getNumColumnDimensions(); j++) {
                 assertThat(product.getEntry(i, j)).isCloseTo(m.getEntry(i, j), within(2E-14));
             }
         }
