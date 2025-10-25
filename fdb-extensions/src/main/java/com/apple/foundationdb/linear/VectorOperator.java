@@ -1,5 +1,5 @@
 /*
- * LinearOperator.java
+ * VectorOperator.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -22,28 +22,12 @@ package com.apple.foundationdb.linear;
 
 import javax.annotation.Nonnull;
 
-public interface LinearOperator extends VectorOperator {
-    int getNumRowDimensions();
-
-    @Override
-    default int getNumDimensions() {
-        return getNumColumnDimensions();
-    }
-
-    int getNumColumnDimensions();
-
-    default boolean isSquare() {
-        return getNumRowDimensions() == getNumColumnDimensions();
-    }
-
-    boolean isTransposable();
+public interface VectorOperator {
+    int getNumDimensions();
 
     @Nonnull
-    @Override
-    default RealVector applyInvert(@Nonnull RealVector vector) {
-        return applyTranspose(vector);
-    }
+    RealVector apply(@Nonnull RealVector vector);
 
     @Nonnull
-    RealVector applyTranspose(@Nonnull RealVector vector);
+    RealVector applyInvert(@Nonnull RealVector vector);
 }

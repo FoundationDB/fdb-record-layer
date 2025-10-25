@@ -231,8 +231,10 @@ interface StorageAdapter<N extends NodeReference> {
                     final EntryNodeReference entryNodeReference =
                             new EntryNodeReference(primaryKey, StorageAdapter.vectorFromTuple(config, entryVectorTuple),
                                     layer);
-                    final Tuple centroidVectorTuple = entryTuple.getNestedTuple(3);
+                    final long rotatorSeed = entryTuple.getLong(3);
+                    final Tuple centroidVectorTuple = entryTuple.getNestedTuple(4);
                     return new AccessInfo(entryNodeReference,
+                            rotatorSeed,
                             centroidVectorTuple == null
                             ? null
                             : StorageAdapter.vectorFromTuple(config, centroidVectorTuple));
@@ -261,6 +263,7 @@ interface StorageAdapter<N extends NodeReference> {
         final byte[] value = Tuple.from(entryNodeReference.getLayer(),
                 entryNodeReference.getPrimaryKey(),
                 StorageAdapter.tupleFromVector(entryNodeReference.getVector()),
+                accessInfo.getRotatorSeed(),
                 centroid == null ? null : StorageAdapter.tupleFromVector(centroid)).pack();
         transaction.set(key, value);
         onWriteListener.onKeyValueWritten(entryNodeReference.getLayer(), key, value);

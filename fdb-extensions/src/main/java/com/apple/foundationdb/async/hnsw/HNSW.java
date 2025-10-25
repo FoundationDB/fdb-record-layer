@@ -544,7 +544,7 @@ public class HNSW {
                 16.6245, 31.5031, 35.2207, 22.3947, 28.102500000000003, 15.747100000000001, 10.4765, 10.4483, 13.3939,
                 15.767800000000001, 16.2652, 17.000600000000002};
         final DoubleRealVector centroid = new DoubleRealVector(centroidData);
-        return rotator.operateTranspose(centroid);
+        return rotator.applyTranspose(centroid);
     }
 
     @Nonnull
@@ -596,7 +596,7 @@ public class HNSW {
                     if (getConfig().isUseRaBitQ()) {
                         final FhtKacRotator rotator = new FhtKacRotator(0, getConfig().getNumDimensions(), 10);
                         final RealVector centroidRot = centroidRot(rotator);
-                        final RealVector queryVectorRot = rotator.operateTranspose(queryVector);
+                        final RealVector queryVectorRot = rotator.applyTranspose(queryVector);
                         queryVectorTrans = queryVectorRot.subtract(centroidRot);
                         quantizer = raBitQuantizer();
                     } else {
@@ -1136,7 +1136,7 @@ public class HNSW {
                     if (getConfig().isUseRaBitQ()) {
                         final FhtKacRotator rotator = new FhtKacRotator(0, getConfig().getNumDimensions(), 10);
                         final RealVector centroidRot = centroidRot(rotator);
-                        final RealVector newVectorRot = rotator.operateTranspose(newVector);
+                        final RealVector newVectorRot = rotator.applyTranspose(newVector);
                         newVectorTrans = newVectorRot.subtract(centroidRot);
                         quantizer = raBitQuantizer();
                     } else {
@@ -1151,7 +1151,7 @@ public class HNSW {
                         StorageAdapter.writeAccessInfo(transaction, getSubspace(),
                                 new AccessInfo(
                                         new EntryNodeReference(newPrimaryKey, newVectorTrans, insertionLayer),
-                                        null), getOnWriteListener());
+                                        -1L, null), getOnWriteListener());
                         if (logger.isTraceEnabled()) {
                             logger.trace("written initial entry node reference with key={} on layer={}", newPrimaryKey, insertionLayer);
                         }
@@ -1265,7 +1265,7 @@ public class HNSW {
                                 final RealVector itemVector = item.getVector();
                                 final RealVector itemVectorTrans;
                                 if (getConfig().isUseRaBitQ()) {
-                                    final RealVector itemVectorRot = Objects.requireNonNull(rotator).operateTranspose(itemVector);
+                                    final RealVector itemVectorRot = Objects.requireNonNull(rotator).applyTranspose(itemVector);
                                     itemVectorTrans = itemVectorRot.subtract(centroidRot);
                                 } else {
                                     itemVectorTrans = itemVector;
@@ -1306,7 +1306,7 @@ public class HNSW {
                                                     newEntryNodeReference =
                                                             new EntryNodeReference(itemPrimaryKey, itemVector, itemL);
                                                     StorageAdapter.writeAccessInfo(transaction, getSubspace(),
-                                                            new AccessInfo(newEntryNodeReference, null), getOnWriteListener());
+                                                            new AccessInfo(newEntryNodeReference, -1L, null), getOnWriteListener());
                                                     if (logger.isTraceEnabled()) {
                                                         logger.trace("written initial entry node reference for batch with key={} on layer={}", itemPrimaryKey, itemL);
                                                     }

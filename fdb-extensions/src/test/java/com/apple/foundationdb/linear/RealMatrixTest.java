@@ -89,13 +89,13 @@ public class RealMatrixTest {
 
     @ParameterizedTest
     @MethodSource("randomSeedsWithNumDimensions")
-    void testOperateAndBack(final long seed, final int numDimensions) {
+    void testApplyAndBack(final long seed, final int numDimensions) {
         final Random random = new Random(seed);
         final RealMatrix matrix = MatrixHelpers.randomOrthogonalMatrix(random, numDimensions);
         assertThat(matrix.isTransposable()).isTrue();
         final RealVector x = RealVectorTest.createRandomDoubleVector(random, numDimensions);
-        final RealVector y = matrix.operate(x);
-        final RealVector z = matrix.operateTranspose(y);
+        final RealVector y = matrix.apply(x);
+        final RealVector z = matrix.applyTranspose(y);
         assertThat(Metric.EUCLIDEAN_METRIC.distance(x, z)).isCloseTo(0, within(2E-10));
     }
 
@@ -144,11 +144,11 @@ public class RealMatrixTest {
         final RealMatrix product = m.multiply(mT);
 
         assertThat(product)
-                .satisfies(p -> assertThat(p.getRowDimension()).isEqualTo(numResultRows),
-                        p -> assertThat(p.getColumnDimension()).isEqualTo(numResultColumns));
+                .satisfies(p -> assertThat(p.getNumRowDimensions()).isEqualTo(numResultRows),
+                        p -> assertThat(p.getNumColumnDimensions()).isEqualTo(numResultColumns));
 
-        for (int i = 0; i < product.getRowDimension(); i++) {
-            for (int j = 0; j < product.getColumnDimension(); j++) {
+        for (int i = 0; i < product.getNumRowDimensions(); i++) {
+            for (int j = 0; j < product.getNumColumnDimensions(); j++) {
                 double expected = (i == j) ? 1.0 : 0.0;
                 assertThat(Math.abs(product.getEntry(i, j) - expected))
                         .isCloseTo(0, within(2E-14));
@@ -168,8 +168,8 @@ public class RealMatrixTest {
 
         final RealMatrix product = m1.multiply(m2);
 
-        for (int i = 0; i < product.getRowDimension(); i++) {
-            for (int j = 0; j < product.getColumnDimension(); j++) {
+        for (int i = 0; i < product.getNumRowDimensions(); i++) {
+            for (int j = 0; j < product.getNumColumnDimensions(); j++) {
                 final double expected = new DoubleRealVector(m1.getRow(i)).dot(new DoubleRealVector(m2.getColumn(j)));
                 assertThat(Math.abs(product.getEntry(i, j) - expected))
                         .isCloseTo(0, within(2E-14));

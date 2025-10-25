@@ -24,22 +24,31 @@ import com.apple.foundationdb.linear.RealVector;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Objects;
 
 class AccessInfo {
     @Nonnull
     private final EntryNodeReference entryNodeReference;
 
+    private final long rotatorSeed;
+
     @Nullable
     private final RealVector centroid;
 
-    public AccessInfo(@Nonnull final EntryNodeReference entryNodeReference, @Nullable final RealVector centroid) {
+    public AccessInfo(@Nonnull final EntryNodeReference entryNodeReference, final long rotatorSeed,
+                      @Nullable final RealVector centroid) {
         this.entryNodeReference = entryNodeReference;
+        this.rotatorSeed = rotatorSeed;
         this.centroid = centroid;
     }
 
     @Nonnull
     public EntryNodeReference getEntryNodeReference() {
         return entryNodeReference;
+    }
+
+    public long getRotatorSeed() {
+        return rotatorSeed;
     }
 
     @Nullable
@@ -49,6 +58,35 @@ class AccessInfo {
 
     @Nonnull
     public AccessInfo withNewEntryNodeReference(@Nonnull final EntryNodeReference entryNodeReference) {
-        return new AccessInfo(entryNodeReference, centroid);
+        return new AccessInfo(entryNodeReference, getRotatorSeed(), getCentroid());
+    }
+
+    @Override
+    public final boolean equals(final Object o) {
+        if (!(o instanceof AccessInfo)) {
+            return false;
+        }
+
+        final AccessInfo that = (AccessInfo)o;
+        return rotatorSeed == that.rotatorSeed &&
+                entryNodeReference.equals(that.entryNodeReference) &&
+                Objects.equals(centroid, that.centroid);
+    }
+
+    @Override
+    public int hashCode() {
+        int result = entryNodeReference.hashCode();
+        result = 31 * result + Long.hashCode(rotatorSeed);
+        result = 31 * result + Objects.hashCode(centroid);
+        return result;
+    }
+
+    @Nonnull
+    @Override
+    public String toString() {
+        return "AccessInfo[" +
+                "entryNodeReference=" + entryNodeReference +
+                ", rotatorSeed=" + rotatorSeed +
+                ", centroid=" + centroid + "]";
     }
 }
