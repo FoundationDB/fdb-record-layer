@@ -27,13 +27,11 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.linear.AffineOperator;
-import com.apple.foundationdb.linear.DoubleRealVector;
-import com.apple.foundationdb.linear.FhtKacRotator;
-import com.apple.foundationdb.rabitq.RaBitQuantizer;
 import com.apple.foundationdb.linear.Estimator;
 import com.apple.foundationdb.linear.Metric;
 import com.apple.foundationdb.linear.Quantizer;
 import com.apple.foundationdb.linear.RealVector;
+import com.apple.foundationdb.rabitq.RaBitQuantizer;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.base.Verify;
@@ -49,6 +47,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
@@ -524,33 +523,50 @@ public class HNSW {
         return onReadListener;
     }
 
+//    @Nonnull
+//    @SuppressWarnings("PMD.UseUnderscoresInNumericLiterals")
+//    RealVector centroidRot(@Nonnull final FhtKacRotator rotator) {
+//        final double[] centroidData = {29.0548, 16.785500000000003, 10.708300000000001, 9.7645, 11.3086, 13.3,
+//                15.288300000000001, 17.6192, 32.8404, 31.009500000000003, 35.9102, 21.5091, 16.005300000000002, 28.0939,
+//                32.1253, 22.924, 36.2481, 22.5343, 36.420500000000004, 29.186500000000002, 16.4631, 19.899800000000003,
+//                30.530800000000003, 34.2486, 27.014100000000003, 15.5669, 17.084600000000002, 17.197100000000002,
+//                14.266, 9.9115, 9.4123, 17.4541, 56.876900000000006, 24.6039, 13.7209, 16.6006, 22.0627, 27.7478,
+//                24.7289, 27.4496, 61.2528, 41.6972, 36.5536, 23.1854, 23.075200000000002, 37.342800000000004, 35.1334,
+//                30.1793, 58.946200000000005, 25.0348, 40.7383, 40.7892, 26.500500000000002, 23.0211, 29.471, 45.475,
+//                51.758300000000006, 20.662100000000002, 24.361900000000002, 31.923000000000002, 30.0682,
+//                20.075200000000002, 14.327900000000001, 28.1643, 56.229800000000004, 20.611, 23.8963, 26.3485, 22.6032,
+//                18.0076, 14.595400000000001, 29.842000000000002, 62.9647, 24.6328, 35.617000000000004,
+//                34.456700000000005, 22.788600000000002, 23.7647, 33.1924, 49.4097, 57.7928, 37.629000000000005,
+//                32.409600000000005, 22.2239, 26.907300000000003, 43.5585, 39.6792, 29.811, 52.783300000000004, 23.4802,
+//                14.2668, 19.1766, 28.8002, 32.9715, 25.8216, 26.553800000000003, 28.622, 15.4585, 16.7753,
+//                14.228900000000001, 11.7788, 9.0432, 9.502500000000001, 18.150100000000002, 36.7239, 21.61, 33.1623,
+//                25.9082, 15.449000000000002, 20.7373, 33.7562, 36.1929, 32.265, 29.1111, 32.9189, 20.323900000000002,
+//                16.6245, 31.5031, 35.2207, 22.3947, 28.102500000000003, 15.747100000000001, 10.4765, 10.4483, 13.3939,
+//                15.767800000000001, 16.2652, 17.000600000000002};
+//        final DoubleRealVector centroid = new DoubleRealVector(centroidData);
+//        return rotator.applyTranspose(centroid);
+//    }
+
     @Nonnull
-    @SuppressWarnings("PMD.UseUnderscoresInNumericLiterals")
-    RealVector centroidRot(@Nonnull final FhtKacRotator rotator) {
-        final double[] centroidData = {29.0548, 16.785500000000003, 10.708300000000001, 9.7645, 11.3086, 13.3,
-                15.288300000000001, 17.6192, 32.8404, 31.009500000000003, 35.9102, 21.5091, 16.005300000000002, 28.0939,
-                32.1253, 22.924, 36.2481, 22.5343, 36.420500000000004, 29.186500000000002, 16.4631, 19.899800000000003,
-                30.530800000000003, 34.2486, 27.014100000000003, 15.5669, 17.084600000000002, 17.197100000000002,
-                14.266, 9.9115, 9.4123, 17.4541, 56.876900000000006, 24.6039, 13.7209, 16.6006, 22.0627, 27.7478,
-                24.7289, 27.4496, 61.2528, 41.6972, 36.5536, 23.1854, 23.075200000000002, 37.342800000000004, 35.1334,
-                30.1793, 58.946200000000005, 25.0348, 40.7383, 40.7892, 26.500500000000002, 23.0211, 29.471, 45.475,
-                51.758300000000006, 20.662100000000002, 24.361900000000002, 31.923000000000002, 30.0682,
-                20.075200000000002, 14.327900000000001, 28.1643, 56.229800000000004, 20.611, 23.8963, 26.3485, 22.6032,
-                18.0076, 14.595400000000001, 29.842000000000002, 62.9647, 24.6328, 35.617000000000004,
-                34.456700000000005, 22.788600000000002, 23.7647, 33.1924, 49.4097, 57.7928, 37.629000000000005,
-                32.409600000000005, 22.2239, 26.907300000000003, 43.5585, 39.6792, 29.811, 52.783300000000004, 23.4802,
-                14.2668, 19.1766, 28.8002, 32.9715, 25.8216, 26.553800000000003, 28.622, 15.4585, 16.7753,
-                14.228900000000001, 11.7788, 9.0432, 9.502500000000001, 18.150100000000002, 36.7239, 21.61, 33.1623,
-                25.9082, 15.449000000000002, 20.7373, 33.7562, 36.1929, 32.265, 29.1111, 32.9189, 20.323900000000002,
-                16.6245, 31.5031, 35.2207, 22.3947, 28.102500000000003, 15.747100000000001, 10.4765, 10.4483, 13.3939,
-                15.767800000000001, 16.2652, 17.000600000000002};
-        final DoubleRealVector centroid = new DoubleRealVector(centroidData);
-        return rotator.applyTranspose(centroid);
+    private AffineOperator storageTransform(@Nullable AccessInfo accessInfo) {
+        if (accessInfo == null || !accessInfo.canBeTransformed()) {
+            return AffineOperator.identity();
+        }
+
+        return new RandomAffineOperator(accessInfo.getRotatorSeed(),
+                getConfig().getNumDimensions(), Objects.requireNonNull(accessInfo.getCentroid()));
     }
 
     @Nonnull
-    Quantizer raBitQuantizer() {
-        return new RaBitQuantizer(Metric.EUCLIDEAN_METRIC, getConfig().getRaBitQNumExBits());
+    private Quantizer quantizer(@Nullable final AccessInfo accessInfo) {
+        if (accessInfo == null || !accessInfo.canBeTransformed()) {
+            return Quantizer.noOpQuantizer(config.getMetric());
+        }
+
+        final Config config = getConfig();
+        return config.isUseRaBitQ()
+               ? new RaBitQuantizer(config.getMetric(), config.getRaBitQNumExBits())
+               : Quantizer.noOpQuantizer(config.getMetric());
     }
 
     //
@@ -586,30 +602,21 @@ public class HNSW {
                                     final int efSearch,
                                     @Nonnull final RealVector queryVector) {
         return StorageAdapter.fetchAccessInfo(getConfig(), readTransaction, getSubspace(), getOnReadListener())
-                .thenCompose(indexAccessInfo -> {
-                    if (indexAccessInfo == null) {
+                .thenCompose(accessInfo -> {
+                    if (accessInfo == null) {
                         return CompletableFuture.completedFuture(null); // not a single node in the index
                     }
-                    final EntryNodeReference entryNodeReference = indexAccessInfo.getEntryNodeReference();
+                    final EntryNodeReference entryNodeReference = accessInfo.getEntryNodeReference();
 
-                    final RealVector queryVectorTrans;
-                    final Quantizer quantizer;
-                    if (getConfig().isUseRaBitQ()) {
-                        final FhtKacRotator rotator = new FhtKacRotator(0, getConfig().getNumDimensions(), 10);
-                        final RealVector centroidRot = centroidRot(rotator);
-                        final RealVector queryVectorRot = rotator.applyTranspose(queryVector);
-                        queryVectorTrans = queryVectorRot.subtract(centroidRot);
-                        quantizer = raBitQuantizer();
-                    } else {
-                        queryVectorTrans = queryVector;
-                        quantizer = Quantizer.noOpQuantizer(Metric.EUCLIDEAN_METRIC);
-                    }
+                    final AffineOperator storageTransform = storageTransform(accessInfo);
+                    final RealVector transformedQueryVector = storageTransform.applyInvert(queryVector);
+                    final Quantizer quantizer = quantizer(accessInfo);
                     final Estimator estimator = quantizer.estimator();
 
                     final NodeReferenceWithDistance entryState =
                             new NodeReferenceWithDistance(entryNodeReference.getPrimaryKey(),
                                     entryNodeReference.getVector(),
-                                    estimator.distance(queryVectorTrans, entryNodeReference.getVector()));
+                                    estimator.distance(transformedQueryVector, entryNodeReference.getVector()));
 
                     final int entryLayer = entryNodeReference.getLayer();
                     return forLoop(entryLayer, entryState,
@@ -622,8 +629,8 @@ public class HNSW {
                                 }
 
                                 final var storageAdapter = getStorageAdapterForLayer(layer);
-                                return greedySearchLayer(estimator, storageAdapter, readTransaction,,
-                                        previousNodeReference, layer, queryVectorTrans);
+                                return greedySearchLayer(storageAdapter, readTransaction, storageTransform, estimator,
+                                        previousNodeReference, layer, transformedQueryVector);
                             }, executor)
                             .thenCompose(nodeReference -> {
                                 if (nodeReference == null) {
@@ -632,8 +639,9 @@ public class HNSW {
 
                                 final var storageAdapter = getStorageAdapterForLayer(0);
 
-                                return searchLayer(storageAdapter, readTransaction,, estimator, ImmutableList.of(nodeReference),
-                                        0, efSearch, Maps.newConcurrentMap(), queryVectorTrans)
+                                return searchLayer(storageAdapter, readTransaction, storageTransform, estimator,
+                                        ImmutableList.of(nodeReference), 0, efSearch, Maps.newConcurrentMap(),
+                                        transformedQueryVector)
                                         .thenApply(searchResult -> {
                                             // reverse the original queue
                                             final TreeMultimap<Double, NodeReferenceAndNode<? extends NodeReference>> sortedTopK =
@@ -1161,41 +1169,37 @@ public class HNSW {
 
         return StorageAdapter.fetchAccessInfo(getConfig(), transaction, getSubspace(), getOnReadListener())
                 .thenCompose(accessInfo -> {
-                    final RealVector newVectorTrans;
-                    final Quantizer quantizer;
-                    if (getConfig().isUseRaBitQ()) {
-                        final FhtKacRotator rotator = new FhtKacRotator(0, getConfig().getNumDimensions(), 10);
-                        final RealVector centroidRot = centroidRot(rotator);
-                        final RealVector newVectorRot = rotator.applyTranspose(newVector);
-                        newVectorTrans = newVectorRot.subtract(centroidRot);
-                        quantizer = raBitQuantizer();
-                    } else {
-                        newVectorTrans = newVector;
-                        quantizer = Quantizer.noOpQuantizer(Metric.EUCLIDEAN_METRIC);
-                    }
+                    final AffineOperator storageTransform = storageTransform(accessInfo);
+                    final RealVector transformedNewVector = storageTransform.applyInvert(newVector);
+                    final Quantizer quantizer = quantizer(accessInfo);
                     final Estimator estimator = quantizer.estimator();
 
                     if (accessInfo == null) {
                         // this is the first node
-                        writeLonelyNodes(quantizer, transaction, newPrimaryKey, newVectorTrans, insertionLayer, -1);
+                        writeLonelyNodes(quantizer, transaction, newPrimaryKey, transformedNewVector,
+                                insertionLayer, -1);
                         StorageAdapter.writeAccessInfo(transaction, getSubspace(),
                                 new AccessInfo(
-                                        new EntryNodeReference(newPrimaryKey, newVectorTrans, insertionLayer),
+                                        new EntryNodeReference(newPrimaryKey, transformedNewVector, insertionLayer),
                                         -1L, null), getOnWriteListener());
                         if (logger.isTraceEnabled()) {
-                            logger.trace("written initial entry node reference with key={} on layer={}", newPrimaryKey, insertionLayer);
+                            logger.trace("written initial entry node reference with key={} on layer={}",
+                                    newPrimaryKey, insertionLayer);
                         }
                     } else {
                         final EntryNodeReference entryNodeReference = accessInfo.getEntryNodeReference();
                         final int lMax = entryNodeReference.getLayer();
                         if (insertionLayer > lMax) {
-                            writeLonelyNodes(quantizer, transaction, newPrimaryKey, newVectorTrans, insertionLayer, lMax);
+                            writeLonelyNodes(quantizer, transaction, newPrimaryKey, transformedNewVector,
+                                    insertionLayer, lMax);
                             StorageAdapter.writeAccessInfo(transaction, getSubspace(),
                                     accessInfo.withNewEntryNodeReference(
-                                            new EntryNodeReference(newPrimaryKey, newVectorTrans, insertionLayer)),
+                                            new EntryNodeReference(newPrimaryKey, transformedNewVector,
+                                                    insertionLayer)),
                                     getOnWriteListener());
                             if (logger.isTraceEnabled()) {
-                                logger.trace("written higher entry node reference with key={} on layer={}", newPrimaryKey, insertionLayer);
+                                logger.trace("written higher entry node reference with key={} on layer={}",
+                                        newPrimaryKey, insertionLayer);
                             }
                         }
                     }
@@ -1213,18 +1217,18 @@ public class HNSW {
                     final NodeReferenceWithDistance initialNodeReference =
                             new NodeReferenceWithDistance(entryNodeReference.getPrimaryKey(),
                                     entryNodeReference.getVector(),
-                                    estimator.distance(newVectorTrans, entryNodeReference.getVector()));
+                                    estimator.distance(transformedNewVector, entryNodeReference.getVector()));
                     return forLoop(lMax, initialNodeReference,
                                     layer -> layer > insertionLayer,
                                     layer -> layer - 1,
                                     (layer, previousNodeReference) -> {
                                         final StorageAdapter<? extends NodeReference> storageAdapter = getStorageAdapterForLayer(layer);
-                                        return greedySearchLayer(estimator, storageAdapter, , transaction,
-                                                previousNodeReference, layer, newVectorTrans);
+                                        return greedySearchLayer(storageAdapter, transaction, storageTransform,
+                                                estimator, previousNodeReference, layer, transformedNewVector);
                                     }, executor)
                             .thenCompose(nodeReference ->
-                                    insertIntoLayers(transaction,, quantizer, newPrimaryKey, newVectorTrans, nodeReference,
-                                            lMax, insertionLayer));
+                                    insertIntoLayers(transaction, storageTransform, quantizer, newPrimaryKey,
+                                            transformedNewVector, nodeReference, lMax, insertionLayer));
                 }).thenCompose(ignored -> AsyncUtil.DONE);
     }
 
@@ -1270,18 +1274,8 @@ public class HNSW {
                     final int lMax =
                             accessInfo == null ? -1 : accessInfo.getEntryNodeReference().getLayer();
 
-                    final Quantizer quantizer;
-                    final FhtKacRotator rotator;
-                    final RealVector centroidRot;
-                    if (getConfig().isUseRaBitQ()) {
-                        rotator = new FhtKacRotator(0, getConfig().getNumDimensions(), 10);
-                        centroidRot = centroidRot(rotator);
-                        quantizer = raBitQuantizer();
-                    } else {
-                        rotator = null;
-                        centroidRot = null;
-                        quantizer = Quantizer.noOpQuantizer(Metric.EUCLIDEAN_METRIC);
-                    }
+                    final AffineOperator storageTransform = storageTransform(accessInfo);
+                    final Quantizer quantizer = quantizer(accessInfo);
                     final Estimator estimator = quantizer.estimator();
 
                     return forEach(batchWithLayers,
@@ -1293,28 +1287,22 @@ public class HNSW {
                                 final EntryNodeReference entryNodeReference = accessInfo.getEntryNodeReference();
 
                                 final RealVector itemVector = item.getVector();
-                                final RealVector itemVectorTrans;
-                                if (getConfig().isUseRaBitQ()) {
-                                    final RealVector itemVectorRot = Objects.requireNonNull(rotator).applyTranspose(itemVector);
-                                    itemVectorTrans = itemVectorRot.subtract(centroidRot);
-                                } else {
-                                    itemVectorTrans = itemVector;
-                                }
+                                final RealVector transformedItemVector = storageTransform.applyInvert(itemVector);
 
                                 final int itemL = item.getLayer();
 
                                 final NodeReferenceWithDistance initialNodeReference =
                                         new NodeReferenceWithDistance(entryNodeReference.getPrimaryKey(),
                                                 entryNodeReference.getVector(),
-                                                estimator.distance(itemVectorTrans, entryNodeReference.getVector()));
+                                                estimator.distance(transformedItemVector, entryNodeReference.getVector()));
 
                                 return forLoop(lMax, initialNodeReference,
                                         layer -> layer > itemL,
                                         layer -> layer - 1,
                                         (layer, previousNodeReference) -> {
                                             final StorageAdapter<? extends NodeReference> storageAdapter = getStorageAdapterForLayer(layer);
-                                            return greedySearchLayer(estimator, storageAdapter, , transaction,
-                                                    previousNodeReference, layer, itemVectorTrans);
+                                            return greedySearchLayer(storageAdapter, transaction, storageTransform,
+                                                    estimator, previousNodeReference, layer, transformedItemVector);
                                         }, executor);
                             }, MAX_CONCURRENT_SEARCHES, getExecutor())
                             .thenCompose(searchEntryReferences ->
@@ -1368,8 +1356,8 @@ public class HNSW {
                                                 final var currentSearchEntry =
                                                         searchEntryReferences.get(index);
 
-                                                return insertIntoLayers(transaction,, quantizer, itemPrimaryKey,
-                                                        itemVector, currentSearchEntry, lMax, itemL)
+                                                return insertIntoLayers(transaction, storageTransform, quantizer,
+                                                        itemPrimaryKey, itemVector, currentSearchEntry, lMax, itemL)
                                                         .thenApply(ignored -> newEntryNodeReference);
                                             }, getExecutor()));
                 }).thenCompose(ignored -> AsyncUtil.DONE);

@@ -27,7 +27,7 @@ import com.apple.foundationdb.linear.RealVector;
 import javax.annotation.Nonnull;
 
 public class RandomAffineOperator extends AffineOperator {
-    public RandomAffineOperator(final int seed, final int numDimensions, @Nonnull final RealVector translationVector) {
+    public RandomAffineOperator(final long seed, final int numDimensions, @Nonnull final RealVector translationVector) {
         this(new FhtKacRotator(seed, numDimensions, 10), translationVector);
     }
 

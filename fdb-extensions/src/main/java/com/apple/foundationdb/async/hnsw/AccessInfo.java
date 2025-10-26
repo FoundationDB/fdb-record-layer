@@ -47,6 +47,10 @@ class AccessInfo {
         return entryNodeReference;
     }
 
+    public boolean canBeTransformed() {
+        return getCentroid() != null;
+    }
+
     public long getRotatorSeed() {
         return rotatorSeed;
     }
