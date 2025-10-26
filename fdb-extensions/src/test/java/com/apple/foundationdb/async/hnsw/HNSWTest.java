@@ -23,6 +23,7 @@ package com.apple.foundationdb.async.hnsw;
 import com.apple.foundationdb.Database;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.async.rtree.RTree;
+import com.apple.foundationdb.linear.AffineOperator;
 import com.apple.foundationdb.linear.DoubleRealVector;
 import com.apple.foundationdb.linear.HalfRealVector;
 import com.apple.foundationdb.linear.Metric;
@@ -182,7 +183,8 @@ public class HNSWTest {
                     return randomCompactNode;
                 });
 
-        db.run(tr -> storageAdapter.fetchNode(tr, 0, originalNode.getPrimaryKey())
+        db.run(tr -> storageAdapter.fetchNode(tr, AffineOperator.identity(), 0,
+                        originalNode.getPrimaryKey())
                 .thenAccept(node ->
                         Assertions.assertThat(node).satisfies(
                                 n -> Assertions.assertThat(n).isInstanceOf(CompactNode.class),
@@ -221,7 +223,8 @@ public class HNSWTest {
                     return randomInliningNode;
                 });
 
-        db.run(tr -> storageAdapter.fetchNode(tr, 0, originalNode.getPrimaryKey())
+        db.run(tr -> storageAdapter.fetchNode(tr, AffineOperator.identity(), 0,
+                        originalNode.getPrimaryKey())
                 .thenAccept(node ->
                         Assertions.assertThat(node).satisfies(
                                 n -> Assertions.assertThat(n).isInstanceOf(InliningNode.class),
