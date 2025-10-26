@@ -23,6 +23,11 @@ package com.apple.foundationdb.linear;
 import javax.annotation.Nonnull;
 
 public interface VectorOperator {
+    /**
+     * Returns the numbers of dimensions a vector must have to be able to be applied or apply-inverted.
+     * @return the numbers of dimensions this vector operator supports; can be {@code -1} if any number of dimensions
+     *         is supported.
+     */
     int getNumDimensions();
 
     @Nonnull

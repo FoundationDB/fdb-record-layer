@@ -22,6 +22,8 @@ package com.apple.foundationdb.async.hnsw;
 
 import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.Transaction;
+import com.apple.foundationdb.linear.AffineOperator;
+import com.apple.foundationdb.linear.VectorOperator;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import org.slf4j.Logger;
@@ -188,6 +190,8 @@ abstract class AbstractStorageAdapter<N extends NodeReference> implements Storag
      * {@link  #checkNode(Node)} method before the returned future is completed.
      *
      * @param readTransaction the non-null transaction to use for the read operation
+     * @param storageTransform an affine vector transformation operator that is used to transform the fetched vector
+     *        into the storage space that is currently being used
      * @param layer the layer of the tree from which to fetch the node
      * @param primaryKey the non-null primary key that identifies the node to fetch
      *
@@ -197,8 +201,10 @@ abstract class AbstractStorageAdapter<N extends NodeReference> implements Storag
     @Nonnull
     @Override
     public CompletableFuture<Node<N>> fetchNode(@Nonnull final ReadTransaction readTransaction,
+                                                @Nonnull final AffineOperator storageTransform,
                                                 int layer, @Nonnull Tuple primaryKey) {
-        return fetchNodeInternal(readTransaction, layer, primaryKey).thenApply(this::checkNode);
+        return fetchNodeInternal(readTransaction, storageTransform, layer, primaryKey).thenApply(this::checkNode);
+
     }
 
     /**
@@ -209,6 +215,8 @@ abstract class AbstractStorageAdapter<N extends NodeReference> implements Storag
      * context of the provided {@link ReadTransaction}.
      *
      * @param readTransaction the transaction to use for the read operation; must not be {@code null}
+     * @param storageTransform an affine vector transformation operator that is used to transform the fetched vector
+     *        into the storage space that is currently being used
      * @param layer the layer index from which to fetch the node
      * @param primaryKey the primary key that uniquely identifies the node to be fetched; must not be {@code null}
      *
@@ -217,6 +225,7 @@ abstract class AbstractStorageAdapter<N extends NodeReference> implements Storag
      */
     @Nonnull
     protected abstract CompletableFuture<Node<N>> fetchNodeInternal(@Nonnull ReadTransaction readTransaction,
+                                                                    @Nonnull AffineOperator storageTransform,
                                                                     int layer, @Nonnull Tuple primaryKey);
 
     /**

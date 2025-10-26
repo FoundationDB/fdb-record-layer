@@ -26,6 +26,7 @@ import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.StreamingMode;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.linear.AffineOperator;
 import com.apple.foundationdb.linear.DoubleRealVector;
 import com.apple.foundationdb.linear.FloatRealVector;
 import com.apple.foundationdb.linear.HalfRealVector;
@@ -155,12 +156,15 @@ interface StorageAdapter<N extends NodeReference> {
      * view of the data. The returned {@link CompletableFuture} will be completed with the node once it has been
      * retrieved from the underlying data store.
      * @param readTransaction the {@link ReadTransaction} context for this read operation
+     * @param storageTransform an affine vector transformation operator that is used to transform the fetched vector
+     *        into the storage space that is currently being used
      * @param layer the layer from which to fetch the node
      * @param primaryKey the {@link Tuple} representing the primary key of the node to retrieve
      * @return a non-null {@link CompletableFuture} which will complete with the fetched {@code Node<N>}.
      */
     @Nonnull
     CompletableFuture<Node<N>> fetchNode(@Nonnull ReadTransaction readTransaction,
+                                         @Nonnull AffineOperator storageTransform,
                                          int layer,
                                          @Nonnull Tuple primaryKey);
 
