@@ -27,7 +27,9 @@ import com.apple.foundationdb.StreamingMode;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.async.AsyncIterable;
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.linear.AffineOperator;
 import com.apple.foundationdb.linear.RealVector;
+import com.apple.foundationdb.linear.VectorOperator;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
@@ -65,7 +67,8 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
      * @param onWriteListener the listener to be notified of write events, must not be null.
      * @param onReadListener the listener to be notified of read events, must not be null.
      */
-    public CompactStorageAdapter(@Nonnull final HNSW.Config config, @Nonnull final NodeFactory<NodeReference> nodeFactory,
+    public CompactStorageAdapter(@Nonnull final HNSW.Config config,
+                                 @Nonnull final NodeFactory<NodeReference> nodeFactory,
                                  @Nonnull final Subspace subspace,
                                  @Nonnull final OnWriteListener onWriteListener,
                                  @Nonnull final OnReadListener onReadListener) {
@@ -109,6 +112,8 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
      * using the {@code nodeFromRaw} method.
      *
      * @param readTransaction the transaction to use for the read operation
+     * @param storageTransform an affine vector transformation operator that is used to transform the fetched vector
+     *        into the current storage space
      * @param layer the layer of the node to fetch
      * @param primaryKey the primary key of the node to fetch
      *
@@ -119,6 +124,7 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
     @Nonnull
     @Override
     protected CompletableFuture<Node<NodeReference>> fetchNodeInternal(@Nonnull final ReadTransaction readTransaction,
+                                                                       @Nonnull final AffineOperator storageTransform,
                                                                        final int layer,
                                                                        @Nonnull final Tuple primaryKey) {
         final byte[] keyBytes = getDataSubspace().pack(Tuple.from(layer, primaryKey));
@@ -128,7 +134,7 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
                     if (valueBytes == null) {
                         throw new IllegalStateException("cannot fetch node");
                     }
-                    return nodeFromRaw(layer, primaryKey, keyBytes, valueBytes);
+                    return nodeFromRaw(storageTransform, layer, primaryKey, keyBytes, valueBytes);
                 });
     }
 
@@ -140,6 +146,8 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
      * It also notifies any registered {@link OnReadListener} about the raw key-value
      * read and the resulting node creation.
      *
+     * @param storageTransform an affine vector transformation operator that is used to transform the fetched vector
+     *        into the storage space that is currently being used
      * @param layer the layer of the HNSW where this node resides
      * @param primaryKey the primary key for the node
      * @param keyBytes the raw byte representation of the node's key
@@ -148,10 +156,11 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
      * @return a non-null, deserialized {@link Node} object
      */
     @Nonnull
-    private Node<NodeReference> nodeFromRaw(final int layer, final @Nonnull Tuple primaryKey,
+    private Node<NodeReference> nodeFromRaw(@Nonnull final AffineOperator storageTransform, final int layer,
+                                            final @Nonnull Tuple primaryKey,
                                             @Nonnull final byte[] keyBytes, @Nonnull final byte[] valueBytes) {
         final Tuple nodeTuple = Tuple.fromBytes(valueBytes);
-        final Node<NodeReference> node = nodeFromKeyValuesTuples(primaryKey, nodeTuple);
+        final Node<NodeReference> node = nodeFromKeyValuesTuples(storageTransform, primaryKey, nodeTuple);
         final OnReadListener onReadListener = getOnReadListener();
         onReadListener.onNodeRead(layer, node);
         onReadListener.onKeyValueRead(layer, keyBytes, valueBytes);
@@ -163,10 +172,12 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
      * <p>
      * This method deserializes a node by extracting its components from the provided tuples. It verifies that the
      * node is of type {@link NodeKind#COMPACT} before delegating the final construction to
-     * {@link #compactNodeFromTuples(Tuple, Tuple, Tuple)}. The {@code valueTuple} is expected to have a specific
-     * structure: the serialized node kind at index 0, a nested tuple for the vector at index 1, and a nested
+     * {@link #compactNodeFromTuples(VectorOperator, Tuple, Tuple, Tuple)}. The {@code valueTuple} is expected to have
+     * a specific structure: the serialized node kind at index 0, a nested tuple for the vector at index 1, and a nested
      * tuple for the neighbors at index 2.
      *
+     * @param storageTransform an affine vector transformation operator that is used to transform the fetched vector
+     *        into the storage space that is currently being used
      * @param primaryKey the tuple representing the primary key of the node
      * @param valueTuple the tuple containing the serialized node data, including kind, vector, and neighbors
      *
@@ -176,7 +187,8 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
      *         {@link NodeKind#COMPACT}
      */
     @Nonnull
-    private Node<NodeReference> nodeFromKeyValuesTuples(@Nonnull final Tuple primaryKey,
+    private Node<NodeReference> nodeFromKeyValuesTuples(@Nonnull final AffineOperator storageTransform,
+                                                        @Nonnull final Tuple primaryKey,
                                                         @Nonnull final Tuple valueTuple) {
         final NodeKind nodeKind = NodeKind.fromSerializedNodeKind((byte)valueTuple.getLong(0));
         Verify.verify(nodeKind == NodeKind.COMPACT);
@@ -186,7 +198,7 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
 
         vectorTuple = valueTuple.getNestedTuple(1);
         neighborsTuple = valueTuple.getNestedTuple(2);
-        return compactNodeFromTuples(primaryKey, vectorTuple, neighborsTuple);
+        return compactNodeFromTuples(storageTransform, primaryKey, vectorTuple, neighborsTuple);
     }
 
     /**
@@ -198,6 +210,8 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
      * assemble the final {@code Node} object.
      * </p>
      *
+     * @param storageTransform an affine vector transformation operator that is used to transform the fetched vector
+     *        into the storage space that is currently being used
      * @param primaryKey the tuple representing the node's primary key
      * @param vectorTuple the tuple containing the node's vector data
      * @param neighborsTuple the tuple containing a list of nested tuples, where each nested tuple represents a neighbor
@@ -205,10 +219,12 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
      * @return a new {@code Node} instance containing the deserialized data from the input tuples
      */
     @Nonnull
-    private Node<NodeReference> compactNodeFromTuples(@Nonnull final Tuple primaryKey,
+    private Node<NodeReference> compactNodeFromTuples(@Nonnull final AffineOperator storageTransform,
+                                                      @Nonnull final Tuple primaryKey,
                                                       @Nonnull final Tuple vectorTuple,
                                                       @Nonnull final Tuple neighborsTuple) {
-        final RealVector vector = StorageAdapter.vectorFromTuple(getConfig(), vectorTuple);
+        final RealVector vector =
+                storageTransform.applyInvert(StorageAdapter.vectorFromTuple(getConfig(), vectorTuple));
         final List<NodeReference> nodeReferences = Lists.newArrayListWithExpectedSize(neighborsTuple.size());
 
         for (int i = 0; i < neighborsTuple.size(); i ++) {
@@ -298,7 +314,7 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
             final byte[] key = keyValue.getKey();
             final byte[] value = keyValue.getValue();
             final Tuple primaryKey = getDataSubspace().unpack(key).getNestedTuple(1);
-            return nodeFromRaw(layer, primaryKey, key, value);
+            return nodeFromRaw(AffineOperator.identity(), layer, primaryKey, key, value);
         });
     }
 }

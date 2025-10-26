@@ -26,6 +26,7 @@ import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
+import com.apple.foundationdb.linear.AffineOperator;
 import com.apple.foundationdb.linear.DoubleRealVector;
 import com.apple.foundationdb.linear.FhtKacRotator;
 import com.apple.foundationdb.rabitq.RaBitQuantizer;
@@ -610,7 +611,7 @@ public class HNSW {
                                     entryNodeReference.getVector(),
                                     estimator.distance(queryVectorTrans, entryNodeReference.getVector()));
 
-                    final var entryLayer = entryNodeReference.getLayer();
+                    final int entryLayer = entryNodeReference.getLayer();
                     return forLoop(entryLayer, entryState,
                             layer -> layer >= 0,
                             layer -> layer - 1,
@@ -621,7 +622,7 @@ public class HNSW {
                                 }
 
                                 final var storageAdapter = getStorageAdapterForLayer(layer);
-                                return greedySearchLayer(estimator, storageAdapter, readTransaction,
+                                return greedySearchLayer(estimator, storageAdapter, readTransaction,,
                                         previousNodeReference, layer, queryVectorTrans);
                             }, executor)
                             .thenCompose(nodeReference -> {
@@ -631,7 +632,7 @@ public class HNSW {
 
                                 final var storageAdapter = getStorageAdapterForLayer(0);
 
-                                return searchLayer(estimator, storageAdapter, readTransaction, ImmutableList.of(nodeReference),
+                                return searchLayer(storageAdapter, readTransaction,, estimator, ImmutableList.of(nodeReference),
                                         0, efSearch, Maps.newConcurrentMap(), queryVectorTrans)
                                         .thenApply(searchResult -> {
                                             // reverse the original queue
@@ -673,9 +674,9 @@ public class HNSW {
      * The operation is asynchronous.
      *
      * @param <N> the type of the node reference, extending {@link NodeReference}
-     * @param estimator a distance estimator
      * @param storageAdapter the {@link StorageAdapter} for accessing the graph data
      * @param readTransaction the {@link ReadTransaction} to use for the search
+     * @param estimator a distance estimator
      * @param entryNeighbor the starting point for the search on this layer, which includes the node and its distance to
      * the query vector
      * @param layer the zero-based index of the layer to search within
@@ -686,18 +687,19 @@ public class HNSW {
      */
     @Nonnull
     private <N extends NodeReference> CompletableFuture<NodeReferenceWithDistance>
-            greedySearchLayer(@Nonnull final Estimator estimator,
-                              @Nonnull final StorageAdapter<N> storageAdapter,
+            greedySearchLayer(@Nonnull final StorageAdapter<N> storageAdapter,
                               @Nonnull final ReadTransaction readTransaction,
+                              @Nonnull final AffineOperator storageTransform,
+                              @Nonnull final Estimator estimator,
                               @Nonnull final NodeReferenceWithDistance entryNeighbor,
                               final int layer,
                               @Nonnull final RealVector queryVector) {
         if (storageAdapter.getNodeKind() == NodeKind.INLINING) {
-            return greedySearchInliningLayer(estimator, storageAdapter.asInliningStorageAdapter(),
-                    readTransaction, entryNeighbor, layer, queryVector);
+            return greedySearchInliningLayer(storageAdapter.asInliningStorageAdapter(),
+                    readTransaction, storageTransform, estimator, entryNeighbor, layer, queryVector);
         } else {
-            return searchLayer(estimator, storageAdapter, readTransaction, ImmutableList.of(entryNeighbor), layer,
-                    1, Maps.newConcurrentMap(), queryVector)
+            return searchLayer(storageAdapter, readTransaction, storageTransform, estimator,
+                    ImmutableList.of(entryNeighbor), layer, 1, Maps.newConcurrentMap(), queryVector)
                     .thenApply(searchResult ->
                             Iterables.getOnlyElement(searchResult).getNodeReferenceWithDistance());
         }
@@ -718,22 +720,26 @@ public class HNSW {
      *
      * @param storageAdapter the storage adapter to fetch nodes from the graph
      * @param readTransaction the transaction context for database reads
+     * @param storageTransform an affine transformation operator that is used to transform the fetched vector into the
+     * storage space that is currently being used
+     * @param estimator a distance estimator
      * @param entryNeighbor the entry point for the search in this layer, typically the result from a search in a higher
      * layer
      * @param layer the layer number to perform the search in. Must be greater than 0.
      * @param queryVector the vector for which to find the nearest neighbor
      *
-     * @return a {@link CompletableFuture} that, upon completion, will hold the {@link NodeReferenceWithDistance} of the nearest
-     * neighbor found in this layer's greedy search
+     * @return a {@link CompletableFuture} that, upon completion, will hold the {@link NodeReferenceWithDistance} of the
+     * nearest neighbor found in this layer's greedy search
      *
      * @throws IllegalStateException if a node that is expected to exist cannot be fetched from the
      * {@code storageAdapter} during the search
      */
     @Nonnull
     private CompletableFuture<NodeReferenceWithDistance>
-            greedySearchInliningLayer(@Nonnull final Estimator estimator,
-                                      @Nonnull final StorageAdapter<NodeReferenceWithVector> storageAdapter,
+            greedySearchInliningLayer(@Nonnull final StorageAdapter<NodeReferenceWithVector> storageAdapter,
                                       @Nonnull final ReadTransaction readTransaction,
+                                      @Nonnull final AffineOperator storageTransform,
+                                      @Nonnull final Estimator estimator,
                                       @Nonnull final NodeReferenceWithDistance entryNeighbor,
                                       final int layer,
                                       @Nonnull final RealVector queryVector) {
@@ -742,7 +748,8 @@ public class HNSW {
                 new AtomicReference<>(entryNeighbor);
 
         return AsyncUtil.whileTrue(() -> onReadListener.onAsyncRead(
-                        storageAdapter.fetchNode(readTransaction, layer, currentNodeReferenceAtomic.get().getPrimaryKey()))
+                        storageAdapter.fetchNode(readTransaction, storageTransform, layer,
+                                currentNodeReferenceAtomic.get().getPrimaryKey()))
                 .thenApply(node -> {
                     if (node == null) {
                         throw new IllegalStateException("unable to fetch node");
@@ -789,6 +796,9 @@ public class HNSW {
      * @param <N> The type of the node reference, extending {@link NodeReference}.
      * @param storageAdapter The storage adapter for accessing node data from the underlying storage.
      * @param readTransaction The transaction context for all database read operations.
+     * @param storageTransform an affine transformation operator that is used to transform the fetched vector into the
+     *        storage space that is currently being used
+     * @param estimator the estimator to use
      * @param entryNeighbors A collection of starting nodes for the search in this layer, with their distances
      * to the query vector already calculated.
      * @param layer The zero-based index of the layer to search.
@@ -802,9 +812,10 @@ public class HNSW {
      */
     @Nonnull
     private <N extends NodeReference> CompletableFuture<List<NodeReferenceAndNode<N>>>
-            searchLayer(@Nonnull final Estimator estimator,
-                        @Nonnull final StorageAdapter<N> storageAdapter,
+            searchLayer(@Nonnull final StorageAdapter<N> storageAdapter,
                         @Nonnull final ReadTransaction readTransaction,
+                        @Nonnull final AffineOperator storageTransform,
+                        @Nonnull final Estimator estimator,
                         @Nonnull final Collection<NodeReferenceWithDistance> entryNeighbors,
                         final int layer,
                         final int efSearch,
@@ -832,12 +843,12 @@ public class HNSW {
                 return AsyncUtil.READY_FALSE;
             }
 
-            return fetchNodeIfNotCached(storageAdapter, readTransaction, layer, candidate, nodeCache)
+            return fetchNodeIfNotCached(storageAdapter, readTransaction, storageTransform, layer, candidate, nodeCache)
                     .thenApply(candidateNode ->
                             Iterables.filter(candidateNode.getNeighbors(),
                                     neighbor -> !visited.contains(Objects.requireNonNull(neighbor).getPrimaryKey())))
                     .thenCompose(neighborReferences -> fetchNeighborhood(storageAdapter, readTransaction,
-                            layer, neighborReferences, nodeCache))
+                            storageTransform, layer, neighborReferences, nodeCache))
                     .thenApply(neighborReferences -> {
                         for (final NodeReferenceWithVector current : neighborReferences) {
                             visited.add(current.getPrimaryKey());
@@ -859,7 +870,8 @@ public class HNSW {
                         return true;
                     });
         }).thenCompose(ignored ->
-                fetchSomeNodesIfNotCached(storageAdapter, readTransaction, layer, nearestNeighbors, nodeCache))
+                fetchSomeNodesIfNotCached(storageAdapter, readTransaction, storageTransform, layer,
+                        nearestNeighbors, nodeCache))
                 .thenApply(searchResult -> {
                     if (logger.isTraceEnabled()) {
                         logger.trace("searched layer={} for efSearch={} with result=={}", layer, efSearch,
@@ -884,12 +896,13 @@ public class HNSW {
      * is added to the {@code nodeCache} before the future is completed.
      * <p>
      * This is a convenience method that delegates to
-     * {@link #fetchNodeIfNecessaryAndApply(StorageAdapter, ReadTransaction, int, NodeReference,
-     * java.util.function.Function, java.util.function.BiFunction)}.
+     * {@link #fetchNodeIfNecessaryAndApply(StorageAdapter, ReadTransaction, AffineOperator, int, NodeReference, Function, BiFunction)}.
      *
      * @param <N> the type of the node reference, which must extend {@link NodeReference}
      * @param storageAdapter the storage adapter used to fetch the node from persistent storage
      * @param readTransaction the transaction to use for reading from storage
+     * @param storageTransform an affine transformation operator that is used to transform the fetched vector into the
+     *        storage space that is currently being used
      * @param layer the layer index where the node is located
      * @param nodeReference the reference to the node to fetch
      * @param nodeCache the cache to check for the node and to which the node will be added if fetched
@@ -900,10 +913,11 @@ public class HNSW {
     private <N extends NodeReference> CompletableFuture<Node<N>>
             fetchNodeIfNotCached(@Nonnull final StorageAdapter<N> storageAdapter,
                                  @Nonnull final ReadTransaction readTransaction,
+                                 @Nonnull final AffineOperator storageTransform,
                                  final int layer,
                                  @Nonnull final NodeReference nodeReference,
                                  @Nonnull final Map<Tuple, Node<N>> nodeCache) {
-        return fetchNodeIfNecessaryAndApply(storageAdapter, readTransaction, layer, nodeReference,
+        return fetchNodeIfNecessaryAndApply(storageAdapter, readTransaction, storageTransform, layer, nodeReference,
                 nR -> nodeCache.get(nR.getPrimaryKey()),
                 (nR, node) -> {
                     nodeCache.put(nR.getPrimaryKey(), node);
@@ -929,6 +943,8 @@ public class HNSW {
      * @param <U> The type of the result.
      * @param storageAdapter The storage adapter used to fetch the node if necessary.
      * @param readTransaction The read transaction context for the storage operation.
+     * @param storageTransform an affine transformation operator that is used to transform the fetched vector into the
+     *        storage space that is currently being used
      * @param layer The layer index from which to fetch the node.
      * @param nodeReference The reference to the node that may need to be fetched.
      * @param fetchBypassFunction A function that provides a potential shortcut. If it returns a
@@ -943,6 +959,7 @@ public class HNSW {
     private <R extends NodeReference, N extends NodeReference, U> CompletableFuture<U>
             fetchNodeIfNecessaryAndApply(@Nonnull final StorageAdapter<N> storageAdapter,
                                          @Nonnull final ReadTransaction readTransaction,
+                                         @Nonnull final AffineOperator storageTransform,
                                          final int layer,
                                          @Nonnull final R nodeReference,
                                          @Nonnull final Function<R, U> fetchBypassFunction,
@@ -953,7 +970,8 @@ public class HNSW {
         }
 
         return onReadListener.onAsyncRead(
-                        storageAdapter.fetchNode(readTransaction, layer, nodeReference.getPrimaryKey()))
+                        storageAdapter.fetchNode(readTransaction, storageTransform, layer,
+                                nodeReference.getPrimaryKey()))
                 .thenApply(node -> biMapFunction.apply(nodeReference, node));
     }
 
@@ -969,6 +987,8 @@ public class HNSW {
      * @param <N> the type of the node reference, extending {@link NodeReference}
      * @param storageAdapter the storage adapter to fetch nodes from if they are not in the cache
      * @param readTransaction the transaction context for database read operations
+     * @param storageTransform an affine transformation operator that is used to transform the fetched vector into the
+     *        storage space that is currently being used
      * @param layer the graph layer from which to fetch the nodes
      * @param neighborReferences an iterable of references to the neighbor nodes to be fetched
      * @param nodeCache a map serving as an in-memory cache for nodes. This map will be populated with any
@@ -981,10 +1001,11 @@ public class HNSW {
     private <N extends NodeReference> CompletableFuture<List<NodeReferenceWithVector>>
             fetchNeighborhood(@Nonnull final StorageAdapter<N> storageAdapter,
                               @Nonnull final ReadTransaction readTransaction,
+                              @Nonnull final AffineOperator storageTransform,
                               final int layer,
                               @Nonnull final Iterable<? extends NodeReference> neighborReferences,
                               @Nonnull final Map<Tuple, Node<N>> nodeCache) {
-        return fetchSomeNodesAndApply(storageAdapter, readTransaction, layer, neighborReferences,
+        return fetchSomeNodesAndApply(storageAdapter, readTransaction, storageTransform, layer, neighborReferences,
                 neighborReference -> {
                     if (neighborReference instanceof NodeReferenceWithVector) {
                         return (NodeReferenceWithVector)neighborReference;
@@ -993,11 +1014,13 @@ public class HNSW {
                     if (neighborNode == null) {
                         return null;
                     }
-                    return new NodeReferenceWithVector(neighborReference.getPrimaryKey(), neighborNode.asCompactNode().getVector());
+                    return new NodeReferenceWithVector(neighborReference.getPrimaryKey(),
+                            neighborNode.asCompactNode().getVector());
                 },
                 (neighborReference, neighborNode) -> {
                     nodeCache.put(neighborReference.getPrimaryKey(), neighborNode);
-                    return new NodeReferenceWithVector(neighborReference.getPrimaryKey(), neighborNode.asCompactNode().getVector());
+                    return new NodeReferenceWithVector(neighborReference.getPrimaryKey(),
+                            neighborNode.asCompactNode().getVector());
                 });
     }
 
@@ -1014,6 +1037,8 @@ public class HNSW {
      * @param <N> The type of the node reference, which must extend {@link NodeReference}.
      * @param storageAdapter The storage adapter used to fetch nodes from storage if they are not in the cache.
      * @param readTransaction The transaction context for the read operation.
+     * @param storageTransform an affine transformation operator that is used to transform the fetched vector into the
+     *        storage space that is currently being used
      * @param layer The layer from which to fetch the nodes.
      * @param nodeReferences An {@link Iterable} of {@link NodeReferenceWithDistance} objects identifying the nodes to
      * be fetched.
@@ -1027,10 +1052,11 @@ public class HNSW {
     private <N extends NodeReference> CompletableFuture<List<NodeReferenceAndNode<N>>>
             fetchSomeNodesIfNotCached(@Nonnull final StorageAdapter<N> storageAdapter,
                                       @Nonnull final ReadTransaction readTransaction,
+                                      @Nonnull final AffineOperator storageTransform,
                                       final int layer,
                                       @Nonnull final Iterable<NodeReferenceWithDistance> nodeReferences,
                                       @Nonnull final Map<Tuple, Node<N>> nodeCache) {
-        return fetchSomeNodesAndApply(storageAdapter, readTransaction, layer, nodeReferences,
+        return fetchSomeNodesAndApply(storageAdapter, readTransaction, storageTransform, layer, nodeReferences,
                 nodeReference -> {
                     final Node<N> node = nodeCache.get(nodeReference.getPrimaryKey());
                     if (node == null) {
@@ -1059,6 +1085,8 @@ public class HNSW {
      * @param <U> The type of the result after applying one of the mapping functions.
      * @param storageAdapter The {@link StorageAdapter} used to fetch nodes from the underlying storage.
      * @param readTransaction The {@link ReadTransaction} context for the read operations.
+     * @param storageTransform an affine transformation operator that is used to transform the fetched vector into the
+     *        storage space that is currently being used
      * @param layer The layer index from which the nodes are being fetched.
      * @param nodeReferences An {@link Iterable} of {@link NodeReference}s for the nodes to be fetched and processed.
      * @param fetchBypassFunction The function to apply to a node reference when the actual node fetch is bypassed,
@@ -1073,13 +1101,15 @@ public class HNSW {
     private <R extends NodeReference, N extends NodeReference, U> CompletableFuture<List<U>>
             fetchSomeNodesAndApply(@Nonnull final StorageAdapter<N> storageAdapter,
                                    @Nonnull final ReadTransaction readTransaction,
+                                   @Nonnull final AffineOperator storageTransform,
                                    final int layer,
                                    @Nonnull final Iterable<R> nodeReferences,
                                    @Nonnull final Function<R, U> fetchBypassFunction,
                                    @Nonnull final BiFunction<R, Node<N>, U> biMapFunction) {
         return forEach(nodeReferences,
-                currentNeighborReference -> fetchNodeIfNecessaryAndApply(storageAdapter, readTransaction, layer,
-                        currentNeighborReference, fetchBypassFunction, biMapFunction), MAX_CONCURRENT_NODE_READS,
+                currentNeighborReference -> fetchNodeIfNecessaryAndApply(storageAdapter, readTransaction,
+                        storageTransform, layer, currentNeighborReference, fetchBypassFunction, biMapFunction),
+                MAX_CONCURRENT_NODE_READS,
                 getExecutor());
     }
 
@@ -1189,11 +1219,11 @@ public class HNSW {
                                     layer -> layer - 1,
                                     (layer, previousNodeReference) -> {
                                         final StorageAdapter<? extends NodeReference> storageAdapter = getStorageAdapterForLayer(layer);
-                                        return greedySearchLayer(estimator, storageAdapter, transaction,
+                                        return greedySearchLayer(estimator, storageAdapter, , transaction,
                                                 previousNodeReference, layer, newVectorTrans);
                                     }, executor)
                             .thenCompose(nodeReference ->
-                                    insertIntoLayers(quantizer, transaction, newPrimaryKey, newVectorTrans, nodeReference,
+                                    insertIntoLayers(transaction,, quantizer, newPrimaryKey, newVectorTrans, nodeReference,
                                             lMax, insertionLayer));
                 }).thenCompose(ignored -> AsyncUtil.DONE);
     }
@@ -1283,7 +1313,7 @@ public class HNSW {
                                         layer -> layer - 1,
                                         (layer, previousNodeReference) -> {
                                             final StorageAdapter<? extends NodeReference> storageAdapter = getStorageAdapterForLayer(layer);
-                                            return greedySearchLayer(estimator, storageAdapter, transaction,
+                                            return greedySearchLayer(estimator, storageAdapter, , transaction,
                                                     previousNodeReference, layer, itemVectorTrans);
                                         }, executor);
                             }, MAX_CONCURRENT_SEARCHES, getExecutor())
@@ -1338,7 +1368,7 @@ public class HNSW {
                                                 final var currentSearchEntry =
                                                         searchEntryReferences.get(index);
 
-                                                return insertIntoLayers(quantizer, transaction, itemPrimaryKey,
+                                                return insertIntoLayers(transaction,, quantizer, itemPrimaryKey,
                                                         itemVector, currentSearchEntry, lMax, itemL)
                                                         .thenApply(ignored -> newEntryNodeReference);
                                             }, getExecutor()));
@@ -1351,13 +1381,15 @@ public class HNSW {
      * This method implements the second phase of the HNSW insertion algorithm. It begins at a starting layer, which is
      * the minimum of the graph's maximum layer ({@code lMax}) and the new node's randomly assigned
      * {@code insertionLayer}. It then iterates downwards to layer 0. In each layer, it invokes
-     * {@link #insertIntoLayer(Quantizer, StorageAdapter, Transaction, List, int, Tuple, RealVector)} to perform the search
-     * and connect the new node. The set of nearest neighbors found at layer {@code L} serves as the entry points for
-     * the search at layer {@code L-1}.
+     * {@link #insertIntoLayer(StorageAdapter, Transaction, AffineOperator, Quantizer, List, int, Tuple, RealVector)} to
+     * perform the search and connect the new node. The set of nearest neighbors found at layer {@code L} serves as the
+     * entry points for the search at layer {@code L-1}.
      * </p>
      *
-     * @param quantizer the quantizer to be used for this insert
      * @param transaction the transaction to use for database operations
+     * @param storageTransform an affine transformation operator that is used to transform the fetched vector into the
+     * storage space that is currently being used
+     * @param quantizer the quantizer to be used for this insert
      * @param newPrimaryKey the primary key of the new node being inserted
      * @param newVector the vector data of the new node
      * @param nodeReference the initial entry point for the search, typically the nearest neighbor found in the highest
@@ -1370,8 +1402,9 @@ public class HNSW {
      * its designated layers
      */
     @Nonnull
-    private CompletableFuture<Void> insertIntoLayers(@Nonnull final Quantizer quantizer,
-                                                     @Nonnull final Transaction transaction,
+    private CompletableFuture<Void> insertIntoLayers(@Nonnull final Transaction transaction,
+                                                     @Nonnull final AffineOperator storageTransform,
+                                                     @Nonnull final Quantizer quantizer,
                                                      @Nonnull final Tuple newPrimaryKey,
                                                      @Nonnull final RealVector newVector,
                                                      @Nonnull final NodeReferenceWithDistance nodeReference,
@@ -1385,7 +1418,7 @@ public class HNSW {
                 layer -> layer - 1,
                 (layer, previousNodeReferences) -> {
                     final StorageAdapter<? extends NodeReference> storageAdapter = getStorageAdapterForLayer(layer);
-                    return insertIntoLayer(quantizer, storageAdapter, transaction,
+                    return insertIntoLayer(storageAdapter, transaction, storageTransform, quantizer,
                             previousNodeReferences, layer, newPrimaryKey, newVector);
                 }, executor).thenCompose(ignored -> AsyncUtil.DONE);
     }
@@ -1411,9 +1444,11 @@ public class HNSW {
      * </p>
      *
      * @param <N> the type of the node reference, extending {@link NodeReference}
-     * @param quantizer the quantizer for this insert
      * @param storageAdapter the storage adapter for reading from and writing to the graph
      * @param transaction the transaction context for the database operations
+     * @param storageTransform an affine transformation operator that is used to transform the fetched vector into the
+     *        storage space that is currently being used
+     * @param quantizer the quantizer for this insert
      * @param nearestNeighbors the list of nearest neighbors from the layer above, used as entry points for the search
      * in this layer
      * @param layer the layer number to insert the new node into
@@ -1426,9 +1461,10 @@ public class HNSW {
      */
     @Nonnull
     private <N extends NodeReference> CompletableFuture<List<NodeReferenceWithDistance>>
-            insertIntoLayer(@Nonnull final Quantizer quantizer,
-                            @Nonnull final StorageAdapter<N> storageAdapter,
+            insertIntoLayer(@Nonnull final StorageAdapter<N> storageAdapter,
                             @Nonnull final Transaction transaction,
+                            @Nonnull final AffineOperator storageTransform,
+                            @Nonnull final Quantizer quantizer,
                             @Nonnull final List<NodeReferenceWithDistance> nearestNeighbors,
                             final int layer,
                             @Nonnull final Tuple newPrimaryKey,
@@ -1439,15 +1475,18 @@ public class HNSW {
         final Map<Tuple, Node<N>> nodeCache = Maps.newConcurrentMap();
         final Estimator estimator = quantizer.estimator();
 
-        return searchLayer(estimator, storageAdapter, transaction,
+        return searchLayer(storageAdapter, transaction, storageTransform, estimator,
                 nearestNeighbors, layer, config.getEfConstruction(), nodeCache, newVector)
                 .thenCompose(searchResult -> {
                     final List<NodeReferenceWithDistance> references = NodeReferenceAndNode.getReferences(searchResult);
 
-                    return selectNeighbors(estimator, storageAdapter, transaction, searchResult, layer,
-                            getConfig().getM(), getConfig().isExtendCandidates(), nodeCache, newVector)
+                    return selectNeighbors(storageAdapter, transaction, storageTransform, estimator, searchResult,
+                            layer, getConfig().getM(), getConfig().isExtendCandidates(), nodeCache, newVector)
                             .thenCompose(selectedNeighbors -> {
                                 final NodeFactory<N> nodeFactory = storageAdapter.getNodeFactory();
+
+                                // TODO Quantize the neighbors. (if in inlining mode and the neighbors were fetched as
+                                //      regular vectors)
 
                                 final Node<N> newNode =
                                         nodeFactory.create(newPrimaryKey, quantizer.encode(newVector),
@@ -1477,8 +1516,9 @@ public class HNSW {
                                                     final Node<N> selectedNeighborNode = selectedNeighbor.getNode();
                                                     final NeighborsChangeSet<N> changeSet =
                                                             Objects.requireNonNull(neighborChangeSetMap.get(selectedNeighborNode.getPrimaryKey()));
-                                                    return pruneNeighborsIfNecessary(estimator, storageAdapter, transaction,
-                                                            selectedNeighbor, layer, currentMMax, changeSet, nodeCache)
+                                                    return pruneNeighborsIfNecessary(storageAdapter, transaction,
+                                                            storageTransform, estimator, selectedNeighbor, layer,
+                                                            currentMMax, changeSet, nodeCache)
                                                             .thenApply(nodeReferencesAndNodes -> {
                                                                 if (nodeReferencesAndNodes == null) {
                                                                     return changeSet;
@@ -1524,8 +1564,9 @@ public class HNSW {
      * @return a new {@code NeighborsChangeSet} that includes the necessary deletion and insertion
      * operations to transform the neighbors from the "before" state to the "after" state.
      */
-    private <N extends NodeReference> NeighborsChangeSet<N> resolveChangeSetFromNewNeighbors(@Nonnull final NeighborsChangeSet<N> beforeChangeSet,
-                                                                                             @Nonnull final Iterable<NodeReferenceAndNode<N>> afterNeighbors) {
+    private <N extends NodeReference> NeighborsChangeSet<N>
+            resolveChangeSetFromNewNeighbors(@Nonnull final NeighborsChangeSet<N> beforeChangeSet,
+                                             @Nonnull final Iterable<NodeReferenceAndNode<N>> afterNeighbors) {
         final Map<Tuple, N> beforeNeighborsMap = Maps.newLinkedHashMap();
         for (final N n : beforeChangeSet.merge()) {
             beforeNeighborsMap.put(n.getPrimaryKey(), n);
@@ -1577,6 +1618,9 @@ public class HNSW {
      * @param <N> the type of the node reference, extending {@link NodeReference}
      * @param storageAdapter the storage adapter to fetch nodes from the database
      * @param transaction the transaction context for database operations
+     * @param estimator an estimator to estimate distances
+     * @param storageTransform an affine transformation operator that is used to transform the fetched vector into the
+     *        storage space that is currently being used
      * @param selectedNeighbor the node whose neighborhood is being considered for pruning
      * @param layer the graph layer on which the operation is performed
      * @param mMax the maximum number of neighbors a node is allowed to have on this layer
@@ -1589,9 +1633,10 @@ public class HNSW {
      */
     @Nonnull
     private <N extends NodeReference> CompletableFuture<List<NodeReferenceAndNode<N>>>
-            pruneNeighborsIfNecessary(@Nonnull final Estimator estimator,
-                                      @Nonnull final StorageAdapter<N> storageAdapter,
+            pruneNeighborsIfNecessary(@Nonnull final StorageAdapter<N> storageAdapter,
                                       @Nonnull final Transaction transaction,
+                                      @Nonnull final AffineOperator storageTransform,
+                                      @Nonnull final Estimator estimator,
                                       @Nonnull final NodeReferenceAndNode<N> selectedNeighbor,
                                       int layer,
                                       int mMax,
@@ -1605,7 +1650,7 @@ public class HNSW {
                 logger.trace("pruning neighborhood of key={} which has numNeighbors={} out of mMax={}",
                         selectedNeighborNode.getPrimaryKey(), selectedNeighborNode.getNeighbors().size(), mMax);
             }
-            return fetchNeighborhood(storageAdapter, transaction, layer, neighborChangeSet.merge(), nodeCache)
+            return fetchNeighborhood(storageAdapter, transaction, storageTransform, layer, neighborChangeSet.merge(), nodeCache)
                     .thenCompose(nodeReferenceWithVectors -> {
                         final ImmutableList.Builder<NodeReferenceWithDistance> nodeReferencesWithDistancesBuilder =
                                 ImmutableList.builder();
@@ -1618,11 +1663,11 @@ public class HNSW {
                                     new NodeReferenceWithDistance(nodeReferenceWithVector.getPrimaryKey(),
                                             vector, distance));
                         }
-                        return fetchSomeNodesIfNotCached(storageAdapter, transaction, layer,
+                        return fetchSomeNodesIfNotCached(storageAdapter, transaction, storageTransform, layer,
                                 nodeReferencesWithDistancesBuilder.build(), nodeCache);
                     })
                     .thenCompose(nodeReferencesAndNodes ->
-                            selectNeighbors(estimator, storageAdapter, transaction,
+                            selectNeighbors(storageAdapter, transaction, storageTransform, estimator,
                                     nodeReferencesAndNodes, layer,
                                     mMax, false, nodeCache,
                                     selectedNeighbor.getNodeReferenceWithDistance().getVector()));
@@ -1646,9 +1691,11 @@ public class HNSW {
      * selected neighbors with their full node data.
      *
      * @param <N> the type of the node reference, extending {@link NodeReference}
-     * @param estimator the estimator in use
      * @param storageAdapter the storage adapter to fetch nodes and their neighbors
      * @param readTransaction the transaction for performing database reads
+     * @param estimator the estimator in use
+     * @param storageTransform an affine transformation operator that is used to transform the fetched vector into the
+     *        storage space that is currently being used
      * @param nearestNeighbors the initial pool of candidate neighbors, typically from a search in a higher layer
      * @param layer the layer in the HNSW graph where the selection is being performed
      * @param m the maximum number of neighbors to select
@@ -1661,17 +1708,18 @@ public class HNSW {
      * each represented as a {@link NodeReferenceAndNode}
      */
     private <N extends NodeReference> CompletableFuture<List<NodeReferenceAndNode<N>>>
-            selectNeighbors(@Nonnull final Estimator estimator,
-                            @Nonnull final StorageAdapter<N> storageAdapter,
+            selectNeighbors(@Nonnull final StorageAdapter<N> storageAdapter,
                             @Nonnull final ReadTransaction readTransaction,
+                            @Nonnull final AffineOperator storageTransform,
+                            @Nonnull final Estimator estimator,
                             @Nonnull final Iterable<NodeReferenceAndNode<N>> nearestNeighbors,
                             final int layer,
                             final int m,
                             final boolean isExtendCandidates,
                             @Nonnull final Map<Tuple, Node<N>> nodeCache,
                             @Nonnull final RealVector vector) {
-        return extendCandidatesIfNecessary(estimator, storageAdapter, readTransaction, nearestNeighbors,
-                layer, isExtendCandidates, nodeCache, vector)
+        return extendCandidatesIfNecessary(storageAdapter, readTransaction, storageTransform, estimator,
+                nearestNeighbors, layer, isExtendCandidates, nodeCache, vector)
                 .thenApply(extendedCandidates -> {
                     final List<NodeReferenceWithDistance> selected = Lists.newArrayListWithExpectedSize(m);
                     final Queue<NodeReferenceWithDistance> candidates =
@@ -1709,7 +1757,8 @@ public class HNSW {
 
                     return ImmutableList.copyOf(selected);
                 }).thenCompose(selectedNeighbors ->
-                        fetchSomeNodesIfNotCached(storageAdapter, readTransaction, layer, selectedNeighbors, nodeCache))
+                        fetchSomeNodesIfNotCached(storageAdapter, readTransaction, storageTransform, layer,
+                                selectedNeighbors, nodeCache))
                 .thenApply(selectedNeighbors -> {
                     if (logger.isTraceEnabled()) {
                         logger.trace("selected neighbors={}",
@@ -1735,9 +1784,11 @@ public class HNSW {
      * only the original candidates. This operation is asynchronous and returns a {@link CompletableFuture}.
      *
      * @param <N> the type of the {@link NodeReference}
-     * @param estimator the estimator
      * @param storageAdapter the {@link StorageAdapter} used to access node data from storage
      * @param readTransaction the active {@link ReadTransaction} for database access
+     * @param estimator the estimator
+     * @param storageTransform an affine transformation operator that is used to transform the fetched vector into the
+     *        storage space that is currently being used
      * @param candidates an {@link Iterable} of initial candidate nodes, which have already been evaluated
      * @param layer the graph layer from which to fetch nodes
      * @param isExtendCandidates a boolean flag; if {@code true}, the candidate set is extended with neighbors
@@ -1748,9 +1799,10 @@ public class HNSW {
      * containing the original candidates and potentially their neighbors
      */
     private <N extends NodeReference> CompletableFuture<List<NodeReferenceWithDistance>>
-            extendCandidatesIfNecessary(@Nonnull final Estimator estimator,
-                                        @Nonnull final StorageAdapter<N> storageAdapter,
+            extendCandidatesIfNecessary(@Nonnull final StorageAdapter<N> storageAdapter,
                                         @Nonnull final ReadTransaction readTransaction,
+                                        @Nonnull final AffineOperator storageTransform,
+                                        @Nonnull final Estimator estimator,
                                         @Nonnull final Iterable<NodeReferenceAndNode<N>> candidates,
                                         int layer,
                                         boolean isExtendCandidates,
@@ -1775,7 +1827,8 @@ public class HNSW {
 
             final Iterable<N> neighborsOfCandidates = neighborsOfCandidatesBuilder.build();
 
-            return fetchNeighborhood(storageAdapter, readTransaction, layer, neighborsOfCandidates, nodeCache)
+            return fetchNeighborhood(storageAdapter, readTransaction, storageTransform, layer,
+                    neighborsOfCandidates, nodeCache)
                     .thenApply(withVectors -> {
                         final ImmutableList.Builder<NodeReferenceWithDistance> extendedCandidatesBuilder =
                                 ImmutableList.builder();
