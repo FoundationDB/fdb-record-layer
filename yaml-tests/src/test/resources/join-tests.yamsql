@@ -95,4 +95,98 @@ test_block:
       - unorderedResult: [{"Engineering", "OLAP"},
                           {"Sales", "Feedback"},
                           {"Marketing", "SEO"}]
+    -
+      # Join with NOT IN - get employees in Engineering excluding specific employee ids
+      - query: select emp.id, fname, lname from emp, dept where emp.dept_id = dept.id and dept.name = 'Engineering' and emp.id not in (1, 3)
+      - supported_version: 4.5.13.0
+      - unorderedResult: [{ID: 2, FNAME: "Thomas", LNAME: "Johnson"},
+                          {ID: 4, FNAME: "Amelia", LNAME: "Johnson"}]
+    -
+      # Join with NOT IN - get projects excluding certain project ids
+      - query: select project.id, project.name from emp, project where project.emp_id = emp.id and project.id not in (1, 2)
+      - supported_version: 4.5.13.0
+      - unorderedResult: [{ID: 3, NAME: "Feedback"}]
+    -
+      # Three-way join with NOT IN - departments with projects, excluding specific departments
+      - query: select dept.id, dept.name, project.name from emp, dept, project where emp.dept_id = dept.id and project.emp_id = emp.id and dept.id not in (1)
+      - supported_version: 4.5.13.0
+      - unorderedResult: [{ID: 2, "Sales", "Feedback"},
+                          {ID: 3, "Marketing", "SEO"}]
+    -
+      # Join with NOT IN - employees in Sales department excluding specific ids
+      - query: select emp.id from emp, dept where emp.dept_id = dept.id and dept.id = 2 and emp.id not in (5, 6)
+      - supported_version: 4.5.13.0
+      - unorderedResult: [{7}]
+    -
+      # Join with NOT IN - all employees except those in excluded departments
+      - query: select emp.id, fname from emp, dept where emp.dept_id = dept.id and dept.id not in (1, 3)
+      - supported_version: 4.5.13.0
+      - unorderedResult: [{ID: 5, FNAME: "Daniel"},
+                          {ID: 6, FNAME: "Chloe"},
+                          {ID: 7, FNAME: "Charlotte"}]
+    -
+      # Join with NOT IN on non-existent values (should return all matching rows)
+      - query: select emp.id from emp, dept where emp.dept_id = dept.id and dept.id = 1 and emp.id not in (10, 20, 30)
+      - supported_version: 4.5.13.0
+      - unorderedResult: [{1}, {2}, {3}, {4}]
+    -
+      # Subquery join with NOT IN
+      - query: select fname, lname from (select fname, lname, emp.id from emp, dept where emp.dept_id = dept.id and dept.name = 'Engineering') as sq where sq.id not in (1, 4)
+      - supported_version: 4.5.13.0
+      - unorderedResult: [{"Thomas", "Johnson"},
+                          {"Emily", "Martinez"}]
+    -
+      # Join with multiple NOT IN conditions
+      - query: select project.id, project.name from emp, dept, project where emp.dept_id = dept.id and project.emp_id = emp.id and dept.id not in (3) and project.id not in (3)
+      - supported_version: 4.5.13.0
+      - unorderedResult: [{ID: 1, NAME: "OLAP"}]
+    -
+      # Join with IN - get specific employees in Engineering
+      - query: select emp.id, fname, lname from emp, dept where emp.dept_id = dept.id and dept.name = 'Engineering' and emp.id in (1, 3)
+      - unorderedResult: [{ID: 1, FNAME: "Jack", LNAME: "Williams"},
+                          {ID: 3, FNAME: "Emily", LNAME: "Martinez"}]
+    -
+      # Join with IN - get specific projects
+      - query: select project.id, project.name from emp, project where project.emp_id = emp.id and project.id in (1, 2)
+      - unorderedResult: [{ID: 1, NAME: "OLAP"},
+                          {ID: 2, NAME: "SEO"}]
+    -
+      # Three-way join with IN - departments with projects, including only specific departments
+      - query: select dept.id, dept.name, project.name from emp, dept, project where emp.dept_id = dept.id and project.emp_id = emp.id and dept.id in (1, 2)
+      - unorderedResult: [{ID: 1, "Engineering", "OLAP"},
+                          {ID: 2, "Sales", "Feedback"}]
+    -
+      # Join with IN - employees in specific departments
+      - query: select emp.id, fname from emp, dept where emp.dept_id = dept.id and dept.id in (2, 3)
+      - unorderedResult: [{ID: 5, FNAME: "Daniel"},
+                          {ID: 6, FNAME: "Chloe"},
+                          {ID: 7, FNAME: "Charlotte"},
+                          {ID: 8, FNAME: "Megan"},
+                          {ID: 9, FNAME: "Harry"}]
+    -
+      # Join with IN - single value in list
+      - query: select emp.id, fname, lname from emp, dept where emp.dept_id = dept.id and dept.id = 1 and emp.id in (2)
+      - unorderedResult: [{ID: 2, FNAME: "Thomas", LNAME: "Johnson"}]
+    -
+      # Join with IN - employees in Sales department with specific ids
+      - query: select emp.id from emp, dept where emp.dept_id = dept.id and dept.id = 2 and emp.id in (5, 6, 7)
+      - unorderedResult: [{5}, {6}, {7}]
+    -
+      # Subquery join with IN
+      - query: select fname, lname from (select fname, lname, emp.id from emp, dept where emp.dept_id = dept.id and dept.name = 'Engineering') as sq where sq.id in (1, 4)
+      - unorderedResult: [{"Jack", "Williams"},
+                          {"Amelia", "Johnson"}]
+    -
+      # Join with both IN and NOT IN conditions
+      - query: select emp.id, fname from emp, dept where emp.dept_id = dept.id and dept.id in (1, 2) and emp.id not in (1, 5)
+      - supported_version: 4.5.13.0
+      - unorderedResult: [{ID: 2, FNAME: "Thomas"},
+                          {ID: 3, FNAME: "Emily"},
+                          {ID: 4, FNAME: "Amelia"},
+                          {ID: 6, FNAME: "Chloe"},
+                          {ID: 7, FNAME: "Charlotte"}]
+    -
+      # Join with IN on non-existent values (should return empty)
+      - query: select emp.id from emp, dept where emp.dept_id = dept.id and dept.id = 1 and emp.id in (10, 20, 30)
+      - result: []
 ...
