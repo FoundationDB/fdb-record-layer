@@ -61,6 +61,11 @@ class EntryNodeReference extends NodeReferenceWithVector {
         return layer;
     }
 
+    @Nonnull
+    public EntryNodeReference withVector(@Nonnull RealVector newVector) {
+        return new EntryNodeReference(getPrimaryKey(), newVector, getLayer());
+    }
+
     /**
      * Compares this {@code EntryNodeReference} to the specified object for equality.
      * <p>

@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.rabitq;
 
+import com.apple.foundationdb.async.hnsw.HNSW;
 import com.apple.foundationdb.linear.DoubleRealVector;
 import com.apple.foundationdb.linear.Estimator;
 import com.apple.foundationdb.linear.Metric;
@@ -63,7 +64,11 @@ public class RaBitEstimator implements Estimator {
 
     private double distance(@Nonnull final RealVector query, // pre-rotated query q
                             @Nonnull final EncodedRealVector encodedVector) {
-        return estimateDistanceAndErrorBound(query, encodedVector).getDistance();
+        final double x = estimateDistanceAndErrorBound(query, encodedVector).getDistance();
+        if (HNSW.cK.get() > 2026) {
+            System.out.println("estimated distance = " + x);
+        }
+        return x;
     }
 
     @Nonnull

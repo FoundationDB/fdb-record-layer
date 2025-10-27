@@ -201,140 +201,6 @@ interface StorageAdapter<N extends NodeReference> {
                                 int maxNumRead);
 
     /**
-     * Fetches the entry node reference for the HNSW index.
-     * <p>
-     * This method performs an asynchronous read to retrieve the stored entry point of the index. The entry point
-     * information, which includes its primary key, vector, and the layer value, is packed into a single key-value
-     * pair within a dedicated subspace. If no entry node is found, it indicates that the index is empty.
-     * @param config an HNSW configuration
-     * @param readTransaction the transaction to use for the read operation
-     * @param subspace the subspace where the HNSW index data is stored
-     * @param onReadListener a listener to be notified of the key-value read operation
-     * @return a {@link CompletableFuture} that will complete with the {@link AccessInfo}
-     *         for the index's entry point, or with {@code null} if the index is empty
-     */
-    @Nonnull
-    static CompletableFuture<AccessInfo> fetchAccessInfo(@Nonnull final HNSW.Config config,
-                                                         @Nonnull final ReadTransaction readTransaction,
-                                                         @Nonnull final Subspace subspace,
-                                                         @Nonnull final OnReadListener onReadListener) {
-        final Subspace entryNodeSubspace = subspace.subspace(Tuple.from(SUBSPACE_PREFIX_INDEX_ACCESS_INFO));
-        final byte[] key = entryNodeSubspace.pack();
-
-        return readTransaction.get(key)
-                .thenApply(valueBytes -> {
-                    if (valueBytes == null) {
-                        return null; // not a single node in the index
-                    }
-                    onReadListener.onKeyValueRead(-1, key, valueBytes);
-
-                    final Tuple entryTuple = Tuple.fromBytes(valueBytes);
-                    final int layer = (int)entryTuple.getLong(0);
-                    final Tuple primaryKey = entryTuple.getNestedTuple(1);
-                    final Tuple entryVectorTuple = entryTuple.getNestedTuple(2);
-                    final EntryNodeReference entryNodeReference =
-                            new EntryNodeReference(primaryKey, StorageAdapter.vectorFromTuple(config, entryVectorTuple),
-                                    layer);
-                    final long rotatorSeed = entryTuple.getLong(3);
-                    final Tuple centroidVectorTuple = entryTuple.getNestedTuple(4);
-                    return new AccessInfo(entryNodeReference,
-                            rotatorSeed,
-                            centroidVectorTuple == null
-                            ? null
-                            : StorageAdapter.vectorFromTuple(config, centroidVectorTuple));
-                });
-    }
-
-    /**
-     * Writes an {@link AccessInfo} to the database within a given transaction and subspace.
-     * <p>
-     * This method serializes the provided {@link EntryNodeReference} into a key-value pair. The key is determined by
-     * a dedicated subspace for entry nodes, and the value is a tuple containing the layer, primary key, and vector from
-     * the reference. After writing the data, it notifies the provided {@link OnWriteListener}.
-     * @param transaction the database transaction to use for the write operation
-     * @param subspace the subspace where the entry node reference will be stored
-     * @param accessInfo the {@link AccessInfo} object to write
-     * @param onWriteListener the listener to be notified after the key-value pair is written
-     */
-    static void writeAccessInfo(@Nonnull final Transaction transaction,
-                                @Nonnull final Subspace subspace,
-                                @Nonnull final AccessInfo accessInfo,
-                                @Nonnull final OnWriteListener onWriteListener) {
-        final Subspace entryNodeSubspace = subspace.subspace(Tuple.from(SUBSPACE_PREFIX_INDEX_ACCESS_INFO));
-        final EntryNodeReference entryNodeReference = accessInfo.getEntryNodeReference();
-        final RealVector centroid = accessInfo.getCentroid();
-        final byte[] key = entryNodeSubspace.pack();
-        final byte[] value = Tuple.from(entryNodeReference.getLayer(),
-                entryNodeReference.getPrimaryKey(),
-                StorageAdapter.tupleFromVector(entryNodeReference.getVector()),
-                accessInfo.getRotatorSeed(),
-                centroid == null ? null : StorageAdapter.tupleFromVector(centroid)).pack();
-        transaction.set(key, value);
-        onWriteListener.onKeyValueWritten(entryNodeReference.getLayer(), key, value);
-    }
-
-    @Nonnull
-    static CompletableFuture<List<AggregatedVector>> readSampledVectors(@Nonnull final ReadTransaction readTransaction,
-                                                                        @Nonnull final Subspace subspace,
-                                                                        final int numMaxVectors,
-                                                                        @Nonnull final OnReadListener onReadListener) {
-        final Subspace prefixSubspace =
-                subspace.subspace(Tuple.from(SUBSPACE_PREFIX_SAMPLES));
-
-        final byte[] prefixKey = prefixSubspace.pack();
-        final ReadTransaction snapshot = readTransaction.snapshot();
-        final Range range = Range.startsWith(prefixKey);
-
-        return AsyncUtil.collect(snapshot.getRange(range, numMaxVectors, true, StreamingMode.ITERATOR),
-                        snapshot.getExecutor())
-                .thenApply(keyValues -> {
-                    final ImmutableList.Builder<AggregatedVector> resultBuilder = ImmutableList.builder();
-                    for (final KeyValue keyValue : keyValues) {
-                        final byte[] key = keyValue.getKey();
-                        final byte[] value = keyValue.getValue();
-                        resultBuilder.add(aggregatedVectorFromRaw(prefixSubspace, key, value));
-                        readTransaction.addReadConflictKeyIfNotSnapshot(key);
-                        onReadListener.onKeyValueRead(-1, key, value);
-                    }
-                    return resultBuilder.build();
-                });
-    }
-
-    private static AggregatedVector aggregatedVectorFromRaw(@Nonnull final Subspace prefixSubspace,
-                                                            @Nonnull final byte[] key,
-                                                            @Nonnull final byte[] value) {
-        final Tuple keyTuple = prefixSubspace.unpack(key);
-        final int partialCount = Math.toIntExact(keyTuple.getLong(0));
-        final RealVector vector = DoubleRealVector.fromBytes(Tuple.fromBytes(value).getBytes(0));
-
-        return new AggregatedVector(partialCount, vector);
-    }
-
-    static void appendSampledVector(@Nonnull final Transaction transaction,
-                                    @Nonnull final Subspace subspace,
-                                    final int partialCount,
-                                    @Nonnull final RealVector vector,
-                                    @Nonnull final OnWriteListener onWriteListener) {
-        final Subspace prefixSubspace =
-                subspace.subspace(Tuple.from(SUBSPACE_PREFIX_SAMPLES));
-        final Subspace keySubspace = prefixSubspace.subspace(Tuple.from(partialCount, UUID.randomUUID()));
-        final byte[] prefixKey = keySubspace.pack();
-        final byte[] value = tupleFromVector(vector.toDoubleRealVector()).pack();
-        transaction.set(prefixKey, value);
-        onWriteListener.onKeyValueWritten(-1, prefixKey, value);
-    }
-
-    static void removeAllSampledVectors(@Nonnull final Transaction transaction,
-                                        @Nonnull final Subspace subspace) {
-        final Subspace prefixSubspace =
-                subspace.subspace(Tuple.from(SUBSPACE_PREFIX_SAMPLES));
-
-        final byte[] prefixKey = prefixSubspace.pack();
-        final Range range = Range.startsWith(prefixKey);
-        transaction.clear(range);
-    }
-
-    /**
      * Creates a {@code HalfRealVector} from a given {@code Tuple}.
      * <p>
      * This method assumes the vector data is stored as a byte array at the first. position (index 0) of the tuple. It
@@ -398,5 +264,124 @@ interface StorageAdapter<N extends NodeReference> {
     @Nonnull
     static VectorType fromVectorTypeOrdinal(final int ordinal) {
         return VECTOR_TYPES.get(ordinal);
+    }
+
+    @Nonnull
+    static CompletableFuture<AccessInfo> fetchAccessInfo(@Nonnull final HNSW.Config config,
+                                                         @Nonnull final ReadTransaction readTransaction,
+                                                         @Nonnull final Subspace subspace,
+                                                         @Nonnull final OnReadListener onReadListener) {
+        final Subspace entryNodeSubspace = subspace.subspace(Tuple.from(SUBSPACE_PREFIX_INDEX_ACCESS_INFO));
+        final byte[] key = entryNodeSubspace.pack();
+
+        return readTransaction.get(key)
+                .thenApply(valueBytes -> {
+                    if (valueBytes == null) {
+                        return null; // not a single node in the index
+                    }
+                    onReadListener.onKeyValueRead(-1, key, valueBytes);
+
+                    final Tuple entryTuple = Tuple.fromBytes(valueBytes);
+                    final int layer = (int)entryTuple.getLong(0);
+                    final Tuple primaryKey = entryTuple.getNestedTuple(1);
+                    final Tuple entryVectorTuple = entryTuple.getNestedTuple(2);
+                    final EntryNodeReference entryNodeReference =
+                            new EntryNodeReference(primaryKey, StorageAdapter.vectorFromTuple(config, entryVectorTuple),
+                                    layer);
+                    final long rotatorSeed = entryTuple.getLong(3);
+                    final Tuple centroidVectorTuple = entryTuple.getNestedTuple(4);
+                    return new AccessInfo(entryNodeReference,
+                            rotatorSeed,
+                            centroidVectorTuple == null
+                            ? null
+                            : StorageAdapter.vectorFromTuple(config, centroidVectorTuple));
+                });
+    }
+
+    /**
+     * Writes an {@link AccessInfo} to the database within a given transaction and subspace.
+     * <p>
+     * This method serializes the provided {@link EntryNodeReference} into a key-value pair. The key is determined by
+     * a dedicated subspace for entry nodes, and the value is a tuple containing the layer, primary key, and vector from
+     * the reference. After writing the data, it notifies the provided {@link OnWriteListener}.
+     * @param transaction the database transaction to use for the write operation
+     * @param subspace the subspace where the entry node reference will be stored
+     * @param accessInfo the {@link AccessInfo} object to write
+     * @param onWriteListener the listener to be notified after the key-value pair is written
+     */
+    static void writeAccessInfo(@Nonnull final Transaction transaction,
+                                @Nonnull final Subspace subspace,
+                                @Nonnull final AccessInfo accessInfo,
+                                @Nonnull final OnWriteListener onWriteListener) {
+        final Subspace entryNodeSubspace = subspace.subspace(Tuple.from(SUBSPACE_PREFIX_INDEX_ACCESS_INFO));
+        final EntryNodeReference entryNodeReference = accessInfo.getEntryNodeReference();
+        final RealVector centroid = accessInfo.getCentroid();
+        final byte[] key = entryNodeSubspace.pack();
+        final byte[] value = Tuple.from(entryNodeReference.getLayer(),
+                entryNodeReference.getPrimaryKey(),
+                StorageAdapter.tupleFromVector(entryNodeReference.getVector()),
+                accessInfo.getRotatorSeed(),
+                centroid == null ? null : StorageAdapter.tupleFromVector(centroid)).pack();
+        transaction.set(key, value);
+        onWriteListener.onKeyValueWritten(entryNodeReference.getLayer(), key, value);
+    }
+
+    @Nonnull
+    static CompletableFuture<List<AggregatedVector>> consumeSampledVectors(@Nonnull final Transaction transaction,
+                                                                           @Nonnull final Subspace subspace,
+                                                                           final int numMaxVectors,
+                                                                           @Nonnull final OnReadListener onReadListener) {
+        final Subspace prefixSubspace = subspace.subspace(Tuple.from(SUBSPACE_PREFIX_SAMPLES));
+
+        final byte[] prefixKey = prefixSubspace.pack();
+        final ReadTransaction snapshot = transaction.snapshot();
+        final Range range = Range.startsWith(prefixKey);
+
+        return AsyncUtil.collect(snapshot.getRange(range, numMaxVectors, true, StreamingMode.ITERATOR),
+                        snapshot.getExecutor())
+                .thenApply(keyValues -> {
+                    final ImmutableList.Builder<AggregatedVector> resultBuilder = ImmutableList.builder();
+                    for (final KeyValue keyValue : keyValues) {
+                        final byte[] key = keyValue.getKey();
+                        final byte[] value = keyValue.getValue();
+                        resultBuilder.add(aggregatedVectorFromRaw(prefixSubspace, key, value));
+                        transaction.clear(key);
+                        onReadListener.onKeyValueRead(-1, key, value);
+                    }
+                    return resultBuilder.build();
+                });
+    }
+
+    static void appendSampledVector(@Nonnull final Transaction transaction,
+                                    @Nonnull final Subspace subspace,
+                                    final int partialCount,
+                                    @Nonnull final RealVector vector,
+                                    @Nonnull final OnWriteListener onWriteListener) {
+        final Subspace prefixSubspace = subspace.subspace(Tuple.from(SUBSPACE_PREFIX_SAMPLES));
+        final Subspace keySubspace = prefixSubspace.subspace(Tuple.from(partialCount, UUID.randomUUID()));
+        final byte[] prefixKey = keySubspace.pack();
+        final byte[] value = tupleFromVector(vector.toDoubleRealVector()).pack();
+        transaction.set(prefixKey, value);
+        onWriteListener.onKeyValueWritten(-1, prefixKey, value);
+    }
+
+    static void removeAllSampledVectors(@Nonnull final Transaction transaction, @Nonnull final Subspace subspace) {
+        final Subspace prefixSubspace =
+                subspace.subspace(Tuple.from(SUBSPACE_PREFIX_SAMPLES));
+
+        final byte[] prefixKey = prefixSubspace.pack();
+        final Range range = Range.startsWith(prefixKey);
+        transaction.clear(range);
+    }
+
+    @Nonnull
+    private static AggregatedVector aggregatedVectorFromRaw(@Nonnull final Subspace prefixSubspace,
+                                                            @Nonnull final byte[] key,
+                                                            @Nonnull final byte[] value) {
+        final Tuple keyTuple = prefixSubspace.unpack(key);
+        final int partialCount = Math.toIntExact(keyTuple.getLong(0));
+        final RealVector vector = DoubleRealVector.fromBytes(Tuple.fromBytes(value).getBytes(0));
+
+        return new AggregatedVector(partialCount, vector);
     }
 }

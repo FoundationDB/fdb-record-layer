@@ -47,7 +47,7 @@ class AccessInfo {
         return entryNodeReference;
     }
 
-    public boolean canBeTransformed() {
+    public boolean canUseRaBitQ() {
         return getCentroid() != null;
     }
 

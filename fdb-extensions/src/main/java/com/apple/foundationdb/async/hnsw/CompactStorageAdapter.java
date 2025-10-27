@@ -29,7 +29,6 @@ import com.apple.foundationdb.async.AsyncIterable;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.linear.AffineOperator;
 import com.apple.foundationdb.linear.RealVector;
-import com.apple.foundationdb.linear.VectorOperator;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
@@ -172,7 +171,7 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
      * <p>
      * This method deserializes a node by extracting its components from the provided tuples. It verifies that the
      * node is of type {@link NodeKind#COMPACT} before delegating the final construction to
-     * {@link #compactNodeFromTuples(VectorOperator, Tuple, Tuple, Tuple)}. The {@code valueTuple} is expected to have
+     * {@link #compactNodeFromTuples(AffineOperator, Tuple, Tuple, Tuple)}. The {@code valueTuple} is expected to have
      * a specific structure: the serialized node kind at index 0, a nested tuple for the vector at index 1, and a nested
      * tuple for the neighbors at index 2.
      *
