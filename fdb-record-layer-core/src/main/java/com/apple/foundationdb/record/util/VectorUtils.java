@@ -29,7 +29,6 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.google.protobuf.ByteString;
 
 import javax.annotation.Nonnull;
-import java.util.List;
 
 public class VectorUtils {
     public static int getVectorPrecision(@Nonnull final RealVector vector) {

@@ -19,17 +19,17 @@
  limitations under the License.
 -->
 
-<Configuration status="INFO">
+<Configuration status="DEBUG">
     <Appenders>
         <Console name="Console" target="SYSTEM_OUT">
             <PatternLayout pattern="%d{ISO8601} [%t] %-5level %logger{36} - %msg%n" />
         </Console>
     </Appenders>
     <Loggers>
-        <Logger name="io.grpc.netty.shaded.io.grpc.netty.NettyServerHandler" level="INFO">
+        <Logger name="io.grpc.netty.shaded.io.grpc.netty.NettyServerHandler" level="DEBUG">
             <AppenderRef ref="Console"/>
         </Logger>
-        <Logger name="io.grpc.Context" level="INFO">
+        <Logger name="io.grpc.Context" level="DEBUG">
             <AppenderRef ref="Console"/>
         </Logger>
         <Root level="debug">

@@ -44,7 +44,7 @@ public class ExternalServer {
 
     private static final Logger logger = LogManager.getLogger(ExternalServer.class);
     public static final String EXTERNAL_SERVER_PROPERTY_NAME = "yaml_testing_external_server";
-    private static final boolean SAVE_SERVER_OUTPUT = false;
+    private static final boolean SAVE_SERVER_OUTPUT = true;
 
     @Nonnull
     private final File serverJar;

@@ -1173,6 +1173,25 @@ message PBinaryRelOpValue {
       NOT_DISTINCT_FROM_NID = 492;
       NOT_DISTINCT_FROM_IDN = 493;
       NOT_DISTINCT_FROM_NN = 494;
+
+      EQ_VEC_VEC = 495;
+      NEQ_VEC_VEC = 496;
+      NEQ_VEC_NULL = 497;
+      NEQ_NULL_VEC = 498;
+      LT_VEC_NULL = 499;
+      LT_NULL_VEC = 500;
+      LTE_VEC_NULL = 501;
+      LTE_NULL_VEC = 502;
+      GT_VEC_NULL = 503;
+      GT_NULL_VEC = 504;
+      GTE_VEC_NULL = 505;
+      GTE_NULL_VEC = 506;
+      IS_DISTINCT_FROM_NULL_VEC = 507;
+      IS_DISTINCT_FROM_VEC_NULL = 508;
+      IS_DISTINCT_FROM_VEC_VEC = 509;
+      NOT_DISTINCT_FROM_VEC_NULL = 510;
+      NOT_DISTINCT_FROM_NULL_VEC = 511;
+      NOT_DISTINCT_FROM_VEC_VEC = 512;
   }
   optional PRelOpValue super = 1;
   optional PBinaryPhysicalOperator operator = 2;
@@ -1216,6 +1235,9 @@ message PUnaryRelOpValue {
 
       IS_NULL_NT = 21;
       IS_NOT_NULL_NT = 22;
+
+      IS_NULL_VECTOR = 23;
+      IS_NOT_NULL_VECTOR = 24;
   }
   optional PRelOpValue super = 1;
   optional PUnaryPhysicalOperator operator = 2;
@@ -2205,6 +2227,7 @@ message PComparableObject {
     PFDBRecordVersion fdb_record_version = 4;
     bytes bytes_as_byte_string = 5;
   }
+  optional PType type = 6;
 }
 
 //

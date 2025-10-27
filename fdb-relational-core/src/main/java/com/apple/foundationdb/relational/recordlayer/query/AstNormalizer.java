@@ -556,7 +556,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
                                 @Nullable final Integer unnamedParameterIndex, @Nullable final String parameterName) {
         if (allowLiteralAddition) {
             queryHasherContextBuilder.getLiteralsBuilder()
-                    .addLiteral(Type.any(), literal, unnamedParameterIndex, parameterName, tokenIndex);
+                    .addLiteral(Type.fromObject(literal), literal, unnamedParameterIndex, parameterName, tokenIndex);
         }
         if (allowTokenAddition) {
             final String canonicalName = parameterName == null ? "?" : "?" + parameterName;

@@ -1268,6 +1268,12 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
                     .addClosingParen();
         }
 
+        @Nonnull
+        @Override
+        public String toString() {
+            return describe().render(DefaultExplainFormatter.forDebugging()).toString();
+        }
+
         @Override
         public void addProtoField(@Nonnull final TypeRepository.Builder typeRepositoryBuilder,
                                   @Nonnull final DescriptorProto.Builder descriptorBuilder, final int fieldNumber,

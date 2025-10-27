@@ -249,6 +249,7 @@ test_block:
 # "expected" as the point of error is different in both the cases.
 # https://github.com/FoundationDB/fdb-record-layer/issues/3583
 test_block:
+  preset: single_repetition_ordered
   tests:
       -
         # LONG value matched against IN list of LONG and DOUBLE values
@@ -257,29 +258,50 @@ test_block:
         # clear whether we want to support it as it would probably
         # make plan lookup in the cache much more expensive.
         - query: select a, b from ta where b in (1, 3.0, 5, 7.0)
+        - initialVersionLessThan: !current_version
         - error: "XX000"
+        - initialVersionAtLeast: !current_version
+        - error: "42804"
       -
         # Values of incompatible types in the IN list
         - query: select a, e from ta where e in ('foo' , 35)
+        - initialVersionLessThan: !current_version
         - error: "XX000"
+        - initialVersionAtLeast: !current_version
+        - error: "42804"
       -
         # Values of incompatible types in the IN list
         - query: select a, e from ta where e in (35, '23')
+        - initialVersionLessThan: !current_version
         - error: "XX000"
+        - initialVersionAtLeast: !current_version
+        - error: "42804"
       -
         # Values of incompatible types in the IN list
         - query: select a, e from ta where e in (true, 75.34)
+        - initialVersionLessThan: !current_version
         - error: "XX000"
+        - initialVersionAtLeast: !current_version
+        - error: "42804"
       -
         # Left type (STRING) is not compatible with right type (type of the IN List)
         - query: select a, e from ta where e in (35, 75.34)
+        - initialVersionLessThan: !current_version
         - error: "XX000"
+        - initialVersionAtLeast: !current_version
+        - error: "42804"
       -
         # Left type (STRING) is not compatible with right type (type of the IN List)
         - query: select a, e from ta where e in (35.34, 32)
+        - initialVersionLessThan: !current_version
         - error: "XX000"
+        - initialVersionAtLeast: !current_version
+        - error: "42804"
       -
         # Complex (STRUCT) left type matched against IN list
         - query: select a, e from ta where f in (34, 23)
+        - initialVersionLessThan: 4.8.2.0
+        - error: "XX000"
+        - initialVersionAtLeast: 4.8.2.0
         - error: "22000"
 ...
