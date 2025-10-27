@@ -74,6 +74,11 @@ public class LuceneRepartitionPlanner {
 
         // candidate partition's current doc count
         final int currentPartitionCount = candidatePartition.getCount();
+        if ((currentPartitionCount == 0) && (olderPartition != null)) {
+            // remove current empty partition
+            repartitioningContext.action = RepartitioningAction.REMOVE_EMPTY_PARTITION;
+            return repartitioningContext;
+        }
         if (currentPartitionCount >= indexPartitionLowWatermark && currentPartitionCount <= indexPartitionHighWatermark) {
             // repartitioning not required
             return repartitioningContext;
@@ -150,7 +155,11 @@ public class LuceneRepartitionPlanner {
         /**
          * partition is under the low watermark, but its immediate neighbors have no capacity to absorb it.
          */
-        NO_CAPACITY_FOR_MERGE
+        NO_CAPACITY_FOR_MERGE,
+        /**
+         * partition is empty, remove from metadata.
+         */
+        REMOVE_EMPTY_PARTITION
     }
 
     /**
