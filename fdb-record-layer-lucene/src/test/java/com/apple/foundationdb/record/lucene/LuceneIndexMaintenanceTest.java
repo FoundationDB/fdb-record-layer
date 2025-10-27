@@ -55,6 +55,7 @@ import com.apple.foundationdb.record.util.RandomSecretUtil;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.util.LoggableKeysAndValues;
+import com.apple.test.ParameterizedTestUtils;
 import com.apple.test.RandomizedTestUtils;
 import com.apple.test.SuperSlow;
 import com.apple.test.Tags;
@@ -951,7 +952,10 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
         return Stream.concat(Stream.of(false),
                 TestConfigurationUtils.onlyNightly(
                         IntStream.range(0, 3).boxed().flatMap(i -> Stream.of(true, false))))
-                .map(Arguments::of);
+                .flatMap(isSynthetic ->
+                    // there are 500 docs, so -1 is unpartitioned, 100 is partitioned into multiple partitions and 100,000 is partitioned into one partition
+                    Stream.of(-1, 100, 100_000)
+                            .map(partitionHighWatermark -> Arguments.of(isSynthetic, partitionHighWatermark)));
     }
 
     /**
@@ -965,12 +969,12 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
      */
     @ParameterizedTest
     @MethodSource("concurrentParameters")
-    void concurrentUpdate(final boolean isSynthetic) throws IOException {
+    void concurrentUpdate(final boolean isSynthetic, int partitionHighWatermark) throws IOException {
         concurrentTestWithinTransaction(isSynthetic, (dataModel, recordStore) ->
                 RecordCursor.fromList(dataModel.recordsUnderTest())
                         .mapPipelined(record -> record.updateOtherValue(recordStore), 10)
                         .asList().join(),
-                Assertions::assertEquals);
+                Assertions::assertEquals, partitionHighWatermark);
     }
 
     /**
@@ -984,12 +988,12 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
      */
     @ParameterizedTest
     @MethodSource("concurrentParameters")
-    void concurrentDelete(final boolean isSynthetic) throws IOException {
+    void concurrentDelete(final boolean isSynthetic, int partitionHighWatermark) throws IOException {
         concurrentTestWithinTransaction(isSynthetic, (dataModel, recordStore) ->
                 RecordCursor.fromList(dataModel.recordsUnderTest())
                         .mapPipelined(record -> record.deleteRecord(recordStore), 10)
                         .asList().join(),
-                (inserted, actual) -> assertEquals(0, actual));
+                (inserted, actual) -> assertEquals(0, actual), partitionHighWatermark);
     }
 
     /**
@@ -1003,18 +1007,21 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
      */
     @ParameterizedTest
     @MethodSource("concurrentParameters")
-    void concurrentInsert(final boolean isSynthetic) throws IOException {
+    void concurrentInsert(final boolean isSynthetic, final int partitionHighWatermark) throws IOException {
         concurrentTestWithinTransaction(isSynthetic, (dataModel, recordStore) ->
                         RecordCursor.fromList(dataModel.recordsUnderTest())
                                 .mapPipelined(record -> { // ignore the record, we're just using that as a count
                                     return dataModel.saveRecordAsync(true, recordStore, 1);
                                 }, 10)
                                 .asList().join(),
-                (inserted, actual) -> assertEquals(inserted * 2, actual));
+                (inserted, actual) -> assertEquals(inserted * 2, actual), partitionHighWatermark);
     }
 
     private static Stream<Arguments> concurrentMixParameters() {
-        return Stream.of(true, false).map(Arguments::of);
+        return ParameterizedTestUtils.cartesianProduct(
+                ParameterizedTestUtils.booleans("isSynthetic"),
+                // there are 500 docs, so -1 is unpartitioned, 100 is partitioned into multiple partitions and 100,000 is partitioned into one partition
+                Stream.of(-1, 100, 100_000));
     }
 
     /**
@@ -1028,7 +1035,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
      */
     @ParameterizedTest
     @MethodSource("concurrentMixParameters")
-    void concurrentMix(final boolean isSynthetic) throws IOException {
+    void concurrentMix(final boolean isSynthetic, final int partitionHighWatermark) throws IOException {
         // We never touch the same record twice.
         AtomicInteger step = new AtomicInteger(0);
         concurrentTestWithinTransaction(isSynthetic, (dataModel, recordStore) ->
@@ -1046,12 +1053,12 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                                 }, 10)
                                 .asList().join(),
                 // Note: this assertion only works because we are inserting an even multiple of 3 to begin with
-                Assertions::assertEquals);
+                Assertions::assertEquals, partitionHighWatermark);
     }
 
     private void concurrentTestWithinTransaction(boolean isSynthetic,
                                                  final BiConsumer<LuceneIndexTestDataModel, FDBRecordStore> applyChangeConcurrently,
-                                                 final BiConsumer<Integer, Integer> assertDataModelCount) throws IOException {
+                                                 final BiConsumer<Integer, Integer> assertDataModelCount, final int partitionHighWatermark) throws IOException {
         // Once the two issues noted below are fixed, we should make this parameterized, and run with additional random
         // configurations.
         AtomicInteger threadCounter = new AtomicInteger();
@@ -1069,10 +1076,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
         final long seed = 320947L;
         final boolean isGrouped = true;
         final boolean primaryKeySegmentIndexEnabled = true;
-        // LucenePartitioner is not thread safe, and the counts get broken
-        // See: https://github.com/FoundationDB/fdb-record-layer/issues/2990
-        // TODO parameterize this, and add a test for concurrent inserts
-        final int partitionHighWatermark = 100_0000;
+
         final LuceneIndexTestDataModel dataModel = new LuceneIndexTestDataModel.Builder(seed, this::getStoreBuilder, pathManager)
                 .setIsGrouped(isGrouped)
                 .setIsSynthetic(isSynthetic)
@@ -1110,8 +1114,15 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
 
         dataModel.validate(() -> openContext(contextProps));
 
-        final LuceneIndexTestValidator luceneIndexTestValidator = new LuceneIndexTestValidator(() -> openContext(contextProps), context -> Objects.requireNonNull(dataModel.schemaSetup.apply(context)));
-        luceneIndexTestValidator.validate(dataModel.index, dataModel.groupingKeyToPrimaryKeyToPartitionKey, isSynthetic ? "child_str_value:forth" : "text_value:about");
+        final LuceneIndexTestValidator luceneIndexTestValidator = new LuceneIndexTestValidator(
+                () -> openContext(contextProps),
+                context -> Objects.requireNonNull(dataModel.schemaSetup.apply(context)));
+        luceneIndexTestValidator.validate(
+                dataModel.index,
+                dataModel.groupingKeyToPrimaryKeyToPartitionKey,
+                isSynthetic ?
+                "child_str_value:forth" :
+                "text_value:about");
 
         try (FDBRecordContext context = openContext(contextProps)) {
             FDBRecordStore recordStore = Objects.requireNonNull(dataModel.schemaSetup.apply(context));
@@ -1122,7 +1133,16 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
             commit(context);
         }
 
-        luceneIndexTestValidator.validate(dataModel.index, dataModel.groupingKeyToPrimaryKeyToPartitionKey, isSynthetic ? "child_str_value:forth" : "text_value:about");
+        explicitMergeIndex(dataModel.index, contextProps, dataModel.schemaSetup);
+
+        System.out.println("=== initial ===");
+        System.out.println(initial);
+        System.out.println("=== updated ===");
+        System.out.println(dataModel.groupingKeyToPrimaryKeyToPartitionKey);
+        assertDataModelCount.accept(500,
+                dataModel.groupingKeyToPrimaryKeyToPartitionKey.values().stream().mapToInt(Map::size).sum());
+
+        dataModel.validate(() -> openContext(contextProps));
 
         if (isGrouped) {
             validateDeleteWhere(isSynthetic, dataModel.groupingKeyToPrimaryKeyToPartitionKey, contextProps, dataModel.schemaSetup, dataModel.index);

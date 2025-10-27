@@ -297,10 +297,19 @@ public class LuceneIndexTestValidator {
         if (currentCount >= lowWatermark) {
             return true;
         }
+        if (currentCount == 0) {
+            if (partitionInfos.size() == 1) {
+                // we have no documents in the index, one partition must remain
+                return true;
+            } else {
+                // We have an empty partition that should have been deleted
+                return false;
+            }
+        }
         // here: count < lowWatermark
         int leftNeighborCapacity = currentPartitionIndex == 0 ? 0 : getPartitionExtraCapacity(partitionInfos.get(currentPartitionIndex - 1).getCount(), highWatermark);
         int rightNeighborCapacity = currentPartitionIndex == (partitionInfos.size() - 1) ? 0 : getPartitionExtraCapacity(partitionInfos.get(currentPartitionIndex + 1).getCount(), highWatermark);
-
+        // Ensure that if we have capacity in left and right neighbors, the records are moved away from currentPartition
         return currentCount > 0 && (leftNeighborCapacity + rightNeighborCapacity) < currentCount;
     }
 

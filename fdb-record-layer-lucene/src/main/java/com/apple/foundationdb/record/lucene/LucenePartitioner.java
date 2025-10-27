@@ -877,13 +877,18 @@ public class LucenePartitioner {
                         LOGGER.debug(repartitionLogMessage("Repartitioning records", groupingKey, repartitioningContext.countToMove, partitionInfo).toString());
                     }
 
-                    return moveDocsFromPartitionThenLog(repartitioningContext, logMessages);
+                    if (repartitioningContext.action == LuceneRepartitionPlanner.RepartitioningAction.REMOVE_EMPTY_PARTITION) {
+                        return removeEmptyPartition(repartitioningContext);
+                    } else {
+                        return moveDocsFromPartitionThenLog(repartitioningContext, logMessages);
+                    }
                 }
             }
             // here: no partitions need re-balancing
             return CompletableFuture.completedFuture(0);
         });
     }
+
 
     /**
      * convenience function that proxies into {@link #moveDocsFromPartition(LuceneRepartitionPlanner.RepartitioningContext)}
@@ -1145,6 +1150,81 @@ public class LucenePartitioner {
             }
             return records.size();
         });
+    }
+
+    @Nonnull
+    private CompletableFuture<Integer> removeEmptyPartition(@Nonnull final LuceneRepartitionPlanner.RepartitioningContext repartitioningContext) {
+        // sanity check
+        if (repartitioningContext.countToMove != 0) {
+            if (LOGGER.isDebugEnabled()) {
+                LOGGER.debug("removeEmptyPartition called with invalid countToMove {}", repartitioningContext.countToMove);
+            }
+            return CompletableFuture.completedFuture(0);
+        }
+        if (repartitioningContext.olderPartition == null) {
+            if (LOGGER.isDebugEnabled()) {
+                LOGGER.debug("removeEmptyPartition called with null olderPartition");
+            }
+            return CompletableFuture.completedFuture(0);
+        }
+        RepartitionTimings timings = new RepartitionTimings();
+        final StoreTimerSnapshot timerSnapshot;
+        if (LOGGER.isDebugEnabled() && state.context.getTimer() != null) {
+            timerSnapshot = StoreTimerSnapshot.from(state.context.getTimer());
+        } else {
+            timerSnapshot = null;
+        }
+        timings.startNanos = System.nanoTime();
+
+        final LucenePartitionInfoProto.LucenePartitionInfo partitionInfo = repartitioningContext.sourcePartition;
+        final Tuple groupingKey = repartitioningContext.groupingKey;
+
+        timings.initializationNanos = System.nanoTime();
+
+        // reset partition info
+        state.context.ensureActive().clear(partitionMetadataKeyFromPartitioningValue(groupingKey, getPartitionKey(partitionInfo)));
+        // todo: delete data subspace
+        timings.clearInfoNanos = System.nanoTime();
+        timings.deleteNanos = System.nanoTime();
+        // update other partition's metadata (set "to" from deleted partition)
+        LucenePartitionInfoProto.LucenePartitionInfo.Builder builder = repartitioningContext.olderPartition.toBuilder();
+        builder.setTo(ByteString.copyFrom(partitionInfo.getTo().toByteArray())); // ensure we get a copy of the original bytes
+        savePartitionMetadata(groupingKey, builder);
+
+        timings.metadataUpdateNanos = System.nanoTime();
+
+        long endCleanupNanos = System.nanoTime();
+
+        long updateStart = System.nanoTime();
+
+        if (LOGGER.isDebugEnabled()) {
+            long updateNanos = System.nanoTime();
+            final KeyValueLogMessage logMessage = repartitionLogMessage("Repartitioned records", groupingKey, 0, partitionInfo);
+            logMessage.addKeyAndValue("totalMicros", TimeUnit.NANOSECONDS.toMicros(updateNanos - timings.startNanos));
+            logMessage.addKeyAndValue("initializationMicros", TimeUnit.NANOSECONDS.toMicros(timings.initializationNanos - timings.startNanos));
+            logMessage.addKeyAndValue("searchMicros", TimeUnit.NANOSECONDS.toMicros(timings.searchNanos - timings.initializationNanos));
+            logMessage.addKeyAndValue("clearInfoMicros", TimeUnit.NANOSECONDS.toMicros(timings.clearInfoNanos - timings.searchNanos));
+            if (timings.emptyingNanos > 0) {
+                logMessage.addKeyAndValue("emptyingMicros", TimeUnit.NANOSECONDS.toMicros(timings.emptyingNanos - timings.clearInfoNanos));
+            }
+            if (timings.deleteNanos > 0) {
+                logMessage.addKeyAndValue("deleteMicros", TimeUnit.NANOSECONDS.toMicros(timings.deleteNanos - timings.clearInfoNanos));
+            }
+            if (timings.metadataUpdateNanos > 0) {
+                logMessage.addKeyAndValue("metadataUpdateMicros", TimeUnit.NANOSECONDS.toMicros(timings.metadataUpdateNanos - timings.deleteNanos));
+            }
+            if (timings.createPartitionNanos > 0) {
+                logMessage.addKeyAndValue("createPartitionMicros", TimeUnit.NANOSECONDS.toMicros(timings.createPartitionNanos - endCleanupNanos));
+            }
+            logMessage.addKeyAndValue("updateMicros", TimeUnit.NANOSECONDS.toMicros(updateNanos - updateStart));
+            if (timerSnapshot != null && state.context.getTimer() != null) {
+                logMessage.addKeysAndValues(
+                        StoreTimer.getDifference(state.context.getTimer(), timerSnapshot)
+                                .getKeysAndValues());
+            }
+            LOGGER.debug(logMessage.toString());
+        }
+        return CompletableFuture.completedFuture(1);
     }
 
     /**
