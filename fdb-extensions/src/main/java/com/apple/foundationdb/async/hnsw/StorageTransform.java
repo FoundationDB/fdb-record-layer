@@ -1,5 +1,5 @@
 /*
- * RandomAffineOperator.java
+ * StorageTransform.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -23,17 +23,30 @@ package com.apple.foundationdb.async.hnsw;
 import com.apple.foundationdb.linear.AffineOperator;
 import com.apple.foundationdb.linear.FhtKacRotator;
 import com.apple.foundationdb.linear.RealVector;
+import com.apple.foundationdb.rabitq.EncodedRealVector;
 
 import javax.annotation.Nonnull;
 
-public class RandomAffineOperator extends AffineOperator {
-    public RandomAffineOperator(final long seed, final int numDimensions, @Nonnull final RealVector translationVector) {
-        this(new FhtKacRotator(seed, numDimensions, 10), translationVector);
+public class StorageTransform extends AffineOperator {
+    public StorageTransform(final long seed, final int numDimensions, @Nonnull final RealVector translationVector) {
+        super(new FhtKacRotator(seed, numDimensions, 10), translationVector);
     }
 
-    private RandomAffineOperator(@Nonnull final FhtKacRotator fhtKacRotator,
-                                 @Nonnull final RealVector translationVector) {
-        // need to also rotate/translate the translation vector
-        super(fhtKacRotator, fhtKacRotator.applyTranspose(translationVector));
+    @Nonnull
+    @Override
+    public RealVector apply(@Nonnull final RealVector vector) {
+        if (!(vector instanceof EncodedRealVector)) {
+            return vector;
+        }
+        return super.apply(vector);
+    }
+
+    @Nonnull
+    @Override
+    public RealVector applyInvert(@Nonnull final RealVector vector) {
+        if (vector instanceof EncodedRealVector) {
+            return vector;
+        }
+        return super.applyInvert(vector);
     }
 }

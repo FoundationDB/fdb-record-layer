@@ -27,7 +27,9 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.linear.AffineOperator;
+import com.apple.foundationdb.linear.DoubleRealVector;
 import com.apple.foundationdb.linear.Estimator;
+import com.apple.foundationdb.linear.FhtKacRotator;
 import com.apple.foundationdb.linear.Metric;
 import com.apple.foundationdb.linear.Quantizer;
 import com.apple.foundationdb.linear.RealVector;
@@ -59,6 +61,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.PriorityBlockingQueue;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
@@ -102,6 +105,11 @@ public class HNSW {
     public static final boolean DEFAULT_EXTEND_CANDIDATES = false;
     public static final boolean DEFAULT_KEEP_PRUNED_CONNECTIONS = false;
 
+    // stats
+    public static final double DEFAULT_SAMPLE_VECTOR_STATS_PROBABILITY = 0.5d;
+    public static final double DEFAULT_MAINTAIN_STATS_PROBABILITY = 0.05d;
+    public static final int DEFAULT_STATS_THRESHOLD = 1000;
+
     // RaBitQ
     public static final boolean DEFAULT_USE_RABITQ = false;
     public static final int DEFAULT_RABITQ_NUM_EX_BITS = 4;
@@ -139,13 +147,18 @@ public class HNSW {
         private final boolean extendCandidates;
         private final boolean keepPrunedConnections;
 
+        private final double sampleVectorStatsProbability;
+        private final double maintainStatsProbability;
+        private final int statsThreshold;
+
         private final boolean useRaBitQ;
         private final int raBitQNumExBits;
 
         protected Config(final long randomSeed, @Nonnull final Metric metric, final int numDimensions,
                          final boolean useInlining, final int m, final int mMax, final int mMax0,
                          final int efConstruction, final boolean extendCandidates, final boolean keepPrunedConnections,
-                         final boolean useRaBitQ, final int raBitQNumExBits) {
+                         final double sampleVectorStatsProbability, final double maintainStatsProbability,
+                         final int statsThreshold, final boolean useRaBitQ, final int raBitQNumExBits) {
             this.randomSeed = randomSeed;
             this.metric = metric;
             this.numDimensions = numDimensions;
@@ -156,6 +169,9 @@ public class HNSW {
             this.efConstruction = efConstruction;
             this.extendCandidates = extendCandidates;
             this.keepPrunedConnections = keepPrunedConnections;
+            this.sampleVectorStatsProbability = sampleVectorStatsProbability;
+            this.maintainStatsProbability = maintainStatsProbability;
+            this.statsThreshold = statsThreshold;
             this.useRaBitQ = useRaBitQ;
             this.raBitQNumExBits = raBitQNumExBits;
         }
@@ -201,6 +217,18 @@ public class HNSW {
             return keepPrunedConnections;
         }
 
+        public double getSampleVectorStatsProbability() {
+            return sampleVectorStatsProbability;
+        }
+
+        public double getMaintainStatsProbability() {
+            return maintainStatsProbability;
+        }
+
+        public int getStatsThreshold() {
+            return statsThreshold;
+        }
+
         public boolean isUseRaBitQ() {
             return useRaBitQ;
         }
@@ -212,8 +240,9 @@ public class HNSW {
         @Nonnull
         public ConfigBuilder toBuilder() {
             return new ConfigBuilder(getRandomSeed(), getMetric(), isUseInlining(), getM(), getMMax(), getMMax0(),
-                    getEfConstruction(), isExtendCandidates(), isKeepPrunedConnections(), isUseRaBitQ(),
-                    getRaBitQNumExBits());
+                    getEfConstruction(), isExtendCandidates(), isKeepPrunedConnections(),
+                    getSampleVectorStatsProbability(), getMaintainStatsProbability(), getStatsThreshold(),
+                    isUseRaBitQ(), getRaBitQNumExBits());
         }
 
         @Override
@@ -228,6 +257,9 @@ public class HNSW {
                     mMax0 == config.mMax0 && efConstruction == config.efConstruction &&
                     extendCandidates == config.extendCandidates &&
                     keepPrunedConnections == config.keepPrunedConnections && useRaBitQ == config.useRaBitQ &&
+                    sampleVectorStatsProbability == config.sampleVectorStatsProbability &&
+                    maintainStatsProbability == config.maintainStatsProbability &&
+                    statsThreshold == config.statsThreshold &&
                     raBitQNumExBits == config.raBitQNumExBits && metric == config.metric;
         }
 
@@ -243,6 +275,9 @@ public class HNSW {
             result = 31 * result + efConstruction;
             result = 31 * result + Boolean.hashCode(extendCandidates);
             result = 31 * result + Boolean.hashCode(keepPrunedConnections);
+            result = 31 * result + Double.hashCode(sampleVectorStatsProbability);
+            result = 31 * result + Double.hashCode(maintainStatsProbability);
+            result = 31 * result + statsThreshold;
             result = 31 * result + Boolean.hashCode(useRaBitQ);
             result = 31 * result + raBitQNumExBits;
             return result;
@@ -256,6 +291,9 @@ public class HNSW {
                     ", MMax=" + getMMax() + ", MMax0=" + getMMax0() + ", efConstruction=" + getEfConstruction() +
                     ", isExtendCandidates=" + isExtendCandidates() +
                     ", isKeepPrunedConnections=" + isKeepPrunedConnections() +
+                    ", sampleVectorStatsProbability=" + getSampleVectorStatsProbability() +
+                    ", mainStatsProbability=" + getMaintainStatsProbability() +
+                    ", statsThreshold=" + getStatsThreshold() +
                     ", useRaBitQ=" + isUseRaBitQ() +
                     ", raBitQNumExBits=" + getRaBitQNumExBits() + "]";
         }
@@ -280,6 +318,10 @@ public class HNSW {
         private boolean extendCandidates = DEFAULT_EXTEND_CANDIDATES;
         private boolean keepPrunedConnections = DEFAULT_KEEP_PRUNED_CONNECTIONS;
 
+        private double sampleVectorStatsProbability = DEFAULT_SAMPLE_VECTOR_STATS_PROBABILITY;
+        private double maintainStatsProbability = DEFAULT_MAINTAIN_STATS_PROBABILITY;
+        private int statsThreshold = DEFAULT_STATS_THRESHOLD;
+
         private boolean useRaBitQ = DEFAULT_USE_RABITQ;
         private int raBitQNumExBits = DEFAULT_RABITQ_NUM_EX_BITS;
 
@@ -289,7 +331,8 @@ public class HNSW {
         public ConfigBuilder(final long randomSeed, @Nonnull final Metric metric, final boolean useInlining,
                              final int m, final int mMax, final int mMax0, final int efConstruction,
                              final boolean extendCandidates, final boolean keepPrunedConnections,
-                             final boolean useRaBitQ, final int raBitQNumExBits) {
+                             final double sampleVectorStatsProbability, final double maintainStatsProbability,
+                             final int statsThreshold, final boolean useRaBitQ, final int raBitQNumExBits) {
             this.randomSeed = randomSeed;
             this.metric = metric;
             this.useInlining = useInlining;
@@ -299,6 +342,9 @@ public class HNSW {
             this.efConstruction = efConstruction;
             this.extendCandidates = extendCandidates;
             this.keepPrunedConnections = keepPrunedConnections;
+            this.sampleVectorStatsProbability = sampleVectorStatsProbability;
+            this.maintainStatsProbability = maintainStatsProbability;
+            this.statsThreshold = statsThreshold;
             this.useRaBitQ = useRaBitQ;
             this.raBitQNumExBits = raBitQNumExBits;
         }
@@ -328,6 +374,7 @@ public class HNSW {
             return useInlining;
         }
 
+        @Nonnull
         public ConfigBuilder setUseInlining(final boolean useInlining) {
             this.useInlining = useInlining;
             return this;
@@ -367,6 +414,7 @@ public class HNSW {
             return efConstruction;
         }
 
+        @Nonnull
         public ConfigBuilder setEfConstruction(final int efConstruction) {
             this.efConstruction = efConstruction;
             return this;
@@ -376,6 +424,7 @@ public class HNSW {
             return extendCandidates;
         }
 
+        @Nonnull
         public ConfigBuilder setExtendCandidates(final boolean extendCandidates) {
             this.extendCandidates = extendCandidates;
             return this;
@@ -385,8 +434,39 @@ public class HNSW {
             return keepPrunedConnections;
         }
 
+        @Nonnull
         public ConfigBuilder setKeepPrunedConnections(final boolean keepPrunedConnections) {
             this.keepPrunedConnections = keepPrunedConnections;
+            return this;
+        }
+
+        public double getSampleVectorStatsProbability() {
+            return sampleVectorStatsProbability;
+        }
+
+        @Nonnull
+        public ConfigBuilder setSampleVectorStatsProbability(final double sampleVectorStatsProbability) {
+            this.sampleVectorStatsProbability = sampleVectorStatsProbability;
+            return this;
+        }
+
+        public double getMaintainStatsProbability() {
+            return maintainStatsProbability;
+        }
+
+        @Nonnull
+        public ConfigBuilder setMaintainStatsProbability(final double maintainStatsProbability) {
+            this.maintainStatsProbability = maintainStatsProbability;
+            return this;
+        }
+
+        public int getStatsThreshold() {
+            return statsThreshold;
+        }
+
+        @Nonnull
+        public ConfigBuilder setStatsThreshold(final int statsThreshold) {
+            this.statsThreshold = statsThreshold;
             return this;
         }
 
@@ -394,6 +474,7 @@ public class HNSW {
             return useRaBitQ;
         }
 
+        @Nonnull
         public ConfigBuilder setUseRaBitQ(final boolean useRaBitQ) {
             this.useRaBitQ = useRaBitQ;
             return this;
@@ -403,15 +484,17 @@ public class HNSW {
             return raBitQNumExBits;
         }
 
+        @Nonnull
         public ConfigBuilder setRaBitQNumExBits(final int raBitQNumExBits) {
             this.raBitQNumExBits = raBitQNumExBits;
             return this;
         }
 
         public Config build(final int numDimensions) {
-            return new Config(getRandomSeed(), getMetric(), numDimensions, isUseInlining(), getM(), getMMax(), getMMax0(),
-                    getEfConstruction(), isExtendCandidates(), isKeepPrunedConnections(), isUseRaBitQ(),
-                    getRaBitQNumExBits());
+            return new Config(getRandomSeed(), getMetric(), numDimensions, isUseInlining(), getM(), getMMax(),
+                    getMMax0(), getEfConstruction(), isExtendCandidates(), isKeepPrunedConnections(),
+                    getSampleVectorStatsProbability(), getMaintainStatsProbability(), getStatsThreshold(),
+                    isUseRaBitQ(), getRaBitQNumExBits());
         }
     }
 
@@ -523,43 +606,53 @@ public class HNSW {
         return onReadListener;
     }
 
-//    @Nonnull
-//    @SuppressWarnings("PMD.UseUnderscoresInNumericLiterals")
-//    RealVector centroidRot(@Nonnull final FhtKacRotator rotator) {
-//        final double[] centroidData = {29.0548, 16.785500000000003, 10.708300000000001, 9.7645, 11.3086, 13.3,
-//                15.288300000000001, 17.6192, 32.8404, 31.009500000000003, 35.9102, 21.5091, 16.005300000000002, 28.0939,
-//                32.1253, 22.924, 36.2481, 22.5343, 36.420500000000004, 29.186500000000002, 16.4631, 19.899800000000003,
-//                30.530800000000003, 34.2486, 27.014100000000003, 15.5669, 17.084600000000002, 17.197100000000002,
-//                14.266, 9.9115, 9.4123, 17.4541, 56.876900000000006, 24.6039, 13.7209, 16.6006, 22.0627, 27.7478,
-//                24.7289, 27.4496, 61.2528, 41.6972, 36.5536, 23.1854, 23.075200000000002, 37.342800000000004, 35.1334,
-//                30.1793, 58.946200000000005, 25.0348, 40.7383, 40.7892, 26.500500000000002, 23.0211, 29.471, 45.475,
-//                51.758300000000006, 20.662100000000002, 24.361900000000002, 31.923000000000002, 30.0682,
-//                20.075200000000002, 14.327900000000001, 28.1643, 56.229800000000004, 20.611, 23.8963, 26.3485, 22.6032,
-//                18.0076, 14.595400000000001, 29.842000000000002, 62.9647, 24.6328, 35.617000000000004,
-//                34.456700000000005, 22.788600000000002, 23.7647, 33.1924, 49.4097, 57.7928, 37.629000000000005,
-//                32.409600000000005, 22.2239, 26.907300000000003, 43.5585, 39.6792, 29.811, 52.783300000000004, 23.4802,
-//                14.2668, 19.1766, 28.8002, 32.9715, 25.8216, 26.553800000000003, 28.622, 15.4585, 16.7753,
-//                14.228900000000001, 11.7788, 9.0432, 9.502500000000001, 18.150100000000002, 36.7239, 21.61, 33.1623,
-//                25.9082, 15.449000000000002, 20.7373, 33.7562, 36.1929, 32.265, 29.1111, 32.9189, 20.323900000000002,
-//                16.6245, 31.5031, 35.2207, 22.3947, 28.102500000000003, 15.747100000000001, 10.4765, 10.4483, 13.3939,
-//                15.767800000000001, 16.2652, 17.000600000000002};
-//        final DoubleRealVector centroid = new DoubleRealVector(centroidData);
-//        return rotator.applyTranspose(centroid);
-//    }
+    @Nonnull
+    @SuppressWarnings("PMD.UseUnderscoresInNumericLiterals")
+    DoubleRealVector centroid() {
+        final double[] centroidData = {29.0548, 16.785500000000003, 10.708300000000001, 9.7645, 11.3086, 13.3,
+                15.288300000000001, 17.6192, 32.8404, 31.009500000000003, 35.9102, 21.5091, 16.005300000000002, 28.0939,
+                32.1253, 22.924, 36.2481, 22.5343, 36.420500000000004, 29.186500000000002, 16.4631, 19.899800000000003,
+                30.530800000000003, 34.2486, 27.014100000000003, 15.5669, 17.084600000000002, 17.197100000000002,
+                14.266, 9.9115, 9.4123, 17.4541, 56.876900000000006, 24.6039, 13.7209, 16.6006, 22.0627, 27.7478,
+                24.7289, 27.4496, 61.2528, 41.6972, 36.5536, 23.1854, 23.075200000000002, 37.342800000000004, 35.1334,
+                30.1793, 58.946200000000005, 25.0348, 40.7383, 40.7892, 26.500500000000002, 23.0211, 29.471, 45.475,
+                51.758300000000006, 20.662100000000002, 24.361900000000002, 31.923000000000002, 30.0682,
+                20.075200000000002, 14.327900000000001, 28.1643, 56.229800000000004, 20.611, 23.8963, 26.3485, 22.6032,
+                18.0076, 14.595400000000001, 29.842000000000002, 62.9647, 24.6328, 35.617000000000004,
+                34.456700000000005, 22.788600000000002, 23.7647, 33.1924, 49.4097, 57.7928, 37.629000000000005,
+                32.409600000000005, 22.2239, 26.907300000000003, 43.5585, 39.6792, 29.811, 52.783300000000004, 23.4802,
+                14.2668, 19.1766, 28.8002, 32.9715, 25.8216, 26.553800000000003, 28.622, 15.4585, 16.7753,
+                14.228900000000001, 11.7788, 9.0432, 9.502500000000001, 18.150100000000002, 36.7239, 21.61, 33.1623,
+                25.9082, 15.449000000000002, 20.7373, 33.7562, 36.1929, 32.265, 29.1111, 32.9189, 20.323900000000002,
+                16.6245, 31.5031, 35.2207, 22.3947, 28.102500000000003, 15.747100000000001, 10.4765, 10.4483, 13.3939,
+                15.767800000000001, 16.2652, 17.000600000000002};
+        return new DoubleRealVector(centroidData);
+    }
 
     @Nonnull
-    private AffineOperator storageTransform(@Nullable AccessInfo accessInfo) {
-        if (accessInfo == null || !accessInfo.canBeTransformed()) {
+    @SuppressWarnings("PMD.UseUnderscoresInNumericLiterals")
+    RealVector centroidRot(@Nonnull final FhtKacRotator rotator) {
+        final DoubleRealVector centroid = centroid();
+        return rotator.applyTranspose(centroid);
+    }
+
+    @Nonnull
+    private AffineOperator storageTransform(@Nullable final AccessInfo accessInfo) {
+        if (accessInfo == null || !accessInfo.canUseRaBitQ()) {
             return AffineOperator.identity();
         }
 
-        return new RandomAffineOperator(accessInfo.getRotatorSeed(),
+//        final FhtKacRotator rotator1 = new FhtKacRotator(3, getConfig().getNumDimensions(), 10);
+//        return new StorageTransform(3,
+//                getConfig().getNumDimensions(), centroidRot(rotator1));
+
+        return new StorageTransform(accessInfo.getRotatorSeed(),
                 getConfig().getNumDimensions(), Objects.requireNonNull(accessInfo.getCentroid()));
     }
 
     @Nonnull
     private Quantizer quantizer(@Nullable final AccessInfo accessInfo) {
-        if (accessInfo == null || !accessInfo.canBeTransformed()) {
+        if (accessInfo == null || !accessInfo.canUseRaBitQ()) {
             return Quantizer.noOpQuantizer(config.getMetric());
         }
 
@@ -1140,6 +1233,8 @@ public class HNSW {
         return insert(transaction, nodeReferenceWithVector.getPrimaryKey(), nodeReferenceWithVector.getVector());
     }
 
+    public static AtomicLong cK = new AtomicLong(0);
+
     /**
      * Inserts a new vector with its associated primary key into the HNSW graph.
      * <p>
@@ -1167,8 +1262,13 @@ public class HNSW {
             logger.trace("new node with key={} selected to be inserted into layer={}", newPrimaryKey, insertionLayer);
         }
 
+        cK.set(newPrimaryKey.getLong(0));
+
         return StorageAdapter.fetchAccessInfo(getConfig(), transaction, getSubspace(), getOnReadListener())
                 .thenCompose(accessInfo -> {
+                    final AccessInfo currentAccessInfo;
+//                    final FhtKacRotator rotator1 = new FhtKacRotator(3, getConfig().getNumDimensions(), 10);
+//                    final AccessInfo staticAccessInfo = new AccessInfo(accessInfo == null ? null : accessInfo.getEntryNodeReference(), 3, centroidRot(rotator1));
                     final AffineOperator storageTransform = storageTransform(accessInfo);
                     final RealVector transformedNewVector = storageTransform.applyInvert(newVector);
                     final Quantizer quantizer = quantizer(accessInfo);
@@ -1178,10 +1278,11 @@ public class HNSW {
                         // this is the first node
                         writeLonelyNodes(quantizer, transaction, newPrimaryKey, transformedNewVector,
                                 insertionLayer, -1);
-                        StorageAdapter.writeAccessInfo(transaction, getSubspace(),
-                                new AccessInfo(
-                                        new EntryNodeReference(newPrimaryKey, transformedNewVector, insertionLayer),
-                                        -1L, null), getOnWriteListener());
+                        currentAccessInfo = new AccessInfo(
+                                new EntryNodeReference(newPrimaryKey, transformedNewVector, insertionLayer),
+                                -1L, null);
+                        StorageAdapter.writeAccessInfo(transaction, getSubspace(), currentAccessInfo,
+                                getOnWriteListener());
                         if (logger.isTraceEnabled()) {
                             logger.trace("written initial entry node reference with key={} on layer={}",
                                     newPrimaryKey, insertionLayer);
@@ -1192,15 +1293,17 @@ public class HNSW {
                         if (insertionLayer > lMax) {
                             writeLonelyNodes(quantizer, transaction, newPrimaryKey, transformedNewVector,
                                     insertionLayer, lMax);
-                            StorageAdapter.writeAccessInfo(transaction, getSubspace(),
-                                    accessInfo.withNewEntryNodeReference(
-                                            new EntryNodeReference(newPrimaryKey, transformedNewVector,
-                                                    insertionLayer)),
+                            currentAccessInfo = accessInfo.withNewEntryNodeReference(
+                                    new EntryNodeReference(newPrimaryKey, transformedNewVector,
+                                            insertionLayer));
+                            StorageAdapter.writeAccessInfo(transaction, getSubspace(), currentAccessInfo,
                                     getOnWriteListener());
                             if (logger.isTraceEnabled()) {
                                 logger.trace("written higher entry node reference with key={} on layer={}",
                                         newPrimaryKey, insertionLayer);
                             }
+                        } else {
+                            currentAccessInfo = accessInfo;
                         }
                     }
 
@@ -1219,16 +1322,75 @@ public class HNSW {
                                     entryNodeReference.getVector(),
                                     estimator.distance(transformedNewVector, entryNodeReference.getVector()));
                     return forLoop(lMax, initialNodeReference,
-                                    layer -> layer > insertionLayer,
-                                    layer -> layer - 1,
-                                    (layer, previousNodeReference) -> {
-                                        final StorageAdapter<? extends NodeReference> storageAdapter = getStorageAdapterForLayer(layer);
-                                        return greedySearchLayer(storageAdapter, transaction, storageTransform,
-                                                estimator, previousNodeReference, layer, transformedNewVector);
-                                    }, executor)
+                            layer -> layer > insertionLayer,
+                            layer -> layer - 1,
+                            (layer, previousNodeReference) -> {
+                                final StorageAdapter<? extends NodeReference> storageAdapter = getStorageAdapterForLayer(layer);
+                                return greedySearchLayer(storageAdapter, transaction, storageTransform,
+                                        estimator, previousNodeReference, layer, transformedNewVector);
+                            }, executor)
                             .thenCompose(nodeReference ->
                                     insertIntoLayers(transaction, storageTransform, quantizer, newPrimaryKey,
-                                            transformedNewVector, nodeReference, lMax, insertionLayer));
+                                            transformedNewVector, nodeReference, lMax, insertionLayer))
+                            .thenCompose(ignored -> {
+                                if (getConfig().isUseRaBitQ() && !accessInfo.canUseRaBitQ()) {
+                                    if (shouldSampleVector()) {
+                                        StorageAdapter.appendSampledVector(transaction, getSubspace(),
+                                                1, transformedNewVector, onWriteListener);
+                                    }
+                                    if (shouldMaintainStats()) {
+                                        return StorageAdapter.consumeSampledVectors(transaction, getSubspace(),
+                                                        50, onReadListener)
+                                                .thenApply(sampledVectors -> {
+                                                    RealVector partialVector = null;
+                                                    int partialCount = 0;
+                                                    for (final AggregatedVector sampledVector : sampledVectors) {
+                                                        partialVector = partialVector == null
+                                                                        ? sampledVector.getPartialVector()
+                                                                        : partialVector.add(sampledVector.getPartialVector());
+                                                        partialCount += sampledVector.getPartialCount();
+                                                    }
+                                                    if (partialCount > 0) {
+                                                        StorageAdapter.appendSampledVector(transaction, getSubspace(),
+                                                                partialCount, partialVector, onWriteListener);
+                                                        if (logger.isTraceEnabled()) {
+                                                            logger.trace("updated stats with numVectors={}, partialCount={}, partialVector={}",
+                                                                    sampledVectors.size(), partialCount, partialVector);
+                                                        }
+
+                                                        if (partialCount >= getConfig().getStatsThreshold()) {
+                                                            final long rotatorSeed = random.nextLong();
+                                                            final FhtKacRotator rotator = new FhtKacRotator(rotatorSeed, getConfig().getNumDimensions(), 10);
+
+                                                            final RealVector centroid =
+                                                                    partialVector.multiply(1.0d / partialCount);
+                                                            final RealVector transformedCentroid = rotator.applyInvert(centroid);
+
+                                                            final var transformedEntryNodeVector =
+                                                                    rotator.applyInvert(currentAccessInfo.getEntryNodeReference()
+                                                                            .getVector()).subtract(transformedCentroid);
+
+                                                            final AccessInfo newAccessInfo =
+                                                                    new AccessInfo(currentAccessInfo.getEntryNodeReference().withVector(transformedEntryNodeVector),
+                                                                            rotatorSeed, transformedCentroid);
+                                                            StorageAdapter.writeAccessInfo(transaction, getSubspace(), newAccessInfo, onWriteListener);
+                                                            StorageAdapter.removeAllSampledVectors(transaction, getSubspace());
+                                                            if (logger.isTraceEnabled()) {
+                                                                //logger.info("at primary key ={}", newPrimaryKey);
+                                                                logger.trace("established rotatorSeed={}, centroid with count={}, centroid={}",
+                                                                        rotatorSeed, partialCount, transformedCentroid);
+                                                            }
+                                                        }
+                                                    }
+                                                    return null;
+                                                });
+//                                        final FhtKacRotator rotator1 = new FhtKacRotator(3, getConfig().getNumDimensions(), 10);
+//                                        final AccessInfo staticAccessInfo = new AccessInfo(accessInfo == null ? null : accessInfo.getEntryNodeReference(), 3, centroidRot(rotator1));
+//                                        StorageAdapter.writeAccessInfo(transaction, getSubspace(), staticAccessInfo, onWriteListener);
+                                    }
+                                }
+                                return AsyncUtil.DONE;
+                            });
                 }).thenCompose(ignored -> AsyncUtil.DONE);
     }
 
@@ -1974,6 +2136,14 @@ public class HNSW {
         double lambda = 1.0 / Math.log(getConfig().getM());
         double u = 1.0 - random.nextDouble();  // Avoid log(0)
         return (int) Math.floor(-Math.log(u) * lambda);
+    }
+
+    private boolean shouldSampleVector() {
+        return random.nextDouble() < getConfig().getSampleVectorStatsProbability();
+    }
+
+    private boolean shouldMaintainStats() {
+        return random.nextDouble() < getConfig().getMaintainStatsProbability();
     }
 
     private static class NodeReferenceWithLayer extends NodeReferenceWithVector {
