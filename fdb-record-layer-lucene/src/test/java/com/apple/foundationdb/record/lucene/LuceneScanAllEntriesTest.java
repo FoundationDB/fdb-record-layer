@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.lucene;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IsolationLevel;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordMetaDataProvider;
 import com.apple.foundationdb.record.ScanProperties;
@@ -44,6 +45,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObject
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -375,5 +377,109 @@ public class LuceneScanAllEntriesTest extends FDBRecordStoreConcurrentTestBase {
             assertEquals(5, indexEntries.size(), "Should have indexed only records with even recNo");
             verifyEvenRecNoOnly(indexEntries, dataModel);
         }
+    }
+
+    @ParameterizedTest
+    @BooleanSource
+    public void indexScanWithSomeFilterThrowsExceptionTest(boolean isGrouped) {
+        final long seed = 1234567L;
+
+        final LuceneIndexTestDataModel dataModel =
+                new LuceneIndexTestDataModel.Builder(seed, this::getStoreBuilderWithSomeFilter, pathManager)
+                        .setIsGrouped(isGrouped)
+                        .setIsSynthetic(false)
+                        .setPrimaryKeySegmentIndexEnabled(true)
+                        .setPartitionHighWatermark(10)
+                        .build();
+
+        // Attempt to save records - should throw RecordCoreException because SOME is not supported
+        RecordCoreException exception = Assertions.assertThrows(RecordCoreException.class, () -> {
+            try (FDBRecordContext context = openContext()) {
+                // Try to save a single record with the SOME filter active
+                // This should trigger the exception during index maintenance
+                dataModel.saveRecords(1, context, 2);
+                commit(context);
+            }
+        });
+
+        // Verify the exception message
+        assertEquals("Lucene does not support this kind of filtering", exception.getMessage());
+    }
+
+    @Nonnull
+    private FDBRecordStore.Builder getStoreBuilderWithSomeFilter(@Nonnull FDBRecordContext context,
+                                                                 @Nonnull RecordMetaDataProvider metaData,
+                                                                 @Nonnull final KeySpacePath path) {
+        // Create an index maintenance filter that returns SOME for even recNo
+        // This should trigger an exception since Lucene doesn't support partial indexing
+        IndexMaintenanceFilter someFilter = (index, rec) -> {
+            com.google.protobuf.Descriptors.FieldDescriptor recNoField =
+                    rec.getDescriptorForType().findFieldByName("rec_no");
+            if (recNoField != null && rec.hasField(recNoField)) {
+                long recNo = (long) rec.getField(recNoField);
+                if (recNo % 2 == 0) {
+                    // Return SOME to trigger the unsupported operation
+                    return IndexMaintenanceFilter.IndexValues.SOME;
+                }
+            }
+            return IndexMaintenanceFilter.IndexValues.ALL;
+        };
+
+        return getStoreBuilder(context, metaData, path)
+                .setIndexMaintenanceFilter(someFilter);
+    }
+
+    @Nonnull
+    private FDBRecordStore.Builder getStoreBuilderWithFailingFilterFor1002L(@Nonnull FDBRecordContext context,
+                                                                            @Nonnull RecordMetaDataProvider metaData,
+                                                                            @Nonnull final KeySpacePath path) {
+        // Create an index maintenance filter that throws an exception for specific record with recNo 1002L
+        // This can be used to tests error handling when the filter itself fails
+        IndexMaintenanceFilter failingFilter = (index, rec) -> {
+            com.google.protobuf.Descriptors.FieldDescriptor recNoField =
+                    rec.getDescriptorForType().findFieldByName("rec_no");
+            if (recNoField != null && rec.hasField(recNoField)) {
+                long recNo = (long) rec.getField(recNoField);
+                if (recNo == 1002L) {
+                    throw new RecordCoreException("Filter failed for recNo: " + recNo)
+                            .addLogInfo("rec_no", recNo)
+                            .addLogInfo("index", index.getName());
+                }
+                return IndexMaintenanceFilter.IndexValues.ALL;
+            }
+            return IndexMaintenanceFilter.IndexValues.NONE;
+        };
+
+        return getStoreBuilder(context, metaData, path)
+                .setIndexMaintenanceFilter(failingFilter);
+    }
+
+    @ParameterizedTest
+    @BooleanSource
+    public void indexScanWithFailingFilterThrowsExceptionTest(boolean isGrouped) {
+        final long seed = 7654321L;
+
+        final LuceneIndexTestDataModel dataModel =
+                new LuceneIndexTestDataModel.Builder(seed, this::getStoreBuilderWithFailingFilterFor1002L, pathManager)
+                        .setIsGrouped(isGrouped)
+                        .setIsSynthetic(false)
+                        .setPrimaryKeySegmentIndexEnabled(true)
+                        .setPartitionHighWatermark(10)
+                        .build();
+
+        // Attempt to save records - should throw RecordCoreException from the filter for recNo 1002L
+        RecordCoreException exception = Assertions.assertThrows(RecordCoreException.class, () -> {
+            try (FDBRecordContext context = openContext()) {
+                dataModel.saveRecords(1, context, 2);
+                commit(context);
+            }
+        });
+
+        Assertions.assertTrue(exception.getMessage().startsWith("Filter failed for recNo:"),
+                "Exception message should indicate filter failure");
+        Assertions.assertEquals(1002L, exception.getLogInfo().get("rec_no"),
+                "Exception should log the rec_no that caused the failure");
+        Assertions.assertEquals("joinNestedConcat", exception.getLogInfo().get("index"),
+                "Exception should log the index name");
     }
 }
