@@ -139,6 +139,197 @@ test_block:
       - query: select cast([-100, -200, -300] as VECTOR(3, DOUBLE)) from tDoubleVector where a = 100
       - explain: "SCAN(<,>) | TFILTER TDOUBLEVECTOR | FILTER _.A EQUALS promote(@c27 AS LONG) | MAP (CAST(array(@c5, @c8, @c11) AS VECTOR(64, 3)) AS _0)"
       - result: [{!v64 [-100.0, -200.0, -300.0]}]
+    # IS NULL tests for vectors
+    -
+      - query: select b is null from tHalfVector where a = 100
+      - result: [{false}]
+    -
+      - query: select b is null from tFloatVector where a = 100
+      - result: [{false}]
+    -
+      - query: select b is null from tDoubleVector where a = 100
+      - result: [{false}]
+    # IS NOT NULL tests for vectors
+    -
+      - query: select b is not null from tHalfVector where a = 100
+      - result: [{true}]
+    -
+      - query: select b is not null from tFloatVector where a = 100
+      - result: [{true}]
+    -
+      - query: select b is not null from tDoubleVector where a = 100
+      - result: [{true}]
+    # Insert NULL vectors
+    -
+      - query: insert into tHalfVector values (200, null)
+      - count: 1
+    -
+      - query: insert into tFloatVector values (200, null)
+      - count: 1
+    -
+      - query: insert into tDoubleVector values (200, null)
+      - count: 1
+    # IS NULL tests for NULL vectors
+    -
+      - query: select b is null from tHalfVector where a = 200
+      - result: [{true}]
+    -
+      - query: select b is null from tFloatVector where a = 200
+      - result: [{true}]
+    -
+      - query: select b is null from tDoubleVector where a = 200
+      - result: [{true}]
+    # IS NOT NULL tests for NULL vectors
+    -
+      - query: select b is not null from tHalfVector where a = 200
+      - result: [{false}]
+    -
+      - query: select b is not null from tFloatVector where a = 200
+      - result: [{false}]
+    -
+      - query: select b is not null from tDoubleVector where a = 200
+      - result: [{false}]
+    # Filter using IS NULL
+    -
+      - query: select a from tHalfVector where b is null
+      - result: [{200}]
+    -
+      - query: select a from tFloatVector where b is null
+      - result: [{200}]
+    -
+      - query: select a from tDoubleVector where b is null
+      - result: [{200}]
+    # Filter using IS NOT NULL
+    -
+      - query: select a from tHalfVector where b is not null
+      - result: [{100}]
+    -
+      - query: select a from tFloatVector where b is not null
+      - result: [{100}]
+    -
+      - query: select a from tDoubleVector where b is not null
+      - result: [{100}]
+    # Vector equality tests (VEC = VEC)
+    -
+      - query: insert into tHalfVector values (300, !! !v16 [1.3, 1.4, 1.6] !!)
+      - count: 1
+    -
+      - query: select a from tHalfVector where b = !! !v16 [1.3, 1.4, 1.6] !!
+      - result: [{100}, {300}]
+    -
+      - query: select a from tHalfVector where b = !! !v16 [9.9, 9.9, 9.9] !!
+      - result: []
+    -
+      - query: insert into tFloatVector values (300, !! !v32 [15.3, 1.4, 1.6] !!)
+      - count: 1
+    -
+      - query: select a from tFloatVector where b = !! !v32 [15.3, 1.4, 1.6] !!
+      - result: [{100}, {300}]
+    -
+      - query: select a from tFloatVector where b = !! !v32 [9.9, 9.9, 9.9] !!
+      - result: []
+    -
+      - query: insert into tDoubleVector values (300, !! !v64 [1.3, 1.4, 1.6] !!)
+      - count: 1
+    -
+      - query: select a from tDoubleVector where b = !! !v64 [1.3, 1.4, 1.6] !!
+      - result: [{100}, {300}]
+    -
+      - query: select a from tDoubleVector where b = !! !v64 [9.9, 9.9, 9.9] !!
+      - result: []
+    # Vector inequality tests (VEC != VEC)
+    -
+      - query: select a from tHalfVector where b != !! !v16 [1.3, 1.4, 1.6] !!
+      - result: []
+    -
+      - query: select a from tHalfVector where b != !! !v16 [9.9, 9.9, 9.9] !!
+      - result: [{100}, {300}]
+    -
+      - query: select a from tFloatVector where b != !! !v32 [15.3, 1.4, 1.6] !!
+      - result: []
+    -
+      - query: select a from tFloatVector where b != !! !v32 [9.9, 9.9, 9.9] !!
+      - result: [{100}, {300}]
+    -
+      - query: select a from tDoubleVector where b != !! !v64 [1.3, 1.4, 1.6] !!
+      - result: []
+    -
+      - query: select a from tDoubleVector where b != !! !v64 [9.9, 9.9, 9.9] !!
+      - result: [{100}, {300}]
+    # Vector IS DISTINCT FROM tests
+    -
+      - query: select b is distinct from !! !v16 [1.3, 1.4, 1.6] !! from tHalfVector where a = 100
+      - result: [{false}]
+    -
+      - query: select b is distinct from !! !v16 [9.9, 9.9, 9.9] !! from tHalfVector where a = 100
+      - result: [{true}]
+    -
+      - query: select b is distinct from null from tHalfVector where a = 200
+      - result: [{false}]
+    -
+      - query: select b is distinct from !! !v16 [1.3, 1.4, 1.6] !! from tHalfVector where a = 200
+      - result: [{true}]
+    -
+      - query: select b is distinct from !! !v32 [15.3, 1.4, 1.6] !! from tFloatVector where a = 100
+      - result: [{false}]
+    -
+      - query: select b is distinct from !! !v32 [9.9, 9.9, 9.9] !! from tFloatVector where a = 100
+      - result: [{true}]
+    -
+      - query: select b is distinct from null from tFloatVector where a = 200
+      - result: [{false}]
+    -
+      - query: select b is distinct from !! !v32 [15.3, 1.4, 1.6] !! from tFloatVector where a = 200
+      - result: [{true}]
+    -
+      - query: select b is distinct from !! !v64 [1.3, 1.4, 1.6] !! from tDoubleVector where a = 100
+      - result: [{false}]
+    -
+      - query: select b is distinct from !! !v64 [9.9, 9.9, 9.9] !! from tDoubleVector where a = 100
+      - result: [{true}]
+    -
+      - query: select b is distinct from null from tDoubleVector where a = 200
+      - result: [{false}]
+    -
+      - query: select b is distinct from !! !v64 [1.3, 1.4, 1.6] !! from tDoubleVector where a = 200
+      - result: [{true}]
+    # Vector NOT DISTINCT FROM tests
+    -
+      - query: select b is not distinct from !! !v16 [1.3, 1.4, 1.6] !! from tHalfVector where a = 100
+      - result: [{true}]
+    -
+      - query: select b is not distinct from !! !v16 [9.9, 9.9, 9.9] !! from tHalfVector where a = 100
+      - result: [{false}]
+    -
+      - query: select b is not distinct from null from tHalfVector where a = 200
+      - result: [{true}]
+    -
+      - query: select b is not distinct from !! !v16 [1.3, 1.4, 1.6] !! from tHalfVector where a = 200
+      - result: [{false}]
+    -
+      - query: select b is not distinct from !! !v32 [15.3, 1.4, 1.6] !! from tFloatVector where a = 100
+      - result: [{true}]
+    -
+      - query: select b is not distinct from !! !v32 [9.9, 9.9, 9.9] !! from tFloatVector where a = 100
+      - result: [{false}]
+    -
+      - query: select b is not distinct from null from tFloatVector where a = 200
+      - result: [{true}]
+    -
+      - query: select b is not distinct from !! !v32 [15.3, 1.4, 1.6] !! from tFloatVector where a = 200
+      - result: [{false}]
+    -
+      - query: select b is not distinct from !! !v64 [1.3, 1.4, 1.6] !! from tDoubleVector where a = 100
+      - result: [{true}]
+    -
+      - query: select b is not distinct from !! !v64 [9.9, 9.9, 9.9] !! from tDoubleVector where a = 100
+      - result: [{false}]
+    -
+      - query: select b is not distinct from null from tDoubleVector where a = 200
+      - result: [{true}]
+    -
+      - query: select b is not distinct from !! !v64 [1.3, 1.4, 1.6] !! from tDoubleVector where a = 200
+      - result: [{false}]
     # STRING array to vector should fail
     -
       - query: select cast(['a', 'b', 'c'] as VECTOR(3, FLOAT)) from tDoubleVector where a = 100
