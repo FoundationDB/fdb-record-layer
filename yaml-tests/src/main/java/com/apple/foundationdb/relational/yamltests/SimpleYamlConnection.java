@@ -47,15 +47,18 @@ public class SimpleYamlConnection implements YamlConnection {
     private final List<SemanticVersion> versions;
     @Nonnull
     private final String connectionLabel;
+    @Nonnull
+    private final String clusterFile;
 
-    public SimpleYamlConnection(@Nonnull Connection connection, @Nonnull SemanticVersion version) throws SQLException {
-        this(connection, version, version.toString());
+    public SimpleYamlConnection(@Nonnull Connection connection, @Nonnull SemanticVersion version, @Nonnull String clusterFile) throws SQLException {
+        this(connection, version, version.toString(), clusterFile);
     }
 
-    public SimpleYamlConnection(@Nonnull Connection connection, @Nonnull SemanticVersion version, @Nonnull String connectionLabel) throws SQLException {
+    public SimpleYamlConnection(@Nonnull Connection connection, @Nonnull SemanticVersion version, @Nonnull String connectionLabel, @Nonnull String clusterFile) throws SQLException {
         underlying = connection.unwrap(RelationalConnection.class);
         this.versions = List.of(version);
         this.connectionLabel = connectionLabel;
+        this.clusterFile = clusterFile;
     }
 
     @Nonnull
@@ -136,6 +139,11 @@ public class SimpleYamlConnection implements YamlConnection {
             underlying.setAutoCommit(true);
         }
         return result;
+    }
+
+    @Override
+    public String getClusterFile() {
+        return clusterFile;
     }
 
     @Override

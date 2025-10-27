@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
+import com.apple.foundationdb.test.FDBTestEnvironment;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.DirectoryLayerDirectory;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory;
@@ -150,12 +151,13 @@ public class KeySpacePathParsingTest {
         Assertions.assertEquals(expected, uri, "Invalid parsing of URI or KeySpacePaths");
 
         // Assert all values for the keySpacePath are Long
-        FDBRecordContext context = FDBDatabaseFactory.instance().getDatabase().openContext();
+        String clusterFile = FDBTestEnvironment.randomClusterFile();
+        FDBRecordContext context = FDBDatabaseFactory.instance().getDatabase(clusterFile).openContext();
         List<Object> numbers1 = getResolvedValuesForKeySpacePath(path, context);
         numbers1.stream().forEach(n -> Assertions.assertTrue(n instanceof Long, "Unexpected value type"));
 
         // Read the resolved values again, and assert again
-        context = FDBDatabaseFactory.instance().getDatabase().openContext();
+        context = FDBDatabaseFactory.instance().getDatabase(clusterFile).openContext();
         List<Object> numbers2 = getResolvedValuesForKeySpacePath(path, context);
         numbers2.stream().forEach(n -> Assertions.assertTrue(n instanceof Long, "Unexpected value type"));
 
