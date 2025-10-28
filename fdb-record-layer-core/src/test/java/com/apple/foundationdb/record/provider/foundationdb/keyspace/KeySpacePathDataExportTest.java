@@ -635,7 +635,7 @@ class KeySpacePathDataExportTest {
         final List<DataInKeySpacePath> reversed = pathToExport.exportAllData(context, null, ScanProperties.REVERSE_SCAN)
                 .asList().join();
         Collections.reverse(reversed);
-        assertDataInKeySpacePathEquals(asSingleExport, reversed);
+        assertDataInKeySpacePathEquals(context, asSingleExport, reversed);
 
         // Assert continuations work correctly
         final ScanProperties scanProperties = ScanProperties.FORWARD_SCAN.with(props -> props.setReturnedRowLimit(1));
@@ -655,11 +655,12 @@ class KeySpacePathDataExportTest {
             }
         }
 
-        assertDataInKeySpacePathEquals(asSingleExport, asContinuations);
+        assertDataInKeySpacePathEquals(context, asSingleExport, asContinuations);
         return asSingleExport;
     }
 
-    private static void assertDataInKeySpacePathEquals(final List<DataInKeySpacePath> expectedList,
+    private static void assertDataInKeySpacePathEquals(final FDBRecordContext context,
+                                                       final List<DataInKeySpacePath> expectedList,
                                                        final List<DataInKeySpacePath> actualList) {
         assertThat(actualList).zipSatisfy(expectedList,
                 (actual, other) -> {

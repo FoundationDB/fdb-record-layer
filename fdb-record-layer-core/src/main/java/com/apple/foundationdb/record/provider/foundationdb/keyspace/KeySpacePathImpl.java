@@ -322,33 +322,32 @@ class KeySpacePathImpl implements KeySpacePath {
                                               @Nonnull Iterable<DataInKeySpacePath> dataToImport) {
         return toTupleAsync(context).thenCompose(targetTuple -> {
             List<CompletableFuture<Void>> importFutures = new ArrayList<>();
-            
+
             for (DataInKeySpacePath dataItem : dataToImport) {
-                CompletableFuture<Void> importFuture = dataItem.getResolvedPath().thenCompose(resolvedPath -> {
+                CompletableFuture<Void> importFuture = dataItem.getPath().toTupleAsync(context).thenCompose(itemPathTuple -> {
                     // Validate that this data belongs under this path
-                    Tuple itemTuple = resolvedPath.toTuple();
-                    if (!TupleHelpers.isPrefix(targetTuple, itemTuple)) {
+                    if (!TupleHelpers.isPrefix(targetTuple, itemPathTuple)) {
                         throw new RecordCoreIllegalImportDataException(
                                 "Data item path does not belong under target path",
-                                "target", targetTuple, "item", itemTuple);
+                                "target", targetTuple, "item", itemPathTuple);
                     }
-                    
-                    // Reconstruct the key using logical values from the resolved path
-                    Tuple keyTuple = itemTuple;
-                    if (resolvedPath.getRemainder() != null) {
-                        keyTuple = keyTuple.addAll(resolvedPath.getRemainder());
+
+                    // Reconstruct the key using the path and remainder
+                    Tuple keyTuple = itemPathTuple;
+                    if (dataItem.getRemainder() != null) {
+                        keyTuple = keyTuple.addAll(dataItem.getRemainder());
                     }
-                    
+
                     // Store the data
                     byte[] keyBytes = keyTuple.pack();
                     byte[] valueBytes = dataItem.getValue();
                     context.ensureActive().set(keyBytes, valueBytes);
-                    
+
                     return AsyncUtil.DONE;
                 });
                 importFutures.add(importFuture);
             }
-            
+
             return AsyncUtil.whenAll(importFutures);
         });
     }

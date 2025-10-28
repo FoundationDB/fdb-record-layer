@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.keyspace;
 
-import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
@@ -178,11 +177,8 @@ class KeySpacePathImportDataTest {
 
         // Create import data with same key but different value
         List<DataInKeySpacePath> importData = new ArrayList<>();
-        try (FDBRecordContext context = database.openContext()) {
-            byte[] key = dataPath.toSubspace(context).pack(Tuple.from("record"));
-            KeyValue kv = new KeyValue(key, Tuple.from("new_value").pack());
-            importData.add(new DataInKeySpacePath(root.path("root"), kv, context));
-        }
+        importData.add(new DataInKeySpacePath(dataPath,
+                Tuple.from("record"), Tuple.from("new_value").pack()));
 
         // Verify we can re-import the data multiple times
         importData(database, root.path("root"), importData);
@@ -349,19 +345,15 @@ class KeySpacePathImportDataTest {
 
 
         KeySpacePath dataPath = root.path("root").add("data", 1L);
-        try (FDBRecordContext context = database.openContext()) {
-            byte[] key = dataPath.toSubspace(context).pack(Tuple.from("item"));
-            
-            // Create multiple DataInKeySpacePath objects with same key but different values
-            List<DataInKeySpacePath> duplicateData = Arrays.asList(
-                    new DataInKeySpacePath(root.path("root"), 
-                            new KeyValue(key, Tuple.from("first_value").pack()), context),
-                    new DataInKeySpacePath(root.path("root"), 
-                            new KeyValue(key, Tuple.from("second_value").pack()), context),
-                    new DataInKeySpacePath(root.path("root"), 
-                            new KeyValue(key, Tuple.from("final_value").pack()), context)
-            );
 
+        // Create multiple DataInKeySpacePath objects with same key but different values
+        List<DataInKeySpacePath> duplicateData = Arrays.asList(
+                new DataInKeySpacePath(dataPath, Tuple.from("item"), Tuple.from("first_value").pack()),
+                new DataInKeySpacePath(dataPath, Tuple.from("item"), Tuple.from("second_value").pack()),
+                new DataInKeySpacePath(dataPath, Tuple.from("item"), Tuple.from("final_value").pack())
+        );
+
+        try (FDBRecordContext context = database.openContext()) {
             root.path("root").importData(context, duplicateData).join();
             context.commit();
         }
