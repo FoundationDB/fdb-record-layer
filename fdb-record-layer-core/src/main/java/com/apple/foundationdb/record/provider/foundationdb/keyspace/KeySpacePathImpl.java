@@ -383,7 +383,11 @@ class KeySpacePathImpl implements KeySpacePath {
                         .setScanProperties(scanProperties)
                         .build()),
                 context.getExecutor())
-                .map(keyValue -> new DataInKeySpacePath(this, keyValue, context));
+                .mapPipelined(keyValue ->
+                    toResolvedPathAsync(context, keyValue.getKey())
+                            .thenApply(resolvedKey ->
+                                    new DataInKeySpacePath(resolvedKey.toPath(), resolvedKey.getRemainder(), keyValue.getValue())),
+                    1);
     }
 
     /**
