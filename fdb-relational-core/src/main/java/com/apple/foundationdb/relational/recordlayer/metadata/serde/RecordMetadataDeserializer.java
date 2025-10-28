@@ -32,6 +32,8 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerInvokedRoutine;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerView;
+import com.apple.foundationdb.relational.recordlayer.query.LogicalOperator;
 import com.apple.foundationdb.relational.recordlayer.query.functions.CompiledSqlFunction;
 import com.apple.foundationdb.relational.util.Assert;
 
@@ -110,6 +112,12 @@ public class RecordMetadataDeserializer {
                 }
             }
         }
+        if (!recordMetaData.getViewMap().isEmpty()) {
+            final var metadataProvider = Suppliers.memoize(schemaTemplateBuilder::build);
+            for (final var view : recordMetaData.getViewMap().entrySet()) {
+                schemaTemplateBuilder.addView(generateViewBuilder(metadataProvider, view.getKey(), view.getValue().getDefinition()).build());
+            }
+        }
         schemaTemplateBuilder.setCachedMetadata(getRecordMetaData());
         return schemaTemplateBuilder;
     }
@@ -154,7 +162,15 @@ public class RecordMetadataDeserializer {
     protected Function<Boolean, CompiledSqlFunction> getSqlFunctionCompiler(@Nonnull final String name,
                                                                             @Nonnull final Supplier<RecordLayerSchemaTemplate> metadata,
                                                                             @Nonnull final String functionBody) {
-        return isCaseSensitive -> RoutineParser.sqlFunctionParser(metadata.get()).parse(functionBody, isCaseSensitive);
+        return isCaseSensitive -> RoutineParser.sqlFunctionParser(metadata.get()).parseFunction(functionBody, isCaseSensitive);
+    }
+
+    @Nonnull
+    @VisibleForTesting
+    protected Function<Boolean, LogicalOperator> getViewCompiler(@Nonnull final String viewName,
+                                                                 @Nonnull final Supplier<RecordLayerSchemaTemplate> metadata,
+                                                                 @Nonnull final String viewDefinition) {
+        return isCaseSensitive -> RoutineParser.sqlFunctionParser(metadata.get()).parseView(viewName, viewDefinition, isCaseSensitive);
     }
 
     @Nonnull
@@ -166,6 +182,17 @@ public class RecordMetadataDeserializer {
                 .setDescription(body)
                 .setTemporary(false)
                 .withCompilableRoutine(getSqlFunctionCompiler(name, metadata, body));
+    }
+
+    @Nonnull
+    @SuppressWarnings("PMD.UnusedFormalParameter") // metadata will be used for view compilation in the future
+    private RecordLayerView.Builder generateViewBuilder(@Nonnull final Supplier<RecordLayerSchemaTemplate> metadata,
+                                                        @Nonnull final String name,
+                                                        @Nonnull final String definition) {
+        return RecordLayerView.newBuilder()
+                .setName(name)
+                .setDescription(definition)
+                .setViewCompiler(getViewCompiler(name, metadata, definition));
     }
 
     @Nonnull

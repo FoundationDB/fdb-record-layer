@@ -31,6 +31,7 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.Metadata;
 import com.apple.foundationdb.relational.api.metadata.Schema;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
+import com.apple.foundationdb.relational.api.metadata.View;
 import com.apple.foundationdb.relational.recordlayer.RecordContextTransaction;
 import com.apple.foundationdb.relational.recordlayer.RelationalKeyspaceProvider;
 
@@ -41,6 +42,8 @@ import org.junit.jupiter.api.Test;
 
 import java.net.URI;
 import java.util.stream.Collectors;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class RecordLayerStoreCatalogImplTest extends RecordLayerStoreCatalogTestBase {
 
@@ -70,7 +73,7 @@ public class RecordLayerStoreCatalogImplTest extends RecordLayerStoreCatalogTest
         final var templateVersion = 1;
         // save record in FDB
         try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
-            Schema schema1 = generateTestSchema("test_schema_name", "/TEST/test_database_id", templateName, templateVersion);
+            Schema schema1 = generateTestSchema("test_schema_name", "/TEST/test_database_id", templateName, templateVersion, true);
             storeCatalog.getSchemaTemplateCatalog().createTemplate(txn, schema1.getSchemaTemplate());
             storeCatalog.createDatabase(txn, URI.create(schema1.getDatabaseName()));
             storeCatalog.saveSchema(txn, schema1, false);
@@ -84,8 +87,12 @@ public class RecordLayerStoreCatalogImplTest extends RecordLayerStoreCatalogTest
             Assertions.assertEquals("test_template_name", result.getSchemaTemplate().getName());
             Assertions.assertEquals(1, result.getSchemaTemplate().getVersion());
             Assertions.assertEquals(2, result.getTables().size());
-            org.assertj.core.api.Assertions.assertThat(result.getTables().stream().map(Metadata::getName).collect(Collectors.toSet()))
+            assertThat(result.getTables().stream().map(Metadata::getName).collect(Collectors.toSet()))
                     .containsExactlyInAnyOrder("test_table1", "test_table2");
+            assertThat(result.getViews().stream().map(Metadata::getName).collect(Collectors.toSet()))
+                    .containsExactlyInAnyOrder("test_view1", "test_view2");
+            assertThat(result.getViews().stream().map(View::getDescription).collect(Collectors.toSet()))
+                    .containsExactlyInAnyOrder("select * from test_table1", "select * from test_table2 where A = 'foo'");
         }
     }
 
@@ -252,8 +259,8 @@ public class RecordLayerStoreCatalogImplTest extends RecordLayerStoreCatalogTest
         // 2 schemas with different versions
         final Schema schema1 = generateTestSchema("test_schema_name", "/TEST/test_database_id", "test_template_name", 1);
         final Schema schema2 = generateTestSchema("test_schema_name", "/TEST/test_database_id", "test_template_name", 2);
-        final SchemaTemplate template1 = generateTestSchemaTemplate("test_template_name", 1);
-        final SchemaTemplate template2 = generateTestSchemaTemplate("test_template_name", 2);
+        final SchemaTemplate template1 = generateTestSchemaTemplate("test_template_name", 1, true);
+        final SchemaTemplate template2 = generateTestSchemaTemplate("test_template_name", 2, true);
         // test 2 successful consecutive transactions
         // update with schema1 (version = 1)
         try (Transaction txn1 = new RecordContextTransaction(fdb.openContext())) {
@@ -271,8 +278,12 @@ public class RecordLayerStoreCatalogImplTest extends RecordLayerStoreCatalogTest
             Assertions.assertEquals("test_template_name", result1.getSchemaTemplate().getName());
             Assertions.assertEquals(1, result1.getSchemaTemplate().getVersion());
 
-            org.assertj.core.api.Assertions.assertThat(result1.getTables().stream().map(Metadata::getName).collect(Collectors.toSet()))
+            assertThat(result1.getTables().stream().map(Metadata::getName).collect(Collectors.toSet()))
                     .containsExactlyInAnyOrder("test_table1", "test_table2");
+            assertThat(result1.getViews().stream().map(Metadata::getName).collect(Collectors.toSet()))
+                    .containsExactlyInAnyOrder("test_view1", "test_view2");
+            assertThat(result1.getViews().stream().map(View::getDescription).collect(Collectors.toSet()))
+                    .containsExactlyInAnyOrder("select * from test_table1", "select * from test_table2 where A = 'foo'");
         }
         // update with schema2 (version = 2)
         try (Transaction txn2 = new RecordContextTransaction(fdb.openContext())) {
@@ -289,8 +300,12 @@ public class RecordLayerStoreCatalogImplTest extends RecordLayerStoreCatalogTest
             Assertions.assertEquals("test_template_name", result2.getSchemaTemplate().getName());
             Assertions.assertEquals(2, result2.getSchemaTemplate().getVersion());
 
-            org.assertj.core.api.Assertions.assertThat(result2.getTables().stream().map(Metadata::getName).collect(Collectors.toSet()))
+            assertThat(result2.getTables().stream().map(Metadata::getName).collect(Collectors.toSet()))
                     .containsExactlyInAnyOrder("test_table1", "test_table2");
+            assertThat(result2.getViews().stream().map(Metadata::getName).collect(Collectors.toSet()))
+                    .containsExactlyInAnyOrder("test_view1", "test_view2");
+            assertThat(result2.getViews().stream().map(View::getDescription).collect(Collectors.toSet()))
+                    .containsExactlyInAnyOrder("select * from test_table1", "select * from test_table2 where A = 'foo'");
         }
     }
 

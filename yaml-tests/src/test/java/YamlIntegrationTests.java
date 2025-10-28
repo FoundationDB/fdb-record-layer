@@ -283,6 +283,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void viewsTest(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("views.yamsql");
+    }
+
+    @TestTemplate
     public void betweenTest(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("between.yamsql");
     }

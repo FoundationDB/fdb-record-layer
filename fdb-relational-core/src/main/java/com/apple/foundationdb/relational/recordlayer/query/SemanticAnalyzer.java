@@ -59,8 +59,10 @@ import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.api.metadata.Metadata;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.api.metadata.Table;
+import com.apple.foundationdb.relational.api.metadata.View;
 import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerView;
 import com.apple.foundationdb.relational.recordlayer.query.functions.SqlFunctionCatalog;
 import com.apple.foundationdb.relational.recordlayer.query.functions.WithPlanGenerationSideEffects;
 import com.apple.foundationdb.relational.recordlayer.query.visitors.QueryVisitor;
@@ -116,12 +118,16 @@ public class SemanticAnalyzer {
     @Nonnull
     private final MutablePlanGenerationContext mutablePlanGenerationContext;
 
+    private final boolean isCaseSensitive;
+
     public SemanticAnalyzer(@Nonnull SchemaTemplate metadataCatalog,
                             @Nonnull SqlFunctionCatalog functionCatalog,
-                            @Nonnull MutablePlanGenerationContext mutablePlanGenerationContext) {
+                            @Nonnull MutablePlanGenerationContext mutablePlanGenerationContext,
+                            boolean isCaseSensitive) {
         this.metadataCatalog = metadataCatalog;
         this.functionCatalog = functionCatalog;
         this.mutablePlanGenerationContext = mutablePlanGenerationContext;
+        this.isCaseSensitive = isCaseSensitive;
     }
 
     /**
@@ -194,6 +200,26 @@ public class SemanticAnalyzer {
         final var tableName = tableIdentifier.getName();
         try {
             return metadataCatalog.findTableByName(tableName).isPresent();
+        } catch (RelationalException e) {
+            throw e.toUncheckedWrappedException();
+        }
+    }
+
+    public boolean viewExists(@Nonnull final Identifier viewIdentifier) {
+        if (viewIdentifier.getQualifier().size() > 1) {
+            return false;
+        }
+
+        if (viewIdentifier.isQualified()) {
+            final var qualifier = viewIdentifier.getQualifier().get(0);
+            if (!metadataCatalog.getName().equals(qualifier)) {
+                return false;
+            }
+        }
+
+        final var viewName = viewIdentifier.getName();
+        try {
+            return metadataCatalog.findViewByName(viewName).isPresent();
         } catch (RelationalException e) {
             throw e.toUncheckedWrappedException();
         }
@@ -858,6 +884,18 @@ public class SemanticAnalyzer {
                 Memoizer.noMemoization(PlannerStage.INITIAL), ToUniqueAliasesTranslationMap.newInstance(correlations), false));
         final var topQun = Quantifier.forEach(translatedReference);
         return LogicalOperator.newNamedOperator(functionName, Expressions.fromQuantifier(topQun), topQun);
+    }
+
+    @Nonnull
+    public LogicalOperator resolveView(@Nonnull final Identifier viewIdentifier) {
+        final View view;
+        try {
+            view = Assert.optionalUnchecked(metadataCatalog.findViewByName(viewIdentifier.getName()));
+        } catch (RelationalException e) {
+            throw e.toUncheckedWrappedException();
+        }
+        final var recordLayerView = Assert.castUnchecked(view, RecordLayerView.class);
+        return recordLayerView.getCompilableViewSupplier().apply(isCaseSensitive);
     }
 
     // TODO: this will be removed once we unify both Java- and SQL-UDFs.

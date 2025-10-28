@@ -259,6 +259,11 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
     }
 
     @Override
+    public Object visitViewDefinition(final RelationalParser.ViewDefinitionContext ctx) {
+        return getDelegate().visitViewDefinition(ctx);
+    }
+
+    @Override
     public CompiledSqlFunction visitCreateFunction(final RelationalParser.CreateFunctionContext ctx) {
         return getDelegate().visitCreateFunction(ctx);
     }
