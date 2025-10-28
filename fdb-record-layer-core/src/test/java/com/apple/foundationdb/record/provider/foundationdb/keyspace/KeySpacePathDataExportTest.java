@@ -49,7 +49,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -69,7 +68,7 @@ class KeySpacePathDataExportTest {
     final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
 
     @Test
-    void exportAllDataFromSimplePath() throws ExecutionException, InterruptedException {
+    void exportAllDataFromSimplePath() {
         KeySpace root = new KeySpace(
                 new KeySpaceDirectory("root", KeyType.STRING, UUID.randomUUID().toString())
                         .addSubdirectory(new KeySpaceDirectory("level1", KeyType.LONG)));
@@ -83,13 +82,14 @@ class KeySpacePathDataExportTest {
             
             // Add data at different levels
             for (int i = 0; i < 5; i++) {
-                Tuple key = basePath.add("level1", (long) i).toTuple(context);
+                final KeySpacePath path = basePath.add("level1", (long)i);
+                Tuple key = path.toTuple(context);
                 tr.set(key.pack(), Tuple.from("value" + i).pack());
 
                 // Add some sub-data under each key
                 for (int j = 0; j < 3; j++) {
-                    Tuple subKey = key.add("sub" + j);
-                    tr.set(subKey.pack(), Tuple.from("subvalue" + i + "_" + j).pack());
+                    tr.set(path.toSubspace(context).pack(Tuple.from("sub" + j)),
+                            Tuple.from("subvalue" + i + "_" + j).pack());
                 }
             }
             context.commit();
@@ -103,16 +103,19 @@ class KeySpacePathDataExportTest {
             // Should have 5 main entries + 15 sub-entries = 20 total
             assertEquals(20, allData.size());
 
+            assertThat(allData)
+                    .allSatisfy(data ->
+                            assertThat(data.getPath().getDirectoryName()).isEqualTo("level1"));
+
             // Verify the data is sorted by key
-            for (int i = 1; i < allData.size(); i++) {
-                assertTrue(getKey(allData.get(i - 1), context).compareTo(getKey(allData.get(i), context)) < 0);
-            }
+            assertThat(allData.stream().map(data -> getKey(data, context)).collect(Collectors.toList()))
+                    .isSorted();
         }
     }
 
     // `toTuple` does not include the remainder, I'm not sure if that is intentional, or an oversight.
-    private Tuple getKey(final DataInKeySpacePath dataInKeySpacePath, final FDBRecordContext context) throws ExecutionException, InterruptedException {
-        final ResolvedKeySpacePath resolvedKeySpacePath = dataInKeySpacePath.getPath().toResolvedPathAsync(context).get();
+    private Tuple getKey(final DataInKeySpacePath dataInKeySpacePath, final FDBRecordContext context) {
+        final ResolvedKeySpacePath resolvedKeySpacePath = dataInKeySpacePath.getPath().toResolvedPathAsync(context).join();
         if (dataInKeySpacePath.getRemainder() != null) {
             return resolvedKeySpacePath.toTuple().addAll(dataInKeySpacePath.getRemainder());
         } else {
@@ -524,9 +527,7 @@ class KeySpacePathDataExportTest {
                 final RecordCursor<DataInKeySpacePath> cursor = pathToExport.exportAllData(context, continuation.toBytes(),
                         scanProperties);
                 final AtomicReference<RecordCursorResult<Tuple>> tupleResult = new AtomicReference<>();
-                final List<Tuple> batch = cursor.map(dataInPath -> {
-                    return Tuple.fromBytes(dataInPath.getValue());
-                }).asList(tupleResult).join();
+                final List<Tuple> batch = cursor.map(dataInPath -> Tuple.fromBytes(dataInPath.getValue())).asList(tupleResult).join();
                 actual.add(batch);
                 continuation = tupleResult.get().getContinuation();
             }
@@ -578,7 +579,7 @@ class KeySpacePathDataExportTest {
     }
 
     @Test
-    void exportAllDataThroughKeySpacePathWrapperResolvedPaths() {
+    void exportAllDataThroughKeySpacePathWrapperRemainders() {
         final FDBDatabase database = dbExtension.getDatabase();
         final EnvironmentKeySpace keySpace = EnvironmentKeySpace.setupSampleData(database);
 
