@@ -36,10 +36,14 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.Executor;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -159,6 +163,12 @@ public class FDBDatabaseExtension implements AfterEachCallback {
                     LOGGER.info("Connecting to cluster file: " + key);
                     return getDatabaseFactory().getDatabase(key.isEmpty() ? null : key);
                 });
+    }
+
+    public List<FDBDatabase> getDatabases(int count) {
+        List<String> clusterFiles = new ArrayList<>(FDBTestEnvironment.allClusterFiles());
+        Collections.shuffle(clusterFiles);
+        return clusterFiles.stream().limit(count).map(this::getDatabase).collect(Collectors.toList());
     }
 
     public void checkForOpenContexts() {

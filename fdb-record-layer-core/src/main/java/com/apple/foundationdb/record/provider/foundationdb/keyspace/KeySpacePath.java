@@ -199,6 +199,25 @@ public interface KeySpacePath {
     CompletableFuture<ResolvedKeySpacePath> toResolvedPathAsync(@Nonnull FDBRecordContext context);
 
     /**
+     * Given a tuple from an FDB key, attempts to determine what sub-path through this directory the tuple
+     * represents, returning a <code>ResolvedKeySpacePath</code> representing the leaf-most directory in the path.
+     * <p>
+     *     If entries remained in the tuple beyond the leaf directory, then {@link KeySpacePath#getRemainder()}
+     *     can be used to fetch the remaining portion.
+     *     See also {@link KeySpace#resolveFromKeyAsync(FDBRecordContext, Tuple)} if you need to resolve from the root.
+     * </p>
+     * @param context  context used, if needed, for any database operations
+     * @param key a raw key from the database
+     * @return the {@link ResolvedKeySpacePath} corresponding to that key, with a potential remainder.
+     * @throws com.apple.foundationdb.record.RecordCoreArgumentException if the key provided is not part of this path
+     */
+    @API(API.Status.EXPERIMENTAL)
+    @Nonnull
+    default CompletableFuture<ResolvedKeySpacePath> toResolvedPathAsync(@Nonnull FDBRecordContext context, byte[] key) {
+        throw new UnsupportedOperationException("toResolvedPathAsync is not supported");
+    }
+
+    /**
      * Resolves the path into a {@link ResolvedKeySpacePath}, a form the retains all of the information about
      * the path itself along with the value to which each path entry is resolved.
      *
@@ -566,4 +585,39 @@ public interface KeySpacePath {
      */
     @API(API.Status.UNSTABLE)
     String toString(@Nonnull Tuple tuple);
+
+    /**
+     * Export all data stored under this KeySpacePath and return it in a RecordCursor.
+     * This method scans all keys that have this path as a prefix and returns the key-value pairs.
+     * Supports continuation to resume scanning from a previous position.
+     *
+     * @param context the transaction context in which to perform the data export
+     * @param continuation optional continuation from a previous export operation, or null to start from the beginning
+     * @param scanProperties properties controlling how the scan should be performed
+     * @return a RecordCursor that iterates over all KeyValue pairs under this path
+     */
+    @API(API.Status.EXPERIMENTAL)
+    @Nonnull
+    default RecordCursor<DataInKeySpacePath> exportAllData(@Nonnull FDBRecordContext context,
+                                                           @Nullable byte[] continuation,
+                                                           @Nonnull ScanProperties scanProperties) {
+        throw new UnsupportedOperationException("exportAllData is not supported");
+    }
+
+    /**
+     * Imports the provided data exported via {@link #exportAllData} into this {@code KeySpacePath}.
+     * This will validate that any data provided in {@code dataToImport} has a path that should be in this path,
+     * or one of the sub-directories, if not the future will complete exceptionally with
+     * {@link RecordCoreIllegalImportDataException}.
+     * If there is any data already existing under this path, the new data will overwrite if the keys are the same.
+     * This will use the logical value in the {@link DataInKeySpacePath#getResolvedPath()} to determine the key, rather
+     * than the raw key, meaning that this will work even if the data was exported from a different cluster.
+     * @param context the transaction context in which to save the data
+     * @param dataToImport the data to be saved to the database
+     * @return a future to be completed once all data has been important.
+     */
+    @API(API.Status.EXPERIMENTAL)
+    @Nonnull
+    CompletableFuture<Void> importData(@Nonnull FDBRecordContext context,
+                                       @Nonnull Iterable<DataInKeySpacePath> dataToImport);
 }

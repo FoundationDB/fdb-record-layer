@@ -227,9 +227,12 @@ public class KeySpace {
     /**
      * Given a tuple from an FDB key, attempts to determine what path through this directory the tuple
      * represents, returning a <code>ResolvedKeySpacePath</code> representing the leaf-most directory in the path.
-     * If entries remained in the tuple beyond the leaf directory, then {@link KeySpacePath#getRemainder()}
-     * can be used to fetch the remaining portion.
-     *
+     * <p>
+     *     If entries remained in the tuple beyond the leaf directory, then {@link KeySpacePath#getRemainder()} can be
+     *     used to fetch the remaining portion.
+     *     See also {@link KeySpacePath#toResolvedPathAsync(FDBRecordContext, byte[])} if you need to resolve and you
+     *     know that it is part of a given path.
+     * </p>
      * @param context context used, if needed, for any database operations
      * @param key the tuple to be decoded
      * @return a path entry representing the leaf directory entry that corresponds to a value in the

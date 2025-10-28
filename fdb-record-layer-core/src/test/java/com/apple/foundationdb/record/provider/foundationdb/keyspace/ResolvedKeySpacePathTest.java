@@ -224,6 +224,80 @@ class ResolvedKeySpacePathTest {
                 .orElseThrow(() -> new AssertionError("Paths with different remainders should sometimes have different hash codes"));
     }
 
+    /** Test withRemainder returns a new path with the updated remainder. */
+    @ParameterizedTest
+    @BooleanSource("constantDirectory")
+    void testWithRemainder(boolean constantDirectory) {
+        KeySpacePath innerPath = createKeySpacePath(createRootParent(), KeyType.STRING, "resolved", constantDirectory);
+        PathValue value = new PathValue("resolved", null);
+        Tuple originalRemainder = Tuple.from("remainder1");
+
+        ResolvedKeySpacePath original = new ResolvedKeySpacePath(null, innerPath, value, originalRemainder);
+
+        // Test changing remainder
+        Tuple newRemainder = Tuple.from("remainder2");
+        ResolvedKeySpacePath modified = original.withRemainder(newRemainder);
+
+        assertEquals(newRemainder, modified.getRemainder());
+        assertEquals(originalRemainder, original.getRemainder(), "Original should be unchanged");
+        assertNotEquals(original, modified, "Paths with different remainders should not be equal");
+
+        // Verify other fields are preserved
+        assertEquals(original.toPath(), modified.toPath());
+        assertEquals(original.getResolvedValue(), modified.getResolvedValue());
+        assertEquals(original.getResolvedPathValue(), modified.getResolvedPathValue());
+
+        // Verify modified is equal to a freshly created path with the new remainder
+        ResolvedKeySpacePath freshlyCreated = new ResolvedKeySpacePath(null, innerPath, value, newRemainder);
+        assertEquals(freshlyCreated, modified);
+        assertEquals(modified, freshlyCreated);
+        assertEquals(freshlyCreated.hashCode(), modified.hashCode());
+    }
+
+    /** Test withRemainder can set remainder to null. */
+    @ParameterizedTest
+    @BooleanSource("constantDirectory")
+    void testWithRemainderSetToNull(boolean constantDirectory) {
+        KeySpacePath innerPath = createKeySpacePath(createRootParent(), KeyType.STRING, "resolved", constantDirectory);
+        PathValue value = new PathValue("resolved", null);
+        Tuple originalRemainder = Tuple.from("remainder1");
+
+        ResolvedKeySpacePath original = new ResolvedKeySpacePath(null, innerPath, value, originalRemainder);
+        ResolvedKeySpacePath modified = original.withRemainder(null);
+
+        assertNull(modified.getRemainder());
+        assertEquals(originalRemainder, original.getRemainder(), "Original should be unchanged");
+        assertNotEquals(original, modified);
+
+        // Verify modified is equal to a freshly created path with null remainder
+        ResolvedKeySpacePath freshlyCreated = new ResolvedKeySpacePath(null, innerPath, value, null);
+        assertEquals(freshlyCreated, modified);
+        assertEquals(modified, freshlyCreated);
+        assertEquals(freshlyCreated.hashCode(), modified.hashCode());
+    }
+
+    /** Test withRemainder on a path that already has null remainder. */
+    @ParameterizedTest
+    @BooleanSource("constantDirectory")
+    void testWithRemainderFromNull(boolean constantDirectory) {
+        KeySpacePath innerPath = createKeySpacePath(createRootParent(), KeyType.STRING, "resolved", constantDirectory);
+        PathValue value = new PathValue("resolved", null);
+
+        ResolvedKeySpacePath original = new ResolvedKeySpacePath(null, innerPath, value, null);
+        Tuple newRemainder = Tuple.from("newRemainder");
+        ResolvedKeySpacePath modified = original.withRemainder(newRemainder);
+
+        assertEquals(newRemainder, modified.getRemainder());
+        assertNull(original.getRemainder(), "Original should be unchanged");
+        assertNotEquals(original, modified);
+
+        // Verify modified is equal to a freshly created path with the new remainder
+        ResolvedKeySpacePath freshlyCreated = new ResolvedKeySpacePath(null, innerPath, value, newRemainder);
+        assertEquals(freshlyCreated, modified);
+        assertEquals(modified, freshlyCreated);
+        assertEquals(freshlyCreated.hashCode(), modified.hashCode());
+    }
+
     @Nonnull
     private KeySpacePath createKeySpacePath(@Nonnull ResolvedKeySpacePath parent, @Nonnull KeyType keyType, @Nullable Object value,
                                             boolean constantDirectory) {
@@ -235,7 +309,7 @@ class ResolvedKeySpacePathTest {
             childDir = new KeySpaceDirectory("test", keyType);
         }
         parent.getDirectory().addSubdirectory(childDir);
-        
+
         if (constantDirectory) {
             return parent.toPath().add("test");
         } else {
