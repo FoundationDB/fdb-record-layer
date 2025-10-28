@@ -889,7 +889,6 @@ public class LucenePartitioner {
         });
     }
 
-
     /**
      * convenience function that proxies into {@link #moveDocsFromPartition(LuceneRepartitionPlanner.RepartitioningContext)}
      * after outputting some logs.
