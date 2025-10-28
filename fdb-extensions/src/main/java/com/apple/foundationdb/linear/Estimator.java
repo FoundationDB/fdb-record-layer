@@ -41,6 +41,6 @@ public interface Estimator {
      * @param storedVector the stored vector to which the distance is calculated, cannot be null.
      * @return a non-negative {@code double} representing the distance between the two vectors.
      */
-    double distance(@Nonnull RealVector query, // pre-rotated query q
+    double distance(@Nonnull RealVector query,
                     @Nonnull RealVector storedVector);
 }

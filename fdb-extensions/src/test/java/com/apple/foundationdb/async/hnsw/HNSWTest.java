@@ -27,6 +27,7 @@ import com.apple.foundationdb.linear.AffineOperator;
 import com.apple.foundationdb.linear.DoubleRealVector;
 import com.apple.foundationdb.linear.HalfRealVector;
 import com.apple.foundationdb.linear.Metric;
+import com.apple.foundationdb.linear.Quantizer;
 import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.linear.StoredVecsIterator;
 import com.apple.foundationdb.test.TestDatabaseExtension;
@@ -121,6 +122,10 @@ public class HNSWTest {
         final int efConstruction = HNSW.DEFAULT_EF_CONSTRUCTION + 1;
         final boolean extendCandidates = true;
         final boolean keepPrunedConnections = true;
+        final int statsThreshold = 1;
+        final double sampleVectorStatsProbability = 0.000001d;
+        final double maintainStatsProbability = 0.000001d;
+
         final boolean useRaBitQ = true;
         final int raBitQNumExBits = HNSW.DEFAULT_RABITQ_NUM_EX_BITS + 1;
 
@@ -133,6 +138,11 @@ public class HNSWTest {
         Assertions.assertThat(defaultConfig.getEfConstruction()).isNotEqualTo(efConstruction);
         Assertions.assertThat(defaultConfig.isExtendCandidates()).isNotEqualTo(extendCandidates);
         Assertions.assertThat(defaultConfig.isKeepPrunedConnections()).isNotEqualTo(keepPrunedConnections);
+
+        Assertions.assertThat(defaultConfig.getSampleVectorStatsProbability()).isNotEqualTo(sampleVectorStatsProbability);
+        Assertions.assertThat(defaultConfig.getMaintainStatsProbability()).isNotEqualTo(maintainStatsProbability);
+        Assertions.assertThat(defaultConfig.getStatsThreshold()).isNotEqualTo(statsThreshold);
+
         Assertions.assertThat(defaultConfig.isUseRaBitQ()).isNotEqualTo(useRaBitQ);
         Assertions.assertThat(defaultConfig.getRaBitQNumExBits()).isNotEqualTo(raBitQNumExBits);
 
@@ -147,6 +157,9 @@ public class HNSWTest {
                         .setEfConstruction(efConstruction)
                         .setExtendCandidates(extendCandidates)
                         .setKeepPrunedConnections(keepPrunedConnections)
+                        .setSampleVectorStatsProbability(sampleVectorStatsProbability)
+                        .setMaintainStatsProbability(maintainStatsProbability)
+                        .setStatsThreshold(statsThreshold)
                         .setUseRaBitQ(useRaBitQ)
                         .setRaBitQNumExBits(raBitQNumExBits)
                         .build(768);
@@ -160,6 +173,11 @@ public class HNSWTest {
         Assertions.assertThat(newConfig.getEfConstruction()).isEqualTo(efConstruction);
         Assertions.assertThat(newConfig.isExtendCandidates()).isEqualTo(extendCandidates);
         Assertions.assertThat(newConfig.isKeepPrunedConnections()).isEqualTo(keepPrunedConnections);
+
+        Assertions.assertThat(defaultConfig.getSampleVectorStatsProbability()).isEqualTo(sampleVectorStatsProbability);
+        Assertions.assertThat(defaultConfig.getMaintainStatsProbability()).isEqualTo(maintainStatsProbability);
+        Assertions.assertThat(defaultConfig.getStatsThreshold()).isEqualTo(statsThreshold);
+
         Assertions.assertThat(newConfig.isUseRaBitQ()).isEqualTo(useRaBitQ);
         Assertions.assertThat(newConfig.getRaBitQNumExBits()).isEqualTo(raBitQNumExBits);
     }
@@ -345,9 +363,9 @@ public class HNSWTest {
                 hnsw.insert(tr, newNodeReference).join();
             }
             final long endTs = System.nanoTime();
-            logger.info("inserted batchSize={} records starting at nodeId={} took elapsedTime={}ms, readCounts={}, MSums={}",
+            logger.info("inserted batchSize={} records starting at nodeId={} took elapsedTime={}ms, readCounts={}, readBytes={}",
                     batchSize, nextNodeId, TimeUnit.NANOSECONDS.toMillis(endTs - beginTs),
-                    onReadListener.getNodeCountByLayer(), onReadListener.getSumMByLayer());
+                    onReadListener.getNodeCountByLayer(), onReadListener.getBytesReadByLayer());
             return batchSize;
         });
     }
@@ -369,9 +387,9 @@ public class HNSWTest {
             }
             hnsw.insertBatch(tr, nodeReferenceWithVectorBuilder.build()).join();
             final long endTs = System.nanoTime();
-            logger.info("inserted batch batchSize={} records starting at nodeId={} took elapsedTime={}ms, readCounts={}, MSums={}",
+            logger.info("inserted batch batchSize={} records starting at nodeId={} took elapsedTime={}ms, readCounts={}, readBytes={}",
                     batchSize, nextNodeId, TimeUnit.NANOSECONDS.toMillis(endTs - beginTs),
-                    onReadListener.getNodeCountByLayer(), onReadListener.getSumMByLayer());
+                    onReadListener.getNodeCountByLayer(), onReadListener.getBytesReadByLayer());
             return batchSize;
         });
     }
@@ -386,7 +404,7 @@ public class HNSWTest {
         final TestOnReadListener onReadListener = new TestOnReadListener();
 
         final HNSW hnsw = new HNSW(rtSubspace.getSubspace(), TestExecutors.defaultThreadPool(),
-                HNSW.DEFAULT_CONFIG_BUILDER.setUseRaBitQ(true).setRaBitQNumExBits(4)
+                HNSW.DEFAULT_CONFIG_BUILDER.setUseRaBitQ(true).setRaBitQNumExBits(5)
                         .setMetric(metric).setM(32).setMMax(32).setMMax0(64).build(128),
                 OnWriteListener.NOOP, onReadListener);
 
@@ -510,7 +528,8 @@ public class HNSWTest {
         final NeighborsChangeSet<N> insertChangeSet =
                 new InsertNeighborsChangeSet<>(new BaseNeighborsChangeSet<>(ImmutableList.of()),
                         node.getNeighbors());
-        storageAdapter.writeNode(transaction, node, layer, insertChangeSet);
+        storageAdapter.writeNode(transaction, Quantizer.noOpQuantizer(Metric.EUCLIDEAN_METRIC), node, layer,
+                insertChangeSet);
     }
 
     @Nonnull

@@ -21,6 +21,7 @@
 package com.apple.foundationdb.async.hnsw;
 
 import com.apple.foundationdb.Transaction;
+import com.apple.foundationdb.linear.Quantizer;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -113,14 +114,15 @@ class InsertNeighborsChangeSet<N extends NodeReference> implements NeighborsChan
      */
     @Override
     public void writeDelta(@Nonnull final InliningStorageAdapter storageAdapter, @Nonnull final Transaction transaction,
-                           final int layer, @Nonnull final Node<N> node, @Nonnull final Predicate<Tuple> tuplePredicate) {
-        getParent().writeDelta(storageAdapter, transaction, layer, node,
+                           @Nonnull final Quantizer quantizer, final int layer, @Nonnull final Node<N> node,
+                           @Nonnull final Predicate<Tuple> tuplePredicate) {
+        getParent().writeDelta(storageAdapter, transaction, quantizer, layer, node,
                 tuplePredicate.and(tuple -> !insertedNeighborsMap.containsKey(tuple)));
 
         for (final Map.Entry<Tuple, N> entry : insertedNeighborsMap.entrySet()) {
             final Tuple primaryKey = entry.getKey();
             if (tuplePredicate.test(primaryKey)) {
-                storageAdapter.writeNeighbor(transaction, layer, node.asInliningNode(),
+                storageAdapter.writeNeighbor(transaction, quantizer, layer, node.asInliningNode(),
                         entry.getValue().asNodeReferenceWithVector());
                 if (logger.isTraceEnabled()) {
                     logger.trace("inserted neighbor of primaryKey={} targeting primaryKey={}", node.getPrimaryKey(),

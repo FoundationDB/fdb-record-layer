@@ -28,6 +28,7 @@ import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.async.AsyncIterable;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.linear.AffineOperator;
+import com.apple.foundationdb.linear.Quantizer;
 import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
@@ -224,6 +225,7 @@ class InliningStorageAdapter extends AbstractStorageAdapter<NodeReferenceWithVec
      * via {@code getOnWriteListener().onNodeWritten()}.
      *
      * @param transaction the transaction context for the write operation; must not be null
+     * @param quantizer the quantizer to use
      * @param node the node to be written, which is expected to be an
      * {@code InliningNode}; must not be null
      * @param layer the layer index where the node and its neighbor changes should be written
@@ -231,11 +233,12 @@ class InliningStorageAdapter extends AbstractStorageAdapter<NodeReferenceWithVec
      * persisted; must not be null
      */
     @Override
-    public void writeNodeInternal(@Nonnull final Transaction transaction, @Nonnull final Node<NodeReferenceWithVector> node,
-                                  final int layer, @Nonnull final NeighborsChangeSet<NodeReferenceWithVector> neighborsChangeSet) {
+    public void writeNodeInternal(@Nonnull final Transaction transaction, @Nonnull final Quantizer quantizer,
+                                  @Nonnull final Node<NodeReferenceWithVector> node, final int layer,
+                                  @Nonnull final NeighborsChangeSet<NodeReferenceWithVector> neighborsChangeSet) {
         final InliningNode inliningNode = node.asInliningNode();
 
-        neighborsChangeSet.writeDelta(this, transaction, layer, inliningNode, t -> true);
+        neighborsChangeSet.writeDelta(this, transaction, quantizer, layer, inliningNode, t -> true);
         getOnWriteListener().onNodeWritten(layer, node);
     }
 
@@ -265,16 +268,17 @@ class InliningStorageAdapter extends AbstractStorageAdapter<NodeReferenceWithVec
      * {@link Transaction}. After a successful write, it notifies any registered listeners.
      *
      * @param transaction the {@link Transaction} to use for the write operation
+     * @param quantizer quantizer to use
      * @param layer the layer index where the node and its neighbor reside
      * @param node the source {@link Node} for which the neighbor is being written
      * @param neighbor the {@link NodeReferenceWithVector} representing the neighbor to persist
      */
-    public void writeNeighbor(@Nonnull final Transaction transaction, final int layer,
-                              @Nonnull final Node<NodeReferenceWithVector> node, @Nonnull final NodeReferenceWithVector neighbor) {
+    public void writeNeighbor(@Nonnull final Transaction transaction, @Nonnull final Quantizer quantizer,
+                              final int layer, @Nonnull final Node<NodeReferenceWithVector> node,
+                              @Nonnull final NodeReferenceWithVector neighbor) {
         final byte[] neighborKey = getNeighborKey(layer, node, neighbor.getPrimaryKey());
-        final byte[] value = StorageAdapter.tupleFromVector(neighbor.getVector()).pack();
-        transaction.set(neighborKey,
-                value);
+        final byte[] value = StorageAdapter.tupleFromVector(quantizer.encode(neighbor.getVector())).pack();
+        transaction.set(neighborKey, value);
         getOnWriteListener().onNeighborWritten(layer, node, neighbor);
         getOnWriteListener().onKeyValueWritten(layer, neighborKey, value);
     }

@@ -23,7 +23,7 @@ package com.apple.foundationdb.async.hnsw;
 import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.linear.AffineOperator;
-import com.apple.foundationdb.linear.VectorOperator;
+import com.apple.foundationdb.linear.Quantizer;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import org.slf4j.Logger;
@@ -251,15 +251,17 @@ abstract class AbstractStorageAdapter<N extends NodeReference> implements Storag
      * debug logging upon completion.
      *
      * @param transaction the non-null {@link Transaction} context for this write operation
+     * @param quantizer the quantizer to use
      * @param node the non-null {@link Node} to be written to storage
      * @param layer the layer index where the node is being written
      * @param changeSet the non-null {@link NeighborsChangeSet} detailing the modifications
      * to the node's neighbors
      */
     @Override
-    public void writeNode(@Nonnull Transaction transaction, @Nonnull Node<N> node, int layer,
-                          @Nonnull NeighborsChangeSet<N> changeSet) {
-        writeNodeInternal(transaction, node, layer, changeSet);
+    public void writeNode(@Nonnull final Transaction transaction, @Nonnull final Quantizer quantizer,
+                          @Nonnull final Node<N> node, final int layer,
+                          @Nonnull final NeighborsChangeSet<N> changeSet) {
+        writeNodeInternal(transaction, quantizer, node, layer, changeSet);
         if (logger.isTraceEnabled()) {
             logger.trace("written node with key={} at layer={}", node.getPrimaryKey(), layer);
         }
@@ -274,12 +276,14 @@ abstract class AbstractStorageAdapter<N extends NodeReference> implements Storag
      * to the node's neighbors, as detailed in the {@code changeSet}.
      *
      * @param transaction the non-null transaction context for the write operation
+     * @param quantizer the quantizer to use
      * @param node the non-null {@link Node} to write
      * @param layer the layer or level of the node in the structure
      * @param changeSet the non-null {@link NeighborsChangeSet} detailing additions or
      * removals of neighbor links
      */
-    protected abstract void writeNodeInternal(@Nonnull Transaction transaction, @Nonnull Node<N> node, int layer,
+    protected abstract void writeNodeInternal(@Nonnull Transaction transaction, @Nonnull Quantizer quantizer,
+                                              @Nonnull Node<N> node, int layer,
                                               @Nonnull NeighborsChangeSet<N> changeSet);
 
 }

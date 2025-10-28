@@ -21,6 +21,7 @@
 package com.apple.foundationdb.async.hnsw;
 
 import com.apple.foundationdb.Transaction;
+import com.apple.foundationdb.linear.Quantizer;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.collect.ImmutableList;
 
@@ -88,7 +89,7 @@ class BaseNeighborsChangeSet<N extends NodeReference> implements NeighborsChange
      */
     @Override
     public void writeDelta(@Nonnull final InliningStorageAdapter storageAdapter, @Nonnull final Transaction transaction,
-                           final int layer, @Nonnull final Node<N> node,
+                           @Nonnull final Quantizer quantizer, final int layer, @Nonnull final Node<N> node,
                            @Nonnull final Predicate<Tuple> primaryKeyPredicate) {
         // nothing to be written
     }

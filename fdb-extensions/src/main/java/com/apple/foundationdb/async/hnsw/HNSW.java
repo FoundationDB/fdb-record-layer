@@ -27,7 +27,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.linear.AffineOperator;
-import com.apple.foundationdb.linear.DoubleRealVector;
 import com.apple.foundationdb.linear.Estimator;
 import com.apple.foundationdb.linear.FhtKacRotator;
 import com.apple.foundationdb.linear.Metric;
@@ -61,7 +60,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.PriorityBlockingQueue;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
@@ -607,44 +605,10 @@ public class HNSW {
     }
 
     @Nonnull
-    @SuppressWarnings("PMD.UseUnderscoresInNumericLiterals")
-    DoubleRealVector centroid() {
-        final double[] centroidData = {29.0548, 16.785500000000003, 10.708300000000001, 9.7645, 11.3086, 13.3,
-                15.288300000000001, 17.6192, 32.8404, 31.009500000000003, 35.9102, 21.5091, 16.005300000000002, 28.0939,
-                32.1253, 22.924, 36.2481, 22.5343, 36.420500000000004, 29.186500000000002, 16.4631, 19.899800000000003,
-                30.530800000000003, 34.2486, 27.014100000000003, 15.5669, 17.084600000000002, 17.197100000000002,
-                14.266, 9.9115, 9.4123, 17.4541, 56.876900000000006, 24.6039, 13.7209, 16.6006, 22.0627, 27.7478,
-                24.7289, 27.4496, 61.2528, 41.6972, 36.5536, 23.1854, 23.075200000000002, 37.342800000000004, 35.1334,
-                30.1793, 58.946200000000005, 25.0348, 40.7383, 40.7892, 26.500500000000002, 23.0211, 29.471, 45.475,
-                51.758300000000006, 20.662100000000002, 24.361900000000002, 31.923000000000002, 30.0682,
-                20.075200000000002, 14.327900000000001, 28.1643, 56.229800000000004, 20.611, 23.8963, 26.3485, 22.6032,
-                18.0076, 14.595400000000001, 29.842000000000002, 62.9647, 24.6328, 35.617000000000004,
-                34.456700000000005, 22.788600000000002, 23.7647, 33.1924, 49.4097, 57.7928, 37.629000000000005,
-                32.409600000000005, 22.2239, 26.907300000000003, 43.5585, 39.6792, 29.811, 52.783300000000004, 23.4802,
-                14.2668, 19.1766, 28.8002, 32.9715, 25.8216, 26.553800000000003, 28.622, 15.4585, 16.7753,
-                14.228900000000001, 11.7788, 9.0432, 9.502500000000001, 18.150100000000002, 36.7239, 21.61, 33.1623,
-                25.9082, 15.449000000000002, 20.7373, 33.7562, 36.1929, 32.265, 29.1111, 32.9189, 20.323900000000002,
-                16.6245, 31.5031, 35.2207, 22.3947, 28.102500000000003, 15.747100000000001, 10.4765, 10.4483, 13.3939,
-                15.767800000000001, 16.2652, 17.000600000000002};
-        return new DoubleRealVector(centroidData);
-    }
-
-    @Nonnull
-    @SuppressWarnings("PMD.UseUnderscoresInNumericLiterals")
-    RealVector centroidRot(@Nonnull final FhtKacRotator rotator) {
-        final DoubleRealVector centroid = centroid();
-        return rotator.applyTranspose(centroid);
-    }
-
-    @Nonnull
     private AffineOperator storageTransform(@Nullable final AccessInfo accessInfo) {
         if (accessInfo == null || !accessInfo.canUseRaBitQ()) {
             return AffineOperator.identity();
         }
-
-//        final FhtKacRotator rotator1 = new FhtKacRotator(3, getConfig().getNumDimensions(), 10);
-//        return new StorageTransform(3,
-//                getConfig().getNumDimensions(), centroidRot(rotator1));
 
         return new StorageTransform(accessInfo.getRotatorSeed(),
                 getConfig().getNumDimensions(), Objects.requireNonNull(accessInfo.getCentroid()));
@@ -1233,8 +1197,6 @@ public class HNSW {
         return insert(transaction, nodeReferenceWithVector.getPrimaryKey(), nodeReferenceWithVector.getVector());
     }
 
-    public static AtomicLong cK = new AtomicLong(0);
-
     /**
      * Inserts a new vector with its associated primary key into the HNSW graph.
      * <p>
@@ -1262,13 +1224,9 @@ public class HNSW {
             logger.trace("new node with key={} selected to be inserted into layer={}", newPrimaryKey, insertionLayer);
         }
 
-        cK.set(newPrimaryKey.getLong(0));
-
         return StorageAdapter.fetchAccessInfo(getConfig(), transaction, getSubspace(), getOnReadListener())
                 .thenCompose(accessInfo -> {
                     final AccessInfo currentAccessInfo;
-//                    final FhtKacRotator rotator1 = new FhtKacRotator(3, getConfig().getNumDimensions(), 10);
-//                    final AccessInfo staticAccessInfo = new AccessInfo(accessInfo == null ? null : accessInfo.getEntryNodeReference(), 3, centroidRot(rotator1));
                     final AffineOperator storageTransform = storageTransform(accessInfo);
                     final RealVector transformedNewVector = storageTransform.applyInvert(newVector);
                     final Quantizer quantizer = quantizer(accessInfo);
@@ -1376,7 +1334,6 @@ public class HNSW {
                                                             StorageAdapter.writeAccessInfo(transaction, getSubspace(), newAccessInfo, onWriteListener);
                                                             StorageAdapter.removeAllSampledVectors(transaction, getSubspace());
                                                             if (logger.isTraceEnabled()) {
-                                                                //logger.info("at primary key ={}", newPrimaryKey);
                                                                 logger.trace("established rotatorSeed={}, centroid with count={}, centroid={}",
                                                                         rotatorSeed, partialCount, transformedCentroid);
                                                             }
@@ -1384,9 +1341,6 @@ public class HNSW {
                                                     }
                                                     return null;
                                                 });
-//                                        final FhtKacRotator rotator1 = new FhtKacRotator(3, getConfig().getNumDimensions(), 10);
-//                                        final AccessInfo staticAccessInfo = new AccessInfo(accessInfo == null ? null : accessInfo.getEntryNodeReference(), 3, centroidRot(rotator1));
-//                                        StorageAdapter.writeAccessInfo(transaction, getSubspace(), staticAccessInfo, onWriteListener);
                                     }
                                 }
                                 return AsyncUtil.DONE;
@@ -1639,14 +1593,14 @@ public class HNSW {
                                 //      regular vectors)
 
                                 final Node<N> newNode =
-                                        nodeFactory.create(newPrimaryKey, quantizer.encode(newVector),
+                                        nodeFactory.create(newPrimaryKey, newVector,
                                                 NodeReferenceAndNode.getReferences(selectedNeighbors));
 
                                 final NeighborsChangeSet<N> newNodeChangeSet =
                                         new InsertNeighborsChangeSet<>(new BaseNeighborsChangeSet<>(ImmutableList.of()),
                                                 newNode.getNeighbors());
 
-                                storageAdapter.writeNode(transaction, newNode, layer, newNodeChangeSet);
+                                storageAdapter.writeNode(transaction, quantizer, newNode, layer, newNodeChangeSet);
 
                                 // create change sets for each selected neighbor and insert new node into them
                                 final Map<Tuple /* primaryKey */, NeighborsChangeSet<N>> neighborChangeSetMap =
@@ -1680,8 +1634,8 @@ public class HNSW {
                                             for (int i = 0; i < selectedNeighbors.size(); i++) {
                                                 final NodeReferenceAndNode<N> selectedNeighbor = selectedNeighbors.get(i);
                                                 final NeighborsChangeSet<N> changeSet = changeSets.get(i);
-                                                storageAdapter.writeNode(transaction, selectedNeighbor.getNode(),
-                                                        layer, changeSet);
+                                                storageAdapter.writeNode(transaction, quantizer,
+                                                        selectedNeighbor.getNode(), layer, changeSet);
                                             }
                                             return ImmutableList.copyOf(references);
                                         });
@@ -2053,9 +2007,9 @@ public class HNSW {
                                                                   final int layer,
                                                                   @Nonnull final Tuple primaryKey,
                                                                   @Nonnull final RealVector vector) {
-        storageAdapter.writeNode(transaction,
+        storageAdapter.writeNode(transaction, quantizer,
                 storageAdapter.getNodeFactory()
-                        .create(primaryKey, quantizer.encode(vector), ImmutableList.of()), layer,
+                        .create(primaryKey, vector, ImmutableList.of()), layer,
                 new BaseNeighborsChangeSet<>(ImmutableList.of()));
         if (logger.isTraceEnabled()) {
             logger.trace("written lonely node at key={} on layer={}", primaryKey, layer);

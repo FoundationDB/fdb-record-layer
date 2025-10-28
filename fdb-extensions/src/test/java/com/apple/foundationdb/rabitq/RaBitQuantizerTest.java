@@ -112,8 +112,9 @@ public class RaBitQuantizerTest {
     @MethodSource("estimationArgs")
     void basicEncodeWithEstimationTestSpecialValues(final double[] centroidData, final double[] vData,
                                                     final double[] qData, final double expectedDistance) {
-        final RealVector v = new DoubleRealVector(vData);
-        final RealVector q = new DoubleRealVector(qData);
+        final RealVector centroid = new DoubleRealVector(centroidData);
+        final RealVector v = new DoubleRealVector(vData).subtract(centroid);
+        final RealVector q = new DoubleRealVector(qData).subtract(centroid);
 
         final RaBitQuantizer quantizer = new RaBitQuantizer(Metric.EUCLIDEAN_SQUARE_METRIC, 7);
         final EncodedRealVector encodedVector = quantizer.encode(v);
