@@ -79,11 +79,13 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayDeque;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Random;
+import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
@@ -110,6 +112,7 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.function;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.anyOf;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -899,6 +902,137 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
         dataModel.validate(() -> openContext(contextProps));
         dataModel.getPartitionCounts(() -> openContext(contextProps)).forEach((groupingKey, partitionCounts) ->
                 assertThat(partitionCounts, Matchers.contains(5, 3, 4)));
+    }
+
+    static Stream<Arguments> removeEmptyPartitions() {
+        return Stream.of(
+                // In the following, (5, 20) means we delete records 5-20, emptying the second partition,
+                // (15, 25) means we empty the last partition and (0, 10) means we empty the first partition
+                // (there are 25 records total in each partition and the high watermark is 10).
+                Arguments.of(true, true, 987654, 5, 20),
+                Arguments.of(true, true, 987654, 15, 25),
+                Arguments.of(true, true, 987654, 0, 10),
+                Arguments.of(false, false, 543210, 5, 20),
+                Arguments.of(false, false, 543210, 15, 25),
+                Arguments.of(false, false, 543210, 0, 10));
+    }
+
+    /**
+     * clear a partition and ensure it gets removed.
+     *
+     * @param isSynthetic whether to use synthetic records
+     * @param isGrouped whether to use grouped index
+     * @param seed the random seed
+     * @param start the first record to delete from each group
+     * @param end the last record to delete from each group
+     */
+    @ParameterizedTest
+    @MethodSource
+    void removeEmptyPartitions(boolean isSynthetic, boolean isGrouped, long seed, int start, int end) throws IOException {
+        // Test that empty partitions are removed during repartitioning
+        final LuceneIndexTestDataModel dataModel = new LuceneIndexTestDataModel.Builder(seed, this::getStoreBuilder, pathManager)
+                .setIsGrouped(isGrouped)
+                .setIsSynthetic(isSynthetic)
+                .setPrimaryKeySegmentIndexEnabled(true)
+                .setPartitionHighWatermark(10)
+                .build();
+
+        final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_REPARTITION_DOCUMENT_COUNT, 2)
+                .addProp(LuceneRecordContextProperties.LUCENE_MERGE_SEGMENTS_PER_TIER, (double)dataModel.nextInt(10) + 2) // it must be at least 2.0
+                .build();
+
+        // Create multiple partitions with documents
+        try (FDBRecordContext context = openContext(contextProps)) {
+            dataModel.saveRecordsToAllGroups(25, context);
+            commit(context);
+        }
+
+        explicitMergeIndex(dataModel.index, contextProps, dataModel.schemaSetup);
+
+        // Verify we have 3 partitions (25 docs) initially
+        dataModel.getPartitionCounts(() -> openContext(contextProps)).forEach((groupingKey, partitionCounts) ->
+                assertThat(partitionCounts, hasSize(3)));
+
+        // Delete documents
+        try (FDBRecordContext context = openContext(contextProps)) {
+            final FDBRecordStore recordStore = dataModel.createOrOpenRecordStore(context);
+            dataModel.groupingKeys().forEach(groupingKey -> {
+                List<Tuple> sortedPartitionKeys = dataModel.groupingKeyToPrimaryKeyToPartitionKey.get(groupingKey)
+                        .values().stream().sorted().collect(Collectors.toList());
+                // delete enough docs to empty partition
+                Set<Tuple> partitionKeysToDelete = new HashSet<>(sortedPartitionKeys.subList(start, end));
+                dataModel.recordsUnderTest().stream()
+                        .filter(rec -> partitionKeysToDelete.contains(rec.getPartitioningKey()))
+                        .forEach(rec -> rec.deleteRecord(recordStore).join());
+            });
+            context.commit();
+        }
+
+        // Before repartitioning, we should still have 3 partitions (including the empty one)
+        dataModel.getPartitionCounts(() -> openContext(contextProps)).forEach((groupingKey, partitionCounts) ->
+                assertThat(partitionCounts, hasSize(3)));
+
+        // Trigger repartitioning - this should remove the empty partition
+        explicitMergeIndex(dataModel.index, contextProps, dataModel.schemaSetup);
+
+        // After repartitioning, we should have only 2 partitions (empty one removed)
+        dataModel.getPartitionCounts(() -> openContext(contextProps)).forEach((groupingKey, partitionCounts) ->
+                assertThat(partitionCounts, hasSize(2)));
+
+        // Validate the index is still consistent
+        dataModel.validate(() -> openContext(contextProps));
+    }
+
+    @ParameterizedTest
+    @MethodSource("sampledDelete")
+    public void emptyAllPartitions(boolean isSynthetic, boolean isGrouped, long seed) throws IOException {
+        // Test that empty partitions are removed during repartitioning
+        final LuceneIndexTestDataModel dataModel = new LuceneIndexTestDataModel.Builder(seed, this::getStoreBuilder, pathManager)
+                .setIsGrouped(isGrouped)
+                .setIsSynthetic(isSynthetic)
+                .setPrimaryKeySegmentIndexEnabled(true)
+                .setPartitionHighWatermark(10)
+                .build();
+
+        final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_REPARTITION_DOCUMENT_COUNT, 2)
+                .addProp(LuceneRecordContextProperties.LUCENE_MERGE_SEGMENTS_PER_TIER, (double)dataModel.nextInt(10) + 2) // it must be at least 2.0
+                .build();
+
+        // Create multiple partitions with documents
+        try (FDBRecordContext context = openContext(contextProps)) {
+            dataModel.saveRecordsToAllGroups(25, context);
+            commit(context);
+        }
+
+        explicitMergeIndex(dataModel.index, contextProps, dataModel.schemaSetup);
+
+        // Verify we have 3 partitions (25 docs) initially
+        dataModel.getPartitionCounts(() -> openContext(contextProps)).forEach((groupingKey, partitionCounts) ->
+                assertThat(partitionCounts, hasSize(3)));
+
+        // Delete all documents
+        try (FDBRecordContext context = openContext(contextProps)) {
+            final FDBRecordStore recordStore = dataModel.createOrOpenRecordStore(context);
+            dataModel.recordsUnderTest()
+                    .forEach(rec -> rec.deleteRecord(recordStore).join());
+            context.commit();
+        }
+
+        // Before repartitioning, we should still have 3 partitions (including the empty one)
+        dataModel.getPartitionCounts(() -> openContext(contextProps)).forEach((groupingKey, partitionCounts) ->
+                assertThat(partitionCounts, hasSize(3)));
+
+        // Trigger repartitioning - this should remove the empty partition
+        explicitMergeIndex(dataModel.index, contextProps, dataModel.schemaSetup);
+
+        // After repartitioning, we should have only 1 partition (empty ones removed)
+        dataModel.getPartitionCounts(() -> openContext(contextProps)).forEach((groupingKey, partitionCounts) ->
+                assertThat(partitionCounts, hasSize(1)));
+
+        // Validate the index is still consistent
+        dataModel.validate(() -> openContext(contextProps));
     }
 
     static Stream<Arguments> changingEncryptionKey() {

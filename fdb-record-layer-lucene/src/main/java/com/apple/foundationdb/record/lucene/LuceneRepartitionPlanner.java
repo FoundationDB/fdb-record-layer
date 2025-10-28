@@ -74,7 +74,7 @@ public class LuceneRepartitionPlanner {
 
         // candidate partition's current doc count
         final int currentPartitionCount = candidatePartition.getCount();
-        if ((currentPartitionCount == 0) && (olderPartition != null)) {
+        if ((currentPartitionCount == 0) && ((olderPartition != null) || newerPartition != null)) {
             // remove current empty partition
             repartitioningContext.action = RepartitioningAction.REMOVE_EMPTY_PARTITION;
             return repartitioningContext;

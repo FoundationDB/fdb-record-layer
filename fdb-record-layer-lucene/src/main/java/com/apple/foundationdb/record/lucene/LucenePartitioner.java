@@ -1009,12 +1009,7 @@ public class LucenePartitioner {
             return CompletableFuture.completedFuture(0);
         }
         RepartitionTimings timings = new RepartitionTimings();
-        final StoreTimerSnapshot timerSnapshot;
-        if (LOGGER.isDebugEnabled() && state.context.getTimer() != null) {
-            timerSnapshot = StoreTimerSnapshot.from(state.context.getTimer());
-        } else {
-            timerSnapshot = null;
-        }
+        final StoreTimerSnapshot timerSnapshot = getStoreTimerSnapshot();
         timings.startNanos = System.nanoTime();
         Collection<RecordType> recordTypes = state.store.getRecordMetaData().recordTypesForIndex(state.index);
         if (recordTypes.stream().map(RecordType::isSynthetic).distinct().count() > 1) {
@@ -1161,62 +1156,49 @@ public class LucenePartitioner {
             }
             return CompletableFuture.completedFuture(0);
         }
-        if (repartitioningContext.olderPartition == null) {
+        if ((repartitioningContext.olderPartition == null) && (repartitioningContext.newerPartition == null)) {
             if (LOGGER.isDebugEnabled()) {
-                LOGGER.debug("removeEmptyPartition called with null olderPartition");
+                LOGGER.debug("removeEmptyPartition called with null neighboring partitions");
             }
             return CompletableFuture.completedFuture(0);
         }
         RepartitionTimings timings = new RepartitionTimings();
-        final StoreTimerSnapshot timerSnapshot;
-        if (LOGGER.isDebugEnabled() && state.context.getTimer() != null) {
-            timerSnapshot = StoreTimerSnapshot.from(state.context.getTimer());
-        } else {
-            timerSnapshot = null;
-        }
+        final StoreTimerSnapshot timerSnapshot = getStoreTimerSnapshot();
         timings.startNanos = System.nanoTime();
 
         final LucenePartitionInfoProto.LucenePartitionInfo partitionInfo = repartitioningContext.sourcePartition;
         final Tuple groupingKey = repartitioningContext.groupingKey;
 
-        timings.initializationNanos = System.nanoTime();
-
-        // reset partition info
+        // reset partition info for deleted partition
         state.context.ensureActive().clear(partitionMetadataKeyFromPartitioningValue(groupingKey, getPartitionKey(partitionInfo)));
-        // todo: delete data subspace
         timings.clearInfoNanos = System.nanoTime();
-        timings.deleteNanos = System.nanoTime();
-        // update other partition's metadata (set "to" from deleted partition)
-        LucenePartitionInfoProto.LucenePartitionInfo.Builder builder = repartitioningContext.olderPartition.toBuilder();
-        builder.setTo(ByteString.copyFrom(partitionInfo.getTo().toByteArray())); // ensure we get a copy of the original bytes
-        savePartitionMetadata(groupingKey, builder);
 
+        // Clear empty data area
+        Range partitionDataRange = Range.startsWith(state.indexSubspace.subspace(groupingKey.add(PARTITION_DATA_SUBSPACE).add(partitionInfo.getId())).pack());
+        state.context.clear(partitionDataRange);
+        timings.emptyingNanos = System.nanoTime();
+
+        if (repartitioningContext.olderPartition != null) {
+            // update other partition's metadata (set "to" from deleted partition)
+            LucenePartitionInfoProto.LucenePartitionInfo.Builder builder = repartitioningContext.olderPartition.toBuilder();
+            builder.setTo(ByteString.copyFrom(partitionInfo.getTo().toByteArray())); // ensure we get a copy of the original bytes
+            savePartitionMetadata(groupingKey, builder);
+        } else {
+            // no older partition - need to delete the newer partition data and set a new "from" ("from" is the key)
+            state.context.ensureActive().clear(partitionMetadataKeyFromPartitioningValue(groupingKey, getPartitionKey(repartitioningContext.newerPartition)));
+            LucenePartitionInfoProto.LucenePartitionInfo.Builder builder = repartitioningContext.newerPartition.toBuilder();
+            builder.setFrom(ByteString.copyFrom(partitionInfo.getFrom().toByteArray())); // ensure we get a copy of the original bytes
+            savePartitionMetadata(groupingKey, builder);
+        }
         timings.metadataUpdateNanos = System.nanoTime();
-
-        long endCleanupNanos = System.nanoTime();
-
-        long updateStart = System.nanoTime();
 
         if (LOGGER.isDebugEnabled()) {
             long updateNanos = System.nanoTime();
-            final KeyValueLogMessage logMessage = repartitionLogMessage("Repartitioned records", groupingKey, 0, partitionInfo);
+            final KeyValueLogMessage logMessage = repartitionLogMessage("Removed empty partition", groupingKey, 0, partitionInfo);
             logMessage.addKeyAndValue("totalMicros", TimeUnit.NANOSECONDS.toMicros(updateNanos - timings.startNanos));
-            logMessage.addKeyAndValue("initializationMicros", TimeUnit.NANOSECONDS.toMicros(timings.initializationNanos - timings.startNanos));
-            logMessage.addKeyAndValue("searchMicros", TimeUnit.NANOSECONDS.toMicros(timings.searchNanos - timings.initializationNanos));
-            logMessage.addKeyAndValue("clearInfoMicros", TimeUnit.NANOSECONDS.toMicros(timings.clearInfoNanos - timings.searchNanos));
-            if (timings.emptyingNanos > 0) {
-                logMessage.addKeyAndValue("emptyingMicros", TimeUnit.NANOSECONDS.toMicros(timings.emptyingNanos - timings.clearInfoNanos));
-            }
-            if (timings.deleteNanos > 0) {
-                logMessage.addKeyAndValue("deleteMicros", TimeUnit.NANOSECONDS.toMicros(timings.deleteNanos - timings.clearInfoNanos));
-            }
-            if (timings.metadataUpdateNanos > 0) {
-                logMessage.addKeyAndValue("metadataUpdateMicros", TimeUnit.NANOSECONDS.toMicros(timings.metadataUpdateNanos - timings.deleteNanos));
-            }
-            if (timings.createPartitionNanos > 0) {
-                logMessage.addKeyAndValue("createPartitionMicros", TimeUnit.NANOSECONDS.toMicros(timings.createPartitionNanos - endCleanupNanos));
-            }
-            logMessage.addKeyAndValue("updateMicros", TimeUnit.NANOSECONDS.toMicros(updateNanos - updateStart));
+            logMessage.addKeyAndValue("clearInfoMicros", TimeUnit.NANOSECONDS.toMicros(timings.clearInfoNanos - timings.startNanos));
+            logMessage.addKeyAndValue("emptyingMicros", TimeUnit.NANOSECONDS.toMicros(timings.emptyingNanos - timings.clearInfoNanos));
+            logMessage.addKeyAndValue("metadataUpdateMicros", TimeUnit.NANOSECONDS.toMicros(timings.metadataUpdateNanos - timings.emptyingNanos));
             if (timerSnapshot != null && state.context.getTimer() != null) {
                 logMessage.addKeysAndValues(
                         StoreTimer.getDifference(state.context.getTimer(), timerSnapshot)
@@ -1491,6 +1473,15 @@ public class LucenePartitioner {
         public RepartitioningLogMessages setRepartitionDocCount(int repartitionDocCount) {
             logMessages.set(5, repartitionDocCount);
             return this;
+        }
+    }
+
+    @Nullable
+    private StoreTimerSnapshot getStoreTimerSnapshot() {
+        if (LOGGER.isDebugEnabled() && state.context.getTimer() != null) {
+            return StoreTimerSnapshot.from(state.context.getTimer());
+        } else {
+            return null;
         }
     }
 
