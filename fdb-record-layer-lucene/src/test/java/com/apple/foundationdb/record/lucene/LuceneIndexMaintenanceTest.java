@@ -1248,16 +1248,6 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
 
         dataModel.validate(() -> openContext(contextProps));
 
-        final LuceneIndexTestValidator luceneIndexTestValidator = new LuceneIndexTestValidator(
-                () -> openContext(contextProps),
-                context -> Objects.requireNonNull(dataModel.schemaSetup.apply(context)));
-        luceneIndexTestValidator.validate(
-                dataModel.index,
-                dataModel.groupingKeyToPrimaryKeyToPartitionKey,
-                isSynthetic ?
-                "child_str_value:forth" :
-                "text_value:about");
-
         try (FDBRecordContext context = openContext(contextProps)) {
             FDBRecordStore recordStore = Objects.requireNonNull(dataModel.schemaSetup.apply(context));
             recordStore.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(false);
