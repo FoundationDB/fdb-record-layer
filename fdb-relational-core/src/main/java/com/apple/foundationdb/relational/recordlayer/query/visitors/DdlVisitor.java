@@ -113,7 +113,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
     public DataType visitColumnType(@Nonnull RelationalParser.ColumnTypeContext ctx) {
         final var semanticAnalyzer = getDelegate().getSemanticAnalyzer();
         if (ctx.customType != null) {
-            final var columnType = visitUid(ctx.customType);
+            final var columnType = Identifier.toProtobufCompliant(visitUid(ctx.customType));
             return semanticAnalyzer.lookupType(columnType, false, false, metadataBuilder::findType);
         }
         return visitPrimitiveType(ctx.primitiveType());
@@ -139,7 +139,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nonnull
     @Override
     public RecordLayerColumn visitColumnDefinition(@Nonnull RelationalParser.ColumnDefinitionContext ctx) {
-        final var columnId = visitUid(ctx.colName);
+        final var columnId = Identifier.toProtobufCompliant(visitUid(ctx.colName));
         final var isRepeated = ctx.ARRAY() != null;
         final var isNullable = ctx.columnConstraint() != null ? (Boolean) ctx.columnConstraint().accept(this) : true;
         // TODO: We currently do not support NOT NULL for any type other than ARRAY. This is because there is no way to
@@ -148,7 +148,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         //       but a way to represent it in RecordMetadata.
         Assert.thatUnchecked(isRepeated || isNullable, ErrorCode.UNSUPPORTED_OPERATION, "NOT NULL is only allowed for ARRAY column type");
         containsNullableArray = containsNullableArray || (isRepeated && isNullable);
-        final var columnTypeId = ctx.columnType().customType != null ? visitUid(ctx.columnType().customType) : Identifier.of(ctx.columnType().getText());
+        final var columnTypeId = ctx.columnType().customType != null ? Identifier.toProtobufCompliant(visitUid(ctx.columnType().customType)) : Identifier.of(ctx.columnType().getText());
         final var semanticAnalyzer = getDelegate().getSemanticAnalyzer();
         final var columnType = semanticAnalyzer.lookupType(columnTypeId, isNullable, isRepeated, metadataBuilder::findType);
         return RecordLayerColumn.newBuilder().setName(columnId.getName()).setDataType(columnType).build();
@@ -157,7 +157,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nonnull
     @Override
     public RecordLayerTable visitTableDefinition(@Nonnull RelationalParser.TableDefinitionContext ctx) {
-        final var tableId = visitUid(ctx.uid());
+        final var tableId = Identifier.toProtobufCompliant(visitUid(ctx.uid()));
         final var columns = ctx.columnDefinition().stream().map(this::visitColumnDefinition).collect(ImmutableList.toImmutableList());
         final var tableBuilder = RecordLayerTable.newBuilder(metadataBuilder.isIntermingleTables())
                 .setName(tableId.getName())
@@ -174,7 +174,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nonnull
     @Override
     public RecordLayerTable visitStructDefinition(@Nonnull RelationalParser.StructDefinitionContext ctx) {
-        final var structId = visitUid(ctx.uid());
+        final var structId = Identifier.toProtobufCompliant(visitUid(ctx.uid()));
         final var columns = ctx.columnDefinition().stream().map(this::visitColumnDefinition).collect(ImmutableList.toImmutableList());
         final var structBuilder = RecordLayerTable.newBuilder(metadataBuilder.isIntermingleTables())
                 .setName(structId.getName())

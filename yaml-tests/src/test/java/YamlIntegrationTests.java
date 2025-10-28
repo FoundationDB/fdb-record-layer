@@ -336,4 +336,9 @@ public class YamlIntegrationTests {
     public void castTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("cast-tests.yamsql");
     }
+
+    @TestTemplate
+    public void validIdentifierTest(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("valid-identifiers.yamsql");
+    }
 }

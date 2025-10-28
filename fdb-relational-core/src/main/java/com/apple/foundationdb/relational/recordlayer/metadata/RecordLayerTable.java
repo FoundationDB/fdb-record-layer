@@ -82,6 +82,7 @@ public final class RecordLayerTable implements Table {
                              @Nonnull final Map<Integer, DescriptorProtos.FieldOptions> generations,
                              final DataType.StructType dataType,
                              final Type.Record record) {
+        Assert.thatUnchecked(!name.contains("."));
         this.name = name;
         this.columns = ImmutableList.copyOf(columns);
         this.indexes = ImmutableSet.copyOf(indexes);
@@ -314,10 +315,11 @@ public final class RecordLayerTable implements Table {
         @Nonnull
         private static KeyExpression toKeyExpression(@Nonnull final List<String> fields, int i) {
             Assert.thatUnchecked(0 <= i && i < fields.size());
+            final var protobufCompliantName = DataTypeUtils.toProtoBufCompliantName(fields.get(i));
             if (i == fields.size() - 1) {
-                return Key.Expressions.field(fields.get(i));
+                return Key.Expressions.field(protobufCompliantName);
             }
-            return Key.Expressions.field(fields.get(i)).nest(toKeyExpression(fields, i + 1));
+            return Key.Expressions.field(protobufCompliantName).nest(toKeyExpression(fields, i + 1));
         }
 
         private KeyExpression getPrimaryKey() {

@@ -48,7 +48,7 @@ public final class IdentifierVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nonnull
     @Override
     public Identifier visitTableName(@Nonnull RelationalParser.TableNameContext tableNameContext) {
-        return visitFullId(tableNameContext.fullId());
+        return Identifier.toProtobufCompliant(visitFullId((tableNameContext.fullId())));
     }
 
     @Nonnull

@@ -329,8 +329,7 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
     @Override
     public LogicalOperator visitAtomTableItem(@Nonnull RelationalParser.AtomTableItemContext atomTableItemContext) {
         final var tableIdentifier = Assert.castUnchecked(atomTableItemContext.tableName().accept(this), Identifier.class);
-        final var tableAlias = Optional.of(atomTableItemContext.alias == null ? visitTableName(atomTableItemContext.tableName())
-                                                                              : visitUid(atomTableItemContext.alias));
+        final var tableAlias = Optional.of(atomTableItemContext.alias == null ? tableIdentifier : Identifier.toProtobufCompliant(visitUid(atomTableItemContext.alias)));
         final var requestedIndexes = atomTableItemContext.indexHint()
                 .stream().flatMap(indexHint -> visitIndexHint(indexHint).stream()).collect(ImmutableSet.toImmutableSet());
         return LogicalOperator.generateAccess(tableIdentifier, tableAlias, requestedIndexes, getDelegate().getSemanticAnalyzer(),
@@ -462,7 +461,7 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nonnull
     @Override
     public LogicalOperator visitUpdateStatement(@Nonnull RelationalParser.UpdateStatementContext ctx) {
-        final var tableId = visitFullId(ctx.tableName().fullId());
+        final var tableId = visitTableName(ctx.tableName());
         final var semanticAnalyzer = getDelegate().getSemanticAnalyzer();
         final var table = semanticAnalyzer.getTable(tableId);
         final var tableType = Assert.castUnchecked(table, RecordLayerTable.class).getType();

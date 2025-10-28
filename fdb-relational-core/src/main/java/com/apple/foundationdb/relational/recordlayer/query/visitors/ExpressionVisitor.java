@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.CompatibleTypeEvolutionPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.AbstractArrayConstructorValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.CastValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConditionSelectorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ExistsValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
@@ -33,7 +34,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.apple.foundationdb.record.query.plan.cascades.values.CastValue;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.metadata.DataType;
@@ -48,6 +48,7 @@ import com.apple.foundationdb.relational.recordlayer.query.LogicalOperator;
 import com.apple.foundationdb.relational.recordlayer.query.LogicalPlanFragment;
 import com.apple.foundationdb.relational.recordlayer.query.OrderByExpression;
 import com.apple.foundationdb.relational.recordlayer.query.ParseHelpers;
+import com.apple.foundationdb.relational.recordlayer.query.PseudoColumn;
 import com.apple.foundationdb.relational.recordlayer.query.SemanticAnalyzer;
 import com.apple.foundationdb.relational.recordlayer.query.StringTrieNode;
 import com.apple.foundationdb.relational.recordlayer.query.TautologicalValue;
@@ -146,7 +147,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nonnull
     @Override
     public Expression visitSelectQualifierStarElement(@Nonnull RelationalParser.SelectQualifierStarElementContext ctx) {
-        final var identifier = visitUid(ctx.uid());
+        final var identifier = Identifier.toProtobufCompliant(visitUid(ctx.uid()));
         // the semantics of valid correlations are extended to expanding a (correlated) qualified star.
         return getDelegate().getSemanticAnalyzer().expandStar(Optional.of(identifier), getDelegate().getLogicalOperatorsIncludingOuter());
     }
@@ -180,7 +181,11 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     @Override
     public Expression visitFullColumnName(@Nonnull RelationalParser.FullColumnNameContext fullColumnNameContext) {
         final var id = visitFullId(fullColumnNameContext.fullId());
-        return getDelegate().getSemanticAnalyzer().resolveIdentifier(id, getDelegate().getCurrentPlanFragment());
+        if (!PseudoColumn.isPseudoColumn(id.getName())) {
+            return getDelegate().getSemanticAnalyzer().resolveIdentifier(Identifier.toProtobufCompliant(id), getDelegate().getCurrentPlanFragment());
+        } else {
+            return getDelegate().getSemanticAnalyzer().resolveIdentifier(id.replaceQualifier(q -> q.stream().map(DataTypeUtils::toProtoBufCompliantName).collect(Collectors.toList())), getDelegate().getCurrentPlanFragment());
+        }
     }
 
     @Nonnull
@@ -753,7 +758,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         final var uidMap = Streams.mapWithIndex(ctx.uidWithNestings().stream(),
                                 (ctxWithNesting, index) -> {
                                     final var uid = visitUid(ctxWithNesting.uid());
-                                    final var accessor = FieldValue.ResolvedAccessor.of(uid.getName(), (int)index, Type.any());
+                                    final var accessor = FieldValue.ResolvedAccessor.of(Identifier.toProtobufCompliant(uid).getName(), (int)index, Type.any());
                                     if (ctxWithNesting.uidListWithNestingsInParens() == null) {
                                         return NonnullPair.of(accessor, CompatibleTypeEvolutionPredicate.FieldAccessTrieNode.of(Type.any(), null));
                                     } else {
