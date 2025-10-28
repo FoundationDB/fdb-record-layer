@@ -842,11 +842,12 @@ public class SemanticAnalyzer {
         final var resultingValue = arguments.allNamedArguments()
                 ? tableFunction.encapsulate(arguments.toNamedArgumentInvocation())
                 : tableFunction.encapsulate(valueArgs);
+        final var correlations = ((Correlated<?>)Assert.castUnchecked(resultingValue, Correlated.class)).getCorrelatedTo();
         if (resultingValue instanceof StreamingValue) {
             final var tableFunctionExpression = new TableFunctionExpression(Assert.castUnchecked(resultingValue, StreamingValue.class));
             final var reference = Reference.initialOf(tableFunctionExpression);
             final var translatedReference = Iterables.getOnlyElement(References.rebaseGraphs(List.of(reference),
-                    Memoizer.noMemoization(PlannerStage.INITIAL), new ToUniqueAliasesTranslationMap(), false));
+                    Memoizer.noMemoization(PlannerStage.INITIAL), ToUniqueAliasesTranslationMap.newInstance(correlations), false));
             final var resultingQuantifier = Quantifier.forEach(translatedReference);
             final var output = Expressions.of(LogicalOperator.convertToExpressions(resultingQuantifier));
             return LogicalOperator.newNamedOperator(functionName, output, resultingQuantifier);
@@ -854,7 +855,7 @@ public class SemanticAnalyzer {
         final var relationalExpression = Assert.castUnchecked(resultingValue, RelationalExpression.class);
         final var reference = Reference.initialOf(relationalExpression);
         final var translatedReference = Iterables.getOnlyElement(References.rebaseGraphs(List.of(reference),
-                Memoizer.noMemoization(PlannerStage.INITIAL), new ToUniqueAliasesTranslationMap(), false));
+                Memoizer.noMemoization(PlannerStage.INITIAL), ToUniqueAliasesTranslationMap.newInstance(correlations), false));
         final var topQun = Quantifier.forEach(translatedReference);
         return LogicalOperator.newNamedOperator(functionName, Expressions.fromQuantifier(topQun), topQun);
     }
