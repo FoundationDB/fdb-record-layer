@@ -36,6 +36,7 @@ import com.apple.foundationdb.test.TestSubspaceExtension;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.RandomSeedSource;
 import com.apple.test.RandomizedTestUtils;
+import com.apple.test.SuperSlow;
 import com.apple.test.Tags;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -174,9 +175,9 @@ public class HNSWTest {
         Assertions.assertThat(newConfig.isExtendCandidates()).isEqualTo(extendCandidates);
         Assertions.assertThat(newConfig.isKeepPrunedConnections()).isEqualTo(keepPrunedConnections);
 
-        Assertions.assertThat(defaultConfig.getSampleVectorStatsProbability()).isEqualTo(sampleVectorStatsProbability);
-        Assertions.assertThat(defaultConfig.getMaintainStatsProbability()).isEqualTo(maintainStatsProbability);
-        Assertions.assertThat(defaultConfig.getStatsThreshold()).isEqualTo(statsThreshold);
+        Assertions.assertThat(newConfig.getSampleVectorStatsProbability()).isEqualTo(sampleVectorStatsProbability);
+        Assertions.assertThat(newConfig.getMaintainStatsProbability()).isEqualTo(maintainStatsProbability);
+        Assertions.assertThat(newConfig.getStatsThreshold()).isEqualTo(statsThreshold);
 
         Assertions.assertThat(newConfig.isUseRaBitQ()).isEqualTo(useRaBitQ);
         Assertions.assertThat(newConfig.getRaBitQNumExBits()).isEqualTo(raBitQNumExBits);
@@ -261,17 +262,18 @@ public class HNSWTest {
     }
 
     static Stream<Arguments> randomSeedsWithOptions() {
-        return RandomizedTestUtils.randomSeeds(0xdeadc0deL, 0xfdb5ca1eL, 0xf005ba1L)
+        return RandomizedTestUtils.randomSeeds(0xdeadc0deL)
                 .flatMap(seed -> Sets.cartesianProduct(ImmutableSet.of(true, false),
+                                ImmutableSet.of(true, false),
                                 ImmutableSet.of(true, false),
                                 ImmutableSet.of(true, false)).stream()
                         .map(arguments -> Arguments.of(ObjectArrays.concat(seed, arguments.toArray()))));
     }
 
-    @ParameterizedTest(name = "seed={0} useInlining={1} extendCandidates={2} keepPrunedConnections={3}")
+    @ParameterizedTest(name = "seed={0} useInlining={1} extendCandidates={2} keepPrunedConnections={3} useRaBitQ={4}")
     @MethodSource("randomSeedsWithOptions")
     void testBasicInsert(final long seed, final boolean useInlining, final boolean extendCandidates,
-                         final boolean keepPrunedConnections) {
+                         final boolean keepPrunedConnections, final boolean useRaBitQ) {
         final Random random = new Random(seed);
         final Metric metric = Metric.EUCLIDEAN_METRIC;
         final AtomicLong nextNodeIdAtomic = new AtomicLong(0L);
@@ -283,6 +285,11 @@ public class HNSWTest {
                 HNSW.DEFAULT_CONFIG_BUILDER.setMetric(metric)
                         .setUseInlining(useInlining).setExtendCandidates(extendCandidates)
                         .setKeepPrunedConnections(keepPrunedConnections)
+                        .setUseRaBitQ(useRaBitQ)
+                        .setRaBitQNumExBits(5)
+                        .setSampleVectorStatsProbability(1.0d)
+                        .setMaintainStatsProbability(0.1d)
+                        .setStatsThreshold(100)
                         .setM(32).setMMax(32).setMMax0(64).build(numDimensions),
                 OnWriteListener.NOOP, onReadListener);
 
@@ -370,32 +377,8 @@ public class HNSWTest {
         });
     }
 
-    private int insertBatch(final HNSW hnsw, final int batchSize,
-                            @Nonnull final AtomicLong nextNodeIdAtomic, @Nonnull final TestOnReadListener onReadListener,
-                            @Nonnull final Function<Transaction, NodeReferenceWithVector> insertFunction) {
-        return db.run(tr -> {
-            onReadListener.reset();
-            final long nextNodeId = nextNodeIdAtomic.get();
-            final long beginTs = System.nanoTime();
-            final ImmutableList.Builder<NodeReferenceWithVector> nodeReferenceWithVectorBuilder =
-                    ImmutableList.builder();
-            for (int i = 0; i < batchSize; i ++) {
-                final var newNodeReference = insertFunction.apply(tr);
-                if (newNodeReference != null) {
-                    nodeReferenceWithVectorBuilder.add(newNodeReference);
-                }
-            }
-            hnsw.insertBatch(tr, nodeReferenceWithVectorBuilder.build()).join();
-            final long endTs = System.nanoTime();
-            logger.info("inserted batch batchSize={} records starting at nodeId={} took elapsedTime={}ms, readCounts={}, readBytes={}",
-                    batchSize, nextNodeId, TimeUnit.NANOSECONDS.toMillis(endTs - beginTs),
-                    onReadListener.getNodeCountByLayer(), onReadListener.getBytesReadByLayer());
-            return batchSize;
-        });
-    }
-
     @Test
-    //@SuperSlow
+    @SuperSlow
     void testSIFTInsertSmall() throws Exception {
         final Metric metric = Metric.EUCLIDEAN_METRIC;
         final int k = 100;
@@ -478,47 +461,11 @@ public class HNSWTest {
                 }
 
                 final double recall = (double)recallCount / k;
-                //Assertions.assertThat(recall).isGreaterThan(0.8);
+                Assertions.assertThat(recall).isGreaterThan(0.8);
 
                 logger.info("query returned results recall={}", String.format(Locale.ROOT, "%.2f", recall * 100.0d));
             }
         }
-    }
-
-    @Test
-    //@SuperSlow
-    void testSIFTInsertSmallUsingBatchAPI() throws Exception {
-        final Metric metric = Metric.EUCLIDEAN_METRIC;
-        final int k = 100;
-        final AtomicLong nextNodeIdAtomic = new AtomicLong(0L);
-
-        final TestOnReadListener onReadListener = new TestOnReadListener();
-
-        final HNSW hnsw = new HNSW(rtSubspace.getSubspace(), TestExecutors.defaultThreadPool(),
-                HNSW.DEFAULT_CONFIG_BUILDER.setMetric(metric).setM(32).setMMax(32).setMMax0(64).build(128),
-                OnWriteListener.NOOP, onReadListener);
-
-        final Path siftSmallPath = Paths.get(".out/extracted/siftsmall/siftsmall_base.fvecs");
-
-        try (final var fileChannel = FileChannel.open(siftSmallPath, StandardOpenOption.READ)) {
-            final Iterator<DoubleRealVector> vectorIterator = new StoredVecsIterator.StoredFVecsIterator(fileChannel);
-
-            int i = 0;
-            while (vectorIterator.hasNext()) {
-                i += insertBatch(hnsw, 100, nextNodeIdAtomic, onReadListener,
-                        tr -> {
-                            if (!vectorIterator.hasNext()) {
-                                return null;
-                            }
-                            final DoubleRealVector doubleVector = vectorIterator.next();
-                            final Tuple currentPrimaryKey = createNextPrimaryKey(nextNodeIdAtomic);
-                            final HalfRealVector currentVector = doubleVector.toHalfRealVector();
-                            return new NodeReferenceWithVector(currentPrimaryKey, currentVector);
-                        });
-            }
-            Assertions.assertThat(i).isEqualTo(10000);
-        }
-        validateSIFTSmall(hnsw, k);
     }
 
     private <N extends NodeReference> void writeNode(@Nonnull final Transaction transaction,

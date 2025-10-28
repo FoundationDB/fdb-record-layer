@@ -92,7 +92,6 @@ public class HNSW {
 
     public static final int MAX_CONCURRENT_NODE_READS = 16;
     public static final int MAX_CONCURRENT_NEIGHBOR_FETCHES = 3;
-    public static final int MAX_CONCURRENT_SEARCHES = 10;
     public static final long DEFAULT_RANDOM_SEED = 0L;
     @Nonnull public static final Metric DEFAULT_METRIC = Metric.EUCLIDEAN_METRIC;
     public static final boolean DEFAULT_USE_INLINING = false;
@@ -645,11 +644,11 @@ public class HNSW {
      * @param readTransaction the transaction to use for reading from the database
      * @param k the number of nearest neighbors to return
      * @param efSearch the size of the dynamic candidate list for the search. A larger value increases accuracy
-     * at the cost of performance.
+     *        at the cost of performance.
      * @param queryVector the vector to find the nearest neighbors for
      *
      * @return a {@link CompletableFuture} that will complete with a list of the {@code k} nearest neighbors,
-     * sorted by distance in ascending order. The future completes with {@code null} if the index is empty.
+     *         sorted by distance in ascending order. The future completes with {@code null} if the index is empty.
      */
     @SuppressWarnings("checkstyle:MethodName") // method name introduced by paper
     @Nonnull
@@ -696,34 +695,91 @@ public class HNSW {
 
                                 final var storageAdapter = getStorageAdapterForLayer(0);
 
-                                return searchLayer(storageAdapter, readTransaction, storageTransform, estimator,
-                                        ImmutableList.of(nodeReference), 0, efSearch, Maps.newConcurrentMap(),
-                                        transformedQueryVector)
-                                        .thenApply(searchResult -> {
-                                            // reverse the original queue
-                                            final TreeMultimap<Double, NodeReferenceAndNode<? extends NodeReference>> sortedTopK =
-                                                    TreeMultimap.create(Comparator.naturalOrder(),
-                                                            Comparator.comparing(nodeReferenceAndNode ->
-                                                                    nodeReferenceAndNode.getNode().getPrimaryKey()));
-
-                                            for (final NodeReferenceAndNode<?> nodeReferenceAndNode : searchResult) {
-                                                if (sortedTopK.size() < k || Objects.requireNonNull(sortedTopK.keySet().last()) >
-                                                        nodeReferenceAndNode.getNodeReferenceWithDistance().getDistance()) {
-                                                    sortedTopK.put(nodeReferenceAndNode.getNodeReferenceWithDistance().getDistance(),
-                                                            nodeReferenceAndNode);
-                                                }
-
-                                                if (sortedTopK.size() > k) {
-                                                    final Double lastKey = sortedTopK.keySet().last();
-                                                    final NodeReferenceAndNode<?> lastNode = sortedTopK.get(lastKey).last();
-                                                    sortedTopK.remove(lastKey, lastNode);
-                                                }
-                                            }
-
-                                            return ImmutableList.copyOf(sortedTopK.values());
-                                        });
+                                return searchFinalLayer(storageAdapter, readTransaction, storageTransform, estimator, k, efSearch, nodeReference,
+                                        transformedQueryVector);
                             });
                 });
+    }
+
+    /**
+     * Method to search layer {@code 0} starting at a {@code nodeReference} for the {@code k} nearest neighbors of
+     * {@code transformedQueryVector}. The vectors that are part of the result of this search are transformed into the
+     * client coordinate system.
+     *
+     * @param <N> type parameter for the type of node reference to use
+     * @param storageAdapter the storage adapter
+     * @param readTransaction the transaction to use
+     * @param storageTransform the storage transform needed to transform vector data back into the client coordinate
+     *        system
+     * @param estimator the distance estimator in use
+     * @param k the number of nearest neighbors the wants us to find
+     * @param efSearch the search queue capacity
+     * @param nodeReference the entry node reference
+     * @param transformedQueryVector the transformed query vector
+     *
+     * @return a list of {@link NodeReferenceAndNode} representing the {@code k} nearest neighbors of
+     * {@code transformedQueryVector}
+     */
+    @Nonnull
+    private <N extends NodeReference> CompletableFuture<ImmutableList<NodeReferenceAndNode<? extends NodeReference>>>
+            searchFinalLayer(@Nonnull final StorageAdapter<N> storageAdapter,
+                             final @Nonnull ReadTransaction readTransaction,
+                             @Nonnull final AffineOperator storageTransform,
+                             @Nonnull final Estimator estimator,
+                             final int k,
+                             final int efSearch,
+                             @Nonnull final NodeReferenceWithDistance nodeReference,
+                             @Nonnull final RealVector transformedQueryVector) {
+        return searchLayer(storageAdapter, readTransaction, storageTransform, estimator,
+                ImmutableList.of(nodeReference), 0, efSearch, Maps.newConcurrentMap(),
+                transformedQueryVector)
+                .thenApply(searchResult ->
+                        postProcessNearestNeighbors(storageAdapter, storageTransform, k, searchResult));
+    }
+
+    @Nonnull
+    private <N extends NodeReference> ImmutableList<NodeReferenceAndNode<? extends NodeReference>>
+            postProcessNearestNeighbors(@Nonnull final StorageAdapter<N> storageAdapter,
+                                        @Nonnull final AffineOperator storageTransform,  final int k,
+                                        @Nonnull final List<? extends NodeReferenceAndNode<N>> searchResult) {
+        // reverse the original queue
+        final TreeMultimap<Double, NodeReferenceAndNode<N>> sortedTopK =
+                TreeMultimap.create(Comparator.naturalOrder(),
+                        Comparator.comparing(nodeReferenceAndNode ->
+                                nodeReferenceAndNode.getNode().getPrimaryKey()));
+
+        for (final NodeReferenceAndNode<N> nodeReferenceAndNode : searchResult) {
+            if (sortedTopK.size() < k || Objects.requireNonNull(sortedTopK.keySet().last()) >
+                    nodeReferenceAndNode.getNodeReferenceWithDistance().getDistance()) {
+                sortedTopK.put(nodeReferenceAndNode.getNodeReferenceWithDistance().getDistance(),
+                        nodeReferenceAndNode);
+            }
+
+            if (sortedTopK.size() > k) {
+                final Double lastKey = sortedTopK.keySet().last();
+                final NodeReferenceAndNode<?> lastNode = sortedTopK.get(lastKey).last();
+                sortedTopK.remove(lastKey, lastNode);
+            }
+        }
+
+        // reconstruct the vectors
+        final ImmutableList.Builder<NodeReferenceAndNode<? extends NodeReference>> resultBuilder =
+                ImmutableList.builder();
+
+        for (final NodeReferenceAndNode<N> nodeReferenceAndNode : sortedTopK.values()) {
+            final var nodeReference =
+                    Objects.requireNonNull(nodeReferenceAndNode).getNodeReferenceWithDistance();
+            final Node<N> node = nodeReferenceAndNode.getNode();
+            final RealVector reconstructedVector = storageTransform.apply(node.asCompactNode().getVector());
+
+            resultBuilder.add(
+                    new NodeReferenceAndNode<N>(
+                            new NodeReferenceWithDistance(node.getPrimaryKey(), reconstructedVector,
+                                    nodeReference.getDistance()),
+                            storageAdapter.getNodeFactory()
+                                    .create(node.getPrimaryKey(), reconstructedVector, node.getNeighbors())));
+        }
+        return resultBuilder.build();
     }
 
     /**
@@ -742,13 +798,13 @@ public class HNSW {
      * @param storageAdapter the {@link StorageAdapter} for accessing the graph data
      * @param readTransaction the {@link ReadTransaction} to use for the search
      * @param estimator a distance estimator
-     * @param entryNeighbor the starting point for the search on this layer, which includes the node and its distance to
-     * the query vector
+     * @param nodeReference the starting point for the search on this layer, which includes the node and its distance to
+     *        the query vector
      * @param layer the zero-based index of the layer to search within
      * @param queryVector the query vector for which to find the nearest neighbor
      *
      * @return a {@link CompletableFuture} that, upon completion, will contain the closest node found on the layer,
-     * represented as a {@link NodeReferenceWithDistance}
+     *         represented as a {@link NodeReferenceWithDistance}
      */
     @Nonnull
     private <N extends NodeReference> CompletableFuture<NodeReferenceWithDistance>
@@ -756,15 +812,15 @@ public class HNSW {
                               @Nonnull final ReadTransaction readTransaction,
                               @Nonnull final AffineOperator storageTransform,
                               @Nonnull final Estimator estimator,
-                              @Nonnull final NodeReferenceWithDistance entryNeighbor,
+                              @Nonnull final NodeReferenceWithDistance nodeReference,
                               final int layer,
                               @Nonnull final RealVector queryVector) {
         if (storageAdapter.getNodeKind() == NodeKind.INLINING) {
             return greedySearchInliningLayer(storageAdapter.asInliningStorageAdapter(),
-                    readTransaction, storageTransform, estimator, entryNeighbor, layer, queryVector);
+                    readTransaction, storageTransform, estimator, nodeReference, layer, queryVector);
         } else {
             return searchLayer(storageAdapter, readTransaction, storageTransform, estimator,
-                    ImmutableList.of(entryNeighbor), layer, 1, Maps.newConcurrentMap(), queryVector)
+                    ImmutableList.of(nodeReference), layer, 1, Maps.newConcurrentMap(), queryVector)
                     .thenApply(searchResult ->
                             Iterables.getOnlyElement(searchResult).getNodeReferenceWithDistance());
         }
@@ -788,13 +844,13 @@ public class HNSW {
      * @param storageTransform an affine transformation operator that is used to transform the fetched vector into the
      * storage space that is currently being used
      * @param estimator a distance estimator
-     * @param entryNeighbor the entry point for the search in this layer, typically the result from a search in a higher
-     * layer
+     * @param nodeReference the entry point for the search in this layer, typically the result from a search in a higher
+     *        layer
      * @param layer the layer number to perform the search in. Must be greater than 0.
      * @param queryVector the vector for which to find the nearest neighbor
      *
      * @return a {@link CompletableFuture} that, upon completion, will hold the {@link NodeReferenceWithDistance} of the
-     * nearest neighbor found in this layer's greedy search
+     *         nearest neighbor found in this layer's greedy search
      *
      * @throws IllegalStateException if a node that is expected to exist cannot be fetched from the
      * {@code storageAdapter} during the search
@@ -805,12 +861,12 @@ public class HNSW {
                                       @Nonnull final ReadTransaction readTransaction,
                                       @Nonnull final AffineOperator storageTransform,
                                       @Nonnull final Estimator estimator,
-                                      @Nonnull final NodeReferenceWithDistance entryNeighbor,
+                                      @Nonnull final NodeReferenceWithDistance nodeReference,
                                       final int layer,
                                       @Nonnull final RealVector queryVector) {
         Verify.verify(layer > 0);
         final AtomicReference<NodeReferenceWithDistance> currentNodeReferenceAtomic =
-                new AtomicReference<>(entryNeighbor);
+                new AtomicReference<>(nodeReference);
 
         return AsyncUtil.whileTrue(() -> onReadListener.onAsyncRead(
                         storageAdapter.fetchNode(readTransaction, storageTransform, layer,
@@ -864,11 +920,11 @@ public class HNSW {
      * @param storageTransform an affine transformation operator that is used to transform the fetched vector into the
      *        storage space that is currently being used
      * @param estimator the estimator to use
-     * @param entryNeighbors A collection of starting nodes for the search in this layer, with their distances
-     * to the query vector already calculated.
+     * @param nodeReferences A collection of starting node references for the search in this layer, with their distances
+     *        to the query vector already calculated.
      * @param layer The zero-based index of the layer to search.
      * @param efSearch The size of the dynamic candidate list. A larger value increases recall at the
-     * cost of performance.
+     *        cost of performance.
      * @param nodeCache A cache of nodes that have already been fetched from storage to avoid redundant I/O.
      * @param queryVector The vector for which to find the nearest neighbors.
      *
@@ -881,20 +937,20 @@ public class HNSW {
                         @Nonnull final ReadTransaction readTransaction,
                         @Nonnull final AffineOperator storageTransform,
                         @Nonnull final Estimator estimator,
-                        @Nonnull final Collection<NodeReferenceWithDistance> entryNeighbors,
+                        @Nonnull final Collection<NodeReferenceWithDistance> nodeReferences,
                         final int layer,
                         final int efSearch,
                         @Nonnull final Map<Tuple, Node<N>> nodeCache,
                         @Nonnull final RealVector queryVector) {
-        final Set<Tuple> visited = Sets.newConcurrentHashSet(NodeReference.primaryKeys(entryNeighbors));
+        final Set<Tuple> visited = Sets.newConcurrentHashSet(NodeReference.primaryKeys(nodeReferences));
         final Queue<NodeReferenceWithDistance> candidates =
                 new PriorityBlockingQueue<>(config.getM(),
                         Comparator.comparing(NodeReferenceWithDistance::getDistance));
-        candidates.addAll(entryNeighbors);
+        candidates.addAll(nodeReferences);
         final Queue<NodeReferenceWithDistance> nearestNeighbors =
                 new PriorityBlockingQueue<>(config.getM(),
                         Comparator.comparing(NodeReferenceWithDistance::getDistance).reversed());
-        nearestNeighbors.addAll(entryNeighbors);
+        nearestNeighbors.addAll(nodeReferences);
 
         return AsyncUtil.whileTrue(() -> {
             if (candidates.isEmpty()) {
@@ -1290,193 +1346,78 @@ public class HNSW {
                             .thenCompose(nodeReference ->
                                     insertIntoLayers(transaction, storageTransform, quantizer, newPrimaryKey,
                                             transformedNewVector, nodeReference, lMax, insertionLayer))
-                            .thenCompose(ignored -> {
-                                if (getConfig().isUseRaBitQ() && !accessInfo.canUseRaBitQ()) {
-                                    if (shouldSampleVector()) {
-                                        StorageAdapter.appendSampledVector(transaction, getSubspace(),
-                                                1, transformedNewVector, onWriteListener);
-                                    }
-                                    if (shouldMaintainStats()) {
-                                        return StorageAdapter.consumeSampledVectors(transaction, getSubspace(),
-                                                        50, onReadListener)
-                                                .thenApply(sampledVectors -> {
-                                                    RealVector partialVector = null;
-                                                    int partialCount = 0;
-                                                    for (final AggregatedVector sampledVector : sampledVectors) {
-                                                        partialVector = partialVector == null
-                                                                        ? sampledVector.getPartialVector()
-                                                                        : partialVector.add(sampledVector.getPartialVector());
-                                                        partialCount += sampledVector.getPartialCount();
-                                                    }
-                                                    if (partialCount > 0) {
-                                                        StorageAdapter.appendSampledVector(transaction, getSubspace(),
-                                                                partialCount, partialVector, onWriteListener);
-                                                        if (logger.isTraceEnabled()) {
-                                                            logger.trace("updated stats with numVectors={}, partialCount={}, partialVector={}",
-                                                                    sampledVectors.size(), partialCount, partialVector);
-                                                        }
-
-                                                        if (partialCount >= getConfig().getStatsThreshold()) {
-                                                            final long rotatorSeed = random.nextLong();
-                                                            final FhtKacRotator rotator = new FhtKacRotator(rotatorSeed, getConfig().getNumDimensions(), 10);
-
-                                                            final RealVector centroid =
-                                                                    partialVector.multiply(1.0d / partialCount);
-                                                            final RealVector transformedCentroid = rotator.applyInvert(centroid);
-
-                                                            final var transformedEntryNodeVector =
-                                                                    rotator.applyInvert(currentAccessInfo.getEntryNodeReference()
-                                                                            .getVector()).subtract(transformedCentroid);
-
-                                                            final AccessInfo newAccessInfo =
-                                                                    new AccessInfo(currentAccessInfo.getEntryNodeReference().withVector(transformedEntryNodeVector),
-                                                                            rotatorSeed, transformedCentroid);
-                                                            StorageAdapter.writeAccessInfo(transaction, getSubspace(), newAccessInfo, onWriteListener);
-                                                            StorageAdapter.removeAllSampledVectors(transaction, getSubspace());
-                                                            if (logger.isTraceEnabled()) {
-                                                                logger.trace("established rotatorSeed={}, centroid with count={}, centroid={}",
-                                                                        rotatorSeed, partialCount, transformedCentroid);
-                                                            }
-                                                        }
-                                                    }
-                                                    return null;
-                                                });
-                                    }
-                                }
-                                return AsyncUtil.DONE;
-                            });
+                            .thenCompose(ignored ->
+                                    addToStats(transaction, currentAccessInfo, transformedNewVector));
                 }).thenCompose(ignored -> AsyncUtil.DONE);
     }
 
-    /**
-     * Inserts a batch of nodes into the HNSW graph asynchronously.
-     *
-     * <p>This method orchestrates the batch insertion of nodes into the HNSW graph structure.
-     * For each node in the input {@code batch}, it first assigns a random layer based on the configured
-     * probability distribution. The batch is then sorted in descending order of these assigned layers to
-     * ensure higher-layer nodes are processed first, which can optimize subsequent insertions by providing
-     * better entry points.</p>
-     *
-     * <p>The insertion logic proceeds in two main asynchronous stages:
-     * <ol>
-     *   <li><b>Search Phase:</b> For each node to be inserted, the method concurrently performs a greedy search
-     *   from the graph's main entry point down to the node's target layer. This identifies the nearest neighbors
-     *   at each level, which will serve as entry points for the insertion phase.</li>
-     *   <li><b>Insertion Phase:</b> The method then iterates through the nodes and inserts each one into the graph
-     *   from its target layer downwards, connecting it to its nearest neighbors. If a node's assigned layer is
-     *   higher than the current maximum layer of the graph, it becomes the new main entry point.</li>
-     * </ol>
-     * All underlying storage operations are performed within the context of the provided {@link Transaction}.</p>
-     *
-     * @param transaction the transaction to use for all storage operations; must not be {@code null}
-     * @param batch a {@code List} of {@link NodeReferenceWithVector} objects to insert; must not be {@code null}
-     *
-     * @return a {@link CompletableFuture} that completes with {@code null} when the entire batch has been inserted
-     */
     @Nonnull
-    public CompletableFuture<Void> insertBatch(@Nonnull final Transaction transaction,
-                                               @Nonnull List<NodeReferenceWithVector> batch) {
-        // determine the layer each item should be inserted at
-        final List<NodeReferenceWithLayer> batchWithLayers = Lists.newArrayListWithCapacity(batch.size());
-        for (final NodeReferenceWithVector current : batch) {
-            batchWithLayers.add(
-                    new NodeReferenceWithLayer(current.getPrimaryKey(), current.getVector(), insertionLayer()));
-        }
-        // sort the layers in reverse order
-        batchWithLayers.sort(Comparator.comparing(NodeReferenceWithLayer::getLayer).reversed());
+    private CompletableFuture<Void> addToStats(@Nonnull final Transaction transaction,
+                                               @Nonnull final AccessInfo currentAccessInfo,
+                                               @Nonnull final RealVector transformedNewVector) {
+        if (getConfig().isUseRaBitQ() && !currentAccessInfo.canUseRaBitQ()) {
+            if (shouldSampleVector()) {
+                StorageAdapter.appendSampledVector(transaction, getSubspace(),
+                        1, transformedNewVector, onWriteListener);
+            }
+            if (shouldMaintainStats()) {
+                return StorageAdapter.consumeSampledVectors(transaction, getSubspace(),
+                                50, onReadListener)
+                        .thenApply(sampledVectors -> {
+                            final AggregatedVector aggregatedSampledVector =
+                                    aggregateVectors(sampledVectors);
 
-        return StorageAdapter.fetchAccessInfo(getConfig(), transaction, getSubspace(), getOnReadListener())
-                .thenCompose(accessInfo -> {
-                    final int lMax =
-                            accessInfo == null ? -1 : accessInfo.getEntryNodeReference().getLayer();
-
-                    final AffineOperator storageTransform = storageTransform(accessInfo);
-                    final Quantizer quantizer = quantizer(accessInfo);
-                    final Estimator estimator = quantizer.estimator();
-
-                    return forEach(batchWithLayers,
-                            item -> {
-                                if (lMax == -1) {
-                                    return CompletableFuture.completedFuture(null);
+                            if (aggregatedSampledVector != null) {
+                                final int partialCount = aggregatedSampledVector.getPartialCount();
+                                final RealVector partialVector = aggregatedSampledVector.getPartialVector();
+                                StorageAdapter.appendSampledVector(transaction, getSubspace(),
+                                        partialCount, partialVector, onWriteListener);
+                                if (logger.isTraceEnabled()) {
+                                    logger.trace("updated stats with numVectors={}, partialCount={}, partialVector={}",
+                                            sampledVectors.size(), partialCount, partialVector);
                                 }
 
-                                final EntryNodeReference entryNodeReference = accessInfo.getEntryNodeReference();
+                                if (partialCount >= getConfig().getStatsThreshold()) {
+                                    final long rotatorSeed = random.nextLong();
+                                    final FhtKacRotator rotator =
+                                            new FhtKacRotator(rotatorSeed, getConfig().getNumDimensions(), 10);
 
-                                final RealVector itemVector = item.getVector();
-                                final RealVector transformedItemVector = storageTransform.applyInvert(itemVector);
+                                    final RealVector centroid =
+                                            partialVector.multiply(1.0d / partialCount);
+                                    final RealVector transformedCentroid = rotator.applyInvert(centroid);
 
-                                final int itemL = item.getLayer();
+                                    final var transformedEntryNodeVector =
+                                            rotator.applyInvert(currentAccessInfo.getEntryNodeReference()
+                                                    .getVector()).subtract(transformedCentroid);
 
-                                final NodeReferenceWithDistance initialNodeReference =
-                                        new NodeReferenceWithDistance(entryNodeReference.getPrimaryKey(),
-                                                entryNodeReference.getVector(),
-                                                estimator.distance(transformedItemVector, entryNodeReference.getVector()));
+                                    final AccessInfo newAccessInfo =
+                                            new AccessInfo(currentAccessInfo.getEntryNodeReference().withVector(transformedEntryNodeVector),
+                                                    rotatorSeed, transformedCentroid);
+                                    StorageAdapter.writeAccessInfo(transaction, getSubspace(), newAccessInfo, onWriteListener);
+                                    StorageAdapter.removeAllSampledVectors(transaction, getSubspace());
+                                    if (logger.isTraceEnabled()) {
+                                        logger.trace("established rotatorSeed={}, centroid with count={}, centroid={}",
+                                                rotatorSeed, partialCount, transformedCentroid);
+                                    }
+                                }
+                            }
+                            return null;
+                        });
+            }
+        }
+        return AsyncUtil.DONE;
+    }
 
-                                return forLoop(lMax, initialNodeReference,
-                                        layer -> layer > itemL,
-                                        layer -> layer - 1,
-                                        (layer, previousNodeReference) -> {
-                                            final StorageAdapter<? extends NodeReference> storageAdapter = getStorageAdapterForLayer(layer);
-                                            return greedySearchLayer(storageAdapter, transaction, storageTransform,
-                                                    estimator, previousNodeReference, layer, transformedItemVector);
-                                        }, executor);
-                            }, MAX_CONCURRENT_SEARCHES, getExecutor())
-                            .thenCompose(searchEntryReferences ->
-                                    forLoop(0, accessInfo == null ? null : accessInfo.getEntryNodeReference(),
-                                            index -> index < batchWithLayers.size(),
-                                            index -> index + 1,
-                                            (index, currentEntryNodeReference) -> {
-                                                final NodeReferenceWithLayer item = batchWithLayers.get(index);
-                                                final Tuple itemPrimaryKey = item.getPrimaryKey();
-                                                final RealVector itemVector = item.getVector();
-                                                final int itemL = item.getLayer();
-
-                                                final EntryNodeReference newEntryNodeReference;
-                                                final int currentLMax;
-
-                                                if (accessInfo == null) {
-                                                    // this is the first node
-                                                    writeLonelyNodes(quantizer, transaction, itemPrimaryKey, itemVector, itemL, -1);
-                                                    newEntryNodeReference =
-                                                            new EntryNodeReference(itemPrimaryKey, itemVector, itemL);
-                                                    StorageAdapter.writeAccessInfo(transaction, getSubspace(),
-                                                            new AccessInfo(newEntryNodeReference, -1L, null), getOnWriteListener());
-                                                    if (logger.isTraceEnabled()) {
-                                                        logger.trace("written initial entry node reference for batch with key={} on layer={}", itemPrimaryKey, itemL);
-                                                    }
-
-                                                    return CompletableFuture.completedFuture(newEntryNodeReference);
-                                                } else {
-                                                    currentLMax = currentEntryNodeReference.getLayer();
-                                                    if (itemL > currentLMax) {
-                                                        writeLonelyNodes(quantizer, transaction, itemPrimaryKey, itemVector, itemL, lMax);
-                                                        newEntryNodeReference =
-                                                                new EntryNodeReference(itemPrimaryKey, itemVector, itemL);
-                                                        StorageAdapter.writeAccessInfo(transaction, getSubspace(),
-                                                                accessInfo.withNewEntryNodeReference(newEntryNodeReference),
-                                                                getOnWriteListener());
-                                                        if (logger.isTraceEnabled()) {
-                                                            logger.trace("written higher entry node reference for batch with key={} on layer={}", itemPrimaryKey, itemL);
-                                                        }
-                                                    } else {
-                                                        // entry node stays the same
-                                                        newEntryNodeReference = accessInfo.getEntryNodeReference();
-                                                    }
-                                                }
-
-                                                if (logger.isTraceEnabled()) {
-                                                    logger.trace("entry node read for batch with key {} at layer {}",
-                                                            currentEntryNodeReference.getPrimaryKey(), currentLMax);
-                                                }
-
-                                                final var currentSearchEntry =
-                                                        searchEntryReferences.get(index);
-
-                                                return insertIntoLayers(transaction, storageTransform, quantizer,
-                                                        itemPrimaryKey, itemVector, currentSearchEntry, lMax, itemL)
-                                                        .thenApply(ignored -> newEntryNodeReference);
-                                            }, getExecutor()));
-                }).thenCompose(ignored -> AsyncUtil.DONE);
+    @Nullable
+    AggregatedVector aggregateVectors(@Nonnull final Iterable<AggregatedVector> vectors) {
+        RealVector partialVector = null;
+        int partialCount = 0;
+        for (final AggregatedVector vector : vectors) {
+            partialVector = partialVector == null
+                            ? vector.getPartialVector() : partialVector.add(vector.getPartialVector());
+            partialCount += vector.getPartialCount();
+        }
+        return partialCount == 0 ? null : new AggregatedVector(partialCount, partialVector);
     }
 
     /**
@@ -2097,7 +2038,13 @@ public class HNSW {
     }
 
     private boolean shouldMaintainStats() {
-        return random.nextDouble() < getConfig().getMaintainStatsProbability();
+        return shouldMaintainStats(1);
+    }
+
+    private boolean shouldMaintainStats(final int batchSize) {
+        // pBatch = 1 - (1 - p)^n  ==  -expm1(n * log1p(-p))
+        double pBatch = -Math.expm1(batchSize * Math.log1p(-getConfig().getMaintainStatsProbability()));
+        return random.nextDouble() < pBatch;
     }
 
     private static class NodeReferenceWithLayer extends NodeReferenceWithVector {

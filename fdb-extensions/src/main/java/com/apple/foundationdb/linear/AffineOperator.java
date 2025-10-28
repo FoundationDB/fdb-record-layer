@@ -20,11 +20,16 @@
 
 package com.apple.foundationdb.linear;
 
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.google.common.base.Preconditions;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
+/**
+ * Vector operator that applies/unapplies a linear operator and an addition to a vector.
+ */
+@SpotBugsSuppressWarnings(value = "SING_SINGLETON_HAS_NONPRIVATE_CONSTRUCTOR", justification = "Singleton designation is a false positive")
 public class AffineOperator implements VectorOperator {
     private static final AffineOperator IDENTITY_OPERATOR = new AffineOperator(null, null);
 

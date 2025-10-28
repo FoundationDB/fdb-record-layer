@@ -73,16 +73,6 @@ public interface Node<N extends NodeReference> {
     List<N> getNeighbors();
 
     /**
-     * Gets the neighbor at the specified index.
-     * <p>
-     * This method provides access to the neighbors of a particular node or element, identified by a zero-based index.
-     * @param index the zero-based index of the neighbor to retrieve.
-     * @return the neighbor at the specified index; this method will never return {@code null}.
-     */
-    @Nonnull
-    N getNeighbor(int index);
-
-    /**
      * Return the kind of the node, i.e. {@link NodeKind#COMPACT} or {@link NodeKind#INLINING}.
      * @return the kind of this node as a {@link NodeKind}
      */

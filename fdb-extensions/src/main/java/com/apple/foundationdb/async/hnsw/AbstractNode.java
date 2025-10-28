@@ -81,18 +81,4 @@ abstract class AbstractNode<N extends NodeReference> implements Node<N> {
     public List<N> getNeighbors() {
         return neighbors;
     }
-
-    /**
-     * Gets the neighbor at the specified index.
-     * <p>
-     * This method provides access to a specific neighbor by its zero-based position
-     * in the internal list of neighbors.
-     * @param index the zero-based index of the neighbor to retrieve.
-     * @return the neighbor at the specified index, guaranteed to be non-null.
-     */
-    @Nonnull
-    @Override
-    public N getNeighbor(final int index) {
-        return neighbors.get(index);
-    }
 }
