@@ -28,6 +28,7 @@ import com.apple.foundationdb.relational.api.metadata.InvokedRoutine;
 import com.apple.foundationdb.relational.api.metadata.Schema;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.api.metadata.Table;
+import com.apple.foundationdb.relational.api.metadata.View;
 import com.apple.foundationdb.relational.api.metadata.Visitor;
 
 import javax.annotation.Nonnull;
@@ -75,6 +76,11 @@ public class SkeletonVisitor implements Visitor {
 
     @Override
     public void visit(@Nonnull final InvokedRoutine invokedRoutine) {
+        // no-op
+    }
+
+    @Override
+    public void visit(@Nonnull final View view) {
         // no-op
     }
 }

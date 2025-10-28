@@ -589,7 +589,7 @@ public class MetaDataProtoEditorUnitTest {
                         "store_record_versions", "dependencies", "subspace_key_counter", "uses_subspace_key_counter",
                         // the below reference record types
                         "records", "indexes", "record_types", "joined_record_types", "unnested_record_types",
-                        "user_defined_functions"),
+                        "user_defined_functions", "views"),
                 RecordMetaDataProto.MetaData.getDescriptor().getFields().stream()
                         .map(Descriptors.FieldDescriptor::getName)
                 .collect(Collectors.toSet()));

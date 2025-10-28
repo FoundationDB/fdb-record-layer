@@ -33,6 +33,7 @@ import com.apple.foundationdb.relational.api.metadata.Index;
 import com.apple.foundationdb.relational.api.metadata.InvokedRoutine;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.api.metadata.Table;
+import com.apple.foundationdb.relational.api.metadata.View;
 import com.apple.foundationdb.relational.api.metadata.Visitor;
 import com.apple.foundationdb.relational.recordlayer.metadata.serde.FileDescriptorSerializer;
 import com.apple.foundationdb.relational.recordlayer.metadata.serde.RecordMetadataDeserializer;
@@ -75,6 +76,9 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
     @Nonnull
     private final Set<RecordLayerInvokedRoutine> invokedRoutines;
 
+    @Nonnull
+    private final Set<RecordLayerView> views;
+
     private final int version;
 
     private final boolean enableLongRows;
@@ -101,6 +105,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
     private RecordLayerSchemaTemplate(@Nonnull final String name,
                                       @Nonnull final Set<RecordLayerTable> tables,
                                       @Nonnull final Set<RecordLayerInvokedRoutine> invokedRoutines,
+                                      @Nonnull final Set<RecordLayerView> views,
                                       int version,
                                       boolean enableLongRows,
                                       boolean storeRowVersions,
@@ -108,6 +113,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         this.name = name;
         this.tables = ImmutableSet.copyOf(tables);
         this.invokedRoutines = ImmutableSet.copyOf(invokedRoutines);
+        this.views = ImmutableSet.copyOf(views);
         this.version = version;
         this.enableLongRows = enableLongRows;
         this.storeRowVersions = storeRowVersions;
@@ -122,6 +128,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
     private RecordLayerSchemaTemplate(@Nonnull final String name,
                                       @Nonnull final Set<RecordLayerTable> tables,
                                       @Nonnull final Set<RecordLayerInvokedRoutine> invokedRoutines,
+                                      @Nonnull final Set<RecordLayerView> views,
                                       int version,
                                       boolean enableLongRows,
                                       boolean storeRowVersions,
@@ -131,6 +138,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         this.version = version;
         this.tables = ImmutableSet.copyOf(tables);
         this.invokedRoutines = ImmutableSet.copyOf(invokedRoutines);
+        this.views = ImmutableSet.copyOf(views);
         this.enableLongRows = enableLongRows;
         this.storeRowVersions = storeRowVersions;
         this.intermingleTables = intermingleTables;
@@ -324,6 +332,18 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
     }
 
     @Nonnull
+    @Override
+    public Set<RecordLayerView> getViews() {
+        return views;
+    }
+
+    @Nonnull
+    @Override
+    public Optional<? extends View> findViewByName(@Nonnull final String viewName) {
+        return views.stream().filter(view -> view.getName().equals(viewName)).findFirst();
+    }
+
+    @Nonnull
     private Collection<? extends InvokedRoutine> computeTemporaryInvokedRoutines() {
         return invokedRoutines.stream().filter(RecordLayerInvokedRoutine::isTemporary)
                 .sorted(Comparator.comparing(RecordLayerInvokedRoutine::getDescription)).collect(ImmutableList.toImmutableList());
@@ -363,12 +383,13 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         for (final var invokedRoutine : getInvokedRoutines()) {
             invokedRoutine.accept(visitor);
         }
+        for (final var view : getViews()) {
+            view.accept(visitor);
+        }
         visitor.finishVisit(this);
     }
 
     public static final class Builder {
-        private static final String TABLE_ALREADY_EXISTS = "table '%s' already exists";
-        private static final String TYPE_WITH_NAME_ALREADY_EXISTS = "type with name '%s' already exists";
         private static final String TABLE_MISSING_RECORD_TYPE_PREFIX = "table '%s' primary key '%s' is missing record type prefix";
         private String name;
 
@@ -389,6 +410,9 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         @Nonnull
         private final Map<String, RecordLayerInvokedRoutine> invokedRoutines;
 
+        @Nonnull
+        private final Map<String, RecordLayerView> views;
+
 
         private RecordMetaData cachedMetadata;
 
@@ -396,6 +420,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
             tables = new LinkedHashMap<>();
             auxiliaryTypes = new LinkedHashMap<>();
             invokedRoutines = new LinkedHashMap<>();
+            views = new LinkedHashMap<>();
             // enable long rows is TRUE by default
             enableLongRows = true;
         }
@@ -436,8 +461,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
 
         @Nonnull
         public Builder addTable(@Nonnull RecordLayerTable table) {
-            Assert.thatUnchecked(!tables.containsKey(table.getName()), ErrorCode.INVALID_SCHEMA_TEMPLATE, TABLE_ALREADY_EXISTS, table.getName());
-            Assert.thatUnchecked(!auxiliaryTypes.containsKey(table.getName()), ErrorCode.INVALID_SCHEMA_TEMPLATE, TYPE_WITH_NAME_ALREADY_EXISTS, table.getName());
+            verifyNameIsNotUsed(table.getName());
             if (!intermingleTables) {
                 Assert.thatUnchecked(Key.Expressions.recordType().isPrefixKey(table.getPrimaryKey()),
                         ErrorCode.INTERNAL_ERROR, TABLE_MISSING_RECORD_TYPE_PREFIX, table.getName(), table.getPrimaryKey());
@@ -454,10 +478,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
 
         @Nonnull
         public Builder addInvokedRoutine(@Nonnull final RecordLayerInvokedRoutine invokedRoutine) {
-            Assert.thatUnchecked(!invokedRoutines.containsKey(invokedRoutine.getName()), ErrorCode.INVALID_SCHEMA_TEMPLATE,
-                    () -> "routine " + invokedRoutine.getName() + " is already defined");
-            Assert.thatUnchecked(!tables.containsKey(invokedRoutine.getName()), ErrorCode.INVALID_SCHEMA_TEMPLATE,
-                    () -> "routine " + invokedRoutine.getName() + " cannot be defined because a table with the same name exists");
+            verifyNameIsNotUsed(invokedRoutine.getName());
             invokedRoutines.put(invokedRoutine.getName(), invokedRoutine);
             return this;
         }
@@ -487,6 +508,32 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
             return this;
         }
 
+        @Nonnull
+        public Builder addView(@Nonnull final RecordLayerView view) {
+            verifyNameIsNotUsed(view.getName());
+            views.put(view.getName(), view);
+            return this;
+        }
+
+        @Nonnull
+        public Builder replaceView(@Nonnull final RecordLayerView view) {
+            views.put(view.getName(), view);
+            return this;
+        }
+
+        public Builder removeView(@Nonnull final String viewName) {
+            Assert.thatUnchecked(views.containsKey(viewName), ErrorCode.UNDEFINED_TABLE,
+                    "attempt to remove non-existent view!");
+            views.remove(viewName);
+            return this;
+        }
+
+        @Nonnull
+        public Builder addViews(@Nonnull final Collection<RecordLayerView> views) {
+            views.forEach(this::addView);
+            return this;
+        }
+
         /**
          * Adds an auxiliary type, an auxiliary type is a type that is merely created, so it can be referenced later on
          * in a table definition. Any {@link DataType.Named} data type can be added as an auxiliary type such as {@code enum}s
@@ -497,8 +544,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
          */
         @Nonnull
         public Builder addAuxiliaryType(@Nonnull DataType.Named auxiliaryType) {
-            Assert.thatUnchecked(!tables.containsKey(auxiliaryType.getName()), ErrorCode.INVALID_SCHEMA_TEMPLATE, TABLE_ALREADY_EXISTS, auxiliaryType.getName());
-            Assert.thatUnchecked(!auxiliaryTypes.containsKey(auxiliaryType.getName()), ErrorCode.INVALID_SCHEMA_TEMPLATE, TYPE_WITH_NAME_ALREADY_EXISTS, auxiliaryType.getName());
+            verifyNameIsNotUsed(auxiliaryType.getName());
             auxiliaryTypes.put(auxiliaryType.getName(), auxiliaryType);
             return this;
         }
@@ -571,16 +617,18 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
                 }
             }
 
+            // todo add resolution parts for the view as well.
+
             if (needsResolution) {
                 resolveTypes();
             }
 
             if (cachedMetadata != null) {
                 return new RecordLayerSchemaTemplate(name, new LinkedHashSet<>(tables.values()),
-                        new LinkedHashSet<>(invokedRoutines.values()), version, enableLongRows, storeRowVersions, intermingleTables, cachedMetadata);
+                        new LinkedHashSet<>(invokedRoutines.values()), new LinkedHashSet<>(views.values()), version, enableLongRows, storeRowVersions, intermingleTables, cachedMetadata);
             } else {
                 return new RecordLayerSchemaTemplate(name, new LinkedHashSet<>(tables.values()),
-                        new LinkedHashSet<>(invokedRoutines.values()), version, enableLongRows, storeRowVersions, intermingleTables);
+                        new LinkedHashSet<>(invokedRoutines.values()), new LinkedHashSet<>(views.values()), version, enableLongRows, storeRowVersions, intermingleTables);
             }
         }
 
@@ -654,6 +702,13 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
             auxiliaryTypes.putAll(resolvedAuxiliaryTypes.build());
         }
 
+        private void verifyNameIsNotUsed(@Nonnull final String name) {
+            Assert.thatUnchecked(!tables.containsKey(name), ErrorCode.INVALID_SCHEMA_TEMPLATE, () -> "table with name '" + name + "' already exists");
+            Assert.thatUnchecked(!auxiliaryTypes.containsKey(name), ErrorCode.INVALID_SCHEMA_TEMPLATE, () -> "type with name '" + name + "' already exists");
+            Assert.thatUnchecked(!invokedRoutines.containsKey(name), ErrorCode.INVALID_SCHEMA_TEMPLATE, () -> "routine with name '" + name + "' already exists");
+            Assert.thatUnchecked(!views.containsKey(name), ErrorCode.INVALID_SCHEMA_TEMPLATE, () -> "view with name '" + name + "' already exists");
+        }
+
         @Nonnull
         private static Set<DataType> getDependencies(@Nonnull final DataType dataType, @Nonnull final Map<String, DataType> types) {
             // TODO (yhatem) I think this doesn't work in case of recursive types.
@@ -700,6 +755,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
                 .setEnableLongRows(enableLongRows)
                 .setIntermingleTables(intermingleTables)
                 .addTables(getTables())
-                .addInvokedRoutines(getInvokedRoutines());
+                .addInvokedRoutines(getInvokedRoutines())
+                .addViews(getViews());
     }
 }

@@ -36,6 +36,7 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerInvokedRoutine;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerView;
 import com.apple.foundationdb.relational.recordlayer.query.Expression;
 import com.apple.foundationdb.relational.recordlayer.query.Expressions;
 import com.apple.foundationdb.relational.recordlayer.query.Identifier;
@@ -237,6 +238,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         final ImmutableSet.Builder<RelationalParser.TableDefinitionContext> tableClauses = ImmutableSet.builder();
         final ImmutableSet.Builder<RelationalParser.IndexDefinitionContext> indexClauses = ImmutableSet.builder();
         final ImmutableSet.Builder<RelationalParser.SqlInvokedFunctionContext> functionClauses = ImmutableSet.builder();
+        final ImmutableSet.Builder<RelationalParser.ViewDefinitionContext> viewClauses = ImmutableSet.builder();
         for (final var templateClause : ctx.templateClause()) {
             if (templateClause.enumDefinition() != null) {
                 metadataBuilder.addAuxiliaryType(visitEnumDefinition(templateClause.enumDefinition()));
@@ -246,6 +248,8 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
                 tableClauses.add(templateClause.tableDefinition());
             } else if (templateClause.sqlInvokedFunction() != null) {
                 functionClauses.add(templateClause.sqlInvokedFunction());
+            } else if (templateClause.viewDefinition() != null) {
+                viewClauses.add(templateClause.viewDefinition());
             } else {
                 Assert.thatUnchecked(templateClause.indexDefinition() != null);
                 indexClauses.add(templateClause.indexDefinition());
@@ -254,12 +258,16 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         structClauses.build().stream().map(this::visitStructDefinition).map(RecordLayerTable::getDatatype).forEach(metadataBuilder::addAuxiliaryType);
         tableClauses.build().stream().map(this::visitTableDefinition).forEach(metadataBuilder::addTable);
         final var indexes = indexClauses.build().stream().map(this::visitIndexDefinition).collect(ImmutableList.toImmutableList());
-        // TODO: this is currently relying on the lexical order of the function to resolve function dependencies which
-        //       is limited.
+        // TODO: this is currently relying on the lexical order of the functions and views to resolve dependencies which is limited.
+        // https://github.com/FoundationDB/fdb-record-layer/issues/3493
         functionClauses.build().forEach(functionClause -> {
             final var invokedRoutine = getInvokedRoutineMetadata(functionClause, functionClause.functionSpecification(),
                     functionClause.routineBody(), metadataBuilder.build());
             metadataBuilder.addInvokedRoutine(invokedRoutine);
+        });
+        viewClauses.build().forEach(viewClause -> {
+            final var view = getViewMetadata(viewClause, metadataBuilder.build());
+            metadataBuilder.addView(view);
         });
         for (final var index : indexes) {
             final var table = metadataBuilder.extractTable(index.getTableName());
@@ -349,6 +357,36 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
                 .withCompilableRoutine(ignored -> compiledSqlFunction)
                 .setNormalizedDescription(getDelegate().getPlanGenerationContext().getCanonicalQueryString())
                 .setTemporary(isTemporary)
+                .build();
+    }
+
+    @Nonnull
+    private RecordLayerView getViewMetadata(@Nonnull final RelationalParser.ViewDefinitionContext viewCtx,
+                                            @Nonnull final RecordLayerSchemaTemplate ddlCatalog) {
+        // parse the view SQL query using the newly constructed metadata.
+        getDelegate().replaceSchemaTemplate(ddlCatalog);
+
+        // 1. get the view name.
+        final var viewName = visitFullId(viewCtx.viewName).toString();
+
+        // 2. get the view SQL definition string.
+        final var queryString = getDelegate().getPlanGenerationContext().getQuery();
+        final var start = viewCtx.viewQuery.start.getStartIndex();
+        final var stop = viewCtx.viewQuery.stop.getStopIndex() + 1; // inclusive.
+        final var viewDefinition = queryString.substring(start, stop);
+
+        // prepared parameters in views are not supported.
+        QueryParser.validateNoPreparedParams(viewCtx);
+
+        // 3. visit the SQL string to generate (compile) the corresponding SQL plan.
+        final var viewQuery = getDelegate().getPlanGenerationContext().withDisabledLiteralProcessing(() ->
+                Assert.castUnchecked(viewCtx.viewQuery.accept(this), LogicalOperator.class));
+
+        // 4. Return it.
+        return RecordLayerView.newBuilder()
+                .setName(viewName)
+                .setDescription(viewDefinition)
+                .setViewCompiler(ignored -> viewQuery)
                 .build();
     }
 
