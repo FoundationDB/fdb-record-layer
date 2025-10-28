@@ -850,4 +850,43 @@ public class RecordMetaDataBuilderTest {
             assertEquals(expectedIndex.getRootExpression(), actualIndex.getRootExpression(), "Incorrect index root expression");
         }
     }
+
+    @Test
+    void recordMetadataCopyConstructorWorks() {
+        // Create a sample RecordMetaData object.
+        RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
+        builder.setSplitLongRecords(true);
+        builder.setStoreRecordVersions(true);
+        builder.setVersion(42);
+
+        final RecordMetaData original = builder.build();
+
+        // Create a subclass to access the protected copy constructor
+        final RecordMetaData copy = new RecordMetaData(original) {
+        };
+
+        // Verify that all properties are correctly copied
+        assertEquals(original.getVersion(), copy.getVersion(), "Version should match");
+        assertEquals(original.isSplitLongRecords(), copy.isSplitLongRecords(), "splitLongRecords should match");
+        assertEquals(original.isStoreRecordVersions(), copy.isStoreRecordVersions(), "storeRecordVersions should match");
+        assertEquals(original.usesSubspaceKeyCounter(), copy.usesSubspaceKeyCounter(), "usesSubspaceKeyCounter should match");
+        assertEquals(original.getSubspaceKeyCounter(), copy.getSubspaceKeyCounter(), "subspaceKeyCounter should match");
+
+        // Verify record types
+        assertEquals(original.getRecordTypes().size(), copy.getRecordTypes().size(), "Record type count should match");
+        assertIterableEquals(original.getRecordTypes().keySet(), copy.getRecordTypes().keySet(), "Record type names should match");
+
+        // Verify indexes
+        assertEquals(original.getAllIndexes().size(), copy.getAllIndexes().size(), "Index count should match");
+        for (Index originalIndex : original.getAllIndexes()) {
+            Index copiedIndex = copy.getIndex(originalIndex.getName());
+            assertNotNull(copiedIndex, "Index should exist in copy: " + originalIndex.getName());
+            assertEquals(originalIndex.getName(), copiedIndex.getName(), "Index name should match");
+            assertEquals(originalIndex.getRootExpression(), copiedIndex.getRootExpression(), "Index root expression should match");
+        }
+
+        // Verify descriptors
+        assertEquals(original.getRecordsDescriptor(), copy.getRecordsDescriptor(), "Records descriptor should match");
+        assertEquals(original.getUnionDescriptor(), copy.getUnionDescriptor(), "Union descriptor should match");
+    }
 }

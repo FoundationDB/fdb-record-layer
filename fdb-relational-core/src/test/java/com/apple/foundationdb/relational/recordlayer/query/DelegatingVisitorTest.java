@@ -229,6 +229,33 @@ public class DelegatingVisitorTest {
     }
 
     @Test
+    void visitViewDefinitionTest() {
+        final var query = "VIEW V AS SELECT * FROM T";
+        final MutableBoolean baseVisitorCalled = new MutableBoolean(false);
+        final var baseVisitor = new BaseVisitor(
+                new MutablePlanGenerationContext(PreparedParams.empty(),
+                        PlanHashable.PlanHashMode.VC0, query, query, 42),
+                generateMetadata(),
+                NoOpQueryFactory.INSTANCE,
+                NoOpMetadataOperationsFactory.INSTANCE,
+                URI.create("/FDB/FRL1"),
+                false) {
+
+            public Object visitViewDefinition(final RelationalParser.ViewDefinitionContext ctx) {
+                baseVisitorCalled.setTrue();
+                return null;
+            }
+        };
+
+        final var delegatingVisitor = new DelegatingVisitor<>(baseVisitor);
+        final var tokenSource = new RelationalLexer(new CaseInsensitiveCharStream(query));
+        final var parser = new RelationalParser(new CommonTokenStream(tokenSource));
+        final var viewDefinitionContext = parser.viewDefinition();
+        delegatingVisitor.visitViewDefinition(viewDefinitionContext);
+        Assertions.assertThat(baseVisitorCalled.booleanValue()).isTrue();
+    }
+
+    @Test
     void visitUserDefinedScalarFunctionCallTest() {
         final var query = "myFunction(123)";
         final MutableBoolean baseVisitorCalled = new MutableBoolean(false);

@@ -23,6 +23,7 @@ package com.apple.foundationdb.relational.recordlayer.query.visitors;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.RawSqlFunction;
+import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.UserDefinedMacroFunction;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
 import com.apple.foundationdb.record.query.plan.cascades.values.PromoteValue;
@@ -40,6 +41,7 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerInvokedRoutine;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerView;
 import com.apple.foundationdb.relational.recordlayer.query.Expression;
 import com.apple.foundationdb.relational.recordlayer.query.Expressions;
 import com.apple.foundationdb.relational.recordlayer.query.Identifier;
@@ -49,7 +51,7 @@ import com.apple.foundationdb.relational.recordlayer.query.PreparedParams;
 import com.apple.foundationdb.relational.recordlayer.query.ProceduralPlan;
 import com.apple.foundationdb.relational.recordlayer.query.QueryParser;
 import com.apple.foundationdb.relational.recordlayer.query.SemanticAnalyzer;
-import com.apple.foundationdb.relational.recordlayer.query.functions.CompilableSqlFunction;
+import com.apple.foundationdb.relational.recordlayer.query.functions.CompiledSqlFunction;
 import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -241,6 +243,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         final ImmutableSet.Builder<RelationalParser.TableDefinitionContext> tableClauses = ImmutableSet.builder();
         final ImmutableSet.Builder<RelationalParser.IndexDefinitionContext> indexClauses = ImmutableSet.builder();
         final ImmutableSet.Builder<RelationalParser.SqlInvokedFunctionContext> sqlInvokedFunctionClauses = ImmutableSet.builder();
+        final ImmutableSet.Builder<RelationalParser.ViewDefinitionContext> viewClauses = ImmutableSet.builder();
         for (final var templateClause : ctx.templateClause()) {
             if (templateClause.enumDefinition() != null) {
                 metadataBuilder.addAuxiliaryType(visitEnumDefinition(templateClause.enumDefinition()));
@@ -250,6 +253,8 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
                 tableClauses.add(templateClause.tableDefinition());
             } else if (templateClause.sqlInvokedFunction() != null) {
                 sqlInvokedFunctionClauses.add(templateClause.sqlInvokedFunction());
+            } else if (templateClause.viewDefinition() != null) {
+                viewClauses.add(templateClause.viewDefinition());
             } else {
                 Assert.thatUnchecked(templateClause.indexDefinition() != null);
                 indexClauses.add(templateClause.indexDefinition());
@@ -263,6 +268,10 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         sqlInvokedFunctionClauses.build().forEach(functionClause -> {
             metadataBuilder.addInvokedRoutine(getInvokedRoutineMetadata(functionClause, functionClause.functionSpecification(),
                     functionClause.routineBody(), metadataBuilder.build()));
+        });
+        viewClauses.build().forEach(viewClause -> {
+            final var view = getViewMetadata(viewClause, metadataBuilder.build());
+            metadataBuilder.addView(view);
         });
         for (final var index : indexes) {
             final var table = metadataBuilder.extractTable(index.getTableName());
@@ -359,6 +368,36 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         }
     }
 
+    @Nonnull
+    private RecordLayerView getViewMetadata(@Nonnull final RelationalParser.ViewDefinitionContext viewCtx,
+                                            @Nonnull final RecordLayerSchemaTemplate ddlCatalog) {
+        // parse the view SQL query using the newly constructed metadata.
+        getDelegate().replaceSchemaTemplate(ddlCatalog);
+
+        // 1. get the view name.
+        final var viewName = visitFullId(viewCtx.viewName).toString();
+
+        // 2. get the view SQL definition string.
+        final var queryString = getDelegate().getPlanGenerationContext().getQuery();
+        final var start = viewCtx.viewQuery.start.getStartIndex();
+        final var stop = viewCtx.viewQuery.stop.getStopIndex() + 1; // inclusive.
+        final var viewDefinition = queryString.substring(start, stop);
+
+        // prepared parameters in views are not supported.
+        QueryParser.validateNoPreparedParams(viewCtx);
+
+        // 3. visit the SQL string to generate (compile) the corresponding SQL plan.
+        final var viewQuery = getDelegate().getPlanGenerationContext().withDisabledLiteralProcessing(() ->
+                Assert.castUnchecked(viewCtx.viewQuery.accept(this), LogicalOperator.class));
+
+        // 4. Return it.
+        return RecordLayerView.newBuilder()
+                .setName(viewName)
+                .setDescription(viewDefinition)
+                .setViewCompiler(ignored -> viewQuery)
+                .build();
+    }
+
     @Override
     public ProceduralPlan visitCreateTempFunction(@Nonnull RelationalParser.CreateTempFunctionContext ctx) {
         final var invokedRoutine = getInvokedRoutineMetadata(ctx, ctx.tempSqlInvokedFunction().functionSpecification(),
@@ -376,16 +415,16 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
     }
 
     @Override
-    public CompilableSqlFunction visitTempSqlInvokedFunction(@Nonnull RelationalParser.TempSqlInvokedFunctionContext ctx) {
-        return (CompilableSqlFunction)visitSqlInvokedFunction(ctx.functionSpecification(), ctx.routineBody(), true);
+    public CompiledSqlFunction visitTempSqlInvokedFunction(@Nonnull RelationalParser.TempSqlInvokedFunctionContext ctx) {
+        return (CompiledSqlFunction)visitSqlInvokedFunction(ctx.functionSpecification(), ctx.routineBody(), true);
     }
 
     @Override
-    public com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction visitSqlInvokedFunction(@Nonnull RelationalParser.SqlInvokedFunctionContext ctx) {
+    public UserDefinedFunction visitSqlInvokedFunction(@Nonnull RelationalParser.SqlInvokedFunctionContext ctx) {
         return visitSqlInvokedFunction(ctx.functionSpecification(), ctx.routineBody(), false);
     }
 
-    private com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction visitSqlInvokedFunction(@Nonnull final RelationalParser.FunctionSpecificationContext functionSpecCtx,
+    private UserDefinedFunction visitSqlInvokedFunction(@Nonnull final RelationalParser.FunctionSpecificationContext functionSpecCtx,
                                                                                                           @Nonnull final RelationalParser.RoutineBodyContext bodyCtx,
                                                                                                           boolean isTemporary) {
         // get the function name.
@@ -428,7 +467,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
             // create SQL function logical plan by visiting the function body.
             final var parameters = getDelegate().getPlanGenerationContext().withDisabledLiteralProcessing(() ->
                     visitSqlParameterDeclarationList(functionSpecCtx.sqlParameterDeclarationList()).asNamedArguments());
-            final var sqlFunctionBuilder = CompilableSqlFunction.newBuilder()
+            final var sqlFunctionBuilder = CompiledSqlFunction.newBuilder()
                     .setName(functionName)
                     .addAllParameters(parameters)
                     .seal();

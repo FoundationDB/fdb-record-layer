@@ -31,10 +31,12 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.relational.api.metadata.InvokedRoutine;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.api.metadata.Table;
+import com.apple.foundationdb.relational.api.metadata.View;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerInvokedRoutine;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerView;
 import com.apple.foundationdb.relational.recordlayer.metadata.SkeletonVisitor;
 import com.apple.foundationdb.relational.util.Assert;
 
@@ -94,6 +96,12 @@ public class RecordMetadataSerializer extends SkeletonVisitor {
         }
         final var recordLayerInvokedRoutine = Assert.castUnchecked(invokedRoutine, RecordLayerInvokedRoutine.class);
         getBuilder().addUserDefinedFunction(recordLayerInvokedRoutine.asSerializableFunction());
+    }
+
+    @Override
+    public void visit(@Nonnull final View view) {
+        Assert.thatUnchecked(view instanceof RecordLayerView);
+        getBuilder().addView(((RecordLayerView)view).asRawView());
     }
 
     @Override

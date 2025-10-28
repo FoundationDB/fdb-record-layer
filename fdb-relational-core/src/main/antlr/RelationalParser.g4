@@ -90,7 +90,7 @@ utilityStatement
 
 templateClause
     :
-        CREATE ( structDefinition | tableDefinition | enumDefinition | indexDefinition | sqlInvokedFunction)
+        CREATE ( structDefinition | tableDefinition | enumDefinition | indexDefinition | sqlInvokedFunction | viewDefinition )
     ;
 
 createStatement
@@ -175,6 +175,10 @@ createTempFunction
 
 dropTempFunction
     : DROP TEMPORARY FUNCTION (IF EXISTS)? schemaQualifiedRoutineName=fullId
+    ;
+
+viewDefinition
+    : VIEW viewName=fullId AS viewQuery=query
     ;
 
 tempSqlInvokedFunction

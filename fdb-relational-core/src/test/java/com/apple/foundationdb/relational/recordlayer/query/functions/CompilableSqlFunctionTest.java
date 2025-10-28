@@ -32,7 +32,7 @@ import javax.annotation.Nonnull;
 import java.util.Optional;
 
 /**
- * Tests for {@link CompilableSqlFunction}.
+ * Tests for {@link CompiledSqlFunction}.
  */
 class CompilableSqlFunctionTest {
 
@@ -50,8 +50,8 @@ class CompilableSqlFunctionTest {
      * Creates a simple test function with basic parameters.
      */
     @Nonnull
-    private CompilableSqlFunction createTestFunction() {
-        return new CompilableSqlFunction(
+    private CompiledSqlFunction createTestFunction() {
+        return new CompiledSqlFunction(
                 "testFunction",
                 ImmutableList.of("param1", "param2"),
                 ImmutableList.of(
