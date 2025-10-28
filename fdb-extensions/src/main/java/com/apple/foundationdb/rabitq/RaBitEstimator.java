@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.rabitq;
 
-import com.apple.foundationdb.async.hnsw.HNSW;
 import com.apple.foundationdb.linear.DoubleRealVector;
 import com.apple.foundationdb.linear.Estimator;
 import com.apple.foundationdb.linear.Metric;
@@ -49,8 +48,7 @@ public class RaBitEstimator implements Estimator {
     }
 
     @Override
-    public double distance(@Nonnull final RealVector query,
-                           @Nonnull final RealVector storedVector) {
+    public double distance(@Nonnull final RealVector query, @Nonnull final RealVector storedVector) {
         if (!(query instanceof EncodedRealVector) && storedVector instanceof EncodedRealVector) {
             // only use the estimator if the first (by convention) vector is not encoded, but the second is
             return distance(query, (EncodedRealVector)storedVector);
@@ -62,17 +60,12 @@ public class RaBitEstimator implements Estimator {
         return metric.distance(query, storedVector);
     }
 
-    private double distance(@Nonnull final RealVector query, // pre-rotated query q
-                            @Nonnull final EncodedRealVector encodedVector) {
-        final double x = estimateDistanceAndErrorBound(query, encodedVector).getDistance();
-        if (HNSW.cK.get() > 2026) {
-            System.out.println("estimated distance = " + x);
-        }
-        return x;
+    private double distance(@Nonnull final RealVector query, @Nonnull final EncodedRealVector encodedVector) {
+        return estimateDistanceAndErrorBound(query, encodedVector).getDistance();
     }
 
     @Nonnull
-    public Result estimateDistanceAndErrorBound(@Nonnull final RealVector query, // pre-rotated query q
+    public Result estimateDistanceAndErrorBound(@Nonnull final RealVector query,
                                                 @Nonnull final EncodedRealVector encodedVector) {
         final double cb = (1 << numExBits) - 0.5;
         final double gAdd = query.dot(query);

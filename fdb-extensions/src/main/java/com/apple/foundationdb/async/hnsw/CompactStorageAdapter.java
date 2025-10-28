@@ -28,6 +28,7 @@ import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.async.AsyncIterable;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.linear.AffineOperator;
+import com.apple.foundationdb.linear.Quantizer;
 import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
@@ -244,20 +245,22 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
      * registered write listeners via {@code onNodeWritten} and {@code onKeyValueWritten}.
      *
      * @param transaction the {@link Transaction} to use for the write operation.
+     * @param quantizer the quantizer to use
      * @param node the {@link Node} to be serialized and written; it is processed as a {@link CompactNode}.
      * @param layer the graph layer index for the node, used to construct the storage key.
      * @param neighborsChangeSet a {@link NeighborsChangeSet} containing the additions and removals, which are
      * merged to determine the final set of neighbors to be written.
      */
     @Override
-    public void writeNodeInternal(@Nonnull final Transaction transaction, @Nonnull final Node<NodeReference> node,
-                                  final int layer, @Nonnull final NeighborsChangeSet<NodeReference> neighborsChangeSet) {
+    public void writeNodeInternal(@Nonnull final Transaction transaction, @Nonnull final Quantizer quantizer,
+                                  @Nonnull final Node<NodeReference> node, final int layer,
+                                  @Nonnull final NeighborsChangeSet<NodeReference> neighborsChangeSet) {
         final byte[] key = getDataSubspace().pack(Tuple.from(layer, node.getPrimaryKey()));
 
         final List<Object> nodeItems = Lists.newArrayListWithExpectedSize(3);
         nodeItems.add(NodeKind.COMPACT.getSerialized());
         final CompactNode compactNode = node.asCompactNode();
-        nodeItems.add(StorageAdapter.tupleFromVector(compactNode.getVector()));
+        nodeItems.add(StorageAdapter.tupleFromVector(quantizer.encode(compactNode.getVector())));
 
         final Iterable<NodeReference> neighbors = neighborsChangeSet.merge();
 

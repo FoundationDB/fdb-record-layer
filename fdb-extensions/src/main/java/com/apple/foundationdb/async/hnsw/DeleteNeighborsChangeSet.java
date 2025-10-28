@@ -21,6 +21,7 @@
 package com.apple.foundationdb.async.hnsw;
 
 import com.apple.foundationdb.Transaction;
+import com.apple.foundationdb.linear.Quantizer;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -112,6 +113,7 @@ class DeleteNeighborsChangeSet<N extends NodeReference> implements NeighborsChan
      * relationship for the given {@code node}.
      *
      * @param storageAdapter the storage adapter to which the changes are written
+     * @param quantizer the quantizer to use
      * @param transaction the transaction context for the write operations
      * @param layer the layer index where the write operations should occur
      * @param node the node for which the delta is being written
@@ -120,8 +122,9 @@ class DeleteNeighborsChangeSet<N extends NodeReference> implements NeighborsChan
      */
     @Override
     public void writeDelta(@Nonnull final InliningStorageAdapter storageAdapter, @Nonnull final Transaction transaction,
-                           final int layer, @Nonnull final Node<N> node, @Nonnull final Predicate<Tuple> tuplePredicate) {
-        getParent().writeDelta(storageAdapter, transaction, layer, node,
+                           @Nonnull final Quantizer quantizer, final int layer, @Nonnull final Node<N> node,
+                           @Nonnull final Predicate<Tuple> tuplePredicate) {
+        getParent().writeDelta(storageAdapter, transaction, quantizer, layer, node,
                 tuplePredicate.and(tuple -> !deletedNeighborsPrimaryKeys.contains(tuple)));
 
         for (final Tuple deletedNeighborPrimaryKey : deletedNeighborsPrimaryKeys) {

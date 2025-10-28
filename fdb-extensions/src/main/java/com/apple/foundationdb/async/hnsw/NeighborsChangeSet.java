@@ -21,6 +21,7 @@
 package com.apple.foundationdb.async.hnsw;
 
 import com.apple.foundationdb.Transaction;
+import com.apple.foundationdb.linear.Quantizer;
 import com.apple.foundationdb.tuple.Tuple;
 
 import javax.annotation.Nonnull;
@@ -69,12 +70,14 @@ interface NeighborsChangeSet<N extends NodeReference> {
      * is performed within the context of the supplied {@link Transaction}.
      *
      * @param storageAdapter the storage adapter to which the delta will be written; must not be null
+     * @param quantizer quantizer to use
      * @param transaction the transaction context for the write operation; must not be null
      * @param layer the specific storage layer to write the delta to
      * @param node the source node containing the data to be written; must not be null
      * @param primaryKeyPredicate a predicate to filter records by their primary key. Only records
      *        for which the predicate returns {@code true} will be written. Must not be null.
      */
-    void writeDelta(@Nonnull InliningStorageAdapter storageAdapter, @Nonnull Transaction transaction, int layer,
-                    @Nonnull Node<N> node, @Nonnull Predicate<Tuple /* primary key */> primaryKeyPredicate);
+    void writeDelta(@Nonnull InliningStorageAdapter storageAdapter, @Nonnull Transaction transaction,
+                    @Nonnull Quantizer quantizer, int layer, @Nonnull Node<N> node,
+                    @Nonnull Predicate<Tuple /* primary key */> primaryKeyPredicate);
 }

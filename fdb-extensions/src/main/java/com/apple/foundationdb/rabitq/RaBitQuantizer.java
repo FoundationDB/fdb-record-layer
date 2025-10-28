@@ -114,6 +114,9 @@ public final class RaBitQuantizer implements Quantizer {
     @Nonnull
     @Override
     public EncodedRealVector encode(@Nonnull final RealVector data) {
+        if (data instanceof EncodedRealVector) {
+            return (EncodedRealVector)data;
+        }
         return encodeInternal(data).getEncodedVector();
     }
 

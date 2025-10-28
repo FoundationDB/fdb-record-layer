@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.linear;
 
-import com.apple.foundationdb.async.hnsw.HNSW;
-
 import javax.annotation.Nonnull;
 
 /**
@@ -123,11 +121,7 @@ public enum Metric implements MetricDefinition {
 
     @Override
     public double distance(@Nonnull final double[] vectorData1, @Nonnull final double[] vectorData2) {
-        final double x =  metricDefinition.distance(vectorData1, vectorData2);
-        if (HNSW.cK.get() > 2026) {
-            System.out.println("metric distance = " + x);
-        }
-        return x;
+        return metricDefinition.distance(vectorData1, vectorData2);
     }
 
     /**

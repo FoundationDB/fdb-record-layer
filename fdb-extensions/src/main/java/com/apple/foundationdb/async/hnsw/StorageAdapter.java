@@ -30,6 +30,7 @@ import com.apple.foundationdb.linear.AffineOperator;
 import com.apple.foundationdb.linear.DoubleRealVector;
 import com.apple.foundationdb.linear.FloatRealVector;
 import com.apple.foundationdb.linear.HalfRealVector;
+import com.apple.foundationdb.linear.Quantizer;
 import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.linear.VectorType;
 import com.apple.foundationdb.rabitq.EncodedRealVector;
@@ -175,12 +176,13 @@ interface StorageAdapter<N extends NodeReference> {
      * neighboring nodes as defined in the {@code NeighborsChangeSet}. The entire operation is performed atomically as
      * part of the provided {@link Transaction}.
      * @param transaction the non-null transaction context for this write operation.
+     * @param quantizer the quantizer to use
      * @param node the non-null node to be written to the data store.
      * @param layer the layer index where the node resides.
      * @param changeSet the non-null set of changes describing additions or removals of
      *        neighbors for the given {@link Node}.
      */
-    void writeNode(@Nonnull Transaction transaction, @Nonnull Node<N> node, int layer,
+    void writeNode(@Nonnull Transaction transaction, @Nonnull Quantizer quantizer, @Nonnull Node<N> node, int layer,
                    @Nonnull NeighborsChangeSet<N> changeSet);
 
     /**
