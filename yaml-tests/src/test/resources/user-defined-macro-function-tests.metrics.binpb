@@ -14,10 +14,10 @@ S
   4 -> 3 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}¨
-G
-"user-defined-scalar-function-tests!EXPLAIN select st2(r) from nestedÜ
-âùìú7 Êé(0œ£28@!ISCAN(I2 <,>) | MAP (_.R.U AS _0)›digraph G {
+}­
+L
+"user-defined-scalar-function-tests&EXPLAIN select st2_func(r) from nestedÜ
+âòßÒ7 ¡Ó(0ãÉ08@!ISCAN(I2 <,>) | MAP (_.R.U AS _0)›digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -54,10 +54,10 @@ g
   3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q43> label="q43" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}…
-o
-"user-defined-scalar-function-testsIEXPLAIN select z(r) as A, z(r) as B, st2(r) as C from nested where id = 1‘
-÷îŸac ğ²ÕF(0Úß¿8'@gISCAN(I2 <,>) | FILTER _.ID EQUALS promote(@c27 AS LONG) | MAP (_.R.V.Z AS A, _.R.V.Z AS B, _.R.U AS C)‰digraph G {
+}‰
+t
+"user-defined-scalar-function-testsNEXPLAIN select z(r) as A, z(r) as B, st2_func(r) as C from nested where id = 1
+÷¯Øc ÅÚ(0³ªN8'@gISCAN(I2 <,>) | FILTER _.ID EQUALS promote(@c27 AS LONG) | MAP (_.R.V.Z AS A, _.R.V.Z AS B, _.R.U AS C)‰digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;

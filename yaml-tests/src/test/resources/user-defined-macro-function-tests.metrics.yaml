@@ -10,12 +10,12 @@ user-defined-scalar-function-tests:
     insert_time_ms: 0
     insert_new_count: 25
     insert_reused_count: 2
--   query: EXPLAIN select st2(r) from nested
+-   query: EXPLAIN select st2_func(r) from nested
     explain: ISCAN(I2 <,>) | MAP (_.R.U AS _0)
     task_count: 226
-    task_total_time_ms: 18
+    task_total_time_ms: 13
     transform_count: 55
-    transform_time_ms: 8
+    transform_time_ms: 6
     transform_yield_count: 23
     insert_time_ms: 0
     insert_new_count: 25
@@ -43,16 +43,16 @@ user-defined-scalar-function-tests:
     insert_time_ms: 1
     insert_new_count: 39
     insert_reused_count: 4
--   query: EXPLAIN select z(r) as A, z(r) as B, st2(r) as C from nested where id =
-        1
+-   query: EXPLAIN select z(r) as A, z(r) as B, st2_func(r) as C from nested where
+        id = 1
     explain: ISCAN(I2 <,>) | FILTER _.ID EQUALS promote(@c27 AS LONG) | MAP (_.R.V.Z
         AS A, _.R.V.Z AS B, _.R.U AS C)
     task_count: 375
-    task_total_time_ms: 203
+    task_total_time_ms: 32
     transform_count: 99
-    transform_time_ms: 148
+    transform_time_ms: 18
     transform_yield_count: 28
-    insert_time_ms: 5
+    insert_time_ms: 1
     insert_new_count: 39
     insert_reused_count: 4
 -   query: EXPLAIN select self(id) as A, z(r) as B, z(r) as C from nested where z(r)

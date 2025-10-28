@@ -28,7 +28,7 @@ schema_template:
     create table nested(id bigint, q st4, r st3, primary key(q.s, r.u.w))
     create index i2 as select r.v.z from nested order by r.v.z
     create table simple_table(a bigint, b string, c integer, primary key(a))
-    CREATE FUNCTION st2(IN x TYPE ST3) RETURNS ST2 AS x.u
+    CREATE FUNCTION st2_func(IN x TYPE ST3) RETURNS ST2 AS x.u
     CREATE FUNCTION z(IN x TYPE ST3) RETURNS bigint AS x.v.z
     CREATE FUNCTION self(IN x bigint) RETURNS bigint AS x
     CREATE FUNCTION table_func1(IN limit_val bigint) AS SELECT id, self(id) as id_copy, z(r) as z_val FROM nested WHERE id <= limit_val
@@ -59,7 +59,7 @@ test_block:
       - explain: "ISCAN(I2 <,>) | MAP (_ AS _0) | AGG () GROUP BY (_._0.R.V.Z AS _0) | MAP (_._0._0 AS _0)"
       - unorderedResult: [{100}, {140}]
     -
-      - query: select st2(r) from nested
+      - query: select st2_func(r) from nested
       - explain: "ISCAN(I2 <,>) | MAP (_.R.U AS _0)"
       - unorderedResult: [{{!l 5, !l 11}}, {{!l 5, !l 12}}, {{!l 5, !l 13}}, {{!l 5, !l 14}}, {{!l 5, !l 15}}, {{!l 5, !l 16}}]
     -
@@ -73,7 +73,7 @@ test_block:
       - unorderedResult: [{A: 1, B: 1, C: 2}, {A: 2, B: 2, C: 4}]
     -
       # Test multiple invocations with different UDF functions
-      - query: select z(r) as A, z(r) as B, st2(r) as C from nested where id = 1
+      - query: select z(r) as A, z(r) as B, st2_func(r) as C from nested where id = 1
       - explain: "ISCAN(I2 <,>) | FILTER _.ID EQUALS promote(@c27 AS LONG) | MAP (_.R.V.Z AS A, _.R.V.Z AS B, _.R.U AS C)"
       - unorderedResult: [{A: 100, B: 100, C: {!l 5, !l 11}}]
     -
