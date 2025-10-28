@@ -129,8 +129,9 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
         FDBLuceneFileReference luceneFileReference = directory.getFDBLuceneFileReference("test1");
         assertNotNull(luceneFileReference, "fileReference should exist");
 
+        LuceneSerializer serializer = directory.getSerializer();
         assertCorrectMetricSize(LuceneEvents.SizeEvents.LUCENE_WRITE_FILE_REFERENCE, 2,
-                LuceneSerializer.encode(reference1.getBytes(), true, false).length + LuceneSerializer.encode(reference2.getBytes(), true, false).length);
+                serializer.encode(reference1.getBytes()).length + serializer.encode(reference2.getBytes()).length);
     }
 
     @Test
@@ -159,7 +160,7 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
                 directory.getFDBLuceneFileReferenceAsync("testReference2"), 1).get(), "seek data should exist");
 
         directory.getCallerContext().commit();
-        assertCorrectMetricSize(LuceneEvents.SizeEvents.LUCENE_WRITE, 1, LuceneSerializer.encode(data, true, false).length);
+        assertCorrectMetricSize(LuceneEvents.SizeEvents.LUCENE_WRITE, 1, directory.getSerializer().encode(data).length);
     }
 
     @Test

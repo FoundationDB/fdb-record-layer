@@ -48,6 +48,7 @@ import java.util.AbstractCollection;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -363,6 +364,8 @@ public class Reference implements Correlated<Reference>, Typed {
 
         Debugger.sanityCheck(() -> Verify.verify(getTotalMembersSize() == 0 ||
                 getResultType().equals(newExpression.getResultType())));
+        Debugger.sanityCheck(() -> Verify.verify(getTotalMembersSize() == 0 ||
+                getCorrelatedTo().containsAll(newExpression.getCorrelatedTo())));
 
         if (isFinal) {
             finalMembers.add(newExpression);
@@ -978,10 +981,25 @@ public class Reference implements Correlated<Reference>, Typed {
             return expressions.addAll(newExpressions);
         }
 
-        public boolean containsInMemo(@Nonnull final RelationalExpression expression,
+        public boolean containsInMemo(@Nonnull final RelationalExpression otherExpression,
                                       @Nonnull final AliasMap equivalenceMap) {
+            // short circuit if possible
+            if (expressions.contains(otherExpression)) {
+                //
+                // Make sure that the equivalence map either only defines identities, i.e. aliases are only mapped to
+                // themselves, or, if not, that neither sources nor targets have anything to do with the expression's
+                // correlation set.
+                //
+                final var otherCorrelatedTo = otherExpression.getCorrelatedTo();
+                if (equivalenceMap.definesOnlyIdentities() ||
+                        (Collections.disjoint(equivalenceMap.targets(), otherCorrelatedTo) &&
+                                 Collections.disjoint(equivalenceMap.sources(), otherCorrelatedTo))) {
+                    return true;
+                }
+            }
+
             for (final RelationalExpression member : expressions) {
-                if (isMemoizedExpression(member, expression, equivalenceMap)) {
+                if (isMemoizedExpression(member, otherExpression, equivalenceMap)) {
                     return true;
                 }
             }
@@ -989,6 +1007,7 @@ public class Reference implements Correlated<Reference>, Typed {
         }
     }
 
+    @Nonnull
     private static <T> Collection<T> concatSetsView(@Nonnull final Set<T> first,
                                                     @Nonnull final Set<T> second) {
         return new AbstractCollection<>() {

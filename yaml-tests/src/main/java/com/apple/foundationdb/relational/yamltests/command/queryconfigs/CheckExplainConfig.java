@@ -206,26 +206,14 @@ public class CheckExplainConfig extends QueryConfig {
     private boolean areMetricsDifferent(final PlannerMetricsProto.CountersAndTimers expectedCountersAndTimers,
                                         final PlannerMetricsProto.CountersAndTimers actualCountersAndTimers,
                                         final Descriptors.Descriptor metricsDescriptor) {
-        return isMetricDifferent(expectedCountersAndTimers,
-                actualCountersAndTimers,
-                metricsDescriptor.findFieldByName("task_count"),
-                lineNumber) |
-                isMetricDifferent(expectedCountersAndTimers,
-                        actualCountersAndTimers,
-                        metricsDescriptor.findFieldByName("transform_count"),
-                        lineNumber) |
-                isMetricDifferent(expectedCountersAndTimers,
-                        actualCountersAndTimers,
-                        metricsDescriptor.findFieldByName("transform_yield_count"),
-                        lineNumber) |
-                isMetricDifferent(expectedCountersAndTimers,
-                        actualCountersAndTimers,
-                        metricsDescriptor.findFieldByName("insert_new_count"),
-                        lineNumber) |
-                isMetricDifferent(expectedCountersAndTimers,
-                        actualCountersAndTimers,
-                        metricsDescriptor.findFieldByName("insert_reused_count"),
-                        lineNumber);
+        boolean different = false;
+        for (String fieldName : YamlExecutionContext.TRACKED_METRIC_FIELDS) {
+            // Check each metric. Do NOT short-circuit because we want to log any metrics
+            // that have changed (a side effect of isMetricDifferent)
+            different |= isMetricDifferent(expectedCountersAndTimers, actualCountersAndTimers,
+                    metricsDescriptor.findFieldByName(fieldName), lineNumber);
+        }
+        return different;
     }
 
     private static boolean isMetricDifferent(@Nonnull final PlannerMetricsProto.CountersAndTimers expected,

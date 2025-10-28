@@ -61,7 +61,8 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryInValuesJoinPla
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInsertPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryMultiIntersectionOnValuesPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveUnionPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveDfsJoinPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveLevelUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTableFunctionPlan;
 import com.apple.foundationdb.record.query.plan.plans.TempTableScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.TempTableInsertPlan;
@@ -364,7 +365,7 @@ public class OrderingProperty implements ExpressionProperty<Ordering> {
 
         @Nonnull
         @Override
-        public Ordering visitRecursiveUnionPlan(@Nonnull final RecordQueryRecursiveUnionPlan element) {
+        public Ordering visitRecursiveLevelUnionPlan(@Nonnull final RecordQueryRecursiveLevelUnionPlan element) {
             return Ordering.empty();
         }
 
@@ -689,6 +690,12 @@ public class OrderingProperty implements ExpressionProperty<Ordering> {
         @Override
         public Ordering visitSortPlan(@Nonnull final RecordQuerySortPlan element) {
             // TODO
+            return Ordering.empty();
+        }
+
+        @Nonnull
+        @Override
+        public Ordering visitRecursiveDfsJoinPlan(@Nonnull final RecordQueryRecursiveDfsJoinPlan recursiveDfsJoinPlan) {
             return Ordering.empty();
         }
 

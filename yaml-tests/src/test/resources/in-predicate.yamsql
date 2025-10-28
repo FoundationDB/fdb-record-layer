@@ -16,11 +16,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 ---
 schema_template:
     create type as struct ts(sa bigint, sb bigint)
+    create type as struct fruit_type(name string, color string)
     create table ta(a bigint, b bigint, c double, d boolean, e string, f ts, primary key(a))
+    create table array_table(id bigint, fruits string array, numbers bigint array, fruit_records fruit_type array, primary key(id))
+    create index f1 as select f.sa, f.sb from ta order by f.sa, f.sb
 ---
 setup:
   steps:
@@ -37,6 +39,13 @@ setup:
                (7, 2, 2.34, false, 'arc', (27, 72)),
                (8, 1, 5.67, true , 'bar', (18, 81)),
                (9, 0, 8.90, false, 'doe', (9, 90))
+    # Array table data
+    - query: INSERT INTO array_table
+        VALUES (1, ['apple', 'banana', 'cherry'], [10, 20, 30], [('apple' as name, 'red' as color), ('banana' as name, 'yellow' as color)]),
+               (2, ['grape', 'orange'], [40, 50], [('grape' as name, 'purple' as color)]),
+               (3, ['apple', 'grape', 'mango'], [10, 60, 70], [('mango' as name, 'orange' as color), ('apple' as name, 'green' as color)]),
+               (4, ['kiwi'], [80], [('kiwi' as name, 'brown' as color)]),
+               (5, ['banana', 'cherry', 'date'], [20, 90, 100], [('date' as name, 'brown' as color), ('cherry' as name, 'red' as color)])
 ---
 test_block:
   tests:
@@ -61,24 +70,40 @@ test_block:
       - query: select a, b from ta where b in (1 + 0, 3 + 0, 5, 7)
       - unorderedResult: [{A: 2, 7}, {A: 4, 5}, {A: 6, 3}, {A: 8, 1}]
     -
-      # TODO TODO (IN expansion in cascades planner should distinct the in-list to avoid duplicates)
       # LONG value matched against IN list of repeated LONG values
       - query: select a, b from ta where b in (1, 1, 1, 1)
+      - explain: "ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(promote(@c10 AS ARRAY(LONG))) | FILTER q0.B EQUALS _ AS q1 RETURN (q0.A AS A, q0.B AS B) }"
+      - initialVersionAtLeast: 4.6.4.0
+      - result: [{A: 8, 1}]
+      # Duplicate values in in-lists lead to duplicate results if the IN predicate is planned as a nested loop join in earlier versions
+      - initialVersionLessThan: 4.6.4.0
       - result: [{A: 8, 1}, {A: 8, 1}, {A: 8, 1}, {A: 8, 1}]
     -
-      # TODO TODO (IN expansion in cascades planner should distinct the in-list to avoid duplicates)
       # LONG value matched against IN list of repeated LONG values
       - query: select a, b from ta where b in (1, 2, 1, 3)
+      - explain: "ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(promote(@c10 AS ARRAY(LONG))) | FILTER q0.B EQUALS _ AS q1 RETURN (q0.A AS A, q0.B AS B) }"
+      - initialVersionAtLeast: 4.6.4.0
+      - unorderedResult: [{A: 6, 3}, {A: 7, 2}, {A: 8, 1}]
+      # Duplicate values in in-lists lead to duplicate results if the IN predicate is planned as a nested loop join in earlier versions
+      - initialVersionLessThan: 4.6.4.0
       - unorderedResult: [{A: 6, 3}, {A: 7, 2}, {A: 8, 1}, {A: 8, 1}]
     -
       # LONG value matched against IN list of repeated LONG-resultant simple arithmetic values
-      # TODO TODO (IN expansion in cascades planner should distinct the in-list to avoid duplicates)
       - query: select a, b from ta where b in (1 + 0, 1 + 0, 1 + 0, 1 + 0)
+      - explain: "ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(promote(array(@c11 + @c13, @c11 + @c13, @c11 + @c13, @c11 + @c13) AS ARRAY(LONG))) | FILTER q0.B EQUALS _ AS q1 RETURN (q0.A AS A, q0.B AS B) }"
+      - initialVersionAtLeast: 4.6.4.0
+      - result: [{A: 8, 1}]
+      # Duplicate values in in-lists lead to duplicate results if the IN predicate is planned as a nested loop join in earlier versions
+      - initialVersionLessThan: 4.6.4.0
       - result: [{A: 8, 1}, {A: 8, 1}, {A: 8, 1}, {A: 8, 1}]
     -
-      # TODO TODO (IN expansion in cascades planner should distinct the in-list to avoid duplicates)
       # LONG value matched against IN list of repeated LONG-resultant simple expressions
       - query: select a, b from ta where b in (1 + 0, 0 + 1)
+      - explain: "ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(promote(array(@c11 + @c13, @c13 + @c11) AS ARRAY(LONG))) | FILTER q0.B EQUALS _ AS q1 RETURN (q0.A AS A, q0.B AS B) }"
+      - initialVersionAtLeast: 4.6.4.0
+      - result: [ { A: 8, 1 } ]
+      # Duplicate values in in-lists lead to duplicate results if the IN predicate is planned as a nested loop join in earlier versions
+      - initialVersionLessThan: 4.6.4.0
       - result: [{A: 8, 1}, {A: 8, 1}]
     -
       # _ matched against IN list containing NULL value
@@ -87,7 +112,8 @@ test_block:
     -
       # DOUBLE value matched against IN list of DOUBLE values
       - query: select a, c from ta where c in (4.56, 3.45, 2.34)
-      - result: [{A: 1, 4.56}, {A: 4, 3.45}, {A: 7, 2.34}]
+      - explain: "ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(@c10) | FILTER q0.C EQUALS _ AS q1 RETURN (q0.A AS A, q0.C AS C) }"
+      - unorderedResult: [{A: 1, 4.56}, {A: 4, 3.45}, {A: 7, 2.34}]
     -
       # DOUBLE value matched against singleton IN list of DOUBLE value
       - query: select a, c from ta where c in (9.01)
@@ -104,7 +130,7 @@ test_block:
     -
       # BOOLEAN value matched against singleton IN list of BOOLEAN values
       - query: select a, d from ta where d in (true)
-      - result: [{A: 0, !ignore x}, {A: 2, !ignore x}, {A: 4, !ignore x}, {A: 6, !ignore x}, {A: 8, !ignore x}]
+      - unorderedResult: [{A: 0, !ignore x}, {A: 2, !ignore x}, {A: 4, !ignore x}, {A: 6, !ignore x}, {A: 8, !ignore x}]
     -
       # BOOLEAN value matched against singleton IN list of BOOLEAN-resultant simple expressions
       - query: select a, d from ta where d in (3 < 4)
@@ -122,16 +148,34 @@ test_block:
       - query: select a, e from ta where e in ('b' + 'a' + 'r', 'doe')
       - unorderedResult: [{ A: 1, !ignore x }, { A: 8, !ignore x }, { A: 2, !ignore x }, { A: 5, !ignore x }, { A: 9, !ignore x }]
     -
+      # struct value matched against IN list of Tuple values
+      - query: select a, b from ta where (a, b) in ((0L, 9L), (1L, 8L))
+      - explain: "ISCAN(F1 <,>) | FILTER (_.A AS A, _.B AS B) IN array((@c16 AS _0, @c18 AS _1), (@c22 AS _0, @c24 AS _1)) | MAP (_.A AS A, _.B AS B)"
+      - unorderedResult: [ { A: 0, 9 }, { A: 1, 8 } ]
+    -
+      # struct column with an index matched against IN list of Tuple values
+      - query: select a, b from ta where f in ((90L, 9L), (81L, 18L))
+      - unorderedResult: [ { A: 0, 9 }, { A: 1, 8 } ]
+    -
+      # struct column with an index matched against IN list of repeated Tuple values
+      - query: select a, b from ta where f in ((90L, 9L), (81L, 18L), (81L, 18L), (90L, 9L))
+      - explain: "EXPLODE arrayDistinct(array((@c12 AS _0, @c14 AS _1), (@c18 AS _0, @c20 AS _1), (@c18 AS _0, @c20 AS _1), (@c12 AS _0, @c14 AS _1))) | FLATMAP q0 -> { ISCAN(F1 [EQUALS promote(q0._0 AS LONG), EQUALS promote(q0._1 AS LONG)]) AS q1 RETURN (q1.A AS A, q1.B AS B) }"
+      - initialVersionAtLeast: 4.6.4.0
+      - unorderedResult: [ { A: 0, 9 }, { A: 1, 8 } ]
+      # Duplicate values in in-lists lead to duplicate results if the IN predicate is planned as a nested loop join in earlier versions
+      - initialVersionLessThan: 4.6.4.0
+      - unorderedResult: [ { A: 0, 9 }, { A: 0, 9 }, { A: 1, 8 }, { A: 1, 8 } ]
+    -
       # `NOT IN`
       - query: select e, a from ta where e not in ('foo' , 'bar', 'doe', 'arc', 'something')
-      - supported_version: !current_version
+      - supported_version: 4.5.13.0
       - unorderedResult: [{ E: "per", A: 4 }]
     -
       # `NOT IN` with incompatible types
       - query: select a, e from ta where e not in ('foo' , 35)
-      - initialVersionAtLeast: !current_version
+      - initialVersionAtLeast: 4.5.13.0
       - error: "42804"
-      - initialVersionLessThan: !current_version
+      - initialVersionLessThan: 4.5.13.0
       - error: "42601"
     -
       # Values of incompatible types in the IN list
@@ -145,6 +189,61 @@ test_block:
       # constant LONG value matched against IN list of LONG values.
       - query: select a from ta where 1 in (1, 2, 3)
       - unorderedResult: [{0}, {1}, {2}, {3}, {4}, {5}, {6}, {7}, {8}, {9}]
+    -
+      # Test IN predicate with primitive array column - string in string array
+      - query: select id from array_table where 'apple' in fruits
+      - supported_version: 4.8.1.0
+      - unorderedResult: [{1}, {3}]
+    -
+      # Test IN predicate with primitive array column - multiple matches
+      - query: select id from array_table where 'banana' in fruits
+      - supported_version: 4.8.1.0
+      - unorderedResult: [{1}, {5}]
+    -
+      # Test IN predicate with primitive array column - no match
+      - query: select id from array_table where 'pineapple' in fruits
+      - supported_version: 4.8.1.0
+      - result: []
+    -
+      # Test IN predicate with primitive array column - bigint in bigint array
+      - query: select id from array_table where 10 in numbers
+      - supported_version: 4.8.1.0
+      - unorderedResult: [{1}, {3}]
+    -
+      # Test IN predicate with primitive array column - bigint no match
+      - query: select id from array_table where 15 in numbers
+      - supported_version: 4.8.1.0
+      - result: []
+    -
+      # Test IN predicate with record array column - struct in struct array
+      - query: select id from array_table where ('apple', 'red') in fruit_records
+      - supported_version: 4.8.1.0
+      - unorderedResult: [{1}]
+    -
+      # Test IN predicate with record array column - different struct match
+      - query: select id from array_table where ('mango', 'orange') in fruit_records
+      - supported_version: 4.8.1.0
+      - unorderedResult: [{3}]
+    -
+      # Test IN predicate with record array column - no match
+      - query: select id from array_table where ('apple', 'blue') in fruit_records
+      - supported_version: 4.8.1.0
+      - result: []
+    -
+      # Test IN predicate with record array column - partial field match (should not match)
+      - query: select id from array_table where ('grape', 'green') in fruit_records
+      - supported_version: 4.8.1.0
+      - result: []
+    -
+      # Test NOT IN predicate with primitive array column
+      - query: select id from array_table where 'apple' not in fruits
+      - supported_version: 4.8.1.0
+      - unorderedResult: [{2}, {4}, {5}]
+    -
+      # Test NOT IN predicate with record array column
+      - query: select id from array_table where ('apple', 'red') not in fruit_records
+      - supported_version: 4.8.1.0
+      - unorderedResult: [{2}, {3}, {4}, {5}]
 ---
 # Following tests are run once because running them the second time around causes the error to be different. This is
 # "expected" as the point of error is different in both the cases.

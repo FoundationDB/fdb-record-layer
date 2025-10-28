@@ -114,7 +114,7 @@ public abstract class RecordQueryUnionPlan extends RecordQueryUnionPlanBase {
 
     @Nonnull
     @Override
-    public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
+    public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return ImmutableSet.of();
     }
 
@@ -133,8 +133,8 @@ public abstract class RecordQueryUnionPlan extends RecordQueryUnionPlanBase {
     }
 
     @Override
-    public int hashCodeWithoutChildren() {
-        return Objects.hash(super.hashCodeWithoutChildren(), comparisonKeyFunction, isReverse());
+    public int computeHashCodeWithoutChildren() {
+        return Objects.hash(super.computeHashCodeWithoutChildren(), comparisonKeyFunction, isReverse());
     }
 
     @Override
@@ -264,5 +264,4 @@ public abstract class RecordQueryUnionPlan extends RecordQueryUnionPlanBase {
                         ImmutableMap.of("comparisonKeyFunction", Attribute.gml(comparisonKeyFunction.toString()))),
                 childGraphs);
     }
-
 }

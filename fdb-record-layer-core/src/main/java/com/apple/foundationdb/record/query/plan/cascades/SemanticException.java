@@ -51,6 +51,7 @@ public class SemanticException extends RecordCoreException {
         ARGUMENT_TO_COLLATE_IS_OF_COMPLEX_TYPE(11, "The argument to a collate expression expecting an argument of a primitive type, is invoked with an argument of a complex type, e.g. an array or a record."),
         INVALID_ENUM_VALUE(12, "Invalid enum value for the enum type"),
         INVALID_UUID_VALUE(13, "Invalid UUID value for the UUID type"),
+        INVALID_CAST(14, "Invalid cast operation"),
 
         // insert, update, deletes
         UPDATE_TRANSFORM_AMBIGUOUS(1_000, "The transformations used in an UPDATE statement are ambiguous."),

@@ -24,7 +24,6 @@ import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
-import com.apple.foundationdb.record.RecordCursorVisitor;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
@@ -366,26 +365,4 @@ public class ConcatCursorTest {
     }
 
     //TODO test with concat cursor
-    private static class KeyValueCursorCountVisitor implements RecordCursorVisitor {
-        private int keyValueCursorCount = 0;
-
-        @Override
-        public boolean visitEnter(RecordCursor<?> cursor) {
-            if (cursor instanceof BaseCursor) {
-                keyValueCursorCount++;
-            }
-            return true;
-        }
-
-        @Override
-        public boolean visitLeave(RecordCursor<?> cursor) {
-            return true;
-        }
-
-        public static int getCount(RecordCursor<?> cursor) {
-            ConcatCursorTest.KeyValueCursorCountVisitor visitor = new ConcatCursorTest.KeyValueCursorCountVisitor();
-            cursor.accept(visitor);
-            return visitor.keyValueCursorCount;
-        }
-    }
 }

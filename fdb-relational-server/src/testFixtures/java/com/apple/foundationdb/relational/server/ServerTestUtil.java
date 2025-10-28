@@ -21,13 +21,13 @@
 package com.apple.foundationdb.relational.server;
 
 import com.apple.foundationdb.annotation.API;
-
+import com.apple.foundationdb.test.FDBTestEnvironment;
 import io.prometheus.client.CollectorRegistry;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
 import java.net.BindException;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 
 /**
  * Stand up a server for downstream modules to use in test.
@@ -53,12 +53,22 @@ public final class ServerTestUtil {
      * @return Return a started {@link RelationalServer}
      */
     public static RelationalServer createAndStartRelationalServer(int preferredPort) throws IOException {
+        return createAndStartRelationalServer(preferredPort, FDBTestEnvironment.randomClusterFile());
+    }
+
+    /**
+     * Create and start a RelationalServer with a specific cluster file.
+     * @param preferredPort The preferred port to start on
+     * @param clusterFile The cluster file to use for FDB connection
+     * @return Return a started {@link RelationalServer}
+     */
+    public static RelationalServer createAndStartRelationalServer(int preferredPort, String clusterFile) throws IOException {
         RelationalServer relationalServer = null;
         for (int port = preferredPort; port <= (preferredPort + PORT_RETRY_MAX); port += 2) {
             // Create a CollectorRegistry when a test fixture else "java.lang.IllegalArgumentException:
             // Collector already registered that provides name: grpc_server_started_total" when the second instance
             // of the test fixture runs. Otherwise, just use the default in VServer.
-            relationalServer = new RelationalServer(port, port + 1, new CollectorRegistry(true));
+            relationalServer = new RelationalServer(port, port + 1, new CollectorRegistry(true), clusterFile);
             try {
                 relationalServer.start();
                 // Successful start.

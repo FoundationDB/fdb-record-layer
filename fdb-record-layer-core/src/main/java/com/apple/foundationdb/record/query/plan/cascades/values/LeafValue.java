@@ -53,9 +53,4 @@ public interface LeafValue extends Value {
     default Value rebaseLeaf(@Nonnull CorrelationIdentifier targetAlias) {
         throw new RecordCoreException("implementor must override");
     }
-
-    @Nonnull
-    default Value replaceReferenceWithField(@Nonnull final FieldValue fieldValue) {
-        throw new RecordCoreException("implementor must override");
-    }
 }

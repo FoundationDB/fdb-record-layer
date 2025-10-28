@@ -26,11 +26,9 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Bind
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.CollectionMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.google.common.base.Verify;
+import com.apple.foundationdb.record.query.plan.cascades.values.Values;
 
 import javax.annotation.Nonnull;
-import java.util.Objects;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.anyFieldValue;
@@ -61,48 +59,13 @@ public class CollapseRecordConstructorOverFieldsToStarRule extends ValueSimplifi
     @SpotBugsSuppressWarnings("NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE")
     public void onMatch(@Nonnull final ValueSimplificationRuleCall call) {
         final var bindings = call.getBindings();
-
         final var recordConstructorValue = bindings.get(rootMatcher);
         final var fieldValues = bindings.get(fieldValuesMatcher);
-
-        if (fieldValues.isEmpty()) {
-            return;
-        }
-
-        Value commonChildValue = null;
-        int i = 0;
-        for (var iterator = fieldValues.iterator(); iterator.hasNext(); i ++) {
-            final var fieldValue = iterator.next();
-            final var fieldPath = fieldValue.getFieldPath();
-
-            if (fieldPath.getLastFieldAccessor().getOrdinal() != i) {
-                return;
-            }
-
-            final Value childValue;
-            if (fieldPath.size() > 1) {
-                childValue = FieldValue.ofFields(fieldValue.getChild(), fieldPath.getFieldPrefix());
-            } else {
-                Verify.verify(fieldPath.size() == 1);
-                childValue = fieldValue.getChild();
-            }
-
-            if (commonChildValue == null) {
-                commonChildValue = childValue;
-
-                if (!recordConstructorValue.getResultType().equals(commonChildValue.getResultType())) {
-                    return;
-                }
-            } else {
-                if (!commonChildValue.equals(childValue)) {
-                    return;
-                }
-            }
-        }
-
-        call.yieldResultBuilder()
-                .addConstraintsFrom(recordConstructorValue)
-                .addConstraintsFrom(fieldValues)
-                .yieldResult(Objects.requireNonNull(commonChildValue));
+        Values.collapseSimpleSelectMaybe(recordConstructorValue).ifPresent(
+                commonChildValue ->
+                        call.yieldResultBuilder()
+                                .addConstraintsFrom(recordConstructorValue)
+                                .addConstraintsFrom(fieldValues)
+                                .yieldResult(commonChildValue));
     }
 }

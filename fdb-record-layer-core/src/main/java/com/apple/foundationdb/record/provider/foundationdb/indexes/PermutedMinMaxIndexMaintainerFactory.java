@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
@@ -32,7 +33,11 @@ import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactory;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
+import com.apple.foundationdb.record.query.plan.cascades.IndexExpansionInfo;
+import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
+import com.apple.foundationdb.record.query.plan.cascades.MatchCandidateExpansion;
 import com.google.auto.service.AutoService;
+import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
 import java.util.Arrays;
@@ -88,4 +93,19 @@ public class PermutedMinMaxIndexMaintainerFactory implements IndexMaintainerFact
         return new PermutedMinMaxIndexMaintainer(state);
     }
 
+    @Nonnull
+    @Override
+    public Iterable<MatchCandidate> createMatchCandidates(@Nonnull final RecordMetaData metaData, @Nonnull final Index index, final boolean reverse) {
+        final IndexExpansionInfo info = IndexExpansionInfo.createInfo(metaData, index, reverse);
+        final ImmutableList.Builder<MatchCandidate> resultBuilder = ImmutableList.builderWithExpectedSize(2);
+
+        // For permuted min and max, we use the value index expansion for BY_VALUE scans and we use
+        // the aggregate index expansion for BY_GROUP scans
+        MatchCandidateExpansion.expandValueIndexMatchCandidate(info)
+                .ifPresent(resultBuilder::add);
+        MatchCandidateExpansion.expandAggregateIndexMatchCandidate(info)
+                .ifPresent(resultBuilder::add);
+
+        return resultBuilder.build();
+    }
 }

@@ -31,11 +31,9 @@ import com.apple.foundationdb.relational.yamltests.YamlConnection;
 import com.apple.foundationdb.relational.yamltests.YamlConnectionFactory;
 import com.apple.foundationdb.relational.yamltests.command.SQLFunction;
 import com.apple.foundationdb.relational.yamltests.server.SemanticVersion;
-import com.google.common.collect.Iterables;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Assumptions;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -222,14 +220,21 @@ public class MultiServerConnectionFactory implements YamlConnectionFactory {
 
         @Override
         public void setConnectionOptions(@Nonnull final Options connectionOptions) throws SQLException {
-            if (!Iterables.isEmpty(connectionOptions.entries())) {
-                Assumptions.abort("only embedded connections support the setting of connection options");
+            logger.info("Sending operation {} to all connections", "setConnectionOptions");
+            for (var connection : underlyingConnections) {
+                connection.setConnectionOptions(connectionOptions);
             }
         }
 
         @Override
         public boolean supportsMetricCollector() {
             return false;
+        }
+
+        @Override
+        public String getClusterFile() {
+            // All underlying connections should be using the same cluster file
+            return underlyingConnections.get(0).getClusterFile();
         }
 
         /**

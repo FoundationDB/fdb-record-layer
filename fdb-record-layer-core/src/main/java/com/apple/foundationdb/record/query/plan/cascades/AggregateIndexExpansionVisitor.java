@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
@@ -98,8 +99,8 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
      * @param recordTypes The indexed record types.
      */
     public AggregateIndexExpansionVisitor(@Nonnull final Index index, @Nonnull final Collection<RecordType> recordTypes) {
-        Preconditions.checkArgument(IndexTypes.BITMAP_VALUE.equals(index.getType()) ||
-                aggregateMap.get().containsKey(index.getType()));
+        Preconditions.checkArgument(supportsAggregateIndexType(index.getType()),
+                "Unsupported index aggregate type %s", index.getType());
         Preconditions.checkArgument(index.getRootExpression() instanceof GroupingKeyExpression);
         this.index = index;
         this.groupingKeyExpression = ((GroupingKeyExpression)index.getRootExpression());
@@ -339,6 +340,17 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
 
         return new ConstructSelectHavingResult(selectHavingGraphExpansionBuilder.build().buildSelect(),
                 finalPlaceholders);
+    }
+
+    /**
+     * Whether the aggregate index expansion visitor knows how to expand the given index type.
+     *
+     * @param indexType the index type to try and expand
+     * @return whether this class can expand index of the given type
+     */
+    @API(API.Status.INTERNAL)
+    public static boolean supportsAggregateIndexType(@Nonnull String indexType) {
+        return IndexTypes.BITMAP_VALUE.equals(indexType) || aggregateMap.get().containsKey(indexType);
     }
 
     @Nonnull
