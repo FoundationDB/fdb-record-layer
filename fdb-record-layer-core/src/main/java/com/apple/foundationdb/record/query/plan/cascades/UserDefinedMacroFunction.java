@@ -38,7 +38,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
- * UserDefinedScalarFunction that expands a body (referring to parameters) into a {@link Value} (through encapsulation) call site.
+ * UserDefinedMacroFunction that expands a body (referring to parameters) into a {@link Value} (through encapsulation) call site.
  */
 public class UserDefinedMacroFunction extends UserDefinedFunction {
     @Nonnull
