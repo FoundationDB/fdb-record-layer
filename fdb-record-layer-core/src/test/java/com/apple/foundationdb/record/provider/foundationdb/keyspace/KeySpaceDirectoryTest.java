@@ -31,7 +31,6 @@ import com.apple.foundationdb.record.ValueRange;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory.KeyType;
 import com.apple.foundationdb.record.provider.foundationdb.layers.interning.ScopedInterningLayer;
@@ -1335,7 +1334,7 @@ public class KeySpaceDirectoryTest {
         final Tuple dataStoreTuple;
         final Tuple metadataStoreTuple;
         try (FDBRecordContext context = database.openContext()) {
-            ApplicationPath application = keySpace.root().userid(123).application("myApplication");
+            EnvironmentKeySpace.ApplicationPath application = keySpace.root().userid(123).application("myApplication");
             dataStoreTuple = application.dataStore().toTuple(context);
             metadataStoreTuple = application.metadataStore().toTuple(context);
             context.commit();
@@ -1349,9 +1348,9 @@ public class KeySpaceDirectoryTest {
             assertEquals(Tuple.from(entries.get(0), 123L, entries.get(1), EnvironmentKeySpace.METADATA_VALUE), metadataStoreTuple);
 
             ResolvedKeySpacePath path =  keySpace.fromKey(context, dataStoreTuple);
-            assertThat(path.toPath(), instanceOf(DataPath.class));
+            assertThat(path.toPath(), instanceOf(EnvironmentKeySpace.DataPath.class));
 
-            DataPath mainStorePath = (DataPath) path.toPath();
+            EnvironmentKeySpace.DataPath mainStorePath = (EnvironmentKeySpace.DataPath) path.toPath();
             assertEquals(EnvironmentKeySpace.DATA_VALUE, mainStorePath.getValue());
             assertEquals(EnvironmentKeySpace.DATA_VALUE, mainStorePath.resolveAsync(context).get().getResolvedValue());
             assertEquals(entries.get(1), mainStorePath.parent().resolveAsync(context).get().getResolvedValue());
@@ -1361,14 +1360,14 @@ public class KeySpaceDirectoryTest {
             assertEquals("production", mainStorePath.parent().parent().parent().getValue());
             assertNull(mainStorePath.parent().parent().parent().parent());
 
-            assertThat(keySpace.fromKey(context, TupleHelpers.subTuple(dataStoreTuple, 0, 1)).toPath(), instanceOf(EnvironmentRoot.class));
-            assertThat(keySpace.fromKey(context, TupleHelpers.subTuple(dataStoreTuple, 0, 2)).toPath(), instanceOf(UserPath.class));
-            assertThat(keySpace.fromKey(context, TupleHelpers.subTuple(dataStoreTuple, 0, 3)).toPath(), instanceOf(ApplicationPath.class));
+            assertThat(keySpace.fromKey(context, TupleHelpers.subTuple(dataStoreTuple, 0, 1)).toPath(), instanceOf(EnvironmentKeySpace.EnvironmentRoot.class));
+            assertThat(keySpace.fromKey(context, TupleHelpers.subTuple(dataStoreTuple, 0, 2)).toPath(), instanceOf(EnvironmentKeySpace.UserPath.class));
+            assertThat(keySpace.fromKey(context, TupleHelpers.subTuple(dataStoreTuple, 0, 3)).toPath(), instanceOf(EnvironmentKeySpace.ApplicationPath.class));
 
             path = keySpace.fromKey(context, metadataStoreTuple);
-            assertThat(path.toPath(), instanceOf(MetadataPath.class));
+            assertThat(path.toPath(), instanceOf(EnvironmentKeySpace.MetadataPath.class));
 
-            MetadataPath metadataPath = (MetadataPath) path.toPath();
+            EnvironmentKeySpace.MetadataPath metadataPath = (EnvironmentKeySpace.MetadataPath) path.toPath();
             assertEquals(EnvironmentKeySpace.METADATA_VALUE, metadataPath.getValue());
             assertEquals(EnvironmentKeySpace.METADATA_VALUE, metadataPath.resolveAsync(context).get().getResolvedValue());
             assertEquals(entries.get(1), metadataPath.parent().resolveAsync(context).get().getResolvedValue());
@@ -1378,14 +1377,14 @@ public class KeySpaceDirectoryTest {
             assertEquals("production", metadataPath.parent().parent().parent().getValue());
             assertNull(metadataPath.parent().parent().parent().parent());
 
-            assertThat(keySpace.fromKey(context, TupleHelpers.subTuple(dataStoreTuple, 0, 1)).toPath(), instanceOf(EnvironmentRoot.class));
-            assertThat(keySpace.fromKey(context, TupleHelpers.subTuple(dataStoreTuple, 0, 2)).toPath(), instanceOf(UserPath.class));
-            assertThat(keySpace.fromKey(context, TupleHelpers.subTuple(dataStoreTuple, 0, 3)).toPath(), instanceOf(ApplicationPath.class));
+            assertThat(keySpace.fromKey(context, TupleHelpers.subTuple(dataStoreTuple, 0, 1)).toPath(), instanceOf(EnvironmentKeySpace.EnvironmentRoot.class));
+            assertThat(keySpace.fromKey(context, TupleHelpers.subTuple(dataStoreTuple, 0, 2)).toPath(), instanceOf(EnvironmentKeySpace.UserPath.class));
+            assertThat(keySpace.fromKey(context, TupleHelpers.subTuple(dataStoreTuple, 0, 3)).toPath(), instanceOf(EnvironmentKeySpace.ApplicationPath.class));
 
             // Create a fake main store "record" key to demonstrate that we can get the key as the remainder
             Tuple recordTuple = dataStoreTuple.add(1L).add("someStr").add(0L); // 1=record space, record id, 0=unsplit record
             path =  keySpace.fromKey(context, recordTuple);
-            assertThat(path.toPath(), instanceOf(DataPath.class));
+            assertThat(path.toPath(), instanceOf(EnvironmentKeySpace.DataPath.class));
             assertEquals(Tuple.from(1L, "someStr", 0L), path.getRemainder());
             assertEquals(dataStoreTuple, path.toTuple());
         }
@@ -1596,137 +1595,4 @@ public class KeySpaceDirectoryTest {
         }
     }
 
-    /**
-     * This provides an example of a way in which you can define a KeySpace in a relatively clean and type-safe
-     * manner. It defines a keyspace that looks like:
-     * <pre>
-     *    [environment]           - A string the identifies the logical environment (like prod, test, qa, etc.).
-     *      |                       This string is converted by the directory layer as a small integer value.
-     *      +- userid             - An integer ID for each user in the system
-     *         |
-     *         +- [application]   - Tne name of an application the user runs (again, converted by the directory
-     *            |                 layer into a small integer value)
-     *            +- data=1       - Constant value of "1", which is the location of a {@link FDBRecordStore}
-     *            |                 in which application data is to be stored
-     *            +- metadata=2   - Constant value of "2", which is the Location of another <code>FDBRecordStore</code>
-     *                              in which application metadata or configuration information can live.
-     * </pre>
-     * The main point of this class is to demonstrate how you can use the KeySpacePath wrapping facility to provide
-     * implementations of the path elements that are meaningful to your application environment and type safe.
-     */
-    private static class EnvironmentKeySpace {
-        private final KeySpace root;
-        private final String rootName;
-
-        public static String USER_KEY = "userid";
-        public static String APPLICATION_KEY = "application";
-        public static String DATA_KEY = "data";
-        public static long DATA_VALUE = 1L;
-        public static String METADATA_KEY = "metadata";
-        public static long METADATA_VALUE = 2L;
-
-        /**
-         * The <code>EnvironmentKeySpace</code> scopes all of the data it stores underneath of a <code>rootName</code>,
-         * for example, you could define an instance for <code>prod</code>, <code>test</code>, <code>qa</code>, etc.
-         *
-         * @param rootName The root name underwhich all data is stored.
-         */
-        public EnvironmentKeySpace(String rootName) {
-            this.rootName = rootName;
-            root = new KeySpace(
-                    new DirectoryLayerDirectory(rootName, rootName, EnvironmentRoot::new)
-                            .addSubdirectory(new KeySpaceDirectory(USER_KEY, KeyType.LONG, UserPath::new)
-                                    .addSubdirectory(new DirectoryLayerDirectory(APPLICATION_KEY, ApplicationPath::new)
-                                            .addSubdirectory(new KeySpaceDirectory(DATA_KEY, KeyType.LONG, DATA_VALUE, DataPath::new))
-                                            .addSubdirectory(new KeySpaceDirectory(METADATA_KEY, KeyType.LONG, METADATA_VALUE, MetadataPath::new)))));
-        }
-
-        public String getRootName() {
-            return rootName;
-        }
-
-        /**
-         * Returns an implementation of a <code>KeySpacePath</code> that represents the start of the environment.
-         */
-        public EnvironmentRoot root()  {
-            return (EnvironmentRoot) root.path(rootName);
-        }
-
-        /**
-         * Given a tuple that represents an FDB key that came from this KeySpace, returns the leaf-most path
-         * element in which the tuple resides.
-         */
-        public ResolvedKeySpacePath fromKey(FDBRecordContext context, Tuple tuple) {
-            return root.resolveFromKey(context, tuple);
-        }
-    }
-
-    /**
-     * A <code>KeySpacePath</code> that represents the logical root of the environment.
-     */
-    private static class EnvironmentRoot extends KeySpacePathWrapper {
-        public EnvironmentRoot(KeySpacePath path) {
-            super(path);
-        }
-
-        public KeySpacePath parent() {
-            return null;
-        }
-
-        public UserPath userid(long userid) {
-            return (UserPath) inner.add(EnvironmentKeySpace.USER_KEY, userid);
-        }
-    }
-
-    private static class UserPath extends KeySpacePathWrapper {
-        public UserPath(KeySpacePath path) {
-            super(path);
-        }
-
-        public ApplicationPath application(String applicationName) {
-            return (ApplicationPath) inner.add(EnvironmentKeySpace.APPLICATION_KEY, applicationName);
-        }
-
-        public EnvironmentRoot parent() {
-            return (EnvironmentRoot) inner.getParent();
-        }
-    }
-
-    private static class ApplicationPath extends KeySpacePathWrapper {
-        public ApplicationPath(KeySpacePath path) {
-            super(path);
-        }
-
-        public DataPath dataStore() {
-            return (DataPath) inner.add(EnvironmentKeySpace.DATA_KEY);
-        }
-
-        public MetadataPath metadataStore() {
-            return (MetadataPath) inner.add(EnvironmentKeySpace.METADATA_KEY);
-        }
-
-        public UserPath parent() {
-            return (UserPath) inner.getParent();
-        }
-    }
-
-    private static class DataPath extends KeySpacePathWrapper {
-        public DataPath(KeySpacePath path) {
-            super(path);
-        }
-
-        public ApplicationPath parent() {
-            return (ApplicationPath) inner.getParent();
-        }
-    }
-
-    private static class MetadataPath extends KeySpacePathWrapper {
-        public MetadataPath(KeySpacePath path) {
-            super(path);
-        }
-
-        public ApplicationPath parent() {
-            return (ApplicationPath) inner.getParent();
-        }
-    }
 }

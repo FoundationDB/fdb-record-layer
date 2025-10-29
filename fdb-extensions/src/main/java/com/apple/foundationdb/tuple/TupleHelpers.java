@@ -141,17 +141,17 @@ public class TupleHelpers {
 
     /**
      * Get whether one tuple is a prefix of another.
-     * @param t1 the potential prefix
-     * @param t2 the whole tuple
-     * @return {@code true} if {@code t1} is a prefix of {@code t2}
+     * @param potentialPrefix the potential prefix
+     * @param wholeTuple the whole tuple
+     * @return {@code true} if {@code potentialPrefix} is a prefix of {@code wholeTuple}
      */
-    public static boolean isPrefix(@Nonnull Tuple t1, @Nonnull Tuple t2) {
-        final int len = t1.size();
-        if (t2.size() < len) {
+    public static boolean isPrefix(@Nonnull Tuple potentialPrefix, @Nonnull Tuple wholeTuple) {
+        final int len = potentialPrefix.size();
+        if (wholeTuple.size() < len) {
             return false;
         }
         for (int i = 0; i < len; i++) {
-            int rc = TupleUtil.compareItems(t1.get(i), t2.get(i));
+            int rc = TupleUtil.compareItems(potentialPrefix.get(i), wholeTuple.get(i));
             if (rc != 0) {
                 return false;
             }
