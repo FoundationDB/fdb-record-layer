@@ -82,7 +82,6 @@ public final class RecordLayerTable implements Table {
                              @Nonnull final Map<Integer, DescriptorProtos.FieldOptions> generations,
                              final DataType.StructType dataType,
                              final Type.Record record) {
-        Assert.thatUnchecked(!name.contains("."));
         this.name = name;
         this.columns = ImmutableList.copyOf(columns);
         this.indexes = ImmutableSet.copyOf(indexes);

@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.query.plan.cascades.AccessHint;
 import com.apple.foundationdb.record.query.plan.cascades.AccessHints;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
@@ -54,6 +55,7 @@ import com.apple.foundationdb.relational.api.metadata.Table;
 import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.util.Assert;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -470,7 +472,7 @@ public class LogicalOperator {
     public static LogicalOperator generateInsert(@Nonnull LogicalOperator insertSource, @Nonnull Table target) {
         final var targetType = Assert.castUnchecked(target, RecordLayerTable.class).getType();
         final var insertExpression = new InsertExpression(Assert.castUnchecked(insertSource.getQuantifier(),
-                Quantifier.ForEach.class),
+                        Quantifier.ForEach.class),
                 target.getName(),
                 targetType);
         final var resultingQuantifier = Quantifier.forEach(Reference.initialOf(insertExpression));
