@@ -467,12 +467,15 @@ public class SchemaTemplateSerDeTests {
         sampleRecordSchemaTemplate = builder.build();
         Assertions.assertEquals(intermingleTables, sampleRecordSchemaTemplate.isIntermingleTables());
 
+        final var funcName = "SqlFunction1";
+        final var funcDescription = "CREATE FUNCTION SqlFunction1(IN Q BIGINT) AS SELECT * FROM T1 WHERE col1 < Q";
         // add temporary invoked routine.
         builder.addInvokedRoutine(RecordLayerInvokedRoutine.newBuilder()
-                .setName("SqlFunction1")
-                .setDescription("CREATE FUNCTION SqlFunction1(IN Q BIGINT) AS SELECT * FROM T1 WHERE col1 < Q")
+                .setName(funcName)
+                .setDescription(funcDescription)
                 .setTemporary(true)
-                .withCompilableRoutine(ignored -> new CompiledFunctionStub())
+                .withUserDefinedRoutine(ignored -> new CompiledFunctionStub())
+                .withSerializableFunction(new RawSqlFunction(funcName, funcDescription))
                 .build());
 
         // build the schema template
@@ -515,7 +518,8 @@ public class SchemaTemplateSerDeTests {
             schemaTemplateBuilder.addInvokedRoutine(RecordLayerInvokedRoutine.newBuilder()
                     .setName(functionName)
                     .setDescription(functionDescription)
-                    .withCompilableRoutine(ignored -> new CompiledFunctionStub())
+                    .withUserDefinedRoutine(igored -> new CompiledFunctionStub())
+                    .withSerializableFunction(new RawSqlFunction(functionName, functionDescription))
                     .build());
         }
 
@@ -824,9 +828,9 @@ public class SchemaTemplateSerDeTests {
 
         @Nonnull
         @Override
-        protected Function<Boolean, CompiledSqlFunction> getSqlFunctionCompiler(@Nonnull final String name,
-                                                                                @Nonnull final Supplier<RecordLayerSchemaTemplate> metadata,
-                                                                                @Nonnull final String functionBody) {
+        protected Function<Boolean, com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction> getSqlFunctionCompiler(@Nonnull final String name,
+                                                                                                                                  @Nonnull final Supplier<RecordLayerSchemaTemplate> metadata,
+                                                                                                                                  @Nonnull final String functionBody) {
             return isCaseSensitive -> {
                 invocationsCount.merge(name, 1, Integer::sum);
                 return super.getSqlFunctionCompiler(name, metadata, functionBody).apply(isCaseSensitive);

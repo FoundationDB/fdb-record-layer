@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer.query.visitors;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.CompatibleTypeEvolutionPredicate;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.metadata.DataType;
@@ -264,17 +265,12 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
     }
 
     @Override
-    public CompiledSqlFunction visitCreateFunction(final RelationalParser.CreateFunctionContext ctx) {
-        return getDelegate().visitCreateFunction(ctx);
-    }
-
-    @Override
     public CompiledSqlFunction visitTempSqlInvokedFunction(final RelationalParser.TempSqlInvokedFunctionContext ctx) {
         return getDelegate().visitTempSqlInvokedFunction(ctx);
     }
 
     @Override
-    public CompiledSqlFunction visitSqlInvokedFunction(@Nonnull RelationalParser.SqlInvokedFunctionContext ctx) {
+    public UserDefinedFunction visitSqlInvokedFunction(@Nonnull RelationalParser.SqlInvokedFunctionContext ctx) {
         return getDelegate().visitSqlInvokedFunction(ctx);
     }
 
@@ -885,6 +881,12 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
 
     @Nonnull
     @Override
+    public Identifier visitUserDefinedScalarFunctionStatementBody(@Nonnull RelationalParser.UserDefinedScalarFunctionStatementBodyContext ctx) {
+        return getDelegate().visitUserDefinedScalarFunctionStatementBody(ctx);
+    }
+
+    @Nonnull
+    @Override
     public Identifier visitTableName(@Nonnull RelationalParser.TableNameContext ctx) {
         return getDelegate().visitTableName(ctx);
     }
@@ -1211,6 +1213,18 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
     @Override
     public Object visitIfNotExists(@Nonnull RelationalParser.IfNotExistsContext ctx) {
         return getDelegate().visitIfNotExists(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public Object visitUserDefinedScalarFunctionName(@Nonnull RelationalParser.UserDefinedScalarFunctionNameContext ctx) {
+        return getDelegate().visitUserDefinedScalarFunctionName(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public Expression visitUserDefinedScalarFunctionCall(@Nonnull RelationalParser.UserDefinedScalarFunctionCallContext ctx) {
+        return getDelegate().visitUserDefinedScalarFunctionCall(ctx);
     }
 
     @Nonnull

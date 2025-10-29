@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer.query.visitors;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.CompatibleTypeEvolutionPredicate;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.ddl.DdlQueryFactory;
@@ -428,23 +429,24 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
     }
 
     @Override
-    public CompiledSqlFunction visitCreateFunction(final RelationalParser.CreateFunctionContext ctx) {
-        return ddlVisitor.visitCreateFunction(ctx);
-    }
-
-    @Override
     public CompiledSqlFunction visitTempSqlInvokedFunction(final RelationalParser.TempSqlInvokedFunctionContext ctx) {
         return ddlVisitor.visitTempSqlInvokedFunction(ctx);
     }
 
     @Override
-    public CompiledSqlFunction visitSqlInvokedFunction(RelationalParser.SqlInvokedFunctionContext ctx) {
+    public UserDefinedFunction visitSqlInvokedFunction(RelationalParser.SqlInvokedFunctionContext ctx) {
         return ddlVisitor.visitSqlInvokedFunction(ctx);
     }
 
     @Override
     public LogicalOperator visitStatementBody(final RelationalParser.StatementBodyContext ctx) {
         return ddlVisitor.visitStatementBody(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public Identifier visitUserDefinedScalarFunctionStatementBody(@Nonnull RelationalParser.UserDefinedScalarFunctionStatementBodyContext ctx) {
+        return identifierVisitor.visitFullId(ctx.fullId());
     }
 
     @Override
@@ -1381,6 +1383,12 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
     @Override
     public Expression visitScalarFunctionCall(@Nonnull RelationalParser.ScalarFunctionCallContext ctx) {
         return expressionVisitor.visitScalarFunctionCall(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public Expression visitUserDefinedScalarFunctionCall(@Nonnull RelationalParser.UserDefinedScalarFunctionCallContext ctx) {
+        return expressionVisitor.visitUserDefinedScalarFunctionCall(ctx);
     }
 
     @Nonnull

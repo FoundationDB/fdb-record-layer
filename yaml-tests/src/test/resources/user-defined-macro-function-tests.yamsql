@@ -1,0 +1,123 @@
+#
+# user-defined-scalar-function-tests.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+---
+options:
+    supported_version: !current_version
+---
+schema_template:
+    create type as struct st1(y bigint, z bigint)
+    create type as struct st2(w bigint, x bigint)
+    create type as struct st3(u st2, v st1)
+    create type as struct st4(s bigint, t bigint)
+    create table nested(id bigint, q st4, r st3, primary key(q.s, r.u.w))
+    create index i2 as select r.v.z from nested order by r.v.z
+    create table simple_table(a bigint, b string, c integer, primary key(a))
+    CREATE FUNCTION st2_func(IN x TYPE ST3) RETURNS ST2 AS x.u
+    CREATE FUNCTION z(IN x TYPE ST3) RETURNS bigint AS x.v.z
+    CREATE FUNCTION self(IN x bigint) RETURNS bigint AS x
+    CREATE FUNCTION table_func1(IN limit_val bigint) AS SELECT id, self(id) as id_copy, z(r) as z_val FROM nested WHERE id <= limit_val
+    CREATE FUNCTION table_func2(IN threshold bigint) AS SELECT self(id) as processed_id, z(r) as z_val FROM nested WHERE z(r) >= threshold
+    CREATE FUNCTION table_func3(IN x bigint, IN y bigint) AS SELECT self(a) as a_val, self(a) as a_copy FROM simple_table WHERE a BETWEEN x AND y
+---
+setup:
+  steps:
+    - query: INSERT INTO NESTED
+        VALUES (1, (200, 1), ((5, 11), (10, 100))),
+               (2, (201, 2), ((5, 12), (10, 100))),
+               (3, (202, 3), ((5, 13), (10, 100))),
+               (4, (203, 4), ((5, 14), (10, 100))),
+               (5, (329, 5), ((5, 15), (10, 140))),
+               (6, (330, 6), ((5, 16), (10, 140)))
+    - query: INSERT INTO simple_table
+        VALUES (10, 'apple', 1),
+               (20, 'banana', 2),
+               (30, 'cherry', 3),
+               (40, 'date', 4),
+               (50, 'elderberry', 5)
+---
+test_block:
+  name: user-defined-scalar-function-tests
+  tests:
+    -
+      - query: select z(r) from nested group by z(r)
+      - explain: "ISCAN(I2 <,>) | MAP (_ AS _0) | AGG () GROUP BY (_._0.R.V.Z AS _0) | MAP (_._0._0 AS _0)"
+      - unorderedResult: [{100}, {140}]
+    -
+      - query: select st2_func(r) from nested
+      - explain: "ISCAN(I2 <,>) | MAP (_.R.U AS _0)"
+      - unorderedResult: [{{!l 5, !l 11}}, {{!l 5, !l 12}}, {{!l 5, !l 13}}, {{!l 5, !l 14}}, {{!l 5, !l 15}}, {{!l 5, !l 16}}]
+    -
+      - query: select id from nested where self(id) > 2 and self(id) < 5
+      - explain: "ISCAN(I2 <,>) | FILTER _.ID GREATER_THAN promote(@c11 AS LONG) AND _.ID LESS_THAN promote(@c18 AS LONG) | MAP (_.ID AS ID)"
+      - unorderedResult: [{3}, {4}]
+    -
+      # Test multiple invocations of same function in SELECT clause
+      - query: select self(id) as A, self(id) as B, self(id * 2) as C from nested where id <= 2
+      - explain: "ISCAN(I2 <,>) | FILTER _.ID LESS_THAN_OR_EQUALS promote(@c30 AS LONG) | MAP (_.ID AS A, _.ID AS B, _.ID * @c30 AS C)"
+      - unorderedResult: [{A: 1, B: 1, C: 2}, {A: 2, B: 2, C: 4}]
+    -
+      # Test multiple invocations with different UDF functions
+      - query: select z(r) as A, z(r) as B, st2_func(r) as C from nested where id = 1
+      - explain: "ISCAN(I2 <,>) | FILTER _.ID EQUALS promote(@c27 AS LONG) | MAP (_.R.V.Z AS A, _.R.V.Z AS B, _.R.U AS C)"
+      - unorderedResult: [{A: 100, B: 100, C: {!l 5, !l 11}}]
+    -
+      # Test multiple invocations in both SELECT and WHERE clauses
+      - query: select self(id) as A, z(r) as B, z(r) as C from nested where z(r) = 100 and self(id) <= 3
+      - explain: "ISCAN(I2 [EQUALS promote(@c30 AS LONG)]) | FILTER _.ID LESS_THAN_OR_EQUALS promote(@c38 AS LONG) | MAP (_.ID AS A, _.R.V.Z AS B, _.R.V.Z AS C)"
+      - unorderedResult: [{A: 1, B: 100, C: 100}, {A: 2, B: 100, C: 100}, {A: 3, B: 100, C: 100}]
+    -
+      # Test table function with scalar UDF in SELECT and WHERE
+      - query: select * from table_func1(3)
+      - explain: "ISCAN(I2 <,>) | FILTER _.ID LESS_THAN_OR_EQUALS promote(@c6 AS LONG) | MAP (_.ID AS ID, _.ID AS ID_COPY, _.R.V.Z AS Z_VAL)"
+      - unorderedResult: [{id: 1, id_copy: 1, z_val: 100}, {id: 2, id_copy: 2, z_val: 100}, {id: 3, id_copy: 3, z_val: 100}]
+    -
+      # Test table function with scalar UDF filtering
+      - query: select * from table_func2(140)
+      - explain: "ISCAN(I2 [[GREATER_THAN_OR_EQUALS promote(@c6 AS LONG)]]) | MAP (_.ID AS PROCESSED_ID, _.R.V.Z AS Z_VAL)"
+      - unorderedResult: [{processed_id: 5, z_val: 140}, {processed_id: 6, z_val: 140}]
+    -
+      # Test table function with multiple scalar UDFs
+      - query: select * from table_func3(20, 40)
+      - explain: "SCAN(<,>) | TFILTER SIMPLE_TABLE | FILTER _.A GREATER_THAN_OR_EQUALS promote(@c6 AS LONG) AND _.A LESS_THAN_OR_EQUALS promote(@c8 AS LONG) | MAP (_.A AS A_VAL, _.A AS A_COPY)"
+      - unorderedResult: [{a_val: 20, a_copy: 20}, {a_val: 30, a_copy: 30}, {a_val: 40, a_copy: 40}]
+    -
+      # Test joining table function results with scalar UDF processing
+      - query: select t1.id_copy as A, t2.processed_id as B from table_func1(2) t1, table_func2(100) t2 where t1.id_copy = t2.processed_id
+      - explain: "ISCAN(I2 <,>) | FLATMAP q0 -> { ISCAN(I2 <,>) | FILTER q0.ID EQUALS _.ID AND q0.ID LESS_THAN_OR_EQUALS promote(@c16 AS LONG) AND _.R.V.Z GREATER_THAN_OR_EQUALS promote(@c22 AS LONG) AS q1 RETURN (q0.ID AS A, q1.ID AS B) }"
+      - unorderedResult: [{A: 1, B: 1}, {A: 2, B: 2}]
+    -
+      # Test scalar UDF applied to table function results
+      - query: select self(id_copy) as A, z_val as B from table_func1(4)
+      - explain: "ISCAN(I2 <,>) | FILTER _.ID LESS_THAN_OR_EQUALS promote(@c15 AS LONG) | MAP (_.ID AS A, _.R.V.Z AS B)"
+      - unorderedResult: [{A: 1, B: 100}, {A: 2, B: 100}, {A: 3, B: 100}, {A: 4, B: 100}]
+    -
+      # Test nested scalar UDF calls within table function results
+      - query: select self(self(a_val)) as A, self(a_copy) as B from table_func3(10, 30)
+      - explain: "SCAN(<,>) | TFILTER SIMPLE_TABLE | FILTER _.A GREATER_THAN_OR_EQUALS promote(@c21 AS LONG) AND _.A LESS_THAN_OR_EQUALS promote(@c23 AS LONG) | MAP (_.A AS A, _.A AS B)"
+      - unorderedResult: [{A: 10, B: 10}, {A: 20, B: 20}, {A: 30, B: 30}]
+    -
+      # Test table function with scalar UDF in WHERE clause filtering the result
+      - query: select * from table_func1(6) where self(id_copy) > 3
+      - explain: "ISCAN(I2 <,>) | FILTER _.ID LESS_THAN_OR_EQUALS promote(@c6 AS LONG) AND _.ID GREATER_THAN promote(@c14 AS LONG) | MAP (_.ID AS ID, _.ID AS ID_COPY, _.R.V.Z AS Z_VAL)"
+      - unorderedResult: [{id: 4, id_copy: 4, z_val: 100}, {id: 5, id_copy: 5, z_val: 140}, {id: 6, id_copy: 6, z_val: 140}]
+    -
+      # wrong function name
+      - query: select zz(r) from nested group by z(r)
+      - error: "0AF00"
+...

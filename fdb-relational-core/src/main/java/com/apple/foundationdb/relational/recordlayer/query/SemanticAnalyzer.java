@@ -473,17 +473,28 @@ public class SemanticAnalyzer {
         return matchedAttributes.isEmpty() ? Optional.empty() : Optional.of(matchedAttributes.get(0));
     }
 
-    @Nonnull
     public Optional<Expression> lookupNestedField(@Nonnull Identifier requestedIdentifier,
                                                   @Nonnull Expression existingExpression,
                                                   @Nonnull LogicalOperator logicalOperator,
                                                   boolean matchQualifiedOnly) {
+        final var effectiveExistingExpr = matchQualifiedOnly && logicalOperator.getName().isPresent() ?
+                                          existingExpression.withQualifier(Optional.of(logicalOperator.getName().get())) :
+                                          existingExpression.clearQualifier();
+        return lookupNestedField(requestedIdentifier, existingExpression, effectiveExistingExpr, false);
+    }
+
+    @Nonnull
+    public Optional<Expression> lookupNestedField(@Nonnull Identifier requestedIdentifier,
+                                                  @Nonnull Expression existingExpression,
+                                                  @Nonnull Expression effectiveExistingExpr,
+                                                  boolean allowLookupRoot) {
+        // if allow look up root and the requestedIdentifier is effectiveExistingExpr, return effectiveExistingExpr
+        if (allowLookupRoot && requestedIdentifier.fullyQualifiedName().size() == effectiveExistingExpr.getName().get().fullyQualifiedName().size()) {
+            return Optional.of(effectiveExistingExpr);
+        }
         if (existingExpression.getName().isEmpty() || requestedIdentifier.fullyQualifiedName().size() <= 1) {
             return Optional.empty();
         }
-        final var effectiveExistingExpr = matchQualifiedOnly && logicalOperator.getName().isPresent() ?
-                existingExpression.withQualifier(Optional.of(logicalOperator.getName().get())) :
-                existingExpression.clearQualifier();
         var effectiveExprName = effectiveExistingExpr.getName().orElseThrow();
         if (!requestedIdentifier.prefixedWith(effectiveExprName)) {
             /*

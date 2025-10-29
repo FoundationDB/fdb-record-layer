@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.relational.recordlayer.query.functions;
 
-import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
@@ -61,7 +60,7 @@ import java.util.Optional;
  * function plan as a leg of a binary join, where
  */
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-public class CompiledSqlFunction extends UserDefinedFunction implements  WithPlanGenerationSideEffects {
+public class CompiledSqlFunction extends UserDefinedFunction implements WithPlanGenerationSideEffects {
 
     @Nonnull
     private final RelationalExpression body;
@@ -86,7 +85,7 @@ public class CompiledSqlFunction extends UserDefinedFunction implements  WithPla
 
     @Nonnull
     @Override
-    public RecordMetaDataProto.PUserDefinedFunction toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public RecordMetaDataProto.PUserDefinedFunction toProto() {
         throw new RecordCoreException("attempt to serialize compiled SQL function");
     }
 
