@@ -26,8 +26,11 @@ import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
+import com.apple.foundationdb.record.query.plan.cascades.Memoizer;
+import com.apple.foundationdb.record.query.plan.cascades.PlannerStage;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.References;
 import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.TableFunctionExpression;
@@ -39,12 +42,14 @@ import com.apple.foundationdb.record.query.plan.cascades.values.RangeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.StreamingValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ThrowsValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.ToUniqueAliasesTranslationMap;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.recordlayer.query.Expression;
 import com.apple.foundationdb.relational.recordlayer.query.Expressions;
 import com.apple.foundationdb.relational.recordlayer.query.Literals;
 import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
@@ -92,12 +97,12 @@ public class CompiledSqlFunction extends UserDefinedFunction implements  WithPla
 
     @Nonnull
     @Override
-    public RelationalExpression encapsulate(@Nonnull final List<? extends Typed> arguments) {
+    public Reference encapsulate(@Nonnull final List<? extends Typed> arguments) {
         if (parametersCorrelation.isEmpty()) {
             // this should never happen.
             Assert.thatUnchecked(arguments.isEmpty(), ErrorCode.INTERNAL_ERROR,
                     "unexpected parameterless function invocation with non-zero arguments");
-            return body;
+            return Reference.initialOf(body);
         }
         final var parametersCount = getParameterNames().size();
         Assert.thatUnchecked(arguments.size() <= parametersCount, ErrorCode.UNDEFINED_FUNCTION,
@@ -120,24 +125,18 @@ public class CompiledSqlFunction extends UserDefinedFunction implements  WithPla
             }
             resultBuilder.addResultColumn(Column.of(Optional.of(getParameterName(paramIdx)), argumentValue));
         }
-        final var qun = Quantifier.forEach(Reference.initialOf(resultBuilder.addQuantifier(rangeOfOnePlan()).build().buildSelect()),
-                parametersCorrelation.get());
-        final var bodyQun = Quantifier.forEach(Reference.initialOf(body));
-        final var selectBuilder = GraphExpansion.builder()
-                .addQuantifier(bodyQun)
-                .addQuantifier(qun);
-        bodyQun.computeFlowedColumns().forEach(selectBuilder::addResultColumn);
-        return selectBuilder.build().buildSelect();
+        final var argumentsExpression = resultBuilder.addQuantifier(rangeOfOnePlan()).build().buildSelect();
+        return constructTableFunctionPlan(argumentsExpression);
     }
 
     @Nonnull
     @Override
-    public RelationalExpression encapsulate(@Nonnull final Map<String, ? extends Typed> namedArguments) {
+    public Reference encapsulate(@Nonnull final Map<String, ? extends Typed> namedArguments) {
         if (parametersCorrelation.isEmpty()) {
             // this should never happen.
             Assert.thatUnchecked(namedArguments.isEmpty(), ErrorCode.INTERNAL_ERROR,
                     "unexpected parameterless function invocation with non-zero arguments");
-            return body;
+            return Reference.initialOf(body);
         }
         Assert.thatUnchecked(hasNamedParameters(), ErrorCode.INTERNAL_ERROR,
                 "unexpected invocation of function with named arguments");
@@ -156,14 +155,29 @@ public class CompiledSqlFunction extends UserDefinedFunction implements  WithPla
             final var maybePromotedArgument = PromoteValue.inject(argumentValue, computeParameterType(name));
             resultBuilder.addResultColumn(Column.of(Optional.of(name), maybePromotedArgument));
         }
-        final var qun = Quantifier.forEach(Reference.initialOf(resultBuilder.addQuantifier(rangeOfOnePlan()).build().buildSelect()),
-                parametersCorrelation.get());
-        final var bodyQun = Quantifier.forEach(Reference.initialOf(body));
+        final var argumentsExpression = resultBuilder.addQuantifier(rangeOfOnePlan()).build().buildSelect();
+        return constructTableFunctionPlan(argumentsExpression);
+    }
+
+    @Nonnull
+    private Reference constructTableFunctionPlan(@Nonnull final RelationalExpression argumentsExpression) {
+        final var aliasMap = new ToUniqueAliasesTranslationMap();
+
+        final var bodyRef = Reference.initialOf(body);
+        final var translatedBodyRef = Iterables.getOnlyElement(References.rebaseGraphs(List.of(bodyRef),
+                Memoizer.noMemoization(PlannerStage.INITIAL), aliasMap, false));
+        final var bodyQun = Quantifier.forEach(translatedBodyRef);
+
+        final var translatedParamCorrelation = aliasMap.getSnapshotAliasMap()
+                .getTargetOrDefault(Assert.optionalUnchecked(parametersCorrelation),
+                        Quantifier.uniqueId());
+        final var parametersQun = Quantifier.forEach(Reference.initialOf(argumentsExpression), translatedParamCorrelation);
+
         final var selectBuilder = GraphExpansion.builder()
                 .addQuantifier(bodyQun)
-                .addQuantifier(qun);
+                .addQuantifier(parametersQun);
         bodyQun.computeFlowedColumns().forEach(selectBuilder::addResultColumn);
-        return selectBuilder.build().buildSelect();
+        return Reference.initialOf(selectBuilder.build().buildSelect());
     }
 
     @Nonnull

@@ -92,7 +92,7 @@ public class TranslateGraphTest extends FDBRecordStoreQueryTestBase {
         final var qun = Quantifier.forEach(Reference.initialOf(graphExpansionBuilder.build().buildSelect()));
         final var expression = LogicalSortExpression.unsorted(qun);
         final var reference = Reference.initialOf(expression);
-        final var translationMap = ToUniqueAliasesTranslationMap.newInstance();
+        final var translationMap = new ToUniqueAliasesTranslationMap();
         final var translatedReferences =
                 References.rebaseGraphs(ImmutableList.of(reference),
                         Memoizer.noMemoization(PlannerStage.INITIAL),
@@ -159,7 +159,7 @@ public class TranslateGraphTest extends FDBRecordStoreQueryTestBase {
         final var qun = Quantifier.forEach(Reference.initialOf(graphExpansionBuilder.build().buildSelect()));
         final var expression = LogicalSortExpression.unsorted(qun);
         final var reference = Reference.initialOf(expression);
-        final var translationMap = ToUniqueAliasesTranslationMap.newInstance();
+        final var translationMap = new ToUniqueAliasesTranslationMap();
         final var translatedReferences =
                 References.rebaseGraphs(ImmutableList.of(reference),
                         Memoizer.noMemoization(PlannerStage.INITIAL),

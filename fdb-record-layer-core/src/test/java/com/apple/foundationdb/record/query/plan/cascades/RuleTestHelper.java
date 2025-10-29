@@ -149,7 +149,7 @@ public class RuleTestHelper {
         // rewriting and planning
         final var copiedOriginal =
                 Iterables.getOnlyElement(References.rebaseGraphs(ImmutableList.of(Reference.initialOf(original)),
-                        Memoizer.noMemoization(PlannerStage.INITIAL), ToUniqueAliasesTranslationMap.newInstance(), false)).get();
+                        Memoizer.noMemoization(PlannerStage.INITIAL), new ToUniqueAliasesTranslationMap(), false)).get();
         ensureStage(PlannerStage.CANONICAL, copiedOriginal);
         if (rule instanceof ImplementationCascadesRule) {
             //
@@ -245,7 +245,7 @@ public class RuleTestHelper {
             //
             final var copiedExpected =
                     Iterables.getOnlyElement(References.rebaseGraphs(ImmutableList.of(Reference.initialOf(expression)),
-                            Memoizer.noMemoization(PlannerStage.INITIAL), ToUniqueAliasesTranslationMap.newInstance(), false)).get();
+                            Memoizer.noMemoization(PlannerStage.INITIAL), new ToUniqueAliasesTranslationMap(), false)).get();
             ensureStage(PlannerStage.CANONICAL, copiedExpected);
             expectedListBuilder.add(copiedExpected);
         }

@@ -25,14 +25,12 @@ import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.values.LeafValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.google.common.base.Verify;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 
 /**
  * Translation map that allows for rebasing of graphs in a way that the resulting rebased graph is only using unique
@@ -45,10 +43,8 @@ public class ToUniqueAliasesTranslationMap implements TranslationMap {
     @Nonnull
     private final Map<CorrelationIdentifier, CorrelationIdentifier> sourceToTargetMap;
 
-    private ToUniqueAliasesTranslationMap(@Nonnull final AliasMap identities) {
-        Verify.verify(identities.definesOnlyIdentities());
+    public ToUniqueAliasesTranslationMap() {
         this.sourceToTargetMap = new LinkedHashMap<>();
-        identities.forEachMapping(sourceToTargetMap::put);
     }
 
     @Nonnull
@@ -90,15 +86,5 @@ public class ToUniqueAliasesTranslationMap implements TranslationMap {
     private CorrelationIdentifier computeTargetIfAbsent(@Nonnull final CorrelationIdentifier sourceAlias) {
         return sourceToTargetMap.computeIfAbsent(sourceAlias,
                 ignored0 -> Quantifier.uniqueId());
-    }
-
-    @Nonnull
-    public static ToUniqueAliasesTranslationMap newInstance() {
-        return new ToUniqueAliasesTranslationMap(AliasMap.emptyMap());
-    }
-
-    @Nonnull
-    public static ToUniqueAliasesTranslationMap newInstance(@Nonnull final Set<CorrelationIdentifier> constantAliases) {
-        return new ToUniqueAliasesTranslationMap(AliasMap.identitiesFor(constantAliases));
     }
 }
