@@ -1,5 +1,5 @@
 #
-# identifiers.yamsql
+# valid-identifiers.yamsql
 #
 # This source file is part of the FoundationDB open source project
 #
@@ -25,6 +25,7 @@ schema_template:
     create table "foo.tableA"("foo.tableA.A1" bigint, "foo.tableA.A2" bigint, "foo.tableA.A3" bigint, primary key("foo.tableA.A1"))
     create index "foo.tableA.idx" as select "foo.tableA.A1", "foo.tableA.A2", "foo.tableA.A3" FROM "foo.tableA" order by "foo.tableA.A1", "foo.tableA.A2", "foo.tableA.A3"
     create index "foo.tableA.idx2" as select sum("foo.tableA.A1") FROM "foo.tableA" group by "foo.tableA.A2"
+    create index "foo.tableA.idx3" as select "foo.tableA.A2" FROM "foo.tableA" order by "foo.tableA.A2"
 
     create table "foo.tableB"("foo.tableB.B1" bigint, "foo.tableB.B2" bigint, "foo.tableB.B3" "foo.struct", primary key("foo.tableB.B1"))
 
@@ -37,6 +38,13 @@ schema_template:
     create index "__foo__tableD$idx2" as select sum("__foo__tableD$D1") FROM "__foo__tableD" group by "__foo__tableD$D2"
 
     create table "foo.tableE"("foo.tableE.E1" bigint, "foo.tableE.E2" bigint array, "foo.tableE.E3" "foo.struct", primary key("foo.tableE.E1"))
+
+    create table "my$adjacency$list"("me" bigint, "my__parent" bigint, primary key("me"))
+    create function "__$func1" ( in "__$func1$A" bigint, in "__$func1$B" bigint )
+       as select "me" as "__1", "my__parent" as "__2" from "my$adjacency$list" where "me" < "__$func1$A" and "my$adjacency$list"."my__parent" = "__$func1$B"
+    create function "__$func2" ( "__$func2$A" bigint )
+       as select "me" as "__1", "my__parent" as "__2" from "my$adjacency$list" where "me" = "__$func2$A"
+    create function "__$func3" ( in "__$func3$A" bigint, in "__$func3$B" bigint, in "__$func3$C" bigint) as select "...f1"."__1", "...f1"."__2", "...f2"."__1", "...f2"."__2" from "__$func1"("__$func3$A", "__$func3$B") "...f1", "__$func2"("__$func3$C") "...f2"
 ---
 setup:
   steps:
@@ -62,6 +70,13 @@ setup:
                (2, 20, 2),
                (3, 20, 3),
                (4, 20, 4)
+    - query: INSERT INTO "my$adjacency$list"
+        VALUES (1, -1),
+               (2, 1),
+               (3, 1),
+               (4, 1),
+               (5, 2),
+               (6, 2)
 ---
 test_block:
   name: insert-explicit-columns
@@ -76,32 +91,83 @@ test_block:
   preset: single_repetition_ordered
   tests:
     -
+      # qualified star
       - query: select "foo.tableA".* from "foo.tableA";
       - result: [{"foo.tableA.A1": 1 , "foo.tableA.A2": 10, "foo.tableA.A3": 1}, {"foo.tableA.A1": 2, "foo.tableA.A2": 10, "foo.tableA.A3": 2}, {"foo.tableA.A1": 3, "foo.tableA.A2": 10, "foo.tableA.A3": 3}]
     -
+      # non-qualified star
+      - query: select * from "foo.tableA";
+      - result: [{"foo.tableA.A1": 1 , 10, 1}, {"foo.tableA.A1": 2, 10, 2}, {"foo.tableA.A1": 3, 10, 3}]
+    -
+      # aliased star
+      - query: select "$$$".* from "foo.tableA" as "$$$";
+      - result: [{"foo.tableA.A1": 1 , 10, 1}, {"foo.tableA.A1": 2, 10, 2}, {"foo.tableA.A1": 3, 10, 3}]
+    -
+      # with predicate
       - query: select "foo.tableA".* from "foo.tableA" where "foo.tableA.A3" >= 2;
       - result: [{"foo.tableA.A1": 2, "foo.tableA.A2": 10, "foo.tableA.A3": 2}, {"foo.tableA.A1": 3, "foo.tableA.A2": 10, "foo.tableA.A3": 3}]
     -
+      # qualified select element
       - query: select "foo.tableA"."foo.tableA.A1" from "foo.tableA";
       - result: [{"foo.tableA.A1": 1}, {"foo.tableA.A1": 2}, {"foo.tableA.A1": 3}]
     -
+      # with select element alias
+      - query: select "foo.tableA"."foo.tableA.A1" AS "__.__" from "foo.tableA";
+      - result: [{"__.__": 1}, {"__.__": 2}, {"__.__": 3}]
+    -
+      # multi-level CTEs
+      - query: with "$__$__$" as (with "$__$" as (select "foo.tableA.A1" as "$" from "foo.tableA") select * from "$__$") select * from "$__$__$"
+      - result: [{"$": 1}, {"$": 2}, {"$": 3}]
+    -
+      # CTEs with column aliases
+      - query: with "$__$" ("$$a", "$$b", "$$c") as (select "foo.tableA".* from "foo.tableA") select * from "$__$"
+      - result: [{"$$a": 1, "$$b": 10, "$$c": 1}, {"$$a": 2, "$$b": 10, "$$c": 2}, {"$$a": 3, "$$b": 10, "$$c": 3}]
+    -
+      # with recursive CTE
+      - query: with recursive "$__$" as (
+            select "me", "my__parent", 0 as "__level__" from "my$adjacency$list" where "me" = 5
+            union all
+            select "$"."me", "$"."my__parent", "$$".y as "__level__" from "my$adjacency$list" as "$", (select "me", "my__parent", "__level__" + 1 as y from "$__$") as "$$" where "$$"."my__parent" = "$"."me")
+            traversal order pre_order
+            select "me", "my__parent", "__level__" from "$__$"
+      - result: [{"me": 5, "my__parent": 2, "__level__": 0}, {"me": 2, "my__parent": 1, "__level__": 1}, {"me": 1, "my__parent": -1, "__level__": 2}]
+    -
+      # recursive CTE with column aliases
+      - query: with recursive "$__$" ("__a", "__b", "__c") as (
+            select "me", "my__parent", 0 as "__level__" from "my$adjacency$list" where "me" = 5
+            union all
+            select "$"."me", "$"."my__parent", "$$".y as "__level__" from "my$adjacency$list" as "$", (select "me", "my__parent", "__level__" + 1 as y from "$__$") as "$$" where "$$"."my__parent" = "$"."me")
+            traversal order pre_order
+            select "__a", "__b", "__c" from "$__$"
+      - result: [{"__a": 5, "__b": 2, "__c": 0}, {"__a": 2, "__b": 1, "__c": 1}, {"__a": 1, "__b": -1, "__c": 2}]
+    -
+      # with non-qualified select element
       - query: select "foo.tableA.A1" from "foo.tableA";
       - result: [{"foo.tableA.A1": 1}, {"foo.tableA.A1": 2}, {"foo.tableA.A1": 3}]
     -
+      # order by
       - query: select "foo.tableA".* from "foo.tableA" where "foo.tableA.A3" >= 2 order by "foo.tableA.A1";
       - result: [{"foo.tableA.A1": 2, "foo.tableA.A2": 10, "foo.tableA.A3": 2}, {"foo.tableA.A1": 3, "foo.tableA.A2": 10, "foo.tableA.A3": 3}]
     -
+      # order by alias
+      - query: select "foo.tableA.A1" as "_______" from "foo.tableA" where "foo.tableA.A3" >= 2 order by "_______";
+      - result: [{"_______": 2}, {"_______": 3}]
+    -
+      # group by
       - query: select sum("foo.tableA.A1") from "foo.tableA" group by "foo.tableA.A2";
       - result: [{6}]
     -
-      - query: select X.* from "foo.tableA" as X;
-      - result: [{"foo.tableA.A1": 1 , 10, 1}, {"foo.tableA.A1": 2, 10, 2}, {"foo.tableA.A1": 3, 10, 3}]
+      # group by alias
+      - query: select "__$__" from "foo.tableA" group by "foo.tableA.A2" as "__$__";
+      - result: [{10}]
     -
+      # star over simple join
       - query: select * from "foo.tableA", "foo.tableB" where "foo.tableA"."foo.tableA.A1" = "foo.tableB"."foo.tableB.B1";
       - result: [{"foo.tableA.A1": 1 , "foo.tableA.A2": 10, "foo.tableA.A3": 1, "foo.tableB.B1": 1, "foo.tableB.B2": 20, "foo.tableB.B3": {4, 40}},
                  {"foo.tableA.A1": 2, "foo.tableA.A2": 10, "foo.tableA.A3": 2, "foo.tableB.B1": 2, "foo.tableB.B2": 20, "foo.tableB.B3": {5, 50}},
                  {"foo.tableA.A1": 3, "foo.tableA.A2": 10, "foo.tableA.A3": 3, "foo.tableB.B1": 3, "foo.tableB.B2": 20, "foo.tableB.B3": {6, 60}}]
     -
+      # qualified star over simple join
       - query: select "foo.tableA".*, "foo.tableB".* from "foo.tableA", "foo.tableB" where "foo.tableA"."foo.tableA.A1" = "foo.tableB"."foo.tableB.B1";
       - result: [{"foo.tableA.A1": 1 , "foo.tableA.A2": 10, "foo.tableA.A3": 1, "foo.tableB.B1": 1, "foo.tableB.B2": 20, "foo.tableB.B3": {4, 40}},
                  {"foo.tableA.A1": 2, "foo.tableA.A2": 10, "foo.tableA.A3": 2, "foo.tableB.B1": 2, "foo.tableB.B2": 20, "foo.tableB.B3": {5, 50}},
@@ -143,8 +209,29 @@ test_block:
       - query: select sum("__foo__tableD$D1") from "__foo__tableD" group by "__foo__tableD$D2";
       - result: [{10}]
     -
+      # fanned-out array
       - query: select "foo.tableE.__array_elements" from "foo.tableE", "foo.tableE"."foo.tableE.E2" as "foo.tableE.__array_elements" where "foo.tableE.E3".S1 = 5;
       - result: [{2}, {3}, {4}]
+    -
+      # function
+      - query: select * from "__$func3"(10, 1, 1);
+      - result: [{"_0": 2, "_1": 1, "_2": 1, "_3": -1}, {"_0": 3, "_1": 1, "_2": 1, "_3": -1}, {"_0": 4, "_1": 1, "_2": 1, "_3": -1}]
+    -
+      # inline table definition
+      - query: select * from values (1, 2, 3), (4, 5, 6) as "$$$$"("$$$", "$$", "$")
+      - result: [{"$$$": 1, "$$": 2, "$": 3}, { "$$$": 4, "$$": 5, "$": 6}]
+    -
+      # named record construction
+      - query: select struct "$$" ("foo.tableA.A1", "foo.tableA.A2", "foo.tableA.A3") from "foo.tableA"
+      - result: [{{"foo.tableA.A1": 1 , "foo.tableA.A2": 10, "foo.tableA.A3": 1}}, {{"foo.tableA.A1": 2, "foo.tableA.A2": 10, "foo.tableA.A3": 2}}, {{"foo.tableA.A1": 3, "foo.tableA.A2": 10, "foo.tableA.A3": 3}}]
+    -
+      # named record construction with uid star
+      - query: select struct "$$" ("foo.tableA".*) from "foo.tableA"
+      - result: [{{"foo.tableA.A1": 1 , "foo.tableA.A2": 10, "foo.tableA.A3": 1}}, {{"foo.tableA.A1": 2, "foo.tableA.A2": 10, "foo.tableA.A3": 2}}, {{"foo.tableA.A1": 3, "foo.tableA.A2": 10, "foo.tableA.A3": 3}}]
+    -
+      # named record construction with aliased expressions
+      - query: select struct "$$" ("foo.tableA.A2" + "foo.tableA.A1" as "__$$__") from "foo.tableA"
+      - result: [{{"__$$__": 11}}, {{"__$$__": 12}}, {{"__$$__": 13}}]
 ---
 test_block:
   name: update-delete-statements
@@ -157,9 +244,9 @@ test_block:
       - query: UPDATE "foo.tableA" SET "foo.tableA.A2" = 100 WHERE "foo.tableA.A1" > 1 RETURNING "new"."foo.tableA.A1"
       - result: [{"foo.tableA.A1" : 2}, {"foo.tableA.A1" : 3}]
     -
-      - query: UPDATE "foo.tableA" SET "foo.tableA.A2" = 100 WHERE "foo.tableA.A1" = 1
-      - count: 1
+      - query: DELETE FROM "foo.tableA" WHERE "foo.tableA.A1" = 1 RETURNING "foo.tableA.A1" + "foo.tableA.A2" + "foo.tableA.A3"
+      - result: [{102}]
     -
-      - query: UPDATE "foo.tableA" SET "foo.tableA.A2" = 100 WHERE "foo.tableA.A1" > 1 RETURNING "new"."foo.tableA.A1"
-      - result: [{"foo.tableA.A1" : 2}, {"foo.tableA.A1" : 3}]
+      - query: DELETE FROM "foo.tableA" WHERE "foo.tableA.A2" = 100
+      - count: 2
 ...

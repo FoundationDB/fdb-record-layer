@@ -101,7 +101,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
     public DataType visitFunctionColumnType(@Nonnull final RelationalParser.FunctionColumnTypeContext ctx) {
         final var semanticAnalyzer = getDelegate().getSemanticAnalyzer();
         if (ctx.customType != null) {
-            final var columnType = visitUid(ctx.customType);
+            final var columnType = Identifier.toProtobufCompliant(visitUid(ctx.customType));
             return semanticAnalyzer.lookupType(columnType, true, false, metadataBuilder::findType);
         }
         return visitPrimitiveType(ctx.primitiveType()).withNullable(true);
@@ -165,6 +165,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         if (ctx.primaryKeyDefinition().fullIdList() != null) {
             visitFullIdList(ctx.primaryKeyDefinition().fullIdList())
                     .stream()
+                    .map(Identifier::toProtobufCompliant)
                     .map(Identifier::fullyQualifiedName)
                     .forEach(tableBuilder::addPrimaryKeyPart);
         }
@@ -333,7 +334,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         final var isTemporary = functionCtx instanceof RelationalParser.CreateTempFunctionContext;
 
         // 1. get the function name.
-        final var functionName = visitFullId(functionSpecCtx.schemaQualifiedRoutineName).toString();
+        final var functionName = Identifier.toProtobufCompliant(visitFullId(functionSpecCtx.schemaQualifiedRoutineName)).toString();
 
         // 2. get the function SQL definition string.
         final var queryString = getDelegate().getPlanGenerationContext().getQuery();
@@ -401,7 +402,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
 
     @Override
     public ProceduralPlan visitDropTempFunction(@Nonnull RelationalParser.DropTempFunctionContext ctx) {
-        final var functionName = visitFullId(ctx.schemaQualifiedRoutineName).toString();
+        final var functionName = Identifier.toProtobufCompliant(visitFullId(ctx.schemaQualifiedRoutineName)).toString();
         var throwIfNotExists = ctx.IF() == null && ctx.EXISTS() == null;
         return ProceduralPlan.of(metadataOperationsFactory.getDropTemporaryFunctionConstantAction(throwIfNotExists, functionName));
     }
@@ -425,7 +426,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
                                                         @Nonnull final RelationalParser.RoutineBodyContext bodyCtx,
                                                         boolean isTemporary) {
         // get the function name.
-        final var functionName = visitFullId(functionSpecCtx.schemaQualifiedRoutineName).toString();
+        final var functionName = Identifier.toProtobufCompliant(visitFullId(functionSpecCtx.schemaQualifiedRoutineName)).toString();
 
         // run implementation-specific validations.
         final var props = functionSpecCtx.routineCharacteristics();
@@ -515,7 +516,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
     @Override
     public Expression visitSqlParameterDeclaration(@Nonnull RelationalParser.SqlParameterDeclarationContext ctx) {
         Assert.thatUnchecked(ctx.sqlParameterName != null, "unnamed parameters not supported");
-        final var parameterName = visitUid(ctx.sqlParameterName);
+        final var parameterName = Identifier.toProtobufCompliant(visitUid(ctx.sqlParameterName));
         final var parameterType = visitFunctionColumnType(ctx.parameterType);
         final var underlyingType = DataTypeUtils.toRecordLayerType(parameterType);
         Assert.thatUnchecked(parameterType.isResolved());
