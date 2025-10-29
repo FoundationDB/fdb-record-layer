@@ -18,7 +18,7 @@
 # limitations under the License.
 ---
 options:
-    supported_version: !current_version
+    supported_version: 4.8.3.0
 ---
 # create view join_view as select e1.name as emp1, e2.name as emp2, e1.department from employees e1, employees e2 where e1.department = e2.department and e1.id < e2.id
 schema_template:
