@@ -249,4 +249,24 @@ test_block:
     -
       - query: DELETE FROM "foo.tableA" WHERE "foo.tableA.A2" = 100
       - count: 2
+---
+setup:
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  steps:
+    - query: drop schema template if exists "टेम्पलेट"
+    - query: create schema template "टेम्पलेट" create table T1(a1 bigint, primary key(a1))
+---
+test_block:
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  tests:
+    -
+      - query: select count(*) from "TEMPLATES" where template_name = 'टेम्पलेट'
+      - result: [{1}]
+# This does not work entirely, but theoretically should be possible!
+#---
+#setup:
+#  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+#  steps:
+#    - query: drop database if exists "/frl/डेटाबेस"
+#    - query: create database "/frl/डेटाबेस"
 ...

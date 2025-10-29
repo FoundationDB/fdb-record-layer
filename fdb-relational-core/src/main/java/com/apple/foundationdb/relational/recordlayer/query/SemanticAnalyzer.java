@@ -743,7 +743,7 @@ public class SemanticAnalyzer {
     }
 
     public static void validateDatabaseUri(@Nonnull Identifier path) {
-        Assert.thatUnchecked(Objects.requireNonNull(path.getName()).matches("/\\w[a-zA-Z0-9_/]*\\w"),
+        Assert.thatUnchecked(Objects.requireNonNull(path.getName()).startsWith("/"),
                 ErrorCode.INVALID_PATH, () -> String.format(Locale.ROOT, "invalid database path '%s'", path));
     }
 
