@@ -30,6 +30,7 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.Index;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.api.metadata.Table;
+import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
 import com.apple.foundationdb.relational.recordlayer.RelationalConnectionRule;
 import com.apple.foundationdb.relational.recordlayer.Utils;
@@ -40,6 +41,7 @@ import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.NullableArrayUtils;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
+import com.google.common.base.Strings;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
@@ -47,11 +49,17 @@ import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import java.util.List;
 import java.util.Locale;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
@@ -333,12 +341,13 @@ public class IndexTest {
         indexIs(stmt, field("P1").groupBy(concat(field("A"), function("bitmap_bucket_offset", concat(field("P1"), value(10000))), field("B"))), IndexTypes.BITMAP_VALUE);
     }
 
-    @Test
-    void createIndexWithMultipleFunctionsInProjectionIsSupported() throws Exception {
-        String functions = "a & 2, a | 4, a ^ 8, b + c, b - c, b * c, b / c, b % c";
+    @EnumSource(IndexSyntax.class)
+    @ParameterizedTest
+    void createIndexWithMultipleFunctionsInProjectionIsSupported(IndexSyntax indexSyntax) throws Exception {
+        List<String> functions = List.of("a & 2", "a | 4", "a ^ 8", "b + c", "b - c", "b * c", "b / c", "b % c");
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TABLE T1(p1 bigint, a bigint, b bigint, c bigint, primary key(p1)) " +
-                "CREATE INDEX mv1 AS SELECT " + functions + " FROM T1 ORDER BY " + functions;
+                index(indexSyntax, "mv1", functions.stream().map(IndexedColumn::new).collect(Collectors.toList()), List.of(), "T1");
         indexIs(stmt, concat(
                 function("bitand", concat(field("A"), value(2))),
                 function("bitor", concat(field("A"), value(4))),
@@ -351,12 +360,14 @@ public class IndexTest {
         ), IndexTypes.VALUE);
     }
 
-    @Test
-    void createIndexWithSomeFunctionsOnlyCoveringIsSupported() throws Exception {
-        String functions = "a & 2, a | 2, a ^ 2, b + c, b - c, b * c, b / c, b % c";
+    @EnumSource(IndexSyntax.class)
+    @ParameterizedTest
+    void createIndexWithSomeFunctionsOnlyCoveringIsSupported(IndexSyntax indexSyntax) throws Exception {
+        List<String> indexedColumns = List.of("a & 2", "b - c");
+        List<String> includedColumns = List.of("a | 2", "a ^ 2", "b + c", "b * c", "b / c", "b % c");
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TABLE T1(p1 bigint, a bigint, b bigint, c bigint, primary key(p1)) " +
-                "CREATE INDEX mv1 AS SELECT " + functions + " FROM T1 ORDER BY a & 2, b - c";
+                index(indexSyntax, "mv1", indexedColumns.stream().map(IndexedColumn::new).collect(Collectors.toList()), includedColumns, "T1");
         indexIs(stmt, new KeyWithValueExpression(concat(
                 function("bitand", concat(field("A"), value(2))),
                 function("sub", concat(field("B"), field("C"))),
@@ -378,52 +389,69 @@ public class IndexTest {
                 function("add", concat(field("B"), value(3))))), IndexTypes.PERMUTED_MAX);
     }
 
-    @Test
-    void createSimpleValueIndex() throws Exception {
+    @EnumSource(IndexSyntax.class)
+    @ParameterizedTest
+    void createSimpleValueIndex(IndexSyntax indexSyntax) throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TABLE T1(p1 bigint, a1 bigint, primary key(p1)) " +
-                "CREATE INDEX mv1 AS SELECT a1 FROM T1";
+                index(indexSyntax, "mv1", List.of(new IndexedColumn("a1")), List.of(), "T1");
         indexIs(stmt,
                 field("A1"),
                 IndexTypes.VALUE
         );
     }
 
-    @Test
-    void createSimpleValueIndexOnTwoCols() throws Exception {
+    @EnumSource(IndexSyntax.class)
+    @ParameterizedTest
+    void createSimpleValueIndexOnTwoCols(IndexSyntax indexSyntax) throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TABLE T1(p1 bigint, a1 bigint, a2 bigint, primary key(p1)) " +
-                "CREATE INDEX mv1 AS SELECT a1, a2 FROM T1 order by a1, a2";
+                index(indexSyntax, "mv1", List.of(new IndexedColumn("a1"), new IndexedColumn("a2")), List.of(), "T1");
         indexIs(stmt,
                 concat(field("A1"), field("A2")),
                 IndexTypes.VALUE);
     }
 
-    @Test
-    void createSimpleValueIndexOnNestedCol() throws Exception {
+    @EnumSource(IndexSyntax.class)
+    @ParameterizedTest
+    void createSimpleValueIndexOnNestedCol(IndexSyntax indexSyntax) throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TYPE AS STRUCT S1(S1_1 bigint, S1_2 bigint) " +
                 "CREATE TABLE T1(p1 bigint, a1 bigint, a2 S1, primary key(p1)) " +
-                "CREATE INDEX mv1 AS SELECT a2.S1_1 FROM T1 order by a2.S1_1";
+                index(indexSyntax, "mv1", List.of(new IndexedColumn("a2.S1_1")), List.of(), "T1");
         indexIs(stmt, field("A2").nest(field("S1_1")),
                 IndexTypes.VALUE);
     }
 
-    @Test
-    void createSimpleValueIndexOnTwoColsReverse() throws Exception {
+    @EnumSource(IndexSyntax.class)
+    @ParameterizedTest
+    void createSimpleValueIndexOnTwoColsReverse(IndexSyntax indexSyntax) throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TABLE T1(p1 bigint, a1 bigint, a2 bigint, primary key(p1)) " +
-                "CREATE INDEX mv1 AS SELECT a1, a2 FROM T1 order by a2, a1";
+                index(indexSyntax, "mv1", List.of(new IndexedColumn("a1"), new IndexedColumn("a2")), List.of(), "T1");
         indexIs(stmt,
                 concat(field("A2"), field("A1")),
                 IndexTypes.VALUE);
     }
 
-    @Test
-    void createCoveringValueIndex() throws Exception {
+    @EnumSource(IndexSyntax.class)
+    @ParameterizedTest
+    void createCoveringValueIndex(IndexSyntax indexSyntax) throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TABLE T1(p1 bigint, a1 bigint, a2 bigint, a3 bigint, primary key(p1)) " +
-                "CREATE INDEX mv1 AS SELECT a1, a2, a3 FROM T1 order by a1, a2";
+                index(indexSyntax, "mv1", List.of(new IndexedColumn("a1"), new IndexedColumn("a2")), List.of("a3"), "T1");
+        indexIs(stmt,
+                keyWithValue(concat(field("A1"), field("A2"), field("A3")), 2),
+                IndexTypes.VALUE
+        );
+    }
+
+    @Test
+    void createCoveringValueIndexNewDefinition() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T1(p1 bigint, a1 bigint, a2 bigint, a3 bigint, primary key(p1)) " +
+                "CREATE INDEX mv1 AS SELECT a1, a2, a3 FROM T1 order by a1, a2 " +
+                "CREATE INDEX mv1 AS T1(a1, a2) INCLUDE (a3)";
         indexIs(stmt,
                 keyWithValue(concat(field("A1"), field("A2"), field("A3")), 2),
                 IndexTypes.VALUE
@@ -443,6 +471,14 @@ public class IndexTest {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TABLE T1(p1 bigint, a1 bigint, a2 bigint, primary key(p1)) " +
                 "CREATE INDEX mv1 AS SELECT a1, a2 FROM T1 order by a4";
+        shouldFailWith(stmt, ErrorCode.UNDEFINED_COLUMN, "non existing column");
+    }
+
+    @Test
+    void createIndexOnUnknownColumns() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T1(p1 bigint, a1 bigint, a2 bigint, primary key(p1)) " +
+                "CREATE INDEX mv1 ON T1(a4)";
         shouldFailWith(stmt, ErrorCode.UNDEFINED_COLUMN, "non existing column");
     }
 
@@ -499,12 +535,15 @@ public class IndexTest {
         indexIs(stmt, keyWithValue(concat(field("A").nest(field("values", KeyExpression.FanType.FanOut).nest("COL2")), field("COL5"), field("A").nest(field("values", KeyExpression.FanType.FanOut).nest(concatenateFields("COL3", "COL4")))), 3), IndexTypes.VALUE);
     }
 
-    @Test
-    void createIndexWithNonRepeatedNestedSplitByField() throws Exception {
+    @EnumSource(IndexSyntax.class)
+    @ParameterizedTest
+    void createIndexWithNonRepeatedNestedSplitByField(IndexSyntax indexSyntax) throws Exception {
+        List<String> indexedColumns = List.of("T1.a.col2", "T1.col5", "T1.a.col3");
+        List<String> includedColumns = List.of("T1.a.col4");
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TYPE AS STRUCT A(col2 string, col3 bigint, col4 bigint) " +
                 "CREATE TABLE T1(col1 bigint, a A, col5 bigint, primary key(col1)) " +
-                "CREATE INDEX mv1 AS SELECT T1.a.col2, T1.col5, T1.a.col3, T1.a.col4 FROM T1 ORDER BY T1.a.col2, T1.col5, T1.a.col3";
+                index(indexSyntax, "mv1", indexedColumns.stream().map(IndexedColumn::new).collect(Collectors.toList()), includedColumns, "T1");
         // In theory, this should be fine, as the nested value is not repeated, but this is currently not distinguished by the index generator
         shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "Index with multiple disconnected references to the same column are not supported");
     }
@@ -555,21 +594,23 @@ public class IndexTest {
         );
     }
 
-    @Test
-    void createIndexOnNestedFields() throws Exception {
+    @EnumSource(IndexSyntax.class)
+    @ParameterizedTest
+    void createIndexOnNestedFields(IndexSyntax indexSyntax) throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TYPE AS STRUCT Y(a bigint, b bigint)" +
                 "CREATE TYPE AS STRUCT X(s Y)" +
                 "CREATE TABLE T1(col1 bigint, r X, primary key(col1)) " +
-                "CREATE INDEX mv1 AS SELECT r.s.a, r.s.b FROM T1 order by r.s.a, r.s.b";
+                index(indexSyntax, "mv1", List.of(new IndexedColumn("r.s.a"), new IndexedColumn("r.s.b")), List.of(), "T1");
         indexIs(stmt,
                 field("R").nest(field("S").nest(concat(field("A"), field("B")))),
                 IndexTypes.VALUE
         );
     }
 
-    @Test
-    void createIndexOnDeeplyNestedFields() throws Exception {
+    @EnumSource(IndexSyntax.class)
+    @ParameterizedTest
+    void createIndexOnDeeplyNestedFields(IndexSyntax indexSyntax) throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TYPE AS STRUCT A(b B)" +
                 "CREATE TYPE AS STRUCT B(c C)" +
@@ -579,7 +620,7 @@ public class IndexTest {
                 "CREATE TYPE AS STRUCT F(g G)" +
                 "CREATE TYPE AS STRUCT G(x bigint, y bigint)" +
                 "CREATE TABLE T1(col1 bigint, a A, primary key(col1)) " +
-                "CREATE INDEX mv1 AS SELECT a.b.c.d.e.f.g.x, a.b.c.d.e.f.g.y from T1 order by a.b.c.d.e.f.g.y";
+                index(indexSyntax, "mv1", List.of(new IndexedColumn("a.b.c.d.e.f.g.y")), List.of("a.b.c.d.e.f.g.x"), "T1");
         indexIs(stmt,
                 keyWithValue(
                         field("A")
@@ -597,29 +638,32 @@ public class IndexTest {
                 IndexTypes.VALUE);
     }
 
-    @Test
-    void createSimpleVersionIndex() throws Exception {
+    @EnumSource(IndexSyntax.class)
+    @ParameterizedTest
+    void createSimpleVersionIndex(IndexSyntax indexSyntax) throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TABLE T1(col1 bigint, primary key(col1)) " +
-                "CREATE INDEX mv1 AS SELECT \"__ROW_VERSION\" FROM T1 ORDER BY \"__ROW_VERSION\" " +
+                index(indexSyntax, "mv1", List.of(new IndexedColumn("\"__ROW_VERSION\"")), List.of(), "T1") +
                 "WITH OPTIONS(store_row_versions=true)";
         indexIs(stmt, version(), IndexTypes.VERSION);
     }
 
-    @Test
-    void createVersionIndexWithAliasedTable() throws Exception {
+    @EnumSource(IndexSyntax.class)
+    @ParameterizedTest
+    void createVersionIndexWithAliasedTable(IndexSyntax indexSyntax) throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TABLE T1(col1 bigint, primary key(col1)) " +
-                "CREATE INDEX mv1 AS SELECT t.\"__ROW_VERSION\" FROM T1 AS t ORDER BY t.\"__ROW_VERSION\" " +
+                index(indexSyntax, "mv1", List.of(new IndexedColumn("t.\"__ROW_VERSION\"")), List.of(), "T1") +
                 "WITH OPTIONS(store_row_versions=true)";
         indexIs(stmt, version(), IndexTypes.VERSION);
     }
 
-    @Test
-    void failToCreateVersionIndexWithUnknownTable() throws Exception {
+    @EnumSource(IndexSyntax.class)
+    @ParameterizedTest
+    void failToCreateVersionIndexWithUnknownTable(IndexSyntax indexSyntax) throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TABLE T1(col1 bigint, primary key(col1)) " +
-                "CREATE INDEX mv1 AS SELECT t2.\"__ROW_VERSION\" FROM T1 AS t ORDER BY t2.\"__ROW_VERSION\" " +
+                index(indexSyntax, "mv1", List.of(new IndexedColumn("t2.\"__ROW_VERSION\"")), List.of(), "T1") +
                 "WITH OPTIONS(store_row_versions=true)";
         shouldFailWith(stmt, ErrorCode.UNDEFINED_COLUMN, "Attempting to query non existing column 'T2.__ROW_VERSION'");
     }
@@ -918,13 +962,60 @@ public class IndexTest {
         shouldFailWith(stmt, ErrorCode.INVALID_COLUMN_REFERENCE, "Cannot create index and order by an expression that is not present in the projection list");
     }
 
-    @Test
-    void createIndexWithOrderByMixedDirection() throws Exception {
+    @EnumSource(IndexSyntax.class)
+    @ParameterizedTest
+    void createIndexWithOrderByMixedDirection(IndexSyntax indexSyntax) throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TABLE T1(col1 bigint, col2 bigint, col3 bigint, primary key(col1)) " +
-                "CREATE INDEX mv1 AS SELECT col1, col2, col3 FROM T1 ORDER BY col1 ASC, col2 DESC, col3 NULLS LAST";
+                index(indexSyntax, "mv1", List.of(
+                        new IndexedColumn("col1", "ASC", null),
+                        new IndexedColumn("col2", "DESC", null),
+                        new IndexedColumn("col3", null, "NULLS LAST")),
+                        List.of(), "T1");
         indexIs(stmt,
                 concat(field("COL1"), function("order_desc_nulls_last", field("COL2")), function("order_asc_nulls_last", field("COL3"))),
                 IndexTypes.VALUE);
+    }
+
+    /**
+     * Enum to represent the different index creation syntaxes.
+     */
+    public enum IndexSyntax {
+        MATERIALIZED_VIEW, // CREATE INDEX AS SELECT ... FROM ... ORDER BY ...
+        CLASSIC_ON_TABLE   // CREATE INDEX ON table(columns) ...
+    }
+
+    public static class IndexedColumn {
+        String column;
+        String order = "";
+        String nullsOrder = "";
+        IndexedColumn(String column, @Nullable String order, @Nullable String nullsOrder) {
+            this.column = column;
+            this.order = order == null ? "" : " " + order;
+            this.nullsOrder = nullsOrder == null ? "" : " " + nullsOrder;
+        }
+        IndexedColumn(String column) {
+            this(column, null, null);
+        }
+
+        @Override
+        public String toString() {
+            return column + order + nullsOrder;
+        }
+    }
+
+    static String index(@Nonnull IndexSyntax indexSyntax, @Nonnull String indexName, @Nonnull List<IndexedColumn> indexedColumns, List<String> includedColumns, String tableName) {
+        if (indexSyntax == IndexSyntax.MATERIALIZED_VIEW) {
+            return " CREATE INDEX " + indexName +
+                    " AS SELECT " + Stream.concat(indexedColumns.stream().map(c -> c.column), includedColumns.stream()).collect(Collectors.joining(",")) +
+                    " FROM " + tableName +
+                    (indexedColumns.size() > 1 || !includedColumns.isEmpty() ?
+                     " ORDER BY " + indexedColumns.stream().map(IndexedColumn::toString).collect(Collectors.joining(",")) :
+                     "") + " ";
+        } else {
+            return " CREATE INDEX " + indexName +
+                    " ON " + tableName + "(" + indexedColumns.stream().map(IndexedColumn::toString).collect(Collectors.joining(",")) + ") " +
+                    (includedColumns.isEmpty() ? "" : "INCLUDE (" + String.join(",", includedColumns) + ")");
+        }
     }
 }

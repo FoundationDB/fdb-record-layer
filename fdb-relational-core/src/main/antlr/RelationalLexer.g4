@@ -224,6 +224,7 @@ USAGE:                               'USAGE';
 USE:                                 'USE';
 USING:                               'USING';
 VALUES:                              'VALUES';
+VECTOR:                              'VECTOR';
 WHEN:                                'WHEN';
 WHERE:                               'WHERE';
 WHILE:                               'WHILE';

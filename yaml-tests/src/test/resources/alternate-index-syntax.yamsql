@@ -1,0 +1,245 @@
+#
+# alternate-index-syntax.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Test alternate CREATE INDEX ON syntax vs traditional CREATE INDEX AS SELECT
+# Both syntaxes should produce equivalent query plans
+---
+options:
+    supported_version: !current_version
+---
+schema_template: |
+    # Table with indexes defined via materialized view
+    create table customers_materialized_view(
+        id integer,
+        name string,
+        email string,
+        age integer,
+        city string,
+        country string,
+        profession string,
+        primary key(id)
+    )
+
+    create index idx_mv_name as select name from customers_materialized_view order by name
+    create index idx_mv_email as select email from customers_materialized_view order by email desc
+    create index idx_mv_multi as select age, city from customers_materialized_view order by age asc, city asc
+    create index idx_mv_asc_desc as select age, city from customers_materialized_view order by age asc, city desc
+    create index idx_mv_include as select name, email, country from customers_materialized_view order by name
+
+    # NULLS FIRST/LAST ordering
+    create index idx_mv_nulls_first as select country from customers_materialized_view order by country asc nulls first
+    create index idx_mv_nulls_last as select country from customers_materialized_view order by country asc nulls last
+    create index idx_mv_desc_nulls_first as select age from customers_materialized_view order by age desc nulls first
+    create index idx_mv_desc_nulls_last as select age from customers_materialized_view order by age desc nulls last
+
+    # Identical table with CREATE INDEX ON syntax (index on table style)
+    create table customers_index_on_table(
+        id integer,
+        name string,
+        email string,
+        age integer,
+        city string,
+        country string,
+        profession string,
+        primary key(id)
+    )
+
+    # CREATE INDEX ON syntax (index on table style)
+    create index idx_iot_name on customers_index_on_table(name)
+    create index idx_iot_email on customers_index_on_table(email desc)
+    create index idx_iot_multi on customers_index_on_table(age, city)
+    create index idx_iot_asc_desc on customers_index_on_table(age, city desc)
+    create index idx_iot_include on customers_index_on_table(name) include(email, country)
+
+    # Test NULLS FIRST/LAST ordering
+    create index idx_iot_nulls_first on customers_index_on_table(country asc nulls first)
+    create index idx_iot_nulls_last on customers_index_on_table(country asc nulls last)
+    create index idx_iot_desc_nulls_first on customers_index_on_table(age desc nulls first)
+    create index idx_iot_desc_nulls_last on customers_index_on_table(age desc nulls last)
+
+    # Test UNIQUE indexes on profession column
+    create unique index idx_mv_unique_profession as select profession from customers_materialized_view order by profession
+    create unique index idx_iot_unique_profession on customers_index_on_table(profession)
+
+---
+setup:
+  steps:
+    # Insert test data including NULL values to test NULLS ordering
+    # Each table gets different profession values to test UNIQUE constraints independently
+    - query: INSERT INTO customers_materialized_view VALUES
+             (1, 'Alice', 'alice@example.com', 25, 'New York', 'USA', 'Engineer'),
+             (2, 'Bob', 'bob@example.com', NULL, 'London', NULL, 'Designer'),
+             (3, 'Charlie', NULL, 35, 'Paris', 'France', 'Manager'),
+             (4, NULL, 'null@example.com', 30, NULL, 'Canada', 'Analyst')
+
+    - query: INSERT INTO customers_index_on_table VALUES
+             (1, 'Alice', 'alice@example.com', 25, 'New York', 'USA', 'Engineer'),
+             (2, 'Bob', 'bob@example.com', NULL, 'London', NULL, 'Designer'),
+             (3, 'Charlie', NULL, 35, 'Paris', 'France', 'Manager'),
+             (4, NULL, 'null@example.com', 30, NULL, 'Canada', 'Analyst')
+
+---
+test_block:
+  name: basic_index
+  tests:
+    # Test basic name index - plans should use respective indexes
+    -
+      - query: select name from customers_materialized_view where name = 'Alice'
+      - explain: "COVERING(IDX_MV_INCLUDE [EQUALS promote(@c8 AS STRING)] -> [COUNTRY: VALUE[1], EMAIL: VALUE[0], ID: KEY[2], NAME: KEY[0]]) | MAP (_.NAME AS NAME)"
+      - result: [{ Alice }]
+    -
+      - query: select name from customers_index_on_table where name = 'Alice'
+      - explain: "COVERING(IDX_IOT_NAME [EQUALS promote(@c8 AS STRING)] -> [ID: KEY[2], NAME: KEY[0]]) | MAP (_.NAME AS NAME)"
+      - result: [{ Alice }]
+
+    # Test descending email index
+    -
+      - query: select email from customers_materialized_view order by email desc
+      - explain: "COVERING(IDX_MV_EMAIL <,> -> [EMAIL: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST), ID: KEY[2]]) | MAP (_.EMAIL AS EMAIL)"
+      - result: [{ null@example.com }, { bob@example.com }, { alice@example.com }, { !null }]
+    -
+      - query: select email from customers_index_on_table order by email desc
+      - explain: "COVERING(IDX_IOT_EMAIL <,> -> [EMAIL: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST), ID: KEY[2]]) | MAP (_.EMAIL AS EMAIL)"
+      - result: [{ null@example.com }, { bob@example.com }, { alice@example.com }, { !null }]
+
+    # Test multi-column index - should use correct indexes now
+    -
+      - query: select age, city from customers_materialized_view where age > 25 order by age, city
+      - explain: "COVERING(IDX_MV_MULTI [[GREATER_THAN promote(@c10 AS INT)]] -> [AGE: KEY[0], CITY: KEY[1], ID: KEY[3]]) | MAP (_.AGE AS AGE, _.CITY AS CITY)"
+      - result: [{ 30, !null }, { 35, Paris }]
+    -
+      - query: select age, city from customers_index_on_table where age > 25 order by age, city
+      - explain: "COVERING(IDX_IOT_MULTI [[GREATER_THAN promote(@c10 AS INT)]] -> [AGE: KEY[0], CITY: KEY[1], ID: KEY[3]]) | MAP (_.AGE AS AGE, _.CITY AS CITY)"
+      - result: [{ 30, !null }, { 35, Paris }]
+
+---
+test_block:
+  name: include_clause
+  tests:
+    -
+      - query: select name, email, country from customers_materialized_view where name = 'Alice'
+      - explain: "COVERING(IDX_MV_INCLUDE [EQUALS promote(@c12 AS STRING)] -> [COUNTRY: VALUE[1], EMAIL: VALUE[0], ID: KEY[2], NAME: KEY[0]]) | MAP (_.NAME AS NAME, _.EMAIL AS EMAIL, _.COUNTRY AS COUNTRY)"
+      - result: [{ Alice, alice@example.com, USA }]
+    -
+      - query: select name, email, country from customers_index_on_table where name = 'Alice'
+      - explain: "COVERING(IDX_IOT_INCLUDE [EQUALS promote(@c12 AS STRING)] -> [COUNTRY: KEY[2], EMAIL: KEY[1], ID: KEY[4], NAME: KEY[0]]) | MAP (_.NAME AS NAME, _.EMAIL AS EMAIL, _.COUNTRY AS COUNTRY)"
+      - result: [{ Alice, alice@example.com, USA }]
+
+---
+test_block:
+  name: mixed_asc_desc
+  tests:
+    # Test mixed ASC/DESC ordering (age ASC, city DESC)
+    -
+      - query: select age, city from customers_materialized_view where age > 30 order by age asc, city desc
+      - explain: "COVERING(IDX_MV_ASC_DESC [[GREATER_THAN promote(@c10 AS INT)]] -> [AGE: KEY[0], CITY: from_ordered_bytes(KEY:[1], DESC_NULLS_LAST), ID: KEY[3]]) | MAP (_.AGE AS AGE, _.CITY AS CITY)"
+      - result: [{ 35, Paris }]
+    -
+      - query: select age, city from customers_index_on_table where age > 30 order by age asc, city desc
+      - explain: "COVERING(IDX_IOT_ASC_DESC [[GREATER_THAN promote(@c10 AS INT)]] -> [AGE: KEY[0], CITY: from_ordered_bytes(KEY:[1], DESC_NULLS_LAST), ID: KEY[3]]) | MAP (_.AGE AS AGE, _.CITY AS CITY)"
+      - result: [{ 35, Paris }]
+
+    # Test DESC DESC ordering (should use REVERSE on ASC ASC index)
+    -
+      - query: select age, city from customers_materialized_view where age < 40 order by age desc, city desc
+      - explain: "COVERING(IDX_MV_MULTI [[LESS_THAN promote(@c10 AS INT)]] REVERSE -> [AGE: KEY[0], CITY: KEY[1], ID: KEY[3]]) | MAP (_.AGE AS AGE, _.CITY AS CITY)"
+      - result: [{ 35, Paris }, { 30, !null }, { 25, New York }]
+    -
+      - query: select age, city from customers_index_on_table where age < 40 order by age desc, city desc
+      - explain: "COVERING(IDX_IOT_MULTI [[LESS_THAN promote(@c10 AS INT)]] REVERSE -> [AGE: KEY[0], CITY: KEY[1], ID: KEY[3]]) | MAP (_.AGE AS AGE, _.CITY AS CITY)"
+      - result: [{ 35, Paris }, { 30, !null }, { 25, New York }]
+
+    # Test DESC ASC ordering (should use REVERSE on ASC DESC index)
+    -
+      - query: select age, city from customers_materialized_view where age < 50 order by age desc, city asc
+      - explain: "COVERING(IDX_MV_ASC_DESC [[LESS_THAN promote(@c10 AS INT)]] REVERSE -> [AGE: KEY[0], CITY: from_ordered_bytes(KEY:[1], DESC_NULLS_LAST), ID: KEY[3]]) | MAP (_.AGE AS AGE, _.CITY AS CITY)"
+      - result: [{ 35, Paris }, { 30, !null }, { 25, New York }]
+    -
+      - query: select age, city from customers_index_on_table where age < 50 order by age desc, city asc
+      - explain: "COVERING(IDX_IOT_ASC_DESC [[LESS_THAN promote(@c10 AS INT)]] REVERSE -> [AGE: KEY[0], CITY: from_ordered_bytes(KEY:[1], DESC_NULLS_LAST), ID: KEY[3]]) | MAP (_.AGE AS AGE, _.CITY AS CITY)"
+      - result: [{ 35, Paris }, { 30, !null }, { 25, New York }]
+
+---
+test_block:
+  name: nulls_first_last
+  tests:
+    # Test NULLS FIRST/LAST ordering with actual results and index usage
+    -
+      - query: SELECT country FROM customers_materialized_view ORDER BY country ASC NULLS FIRST
+      - explain: "COVERING(IDX_MV_NULLS_FIRST <,> -> [COUNTRY: KEY[0], ID: KEY[2]]) | MAP (_.COUNTRY AS COUNTRY)"
+      - result: [{ !null }, { Canada }, { France }, { USA }]
+
+    -
+      - query: SELECT country FROM customers_index_on_table ORDER BY country ASC NULLS FIRST
+      - explain: "COVERING(IDX_IOT_NULLS_FIRST <,> -> [COUNTRY: KEY[0], ID: KEY[2]]) | MAP (_.COUNTRY AS COUNTRY)"
+      - result: [{ !null }, { Canada }, { France }, { USA }]
+
+    -
+      - query: SELECT country FROM customers_materialized_view ORDER BY country ASC NULLS LAST
+      - explain: "COVERING(IDX_MV_NULLS_LAST <,> -> [COUNTRY: from_ordered_bytes(KEY:[0], ASC_NULLS_LAST), ID: KEY[2]]) | MAP (_.COUNTRY AS COUNTRY)"
+      - result: [{ Canada }, { France }, { USA }, { !null }]
+
+    -
+      - query: SELECT country FROM customers_index_on_table ORDER BY country ASC NULLS LAST
+      - explain: "COVERING(IDX_IOT_NULLS_LAST <,> -> [COUNTRY: from_ordered_bytes(KEY:[0], ASC_NULLS_LAST), ID: KEY[2]]) | MAP (_.COUNTRY AS COUNTRY)"
+      - result: [{ Canada }, { France }, { USA }, { !null }]
+
+    -
+      - query: SELECT age FROM customers_materialized_view ORDER BY age DESC NULLS FIRST
+      - explain: "COVERING(IDX_MV_DESC_NULLS_FIRST <,> -> [AGE: from_ordered_bytes(KEY:[0], DESC_NULLS_FIRST), ID: KEY[2]]) | MAP (_.AGE AS AGE)"
+      - result: [{ !null }, { 35 }, { 30 }, { 25 }]
+
+    -
+      - query: SELECT age FROM customers_index_on_table ORDER BY age DESC NULLS FIRST
+      - explain: "COVERING(IDX_IOT_DESC_NULLS_FIRST <,> -> [AGE: from_ordered_bytes(KEY:[0], DESC_NULLS_FIRST), ID: KEY[2]]) | MAP (_.AGE AS AGE)"
+      - result: [{ !null }, { 35 }, { 30 }, { 25 }]
+
+    -
+      - query: SELECT age FROM customers_materialized_view ORDER BY age DESC NULLS LAST
+      - explain: "COVERING(IDX_MV_DESC_NULLS_LAST <,> -> [AGE: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST), ID: KEY[2]]) | MAP (_.AGE AS AGE)"
+      - result: [{ 35 }, { 30 }, { 25 }, { !null }]
+
+    -
+      - query: SELECT age FROM customers_index_on_table ORDER BY age DESC NULLS LAST
+      - explain: "COVERING(IDX_IOT_DESC_NULLS_LAST <,> -> [AGE: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST), ID: KEY[2]]) | MAP (_.AGE AS AGE)"
+      - result: [{ 35 }, { 30 }, { 25 }, { !null }]
+
+---
+test_block:
+  name: unique_constraint
+  preset: single_repetition_ordered
+  tests:
+    # Test UNIQUE constraint violations on profession column - should fail when attempting to insert duplicate professions
+    -
+      - query: INSERT INTO customers_materialized_view VALUES (5, 'David', 'david@example.com', 28, 'Boston', 'USA', 'Engineer')
+      - error: "23505"
+
+    -
+      - query: INSERT INTO customers_index_on_table VALUES (5, 'Eve', 'eve@example.com', 32, 'Seattle', 'USA', 'Engineer')
+      - error: "23505"
+
+    # Test that different professions still work
+    -
+      - query: INSERT INTO customers_materialized_view VALUES (5, 'David', 'david@example.com', 28, 'Boston', 'USA', 'Scientist')
+      - count: 1
+
+    -
+      - query: INSERT INTO customers_index_on_table VALUES (5, 'Eve', 'eve@example.com', 32, 'Seattle', 'USA', 'Architect')
+      - count: 1
+...
