@@ -230,10 +230,9 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
         return getDelegate().visitEnumDefinition(ctx);
     }
 
-    @Nonnull
     @Override
-    public RecordLayerIndex visitIndexDefinition(@Nonnull RelationalParser.IndexDefinitionContext ctx) {
-        return getDelegate().visitIndexDefinition(ctx);
+    public Object visitIndexType(final RelationalParser.IndexTypeContext ctx) {
+        return getDelegate().visitIndexType(ctx);
     }
 
     @Nonnull
@@ -533,6 +532,36 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
     @Override
     public OrderByExpression visitOrderByExpression(@Nonnull RelationalParser.OrderByExpressionContext ctx) {
         return getDelegate().visitOrderByExpression(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public RecordLayerIndex visitIndexAsSelectDefinition(@Nonnull RelationalParser.IndexAsSelectDefinitionContext ctx) {
+        return getDelegate().visitIndexAsSelectDefinition(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public RecordLayerIndex visitIndexOnSourceDefinition(@Nonnull RelationalParser.IndexOnSourceDefinitionContext ctx) {
+        return getDelegate().visitIndexOnSourceDefinition(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public Object visitIndexColumnList(@Nonnull RelationalParser.IndexColumnListContext ctx) {
+        return getDelegate().visitIndexColumnList(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public Object visitIndexColumnSpec(@Nonnull RelationalParser.IndexColumnSpecContext ctx) {
+        return getDelegate().visitIndexColumnSpec(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public Object visitIncludeClause(@Nonnull RelationalParser.IncludeClauseContext ctx) {
+        return getDelegate().visitIncludeClause(ctx);
     }
 
     @Override
@@ -1351,6 +1380,11 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
         return getDelegate().visitWindowName(ctx);
     }
 
+    @Override
+    public Object visitPartitionClause(final RelationalParser.PartitionClauseContext ctx) {
+        return null;
+    }
+
     @Nonnull
     @Override
     public Object visitScalarFunctionName(@Nonnull RelationalParser.ScalarFunctionNameContext ctx) {
@@ -1557,6 +1591,11 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
     @Override
     public Object visitChildren(RuleNode node) {
         return getDelegate().visitChildren(node);
+    }
+
+    @Override
+    public Object visitOrderClause(@Nonnull RelationalParser.OrderClauseContext ctx) {
+        return getDelegate().visitOrderClause(ctx);
     }
 
     @Override

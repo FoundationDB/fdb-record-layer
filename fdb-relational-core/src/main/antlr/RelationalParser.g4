@@ -158,7 +158,24 @@ enumDefinition
     ;
 
 indexDefinition
-    : (UNIQUE)? INDEX indexName=uid AS queryTerm indexAttributes?
+    : (UNIQUE)? INDEX indexName=uid AS queryTerm indexAttributes?                                                                       #indexAsSelectDefinition
+    | (UNIQUE)? INDEX indexName=uid ON tableName indexColumnList includeClause? partitionClause? indexAttributes?                       #indexOnSourceDefinition
+    ;
+
+indexColumnList
+    : '(' indexColumnSpec (',' indexColumnSpec)* ')'
+    ;
+
+indexColumnSpec
+    : columnName=uid orderClause?
+    ;
+
+includeClause
+    : INCLUDE '(' uidList ')'
+    ;
+
+indexType
+    : UNIQUE | VECTOR
     ;
 
 indexAttributes
@@ -406,7 +423,12 @@ orderByClause
     ;
 
 orderByExpression
-    : expression order=(ASC | DESC)? (NULLS nulls=(FIRST | LAST))?
+    : expression orderClause?
+    ;
+
+orderClause
+    : order=(ASC | DESC) (NULLS nulls=(FIRST | LAST))?
+    | NULLS nulls=(FIRST | LAST)
     ;
 
 tableSources // done
@@ -1107,10 +1129,11 @@ frameRange
     | expression (PRECEDING | FOLLOWING)
     ;
 
+*/
+
 partitionClause
     : PARTITION BY expression (',' expression)*
     ;
-*/
 
 scalarFunctionName
     : functionNameBase

@@ -43,7 +43,7 @@ import java.sql.SQLException;
 public class CountQueryTest {
     private static final String SCHEMA_TEMPLATE =
             "CREATE TABLE t1 (id bigint, a string, b bigint, primary key (id)) " +
-                    "CREATE INDEX i1 AS SELECT a FROM t1 " +
+                    "CREATE INDEX i1 ON t1(a) " +
                     "CREATE INDEX i2 AS SELECT count(*) FROM t1 GROUP BY a " +
                     "CREATE INDEX i3 AS SELECT count(a) FROM t1 GROUP BY b";
 

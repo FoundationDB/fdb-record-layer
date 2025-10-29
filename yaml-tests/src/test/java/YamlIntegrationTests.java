@@ -336,4 +336,14 @@ public class YamlIntegrationTests {
     public void castTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("cast-tests.yamsql");
     }
+
+    @TestTemplate
+    public void alternateIndexSyntax(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("alternate-index-syntax.yamsql");
+    }
+
+    @TestTemplate
+    public void castTests(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("cast-tests.yamsql");
+    }
 }

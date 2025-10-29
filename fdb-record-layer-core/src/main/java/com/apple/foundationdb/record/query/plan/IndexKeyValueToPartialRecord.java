@@ -463,6 +463,9 @@ public class IndexKeyValueToPartialRecord implements PlanHashable, PlanSerializa
                 return !fieldDescriptor.isRequired();
             }
             switch (fieldDescriptor.getType()) {
+                case INT32:
+                    value = ((Number)value).intValue();
+                    break;
                 case MESSAGE:
                     value = TupleFieldsHelper.toProto(value, fieldDescriptor.getMessageType());
                     break;
