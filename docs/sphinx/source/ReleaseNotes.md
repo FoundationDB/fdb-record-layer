@@ -7,6 +7,48 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.8
 
+### 4.8.3.0
+
+<h4> New Features </h4>
+
+* Support UDF in plan generator - [PR #3040](https://github.com/FoundationDB/fdb-record-layer/pull/3040)
+* Add new KeySpacePath.exportAllData - [PR #3566](https://github.com/FoundationDB/fdb-record-layer/pull/3566)
+* Support SQL views - [PR #3680](https://github.com/FoundationDB/fdb-record-layer/pull/3680)
+* vector basics; matrixes, serialization and half-precision floating point support - [PR #3677](https://github.com/FoundationDB/fdb-record-layer/pull/3677)
+* Add fdb metrics to the indexMerger log messages - [PR #3686](https://github.com/FoundationDB/fdb-record-layer/pull/3686)
+<h4> Bug Fixes </h4>
+
+* Fix ResolvedKeySpacePath.equals and hashCode - [PR #3591](https://github.com/FoundationDB/fdb-record-layer/pull/3591)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* add test for join queries with in predicate - [PR #3698](https://github.com/FoundationDB/fdb-record-layer/pull/3698)
+* Add documentation for KeySpace structure - [PR #3687](https://github.com/FoundationDB/fdb-record-layer/pull/3687)
+* fixing some precision limits - [PR #3694](https://github.com/FoundationDB/fdb-record-layer/pull/3694)
+* Add support for testing against multiple FDB clusters - [PR #3575](https://github.com/FoundationDB/fdb-record-layer/pull/3575)
+* Convert benchMarkMultiTarget to a nightly test - [PR #3633](https://github.com/FoundationDB/fdb-record-layer/pull/3633)
+* Add a test helper to generate secret keys … - [PR #3683](https://github.com/FoundationDB/fdb-record-layer/pull/3683)
+
+</details>
+
+
+**[Full Changelog (4.8.2.0...4.8.3.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.8.2.0...4.8.3.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+❌`4.6.1.0`, ❌`4.6.2.0`, ❌`4.6.3.0`, ❌`4.6.4.0`, ❌`4.6.5.0`, ❌`4.7.1.0`, ❌`4.7.2.0`, ✅`4.7.3.0`, ✅`4.8.1.0`, ✅`4.8.2.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/18920029798)
+
+
+
 ### 4.8.2.0
 
 <h4> New Features </h4>
