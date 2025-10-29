@@ -447,7 +447,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
                 // find TypeCode of array elements
                 final var elementField = messageDescriptor.findFieldByName(NullableArrayTypeUtils.getRepeatedFieldName());
                 final var elementTypeCode = TypeCode.fromProtobufFieldDescriptor(elementField.getType(), elementField.getOptions());
-                return fromProtoTypeToArray(descriptor, protoType, elementTypeCode, fieldOptions, true);
+                return fromProtoTypeToArray(descriptor, protoType, elementTypeCode, elementField.getOptions(), true);
             } else if (TupleFieldsProto.UUID.getDescriptor().equals(messageDescriptor)) {
                 return Type.uuidType(isNullable);
             } else {
@@ -471,8 +471,14 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
                                               @Nullable DescriptorProtos.FieldOptions fieldOptions,
                                               boolean isNullable) {
         if (typeCode.isPrimitive()) {
-            final var primitiveType = primitiveType(typeCode, false);
-            return new Array(isNullable, primitiveType);
+            final Type type;
+            if (typeCode == TypeCode.VECTOR) {
+                final var vectorOptions = Objects.requireNonNull(fieldOptions).getExtension(RecordMetaDataOptionsProto.field).getVectorOptions();
+                type = Type.Vector.of(false, vectorOptions.getPrecision(), vectorOptions.getDimensions());
+            } else {
+                type = primitiveType(typeCode, false);
+            }
+            return new Array(isNullable, type);
         } else if (typeCode == TypeCode.ENUM) {
             final var enumDescriptor = (Descriptors.EnumDescriptor)Objects.requireNonNull(descriptor);
             final var enumType = Enum.fromProtoValues(false, enumDescriptor.getValues());

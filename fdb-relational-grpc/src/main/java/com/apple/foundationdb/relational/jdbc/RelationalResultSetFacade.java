@@ -20,10 +20,6 @@
 
 package com.apple.foundationdb.relational.jdbc;
 
-import com.apple.foundationdb.linear.DoubleRealVector;
-import com.apple.foundationdb.linear.FloatRealVector;
-import com.apple.foundationdb.linear.HalfRealVector;
-import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.RelationalArray;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
@@ -357,7 +353,7 @@ class RelationalResultSetFacade implements RelationalResultSet {
                         o = getString(oneBasedColumn);
                         break;
                     case VECTOR:
-                        o = parseVector(getBytes(oneBasedColumn), ((DataType.VectorType)relationalType).getPrecision());
+                        o = TypeConversion.parseVector(getBytes(oneBasedColumn), ((DataType.VectorType)relationalType).getPrecision());
                         break;
                     default:
                         throw new SQLException("Unsupported type " + type);
@@ -403,19 +399,5 @@ class RelationalResultSetFacade implements RelationalResultSet {
     @Override
     public boolean isWrapperFor(Class<?> iface) throws SQLException {
         return iface.isInstance(this);
-    }
-
-    @Nonnull
-    public static RealVector parseVector(@Nonnull final byte[] bytes, int precision) throws SQLException {
-        if (precision == 16) {
-            return HalfRealVector.fromBytes(bytes);
-        }
-        if (precision == 32) {
-            return FloatRealVector.fromBytes(bytes);
-        }
-        if (precision == 64) {
-            return DoubleRealVector.fromBytes(bytes);
-        }
-        throw new SQLException("unexpected vector type with precision " + precision);
     }
 }

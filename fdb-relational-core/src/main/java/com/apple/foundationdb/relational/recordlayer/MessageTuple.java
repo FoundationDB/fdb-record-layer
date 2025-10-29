@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.TupleFieldsProto;
 import com.apple.foundationdb.record.metadata.expressions.TupleFieldsHelper;
 import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceException;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
@@ -66,10 +67,10 @@ public class MessageTuple extends AbstractRow {
         }
         if (fieldDescriptor.isRepeated()) {
             final var list = (List<?>) fieldValue;
-            return list.stream().map(MessageTuple::sanitizeField).collect(Collectors.toList());
+            return list.stream().map(arrayItem -> sanitizeField(arrayItem, fieldDescriptor.getOptions())).collect(Collectors.toList());
         }
         if (message.hasField(fieldDescriptor)) {
-            return sanitizeField(fieldValue);
+            return sanitizeField(fieldValue, fieldDescriptor.getOptions());
         } else {
             return null;
         }
@@ -90,7 +91,7 @@ public class MessageTuple extends AbstractRow {
         throw new RecordCoreException("unexpected vector precision " + precision);
     }
 
-    public static Object sanitizeField(final Object field) {
+    public static Object sanitizeField(@Nonnull final Object field, @Nonnull final DescriptorProtos.FieldOptions fieldOptions) {
         if (field instanceof Message && ((Message) field).getDescriptorForType().equals(TupleFieldsProto.UUID.getDescriptor())) {
             return TupleFieldsHelper.fromProto((Message) field, TupleFieldsProto.UUID.getDescriptor());
         }
@@ -98,7 +99,13 @@ public class MessageTuple extends AbstractRow {
             return ((Descriptors.EnumValueDescriptor) field).getName();
         }
         if (field instanceof ByteString) {
-            return ((ByteString) field).toByteArray();
+            final var byteString = (ByteString) field;
+            final var fieldVectorOptionsMaybe = fieldOptions.getExtension(RecordMetaDataOptionsProto.field);
+            if (fieldVectorOptionsMaybe.hasVectorOptions()) {
+                final var precision = fieldVectorOptionsMaybe.getVectorOptions().getPrecision();
+                return getVectorFromBytes(byteString, precision);
+            }
+            return byteString.toByteArray();
         }
         return field;
     }

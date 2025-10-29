@@ -21,9 +21,13 @@ options:
   supported_version: !current_version
 ---
 schema_template:
+    create type as struct embeddingStruct(model string, vdata vector(3, half))
+    create type as struct groupedEmbeddingStruct(model string, vdatas vector(3, float) array)
     create table tHalfVector(a bigint, b vector(3, half), primary key(a))
     create table tFloatVector(a bigint, b vector(3, float), primary key(a))
     create table tDoubleVector(a bigint, b vector(3, double), primary key(a))
+    create table tWithStruct(a bigint, embedding embeddingStruct, primary key(a))
+    create table tWithGroupedStruct(a bigint, embeddingGrouped groupedEmbeddingStruct, primary key(a))
 ---
 test_block:
   preset: single_repetition_ordered
@@ -346,3 +350,100 @@ test_block:
     -
       - query: select cast([1.0, 2.0] as VECTOR(3, DOUBLE)) from tDoubleVector where a = 100
       - error: "22F3H"
+    # Tests for tWithStruct (struct with HALF vector field)
+    # Insert struct with vector
+    -
+      - query: insert into tWithStruct values (100, ('model1', !! !v16 [1.1, 2.2, 3.3] !!))
+      - count: 1
+    -
+      - query: select * from tWithStruct
+      - result: [{100, {'model1', !v16 [1.1, 2.2, 3.3]}}]
+    -
+      - query: select embedding.vdata from tWithStruct where a = 100
+      - result: [{!v16 [1.1, 2.2, 3.3]}]
+    -
+      - query: select embedding.model from tWithStruct where a = 100
+      - result: [{'model1'}]
+    # Insert NULL struct
+    -
+      - query: insert into tWithStruct values (200, null)
+      - count: 1
+    -
+      - query: select embedding.vdata is null from tWithStruct where a = 200
+      - result: [{true}]
+    -
+      - query: select embedding.vdata is not null from tWithStruct where a = 200
+      - result: [{false}]
+    # Insert struct with NULL vector field
+    -
+      - query: insert into tWithStruct values (300, ('model2', null))
+      - count: 1
+    -
+      - query: select embedding.vdata is null from tWithStruct where a = 300
+      - result: [{true}]
+    -
+      - query: select embedding.model from tWithStruct where a = 300
+      - result: [{'model2'}]
+    # Filter using struct field with vector
+    -
+      - query: select a from tWithStruct where embedding.vdata = !! !v16 [1.1, 2.2, 3.3] !!
+      - result: [{100}]
+    -
+      - query: select a from tWithStruct where embedding.vdata != !! !v16 [1.1, 2.2, 3.3] !!
+      - result: []
+    #-
+      # https://github.com/FoundationDB/fdb-record-layer/issues/3700
+      #- query: select a from tWithStruct where embedding is null
+      #- result: [{200}]
+    -
+      - query: select a from tWithStruct where embedding.vdata is not null
+      - result: [{100}]
+    # IS DISTINCT FROM with struct vector field
+    -
+      - query: select embedding.vdata is distinct from !! !v16 [1.1, 2.2, 3.3] !! from tWithStruct where a = 100
+      - result: [{false}]
+    -
+      - query: select embedding.vdata is distinct from !! !v16 [9.9, 9.9, 9.9] !! from tWithStruct where a = 100
+      - result: [{true}]
+    -
+      - query: select embedding.vdata is distinct from null from tWithStruct where a = 300
+      - result: [{false}]
+    # IS NOT DISTINCT FROM with struct vector field
+    -
+      - query: select embedding.vdata is not distinct from !! !v16 [1.1, 2.2, 3.3] !! from tWithStruct where a = 100
+      - result: [{true}]
+    -
+      - query: select embedding.vdata is not distinct from !! !v16 [9.9, 9.9, 9.9] !! from tWithStruct where a = 100
+      - result: [{false}]
+    -
+      - query: select embedding.vdata is not distinct from null from tWithStruct where a = 300
+      - result: [{true}]
+    # Tests for tWithGroupedStruct (struct with FLOAT vector array field)
+    # Insert struct with vector array
+    -
+      - query: insert into tWithGroupedStruct values (100, ('model1', [ !! !v32 [1.1, 2.2, 3.3] !! , !! !v32 [4.4, 5.5, 6.6] !! ] ) )
+      - count: 1
+    -
+      - query: select * from tWithGroupedStruct
+      - result: [{100, {'model1', [!v32 [1.1, 2.2, 3.3], !v32 [4.4, 5.5, 6.6]]}}]
+    -
+      - query: select embeddingGrouped.vdatas from tWithGroupedStruct where a = 100
+      - result: [{[!v32 [1.1, 2.2, 3.3], !v32 [4.4, 5.5, 6.6]]}]
+    -
+      - query: select embeddingGrouped.model from tWithGroupedStruct where a = 100
+      - result: [{'model1'}]
+    # Insert NULL struct
+    -
+      - query: insert into tWithGroupedStruct values (200, null)
+      - count: 1
+    #-
+      # https://github.com/FoundationDB/fdb-record-layer/issues/3700
+      #- query: select embeddingGrouped is null from tWithGroupedStruct where a = 200
+      #- result: [{true}]
+    # Insert struct with single vector in array
+    -
+      - query: insert into tWithGroupedStruct values (300, ('model4', [ !! !v32 [7.7, 8.8, 9.9] !! ]))
+      - count: 1
+    -
+      - query: select embeddingGrouped.vdatas from tWithGroupedStruct where a = 300
+      - result: [{[!v32 [7.7, 8.8, 9.9]]}]

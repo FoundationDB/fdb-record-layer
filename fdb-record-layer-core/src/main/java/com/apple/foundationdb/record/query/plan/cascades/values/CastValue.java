@@ -563,7 +563,7 @@ public class CastValue extends AbstractValue implements ValueWithChild, Value.Ra
             SemanticException.fail(SemanticException.ErrorCode.INVALID_CAST, "Target array element type cannot be null");
         }
 
-        final var inputList = (java.util.List<Object>) in;
+        final var inputList = (List<Object>) in;
 
         // Handle empty arrays - return empty list of target type
         if (inputList.isEmpty()) {
@@ -608,13 +608,14 @@ public class CastValue extends AbstractValue implements ValueWithChild, Value.Ra
         Verify.verify(targetArrayType.isVector());
         final var targetVectorType = (Type.Vector)targetArrayType;
 
-        final var inputList = (java.util.List<Object>) in;
+        final var inputList = (List<Object>) in;
 
         if (sourceElementType == null) {
             SemanticException.fail(SemanticException.ErrorCode.INVALID_CAST, "Source array element type cannot be null");
         }
 
-        if (inputList.size() != targetVectorType.getDimensions()) {
+        int numDimensions = targetVectorType.getDimensions();
+        if (inputList.size() != numDimensions) {
             SemanticException.fail(SemanticException.ErrorCode.INVALID_CAST, "Source array is not the same size of the vector");
         }
 

@@ -621,7 +621,7 @@ public class SelectExpression extends AbstractRelationalExpressionWithChildren i
                 .map(Object::toString)
                 .collect(Collectors.joining(" AND "));
 
-        final var abbreviatedPredicateString = predicateString.length() > 30 ? String.format(Locale.ROOT, "%02x", predicateString.hashCode()) : predicateString;
+        final var abbreviatedPredicateString = predicateString.length() > 3000 ? String.format(Locale.ROOT, "%02x", predicateString.hashCode()) : predicateString;
         return PlannerGraph.fromNodeAndChildGraphs(
                 new PlannerGraph.LogicalOperatorNode(this,
                         "SELECT " + resultValue,

@@ -21,6 +21,9 @@
 package com.apple.foundationdb.relational.jdbc;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.linear.DoubleRealVector;
+import com.apple.foundationdb.linear.FloatRealVector;
+import com.apple.foundationdb.linear.HalfRealVector;
 import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.relational.api.ArrayMetaData;
 import com.apple.foundationdb.relational.api.Continuation;
@@ -255,6 +258,7 @@ public class TypeConversion {
                 .setJavaSqlTypesCode(metadata.getElementType())
                 .setType(toProtobufType(metadata.asRelationalType().getElementType()))
                 .setNullable(metadata.isElementNullable() == DatabaseMetaData.columnNullable);
+        final var elementRelationalType = metadata.asRelationalType().getElementType();
         // TODO phantom.
         // TODO: label
         // One-offs
@@ -266,6 +270,12 @@ public class TypeConversion {
             case Types.ARRAY:
                 var columnMetadata = toColumnMetadata(metadata.getElementArrayMetaData());
                 columnMetadataBuilder.setArrayMetadata(columnMetadata);
+                break;
+            case Types.OTHER:
+                if (elementRelationalType.getCode() == DataType.Code.VECTOR) {
+                    var vectorMetadata = toVectorMetadata((DataType.VectorType)elementRelationalType);
+                    columnMetadataBuilder.setVectorMetadata(vectorMetadata);
+                }
                 break;
             default:
                 break;
@@ -907,5 +917,19 @@ public class TypeConversion {
             default:
                 throw new RelationalException("Not implemeneted: " + type.name(), ErrorCode.INTERNAL_ERROR).toUncheckedWrappedException();
         }
+    }
+
+    @Nonnull
+    public static RealVector parseVector(@Nonnull final byte[] bytes, int precision) throws SQLException {
+        if (precision == 16) {
+            return HalfRealVector.fromBytes(bytes);
+        }
+        if (precision == 32) {
+            return FloatRealVector.fromBytes(bytes);
+        }
+        if (precision == 64) {
+            return DoubleRealVector.fromBytes(bytes);
+        }
+        throw new SQLException("unexpected vector type with precision " + precision);
     }
 }

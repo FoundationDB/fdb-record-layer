@@ -258,7 +258,7 @@ public abstract class RowStruct implements RelationalStruct, EmbeddedRelationalS
             final var fieldValues = (Collection<?>) message.getField(fieldDescriptor);
             final var elements = new ArrayList<>();
             for (var fieldValue : fieldValues) {
-                final var sanitizedFieldValue = MessageTuple.sanitizeField(fieldValue);
+                final var sanitizedFieldValue = MessageTuple.sanitizeField(fieldValue, fieldDescriptor.getOptions());
                 if (sanitizedFieldValue instanceof Message) {
                     elements.add(new ImmutableRowStruct(new MessageTuple((Message) sanitizedFieldValue), arrayMetaData.getElementStructMetaData()));
                 }  else {

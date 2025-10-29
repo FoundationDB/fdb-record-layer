@@ -188,7 +188,8 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
             final var objects = (List<?>)field;
             final var elementType = Verify.verifyNotNull(((Type.Array)fieldType).getElementType());
             if (elementType.isPrimitive()) {
-                if (elementType.getTypeCode() == Type.TypeCode.BYTES || elementType.getTypeCode() == Type.TypeCode.VERSION) {
+                final var elementTypeCode = elementType.getTypeCode();
+                if (elementTypeCode == Type.TypeCode.VECTOR || elementTypeCode == Type.TypeCode.BYTES || elementTypeCode == Type.TypeCode.VERSION) {
                     var resultBuilder = ImmutableList.builderWithExpectedSize(objects.size());
                     for (Object object : objects) {
                         resultBuilder.add(protoObjectForPrimitive(elementType, object));

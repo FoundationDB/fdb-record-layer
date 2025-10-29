@@ -100,12 +100,8 @@ public class JDBCService extends JDBCServiceGrpc.JDBCServiceImplBase {
             responseObserver.onNext(statementResponseBuilder.build());
             responseObserver.onCompleted();
         } catch (SQLException e) {
-            System.out.println("WHOOOOPS");
-            e.printStackTrace();
             responseObserver.onError(StatusProto.toStatusRuntimeException(GrpcSQLExceptionUtil.create(e)));
         } catch (RuntimeException e) {
-            System.out.println("WHOOOOPSY DAISY");
-            e.printStackTrace();
             throw handleUncaughtException(e);
         }
     }
