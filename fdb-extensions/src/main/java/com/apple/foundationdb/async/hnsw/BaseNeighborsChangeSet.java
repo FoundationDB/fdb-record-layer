@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2023 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -89,7 +89,7 @@ class BaseNeighborsChangeSet<N extends NodeReference> implements NeighborsChange
      */
     @Override
     public void writeDelta(@Nonnull final InliningStorageAdapter storageAdapter, @Nonnull final Transaction transaction,
-                           @Nonnull final Quantizer quantizer, final int layer, @Nonnull final Node<N> node,
+                           @Nonnull final Quantizer quantizer, final int layer, @Nonnull final AbstractNode<N> node,
                            @Nonnull final Predicate<Tuple> primaryKeyPredicate) {
         // nothing to be written
     }

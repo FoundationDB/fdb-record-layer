@@ -36,6 +36,7 @@ import com.apple.foundationdb.test.TestSubspaceExtension;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.RandomSeedSource;
 import com.apple.test.RandomizedTestUtils;
+import com.apple.test.SuperSlow;
 import com.apple.test.Tags;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -108,7 +109,7 @@ public class HNSWTest {
 
     @Test
     void testConfig() {
-        final HNSW.Config defaultConfig = HNSW.defaultConfig(768);
+        final Config defaultConfig = HNSW.defaultConfig(768);
 
         Assertions.assertThat(HNSW.newConfigBuilder().build(768)).isEqualTo(defaultConfig);
         Assertions.assertThat(defaultConfig.toBuilder().build(768)).isEqualTo(defaultConfig);
@@ -116,10 +117,10 @@ public class HNSWTest {
         final long randomSeed = 1L;
         final Metric metric = Metric.COSINE_METRIC;
         final boolean useInlining = true;
-        final int m = HNSW.DEFAULT_M + 1;
-        final int mMax = HNSW.DEFAULT_M_MAX + 1;
-        final int mMax0 = HNSW.DEFAULT_M_MAX_0 + 1;
-        final int efConstruction = HNSW.DEFAULT_EF_CONSTRUCTION + 1;
+        final int m = Config.DEFAULT_M + 1;
+        final int mMax = Config.DEFAULT_M_MAX + 1;
+        final int mMax0 = Config.DEFAULT_M_MAX_0 + 1;
+        final int efConstruction = Config.DEFAULT_EF_CONSTRUCTION + 1;
         final boolean extendCandidates = true;
         final boolean keepPrunedConnections = true;
         final int statsThreshold = 1;
@@ -127,7 +128,7 @@ public class HNSWTest {
         final double maintainStatsProbability = 0.000001d;
 
         final boolean useRaBitQ = true;
-        final int raBitQNumExBits = HNSW.DEFAULT_RABITQ_NUM_EX_BITS + 1;
+        final int raBitQNumExBits = Config.DEFAULT_RABITQ_NUM_EX_BITS + 1;
 
         Assertions.assertThat(defaultConfig.getRandomSeed()).isNotEqualTo(randomSeed);
         Assertions.assertThat(defaultConfig.getMetric()).isNotSameAs(metric);
@@ -146,7 +147,7 @@ public class HNSWTest {
         Assertions.assertThat(defaultConfig.isUseRaBitQ()).isNotEqualTo(useRaBitQ);
         Assertions.assertThat(defaultConfig.getRaBitQNumExBits()).isNotEqualTo(raBitQNumExBits);
 
-        final HNSW.Config newConfig =
+        final Config newConfig =
                 defaultConfig.toBuilder()
                         .setRandomSeed(randomSeed)
                         .setMetric(metric)
@@ -188,13 +189,13 @@ public class HNSWTest {
         final Random random = new Random(seed);
         final int numDimensions = 768;
         final CompactStorageAdapter storageAdapter =
-                new CompactStorageAdapter(HNSW.DEFAULT_CONFIG_BUILDER.build(numDimensions), CompactNode.factory(),
+                new CompactStorageAdapter(HNSW.newConfigBuilder().build(numDimensions), CompactNode.factory(),
                         rtSubspace.getSubspace(), OnWriteListener.NOOP, OnReadListener.NOOP);
-        final Node<NodeReference> originalNode =
+        final AbstractNode<NodeReference> originalNode =
                 db.run(tr -> {
                     final NodeFactory<NodeReference> nodeFactory = storageAdapter.getNodeFactory();
 
-                    final Node<NodeReference> randomCompactNode =
+                    final AbstractNode<NodeReference> randomCompactNode =
                             createRandomCompactNode(random, nodeFactory, numDimensions, 16);
 
                     writeNode(tr, storageAdapter, randomCompactNode, 0);
@@ -228,13 +229,14 @@ public class HNSWTest {
         final Random random = new Random(seed);
         final int numDimensions = 768;
         final InliningStorageAdapter storageAdapter =
-                new InliningStorageAdapter(HNSW.DEFAULT_CONFIG_BUILDER.build(numDimensions), InliningNode.factory(), rtSubspace.getSubspace(),
+                new InliningStorageAdapter(HNSW.newConfigBuilder().build(numDimensions),
+                        InliningNode.factory(), rtSubspace.getSubspace(),
                         OnWriteListener.NOOP, OnReadListener.NOOP);
         final Node<NodeReferenceWithVector> originalNode =
                 db.run(tr -> {
                     final NodeFactory<NodeReferenceWithVector> nodeFactory = storageAdapter.getNodeFactory();
 
-                    final Node<NodeReferenceWithVector> randomInliningNode =
+                    final AbstractNode<NodeReferenceWithVector> randomInliningNode =
                             createRandomInliningNode(random, nodeFactory, numDimensions, 16);
 
                     writeNode(tr, storageAdapter, randomInliningNode, 0);
@@ -281,7 +283,7 @@ public class HNSWTest {
 
         final int numDimensions = 128;
         final HNSW hnsw = new HNSW(rtSubspace.getSubspace(), TestExecutors.defaultThreadPool(),
-                HNSW.DEFAULT_CONFIG_BUILDER.setMetric(metric)
+                HNSW.newConfigBuilder().setMetric(metric)
                         .setUseInlining(useInlining).setExtendCandidates(extendCandidates)
                         .setKeepPrunedConnections(keepPrunedConnections)
                         .setUseRaBitQ(useRaBitQ)
@@ -315,19 +317,19 @@ public class HNSWTest {
 
         onReadListener.reset();
         final long beginTs = System.nanoTime();
-        final List<? extends NodeReferenceAndNode<?>> results =
-                db.run(tr -> hnsw.kNearestNeighborsSearch(tr, k, 100, queryVector).join());
+        final List<? extends ResultEntry> results =
+                db.run(tr ->
+                        hnsw.kNearestNeighborsSearch(tr, k, 100, true, queryVector).join());
         final long endTs = System.nanoTime();
 
         final ImmutableSet<Tuple> trueNN =
                 ImmutableSet.copyOf(NodeReference.primaryKeys(nodesOrderedByDistance));
 
         int recallCount = 0;
-        for (NodeReferenceAndNode<?> nodeReferenceAndNode : results) {
-            final NodeReferenceWithDistance nodeReferenceWithDistance = nodeReferenceAndNode.getNodeReferenceWithDistance();
-            logger.info("nodeId ={} at distance={}", nodeReferenceWithDistance.getPrimaryKey().getLong(0),
-                    nodeReferenceWithDistance.getDistance());
-            if (trueNN.contains(nodeReferenceAndNode.getNode().getPrimaryKey())) {
+        for (ResultEntry resultEntry : results) {
+            logger.info("nodeId ={} at distance={}", resultEntry.getPrimaryKey().getLong(0),
+                    resultEntry.getDistance());
+            if (trueNN.contains(resultEntry.getPrimaryKey())) {
                 recallCount ++;
             }
         }
@@ -377,7 +379,7 @@ public class HNSWTest {
     }
 
     @Test
-    //@SuperSlow
+    @SuperSlow
     void testSIFTInsertSmall() throws Exception {
         final Metric metric = Metric.EUCLIDEAN_METRIC;
         final int k = 100;
@@ -386,7 +388,7 @@ public class HNSWTest {
         final TestOnReadListener onReadListener = new TestOnReadListener();
 
         final HNSW hnsw = new HNSW(rtSubspace.getSubspace(), TestExecutors.defaultThreadPool(),
-                HNSW.DEFAULT_CONFIG_BUILDER.setUseRaBitQ(false).setRaBitQNumExBits(5).setUseInlining(true)
+                HNSW.newConfigBuilder().setUseRaBitQ(true).setRaBitQNumExBits(5)
                         .setMetric(metric).setM(32).setMMax(32).setMMax0(64).build(128),
                 OnWriteListener.NOOP, onReadListener);
 
@@ -440,20 +442,19 @@ public class HNSWTest {
                 final Set<Integer> groundTruthIndices = ImmutableSet.copyOf(groundTruthIterator.next());
                 onReadListener.reset();
                 final long beginTs = System.nanoTime();
-                final List<? extends NodeReferenceAndNode<?>> results =
-                        db.run(tr -> hnsw.kNearestNeighborsSearch(tr, k, 100, queryVector).join());
+                final List<? extends ResultEntry> results =
+                        db.run(tr -> hnsw.kNearestNeighborsSearch(tr, k, 100,
+                                true, queryVector).join());
                 final long endTs = System.nanoTime();
                 logger.info("retrieved result in elapsedTimeMs={}, reading numNodes={}, readBytes={}",
                         TimeUnit.NANOSECONDS.toMillis(endTs - beginTs),
                         onReadListener.getNodeCountByLayer(), onReadListener.getBytesReadByLayer());
 
                 int recallCount = 0;
-                for (NodeReferenceAndNode<?> nodeReferenceAndNode : results) {
-                    final NodeReferenceWithDistance nodeReferenceWithDistance =
-                            nodeReferenceAndNode.getNodeReferenceWithDistance();
-                    final int primaryKeyIndex = (int)nodeReferenceWithDistance.getPrimaryKey().getLong(0);
+                for (final ResultEntry resultEntry : results) {
+                    final int primaryKeyIndex = (int)resultEntry.getPrimaryKey().getLong(0);
                     logger.trace("retrieved result nodeId = {} at distance = {} ",
-                            primaryKeyIndex, nodeReferenceWithDistance.getDistance());
+                            primaryKeyIndex, resultEntry.getDistance());
                     if (groundTruthIndices.contains(primaryKeyIndex)) {
                         recallCount ++;
                     }
@@ -469,7 +470,7 @@ public class HNSWTest {
 
     private <N extends NodeReference> void writeNode(@Nonnull final Transaction transaction,
                                                      @Nonnull final StorageAdapter<N> storageAdapter,
-                                                     @Nonnull final Node<N> node,
+                                                     @Nonnull final AbstractNode<N> node,
                                                      final int layer) {
         final NeighborsChangeSet<N> insertChangeSet =
                 new InsertNeighborsChangeSet<>(new BaseNeighborsChangeSet<>(ImmutableList.of()),
@@ -479,10 +480,10 @@ public class HNSWTest {
     }
 
     @Nonnull
-    private Node<NodeReference> createRandomCompactNode(@Nonnull final Random random,
-                                                        @Nonnull final NodeFactory<NodeReference> nodeFactory,
-                                                        final int numDimensions,
-                                                        final int numberOfNeighbors) {
+    private AbstractNode<NodeReference> createRandomCompactNode(@Nonnull final Random random,
+                                                                @Nonnull final NodeFactory<NodeReference> nodeFactory,
+                                                                final int numDimensions,
+                                                                final int numberOfNeighbors) {
         final Tuple primaryKey = createRandomPrimaryKey(random);
         final ImmutableList.Builder<NodeReference> neighborsBuilder = ImmutableList.builder();
         for (int i = 0; i < numberOfNeighbors; i ++) {
@@ -493,10 +494,10 @@ public class HNSWTest {
     }
 
     @Nonnull
-    private Node<NodeReferenceWithVector> createRandomInliningNode(@Nonnull final Random random,
-                                                                   @Nonnull final NodeFactory<NodeReferenceWithVector> nodeFactory,
-                                                                   final int numDimensions,
-                                                                   final int numberOfNeighbors) {
+    private AbstractNode<NodeReferenceWithVector> createRandomInliningNode(@Nonnull final Random random,
+                                                                           @Nonnull final NodeFactory<NodeReferenceWithVector> nodeFactory,
+                                                                           final int numDimensions,
+                                                                           final int numberOfNeighbors) {
         final Tuple primaryKey = createRandomPrimaryKey(random);
         final ImmutableList.Builder<NodeReferenceWithVector> neighborsBuilder = ImmutableList.builder();
         for (int i = 0; i < numberOfNeighbors; i ++) {

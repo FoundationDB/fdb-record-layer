@@ -43,9 +43,9 @@ class InliningNode extends AbstractNode<NodeReferenceWithVector> {
         @SuppressWarnings("unchecked")
         @Nonnull
         @Override
-        public Node<NodeReferenceWithVector> create(@Nonnull final Tuple primaryKey,
-                                                    @Nullable final RealVector vector,
-                                                    @Nonnull final List<? extends NodeReference> neighbors) {
+        public AbstractNode<NodeReferenceWithVector> create(@Nonnull final Tuple primaryKey,
+                                                            @Nullable final RealVector vector,
+                                                            @Nonnull final List<? extends NodeReference> neighbors) {
             return new InliningNode(primaryKey, (List<NodeReferenceWithVector>)neighbors);
         }
 

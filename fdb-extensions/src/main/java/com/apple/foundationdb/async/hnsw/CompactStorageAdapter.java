@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2023 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -61,13 +61,13 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
      * This constructor initializes the adapter by delegating to the superclass,
      * setting up the necessary components for managing an HNSW graph.
      *
-     * @param config the HNSW graph configuration, must not be null. See {@link HNSW.Config}.
+     * @param config the HNSW graph configuration, must not be null. See {@link Config}.
      * @param nodeFactory the factory used to create new nodes of type {@link NodeReference}, must not be null.
      * @param subspace the {@link Subspace} where the graph data is stored, must not be null.
      * @param onWriteListener the listener to be notified of write events, must not be null.
      * @param onReadListener the listener to be notified of read events, must not be null.
      */
-    public CompactStorageAdapter(@Nonnull final HNSW.Config config,
+    public CompactStorageAdapter(@Nonnull final Config config,
                                  @Nonnull final NodeFactory<NodeReference> nodeFactory,
                                  @Nonnull final Subspace subspace,
                                  @Nonnull final OnWriteListener onWriteListener,
@@ -106,10 +106,9 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
     /**
      * Asynchronously fetches a node from the database for a given layer and primary key.
      * <p>
-     * This internal method constructs a raw byte key from the {@code layer} and {@code primaryKey}
-     * within the store's data subspace. It then uses the provided {@link ReadTransaction} to
-     * retrieve the raw value. If a value is found, it is deserialized into a {@link Node} object
-     * using the {@code nodeFromRaw} method.
+     * This internal method constructs a raw byte key from the {@code layer} and {@code primaryKey} within the store's
+     * data subspace. It then uses the provided {@link ReadTransaction} to retrieve the raw value. If a value is found,
+     * it is deserialized into a {@link AbstractNode} object using the {@code nodeFromRaw} method.
      *
      * @param readTransaction the transaction to use for the read operation
      * @param storageTransform an affine vector transformation operator that is used to transform the fetched vector
@@ -117,16 +116,16 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
      * @param layer the layer of the node to fetch
      * @param primaryKey the primary key of the node to fetch
      *
-     * @return a future that will complete with the fetched {@link Node}
+     * @return a future that will complete with the fetched {@link AbstractNode}
      *
      * @throws IllegalStateException if the node cannot be found in the database for the given key
      */
     @Nonnull
     @Override
-    protected CompletableFuture<Node<NodeReference>> fetchNodeInternal(@Nonnull final ReadTransaction readTransaction,
-                                                                       @Nonnull final AffineOperator storageTransform,
-                                                                       final int layer,
-                                                                       @Nonnull final Tuple primaryKey) {
+    protected CompletableFuture<AbstractNode<NodeReference>> fetchNodeInternal(@Nonnull final ReadTransaction readTransaction,
+                                                                               @Nonnull final AffineOperator storageTransform,
+                                                                               final int layer,
+                                                                               @Nonnull final Tuple primaryKey) {
         final byte[] keyBytes = getDataSubspace().pack(Tuple.from(layer, primaryKey));
 
         return readTransaction.get(keyBytes)
@@ -153,14 +152,14 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
      * @param keyBytes the raw byte representation of the node's key
      * @param valueBytes the raw byte representation of the node's value, which will be deserialized
      *
-     * @return a non-null, deserialized {@link Node} object
+     * @return a non-null, deserialized {@link AbstractNode} object
      */
     @Nonnull
-    private Node<NodeReference> nodeFromRaw(@Nonnull final AffineOperator storageTransform, final int layer,
-                                            final @Nonnull Tuple primaryKey,
-                                            @Nonnull final byte[] keyBytes, @Nonnull final byte[] valueBytes) {
+    private AbstractNode<NodeReference> nodeFromRaw(@Nonnull final AffineOperator storageTransform, final int layer,
+                                                    final @Nonnull Tuple primaryKey,
+                                                    @Nonnull final byte[] keyBytes, @Nonnull final byte[] valueBytes) {
         final Tuple nodeTuple = Tuple.fromBytes(valueBytes);
-        final Node<NodeReference> node = nodeFromKeyValuesTuples(storageTransform, primaryKey, nodeTuple);
+        final AbstractNode<NodeReference> node = nodeFromKeyValuesTuples(storageTransform, primaryKey, nodeTuple);
         final OnReadListener onReadListener = getOnReadListener();
         onReadListener.onNodeRead(layer, node);
         onReadListener.onKeyValueRead(layer, keyBytes, valueBytes);
@@ -168,7 +167,7 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
     }
 
     /**
-     * Constructs a compact {@link Node} from its representation as stored key and value tuples.
+     * Constructs a compact {@link AbstractNode} from its representation as stored key and value tuples.
      * <p>
      * This method deserializes a node by extracting its components from the provided tuples. It verifies that the
      * node is of type {@link NodeKind#COMPACT} before delegating the final construction to
@@ -181,15 +180,15 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
      * @param primaryKey the tuple representing the primary key of the node
      * @param valueTuple the tuple containing the serialized node data, including kind, vector, and neighbors
      *
-     * @return the reconstructed compact {@link Node}
+     * @return the reconstructed compact {@link AbstractNode}
      *
      * @throws com.google.common.base.VerifyException if the node kind encoded in {@code valueTuple} is not
      *         {@link NodeKind#COMPACT}
      */
     @Nonnull
-    private Node<NodeReference> nodeFromKeyValuesTuples(@Nonnull final AffineOperator storageTransform,
-                                                        @Nonnull final Tuple primaryKey,
-                                                        @Nonnull final Tuple valueTuple) {
+    private AbstractNode<NodeReference> nodeFromKeyValuesTuples(@Nonnull final AffineOperator storageTransform,
+                                                                @Nonnull final Tuple primaryKey,
+                                                                @Nonnull final Tuple valueTuple) {
         final NodeKind nodeKind = NodeKind.fromSerializedNodeKind((byte)valueTuple.getLong(0));
         Verify.verify(nodeKind == NodeKind.COMPACT);
 
@@ -219,10 +218,10 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
      * @return a new {@code Node} instance containing the deserialized data from the input tuples
      */
     @Nonnull
-    private Node<NodeReference> compactNodeFromTuples(@Nonnull final AffineOperator storageTransform,
-                                                      @Nonnull final Tuple primaryKey,
-                                                      @Nonnull final Tuple vectorTuple,
-                                                      @Nonnull final Tuple neighborsTuple) {
+    private AbstractNode<NodeReference> compactNodeFromTuples(@Nonnull final AffineOperator storageTransform,
+                                                              @Nonnull final Tuple primaryKey,
+                                                              @Nonnull final Tuple vectorTuple,
+                                                              @Nonnull final Tuple neighborsTuple) {
         final RealVector vector =
                 storageTransform.applyInvert(StorageAdapter.vectorFromTuple(getConfig(), vectorTuple));
         final List<NodeReference> nodeReferences = Lists.newArrayListWithExpectedSize(neighborsTuple.size());
@@ -246,14 +245,14 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
      *
      * @param transaction the {@link Transaction} to use for the write operation.
      * @param quantizer the quantizer to use
-     * @param node the {@link Node} to be serialized and written; it is processed as a {@link CompactNode}.
+     * @param node the {@link AbstractNode} to be serialized and written; it is processed as a {@link CompactNode}.
      * @param layer the graph layer index for the node, used to construct the storage key.
      * @param neighborsChangeSet a {@link NeighborsChangeSet} containing the additions and removals, which are
      * merged to determine the final set of neighbors to be written.
      */
     @Override
     public void writeNodeInternal(@Nonnull final Transaction transaction, @Nonnull final Quantizer quantizer,
-                                  @Nonnull final Node<NodeReference> node, final int layer,
+                                  @Nonnull final AbstractNode<NodeReference> node, final int layer,
                                   @Nonnull final NeighborsChangeSet<NodeReference> neighborsChangeSet) {
         final byte[] key = getDataSubspace().pack(Tuple.from(layer, node.getPrimaryKey()));
 
@@ -296,13 +295,13 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
      * the scan starts from the beginning of the layer.
      * @param maxNumRead the maximum number of nodes to read in this scan
      *
-     * @return an {@link Iterable} of {@link Node} objects found in the specified layer,
+     * @return an {@link Iterable} of {@link AbstractNode} objects found in the specified layer,
      * limited by {@code maxNumRead}
      */
     @Nonnull
     @Override
-    public Iterable<Node<NodeReference>> scanLayer(@Nonnull final ReadTransaction readTransaction, int layer,
-                                                   @Nullable final Tuple lastPrimaryKey, int maxNumRead) {
+    public Iterable<AbstractNode<NodeReference>> scanLayer(@Nonnull final ReadTransaction readTransaction, int layer,
+                                                           @Nullable final Tuple lastPrimaryKey, int maxNumRead) {
         final byte[] layerPrefix = getDataSubspace().pack(Tuple.from(layer));
         final Range range =
                 lastPrimaryKey == null

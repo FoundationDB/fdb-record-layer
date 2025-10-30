@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2023 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -48,7 +48,7 @@ abstract class AbstractStorageAdapter<N extends NodeReference> implements Storag
     private static final Logger logger = LoggerFactory.getLogger(AbstractStorageAdapter.class);
 
     @Nonnull
-    private final HNSW.Config config;
+    private final Config config;
     @Nonnull
     private final NodeFactory<N> nodeFactory;
     @Nonnull
@@ -73,7 +73,7 @@ abstract class AbstractStorageAdapter<N extends NodeReference> implements Storag
      * @param onWriteListener the listener to be called on write operations
      * @param onReadListener the listener to be called on read operations
      */
-    protected AbstractStorageAdapter(@Nonnull final HNSW.Config config, @Nonnull final NodeFactory<N> nodeFactory,
+    protected AbstractStorageAdapter(@Nonnull final Config config, @Nonnull final NodeFactory<N> nodeFactory,
                                      @Nonnull final Subspace subspace,
                                      @Nonnull final OnWriteListener onWriteListener,
                                      @Nonnull final OnReadListener onReadListener) {
@@ -88,11 +88,11 @@ abstract class AbstractStorageAdapter<N extends NodeReference> implements Storag
     /**
      * Returns the configuration used to build and search this HNSW graph.
      *
-     * @return the current {@link HNSW.Config} object, never {@code null}.
+     * @return the current {@link Config} object, never {@code null}.
      */
     @Override
     @Nonnull
-    public HNSW.Config getConfig() {
+    public Config getConfig() {
         return config;
     }
 
@@ -195,14 +195,14 @@ abstract class AbstractStorageAdapter<N extends NodeReference> implements Storag
      * @param layer the layer of the tree from which to fetch the node
      * @param primaryKey the non-null primary key that identifies the node to fetch
      *
-     * @return a {@link CompletableFuture} that will complete with the fetched {@link Node}
+     * @return a {@link CompletableFuture} that will complete with the fetched {@link AbstractNode}
      * once it has been read from storage and validated
      */
     @Nonnull
     @Override
-    public CompletableFuture<Node<N>> fetchNode(@Nonnull final ReadTransaction readTransaction,
-                                                @Nonnull final AffineOperator storageTransform,
-                                                int layer, @Nonnull Tuple primaryKey) {
+    public CompletableFuture<AbstractNode<N>> fetchNode(@Nonnull final ReadTransaction readTransaction,
+                                                        @Nonnull final AffineOperator storageTransform,
+                                                        int layer, @Nonnull Tuple primaryKey) {
         return fetchNodeInternal(readTransaction, storageTransform, layer, primaryKey).thenApply(this::checkNode);
 
     }
@@ -220,13 +220,13 @@ abstract class AbstractStorageAdapter<N extends NodeReference> implements Storag
      * @param layer the layer index from which to fetch the node
      * @param primaryKey the primary key that uniquely identifies the node to be fetched; must not be {@code null}
      *
-     * @return a {@link CompletableFuture} that will be completed with the fetched {@link Node}.
+     * @return a {@link CompletableFuture} that will be completed with the fetched {@link AbstractNode}.
      * The future will complete with {@code null} if no node is found for the given key and layer.
      */
     @Nonnull
-    protected abstract CompletableFuture<Node<N>> fetchNodeInternal(@Nonnull ReadTransaction readTransaction,
-                                                                    @Nonnull AffineOperator storageTransform,
-                                                                    int layer, @Nonnull Tuple primaryKey);
+    protected abstract CompletableFuture<AbstractNode<N>> fetchNodeInternal(@Nonnull ReadTransaction readTransaction,
+                                                                            @Nonnull AffineOperator storageTransform,
+                                                                            int layer, @Nonnull Tuple primaryKey);
 
     /**
      * Method to perform basic invariant check(s) on a newly-fetched node.
@@ -237,7 +237,7 @@ abstract class AbstractStorageAdapter<N extends NodeReference> implements Storag
      * @return the node that was passed in
      */
     @Nullable
-    private Node<N> checkNode(@Nullable final Node<N> node) {
+    private <T extends Node<N>> T checkNode(@Nullable final T node) {
         return node;
     }
 
@@ -259,7 +259,7 @@ abstract class AbstractStorageAdapter<N extends NodeReference> implements Storag
      */
     @Override
     public void writeNode(@Nonnull final Transaction transaction, @Nonnull final Quantizer quantizer,
-                          @Nonnull final Node<N> node, final int layer,
+                          @Nonnull final AbstractNode<N> node, final int layer,
                           @Nonnull final NeighborsChangeSet<N> changeSet) {
         writeNodeInternal(transaction, quantizer, node, layer, changeSet);
         if (logger.isTraceEnabled()) {
@@ -283,7 +283,7 @@ abstract class AbstractStorageAdapter<N extends NodeReference> implements Storag
      * removals of neighbor links
      */
     protected abstract void writeNodeInternal(@Nonnull Transaction transaction, @Nonnull Quantizer quantizer,
-                                              @Nonnull Node<N> node, int layer,
+                                              @Nonnull AbstractNode<N> node, int layer,
                                               @Nonnull NeighborsChangeSet<N> changeSet);
 
 }
