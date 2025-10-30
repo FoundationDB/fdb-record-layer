@@ -913,10 +913,6 @@ expressionOrDefault
     : expression | DEFAULT
     ;
 
-expressionWithName
-    : expression AS uid
-    ;
-
 expressionWithOptionalName
     : expression (AS uid)?
     ;

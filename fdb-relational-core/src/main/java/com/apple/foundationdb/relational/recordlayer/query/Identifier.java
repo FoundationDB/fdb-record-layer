@@ -75,11 +75,6 @@ public class Identifier {
     }
 
     @Nonnull
-    public Identifier withName(@Nonnull String name) {
-        return Identifier.of(name, qualifier);
-    }
-
-    @Nonnull
     public Identifier withQualifier(@Nonnull Collection<String> qualifier) {
         if (qualifier.isEmpty()) {
             return this;

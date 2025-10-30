@@ -627,14 +627,6 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
 
     @Nonnull
     @Override
-    public Expression visitExpressionWithName(@Nonnull RelationalParser.ExpressionWithNameContext ctx) {
-        final var expression = Assert.castUnchecked(ctx.expression().accept(this), Expression.class);
-        final var name = Identifier.toProtobufCompliant(visitUid(ctx.uid()));
-        return expression.withName(name);
-    }
-
-    @Nonnull
-    @Override
     public Expression visitExpressionWithOptionalName(@Nonnull RelationalParser.ExpressionWithOptionalNameContext ctx) {
         final var expression = Assert.castUnchecked(ctx.expression().accept(this), Expression.class);
         if (ctx.AS() != null) {

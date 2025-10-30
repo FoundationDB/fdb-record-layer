@@ -65,7 +65,7 @@ public class RecordLayerCatalogQueryFactory extends CatalogQueryFactory {
             public RelationalResultSet executeAction(Transaction txn) throws RelationalException {
                 final Schema schema = catalog.loadSchema(txn, dbId, schemaId);
 
-                final List<String> tableNames = schema.getTables().stream().map(Metadata::getName).map(DataTypeUtils::toProtoBufCompliantName)
+                final List<String> tableNames = schema.getTables().stream().map(Metadata::getName).map(DataTypeUtils::toUserIdentifier)
                         .collect(Collectors.toList());
 
                 final List<String> indexNames = schema.getTables().stream().flatMap(t -> t.getIndexes().stream()).map(Metadata::getName)
