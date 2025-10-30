@@ -294,7 +294,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     }
 
     @SuppressWarnings({"PMD.CloseResource", "java:S2095"})
-    int deleteDocument(Tuple groupingKey, Integer partitionId, Tuple primaryKey) throws IOException {
+    int deleteDocument(Tuple groupingKey, Integer partitionId, Tuple primaryKey, boolean forceDeleteDocument) throws IOException {
         final long startTime = System.nanoTime();
         final IndexWriter indexWriter = directoryManager.getIndexWriter(groupingKey, partitionId);
         @Nullable final LucenePrimaryKeySegmentIndex segmentIndex = directoryManager.getDirectory(groupingKey, partitionId).getPrimaryKeySegmentIndex();
@@ -316,12 +316,19 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                             LuceneLogMessageKeys.DOC_ID, documentIndexEntry.docId,
                             LuceneLogMessageKeys.PRIMARY_KEY, primaryKey));
                 }
-            } else if (LOG.isDebugEnabled()) {
-                LOG.debug(KeyValueLogMessage.of("primary key segment index entry not found",
-                        LuceneLogMessageKeys.GROUP, groupingKey,
-                        LuceneLogMessageKeys.INDEX_PARTITION, partitionId,
-                        LuceneLogMessageKeys.PRIMARY_KEY, primaryKey,
-                        LuceneLogMessageKeys.SEGMENTS, segmentIndex.findSegments(primaryKey)));
+            } else {
+                if (forceDeleteDocument) {
+                    // Try to clear the segment index in case of force deletion even if there is no entry for it
+                    segmentIndex.clearForPrimaryKey(primaryKey);
+                }
+                if (LOG.isDebugEnabled()) {
+                    LOG.debug(KeyValueLogMessage.of("primary key segment index entry not found for deletion",
+                            LuceneLogMessageKeys.GROUP, groupingKey,
+                            LuceneLogMessageKeys.INDEX_PARTITION, partitionId,
+                            LuceneLogMessageKeys.PRIMARY_KEY, primaryKey,
+                            LuceneLogMessageKeys.SEGMENTS, segmentIndex.findSegments(primaryKey),
+                            LuceneLogMessageKeys.FORCE_DELETE, forceDeleteDocument));
+                }
             }
         }
         Query query;
@@ -476,7 +483,8 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         // delete old
         return AsyncUtil.whenAll(oldRecordFields.keySet().stream().map(t -> {
             try {
-                return tryDelete(Objects.requireNonNull(oldRecord), t);
+                // This is an update, so we know the old doc exists, so delete it even if it is not found
+                return tryDelete(Objects.requireNonNull(oldRecord), t, true);
             } catch (IOException e) {
                 throw LuceneExceptions.toRecordCoreException("Issue deleting", e, "record", Objects.requireNonNull(oldRecord).getPrimaryKey());
             }
@@ -500,7 +508,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     }
 
     /**
-     * convenience wrapper that calls {@link #tryDelete(FDBIndexableRecord, Tuple)} only if the index is in
+     * convenience wrapper that calls {@link #tryDelete(FDBIndexableRecord, Tuple, boolean)} only if the index is in
      * {@code WriteOnly} mode.
      * This is usually needed when a record is inserted during an index build, but that
      * record had already been added due to an explicit update earlier.
@@ -509,7 +517,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
      * @param groupingKey grouping key
      * @param <M> message
      * @return count of deleted docs
-     * @throws IOException propagated by {@link #tryDelete(FDBIndexableRecord, Tuple)}
+     * @throws IOException propagated by {@link #tryDelete(FDBIndexableRecord, Tuple, boolean)}
      */
     private <M extends Message> CompletableFuture<Integer> tryDeleteInWriteOnlyMode(@Nonnull FDBIndexableRecord<M> record,
                                                                                     @Nonnull Tuple groupingKey) throws IOException {
@@ -517,32 +525,44 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
             // no op
             return CompletableFuture.completedFuture(0);
         }
-        return tryDelete(record, groupingKey);
+        return tryDelete(record, groupingKey, false);
     }
 
     /**
      * Delete a given record if it is indexed.
-     * The record may not necessarily exist in the index, or it may need to be deleted by query ({@link #deleteDocument(Tuple, Integer, Tuple)}).
+     * The record may not necessarily exist in the index, or it may need to be deleted by query ({@link #deleteDocument(Tuple, Integer, Tuple, boolean)}).
+     * Note that there can be cases where the document is in an interim state and cannot be found in the segment index
+     * though we know it exists. For example, when performing a second update to the same doc within the
+     * same transaction, the doc was already removed from the index (in the NRT cache) but not yet flushed, and so we should
+     * clear the segment index and decrement the partition count. Subsequent flush of the IndexWriter will get the state
+     * to be consistent.
      *
      * @param record record to be deleted
      * @param groupingKey grouping key
+     * @param forceDeleteRecord try to force a record delete (it is known to exist), even if it does not show up
      * @param <M> record message
      * @return count of deleted docs: 1 indicates that the record has been deleted, 0 means that either no record was deleted or it was deleted by
      * query.
-     * @throws IOException propagated from {@link #deleteDocument(Tuple, Integer, Tuple)}
+     * @throws IOException propagated from {@link #deleteDocument(Tuple, Integer, Tuple, boolean)}
      */
     private <M extends Message> CompletableFuture<Integer> tryDelete(@Nonnull FDBIndexableRecord<M> record,
-                                                                     @Nonnull Tuple groupingKey) throws IOException {
+                                                                     @Nonnull Tuple groupingKey,
+                                                                     boolean forceDeleteRecord) throws IOException {
         // non-partitioned
         if (!partitioner.isPartitioningEnabled()) {
-            return CompletableFuture.completedFuture(deleteDocument(groupingKey, null, record.getPrimaryKey()));
+            return CompletableFuture.completedFuture(deleteDocument(groupingKey, null, record.getPrimaryKey(), forceDeleteRecord));
         }
 
         // partitioned
         return partitioner.tryGetPartitionInfo(record, groupingKey).thenApply(partitionInfo -> {
             if (partitionInfo != null) {
                 try {
-                    int countDeleted = deleteDocument(groupingKey, partitionInfo.getId(), record.getPrimaryKey());
+                    int countDeleted = deleteDocument(groupingKey, partitionInfo.getId(), record.getPrimaryKey(), forceDeleteRecord);
+                    if ((countDeleted == 0) && forceDeleteRecord) {
+                        // In this case, the document was not found by the segment index. We do know it exists
+                        // so make it look like the delete by query actually deleted it.
+                        countDeleted = 1;
+                    }
                     if (countDeleted > 0) {
                         partitioner.decrementCountAndSave(groupingKey, partitionInfo, countDeleted);
                     }

@@ -55,6 +55,7 @@ import com.apple.foundationdb.record.util.RandomSecretUtil;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.util.LoggableKeysAndValues;
+import com.apple.test.ParameterizedTestUtils;
 import com.apple.test.RandomizedTestUtils;
 import com.apple.test.SuperSlow;
 import com.apple.test.Tags;
@@ -898,6 +899,55 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
         dataModel.validate(() -> openContext(contextProps));
         dataModel.getPartitionCounts(() -> openContext(contextProps)).forEach((groupingKey, partitionCounts) ->
                 assertThat(partitionCounts, Matchers.contains(5, 3, 4)));
+    }
+
+    static Stream<Arguments> multiUpdate() {
+        return ParameterizedTestUtils.cartesianProduct(
+                ParameterizedTestUtils.booleans("isSynthetic"),
+                ParameterizedTestUtils.booleans("isGrouped"),
+                Stream.of(0, 10),
+                Stream.of(0, 1, 10),
+                Stream.of(5365));
+    }
+
+    @ParameterizedTest
+    @MethodSource("multiUpdate")
+    void multipleUpdatesSingleRecordInTransaction(boolean isSynthetic, boolean isGrouped, int highWatermark, int updateCount, long seed) throws IOException {
+        final LuceneIndexTestDataModel dataModel = new LuceneIndexTestDataModel.Builder(seed, this::getStoreBuilder, pathManager)
+                .setIsGrouped(isGrouped)
+                .setIsSynthetic(isSynthetic)
+                .setPrimaryKeySegmentIndexEnabled(true)
+                .setPartitionHighWatermark(highWatermark)
+                .build();
+
+        final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_REPARTITION_DOCUMENT_COUNT, 2)
+                .addProp(LuceneRecordContextProperties.LUCENE_MERGE_SEGMENTS_PER_TIER, (double)dataModel.nextInt(10) + 2) // it must be at least 2.0
+                .build();
+
+        // save a single record in a single group
+        try (FDBRecordContext context = openContext(contextProps)) {
+            final FDBRecordStore store = dataModel.createOrOpenRecordStore(context);
+            dataModel.saveRecord(store, 1);
+            commit(context);
+        }
+
+        try (FDBRecordContext context = openContext(contextProps)) {
+            final FDBRecordStore store = dataModel.createOrOpenRecordStore(context);
+            for (int i = 0 ; i < updateCount ; i++) {
+                dataModel.recordsUnderTest().forEach(rec -> rec.updateOtherValue(store).join());
+            }
+            commit(context);
+        }
+        dataModel.validate(() -> openContext(contextProps));
+        if (highWatermark > 0) {
+            // Only one record in the partition
+            dataModel.getPartitionCounts(() -> openContext(contextProps)).forEach((groupingKey, partitionCounts) ->
+                    assertThat(partitionCounts, Matchers.contains(1)));
+        }
+
+        explicitMergeIndex(dataModel.index, contextProps, dataModel.schemaSetup);
+        dataModel.validate(() -> openContext(contextProps));
     }
 
     static Stream<Arguments> changingEncryptionKey() {

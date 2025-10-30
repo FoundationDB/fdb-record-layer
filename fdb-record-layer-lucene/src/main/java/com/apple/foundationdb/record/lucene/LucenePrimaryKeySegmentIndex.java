@@ -73,6 +73,14 @@ public interface LucenePrimaryKeySegmentIndex {
     void clearForSegment(String segmentName) throws IOException;
 
     /**
+     * Clear all entries for the given primary key.
+     * Note that this operation will clear all entries for the given
+     * PK - regardless of how many (if any) are present.
+     * @param primaryKey the record primary key to clear
+     */
+    void clearForPrimaryKey(Tuple primaryKey);
+
+    /**
      * Result of {@link #findDocument}.
      */
     // TODO: Can be a record.

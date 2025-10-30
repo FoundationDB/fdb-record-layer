@@ -90,7 +90,7 @@ public enum LuceneLogMessageKeys {
     TOTAL_COUNT,
     PRIMARY_KEY,
     SEGMENTS,
-    ;
+    FORCE_DELETE;
 
     private final String logKey;
 
