@@ -72,14 +72,172 @@ In this example, `c` is an array, and each record within the array is a struct o
 
 It is possible to nest arrays within structs, and structs within arrays, to an arbitrary depth (limited by the JVM's stack size, currently).
 
-NULL Semantics
-##############
+.. _vector_types:
 
-For any unset primitive type or struct type fields, queries will return NULL for the column, unless default values are defined.
+Vector Types
+############
 
-For array type fields:
+The Relational Layer supports *vector types* for storing fixed-size numerical vectors, commonly used in machine learning and similarity search applications. A vector type represents a fixed-dimensional array of floating-point numbers with a specific precision.
 
-* If the whole array is unset, query returns NULL.
-* If the array is set to empty, query returns empty list.
-* All elements in the array should be set, arrays like :sql:`[1, NULL, 2, NULL]` are not supported.
+Vector Type Declaration
+=======================
+
+Vectors are declared using the :sql:`VECTOR(dimension, precision)` syntax, where:
+
+* **dimension**: The number of elements in the vector (must be a positive integer)
+* **precision**: The floating-point precision, which can be:
+
+  * :sql:`HALF` - 16-bit half-precision floating-point (2 bytes per element)
+  * :sql:`FLOAT` - 32-bit single-precision floating-point (4 bytes per element)
+  * :sql:`DOUBLE` - 64-bit double-precision floating-point (8 bytes per element)
+
+Examples of vector column definitions:
+
+.. code-block:: sql
+
+    CREATE TABLE embeddings (
+        id BIGINT,
+        embedding_half VECTOR(128, HALF),
+        embedding_float VECTOR(128, FLOAT),
+        embedding_double VECTOR(128, DOUBLE),
+        PRIMARY KEY(id)
+    );
+
+Vectors can also be used within struct types:
+
+.. code-block:: sql
+
+    CREATE TYPE AS STRUCT model_embedding (
+        model_name STRING,
+        embedding VECTOR(512, FLOAT)
+    );
+    CREATE TABLE documents (
+        id BIGINT,
+        content STRING,
+        embedding model_embedding,
+        PRIMARY KEY(id)
+    );
+
+Internal Storage Format
+=======================
+
+Vectors are stored as byte arrays with the following format:
+
+* **Byte 0**: Vector type identifier (0 = HALF, 1 = FLOAT, 2 = DOUBLE)
+* **Remaining bytes**: Vector components in big-endian byte order
+
+The storage size for each vector is:
+
+* :sql:`VECTOR(N, HALF)`: 1 + (2 × N) bytes
+* :sql:`VECTOR(N, FLOAT)`: 1 + (4 × N) bytes
+* :sql:`VECTOR(N, DOUBLE)`: 1 + (8 × N) bytes
+
+Working with Vectors
+====================
+
+Vector Literals and Prepared Statements
+----------------------------------------
+
+**Important**: Vector literals are not directly supported in SQL. Vectors must be inserted using **prepared statement parameters** through the JDBC API.
+
+In the JDBC API, you would create a prepared statement and bind vector parameters using the appropriate Java objects (e.g., :java:`HalfRealVector`, :java:`FloatRealVector`, or :java:`DoubleRealVector`):
+
+.. code-block:: java
+
+    // Java JDBC example
+    PreparedStatement stmt = connection.prepareStatement(
+        "INSERT INTO embeddings VALUES (?, ?)");
+    stmt.setLong(1, 1);
+    stmt.setObject(2, new FloatRealVector(new float[]{0.5f, 1.2f, -0.8f}));
+    stmt.executeUpdate();
+
+For documentation and testing purposes, the examples below use a special test DSL syntax :sql:`!! !vXX [values] !!` to represent prepared statement parameters:
+
+* :sql:`!v16` represents a HALF precision vector parameter
+* :sql:`!v32` represents a FLOAT precision vector parameter
+* :sql:`!v64` represents a DOUBLE precision vector parameter
+
+Example insertions (using test DSL syntax for illustration):
+
+.. code-block:: sql
+
+    -- Insert a HALF precision vector
+    INSERT INTO embeddings VALUES (1, !! !v16 [0.5, 1.2, -0.8] !!);
+
+    -- Insert a FLOAT precision vector
+    INSERT INTO embeddings VALUES (2, !! !v32 [0.5, 1.2, -0.8] !!);
+
+    -- Insert a DOUBLE precision vector
+    INSERT INTO embeddings VALUES (3, !! !v64 [0.5, 1.2, -0.8] !!);
+
+Casting Arrays to Vectors
+--------------------------
+
+While vector literals are not supported, you can use :sql:`CAST` to convert array expressions to vectors. The source array elements can be of any numeric type (:sql:`INTEGER`, :sql:`BIGINT`, :sql:`FLOAT`, :sql:`DOUBLE`):
+
+.. code-block:: sql
+
+    -- Cast FLOAT array to FLOAT vector
+    SELECT CAST([1.2, 3.4, 5.6] AS VECTOR(3, FLOAT)) AS vec;
+
+    -- Cast INTEGER array to HALF vector
+    SELECT CAST([1, 2, 3] AS VECTOR(3, HALF)) AS vec;
+
+    -- Cast mixed numeric types to DOUBLE vector
+    SELECT CAST([1, 2.5, 3L] AS VECTOR(3, DOUBLE)) AS vec;
+
+The array must have exactly the same number of elements as the vector's declared dimension, or the cast will fail with error code :sql:`22F3H`. Only numeric arrays can be cast to vectors.
+
+Querying Vectors
+----------------
+
+Vectors can be selected and compared like other column types. When comparing vectors in WHERE clauses, you would typically use prepared statement parameters in your Java/JDBC code:
+
+.. code-block:: sql
+
+    -- Select vectors
+    SELECT embedding FROM embeddings WHERE id = 1;
+
+    -- Compare vectors for equality (using test DSL syntax; in actual code use PreparedStatement)
+    SELECT id FROM embeddings WHERE embedding = !! !v32 [0.5, 1.2, -0.8] !!;
+
+    -- Compare vectors for inequality
+    SELECT id FROM embeddings WHERE embedding != !! !v32 [1.0, 2.0, 3.0] !!;
+
+    -- Check for NULL vectors
+    SELECT id FROM embeddings WHERE embedding IS NULL;
+    SELECT id FROM embeddings WHERE embedding IS NOT NULL;
+
+    -- Use IS DISTINCT FROM for NULL-safe comparisons
+    SELECT embedding IS DISTINCT FROM !! !v32 [0.5, 1.2, -0.8] !! FROM embeddings;
+
+Vectors in Struct Fields
+-------------------------
+
+When vectors are nested within struct types, you can access them using dot notation. As with all vector comparisons, you would use prepared statement parameters in your JDBC code:
+
+.. code-block:: sql
+
+    -- Access vector within a struct
+    SELECT embedding.embedding FROM documents WHERE id = 1;
+
+    -- Filter by vector within struct (using test DSL syntax; in actual code use PreparedStatement)
+    SELECT id FROM documents
+    WHERE embedding.embedding = !! !v32 [0.5, 1.2, -0.8] !!;
+
+    -- Check NULL for vector field in struct
+    SELECT id FROM documents WHERE embedding.embedding IS NULL;
+
+Supported Operations
+====================
+
+The following operations are supported on vector types:
+
+* **Equality comparison** (:sql:`=`, :sql:`!=`)
+* **NULL checks** (:sql:`IS NULL`, :sql:`IS NOT NULL`)
+* **NULL-safe comparison** (:sql:`IS DISTINCT FROM`, :sql:`IS NOT DISTINCT FROM`)
+* **CAST from numeric arrays** to vectors
+
+Note that mathematical operations (addition, subtraction, dot product, etc.) are performed through the Java API using the :java:`RealVector` interface and its implementations (:java:`HalfRealVector`, :java:`FloatRealVector`, :java:`DoubleRealVector`), not through SQL.
+
 
