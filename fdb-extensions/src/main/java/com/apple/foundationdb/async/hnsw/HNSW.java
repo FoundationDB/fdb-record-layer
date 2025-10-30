@@ -51,13 +51,12 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.PriorityQueue;
 import java.util.Queue;
 import java.util.Random;
 import java.util.Set;
-import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
-import java.util.concurrent.PriorityBlockingQueue;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
@@ -444,11 +443,11 @@ public class HNSW {
                         @Nonnull final RealVector queryVector) {
         final Set<Tuple> visited = Sets.newConcurrentHashSet(NodeReference.primaryKeys(nodeReferences));
         final Queue<NodeReferenceWithDistance> candidates =
-                new PriorityBlockingQueue<>(config.getM(),
+                new PriorityQueue<>(config.getM(),
                         Comparator.comparing(NodeReferenceWithDistance::getDistance));
         candidates.addAll(nodeReferences);
-        final BlockingQueue<NodeReferenceWithDistance> nearestNeighbors =
-                new PriorityBlockingQueue<>(efSearch,
+        final Queue<NodeReferenceWithDistance> nearestNeighbors =
+                new PriorityQueue<>(efSearch,
                         Comparator.comparing(NodeReferenceWithDistance::getDistance)
                                 .thenComparing(NodeReferenceWithDistance::getPrimaryKey).reversed());
         nearestNeighbors.addAll(nodeReferences);
@@ -491,13 +490,11 @@ public class HNSW {
                         }
                         return true;
                     });
-        }).thenCompose(ignored -> {
-            final var nearestNeighborsList =
-                    Lists.<NodeReferenceWithDistance>newArrayList();
-            nearestNeighbors.drainTo(nearestNeighborsList);
-            return fetchSomeNodesIfNotCached(storageAdapter, readTransaction, storageTransform, layer,
-                    nearestNeighborsList, nodeCache);
-        }).thenApply(searchResult -> {
+        })
+        .thenCompose(ignored ->
+                fetchSomeNodesIfNotCached(storageAdapter, readTransaction, storageTransform, layer,
+                        drain(nearestNeighbors), nodeCache))
+        .thenApply(searchResult -> {
             if (logger.isTraceEnabled()) {
                 logger.trace("searched layer={} for efSearch={} with result=={}", layer, efSearch,
                         searchResult.stream()
@@ -632,8 +629,8 @@ public class HNSW {
                               @Nonnull final Map<Tuple, AbstractNode<N>> nodeCache) {
         return fetchSomeNodesAndApply(storageAdapter, readTransaction, storageTransform, layer, neighborReferences,
                 neighborReference -> {
-                    if (neighborReference instanceof NodeReferenceWithVector) {
-                        return (NodeReferenceWithVector)neighborReference;
+                    if (neighborReference.isNodeReferenceWithVector()) {
+                        return neighborReference.asNodeReferenceWithVector();
                     }
                     final AbstractNode<N> neighborNode = nodeCache.get(neighborReference.getPrimaryKey());
                     if (neighborNode == null) {
@@ -643,6 +640,10 @@ public class HNSW {
                             neighborNode.asCompactNode().getVector());
                 },
                 (neighborReference, neighborNode) -> {
+                    //
+                    // At this point we know that the node needed to be fetched which excludes INLINING nodes
+                    // as they never have to be fetched. Therefore, we can safely treat the nodes as compact nodes.
+                    //
                     nodeCache.put(neighborReference.getPrimaryKey(), neighborNode);
                     return new NodeReferenceWithVector(neighborReference.getPrimaryKey(),
                             neighborNode.asCompactNode().getVector());
@@ -805,6 +806,7 @@ public class HNSW {
                             logger.trace("written initial entry node reference with key={} on layer={}",
                                     newPrimaryKey, insertionLayer);
                         }
+                        return AsyncUtil.DONE;
                     } else {
                         final EntryNodeReference entryNodeReference = accessInfo.getEntryNodeReference();
                         final int lMax = entryNodeReference.getLayer();
@@ -823,10 +825,6 @@ public class HNSW {
                         } else {
                             currentAccessInfo = accessInfo;
                         }
-                    }
-
-                    if (accessInfo == null) {
-                        return AsyncUtil.DONE;
                     }
 
                     final EntryNodeReference entryNodeReference = accessInfo.getEntryNodeReference();
@@ -1269,12 +1267,12 @@ public class HNSW {
                 .thenApply(extendedCandidates -> {
                     final List<NodeReferenceWithDistance> selected = Lists.newArrayListWithExpectedSize(m);
                     final Queue<NodeReferenceWithDistance> candidates =
-                            new PriorityBlockingQueue<>(config.getM(),
+                            new PriorityQueue<>(config.getM(),
                                     Comparator.comparing(NodeReferenceWithDistance::getDistance));
                     candidates.addAll(extendedCandidates);
                     final Queue<NodeReferenceWithDistance> discardedCandidates =
                             getConfig().isKeepPrunedConnections()
-                            ? new PriorityBlockingQueue<>(config.getM(),
+                            ? new PriorityQueue<>(config.getM(),
                                     Comparator.comparing(NodeReferenceWithDistance::getDistance))
                             : null;
 
@@ -1537,5 +1535,14 @@ public class HNSW {
 
     private boolean shouldMaintainStats() {
         return random.nextDouble() < getConfig().getMaintainStatsProbability();
+    }
+
+    @Nonnull
+    private static <T> List<T> drain(@Nonnull Queue<T> queue) {
+        final ImmutableList.Builder<T> resultBuilder = ImmutableList.builder();
+        while (!queue.isEmpty()) {
+            resultBuilder.add(queue.poll());
+        }
+        return resultBuilder.build();
     }
 }
