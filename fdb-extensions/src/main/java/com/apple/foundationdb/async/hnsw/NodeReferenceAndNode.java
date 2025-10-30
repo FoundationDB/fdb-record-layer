@@ -26,27 +26,28 @@ import javax.annotation.Nonnull;
 import java.util.List;
 
 /**
- * A container class that pairs a {@link NodeReferenceWithDistance} with its corresponding {@link Node} object.
+ * A container class that pairs a {@link NodeReferenceWithDistance} with its corresponding {@link AbstractNode} object.
  * <p>
  * This is often used during graph traversal or searching, where a reference to a node (along with its distance from a
  * query point) is first identified, and then the complete node data is fetched. This class holds these two related
  * pieces of information together.
- * @param <N> the type of {@link NodeReference} used within the {@link Node}
+ * @param <N> the type of {@link NodeReference} used within the {@link AbstractNode}
  */
-public class NodeReferenceAndNode<N extends NodeReference> {
+class NodeReferenceAndNode<N extends NodeReference> {
     @Nonnull
     private final NodeReferenceWithDistance nodeReferenceWithDistance;
     @Nonnull
-    private final Node<N> node;
+    private final AbstractNode<N> node;
 
     /**
      * Constructs a new instance that pairs a node reference (with distance) with its
-     * corresponding {@link Node} object.
+     * corresponding {@link AbstractNode} object.
      * @param nodeReferenceWithDistance the reference to a node, which also includes distance information. Must not be
      *        {@code null}.
-     * @param node the actual {@code Node} object that the reference points to. Must not be {@code null}.
+     * @param node the actual {@link AbstractNode} object that the reference points to. Must not be {@code null}.
      */
-    public NodeReferenceAndNode(@Nonnull final NodeReferenceWithDistance nodeReferenceWithDistance, @Nonnull final Node<N> node) {
+    public NodeReferenceAndNode(@Nonnull final NodeReferenceWithDistance nodeReferenceWithDistance,
+                                @Nonnull final AbstractNode<N> node) {
         this.nodeReferenceWithDistance = nodeReferenceWithDistance;
         this.node = node;
     }
@@ -65,7 +66,7 @@ public class NodeReferenceAndNode<N extends NodeReference> {
      * @return the associated {@link Node} instance, never {@code null}.
      */
     @Nonnull
-    public Node<N> getNode() {
+    public AbstractNode<N> getNode() {
         return node;
     }
 

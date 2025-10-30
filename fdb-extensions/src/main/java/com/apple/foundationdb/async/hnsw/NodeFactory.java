@@ -28,7 +28,8 @@ import javax.annotation.Nullable;
 import java.util.List;
 
 /**
- * A factory interface for creating {@link Node} instances within a Hierarchical Navigable Small World (HNSW) graph.
+ * A factory interface for creating {@link AbstractNode} instances within a Hierarchical Navigable Small World (HNSW)
+ * graph.
  * <p>
  * Implementations of this interface define how nodes are constructed, allowing for different node types
  * or storage strategies within the HNSW structure.
@@ -50,11 +51,11 @@ interface NodeFactory<N extends NodeReference> {
      * @param neighbors the list of initial {@link NodeReference}s for the new node,
      * establishing its initial connections in the graph. Must not be {@code null}.
      *
-     * @return a new, non-null {@link Node} instance configured with the provided parameters.
+     * @return a new, non-null {@link AbstractNode} instance configured with the provided parameters.
      */
     @Nonnull
-    Node<N> create(@Nonnull Tuple primaryKey, @Nullable RealVector vector,
-                   @Nonnull List<? extends NodeReference> neighbors);
+    AbstractNode<N> create(@Nonnull Tuple primaryKey, @Nullable RealVector vector,
+                           @Nonnull List<? extends NodeReference> neighbors);
 
     /**
      * Gets the kind of this node.

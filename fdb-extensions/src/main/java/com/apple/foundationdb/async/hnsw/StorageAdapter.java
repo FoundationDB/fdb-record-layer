@@ -82,7 +82,7 @@ interface StorageAdapter<N extends NodeReference> {
      * @return the {@code HNSW.Config} for this graph, never {@code null}.
      */
     @Nonnull
-    HNSW.Config getConfig();
+    Config getConfig();
 
     /**
      * Gets the factory used to create new nodes.
@@ -161,18 +161,18 @@ interface StorageAdapter<N extends NodeReference> {
      *        into the storage space that is currently being used
      * @param layer the layer from which to fetch the node
      * @param primaryKey the {@link Tuple} representing the primary key of the node to retrieve
-     * @return a non-null {@link CompletableFuture} which will complete with the fetched {@code Node<N>}.
+     * @return a non-null {@link CompletableFuture} which will complete with the fetched {@link AbstractNode}.
      */
     @Nonnull
-    CompletableFuture<Node<N>> fetchNode(@Nonnull ReadTransaction readTransaction,
-                                         @Nonnull AffineOperator storageTransform,
-                                         int layer,
-                                         @Nonnull Tuple primaryKey);
+    CompletableFuture<AbstractNode<N>> fetchNode(@Nonnull ReadTransaction readTransaction,
+                                                 @Nonnull AffineOperator storageTransform,
+                                                 int layer,
+                                                 @Nonnull Tuple primaryKey);
 
     /**
      * Writes a node and its neighbor changes to the data store within a given transaction.
      * <p>
-     * This method is responsible for persisting the state of a {@link Node} and applying any modifications to its
+     * This method is responsible for persisting the state of a {@link AbstractNode} and applying any modifications to its
      * neighboring nodes as defined in the {@code NeighborsChangeSet}. The entire operation is performed atomically as
      * part of the provided {@link Transaction}.
      * @param transaction the non-null transaction context for this write operation.
@@ -180,10 +180,10 @@ interface StorageAdapter<N extends NodeReference> {
      * @param node the non-null node to be written to the data store.
      * @param layer the layer index where the node resides.
      * @param changeSet the non-null set of changes describing additions or removals of
-     *        neighbors for the given {@link Node}.
+     *        neighbors for the given {@link AbstractNode}.
      */
-    void writeNode(@Nonnull Transaction transaction, @Nonnull Quantizer quantizer, @Nonnull Node<N> node, int layer,
-                   @Nonnull NeighborsChangeSet<N> changeSet);
+    void writeNode(@Nonnull Transaction transaction, @Nonnull Quantizer quantizer, @Nonnull AbstractNode<N> node,
+                   int layer, @Nonnull NeighborsChangeSet<N> changeSet);
 
     /**
      * Scans a specified layer of the structure, returning an iterable sequence of nodes.
@@ -199,14 +199,14 @@ interface StorageAdapter<N extends NodeReference> {
      * @param maxNumRead the maximum number of nodes to return in this scan
      * @return an {@link Iterable} that provides the nodes found in the specified layer range
      */
-    Iterable<Node<N>> scanLayer(@Nonnull ReadTransaction readTransaction, int layer, @Nullable Tuple lastPrimaryKey,
-                                int maxNumRead);
+    Iterable<AbstractNode<N>> scanLayer(@Nonnull ReadTransaction readTransaction, int layer,
+                                        @Nullable Tuple lastPrimaryKey, int maxNumRead);
 
     /**
      * Creates a {@code HalfRealVector} from a given {@code Tuple}.
      * <p>
      * This method assumes the vector data is stored as a byte array at the first. position (index 0) of the tuple. It
-     * extracts this byte array and then delegates to the {@link #vectorFromBytes(HNSW.Config, byte[])} method for the
+     * extracts this byte array and then delegates to the {@link #vectorFromBytes(Config, byte[])} method for the
      * actual conversion.
      * @param config an HNSW configuration
      * @param vectorTuple the tuple containing the vector data as a byte array at index 0. Must not be {@code null}.
@@ -214,7 +214,7 @@ interface StorageAdapter<N extends NodeReference> {
      *         This method never returns {@code null}.
      */
     @Nonnull
-    static RealVector vectorFromTuple(@Nonnull final HNSW.Config config, @Nonnull final Tuple vectorTuple) {
+    static RealVector vectorFromTuple(@Nonnull final Config config, @Nonnull final Tuple vectorTuple) {
         return vectorFromBytes(config, vectorTuple.getBytes(0));
     }
 
@@ -231,7 +231,7 @@ interface StorageAdapter<N extends NodeReference> {
      *         {@code (bytesLength - 1) % precision == 0}
      */
     @Nonnull
-    static RealVector vectorFromBytes(@Nonnull final HNSW.Config config, @Nonnull final byte[] vectorBytes) {
+    static RealVector vectorFromBytes(@Nonnull final Config config, @Nonnull final byte[] vectorBytes) {
         final byte vectorTypeOrdinal = vectorBytes[0];
         switch (fromVectorTypeOrdinal(vectorTypeOrdinal)) {
             case HALF:
@@ -269,7 +269,7 @@ interface StorageAdapter<N extends NodeReference> {
     }
 
     @Nonnull
-    static CompletableFuture<AccessInfo> fetchAccessInfo(@Nonnull final HNSW.Config config,
+    static CompletableFuture<AccessInfo> fetchAccessInfo(@Nonnull final Config config,
                                                          @Nonnull final ReadTransaction readTransaction,
                                                          @Nonnull final Subspace subspace,
                                                          @Nonnull final OnReadListener onReadListener) {

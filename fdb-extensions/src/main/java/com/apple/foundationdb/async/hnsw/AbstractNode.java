@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2023 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -81,4 +81,25 @@ abstract class AbstractNode<N extends NodeReference> implements Node<N> {
     public List<N> getNeighbors() {
         return neighbors;
     }
+
+
+    /**
+     * Converts this node into its {@link CompactNode} representation.
+     * <p>
+     * A {@code CompactNode} is a space-efficient implementation {@code Node}. This method provides the
+     * conversion logic to transform the current object into that compact form.
+     *
+     * @return a non-null {@link CompactNode} representing the current node.
+     */
+    @Nonnull
+    public abstract CompactNode asCompactNode();
+
+    /**
+     * Converts this node into its {@link InliningNode} representation.
+     * @return this object cast to an {@link InliningNode}; never {@code null}.
+     * @throws ClassCastException if this object is not actually an instance of
+     * {@link InliningNode}.
+     */
+    @Nonnull
+    public abstract InliningNode asInliningNode();
 }

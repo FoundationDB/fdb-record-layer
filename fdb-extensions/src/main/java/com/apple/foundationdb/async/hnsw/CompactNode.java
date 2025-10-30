@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2023 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -47,8 +47,8 @@ class CompactNode extends AbstractNode<NodeReference> {
         @Nonnull
         @Override
         @SpotBugsSuppressWarnings("NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE")
-        public Node<NodeReference> create(@Nonnull final Tuple primaryKey, @Nullable final RealVector vector,
-                                          @Nonnull final List<? extends NodeReference> neighbors) {
+        public AbstractNode<NodeReference> create(@Nonnull final Tuple primaryKey, @Nullable final RealVector vector,
+                                                  @Nonnull final List<? extends NodeReference> neighbors) {
             return new CompactNode(primaryKey, Objects.requireNonNull(vector), (List<NodeReference>)neighbors);
         }
 

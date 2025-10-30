@@ -78,24 +78,4 @@ public interface Node<N extends NodeReference> {
      */
     @Nonnull
     NodeKind getKind();
-
-    /**
-     * Converts this node into its {@link CompactNode} representation.
-     * <p>
-     * A {@code CompactNode} is a space-efficient implementation {@code Node}. This method provides the
-     * conversion logic to transform the current object into that compact form.
-     *
-     * @return a non-null {@link CompactNode} representing the current node.
-     */
-    @Nonnull
-    CompactNode asCompactNode();
-
-    /**
-     * Converts this node into its {@link InliningNode} representation.
-     * @return this object cast to an {@link InliningNode}; never {@code null}.
-     * @throws ClassCastException if this object is not actually an instance of
-     * {@link InliningNode}.
-     */
-    @Nonnull
-    InliningNode asInliningNode();
 }

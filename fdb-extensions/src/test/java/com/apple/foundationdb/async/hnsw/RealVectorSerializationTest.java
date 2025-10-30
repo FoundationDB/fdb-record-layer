@@ -50,7 +50,7 @@ public class RealVectorSerializationTest {
         final Random random = new Random(seed);
         final HalfRealVector randomVector = RealVectorTest.createRandomHalfVector(random, numDimensions);
         final RealVector deserializedVector =
-                StorageAdapter.vectorFromBytes(HNSW.DEFAULT_CONFIG_BUILDER.build(numDimensions), randomVector.getRawData());
+                StorageAdapter.vectorFromBytes(HNSW.newConfigBuilder().build(numDimensions), randomVector.getRawData());
         Assertions.assertThat(deserializedVector).isInstanceOf(HalfRealVector.class);
         Assertions.assertThat(deserializedVector).isEqualTo(randomVector);
     }
@@ -61,7 +61,7 @@ public class RealVectorSerializationTest {
         final Random random = new Random(seed);
         final FloatRealVector randomVector = RealVectorTest.createRandomFloatVector(random, numDimensions);
         final RealVector deserializedVector =
-                StorageAdapter.vectorFromBytes(HNSW.DEFAULT_CONFIG_BUILDER.build(numDimensions), randomVector.getRawData());
+                StorageAdapter.vectorFromBytes(HNSW.newConfigBuilder().build(numDimensions), randomVector.getRawData());
         Assertions.assertThat(deserializedVector).isInstanceOf(FloatRealVector.class);
         Assertions.assertThat(deserializedVector).isEqualTo(randomVector);
     }
@@ -72,7 +72,7 @@ public class RealVectorSerializationTest {
         final Random random = new Random(seed);
         final DoubleRealVector randomVector = RealVectorTest.createRandomDoubleVector(random, numDimensions);
         final RealVector deserializedVector =
-                StorageAdapter.vectorFromBytes(HNSW.DEFAULT_CONFIG_BUILDER.build(numDimensions), randomVector.getRawData());
+                StorageAdapter.vectorFromBytes(HNSW.newConfigBuilder().build(numDimensions), randomVector.getRawData());
         Assertions.assertThat(deserializedVector).isInstanceOf(DoubleRealVector.class);
         Assertions.assertThat(deserializedVector).isEqualTo(randomVector);
     }

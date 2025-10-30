@@ -40,10 +40,10 @@ public interface OnReadListener {
      * @param <N> the type of the {@code NodeReference}
      * @param future the {@code CompletableFuture} representing the pending asynchronous read operation.
      * @return a {@code CompletableFuture} that will complete with the read {@code Node}.
-     * By default, this is the same future that was passed as an argument.
+     *         By default, this is the same future that was passed as an argument.
      */
     @SuppressWarnings("unused")
-    default <N extends NodeReference> CompletableFuture<Node<N>> onAsyncRead(@Nonnull CompletableFuture<Node<N>> future) {
+    default <N extends NodeReference, T extends Node<N>> CompletableFuture<T> onAsyncRead(@Nonnull CompletableFuture<T> future) {
         return future;
     }
 

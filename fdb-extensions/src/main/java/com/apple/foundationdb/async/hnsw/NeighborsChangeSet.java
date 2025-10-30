@@ -63,7 +63,7 @@ interface NeighborsChangeSet<N extends NodeReference> {
     Iterable<N> merge();
 
     /**
-     * Writes the neighbor delta for a given {@link Node} to the specified storage layer.
+     * Writes the neighbor delta for a given {@link AbstractNode} to the specified storage layer.
      * <p>
      * This method processes the provided {@code node} and writes only the records that match the given
      * {@code primaryKeyPredicate} to the storage system via the {@link InliningStorageAdapter}. The entire operation
@@ -78,6 +78,6 @@ interface NeighborsChangeSet<N extends NodeReference> {
      *        for which the predicate returns {@code true} will be written. Must not be null.
      */
     void writeDelta(@Nonnull InliningStorageAdapter storageAdapter, @Nonnull Transaction transaction,
-                    @Nonnull Quantizer quantizer, int layer, @Nonnull Node<N> node,
+                    @Nonnull Quantizer quantizer, int layer, @Nonnull AbstractNode<N> node,
                     @Nonnull Predicate<Tuple /* primary key */> primaryKeyPredicate);
 }

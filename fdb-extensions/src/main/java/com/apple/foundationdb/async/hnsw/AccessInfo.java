@@ -21,17 +21,34 @@
 package com.apple.foundationdb.async.hnsw;
 
 import com.apple.foundationdb.linear.RealVector;
+import com.google.common.base.Objects;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Objects;
 
+/**
+ * Class to capture the current state of this HNSW that cannot be expressed as metadata but that also is not the actual
+ * data that is inserted, organized and retrieved. For instance, an HNSW needs to keep track of the entry point that
+ * resides in the highest layer(currently). Another example is any information that pertains to coordinate system
+ * transformations that have to be carried out prior/posterior to inserting/retrieving an item into/from the HNSW.
+ */
 class AccessInfo {
+    /**
+     * The current entry point. All searches start here.
+     */
     @Nonnull
     private final EntryNodeReference entryNodeReference;
 
+    /**
+     * A seed that can be used to reconstruct a random rotator {@link com.apple.foundationdb.linear.FhtKacRotator} used
+     * in ({@link StorageTransform}.
+     */
     private final long rotatorSeed;
 
+    /**
+     * A centroid that is usually derived as an average over some vectors seen so far. It is used to create the
+     * {@link StorageTransform}.
+     */
     @Nullable
     private final RealVector centroid;
 
@@ -66,23 +83,19 @@ class AccessInfo {
     }
 
     @Override
-    public final boolean equals(final Object o) {
+    public boolean equals(final Object o) {
         if (!(o instanceof AccessInfo)) {
             return false;
         }
-
         final AccessInfo that = (AccessInfo)o;
         return rotatorSeed == that.rotatorSeed &&
-                entryNodeReference.equals(that.entryNodeReference) &&
-                Objects.equals(centroid, that.centroid);
+                Objects.equal(entryNodeReference, that.entryNodeReference) &&
+                Objects.equal(centroid, that.centroid);
     }
 
     @Override
     public int hashCode() {
-        int result = entryNodeReference.hashCode();
-        result = 31 * result + Long.hashCode(rotatorSeed);
-        result = 31 * result + Objects.hashCode(centroid);
-        return result;
+        return Objects.hashCode(entryNodeReference, rotatorSeed, centroid);
     }
 
     @Nonnull

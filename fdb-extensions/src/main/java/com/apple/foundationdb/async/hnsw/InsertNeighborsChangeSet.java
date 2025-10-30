@@ -114,7 +114,7 @@ class InsertNeighborsChangeSet<N extends NodeReference> implements NeighborsChan
      */
     @Override
     public void writeDelta(@Nonnull final InliningStorageAdapter storageAdapter, @Nonnull final Transaction transaction,
-                           @Nonnull final Quantizer quantizer, final int layer, @Nonnull final Node<N> node,
+                           @Nonnull final Quantizer quantizer, final int layer, @Nonnull final AbstractNode<N> node,
                            @Nonnull final Predicate<Tuple> tuplePredicate) {
         getParent().writeDelta(storageAdapter, transaction, quantizer, layer, node,
                 tuplePredicate.and(tuple -> !insertedNeighborsMap.containsKey(tuple)));
