@@ -23,7 +23,6 @@ package com.apple.foundationdb.relational.recordlayer.metadata;
 import com.apple.foundationdb.record.query.plan.cascades.RawSqlFunction;
 import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.apple.foundationdb.relational.api.metadata.InvokedRoutine;
-import com.apple.foundationdb.relational.recordlayer.query.functions.CompiledSqlFunction;
 import com.apple.foundationdb.relational.recordlayer.util.MemoizedFunction;
 import com.apple.foundationdb.relational.util.Assert;
 
@@ -45,7 +44,7 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
     private final boolean isTemporary;
 
     @Nonnull
-    private final Function<Boolean, UserDefinedFunction> userDefinedFunctionSupplier;
+    private final Function<Boolean, UserDefinedFunction> userDefinedFunctionProvider;
 
     @Nonnull
     private final UserDefinedFunction serializableFunction;
@@ -54,14 +53,14 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
                                      @Nonnull final String normalizedDescription,
                                      @Nonnull final String name,
                                      boolean isTemporary,
-                                     @Nonnull final Function<Boolean, UserDefinedFunction> userDefinedFunctionSupplier,
+                                     @Nonnull final Function<Boolean, UserDefinedFunction> userDefinedFunctionProvider,
                                      @Nonnull final UserDefinedFunction serializableFunction) {
         this.description = description;
         this.normalizedDescription = normalizedDescription;
         this.name = name;
         this.isTemporary = isTemporary;
         // TODO this used to be memoized
-        this.userDefinedFunctionSupplier = MemoizedFunction.memoize(userDefinedFunctionSupplier::apply);
+        this.userDefinedFunctionProvider = MemoizedFunction.memoize(userDefinedFunctionProvider::apply);
         this.serializableFunction = serializableFunction;
     }
 
@@ -78,8 +77,8 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
     }
 
     @Nonnull
-    public Function<Boolean, UserDefinedFunction> getUserDefinedFunctionSupplier() {
-        return userDefinedFunctionSupplier;
+    public Function<Boolean, UserDefinedFunction> getUserDefinedFunctionProvider() {
+        return userDefinedFunctionProvider;
     }
 
     @Nonnull
@@ -137,7 +136,7 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
                 .setDescription(getDescription())
                 .setNormalizedDescription(getNormalizedDescription())
                 .setTemporary(isTemporary())
-                .withUserDefinedRoutine(getUserDefinedFunctionSupplier())
+                .withUserDefinedRoutine(getUserDefinedFunctionProvider())
                 .withSerializableFunction(asSerializableFunction());
     }
 
@@ -145,7 +144,7 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
         private String description;
         private String normalizedDescription;
         private String name;
-        private Function<Boolean, UserDefinedFunction> userDefinedFunctionSupplier;
+        private Function<Boolean, UserDefinedFunction> userDefinedFunctionProvider;
         private UserDefinedFunction serializableFunction;
         private boolean isTemporary;
 
@@ -171,8 +170,8 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
         }
 
         @Nonnull
-        public Builder withUserDefinedRoutine(@Nonnull final Function<Boolean, UserDefinedFunction> userDefinedFunctionSupplier) {
-            this.userDefinedFunctionSupplier = userDefinedFunctionSupplier;
+        public Builder withUserDefinedRoutine(@Nonnull final Function<Boolean, UserDefinedFunction> userDefinedFunctionProvider) {
+            this.userDefinedFunctionProvider = userDefinedFunctionProvider;
             return this;
         }
 
@@ -192,10 +191,10 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
         public RecordLayerInvokedRoutine build() {
             Assert.notNullUnchecked(name);
             Assert.notNullUnchecked(description);
-            Assert.notNullUnchecked(userDefinedFunctionSupplier);
+            Assert.notNullUnchecked(userDefinedFunctionProvider);
             Assert.notNullUnchecked(serializableFunction);
             return new RecordLayerInvokedRoutine(description, normalizedDescription, name, isTemporary,
-                    userDefinedFunctionSupplier, serializableFunction);
+                    userDefinedFunctionProvider, serializableFunction);
         }
     }
 }
