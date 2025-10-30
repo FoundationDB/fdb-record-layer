@@ -22,9 +22,9 @@ package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.RawSqlFunction;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
@@ -408,11 +408,11 @@ public class AstNormalizerTests {
                         .setDescription(functionDdl)
                         .setNormalizedDescription(canonicalFunctionDdl)
                         // invoking the compiled routine should only happen during plan generation.
-                        .withCompilableRoutine(ignored -> new CompiledSqlFunction("", ImmutableList.of(), ImmutableList.of(),
-                                ImmutableList.of(), Optional.empty(), null, Literals.empty()) {
+                        .withUserDefinedRoutine(ignored -> new CompiledSqlFunction("", List.of(), List.of(),
+                                List.of(), Optional.empty(), null, Literals.empty()) {
                             @Nonnull
                             @Override
-                            public RecordMetaDataProto.PUserDefinedFunction toProto(@Nonnull final PlanSerializationContext serializationContext) {
+                            public RecordMetaDataProto.PUserDefinedFunction toProto() {
                                 throw new NotImplementedException("unexpected call");
                             }
 
@@ -428,6 +428,7 @@ public class AstNormalizerTests {
                                 throw new NotImplementedException("unexpected call");
                             }
                         })
+                        .withSerializableFunction(new RawSqlFunction(name, functionDdl))
                         .build())
                 .build();
     }
@@ -1112,6 +1113,21 @@ public class AstNormalizerTests {
     }
 
     @Test
+    void normalizeQueryWithSchemaContainingTemporaryScalarFunction() throws Exception {
+        final var tempFunctionDefinition = "create temporary function self(in x bigint) on commit drop function as x";
+        final var schemaTemplate1 = schemaTemplateWithFunction(fakeSchemaTemplate, "foo", tempFunctionDefinition, true);
+        validate(List.of("select * from t1 where col1 > 42"),
+                PreparedParams.empty(),
+                "select * from \"T1\" where \"COL1\" > ? ",
+                List.of(Map.of(constantId(7), 42)),
+                null,
+                -1,
+                EnumSet.of(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_DQL_STATEMENT),
+                Map.of(Options.Name.LOG_QUERY, false),
+                List.of(schemaTemplate1), normalizeQuery(tempFunctionDefinition));
+    }
+
+    @Test
     void normalizeQueryWithSchemaContainingNonTemporaryFunction() throws Exception {
         final var tempFunctionDefinition = "create function sq1(in x bigint) on commit drop function as select * from t1 where a < 40 + x ";
         final var schemaTemplate1 = schemaTemplateWithFunction(fakeSchemaTemplate, "foo", tempFunctionDefinition, false);
@@ -1132,10 +1148,12 @@ public class AstNormalizerTests {
         final var tmpFunction2 = "create temporary function tmpFunction2(in x bigint) on commit drop function as select * from t1 where a < 40 + x ";
         final var tmpFunction3 = "create temporary function tmpFunction3(in x bigint) on commit drop function as select * from t1 where a < 40 + x ";
         final var tmpFunction4 = "create temporary function tmpFunction4(in x bigint) on commit drop function as select * from t1 where a < 40 + x ";
+        final var tmpFunction5 = "create temporary function tmpFunction5(in x bigint) on commit drop function as x ";
         var schemaTemplate = schemaTemplateWithFunction(fakeSchemaTemplate, "tmpFunction1", tmpFunction1, true);
         schemaTemplate = schemaTemplateWithFunction(schemaTemplate, "tmpFunction2", tmpFunction2, true);
         schemaTemplate = schemaTemplateWithFunction(schemaTemplate, "tmpFunction3", tmpFunction3, true);
         schemaTemplate = schemaTemplateWithFunction(schemaTemplate, "tmpFunction4", tmpFunction4, true);
+        schemaTemplate = schemaTemplateWithFunction(schemaTemplate, "tmpFunction5", tmpFunction5, true);
 
         validate(List.of("select * from t1 where col1 > 42"),
                 PreparedParams.empty(),
@@ -1146,7 +1164,7 @@ public class AstNormalizerTests {
                 EnumSet.of(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_DQL_STATEMENT),
                 Map.of(Options.Name.LOG_QUERY, false),
                 List.of(schemaTemplate), normalizeQuery(tmpFunction1) + "||" + normalizeQuery(tmpFunction2) + "||" +
-                        normalizeQuery(tmpFunction3) + "||" + normalizeQuery(tmpFunction4));
+                        normalizeQuery(tmpFunction3) + "||" + normalizeQuery(tmpFunction4) + "||" + normalizeQuery(tmpFunction5));
     }
 
     @Test
@@ -1157,12 +1175,16 @@ public class AstNormalizerTests {
         final var tmpFunction3 = "create temporary function tmpFunction3(in x bigint) on commit drop function as select * from t1 where a < 40 + x ";
         final var tmpFunction4 = "create temporary function tmpFunction4(in x bigint) on commit drop function as select * from t1 where a < 40 + x ";
         final var function2 = "create function function2(in x bigint) on commit drop function as select * from t1 where a < 40 + x ";
+        final var tmpFunction5 = "create temporary function tmpFunction5(in x bigint) on commit drop function as x ";
+        final var function3 = "create function function3(in x bigint) returns bigint as x ";
         var schemaTemplate = schemaTemplateWithFunction(fakeSchemaTemplate, "tmpFunction1", tmpFunction1, true);
         schemaTemplate = schemaTemplateWithFunction(schemaTemplate, "tmpFunction2", tmpFunction2, true);
         schemaTemplate = schemaTemplateWithFunction(schemaTemplate, "function1", function1, false);
         schemaTemplate = schemaTemplateWithFunction(schemaTemplate, "tmpFunction3", tmpFunction3, true);
         schemaTemplate = schemaTemplateWithFunction(schemaTemplate, "tmpFunction4", tmpFunction4, true);
         schemaTemplate = schemaTemplateWithFunction(schemaTemplate, "function2", function2, false);
+        schemaTemplate = schemaTemplateWithFunction(schemaTemplate, "tmpFunction5", tmpFunction5, true);
+        schemaTemplate = schemaTemplateWithFunction(schemaTemplate, "function3", function3, false);
 
         validate(List.of("select * from t1 where col1 > 42"),
                 PreparedParams.empty(),
@@ -1173,7 +1195,7 @@ public class AstNormalizerTests {
                 EnumSet.of(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_DQL_STATEMENT),
                 Map.of(Options.Name.LOG_QUERY, false),
                 List.of(schemaTemplate), normalizeQuery(tmpFunction1) + "||" + normalizeQuery(tmpFunction2)
-                        + "||" + normalizeQuery(tmpFunction3) + "||" + normalizeQuery(tmpFunction4));
+                        + "||" + normalizeQuery(tmpFunction3) + "||" + normalizeQuery(tmpFunction4) + "||" + normalizeQuery(tmpFunction5));
     }
 
     @Test

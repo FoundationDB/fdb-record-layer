@@ -46,6 +46,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void userDefinedMacroFunctionTests(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("user-defined-macro-function-tests.yamsql");
+    }
+
+    @TestTemplate
     public void standardTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("standard-tests.yamsql");
     }

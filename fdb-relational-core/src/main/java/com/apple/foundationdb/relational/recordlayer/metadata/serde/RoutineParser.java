@@ -63,7 +63,7 @@ public interface RoutineParser {
         @Nonnull
         @Override
         public CompiledSqlFunction parseFunction(@Nonnull final String routineString, boolean isCaseSensitive) {
-            return parse(routineString, null, PreparedParams.empty(), QueryParser::parseFunction,
+            return (CompiledSqlFunction)parse(routineString, null, PreparedParams.empty(), QueryParser::parseFunction,
                     BaseVisitor::visitSqlInvokedFunction, isCaseSensitive);
         }
 
@@ -80,8 +80,8 @@ public interface RoutineParser {
         @Nonnull
         @Override
         public LogicalOperator parseView(@Nonnull final String viewName,
-                                          @Nonnull final String viewDefinition,
-                                          boolean isCaseSensitive) {
+                                         @Nonnull final String viewDefinition,
+                                         boolean isCaseSensitive) {
             return parse(viewDefinition, viewName, PreparedParams.empty(), QueryParser::parseView,
                     (v, p) -> v.getPlanGenerationContext().withDisabledLiteralProcessing(() ->
                             Assert.castUnchecked(v.visit(p), LogicalOperator.class)), isCaseSensitive);

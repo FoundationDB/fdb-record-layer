@@ -44,8 +44,6 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactor
 import com.apple.foundationdb.record.provider.foundationdb.MetaDataProtoEditor;
 import com.apple.foundationdb.record.metadata.View;
 import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
-import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
-import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
@@ -233,9 +231,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
             }
         }
         for (RecordMetaDataProto.PUserDefinedFunction function: metaDataProto.getUserDefinedFunctionsList()) {
-            final UserDefinedFunction func = (UserDefinedFunction)PlanSerialization.dispatchFromProtoContainer(
-                    new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE,
-                            PlanHashable.CURRENT_FOR_CONTINUATION), function);
+            UserDefinedFunction func = UserDefinedFunction.fromProto(function);
             userDefinedFunctionMap.put(func.getFunctionName(), func);
         }
         for (final RecordMetaDataProto.PView viewProto: metaDataProto.getViewsList()) {

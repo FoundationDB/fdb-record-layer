@@ -160,7 +160,7 @@ final class SqlFunctionCatalogImpl implements SqlFunctionCatalog {
         metadata.getInvokedRoutines().forEach(func ->
                 functionCatalog.registerUserDefinedFunction(
                         Assert.notNullUnchecked(func.getName()),
-                        func.getCompilableSqlFunctionProvider()));
+                        func.getUserDefinedFunctionSupplier()));
         return functionCatalog;
     }
 }
