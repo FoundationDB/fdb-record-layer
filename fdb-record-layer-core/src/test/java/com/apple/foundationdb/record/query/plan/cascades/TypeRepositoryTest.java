@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
+import com.apple.foundationdb.linear.HalfRealVector;
+import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.TupleFieldsProto;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -29,6 +31,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.AbstractArrayCon
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.util.pair.Pair;
+import com.google.protobuf.ByteString;
 import com.google.protobuf.DynamicMessage;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -67,6 +70,7 @@ class TypeRepositoryTest {
     private static final LiteralValue<Float> FLOAT_1 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.FLOAT), 1.0F);
     private static final LiteralValue<String> STRING_1 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), "a");
     private static final LiteralValue<UUID> UUID_1 = new LiteralValue<>(Type.uuidType(false), UUID.fromString("eebee473-690b-48c1-beb0-07c3aca77768"));
+    private static final LiteralValue<RealVector> HALF_VECTOR_1_2_3 = new LiteralValue<>(Type.Vector.of(false, 16, 3), new HalfRealVector(new double[] {1.0d, 2.0d, 3.0d}));
 
     private static Type generateRandomType() {
         return generateRandomTypeInternal(0);
@@ -140,12 +144,22 @@ class TypeRepositoryTest {
                 return Type.Record.fromFields(fields);
             case UUID:
                 return Type.uuidType(random.nextBoolean());
+            case VECTOR:
+                return randomVectorType();
             case RELATION: // fallthrough
             case UNKNOWN: // fallthrough
             case ANY: // fallthrough
             default:
                 throw new IllegalArgumentException("unexpected random type: " + requestedTypeCode);
         }
+    }
+
+    @Nonnull
+    private static Type.Vector randomVectorType() {
+        final var validPrecisions = new int[] {16, 32, 64};
+        final var randomPrecision = validPrecisions[random.nextInt(validPrecisions.length)];
+        final var randomDimensions = random.nextInt(3000);
+        return Type.Vector.of(random.nextBoolean(), randomPrecision, randomDimensions);
     }
 
     @Test
@@ -256,19 +270,20 @@ class TypeRepositoryTest {
 
     @Test
     void createRecordTypeConstructorWorks() {
-        final Typed value = new RecordConstructorValue.RecordFn().encapsulate(List.of(STRING_1, INT_2, FLOAT_1, UUID_1));
-        Assertions.assertTrue(value instanceof RecordConstructorValue);
+        final Typed value = new RecordConstructorValue.RecordFn().encapsulate(List.of(STRING_1, INT_2, FLOAT_1, UUID_1, HALF_VECTOR_1_2_3));
+        Assertions.assertInstanceOf(RecordConstructorValue.class, value);
         final RecordConstructorValue recordConstructorValue = (RecordConstructorValue)value;
         final Type resultType = recordConstructorValue.getResultType();
         Assertions.assertEquals(Type.Record.fromFields(false, List.of(Type.Record.Field.of(STRING_1.getResultType(), Optional.empty()),
                 Type.Record.Field.of(INT_2.getResultType(), Optional.empty()),
                 Type.Record.Field.of(FLOAT_1.getResultType(), Optional.empty()),
-                Type.Record.Field.of(UUID_1.getResultType(), Optional.empty())
+                Type.Record.Field.of(UUID_1.getResultType(), Optional.empty()),
+                Type.Record.Field.of(HALF_VECTOR_1_2_3.getResultType(), Optional.empty())
                 )), resultType);
         final Object result = recordConstructorValue.evalWithoutStore(EvaluationContext.forTypeRepository(TypeRepository.newBuilder().addTypeIfNeeded(recordConstructorValue.getResultType()).build()));
-        Assertions.assertTrue(result instanceof DynamicMessage);
+        Assertions.assertInstanceOf(DynamicMessage.class, result);
         final DynamicMessage resultMessage = (DynamicMessage)result;
-        Assertions.assertEquals(4, resultMessage.getAllFields().size());
+        Assertions.assertEquals(5, resultMessage.getAllFields().size());
         List<Object> fieldSorted = resultMessage.getAllFields().entrySet().stream()
                 .map(kv -> Pair.of(kv.getKey().getIndex(), kv.getValue()))
                 .sorted(Map.Entry.comparingByKey())
@@ -277,10 +292,11 @@ class TypeRepositoryTest {
         Assertions.assertEquals("a", fieldSorted.get(0));
         Assertions.assertEquals(2, fieldSorted.get(1));
         Assertions.assertEquals(1.0F, fieldSorted.get(2));
-        final var expectedUuid = UUID.fromString("eebee473-690b-48c1-beb0-07c3aca77768");
         Assertions.assertEquals(TupleFieldsProto.UUID.newBuilder()
-                .setMostSignificantBits(expectedUuid.getMostSignificantBits())
-                .setLeastSignificantBits(expectedUuid.getLeastSignificantBits())
+                .setMostSignificantBits(UUID_1.getLiteralValue().getMostSignificantBits())
+                .setLeastSignificantBits(UUID_1.getLiteralValue().getLeastSignificantBits())
                 .build(), fieldSorted.get(3));
+        Assertions.assertEquals(ByteString.copyFrom(HALF_VECTOR_1_2_3.getLiteralValue().getRawData()),
+                fieldSorted.get(4));
     }
 }
