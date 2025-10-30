@@ -57,31 +57,33 @@ public class AffineOperator implements VectorOperator {
     @Nonnull
     @Override
     public RealVector apply(@Nonnull final RealVector vector) {
-        if (linearOperator == null && translationVector == null) {
-            return vector;
+        RealVector result = vector;
+
+        if (translationVector != null) {
+            result = result.add(translationVector);
         }
-        if (linearOperator == null /* && translationVector != null */) {
-            return vector.add(translationVector);
+
+        if (linearOperator != null) {
+            result = linearOperator.apply(result);
         }
-        if (/* linearOperator != null && */ translationVector == null) {
-            return linearOperator.apply(vector);
-        }
-        return linearOperator.apply(vector.add(translationVector));
+
+        return  result;
     }
 
     @Nonnull
     @Override
-    public RealVector applyInvert(@Nonnull final RealVector vector) {
-        if (linearOperator == null && translationVector == null) {
-            return vector;
+    public RealVector invertedApply(@Nonnull final RealVector vector) {
+        RealVector result = vector;
+
+        if (linearOperator != null) {
+            result = linearOperator.transposedApply(result);
         }
-        if (linearOperator == null /* && translationVector != null */) {
-            return vector.subtract(translationVector);
+
+        if (translationVector != null) {
+            result = result.subtract(translationVector);
         }
-        if (/* linearOperator != null && */ translationVector == null) {
-            return linearOperator.applyTranspose(vector);
-        }
-        return linearOperator.applyTranspose(vector).subtract(translationVector);
+
+        return result;
     }
 
     @Nonnull

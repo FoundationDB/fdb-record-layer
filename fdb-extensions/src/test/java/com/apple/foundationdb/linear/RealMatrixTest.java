@@ -33,7 +33,7 @@ import java.util.stream.Stream;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.within;
 
-public class RealMatrixTest {
+class RealMatrixTest {
     @Nonnull
     private static Stream<Arguments> randomSeedsWithNumDimensions() {
         return RandomizedTestUtils.randomSeeds(0xdeadc0deL, 0xfdb5ca1eL, 0xf005ba1L)
@@ -95,7 +95,7 @@ public class RealMatrixTest {
         assertThat(matrix.isTransposable()).isTrue();
         final RealVector x = RealVectorTest.createRandomDoubleVector(random, numDimensions);
         final RealVector y = matrix.apply(x);
-        final RealVector z = matrix.applyTranspose(y);
+        final RealVector z = matrix.transposedApply(y);
         assertThat(Metric.EUCLIDEAN_METRIC.distance(x, z)).isCloseTo(0, within(2E-10));
     }
 

@@ -94,13 +94,6 @@ interface StorageAdapter<N extends NodeReference> {
     NodeFactory<N> getNodeFactory();
 
     /**
-     * Gets the kind of node this storage adapter manages (and instantiates if needed).
-     * @return the kind of this node, never {@code null}
-     */
-    @Nonnull
-    NodeKind getNodeKind();
-
-    /**
      * Returns a view of this object as a {@code StorageAdapter} that is optimized
      * for compact data representation.
      * @return a non-null {@code StorageAdapter} for {@code NodeReference} objects,

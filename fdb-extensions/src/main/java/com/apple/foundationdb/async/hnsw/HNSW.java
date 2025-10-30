@@ -258,7 +258,7 @@ public class HNSW {
      * @param queryVector the vector to find the nearest neighbors for
      *
      * @return a {@link CompletableFuture} that will complete with a list of the {@code k} nearest neighbors,
-     *         sorted by distance in ascending order. The future completes with {@code null} if the index is empty.
+     *         sorted by distance in ascending order.
      */
     @SuppressWarnings("checkstyle:MethodName") // method name introduced by paper
     @Nonnull
@@ -276,7 +276,7 @@ public class HNSW {
                     final EntryNodeReference entryNodeReference = accessInfo.getEntryNodeReference();
 
                     final AffineOperator storageTransform = storageTransform(accessInfo);
-                    final RealVector transformedQueryVector = storageTransform.applyInvert(queryVector);
+                    final RealVector transformedQueryVector = storageTransform.invertedApply(queryVector);
                     final Quantizer quantizer = quantizer(accessInfo);
                     final Estimator estimator = quantizer.estimator();
 
@@ -448,7 +448,7 @@ public class HNSW {
                         Comparator.comparing(NodeReferenceWithDistance::getDistance));
         candidates.addAll(nodeReferences);
         final BlockingQueue<NodeReferenceWithDistance> nearestNeighbors =
-                new PriorityBlockingQueue<>(config.getM(),
+                new PriorityBlockingQueue<>(efSearch,
                         Comparator.comparing(NodeReferenceWithDistance::getDistance)
                                 .thenComparing(NodeReferenceWithDistance::getPrimaryKey).reversed());
         nearestNeighbors.addAll(nodeReferences);
@@ -788,7 +788,7 @@ public class HNSW {
                 .thenCompose(accessInfo -> {
                     final AccessInfo currentAccessInfo;
                     final AffineOperator storageTransform = storageTransform(accessInfo);
-                    final RealVector transformedNewVector = storageTransform.applyInvert(newVector);
+                    final RealVector transformedNewVector = storageTransform.invertedApply(newVector);
                     final Quantizer quantizer = quantizer(accessInfo);
                     final Estimator estimator = quantizer.estimator();
 
@@ -888,10 +888,10 @@ public class HNSW {
 
                                     final RealVector centroid =
                                             partialVector.multiply(1.0d / partialCount);
-                                    final RealVector transformedCentroid = rotator.applyInvert(centroid);
+                                    final RealVector transformedCentroid = rotator.invertedApply(centroid);
 
                                     final var transformedEntryNodeVector =
-                                            rotator.applyInvert(currentAccessInfo.getEntryNodeReference()
+                                            rotator.invertedApply(currentAccessInfo.getEntryNodeReference()
                                                     .getVector()).subtract(transformedCentroid);
 
                                     final AccessInfo newAccessInfo =
@@ -913,7 +913,7 @@ public class HNSW {
     }
 
     @Nullable
-    AggregatedVector aggregateVectors(@Nonnull final Iterable<AggregatedVector> vectors) {
+    private AggregatedVector aggregateVectors(@Nonnull final Iterable<AggregatedVector> vectors) {
         RealVector partialVector = null;
         int partialCount = 0;
         for (final AggregatedVector vector : vectors) {
@@ -1033,9 +1033,6 @@ public class HNSW {
                             layer, getConfig().getM(), getConfig().isExtendCandidates(), nodeCache, newVector)
                             .thenCompose(selectedNeighbors -> {
                                 final NodeFactory<N> nodeFactory = storageAdapter.getNodeFactory();
-
-                                // TODO Quantize the neighbors. (if in inlining mode and the neighbors were fetched as
-                                //      regular vectors)
 
                                 final AbstractNode<N> newNode =
                                         nodeFactory.create(newPrimaryKey, newVector,
@@ -1539,42 +1536,6 @@ public class HNSW {
     }
 
     private boolean shouldMaintainStats() {
-        return shouldMaintainStats(1);
-    }
-
-    private boolean shouldMaintainStats(final int batchSize) {
-        // pBatch = 1 - (1 - p)^n  ==  -expm1(n * log1p(-p))
-        double pBatch = -Math.expm1(batchSize * Math.log1p(-getConfig().getMaintainStatsProbability()));
-        return random.nextDouble() < pBatch;
-    }
-
-    private static class NodeReferenceWithLayer extends NodeReferenceWithVector {
-        private final int layer;
-
-        public NodeReferenceWithLayer(@Nonnull final Tuple primaryKey, @Nonnull final RealVector vector,
-                                      final int layer) {
-            super(primaryKey, vector);
-            this.layer = layer;
-        }
-
-        public int getLayer() {
-            return layer;
-        }
-
-        @Override
-        public boolean equals(final Object o) {
-            if (!(o instanceof NodeReferenceWithLayer)) {
-                return false;
-            }
-            if (!super.equals(o)) {
-                return false;
-            }
-            return layer == ((NodeReferenceWithLayer)o).layer;
-        }
-
-        @Override
-        public int hashCode() {
-            return Objects.hash(super.hashCode(), layer);
-        }
+        return random.nextDouble() < getConfig().getMaintainStatsProbability();
     }
 }

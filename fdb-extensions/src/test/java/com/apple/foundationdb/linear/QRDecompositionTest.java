@@ -35,7 +35,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.within;
 
 @SuppressWarnings("checkstyle:AbbreviationAsWordInName")
-public class QRDecompositionTest {
+class QRDecompositionTest {
     @Nonnull
     private static Stream<Arguments> randomSeedsWithNumDimensions() {
         return RandomizedTestUtils.randomSeeds(0xdeadc0deL, 0xfdb5ca1eL, 0xf005ba1L)

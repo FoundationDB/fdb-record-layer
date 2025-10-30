@@ -212,7 +212,7 @@ class InliningStorageAdapter extends AbstractStorageAdapter<NodeReferenceWithVec
                                                        @Nonnull final Tuple keyTuple, @Nonnull final Tuple valueTuple) {
         final Tuple neighborPrimaryKey = keyTuple.getNestedTuple(2); // neighbor primary key
         final RealVector neighborVector =
-                storageTransform.applyInvert(
+                storageTransform.invertedApply(
                         StorageAdapter.vectorFromTuple(getConfig(), valueTuple)); // the entire value is the vector
         return new NodeReferenceWithVector(neighborPrimaryKey, neighborVector);
     }

@@ -45,10 +45,6 @@ abstract class AbstractNode<N extends NodeReference> implements Node<N> {
 
     /**
      * Constructs a new {@code AbstractNode} with a specified primary key and a list of neighbors.
-     * <p>
-     * This constructor creates a defensive, immutable copy of the provided {@code neighbors} list.
-     * This ensures that the internal state of the node cannot be modified by external
-     * changes to the original list after construction.
      *
      * @param primaryKey the unique identifier for this node; must not be {@code null}
      * @param neighbors the list of nodes connected to this node; must not be {@code null}

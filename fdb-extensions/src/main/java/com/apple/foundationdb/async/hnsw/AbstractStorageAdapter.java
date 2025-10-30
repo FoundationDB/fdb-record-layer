@@ -36,7 +36,7 @@ import java.util.concurrent.CompletableFuture;
 /**
  * An abstract base class for {@link StorageAdapter} implementations.
  * <p>
- * This class provides the common infrastructure for managing HNSW graph data within {@link Subspace}.
+ * This class provides the common infrastructure for managing HNSW graph data within a {@link Subspace}.
  * It handles the configuration, node creation, and listener management, while delegating the actual
  * storage-specific read and write operations to concrete subclasses through the {@code fetchNodeInternal}
  * and {@code writeNodeInternal} abstract methods.
@@ -109,20 +109,6 @@ abstract class AbstractStorageAdapter<N extends NodeReference> implements Storag
     @Override
     public NodeFactory<N> getNodeFactory() {
         return nodeFactory;
-    }
-
-    /**
-     * Gets the kind of this node, which uniquely identifies the type of node.
-     * <p>
-     * This method is an override and provides a way to determine the concrete
-     * type of node without using {@code instanceof} checks.
-     *
-     * @return the non-null {@link NodeKind} representing the type of this node.
-     */
-    @Nonnull
-    @Override
-    public NodeKind getNodeKind() {
-        return getNodeFactory().getNodeKind();
     }
 
     /**

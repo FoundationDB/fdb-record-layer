@@ -94,9 +94,6 @@ public class NodeReferenceWithVector extends NodeReference {
      */
     @Override
     public boolean equals(final Object o) {
-        if (!(o instanceof NodeReferenceWithVector)) {
-            return false;
-        }
         if (!super.equals(o)) {
             return false;
         }

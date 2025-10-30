@@ -142,7 +142,7 @@ public final class FhtKacRotator implements LinearOperator {
 
     @Nonnull
     @Override
-    public RealVector applyTranspose(@Nonnull final RealVector x) {
+    public RealVector transposedApply(@Nonnull final RealVector x) {
         return new DoubleRealVector(operateTranspose(x.getData()));
     }
 

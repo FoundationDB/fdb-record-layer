@@ -21,9 +21,14 @@
 package com.apple.foundationdb.async.hnsw;
 
 import com.apple.foundationdb.linear.RealVector;
+import com.google.common.base.Objects;
 
 import javax.annotation.Nonnull;
 
+/**
+ * A record-like class wrapping a {@link RealVector} and a count. This data structure is used to keep a running sum
+ * of many vectors in order to compute their centroid at a later time.
+ */
 class AggregatedVector {
     private final int partialCount;
     @Nonnull
@@ -44,20 +49,17 @@ class AggregatedVector {
     }
 
     @Override
-    public final boolean equals(final Object o) {
+    public boolean equals(final Object o) {
         if (!(o instanceof AggregatedVector)) {
             return false;
         }
-
         final AggregatedVector that = (AggregatedVector)o;
-        return partialCount == that.partialCount && partialVector.equals(that.partialVector);
+        return partialCount == that.partialCount && Objects.equal(partialVector, that.partialVector);
     }
 
     @Override
     public int hashCode() {
-        int result = partialCount;
-        result = 31 * result + partialVector.hashCode();
-        return result;
+        return Objects.hashCode(partialCount, partialVector);
     }
 
     @Override

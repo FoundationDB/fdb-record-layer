@@ -40,10 +40,10 @@ public interface LinearOperator extends VectorOperator {
 
     @Nonnull
     @Override
-    default RealVector applyInvert(@Nonnull RealVector vector) {
-        return applyTranspose(vector);
+    default RealVector invertedApply(@Nonnull RealVector vector) {
+        return transposedApply(vector);
     }
 
     @Nonnull
-    RealVector applyTranspose(@Nonnull RealVector vector);
+    RealVector transposedApply(@Nonnull RealVector vector);
 }
