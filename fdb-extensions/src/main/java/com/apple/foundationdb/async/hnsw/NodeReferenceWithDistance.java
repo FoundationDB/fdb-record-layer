@@ -72,9 +72,6 @@ public class NodeReferenceWithDistance extends NodeReferenceWithVector {
      */
     @Override
     public boolean equals(final Object o) {
-        if (!(o instanceof NodeReferenceWithDistance)) {
-            return false;
-        }
         if (!super.equals(o)) {
             return false;
         }

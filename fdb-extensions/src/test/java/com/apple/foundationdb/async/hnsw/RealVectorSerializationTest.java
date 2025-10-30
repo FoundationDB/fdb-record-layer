@@ -36,7 +36,7 @@ import javax.annotation.Nonnull;
 import java.util.Random;
 import java.util.stream.Stream;
 
-public class RealVectorSerializationTest {
+class RealVectorSerializationTest {
     @Nonnull
     private static Stream<Arguments> randomSeedsWithNumDimensions() {
         return RandomizedTestUtils.randomSeeds(0xdeadc0deL, 0xfdb5ca1eL, 0xf005ba1L)

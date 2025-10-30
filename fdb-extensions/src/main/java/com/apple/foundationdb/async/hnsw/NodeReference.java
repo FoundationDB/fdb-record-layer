@@ -78,7 +78,13 @@ public class NodeReference {
      */
     @Override
     public boolean equals(final Object o) {
-        if (!(o instanceof NodeReference)) {
+        if (o == null) {
+            return false;
+        }
+        if (this == o) {
+            return true;
+        }
+        if (o.getClass() != this.getClass()) {
             return false;
         }
         final NodeReference that = (NodeReference)o;

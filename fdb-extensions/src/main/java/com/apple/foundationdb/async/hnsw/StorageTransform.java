@@ -27,7 +27,12 @@ import com.apple.foundationdb.rabitq.EncodedRealVector;
 
 import javax.annotation.Nonnull;
 
-public class StorageTransform extends AffineOperator {
+/**
+ * A special affine operator that uses a random rotator seeded by the current {@link AccessInfo} and a given
+ * (pre-rotated) centroid. This operator is used inside the HNSW to transform back and forth between the coordinate
+ * system of the client and the coordinate system that is currently employed in the HNSW.
+ */
+class StorageTransform extends AffineOperator {
     public StorageTransform(final long seed, final int numDimensions, @Nonnull final RealVector translationVector) {
         super(new FhtKacRotator(seed, numDimensions, 10), translationVector);
     }
@@ -43,10 +48,10 @@ public class StorageTransform extends AffineOperator {
 
     @Nonnull
     @Override
-    public RealVector applyInvert(@Nonnull final RealVector vector) {
+    public RealVector invertedApply(@Nonnull final RealVector vector) {
         if (vector instanceof EncodedRealVector) {
             return vector;
         }
-        return super.applyInvert(vector);
+        return super.invertedApply(vector);
     }
 }

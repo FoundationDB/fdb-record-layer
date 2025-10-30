@@ -53,7 +53,7 @@ public interface RealMatrix extends LinearOperator {
 
     @Nonnull
     @Override
-    default RealVector applyTranspose(@Nonnull final RealVector vector) {
+    default RealVector transposedApply(@Nonnull final RealVector vector) {
         Verify.verify(getNumRowDimensions() == vector.getNumDimensions());
         final double[] result = new double[getNumColumnDimensions()];
         for (int j = 0; j < getNumColumnDimensions(); j ++) {

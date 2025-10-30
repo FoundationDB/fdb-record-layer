@@ -57,9 +57,6 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
 
     /**
      * Constructs a new {@code CompactStorageAdapter}.
-     * <p>
-     * This constructor initializes the adapter by delegating to the superclass,
-     * setting up the necessary components for managing an HNSW graph.
      *
      * @param config the HNSW graph configuration, must not be null. See {@link Config}.
      * @param nodeFactory the factory used to create new nodes of type {@link NodeReference}, must not be null.
@@ -223,7 +220,7 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
                                                               @Nonnull final Tuple vectorTuple,
                                                               @Nonnull final Tuple neighborsTuple) {
         final RealVector vector =
-                storageTransform.applyInvert(StorageAdapter.vectorFromTuple(getConfig(), vectorTuple));
+                storageTransform.invertedApply(StorageAdapter.vectorFromTuple(getConfig(), vectorTuple));
         final List<NodeReference> nodeReferences = Lists.newArrayListWithExpectedSize(neighborsTuple.size());
 
         for (int i = 0; i < neighborsTuple.size(); i ++) {

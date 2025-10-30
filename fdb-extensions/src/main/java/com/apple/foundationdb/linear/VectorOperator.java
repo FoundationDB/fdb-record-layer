@@ -22,6 +22,15 @@ package com.apple.foundationdb.linear;
 
 import javax.annotation.Nonnull;
 
+/**
+ * Interface that represents the root of all linear and affine operators including matrices. A vector operator can
+ * be applied to a vector. Mathematically, there is another operator that if applied to the resulting vector
+ * results in the original vector. Instead of modeling this duality of operators as two distinct operators with an
+ * {@code apply()}, we instead only use one operator object that has the ability to both  {@code apply()} and
+ * to {@code invertedApply()}. The invariants {@code apply(invertedApply(v)) == v} and
+ * {@code invertedApply(apply(v)) == v}
+ * both hold.
+ */
 public interface VectorOperator {
     /**
      * Returns the numbers of dimensions a vector must have to be able to be applied or apply-inverted.
@@ -34,5 +43,5 @@ public interface VectorOperator {
     RealVector apply(@Nonnull RealVector vector);
 
     @Nonnull
-    RealVector applyInvert(@Nonnull RealVector vector);
+    RealVector invertedApply(@Nonnull RealVector vector);
 }

@@ -30,7 +30,7 @@ import javax.annotation.Nonnull;
  * Configuration settings for a {@link HNSW}.
  */
 @SuppressWarnings("checkstyle:MemberName")
-public class Config {
+public final class Config {
     public static final long DEFAULT_RANDOM_SEED = 0L;
     @Nonnull public static final Metric DEFAULT_METRIC = Metric.EUCLIDEAN_METRIC;
     public static final boolean DEFAULT_USE_INLINING = false;

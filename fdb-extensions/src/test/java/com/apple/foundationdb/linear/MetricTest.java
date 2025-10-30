@@ -40,7 +40,7 @@ import static com.apple.foundationdb.linear.Metric.EUCLIDEAN_METRIC;
 import static com.apple.foundationdb.linear.Metric.EUCLIDEAN_SQUARE_METRIC;
 import static com.apple.foundationdb.linear.Metric.MANHATTAN_METRIC;
 
-public class MetricTest {
+class MetricTest {
     static Stream<Arguments> metricAndExpectedDistance() {
         // Distance between (1.0, 2.0) and (4.0, 6.0)
         final RealVector v1 = v(1.0, 2.0);

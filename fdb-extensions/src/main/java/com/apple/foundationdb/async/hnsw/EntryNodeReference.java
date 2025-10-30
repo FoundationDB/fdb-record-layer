@@ -77,9 +77,6 @@ class EntryNodeReference extends NodeReferenceWithVector {
      */
     @Override
     public boolean equals(final Object o) {
-        if (!(o instanceof EntryNodeReference)) {
-            return false;
-        }
         if (!super.equals(o)) {
             return false;
         }

@@ -166,9 +166,9 @@ public class RaBitQuantizerTest {
             logger.trace("v = {}", v);
             logger.trace("centroid = {}", centroid);
 
-            final RealVector centroidRot = rotator.applyTranspose(centroid);
-            final RealVector qTrans = rotator.applyTranspose(q).subtract(centroidRot);
-            final RealVector vTrans = rotator.applyTranspose(v).subtract(centroidRot);
+            final RealVector centroidRot = rotator.transposedApply(centroid);
+            final RealVector qTrans = rotator.transposedApply(q).subtract(centroidRot);
+            final RealVector vTrans = rotator.transposedApply(v).subtract(centroidRot);
 
             logger.trace("qTrans = {}", qTrans);
             logger.trace("vTrans = {}", vTrans);
