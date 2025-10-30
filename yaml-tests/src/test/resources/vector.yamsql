@@ -153,6 +153,19 @@ test_block:
     -
       - query: select b is null from tDoubleVector where a = 100
       - result: [{false}]
+    # EQUALS NULL tests for vectors
+    -
+      - query: select b = null from tHalfVector where a = 100
+      - result: [{!null _}]
+    -
+      - query: select null = b from tHalfVector where a = 100
+      - result: [{!null _}]
+    -
+      - query: select b != null from tHalfVector where a = 100
+      - result: [{!null _}]
+    -
+      - query: select null != b from tHalfVector where a = 100
+      - result: [{!null _}]
     # IS NOT NULL tests for vectors
     -
       - query: select b is not null from tHalfVector where a = 100

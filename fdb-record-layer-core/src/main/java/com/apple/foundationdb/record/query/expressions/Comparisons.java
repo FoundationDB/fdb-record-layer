@@ -215,18 +215,13 @@ public class Comparisons {
 
     @Nonnull
     public static Object toClassWithRealEquals(@Nonnull Object obj) {
-        if (obj instanceof ByteString) {
+        if (obj instanceof ByteString || obj instanceof Comparable
+                || obj instanceof List || obj instanceof RealVector) {
             return obj;
         } else if (obj instanceof byte[]) {
             return ByteString.copyFrom((byte[])obj);
         } else if (obj instanceof Internal.EnumLite) {
             return ((Internal.EnumLite)obj).getNumber();
-        } else if (obj instanceof Comparable) {
-            return obj;
-        } else if (obj instanceof List) {
-            return obj;
-        } else if (obj instanceof RealVector) {
-            return obj;
         } else {
             throw new RecordCoreException("Tried to compare non-comparable object " + obj.getClass());
         }

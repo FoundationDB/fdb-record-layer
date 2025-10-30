@@ -1215,7 +1215,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
         }
     }
 
-    class Vector implements Type {
+    final class Vector implements Type {
         private final boolean isNullable;
         private final int precision;
         private final int dimensions;
@@ -1322,8 +1322,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
         @Nonnull
         @SuppressWarnings("PMD.ReplaceVectorWithList")
-        public static Vector fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                       @Nonnull final PVectorType vectorTypeProto) {
+        public static Vector fromProto(@Nonnull final PVectorType vectorTypeProto) {
             Verify.verify(vectorTypeProto.hasIsNullable());
             return new Vector(vectorTypeProto.getIsNullable(), vectorTypeProto.getPrecision(), vectorTypeProto.getDimensions());
         }
@@ -1344,7 +1343,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
             @SuppressWarnings("PMD.ReplaceVectorWithList")
             public Vector fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                     @Nonnull final PVectorType vectorTypeProto) {
-                return Vector.fromProto(serializationContext, vectorTypeProto);
+                return Vector.fromProto(vectorTypeProto);
             }
         }
 
