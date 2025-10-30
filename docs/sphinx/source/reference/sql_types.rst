@@ -138,9 +138,11 @@ Working with Vectors
 Vector Literals and Prepared Statements
 ----------------------------------------
 
-**Important**: Vector literals are not directly supported in SQL. Vectors must be inserted using **prepared statement parameters** through the JDBC API.
+**Important**: Vector literals are not directly supported in SQL. Vectors must be inserted using **prepared statement
+parameters** through the JDBC API.
 
-In the JDBC API, you would create a prepared statement and bind vector parameters using the appropriate Java objects (e.g., :java:`HalfRealVector`, :java:`FloatRealVector`, or :java:`DoubleRealVector`):
+In the JDBC API, you would create a prepared statement and bind vector parameters using the appropriate Java objects
+(e.g., :java:`HalfRealVector`, :java:`FloatRealVector`, or :java:`DoubleRealVector`):
 
 .. code-block:: java
 
@@ -151,24 +153,17 @@ In the JDBC API, you would create a prepared statement and bind vector parameter
     stmt.setObject(2, new FloatRealVector(new float[]{0.5f, 1.2f, -0.8f}));
     stmt.executeUpdate();
 
-For documentation and testing purposes, the examples below use a special test DSL syntax :sql:`!! !vXX [values] !!` to represent prepared statement parameters:
-
-* :sql:`!v16` represents a HALF precision vector parameter
-* :sql:`!v32` represents a FLOAT precision vector parameter
-* :sql:`!v64` represents a DOUBLE precision vector parameter
-
-Example insertions (using test DSL syntax for illustration):
+For documentation purposes, the examples below demonstrate vector usage. While vectors can be constructed in SQL by
+casting numeric arrays to vector types, **note that inserting vectors requires using prepared statement parameters
+through the JDBC API** (as shown in the Java example above). CAST expressions work well for SELECT queries but have
+limitations with INSERT statements in prepared statement contexts:
 
 .. code-block:: sql
 
-    -- Insert a HALF precision vector
-    INSERT INTO embeddings VALUES (1, !! !v16 [0.5, 1.2, -0.8] !!);
-
-    -- Insert a FLOAT precision vector
-    INSERT INTO embeddings VALUES (2, !! !v32 [0.5, 1.2, -0.8] !!);
-
-    -- Insert a DOUBLE precision vector
-    INSERT INTO embeddings VALUES (3, !! !v64 [0.5, 1.2, -0.8] !!);
+    -- Example: Constructing vectors using CAST (works in SELECT contexts)
+    SELECT CAST([0.5, 1.2, -0.8] AS VECTOR(3, HALF)) AS half_vector;
+    SELECT CAST([0.5, 1.2, -0.8] AS VECTOR(3, FLOAT)) AS float_vector;
+    SELECT CAST([0.5, 1.2, -0.8] AS VECTOR(3, DOUBLE)) AS double_vector;
 
 Casting Arrays to Vectors
 --------------------------
@@ -191,25 +186,25 @@ The array must have exactly the same number of elements as the vector's declared
 Querying Vectors
 ----------------
 
-Vectors can be selected and compared like other column types. When comparing vectors in WHERE clauses, you would typically use prepared statement parameters in your Java/JDBC code:
+Vectors can be selected and compared like other column types. When comparing vectors in WHERE clauses, you would typically use prepared statement parameters in your Java/JDBC code, but for illustration purposes, vectors can also be constructed using CAST:
 
 .. code-block:: sql
 
     -- Select vectors
     SELECT embedding FROM embeddings WHERE id = 1;
 
-    -- Compare vectors for equality (using test DSL syntax; in actual code use PreparedStatement)
-    SELECT id FROM embeddings WHERE embedding = !! !v32 [0.5, 1.2, -0.8] !!;
+    -- Compare vectors for equality (in actual code use PreparedStatement for better performance)
+    SELECT id FROM embeddings WHERE embedding = CAST([0.5, 1.2, -0.8] AS VECTOR(3, FLOAT));
 
     -- Compare vectors for inequality
-    SELECT id FROM embeddings WHERE embedding != !! !v32 [1.0, 2.0, 3.0] !!;
+    SELECT id FROM embeddings WHERE embedding != CAST([1.0, 2.0, 3.0] AS VECTOR(3, FLOAT));
 
     -- Check for NULL vectors
     SELECT id FROM embeddings WHERE embedding IS NULL;
     SELECT id FROM embeddings WHERE embedding IS NOT NULL;
 
     -- Use IS DISTINCT FROM for NULL-safe comparisons
-    SELECT embedding IS DISTINCT FROM !! !v32 [0.5, 1.2, -0.8] !! FROM embeddings;
+    SELECT embedding IS DISTINCT FROM CAST([0.5, 1.2, -0.8] AS VECTOR(3, FLOAT)) FROM embeddings;
 
 Vectors in Struct Fields
 -------------------------
@@ -221,9 +216,9 @@ When vectors are nested within struct types, you can access them using dot notat
     -- Access vector within a struct
     SELECT embedding.embedding FROM documents WHERE id = 1;
 
-    -- Filter by vector within struct (using test DSL syntax; in actual code use PreparedStatement)
+    -- Filter by vector within struct (in actual code use PreparedStatement for better performance)
     SELECT id FROM documents
-    WHERE embedding.embedding = !! !v32 [0.5, 1.2, -0.8] !!;
+    WHERE embedding.embedding = CAST([0.5, 1.2, -0.8] AS VECTOR(3, FLOAT));
 
     -- Check NULL for vector field in struct
     SELECT id FROM documents WHERE embedding.embedding IS NULL;

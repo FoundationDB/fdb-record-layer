@@ -32,6 +32,7 @@ test_block:
     statement_type: prepared
   tests:
     # Vector Type Declaration - Insert a FLOAT precision vector (documentation example)
+    # Note: Using YAML DSL syntax for inserts as CAST expressions don't work with prepared statements
     -
       - query: INSERT INTO embeddings VALUES (1, !! !v32 [0.5, 1.2, -0.8] !!)
       - count: 1
@@ -61,6 +62,47 @@ test_block:
       - query: SELECT embedding FROM embeddings WHERE id = 1
       - result: [{embedding: !v32 [0.5, 1.2, -0.8]}]
 
+    # Vector construction examples from documentation - CAST in SELECT contexts
+    -
+      - query: SELECT CAST([0.5, 1.2, -0.8] AS VECTOR(3, HALF)) AS half_vector FROM embeddings WHERE id = 1
+      - result: [{half_vector: !v16 [0.5, 1.2, -0.8]}]
+
+    -
+      - query: SELECT CAST([0.5, 1.2, -0.8] AS VECTOR(3, FLOAT)) AS float_vector FROM embeddings WHERE id = 1
+      - result: [{float_vector: !v32 [0.5, 1.2, -0.8]}]
+
+    -
+      - query: SELECT CAST([0.5, 1.2, -0.8] AS VECTOR(3, DOUBLE)) AS double_vector FROM embeddings WHERE id = 1
+      - result: [{double_vector: !v64 [0.5, 1.2, -0.8]}]
+
+    # Querying Vectors - Compare vectors for equality (documentation example)
+    -
+      - query: SELECT id FROM embeddings WHERE embedding = CAST([0.5, 1.2, -0.8] AS VECTOR(3, FLOAT))
+      - result: [{1}]
+
+    # Querying Vectors - Compare vectors for inequality (documentation example)
+    -
+      - query: SELECT id FROM embeddings WHERE embedding != CAST([1.0, 2.0, 3.0] AS VECTOR(3, FLOAT))
+      - result: [{1}]
+
+    # Querying Vectors - Check for NULL vectors (documentation example)
+    -
+      - query: INSERT INTO embeddings VALUES (3, NULL)
+      - count: 1
+
+    -
+      - query: SELECT id FROM embeddings WHERE embedding IS NULL
+      - result: [{3}]
+
+    -
+      - query: SELECT id FROM embeddings WHERE embedding IS NOT NULL
+      - unorderedResult: [{1}, {2}]
+
+    # Querying Vectors - IS DISTINCT FROM for NULL-safe comparisons (documentation example)
+    -
+      - query: SELECT embedding IS DISTINCT FROM CAST([0.5, 1.2, -0.8] AS VECTOR(3, FLOAT)) AS is_distinct FROM embeddings WHERE id = 1
+      - result: [{is_distinct: false}]
+
     # Test CAST errors - Array must match vector dimension (documentation example)
     -
       - query: SELECT CAST([1.0, 2.0, 3.0, 4.0] AS VECTOR(3, FLOAT)) FROM embeddings WHERE id = 1
@@ -80,6 +122,8 @@ test_block:
       - error: "22F3H"
 
     # Vectors in Struct Fields - Insert vector within struct (documentation example)
+    # Note: Using YAML DSL syntax for inserts as CAST expressions don't work with prepared statements
+    # https://github.com/FoundationDB/fdb-record-layer/issues/3703
     -
       - query: INSERT INTO documents VALUES (1, 'Sample document', ('gpt-4', !! !v32 [0.5, 1.2, -0.8] !!))
       - count: 1
@@ -93,6 +137,20 @@ test_block:
     -
       - query: SELECT embedding.model_name FROM documents WHERE id = 1
       - result: [{model_name: 'gpt-4'}]
+
+    # Vectors in Struct Fields - Filter by vector within struct (documentation example)
+    -
+      - query: SELECT id FROM documents WHERE embedding.embedding = CAST([0.5, 1.2, -0.8] AS VECTOR(3, FLOAT))
+      - result: [{1}]
+
+    # Vectors in Struct Fields - Check NULL for vector field in struct (documentation example)
+    -
+      - query: INSERT INTO documents VALUES (2, 'Document without embedding', ('gpt-4', NULL))
+      - count: 1
+
+    -
+      - query: SELECT id FROM documents WHERE embedding.embedding IS NULL
+      - result: [{2}]
 
     # Test CAST from different numeric types to different vector precisions (documentation example)
     -
@@ -111,3 +169,4 @@ test_block:
     -
       - query: SELECT CAST([-1.5, -2.5, -3.5] AS VECTOR(3, FLOAT)) AS vec FROM embeddings WHERE id = 1
       - result: [{vec: !v32 [-1.5, -2.5, -3.5]}]
+
