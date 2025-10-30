@@ -113,7 +113,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
     public DataType visitColumnType(@Nonnull RelationalParser.ColumnTypeContext ctx) {
         final var semanticAnalyzer = getDelegate().getSemanticAnalyzer();
         if (ctx.customType != null) {
-            final var columnType = Identifier.toProtobufCompliant(visitUid(ctx.customType));
+            final var columnType = visitUid(ctx.customType);
             return semanticAnalyzer.lookupType(columnType, false, false, metadataBuilder::findType);
         }
         return visitPrimitiveType(ctx.primitiveType());
