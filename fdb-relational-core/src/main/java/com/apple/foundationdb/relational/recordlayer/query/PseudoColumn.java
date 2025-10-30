@@ -73,4 +73,13 @@ public enum PseudoColumn {
         }
         return Optional.empty();
     }
+
+    public static boolean isPseudoColumn(@Nonnull String name) {
+        for (PseudoColumn pseudo : PseudoColumn.values()) {
+            if (name.equals(pseudo.getColumnName())) {
+                return true;
+            }
+        }
+        return false;
+    }
 }

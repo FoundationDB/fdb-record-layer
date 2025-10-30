@@ -746,10 +746,6 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
 
     @Nonnull
     @Override
-    Expression visitExpressionWithName(@Nonnull RelationalParser.ExpressionWithNameContext ctx);
-
-    @Nonnull
-    @Override
     Expression visitExpressionWithOptionalName(@Nonnull RelationalParser.ExpressionWithOptionalNameContext ctx);
 
     @Nonnull
