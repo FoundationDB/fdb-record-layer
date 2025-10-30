@@ -35,7 +35,7 @@ import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.rabitq.RaBitQuantizer;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
-import com.google.common.base.Verify;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
@@ -244,6 +244,10 @@ public class HNSW {
 
         @Override
         public final boolean equals(final Object o) {
+            if (this == o) {
+                return true;
+            }
+
             if (!(o instanceof Config)) {
                 return false;
             }
@@ -676,23 +680,14 @@ public class HNSW {
 
                     final int entryLayer = entryNodeReference.getLayer();
                     return forLoop(entryLayer, entryState,
-                            layer -> layer >= 0,
+                            layer -> layer > 0,
                             layer -> layer - 1,
                             (layer, previousNodeReference) -> {
-                                if (layer == 0) {
-                                    // entry data points to a node in layer 0 directly
-                                    return CompletableFuture.completedFuture(previousNodeReference);
-                                }
-
                                 final var storageAdapter = getStorageAdapterForLayer(layer);
                                 return greedySearchLayer(storageAdapter, readTransaction, storageTransform, estimator,
                                         previousNodeReference, layer, transformedQueryVector);
                             }, executor)
                             .thenCompose(nodeReference -> {
-                                if (nodeReference == null) {
-                                    return CompletableFuture.completedFuture(null);
-                                }
-
                                 final var storageAdapter = getStorageAdapterForLayer(0);
 
                                 return searchFinalLayer(storageAdapter, readTransaction, storageTransform, estimator, k, efSearch, nodeReference,
@@ -788,11 +783,6 @@ public class HNSW {
      * This method finds the node on the specified layer that is closest to the given query vector,
      * starting the search from a designated entry point. The search is "greedy" because it aims to find
      * only the single best neighbor.
-     * <p>
-     * The implementation strategy depends on the {@link NodeKind} of the provided {@link StorageAdapter}.
-     * If the node kind is {@code INLINING}, it delegates to the specialized {@link #greedySearchInliningLayer} method.
-     * Otherwise, it uses the more general {@link #searchLayer} method with a search size (ef) of 1.
-     * The operation is asynchronous.
      *
      * @param <N> the type of the node reference, extending {@link NodeReference}
      * @param storageAdapter the {@link StorageAdapter} for accessing the graph data
@@ -815,90 +805,10 @@ public class HNSW {
                               @Nonnull final NodeReferenceWithDistance nodeReference,
                               final int layer,
                               @Nonnull final RealVector queryVector) {
-        if (storageAdapter.getNodeKind() == NodeKind.INLINING) {
-            return greedySearchInliningLayer(storageAdapter.asInliningStorageAdapter(),
-                    readTransaction, storageTransform, estimator, nodeReference, layer, queryVector);
-        } else {
-            return searchLayer(storageAdapter, readTransaction, storageTransform, estimator,
-                    ImmutableList.of(nodeReference), layer, 1, Maps.newConcurrentMap(), queryVector)
-                    .thenApply(searchResult ->
-                            Iterables.getOnlyElement(searchResult).getNodeReferenceWithDistance());
-        }
-    }
-
-    /**
-     * Performs a greedy search for the nearest neighbor to a query vector within a single, non-zero layer of the HNSW
-     * graph.
-     * <p>
-     * This search is performed on layers that use {@code InliningNode}s, where neighbor vectors are stored directly
-     * within the node.
-     * The search starts from a given {@code entryNeighbor} and iteratively moves to the closest neighbor in the current
-     * node's
-     * neighbor list, until no closer neighbor can be found.
-     * <p>
-     * The entire process is asynchronous, returning a {@link CompletableFuture} that will complete with the best node
-     * found in this layer.
-     *
-     * @param storageAdapter the storage adapter to fetch nodes from the graph
-     * @param readTransaction the transaction context for database reads
-     * @param storageTransform an affine transformation operator that is used to transform the fetched vector into the
-     * storage space that is currently being used
-     * @param estimator a distance estimator
-     * @param nodeReference the entry point for the search in this layer, typically the result from a search in a higher
-     *        layer
-     * @param layer the layer number to perform the search in. Must be greater than 0.
-     * @param queryVector the vector for which to find the nearest neighbor
-     *
-     * @return a {@link CompletableFuture} that, upon completion, will hold the {@link NodeReferenceWithDistance} of the
-     *         nearest neighbor found in this layer's greedy search
-     *
-     * @throws IllegalStateException if a node that is expected to exist cannot be fetched from the
-     * {@code storageAdapter} during the search
-     */
-    @Nonnull
-    private CompletableFuture<NodeReferenceWithDistance>
-            greedySearchInliningLayer(@Nonnull final StorageAdapter<NodeReferenceWithVector> storageAdapter,
-                                      @Nonnull final ReadTransaction readTransaction,
-                                      @Nonnull final AffineOperator storageTransform,
-                                      @Nonnull final Estimator estimator,
-                                      @Nonnull final NodeReferenceWithDistance nodeReference,
-                                      final int layer,
-                                      @Nonnull final RealVector queryVector) {
-        Verify.verify(layer > 0);
-        final AtomicReference<NodeReferenceWithDistance> currentNodeReferenceAtomic =
-                new AtomicReference<>(nodeReference);
-
-        return AsyncUtil.whileTrue(() -> onReadListener.onAsyncRead(
-                        storageAdapter.fetchNode(readTransaction, storageTransform, layer,
-                                currentNodeReferenceAtomic.get().getPrimaryKey()))
-                .thenApply(node -> {
-                    if (node == null) {
-                        throw new IllegalStateException("unable to fetch node");
-                    }
-                    final InliningNode inliningNode = node.asInliningNode();
-                    final List<NodeReferenceWithVector> neighbors = inliningNode.getNeighbors();
-
-                    final NodeReferenceWithDistance currentNodeReference = currentNodeReferenceAtomic.get();
-                    double minDistance = currentNodeReference.getDistance();
-
-                    NodeReferenceWithVector nearestNeighbor = null;
-                    for (final NodeReferenceWithVector neighbor : neighbors) {
-                        final double distance = estimator.distance(queryVector, neighbor.getVector());
-                        if (distance < minDistance) {
-                            minDistance = distance;
-                            nearestNeighbor = neighbor;
-                        }
-                    }
-
-                    if (nearestNeighbor == null) {
-                        return false;
-                    }
-
-                    currentNodeReferenceAtomic.set(
-                            new NodeReferenceWithDistance(nearestNeighbor.getPrimaryKey(), nearestNeighbor.getVector(),
-                                    minDistance));
-                    return true;
-                }), executor).thenApply(ignored -> currentNodeReferenceAtomic.get());
+        return searchLayer(storageAdapter, readTransaction, storageTransform, estimator,
+                ImmutableList.of(nodeReference), layer, 1, Maps.newConcurrentMap(), queryVector)
+                .thenApply(searchResult ->
+                        Iterables.getOnlyElement(searchResult).getNodeReferenceWithDistance());
     }
 
     /**
@@ -1901,7 +1811,7 @@ public class HNSW {
     /**
      * Writes lonely nodes for a given key across a specified range of layers.
      * <p>
-     * A "lonely node" is a node in the layered structure that does not have a right
+     * A "lonely node" is a node in the layered structure that does not have a
      * sibling. This method iterates downwards from the {@code highestLayerInclusive}
      * to the {@code lowestLayerExclusive}. For each layer in this range, it
      * retrieves the appropriate {@link StorageAdapter} and calls
@@ -1971,10 +1881,11 @@ public class HNSW {
      * @param nodeConsumer the non-null {@link Consumer} that will accept each {@link Node}
      * found in the layer.
      */
-    public void scanLayer(@Nonnull final Database db,
-                          final int layer,
-                          final int batchSize,
-                          @Nonnull final Consumer<Node<? extends NodeReference>> nodeConsumer) {
+    @VisibleForTesting
+    void scanLayer(@Nonnull final Database db,
+                   final int layer,
+                   final int batchSize,
+                   @Nonnull final Consumer<Node<? extends NodeReference>> nodeConsumer) {
         final StorageAdapter<? extends NodeReference> storageAdapter = getStorageAdapterForLayer(layer);
         final AtomicReference<Tuple> lastPrimaryKeyAtomic = new AtomicReference<>();
         Tuple newPrimaryKey;
@@ -1995,14 +1906,11 @@ public class HNSW {
     /**
      * Gets the appropriate storage adapter for a given layer.
      * <p>
-     * This method selects a {@link StorageAdapter} implementation based on the layer number.
-     * The logic is intended to use an {@code InliningStorageAdapter} for layers greater
-     * than 0 and a {@code CompactStorageAdapter} for layer 0. However, the switch to
-     * the inlining adapter is currently disabled with a hardcoded {@code false},
-     * so this method will always return a {@code CompactStorageAdapter}.
+     * This method selects a {@link StorageAdapter} implementation based on the layer number. The logic is intended to
+     * use an {@code InliningStorageAdapter} for layers greater than {@code 0} and a {@code CompactStorageAdapter} for
+     * layer 0. Note that we will only use inlining at all if the config indicates we should use inlining.
      *
      * @param layer the layer number for which to get the storage adapter; currently unused
-     *
      * @return a non-null {@link StorageAdapter} instance, which will always be a
      * {@link CompactStorageAdapter} in the current implementation
      */

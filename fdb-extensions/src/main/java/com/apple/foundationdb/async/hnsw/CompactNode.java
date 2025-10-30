@@ -40,7 +40,7 @@ import java.util.Objects;
  * @see AbstractNode
  * @see NodeReference
  */
-public class CompactNode extends AbstractNode<NodeReference> {
+class CompactNode extends AbstractNode<NodeReference> {
     @Nonnull
     private static final NodeFactory<NodeReference> FACTORY = new NodeFactory<>() {
         @SuppressWarnings("unchecked")

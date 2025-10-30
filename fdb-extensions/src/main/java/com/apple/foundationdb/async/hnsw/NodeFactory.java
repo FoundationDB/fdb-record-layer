@@ -35,7 +35,7 @@ import java.util.List;
  *
  * @param <N> the type of {@link NodeReference} used to refer to nodes in the graph
  */
-public interface NodeFactory<N extends NodeReference> {
+interface NodeFactory<N extends NodeReference> {
     /**
      * Creates a new node with the specified properties.
      * <p>
@@ -46,7 +46,7 @@ public interface NodeFactory<N extends NodeReference> {
      *        {@code null}.
      * @param vector the optional feature {@link RealVector} associated with the node, which can be used for similarity
      *        calculations. May be {@code null} if the node does not encode a vector (see {@link CompactNode} versus
-     *        {@link InliningNode}.
+     *        {@link InliningNode}).
      * @param neighbors the list of initial {@link NodeReference}s for the new node,
      * establishing its initial connections in the graph. Must not be {@code null}.
      *

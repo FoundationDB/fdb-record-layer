@@ -111,7 +111,8 @@ public class NodeReference {
     @Nonnull
     public static Iterable<Tuple> primaryKeys(@Nonnull Iterable<? extends NodeReference> neighbors) {
         return () -> Streams.stream(neighbors)
-                .map(NodeReference::getPrimaryKey)
+                .map(nodeReference ->
+                        Objects.requireNonNull(nodeReference).getPrimaryKey())
                 .iterator();
     }
 }
