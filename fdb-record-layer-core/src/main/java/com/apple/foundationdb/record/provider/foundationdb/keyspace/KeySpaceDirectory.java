@@ -103,7 +103,7 @@ public class KeySpaceDirectory {
      * type may be stored in the directory, otherwise specifies a constant value that represents the
      * directory
      * @param wrapper if non-null, specifies a function that may be used to wrap any <code>KeySpacePath</code>
-     * objects return from {@link KeySpace#pathFromKey(FDBRecordContext, Tuple)}
+     * objects return from {@link KeySpace#resolveFromKeyAsync(FDBRecordContext, Tuple)}.
      *
      * @throws RecordCoreArgumentException if the provided value constant value is not valid for the
      * type of directory being created
@@ -130,7 +130,7 @@ public class KeySpaceDirectory {
      * @param name the name of the directory
      * @param keyType the data type of the values that may be contained within the directory
      * @param wrapper if non-null, specifies a function that may be used to wrap any <code>KeySpacePath</code>
-     * objects returned from {@link KeySpace#pathFromKey(FDBRecordContext, Tuple)}
+     * objects returned from {@link KeySpace#resolveFromKeyAsync(FDBRecordContext, Tuple)}
      */
     public KeySpaceDirectory(@Nonnull String name, @Nonnull KeyType keyType, @Nullable Function<KeySpacePath, KeySpacePath> wrapper) {
         this(name, keyType, keyType.getAnyValue(), wrapper);
@@ -213,14 +213,12 @@ public class KeySpaceDirectory {
             // Have we hit the leaf of the tree or run out of tuple to process?
             if (subdirs.isEmpty() || keyIndex + 1 == keySize) {
                 final Tuple remainder = (keyIndex + 1 == key.size()) ? null : TupleHelpers.subTuple(key, keyIndex + 1, key.size());
-                final KeySpacePath path = KeySpacePathImpl.newPath(parentPath, this, tupleValue,
-                        true, resolvedValue, remainder);
+                final KeySpacePath path = KeySpacePathImpl.newPath(parentPath, this, tupleValue);
 
                 return CompletableFuture.completedFuture(
                         Optional.of(new ResolvedKeySpacePath(parent, path, new PathValue(tupleValue), remainder)));
             } else {
-                final KeySpacePath path = KeySpacePathImpl.newPath(parentPath, this, tupleValue,
-                        true, resolvedValue, null);
+                final KeySpacePath path = KeySpacePathImpl.newPath(parentPath, this, tupleValue);
                 return findChildForKey(context,
                         new ResolvedKeySpacePath(parent, path, pathValue, null),
                         key, keySize, keyIndex + 1).thenApply(Optional::of);

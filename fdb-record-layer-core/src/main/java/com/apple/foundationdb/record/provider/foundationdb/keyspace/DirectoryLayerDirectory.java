@@ -258,8 +258,7 @@ public class DirectoryLayerDirectory extends KeySpaceDirectory {
 
                         // Make sure that the path is constructed with the text-name from the directory layer.
                         ResolvedKeySpacePath myPath = new ResolvedKeySpacePath(parent,
-                                KeySpacePathImpl.newPath(parentPath, this, directoryString,
-                                        true, pathValue, remainder),
+                                KeySpacePathImpl.newPath(parentPath, this, directoryString),
                                 pathValue, remainder);
 
                         // We are finished if there are no more subdirectories or no more tuple to consume
