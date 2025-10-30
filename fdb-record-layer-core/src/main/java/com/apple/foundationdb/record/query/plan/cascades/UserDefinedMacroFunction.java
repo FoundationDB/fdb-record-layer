@@ -1,5 +1,5 @@
 /*
- * MacroFunction.java
+ * UserDefinedMacroFunction.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -20,17 +20,17 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
-import com.apple.foundationdb.record.PlanDeserializer;
+import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaDataProto;
-import com.apple.foundationdb.record.planprotos.PMacroFunctionValue;
+import com.apple.foundationdb.record.planprotos.PUserDefinedMacroFunction;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.RegularTranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
-import com.google.auto.service.AutoService;
+import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
 
 import javax.annotation.Nonnull;
 import java.util.List;
@@ -38,15 +38,15 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
- * MacroFunction that expands a body (referring to parameters) into a {@link Value} (through encapsulation) call site.
+ * UserDefinedMacroFunction that expands a body (referring to parameters) into a {@link Value} (through encapsulation) call site.
  */
-public class MacroFunction extends UserDefinedFunction {
+public class UserDefinedMacroFunction extends UserDefinedFunction {
     @Nonnull
     private final Value bodyValue;
     @Nonnull
     private final List<CorrelationIdentifier> parameterIdentifiers;
 
-    public MacroFunction(@Nonnull final String functionName, @Nonnull final List<QuantifiedObjectValue> parameters, @Nonnull final Value bodyValue) {
+    public UserDefinedMacroFunction(@Nonnull final String functionName, @Nonnull final List<QuantifiedObjectValue> parameters, @Nonnull final Value bodyValue) {
         super(functionName, parameters.stream().map(QuantifiedObjectValue::getResultType).collect(Collectors.toUnmodifiableList()));
         this.parameterIdentifiers = parameters.stream().map(QuantifiedObjectValue::getAlias).collect(Collectors.toList());
         this.bodyValue = bodyValue;
@@ -69,13 +69,15 @@ public class MacroFunction extends UserDefinedFunction {
 
     @Nonnull
     @Override
-    public RecordMetaDataProto.PUserDefinedFunction toProto(@Nonnull PlanSerializationContext serializationContext) {
-        PMacroFunctionValue.Builder builder = PMacroFunctionValue.newBuilder();
+    public RecordMetaDataProto.PUserDefinedFunction toProto() {
+        PlanSerializationContext serializationContext = new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE,
+                PlanHashable.CURRENT_FOR_CONTINUATION);
+        PUserDefinedMacroFunction.Builder builder = PUserDefinedMacroFunction.newBuilder();
         for (int i = 0; i < parameterTypes.size(); i++) {
             builder.addArguments(QuantifiedObjectValue.of(parameterIdentifiers.get(i), parameterTypes.get(i)).toValueProto(serializationContext));
         }
         return RecordMetaDataProto.PUserDefinedFunction.newBuilder()
-                .setMacroFunction(builder
+                .setUserDefinedMacroFunction(builder
                         .setFunctionName(functionName)
                         .setBody(bodyValue.toValueProto(serializationContext)))
                 .build();
@@ -85,33 +87,16 @@ public class MacroFunction extends UserDefinedFunction {
     @Nonnull
     @Override
     public Typed encapsulate(@Nonnull final Map<String, ? extends Typed> namedArguments) {
-        throw new RecordCoreException("macro functions do not support named argument calling conventions");
+        throw new RecordCoreException("user defined scalar functions do not support named argument calling conventions");
     }
 
     @Nonnull
-    public static MacroFunction fromProto(@Nonnull final PlanSerializationContext serializationContext, @Nonnull final PMacroFunctionValue functionValue) {
-        return new MacroFunction(
-                functionValue.getFunctionName(),
-                functionValue.getArgumentsList().stream().map(pvalue -> ((QuantifiedObjectValue)Value.fromValueProto(serializationContext, pvalue))).collect(Collectors.toList()),
-                Value.fromValueProto(serializationContext, functionValue.getBody()));
-    }
-
-    /**
-     * Deserializer.
-     */
-    @AutoService(PlanDeserializer.class)
-    public static class Deserializer implements PlanDeserializer<PMacroFunctionValue, MacroFunction> {
-        @Nonnull
-        @Override
-        public Class<PMacroFunctionValue> getProtoMessageClass() {
-            return PMacroFunctionValue.class;
-        }
-
-        @Nonnull
-        @Override
-        public MacroFunction fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                         @Nonnull final PMacroFunctionValue macroFunctionValue) {
-            return MacroFunction.fromProto(serializationContext, macroFunctionValue);
-        }
+    public static UserDefinedMacroFunction fromProto(@Nonnull final PUserDefinedMacroFunction function) {
+        PlanSerializationContext serializationContext = new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE,
+                PlanHashable.CURRENT_FOR_CONTINUATION);
+        return new UserDefinedMacroFunction(
+                function.getFunctionName(),
+                function.getArgumentsList().stream().map(pvalue -> ((QuantifiedObjectValue)Value.fromValueProto(serializationContext, pvalue))).collect(Collectors.toList()),
+                Value.fromValueProto(serializationContext, function.getBody()));
     }
 }

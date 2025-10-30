@@ -133,6 +133,70 @@ public class DelegatingVisitorTest {
         Assertions.assertThat(baseVisitorCalled.booleanValue()).isTrue();
     }
 
+    @Test
+    void visitUserDefinedScalarFunctionStatementBodyTest() {
+        final var query = "AS testIdentifier";
+        final MutableBoolean baseVisitorCalled = new MutableBoolean(false);
+        final var baseVisitor = new BaseVisitor(
+                new MutablePlanGenerationContext(PreparedParams.empty(),
+                        PlanHashable.PlanHashMode.VC0, query, query, 42),
+                generateMetadata(),
+                NoOpQueryFactory.INSTANCE,
+                NoOpMetadataOperationsFactory.INSTANCE,
+                URI.create("/FDB/FRL1"),
+                false) {
+
+            @Nonnull
+            @Override
+            public Identifier visitUserDefinedScalarFunctionStatementBody(@Nonnull final RelationalParser.UserDefinedScalarFunctionStatementBodyContext ctx) {
+                baseVisitorCalled.setTrue();
+                return Identifier.of("testIdentifier");
+            }
+        };
+        final var delegatingVisitor = new DelegatingVisitor<>(baseVisitor);
+        final var tokenSource = new RelationalLexer(new CaseInsensitiveCharStream(query));
+        final var parser = new RelationalParser(new CommonTokenStream(tokenSource));
+        final var routineBodyContext = parser.routineBody();
+
+        if (routineBodyContext instanceof RelationalParser.UserDefinedScalarFunctionStatementBodyContext) {
+            final var userDefinedScalarFunctionStatementBodyContext = (RelationalParser.UserDefinedScalarFunctionStatementBodyContext)routineBodyContext;
+            final var result = delegatingVisitor.visitUserDefinedScalarFunctionStatementBody(userDefinedScalarFunctionStatementBodyContext);
+            Assertions.assertThat(result).isEqualTo(Identifier.of("testIdentifier"));
+        } else {
+            Assertions.fail("Expected UserDefinedScalarFunctionStatementBodyContext but got " + routineBodyContext.getClass().getSimpleName());
+        }
+
+        Assertions.assertThat(baseVisitorCalled.booleanValue()).isTrue();
+    }
+
+    @Test
+    void visitUserDefinedScalarFunctionNameTest() {
+        final var query = "fake query";
+        final MutableBoolean baseVisitorCalled = new MutableBoolean(false);
+        final var baseVisitor = new BaseVisitor(
+                new MutablePlanGenerationContext(PreparedParams.empty(),
+                        PlanHashable.PlanHashMode.VC0, query, query, 42),
+                generateMetadata(),
+                NoOpQueryFactory.INSTANCE,
+                NoOpMetadataOperationsFactory.INSTANCE,
+                URI.create("/FDB/FRL1"),
+                false) {
+
+            @Nonnull
+            @Override
+            public String visitUserDefinedScalarFunctionName(@Nonnull final RelationalParser.UserDefinedScalarFunctionNameContext ctx) {
+                baseVisitorCalled.setTrue();
+                return "testFunction";
+            }
+        };
+        final var delegatingVisitor = new DelegatingVisitor<>(baseVisitor);
+        final var tokenSource = new RelationalLexer(new CaseInsensitiveCharStream(query));
+        final var parser = new RelationalParser(new CommonTokenStream(tokenSource));
+        Assertions.assertThat(delegatingVisitor.visitUserDefinedScalarFunctionName(parser.userDefinedScalarFunctionName())).isEqualTo("testFunction");
+        Assertions.assertThat(baseVisitorCalled.booleanValue()).isTrue();
+    }
+
+
     @ParameterizedTest
     @MethodSource("traversalStrings")
     void visitTraversalExpressionTest(String query) {
@@ -161,6 +225,62 @@ public class DelegatingVisitorTest {
         final var parser = new RelationalParser(new CommonTokenStream(tokenSource));
         final var predicatedExpression = parser.traversalOrderClause();
         delegatingVisitor.visitTraversalOrderClause(predicatedExpression);
+        Assertions.assertThat(baseVisitorCalled.booleanValue()).isTrue();
+    }
+
+    @Test
+    void visitViewDefinitionTest() {
+        final var query = "VIEW V AS SELECT * FROM T";
+        final MutableBoolean baseVisitorCalled = new MutableBoolean(false);
+        final var baseVisitor = new BaseVisitor(
+                new MutablePlanGenerationContext(PreparedParams.empty(),
+                        PlanHashable.PlanHashMode.VC0, query, query, 42),
+                generateMetadata(),
+                NoOpQueryFactory.INSTANCE,
+                NoOpMetadataOperationsFactory.INSTANCE,
+                URI.create("/FDB/FRL1"),
+                false) {
+
+            public Object visitViewDefinition(final RelationalParser.ViewDefinitionContext ctx) {
+                baseVisitorCalled.setTrue();
+                return null;
+            }
+        };
+
+        final var delegatingVisitor = new DelegatingVisitor<>(baseVisitor);
+        final var tokenSource = new RelationalLexer(new CaseInsensitiveCharStream(query));
+        final var parser = new RelationalParser(new CommonTokenStream(tokenSource));
+        final var viewDefinitionContext = parser.viewDefinition();
+        delegatingVisitor.visitViewDefinition(viewDefinitionContext);
+        Assertions.assertThat(baseVisitorCalled.booleanValue()).isTrue();
+    }
+
+    @Test
+    void visitUserDefinedScalarFunctionCallTest() {
+        final var query = "myFunction(123)";
+        final MutableBoolean baseVisitorCalled = new MutableBoolean(false);
+        final var baseVisitor = new BaseVisitor(
+                new MutablePlanGenerationContext(PreparedParams.empty(),
+                        PlanHashable.PlanHashMode.VC0, query, query, 42),
+                generateMetadata(),
+                NoOpQueryFactory.INSTANCE,
+                NoOpMetadataOperationsFactory.INSTANCE,
+                URI.create("/FDB/FRL1"),
+                false) {
+
+            @Nonnull
+            @Override
+            public Expression visitUserDefinedScalarFunctionCall(@Nonnull final RelationalParser.UserDefinedScalarFunctionCallContext ctx) {
+                baseVisitorCalled.setTrue();
+                return Expression.ofUnnamed(LiteralValue.ofScalar(42));
+            }
+        };
+        final var delegatingVisitor = new DelegatingVisitor<>(baseVisitor);
+        final var tokenSource = new RelationalLexer(new CaseInsensitiveCharStream(query));
+        final var parser = new RelationalParser(new CommonTokenStream(tokenSource));
+        final var functionCallExpression = parser.functionCall();
+        final var userDefinedScalarFunctionCall = (RelationalParser.UserDefinedScalarFunctionCallContext)functionCallExpression;
+        delegatingVisitor.visitUserDefinedScalarFunctionCall(userDefinedScalarFunctionCall);
         Assertions.assertThat(baseVisitorCalled.booleanValue()).isTrue();
     }
 }

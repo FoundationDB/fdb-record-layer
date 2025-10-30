@@ -90,7 +90,7 @@ utilityStatement
 
 templateClause
     :
-        CREATE ( structDefinition | tableDefinition | enumDefinition | indexDefinition | sqlInvokedFunction )
+        CREATE ( structDefinition | tableDefinition | enumDefinition | indexDefinition | sqlInvokedFunction | viewDefinition )
     ;
 
 createStatement
@@ -187,8 +187,8 @@ dropTempFunction
     : DROP TEMPORARY FUNCTION (IF EXISTS)? schemaQualifiedRoutineName=fullId
     ;
 
-createFunction
-    : CREATE sqlInvokedFunction
+viewDefinition
+    : VIEW viewName=fullId AS viewQuery=query
     ;
 
 tempSqlInvokedFunction
@@ -275,6 +275,7 @@ dispatchClause
 
 routineBody
     : AS queryTerm         #statementBody
+    | AS fullId            #userDefinedScalarFunctionStatementBody
     | sqlReturnStatement   #expressionBody
     // | externalBodyReferences TODO
     ;
@@ -933,6 +934,7 @@ functionCall
     : aggregateWindowedFunction                                     #aggregateFunctionCall // done (supported)
     | specificFunction                                              #specificFunctionCall //
     | scalarFunctionName '(' functionArgs? ')'                      #scalarFunctionCall // done (unsupported)
+    | userDefinedScalarFunctionName '(' functionArgs? ')'           #userDefinedScalarFunctionCall
     ;
 
 specificFunction
@@ -1119,6 +1121,11 @@ scalarFunctionName
     | REPLACE | SUBSTR | SUBSTRING | SYSDATE | TRIM
     | UTC_DATE | UTC_TIME | UTC_TIMESTAMP
     | JAVA_CALL
+    ;
+
+userDefinedScalarFunctionName
+    : ID
+    | DOUBLE_QUOTE_ID
     ;
 
 functionArgs

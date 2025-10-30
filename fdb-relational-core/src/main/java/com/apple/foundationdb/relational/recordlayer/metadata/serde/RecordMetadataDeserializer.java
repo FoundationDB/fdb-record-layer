@@ -24,7 +24,9 @@ import com.apple.foundationdb.annotation.API;
 
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.RecordType;
+import com.apple.foundationdb.record.query.plan.cascades.UserDefinedMacroFunction;
 import com.apple.foundationdb.record.query.plan.cascades.RawSqlFunction;
+import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
@@ -32,7 +34,8 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerInvokedRoutine;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
-import com.apple.foundationdb.relational.recordlayer.query.functions.CompiledSqlFunction;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerView;
+import com.apple.foundationdb.relational.recordlayer.query.LogicalOperator;
 import com.apple.foundationdb.relational.util.Assert;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -107,7 +110,16 @@ public class RecordMetadataDeserializer {
                 if (function.getValue() instanceof RawSqlFunction) {
                     schemaTemplateBuilder.addInvokedRoutine(generateInvokedRoutineBuilder(metadataProvider, function.getKey(),
                             Assert.castUnchecked(function.getValue(), RawSqlFunction.class).getDefinition()).build());
+                } else if (function.getValue() instanceof UserDefinedMacroFunction) {
+                    schemaTemplateBuilder.addInvokedRoutine(generateInvokedRoutineBuilder(function.getKey(), function.getValue().toString(),
+                            Assert.castUnchecked(function.getValue(), UserDefinedMacroFunction.class)).build());
                 }
+            }
+        }
+        if (!recordMetaData.getViewMap().isEmpty()) {
+            final var metadataProvider = Suppliers.memoize(schemaTemplateBuilder::build);
+            for (final var view : recordMetaData.getViewMap().entrySet()) {
+                schemaTemplateBuilder.addView(generateViewBuilder(metadataProvider, view.getKey(), view.getValue().getDefinition()).build());
             }
         }
         schemaTemplateBuilder.setCachedMetadata(getRecordMetaData());
@@ -151,10 +163,18 @@ public class RecordMetadataDeserializer {
 
     @Nonnull
     @VisibleForTesting
-    protected Function<Boolean, CompiledSqlFunction> getSqlFunctionCompiler(@Nonnull final String name,
+    protected Function<Boolean, UserDefinedFunction> getSqlFunctionCompiler(@Nonnull final String name,
                                                                             @Nonnull final Supplier<RecordLayerSchemaTemplate> metadata,
                                                                             @Nonnull final String functionBody) {
-        return isCaseSensitive -> RoutineParser.sqlFunctionParser(metadata.get()).parse(functionBody, isCaseSensitive);
+        return isCaseSensitive -> RoutineParser.sqlFunctionParser(metadata.get()).parseFunction(functionBody, isCaseSensitive);
+    }
+
+    @Nonnull
+    @VisibleForTesting
+    protected Function<Boolean, LogicalOperator> getViewCompiler(@Nonnull final String viewName,
+                                                                 @Nonnull final Supplier<RecordLayerSchemaTemplate> metadata,
+                                                                 @Nonnull final String viewDefinition) {
+        return isCaseSensitive -> RoutineParser.sqlFunctionParser(metadata.get()).parseView(viewName, viewDefinition, isCaseSensitive);
     }
 
     @Nonnull
@@ -165,7 +185,30 @@ public class RecordMetadataDeserializer {
                 .setName(name)
                 .setDescription(body)
                 .setTemporary(false)
-                .withCompilableRoutine(getSqlFunctionCompiler(name, metadata, body));
+                .withUserDefinedRoutine(getSqlFunctionCompiler(name, metadata, body))
+                .withSerializableFunction(new RawSqlFunction(name, body));
+    }
+
+    @Nonnull
+    private RecordLayerInvokedRoutine.Builder generateInvokedRoutineBuilder(@Nonnull final String name,
+                                                                            @Nonnull final String body,
+                                                                            @Nonnull final UserDefinedMacroFunction userDefinedScalarFunction) {
+        return RecordLayerInvokedRoutine.newBuilder()
+                .setName(name)
+                .setDescription(body)
+                .withUserDefinedRoutine(ignored -> userDefinedScalarFunction)
+                .withSerializableFunction(userDefinedScalarFunction);
+    }
+
+    @Nonnull
+    @SuppressWarnings("PMD.UnusedFormalParameter") // metadata will be used for view compilation in the future
+    private RecordLayerView.Builder generateViewBuilder(@Nonnull final Supplier<RecordLayerSchemaTemplate> metadata,
+                                                        @Nonnull final String name,
+                                                        @Nonnull final String definition) {
+        return RecordLayerView.newBuilder()
+                .setName(name)
+                .setDescription(definition)
+                .setViewCompiler(getViewCompiler(name, metadata, definition));
     }
 
     @Nonnull

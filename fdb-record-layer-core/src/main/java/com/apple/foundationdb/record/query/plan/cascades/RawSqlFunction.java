@@ -20,12 +20,9 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
-import com.apple.foundationdb.record.PlanDeserializer;
-import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
-import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
@@ -44,7 +41,7 @@ public class RawSqlFunction extends UserDefinedFunction {
 
     @Nonnull
     @Override
-    public RecordMetaDataProto.PUserDefinedFunction toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public RecordMetaDataProto.PUserDefinedFunction toProto() {
         final var builder = RecordMetaDataProto.PRawSqlFunction.newBuilder();
         builder.setName(functionName).setDefinition(definition);
         return RecordMetaDataProto.PUserDefinedFunction.newBuilder()
@@ -69,19 +66,8 @@ public class RawSqlFunction extends UserDefinedFunction {
         return definition;
     }
 
-    @AutoService(PlanDeserializer.class)
-    public static class Deserializer implements PlanDeserializer<RecordMetaDataProto.PRawSqlFunction, RawSqlFunction> {
-        @Nonnull
-        @Override
-        public Class<RecordMetaDataProto.PRawSqlFunction> getProtoMessageClass() {
-            return RecordMetaDataProto.PRawSqlFunction.class;
-        }
-
-        @Nonnull
-        @Override
-        public RawSqlFunction fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                        @Nonnull final RecordMetaDataProto.PRawSqlFunction sqlFunction) {
-            return new RawSqlFunction(sqlFunction.getName(), sqlFunction.getDefinition());
-        }
+    @Nonnull
+    public static RawSqlFunction fromProto(@Nonnull final RecordMetaDataProto.PRawSqlFunction sqlFunction) {
+        return new RawSqlFunction(sqlFunction.getName(), sqlFunction.getDefinition());
     }
 }

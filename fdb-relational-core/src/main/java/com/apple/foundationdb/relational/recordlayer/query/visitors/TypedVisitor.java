@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer.query.visitors;
 
+import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.CompatibleTypeEvolutionPredicate;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.metadata.DataType;
@@ -179,13 +180,14 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
     ProceduralPlan visitDropTempFunction(RelationalParser.DropTempFunctionContext ctx);
 
     @Override
-    CompiledSqlFunction visitCreateFunction(RelationalParser.CreateFunctionContext ctx);
-
-    @Override
     CompiledSqlFunction visitTempSqlInvokedFunction(RelationalParser.TempSqlInvokedFunctionContext ctx);
 
     @Override
-    CompiledSqlFunction visitSqlInvokedFunction(RelationalParser.SqlInvokedFunctionContext ctx);
+    UserDefinedFunction visitSqlInvokedFunction(RelationalParser.SqlInvokedFunctionContext ctx);
+
+    @Nonnull
+    @Override
+    Identifier visitUserDefinedScalarFunctionStatementBody(@Nonnull RelationalParser.UserDefinedScalarFunctionStatementBodyContext ctx);
 
     @Override
     LogicalOperator visitStatementBody(RelationalParser.StatementBodyContext ctx);
@@ -757,6 +759,10 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
     @Nonnull
     @Override
     Expression visitAggregateFunctionCall(@Nonnull RelationalParser.AggregateFunctionCallContext ctx);
+
+    @Nonnull
+    @Override
+    Expression visitUserDefinedScalarFunctionCall(@Nonnull RelationalParser.UserDefinedScalarFunctionCallContext ctx);
 
     @Nonnull
     @Override

@@ -18,6 +18,10 @@
  * limitations under the License.
  */
 
+import org.yaml.snakeyaml.Yaml
+
+import org.apache.tools.ant.taskdefs.condition.Os
+
 buildscript {
     repositories {
         if (Boolean.parseBoolean(mavenLocalEnabled)) {
@@ -29,6 +33,7 @@ buildscript {
 
     dependencies {
         classpath 'org.jboss.tattletale:tattletale:1.2.0.Beta2'
+        classpath libs.snakeyaml
     }
 }
 
@@ -341,6 +346,8 @@ if (!JavaVersion.current().isJava8Compatible()) {
     throw new Exception("Java 8 is required to build fdb-record-layer")
 }
 
+// fdb-environment.properties is the old way we configured the library path and cluster file, it does not scale well
+// to multiple cluster files, so is being replaced with a yaml file.
 def fdbEnvironmentFile = new File("${rootProject.projectDir}/fdb-environment.properties")
 if (fdbEnvironmentFile.exists()) {
     fdbEnvironmentFile.eachLine { line ->
@@ -353,6 +360,18 @@ if (!ext.fdbEnvironment.isEmpty()) {
     allprojects {
         tasks.withType(Test) { task ->
             task.environment(fdbenv)
+        }
+    }
+}
+
+def fdbEnvironmentYamlFile = new File("${rootProject.projectDir}/fdb-environment.yaml")
+if (fdbEnvironmentYamlFile.exists()) {
+    def libraryPath = new Yaml().loadAll(fdbEnvironmentYamlFile.newInputStream()).first().libraryPath
+    def libraryPathVariable = Os.isFamily(Os.FAMILY_MAC) ? "DYLD_LIBRARY_PATH" : "LD_LIBRARY_PATH"
+    allprojects {
+        tasks.withType(Test) { task ->
+            task.environment([(libraryPathVariable): libraryPath])
+            task.environment(FDB_ENVIRONMENT_YAML: fdbEnvironmentYamlFile.absolutePath)
         }
     }
 }
