@@ -876,12 +876,13 @@ public class SemanticAnalyzer {
                 : tableFunction.encapsulate(valueArgs);
         if (resultingValue instanceof StreamingValue) {
             final var tableFunctionExpression = new TableFunctionExpression(Assert.castUnchecked(resultingValue, StreamingValue.class));
-            final var resultingQuantifier = Quantifier.forEach(Reference.initialOf(tableFunctionExpression));
+            final var reference = Reference.initialOf(tableFunctionExpression);
+            final var resultingQuantifier = Quantifier.forEach(reference);
             final var output = Expressions.of(LogicalOperator.convertToExpressions(resultingQuantifier));
             return LogicalOperator.newNamedOperator(functionName, output, resultingQuantifier);
         }
-        final var relationalExpression = Assert.castUnchecked(resultingValue, RelationalExpression.class);
-        final var topQun = Quantifier.forEach(Reference.initialOf(relationalExpression));
+        final var tableExpression = Assert.castUnchecked(resultingValue, RelationalExpression.class);
+        final var topQun = Quantifier.forEach(Reference.initialOf(tableExpression));
         return LogicalOperator.newNamedOperator(functionName, Expressions.fromQuantifier(topQun), topQun);
     }
 
