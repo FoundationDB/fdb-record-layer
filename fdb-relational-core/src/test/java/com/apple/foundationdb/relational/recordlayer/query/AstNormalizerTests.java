@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalArray;
 import com.apple.foundationdb.relational.api.Options;
@@ -417,13 +418,13 @@ public class AstNormalizerTests {
 
                             @Nonnull
                             @Override
-                            public Reference encapsulate(@Nonnull final List<? extends Typed> arguments) {
+                            public RelationalExpression encapsulate(@Nonnull final List<? extends Typed> arguments) {
                                 throw new NotImplementedException("unexpected call");
                             }
 
                             @Nonnull
                             @Override
-                            public Reference encapsulate(@Nonnull final Map<String, ? extends Typed> namedArguments) {
+                            public RelationalExpression encapsulate(@Nonnull final Map<String, ? extends Typed> namedArguments) {
                                 throw new NotImplementedException("unexpected call");
                             }
                         })

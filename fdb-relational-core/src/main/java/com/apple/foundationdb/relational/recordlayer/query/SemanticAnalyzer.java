@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.IndexAccessHint;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.TableFunctionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
@@ -869,8 +870,8 @@ public class SemanticAnalyzer {
             final var output = Expressions.of(LogicalOperator.convertToExpressions(resultingQuantifier));
             return LogicalOperator.newNamedOperator(functionName, output, resultingQuantifier);
         }
-        final var translatedReference = Assert.castUnchecked(resultingValue, Reference.class);
-        final var topQun = Quantifier.forEach(translatedReference);
+        final var tableExpression = Assert.castUnchecked(resultingValue, RelationalExpression.class);
+        final var topQun = Quantifier.forEach(Reference.initialOf(tableExpression));
         return LogicalOperator.newNamedOperator(functionName, Expressions.fromQuantifier(topQun), topQun);
     }
 

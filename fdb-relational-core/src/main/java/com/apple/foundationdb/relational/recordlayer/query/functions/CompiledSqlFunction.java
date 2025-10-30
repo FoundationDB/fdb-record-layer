@@ -97,12 +97,12 @@ public class CompiledSqlFunction extends UserDefinedFunction implements  WithPla
 
     @Nonnull
     @Override
-    public Reference encapsulate(@Nonnull final List<? extends Typed> arguments) {
+    public RelationalExpression encapsulate(@Nonnull final List<? extends Typed> arguments) {
         if (parametersCorrelation.isEmpty()) {
             // this should never happen.
             Assert.thatUnchecked(arguments.isEmpty(), ErrorCode.INTERNAL_ERROR,
                     "unexpected parameterless function invocation with non-zero arguments");
-            return Reference.initialOf(body);
+            return body;
         }
         final var parametersCount = getParameterNames().size();
         Assert.thatUnchecked(arguments.size() <= parametersCount, ErrorCode.UNDEFINED_FUNCTION,
@@ -126,17 +126,17 @@ public class CompiledSqlFunction extends UserDefinedFunction implements  WithPla
             resultBuilder.addResultColumn(Column.of(Optional.of(getParameterName(paramIdx)), argumentValue));
         }
         final var argumentsExpression = resultBuilder.addQuantifier(rangeOfOnePlan()).build().buildSelect();
-        return constructTableFunctionPlan(argumentsExpression);
+        return constructTableFunctionExpression(argumentsExpression);
     }
 
     @Nonnull
     @Override
-    public Reference encapsulate(@Nonnull final Map<String, ? extends Typed> namedArguments) {
+    public RelationalExpression encapsulate(@Nonnull final Map<String, ? extends Typed> namedArguments) {
         if (parametersCorrelation.isEmpty()) {
             // this should never happen.
             Assert.thatUnchecked(namedArguments.isEmpty(), ErrorCode.INTERNAL_ERROR,
                     "unexpected parameterless function invocation with non-zero arguments");
-            return Reference.initialOf(body);
+            return body;
         }
         Assert.thatUnchecked(hasNamedParameters(), ErrorCode.INTERNAL_ERROR,
                 "unexpected invocation of function with named arguments");
@@ -156,11 +156,11 @@ public class CompiledSqlFunction extends UserDefinedFunction implements  WithPla
             resultBuilder.addResultColumn(Column.of(Optional.of(name), maybePromotedArgument));
         }
         final var argumentsExpression = resultBuilder.addQuantifier(rangeOfOnePlan()).build().buildSelect();
-        return constructTableFunctionPlan(argumentsExpression);
+        return constructTableFunctionExpression(argumentsExpression);
     }
 
     @Nonnull
-    private Reference constructTableFunctionPlan(@Nonnull final RelationalExpression argumentsExpression) {
+    private RelationalExpression constructTableFunctionExpression(@Nonnull final RelationalExpression argumentsExpression) {
         final var aliasMap = new ToUniqueAliasesTranslationMap();
 
         final var bodyRef = Reference.initialOf(body);
@@ -177,7 +177,7 @@ public class CompiledSqlFunction extends UserDefinedFunction implements  WithPla
                 .addQuantifier(bodyQun)
                 .addQuantifier(parametersQun);
         bodyQun.computeFlowedColumns().forEach(selectBuilder::addResultColumn);
-        return Reference.initialOf(selectBuilder.build().buildSelect());
+        return selectBuilder.build().buildSelect();
     }
 
     @Nonnull

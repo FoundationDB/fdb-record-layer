@@ -628,7 +628,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
             // immediate materialization of temporary function, this is required to collect any auxiliary literals discovered
             // during plan generation of the temporary function. The literals and combined with query literals and provided
             // for the execution of a (cached) physical plan.
-            final var compiledFunction = recordLayerRoutine.getCompilableSqlFunctionSupplier().apply(caseSensitive);
+            final var compiledFunction = recordLayerRoutine.getCompilableSqlFunctionProvider().apply(caseSensitive);
             astNormalizer.queryHasherContextBuilder.getLiteralsBuilder().importLiterals(compiledFunction.getAuxiliaryLiterals());
         }
         return new NormalizationResult(
