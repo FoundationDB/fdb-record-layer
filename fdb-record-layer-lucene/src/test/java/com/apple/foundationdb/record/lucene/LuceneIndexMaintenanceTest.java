@@ -950,6 +950,51 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
         dataModel.validate(() -> openContext(contextProps));
     }
 
+    @ParameterizedTest
+    @MethodSource("multiUpdate")
+    void multipleUpdatesMultiRecordInTransaction(boolean isSynthetic, boolean isGrouped, int highWatermark, int updateCount, long seed) throws IOException {
+        final int documentCount = 25;
+        final LuceneIndexTestDataModel dataModel = new LuceneIndexTestDataModel.Builder(seed, this::getStoreBuilder, pathManager)
+                .setIsGrouped(isGrouped)
+                .setIsSynthetic(isSynthetic)
+                .setPrimaryKeySegmentIndexEnabled(true)
+                .setPartitionHighWatermark(highWatermark)
+                .build();
+
+        final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_REPARTITION_DOCUMENT_COUNT, 2)
+                .addProp(LuceneRecordContextProperties.LUCENE_MERGE_SEGMENTS_PER_TIER, (double)dataModel.nextInt(10) + 2) // it must be at least 2.0
+                .build();
+
+        // save records
+        try (FDBRecordContext context = openContext(contextProps)) {
+            final FDBRecordStore store = dataModel.createOrOpenRecordStore(context);
+            dataModel.saveRecordsToAllGroups(documentCount, context);
+            commit(context);
+        }
+
+        try (FDBRecordContext context = openContext(contextProps)) {
+            final FDBRecordStore store = dataModel.createOrOpenRecordStore(context);
+            dataModel.sampleRecordsUnderTest().forEach(rec -> {
+                for (int i = 0; i < updateCount; i++) {
+                    // update some documents multiple times
+                    rec.updateOtherValue(store).join();
+                }
+            });
+            commit(context);
+        }
+        explicitMergeIndex(dataModel.index, contextProps, dataModel.schemaSetup);
+
+        if (highWatermark > 0) {
+            // ensure each partition has all records
+            dataModel.getPartitionCounts(() -> openContext(contextProps)).forEach((groupingKey, partitionCounts) ->
+                    assertThat(partitionCounts.stream().mapToInt(i -> i).sum(), Matchers.equalTo(documentCount)));
+        }
+
+        explicitMergeIndex(dataModel.index, contextProps, dataModel.schemaSetup);
+        dataModel.validate(() -> openContext(contextProps));
+    }
+
     static Stream<Arguments> changingEncryptionKey() {
         return Stream.concat(Stream.of(Arguments.of(true, true, 288513),
                 Arguments.of(false, false, 792025)),

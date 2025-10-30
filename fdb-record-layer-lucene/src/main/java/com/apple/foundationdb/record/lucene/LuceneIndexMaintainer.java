@@ -550,7 +550,8 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                                                                      boolean forceDeleteRecord) throws IOException {
         // non-partitioned
         if (!partitioner.isPartitioningEnabled()) {
-            return CompletableFuture.completedFuture(deleteDocument(groupingKey, null, record.getPrimaryKey(), forceDeleteRecord));
+            final int countDeleted = deleteDocument(groupingKey, null, record.getPrimaryKey(), forceDeleteRecord);
+            return CompletableFuture.completedFuture(adjustCountDeleted(forceDeleteRecord, countDeleted));
         }
 
         // partitioned
@@ -558,11 +559,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
             if (partitionInfo != null) {
                 try {
                     int countDeleted = deleteDocument(groupingKey, partitionInfo.getId(), record.getPrimaryKey(), forceDeleteRecord);
-                    if ((countDeleted == 0) && forceDeleteRecord) {
-                        // In this case, the document was not found by the segment index. We do know it exists
-                        // so make it look like the delete by query actually deleted it.
-                        countDeleted = 1;
-                    }
+                    countDeleted = adjustCountDeleted(forceDeleteRecord, countDeleted);
                     if (countDeleted > 0) {
                         partitioner.decrementCountAndSave(groupingKey, partitionInfo, countDeleted);
                     }
@@ -573,6 +570,15 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
             }
             return 0;
         });
+    }
+
+    private static int adjustCountDeleted(final boolean forceDeleteRecord, int countDeleted) {
+        if ((countDeleted == 0) && forceDeleteRecord) {
+            // In this case, the document was not found by the segment index. We do know it exists
+            // so make it look like the delete by query actually deleted it.
+            countDeleted = 1;
+        }
+        return countDeleted;
     }
 
     private FieldType getTextFieldType(LuceneDocumentFromRecord.DocumentField field) {
