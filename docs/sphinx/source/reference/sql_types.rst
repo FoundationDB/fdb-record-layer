@@ -29,7 +29,7 @@ You can define a *struct type* (often interchangeably referred to as a *nested t
 
 .. code-block:: sql
 
-    CREATE TYPE AS STRUCT nested_type (d INT64, e STRING);
+    CREATE TYPE AS STRUCT nested_type (d INT64, e STRING)
     CREATE TABLE foo (a STRING, b DOUBLE, c nested_type, PRIMARY KEY(a));
 
 In this example, :sql:`nested_type` is a struct within the table `foo`, and its full contents are materialized alongside the full record for each entry in the `foo` table.
@@ -38,8 +38,8 @@ Struct types can have columns which are themselves struct types. Thus, this exam
 
 .. code-block:: sql
 
-    CREATE TYPE AS STRUCT nested_nested_type (f STRING, g STRING);
-    CREATE TYPE AS STRUCT nested_type (d INT64, e STRING, f nested_nested_type);
+    CREATE TYPE AS STRUCT nested_nested_type (f STRING, g STRING)
+    CREATE TYPE AS STRUCT nested_type (d INT64, e STRING, f nested_nested_type)
     CREATE TABLE foo (a STRING, b DOUBLE, c nested_type, PRIMARY KEY(a));
 
 In this example, :sql:`nested_type` is a struct within the table :sql:`foo`, and :sql:`nested_nested_type` is a struct within the type :sql:`nested_type`.
@@ -65,7 +65,7 @@ Arrays can also be created with struct columns:
 
 .. code-block:: sql
 
-    CREATE TYPE AS STRUCT nested_struct (b STRING, d STRING);
+    CREATE TYPE AS STRUCT nested_struct (b STRING, d STRING)
     CREATE TABLE structArray (a STRING, c nested_struct array);
 
 In this example, `c` is an array, and each record within the array is a struct of type :sql:`nested_struct`. You can generally treat an array as a "nested `ResultSet`"--that is to say, you can just pull up a `ResultSet` of an array type, and interrogate it as if it were the output of its own query.
@@ -110,7 +110,7 @@ Vectors can also be used within struct types:
     CREATE TYPE AS STRUCT model_embedding (
         model_name STRING,
         embedding VECTOR(512, FLOAT)
-    );
+    )
     CREATE TABLE documents (
         id BIGINT,
         content STRING,
