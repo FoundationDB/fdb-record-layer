@@ -78,6 +78,15 @@ public class NodeReferenceWithVector extends NodeReference {
     }
 
     /**
+     * Override to declare that this class in fact is a {@link NodeReferenceWithVector}.
+     * @return {@code true}
+     */
+    @Override
+    boolean isNodeReferenceWithVector() {
+        return true;
+    }
+
+    /**
      * Returns this instance cast as a {@code NodeReferenceWithVector}.
      * @return this instance as a {@code NodeReferenceWithVector}, which is never {@code null}.
      */

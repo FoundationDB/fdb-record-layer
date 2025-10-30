@@ -53,6 +53,14 @@ public class NodeReference {
     }
 
     /**
+     * Method to indicate if the method {@link #asNodeReferenceWithVector()} can be safely called.
+     * @return {@code true} iff this instance is in fact at least a {@link NodeReferenceWithVector}.
+     */
+    boolean isNodeReferenceWithVector() {
+        return false;
+    }
+
+    /**
      * Casts this object to a {@link NodeReferenceWithVector}.
      * <p>
      * This method is intended to be used on subclasses that actually represent a node reference with a vector. For this
