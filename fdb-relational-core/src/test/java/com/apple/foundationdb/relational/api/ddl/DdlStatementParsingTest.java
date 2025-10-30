@@ -967,7 +967,7 @@ public class DdlStatementParsingTest {
             @Override
             public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
                                                                       @Nonnull Options templateProperties) {
-                final var viewMaybe = Assertions.assertDoesNotThrow(() -> template.findViewByName("V"));
+                final var viewMaybe = Assertions.assertDoesNotThrow(() -> template.findViewByName("v"));
                 assertThat(viewMaybe).isPresent();
                 assertThat(Assert.optionalUnchecked(viewMaybe).getDescription()).isEqualTo("SELECT * FROM bar");
                 return txn -> {
@@ -990,10 +990,10 @@ public class DdlStatementParsingTest {
             @Override
             public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
                                                                       @Nonnull Options templateProperties) {
-                final var view1Maybe = Assertions.assertDoesNotThrow(() -> template.findViewByName("V1"));
+                final var view1Maybe = Assertions.assertDoesNotThrow(() -> template.findViewByName("v1"));
                 assertThat(view1Maybe).isPresent();
                 assertThat(Assert.optionalUnchecked(view1Maybe).getDescription()).isEqualTo("SELECT * FROM bar");
-                final var view2Maybe = Assertions.assertDoesNotThrow(() -> template.findViewByName("V2"));
+                final var view2Maybe = Assertions.assertDoesNotThrow(() -> template.findViewByName("v2"));
                 assertThat(view2Maybe).isPresent();
                 assertThat(Assert.optionalUnchecked(view2Maybe).getDescription()).isEqualTo("SELECT * FROM v1");
                 return txn -> {
@@ -1090,7 +1090,7 @@ public class DdlStatementParsingTest {
             @Override
             public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
                                                                       @Nonnull Options templateProperties) {
-                final var viewMaybe = Assertions.assertDoesNotThrow(() -> template.findViewByName("V"));
+                final var viewMaybe = Assertions.assertDoesNotThrow(() -> template.findViewByName("v"));
                 assertThat(viewMaybe).isPresent();
                 assertThat(Assert.optionalUnchecked(viewMaybe).getDescription()).isEqualTo("WITH C1 AS (SELECT foo_field, id, baz_field FROM bar where id > 20) SELECT * FROM C1");
                 return txn -> {
@@ -1112,7 +1112,7 @@ public class DdlStatementParsingTest {
             @Override
             public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
                                                                       @Nonnull Options templateProperties) {
-                final var viewMaybe = Assertions.assertDoesNotThrow(() -> template.findViewByName("V"));
+                final var viewMaybe = Assertions.assertDoesNotThrow(() -> template.findViewByName("v"));
                 assertThat(viewMaybe).isPresent();
                 assertThat(Assert.optionalUnchecked(viewMaybe).getDescription()).isEqualTo("WITH C1 AS (WITH C2 AS (SELECT foo_field, id, baz_field FROM bar where id > 20) SELECT * FROM C2) SELECT * FROM C1");
                 return txn -> {
@@ -1135,7 +1135,7 @@ public class DdlStatementParsingTest {
             @Override
             public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
                                                                       @Nonnull Options templateProperties) {
-                final var viewMaybe = Assertions.assertDoesNotThrow(() -> template.findViewByName("V"));
+                final var viewMaybe = Assertions.assertDoesNotThrow(() -> template.findViewByName("v"));
                 assertThat(viewMaybe).isPresent();
                 assertThat(Assert.optionalUnchecked(viewMaybe).getDescription()).isEqualTo("WITH C1 AS (WITH C2 AS (SELECT foo_field, id, baz_field FROM F1(20)) SELECT * FROM C2) SELECT * FROM C1");
                 return txn -> {
@@ -1177,7 +1177,7 @@ public class DdlStatementParsingTest {
             @Override
             public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
                                                                       @Nonnull Options templateProperties) {
-                final var viewMaybe = Assertions.assertDoesNotThrow(() -> template.findViewByName("V"));
+                final var viewMaybe = Assertions.assertDoesNotThrow(() -> template.findViewByName("v"));
                 assertThat(viewMaybe).isPresent();
                 assertThat(Assert.optionalUnchecked(viewMaybe).getDescription()).isEqualTo("SELECT * FROM bar");
                 return txn -> {
