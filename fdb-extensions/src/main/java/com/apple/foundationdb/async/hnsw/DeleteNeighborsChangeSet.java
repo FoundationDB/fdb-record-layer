@@ -30,6 +30,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Predicate;
 
@@ -99,7 +100,7 @@ class DeleteNeighborsChangeSet<N extends NodeReference> implements NeighborsChan
     @Override
     public Iterable<N> merge() {
         return Iterables.filter(getParent().merge(),
-                current -> !deletedNeighborsPrimaryKeys.contains(current.getPrimaryKey()));
+                current -> !deletedNeighborsPrimaryKeys.contains(Objects.requireNonNull(current).getPrimaryKey()));
     }
 
     /**

@@ -24,7 +24,7 @@ import com.apple.foundationdb.linear.RealVector;
 
 import javax.annotation.Nonnull;
 
-public class AggregatedVector {
+class AggregatedVector {
     private final int partialCount;
     @Nonnull
     private final RealVector partialVector;

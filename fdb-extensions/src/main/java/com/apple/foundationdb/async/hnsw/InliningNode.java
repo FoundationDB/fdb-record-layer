@@ -37,7 +37,7 @@ import java.util.Objects;
  * It provides a concrete implementation for an "inlining" node, distinguishing it from other node types such as
  * {@link CompactNode}.
  */
-public class InliningNode extends AbstractNode<NodeReferenceWithVector> {
+class InliningNode extends AbstractNode<NodeReferenceWithVector> {
     @Nonnull
     private static final NodeFactory<NodeReferenceWithVector> FACTORY = new NodeFactory<>() {
         @SuppressWarnings("unchecked")
