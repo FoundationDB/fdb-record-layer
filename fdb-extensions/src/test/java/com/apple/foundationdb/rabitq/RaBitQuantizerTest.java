@@ -112,8 +112,9 @@ public class RaBitQuantizerTest {
     @MethodSource("estimationArgs")
     void basicEncodeWithEstimationTestSpecialValues(final double[] centroidData, final double[] vData,
                                                     final double[] qData, final double expectedDistance) {
-        final RealVector v = new DoubleRealVector(vData);
-        final RealVector q = new DoubleRealVector(qData);
+        final RealVector centroid = new DoubleRealVector(centroidData);
+        final RealVector v = new DoubleRealVector(vData).subtract(centroid);
+        final RealVector q = new DoubleRealVector(qData).subtract(centroid);
 
         final RaBitQuantizer quantizer = new RaBitQuantizer(Metric.EUCLIDEAN_SQUARE_METRIC, 7);
         final EncodedRealVector encodedVector = quantizer.encode(v);
@@ -165,9 +166,9 @@ public class RaBitQuantizerTest {
             logger.trace("v = {}", v);
             logger.trace("centroid = {}", centroid);
 
-            final RealVector centroidRot = rotator.operateTranspose(centroid);
-            final RealVector qTrans = rotator.operateTranspose(q).subtract(centroidRot);
-            final RealVector vTrans = rotator.operateTranspose(v).subtract(centroidRot);
+            final RealVector centroidRot = rotator.apply(centroid);
+            final RealVector qTrans = rotator.apply(q).subtract(centroidRot);
+            final RealVector vTrans = rotator.apply(v).subtract(centroidRot);
 
             logger.trace("qTrans = {}", qTrans);
             logger.trace("vTrans = {}", vTrans);
@@ -182,8 +183,8 @@ public class RaBitQuantizerTest {
 
             final EncodedRealVector encodedQ = quantizer.encode(qTrans);
             final RaBitEstimator estimator = quantizer.estimator();
-            final RealVector reconstructedQ = rotator.operate(encodedQ.add(centroidRot));
-            final RealVector reconstructedV = rotator.operate(encodedV.add(centroidRot));
+            final RealVector reconstructedQ = rotator.transposedApply(encodedQ.add(centroidRot));
+            final RealVector reconstructedV = rotator.transposedApply(encodedV.add(centroidRot));
             final RaBitEstimator.Result estimatedDistance = estimator.estimateDistanceAndErrorBound(qTrans, encodedV);
             logger.trace("estimated ||qRot - vRot||^2 = {}", estimatedDistance);
             final double trueDistance = Metric.EUCLIDEAN_SQUARE_METRIC.distance(vTrans, qTrans);

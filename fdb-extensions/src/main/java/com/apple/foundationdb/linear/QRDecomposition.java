@@ -62,10 +62,10 @@ public class QRDecomposition {
     public static Result decomposeMatrix(@Nonnull final RealMatrix matrix) {
         Preconditions.checkArgument(matrix.isSquare());
 
-        final double[] rDiagonal = new double[matrix.getRowDimension()];
-        final double[][] qrt = matrix.toRowMajor().transpose().getData();
+        final double[] rDiagonal = new double[matrix.getNumRowDimensions()];
+        final double[][] qrt = matrix.transpose().getRowMajorData();
 
-        for (int minor = 0; minor < matrix.getRowDimension(); minor++) {
+        for (int minor = 0; minor < matrix.getNumRowDimensions(); minor++) {
             performHouseholderReflection(minor, qrt, rDiagonal);
         }
 

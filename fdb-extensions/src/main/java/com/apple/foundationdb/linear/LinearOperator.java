@@ -22,20 +22,28 @@ package com.apple.foundationdb.linear;
 
 import javax.annotation.Nonnull;
 
-public interface LinearOperator {
-    int getRowDimension();
+public interface LinearOperator extends VectorOperator {
+    int getNumRowDimensions();
 
-    int getColumnDimension();
+    @Override
+    default int getNumDimensions() {
+        return getNumColumnDimensions();
+    }
+
+    int getNumColumnDimensions();
 
     default boolean isSquare() {
-        return getRowDimension() == getColumnDimension();
+        return getNumRowDimensions() == getNumColumnDimensions();
     }
 
     boolean isTransposable();
 
     @Nonnull
-    RealVector operate(@Nonnull RealVector vector);
+    @Override
+    default RealVector invertedApply(@Nonnull RealVector vector) {
+        return transposedApply(vector);
+    }
 
     @Nonnull
-    RealVector operateTranspose(@Nonnull RealVector vector);
+    RealVector transposedApply(@Nonnull RealVector vector);
 }
