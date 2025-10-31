@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.expressions;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
+import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
@@ -223,6 +224,8 @@ public class Comparisons {
         } else if (obj instanceof Comparable) {
             return obj;
         } else if (obj instanceof List) {
+            return obj;
+        } else if (obj instanceof RealVector) {
             return obj;
         } else {
             throw new RecordCoreException("Tried to compare non-comparable object " + obj.getClass());

@@ -138,7 +138,17 @@ columnType
     : primitiveType | customType=uid;
 
 primitiveType
-    : BOOLEAN | INTEGER | BIGINT | FLOAT | DOUBLE | STRING | BYTES | UUID;
+    : BOOLEAN | INTEGER | BIGINT | FLOAT | DOUBLE | STRING | BYTES | UUID | vectorType;
+
+vectorType
+    : VECTOR '(' dimensions=DECIMAL_LITERAL ',' elementType=vectorElementType ')'
+    ;
+
+vectorElementType
+    : FLOAT
+    | DOUBLE
+    | HALF
+    ;
 
 columnConstraint
     : nullNotnull                                                   #nullColumnConstraint
@@ -810,14 +820,7 @@ collectionOptions
     ;
 
 convertedDataType
-    :
-    (
-      typeName=(BINARY| NCHAR) lengthOneDimension?
-      | typeName=CHAR lengthOneDimension? (charSet charsetName)?
-      | typeName=(DATE | DATETIME | TIME | JSON | INT | INTEGER | STRING | DOUBLE | BOOLEAN | FLOAT | BIGINT | BYTES | UUID)
-      | typeName=DECIMAL lengthTwoOptionalDimension?
-      | (SIGNED | UNSIGNED) INTEGER?
-    ) ARRAY?
+    : typeName=primitiveType ARRAY?
     ;
 
 lengthOneDimension

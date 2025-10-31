@@ -343,13 +343,20 @@ class RelationalResultSetFacade implements RelationalResultSet {
                 break;
             case Types.OTHER:
                 int index = PositionalIndex.toProtobuf(oneBasedColumn);
-                Column column = this.delegate.getRow(rowIndex).getColumns().getColumn(index);
-                if (column.hasUuid()) {
-                    o = getUUID(oneBasedColumn);
-                } else {
-                    // Probably an enum, it's not clear exactly how we should handle this, but we currently only have one
-                    // thing which appears as OTHER
-                    o = getString(oneBasedColumn);
+                final var relationalType = getMetaData().getRelationalDataType().getFields().get(index).getType();
+                final var typeCode = relationalType.getCode();
+                switch (typeCode) {
+                    case UUID:
+                        o = getUUID(oneBasedColumn);
+                        break;
+                    case ENUM:
+                        o = getString(oneBasedColumn);
+                        break;
+                    case VECTOR:
+                        o = TypeConversion.parseVector(getBytes(oneBasedColumn), ((DataType.VectorType)relationalType).getPrecision());
+                        break;
+                    default:
+                        throw new SQLException("Unsupported type " + type);
                 }
                 break;
             default:

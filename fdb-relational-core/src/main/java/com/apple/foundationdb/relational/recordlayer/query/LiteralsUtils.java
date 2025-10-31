@@ -21,6 +21,8 @@
 package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.linear.RealVector;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
@@ -76,13 +78,17 @@ public final class LiteralsUtils {
             final var message = (Message) object;
             builder.setRecordObject(message.toByteString());
         } else if (type.isArray()) {
-            final var elementType = Objects.requireNonNull(((Type.Array) type).getElementType());
-            final var array = (List<?>) object;
+            final var elementType = Objects.requireNonNull(((Type.Array)type).getElementType());
+            final var array = (List<?>)object;
             final var arrayBuilder = LiteralObject.Array.newBuilder();
             for (final Object element : array) {
                 arrayBuilder.addElementObjects(objectToLiteralObjectProto(elementType, element));
             }
             builder.setArrayObject(arrayBuilder.build());
+        } else if (type.isVector() || object instanceof RealVector) {
+            final var typeProto = type.isVector() ? type.toTypeProto(PlanSerializationContext.newForCurrentMode())
+                                  : Type.fromObject(object).toTypeProto(PlanSerializationContext.newForCurrentMode());
+            builder.setScalarObject(PlanSerialization.valueObjectToProto(object, typeProto));
         } else {
             // scalar
             builder.setScalarObject(PlanSerialization.valueObjectToProto(object));

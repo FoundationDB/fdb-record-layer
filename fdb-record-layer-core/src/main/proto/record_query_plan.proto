@@ -52,6 +52,7 @@ message PType {
     RELATION = 15;
     NONE = 16;
     UUID = 17;
+    VECTOR = 18;
   }
 
   message PPrimitiveType {
@@ -73,6 +74,12 @@ message PType {
 
   message PAnyType {
     // nothing
+  }
+
+  message PVectorType {
+    optional bool is_nullable = 1;
+    optional int32 precision = 2;
+    optional int32 dimensions = 3;
   }
 
   message PAnyRecordType {
@@ -123,6 +130,7 @@ message PType {
     PArrayType array_type = 8;
     PAnyRecordType any_record_type = 9;
     PUuidType uuid_type = 10;
+    PVectorType vector_type = 11;
   }
 }
 
@@ -1164,6 +1172,27 @@ message PBinaryRelOpValue {
       NOT_DISTINCT_FROM_NID = 492;
       NOT_DISTINCT_FROM_IDN = 493;
       NOT_DISTINCT_FROM_NN = 494;
+
+      EQ_VEC_VEC = 495;
+      EQ_VEC_NULL = 496;
+      EQ_NULL_VEC = 497;
+      NEQ_VEC_VEC = 498;
+      NEQ_VEC_NULL = 499;
+      NEQ_NULL_VEC = 500;
+      LT_VEC_NULL = 501;
+      LT_NULL_VEC = 502;
+      LTE_VEC_NULL = 503;
+      LTE_NULL_VEC = 504;
+      GT_VEC_NULL = 505;
+      GT_NULL_VEC = 506;
+      GTE_VEC_NULL = 507;
+      GTE_NULL_VEC = 508;
+      IS_DISTINCT_FROM_NULL_VEC = 509;
+      IS_DISTINCT_FROM_VEC_NULL = 510;
+      IS_DISTINCT_FROM_VEC_VEC = 511;
+      NOT_DISTINCT_FROM_VEC_NULL = 512;
+      NOT_DISTINCT_FROM_NULL_VEC = 513;
+      NOT_DISTINCT_FROM_VEC_VEC = 514;
   }
   optional PRelOpValue super = 1;
   optional PBinaryPhysicalOperator operator = 2;
@@ -1207,6 +1236,9 @@ message PUnaryRelOpValue {
 
       IS_NULL_NT = 21;
       IS_NOT_NULL_NT = 22;
+
+      IS_NULL_VECTOR = 23;
+      IS_NOT_NULL_VECTOR = 24;
   }
   optional PRelOpValue super = 1;
   optional PUnaryPhysicalOperator operator = 2;
@@ -1322,12 +1354,15 @@ message PCastValue {
     NULL_TO_ENUM = 33;
     NULL_TO_UUID = 34;
 
-    // ARRAY conversion
+    // ARRAY to ARRAY conversion
     ARRAY_TO_ARRAY = 35;
 
     // STRING to complex types.
     STRING_TO_ENUM = 36;
     STRING_TO_UUID = 37;
+
+    // ARRAY to VECTOR conversion
+    ARRAY_TO_VECTOR = 38;
   }
   optional PValue child = 1;
   optional PType cast_to_type = 2;
@@ -2193,6 +2228,7 @@ message PComparableObject {
     PFDBRecordVersion fdb_record_version = 4;
     bytes bytes_as_byte_string = 5;
   }
+  optional PType type = 6;
 }
 
 //

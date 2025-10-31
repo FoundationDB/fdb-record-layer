@@ -38,4 +38,9 @@ class DocumentationQueriesTests {
     void castDocumentationQueriesTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql(PREFIX + "/cast-documentation-queries.yamsql");
     }
+
+    @TestTemplate
+    void vectorDocumentationQueriesTests(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql(PREFIX + "/vector-documentation-queries.yamsql");
+    }
 }

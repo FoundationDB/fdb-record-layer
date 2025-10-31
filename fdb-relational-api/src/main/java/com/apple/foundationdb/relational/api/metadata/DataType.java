@@ -20,6 +20,10 @@
 
 package com.apple.foundationdb.relational.api.metadata;
 
+import com.apple.foundationdb.linear.DoubleRealVector;
+import com.apple.foundationdb.linear.FloatRealVector;
+import com.apple.foundationdb.linear.HalfRealVector;
+import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.relational.api.RelationalArray;
 import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
@@ -71,6 +75,7 @@ public abstract class DataType {
         typeCodeJdbcTypeMap.put(Code.ENUM, Types.OTHER);
         typeCodeJdbcTypeMap.put(Code.UUID, Types.OTHER);
         typeCodeJdbcTypeMap.put(Code.BYTES, Types.BINARY);
+        typeCodeJdbcTypeMap.put(Code.VECTOR, Types.OTHER);
         typeCodeJdbcTypeMap.put(Code.VERSION, Types.BINARY);
         typeCodeJdbcTypeMap.put(Code.STRUCT, Types.STRUCT);
         typeCodeJdbcTypeMap.put(Code.ARRAY, Types.ARRAY);
@@ -203,6 +208,17 @@ public abstract class DataType {
                 return Primitives.STRING.type();
             } else if (obj instanceof UUID) {
                 return Primitives.UUID.type();
+            } else if (obj instanceof RealVector) {
+                int numDimensions = ((RealVector)obj).getNumDimensions();
+                if (obj instanceof HalfRealVector) {
+                    return VectorType.of(16, numDimensions, false);
+                } else if (obj instanceof FloatRealVector) {
+                    return VectorType.of(32, numDimensions, false);
+                } else if (obj instanceof DoubleRealVector) {
+                    return VectorType.of(64, numDimensions, false);
+                } else {
+                    throw new IllegalStateException("Unexpected vector object type: " + obj.getClass().getName());
+                }
             } else if (obj instanceof RelationalStruct) {
                 return ((RelationalStruct) obj).getMetaData().getRelationalDataType();
             } else if (obj instanceof RelationalArray) {
@@ -729,6 +745,79 @@ public abstract class DataType {
         @Override
         public String toString() {
             return "bytes" + (isNullable() ? " ∪ ∅" : "");
+        }
+    }
+
+    public static final class VectorType extends DataType {
+        private final int precision;
+
+        private final int dimensions;
+
+        @Nonnull
+        private final Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
+
+        private VectorType(final boolean isNullable, int precision, int dimensions) {
+            super(isNullable, true, Code.VECTOR);
+            this.precision = precision;
+            this.dimensions = dimensions;
+        }
+
+        @Override
+        public boolean isResolved() {
+            return true;
+        }
+
+        @Nonnull
+        @Override
+        public DataType withNullable(final boolean isNullable) {
+            if (isNullable == this.isNullable()) {
+                return this;
+            }
+            return new VectorType(isNullable, precision, dimensions);
+        }
+
+        @Nonnull
+        @Override
+        public DataType resolve(@Nonnull final Map<String, Named> resolutionMap) {
+            return this;
+        }
+
+        public int getPrecision() {
+            return precision;
+        }
+
+        public int getDimensions() {
+            return dimensions;
+        }
+
+        private int computeHashCode() {
+            return Objects.hash(getCode(), precision, dimensions, isNullable());
+        }
+
+        @Override
+        public int hashCode() {
+            return hashCodeSupplier.get();
+        }
+
+        @Override
+        public boolean equals(final Object o) {
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            final VectorType that = (VectorType)o;
+            return precision == that.precision
+                    && dimensions == that.dimensions
+                    && isNullable() == that.isNullable();
+        }
+
+        @Override
+        public String toString() {
+            return "vector(p=" + precision + ", d=" + dimensions + ")" + (isNullable() ? " ∪ ∅" : "");
+        }
+
+        @Nonnull
+        public static VectorType of(int precision, int dimensions, boolean isNullable) {
+            return new VectorType(isNullable, precision, dimensions);
         }
     }
 
@@ -1507,7 +1596,8 @@ public abstract class DataType {
         STRUCT,
         ARRAY,
         UNKNOWN,
-        NULL
+        NULL,
+        VECTOR,
     }
 
     @SuppressWarnings("PMD.AvoidFieldNameMatchingTypeName")

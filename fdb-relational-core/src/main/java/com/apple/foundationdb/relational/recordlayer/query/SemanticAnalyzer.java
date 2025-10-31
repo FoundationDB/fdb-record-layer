@@ -539,47 +539,141 @@ public class SemanticAnalyzer {
         return Optional.of(nestedAttribute);
     }
 
-    @Nonnull
-    public DataType lookupType(@Nonnull Identifier typeIdentifier, boolean isNullable, boolean isRepeated,
-                               @Nonnull Function<String, Optional<DataType>> dataTypeProvider) {
-        DataType type;
-        final var typeName = typeIdentifier.getName();
-        switch (typeName.toUpperCase(Locale.ROOT)) {
-            case "STRING":
-                type = isNullable ? DataType.Primitives.NULLABLE_STRING.type() : DataType.Primitives.STRING.type();
-                break;
-            case "INTEGER":
-                type = isNullable ? DataType.Primitives.NULLABLE_INTEGER.type() : DataType.Primitives.INTEGER.type();
-                break;
-            case "BIGINT":
-                type = isNullable ? DataType.Primitives.NULLABLE_LONG.type() : DataType.Primitives.LONG.type();
-                break;
-            case "DOUBLE":
-                type = isNullable ? DataType.Primitives.NULLABLE_DOUBLE.type() : DataType.Primitives.DOUBLE.type();
-                break;
-            case "BOOLEAN":
-                type = isNullable ? DataType.Primitives.NULLABLE_BOOLEAN.type() : DataType.Primitives.BOOLEAN.type();
-                break;
-            case "BYTES":
-                type = isNullable ? DataType.Primitives.NULLABLE_BYTES.type() : DataType.Primitives.BYTES.type();
-                break;
-            case "FLOAT":
-                type = isNullable ? DataType.Primitives.NULLABLE_FLOAT.type() : DataType.Primitives.FLOAT.type();
-                break;
-            case "UUID":
-                type = isNullable ? DataType.Primitives.NULLABLE_UUID.type() : DataType.Primitives.UUID.type();
-                break;
-            default:
-                Assert.notNullUnchecked(metadataCatalog);
-                // assume it is a custom type, will fail in upper layers if the type can not be resolved.
-                // lookup the type (Struct, Table, or Enum) in the schema template metadata under construction.
-                final var maybeFound = dataTypeProvider.apply(typeName);
-                // if we cannot find the type now, mark it, we will try to resolve it later on via a second pass.
-                type = maybeFound.orElseGet(() -> DataType.UnresolvedType.of(typeName, isNullable));
-                break;
+    public static final class ParsedTypeInfo {
+        @Nullable
+        private final RelationalParser.PrimitiveTypeContext primitiveTypeContext;
+
+        @Nullable
+        private final Identifier customType;
+
+        private final boolean isNullable;
+
+        private final boolean isRepeated;
+
+        private ParsedTypeInfo(@Nullable final RelationalParser.PrimitiveTypeContext primitiveTypeContext,
+                               @Nullable final Identifier customType, final boolean isNullable, final boolean isRepeated) {
+            this.primitiveTypeContext = primitiveTypeContext;
+            this.customType = customType;
+            this.isNullable = isNullable;
+            this.isRepeated = isRepeated;
         }
 
-        if (isRepeated) {
+        public boolean hasPrimitiveType() {
+            return primitiveTypeContext != null;
+        }
+
+        @Nullable
+        public RelationalParser.PrimitiveTypeContext getPrimitiveTypeContext() {
+            return primitiveTypeContext;
+        }
+
+        public boolean hasCustomType() {
+            return customType != null;
+        }
+
+        @Nullable
+        public Identifier getCustomType() {
+            return customType;
+        }
+
+        public boolean isNullable() {
+            return isNullable;
+        }
+
+        public boolean isRepeated() {
+            return isRepeated;
+        }
+
+        @Nonnull
+        public static ParsedTypeInfo ofPrimitiveType(@Nonnull final RelationalParser.PrimitiveTypeContext primitiveTypeContext,
+                                                     final boolean isNullable, final boolean isRepeated) {
+            return new ParsedTypeInfo(primitiveTypeContext, null, isNullable, isRepeated);
+        }
+
+        @Nonnull
+        public static ParsedTypeInfo ofCustomType(@Nonnull final Identifier customType,
+                                                  final boolean isNullable, final boolean isRepeated) {
+            return new ParsedTypeInfo(null, customType, isNullable, isRepeated);
+        }
+    }
+
+    @Nonnull
+    public DataType lookupBuiltInType(@Nonnull final ParsedTypeInfo parsedTypeInfo) {
+        Assert.thatUnchecked(!parsedTypeInfo.hasCustomType(), ErrorCode.INTERNAL_ERROR, () -> "unexpected custom type " +
+                Assert.notNullUnchecked(parsedTypeInfo.getCustomType()).getName());
+        return lookupType(parsedTypeInfo, typeToLookUp -> {
+            Assert.failUnchecked("unexpected custom type " + typeToLookUp);
+            return Optional.empty();
+        });
+    }
+
+    @Nonnull
+    public DataType lookupType(@Nonnull final ParsedTypeInfo parsedTypeInfo,
+                               @Nonnull final Function<String, Optional<DataType>> dataTypeProvider) {
+        DataType type;
+        final var isNullable = parsedTypeInfo.isNullable();
+        if (parsedTypeInfo.hasCustomType()) {
+            final var typeName = Assert.notNullUnchecked(parsedTypeInfo.getCustomType()).getName();
+            final var maybeFound = dataTypeProvider.apply(typeName);
+            // if we cannot find the type now, mark it, we will try to resolve it later on via a second pass.
+            type = maybeFound.orElseGet(() -> DataType.UnresolvedType.of(typeName, isNullable));
+        } else {
+            final var primitiveType = Assert.notNullUnchecked(parsedTypeInfo.getPrimitiveTypeContext());
+            if (primitiveType.vectorType() != null) {
+                final var vectorTypeCtx = primitiveType.vectorType();
+                final var vectorElementTypeCtx = vectorTypeCtx.elementType;
+                int precision = 16;
+                if (vectorElementTypeCtx.FLOAT() != null) {
+                    precision = 32;
+                } else if (vectorElementTypeCtx.DOUBLE() != null) {
+                    precision = 64;
+                } else {
+                    Assert.notNullUnchecked(vectorElementTypeCtx.HALF(), ErrorCode.SYNTAX_ERROR, "unsupported vector element type " + vectorTypeCtx.getText());
+                }
+                int length = Assert.castUnchecked(ParseHelpers.parseDecimal(vectorTypeCtx.dimensions.getText()), Integer.class);
+                Assert.thatUnchecked(length > 0, ErrorCode.SYNTAX_ERROR, "vector dimension must be positive");
+                type = DataType.VectorType.of(precision, length, isNullable);
+            } else {
+                final var primitiveTypeName = parsedTypeInfo.getPrimitiveTypeContext().getText();
+
+                switch (primitiveTypeName.toUpperCase(Locale.ROOT)) {
+                    case "STRING":
+                        type = isNullable ? DataType.Primitives.NULLABLE_STRING.type() : DataType.Primitives.STRING.type();
+                        break;
+                    case "INTEGER":
+                        type = isNullable ? DataType.Primitives.NULLABLE_INTEGER.type() : DataType.Primitives.INTEGER.type();
+                        break;
+                    case "BIGINT":
+                        type = isNullable ? DataType.Primitives.NULLABLE_LONG.type() : DataType.Primitives.LONG.type();
+                        break;
+                    case "DOUBLE":
+                        type = isNullable ? DataType.Primitives.NULLABLE_DOUBLE.type() : DataType.Primitives.DOUBLE.type();
+                        break;
+                    case "BOOLEAN":
+                        type = isNullable ? DataType.Primitives.NULLABLE_BOOLEAN.type() : DataType.Primitives.BOOLEAN.type();
+                        break;
+                    case "BYTES":
+                        type = isNullable ? DataType.Primitives.NULLABLE_BYTES.type() : DataType.Primitives.BYTES.type();
+                        break;
+                    case "FLOAT":
+                        type = isNullable ? DataType.Primitives.NULLABLE_FLOAT.type() : DataType.Primitives.FLOAT.type();
+                        break;
+                    case "UUID":
+                        type = isNullable ? DataType.Primitives.NULLABLE_UUID.type() : DataType.Primitives.UUID.type();
+                        break;
+                    default:
+                        Assert.notNullUnchecked(metadataCatalog);
+                        // assume it is a custom type, will fail in upper layers if the type can not be resolved.
+                        // lookup the type (Struct, Table, or Enum) in the schema template metadata under construction.
+                        final var maybeFound = dataTypeProvider.apply(primitiveTypeName);
+                        // if we cannot find the type now, mark it, we will try to resolve it later on via a second pass.
+                        type = maybeFound.orElseGet(() -> DataType.UnresolvedType.of(primitiveTypeName, isNullable));
+                        break;
+                }
+            }
+        }
+
+        if (parsedTypeInfo.isRepeated()) {
             return DataType.ArrayType.from(type.withNullable(false), isNullable);
         } else {
             return type;

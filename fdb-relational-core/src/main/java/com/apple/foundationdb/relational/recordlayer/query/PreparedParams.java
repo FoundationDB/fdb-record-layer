@@ -55,6 +55,14 @@ public final class PreparedParams {
         this.namedParams = namedParameters;
     }
 
+    private PreparedParams(@Nonnull Map<Integer, Object> unnamedParams,
+                           @Nonnull Map<String, Object> namedParameters,
+                           int nextParam) {
+        this.unnamedParams = unnamedParams;
+        this.namedParams = namedParameters;
+        this.nextParam = nextParam;
+    }
+
     public int currentUnnamedParamIndex() {
         return nextParam;
     }
@@ -102,6 +110,15 @@ public final class PreparedParams {
 
     @Nonnull
     public static PreparedParams copyOf(@Nonnull PreparedParams other) {
-        return new PreparedParams(other.unnamedParams, other.namedParams);
+        return copyOf(other, false);
+    }
+
+    @Nonnull
+    public static PreparedParams copyOf(@Nonnull PreparedParams other, boolean withCurrentUnnamedParamIndex) {
+        if (withCurrentUnnamedParamIndex) {
+            return new PreparedParams(other.unnamedParams, other.namedParams, other.currentUnnamedParamIndex());
+        } else {
+            return new PreparedParams(other.unnamedParams, other.namedParams);
+        }
     }
 }

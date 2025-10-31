@@ -21,6 +21,10 @@
 package com.apple.foundationdb.relational.jdbc;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.linear.DoubleRealVector;
+import com.apple.foundationdb.linear.FloatRealVector;
+import com.apple.foundationdb.linear.HalfRealVector;
+import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.relational.api.ArrayMetaData;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.Options;
@@ -46,6 +50,7 @@ import com.apple.foundationdb.relational.jdbc.grpc.v1.column.ListColumnMetadata;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.Struct;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.Type;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.Uuid;
+import com.apple.foundationdb.relational.jdbc.grpc.v1.column.VectorMetadata;
 import com.apple.foundationdb.relational.util.PositionalIndex;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.ByteString;
@@ -190,6 +195,10 @@ public class TypeConversion {
                 var enumMetadata = toEnumMetadata((DataType.EnumType) type);
                 columnMetadataBuilder.setEnumMetadata(enumMetadata);
                 break;
+            case VECTOR:
+                var vectorMetadata = toVectorMetadata((DataType.VectorType)type);
+                columnMetadataBuilder.setVectorMetadata(vectorMetadata);
+                break;
             default:
                 break;
         }
@@ -200,6 +209,10 @@ public class TypeConversion {
         final var builder = EnumMetadata.newBuilder().setName(enumType.getName());
         enumType.getValues().forEach(v -> builder.addValues(v.getName()));
         return builder.build();
+    }
+
+    private static VectorMetadata toVectorMetadata(@Nonnull DataType.VectorType vectorType) {
+        return VectorMetadata.newBuilder().setDimensions(vectorType.getDimensions()).setPrecision(vectorType.getPrecision()).build();
     }
 
     private static Type toProtobufType(@Nonnull DataType type) {
@@ -228,6 +241,8 @@ public class TypeConversion {
                 return Type.ENUM;
             case UUID:
                 return Type.UUID;
+            case VECTOR:
+                return Type.VECTOR;
             default:
                 throw new RelationalException("not supported in toProtobuf: " + type, ErrorCode.INTERNAL_ERROR).toUncheckedWrappedException();
         }
@@ -243,6 +258,7 @@ public class TypeConversion {
                 .setJavaSqlTypesCode(metadata.getElementType())
                 .setType(toProtobufType(metadata.asRelationalType().getElementType()))
                 .setNullable(metadata.isElementNullable() == DatabaseMetaData.columnNullable);
+        final var elementRelationalType = metadata.asRelationalType().getElementType();
         // TODO phantom.
         // TODO: label
         // One-offs
@@ -254,6 +270,12 @@ public class TypeConversion {
             case Types.ARRAY:
                 var columnMetadata = toColumnMetadata(metadata.getElementArrayMetaData());
                 columnMetadataBuilder.setArrayMetadata(columnMetadata);
+                break;
+            case Types.OTHER:
+                if (elementRelationalType.getCode() == DataType.Code.VECTOR) {
+                    var vectorMetadata = toVectorMetadata((DataType.VectorType)elementRelationalType);
+                    columnMetadataBuilder.setVectorMetadata(vectorMetadata);
+                }
                 break;
             default:
                 break;
@@ -470,6 +492,10 @@ public class TypeConversion {
                                 .setMostSignificantBits(a.getMostSignificantBits())
                                 .setLeastSignificantBits(a.getLeastSignificantBits())
                                 .build()));
+                break;
+            case VECTOR:
+                column = toColumn(wasNull ? null : (RealVector)value,
+                        (a, b) -> a == null ? b.clearBinary() : b.setBinary(ByteString.copyFrom(a.getRawData())));
                 break;
             default:
                 throw new SQLException("DataType: " + field.getType() + " not supported",
@@ -854,6 +880,10 @@ public class TypeConversion {
         return DataType.EnumType.from(enumMetadata.getName(), enumValues, nullable);
     }
 
+    private static DataType.VectorType getVectorType(@Nonnull VectorMetadata vectorMetadata, boolean nullable) {
+        return DataType.VectorType.of(vectorMetadata.getPrecision(), vectorMetadata.getDimensions(), nullable);
+    }
+
     static DataType getDataType(@Nonnull Type type, @Nonnull ColumnMetadata columnMetadata, boolean nullable) {
         switch (type) {
             case LONG:
@@ -881,8 +911,25 @@ public class TypeConversion {
             case ARRAY:
                 final var arrayMetadata = columnMetadata.getArrayMetadata();
                 return DataType.ArrayType.from(getDataType(arrayMetadata.getType(), arrayMetadata, arrayMetadata.getNullable()), nullable);
+            case VECTOR:
+                final var vectorMetadata = columnMetadata.getVectorMetadata();
+                return getVectorType(vectorMetadata, nullable);
             default:
                 throw new RelationalException("Not implemeneted: " + type.name(), ErrorCode.INTERNAL_ERROR).toUncheckedWrappedException();
         }
+    }
+
+    @Nonnull
+    public static RealVector parseVector(@Nonnull final byte[] bytes, int precision) throws SQLException {
+        if (precision == 16) {
+            return HalfRealVector.fromBytes(bytes);
+        }
+        if (precision == 32) {
+            return FloatRealVector.fromBytes(bytes);
+        }
+        if (precision == 64) {
+            return DoubleRealVector.fromBytes(bytes);
+        }
+        throw new SQLException("unexpected vector type with precision " + precision);
     }
 }

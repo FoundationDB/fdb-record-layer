@@ -22,7 +22,9 @@ package com.apple.foundationdb.relational.api;
 
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceException;
+import com.apple.foundationdb.relational.api.metadata.DataType;
 
+import javax.annotation.Nonnull;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Struct;
@@ -33,7 +35,7 @@ import java.util.UUID;
 /**
  * A {@link Struct} but with metadata describing the instance.
  */
-public interface RelationalStruct extends Struct, Wrapper {
+public interface RelationalStruct extends Struct, Wrapper, WithMetadata {
 
     StructMetaData getMetaData() throws SQLException;
 
@@ -136,6 +138,12 @@ public interface RelationalStruct extends Struct, Wrapper {
     @Override
     default boolean isWrapperFor(Class<?> iface) throws SQLException {
         return iface.isInstance(this);
+    }
+
+    @Nonnull
+    @Override
+    default DataType getRelationalMetaData() throws SQLException {
+        return getMetaData().getRelationalDataType();
     }
 
     /**

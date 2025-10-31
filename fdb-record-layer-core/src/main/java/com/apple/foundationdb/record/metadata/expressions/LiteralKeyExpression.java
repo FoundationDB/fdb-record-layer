@@ -190,7 +190,7 @@ public class LiteralKeyExpression<T> extends BaseKeyExpression implements AtomKe
         } else if (value instanceof byte[]) {
             builder.setBytesValue(ZeroCopyByteString.wrap((byte[])value));
         } else if (value != null) {
-            throw new RecordCoreException("Unsupported value type").addLogInfo(
+            throw new RecordCoreException("Unsupported value type " + value.getClass()).addLogInfo(
                     "value_type", value.getClass().getName());
         }
         return builder.build();

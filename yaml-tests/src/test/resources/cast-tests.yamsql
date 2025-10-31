@@ -53,6 +53,16 @@ test_block:
       - explain: "SCAN(<,>) | TFILTER TEST_CAST | FILTER _.ID EQUALS promote(@c20 AS LONG) | MAP (CAST(array(@c20, @c7, @c9) AS ARRAY(DOUBLE)) AS _0)"
       - result: [{[1.0, 2.0, 3.0]}]
     -
+      # Array casting: DOUBLE array to INT array
+      - query: select CAST([1.2d, 4.3d, 5.9d] AS INTEGER ARRAY) from test_cast where id = 1
+      - explain: "SCAN(<,>) | TFILTER TEST_CAST | FILTER _.ID EQUALS promote(@c20 AS LONG) | MAP (CAST(array(@c5, @c7, @c9) AS ARRAY(INT)) AS _0)"
+      - result: [{[1, 4, 6]}]
+    -
+      # Array casting: FLOAT array to INT array
+      - query: select CAST([80.90f, 25.76f, 16.7f] AS INTEGER ARRAY) from test_cast where id = 1
+      - explain: "SCAN(<,>) | TFILTER TEST_CAST | FILTER _.ID EQUALS promote(@c20 AS LONG) | MAP (CAST(array(@c5, @c7, @c9) AS ARRAY(INT)) AS _0)"
+      - result: [{[81, 26, 17]}]
+    -
       # Array casting: STRING array to INT array
       - query: select CAST(['42', '100', '7'] AS INTEGER ARRAY) from test_cast where id = 1
       - explain: "SCAN(<,>) | TFILTER TEST_CAST | FILTER _.ID EQUALS promote(@c20 AS LONG) | MAP (CAST(array(@c5, @c7, @c9) AS ARRAY(INT)) AS _0)"
