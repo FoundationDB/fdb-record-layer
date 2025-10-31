@@ -41,10 +41,10 @@ schema_template:
 
     create table "my$adjacency$list"("me" bigint, "my__parent" bigint, primary key("me"))
     create function "_$func1" ( in "_$func1$A" bigint, in "_$func1$B" bigint )
-       as select "me" as "__1", "my__parent" as "__2" from "my$adjacency$list" where "me" < "_$func1$A" and "my$adjacency$list"."my__parent" = "_$func1$B"
+       as select "me" as "__A", "my__parent" as "__B" from "my$adjacency$list" where "me" < "_$func1$A" and "my$adjacency$list"."my__parent" = "_$func1$B"
     create function "_$func2" ( "_$func2$A" bigint )
-       as select "me" as "__1", "my__parent" as "__2" from "my$adjacency$list" where "me" = "_$func2$A"
-    create function "_$func3" ( in "_$func3$A" bigint, in "_$func3$B" bigint, in "_$func3$C" bigint) as select "__..f1"."__1", "__..f1"."__2", "__..f2"."__1", "__..f2"."__2" from "_$func1"("_$func3$A", "_$func3$B") "__..f1", "_$func2"("_$func3$C") "__..f2"
+       as select "me" as "__A", "my__parent" as "__B" from "my$adjacency$list" where "me" = "_$func2$A"
+    create function "_$func3" ( in "_$func3$A" bigint, in "_$func3$B" bigint, in "_$func3$C" bigint) as select "__..f1"."__A", "__..f1"."__B", "__..f2"."__A", "__..f2"."__B" from "_$func1"("_$func3$A", "_$func3$B") "__..f1", "_$func2"("_$func3$C") "__..f2"
 ---
 setup:
   steps:

@@ -40,9 +40,10 @@ import java.util.stream.Collectors;
 @API(API.Status.EXPERIMENTAL)
 public class DataTypeUtils {
 
-    private static final String DOUBLE_UNDERSCORE_ESCAPE = "__";
+    private static final String DOUBLE_UNDERSCORE_ESCAPE = "__0";
     private static final String DOLLAR_ESCAPE = "__1";
     private static final String DOT_ESCAPE = "__2";
+
     private static final List<Character> INVALID_START_CHARACTERS = List.of('.', '$');
 
     private static final Pattern VALID_PROTOBUF_COMPLIANT_NAME_PATTERN = Pattern.compile("^[A-Za-z_][A-Za-z0-9_]*$");
@@ -125,8 +126,11 @@ public class DataTypeUtils {
         // In case the name is prefixed with `__`, keep the prefix intact and translate the remaining.
         String translated;
         if (userIdentifier.startsWith("__")) {
-            final var subString = userIdentifier.substring(2);
-            translated = subString.isEmpty() ? "__" : "__" + translateSpecialCharacters(subString);
+            if (userIdentifier.length() == 2) {
+                return userIdentifier;
+            }
+            Assert.thatUnchecked(!(userIdentifier.charAt(2) >= '0' && userIdentifier.charAt(2) <= '9'), ErrorCode.INVALID_NAME, "name cannot start with __ followed by a digit", INVALID_START_CHARACTERS);
+            translated = "__" + translateSpecialCharacters(userIdentifier.substring(2));
         } else {
             Assert.thatUnchecked(!userIdentifier.isEmpty(), ErrorCode.INVALID_NAME, "name cannot be empty String.");
             Assert.thatUnchecked(!INVALID_START_CHARACTERS.contains(userIdentifier.charAt(0)), ErrorCode.INVALID_NAME, "name cannot start with %s", INVALID_START_CHARACTERS);
