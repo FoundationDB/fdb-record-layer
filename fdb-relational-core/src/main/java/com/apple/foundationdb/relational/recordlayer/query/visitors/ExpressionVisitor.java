@@ -48,7 +48,6 @@ import com.apple.foundationdb.relational.recordlayer.query.LogicalOperator;
 import com.apple.foundationdb.relational.recordlayer.query.LogicalPlanFragment;
 import com.apple.foundationdb.relational.recordlayer.query.OrderByExpression;
 import com.apple.foundationdb.relational.recordlayer.query.ParseHelpers;
-import com.apple.foundationdb.relational.recordlayer.query.PseudoColumn;
 import com.apple.foundationdb.relational.recordlayer.query.SemanticAnalyzer;
 import com.apple.foundationdb.relational.recordlayer.query.StringTrieNode;
 import com.apple.foundationdb.relational.recordlayer.query.TautologicalValue;
