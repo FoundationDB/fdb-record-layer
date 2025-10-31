@@ -185,4 +185,10 @@ public class LucenePrimaryKeySegmentIndexV2 implements LucenePrimaryKeySegmentIn
             directory.getAgilityContext().clear(Range.startsWith(entryKey));
         }
     }
+
+    @Override
+    public void clearForPrimaryKey(@Nonnull Tuple primaryKey) {
+        Subspace keySubspace = subspace.subspace(primaryKey);
+        directory.getAgilityContext().clear(Range.startsWith(keySubspace.pack()));
+    }
 }

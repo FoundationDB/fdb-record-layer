@@ -323,6 +323,11 @@ public class LucenePrimaryKeySegmentIndexV1 implements LucenePrimaryKeySegmentIn
         // which does not appear compatible with AgilityContext
     }
 
+    @Override
+    public void clearForPrimaryKey(final Tuple primaryKey) {
+        throw new UnsupportedOperationException("Clear for primary key not implemented");
+    }
+
 
     /**
      * Get the primary key byte array from a document's stored fields.
