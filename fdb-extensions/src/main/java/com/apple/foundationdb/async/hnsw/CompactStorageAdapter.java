@@ -220,7 +220,7 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
                                                               @Nonnull final Tuple vectorTuple,
                                                               @Nonnull final Tuple neighborsTuple) {
         final RealVector vector =
-                storageTransform.invertedApply(StorageAdapter.vectorFromTuple(getConfig(), vectorTuple));
+                storageTransform.apply(StorageAdapter.vectorFromTuple(getConfig(), vectorTuple));
         final List<NodeReference> nodeReferences = Lists.newArrayListWithExpectedSize(neighborsTuple.size());
 
         for (int i = 0; i < neighborsTuple.size(); i ++) {

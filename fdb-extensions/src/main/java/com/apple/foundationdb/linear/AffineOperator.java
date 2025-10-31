@@ -59,12 +59,12 @@ public class AffineOperator implements VectorOperator {
     public RealVector apply(@Nonnull final RealVector vector) {
         RealVector result = vector;
 
-        if (translationVector != null) {
-            result = result.add(translationVector);
-        }
-
         if (linearOperator != null) {
             result = linearOperator.apply(result);
+        }
+
+        if (translationVector != null) {
+            result = result.add(translationVector);
         }
 
         return  result;
@@ -75,12 +75,12 @@ public class AffineOperator implements VectorOperator {
     public RealVector invertedApply(@Nonnull final RealVector vector) {
         RealVector result = vector;
 
-        if (linearOperator != null) {
-            result = linearOperator.transposedApply(result);
-        }
-
         if (translationVector != null) {
             result = result.subtract(translationVector);
+        }
+
+        if (linearOperator != null) {
+            result = linearOperator.transposedApply(result);
         }
 
         return result;

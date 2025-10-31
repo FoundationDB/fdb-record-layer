@@ -275,7 +275,7 @@ public class HNSW {
                     final EntryNodeReference entryNodeReference = accessInfo.getEntryNodeReference();
 
                     final AffineOperator storageTransform = storageTransform(accessInfo);
-                    final RealVector transformedQueryVector = storageTransform.invertedApply(queryVector);
+                    final RealVector transformedQueryVector = storageTransform.apply(queryVector);
                     final Quantizer quantizer = quantizer(accessInfo);
                     final Estimator estimator = quantizer.estimator();
 
@@ -356,7 +356,7 @@ public class HNSW {
                     Objects.requireNonNull(nodeReferenceAndNode).getNodeReferenceWithDistance();
             final AbstractNode<N> node = nodeReferenceAndNode.getNode();
             @Nullable final RealVector reconstructedVector =
-                    includeVectors ? storageTransform.apply(node.asCompactNode().getVector()) : null;
+                    includeVectors ? storageTransform.invertedApply(node.asCompactNode().getVector()) : null;
 
             resultBuilder.add(
                     new ResultEntry(node.getPrimaryKey(),
@@ -789,7 +789,7 @@ public class HNSW {
                 .thenCompose(accessInfo -> {
                     final AccessInfo currentAccessInfo;
                     final AffineOperator storageTransform = storageTransform(accessInfo);
-                    final RealVector transformedNewVector = storageTransform.invertedApply(newVector);
+                    final RealVector transformedNewVector = storageTransform.apply(newVector);
                     final Quantizer quantizer = quantizer(accessInfo);
                     final Estimator estimator = quantizer.estimator();
 
@@ -826,7 +826,7 @@ public class HNSW {
                             currentAccessInfo = accessInfo;
                         }
                     }
-
+                    
                     final EntryNodeReference entryNodeReference = accessInfo.getEntryNodeReference();
                     final int lMax = entryNodeReference.getLayer();
                     if (logger.isTraceEnabled()) {
@@ -849,14 +849,30 @@ public class HNSW {
                                     insertIntoLayers(transaction, storageTransform, quantizer, newPrimaryKey,
                                             transformedNewVector, nodeReference, lMax, insertionLayer))
                             .thenCompose(ignored ->
-                                    addToStats(transaction, currentAccessInfo, transformedNewVector));
+                                    addToStatsIfNecessary(transaction, currentAccessInfo, transformedNewVector));
                 }).thenCompose(ignored -> AsyncUtil.DONE);
     }
 
+    /**
+     * Method to keep stats if necessary. Stats need to be kept and maintained when the client would like to use
+     * e.g. RaBitQ as RaBitQ needs a stable somewhat correct centroid in order to function properly.
+     * <p>
+     * Specifically for RaBitQ, we add vectors to a set of sampled vectors in a designated subspace of the HNSW
+     * structure. The parameter {@link Config#getSampleVectorStatsProbability()} governs when we do sample. Another
+     * parameter, {@link Config#getMaintainStatsProbability()}, determines how many times we add-up/replace (consume)
+     * vectors from this sampled-vector space and aggregate them in the typical running count/running sum scheme
+     * in order to finally compute the centroid if {@link Config#getStatsThreshold()} number of vectors have been
+     * sampled and aggregated. That centroid is then used to update the access info.
+     *
+     * @param transaction the transaction
+     * @param currentAccessInfo this current access info that was fetched as part of an insert
+     * @param transformedNewVector the new vector (in the transformed coordinate system) that may be added
+     * @return a future that returns {@code null} when completed
+     */
     @Nonnull
-    private CompletableFuture<Void> addToStats(@Nonnull final Transaction transaction,
-                                               @Nonnull final AccessInfo currentAccessInfo,
-                                               @Nonnull final RealVector transformedNewVector) {
+    private CompletableFuture<Void> addToStatsIfNecessary(@Nonnull final Transaction transaction,
+                                                          @Nonnull final AccessInfo currentAccessInfo,
+                                                          @Nonnull final RealVector transformedNewVector) {
         if (getConfig().isUseRaBitQ() && !currentAccessInfo.canUseRaBitQ()) {
             if (shouldSampleVector()) {
                 StorageAdapter.appendSampledVector(transaction, getSubspace(),
@@ -885,12 +901,12 @@ public class HNSW {
                                             new FhtKacRotator(rotatorSeed, getConfig().getNumDimensions(), 10);
 
                                     final RealVector centroid =
-                                            partialVector.multiply(1.0d / partialCount);
-                                    final RealVector transformedCentroid = rotator.invertedApply(centroid);
+                                            partialVector.multiply(-1.0d / partialCount);
+                                    final RealVector transformedCentroid = rotator.apply(centroid);
 
                                     final var transformedEntryNodeVector =
-                                            rotator.invertedApply(currentAccessInfo.getEntryNodeReference()
-                                                    .getVector()).subtract(transformedCentroid);
+                                            rotator.apply(currentAccessInfo.getEntryNodeReference()
+                                                    .getVector()).add(transformedCentroid);
 
                                     final AccessInfo newAccessInfo =
                                             new AccessInfo(currentAccessInfo.getEntryNodeReference().withVector(transformedEntryNodeVector),
