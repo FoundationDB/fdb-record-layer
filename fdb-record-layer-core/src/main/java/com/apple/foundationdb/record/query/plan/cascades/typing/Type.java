@@ -3004,8 +3004,18 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
         private final boolean isNullable;
 
+        /**
+         * Memoized hash function.
+         */
+        @Nonnull
+        private final Supplier<Integer> hashFunctionSupplier = Suppliers.memoize(this::computeHashCode);
+
         private Uuid(boolean isNullable) {
             this.isNullable = isNullable;
+        }
+
+        private int computeHashCode() {
+            return Objects.hash(getTypeCode().name().hashCode(), isNullable());
         }
 
         @Override
@@ -3057,6 +3067,29 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
             return PUuidType.newBuilder()
                     .setIsNullable(isNullable)
                     .build();
+        }
+
+        @Override
+        public int hashCode() {
+            return hashFunctionSupplier.get();
+        }
+
+        @Override
+        public boolean equals(final Object other) {
+            if (other == null) {
+                return false;
+            }
+
+            if (other == this) {
+                return true;
+            }
+
+            if (getClass() != other.getClass()) {
+                return false;
+            }
+
+            final var otherType = (Uuid)other;
+            return getTypeCode() == otherType.getTypeCode() && isNullable() == otherType.isNullable();
         }
 
         @Override
