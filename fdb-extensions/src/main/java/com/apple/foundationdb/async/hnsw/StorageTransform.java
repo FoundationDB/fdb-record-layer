@@ -40,7 +40,15 @@ class StorageTransform extends AffineOperator {
     @Nonnull
     @Override
     public RealVector apply(@Nonnull final RealVector vector) {
-        if (!(vector instanceof EncodedRealVector)) {
+        //
+        // Only transform the vector if it is needed. We make the decision based on whether the vector is encoded or
+        // not. When we switch on encoding, we apply the new coordinate system from that point onwards meaning that all
+        // vectors inserted before use the client coordinate system. Therefore, we must transform all regular vectors
+        // and ignore all encoded vectors.
+        //
+        // TODO This could be done better in the future by keeping something like a generation id with the vector
+        //      so we would know in what coordinate system the vector is.
+        if (vector instanceof EncodedRealVector) {
             return vector;
         }
         return super.apply(vector);
@@ -49,9 +57,17 @@ class StorageTransform extends AffineOperator {
     @Nonnull
     @Override
     public RealVector invertedApply(@Nonnull final RealVector vector) {
-        if (vector instanceof EncodedRealVector) {
+        //
+        // Only transform the vector if it is needed. We make the decision based on whether the vector is encoded or
+        // not. When we switch on encoding, we apply the new coordinate system from that point onwards meaning that all
+        // vectors inserted before use the client coordinate system. For the inverted case, we only have to transform
+        // the encoded vectors as they are expressed in the internal coordinate system, while regular non-encoded
+        // vectors are already expressed in the client system.
+        //
+        if (!(vector instanceof EncodedRealVector)) {
             return vector;
         }
+
         return super.invertedApply(vector);
     }
 }

@@ -147,7 +147,7 @@ public final class FhtKacRotator implements LinearOperator {
     }
 
     @Nonnull
-    public double[] operateTranspose(@Nonnull final double[] x) {
+    private double[] operateTranspose(@Nonnull final double[] x) {
         if (x.length != numDimensions) {
             throw new IllegalArgumentException("dimensionality of x != n");
         }

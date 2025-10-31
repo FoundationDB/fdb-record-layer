@@ -36,7 +36,6 @@ import com.apple.foundationdb.test.TestSubspaceExtension;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.RandomSeedSource;
 import com.apple.test.RandomizedTestUtils;
-import com.apple.test.SuperSlow;
 import com.apple.test.Tags;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -303,7 +302,7 @@ class HNSWTest {
     }
 
     @Test
-    @SuperSlow
+    //@SuperSlow
     void testSIFTInsertSmall() throws Exception {
         final Metric metric = Metric.EUCLIDEAN_METRIC;
         final int k = 100;
