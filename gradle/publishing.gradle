@@ -18,8 +18,6 @@
  * limitations under the License.
  */
 
-apply plugin: 'signing'
-
 // Add various details to the pom file to allow for publishing
 def addPublishingInfo(publication) {
     publication.pom {
@@ -88,11 +86,6 @@ if (ext.publishLibrary) {
             }
         }
     }
-    if (Boolean.parseBoolean(centralPublish)) {
-        signing {
-            sign publishing.publications.library
-        }
-    }
 }
 
 ext {
@@ -103,6 +96,10 @@ ext {
 publishing {
     if (Boolean.parseBoolean(publishBuild)) {
         repositories {
+            maven {
+                url = "${rootProject.rootDir}/.out/staging-repo"
+            }
+
             if (Boolean.parseBoolean(githubPublish)) {
                 maven {
                     name = "GitHubPackages"

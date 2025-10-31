@@ -41,7 +41,7 @@ plugins {
     alias(libs.plugins.protobuf)
     alias(libs.plugins.versions)
     alias(libs.plugins.spotbugs)
-    alias(libs.plugins.nexus)
+    alias(libs.plugins.jreleaser)
     alias(libs.plugins.download)
 }
 
@@ -310,13 +310,33 @@ subprojects {
 // Configure publishing for maven central. This is done in the top-level build.gradle, and then
 // all of the subprojects configure the artifacts they want published by applying
 // ${rootDir}/gradle/publishing.gradle in the project gradle. By default, we publish a library
-// from each package, but this can be configured by adjusting the publishLibrary variable
+// from each package, but this can be configured by adjusting the publishLibrary variable.
+// Each subproject will place its artifacts into the central staging repository,
+// which will then be picked up by the release configuration
 if (Boolean.parseBoolean(centralPublish)) {
-    nexusPublishing {
-        repositories {
-            sonatype {
-                // Update the URL now that the OSSRH service has been sunset: https://central.sonatype.org/news/20250326_ossrh_sunset/
-                nexusUrl.set(uri("https://ossrh-staging-api.central.sonatype.com/service/local/"))
+    jreleaser {
+        project {
+            authors = ['FoundationDB']
+            license = 'The Apache License, Version 2.0'
+            licenseUrl = 'https://www.apache.org/licenses/LICENSE-2.0'
+            links {
+                homepage = 'https://foundationdb.github.io/fdb-record-layer/'
+            }
+            inceptionYear = '2021'
+        }
+
+        deploy {
+            maven {
+                mavenCentral {
+                    sonatype {
+                        active = 'ALWAYS'
+                        url = 'https://central.sonatype.com/api/v1/publisher'
+                        applyMavenCentralRules = true
+                        stage = 'FULL'
+
+                        stagingRepository("${rootDir}/.out/staging-repo")
+                    }
+                }
             }
         }
     }
