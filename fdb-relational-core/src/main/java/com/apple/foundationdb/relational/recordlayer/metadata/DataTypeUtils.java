@@ -117,7 +117,13 @@ public class DataTypeUtils {
     }
 
     public static String toProtoBufCompliantName(String userIdentifier) {
-        return userIdentifier.replace("__", DOUBLE_UNDERSCORE_ESCAPE).replace("$", DOLLAR_ESCAPE).replace(".", DOT_ESCAPE);
+        final var translated = userIdentifier.replace("__", DOUBLE_UNDERSCORE_ESCAPE).replace("$", DOLLAR_ESCAPE).replace(".", DOT_ESCAPE);
+        checkValidProtoBufCompliantName(translated);
+        return translated;
+    }
+
+    public static void checkValidProtoBufCompliantName(String name) {
+        Assert.thatUnchecked(name.matches("^[A-Za-z_][A-Za-z0-9_]*$"), ErrorCode.INVALID_NAME, name + " is not a valid name!");
     }
 
     public static String toUserIdentifier(String protoIdentifier) {

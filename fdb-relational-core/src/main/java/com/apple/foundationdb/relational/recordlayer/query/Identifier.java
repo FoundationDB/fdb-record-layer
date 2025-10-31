@@ -146,9 +146,17 @@ public class Identifier {
 
     @Nonnull
     public static Identifier toProtobufCompliant(@Nonnull final Identifier identifier) {
-        final var qualifier = identifier.getQualifier().stream().map(DataTypeUtils::toProtoBufCompliantName).collect(Collectors.toList());
-        final var name = DataTypeUtils.toProtoBufCompliantName(identifier.getName());
-        return Identifier.of(name, qualifier);
+        final var qualifier = identifier.getQualifier().stream().map(Identifier::toProtobufCompliant).collect(Collectors.toList());
+        return Identifier.of(toProtobufCompliant(identifier.getName()), qualifier);
+    }
+
+    @Nonnull
+    private static String toProtobufCompliant(@Nonnull String name) {
+        if (PseudoColumn.isPseudoColumn(name)) {
+            DataTypeUtils.checkValidProtoBufCompliantName(name);
+            return name;
+        }
+        return DataTypeUtils.toProtoBufCompliantName(name);
     }
 
     @Override

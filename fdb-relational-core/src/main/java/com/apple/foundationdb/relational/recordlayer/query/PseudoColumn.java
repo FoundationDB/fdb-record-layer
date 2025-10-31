@@ -37,7 +37,7 @@ public enum PseudoColumn {
     ROW_VERSION(qun -> new VersionValue(QuantifiedRecordValue.of(qun))),
     ;
 
-    private static final String PREFIX = "__";
+    public static final String PREFIX = "__";
 
     @Nonnull
     private final Function<Quantifier, Value> valueCreator;
@@ -75,11 +75,6 @@ public enum PseudoColumn {
     }
 
     public static boolean isPseudoColumn(@Nonnull String name) {
-        for (PseudoColumn pseudo : PseudoColumn.values()) {
-            if (name.equals(pseudo.getColumnName())) {
-                return true;
-            }
-        }
-        return false;
+        return name.startsWith(PREFIX);
     }
 }

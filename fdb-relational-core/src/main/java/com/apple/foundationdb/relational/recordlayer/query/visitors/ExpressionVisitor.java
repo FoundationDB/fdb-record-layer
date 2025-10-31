@@ -181,11 +181,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     @Override
     public Expression visitFullColumnName(@Nonnull RelationalParser.FullColumnNameContext fullColumnNameContext) {
         final var id = visitFullId(fullColumnNameContext.fullId());
-        if (!PseudoColumn.isPseudoColumn(id.getName())) {
-            return getDelegate().getSemanticAnalyzer().resolveIdentifier(Identifier.toProtobufCompliant(id), getDelegate().getCurrentPlanFragment());
-        } else {
-            return getDelegate().getSemanticAnalyzer().resolveIdentifier(id.replaceQualifier(q -> q.stream().map(DataTypeUtils::toProtoBufCompliantName).collect(Collectors.toList())), getDelegate().getCurrentPlanFragment());
-        }
+        return getDelegate().getSemanticAnalyzer().resolveIdentifier(Identifier.toProtobufCompliant(id), getDelegate().getCurrentPlanFragment());
     }
 
     @Nonnull
