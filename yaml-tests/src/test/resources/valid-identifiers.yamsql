@@ -33,9 +33,9 @@ schema_template:
     create index "foo$tableC$idx" as select "foo$tableC$C1", "foo$tableC$C2", "foo$tableC$C3" FROM "foo$tableC" order by "foo$tableC$C1", "foo$tableC$C2", "foo$tableC$C3"
     create index "foo$tableC$idx2" as select sum("foo$tableC$C1") FROM "foo$tableC" group by "foo$tableC$C2"
 
-    create table "_foo__tableD"("_foo__tableD$D1" bigint, "_foo__tableD$D2" bigint, "_foo__tableD$D3" bigint, primary key("_foo__tableD$D1"))
-    create index "_foo__tableD$idx" as select "_foo__tableD$D1", "_foo__tableD$D2", "_foo__tableD$D3" FROM "_foo__tableD" order by "_foo__tableD$D1", "_foo__tableD$D2", "_foo__tableD$D3"
-    create index "_foo__tableD$idx2" as select sum("_foo__tableD$D1") FROM "_foo__tableD" group by "_foo__tableD$D2"
+    create table "__foo__tableD"("__foo__tableD$D1" bigint, "__foo__tableD$D2" bigint, "__foo__tableD$D3" bigint, primary key("__foo__tableD$D1"))
+    create index "__foo__tableD$idx" as select "__foo__tableD$D1", "__foo__tableD$D2", "__foo__tableD$D3" FROM "__foo__tableD" order by "__foo__tableD$D1", "__foo__tableD$D2", "__foo__tableD$D3"
+    create index "__foo__tableD$idx2" as select sum("__foo__tableD$D1") FROM "__foo__tableD" group by "__foo__tableD$D2"
 
     create table "foo.tableE"("foo.tableE.E1" bigint, "foo.tableE.E2" bigint array, "foo.tableE.E3" "foo.struct", primary key("foo.tableE.E1"))
 
@@ -44,7 +44,7 @@ schema_template:
        as select "me" as "__1", "my__parent" as "__2" from "my$adjacency$list" where "me" < "_$func1$A" and "my$adjacency$list"."my__parent" = "_$func1$B"
     create function "_$func2" ( "_$func2$A" bigint )
        as select "me" as "__1", "my__parent" as "__2" from "my$adjacency$list" where "me" = "_$func2$A"
-    create function "_$func3" ( in "_$func3$A" bigint, in "_$func3$B" bigint, in "_$func3$C" bigint) as select "...f1"."__1", "...f1"."__2", "...f2"."__1", "...f2"."__2" from "_$func1"("_$func3$A", "_$func3$B") "...f1", "_$func2"("_$func3$C") "...f2"
+    create function "_$func3" ( in "_$func3$A" bigint, in "_$func3$B" bigint, in "_$func3$C" bigint) as select "__..f1"."__1", "__..f1"."__2", "__..f2"."__1", "__..f2"."__2" from "_$func1"("_$func3$A", "_$func3$B") "__..f1", "_$func2"("_$func3$C") "__..f2"
 ---
 setup:
   steps:
@@ -65,7 +65,7 @@ setup:
                (2, 20, 2),
                (3, 20, 3),
                (4, 20, 4)
-    - query: INSERT INTO "_foo__tableD"
+    - query: INSERT INTO "__foo__tableD"
         VALUES (1, 20, 1),
                (2, 20, 2),
                (3, 20, 3),
@@ -100,7 +100,7 @@ test_block:
       - result: [{"foo.tableA.A1": 1 , 10, 1}, {"foo.tableA.A1": 2, 10, 2}, {"foo.tableA.A1": 3, 10, 3}]
     -
       # aliased star
-      - query: select "$$$".* from "foo.tableA" as "$$$";
+      - query: select "A$$$".* from "foo.tableA" as "A$$$";
       - result: [{"foo.tableA.A1": 1 , 10, 1}, {"foo.tableA.A1": 2, 10, 2}, {"foo.tableA.A1": 3, 10, 3}]
     -
       # with predicate
@@ -115,8 +115,12 @@ test_block:
       - query: select "foo.tableA"."foo.tableA.A1" AS "_.__." from "foo.tableA";
       - result: [{"_.__.": 1}, {"_.__.": 2}, {"_.__.": 3}]
     -
-      # with select element alias being system prefixed
-      - query: select "foo.tableA"."foo.tableA.A1" AS "__.__." from "foo.tableA";
+      # with select element alias prefixed with .
+      - query: select "foo.tableA"."foo.tableA.A1" AS ".__." from "foo.tableA";
+      - error: "42602"
+    -
+      # with select element alias prefixed with $
+      - query: select "foo.tableA"."foo.tableA.A1" AS "$__." from "foo.tableA";
       - error: "42602"
     -
       # with select element alias with non-supported characters
@@ -124,29 +128,29 @@ test_block:
       - error: "42602"
     -
       # multi-level CTEs
-      - query: with "$_$__$$" as (with "$__$" as (select "foo.tableA.A1" as "$" from "foo.tableA") select * from "$__$") select * from "$_$__$$"
-      - result: [{"$": 1}, {"$": 2}, {"$": 3}]
+      - query: with "A$_$__$$" as (with "A$__$" as (select "foo.tableA.A1" as "A$" from "foo.tableA") select * from "A$__$") select * from "A$_$__$$"
+      - result: [{"A$": 1}, {"A$": 2}, {"A$": 3}]
     -
       # CTEs with column aliases
-      - query: with "$__$" ("$$a", "$$b", "$$c") as (select "foo.tableA".* from "foo.tableA") select * from "$__$"
-      - result: [{"$$a": 1, "$$b": 10, "$$c": 1}, {"$$a": 2, "$$b": 10, "$$c": 2}, {"$$a": 3, "$$b": 10, "$$c": 3}]
+      - query: with "A$__$" ("__$$a", "__$$b", "__$$c") as (select "foo.tableA".* from "foo.tableA") select * from "A$__$"
+      - result: [{"__$$a": 1, "__$$b": 10, "__$$c": 1}, {"__$$a": 2, "__$$b": 10, "__$$c": 2}, {"__$$a": 3, "__$$b": 10, "__$$c": 3}]
     -
       # with recursive CTE
-      - query: with recursive "$__$" as (
+      - query: with recursive "A$__$" as (
             select "me", "my__parent", 0 as "__level__" from "my$adjacency$list" where "me" = 5
             union all
-            select "$"."me", "$"."my__parent", "$$".y as "__level__" from "my$adjacency$list" as "$", (select "me", "my__parent", "__level__" + 1 as y from "$__$") as "$$" where "$$"."my__parent" = "$"."me")
+            select "A$"."me", "A$"."my__parent", "A$$".y as "__level__" from "my$adjacency$list" as "A$", (select "me", "my__parent", "__level__" + 1 as y from "A$__$") as "A$$" where "A$$"."my__parent" = "A$"."me")
             traversal order pre_order
-            select "me", "my__parent", "__level__" from "$__$"
+            select "me", "my__parent", "__level__" from "A$__$"
       - result: [{"me": 5, "my__parent": 2, "__level__": 0}, {"me": 2, "my__parent": 1, "__level__": 1}, {"me": 1, "my__parent": -1, "__level__": 2}]
     -
       # recursive CTE with column aliases
-      - query: with recursive "$__$" ("__a", "__b", "__c") as (
+      - query: with recursive "A$__$" ("__a", "__b", "__c") as (
             select "me", "my__parent", 0 as "__level__" from "my$adjacency$list" where "me" = 5
             union all
-            select "$"."me", "$"."my__parent", "$$".y as "__level__" from "my$adjacency$list" as "$", (select "me", "my__parent", "__level__" + 1 as y from "$__$") as "$$" where "$$"."my__parent" = "$"."me")
+            select "A$"."me", "A$"."my__parent", "A$$".y as "__level__" from "my$adjacency$list" as "A$", (select "me", "my__parent", "__level__" + 1 as y from "A$__$") as "A$$" where "A$$"."my__parent" = "A$"."me")
             traversal order pre_order
-            select "__a", "__b", "__c" from "$__$"
+            select "__a", "__b", "__c" from "A$__$"
       - result: [{"__a": 5, "__b": 2, "__c": 0}, {"__a": 2, "__b": 1, "__c": 1}, {"__a": 1, "__b": -1, "__c": 2}]
     -
       # with non-qualified select element
@@ -199,22 +203,22 @@ test_block:
       - query: select sum("foo$tableC$C1") from "foo$tableC" group by "foo$tableC$C2";
       - result: [{10}]
     -
-      - query: select "_foo__tableD".* from "_foo__tableD";
-      - result: [{"_foo__tableD$D1": 1 , "_foo__tableD$D2": 20, "_foo__tableD$D3": 1}, {"_foo__tableD$D1": 2, "_foo__tableD$D2": 20, "_foo__tableD$D3": 2}, {"_foo__tableD$D1": 3, "_foo__tableD$D2": 20, "_foo__tableD$D3": 3}, {"_foo__tableD$D1": 4, "_foo__tableD$D2": 20, "_foo__tableD$D3": 4}]
+      - query: select "__foo__tableD".* from "__foo__tableD";
+      - result: [{"__foo__tableD$D1": 1 , "__foo__tableD$D2": 20, "__foo__tableD$D3": 1}, {"__foo__tableD$D1": 2, "__foo__tableD$D2": 20, "__foo__tableD$D3": 2}, {"__foo__tableD$D1": 3, "__foo__tableD$D2": 20, "__foo__tableD$D3": 3}, {"__foo__tableD$D1": 4, "__foo__tableD$D2": 20, "__foo__tableD$D3": 4}]
     -
-      - query: select "_foo__tableD".* from "_foo__tableD" where "_foo__tableD$D3" >= 2;
-      - result: [{"_foo__tableD$D1": 2, "_foo__tableD$D2": 20, "_foo__tableD$D3": 2}, {"_foo__tableD$D1": 3, "_foo__tableD$D2": 20, "_foo__tableD$D3": 3}, {"_foo__tableD$D1": 4, "_foo__tableD$D2": 20, "_foo__tableD$D3": 4}]
+      - query: select "__foo__tableD".* from "__foo__tableD" where "__foo__tableD$D3" >= 2;
+      - result: [{"__foo__tableD$D1": 2, "__foo__tableD$D2": 20, "__foo__tableD$D3": 2}, {"__foo__tableD$D1": 3, "__foo__tableD$D2": 20, "__foo__tableD$D3": 3}, {"__foo__tableD$D1": 4, "__foo__tableD$D2": 20, "__foo__tableD$D3": 4}]
     -
-      - query: select "_foo__tableD"."_foo__tableD$D1" from "_foo__tableD";
-      - result: [{"_foo__tableD$D1": 1}, {"_foo__tableD$D1": 2}, {"_foo__tableD$D1": 3}, {"_foo__tableD$D1": 4}]
+      - query: select "__foo__tableD"."__foo__tableD$D1" from "__foo__tableD";
+      - result: [{"__foo__tableD$D1": 1}, {"__foo__tableD$D1": 2}, {"__foo__tableD$D1": 3}, {"__foo__tableD$D1": 4}]
     -
-      - query: select "_foo__tableD$D1" from "_foo__tableD";
-      - result: [{"_foo__tableD$D1": 1}, {"_foo__tableD$D1": 2}, {"_foo__tableD$D1": 3}, {"_foo__tableD$D1": 4}]
+      - query: select "__foo__tableD$D1" from "__foo__tableD";
+      - result: [{"__foo__tableD$D1": 1}, {"__foo__tableD$D1": 2}, {"__foo__tableD$D1": 3}, {"__foo__tableD$D1": 4}]
     -
-      - query: select "_foo__tableD".* from "_foo__tableD" where "_foo__tableD$D3" >= 2 order by "_foo__tableD$D1";
-      - result: [{"_foo__tableD$D1": 2, "_foo__tableD$D2": 20, "_foo__tableD$D3": 2}, {"_foo__tableD$D1": 3, "_foo__tableD$D2": 20, "_foo__tableD$D3": 3}, {"_foo__tableD$D1": 4, "_foo__tableD$D2": 20, "_foo__tableD$D3": 4}]
+      - query: select "__foo__tableD".* from "__foo__tableD" where "__foo__tableD$D3" >= 2 order by "__foo__tableD$D1";
+      - result: [{"__foo__tableD$D1": 2, "__foo__tableD$D2": 20, "__foo__tableD$D3": 2}, {"__foo__tableD$D1": 3, "__foo__tableD$D2": 20, "__foo__tableD$D3": 3}, {"__foo__tableD$D1": 4, "__foo__tableD$D2": 20, "__foo__tableD$D3": 4}]
     -
-      - query: select sum("_foo__tableD$D1") from "_foo__tableD" group by "_foo__tableD$D2";
+      - query: select sum("__foo__tableD$D1") from "__foo__tableD" group by "__foo__tableD$D2";
       - result: [{10}]
     -
       # fanned-out array
@@ -226,19 +230,19 @@ test_block:
       - result: [{"_0": 2, "_1": 1, "_2": 1, "_3": -1}, {"_0": 3, "_1": 1, "_2": 1, "_3": -1}, {"_0": 4, "_1": 1, "_2": 1, "_3": -1}]
     -
       # inline table definition
-      - query: select * from values (1, 2, 3), (4, 5, 6) as "$$$$"("$$$", "$$", "$")
-      - result: [{"$$$": 1, "$$": 2, "$": 3}, { "$$$": 4, "$$": 5, "$": 6}]
+      - query: select * from values (1, 2, 3), (4, 5, 6) as "A$$$$"("A$$$", "A$$", "A$")
+      - result: [{"A$$$": 1, "A$$": 2, "A$": 3}, { "A$$$": 4, "A$$": 5, "A$": 6}]
     -
       # named record construction
-      - query: select struct "$$" ("foo.tableA.A1", "foo.tableA.A2", "foo.tableA.A3") from "foo.tableA"
+      - query: select struct "A$$" ("foo.tableA.A1", "foo.tableA.A2", "foo.tableA.A3") from "foo.tableA"
       - result: [{{"foo.tableA.A1": 1 , "foo.tableA.A2": 10, "foo.tableA.A3": 1}}, {{"foo.tableA.A1": 2, "foo.tableA.A2": 10, "foo.tableA.A3": 2}}, {{"foo.tableA.A1": 3, "foo.tableA.A2": 10, "foo.tableA.A3": 3}}]
     -
       # named record construction with uid star
-      - query: select struct "$$" ("foo.tableA".*) from "foo.tableA"
+      - query: select struct "A$$" ("foo.tableA".*) from "foo.tableA"
       - result: [{{"foo.tableA.A1": 1 , "foo.tableA.A2": 10, "foo.tableA.A3": 1}}, {{"foo.tableA.A1": 2, "foo.tableA.A2": 10, "foo.tableA.A3": 2}}, {{"foo.tableA.A1": 3, "foo.tableA.A2": 10, "foo.tableA.A3": 3}}]
     -
       # named record construction with aliased expressions
-      - query: select struct "$$" ("foo.tableA.A2" + "foo.tableA.A1" as "_$$__") from "foo.tableA"
+      - query: select struct "A$$" ("foo.tableA.A2" + "foo.tableA.A1" as "_$$__") from "foo.tableA"
       - result: [{{"_$$__": 11}}, {{"_$$__": 12}}, {{"_$$__": 13}}]
 ---
 test_block:
@@ -282,7 +286,7 @@ test_block:
     -
       # invalid table name
       - query: create schema template test_template_with_inavlid_identifiers
-               create table "__$yay"(id2 bigint, col6 s2 ARRAY, primary key(id2))
+               create table "$yay"(id2 bigint, col6 s2 ARRAY, primary key(id2))
       - error: "42602"
     -
       # invalid table name
@@ -292,7 +296,7 @@ test_block:
     -
       # invalid column name
       - query: create schema template test_template_with_inavlid_identifiers
-               create table T1("__$yay" bigint, col6 s2 ARRAY, primary key(id2))
+               create table T1("$yay" bigint, col6 s2 ARRAY, primary key(id2))
       - error: "42602"
     -
       # invalid column name
@@ -302,8 +306,8 @@ test_block:
     -
       # invalid struct name
       - query: create schema template test_template_with_inavlid_identifiers
-               CREATE TYPE AS STRUCT "__$yay"(S1 bigint, S2 bigint)
-               create table T1(id2 bigint, col6 "__$yay", primary key(id2))
+               CREATE TYPE AS STRUCT "$yay"(S1 bigint, S2 bigint)
+               create table T1(id2 bigint, col6 "$yay", primary key(id2))
       - error: "42602"
     -
       # invalid struct name
@@ -315,7 +319,7 @@ test_block:
       # invalid function name
       - query: create schema template test_template_with_inavlid_identifiers
                create table T1(id2 bigint, id3 bigint, primary key(id2))
-               create function "__$yay" () as SELECT id3 from T1
+               create function "$yay" () as SELECT id3 from T1
       - error: "42602"
     -
       # invalid function name
@@ -327,7 +331,7 @@ test_block:
       # invalid function argument
       - query: create schema template test_template_with_inavlid_identifiers
                create table T1(id2 bigint, id3 bigint, primary key(id2))
-               create function func (in "__$yay" bigint) as SELECT id3 from T1 where id2 > "__$yay"
+               create function func (in "$yay" bigint) as SELECT id3 from T1 where id2 > "$yay"
       - error: "42602"
     -
       # invalid function argument
@@ -339,7 +343,7 @@ test_block:
       # invalid view name
       - query: create schema template test_template_with_inavlid_identifiers
                create table T1(id2 bigint, id3 bigint, primary key(id2))
-               create view "__$yay" as SELECT id3 from T1
+               create view "$yay" as SELECT id3 from T1
       - error: "42602"
     -
       # invalid view name

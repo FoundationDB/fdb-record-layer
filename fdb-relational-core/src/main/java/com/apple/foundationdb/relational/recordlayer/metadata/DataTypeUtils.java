@@ -34,14 +34,18 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @API(API.Status.EXPERIMENTAL)
 public class DataTypeUtils {
 
-    private static final String DOUBLE_UNDERSCORE_ESCAPE = "__0";
+    private static final String DOUBLE_UNDERSCORE_ESCAPE = "__";
     private static final String DOLLAR_ESCAPE = "__1";
     private static final String DOT_ESCAPE = "__2";
+    private static final List<Character> INVALID_START_CHARACTERS = List.of('.', '$');
+
+    private static final Pattern VALID_PROTOBUF_COMPLIANT_NAME_PATTERN = Pattern.compile("^[A-Za-z_][A-Za-z0-9_]*$");
 
     @Nonnull
     private static final BiMap<DataType, Type> primitivesMap;
@@ -116,14 +120,29 @@ public class DataTypeUtils {
         return "id" + modified;
     }
 
-    public static String toProtoBufCompliantName(String userIdentifier) {
-        final var translated = userIdentifier.replace("__", DOUBLE_UNDERSCORE_ESCAPE).replace("$", DOLLAR_ESCAPE).replace(".", DOT_ESCAPE);
+    @Nonnull
+    public static String toProtoBufCompliantName(final String userIdentifier) {
+        // In case the name is prefixed with `__`, keep the prefix intact and translate the remaining.
+        String translated;
+        if (userIdentifier.startsWith("__")) {
+            final var subString = userIdentifier.substring(2);
+            translated = subString.isEmpty() ? "__" : "__" + translateSpecialCharacters(subString);
+        } else {
+            Assert.thatUnchecked(!userIdentifier.isEmpty(), ErrorCode.INVALID_NAME, "name cannot be empty String.");
+            Assert.thatUnchecked(!INVALID_START_CHARACTERS.contains(userIdentifier.charAt(0)), ErrorCode.INVALID_NAME, "name cannot start with %s", INVALID_START_CHARACTERS);
+            translated = translateSpecialCharacters(userIdentifier);
+        }
         checkValidProtoBufCompliantName(translated);
         return translated;
     }
 
+    @Nonnull
+    private static String translateSpecialCharacters(final String userIdentifier) {
+        return userIdentifier.replace("__", DOUBLE_UNDERSCORE_ESCAPE).replace("$", DOLLAR_ESCAPE).replace(".", DOT_ESCAPE);
+    }
+
     public static void checkValidProtoBufCompliantName(String name) {
-        Assert.thatUnchecked(name.matches("^[A-Za-z_][A-Za-z0-9_]*$"), ErrorCode.INVALID_NAME, name + " is not a valid name!");
+        Assert.thatUnchecked(VALID_PROTOBUF_COMPLIANT_NAME_PATTERN.matcher(name).matches(), ErrorCode.INVALID_NAME, name + " is not a valid name!");
     }
 
     public static String toUserIdentifier(String protoIdentifier) {
