@@ -244,7 +244,7 @@ class KeySpacePathImportDataTest {
 
         setSingleKey(keySpace1.path("root1").add("data", 1L), Tuple.from("record"), Tuple.from("other"));
 
-        // Now try to ipmort that into keySpace2
+        // Now try to import that into keySpace2
         List<DataInKeySpacePath> exportedData = getExportedData(keySpace1.path("root1"));
         assertBadImport(keySpace2.path("root2"), exportedData);
     }
