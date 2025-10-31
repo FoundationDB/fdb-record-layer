@@ -132,10 +132,10 @@
  * </pre>
  * In the above example, the FDB key of {@code ["root", "database", 8, "my-db"]} would be interpreted as follows:
  * <ul>
- *     <li>"root" -> root</li>
- *     <li>"database" -> database</li>
- *     <li>8 -> dbId</li>
- *     <li>"my-db" -> dbName</li>
+ *     <li>"root" - root</li>
+ *     <li>"database" - database</li>
+ *     <li>8 - dbId</li>
+ *     <li>"my-db" - dbName</li>
  * </ul>
  * and {@code ["root", "database", "my-db"]} would be considered illegal, as there is no way to match the "my-db" to a Directory node.
  * </p>
