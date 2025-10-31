@@ -126,7 +126,7 @@ class KeySpacePathImportDataTest {
             context.commit();
         }
 
-        copyData(root.path("company"));
+        copyData(root.path("company"), root.path("company"));
 
         // Verify all different KeyType values were handled correctly during import
         try (FDBRecordContext context = database.openContext()) {
@@ -202,7 +202,7 @@ class KeySpacePathImportDataTest {
         final KeySpacePath dataPath = root.path("tenant").add("user_id", 999L);
         setSingleKey(dataPath, Tuple.from("data"), Tuple.from("directory_test"));
 
-        copyData(root.path("tenant"));
+        copyData(root.path("tenant"), root.path("tenant"));
 
         verifySingleKey(dataPath, Tuple.from("data"), Tuple.from("directory_test"));
     }
@@ -222,9 +222,8 @@ class KeySpacePathImportDataTest {
 
         setSingleKey(keySpace.path("root1").add("data", 1L), Tuple.from("record"), Tuple.from("other"));
 
-        // Now try to ipmort that into keySpace2
-        List<DataInKeySpacePath> exportedData = getExportedData(keySpace.path("root1"));
-        assertBadImport(keySpace.path("root2"), exportedData);
+        // Now try to import that into keySpace2
+        assertBadImport(keySpace.path("root1"), keySpace.path("root2"));
     }
 
     @Test
@@ -245,8 +244,7 @@ class KeySpacePathImportDataTest {
         setSingleKey(keySpace1.path("root1").add("data", 1L), Tuple.from("record"), Tuple.from("other"));
 
         // Now try to import that into keySpace2
-        List<DataInKeySpacePath> exportedData = getExportedData(keySpace1.path("root1"));
-        assertBadImport(keySpace2.path("root2"), exportedData);
+        assertBadImport(keySpace1.path("root1"), keySpace2.path("root2"));
     }
 
     @Test
@@ -263,12 +261,7 @@ class KeySpacePathImportDataTest {
         setSingleKey(level1Path, Tuple.from("item1"), Tuple.from("value1"));
 
         // Export from root, import to subdirectory
-        List<DataInKeySpacePath> exportedData = getExportedData(root.path("root"));
-
-        clearPath(database, root.path("root"));
-
-        // Import only to level1 subdirectory
-        importData(database, level1Path, exportedData);
+        copyData(root.path("root"), level1Path);
 
         verifySingleKey(level1Path, Tuple.from("item1"), Tuple.from("value1"));
     }
@@ -288,12 +281,7 @@ class KeySpacePathImportDataTest {
         setSingleKey(root.path("root").add("level1", 2L), Tuple.from("item1"), Tuple.from("value1"));
 
         // Export from root, import to subdirectory
-        List<DataInKeySpacePath> exportedData = getExportedData(root.path("root"));
-
-        clearPath(database, root.path("root"));
-
-        // Import only to level1 subdirectory
-        assertBadImport(level1Path, exportedData);
+        assertBadImport(root.path("root"), level1Path);
     }
 
     @Test
@@ -329,7 +317,7 @@ class KeySpacePathImportDataTest {
 
         EnvironmentKeySpace.DataPath dataStore = keySpace.root().userid(100L).application("app1").dataStore();
 
-        copyData(keySpace.root());
+        copyData(keySpace.root(), keySpace.root());
 
         verifySingleKey(dataStore, Tuple.from("record2", 0), Tuple.from("user100_app1_data2_0"));
     }
@@ -385,19 +373,19 @@ class KeySpacePathImportDataTest {
         return Tuple.fromBytes(context.ensureActive().get(key).join());
     }
 
-    private void copyData(final KeySpacePath path) {
+    private void copyData(final KeySpacePath sourcePath, KeySpacePath destinationPath) {
         // Export the data
-        final List<DataInKeySpacePath> exportedData = getExportedData(path);
+        final List<DataInKeySpacePath> exportedData = getExportedData(sourcePath);
 
         if (databases.size() > 1) {
             database = databases.get(1);
         } else {
             // Clear the data and import it back
-            clearPath(database, path);
+            clearPath(database, sourcePath);
         }
 
         // Import the data
-        importData(database, path, exportedData);
+        importData(database, destinationPath, exportedData);
     }
 
     private static void importData(final FDBDatabase database, final KeySpacePath path, final List<DataInKeySpacePath> exportedData) {
@@ -405,6 +393,11 @@ class KeySpacePathImportDataTest {
             path.importData(context, exportedData).join();
             context.commit();
         }
+    }
+
+    private void assertBadImport(KeySpacePath sourcePath, KeySpacePath destinationPath) {
+        List<DataInKeySpacePath> exportedData = getExportedData(sourcePath);
+        assertBadImport(destinationPath, exportedData);
     }
 
     private void assertBadImport(final KeySpacePath path, final List<DataInKeySpacePath> invalidData) {
