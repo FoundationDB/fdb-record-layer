@@ -210,40 +210,44 @@ public final class FDBDirectoryLockFactory extends LockFactory {
         }
 
         private void fileLockClearFlushAndClose(boolean isRecovery) {
-            Function<FDBRecordContext, CompletableFuture<Void>> fileLockFunc = aContext ->
-                    aContext.ensureActive().get(fileLockKey)
-                            .thenAccept(val -> {
-                                synchronized (fileLockSetLock) {
+            synchronized (fileLockSetLock) {
+                // If called by multiple threads, it seems to be a good idea to block all and allow one of them to do the actual closing.
+                if (closed) {
+                    return;
+                }
+                Function<FDBRecordContext, CompletableFuture<Void>> fileLockFunc = aContext ->
+                        aContext.ensureActive().get(fileLockKey)
+                                .thenAccept(val -> {
                                     UUID existingUuid = fileLockValueToUuid(val);
                                     if (existingUuid != null && existingUuid.compareTo(selfStampUuid) == 0) {
                                         // clear the lock if locked and matches uuid
                                         aContext.ensureActive().clear(fileLockKey);
                                         closingContext = aContext;
                                         logSelf(isRecovery ? "FileLock: Cleared in Recovery path" : "FileLock: Cleared");
-                                    } else if (! isRecovery) {
+                                    } else if (!isRecovery) {
                                         throw new AlreadyClosedException("FileLock: Expected to be locked during close.This=" + this + " existingUuid=" + existingUuid); // The string append methods should handle null arguments.
                                     }
-                                }
-                            });
+                                });
 
-            if (agilityContext.isClosed()) {
-                // Here: this is considered to be a recovery path, may bypass closed context.
-                agilityContext.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FILE_LOCK_CLEAR,
-                        agilityContext.applyInRecoveryPath(fileLockFunc));
-            } else {
-                // Here: this called during directory close to ensure cleared lock -
-                agilityContext.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FILE_LOCK_CLEAR,
-                        agilityContext.apply(fileLockFunc));
-            }
-            agilityContext.recordEvent(LuceneEvents.Events.LUCENE_FILE_LOCK_DURATION, System.nanoTime() - lockStartTime);
-            boolean flushed = false;
-            try {
-                closed = true; // prevent lock stamp update
-                agilityContext.flush();
-                flushed = true;
-            } finally {
-                closed = flushed; // allow close retry
-                closingContext = null;
+                if (agilityContext.isClosed()) {
+                    // Here: this is considered to be a recovery path, may bypass closed context.
+                    agilityContext.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FILE_LOCK_CLEAR,
+                            agilityContext.applyInRecoveryPath(fileLockFunc));
+                } else {
+                    // Here: this called during directory close to ensure cleared lock -
+                    agilityContext.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FILE_LOCK_CLEAR,
+                            agilityContext.apply(fileLockFunc));
+                }
+                agilityContext.recordEvent(LuceneEvents.Events.LUCENE_FILE_LOCK_DURATION, System.nanoTime() - lockStartTime);
+                boolean flushed = false;
+                try {
+                    closed = true; // prevent lock stamp update
+                    agilityContext.flush();
+                    flushed = true;
+                } finally {
+                    closed = flushed; // allow close retry
+                    closingContext = null;
+                }
             }
         }
 
