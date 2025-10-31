@@ -64,6 +64,7 @@ import java.util.stream.Collectors;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
+import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -188,13 +189,13 @@ public class LuceneIndexTestValidator {
                         "partitionInfo.count", partitionInfo.getCount()));
                 // if partitionInfo.getCount() is wrong, this can be very confusing, so a different assertion might be
                 // worthwhile
+                assertThat(records, hasSize(greaterThanOrEqualTo(visitedCount + partitionInfo.getCount())));
                 final Set<Tuple> expectedPrimaryKeys = Set.copyOf(records.subList(visitedCount,
                         visitedCount + partitionInfo.getCount()));
                 validateDocsInPartition(recordStore, index, partitionInfo.getId(), groupingKey,
                         expectedPrimaryKeys,
                         universalSearch);
                 visitedCount += partitionInfo.getCount();
-                assertThat(records.size(), greaterThanOrEqualTo(visitedCount));
                 validatePrimaryKeySegmentIndex(recordStore, index, groupingKey, partitionInfo.getId(),
                         expectedPrimaryKeys, allowDuplicatePrimaryKeys);
                 expectedPrimaryKeys.forEach(primaryKey -> missingDocuments.get(groupingKey).remove(primaryKey));
@@ -296,10 +297,19 @@ public class LuceneIndexTestValidator {
         if (currentCount >= lowWatermark) {
             return true;
         }
+        if (currentCount == 0) {
+            if (partitionInfos.size() == 1) {
+                // we have no documents in the index, one partition must remain
+                return true;
+            } else {
+                // We have an empty partition that should have been deleted
+                return false;
+            }
+        }
         // here: count < lowWatermark
         int leftNeighborCapacity = currentPartitionIndex == 0 ? 0 : getPartitionExtraCapacity(partitionInfos.get(currentPartitionIndex - 1).getCount(), highWatermark);
         int rightNeighborCapacity = currentPartitionIndex == (partitionInfos.size() - 1) ? 0 : getPartitionExtraCapacity(partitionInfos.get(currentPartitionIndex + 1).getCount(), highWatermark);
-
+        // Ensure that if we have capacity in left and right neighbors, the records are moved away from currentPartition
         return currentCount > 0 && (leftNeighborCapacity + rightNeighborCapacity) < currentCount;
     }
 

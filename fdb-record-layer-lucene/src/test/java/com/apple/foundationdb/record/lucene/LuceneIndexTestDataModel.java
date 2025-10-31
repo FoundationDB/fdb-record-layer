@@ -599,7 +599,8 @@ public class LuceneIndexTestDataModel {
             this.parentPrimaryKey = primaryKey;
             this.childPrimaryKey = childPrimaryKey;
             this.syntheticPrimaryKey = syntheticPrimaryKey;
-            partitioningKey = Tuple.from(timestamp).addAll(primaryKey);
+            // The partitioning key for the record is the synthetic PK ("-1" + both PKs for constituents)
+            partitioningKey = Tuple.from(timestamp).addAll(syntheticPrimaryKey);
         }
 
         @Override
