@@ -1,0 +1,272 @@
+#
+# valid-identifiers.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+---
+options:
+    supported_version: !current_version
+---
+schema_template:
+    CREATE TYPE AS STRUCT "foo.struct"(S1 bigint, S2 bigint)
+    create table "foo.tableA"("foo.tableA.A1" bigint, "foo.tableA.A2" bigint, "foo.tableA.A3" bigint, primary key("foo.tableA.A1"))
+    create index "foo.tableA.idx" as select "foo.tableA.A1", "foo.tableA.A2", "foo.tableA.A3" FROM "foo.tableA" order by "foo.tableA.A1", "foo.tableA.A2", "foo.tableA.A3"
+    create index "foo.tableA.idx2" as select sum("foo.tableA.A1") FROM "foo.tableA" group by "foo.tableA.A2"
+    create index "foo.tableA.idx3" as select "foo.tableA.A2" FROM "foo.tableA" order by "foo.tableA.A2"
+
+    create table "foo.tableB"("foo.tableB.B1" bigint, "foo.tableB.B2" bigint, "foo.tableB.B3" "foo.struct", primary key("foo.tableB.B1"))
+
+    create table "foo$tableC"("foo$tableC$C1" bigint, "foo$tableC$C2" bigint, "foo$tableC$C3" bigint, primary key("foo$tableC$C1"))
+    create index "foo$tableC$idx" as select "foo$tableC$C1", "foo$tableC$C2", "foo$tableC$C3" FROM "foo$tableC" order by "foo$tableC$C1", "foo$tableC$C2", "foo$tableC$C3"
+    create index "foo$tableC$idx2" as select sum("foo$tableC$C1") FROM "foo$tableC" group by "foo$tableC$C2"
+
+    create table "__foo__tableD"("__foo__tableD$D1" bigint, "__foo__tableD$D2" bigint, "__foo__tableD$D3" bigint, primary key("__foo__tableD$D1"))
+    create index "__foo__tableD$idx" as select "__foo__tableD$D1", "__foo__tableD$D2", "__foo__tableD$D3" FROM "__foo__tableD" order by "__foo__tableD$D1", "__foo__tableD$D2", "__foo__tableD$D3"
+    create index "__foo__tableD$idx2" as select sum("__foo__tableD$D1") FROM "__foo__tableD" group by "__foo__tableD$D2"
+
+    create table "foo.tableE"("foo.tableE.E1" bigint, "foo.tableE.E2" bigint array, "foo.tableE.E3" "foo.struct", primary key("foo.tableE.E1"))
+
+    create table "my$adjacency$list"("me" bigint, "my__parent" bigint, primary key("me"))
+    create function "__$func1" ( in "__$func1$A" bigint, in "__$func1$B" bigint )
+       as select "me" as "__1", "my__parent" as "__2" from "my$adjacency$list" where "me" < "__$func1$A" and "my$adjacency$list"."my__parent" = "__$func1$B"
+    create function "__$func2" ( "__$func2$A" bigint )
+       as select "me" as "__1", "my__parent" as "__2" from "my$adjacency$list" where "me" = "__$func2$A"
+    create function "__$func3" ( in "__$func3$A" bigint, in "__$func3$B" bigint, in "__$func3$C" bigint) as select "...f1"."__1", "...f1"."__2", "...f2"."__1", "...f2"."__2" from "__$func1"("__$func3$A", "__$func3$B") "...f1", "__$func2"("__$func3$C") "...f2"
+---
+setup:
+  steps:
+    - query: INSERT INTO "foo.tableA"
+        VALUES (1, 10, 1),
+               (2, 10, 2)
+    - query: INSERT INTO "foo.tableB"
+        VALUES (1, 20, (4, 40)),
+               (2, 20, (5, 50)),
+               (3, 20, (6, 60))
+
+    - query: INSERT INTO "foo.tableE"
+        VALUES (1, [1, 2, 3], (4, 40)),
+               (2, [2, 3, 4], (5, 50)),
+               (3, [3, 4, 5], (6, 60))
+    - query: INSERT INTO "foo$tableC"
+        VALUES (1, 20, 1),
+               (2, 20, 2),
+               (3, 20, 3),
+               (4, 20, 4)
+    - query: INSERT INTO "__foo__tableD"
+        VALUES (1, 20, 1),
+               (2, 20, 2),
+               (3, 20, 3),
+               (4, 20, 4)
+    - query: INSERT INTO "my$adjacency$list"
+        VALUES (1, -1),
+               (2, 1),
+               (3, 1),
+               (4, 1),
+               (5, 2),
+               (6, 2)
+---
+test_block:
+  name: insert-explicit-columns
+  preset: single_repetition_ordered
+  tests:
+    -
+      - query: INSERT INTO "foo.tableA" ("foo.tableA.A3", "foo.tableA.A1", "foo.tableA.A2") VALUES (3, 3, 10)
+      - count: 1
+---
+test_block:
+  name: all-tests
+  preset: single_repetition_ordered
+  tests:
+    -
+      # qualified star
+      - query: select "foo.tableA".* from "foo.tableA";
+      - result: [{"foo.tableA.A1": 1 , "foo.tableA.A2": 10, "foo.tableA.A3": 1}, {"foo.tableA.A1": 2, "foo.tableA.A2": 10, "foo.tableA.A3": 2}, {"foo.tableA.A1": 3, "foo.tableA.A2": 10, "foo.tableA.A3": 3}]
+    -
+      # non-qualified star
+      - query: select * from "foo.tableA";
+      - result: [{"foo.tableA.A1": 1 , 10, 1}, {"foo.tableA.A1": 2, 10, 2}, {"foo.tableA.A1": 3, 10, 3}]
+    -
+      # aliased star
+      - query: select "$$$".* from "foo.tableA" as "$$$";
+      - result: [{"foo.tableA.A1": 1 , 10, 1}, {"foo.tableA.A1": 2, 10, 2}, {"foo.tableA.A1": 3, 10, 3}]
+    -
+      # with predicate
+      - query: select "foo.tableA".* from "foo.tableA" where "foo.tableA.A3" >= 2;
+      - result: [{"foo.tableA.A1": 2, "foo.tableA.A2": 10, "foo.tableA.A3": 2}, {"foo.tableA.A1": 3, "foo.tableA.A2": 10, "foo.tableA.A3": 3}]
+    -
+      # qualified select element
+      - query: select "foo.tableA"."foo.tableA.A1" from "foo.tableA";
+      - result: [{"foo.tableA.A1": 1}, {"foo.tableA.A1": 2}, {"foo.tableA.A1": 3}]
+    -
+      # with select element alias
+      - query: select "foo.tableA"."foo.tableA.A1" AS "__.__" from "foo.tableA";
+      - result: [{"__.__": 1}, {"__.__": 2}, {"__.__": 3}]
+    -
+      # multi-level CTEs
+      - query: with "$__$__$" as (with "$__$" as (select "foo.tableA.A1" as "$" from "foo.tableA") select * from "$__$") select * from "$__$__$"
+      - result: [{"$": 1}, {"$": 2}, {"$": 3}]
+    -
+      # CTEs with column aliases
+      - query: with "$__$" ("$$a", "$$b", "$$c") as (select "foo.tableA".* from "foo.tableA") select * from "$__$"
+      - result: [{"$$a": 1, "$$b": 10, "$$c": 1}, {"$$a": 2, "$$b": 10, "$$c": 2}, {"$$a": 3, "$$b": 10, "$$c": 3}]
+    -
+      # with recursive CTE
+      - query: with recursive "$__$" as (
+            select "me", "my__parent", 0 as "__level__" from "my$adjacency$list" where "me" = 5
+            union all
+            select "$"."me", "$"."my__parent", "$$".y as "__level__" from "my$adjacency$list" as "$", (select "me", "my__parent", "__level__" + 1 as y from "$__$") as "$$" where "$$"."my__parent" = "$"."me")
+            traversal order pre_order
+            select "me", "my__parent", "__level__" from "$__$"
+      - result: [{"me": 5, "my__parent": 2, "__level__": 0}, {"me": 2, "my__parent": 1, "__level__": 1}, {"me": 1, "my__parent": -1, "__level__": 2}]
+    -
+      # recursive CTE with column aliases
+      - query: with recursive "$__$" ("__a", "__b", "__c") as (
+            select "me", "my__parent", 0 as "__level__" from "my$adjacency$list" where "me" = 5
+            union all
+            select "$"."me", "$"."my__parent", "$$".y as "__level__" from "my$adjacency$list" as "$", (select "me", "my__parent", "__level__" + 1 as y from "$__$") as "$$" where "$$"."my__parent" = "$"."me")
+            traversal order pre_order
+            select "__a", "__b", "__c" from "$__$"
+      - result: [{"__a": 5, "__b": 2, "__c": 0}, {"__a": 2, "__b": 1, "__c": 1}, {"__a": 1, "__b": -1, "__c": 2}]
+    -
+      # with non-qualified select element
+      - query: select "foo.tableA.A1" from "foo.tableA";
+      - result: [{"foo.tableA.A1": 1}, {"foo.tableA.A1": 2}, {"foo.tableA.A1": 3}]
+    -
+      # order by
+      - query: select "foo.tableA".* from "foo.tableA" where "foo.tableA.A3" >= 2 order by "foo.tableA.A1";
+      - result: [{"foo.tableA.A1": 2, "foo.tableA.A2": 10, "foo.tableA.A3": 2}, {"foo.tableA.A1": 3, "foo.tableA.A2": 10, "foo.tableA.A3": 3}]
+    -
+      # order by alias
+      - query: select "foo.tableA.A1" as "_______" from "foo.tableA" where "foo.tableA.A3" >= 2 order by "_______";
+      - result: [{"_______": 2}, {"_______": 3}]
+    -
+      # group by
+      - query: select sum("foo.tableA.A1") from "foo.tableA" group by "foo.tableA.A2";
+      - result: [{6}]
+    -
+      # group by alias
+      - query: select "__$__" from "foo.tableA" group by "foo.tableA.A2" as "__$__";
+      - result: [{10}]
+    -
+      # star over simple join
+      - query: select * from "foo.tableA", "foo.tableB" where "foo.tableA"."foo.tableA.A1" = "foo.tableB"."foo.tableB.B1";
+      - result: [{"foo.tableA.A1": 1 , "foo.tableA.A2": 10, "foo.tableA.A3": 1, "foo.tableB.B1": 1, "foo.tableB.B2": 20, "foo.tableB.B3": {4, 40}},
+                 {"foo.tableA.A1": 2, "foo.tableA.A2": 10, "foo.tableA.A3": 2, "foo.tableB.B1": 2, "foo.tableB.B2": 20, "foo.tableB.B3": {5, 50}},
+                 {"foo.tableA.A1": 3, "foo.tableA.A2": 10, "foo.tableA.A3": 3, "foo.tableB.B1": 3, "foo.tableB.B2": 20, "foo.tableB.B3": {6, 60}}]
+    -
+      # qualified star over simple join
+      - query: select "foo.tableA".*, "foo.tableB".* from "foo.tableA", "foo.tableB" where "foo.tableA"."foo.tableA.A1" = "foo.tableB"."foo.tableB.B1";
+      - result: [{"foo.tableA.A1": 1 , "foo.tableA.A2": 10, "foo.tableA.A3": 1, "foo.tableB.B1": 1, "foo.tableB.B2": 20, "foo.tableB.B3": {4, 40}},
+                 {"foo.tableA.A1": 2, "foo.tableA.A2": 10, "foo.tableA.A3": 2, "foo.tableB.B1": 2, "foo.tableB.B2": 20, "foo.tableB.B3": {5, 50}},
+                 {"foo.tableA.A1": 3, "foo.tableA.A2": 10, "foo.tableA.A3": 3, "foo.tableB.B1": 3, "foo.tableB.B2": 20, "foo.tableB.B3": {6, 60}}]
+    -
+      - query: select "foo$tableC".* from "foo$tableC";
+      - result: [{"foo$tableC$C1": 1 , "foo$tableC$C2": 20, "foo$tableC$C3": 1}, {"foo$tableC$C1": 2, "foo$tableC$C2": 20, "foo$tableC$C3": 2}, {"foo$tableC$C1": 3, "foo$tableC$C2": 20, "foo$tableC$C3": 3}, {"foo$tableC$C1": 4, "foo$tableC$C2": 20, "foo$tableC$C3": 4}]
+    -
+      - query: select "foo$tableC".* from "foo$tableC" where "foo$tableC$C3" >= 2;
+      - result: [{"foo$tableC$C1": 2, "foo$tableC$C2": 20, "foo$tableC$C3": 2}, {"foo$tableC$C1": 3, "foo$tableC$C2": 20, "foo$tableC$C3": 3}, {"foo$tableC$C1": 4, "foo$tableC$C2": 20, "foo$tableC$C3": 4}]
+    -
+      - query: select "foo$tableC"."foo$tableC$C1" from "foo$tableC";
+      - result: [{"foo$tableC$C1": 1}, {"foo$tableC$C1": 2}, {"foo$tableC$C1": 3}, {"foo$tableC$C1": 4}]
+    -
+      - query: select "foo$tableC$C1" from "foo$tableC";
+      - result: [{"foo$tableC$C1": 1}, {"foo$tableC$C1": 2}, {"foo$tableC$C1": 3}, {"foo$tableC$C1": 4}]
+    -
+      - query: select "foo$tableC".* from "foo$tableC" where "foo$tableC$C3" >= 2 order by "foo$tableC$C1";
+      - result: [{"foo$tableC$C1": 2, "foo$tableC$C2": 20, "foo$tableC$C3": 2}, {"foo$tableC$C1": 3, "foo$tableC$C2": 20, "foo$tableC$C3": 3}, {"foo$tableC$C1": 4, "foo$tableC$C2": 20, "foo$tableC$C3": 4}]
+    -
+      - query: select sum("foo$tableC$C1") from "foo$tableC" group by "foo$tableC$C2";
+      - result: [{10}]
+    -
+      - query: select "__foo__tableD".* from "__foo__tableD";
+      - result: [{"__foo__tableD$D1": 1 , "__foo__tableD$D2": 20, "__foo__tableD$D3": 1}, {"__foo__tableD$D1": 2, "__foo__tableD$D2": 20, "__foo__tableD$D3": 2}, {"__foo__tableD$D1": 3, "__foo__tableD$D2": 20, "__foo__tableD$D3": 3}, {"__foo__tableD$D1": 4, "__foo__tableD$D2": 20, "__foo__tableD$D3": 4}]
+    -
+      - query: select "__foo__tableD".* from "__foo__tableD" where "__foo__tableD$D3" >= 2;
+      - result: [{"__foo__tableD$D1": 2, "__foo__tableD$D2": 20, "__foo__tableD$D3": 2}, {"__foo__tableD$D1": 3, "__foo__tableD$D2": 20, "__foo__tableD$D3": 3}, {"__foo__tableD$D1": 4, "__foo__tableD$D2": 20, "__foo__tableD$D3": 4}]
+    -
+      - query: select "__foo__tableD"."__foo__tableD$D1" from "__foo__tableD";
+      - result: [{"__foo__tableD$D1": 1}, {"__foo__tableD$D1": 2}, {"__foo__tableD$D1": 3}, {"__foo__tableD$D1": 4}]
+    -
+      - query: select "__foo__tableD$D1" from "__foo__tableD";
+      - result: [{"__foo__tableD$D1": 1}, {"__foo__tableD$D1": 2}, {"__foo__tableD$D1": 3}, {"__foo__tableD$D1": 4}]
+    -
+      - query: select "__foo__tableD".* from "__foo__tableD" where "__foo__tableD$D3" >= 2 order by "__foo__tableD$D1";
+      - result: [{"__foo__tableD$D1": 2, "__foo__tableD$D2": 20, "__foo__tableD$D3": 2}, {"__foo__tableD$D1": 3, "__foo__tableD$D2": 20, "__foo__tableD$D3": 3}, {"__foo__tableD$D1": 4, "__foo__tableD$D2": 20, "__foo__tableD$D3": 4}]
+    -
+      - query: select sum("__foo__tableD$D1") from "__foo__tableD" group by "__foo__tableD$D2";
+      - result: [{10}]
+    -
+      # fanned-out array
+      - query: select "foo.tableE.__array_elements" from "foo.tableE", "foo.tableE"."foo.tableE.E2" as "foo.tableE.__array_elements" where "foo.tableE.E3".S1 = 5;
+      - result: [{2}, {3}, {4}]
+    -
+      # function
+      - query: select * from "__$func3"(10, 1, 1);
+      - result: [{"_0": 2, "_1": 1, "_2": 1, "_3": -1}, {"_0": 3, "_1": 1, "_2": 1, "_3": -1}, {"_0": 4, "_1": 1, "_2": 1, "_3": -1}]
+    -
+      # inline table definition
+      - query: select * from values (1, 2, 3), (4, 5, 6) as "$$$$"("$$$", "$$", "$")
+      - result: [{"$$$": 1, "$$": 2, "$": 3}, { "$$$": 4, "$$": 5, "$": 6}]
+    -
+      # named record construction
+      - query: select struct "$$" ("foo.tableA.A1", "foo.tableA.A2", "foo.tableA.A3") from "foo.tableA"
+      - result: [{{"foo.tableA.A1": 1 , "foo.tableA.A2": 10, "foo.tableA.A3": 1}}, {{"foo.tableA.A1": 2, "foo.tableA.A2": 10, "foo.tableA.A3": 2}}, {{"foo.tableA.A1": 3, "foo.tableA.A2": 10, "foo.tableA.A3": 3}}]
+    -
+      # named record construction with uid star
+      - query: select struct "$$" ("foo.tableA".*) from "foo.tableA"
+      - result: [{{"foo.tableA.A1": 1 , "foo.tableA.A2": 10, "foo.tableA.A3": 1}}, {{"foo.tableA.A1": 2, "foo.tableA.A2": 10, "foo.tableA.A3": 2}}, {{"foo.tableA.A1": 3, "foo.tableA.A2": 10, "foo.tableA.A3": 3}}]
+    -
+      # named record construction with aliased expressions
+      - query: select struct "$$" ("foo.tableA.A2" + "foo.tableA.A1" as "__$$__") from "foo.tableA"
+      - result: [{{"__$$__": 11}}, {{"__$$__": 12}}, {{"__$$__": 13}}]
+---
+test_block:
+  name: update-delete-statements
+  preset: single_repetition_ordered
+  tests:
+    -
+      - query: UPDATE "foo.tableA" SET "foo.tableA.A2" = 100 WHERE "foo.tableA.A1" = 1
+      - count: 1
+    -
+      - query: UPDATE "foo.tableA" SET "foo.tableA.A2" = 100 WHERE "foo.tableA.A1" > 1 RETURNING "new"."foo.tableA.A1"
+      - result: [{"foo.tableA.A1" : 2}, {"foo.tableA.A1" : 3}]
+    -
+      - query: DELETE FROM "foo.tableA" WHERE "foo.tableA.A1" = 1 RETURNING "foo.tableA.A1" + "foo.tableA.A2" + "foo.tableA.A3"
+      - result: [{102}]
+    -
+      - query: DELETE FROM "foo.tableA" WHERE "foo.tableA.A2" = 100
+      - count: 2
+---
+setup:
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  steps:
+    - query: drop schema template if exists "टेम्पलेट"
+    - query: create schema template "टेम्पलेट" create table T1(a1 bigint, primary key(a1))
+---
+test_block:
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  tests:
+    -
+      - query: select count(*) from "TEMPLATES" where template_name = 'टेम्पलेट'
+      - result: [{1}]
+# This does not work entirely, but theoretically should be possible!
+#---
+#setup:
+#  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+#  steps:
+#    - query: drop database if exists "/frl/डेटाबेस"
+#    - query: create database "/frl/डेटाबेस"
+...
