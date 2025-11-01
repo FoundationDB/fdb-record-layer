@@ -93,6 +93,7 @@ public final class FDBDirectoryLockFactory extends LockFactory {
         private FDBRecordContext closingContext = null;
         private final Object fileLockSetLock = new Object();
         private boolean clearingLockNow = false;
+        private final Object clearingLockNowLock = new Object();
 
         private FDBDirectoryLock(final AgilityContext agilityContext, final String lockName, byte[] fileLockKey, int timeWindowMilliseconds) {
             this.agilityContext = agilityContext;
@@ -210,18 +211,13 @@ public final class FDBDirectoryLockFactory extends LockFactory {
             }
         }
 
-        private synchronized boolean inRecursiveClearLock() {
-            if (clearingLockNow) {
-                return true;
-            }
-            clearingLockNow = true;
-            return false;
-        }
-
         private void fileLockClearFlushAndClose(boolean isRecovery) {
-            if (inRecursiveClearLock()) {
+            synchronized (clearingLockNowLock) {
                 // Here: this function is being called from too many paths. Until cleanup, this guard is here to avoid recursions
-                return;
+                if (clearingLockNow) {
+                    return;
+                }
+                clearingLockNow = true;
             }
             Function<FDBRecordContext, CompletableFuture<Void>> fileLockFunc = aContext ->
                     aContext.ensureActive().get(fileLockKey)
@@ -257,7 +253,10 @@ public final class FDBDirectoryLockFactory extends LockFactory {
             } finally {
                 closed = flushed; // allow close retry
                 closingContext = null;
-                clearingLockNow = false;
+                synchronized (clearingLockNowLock) {
+                    // clearing under lock to avoid spotbugsMain's "Inconsistent synchronization" issue.
+                    clearingLockNow = false;
+                }
             }
         }
 
