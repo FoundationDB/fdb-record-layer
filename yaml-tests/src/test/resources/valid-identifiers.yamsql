@@ -351,11 +351,91 @@ test_block:
                create table T1(id2 bigint, id3 bigint, primary key(id2))
                create view "नमस्ते" as SELECT id3 from T1
       - error: "42602"
-# This does not work entirely, but theoretically should be possible!
-#---
-#setup:
-#  connect: "jdbc:embed:/__SYS?schema=CATALOG"
-#  steps:
-#    - query: drop database if exists "/frl/डेटाबेस"
-#    - query: create database "/frl/डेटाबेस"
+---
+setup:
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  steps:
+    - query: drop schema template if exists IDENTIFIERS_PROTO_TEMPLATE
+    - query: drop database if exists /FRL/IDENTIFIERS_PROTO_YAML
+    - query: create database /FRL/IDENTIFIERS_PROTO_YAML
+    - load schema template: IDENTIFIERS_PROTO_TEMPLATE from com.apple.foundationdb.relational.yamltests.generated.identifierstests.IdentifiersTestProto
+    - query: create schema /FRL/IDENTIFIERS_PROTO_YAML/test with template IDENTIFIERS_PROTO_TEMPLATE
+    - set schema state: "{\"name\": \"TEST\", \"database_id\": \"/FRL/IDENTIFIERS_PROTO_YAML\", \"template_name\": \"IDENTIFIERS_PROTO_TEMPLATE\", \"store_info\" : {\"formatVersion\": 2}}"# This does not work entirely, but theoretically should be possible!
+---
+setup:
+  connect: "jdbc:embed:/FRL/IDENTIFIERS_PROTO_YAML?schema=TEST"
+  steps:
+    - query: INSERT INTO T1
+        VALUES (1, 10, 1),
+               (2, 10, 2),
+               (3, 10, 3),
+               (4, 10, 4),
+               (5, 10, 5)
+    - query: INSERT INTO T2
+        VALUES (6, 10, 6),
+               (7, 10, 7),
+               (8, 10, 8),
+               (9, 10, 9),
+               (10, 10, 10)
+    - query: INSERT INTO "__T3"
+        VALUES (11, 10, 11),
+               (12, 10, 12),
+               (13, 10, 13),
+               (14, 10, 14),
+               (15, 10, 15)
+    - query: INSERT INTO T4
+        VALUES (16, (11, 16), 10, 16),
+               (17, (11, 17), 10, 17),
+               (18, (11, 18), 10, 18),
+               (19, (11, 19), 10, 19),
+               (20, (22, 20), 10, 20)
+---
+test_block:
+  connect: "jdbc:embed:/FRL/IDENTIFIERS_PROTO_YAML?schema=TEST"
+  tests:
+    -
+      - query: SELECT * FROM T1
+      - result: [{"ID": 1, "T1.COL1": 10, "T1.COL2" : 1}, {"ID": 2, "T1.COL1": 10, "T1.COL2" : 2}, {"ID": 3, "T1.COL1": 10, "T1.COL2" : 3}, {"ID": 4, "T1.COL1": 10, "T1.COL2" : 4}, {"ID": 5, "T1.COL1": 10, "T1.COL2" : 5}]
+    -
+      - query: SELECT * FROM T1 WHERE "T1.COL2" > 3
+      - result: [{"ID": 4, "T1.COL1": 10, "T1.COL2" : 4}, {"ID": 5, "T1.COL1": 10, "T1.COL2" : 5}]
+    -
+      - query: SELECT "T1.COL2" FROM T1 WHERE "T1.COL2" > 3
+      - result: [{4}, {5}]
+    -
+      - query: SELECT * FROM T2
+      - result: [{"ID": 6, "T2$COL1": 10, "T2$COL2" : 6}, {"ID": 7, "T2$COL1": 10, "T2$COL2" : 7}, {"ID": 8, "T2$COL1": 10, "T2$COL2" : 8}, {"ID": 9, "T2$COL1": 10, "T2$COL2" : 9}, {"ID": 10, "T2$COL1": 10, "T2$COL2" : 10}]
+    -
+      - query: SELECT * FROM T2 WHERE "T2$COL2" > 8
+      - result: [{"ID": 9, "T2$COL1": 10, "T2$COL2" : 9}, {"ID": 10, "T2$COL1": 10, "T2$COL2" : 10}]
+    -
+      - query: SELECT "T2$COL2" FROM T2 WHERE "T2$COL2" > 8
+      - result: [{9}, {10}]
+    -
+      - query: SELECT * FROM "__T3"
+      - result: [{"ID": 11, "__T3$COL1": 10, "__T3$COL2" : 11}, {"ID": 12, "__T3$COL1": 10, "__T3$COL2" : 12}, {"ID": 13, "__T3$COL1": 10, "__T3$COL2" : 13}, {"ID": 14, "__T3$COL1": 10, "__T3$COL2" : 14}, {"ID": 15, "__T3$COL1": 10, "__T3$COL2" : 15}]
+    -
+      - query: SELECT * FROM "__T3" WHERE "__T3$COL2" > 13
+      - result: [{"ID": 14, "__T3$COL1": 10, "__T3$COL2" : 14}, {"ID": 15, "__T3$COL1": 10, "__T3$COL2" : 15}]
+    -
+      - query: SELECT "__T3$COL2" FROM "__T3" WHERE "__T3$COL2" > 13
+      - result: [{14}, {15}]
+    -
+      - query: SELECT * FROM T4
+      - result: [{"ID": 16, "___hidden": {11, 16}, "T4.COL1": 10, "T4.COL2" : 16}, {"ID": 17, "___hidden": {11, 17}, "T4.COL1": 10, "T4.COL2" : 17}, {"ID": 18, "___hidden": {11, 18}, "T4.COL1": 10, "T4.COL2" : 18}, {"ID": 19, "___hidden": {11, 19}, "T4.COL1": 10, "T4.COL2" : 19}, {"ID": 20, "___hidden": {22, 20}, "T4.COL1": 10, "T4.COL2" : 20}]
+    -
+      - query: SELECT * FROM T4 WHERE "T4.COL2" > 18
+      - result: [{"ID": 19, "___hidden": {11, 19}, "T4.COL1": 10, "T4.COL2" : 19}, {"ID": 20, "___hidden": {22, 20}, "T4.COL1": 10, "T4.COL2" : 20}]
+    -
+      - query: SELECT "T4.COL2" FROM T4 WHERE "T4.COL2" > 18
+      - result: [{19}, {20}]
+    -
+      - query: SELECT "___hidden"."a" FROM T4
+      - result: [{11}, {11}, {11}, {11}, {22}]
+---
+setup:
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  steps:
+    - query: drop schema template IDENTIFIERS_PROTO_TEMPLATE
+    - query: drop database /FRL/IDENTIFIERS_PROTO_YAML
 ...

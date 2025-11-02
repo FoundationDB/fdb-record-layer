@@ -44,7 +44,7 @@ public class DataTypeUtils {
     private static final String DOLLAR_ESCAPE = "__1";
     private static final String DOT_ESCAPE = "__2";
 
-    private static final List<Character> INVALID_START_CHARACTERS = List.of('.', '$');
+    private static final List<String> INVALID_START_SEQUENCES = List.of(".", "$", "__0", "__1", "__2");
 
     private static final Pattern VALID_PROTOBUF_COMPLIANT_NAME_PATTERN = Pattern.compile("^[A-Za-z_][A-Za-z0-9_]*$");
 
@@ -122,19 +122,14 @@ public class DataTypeUtils {
     }
 
     @Nonnull
-    public static String toProtoBufCompliantName(final String userIdentifier) {
-        // In case the name is prefixed with `__`, keep the prefix intact and translate the remaining.
+    public static String toProtoBufCompliantName(final String name) {
+        Assert.thatUnchecked(INVALID_START_SEQUENCES.stream().noneMatch(name::startsWith), ErrorCode.INVALID_NAME, "name cannot start with %s", INVALID_START_SEQUENCES);
         String translated;
-        if (userIdentifier.startsWith("__")) {
-            if (userIdentifier.length() == 2) {
-                return userIdentifier;
-            }
-            Assert.thatUnchecked(!(userIdentifier.charAt(2) >= '0' && userIdentifier.charAt(2) <= '9'), ErrorCode.INVALID_NAME, "name cannot start with __ followed by a digit", INVALID_START_CHARACTERS);
-            translated = "__" + translateSpecialCharacters(userIdentifier.substring(2));
+        if (name.startsWith("__")) {
+            translated = "__" + translateSpecialCharacters(name.substring(2));
         } else {
-            Assert.thatUnchecked(!userIdentifier.isEmpty(), ErrorCode.INVALID_NAME, "name cannot be empty String.");
-            Assert.thatUnchecked(!INVALID_START_CHARACTERS.contains(userIdentifier.charAt(0)), ErrorCode.INVALID_NAME, "name cannot start with %s", INVALID_START_CHARACTERS);
-            translated = translateSpecialCharacters(userIdentifier);
+            Assert.thatUnchecked(!name.isEmpty(), ErrorCode.INVALID_NAME, "name cannot be empty String.");
+            translated = translateSpecialCharacters(name);
         }
         checkValidProtoBufCompliantName(translated);
         return translated;
