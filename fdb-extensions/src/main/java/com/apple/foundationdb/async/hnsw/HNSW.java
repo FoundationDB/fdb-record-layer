@@ -29,8 +29,10 @@ import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.linear.AffineOperator;
 import com.apple.foundationdb.linear.Estimator;
 import com.apple.foundationdb.linear.FhtKacRotator;
+import com.apple.foundationdb.linear.Metric;
 import com.apple.foundationdb.linear.Quantizer;
 import com.apple.foundationdb.linear.RealVector;
+import com.apple.foundationdb.linear.Transformed;
 import com.apple.foundationdb.rabitq.RaBitQuantizer;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
@@ -86,9 +88,6 @@ import static com.apple.foundationdb.async.MoreAsyncUtil.forLoop;
 public class HNSW {
     @Nonnull
     private static final Logger logger = LoggerFactory.getLogger(HNSW.class);
-
-    public static final int MAX_CONCURRENT_NODE_READS = 16;
-    public static final int MAX_CONCURRENT_NEIGHBOR_FETCHES = 3;
 
     @Nonnull
     private final Random random;
@@ -275,7 +274,7 @@ public class HNSW {
                     final EntryNodeReference entryNodeReference = accessInfo.getEntryNodeReference();
 
                     final AffineOperator storageTransform = storageTransform(accessInfo);
-                    final RealVector transformedQueryVector = storageTransform.apply(queryVector);
+                    final Transformed<RealVector> transformedQueryVector = storageTransform.transform(queryVector);
                     final Quantizer quantizer = quantizer(accessInfo);
                     final Estimator estimator = quantizer.estimator();
 
@@ -332,7 +331,7 @@ public class HNSW {
                              final int efSearch,
                              @Nonnull final NodeReferenceWithDistance nodeReference,
                              final boolean includeVectors,
-                             @Nonnull final RealVector transformedQueryVector) {
+                             @Nonnull final Transformed<RealVector> transformedQueryVector) {
         return searchLayer(storageAdapter, readTransaction, storageTransform, estimator,
                 ImmutableList.of(nodeReference), 0, efSearch, Maps.newConcurrentMap(),
                 transformedQueryVector)
@@ -356,7 +355,7 @@ public class HNSW {
                     Objects.requireNonNull(nodeReferenceAndNode).getNodeReferenceWithDistance();
             final AbstractNode<N> node = nodeReferenceAndNode.getNode();
             @Nullable final RealVector reconstructedVector =
-                    includeVectors ? storageTransform.invertedApply(node.asCompactNode().getVector()) : null;
+                    includeVectors ? storageTransform.untransform(node.asCompactNode().getVector()) : null;
 
             resultBuilder.add(
                     new ResultEntry(node.getPrimaryKey(),
@@ -393,7 +392,7 @@ public class HNSW {
                               @Nonnull final Estimator estimator,
                               @Nonnull final NodeReferenceWithDistance nodeReference,
                               final int layer,
-                              @Nonnull final RealVector queryVector) {
+                              @Nonnull final Transformed<RealVector> queryVector) {
         return searchLayer(storageAdapter, readTransaction, storageTransform, estimator,
                 ImmutableList.of(nodeReference), layer, 1, Maps.newConcurrentMap(), queryVector)
                 .thenApply(searchResult ->
@@ -440,14 +439,14 @@ public class HNSW {
                         final int layer,
                         final int efSearch,
                         @Nonnull final Map<Tuple, AbstractNode<N>> nodeCache,
-                        @Nonnull final RealVector queryVector) {
+                        @Nonnull final Transformed<RealVector> queryVector) {
         final Set<Tuple> visited = Sets.newConcurrentHashSet(NodeReference.primaryKeys(nodeReferences));
         final Queue<NodeReferenceWithDistance> candidates =
                 new PriorityQueue<>(config.getM(),
                         Comparator.comparing(NodeReferenceWithDistance::getDistance));
         candidates.addAll(nodeReferences);
         final Queue<NodeReferenceWithDistance> nearestNeighbors =
-                new PriorityQueue<>(efSearch,
+                new PriorityQueue<>(efSearch + 1, // prevent reallocation further down
                         Comparator.comparing(NodeReferenceWithDistance::getDistance)
                                 .thenComparing(NodeReferenceWithDistance::getPrimaryKey).reversed());
         nearestNeighbors.addAll(nodeReferences);
@@ -735,27 +734,8 @@ public class HNSW {
         return forEach(nodeReferences,
                 currentNeighborReference -> fetchNodeIfNecessaryAndApply(storageAdapter, readTransaction,
                         storageTransform, layer, currentNeighborReference, fetchBypassFunction, biMapFunction),
-                MAX_CONCURRENT_NODE_READS,
+                getConfig().getMaxNumConcurrentNodeFetches(),
                 getExecutor());
-    }
-
-    /**
-     * Asynchronously inserts a node reference and its corresponding vector into the index.
-     * <p>
-     * This is a convenience method that extracts the primary key and vector from the
-     * provided {@link NodeReferenceWithVector} and delegates to the
-     * {@link #insert(Transaction, Tuple, RealVector)} method.
-     *
-     * @param transaction the transaction context for the operation. Must not be {@code null}.
-     * @param nodeReferenceWithVector a container object holding the primary key of the node
-     * and its vector representation. Must not be {@code null}.
-     *
-     * @return a {@link CompletableFuture} that will complete when the insertion operation is finished.
-     */
-    @Nonnull
-    public CompletableFuture<Void> insert(@Nonnull final Transaction transaction,
-                                          @Nonnull final NodeReferenceWithVector nodeReferenceWithVector) {
-        return insert(transaction, nodeReferenceWithVector.getPrimaryKey(), nodeReferenceWithVector.getVector());
     }
 
     /**
@@ -789,7 +769,7 @@ public class HNSW {
                 .thenCompose(accessInfo -> {
                     final AccessInfo currentAccessInfo;
                     final AffineOperator storageTransform = storageTransform(accessInfo);
-                    final RealVector transformedNewVector = storageTransform.apply(newVector);
+                    final Transformed<RealVector> transformedNewVector = storageTransform.transform(newVector);
                     final Quantizer quantizer = quantizer(accessInfo);
                     final Estimator estimator = quantizer.estimator();
 
@@ -872,7 +852,7 @@ public class HNSW {
     @Nonnull
     private CompletableFuture<Void> addToStatsIfNecessary(@Nonnull final Transaction transaction,
                                                           @Nonnull final AccessInfo currentAccessInfo,
-                                                          @Nonnull final RealVector transformedNewVector) {
+                                                          @Nonnull final Transformed<RealVector> transformedNewVector) {
         if (getConfig().isUseRaBitQ() && !currentAccessInfo.canUseRaBitQ()) {
             if (shouldSampleVector()) {
                 StorageAdapter.appendSampledVector(transaction, getSubspace(),
@@ -887,7 +867,7 @@ public class HNSW {
 
                             if (aggregatedSampledVector != null) {
                                 final int partialCount = aggregatedSampledVector.getPartialCount();
-                                final RealVector partialVector = aggregatedSampledVector.getPartialVector();
+                                final Transformed<RealVector> partialVector = aggregatedSampledVector.getPartialVector();
                                 StorageAdapter.appendSampledVector(transaction, getSubspace(),
                                         partialCount, partialVector, onWriteListener);
                                 if (logger.isTraceEnabled()) {
@@ -900,22 +880,33 @@ public class HNSW {
                                     final FhtKacRotator rotator =
                                             new FhtKacRotator(rotatorSeed, getConfig().getNumDimensions(), 10);
 
-                                    final RealVector centroid =
+                                    final Transformed<RealVector> centroid =
                                             partialVector.multiply(-1.0d / partialCount);
-                                    final RealVector transformedCentroid = rotator.apply(centroid);
+                                    final RealVector rotatedCentroid =
+                                            rotator.apply(centroid.getUnderlyingVector());
+                                    final StorageTransform storageTransform =
+                                            new StorageTransform(rotator, rotatedCentroid);
 
-                                    final var transformedEntryNodeVector =
-                                            rotator.apply(currentAccessInfo.getEntryNodeReference()
-                                                    .getVector()).add(transformedCentroid);
+                                    //
+                                    // The entry node reference is expressed in a transformation that has so-far been
+                                    // the identity-transformation. We now need to get the underlying identical vector
+                                    // and, for the first time, transform that vector into the new rotated and
+                                    // translated coordinate system. In this way we guarantee, that the entry node is
+                                    // always expressed in the internal system, while data vectors may be a mix of
+                                    // vectors.
+                                    //
+                                    final Transformed<RealVector> transformedEntryNodeVector =
+                                            storageTransform.transform(currentAccessInfo.getEntryNodeReference()
+                                                    .getVector().getUnderlyingVector());
 
                                     final AccessInfo newAccessInfo =
                                             new AccessInfo(currentAccessInfo.getEntryNodeReference().withVector(transformedEntryNodeVector),
-                                                    rotatorSeed, transformedCentroid);
+                                                    rotatorSeed, rotatedCentroid);
                                     StorageAdapter.writeAccessInfo(transaction, getSubspace(), newAccessInfo, onWriteListener);
                                     StorageAdapter.removeAllSampledVectors(transaction, getSubspace());
                                     if (logger.isTraceEnabled()) {
                                         logger.trace("established rotatorSeed={}, centroid with count={}, centroid={}",
-                                                rotatorSeed, partialCount, transformedCentroid);
+                                                rotatorSeed, partialCount, rotatedCentroid);
                                     }
                                 }
                             }
@@ -928,7 +919,7 @@ public class HNSW {
 
     @Nullable
     private AggregatedVector aggregateVectors(@Nonnull final Iterable<AggregatedVector> vectors) {
-        RealVector partialVector = null;
+        Transformed<RealVector> partialVector = null;
         int partialCount = 0;
         for (final AggregatedVector vector : vectors) {
             partialVector = partialVector == null
@@ -944,9 +935,9 @@ public class HNSW {
      * This method implements the second phase of the HNSW insertion algorithm. It begins at a starting layer, which is
      * the minimum of the graph's maximum layer ({@code lMax}) and the new node's randomly assigned
      * {@code insertionLayer}. It then iterates downwards to layer 0. In each layer, it invokes
-     * {@link #insertIntoLayer(StorageAdapter, Transaction, AffineOperator, Quantizer, List, int, Tuple, RealVector)} to
-     * perform the search and connect the new node. The set of nearest neighbors found at layer {@code L} serves as the
-     * entry points for the search at layer {@code L-1}.
+     * {@link #insertIntoLayer(StorageAdapter, Transaction, AffineOperator, Quantizer, List, int, Tuple, Transformed)}
+     * to perform the search and connect the new node. The set of nearest neighbors found at layer {@code L} serves as
+     * the entry points for the search at layer {@code L-1}.
      * </p>
      *
      * @param transaction the transaction to use for database operations
@@ -969,7 +960,7 @@ public class HNSW {
                                                      @Nonnull final AffineOperator storageTransform,
                                                      @Nonnull final Quantizer quantizer,
                                                      @Nonnull final Tuple newPrimaryKey,
-                                                     @Nonnull final RealVector newVector,
+                                                     @Nonnull final Transformed<RealVector> newVector,
                                                      @Nonnull final NodeReferenceWithDistance nodeReference,
                                                      final int lMax,
                                                      final int insertionLayer) {
@@ -1031,7 +1022,7 @@ public class HNSW {
                             @Nonnull final List<NodeReferenceWithDistance> nearestNeighbors,
                             final int layer,
                             @Nonnull final Tuple newPrimaryKey,
-                            @Nonnull final RealVector newVector) {
+                            @Nonnull final Transformed<RealVector> newVector) {
         if (logger.isTraceEnabled()) {
             logger.trace("begin insert key={} at layer={}", newPrimaryKey, layer);
         }
@@ -1085,7 +1076,7 @@ public class HNSW {
                                                                 }
                                                                 return resolveChangeSetFromNewNeighbors(changeSet, nodeReferencesAndNodes);
                                                             });
-                                                }, MAX_CONCURRENT_NEIGHBOR_FETCHES, getExecutor())
+                                                }, getConfig().getMaxNumConcurrentNeighborhoodFetches(), getExecutor())
                                         .thenApply(changeSets -> {
                                             for (int i = 0; i < selectedNeighbors.size(); i++) {
                                                 final NodeReferenceAndNode<N> selectedNeighbor = selectedNeighbors.get(i);
@@ -1277,13 +1268,14 @@ public class HNSW {
                             final int m,
                             final boolean isExtendCandidates,
                             @Nonnull final Map<Tuple, AbstractNode<N>> nodeCache,
-                            @Nonnull final RealVector vector) {
+                            @Nonnull final Transformed<RealVector> vector) {
+        final Metric metric = getConfig().getMetric();
         return extendCandidatesIfNecessary(storageAdapter, readTransaction, storageTransform, estimator,
                 nearestNeighbors, layer, isExtendCandidates, nodeCache, vector)
                 .thenApply(extendedCandidates -> {
                     final List<NodeReferenceWithDistance> selected = Lists.newArrayListWithExpectedSize(m);
                     final Queue<NodeReferenceWithDistance> candidates =
-                            new PriorityQueue<>(config.getM(),
+                            new PriorityQueue<>(extendedCandidates.size(),
                                     Comparator.comparing(NodeReferenceWithDistance::getDistance));
                     candidates.addAll(extendedCandidates);
                     final Queue<NodeReferenceWithDistance> discardedCandidates =
@@ -1295,11 +1287,14 @@ public class HNSW {
                     while (!candidates.isEmpty() && selected.size() < m) {
                         final NodeReferenceWithDistance nearestCandidate = candidates.poll();
                         boolean shouldSelect = true;
-                        for (final NodeReferenceWithDistance alreadySelected : selected) {
-                            if (estimator.distance(nearestCandidate.getVector(),
-                                    alreadySelected.getVector()) < nearestCandidate.getDistance()) {
-                                shouldSelect = false;
-                                break;
+                        // if the metric does not support triangle inequality, we shold not use the heuristic
+                        if (metric.satisfiesTriangleInequality()) {
+                            for (final NodeReferenceWithDistance alreadySelected : selected) {
+                                if (estimator.distance(nearestCandidate.getVector(),
+                                        alreadySelected.getVector()) < nearestCandidate.getDistance()) {
+                                    shouldSelect = false;
+                                    break;
+                                }
                             }
                         }
                         if (shouldSelect) {
@@ -1367,7 +1362,7 @@ public class HNSW {
                                         int layer,
                                         boolean isExtendCandidates,
                                         @Nonnull final Map<Tuple, AbstractNode<N>> nodeCache,
-                                        @Nonnull final RealVector vector) {
+                                        @Nonnull final Transformed<RealVector> vector) {
         if (isExtendCandidates) {
             final Set<Tuple> candidatesSeen = Sets.newConcurrentHashSet();
             for (final NodeReferenceAndNode<N> candidate : candidates) {
@@ -1432,7 +1427,7 @@ public class HNSW {
     private void writeLonelyNodes(@Nonnull final Quantizer quantizer,
                                   @Nonnull final Transaction transaction,
                                   @Nonnull final Tuple primaryKey,
-                                  @Nonnull final RealVector vector,
+                                  @Nonnull final Transformed<RealVector> vector,
                                   final int highestLayerInclusive,
                                   final int lowestLayerExclusive) {
         for (int layer = highestLayerInclusive; layer > lowestLayerExclusive; layer --) {
@@ -1462,7 +1457,7 @@ public class HNSW {
                                                                   @Nonnull final Transaction transaction,
                                                                   final int layer,
                                                                   @Nonnull final Tuple primaryKey,
-                                                                  @Nonnull final RealVector vector) {
+                                                                  @Nonnull final Transformed<RealVector> vector) {
         storageAdapter.writeNode(transaction, quantizer,
                 storageAdapter.getNodeFactory()
                         .create(primaryKey, vector, ImmutableList.of()), layer,

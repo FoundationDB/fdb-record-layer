@@ -21,6 +21,7 @@
 package com.apple.foundationdb.async.hnsw;
 
 import com.apple.foundationdb.linear.RealVector;
+import com.apple.foundationdb.linear.Transformed;
 import com.google.common.base.Objects;
 
 import javax.annotation.Nonnull;
@@ -32,9 +33,9 @@ import javax.annotation.Nonnull;
 class AggregatedVector {
     private final int partialCount;
     @Nonnull
-    private final RealVector partialVector;
+    private final Transformed<RealVector> partialVector;
 
-    public AggregatedVector(final int partialCount, @Nonnull final RealVector partialVector) {
+    public AggregatedVector(final int partialCount, @Nonnull final Transformed<RealVector> partialVector) {
         this.partialCount = partialCount;
         this.partialVector = partialVector;
     }
@@ -44,7 +45,7 @@ class AggregatedVector {
     }
 
     @Nonnull
-    public RealVector getPartialVector() {
+    public Transformed<RealVector> getPartialVector() {
         return partialVector;
     }
 

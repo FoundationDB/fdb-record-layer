@@ -21,6 +21,7 @@
 package com.apple.foundationdb.async.hnsw;
 
 import com.apple.foundationdb.linear.RealVector;
+import com.apple.foundationdb.linear.Transformed;
 import com.apple.foundationdb.tuple.Tuple;
 
 import javax.annotation.Nonnull;
@@ -54,7 +55,7 @@ interface NodeFactory<N extends NodeReference> {
      * @return a new, non-null {@link AbstractNode} instance configured with the provided parameters.
      */
     @Nonnull
-    AbstractNode<N> create(@Nonnull Tuple primaryKey, @Nullable RealVector vector,
+    AbstractNode<N> create(@Nonnull Tuple primaryKey, @Nullable Transformed<RealVector> vector,
                            @Nonnull List<? extends NodeReference> neighbors);
 
     /**

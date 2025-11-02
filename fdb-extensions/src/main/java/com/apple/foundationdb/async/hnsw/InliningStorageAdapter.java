@@ -30,6 +30,7 @@ import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.linear.AffineOperator;
 import com.apple.foundationdb.linear.Quantizer;
 import com.apple.foundationdb.linear.RealVector;
+import com.apple.foundationdb.linear.Transformed;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
@@ -72,33 +73,6 @@ class InliningStorageAdapter extends AbstractStorageAdapter<NodeReferenceWithVec
                                   @Nonnull final OnWriteListener onWriteListener,
                                   @Nonnull final OnReadListener onReadListener) {
         super(config, nodeFactory, subspace, onWriteListener, onReadListener);
-    }
-
-    /**
-     * Throws {@link IllegalStateException} because an inlining storage adapter cannot be converted to a compact one.
-     * <p>
-     * This operation is fundamentally not supported for this type of adapter. An inlining adapter stores data directly
-     * within a parent structure, which is incompatible with the standalone nature of a compact storage format.
-     * @return This method never returns a value as it always throws an exception.
-     * @throws IllegalStateException always, as this operation is not supported.
-     */
-    @Nonnull
-    @Override
-    public StorageAdapter<NodeReference> asCompactStorageAdapter() {
-        throw new IllegalStateException("cannot call this method on an inlining storage adapter");
-    }
-
-    /**
-     * Returns this object instance as a {@code StorageAdapter} that supports inlining.
-     * <p>
-     * This implementation returns the current instance ({@code this}) because the class itself is designed to handle
-     * inlining directly, thus no separate adapter object is needed.
-     * @return a non-null reference to this object as an {@link StorageAdapter} for inlining.
-     */
-    @Nonnull
-    @Override
-    public StorageAdapter<NodeReferenceWithVector> asInliningStorageAdapter() {
-        return this;
     }
 
     /**
@@ -211,8 +185,8 @@ class InliningStorageAdapter extends AbstractStorageAdapter<NodeReferenceWithVec
     private NodeReferenceWithVector neighborFromTuples(@Nonnull final AffineOperator storageTransform,
                                                        @Nonnull final Tuple keyTuple, @Nonnull final Tuple valueTuple) {
         final Tuple neighborPrimaryKey = keyTuple.getNestedTuple(2); // neighbor primary key
-        final RealVector neighborVector =
-                storageTransform.apply(
+        final Transformed<RealVector> neighborVector =
+                storageTransform.transform(
                         StorageAdapter.vectorFromTuple(getConfig(), valueTuple)); // the entire value is the vector
         return new NodeReferenceWithVector(neighborPrimaryKey, neighborVector);
     }
@@ -278,7 +252,10 @@ class InliningStorageAdapter extends AbstractStorageAdapter<NodeReferenceWithVec
                               final int layer, @Nonnull final AbstractNode<NodeReferenceWithVector> node,
                               @Nonnull final NodeReferenceWithVector neighbor) {
         final byte[] neighborKey = getNeighborKey(layer, node, neighbor.getPrimaryKey());
-        final byte[] value = StorageAdapter.tupleFromVector(quantizer.encode(neighbor.getVector())).pack();
+        // getting underlying vector is okay as it is only written to the database
+        final byte[] value =
+                StorageAdapter.tupleFromVector(
+                        quantizer.encode(neighbor.getVector()).getUnderlyingVector()).pack();
         transaction.set(neighborKey, value);
         getOnWriteListener().onNeighborWritten(layer, node, neighbor);
         getOnWriteListener().onKeyValueWritten(layer, neighborKey, value);
@@ -357,6 +334,8 @@ class InliningStorageAdapter extends AbstractStorageAdapter<NodeReferenceWithVec
         Tuple nodePrimaryKey = null;
         ImmutableList.Builder<AbstractNode<NodeReferenceWithVector>> nodeBuilder = ImmutableList.builder();
         ImmutableList.Builder<NodeReferenceWithVector> neighborsBuilder = null;
+
+        int numRead = 0;
         for (final KeyValue item: itemsIterable) {
             final byte[] key = item.getKey();
             final byte[] value = item.getValue();
@@ -375,9 +354,19 @@ class InliningStorageAdapter extends AbstractStorageAdapter<NodeReferenceWithVec
                 neighborsBuilder = ImmutableList.builder();
             }
             neighborsBuilder.add(neighbor);
+            numRead ++;
         }
 
-        // there may be a rest; throw it away
+        //
+        // There may be a rest, deal with it here. Create a last node if we exhausted the items read from the db.
+        // If we didn't exhaust the dataset, but we reached maxNumRead, do not create a node and assume the caller
+        // will come back for more. We always assume that maxNumRead is greater than the potential numbers of neighbors
+        // a node can have.
+        //
+        if (numRead < maxNumRead && nodePrimaryKey != null) {
+            nodeBuilder.add(getNodeFactory().create(nodePrimaryKey, null, neighborsBuilder.build()));
+        }
+
         return nodeBuilder.build();
     }
 }

@@ -25,6 +25,7 @@ import com.apple.foundationdb.Range;
 import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.StreamingMode;
 import com.apple.foundationdb.Transaction;
+import com.apple.foundationdb.async.AsyncIterable;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.linear.AffineOperator;
 import com.apple.foundationdb.linear.DoubleRealVector;
@@ -32,6 +33,7 @@ import com.apple.foundationdb.linear.FloatRealVector;
 import com.apple.foundationdb.linear.HalfRealVector;
 import com.apple.foundationdb.linear.Quantizer;
 import com.apple.foundationdb.linear.RealVector;
+import com.apple.foundationdb.linear.Transformed;
 import com.apple.foundationdb.linear.VectorType;
 import com.apple.foundationdb.rabitq.EncodedRealVector;
 import com.apple.foundationdb.subspace.Subspace;
@@ -59,19 +61,19 @@ interface StorageAdapter<N extends NodeReference> {
     ImmutableList<VectorType> VECTOR_TYPES = ImmutableList.copyOf(VectorType.values());
 
     /**
-     * Subspace for the index access info; contains entry nodes; these are kept separately from the data.
-     */
-    byte SUBSPACE_PREFIX_INDEX_ACCESS_INFO = 0x00;
-
-    /**
      * Subspace for data.
      */
-    byte SUBSPACE_PREFIX_DATA = 0x01;
+    byte SUBSPACE_PREFIX_DATA = 0x00;
+
+    /**
+     * Subspace for the access info; contains entry nodes; these are kept separately from the data.
+     */
+    byte SUBSPACE_PREFIX_ACCESS_INFO = 0x01;
 
     /**
      * Subspace for (mostly) statistical analysis (like finding a centroid, etc.). Contains samples of vectors.
      */
-    byte SUBSPACE_PREFIX_SAMPLES = 0x03;
+    byte SUBSPACE_PREFIX_SAMPLES = 0x02;
 
     /**
      * Returns the configuration of the HNSW graph.
@@ -92,25 +94,6 @@ interface StorageAdapter<N extends NodeReference> {
      */
     @Nonnull
     NodeFactory<N> getNodeFactory();
-
-    /**
-     * Returns a view of this object as a {@code StorageAdapter} that is optimized
-     * for compact data representation.
-     * @return a non-null {@code StorageAdapter} for {@code NodeReference} objects,
-     *         optimized for compact storage.
-     */
-    @Nonnull
-    StorageAdapter<NodeReference> asCompactStorageAdapter();
-
-    /**
-     * Returns a view of this storage as a {@code StorageAdapter} that handles inlined vectors.
-     * <p>
-     * The returned adapter is specifically designed to work with {@link NodeReferenceWithVector}, assuming that the
-     * vector data is stored directly within the node reference itself.
-     * @return a non-null {@link StorageAdapter}
-     */
-    @Nonnull
-    StorageAdapter<NodeReferenceWithVector> asInliningStorageAdapter();
 
     /**
      * Get the subspace used to store this HNSW structure.
@@ -190,20 +173,20 @@ interface StorageAdapter<N extends NodeReference> {
      * @param lastPrimaryKey the primary key of the last node from a previous scan,
      *        or {@code null} to start from the beginning of the layer
      * @param maxNumRead the maximum number of nodes to return in this scan
-     * @return an {@link Iterable} that provides the nodes found in the specified layer range
+     * @return an {@link AsyncIterable} that provides the nodes found in the specified layer range
      */
     Iterable<AbstractNode<N>> scanLayer(@Nonnull ReadTransaction readTransaction, int layer,
                                         @Nullable Tuple lastPrimaryKey, int maxNumRead);
 
     /**
-     * Creates a {@code HalfRealVector} from a given {@code Tuple}.
+     * Creates a {@link RealVector} from a given {@link Tuple}.
      * <p>
      * This method assumes the vector data is stored as a byte array at the first. position (index 0) of the tuple. It
      * extracts this byte array and then delegates to the {@link #vectorFromBytes(Config, byte[])} method for the
      * actual conversion.
      * @param config an HNSW configuration
      * @param vectorTuple the tuple containing the vector data as a byte array at index 0. Must not be {@code null}.
-     * @return a new {@code HalfRealVector} instance created from the tuple's data.
+     * @return a new {@link RealVector} instance created from the tuple's data.
      *         This method never returns {@code null}.
      */
     @Nonnull
@@ -247,7 +230,7 @@ interface StorageAdapter<N extends NodeReference> {
      * <p>
      * This method first serializes the given vector into a byte array using the {@link RealVector#getRawData()} getter
      * method. It then creates a {@link Tuple} from the resulting byte array.
-     * @param vector the vector of {@code Half} precision floating-point numbers to convert. Cannot be null.
+     * @param vector the {@link RealVector} to convert. Cannot be null.
      * @return a new, non-null {@code Tuple} instance representing the contents of the vector.
      */
     @Nonnull
@@ -266,7 +249,7 @@ interface StorageAdapter<N extends NodeReference> {
                                                          @Nonnull final ReadTransaction readTransaction,
                                                          @Nonnull final Subspace subspace,
                                                          @Nonnull final OnReadListener onReadListener) {
-        final Subspace entryNodeSubspace = subspace.subspace(Tuple.from(SUBSPACE_PREFIX_INDEX_ACCESS_INFO));
+        final Subspace entryNodeSubspace = subspace.subspace(Tuple.from(SUBSPACE_PREFIX_ACCESS_INFO));
         final byte[] key = entryNodeSubspace.pack();
 
         return readTransaction.get(key)
@@ -280,9 +263,11 @@ interface StorageAdapter<N extends NodeReference> {
                     final int layer = (int)entryTuple.getLong(0);
                     final Tuple primaryKey = entryTuple.getNestedTuple(1);
                     final Tuple entryVectorTuple = entryTuple.getNestedTuple(2);
+                    final Transformed<RealVector> entryNodeVector =
+                            AffineOperator.identity()
+                                    .transform(StorageAdapter.vectorFromTuple(config, entryVectorTuple));
                     final EntryNodeReference entryNodeReference =
-                            new EntryNodeReference(primaryKey, StorageAdapter.vectorFromTuple(config, entryVectorTuple),
-                                    layer);
+                            new EntryNodeReference(primaryKey, entryNodeVector, layer);
                     final long rotatorSeed = entryTuple.getLong(3);
                     final Tuple centroidVectorTuple = entryTuple.getNestedTuple(4);
                     return new AccessInfo(entryNodeReference,
@@ -308,13 +293,14 @@ interface StorageAdapter<N extends NodeReference> {
                                 @Nonnull final Subspace subspace,
                                 @Nonnull final AccessInfo accessInfo,
                                 @Nonnull final OnWriteListener onWriteListener) {
-        final Subspace entryNodeSubspace = subspace.subspace(Tuple.from(SUBSPACE_PREFIX_INDEX_ACCESS_INFO));
+        final Subspace entryNodeSubspace = subspace.subspace(Tuple.from(SUBSPACE_PREFIX_ACCESS_INFO));
         final EntryNodeReference entryNodeReference = accessInfo.getEntryNodeReference();
         final RealVector centroid = accessInfo.getCentroid();
         final byte[] key = entryNodeSubspace.pack();
         final byte[] value = Tuple.from(entryNodeReference.getLayer(),
                 entryNodeReference.getPrimaryKey(),
-                StorageAdapter.tupleFromVector(entryNodeReference.getVector()),
+                // getting underlying is okay as it is only written to the database
+                StorageAdapter.tupleFromVector(entryNodeReference.getVector().getUnderlyingVector()),
                 accessInfo.getRotatorSeed(),
                 centroid == null ? null : StorageAdapter.tupleFromVector(centroid)).pack();
         transaction.set(key, value);
@@ -350,12 +336,13 @@ interface StorageAdapter<N extends NodeReference> {
     static void appendSampledVector(@Nonnull final Transaction transaction,
                                     @Nonnull final Subspace subspace,
                                     final int partialCount,
-                                    @Nonnull final RealVector vector,
+                                    @Nonnull final Transformed<RealVector> vector,
                                     @Nonnull final OnWriteListener onWriteListener) {
         final Subspace prefixSubspace = subspace.subspace(Tuple.from(SUBSPACE_PREFIX_SAMPLES));
         final Subspace keySubspace = prefixSubspace.subspace(Tuple.from(partialCount, UUID.randomUUID()));
         final byte[] prefixKey = keySubspace.pack();
-        final byte[] value = tupleFromVector(vector.toDoubleRealVector()).pack();
+        // getting underlying is okay as it is only written to the database
+        final byte[] value = tupleFromVector(vector.getUnderlyingVector().toDoubleRealVector()).pack();
         transaction.set(prefixKey, value);
         onWriteListener.onKeyValueWritten(-1, prefixKey, value);
     }
@@ -377,6 +364,6 @@ interface StorageAdapter<N extends NodeReference> {
         final int partialCount = Math.toIntExact(keyTuple.getLong(0));
         final RealVector vector = DoubleRealVector.fromBytes(Tuple.fromBytes(value).getBytes(0));
 
-        return new AggregatedVector(partialCount, vector);
+        return new AggregatedVector(partialCount, AffineOperator.identity().transform(vector));
     }
 }

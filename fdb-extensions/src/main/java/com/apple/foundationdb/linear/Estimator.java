@@ -30,6 +30,11 @@ import javax.annotation.Nonnull;
  * vector (the query) is compared against many stored vectors.
  */
 public interface Estimator {
+    default double distance(@Nonnull final Transformed<? extends RealVector> query,
+                            @Nonnull final Transformed<? extends RealVector> storedVector) {
+        return distance(query.getUnderlyingVector(), storedVector.getUnderlyingVector());
+    }
+
     /**
      * Calculates the distance between a pre-rotated and translated query vector and a stored vector.
      * <p>

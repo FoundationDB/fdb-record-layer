@@ -30,6 +30,7 @@ import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.linear.AffineOperator;
 import com.apple.foundationdb.linear.Quantizer;
 import com.apple.foundationdb.linear.RealVector;
+import com.apple.foundationdb.linear.Transformed;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
@@ -70,34 +71,6 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
                                  @Nonnull final OnWriteListener onWriteListener,
                                  @Nonnull final OnReadListener onReadListener) {
         super(config, nodeFactory, subspace, onWriteListener, onReadListener);
-    }
-
-    /**
-     * Returns this storage adapter instance, as it is already a compact storage adapter.
-     * @return the current instance, which serves as its own compact representation.
-     *         This will never be {@code null}.
-     */
-    @Nonnull
-    @Override
-    public StorageAdapter<NodeReference> asCompactStorageAdapter() {
-        return this;
-    }
-
-    /**
-     * Returns this adapter as a {@code StorageAdapter} that supports inlining.
-     * <p>
-     * This operation is not supported by a compact storage adapter. Calling this method on this implementation will
-     * always result in an {@code IllegalStateException}.
-     *
-     * @return an instance of {@code StorageAdapter} that supports inlining
-     *
-     * @throws IllegalStateException unconditionally, as this operation is not supported
-     * on a compact storage adapter.
-     */
-    @Nonnull
-    @Override
-    public StorageAdapter<NodeReferenceWithVector> asInliningStorageAdapter() {
-        throw new IllegalStateException("cannot call this method on a compact storage adapter");
     }
 
     /**
@@ -219,8 +192,8 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
                                                               @Nonnull final Tuple primaryKey,
                                                               @Nonnull final Tuple vectorTuple,
                                                               @Nonnull final Tuple neighborsTuple) {
-        final RealVector vector =
-                storageTransform.apply(StorageAdapter.vectorFromTuple(getConfig(), vectorTuple));
+        final Transformed<RealVector> vector =
+                storageTransform.transform(StorageAdapter.vectorFromTuple(getConfig(), vectorTuple));
         final List<NodeReference> nodeReferences = Lists.newArrayListWithExpectedSize(neighborsTuple.size());
 
         for (int i = 0; i < neighborsTuple.size(); i ++) {
@@ -256,7 +229,8 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
         final List<Object> nodeItems = Lists.newArrayListWithExpectedSize(3);
         nodeItems.add(NodeKind.COMPACT.getSerialized());
         final CompactNode compactNode = node.asCompactNode();
-        nodeItems.add(StorageAdapter.tupleFromVector(quantizer.encode(compactNode.getVector())));
+        // getting underlying vector is okay as it is only written to the database
+        nodeItems.add(StorageAdapter.tupleFromVector(quantizer.encode(compactNode.getVector()).getUnderlyingVector()));
 
         final Iterable<NodeReference> neighbors = neighborsChangeSet.merge();
 
@@ -297,8 +271,8 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
      */
     @Nonnull
     @Override
-    public Iterable<AbstractNode<NodeReference>> scanLayer(@Nonnull final ReadTransaction readTransaction, int layer,
-                                                           @Nullable final Tuple lastPrimaryKey, int maxNumRead) {
+    public AsyncIterable<AbstractNode<NodeReference>> scanLayer(@Nonnull final ReadTransaction readTransaction, int layer,
+                                                                @Nullable final Tuple lastPrimaryKey, int maxNumRead) {
         final byte[] layerPrefix = getDataSubspace().pack(Tuple.from(layer));
         final Range range =
                 lastPrimaryKey == null

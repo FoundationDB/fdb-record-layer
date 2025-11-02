@@ -22,10 +22,12 @@ package com.apple.foundationdb.async.hnsw;
 
 import com.apple.foundationdb.linear.AffineOperator;
 import com.apple.foundationdb.linear.FhtKacRotator;
+import com.apple.foundationdb.linear.LinearOperator;
 import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.rabitq.EncodedRealVector;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 /**
  * A special affine operator that uses a random rotator seeded by the current {@link AccessInfo} and a given
@@ -33,8 +35,14 @@ import javax.annotation.Nonnull;
  * system of the client and the coordinate system that is currently employed in the HNSW.
  */
 class StorageTransform extends AffineOperator {
-    public StorageTransform(final long seed, final int numDimensions, @Nonnull final RealVector translationVector) {
-        super(new FhtKacRotator(seed, numDimensions, 10), translationVector);
+    public StorageTransform(final long seed, final int numDimensions,
+                            @Nonnull final RealVector translationVector) {
+        this(new FhtKacRotator(seed, numDimensions, 10), translationVector);
+    }
+
+    public StorageTransform(@Nullable final LinearOperator linearOperator,
+                            @Nullable final RealVector translationVector) {
+        super(linearOperator, translationVector);
     }
 
     @Nonnull

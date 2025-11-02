@@ -21,6 +21,7 @@
 package com.apple.foundationdb.async.hnsw;
 
 import com.apple.foundationdb.linear.RealVector;
+import com.apple.foundationdb.linear.Transformed;
 import com.apple.foundationdb.tuple.Tuple;
 
 import javax.annotation.Nonnull;
@@ -48,7 +49,8 @@ class EntryNodeReference extends NodeReferenceWithVector {
      * @param vector the vector data associated with the node. Must not be {@code null}.
      * @param layer the layer number where this entry node is located.
      */
-    public EntryNodeReference(@Nonnull final Tuple primaryKey, @Nonnull final RealVector vector, final int layer) {
+    public EntryNodeReference(@Nonnull final Tuple primaryKey, @Nonnull final Transformed<RealVector> vector,
+                              final int layer) {
         super(primaryKey, vector);
         this.layer = layer;
     }
@@ -62,7 +64,7 @@ class EntryNodeReference extends NodeReferenceWithVector {
     }
 
     @Nonnull
-    public EntryNodeReference withVector(@Nonnull RealVector newVector) {
+    public EntryNodeReference withVector(@Nonnull final Transformed<RealVector> newVector) {
         return new EntryNodeReference(getPrimaryKey(), newVector, getLayer());
     }
 

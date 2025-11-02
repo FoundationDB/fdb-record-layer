@@ -23,6 +23,7 @@ package com.apple.foundationdb.async.hnsw;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.half.Half;
 import com.apple.foundationdb.linear.RealVector;
+import com.apple.foundationdb.linear.Transformed;
 import com.apple.foundationdb.tuple.Tuple;
 
 import javax.annotation.Nonnull;
@@ -47,7 +48,8 @@ class CompactNode extends AbstractNode<NodeReference> {
         @Nonnull
         @Override
         @SpotBugsSuppressWarnings("NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE")
-        public AbstractNode<NodeReference> create(@Nonnull final Tuple primaryKey, @Nullable final RealVector vector,
+        public AbstractNode<NodeReference> create(@Nonnull final Tuple primaryKey,
+                                                  @Nullable final Transformed<RealVector> vector,
                                                   @Nonnull final List<? extends NodeReference> neighbors) {
             return new CompactNode(primaryKey, Objects.requireNonNull(vector), (List<NodeReference>)neighbors);
         }
@@ -60,7 +62,7 @@ class CompactNode extends AbstractNode<NodeReference> {
     };
 
     @Nonnull
-    private final RealVector vector;
+    private final Transformed<RealVector> vector;
 
     /**
      * Constructs a new {@code CompactNode} instance.
@@ -74,7 +76,7 @@ class CompactNode extends AbstractNode<NodeReference> {
      * @param neighbors a list of {@link NodeReference} objects representing the neighbors of this node; must not be
      *                  {@code null}.
      */
-    public CompactNode(@Nonnull final Tuple primaryKey, @Nonnull final RealVector vector,
+    public CompactNode(@Nonnull final Tuple primaryKey, @Nonnull final Transformed<RealVector> vector,
                        @Nonnull final List<NodeReference> neighbors) {
         super(primaryKey, neighbors);
         this.vector = vector;
@@ -93,7 +95,7 @@ class CompactNode extends AbstractNode<NodeReference> {
      */
     @Nonnull
     @Override
-    public NodeReference getSelfReference(@Nullable final RealVector vector) {
+    public NodeReference getSelfReference(@Nullable final Transformed<RealVector> vector) {
         return new NodeReference(getPrimaryKey());
     }
 
@@ -113,7 +115,7 @@ class CompactNode extends AbstractNode<NodeReference> {
      * @return the non-null vector of {@link Half} objects.
      */
     @Nonnull
-    public RealVector getVector() {
+    public Transformed<RealVector> getVector() {
         return vector;
     }
 

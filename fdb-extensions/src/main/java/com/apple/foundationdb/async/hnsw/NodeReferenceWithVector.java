@@ -20,8 +20,8 @@
 
 package com.apple.foundationdb.async.hnsw;
 
-import com.apple.foundationdb.linear.DoubleRealVector;
 import com.apple.foundationdb.linear.RealVector;
+import com.apple.foundationdb.linear.Transformed;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.base.Objects;
 
@@ -38,7 +38,7 @@ import javax.annotation.Nonnull;
  */
 public class NodeReferenceWithVector extends NodeReference {
     @Nonnull
-    private final RealVector vector;
+    private final Transformed<RealVector> vector;
 
     /**
      * Constructs a new {@code NodeReferenceWithVector} with a specified primary key and vector.
@@ -50,7 +50,7 @@ public class NodeReferenceWithVector extends NodeReference {
      * @param primaryKey the primary key of the node, must not be null
      * @param vector the vector associated with the node, must not be null
      */
-    public NodeReferenceWithVector(@Nonnull final Tuple primaryKey, @Nonnull final RealVector vector) {
+    public NodeReferenceWithVector(@Nonnull final Tuple primaryKey, @Nonnull final Transformed<RealVector> vector) {
         super(primaryKey);
         this.vector = vector;
     }
@@ -64,17 +64,8 @@ public class NodeReferenceWithVector extends NodeReference {
      * @return the vector of {@code Half} objects; will never be {@code null}.
      */
     @Nonnull
-    public RealVector getVector() {
+    public Transformed<RealVector> getVector() {
         return vector;
-    }
-
-    /**
-     * Gets the vector as a {@code RealVector} of {@code Double}s.
-     * @return a non-null {@code RealVector<Double>} containing the elements of this vector.
-     */
-    @Nonnull
-    public DoubleRealVector getDoubleVector() {
-        return vector.toDoubleRealVector();
     }
 
     /**

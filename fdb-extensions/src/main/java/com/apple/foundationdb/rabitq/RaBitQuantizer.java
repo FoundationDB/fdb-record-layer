@@ -106,18 +106,17 @@ public final class RaBitQuantizer implements Quantizer {
      * core encoding logic to an internal helper method and returns the final
      * {@link EncodedRealVector}.
      *
-     * @param data the {@link RealVector} to be encoded; must not be null. The vector must be pre-rotated and
-     *        translated.
+     * @param vector the {@link RealVector} to be encoded; must not be null.
      *
      * @return the resulting {@link EncodedRealVector}, guaranteed to be non-null.
      */
     @Nonnull
     @Override
-    public EncodedRealVector encode(@Nonnull final RealVector data) {
-        if (data instanceof EncodedRealVector) {
-            return (EncodedRealVector)data;
+    public EncodedRealVector encode(@Nonnull final RealVector vector) {
+        if (vector instanceof EncodedRealVector) {
+            return (EncodedRealVector)vector;
         }
-        return encodeInternal(data).getEncodedVector();
+        return encodeInternal(vector).getEncodedVector();
     }
 
     /**

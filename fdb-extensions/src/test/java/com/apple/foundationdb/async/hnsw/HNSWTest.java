@@ -36,6 +36,7 @@ import com.apple.foundationdb.test.TestSubspaceExtension;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.RandomSeedSource;
 import com.apple.test.RandomizedTestUtils;
+import com.apple.test.SuperSlow;
 import com.apple.test.Tags;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -219,8 +220,8 @@ class HNSWTest {
 
         final int k = 10;
         final HalfRealVector queryVector = createRandomHalfVector(random, numDimensions);
-        final TreeSet<NodeReferenceWithDistance> nodesOrderedByDistance =
-                new TreeSet<>(Comparator.comparing(NodeReferenceWithDistance::getDistance));
+        final TreeSet<PrimaryKeyVectorAndDistance> recordsOrderedByDistance =
+                new TreeSet<>(Comparator.comparing(PrimaryKeyVectorAndDistance::getDistance));
 
         for (int i = 0; i < 1000;) {
             i += basicInsertBatch(hnsw, 100, nextNodeIdAtomic, onReadListener,
@@ -228,13 +229,13 @@ class HNSWTest {
                         final var primaryKey = createNextPrimaryKey(nextNodeIdAtomic);
                         final HalfRealVector dataVector = createRandomHalfVector(random, numDimensions);
                         final double distance = metric.distance(dataVector, queryVector);
-                        final NodeReferenceWithDistance nodeReferenceWithDistance =
-                                new NodeReferenceWithDistance(primaryKey, dataVector, distance);
-                        nodesOrderedByDistance.add(nodeReferenceWithDistance);
-                        if (nodesOrderedByDistance.size() > k) {
-                            nodesOrderedByDistance.pollLast();
+                        final PrimaryKeyVectorAndDistance record =
+                                new PrimaryKeyVectorAndDistance(primaryKey, dataVector, distance);
+                        recordsOrderedByDistance.add(record);
+                        if (recordsOrderedByDistance.size() > k) {
+                            recordsOrderedByDistance.pollLast();
                         }
-                        return nodeReferenceWithDistance;
+                        return record;
                     });
         }
 
@@ -246,7 +247,9 @@ class HNSWTest {
         final long endTs = System.nanoTime();
 
         final ImmutableSet<Tuple> trueNN =
-                ImmutableSet.copyOf(NodeReference.primaryKeys(nodesOrderedByDistance));
+                recordsOrderedByDistance.stream()
+                        .map(PrimaryKeyVectorAndDistance::getPrimaryKey)
+                        .collect(ImmutableSet.toImmutableSet());
 
         int recallCount = 0;
         for (ResultEntry resultEntry : results) {
@@ -281,17 +284,17 @@ class HNSWTest {
 
     private int basicInsertBatch(final HNSW hnsw, final int batchSize,
                                  @Nonnull final AtomicLong nextNodeIdAtomic, @Nonnull final TestOnReadListener onReadListener,
-                                 @Nonnull final Function<Transaction, NodeReferenceWithVector> insertFunction) {
+                                 @Nonnull final Function<Transaction, PrimaryKeyAndVector> insertFunction) {
         return db.run(tr -> {
             onReadListener.reset();
             final long nextNodeId = nextNodeIdAtomic.get();
             final long beginTs = System.nanoTime();
             for (int i = 0; i < batchSize; i ++) {
-                final var newNodeReference = insertFunction.apply(tr);
-                if (newNodeReference == null) {
+                final var record = insertFunction.apply(tr);
+                if (record == null) {
                     return i;
                 }
-                hnsw.insert(tr, newNodeReference).join();
+                hnsw.insert(tr, record.getPrimaryKey(), record.getVector()).join();
             }
             final long endTs = System.nanoTime();
             logger.info("inserted batchSize={} records starting at nodeId={} took elapsedTime={}ms, readCounts={}, readBytes={}",
@@ -302,7 +305,7 @@ class HNSWTest {
     }
 
     @Test
-    //@SuperSlow
+    @SuperSlow
     void testSIFTInsertSmall() throws Exception {
         final Metric metric = Metric.EUCLIDEAN_METRIC;
         final int k = 100;
@@ -338,7 +341,7 @@ class HNSWTest {
                                 sumReference.set(sumReference.get().add(currentVector));
                             }
 
-                            return new NodeReferenceWithVector(currentPrimaryKey, currentVector);
+                            return new PrimaryKeyAndVector(currentPrimaryKey, currentVector);
                         });
             }
             Assertions.assertThat(i).isEqualTo(10000);
@@ -413,7 +416,9 @@ class HNSWTest {
             neighborsBuilder.add(createRandomNodeReference(random));
         }
 
-        return nodeFactory.create(primaryKey, createRandomHalfVector(random, numDimensions), neighborsBuilder.build());
+        return nodeFactory.create(primaryKey,
+                AffineOperator.identity().transform(createRandomHalfVector(random, numDimensions)),
+                neighborsBuilder.build());
     }
 
     @Nonnull
@@ -427,7 +432,9 @@ class HNSWTest {
             neighborsBuilder.add(createRandomNodeReferenceWithVector(random, numDimensions));
         }
 
-        return nodeFactory.create(primaryKey, createRandomHalfVector(random, numDimensions), neighborsBuilder.build());
+        return nodeFactory.create(primaryKey,
+                AffineOperator.identity().transform(createRandomHalfVector(random, numDimensions)),
+                neighborsBuilder.build());
     }
 
     @Nonnull
@@ -439,7 +446,7 @@ class HNSWTest {
     private NodeReferenceWithVector createRandomNodeReferenceWithVector(@Nonnull final Random random,
                                                                         final int dimensionality) {
         return new NodeReferenceWithVector(createRandomPrimaryKey(random),
-                createRandomHalfVector(random, dimensionality));
+                AffineOperator.identity().transform(createRandomHalfVector(random, dimensionality)));
     }
 
     @Nonnull
@@ -491,6 +498,44 @@ class HNSWTest {
         public void onKeyValueRead(final int layer, @Nonnull final byte[] key, @Nonnull final byte[] value) {
             bytesReadByLayer.compute(layer, (l, oldValue) -> (oldValue == null ? 0 : oldValue) +
                     key.length + value.length);
+        }
+    }
+
+    private static class PrimaryKeyAndVector {
+        @Nonnull
+        private final Tuple primaryKey;
+        @Nonnull
+        private final RealVector vector;
+
+        public PrimaryKeyAndVector(@Nonnull final Tuple primaryKey,
+                                   @Nonnull final RealVector vector) {
+            this.primaryKey = primaryKey;
+            this.vector = vector;
+        }
+
+        @Nonnull
+        public Tuple getPrimaryKey() {
+            return primaryKey;
+        }
+
+        @Nonnull
+        public RealVector getVector() {
+            return vector;
+        }
+    }
+
+    private static class PrimaryKeyVectorAndDistance extends PrimaryKeyAndVector {
+        private final double distance;
+
+        public PrimaryKeyVectorAndDistance(@Nonnull final Tuple primaryKey,
+                                           @Nonnull final RealVector vector,
+                                           final double distance) {
+            super(primaryKey, vector);
+            this.distance = distance;
+        }
+
+        public double getDistance() {
+            return distance;
         }
     }
 }

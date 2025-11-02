@@ -58,6 +58,7 @@ abstract class AbstractStorageAdapter<N extends NodeReference> implements Storag
     @Nonnull
     private final OnReadListener onReadListener;
 
+    @Nonnull
     private final Subspace dataSubspace;
 
     /**
@@ -85,39 +86,18 @@ abstract class AbstractStorageAdapter<N extends NodeReference> implements Storag
         this.dataSubspace = subspace.subspace(Tuple.from(SUBSPACE_PREFIX_DATA));
     }
 
-    /**
-     * Returns the configuration used to build and search this HNSW graph.
-     *
-     * @return the current {@link Config} object, never {@code null}.
-     */
     @Override
     @Nonnull
     public Config getConfig() {
         return config;
     }
 
-    /**
-     * Gets the factory responsible for creating new nodes.
-     * <p>
-     * This factory is used to instantiate nodes of the generic type {@code N}
-     * for the current context. The {@code @Nonnull} annotation guarantees that
-     * this method will never return {@code null}.
-     *
-     * @return the non-null {@link NodeFactory} instance.
-     */
     @Nonnull
     @Override
     public NodeFactory<N> getNodeFactory() {
         return nodeFactory;
     }
 
-    /**
-     * Gets the subspace in which this key or value is stored.
-     * <p>
-     * This subspace provides a logical separation for keys within the underlying key-value store.
-     *
-     * @return the non-null {@link Subspace} for this context
-     */
     @Override
     @Nonnull
     public Subspace getSubspace() {
@@ -125,7 +105,7 @@ abstract class AbstractStorageAdapter<N extends NodeReference> implements Storag
     }
 
     /**
-     * Gets the subspace for the data associated with this component.
+     * Gets the cached subspace for the data associated with this component.
      * <p>
      * The data subspace defines the portion of the directory space where the data
      * for this component is stored.
@@ -138,29 +118,12 @@ abstract class AbstractStorageAdapter<N extends NodeReference> implements Storag
         return dataSubspace;
     }
 
-    /**
-     * Returns the listener that is notified upon write events.
-     * <p>
-     * This method is an override and guarantees a non-null return value,
-     * as indicated by the {@code @Nonnull} annotation.
-     *
-     * @return the configured {@link OnWriteListener} instance; will never be {@code null}.
-     */
     @Override
     @Nonnull
     public OnWriteListener getOnWriteListener() {
         return onWriteListener;
     }
 
-    /**
-     * Gets the listener that is notified upon completion of a read operation.
-     * <p>
-     * This method is an override and provides the currently configured listener instance.
-     * The returned listener is guaranteed to be non-null as indicated by the
-     * {@code @Nonnull} annotation.
-     *
-     * @return the non-null {@link OnReadListener} instance.
-     */
     @Override
     @Nonnull
     public OnReadListener getOnReadListener() {
@@ -190,7 +153,6 @@ abstract class AbstractStorageAdapter<N extends NodeReference> implements Storag
                                                         @Nonnull final AffineOperator storageTransform,
                                                         int layer, @Nonnull Tuple primaryKey) {
         return fetchNodeInternal(readTransaction, storageTransform, layer, primaryKey).thenApply(this::checkNode);
-
     }
 
     /**
@@ -271,5 +233,4 @@ abstract class AbstractStorageAdapter<N extends NodeReference> implements Storag
     protected abstract void writeNodeInternal(@Nonnull Transaction transaction, @Nonnull Quantizer quantizer,
                                               @Nonnull AbstractNode<N> node, int layer,
                                               @Nonnull NeighborsChangeSet<N> changeSet);
-
 }

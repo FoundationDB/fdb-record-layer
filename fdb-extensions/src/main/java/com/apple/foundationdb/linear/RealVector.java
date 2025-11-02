@@ -182,10 +182,10 @@ public interface RealVector {
     }
 
     @Nonnull
-    default RealVector multiply(final double scalar) {
+    default RealVector multiply(final double scalarFactor) {
         final double[] result = new double[getNumDimensions()];
         for (int i = 0; i < getNumDimensions(); i ++) {
-            result[i] = getComponent(i) * scalar;
+            result[i] = getComponent(i) * scalarFactor;
         }
         return withData(result);
     }

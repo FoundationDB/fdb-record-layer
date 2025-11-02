@@ -43,10 +43,13 @@ class ConfigTest {
         final boolean keepPrunedConnections = true;
         final int statsThreshold = 1;
         final double sampleVectorStatsProbability = 0.000001d;
-        final double maintainStatsProbability = 0.000001d;
+        final double maintainStatsProbability = 0.000002d;
 
         final boolean useRaBitQ = true;
         final int raBitQNumExBits = Config.DEFAULT_RABITQ_NUM_EX_BITS + 1;
+
+        final int maxNumConcurrentNodeFetches = 1;
+        final int maxNumConcurrentNeighborhoodFetches = 2;
 
         Assertions.assertThat(defaultConfig.getRandomSeed()).isNotEqualTo(randomSeed);
         Assertions.assertThat(defaultConfig.getMetric()).isNotSameAs(metric);
@@ -65,6 +68,9 @@ class ConfigTest {
         Assertions.assertThat(defaultConfig.isUseRaBitQ()).isNotEqualTo(useRaBitQ);
         Assertions.assertThat(defaultConfig.getRaBitQNumExBits()).isNotEqualTo(raBitQNumExBits);
 
+        Assertions.assertThat(defaultConfig.getMaxNumConcurrentNodeFetches()).isNotEqualTo(maxNumConcurrentNodeFetches);
+        Assertions.assertThat(defaultConfig.getMaxNumConcurrentNeighborhoodFetches()).isNotEqualTo(maxNumConcurrentNeighborhoodFetches);
+
         final Config newConfig =
                 defaultConfig.toBuilder()
                         .setRandomSeed(randomSeed)
@@ -81,6 +87,8 @@ class ConfigTest {
                         .setStatsThreshold(statsThreshold)
                         .setUseRaBitQ(useRaBitQ)
                         .setRaBitQNumExBits(raBitQNumExBits)
+                        .setMaxNumConcurrentNodeFetches(maxNumConcurrentNodeFetches)
+                        .setMaxNumConcurrentNeighborhoodFetches(maxNumConcurrentNeighborhoodFetches)
                         .build(768);
 
         Assertions.assertThat(newConfig.getRandomSeed()).isEqualTo(randomSeed);
@@ -99,6 +107,9 @@ class ConfigTest {
 
         Assertions.assertThat(newConfig.isUseRaBitQ()).isEqualTo(useRaBitQ);
         Assertions.assertThat(newConfig.getRaBitQNumExBits()).isEqualTo(raBitQNumExBits);
+
+        Assertions.assertThat(newConfig.getMaxNumConcurrentNodeFetches()).isEqualTo(maxNumConcurrentNodeFetches);
+        Assertions.assertThat(newConfig.getMaxNumConcurrentNeighborhoodFetches()).isEqualTo(maxNumConcurrentNeighborhoodFetches);
     }
 
     @Test

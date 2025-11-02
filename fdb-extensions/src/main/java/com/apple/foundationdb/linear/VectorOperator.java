@@ -39,9 +39,40 @@ public interface VectorOperator {
      */
     int getNumDimensions();
 
+    /**
+     * Apply this operator to the vector passed in.
+     * @param vector the vector
+     * @return a new vector
+     */
     @Nonnull
     RealVector apply(@Nonnull RealVector vector);
 
+    /**
+     * Apply the inverted operator to the vector passed in. {@code applyInverted(apply(v)) == v} should hold.
+     * @param vector the vector
+     * @return a new vector
+     */
     @Nonnull
     RealVector invertedApply(@Nonnull RealVector vector);
+
+    /**
+     * Applies the operator to the vector that is passed in and creates a `Transformed` wrapper wrapping the result.
+     * @param vector the vector
+     * @return a {@link Transformed}-wrapped result
+     */
+    @Nonnull
+    default Transformed<RealVector> transform(@Nonnull final RealVector vector) {
+        return new Transformed<>(apply(vector));
+    }
+
+    /**
+     * Inverted-applies the operator to a transformed vector that is passed in and returns a naked (unwrapped)
+     * {@link RealVector}.
+     * @param vector the vector
+     * @return a {@link Transformed}-wrapped result
+     */
+    @Nonnull
+    default RealVector untransform(@Nonnull final Transformed<RealVector> vector) {
+        return invertedApply(vector.getUnderlyingVector());
+    }
 }
