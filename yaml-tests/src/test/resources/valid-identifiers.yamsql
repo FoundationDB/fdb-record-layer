@@ -40,11 +40,11 @@ schema_template:
     create table "foo.tableE"("foo.tableE.E1" bigint, "foo.tableE.E2" bigint array, "foo.tableE.E3" "foo.struct", primary key("foo.tableE.E1"))
 
     create table "my$adjacency$list"("me" bigint, "my__parent" bigint, primary key("me"))
-    create function "_$func1" ( in "_$func1$A" bigint, in "_$func1$B" bigint )
-       as select "me" as "__A", "my__parent" as "__B" from "my$adjacency$list" where "me" < "_$func1$A" and "my$adjacency$list"."my__parent" = "_$func1$B"
-    create function "_$func2" ( "_$func2$A" bigint )
-       as select "me" as "__A", "my__parent" as "__B" from "my$adjacency$list" where "me" = "_$func2$A"
-    create function "_$func3" ( in "_$func3$A" bigint, in "_$func3$B" bigint, in "_$func3$C" bigint) as select "__..f1"."__A", "__..f1"."__B", "__..f2"."__A", "__..f2"."__B" from "_$func1"("_$func3$A", "_$func3$B") "__..f1", "_$func2"("_$func3$C") "__..f2"
+    create function "__$func1" ( in "__$func1$A" bigint, in "__$func1$B" bigint )
+       as select "me" as "__A", "my__parent" as "__B" from "my$adjacency$list" where "me" < "__$func1$A" and "my$adjacency$list"."my__parent" = "__$func1$B"
+    create function "__$func2" ( "__$func2$A" bigint )
+       as select "me" as "__A", "my__parent" as "__B" from "my$adjacency$list" where "me" = "__$func2$A"
+    create function "__$func3" ( in "__$func3$A" bigint, in "__$func3$B" bigint, in "__$func3$C" bigint) as select "__..f1"."__A", "__..f1"."__B", "__..f2"."__A", "__..f2"."__B" from "__$func1"("__$func3$A", "__$func3$B") "__..f1", "__$func2"("__$func3$C") "__..f2"
 ---
 setup:
   steps:
@@ -226,7 +226,7 @@ test_block:
       - result: [{2}, {3}, {4}]
     -
       # function
-      - query: select * from "_$func3"(10, 1, 1);
+      - query: select * from "__$func3"(10, 1, 1);
       - result: [{"_0": 2, "_1": 1, "_2": 1, "_3": -1}, {"_0": 3, "_1": 1, "_2": 1, "_3": -1}, {"_0": 4, "_1": 1, "_2": 1, "_3": -1}]
     -
       # inline table definition

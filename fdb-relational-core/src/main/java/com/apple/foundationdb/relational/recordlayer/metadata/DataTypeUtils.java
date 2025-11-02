@@ -44,7 +44,7 @@ public class DataTypeUtils {
     private static final String DOLLAR_ESCAPE = "__1";
     private static final String DOT_ESCAPE = "__2";
 
-    private static final List<String> INVALID_START_SEQUENCES = List.of(".", "$", "__0", "__1", "__2");
+    private static final List<String> INVALID_START_SEQUENCES = List.of(".", "$", DOUBLE_UNDERSCORE_ESCAPE, DOLLAR_ESCAPE, DOT_ESCAPE);
 
     private static final Pattern VALID_PROTOBUF_COMPLIANT_NAME_PATTERN = Pattern.compile("^[A-Za-z_][A-Za-z0-9_]*$");
 

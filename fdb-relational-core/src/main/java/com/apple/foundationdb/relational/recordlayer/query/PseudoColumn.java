@@ -73,8 +73,4 @@ public enum PseudoColumn {
         }
         return Optional.empty();
     }
-
-    public static boolean isPseudoColumn(@Nonnull String name) {
-        return name.startsWith(PREFIX);
-    }
 }

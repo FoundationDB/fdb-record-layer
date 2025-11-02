@@ -34,7 +34,6 @@ import java.util.stream.Collectors;
 @API(API.Status.EXPERIMENTAL)
 public class Identifier {
 
-
     @Nonnull
     private final String name;
 
