@@ -112,8 +112,8 @@ test_block:
       - result: [{"foo.tableA.A1": 1}, {"foo.tableA.A1": 2}, {"foo.tableA.A1": 3}]
     -
       # with select element alias
-      - query: select "foo.tableA"."foo.tableA.A1" AS "_.__." from "foo.tableA";
-      - result: [{"_.__.": 1}, {"_.__.": 2}, {"_.__.": 3}]
+      - query: select "foo.tableA"."foo.tableA.A1" AS "__.__." from "foo.tableA";
+      - result: [{"__.__.": 1}, {"__.__.": 2}, {"__.__.": 3}]
     -
       # with select element alias prefixed with .
       - query: select "foo.tableA"."foo.tableA.A1" AS ".__." from "foo.tableA";
@@ -170,7 +170,7 @@ test_block:
       - result: [{6}]
     -
       # group by alias
-      - query: select "_$__$" from "foo.tableA" group by "foo.tableA.A2" as "_$__$";
+      - query: select "__$__" from "foo.tableA" group by "foo.tableA.A2" as "__$__";
       - result: [{10}]
     -
       # star over simple join
@@ -242,8 +242,8 @@ test_block:
       - result: [{{"foo.tableA.A1": 1 , "foo.tableA.A2": 10, "foo.tableA.A3": 1}}, {{"foo.tableA.A1": 2, "foo.tableA.A2": 10, "foo.tableA.A3": 2}}, {{"foo.tableA.A1": 3, "foo.tableA.A2": 10, "foo.tableA.A3": 3}}]
     -
       # named record construction with aliased expressions
-      - query: select struct "A$$" ("foo.tableA.A2" + "foo.tableA.A1" as "_$$__") from "foo.tableA"
-      - result: [{{"_$$__": 11}}, {{"_$$__": 12}}, {{"_$$__": 13}}]
+      - query: select struct "A$$" ("foo.tableA.A2" + "foo.tableA.A1" as "__$$__") from "foo.tableA"
+      - result: [{{"__$$__": 11}}, {{"__$$__": 12}}, {{"__$$__": 13}}]
 ---
 test_block:
   name: update-delete-statements

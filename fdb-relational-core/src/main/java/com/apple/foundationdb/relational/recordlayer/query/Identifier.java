@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.google.common.collect.ImmutableList;
 
@@ -33,7 +34,6 @@ import java.util.stream.Collectors;
 
 @API(API.Status.EXPERIMENTAL)
 public class Identifier {
-
     @Nonnull
     private final String name;
 

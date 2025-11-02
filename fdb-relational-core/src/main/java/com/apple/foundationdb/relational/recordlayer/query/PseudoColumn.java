@@ -37,7 +37,7 @@ public enum PseudoColumn {
     ROW_VERSION(qun -> new VersionValue(QuantifiedRecordValue.of(qun))),
     ;
 
-    public static final String PREFIX = "__";
+    private static final String PREFIX = "__";
 
     @Nonnull
     private final Function<Quantifier, Value> valueCreator;

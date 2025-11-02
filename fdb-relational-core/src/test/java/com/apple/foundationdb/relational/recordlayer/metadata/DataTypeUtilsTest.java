@@ -80,5 +80,4 @@ public class DataTypeUtilsTest {
                     .isInstanceOf(UncheckedRelationalException.class);
         }
     }
-
 }
