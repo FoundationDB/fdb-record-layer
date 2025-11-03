@@ -7,6 +7,40 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.8
 
+### 4.8.6.0
+
+<h4> New Features </h4>
+
+* Introduce `Vector` type in SQL - [PR #3692](https://github.com/FoundationDB/fdb-record-layer/pull/3692)
+<h4> Bug Fixes </h4>
+
+* Omit __ prefixed identifiers from protobuf translation - [PR #3706](https://github.com/FoundationDB/fdb-record-layer/pull/3706)
+* Fix Javadoc issues - [PR #3708](https://github.com/FoundationDB/fdb-record-layer/pull/3708)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Add unit tests of TupleHelpers.isPrefix - [PR #3697](https://github.com/FoundationDB/fdb-record-layer/pull/3697)
+
+</details>
+
+
+**[Full Changelog (4.8.5.0...4.8.6.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.8.5.0...4.8.6.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+❌`4.6.3.0`, ❌`4.6.4.0`, ❌`4.6.5.0`, ❌`4.7.1.0`, ❌`4.7.2.0`, ✅`4.7.3.0`, ✅`4.8.1.0`, ✅`4.8.2.0`, ✅`4.8.3.0`, ✅`4.8.5.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/19044372388)
+
+
+
 ### 4.8.5.0
 
 
