@@ -95,9 +95,19 @@ ext {
 
 publishing {
     if (Boolean.parseBoolean(publishBuild)) {
+
         repositories {
-            maven {
-                url = rootProject.layout.buildDirectory.dir('staging-repo')
+            if (Boolean.parseBoolean(centralPublish)) {
+                // For JReleaser to deploy artifacts, they must have been staged to the local staging repo.
+                // Mark that directory as an output and declare a dependency between publishing the
+                // project and deploying artifacts.
+                var stagingDir = rootProject.layout.buildDirectory.dir('staging-repo')
+                tasks.publish.outputs.dir(stagingDir)
+                rootProject.tasks.findByName('jreleaserDeploy').dependsOn(tasks.publish)
+
+                maven {
+                    url = stagingDir
+                }
             }
 
             if (Boolean.parseBoolean(githubPublish)) {
