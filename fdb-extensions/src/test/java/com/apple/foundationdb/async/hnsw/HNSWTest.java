@@ -59,6 +59,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.io.IOException;
 import java.nio.channels.FileChannel;
 import java.nio.file.Path;
@@ -495,9 +496,9 @@ class HNSWTest {
         }
 
         @Override
-        public void onKeyValueRead(final int layer, @Nonnull final byte[] key, @Nonnull final byte[] value) {
+        public void onKeyValueRead(final int layer, @Nonnull final byte[] key, @Nullable final byte[] value) {
             bytesReadByLayer.compute(layer, (l, oldValue) -> (oldValue == null ? 0 : oldValue) +
-                    key.length + value.length);
+                    key.length + (value == null ? 0 : value.length));
         }
     }
 

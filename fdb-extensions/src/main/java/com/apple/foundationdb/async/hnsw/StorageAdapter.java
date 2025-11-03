@@ -235,7 +235,7 @@ interface StorageAdapter<N extends NodeReference> {
      */
     @Nonnull
     @SuppressWarnings("PrimitiveArrayArgumentToVarargsMethod")
-    static Tuple tupleFromVector(final RealVector vector) {
+    static Tuple tupleFromVector(@Nonnull final RealVector vector) {
         return Tuple.from(vector.getRawData());
     }
 
@@ -249,15 +249,15 @@ interface StorageAdapter<N extends NodeReference> {
                                                          @Nonnull final ReadTransaction readTransaction,
                                                          @Nonnull final Subspace subspace,
                                                          @Nonnull final OnReadListener onReadListener) {
-        final Subspace entryNodeSubspace = subspace.subspace(Tuple.from(SUBSPACE_PREFIX_ACCESS_INFO));
+        final Subspace entryNodeSubspace = accessInfoSubspace(subspace);
         final byte[] key = entryNodeSubspace.pack();
 
         return readTransaction.get(key)
                 .thenApply(valueBytes -> {
+                    onReadListener.onKeyValueRead(-1, key, valueBytes);
                     if (valueBytes == null) {
                         return null; // not a single node in the index
                     }
-                    onReadListener.onKeyValueRead(-1, key, valueBytes);
 
                     final Tuple entryTuple = Tuple.fromBytes(valueBytes);
                     final int layer = (int)entryTuple.getLong(0);
@@ -293,7 +293,7 @@ interface StorageAdapter<N extends NodeReference> {
                                 @Nonnull final Subspace subspace,
                                 @Nonnull final AccessInfo accessInfo,
                                 @Nonnull final OnWriteListener onWriteListener) {
-        final Subspace entryNodeSubspace = subspace.subspace(Tuple.from(SUBSPACE_PREFIX_ACCESS_INFO));
+        final Subspace entryNodeSubspace = accessInfoSubspace(subspace);
         final EntryNodeReference entryNodeReference = accessInfo.getEntryNodeReference();
         final RealVector centroid = accessInfo.getCentroid();
         final byte[] key = entryNodeSubspace.pack();
@@ -312,7 +312,7 @@ interface StorageAdapter<N extends NodeReference> {
                                                                            @Nonnull final Subspace subspace,
                                                                            final int numMaxVectors,
                                                                            @Nonnull final OnReadListener onReadListener) {
-        final Subspace prefixSubspace = subspace.subspace(Tuple.from(SUBSPACE_PREFIX_SAMPLES));
+        final Subspace prefixSubspace = samplesSubspace(subspace);
 
         final byte[] prefixKey = prefixSubspace.pack();
         final ReadTransaction snapshot = transaction.snapshot();
@@ -326,6 +326,7 @@ interface StorageAdapter<N extends NodeReference> {
                         final byte[] key = keyValue.getKey();
                         final byte[] value = keyValue.getValue();
                         resultBuilder.add(aggregatedVectorFromRaw(prefixSubspace, key, value));
+                        transaction.addReadConflictKey(key);
                         transaction.clear(key);
                         onReadListener.onKeyValueRead(-1, key, value);
                     }
@@ -338,7 +339,7 @@ interface StorageAdapter<N extends NodeReference> {
                                     final int partialCount,
                                     @Nonnull final Transformed<RealVector> vector,
                                     @Nonnull final OnWriteListener onWriteListener) {
-        final Subspace prefixSubspace = subspace.subspace(Tuple.from(SUBSPACE_PREFIX_SAMPLES));
+        final Subspace prefixSubspace = samplesSubspace(subspace);
         final Subspace keySubspace = prefixSubspace.subspace(Tuple.from(partialCount, UUID.randomUUID()));
         final byte[] prefixKey = keySubspace.pack();
         // getting underlying is okay as it is only written to the database
@@ -348,8 +349,7 @@ interface StorageAdapter<N extends NodeReference> {
     }
 
     static void removeAllSampledVectors(@Nonnull final Transaction transaction, @Nonnull final Subspace subspace) {
-        final Subspace prefixSubspace =
-                subspace.subspace(Tuple.from(SUBSPACE_PREFIX_SAMPLES));
+        final Subspace prefixSubspace = samplesSubspace(subspace);
 
         final byte[] prefixKey = prefixSubspace.pack();
         final Range range = Range.startsWith(prefixKey);
@@ -365,5 +365,15 @@ interface StorageAdapter<N extends NodeReference> {
         final RealVector vector = DoubleRealVector.fromBytes(Tuple.fromBytes(value).getBytes(0));
 
         return new AggregatedVector(partialCount, AffineOperator.identity().transform(vector));
+    }
+
+    @Nonnull
+    static Subspace accessInfoSubspace(@Nonnull final Subspace rootSubspace) {
+        return rootSubspace.subspace(Tuple.from(SUBSPACE_PREFIX_ACCESS_INFO));
+    }
+
+    @Nonnull
+    static Subspace samplesSubspace(@Nonnull final Subspace rootSubspace) {
+        return rootSubspace.subspace(Tuple.from(SUBSPACE_PREFIX_SAMPLES));
     }
 }
