@@ -1108,11 +1108,6 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
             explicitMergeIndex(dataModel.index, contextProps, dataModel.schemaSetup);
         }
 
-        final Map<Tuple, Map<Tuple, Tuple>> initial = dataModel.groupingKeyToPrimaryKeyToPartitionKey.entrySet().stream().collect(Collectors.toMap(
-                Map.Entry::getKey,
-                entry -> Map.copyOf(entry.getValue())
-        ));
-
         dataModel.validate(() -> openContext(contextProps));
 
         try (FDBRecordContext context = openContext(contextProps)) {
@@ -1125,10 +1120,6 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
             commit(context);
         }
 
-        System.out.println("=== initial ===");
-        System.out.println(initial);
-        System.out.println("=== updated ===");
-        System.out.println(dataModel.groupingKeyToPrimaryKeyToPartitionKey);
         assertDataModelCount.accept(recordsPerIteration * loopCount,
                 dataModel.groupingKeyToPrimaryKeyToPartitionKey.values().stream().mapToInt(Map::size).sum());
 
