@@ -41,10 +41,10 @@ schema_template:
 
     create table "my$adjacency$list"("me" bigint, "my__parent" bigint, primary key("me"))
     create function "__$func1" ( in "__$func1$A" bigint, in "__$func1$B" bigint )
-       as select "me" as "__1", "my__parent" as "__2" from "my$adjacency$list" where "me" < "__$func1$A" and "my$adjacency$list"."my__parent" = "__$func1$B"
+       as select "me" as "__A", "my__parent" as "__B" from "my$adjacency$list" where "me" < "__$func1$A" and "my$adjacency$list"."my__parent" = "__$func1$B"
     create function "__$func2" ( "__$func2$A" bigint )
-       as select "me" as "__1", "my__parent" as "__2" from "my$adjacency$list" where "me" = "__$func2$A"
-    create function "__$func3" ( in "__$func3$A" bigint, in "__$func3$B" bigint, in "__$func3$C" bigint) as select "...f1"."__1", "...f1"."__2", "...f2"."__1", "...f2"."__2" from "__$func1"("__$func3$A", "__$func3$B") "...f1", "__$func2"("__$func3$C") "...f2"
+       as select "me" as "__A", "my__parent" as "__B" from "my$adjacency$list" where "me" = "__$func2$A"
+    create function "__$func3" ( in "__$func3$A" bigint, in "__$func3$B" bigint, in "__$func3$C" bigint) as select "__..f1"."__A", "__..f1"."__B", "__..f2"."__A", "__..f2"."__B" from "__$func1"("__$func3$A", "__$func3$B") "__..f1", "__$func2"("__$func3$C") "__..f2"
 ---
 setup:
   steps:
@@ -100,7 +100,7 @@ test_block:
       - result: [{"foo.tableA.A1": 1 , 10, 1}, {"foo.tableA.A1": 2, 10, 2}, {"foo.tableA.A1": 3, 10, 3}]
     -
       # aliased star
-      - query: select "$$$".* from "foo.tableA" as "$$$";
+      - query: select "A$$$".* from "foo.tableA" as "A$$$";
       - result: [{"foo.tableA.A1": 1 , 10, 1}, {"foo.tableA.A1": 2, 10, 2}, {"foo.tableA.A1": 3, 10, 3}]
     -
       # with predicate
@@ -112,33 +112,45 @@ test_block:
       - result: [{"foo.tableA.A1": 1}, {"foo.tableA.A1": 2}, {"foo.tableA.A1": 3}]
     -
       # with select element alias
-      - query: select "foo.tableA"."foo.tableA.A1" AS "__.__" from "foo.tableA";
-      - result: [{"__.__": 1}, {"__.__": 2}, {"__.__": 3}]
+      - query: select "foo.tableA"."foo.tableA.A1" AS "__.__." from "foo.tableA";
+      - result: [{"__.__.": 1}, {"__.__.": 2}, {"__.__.": 3}]
+    -
+      # with select element alias prefixed with .
+      - query: select "foo.tableA"."foo.tableA.A1" AS ".__." from "foo.tableA";
+      - error: "42602"
+    -
+      # with select element alias prefixed with $
+      - query: select "foo.tableA"."foo.tableA.A1" AS "$__." from "foo.tableA";
+      - error: "42602"
+    -
+      # with select element alias with non-supported characters
+      - query: select "foo.tableA"."foo.tableA.A1" AS "उपनाम" from "foo.tableA";
+      - error: "42602"
     -
       # multi-level CTEs
-      - query: with "$__$__$" as (with "$__$" as (select "foo.tableA.A1" as "$" from "foo.tableA") select * from "$__$") select * from "$__$__$"
-      - result: [{"$": 1}, {"$": 2}, {"$": 3}]
+      - query: with "A$_$__$$" as (with "A$__$" as (select "foo.tableA.A1" as "A$" from "foo.tableA") select * from "A$__$") select * from "A$_$__$$"
+      - result: [{"A$": 1}, {"A$": 2}, {"A$": 3}]
     -
       # CTEs with column aliases
-      - query: with "$__$" ("$$a", "$$b", "$$c") as (select "foo.tableA".* from "foo.tableA") select * from "$__$"
-      - result: [{"$$a": 1, "$$b": 10, "$$c": 1}, {"$$a": 2, "$$b": 10, "$$c": 2}, {"$$a": 3, "$$b": 10, "$$c": 3}]
+      - query: with "A$__$" ("__$$a", "__$$b", "__$$c") as (select "foo.tableA".* from "foo.tableA") select * from "A$__$"
+      - result: [{"__$$a": 1, "__$$b": 10, "__$$c": 1}, {"__$$a": 2, "__$$b": 10, "__$$c": 2}, {"__$$a": 3, "__$$b": 10, "__$$c": 3}]
     -
       # with recursive CTE
-      - query: with recursive "$__$" as (
+      - query: with recursive "A$__$" as (
             select "me", "my__parent", 0 as "__level__" from "my$adjacency$list" where "me" = 5
             union all
-            select "$"."me", "$"."my__parent", "$$".y as "__level__" from "my$adjacency$list" as "$", (select "me", "my__parent", "__level__" + 1 as y from "$__$") as "$$" where "$$"."my__parent" = "$"."me")
+            select "A$"."me", "A$"."my__parent", "A$$".y as "__level__" from "my$adjacency$list" as "A$", (select "me", "my__parent", "__level__" + 1 as y from "A$__$") as "A$$" where "A$$"."my__parent" = "A$"."me")
             traversal order pre_order
-            select "me", "my__parent", "__level__" from "$__$"
+            select "me", "my__parent", "__level__" from "A$__$"
       - result: [{"me": 5, "my__parent": 2, "__level__": 0}, {"me": 2, "my__parent": 1, "__level__": 1}, {"me": 1, "my__parent": -1, "__level__": 2}]
     -
       # recursive CTE with column aliases
-      - query: with recursive "$__$" ("__a", "__b", "__c") as (
+      - query: with recursive "A$__$" ("__a", "__b", "__c") as (
             select "me", "my__parent", 0 as "__level__" from "my$adjacency$list" where "me" = 5
             union all
-            select "$"."me", "$"."my__parent", "$$".y as "__level__" from "my$adjacency$list" as "$", (select "me", "my__parent", "__level__" + 1 as y from "$__$") as "$$" where "$$"."my__parent" = "$"."me")
+            select "A$"."me", "A$"."my__parent", "A$$".y as "__level__" from "my$adjacency$list" as "A$", (select "me", "my__parent", "__level__" + 1 as y from "A$__$") as "A$$" where "A$$"."my__parent" = "A$"."me")
             traversal order pre_order
-            select "__a", "__b", "__c" from "$__$"
+            select "__a", "__b", "__c" from "A$__$"
       - result: [{"__a": 5, "__b": 2, "__c": 0}, {"__a": 2, "__b": 1, "__c": 1}, {"__a": 1, "__b": -1, "__c": 2}]
     -
       # with non-qualified select element
@@ -218,19 +230,19 @@ test_block:
       - result: [{"_0": 2, "_1": 1, "_2": 1, "_3": -1}, {"_0": 3, "_1": 1, "_2": 1, "_3": -1}, {"_0": 4, "_1": 1, "_2": 1, "_3": -1}]
     -
       # inline table definition
-      - query: select * from values (1, 2, 3), (4, 5, 6) as "$$$$"("$$$", "$$", "$")
-      - result: [{"$$$": 1, "$$": 2, "$": 3}, { "$$$": 4, "$$": 5, "$": 6}]
+      - query: select * from values (1, 2, 3), (4, 5, 6) as "A$$$$"("A$$$", "A$$", "A$")
+      - result: [{"A$$$": 1, "A$$": 2, "A$": 3}, { "A$$$": 4, "A$$": 5, "A$": 6}]
     -
       # named record construction
-      - query: select struct "$$" ("foo.tableA.A1", "foo.tableA.A2", "foo.tableA.A3") from "foo.tableA"
+      - query: select struct "A$$" ("foo.tableA.A1", "foo.tableA.A2", "foo.tableA.A3") from "foo.tableA"
       - result: [{{"foo.tableA.A1": 1 , "foo.tableA.A2": 10, "foo.tableA.A3": 1}}, {{"foo.tableA.A1": 2, "foo.tableA.A2": 10, "foo.tableA.A3": 2}}, {{"foo.tableA.A1": 3, "foo.tableA.A2": 10, "foo.tableA.A3": 3}}]
     -
       # named record construction with uid star
-      - query: select struct "$$" ("foo.tableA".*) from "foo.tableA"
+      - query: select struct "A$$" ("foo.tableA".*) from "foo.tableA"
       - result: [{{"foo.tableA.A1": 1 , "foo.tableA.A2": 10, "foo.tableA.A3": 1}}, {{"foo.tableA.A1": 2, "foo.tableA.A2": 10, "foo.tableA.A3": 2}}, {{"foo.tableA.A1": 3, "foo.tableA.A2": 10, "foo.tableA.A3": 3}}]
     -
       # named record construction with aliased expressions
-      - query: select struct "$$" ("foo.tableA.A2" + "foo.tableA.A1" as "__$$__") from "foo.tableA"
+      - query: select struct "A$$" ("foo.tableA.A2" + "foo.tableA.A1" as "__$$__") from "foo.tableA"
       - result: [{{"__$$__": 11}}, {{"__$$__": 12}}, {{"__$$__": 13}}]
 ---
 test_block:
@@ -262,11 +274,168 @@ test_block:
     -
       - query: select count(*) from "TEMPLATES" where template_name = 'टेम्पलेट'
       - result: [{1}]
-# This does not work entirely, but theoretically should be possible!
-#---
-#setup:
-#  connect: "jdbc:embed:/__SYS?schema=CATALOG"
-#  steps:
-#    - query: drop database if exists "/frl/डेटाबेस"
-#    - query: create database "/frl/डेटाबेस"
+---
+setup:
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  steps:
+    - query: drop schema template if exists test_template_with_inavlid_identifiers
+---
+test_block:
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  tests:
+    -
+      # invalid table name
+      - query: create schema template test_template_with_inavlid_identifiers
+               create table "$yay"(id2 bigint, col6 s2 ARRAY, primary key(id2))
+      - error: "42602"
+    -
+      # invalid table name
+      - query: create schema template test_template_with_inavlid_identifiers
+               create table "नमस्ते"(id2 bigint, col6 s2 ARRAY, primary key(id2))
+      - error: "42602"
+    -
+      # invalid column name
+      - query: create schema template test_template_with_inavlid_identifiers
+               create table T1("$yay" bigint, col6 s2 ARRAY, primary key(id2))
+      - error: "42602"
+    -
+      # invalid column name
+      - query: create schema template test_template_with_inavlid_identifiers
+               create table T1("नमस्ते" bigint, col6 s2 ARRAY, primary key(id2))
+      - error: "42602"
+    -
+      # invalid struct name
+      - query: create schema template test_template_with_inavlid_identifiers
+               CREATE TYPE AS STRUCT "$yay"(S1 bigint, S2 bigint)
+               create table T1(id2 bigint, col6 "$yay", primary key(id2))
+      - error: "42602"
+    -
+      # invalid struct name
+      - query: create schema template test_template_with_inavlid_identifiers
+               CREATE TYPE AS STRUCT "नमस्ते"(S1 bigint, S2 bigint)
+               create table T1(id2 bigint, col6 "नमस्ते", primary key(id2))
+      - error: "42602"
+    -
+      # invalid function name
+      - query: create schema template test_template_with_inavlid_identifiers
+               create table T1(id2 bigint, id3 bigint, primary key(id2))
+               create function "$yay" () as SELECT id3 from T1
+      - error: "42602"
+    -
+      # invalid function name
+      - query: create schema template test_template_with_inavlid_identifiers
+               create table T1(id2 bigint, id3 bigint, primary key(id2))
+               create function "नमस्ते" () as SELECT id3 from T1
+      - error: "42602"
+    -
+      # invalid function argument
+      - query: create schema template test_template_with_inavlid_identifiers
+               create table T1(id2 bigint, id3 bigint, primary key(id2))
+               create function func (in "$yay" bigint) as SELECT id3 from T1 where id2 > "$yay"
+      - error: "42602"
+    -
+      # invalid function argument
+      - query: create schema template test_template_with_inavlid_identifiers
+               create table T1(id2 bigint, id3 bigint, primary key(id2))
+               create function func (in "नमस्ते" bigint) as SELECT id3 from T1 where id2 > "नमस्ते"
+      - error: "42602"
+    -
+      # invalid view name
+      - query: create schema template test_template_with_inavlid_identifiers
+               create table T1(id2 bigint, id3 bigint, primary key(id2))
+               create view "$yay" as SELECT id3 from T1
+      - error: "42602"
+    -
+      # invalid view name
+      - query: create schema template test_template_with_inavlid_identifiers
+               create table T1(id2 bigint, id3 bigint, primary key(id2))
+               create view "नमस्ते" as SELECT id3 from T1
+      - error: "42602"
+---
+setup:
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  steps:
+    - query: drop schema template if exists IDENTIFIERS_PROTO_TEMPLATE
+    - query: drop database if exists /FRL/IDENTIFIERS_PROTO_YAML
+    - query: create database /FRL/IDENTIFIERS_PROTO_YAML
+    - load schema template: IDENTIFIERS_PROTO_TEMPLATE from com.apple.foundationdb.relational.yamltests.generated.identifierstests.IdentifiersTestProto
+    - query: create schema /FRL/IDENTIFIERS_PROTO_YAML/test with template IDENTIFIERS_PROTO_TEMPLATE
+    - set schema state: "{\"name\": \"TEST\", \"database_id\": \"/FRL/IDENTIFIERS_PROTO_YAML\", \"template_name\": \"IDENTIFIERS_PROTO_TEMPLATE\", \"store_info\" : {\"formatVersion\": 2}}"# This does not work entirely, but theoretically should be possible!
+---
+setup:
+  connect: "jdbc:embed:/FRL/IDENTIFIERS_PROTO_YAML?schema=TEST"
+  steps:
+    - query: INSERT INTO T1
+        VALUES (1, 10, 1),
+               (2, 10, 2),
+               (3, 10, 3),
+               (4, 10, 4),
+               (5, 10, 5)
+    - query: INSERT INTO T2
+        VALUES (6, 10, 6),
+               (7, 10, 7),
+               (8, 10, 8),
+               (9, 10, 9),
+               (10, 10, 10)
+    - query: INSERT INTO "__T3"
+        VALUES (11, 10, 11),
+               (12, 10, 12),
+               (13, 10, 13),
+               (14, 10, 14),
+               (15, 10, 15)
+    - query: INSERT INTO T4
+        VALUES (16, (11, 16), 10, 16),
+               (17, (11, 17), 10, 17),
+               (18, (11, 18), 10, 18),
+               (19, (11, 19), 10, 19),
+               (20, (22, 20), 10, 20)
+---
+test_block:
+  connect: "jdbc:embed:/FRL/IDENTIFIERS_PROTO_YAML?schema=TEST"
+  tests:
+    -
+      - query: SELECT * FROM T1
+      - result: [{"ID": 1, "T1.COL1": 10, "T1.COL2" : 1}, {"ID": 2, "T1.COL1": 10, "T1.COL2" : 2}, {"ID": 3, "T1.COL1": 10, "T1.COL2" : 3}, {"ID": 4, "T1.COL1": 10, "T1.COL2" : 4}, {"ID": 5, "T1.COL1": 10, "T1.COL2" : 5}]
+    -
+      - query: SELECT * FROM T1 WHERE "T1.COL2" > 3
+      - result: [{"ID": 4, "T1.COL1": 10, "T1.COL2" : 4}, {"ID": 5, "T1.COL1": 10, "T1.COL2" : 5}]
+    -
+      - query: SELECT "T1.COL2" FROM T1 WHERE "T1.COL2" > 3
+      - result: [{4}, {5}]
+    -
+      - query: SELECT * FROM T2
+      - result: [{"ID": 6, "T2$COL1": 10, "T2$COL2" : 6}, {"ID": 7, "T2$COL1": 10, "T2$COL2" : 7}, {"ID": 8, "T2$COL1": 10, "T2$COL2" : 8}, {"ID": 9, "T2$COL1": 10, "T2$COL2" : 9}, {"ID": 10, "T2$COL1": 10, "T2$COL2" : 10}]
+    -
+      - query: SELECT * FROM T2 WHERE "T2$COL2" > 8
+      - result: [{"ID": 9, "T2$COL1": 10, "T2$COL2" : 9}, {"ID": 10, "T2$COL1": 10, "T2$COL2" : 10}]
+    -
+      - query: SELECT "T2$COL2" FROM T2 WHERE "T2$COL2" > 8
+      - result: [{9}, {10}]
+    -
+      - query: SELECT * FROM "__T3"
+      - result: [{"ID": 11, "__T3$COL1": 10, "__T3$COL2" : 11}, {"ID": 12, "__T3$COL1": 10, "__T3$COL2" : 12}, {"ID": 13, "__T3$COL1": 10, "__T3$COL2" : 13}, {"ID": 14, "__T3$COL1": 10, "__T3$COL2" : 14}, {"ID": 15, "__T3$COL1": 10, "__T3$COL2" : 15}]
+    -
+      - query: SELECT * FROM "__T3" WHERE "__T3$COL2" > 13
+      - result: [{"ID": 14, "__T3$COL1": 10, "__T3$COL2" : 14}, {"ID": 15, "__T3$COL1": 10, "__T3$COL2" : 15}]
+    -
+      - query: SELECT "__T3$COL2" FROM "__T3" WHERE "__T3$COL2" > 13
+      - result: [{14}, {15}]
+    -
+      - query: SELECT * FROM T4
+      - result: [{"ID": 16, "___hidden": {11, 16}, "T4.COL1": 10, "T4.COL2" : 16}, {"ID": 17, "___hidden": {11, 17}, "T4.COL1": 10, "T4.COL2" : 17}, {"ID": 18, "___hidden": {11, 18}, "T4.COL1": 10, "T4.COL2" : 18}, {"ID": 19, "___hidden": {11, 19}, "T4.COL1": 10, "T4.COL2" : 19}, {"ID": 20, "___hidden": {22, 20}, "T4.COL1": 10, "T4.COL2" : 20}]
+    -
+      - query: SELECT * FROM T4 WHERE "T4.COL2" > 18
+      - result: [{"ID": 19, "___hidden": {11, 19}, "T4.COL1": 10, "T4.COL2" : 19}, {"ID": 20, "___hidden": {22, 20}, "T4.COL1": 10, "T4.COL2" : 20}]
+    -
+      - query: SELECT "T4.COL2" FROM T4 WHERE "T4.COL2" > 18
+      - result: [{19}, {20}]
+    -
+      - query: SELECT "___hidden"."a" FROM T4
+      - result: [{11}, {11}, {11}, {11}, {22}]
+---
+setup:
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  steps:
+    - query: drop schema template IDENTIFIERS_PROTO_TEMPLATE
+    - query: drop database /FRL/IDENTIFIERS_PROTO_YAML
 ...

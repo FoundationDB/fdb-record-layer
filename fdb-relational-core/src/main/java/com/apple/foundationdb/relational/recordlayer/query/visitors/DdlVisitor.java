@@ -379,7 +379,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         getDelegate().replaceSchemaTemplate(ddlCatalog);
 
         // 1. get the view name.
-        final var viewName = visitFullId(viewCtx.viewName).toString();
+        final var viewName = Identifier.toProtobufCompliant(visitFullId(viewCtx.viewName)).getName();
 
         // 2. get the view SQL definition string.
         final var queryString = getDelegate().getPlanGenerationContext().getQuery();
