@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.typing;
 
+import com.apple.foundationdb.record.RecordMetaDataOptionsProto;
 import com.apple.foundationdb.record.TupleFieldsProto;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
@@ -67,7 +68,7 @@ public class TypeRepository {
     public static final TypeRepository EMPTY_SCHEMA = empty();
 
     @Nonnull
-    public static final List<FileDescriptor> DEPENDENCIES = List.of(TupleFieldsProto.getDescriptor());
+    public static final List<FileDescriptor> DEPENDENCIES = List.of(TupleFieldsProto.getDescriptor(), RecordMetaDataOptionsProto.getDescriptor());
 
     @Nonnull
     private final FileDescriptorSet fileDescSet;

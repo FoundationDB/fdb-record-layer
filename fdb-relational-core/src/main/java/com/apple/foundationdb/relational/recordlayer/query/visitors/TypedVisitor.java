@@ -149,10 +149,6 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
 
     @Nonnull
     @Override
-    DataType visitPrimitiveType(@Nonnull RelationalParser.PrimitiveTypeContext ctx);
-
-    @Nonnull
-    @Override
     Boolean visitNullColumnConstraint(@Nonnull RelationalParser.NullColumnConstraintContext ctx);
 
     @Nonnull

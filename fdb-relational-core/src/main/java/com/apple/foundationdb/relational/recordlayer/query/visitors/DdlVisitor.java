@@ -105,11 +105,14 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
     @Override
     public DataType visitFunctionColumnType(@Nonnull final RelationalParser.FunctionColumnTypeContext ctx) {
         final var semanticAnalyzer = getDelegate().getSemanticAnalyzer();
+        final SemanticAnalyzer.ParsedTypeInfo typeInfo;
         if (ctx.customType != null) {
             final var columnType = Identifier.toProtobufCompliant(visitUid(ctx.customType));
-            return semanticAnalyzer.lookupType(columnType, true, false, metadataBuilder::findType);
+            typeInfo = SemanticAnalyzer.ParsedTypeInfo.ofCustomType(columnType, true, false);
+        } else {
+            typeInfo = SemanticAnalyzer.ParsedTypeInfo.ofPrimitiveType(ctx.primitiveType(), true, false);
         }
-        return visitPrimitiveType(ctx.primitiveType()).withNullable(true);
+        return semanticAnalyzer.lookupType(typeInfo, metadataBuilder::findType);
     }
 
     // TODO: remove
@@ -117,20 +120,14 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
     @Override
     public DataType visitColumnType(@Nonnull RelationalParser.ColumnTypeContext ctx) {
         final var semanticAnalyzer = getDelegate().getSemanticAnalyzer();
+        final SemanticAnalyzer.ParsedTypeInfo typeInfo;
         if (ctx.customType != null) {
             final var columnType = visitUid(ctx.customType);
-            return semanticAnalyzer.lookupType(columnType, false, false, metadataBuilder::findType);
+            typeInfo = SemanticAnalyzer.ParsedTypeInfo.ofCustomType(columnType, false, false);
+        } else {
+            typeInfo = SemanticAnalyzer.ParsedTypeInfo.ofPrimitiveType(ctx.primitiveType(), false, false);
         }
-        return visitPrimitiveType(ctx.primitiveType());
-    }
-
-    // TODO: remove
-    @Nonnull
-    @Override
-    public DataType visitPrimitiveType(@Nonnull RelationalParser.PrimitiveTypeContext ctx) {
-        final var semanticAnalyzer = getDelegate().getSemanticAnalyzer();
-        final var primitiveType = Identifier.of(ctx.getText());
-        return semanticAnalyzer.lookupType(primitiveType, false, false, ignored -> Optional.empty());
+        return semanticAnalyzer.lookupType(typeInfo, metadataBuilder::findType);
     }
 
     /**
@@ -153,9 +150,15 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         //       but a way to represent it in RecordMetadata.
         Assert.thatUnchecked(isRepeated || isNullable, ErrorCode.UNSUPPORTED_OPERATION, "NOT NULL is only allowed for ARRAY column type");
         containsNullableArray = containsNullableArray || (isRepeated && isNullable);
-        final var columnTypeId = ctx.columnType().customType != null ? Identifier.toProtobufCompliant(visitUid(ctx.columnType().customType)) : Identifier.of(ctx.columnType().getText());
         final var semanticAnalyzer = getDelegate().getSemanticAnalyzer();
-        final var columnType = semanticAnalyzer.lookupType(columnTypeId, isNullable, isRepeated, metadataBuilder::findType);
+        final SemanticAnalyzer.ParsedTypeInfo typeInfo;
+        if (ctx.columnType().customType != null) {
+            final var columnType = Identifier.toProtobufCompliant(visitUid(ctx.columnType().customType));
+            typeInfo = SemanticAnalyzer.ParsedTypeInfo.ofCustomType(columnType, isNullable, isRepeated);
+        } else {
+            typeInfo = SemanticAnalyzer.ParsedTypeInfo.ofPrimitiveType(ctx.columnType().primitiveType(), isNullable, isRepeated);
+        }
+        final var columnType = semanticAnalyzer.lookupType(typeInfo, metadataBuilder::findType);
         return RecordLayerColumn.newBuilder().setName(columnId.getName()).setDataType(columnType).build();
     }
 

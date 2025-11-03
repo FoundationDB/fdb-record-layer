@@ -39,6 +39,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.OfTypeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.relational.api.RelationalArray;
 import com.apple.foundationdb.relational.api.RelationalStruct;
+import com.apple.foundationdb.relational.api.WithMetadata;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.util.Assert;
@@ -247,21 +248,21 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
 
     @Nonnull
     private Value processPreparedStatementParameter(@Nullable Object param,
-                                                    @Nullable Type type,
+                                                    @Nonnull Type type,
                                                     @Nullable Integer unnamedParameterIndex,
                                                     @Nullable String parameterName,
                                                     int tokenIndex) {
         if (param instanceof Array) {
-            Assert.thatUnchecked(type == null || type.isArray(), DATATYPE_MISMATCH, "Array type field required as prepared statement parameter");
+            Assert.thatUnchecked(type.isArray(), DATATYPE_MISMATCH, "Array type field required as prepared statement parameter instead of " + type);
             return processPreparedStatementArrayParameter((Array)param, (Type.Array)type, unnamedParameterIndex, parameterName, tokenIndex);
         } else if (param instanceof Struct) {
-            Assert.thatUnchecked(type == null || type.isRecord(), DATATYPE_MISMATCH, "Required type field required as prepared statement parameter");
+            Assert.thatUnchecked(type.isRecord(), DATATYPE_MISMATCH, "Required type field required as prepared statement parameter instead of " + type);
             return processPreparedStatementStructParameter((Struct)param, (Type.Record)type, unnamedParameterIndex, parameterName, tokenIndex);
         } else if (param instanceof byte[]) {
             return processQueryLiteralOrParameter(Type.primitiveType(Type.TypeCode.BYTES), ZeroCopyByteString.wrap((byte[])param),
                     unnamedParameterIndex, parameterName, tokenIndex);
         } else {
-            return processQueryLiteralOrParameter(type == null ? Type.any() : type, param, unnamedParameterIndex, parameterName, tokenIndex);
+            return processQueryLiteralOrParameter(type, param, unnamedParameterIndex, parameterName, tokenIndex);
         }
     }
 
@@ -465,15 +466,31 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
     public Value processNamedPreparedParam(@Nonnull String param, int tokenIndex) {
         final var value = preparedParams.namedParamValue(param);
         //TODO type should probably be Type.any() instead of null
-        return processPreparedStatementParameter(value, null, null, param, tokenIndex);
+        return processPreparedStatementParameter(value, getObjectType(value), null, param, tokenIndex);
     }
 
     @Nonnull
     public Value processUnnamedPreparedParam(int tokenIndex) {
         // TODO (Make prepared statement parameters stateless)
         final int currentUnnamedParameterIndex = preparedParams.currentUnnamedParamIndex();
-        final var param = preparedParams.nextUnnamedParamValue();
-        //TODO type should probably be Type.any() instead of null
-        return processPreparedStatementParameter(param, null, currentUnnamedParameterIndex, null, tokenIndex);
+        final Object param;
+        if (!shouldProcessLiteral()) {
+            param = PreparedParams.copyOf(preparedParams, true).nextUnnamedParamValue();
+        } else {
+            param = preparedParams.nextUnnamedParamValue();
+        }
+        return processPreparedStatementParameter(param, getObjectType(param), currentUnnamedParameterIndex, null, tokenIndex);
+    }
+
+    @Nonnull
+    private static Type getObjectType(@Nullable final Object object) {
+        if (object instanceof WithMetadata) {
+            try {
+                return DataTypeUtils.toRecordLayerType(((WithMetadata)object).getRelationalMetaData());
+            } catch (SQLException e) {
+                throw new RelationalException(e).toUncheckedWrappedException();
+            }
+        }
+        return Type.fromObject(object);
     }
 }

@@ -349,12 +349,11 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     public Expression visitDataTypeFunctionCall(@Nonnull RelationalParser.DataTypeFunctionCallContext ctx) {
         if (ctx.CAST() != null) {
             final var sourceExpression = Assert.castUnchecked(ctx.expression().accept(this), Expression.class);
-            final var targetTypeString = ctx.convertedDataType().typeName.getText();
             final var isRepeated = ctx.convertedDataType().ARRAY() != null;
-            final var targetDataType = getDelegate().getSemanticAnalyzer().lookupType(
-                    Identifier.of(targetTypeString), false, isRepeated, ignored -> Optional.empty());
+            final var typeInfo = SemanticAnalyzer.ParsedTypeInfo.ofPrimitiveType(ctx.convertedDataType().typeName, false, isRepeated);
+            // Cast does not currently support user-defined struct types.
+            final var targetDataType = getDelegate().getSemanticAnalyzer().lookupBuiltInType(typeInfo);
             final var targetType = DataTypeUtils.toRecordLayerType(targetDataType);
-
             final var castValue = CastValue.inject(sourceExpression.getUnderlying(), targetType);
             return Expression.ofUnnamed(targetDataType, castValue);
         }

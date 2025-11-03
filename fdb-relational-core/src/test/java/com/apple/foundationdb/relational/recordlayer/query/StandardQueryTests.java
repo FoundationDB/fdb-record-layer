@@ -20,6 +20,10 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.linear.DoubleRealVector;
+import com.apple.foundationdb.linear.FloatRealVector;
+import com.apple.foundationdb.linear.HalfRealVector;
+import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalArray;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
@@ -49,6 +53,11 @@ import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
+
+import java.util.stream.Stream;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -1607,6 +1616,40 @@ public class StandardQueryTests {
                             .hasColumn("PK", 1L)
                             .hasColumn("A", actualUuidValue1)
                             .hasColumn("B", structWithUuid)
+                            .hasNoNextRow();
+                }
+            }
+        }
+    }
+
+    @Nonnull
+    private static Stream<Arguments> vectorTypeProvider() {
+        return Stream.of(
+                Arguments.of("vector(3, half)", new HalfRealVector(new double[]{1.1d, 1.2d, 1.3d})),
+                Arguments.of("vector(3, float)", new FloatRealVector(new double[]{1.1d, 1.2d, 1.3d})),
+                Arguments.of("vector(3, double)", new DoubleRealVector(new double[]{1.1d, 1.2d, 1.3d}))
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("vectorTypeProvider")
+    void vectorInsertSelectPrepared(String vectorType, RealVector vector) throws Exception {
+        final String schemaTemplate = String.format("CREATE TABLE T1(pk bigint, v %s, PRIMARY KEY(pk))", vectorType);
+
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var insert = ddl.setSchemaAndGetConnection().prepareStatement("insert into t1 values (?pk, ?v)")) {
+                insert.setLong("pk", 1L);
+                insert.setObject("v", vector);
+                final var numActualInserted = insert.executeUpdate();
+                Assertions.assertEquals(1, numActualInserted);
+            }
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                Assertions.assertTrue(statement.execute("select * from t1"));
+                try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                    ResultSetAssert.assertThat(resultSet)
+                            .hasNextRow()
+                            .hasColumn("PK", 1L)
+                            .hasColumn("v", vector)
                             .hasNoNextRow();
                 }
             }

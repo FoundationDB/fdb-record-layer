@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.jdbc;
 
+import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.relational.api.RelationalArray;
 import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.RelationalStructBuilder;
@@ -34,6 +35,7 @@ import com.apple.foundationdb.relational.jdbc.grpc.v1.column.ListColumnMetadata;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.Struct;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.Type;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.Uuid;
+import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.PositionalIndex;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 import com.google.common.annotations.VisibleForTesting;
@@ -263,7 +265,18 @@ class RelationalStructFacade implements RelationalStruct {
                 obj = getInt(oneBasedColumn);
                 break;
             case Types.OTHER:
-                obj = getUUID(oneBasedColumn);
+                final var column = getMetaData().getRelationalDataType().getFields().get(oneBasedColumn - 1 + getMetaData().getLeadingPhantomColumnCount());
+                final var columnRelationalType = column.getType();
+                switch (columnRelationalType.getCode()) {
+                    case UUID:
+                        obj = getUUID(oneBasedColumn);
+                        break;
+                    case VECTOR:
+                        obj = getVector(oneBasedColumn, Assert.castUnchecked(columnRelationalType, DataType.VectorType.class));
+                        break;
+                    default:
+                        throw new SQLException("Unsupported object type: " + type);
+                }
                 break;
             default:
                 throw new SQLException("Unsupported object type: " + type);
@@ -324,6 +337,18 @@ class RelationalStructFacade implements RelationalStruct {
             throw new SQLException("UUID", ErrorCode.CANNOT_CONVERT_TYPE.getErrorCode());
         }
         return new UUID(c.getUuid().getMostSignificantBits(), c.getUuid().getLeastSignificantBits());
+    }
+
+    @Nullable
+    private RealVector getVector(final int oneBasedPosition, @Nonnull final DataType.VectorType type) throws SQLException {
+        Column c = getColumnInternal(oneBasedPosition);
+        if (wasNull) {
+            return null;
+        }
+        if (!(c.hasBinary())) {
+            throw new SQLException("Vector", ErrorCode.CANNOT_CONVERT_TYPE.getErrorCode());
+        }
+        return TypeConversion.parseVector(c.getBinary().toByteArray(), type.getPrecision());
     }
 
     @Override

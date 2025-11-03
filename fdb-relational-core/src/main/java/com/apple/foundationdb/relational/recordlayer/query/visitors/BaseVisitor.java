@@ -374,12 +374,6 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
 
     @Nonnull
     @Override
-    public DataType visitPrimitiveType(@Nonnull RelationalParser.PrimitiveTypeContext ctx) {
-        return ddlVisitor.visitPrimitiveType(ctx);
-    }
-
-    @Nonnull
-    @Override
     public Boolean visitNullColumnConstraint(@Nonnull RelationalParser.NullColumnConstraintContext ctx) {
         return ddlVisitor.visitNullColumnConstraint(ctx);
     }

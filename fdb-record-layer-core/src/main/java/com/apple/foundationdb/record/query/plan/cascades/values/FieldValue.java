@@ -44,6 +44,7 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type.Record.Fiel
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence.Precedence;
+import com.apple.foundationdb.record.util.VectorUtils;
 import com.google.auto.service.AutoService;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -188,6 +189,10 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
         } else if (type.isUuid()) {
             Verify.verify(fieldValue instanceof UUID);
             return fieldValue;
+        } else if (type.isVector()) {
+            Verify.verify(fieldValue instanceof ByteString);
+            final var byteString = (ByteString) fieldValue;
+            return VectorUtils.parseVector(byteString, (Type.Vector)type);
         } else {
             // This also may need to turn ByteString's into byte[] for Type.TypeCode.BYTES
             return fieldValue;
