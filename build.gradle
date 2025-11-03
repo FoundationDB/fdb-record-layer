@@ -322,7 +322,12 @@ if (Boolean.parseBoolean(centralPublish)) {
             links {
                 homepage = 'https://foundationdb.github.io/fdb-record-layer/'
             }
-            inceptionYear = '2021'
+            inceptionYear = '2015'
+        }
+
+        signing {
+            active = 'ALWAYS'
+            armored = true
         }
 
         deploy {
