@@ -97,7 +97,7 @@ publishing {
     if (Boolean.parseBoolean(publishBuild)) {
         repositories {
             maven {
-                url = "${rootProject.rootDir}/.out/staging-repo"
+                url = rootProject.layout.buildDirectory.dir('staging-repo')
             }
 
             if (Boolean.parseBoolean(githubPublish)) {

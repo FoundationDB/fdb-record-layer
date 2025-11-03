@@ -18,9 +18,8 @@
  * limitations under the License.
  */
 
-import org.yaml.snakeyaml.Yaml
-
 import org.apache.tools.ant.taskdefs.condition.Os
+import org.yaml.snakeyaml.Yaml
 
 buildscript {
     repositories {
@@ -60,7 +59,6 @@ allprojects {
     apply plugin: 'base'
     apply plugin: 'java-library'
     apply plugin: 'maven-publish'
-    apply plugin: 'signing'
     apply plugin: 'project-reports'
     apply plugin: 'com.github.ben-manes.versions'
     apply plugin: 'de.undercouch.download'
@@ -163,14 +161,6 @@ allprojects {
 
     build {
         dependsOn tasks.jar, tasks.package
-    }
-
-    signing {
-        def signingKey = findProperty("signingKey")
-        def signingPassword = findProperty("signingPassword")
-        if (signingKey != null && signingPassword != null) {
-            useInMemoryPgpKeys(signingKey, signingPassword)
-        }
     }
 
     repositories {
@@ -314,6 +304,8 @@ subprojects {
 // Each subproject will place its artifacts into the central staging repository,
 // which will then be picked up by the release configuration
 if (Boolean.parseBoolean(centralPublish)) {
+    var stagingRepo = layout.buildDirectory.dir('staging-repo').get()
+
     jreleaser {
         project {
             authors = ['FoundationDB']
@@ -339,12 +331,16 @@ if (Boolean.parseBoolean(centralPublish)) {
                         applyMavenCentralRules = true
                         stage = 'FULL'
 
-                        stagingRepository("${rootDir}/.out/staging-repo")
+                        stagingRepository(stagingRepo.asFile.path)
                     }
                 }
             }
         }
+
+        dependsOnAssemble = true
     }
+
+    tasks.jreleaserDeploy.inputs.dir(stagingRepo)
 }
 
 // Script for upgrading gradle. To upgrade the gradle version, set the property to the version
