@@ -120,9 +120,3 @@ publishing {
 
     }
 }
-
-if (Boolean.parseBoolean(centralPublish)) {
-    signing {
-        sign publishing.publications.shadow
-    }
-}
