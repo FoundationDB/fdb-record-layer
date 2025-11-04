@@ -18,8 +18,9 @@
  * limitations under the License.
  */
 
-import org.apache.tools.ant.taskdefs.condition.Os
 import org.yaml.snakeyaml.Yaml
+
+import org.apache.tools.ant.taskdefs.condition.Os
 
 buildscript {
     repositories {
@@ -40,7 +41,7 @@ plugins {
     alias(libs.plugins.protobuf)
     alias(libs.plugins.versions)
     alias(libs.plugins.spotbugs)
-    alias(libs.plugins.jreleaser)
+    alias(libs.plugins.nexus)
     alias(libs.plugins.download)
 }
 
@@ -59,6 +60,7 @@ allprojects {
     apply plugin: 'base'
     apply plugin: 'java-library'
     apply plugin: 'maven-publish'
+    apply plugin: 'signing'
     apply plugin: 'project-reports'
     apply plugin: 'com.github.ben-manes.versions'
     apply plugin: 'de.undercouch.download'
@@ -161,6 +163,14 @@ allprojects {
 
     build {
         dependsOn tasks.jar, tasks.package
+    }
+
+    signing {
+        def signingKey = findProperty("signingKey")
+        def signingPassword = findProperty("signingPassword")
+        if (signingKey != null && signingPassword != null) {
+            useInMemoryPgpKeys(signingKey, signingPassword)
+        }
     }
 
     repositories {
@@ -300,47 +310,16 @@ subprojects {
 // Configure publishing for maven central. This is done in the top-level build.gradle, and then
 // all of the subprojects configure the artifacts they want published by applying
 // ${rootDir}/gradle/publishing.gradle in the project gradle. By default, we publish a library
-// from each package, but this can be configured by adjusting the publishLibrary variable.
-// Each subproject will place its artifacts into the central staging repository,
-// which will then be picked up by the release configuration
-if (Boolean.parseBoolean(publishBuild) && Boolean.parseBoolean(centralPublish)) {
-    var stagingRepo = layout.buildDirectory.dir('staging-repo')
-
-    jreleaser {
-        project {
-            authors = ['FoundationDB']
-            license = 'The Apache License, Version 2.0'
-            licenseUrl = 'https://www.apache.org/licenses/LICENSE-2.0'
-            links {
-                homepage = 'https://foundationdb.github.io/fdb-record-layer/'
-            }
-            inceptionYear = '2015'
-        }
-
-        signing {
-            active = 'ALWAYS'
-            armored = true
-        }
-
-        deploy {
-            maven {
-                mavenCentral {
-                    sonatype {
-                        active = 'ALWAYS'
-                        url = 'https://central.sonatype.com/api/v1/publisher'
-                        applyMavenCentralRules = true
-                        stage = 'FULL'
-
-                        stagingRepository(stagingRepo.get().asFile.path)
-                    }
-                }
+// from each package, but this can be configured by adjusting the publishLibrary variable
+if (Boolean.parseBoolean(centralPublish)) {
+    nexusPublishing {
+        repositories {
+            sonatype {
+                // Update the URL now that the OSSRH service has been sunset: https://central.sonatype.org/news/20250326_ossrh_sunset/
+                nexusUrl.set(uri("https://ossrh-staging-api.central.sonatype.com/service/local/"))
             }
         }
-
-        dependsOnAssemble = true
     }
-
-    tasks.jreleaserDeploy.inputs.dir(stagingRepo)
 }
 
 // Script for upgrading gradle. To upgrade the gradle version, set the property to the version
