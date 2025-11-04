@@ -193,6 +193,13 @@ jobs:
           JRELEASER_MAVENCENTRAL_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
           JRELEASER_MAVENCENTRAL_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Upload jreleaser trace logs
+        if: always()
+        uses: actions/upload-artifact@v4.6.0
+        with:
+          name: jrelease-trace
+          path: .out/jreleaser/*
+          retention-days: 1
   
       # Post release: Update various files which reference version
       # Updating the yaml files has to be done after the tests complete, or it will mark tests as failing that aren't
