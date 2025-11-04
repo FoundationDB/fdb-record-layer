@@ -7,33 +7,6 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.8
 
-### 4.8.7.0
-
-
-<details>
-<summary>
-
-<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
-
-</summary>
-
-* Update the release plugin to use the central publishing API directly - [PR #3710](https://github.com/FoundationDB/fdb-record-layer/pull/3710)
-
-</details>
-
-
-**[Full Changelog (4.8.6.0...4.8.7.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.8.6.0...4.8.7.0)**
-
-#### Mixed Mode Test Results
-
-Mixed mode testing run against the following previous versions:
-
-❌`4.6.3.0`, ❌`4.6.4.0`, ❌`4.6.5.0`, ❌`4.7.1.0`, ❌`4.7.2.0`, ✅`4.7.3.0`, ✅`4.8.1.0`, ✅`4.8.2.0`, ✅`4.8.3.0`, ✅`4.8.5.0`
-
-[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/19047506930)
-
-
-
 ### 4.8.6.0
 
 <h4> New Features </h4>
@@ -70,22 +43,6 @@ Mixed mode testing run against the following previous versions:
 
 ### 4.8.5.0
 
-
-
-**[Full Changelog (4.8.4.0...4.8.5.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.8.4.0...4.8.5.0)**
-
-#### Mixed Mode Test Results
-
-Mixed mode testing run against the following previous versions:
-
-❌`4.6.2.0`, ❌`4.6.3.0`, ❌`4.6.4.0`, ❌`4.6.5.0`, ❌`4.7.1.0`, ❌`4.7.2.0`, ✅`4.7.3.0`, ✅`4.8.1.0`, ✅`4.8.2.0`, ✅`4.8.3.0`
-
-[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/18949783608)
-
-
-
-### 4.8.4.0
-
 <h4> New Features </h4>
 
 * Protobuf compliant translation for supporting richer identifiers for tables and columns - [PR #3696](https://github.com/FoundationDB/fdb-record-layer/pull/3696)
@@ -94,7 +51,7 @@ Mixed mode testing run against the following previous versions:
 * Reactivate amortization of plan generation of functions. - [PR #3595](https://github.com/FoundationDB/fdb-record-layer/pull/3595)
 
 
-**[Full Changelog (4.8.3.0...4.8.4.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.8.3.0...4.8.4.0)**
+**[Full Changelog (4.8.3.0...4.8.5.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.8.4.0...4.8.5.0)**
 
 #### Mixed Mode Test Results
 
@@ -102,7 +59,7 @@ Mixed mode testing run against the following previous versions:
 
 ❌`4.6.2.0`, ❌`4.6.3.0`, ❌`4.6.4.0`, ❌`4.6.5.0`, ❌`4.7.1.0`, ❌`4.7.2.0`, ✅`4.7.3.0`, ✅`4.8.1.0`, ✅`4.8.2.0`, ✅`4.8.3.0`
 
-[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/18946501767)
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/18949783608)
 
 
 
