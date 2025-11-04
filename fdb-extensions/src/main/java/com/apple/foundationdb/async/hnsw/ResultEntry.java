@@ -23,10 +23,10 @@ package com.apple.foundationdb.async.hnsw;
 import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.tuple.Tuple;
-import com.google.common.base.Objects;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Objects;
 
 /**
  * Record-like class to wrap the results of a kNN-search.
@@ -39,8 +39,8 @@ public class ResultEntry {
     private final Tuple primaryKey;
 
     /**
-     * The vector that is stored with the item in the index. This vector is expressed in the client's coordinate
-     * system and should not be of class {@link com.apple.foundationdb.linear.HalfRealVector},
+     * The vector that is stored with the item in the structure. This vector is expressed in the client's coordinate
+     * system and should be of class {@link com.apple.foundationdb.linear.HalfRealVector},
      * {@link com.apple.foundationdb.linear.FloatRealVector}, or {@link com.apple.foundationdb.linear.DoubleRealVector}.
      * This member is nullable. It is set to {@code null}, if the caller to
      * {@link HNSW#kNearestNeighborsSearch(ReadTransaction, int, int, boolean, RealVector)} requested to not return
@@ -48,7 +48,7 @@ public class ResultEntry {
      * <p>
      * The vector, if set, may or may not be exactly equal to the vector that was originally inserted in the HNSW.
      * Depending on quantization settings (see {@link Config}, the vector that
-     * is returned may only be an approximation of the original vector..
+     * is returned may only be an approximation of the original vector.
      */
     @Nullable
     private final RealVector vector;
@@ -97,13 +97,13 @@ public class ResultEntry {
         final ResultEntry that = (ResultEntry)o;
         return Double.compare(distance, that.distance) == 0 &&
                 rankOrRowNumber == that.rankOrRowNumber &&
-                Objects.equal(primaryKey, that.primaryKey) &&
-                Objects.equal(vector, that.vector);
+                Objects.equals(primaryKey, that.primaryKey) &&
+                Objects.equals(vector, that.vector);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hashCode(primaryKey, vector, distance, rankOrRowNumber);
+        return Objects.hash(primaryKey, vector, distance, rankOrRowNumber);
     }
 
     @Override

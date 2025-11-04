@@ -20,9 +20,8 @@
 
 package com.apple.foundationdb.linear;
 
-import com.google.common.base.Objects;
-
 import javax.annotation.Nonnull;
+import java.util.Objects;
 
 /**
  * This class aims to reduce potential logic problems with respect to coordinate transformations by soliciting help from
@@ -97,7 +96,7 @@ public final class Transformed<V extends RealVector> {
             return false;
         }
         final Transformed<?> that = (Transformed<?>)o;
-        return Objects.equal(transformedVector, that.transformedVector);
+        return Objects.equals(transformedVector, that.transformedVector);
     }
 
     @Override

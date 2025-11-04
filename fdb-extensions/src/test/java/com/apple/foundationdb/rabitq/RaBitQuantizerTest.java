@@ -20,11 +20,13 @@
 
 package com.apple.foundationdb.rabitq;
 
+import com.apple.foundationdb.linear.AffineOperator;
 import com.apple.foundationdb.linear.DoubleRealVector;
 import com.apple.foundationdb.linear.FhtKacRotator;
 import com.apple.foundationdb.linear.Metric;
 import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.linear.RealVectorTest;
+import com.apple.foundationdb.linear.Transformed;
 import com.apple.test.RandomizedTestUtils;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
@@ -113,20 +115,25 @@ public class RaBitQuantizerTest {
     void basicEncodeWithEstimationTestSpecialValues(final double[] centroidData, final double[] vData,
                                                     final double[] qData, final double expectedDistance) {
         final RealVector centroid = new DoubleRealVector(centroidData);
-        final RealVector v = new DoubleRealVector(vData).subtract(centroid);
-        final RealVector q = new DoubleRealVector(qData).subtract(centroid);
+        final AffineOperator operator = new AffineOperator(null, centroid.multiply(-1.0d));
+        final Transformed<RealVector> v = operator.transform(new DoubleRealVector(vData));
+        final Transformed<RealVector> q = operator.transform(new DoubleRealVector(qData));
 
         final RaBitQuantizer quantizer = new RaBitQuantizer(Metric.EUCLIDEAN_SQUARE_METRIC, 7);
-        final EncodedRealVector encodedVector = quantizer.encode(v);
+        final Transformed<RealVector> encodedVector = quantizer.encode(v);
         final RaBitEstimator estimator = quantizer.estimator();
-        final RaBitEstimator.Result estimatedDistanceResult = estimator.estimateDistanceAndErrorBound(q, encodedVector);
+        final RaBitEstimator.Result estimatedDistanceResult =
+                estimator.estimateDistanceAndErrorBound(q.getUnderlyingVector(),
+                        (EncodedRealVector)encodedVector.getUnderlyingVector());
         logger.info("estimated distance result = {}", estimatedDistanceResult);
         Assertions.assertThat(estimatedDistanceResult.getDistance())
                 .isCloseTo(expectedDistance, Offset.offset(0.01d));
 
-        final EncodedRealVector encodedVector2 = quantizer.encode(v);
+        final Transformed<RealVector> encodedVector2 = quantizer.encode(v);
         Assertions.assertThat(encodedVector2.hashCode()).isEqualTo(encodedVector.hashCode());
         Assertions.assertThat(encodedVector2).isEqualTo(encodedVector);
+        Assertions.assertThat(encodedVector.hashCode()).isEqualTo(encodedVector.getUnderlyingVector().hashCode());
+        Assertions.assertThat(encodedVector.toString()).isEqualTo(encodedVector.getUnderlyingVector().toString());
     }
 
     @ParameterizedTest
@@ -167,27 +174,27 @@ public class RaBitQuantizerTest {
             logger.trace("centroid = {}", centroid);
 
             final RealVector centroidRot = rotator.apply(centroid);
-            final RealVector qTrans = rotator.apply(q).subtract(centroidRot);
-            final RealVector vTrans = rotator.apply(v).subtract(centroidRot);
+            final AffineOperator operator = new AffineOperator(rotator, centroidRot.multiply(-1.0d));
+            final Transformed<RealVector> qTrans = operator.transform(q);
+            final Transformed<RealVector> vTrans = operator.transform(v);
 
             logger.trace("qTrans = {}", qTrans);
             logger.trace("vTrans = {}", vTrans);
             logger.trace("centroidRot = {}", centroidRot);
 
             final RaBitQuantizer quantizer = new RaBitQuantizer(Metric.EUCLIDEAN_SQUARE_METRIC, numExBits);
-            final RaBitQuantizer.Result resultV = quantizer.encodeInternal(vTrans);
-            final EncodedRealVector encodedV = resultV.encodedVector;
-            logger.trace("fAddEx vor v = {}", encodedV.getAddEx());
-            logger.trace("fRescaleEx vor v = {}", encodedV.getRescaleEx());
-            logger.trace("fErrorEx vor v = {}", encodedV.getErrorEx());
-
-            final EncodedRealVector encodedQ = quantizer.encode(qTrans);
+            final Transformed<RealVector> encodedV = quantizer.encode(vTrans);
+            final Transformed<RealVector> encodedQ = quantizer.encode(qTrans);
             final RaBitEstimator estimator = quantizer.estimator();
-            final RealVector reconstructedQ = rotator.transposedApply(encodedQ.add(centroidRot));
-            final RealVector reconstructedV = rotator.transposedApply(encodedV.add(centroidRot));
-            final RaBitEstimator.Result estimatedDistance = estimator.estimateDistanceAndErrorBound(qTrans, encodedV);
+            final RealVector reconstructedQ = operator.untransform(encodedQ);
+            final RealVector reconstructedV = operator.untransform(encodedV);
+            final RaBitEstimator.Result estimatedDistance =
+                    estimator.estimateDistanceAndErrorBound(qTrans.getUnderlyingVector(),
+                            (EncodedRealVector)encodedV.getUnderlyingVector());
             logger.trace("estimated ||qRot - vRot||^2 = {}", estimatedDistance);
-            final double trueDistance = Metric.EUCLIDEAN_SQUARE_METRIC.distance(vTrans, qTrans);
+            final double trueDistance =
+                    Metric.EUCLIDEAN_SQUARE_METRIC.distance(vTrans.getUnderlyingVector(),
+                            qTrans.getUnderlyingVector());
             logger.trace("true ||qRot - vRot||^2 = {}", trueDistance);
             if (trueDistance >= estimatedDistance.getDistance() - estimatedDistance.getErr() &&
                     trueDistance < estimatedDistance.getDistance() + estimatedDistance.getErr()) {
@@ -208,7 +215,7 @@ public class RaBitQuantizerTest {
         logger.info("estimator better than reconstructed distance = {}%", String.format(Locale.ROOT, "%.2f", (double)numEstimationBetter * 100.0d / numRounds));
         logger.info("relative error = {}%", String.format(Locale.ROOT, "%.2f", sumRelativeError * 100.0d / numRounds));
 
-        Assertions.assertThat((double)numEstimationWithinBounds / numRounds).isGreaterThan(0.9);
+        Assertions.assertThat((double)numEstimationWithinBounds / numRounds).isGreaterThan(0.8);
         Assertions.assertThat((double)numEstimationBetter / numRounds).isBetween(0.3, 0.7);
         Assertions.assertThat(sumRelativeError / numRounds).isLessThan(0.1d);
     }

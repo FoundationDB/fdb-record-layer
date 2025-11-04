@@ -42,7 +42,7 @@ public interface Quantizer {
     Estimator estimator();
 
     @Nonnull
-    default Transformed<RealVector> encode(@Nonnull Transformed<RealVector> vector) {
+    default Transformed<RealVector> encode(@Nonnull final Transformed<RealVector> vector) {
         return new Transformed<>(encode(vector.getUnderlyingVector()));
     }
 

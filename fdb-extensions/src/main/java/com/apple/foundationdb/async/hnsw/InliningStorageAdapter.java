@@ -185,6 +185,13 @@ class InliningStorageAdapter extends AbstractStorageAdapter<NodeReferenceWithVec
     private NodeReferenceWithVector neighborFromTuples(@Nonnull final AffineOperator storageTransform,
                                                        @Nonnull final Tuple keyTuple, @Nonnull final Tuple valueTuple) {
         final Tuple neighborPrimaryKey = keyTuple.getNestedTuple(2); // neighbor primary key
+        //
+        // Transform the raw vector that was just fetched into the internal coordinate system. If we do not have
+        // a need to transform coordinates, this transform is the identity transformation. Vectors are always stored
+        // in the internal coordinate system in use at the time the vector is written. If that coordinate system changes
+        // afterward, for instance RaBitQ by enabling RaBitQ, subsequent reads of vectors that were written prior to
+        // the coordinate system change need to be transformed when they are read back.
+        //
         final Transformed<RealVector> neighborVector =
                 storageTransform.transform(
                         StorageAdapter.vectorFromTuple(getConfig(), valueTuple)); // the entire value is the vector
@@ -255,7 +262,7 @@ class InliningStorageAdapter extends AbstractStorageAdapter<NodeReferenceWithVec
         // getting underlying vector is okay as it is only written to the database
         final byte[] value =
                 StorageAdapter.tupleFromVector(
-                        quantizer.encode(neighbor.getVector()).getUnderlyingVector()).pack();
+                        quantizer.encode(neighbor.getVector())).pack();
         transaction.set(neighborKey, value);
         getOnWriteListener().onNeighborWritten(layer, node, neighbor);
         getOnWriteListener().onKeyValueWritten(layer, neighborKey, value);

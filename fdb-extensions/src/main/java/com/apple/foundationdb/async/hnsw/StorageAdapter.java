@@ -38,6 +38,7 @@ import com.apple.foundationdb.linear.VectorType;
 import com.apple.foundationdb.rabitq.EncodedRealVector;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 
@@ -63,17 +64,17 @@ interface StorageAdapter<N extends NodeReference> {
     /**
      * Subspace for data.
      */
-    byte SUBSPACE_PREFIX_DATA = 0x00;
+    long SUBSPACE_PREFIX_DATA = 0x00;
 
     /**
      * Subspace for the access info; contains entry nodes; these are kept separately from the data.
      */
-    byte SUBSPACE_PREFIX_ACCESS_INFO = 0x01;
+    long SUBSPACE_PREFIX_ACCESS_INFO = 0x01;
 
     /**
      * Subspace for (mostly) statistical analysis (like finding a centroid, etc.). Contains samples of vectors.
      */
-    byte SUBSPACE_PREFIX_SAMPLES = 0x02;
+    long SUBSPACE_PREFIX_SAMPLES = 0x02;
 
     /**
      * Returns the configuration of the HNSW graph.
@@ -175,6 +176,7 @@ interface StorageAdapter<N extends NodeReference> {
      * @param maxNumRead the maximum number of nodes to return in this scan
      * @return an {@link AsyncIterable} that provides the nodes found in the specified layer range
      */
+    @VisibleForTesting
     Iterable<AbstractNode<N>> scanLayer(@Nonnull ReadTransaction readTransaction, int layer,
                                         @Nullable Tuple lastPrimaryKey, int maxNumRead);
 
@@ -223,6 +225,16 @@ interface StorageAdapter<N extends NodeReference> {
             default:
                 throw new RuntimeException("unable to serialize vector");
         }
+    }
+
+    /**
+     * Converts a transformed vector into a tuple.
+     * @param vector a transformed vector
+     * @return a new, non-null {@code Tuple} instance representing the contents of the underlying vector.
+     */
+    @Nonnull
+    static Tuple tupleFromVector(@Nonnull final Transformed<RealVector> vector) {
+        return tupleFromVector(vector.getUnderlyingVector());
     }
 
     /**
@@ -295,12 +307,12 @@ interface StorageAdapter<N extends NodeReference> {
                                 @Nonnull final OnWriteListener onWriteListener) {
         final Subspace entryNodeSubspace = accessInfoSubspace(subspace);
         final EntryNodeReference entryNodeReference = accessInfo.getEntryNodeReference();
-        final RealVector centroid = accessInfo.getCentroid();
+        final RealVector centroid = accessInfo.getNegatedCentroid();
         final byte[] key = entryNodeSubspace.pack();
         final byte[] value = Tuple.from(entryNodeReference.getLayer(),
                 entryNodeReference.getPrimaryKey(),
                 // getting underlying is okay as it is only written to the database
-                StorageAdapter.tupleFromVector(entryNodeReference.getVector().getUnderlyingVector()),
+                StorageAdapter.tupleFromVector(entryNodeReference.getVector()),
                 accessInfo.getRotatorSeed(),
                 centroid == null ? null : StorageAdapter.tupleFromVector(centroid)).pack();
         transaction.set(key, value);
@@ -313,7 +325,6 @@ interface StorageAdapter<N extends NodeReference> {
                                                                            final int numMaxVectors,
                                                                            @Nonnull final OnReadListener onReadListener) {
         final Subspace prefixSubspace = samplesSubspace(subspace);
-
         final byte[] prefixKey = prefixSubspace.pack();
         final ReadTransaction snapshot = transaction.snapshot();
         final Range range = Range.startsWith(prefixKey);

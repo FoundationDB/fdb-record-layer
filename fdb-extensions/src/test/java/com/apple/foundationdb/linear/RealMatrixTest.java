@@ -22,6 +22,7 @@ package com.apple.foundationdb.linear;
 
 import com.apple.test.RandomizedTestUtils;
 import com.google.common.collect.ImmutableSet;
+import org.assertj.core.api.Assertions;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -175,5 +176,8 @@ class RealMatrixTest {
                         .isCloseTo(0, within(2E-14));
             }
         }
+
+        Assertions.assertThat(m1.toRowMajor()).isSameAs(m1);
+        Assertions.assertThat(m2.toColumnMajor()).isSameAs(m2);
     }
 }

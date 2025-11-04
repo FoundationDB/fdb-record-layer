@@ -21,10 +21,10 @@
 package com.apple.foundationdb.async.hnsw;
 
 import com.apple.foundationdb.linear.RealVector;
-import com.google.common.base.Objects;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Objects;
 
 /**
  * Class to capture the current state of this HNSW that cannot be expressed as metadata but that also is not the actual
@@ -46,17 +46,19 @@ class AccessInfo {
     private final long rotatorSeed;
 
     /**
-     * A centroid that is usually derived as an average over some vectors seen so far. It is used to create the
-     * {@link StorageTransform}.
+     * The negated centroid that is usually derived as an average over some vectors seen so far. It is used to create
+     * the {@link StorageTransform}. The centroid is stored in its negated form (i.e. {@code centroid * (-1)}) as the
+     * {@link com.apple.foundationdb.linear.AffineOperator} adds its translation vector but the centroid needs to be
+     * subtracted.
      */
     @Nullable
-    private final RealVector centroid;
+    private final RealVector negatedCentroid;
 
     public AccessInfo(@Nonnull final EntryNodeReference entryNodeReference, final long rotatorSeed,
-                      @Nullable final RealVector centroid) {
+                      @Nullable final RealVector negatedCentroid) {
         this.entryNodeReference = entryNodeReference;
         this.rotatorSeed = rotatorSeed;
-        this.centroid = centroid;
+        this.negatedCentroid = negatedCentroid;
     }
 
     @Nonnull
@@ -65,7 +67,7 @@ class AccessInfo {
     }
 
     public boolean canUseRaBitQ() {
-        return getCentroid() != null;
+        return getNegatedCentroid() != null;
     }
 
     public long getRotatorSeed() {
@@ -73,13 +75,13 @@ class AccessInfo {
     }
 
     @Nullable
-    public RealVector getCentroid() {
-        return centroid;
+    public RealVector getNegatedCentroid() {
+        return negatedCentroid;
     }
 
     @Nonnull
     public AccessInfo withNewEntryNodeReference(@Nonnull final EntryNodeReference entryNodeReference) {
-        return new AccessInfo(entryNodeReference, getRotatorSeed(), getCentroid());
+        return new AccessInfo(entryNodeReference, getRotatorSeed(), getNegatedCentroid());
     }
 
     @Override
@@ -89,13 +91,13 @@ class AccessInfo {
         }
         final AccessInfo that = (AccessInfo)o;
         return rotatorSeed == that.rotatorSeed &&
-                Objects.equal(entryNodeReference, that.entryNodeReference) &&
-                Objects.equal(centroid, that.centroid);
+                Objects.equals(entryNodeReference, that.entryNodeReference) &&
+                Objects.equals(negatedCentroid, that.negatedCentroid);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hashCode(entryNodeReference, rotatorSeed, centroid);
+        return Objects.hash(entryNodeReference, rotatorSeed, negatedCentroid);
     }
 
     @Nonnull
@@ -104,6 +106,6 @@ class AccessInfo {
         return "AccessInfo[" +
                 "entryNodeReference=" + entryNodeReference +
                 ", rotatorSeed=" + rotatorSeed +
-                ", centroid=" + centroid + "]";
+                ", centroid=" + negatedCentroid + "]";
     }
 }

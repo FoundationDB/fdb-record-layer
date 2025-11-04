@@ -230,7 +230,7 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
         nodeItems.add(NodeKind.COMPACT.getSerialized());
         final CompactNode compactNode = node.asCompactNode();
         // getting underlying vector is okay as it is only written to the database
-        nodeItems.add(StorageAdapter.tupleFromVector(quantizer.encode(compactNode.getVector()).getUnderlyingVector()));
+        nodeItems.add(StorageAdapter.tupleFromVector(quantizer.encode(compactNode.getVector())));
 
         final Iterable<NodeReference> neighbors = neighborsChangeSet.merge();
 

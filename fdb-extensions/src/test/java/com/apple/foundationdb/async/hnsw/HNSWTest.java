@@ -71,6 +71,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Random;
 import java.util.Set;
 import java.util.TreeSet;
@@ -83,6 +84,7 @@ import java.util.stream.LongStream;
 import java.util.stream.Stream;
 
 import static com.apple.foundationdb.linear.RealVectorTest.createRandomHalfVector;
+import static org.assertj.core.api.Assertions.within;
 
 /**
  * Tests testing insert/update/deletes of data into/in/from {@link RTree}s.
@@ -219,7 +221,7 @@ class HNSWTest {
                         .setM(32).setMMax(32).setMMax0(64).build(numDimensions),
                 OnWriteListener.NOOP, onReadListener);
 
-        final int k = 10;
+        final int k = 50;
         final HalfRealVector queryVector = createRandomHalfVector(random, numDimensions);
         final TreeSet<PrimaryKeyVectorAndDistance> recordsOrderedByDistance =
                 new TreeSet<>(Comparator.comparing(PrimaryKeyVectorAndDistance::getDistance));
@@ -265,7 +267,7 @@ class HNSWTest {
                 TimeUnit.NANOSECONDS.toMillis(endTs - beginTs),
                 onReadListener.getNodeCountByLayer(), onReadListener.getBytesReadByLayer(),
                 String.format(Locale.ROOT, "%.2f", recall * 100.0d));
-        Assertions.assertThat(recall).isGreaterThan(0.79);
+        Assertions.assertThat(recall).isGreaterThan(0.9);
 
         final Set<Long> insertedIds =
                 LongStream.range(0, 1000)
@@ -321,6 +323,8 @@ class HNSWTest {
 
         final Path siftSmallPath = Paths.get(".out/extracted/siftsmall/siftsmall_base.fvecs");
 
+        final Map<Integer, RealVector> dataMap = Maps.newHashMap();
+
         try (final var fileChannel = FileChannel.open(siftSmallPath, StandardOpenOption.READ)) {
             final Iterator<DoubleRealVector> vectorIterator = new StoredVecsIterator.StoredFVecsIterator(fileChannel);
 
@@ -342,16 +346,18 @@ class HNSWTest {
                                 sumReference.set(sumReference.get().add(currentVector));
                             }
 
+                            dataMap.put(Math.toIntExact(currentPrimaryKey.getLong(0)), currentVector);
                             return new PrimaryKeyAndVector(currentPrimaryKey, currentVector);
                         });
             }
             Assertions.assertThat(i).isEqualTo(10000);
         }
 
-        validateSIFTSmall(hnsw, k);
+        validateSIFTSmall(hnsw, dataMap, k);
     }
 
-    private void validateSIFTSmall(@Nonnull final HNSW hnsw, final int k) throws IOException {
+    private void validateSIFTSmall(@Nonnull final HNSW hnsw, @Nonnull final Map<Integer, RealVector> dataMap, final int k) throws IOException {
+        final Metric metric = hnsw.getConfig().getMetric();
         final Path siftSmallGroundTruthPath = Paths.get(".out/extracted/siftsmall/siftsmall_groundtruth.ivecs");
         final Path siftSmallQueryPath = Paths.get(".out/extracted/siftsmall/siftsmall_query.fvecs");
 
@@ -380,6 +386,20 @@ class HNSWTest {
                 int recallCount = 0;
                 for (final ResultEntry resultEntry : results) {
                     final int primaryKeyIndex = (int)resultEntry.getPrimaryKey().getLong(0);
+
+                    //
+                    // Assert that the original vector and the reconstructed vector are the same-ish vector
+                    // (minus reconstruction). The closeness value is dependent on the encoding quality settings,
+                    // the dimensionality, and the metric in use. For now, we just set it to 20.0 as that should be
+                    // fairly safe with respect to not giving us false-positives and also tripping for actual logic
+                    // errors as the expected random distance is far larger.
+                    //
+                    final RealVector originalVector = dataMap.get(primaryKeyIndex);
+                    Assertions.assertThat(originalVector).isNotNull();
+                    final double distance = metric.distance(originalVector,
+                            Objects.requireNonNull(resultEntry.getVector()).toDoubleRealVector());
+                    Assertions.assertThat(distance).isCloseTo(0.0d, within(20.0d));
+
                     logger.trace("retrieved result nodeId = {} at distance = {} ",
                             primaryKeyIndex, resultEntry.getDistance());
                     if (groundTruthIndices.contains(primaryKeyIndex)) {
@@ -388,7 +408,7 @@ class HNSWTest {
                 }
 
                 final double recall = (double)recallCount / k;
-                Assertions.assertThat(recall).isGreaterThan(0.8);
+                Assertions.assertThat(recall).isGreaterThan(0.93);
 
                 logger.info("query returned results recall={}", String.format(Locale.ROOT, "%.2f", recall * 100.0d));
             }

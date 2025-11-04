@@ -49,7 +49,7 @@ class FhtKacRotatorTest {
         final Random random = new Random(seed);
         final RealVector x = RealVectorTest.createRandomDoubleVector(random, numDimensions);
         final RealVector y = rotator.apply(x);
-        final RealVector z = rotator.transposedApply(y);
+        final RealVector z = rotator.invertedApply(y);
 
         Assertions.assertThat(Metric.EUCLIDEAN_METRIC.distance(x, z)).isCloseTo(0, within(2E-10));
     }
@@ -77,7 +77,7 @@ class FhtKacRotatorTest {
         final ColumnMajorRealMatrix p = rotator.computeP().transpose().quickTranspose();
 
         for (int j = 0; j < numDimensions; j ++) {
-            final RealVector rotated = rotator.transposedApply(new DoubleRealVector(p.getColumn(j)));
+            final RealVector rotated = rotator.invertedApply(new DoubleRealVector(p.getColumn(j)));
             for (int i = 0; i < numDimensions; i++) {
                 double expected = (i == j) ? 1.0 : 0.0;
                 Assertions.assertThat(Math.abs(rotated.getComponent(i) - expected))

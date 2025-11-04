@@ -23,9 +23,9 @@ package com.apple.foundationdb.async.hnsw;
 import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.linear.Transformed;
 import com.apple.foundationdb.tuple.Tuple;
-import com.google.common.base.Objects;
 
 import javax.annotation.Nonnull;
+import java.util.Objects;
 
 /**
  * Represents a reference to a node that includes an associated vector.
@@ -97,7 +97,7 @@ public class NodeReferenceWithVector extends NodeReference {
         if (!super.equals(o)) {
             return false;
         }
-        return Objects.equal(vector, ((NodeReferenceWithVector)o).vector);
+        return Objects.equals(vector, ((NodeReferenceWithVector)o).vector);
     }
 
     /**
@@ -106,7 +106,7 @@ public class NodeReferenceWithVector extends NodeReference {
      */
     @Override
     public int hashCode() {
-        return Objects.hashCode(super.hashCode(), vector);
+        return Objects.hash(super.hashCode(), vector);
     }
 
     /**

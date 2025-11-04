@@ -123,20 +123,6 @@ public class HNSW {
     }
 
     /**
-     * Creates a new {@code HNSW} instance using the default configuration, write listener, and read listener.
-     * <p>
-     * This constructor delegates to the main constructor, providing default values for configuration
-     * and listeners, simplifying the instantiation process for common use cases.
-     *
-     * @param subspace the non-null {@link Subspace} to build the HNSW graph for.
-     * @param executor the non-null {@link Executor} for concurrent operations, such as building the graph.
-     * @param numDimensions the number of dimensions
-     */
-    public HNSW(@Nonnull final Subspace subspace, @Nonnull final Executor executor, final int numDimensions) {
-        this(subspace, executor, newConfigBuilder().build(numDimensions), OnWriteListener.NOOP, OnReadListener.NOOP);
-    }
-
-    /**
      * Constructs a new HNSW graph instance.
      * <p>
      * This constructor initializes the HNSW graph with the necessary components for storage,
@@ -217,7 +203,7 @@ public class HNSW {
         }
 
         return new StorageTransform(accessInfo.getRotatorSeed(),
-                getConfig().getNumDimensions(), Objects.requireNonNull(accessInfo.getCentroid()));
+                getConfig().getNumDimensions(), Objects.requireNonNull(accessInfo.getNegatedCentroid()));
     }
 
     @Nonnull
@@ -442,6 +428,8 @@ public class HNSW {
                         @Nonnull final Transformed<RealVector> queryVector) {
         final Set<Tuple> visited = Sets.newConcurrentHashSet(NodeReference.primaryKeys(nodeReferences));
         final Queue<NodeReferenceWithDistance> candidates =
+                // This initial capacity is somewhat arbitrary as m is not necessarily a limit,
+                // but it gives us a number that is better than the default.
                 new PriorityQueue<>(config.getM(),
                         Comparator.comparing(NodeReferenceWithDistance::getDistance));
         candidates.addAll(nodeReferences);
@@ -1189,17 +1177,19 @@ public class HNSW {
                                       @Nonnull final AffineOperator storageTransform,
                                       @Nonnull final Estimator estimator,
                                       @Nonnull final NodeReferenceAndNode<N> selectedNeighbor,
-                                      int layer,
-                                      int mMax,
+                                      final int layer,
+                                      final int mMax,
                                       @Nonnull final NeighborsChangeSet<N> neighborChangeSet,
                                       @Nonnull final Map<Tuple, AbstractNode<N>> nodeCache) {
         final AbstractNode<N> selectedNeighborNode = selectedNeighbor.getNode();
-        if (selectedNeighborNode.getNeighbors().size() < mMax) {
+        final int numNeighbors =
+                Iterables.size(neighborChangeSet.merge()); // this is a view over the iterable neighbors in the set
+        if (numNeighbors < mMax) {
             return CompletableFuture.completedFuture(null);
         } else {
             if (logger.isTraceEnabled()) {
                 logger.trace("pruning neighborhood of key={} which has numNeighbors={} out of mMax={}",
-                        selectedNeighborNode.getPrimaryKey(), selectedNeighborNode.getNeighbors().size(), mMax);
+                        selectedNeighborNode.getPrimaryKey(), numNeighbors, mMax);
             }
             return fetchNeighborhood(storageAdapter, transaction, storageTransform, layer, neighborChangeSet.merge(), nodeCache)
                     .thenCompose(nodeReferenceWithVectors -> {

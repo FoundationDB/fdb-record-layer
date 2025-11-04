@@ -148,6 +148,12 @@ public class ColumnMajorRealMatrix implements RealMatrix {
 
     @Override
     public final boolean equals(final Object o) {
+        if (o == null) {
+            return false;
+        }
+        if (this == o) {
+            return true;
+        }
         if (o instanceof ColumnMajorRealMatrix) {
             final ColumnMajorRealMatrix that = (ColumnMajorRealMatrix)o;
             return Arrays.deepEquals(data, that.data);

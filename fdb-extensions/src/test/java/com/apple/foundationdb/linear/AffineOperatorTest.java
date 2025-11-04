@@ -48,6 +48,7 @@ class AffineOperatorTest {
         final Random random = new Random(seed);
         final RealVector translation = RealVectorTest.createRandomDoubleVector(random, numDimensions);
         final AffineOperator affineOperator = new AffineOperator(rotator, translation);
+        Assertions.assertThat(affineOperator.getNumDimensions()).isEqualTo(numDimensions);
 
         final RealVector x = RealVectorTest.createRandomDoubleVector(random, numDimensions);
         final RealVector y = affineOperator.apply(x);

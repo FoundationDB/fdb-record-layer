@@ -21,10 +21,10 @@
 package com.apple.foundationdb.async.hnsw;
 
 import com.apple.foundationdb.linear.Metric;
-import com.google.common.base.Objects;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 
 import javax.annotation.Nonnull;
+import java.util.Objects;
 
 /**
  * Configuration settings for a {@link HNSW}.
@@ -292,7 +292,7 @@ public final class Config {
 
     @Override
     public int hashCode() {
-        return Objects.hashCode(randomSeed, metric, numDimensions, useInlining, m, mMax, mMax0, efConstruction,
+        return Objects.hash(randomSeed, metric, numDimensions, useInlining, m, mMax, mMax0, efConstruction,
                 extendCandidates, keepPrunedConnections, sampleVectorStatsProbability, maintainStatsProbability,
                 statsThreshold, useRaBitQ, raBitQNumExBits, maxNumConcurrentNodeFetches, maxNumConcurrentNeighborhoodFetches);
     }

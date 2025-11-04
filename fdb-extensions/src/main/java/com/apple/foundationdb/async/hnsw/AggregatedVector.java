@@ -22,9 +22,9 @@ package com.apple.foundationdb.async.hnsw;
 
 import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.linear.Transformed;
-import com.google.common.base.Objects;
 
 import javax.annotation.Nonnull;
+import java.util.Objects;
 
 /**
  * A record-like class wrapping a {@link RealVector} and a count. This data structure is used to keep a running sum
@@ -55,12 +55,12 @@ class AggregatedVector {
             return false;
         }
         final AggregatedVector that = (AggregatedVector)o;
-        return partialCount == that.partialCount && Objects.equal(partialVector, that.partialVector);
+        return partialCount == that.partialCount && Objects.equals(partialVector, that.partialVector);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hashCode(partialCount, partialVector);
+        return Objects.hash(partialCount, partialVector);
     }
 
     @Override
