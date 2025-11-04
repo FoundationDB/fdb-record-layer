@@ -410,4 +410,13 @@ public interface KeySpacePath {
                                                            @Nonnull ScanProperties scanProperties) {
         throw new UnsupportedOperationException("exportAllData is not supported");
     }
+
+    /**
+     * Two {@link KeySpacePath}s are equal if they have equal values, the same directory (reference equality) and their
+     * parents are the same.
+     * @param obj another {@link KeySpacePath}
+     * @return {@code true} if this path equals {@code obj}
+     */
+    @Override
+    boolean equals(Object obj);
 }

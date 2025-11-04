@@ -20,10 +20,14 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.keyspace;
 
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
+import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.ByteString;
 
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.List;
 import java.util.UUID;
 
@@ -39,17 +43,21 @@ import java.util.UUID;
  * </p>
  *
  */
+@API(API.Status.EXPERIMENTAL)
 public class KeySpacePathSerializer {
 
+    @Nonnull
     private final List<KeySpacePath> root;
 
-    public KeySpacePathSerializer(final KeySpacePath root) {
+    public KeySpacePathSerializer(@Nonnull final KeySpacePath root) {
         this.root = root.flatten();
     }
 
-    public ByteString serialize(DataInKeySpacePath data) {
+    @Nonnull
+    public ByteString serialize(@Nonnull DataInKeySpacePath data) {
         KeySpaceProto.DataInKeySpacePath.Builder builder = KeySpaceProto.DataInKeySpacePath.newBuilder();
         final List<KeySpacePath> dataPath = data.getPath().flatten();
+        // two paths are only equal if their parents are equal, so we don't have to validate the whole prefix here
         if (dataPath.size() < root.size() ||
                 !dataPath.get(root.size() - 1).equals(root.get(root.size() - 1))) {
             throw new RecordCoreArgumentException("Data is not contained within root path");
@@ -65,11 +73,90 @@ public class KeySpacePathSerializer {
         return builder.build().toByteString();
     }
 
-    private static KeySpaceProto.KeySpacePathEntry serialize(final KeySpacePath keySpacePath) {
+    @Nonnull
+    public DataInKeySpacePath deserialize(@Nonnull ByteString bytes) {
+        try {
+            KeySpaceProto.DataInKeySpacePath proto = KeySpaceProto.DataInKeySpacePath.parseFrom(bytes);
+            return deserialize(proto);
+        } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+            throw new RecordCoreArgumentException("Failed to parse serialized DataInKeySpacePath", e);
+        }
+    }
+
+    @Nonnull
+    private DataInKeySpacePath deserialize(@Nonnull KeySpaceProto.DataInKeySpacePath proto) {
+        // Start with the root path
+        KeySpacePath path = root.get(root.size() - 1);
+
+        // Add each path entry from the proto
+        for (KeySpaceProto.KeySpacePathEntry entry : proto.getPathList()) {
+            Object value = deserializeValue(entry);
+            path = path.add(entry.getName(), value);
+        }
+
+        // Extract remainder if present
+        Tuple remainder = null;
+        if (proto.hasRemainder()) {
+            remainder = Tuple.fromBytes(proto.getRemainder().toByteArray());
+        }
+
+        // Extract value
+        if (!proto.hasValue()) {
+            throw new RecordCoreArgumentException("Serialized data must have a value");
+        }
+        byte[] value = proto.getValue().toByteArray();
+
+        return new DataInKeySpacePath(path, remainder, value);
+    }
+
+    @Nullable
+    private static Object deserializeValue(@Nonnull KeySpaceProto.KeySpacePathEntry entry) {
+        // Check which value field is set and return the appropriate value
+        if (entry.hasNullValue()) {
+            return null;
+        } else if (entry.hasBytesValue()) {
+            return entry.getBytesValue().toByteArray();
+        } else if (entry.hasStringValue()) {
+            return entry.getStringValue();
+        } else if (entry.hasLongValue()) {
+            return entry.getLongValue();
+        } else if (entry.hasFloatValue()) {
+            return entry.getFloatValue();
+        } else if (entry.hasDoubleValue()) {
+            return entry.getDoubleValue();
+        } else if (entry.hasBooleanValue()) {
+            return entry.getBooleanValue();
+        } else if (entry.hasUuid()) {
+            KeySpaceProto.KeySpacePathEntry.UUID uuidProto = entry.getUuid();
+            return new UUID(uuidProto.getMostSignificantBits(), uuidProto.getLeastSignificantBits());
+        } else {
+            throw new RecordCoreArgumentException("KeySpacePathEntry has no value set")
+                    .addLogInfo(LogMessageKeys.DIR_NAME, entry.getName());
+        }
+    }
+
+    @Nonnull
+    private static KeySpaceProto.KeySpacePathEntry serialize(@Nonnull final KeySpacePath keySpacePath) {
         KeySpaceProto.KeySpacePathEntry.Builder builder = KeySpaceProto.KeySpacePathEntry.newBuilder()
                 .setName(keySpacePath.getDirectoryName());
         final Object value = keySpacePath.getValue();
         final KeySpaceDirectory.KeyType keyType = keySpacePath.getDirectory().getKeyType();
+
+        // Validate null handling: NULL type must have null value, all other types must not have null value
+        if (keyType == KeySpaceDirectory.KeyType.NULL) {
+            if (value != null) {
+                throw new RecordCoreArgumentException("NULL key type must have null value")
+                        .addLogInfo(LogMessageKeys.DIR_NAME, keySpacePath.getDirectoryName(),
+                                LogMessageKeys.ACTUAL, value);
+            }
+        } else {
+            if (value == null) {
+                throw new RecordCoreArgumentException("Non-NULL key type cannot have null value")
+                        .addLogInfo(LogMessageKeys.DIR_NAME, keySpacePath.getDirectoryName(),
+                                LogMessageKeys.EXPECTED_TYPE, keyType);
+            }
+        }
+
         try {
             switch (keyType) {
                 case NULL:
@@ -82,7 +169,11 @@ public class KeySpacePathSerializer {
                     builder.setStringValue((String)value);
                     break;
                 case LONG:
-                    builder.setLongValue((Long)value);
+                    if (value instanceof Integer) {
+                        builder.setLongValue(((Integer)value).longValue());
+                    } else {
+                        builder.setLongValue((Long)value);
+                    }
                     break;
                 case FLOAT:
                     builder.setFloatValue((Float)value);
@@ -102,8 +193,8 @@ public class KeySpacePathSerializer {
                 default:
                     throw new IllegalStateException("Unexpected value: " + keyType);
             }
-        } catch (NullPointerException | ClassCastException e) {
-            throw new RecordCoreArgumentException("KeySpacePath has incorrect value")
+        } catch (ClassCastException e) {
+            throw new RecordCoreArgumentException("KeySpacePath has incorrect value type", e)
                     .addLogInfo(
                             LogMessageKeys.DIR_NAME, keySpacePath.getDirectoryName(),
                             LogMessageKeys.EXPECTED_TYPE, keyType,
