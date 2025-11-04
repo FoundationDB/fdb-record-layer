@@ -13,4 +13,4 @@ runs:
       run: sed -i -e "s/^org\.gradle\..*/#&/g" gradle.properties
     - name: Run Command
       shell: bash
-      run: GRADLE_OPTS="-XX:+HeapDumpOnOutOfMemoryError -XX:+TieredCompilation -Xmx4096m -Dfile.encoding=UTF-8 -Duser.country -Duser.language=en -Duser.variant --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.prefs/java.util.prefs=ALL-UNNAMED" ./gradlew --no-daemon --console=plain  --warning-mode all ${{ inputs.gradle_command }}
+      run: GRADLE_OPTS="-XX:+HeapDumpOnOutOfMemoryError -XX:+TieredCompilation -Xmx8192m -Dfile.encoding=UTF-8 -Duser.country -Duser.language=en -Duser.variant --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.prefs/java.util.prefs=ALL-UNNAMED" ./gradlew --no-daemon --console=plain  --warning-mode all ${{ inputs.gradle_command }}
