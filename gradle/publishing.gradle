@@ -18,6 +18,8 @@
  * limitations under the License.
  */
 
+apply plugin: 'signing'
+
 // Add various details to the pom file to allow for publishing
 def addPublishingInfo(publication) {
     publication.pom {
@@ -86,6 +88,11 @@ if (ext.publishLibrary) {
             }
         }
     }
+    if (Boolean.parseBoolean(centralPublish)) {
+        signing {
+            sign publishing.publications.library
+        }
+    }
 }
 
 ext {
@@ -95,21 +102,7 @@ ext {
 
 publishing {
     if (Boolean.parseBoolean(publishBuild)) {
-
         repositories {
-            if (Boolean.parseBoolean(centralPublish)) {
-                // For JReleaser to deploy artifacts, they must have been staged to the local staging repo.
-                // Mark that directory as an output and declare a dependency between publishing the
-                // project and deploying artifacts.
-                var stagingDir = rootProject.layout.buildDirectory.dir('staging-repo')
-                tasks.publish.outputs.dir(stagingDir)
-                rootProject.tasks.findByName('jreleaserDeploy').dependsOn(tasks.publish)
-
-                maven {
-                    url = stagingDir
-                }
-            }
-
             if (Boolean.parseBoolean(githubPublish)) {
                 maven {
                     name = "GitHubPackages"
