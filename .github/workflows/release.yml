@@ -198,9 +198,7 @@ jobs:
         uses: actions/upload-artifact@v4.6.0
         with:
           name: jrelease-trace
-          path: |
-            .out/jreleaser/*
-            ! .out/jreleaser/deploy/*
+          path: .out/jreleaser/*
           retention-days: 1
   
       # Post release: Update various files which reference version
