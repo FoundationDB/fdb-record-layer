@@ -300,7 +300,8 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         @Nullable final LucenePrimaryKeySegmentIndex segmentIndex = directoryManager.getDirectory(groupingKey, partitionId).getPrimaryKeySegmentIndex();
 
         if (segmentIndex != null) {
-            final DirectoryReader directoryReader = directoryManager.getWriterReader(groupingKey, partitionId);
+            // Use refresh to ensure the reader can see the latest deletes
+            final DirectoryReader directoryReader = directoryManager.getWriterReader(groupingKey, partitionId, true);
             final LucenePrimaryKeySegmentIndex.DocumentIndexEntry documentIndexEntry = segmentIndex.findDocument(directoryReader, primaryKey);
             if (documentIndexEntry != null) {
                 state.context.ensureActive().clear(documentIndexEntry.entryKey); // TODO: Only if valid?

@@ -91,7 +91,7 @@ public class FDBDirectoryWrapper implements AutoCloseable {
      * predominately used by the {@link com.apple.foundationdb.record.lucene.LucenePrimaryKeySegmentIndex} to find the
      * segments associated with documents being deleted.
      */
-    private final LazyCloseable<DirectoryReader> writerReader;
+    private LazyCloseable<DirectoryReader> writerReader;
 
 
     FDBDirectoryWrapper(@Nonnull final IndexMaintainerState state,
@@ -205,6 +205,24 @@ public class FDBDirectoryWrapper implements AutoCloseable {
      */
     @SuppressWarnings("PMD.CloseResource")
     public DirectoryReader getWriterReader() throws IOException {
+        return getWriterReader(false);
+    }
+
+    /**
+     * Get a {@link DirectoryReader} wrapped around the {@link #getWriter()} to be able to get segments associated with
+     * documents. This resource will be closed when {@code this} is closed, and should not be closed by callers
+     * @param refresh if TRUE will try to refresh the reader data from the writer
+     */
+    @SuppressWarnings("PMD.CloseResource")
+    public DirectoryReader getWriterReader(boolean refresh) throws IOException {
+        if (refresh) {
+            final DirectoryReader newReader = DirectoryReader.openIfChanged(writerReader.get());
+            if (newReader != null) {
+                // previous reader instantiated but then writer changed
+                writerReader.close();
+                writerReader = LazyCloseable.supply(() -> newReader);
+            }
+        }
         return writerReader.get();
     }
 
