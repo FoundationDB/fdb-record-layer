@@ -189,7 +189,7 @@ class InliningStorageAdapter extends AbstractStorageAdapter<NodeReferenceWithVec
         // Transform the raw vector that was just fetched into the internal coordinate system. If we do not have
         // a need to transform coordinates, this transform is the identity transformation. Vectors are always stored
         // in the internal coordinate system in use at the time the vector is written. If that coordinate system changes
-        // afterward, for instance RaBitQ by enabling RaBitQ, subsequent reads of vectors that were written prior to
+        // afterward, for instance by enabling RaBitQ, subsequent reads of vectors that were written prior to
         // the coordinate system change need to be transformed when they are read back.
         //
         final Transformed<RealVector> neighborVector =

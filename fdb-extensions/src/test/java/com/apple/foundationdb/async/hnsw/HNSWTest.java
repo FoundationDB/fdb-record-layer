@@ -30,6 +30,7 @@ import com.apple.foundationdb.linear.Metric;
 import com.apple.foundationdb.linear.Quantizer;
 import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.linear.StoredVecsIterator;
+import com.apple.foundationdb.rabitq.EncodedRealVector;
 import com.apple.foundationdb.test.TestDatabaseExtension;
 import com.apple.foundationdb.test.TestExecutors;
 import com.apple.foundationdb.test.TestSubspaceExtension;
@@ -83,6 +84,7 @@ import java.util.stream.Collectors;
 import java.util.stream.LongStream;
 import java.util.stream.Stream;
 
+import static com.apple.foundationdb.linear.RealVectorTest.createRandomDoubleVector;
 import static com.apple.foundationdb.linear.RealVectorTest.createRandomHalfVector;
 import static org.assertj.core.api.Assertions.within;
 
@@ -283,6 +285,103 @@ class HNSWTest {
         hnsw.scanLayer(db, 1, 100,
                 node -> Assertions.assertThat(readIds.add(node.getPrimaryKey().getLong(0))).isTrue());
         Assertions.assertThat(readIds.size()).isBetween(10, 50);
+    }
+
+    @ParameterizedTest()
+    @RandomSeedSource({0x0fdbL, 0x5ca1eL, 123456L, 78910L, 1123581321345589L})
+    void testBasicInsertWithRaBitQEncodings(final long seed) {
+        final Random random = new Random(seed);
+        final Metric metric = Metric.EUCLIDEAN_METRIC;
+
+        final AtomicLong nextNodeIdAtomic = new AtomicLong(0L);
+        final int numDimensions = 128;
+        final HNSW hnsw = new HNSW(rtSubspace.getSubspace(), TestExecutors.defaultThreadPool(),
+                HNSW.newConfigBuilder().setMetric(metric)
+                        .setUseRaBitQ(true)
+                        .setRaBitQNumExBits(5)
+                        .setSampleVectorStatsProbability(1.0d) // every vector is sampled
+                        .setMaintainStatsProbability(1.0d) // for every vector we maintain the stats
+                        .setStatsThreshold(950) // after 950 vectors we enable RaBitQ
+                        .setM(32).setMMax(32).setMMax0(64).build(numDimensions),
+                OnWriteListener.NOOP, OnReadListener.NOOP);
+
+        final int k = 499;
+        final DoubleRealVector queryVector = createRandomDoubleVector(random, numDimensions);
+        final Map<Tuple, RealVector> dataMap = Maps.newHashMap();
+        final TreeSet<PrimaryKeyVectorAndDistance> recordsOrderedByDistance =
+                new TreeSet<>(Comparator.comparing(PrimaryKeyVectorAndDistance::getDistance));
+
+        for (int i = 0; i < 1000;) {
+            i += basicInsertBatch(hnsw, 100, nextNodeIdAtomic, new TestOnReadListener(),
+                    tr -> {
+                        final var primaryKey = createNextPrimaryKey(nextNodeIdAtomic);
+                        final DoubleRealVector dataVector = createRandomDoubleVector(random, numDimensions);
+                        final double distance = metric.distance(dataVector, queryVector);
+                        dataMap.put(primaryKey, dataVector);
+
+                        final PrimaryKeyVectorAndDistance record =
+                                new PrimaryKeyVectorAndDistance(primaryKey, dataVector, distance);
+                        recordsOrderedByDistance.add(record);
+                        if (recordsOrderedByDistance.size() > k) {
+                            recordsOrderedByDistance.pollLast();
+                        }
+                        return record;
+                    });
+        }
+
+        //
+        // If we fetch the current state back from the db some vectors are regular vectors and some vectors are
+        // RaBitQ encoded. Since that information is not surfaced through the API, we need to scan layer 0, get
+        // all vectors directly from disk (encoded/not-encoded, transformed/not-transformed) in order to check
+        // that transformations/reconstructions are applied properly.
+        //
+        final Map<Tuple, RealVector> fromDBMap = Maps.newHashMap();
+        hnsw.scanLayer(db, 0, 100,
+                node -> fromDBMap.put(node.getPrimaryKey(),
+                        node.asCompactNode().getVector().getUnderlyingVector()));
+
+        //
+        // Still run a kNN search to make sure that recall is satisfactory.
+        //
+        final List<? extends ResultEntry> results =
+                db.run(tr ->
+                        hnsw.kNearestNeighborsSearch(tr, k, 500, true, queryVector).join());
+
+        final ImmutableSet<Tuple> trueNN =
+                recordsOrderedByDistance.stream()
+                        .map(PrimaryKeyAndVector::getPrimaryKey)
+                        .collect(ImmutableSet.toImmutableSet());
+
+        int recallCount = 0;
+        int exactVectorCount = 0;
+        int encodedVectorCount = 0;
+        for (final ResultEntry resultEntry : results) {
+            if (trueNN.contains(resultEntry.getPrimaryKey())) {
+                recallCount ++;
+            }
+
+            final RealVector originalVector = dataMap.get(resultEntry.getPrimaryKey());
+            Assertions.assertThat(originalVector).isNotNull();
+            final RealVector fromDBVector = fromDBMap.get(resultEntry.getPrimaryKey());
+            Assertions.assertThat(fromDBVector).isNotNull();
+            if (!(fromDBVector instanceof EncodedRealVector)) {
+                Assertions.assertThat(originalVector).isEqualTo(fromDBVector);
+                exactVectorCount ++;
+                final double distance = metric.distance(originalVector,
+                        Objects.requireNonNull(resultEntry.getVector()));
+                Assertions.assertThat(distance).isCloseTo(0.0d, within(2E-12));
+            } else {
+                encodedVectorCount ++;
+                final double distance = metric.distance(originalVector,
+                        Objects.requireNonNull(resultEntry.getVector()).toDoubleRealVector());
+                Assertions.assertThat(distance).isCloseTo(0.0d, within(20.0d));
+            }
+        }
+        final double recall = (double)recallCount / (double)k;
+        Assertions.assertThat(recall).isGreaterThan(0.9);
+        // must have both kinds
+        Assertions.assertThat(exactVectorCount).isGreaterThan(0);
+        Assertions.assertThat(encodedVectorCount).isGreaterThan(0);
     }
 
     private int basicInsertBatch(final HNSW hnsw, final int batchSize,

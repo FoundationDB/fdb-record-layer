@@ -56,10 +56,10 @@ class DataRecordsTest {
 
         final CompactNode compactNode1 = compactNode(new Random(dependentRandomSeed));
         final CompactNode compactNode1Clone = compactNode(new Random(dependentRandomSeed));
-        Assertions.assertThat(compactNode1.toString()).isEqualTo(compactNode1Clone.toString());
+        Assertions.assertThat(compactNode1).hasToString(compactNode1Clone.toString());
 
         final CompactNode compactNode2 = compactNode(random);
-        Assertions.assertThat(compactNode1.toString()).isNotEqualTo(compactNode2.toString());
+        Assertions.assertThat(compactNode1).doesNotHaveToString(compactNode2.toString());
 
         Assertions.assertThatThrownBy(compactNode1::asInliningNode).isInstanceOf(IllegalStateException.class);
     }
@@ -72,10 +72,10 @@ class DataRecordsTest {
 
         final InliningNode inliningNode1 = inliningNode(new Random(dependentRandomSeed));
         final InliningNode inliningNode1Clone = inliningNode(new Random(dependentRandomSeed));
-        Assertions.assertThat(inliningNode1.toString()).isEqualTo(inliningNode1Clone.toString());
+        Assertions.assertThat(inliningNode1).hasToString(inliningNode1Clone.toString());
 
         final InliningNode inliningNode2 = inliningNode(random);
-        Assertions.assertThat(inliningNode1.toString()).isNotEqualTo(inliningNode2.toString());
+        Assertions.assertThat(inliningNode1).doesNotHaveToString(inliningNode2.toString());
 
         Assertions.assertThatThrownBy(inliningNode1::asCompactNode).isInstanceOf(IllegalStateException.class);
     }
@@ -126,11 +126,11 @@ class DataRecordsTest {
         final T t1Clone = createFunction.apply(new Random(dependentRandomSeed));
         Assertions.assertThat(t1.hashCode()).isEqualTo(t1Clone.hashCode());
         Assertions.assertThat(t1).isEqualTo(t1Clone);
-        Assertions.assertThat(t1.toString()).isEqualTo(t1Clone.toString());
+        Assertions.assertThat(t1).hasToString(t1Clone.toString());
 
         final T t2 = createFunction.apply(random);
         Assertions.assertThat(t1).isNotEqualTo(t2);
-        Assertions.assertThat(t1.toString()).isNotEqualTo(t2.toString());
+        Assertions.assertThat(t1).doesNotHaveToString(t2.toString());
     }
 
     @Nonnull
