@@ -90,18 +90,33 @@ class DataRecordsTest {
     @RandomSeedSource({0x0fdbL, 0x5ca1eL, 123456L, 78910L, 1123581321345589L})
     void testNodeReference(final long randomSeed) {
         assertHashCodeEqualsToString(randomSeed, DataRecordsTest::nodeReference);
+        final NodeReference nodeReference = nodeReference(new Random(randomSeed));
+        Assertions.assertThat(nodeReference.isNodeReferenceWithVector()).isFalse();
+        Assertions.assertThatThrownBy(nodeReference::asNodeReferenceWithVector).isInstanceOf(IllegalStateException.class);
     }
 
     @ParameterizedTest
     @RandomSeedSource({0x0fdbL, 0x5ca1eL, 123456L, 78910L, 1123581321345589L})
     void testNodeReferenceWithVector(final long randomSeed) {
         assertHashCodeEqualsToString(randomSeed, DataRecordsTest::nodeReferenceWithVector);
+        final NodeReferenceWithVector nodeReference = nodeReferenceWithVector(new Random(randomSeed));
+        Assertions.assertThat(nodeReference.isNodeReferenceWithVector()).isTrue();
+        Assertions.assertThat(nodeReference.asNodeReferenceWithVector()).isInstanceOf(NodeReferenceWithVector.class);
     }
 
     @ParameterizedTest
     @RandomSeedSource({0x0fdbL, 0x5ca1eL, 123456L, 78910L, 1123581321345589L})
     void testNodeReferenceWithDistance(final long randomSeed) {
         assertHashCodeEqualsToString(randomSeed, DataRecordsTest::nodeReferenceWithDistance);
+        final NodeReferenceWithDistance nodeReference = nodeReferenceWithDistance(new Random(randomSeed));
+        Assertions.assertThat(nodeReference.isNodeReferenceWithVector()).isTrue();
+        Assertions.assertThat(nodeReference.asNodeReferenceWithVector()).isInstanceOf(NodeReferenceWithDistance.class);
+    }
+
+    @ParameterizedTest
+    @RandomSeedSource({0x0fdbL, 0x5ca1eL, 123456L, 78910L, 1123581321345589L})
+    void testResultEntry(final long randomSeed) {
+        assertHashCodeEqualsToString(randomSeed, DataRecordsTest::resultEntry);
     }
 
     private static <T> void assertHashCodeEqualsToString(final long randomSeed, final Function<Random, T> createFunction) {
@@ -116,6 +131,11 @@ class DataRecordsTest {
         final T t2 = createFunction.apply(random);
         Assertions.assertThat(t1).isNotEqualTo(t2);
         Assertions.assertThat(t1.toString()).isNotEqualTo(t2.toString());
+    }
+
+    @Nonnull
+    private static ResultEntry resultEntry(@Nonnull final Random random) {
+        return new ResultEntry(primaryKey(random), rawVector(random), random.nextDouble(), random.nextInt(100));
     }
 
     @Nonnull

@@ -137,7 +137,7 @@ public class RowMajorRealMatrix implements RealMatrix {
     @Nonnull
     @Override
     public ColumnMajorRealMatrix quickTranspose() {
-        return new ColumnMajorRealMatrix(data);
+        return new ColumnMajorRealMatrix(getRowMajorData());
     }
 
     @Nonnull
