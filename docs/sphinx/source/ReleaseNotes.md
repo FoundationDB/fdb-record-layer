@@ -7,37 +7,6 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.8
 
-### 4.8.9.0
-
-
-<details>
-<summary>
-
-<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
-
-</summary>
-
-* Increase heap size for JReleaser - [PR #3720](https://github.com/FoundationDB/fdb-record-layer/pull/3720)
-* Clean up 4.8.4.0 and 4.8.7.0 release notes - [PR #3719](https://github.com/FoundationDB/fdb-record-layer/pull/3719)
-* Upload the jreleaser trace logs & config - [PR #3718](https://github.com/FoundationDB/fdb-record-layer/pull/3718)
-* Reduce test load to reduce flakiness - [PR #3712](https://github.com/FoundationDB/fdb-record-layer/pull/3712)
-* Update the release plugin to use the central publishing API directly - [PR #3710](https://github.com/FoundationDB/fdb-record-layer/pull/3710)
-
-</details>
-
-
-**[Full Changelog (4.8.6.0...4.8.9.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.8.6.0...4.8.9.0)**
-
-#### Mixed Mode Test Results
-
-Mixed mode testing run against the following previous versions:
-
-❌`4.6.4.0`, ❌`4.6.5.0`, ❌`4.7.1.0`, ❌`4.7.2.0`, ✅`4.7.3.0`, ✅`4.8.1.0`, ✅`4.8.2.0`, ✅`4.8.3.0`, ✅`4.8.5.0`, ✅`4.8.6.0`
-
-[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/19075271823)
-
-
-
 ### 4.8.6.0
 
 <h4> New Features </h4>
