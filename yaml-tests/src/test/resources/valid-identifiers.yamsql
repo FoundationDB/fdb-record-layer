@@ -18,7 +18,7 @@
 # limitations under the License.
 ---
 options:
-    supported_version: !current_version
+    supported_version: 4.8.11.0
 ---
 schema_template:
     CREATE TYPE AS STRUCT "foo.struct"(S1 bigint, S2 bigint)
