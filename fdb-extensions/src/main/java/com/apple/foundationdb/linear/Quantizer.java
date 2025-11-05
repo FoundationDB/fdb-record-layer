@@ -41,19 +41,24 @@ public interface Quantizer {
     @Nonnull
     Estimator estimator();
 
+    @Nonnull
+    default Transformed<RealVector> encode(@Nonnull final Transformed<RealVector> vector) {
+        return new Transformed<>(encode(vector.getUnderlyingVector()));
+    }
+
     /**
      * Encodes the given data vector into another vector representation.
      * <p>
      * This method transforms the raw input data into a different, quantized format, which is often a vector more
      * suitable for processing/storing the data. The specifics of the encoding depend on the implementation of the class.
      *
-     * @param data the input {@link RealVector} to be encoded. Must not be {@code null} and is assumed to have been
+     * @param vector the input {@link RealVector} to be encoded. Must not be {@code null} and is assumed to have been
      *        preprocessed, such as by rotation and/or translation. The preprocessing has to align with the requirements
      *        of the specific quantizer.
      * @return the encoded vector representation of the input data, guaranteed to be non-null.
      */
     @Nonnull
-    RealVector encode(@Nonnull RealVector data);
+    RealVector encode(@Nonnull RealVector vector);
 
     /**
      * Creates a no-op {@code Quantizer} that does not perform any data transformation.
@@ -79,8 +84,8 @@ public interface Quantizer {
 
             @Nonnull
             @Override
-            public RealVector encode(@Nonnull final RealVector data) {
-                return data;
+            public RealVector encode(@Nonnull final RealVector vector) {
+                return vector;
             }
         };
     }

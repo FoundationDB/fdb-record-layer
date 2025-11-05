@@ -1,5 +1,5 @@
 /*
- * LinearOperator.java
+ * package-info.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,32 +18,7 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.linear;
-
-import javax.annotation.Nonnull;
-
-public interface LinearOperator extends VectorOperator {
-    int getNumRowDimensions();
-
-    @Override
-    default int getNumDimensions() {
-        return getNumColumnDimensions();
-    }
-
-    int getNumColumnDimensions();
-
-    default boolean isSquare() {
-        return getNumRowDimensions() == getNumColumnDimensions();
-    }
-
-    boolean isTransposable();
-
-    @Nonnull
-    @Override
-    default RealVector invertedApply(@Nonnull RealVector vector) {
-        return transposedApply(vector);
-    }
-
-    @Nonnull
-    RealVector transposedApply(@Nonnull RealVector vector);
-}
+/**
+ * Classes and interfaces related to the HNSW implementation as used for vector indexes.
+ */
+package com.apple.foundationdb.async.hnsw;
