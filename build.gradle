@@ -376,6 +376,9 @@ if (Boolean.parseBoolean(publishBuild) && Boolean.parseBoolean(centralPublish)) 
                 def boundary = "----GradleBoundary${UUID.randomUUID().toString()}"
                 connection.setRequestProperty('Content-Type', "multipart/form-data; boundary=${boundary}")
 
+                // Use a chunked streaming mode to break data up into smaller chunks to avoid needing to load everything into memory
+                connection.setChunkedStreamingMode(8192)
+
                 // Use buffered output stream and write directly to avoid loading entire file into memory
                 connection.outputStream.withStream { output ->
                     def CRLF = "\r\n"
@@ -386,14 +389,8 @@ if (Boolean.parseBoolean(publishBuild) && Boolean.parseBoolean(centralPublish)) 
                     output.write("Content-Type: application/octet-stream${CRLF}".getBytes('UTF-8'))
                     output.write(CRLF.getBytes('UTF-8'))
 
-                    // Stream the file in chunks to avoid loading it all into memory
-                    bundleFile.withInputStream { input ->
-                        byte[] buffer = new byte[8192]
-                        int bytesRead
-                        while ((bytesRead = input.read(buffer)) != -1) {
-                            output.write(buffer, 0, bytesRead)
-                        }
-                    }
+                    // Next write the bundle data to the stream
+                    bundleFile.withInputStream { InputStream input -> output << input }
 
                     // Write multipart closing boundary
                     output.write(CRLF.getBytes('UTF-8'))
