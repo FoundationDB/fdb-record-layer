@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2023 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -389,7 +389,7 @@ class HNSWTest {
 
                     //
                     // Assert that the original vector and the reconstructed vector are the same-ish vector
-                    // (minus reconstruction). The closeness value is dependent on the encoding quality settings,
+                    // (minus reconstruction errors). The closeness value is dependent on the encoding quality settings,
                     // the dimensionality, and the metric in use. For now, we just set it to 20.0 as that should be
                     // fairly safe with respect to not giving us false-positives and also tripping for actual logic
                     // errors as the expected random distance is far larger.
