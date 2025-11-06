@@ -1798,7 +1798,9 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
                 // move more than 2x the repartition count
                 Arguments.of(3, 6, 2, new int[] { 13, 2 }, new int[] {6, 2, 5, 2}, -3793471484163361678L),
                 // ensure it won't move 3 from second partition to first
-                Arguments.of(10, 20, 3, new int[] {15, 8, 20}, new int[] {15, 8, 20}, 9002508147645127223L)),
+                Arguments.of(10, 20, 3, new int[] {15, 8, 20}, new int[] {15, 8, 20}, 9002508147645127223L),
+                // ensure empty partition gets removed
+                Arguments.of(1, 5, 3, new int[] {5, 0, 4}, new int[] {5, 4}, 9002508147645127223L)),
                 // Like above, but caused an issue with the validator, when multiple documents had the same timestamps
                 // at the boundary
                 LongStream.of(1358611700989865537L, -4569118774337319100L, -3377995767497306027L, 8516771127753321444L)
