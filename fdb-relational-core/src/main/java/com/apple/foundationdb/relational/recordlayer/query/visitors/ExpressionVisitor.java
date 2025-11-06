@@ -631,14 +631,6 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
 
     @Nonnull
     @Override
-    public Expression visitExpressionWithName(@Nonnull RelationalParser.ExpressionWithNameContext ctx) {
-        final var expression = Assert.castUnchecked(ctx.expression().accept(this), Expression.class);
-        final var name = visitUid(ctx.uid());
-        return expression.withName(name);
-    }
-
-    @Nonnull
-    @Override
     public Expression visitExpressionWithOptionalName(@Nonnull RelationalParser.ExpressionWithOptionalNameContext ctx) {
         final var expression = Assert.castUnchecked(ctx.expression().accept(this), Expression.class);
         if (ctx.AS() != null) {
@@ -810,9 +802,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
             final var resultValue = star.getUnderlying();
             return Expression.ofUnnamed(resultValue);
         }
-        final var expressions = (ctx.expressionWithName() != null) ?
-                parseRecordFieldsUnderReorderings(ImmutableList.of(ctx.expressionWithName())) :
-                parseRecordFieldsUnderReorderings(ctx.expressionWithOptionalName());
+        final var expressions = parseRecordFieldsUnderReorderings(ctx.expressionWithOptionalName());
         if (ctx.ofTypeClause() != null) {
             final var recordId = visitUid(ctx.ofTypeClause().uid());
             final var resultValue = RecordConstructorValue.ofColumnsAndName(expressions.underlyingAsColumns(), recordId.getName());
