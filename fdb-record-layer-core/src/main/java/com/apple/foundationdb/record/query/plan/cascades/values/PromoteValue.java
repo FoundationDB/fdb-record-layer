@@ -460,6 +460,12 @@ public class PromoteValue extends AbstractValue implements CreatesDynamicTypesVa
             }
             return promotionNeeded;
         }
+        if (inType.isVector() && promoteToType.isVector()) {
+            final var inVectorType = (Type.Vector)inType;
+            final var promoteToVectorType = (Type.Vector)promoteToType;
+            SemanticException.check(inVectorType.nullable().equals(promoteToVectorType.nullable()), SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
+            return false;
+        }
         SemanticException.check((inType.isPrimitive() || inType.isEnum() || inType.isUuid()) &&
                 (promoteToType.isPrimitive() || promoteToType.isEnum() || promoteToType.isUuid()), SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
         return inType.getTypeCode() != promoteToType.getTypeCode();
