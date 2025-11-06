@@ -1204,6 +1204,12 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
 
     @Nonnull
     @Override
+    public Expression visitExpressionWithName(@Nonnull RelationalParser.ExpressionWithNameContext ctx) {
+        return getDelegate().visitExpressionWithName(ctx);
+    }
+
+    @Nonnull
+    @Override
     public Expression visitExpressionWithOptionalName(@Nonnull RelationalParser.ExpressionWithOptionalNameContext ctx) {
         return getDelegate().visitExpressionWithOptionalName(ctx);
     }

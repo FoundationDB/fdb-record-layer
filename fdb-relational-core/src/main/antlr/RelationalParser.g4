@@ -879,7 +879,7 @@ recordConstructorForInlineTable
     ;
 
 recordConstructor
-    : ofTypeClause? '(' (uid DOT STAR | STAR | expressionWithOptionalName (',' expressionWithOptionalName)*) ')'
+    : ofTypeClause? '(' (uid DOT STAR | STAR | expressionWithName /* this can be removed */ | expressionWithOptionalName (',' expressionWithOptionalName)*) ')'
     ;
 
 ofTypeClause
@@ -911,6 +911,10 @@ currentTimestamp
 
 expressionOrDefault
     : expression | DEFAULT
+    ;
+
+expressionWithName
+    : expression AS uid
     ;
 
 expressionWithOptionalName

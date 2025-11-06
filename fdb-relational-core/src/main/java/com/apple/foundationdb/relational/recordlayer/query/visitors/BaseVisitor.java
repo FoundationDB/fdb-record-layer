@@ -1339,6 +1339,12 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
 
     @Nonnull
     @Override
+    public Expression visitExpressionWithName(@Nonnull RelationalParser.ExpressionWithNameContext ctx) {
+        return expressionVisitor.visitExpressionWithName(ctx);
+    }
+
+    @Nonnull
+    @Override
     public Expression visitExpressionWithOptionalName(@Nonnull RelationalParser.ExpressionWithOptionalNameContext ctx) {
         return expressionVisitor.visitExpressionWithOptionalName(ctx);
     }
