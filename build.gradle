@@ -373,29 +373,24 @@ if (Boolean.parseBoolean(publishBuild) && Boolean.parseBoolean(centralPublish)) 
                 connection.setDoOutput(true)
                 connection.setRequestProperty('Authorization', "Bearer ${encodedCredentials}")
 
-                def boundary = "----GradleBoundary${UUID.randomUUID().toString()}"
+                def boundary = "----GradleBoundary${System.currentTimeMillis()}"
                 connection.setRequestProperty('Content-Type', "multipart/form-data; boundary=${boundary}")
 
-                // Use a chunked streaming mode to break data up into smaller chunks to avoid needing to load everything into memory
-                connection.setChunkedStreamingMode(8192)
+                connection.outputStream.withWriter('UTF-8') { writer ->
+                    writer.write("--${boundary}\r\n")
+                    writer.write("Content-Disposition: form-data; name=\"bundle\"; filename=\"${bundleFile.name}\"\r\n")
+                    writer.write("Content-Type: application/octet-stream\r\n")
+                    writer.write("\r\n")
+                    writer.flush()
 
-                // Use buffered output stream and write directly to avoid loading entire file into memory
-                connection.outputStream.withStream { output ->
-                    def CRLF = "\r\n"
+                    // Write the file bytes
+                    bundleFile.withInputStream { input ->
+                        connection.outputStream << input
+                    }
 
-                    // Write multipart headers
-                    output.write("--${boundary}${CRLF}".getBytes('UTF-8'))
-                    output.write("Content-Disposition: form-data; name=\"bundle\"; filename=\"${bundleFile.name}\"${CRLF}".getBytes('UTF-8'))
-                    output.write("Content-Type: application/octet-stream${CRLF}".getBytes('UTF-8'))
-                    output.write(CRLF.getBytes('UTF-8'))
-
-                    // Next write the bundle data to the stream
-                    bundleFile.withInputStream { InputStream input -> output << input }
-
-                    // Write multipart closing boundary
-                    output.write(CRLF.getBytes('UTF-8'))
-                    output.write("--${boundary}--${CRLF}".getBytes('UTF-8'))
-                    output.flush()
+                    writer.write("\r\n")
+                    writer.write("--${boundary}--\r\n")
+                    writer.flush()
                 }
 
                 def responseCode = connection.responseCode
