@@ -20,8 +20,10 @@
 
 package com.apple.foundationdb.record.lucene;
 
+import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
+import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestRecordsGroupedParentChildProto;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexPredicate;
@@ -399,6 +401,17 @@ public class LuceneIndexTestDataModel {
                 .build()) {
             indexBuilder.mergeIndex();
         }
+    }
+
+    public List<IndexEntry> findAllRecordsByQuery(final FDBRecordContext context, int group) {
+        LuceneQueryClause search = LuceneQuerySearchClause.MATCH_ALL_DOCS_QUERY;
+
+        FDBRecordStore store = Objects.requireNonNull(schemaSetup.apply(context));
+        LuceneScanBounds scanBounds = isGrouped
+                                      ? LuceneIndexTestValidator.groupedSortedTextSearch(store, index, search, null, group)
+                                      : LuceneIndexTestUtils.fullTextSearch(store, index, search, false);
+        return store.scanIndex(index, scanBounds, null, ScanProperties.FORWARD_SCAN)
+                .asList().join();
     }
 
     public Random getRandom() {

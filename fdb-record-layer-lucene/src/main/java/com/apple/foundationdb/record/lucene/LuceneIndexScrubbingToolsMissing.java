@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBSyntheticRecord;
+import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.ValueIndexScrubbingToolsMissing;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordFromStoredRecordPlan;
@@ -100,7 +101,7 @@ public class LuceneIndexScrubbingToolsMissing extends ValueIndexScrubbingToolsMi
         }
 
         final FDBStoredRecord<Message> rec = result.get();
-        if (rec == null || !recordTypes.contains(rec.getRecordType())) {
+        if (!shouldHandleItem(store, rec)) {
             return CompletableFuture.completedFuture(null);
         }
 
@@ -119,6 +120,18 @@ public class LuceneIndexScrubbingToolsMissing extends ValueIndexScrubbingToolsMi
                             FDBStoreTimer.Counts.INDEX_SCRUBBER_MISSING_ENTRIES,
                             null);
                 });
+    }
+
+    private boolean shouldHandleItem(final FDBRecordStore store, FDBStoredRecord<Message> rec) {
+        if (rec == null || !recordTypes.contains(rec.getRecordType())) {
+            return false;
+        }
+        final IndexMaintainer indexMaintainer = store.getIndexMaintainer(index);
+        if (indexMaintainer instanceof LuceneIndexMaintainer) {
+            LuceneIndexMaintainer luceneIndexMaintainer = (LuceneIndexMaintainer) indexMaintainer;
+            return luceneIndexMaintainer.maybeFilterRecord(rec) != null;
+        }
+        return true;
     }
 
     @SuppressWarnings("PMD.CloseResource")

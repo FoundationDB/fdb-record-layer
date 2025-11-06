@@ -459,11 +459,12 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     }
 
     @Nonnull
-    <M extends Message> CompletableFuture<Void> update(@Nullable FDBIndexableRecord<M> oldRecordUnfiltered,
+    <M extends Message> CompletableFuture<Void> update(@Nullable FDBIndexableRecord<M> oldRecord,
                                                        @Nullable FDBIndexableRecord<M> newRecordUnfiltered,
                                                        @Nullable Integer destinationPartitionIdHint) {
-        FDBIndexableRecord<M> oldRecord = maybeFilterRecord(oldRecordUnfiltered);
         FDBIndexableRecord<M> newRecord = maybeFilterRecord(newRecordUnfiltered);
+        // Should we "maybe filter" the old record too, or is it harmless to remove a non-existing index entry?
+
         LOG.trace("update oldRecord={}, newRecord={}", oldRecord, newRecord);
 
         // Extract information for grouping from old and new records
@@ -511,7 +512,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     }
 
     @Nullable
-    private <M extends Message> FDBIndexableRecord<M> maybeFilterRecord(FDBIndexableRecord<M> rec) {
+    public <M extends Message> FDBIndexableRecord<M> maybeFilterRecord(FDBIndexableRecord<M> rec) {
         if (rec != null) {
             final IndexMaintenanceFilter.IndexValues filterType = getFilterTypeForRecord(rec);
             if (filterType == IndexMaintenanceFilter.IndexValues.NONE) {

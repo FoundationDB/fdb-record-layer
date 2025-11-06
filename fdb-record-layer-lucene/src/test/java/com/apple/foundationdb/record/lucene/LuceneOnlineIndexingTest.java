@@ -658,7 +658,6 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
                     .createOrOpen();
         } else {
             recordStore = builder
-                    .setIndexMaintenanceFilter(IndexMaintenanceFilter.NORMAL)
                     .createOrOpen();
         }
         setupPlanner(null);
