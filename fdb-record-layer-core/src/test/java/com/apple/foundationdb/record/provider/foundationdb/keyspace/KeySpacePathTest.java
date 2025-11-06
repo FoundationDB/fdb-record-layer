@@ -36,7 +36,6 @@ import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
@@ -89,7 +88,7 @@ class KeySpacePathTest {
 
         try (FDBRecordContext context = database.openContext()) {
             KeySpacePath rootPath = keySpace.path("test_root");
-            KeySpacePath branchPath = rootPath.add("branch");
+            KeySpacePathImpl branchPath = (KeySpacePathImpl)rootPath.add("branch");
 
             // Build the full path - add leaf with or without value based on constant
             KeySpacePath fullPath;
@@ -119,48 +118,13 @@ class KeySpacePathTest {
     }
 
     @Test
-    void testToResolvedPathAsyncWithWrapper() {
-        final FDBDatabase database = dbExtension.getDatabase();
-        final EnvironmentKeySpace keySpace = EnvironmentKeySpace.setupSampleData(database);
-
-        try (FDBRecordContext context = database.openContext()) {
-            // Use the wrapper paths which extend KeySpacePathWrapper
-            EnvironmentKeySpace.ApplicationPath appPath = keySpace.root().userid(100L).application("app1");
-            EnvironmentKeySpace.DataPath dataPath = appPath.dataStore();
-
-            // Create a key with remainder
-            Tuple remainderTuple = Tuple.from("record_id", 42L, "version", 1);
-            byte[] keyBytes = dataPath.toSubspace(context).pack(remainderTuple);
-
-            // Test toResolvedPathAsync on the wrapper - should resolve from appPath through dataPath
-            ResolvedKeySpacePath resolved = appPath.toResolvedPathAsync(context, keyBytes).join();
-
-            // Verify the resolved path
-            assertEquals(EnvironmentKeySpace.DATA_KEY, resolved.getDirectoryName());
-            assertEquals(EnvironmentKeySpace.DATA_VALUE, resolved.getResolvedValue());
-            assertEquals(remainderTuple, resolved.getRemainder());
-
-            // Verify parent structure
-            ResolvedKeySpacePath appLevel = resolved.getParent();
-            assertNotNull(appLevel);
-            assertEquals(EnvironmentKeySpace.APPLICATION_KEY, appLevel.getDirectoryName());
-            assertEquals("app1", appLevel.getLogicalValue());
-
-            ResolvedKeySpacePath userLevel = appLevel.getParent();
-            assertNotNull(userLevel);
-            assertEquals(EnvironmentKeySpace.USER_KEY, userLevel.getDirectoryName());
-            assertEquals(100L, userLevel.getResolvedValue());
-        }
-    }
-
-    @Test
     void testToResolvedPathAsyncWithKeyNotSubPath() {
         final FDBDatabase database = dbExtension.getDatabase();
         final KeySpace keySpace = createKeySpace(false, false);
 
         try (FDBRecordContext context = database.openContext()) {
             KeySpacePath rootPath = keySpace.path("test_root");
-            KeySpacePath branchPath = rootPath.add("branch");
+            KeySpacePathImpl branchPath = (KeySpacePathImpl)rootPath.add("branch");
 
             // Create a key that is shorter than branchPath - it stops at root
             byte[] shorterKeyBytes = rootPath.toSubspace(context).pack();
@@ -179,7 +143,7 @@ class KeySpacePathTest {
 
         try (FDBRecordContext context = database.openContext()) {
             KeySpacePath rootPath = keySpace.path("test_root");
-            KeySpacePath branchPath = rootPath.add("branch");
+            KeySpacePathImpl branchPath = (KeySpacePathImpl)rootPath.add("branch");
 
             // Create a byte array that is not a valid tuple
             byte[] invalidBytes = new byte[]{(byte) 0xFF, (byte) 0xFF, (byte) 0xFF};
@@ -201,9 +165,6 @@ class KeySpacePathTest {
 
         try (FDBRecordContext context = database.openContext()) {
             // thenCallReadMethod throws an error if there is not a default implementation
-            Mockito.when(mock.toResolvedPathAsync(Mockito.any(), Mockito.any())).thenCallRealMethod();
-            assertThrows(UnsupportedOperationException.class,
-                    () -> mock.toResolvedPathAsync(context, Tuple.from("foo").pack()));
             Mockito.when(mock.exportAllData(Mockito.any(), Mockito.any(), Mockito.any())).thenCallRealMethod();
             assertThrows(UnsupportedOperationException.class,
                     () -> mock.exportAllData(context, null, ScanProperties.FORWARD_SCAN));

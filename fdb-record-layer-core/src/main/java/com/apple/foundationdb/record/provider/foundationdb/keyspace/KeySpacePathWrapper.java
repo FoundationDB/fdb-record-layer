@@ -206,12 +206,6 @@ public class KeySpacePathWrapper implements KeySpacePath {
         return inner.toResolvedPathAsync(context);
     }
 
-    @Nonnull
-    @Override
-    public CompletableFuture<ResolvedKeySpacePath> toResolvedPathAsync(@Nonnull final FDBRecordContext context, final byte[] key) {
-        return inner.toResolvedPathAsync(context, key);
-    }
-
     @Override
     public boolean equals(Object obj) {
         return inner.equals(obj);

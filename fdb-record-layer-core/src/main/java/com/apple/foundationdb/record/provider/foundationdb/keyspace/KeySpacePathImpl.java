@@ -34,6 +34,7 @@ import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Lists;
 
 import javax.annotation.Nonnull;
@@ -249,8 +250,8 @@ class KeySpacePathImpl implements KeySpacePath {
     }
 
     @Nonnull
-    @Override
-    public CompletableFuture<ResolvedKeySpacePath> toResolvedPathAsync(@Nonnull final FDBRecordContext context, final byte[] key) {
+    @VisibleForTesting
+    CompletableFuture<ResolvedKeySpacePath> toResolvedPathAsync(@Nonnull final FDBRecordContext context, final byte[] key) {
         final Tuple keyTuple = Tuple.fromBytes(key);
         return toResolvedPathAsync(context).thenCompose(resolvedPath -> {
             // Now use the resolved path to find the child for the key
