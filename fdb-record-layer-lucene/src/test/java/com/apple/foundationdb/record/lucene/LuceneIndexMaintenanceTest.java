@@ -996,7 +996,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
 
     @ParameterizedTest
     @MethodSource("sampledDelete")
-    public void emptyAllPartitions(boolean isSynthetic, boolean isGrouped, long seed) throws IOException {
+    void emptyAllPartitions(boolean isSynthetic, boolean isGrouped, long seed) throws IOException {
         // Test that empty partitions are removed during repartitioning
         final LuceneIndexTestDataModel dataModel = new LuceneIndexTestDataModel.Builder(seed, this::getStoreBuilder, pathManager)
                 .setIsGrouped(isGrouped)
@@ -1043,6 +1043,61 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
 
         // Validate the index is still consistent
         dataModel.validate(() -> openContext(contextProps));
+    }
+
+    /**
+     * Remove some random set of records, commit and merge, ensure that once all records are
+     * removed we have one empty partition.
+     */
+    @Test
+    void randomlyRemoveAllRecords() throws IOException {
+        // Test that empty partitions are removed during repartitioning
+        final LuceneIndexTestDataModel dataModel = new LuceneIndexTestDataModel.Builder(3663, this::getStoreBuilder, pathManager)
+                .setIsGrouped(true)
+                .setIsSynthetic(true)
+                .setPrimaryKeySegmentIndexEnabled(true)
+                .setPartitionHighWatermark(10)
+                .build();
+
+        final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_REPARTITION_DOCUMENT_COUNT, 2)
+                .addProp(LuceneRecordContextProperties.LUCENE_MERGE_SEGMENTS_PER_TIER, (double)dataModel.nextInt(10) + 2) // it must be at least 2.0
+                .build();
+
+        // Create multiple partitions with documents
+        try (FDBRecordContext context = openContext(contextProps)) {
+            dataModel.saveRecordsToAllGroups(25, context);
+            commit(context);
+        }
+
+        explicitMergeIndex(dataModel.index, contextProps, dataModel.schemaSetup);
+
+        // Iterate and delete 1/2 of records each time
+        boolean done = false;
+        int maxLoop = 100;
+        AtomicInteger currentLoopCount = new AtomicInteger(1);
+        while (!done) {
+            try (FDBRecordContext context = openContext(contextProps)) {
+                final FDBRecordStore recordStore = dataModel.createOrOpenRecordStore(context);
+                dataModel.recordsUnderTest()
+                        .forEach(rec -> {
+                            if ((dataModel.nextInt(2) == 0) || (currentLoopCount.get() >= maxLoop)) {
+                                rec.deleteRecord(recordStore).join();
+                            }
+                        });
+                context.commit();
+            }
+            explicitMergeIndex(dataModel.index, contextProps, dataModel.schemaSetup);
+            dataModel.validate(() -> openContext(contextProps));
+            currentLoopCount.incrementAndGet();
+            // done once all documents have been deleted
+            done = dataModel.recordsUnderTest().isEmpty();
+        }
+
+        // Ensure we only have one empty partition
+        dataModel.getPartitionCounts(() -> openContext(contextProps))
+                .forEach((groupingKey, partitionCounts) ->
+                    assertThat(partitionCounts, contains(0)));
     }
 
     static Stream<Arguments> changingEncryptionKey() {
@@ -1119,7 +1174,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                 RecordCursor.fromList(dataModel.recordsUnderTest())
                         .mapPipelined(record -> record.updateOtherValue(recordStore), 10)
                         .asList().join(),
-                Assertions::assertEquals, null, partitionCount);
+                Assertions::assertEquals, noopConsumer(), partitionCount);
     }
 
     /**
@@ -1162,7 +1217,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                                     return dataModel.saveRecordAsync(true, recordStore, 1);
                                 }, 10)
                                 .asList().join(),
-                (inserted, actual) -> assertEquals(inserted * 2, actual), null, partitionCount);
+                (inserted, actual) -> assertEquals(inserted * 2, actual), noopConsumer(), partitionCount);
     }
 
     private static Stream<Arguments> concurrentMixParameters() {
@@ -1200,13 +1255,13 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                                 }, 10)
                                 .asList().join(),
                 // Note: this assertion only works because we are inserting an even multiple of 3 to begin with
-                Assertions::assertEquals, null, partitionCount);
+                Assertions::assertEquals, noopConsumer(), partitionCount);
     }
 
     private void concurrentTestWithinTransaction(boolean isSynthetic,
                                                  final BiConsumer<LuceneIndexTestDataModel, FDBRecordStore> applyChangeConcurrently,
                                                  final BiConsumer<Integer, Integer> assertDataModelCount,
-                                                 @Nullable final Consumer<Map<Tuple, List<Integer>>> assertPartitionCounts,
+                                                 final Consumer<Map<Tuple, List<Integer>>> assertPartitionCounts,
                                                  final PartitionCount partitionCountToPopulate) throws IOException {
         // Once the two issues noted below are fixed, we should make this parameterized, and run with additional random
         // configurations.
@@ -1229,7 +1284,6 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
 
         switch (partitionCountToPopulate) {
             case NONE:
-            default:
                 partitionHighWatermark = 0;
                 break;
             case ONE:
@@ -1238,6 +1292,8 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
             case MULTIPLE:
                 partitionHighWatermark = 100;
                 break;
+            default:
+                throw new IllegalArgumentException("Unknown value for partitionCountToPopulate:" + partitionCountToPopulate);
         }
 
         final LuceneIndexTestDataModel dataModel = new LuceneIndexTestDataModel.Builder(seed, this::getStoreBuilder, pathManager)
@@ -1294,7 +1350,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
         System.out.println(dataModel.groupingKeyToPrimaryKeyToPartitionKey);
         assertDataModelCount.accept(500,
                 dataModel.groupingKeyToPrimaryKeyToPartitionKey.values().stream().mapToInt(Map::size).sum());
-        if ((assertPartitionCounts != null) && (dataModel.partitionHighWatermark > 0)) {
+        if (dataModel.partitionHighWatermark > 0) {
             assertPartitionCounts.accept(dataModel.getPartitionCounts(() -> openContext(contextProps)));
         }
 
@@ -1524,5 +1580,9 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
             return props;
         }
         return super.addDefaultProps(props).addProp(LuceneRecordContextProperties.LUCENE_INDEX_COMPRESSION_ENABLED, true);
+    }
+
+    private <T> Consumer<T> noopConsumer() {
+        return ignored -> { };
     }
 }

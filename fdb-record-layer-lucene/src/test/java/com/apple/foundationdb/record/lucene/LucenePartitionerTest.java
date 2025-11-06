@@ -34,6 +34,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @Tag(Tags.RequiresFDB)
@@ -69,6 +70,7 @@ public class LucenePartitionerTest extends FDBRecordStoreConcurrentTestBase {
                 Assertions.assertThatThrownBy(() -> partitioner.decrementCountAndSave(groupingKey, 5000, firstPartition.getId()).join())
                         .hasCauseInstanceOf(RecordCoreInternalException.class);
             });
+            // Commit here to ensure that the data is not corrupt as a result
             context.commit();
         }
 
@@ -108,7 +110,7 @@ public class LucenePartitionerTest extends FDBRecordStoreConcurrentTestBase {
 
             dataModel.groupingKeyToPrimaryKeyToPartitionKey.keySet().forEach(groupingKey -> {
                 // Get partitions for this grouping key
-                final java.util.List<LucenePartitionInfoProto.LucenePartitionInfo> partitions =
+                final List<LucenePartitionInfoProto.LucenePartitionInfo> partitions =
                         partitioner.getAllPartitionMetaInfo(groupingKey).join();
                 Assertions.assertThat(partitions).hasSizeGreaterThan(0);
 
@@ -138,7 +140,7 @@ public class LucenePartitionerTest extends FDBRecordStoreConcurrentTestBase {
                 Assertions.assertThat(result).isZero();
 
                 // Verify the partition still exists
-                final java.util.List<LucenePartitionInfoProto.LucenePartitionInfo> partitionsAfter =
+                final List<LucenePartitionInfoProto.LucenePartitionInfo> partitionsAfter =
                         partitioner.getAllPartitionMetaInfo(groupingKey).join();
                 Assertions.assertThat(partitionsAfter).hasSize(partitions.size());
             });
@@ -183,7 +185,7 @@ public class LucenePartitionerTest extends FDBRecordStoreConcurrentTestBase {
             final LucenePartitioner partitioner = indexMaintainer.getPartitioner();
 
             dataModel.groupingKeyToPrimaryKeyToPartitionKey.keySet().forEach(groupingKey -> {
-                final java.util.List<LucenePartitionInfoProto.LucenePartitionInfo> partitions =
+                final List<LucenePartitionInfoProto.LucenePartitionInfo> partitions =
                         partitioner.getAllPartitionMetaInfo(groupingKey).join();
                 Assertions.assertThat(partitions).hasSizeGreaterThan(0);
                 // Get the first partition (which has documents in the actual Lucene index)
@@ -206,7 +208,7 @@ public class LucenePartitionerTest extends FDBRecordStoreConcurrentTestBase {
             final LucenePartitioner partitioner = indexMaintainer.getPartitioner();
 
             dataModel.groupingKeyToPrimaryKeyToPartitionKey.keySet().forEach(groupingKey -> {
-                final java.util.List<LucenePartitionInfoProto.LucenePartitionInfo> partitions =
+                final List<LucenePartitionInfoProto.LucenePartitionInfo> partitions =
                         partitioner.getAllPartitionMetaInfo(groupingKey).join();
                 Assertions.assertThat(partitions).anyMatch(partition -> partition.getId() == partitionsWithZeroCount.get(groupingKey));
             });
@@ -215,8 +217,7 @@ public class LucenePartitionerTest extends FDBRecordStoreConcurrentTestBase {
 
     private void mergeIndex(final RecordLayerPropertyStorage contextProps, final LuceneIndexTestDataModel dataModel) {
         try (FDBRecordContext context = openContext(contextProps)) {
-            FDBRecordStore recordStore = dataModel.createOrOpenRecordStore(context);
-            LuceneIndexTestUtils.mergeSegments(recordStore, dataModel.index);
+            dataModel.explicitMergeIndex(context, null);
             context.commit();
         }
     }
