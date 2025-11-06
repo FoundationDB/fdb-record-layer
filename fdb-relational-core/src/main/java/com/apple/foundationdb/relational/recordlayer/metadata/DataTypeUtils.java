@@ -34,7 +34,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @API(API.Status.EXPERIMENTAL)
@@ -43,10 +42,6 @@ public class DataTypeUtils {
     private static final String DOUBLE_UNDERSCORE_ESCAPE = "__0";
     private static final String DOLLAR_ESCAPE = "__1";
     private static final String DOT_ESCAPE = "__2";
-
-    private static final List<String> INVALID_START_SEQUENCES = List.of(".", "$", DOUBLE_UNDERSCORE_ESCAPE, DOLLAR_ESCAPE, DOT_ESCAPE);
-
-    private static final Pattern VALID_PROTOBUF_COMPLIANT_NAME_PATTERN = Pattern.compile("^[A-Za-z_][A-Za-z0-9_]*$");
 
     @Nonnull
     private static final BiMap<DataType, Type> primitivesMap;
@@ -126,27 +121,8 @@ public class DataTypeUtils {
         return "id" + modified;
     }
 
-    @Nonnull
-    public static String toProtoBufCompliantName(final String name) {
-        Assert.thatUnchecked(INVALID_START_SEQUENCES.stream().noneMatch(name::startsWith), ErrorCode.INVALID_NAME, "name cannot start with %s", INVALID_START_SEQUENCES);
-        String translated;
-        if (name.startsWith("__")) {
-            translated = "__" + translateSpecialCharacters(name.substring(2));
-        } else {
-            Assert.thatUnchecked(!name.isEmpty(), ErrorCode.INVALID_NAME, "name cannot be empty String.");
-            translated = translateSpecialCharacters(name);
-        }
-        checkValidProtoBufCompliantName(translated);
-        return translated;
-    }
-
-    @Nonnull
-    private static String translateSpecialCharacters(final String userIdentifier) {
+    public static String toProtoBufCompliantName(String userIdentifier) {
         return userIdentifier.replace("__", DOUBLE_UNDERSCORE_ESCAPE).replace("$", DOLLAR_ESCAPE).replace(".", DOT_ESCAPE);
-    }
-
-    public static void checkValidProtoBufCompliantName(String name) {
-        Assert.thatUnchecked(VALID_PROTOBUF_COMPLIANT_NAME_PATTERN.matcher(name).matches(), ErrorCode.INVALID_NAME, name + " is not a valid name!");
     }
 
     public static String toUserIdentifier(String protoIdentifier) {
