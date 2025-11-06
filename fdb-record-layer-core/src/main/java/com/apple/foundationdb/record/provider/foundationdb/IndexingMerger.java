@@ -175,8 +175,10 @@ public class IndexingMerger {
         return AsyncUtil.READY_TRUE; // and retry
     }
 
-    @SuppressWarnings("unused")
     private boolean shouldAbort(@Nullable FDBException ex) {
+        if (ex == null) {
+            return true;
+        }
         // TODO: return true if the exception is clearly not retriable
         return false;
     }
