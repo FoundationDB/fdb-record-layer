@@ -35,6 +35,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
+import com.apple.foundationdb.record.provider.foundationdb.OnlineIndexScrubber;
 import com.apple.foundationdb.record.provider.foundationdb.OnlineIndexer;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.test.TestKeySpace;
@@ -400,6 +401,17 @@ public class LuceneIndexTestDataModel {
                 .setTimer(timer)
                 .build()) {
             indexBuilder.mergeIndex();
+        }
+    }
+
+    public long findMissingIndexEntries(final FDBRecordContext context, @Nullable FDBStoreTimer timer) {
+        FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
+        try (OnlineIndexScrubber indexBuilder = OnlineIndexScrubber.newBuilder()
+                .setRecordStore(recordStore)
+                .setIndex(index)
+                .setTimer(timer)
+                .build()) {
+            return indexBuilder.scrubMissingIndexEntries();
         }
     }
 
