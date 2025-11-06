@@ -112,10 +112,9 @@ class KeySpacePathDataExportTest {
 
     // `toTuple` does not include the remainder, I'm not sure if that is intentional, or an oversight.
     private Tuple getKey(final DataInKeySpacePath dataInKeySpacePath, final FDBRecordContext context) throws ExecutionException, InterruptedException {
-        final ResolvedKeySpacePath resolvedKeySpacePath = dataInKeySpacePath.getPath().toResolvedPathAsync(context)
-                .thenApply(resolvedPath -> dataInKeySpacePath.getRemainder() == null ? resolvedPath : resolvedPath.withRemainder(dataInKeySpacePath.getRemainder())).get();
-        if (resolvedKeySpacePath.getRemainder() != null) {
-            return resolvedKeySpacePath.toTuple().addAll(resolvedKeySpacePath.getRemainder());
+        final ResolvedKeySpacePath resolvedKeySpacePath = dataInKeySpacePath.getPath().toResolvedPathAsync(context).get();
+        if (dataInKeySpacePath.getRemainder() != null) {
+            return resolvedKeySpacePath.toTuple().addAll(dataInKeySpacePath.getRemainder());
         } else {
             return resolvedKeySpacePath.toTuple();
         }
