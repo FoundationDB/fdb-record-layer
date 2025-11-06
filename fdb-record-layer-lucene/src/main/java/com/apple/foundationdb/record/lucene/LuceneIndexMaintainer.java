@@ -459,11 +459,11 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     }
 
     @Nonnull
-    <M extends Message> CompletableFuture<Void> update(@Nullable FDBIndexableRecord<M> oldRecord,
+    <M extends Message> CompletableFuture<Void> update(@Nullable FDBIndexableRecord<M> oldRecordUnfiltered,
                                                        @Nullable FDBIndexableRecord<M> newRecordUnfiltered,
                                                        @Nullable Integer destinationPartitionIdHint) {
+        FDBIndexableRecord<M> oldRecord = maybeFilterRecord(oldRecordUnfiltered);
         FDBIndexableRecord<M> newRecord = maybeFilterRecord(newRecordUnfiltered);
-        // Should we "maybe filter" the old record too, or is it harmless to remove a non-existing index entry?
 
         LOG.trace("update oldRecord={}, newRecord={}", oldRecord, newRecord);
 
