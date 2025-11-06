@@ -78,6 +78,7 @@ import javax.crypto.SecretKey;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayDeque;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
@@ -98,6 +99,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -111,7 +113,10 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.function;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.anyOf;
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.hasItems;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -907,14 +912,17 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
     static Stream<Arguments> removeEmptyPartitions() {
         return Stream.of(
                 // In the following, (5, 20) means we delete records 5-20, emptying the second partition,
-                // (15, 25) means we empty the last partition and (0, 10) means we empty the first partition
+                // (15, 25) means we empty the last partition, (0, 10) means we empty the first partition
+                // and (0, 20) means removing the first 2 partitions
                 // (there are 25 records total in each partition and the high watermark is 10).
-                Arguments.of(true, true, 987654, 5, 20),
-                Arguments.of(true, true, 987654, 15, 25),
-                Arguments.of(true, true, 987654, 0, 10),
-                Arguments.of(false, false, 543210, 5, 20),
-                Arguments.of(false, false, 543210, 15, 25),
-                Arguments.of(false, false, 543210, 0, 10));
+                Arguments.of(true, true, 987654, 5, 20, 2),
+                Arguments.of(true, true, 987654, 15, 25, 2),
+                Arguments.of(true, true, 987654, 0, 10, 2),
+                Arguments.of(true, true, 987654, 0, 20, 1),
+                Arguments.of(false, false, 543210, 5, 20, 2),
+                Arguments.of(false, false, 543210, 15, 25, 2),
+                Arguments.of(false, false, 543210, 0, 10, 2),
+                Arguments.of(false, false, 543210, 0, 20, 1));
     }
 
     /**
@@ -925,10 +933,11 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
      * @param seed the random seed
      * @param start the first record to delete from each group
      * @param end the last record to delete from each group
+     * @param expectedCount the expected number of remaining partitions
      */
     @ParameterizedTest
     @MethodSource
-    void removeEmptyPartitions(boolean isSynthetic, boolean isGrouped, long seed, int start, int end) throws IOException {
+    void removeEmptyPartitions(boolean isSynthetic, boolean isGrouped, long seed, int start, int end, int expectedCount) throws IOException {
         // Test that empty partitions are removed during repartitioning
         final LuceneIndexTestDataModel dataModel = new LuceneIndexTestDataModel.Builder(seed, this::getStoreBuilder, pathManager)
                 .setIsGrouped(isGrouped)
@@ -970,15 +979,16 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
         }
 
         // Before repartitioning, we should still have 3 partitions (including the empty one)
-        dataModel.getPartitionCounts(() -> openContext(contextProps)).forEach((groupingKey, partitionCounts) ->
-                assertThat(partitionCounts, hasSize(3)));
-
+        dataModel.getPartitionCounts(() -> openContext(contextProps)).forEach((groupingKey, partitionCounts) -> {
+            assertThat(partitionCounts, hasSize(3));
+            assertThat(partitionCounts, hasItem(0));
+        });
         // Trigger repartitioning - this should remove the empty partition
         explicitMergeIndex(dataModel.index, contextProps, dataModel.schemaSetup);
 
-        // After repartitioning, we should have only 2 partitions (empty one removed)
+        // After repartitioning, we should have only expectedCount partitions (empty one removed)
         dataModel.getPartitionCounts(() -> openContext(contextProps)).forEach((groupingKey, partitionCounts) ->
-                assertThat(partitionCounts, hasSize(2)));
+                assertThat(partitionCounts, hasSize(expectedCount)));
 
         // Validate the index is still consistent
         dataModel.validate(() -> openContext(contextProps));
@@ -1081,14 +1091,15 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                 containsString("Un-supported compression version")));
     }
 
+    private enum PartitionCount { NONE, ONE, MULTIPLE }
+
     private static Stream<Arguments> concurrentParameters() {
         // only run the individual tests with synthetic during nightly, the mix runs both
         return Stream.concat(Stream.of(false),
                 TestConfigurationUtils.onlyNightly(
                         IntStream.range(0, 3).boxed().flatMap(i -> Stream.of(true, false))))
                 .flatMap(isSynthetic ->
-                    // there are 500 docs, so -1 is unpartitioned, 100 is partitioned into multiple partitions and 100,000 is partitioned into one partition
-                    Stream.of(-1, 100, 100_000)
+                        Arrays.stream(PartitionCount.values())
                             .map(partitionHighWatermark -> Arguments.of(isSynthetic, partitionHighWatermark)));
     }
 
@@ -1103,12 +1114,12 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
      */
     @ParameterizedTest
     @MethodSource("concurrentParameters")
-    void concurrentUpdate(final boolean isSynthetic, int partitionHighWatermark) throws IOException {
+    void concurrentUpdate(final boolean isSynthetic, PartitionCount partitionCount) throws IOException {
         concurrentTestWithinTransaction(isSynthetic, (dataModel, recordStore) ->
                 RecordCursor.fromList(dataModel.recordsUnderTest())
                         .mapPipelined(record -> record.updateOtherValue(recordStore), 10)
                         .asList().join(),
-                Assertions::assertEquals, partitionHighWatermark);
+                Assertions::assertEquals, null, partitionCount);
     }
 
     /**
@@ -1122,12 +1133,15 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
      */
     @ParameterizedTest
     @MethodSource("concurrentParameters")
-    void concurrentDelete(final boolean isSynthetic, int partitionHighWatermark) throws IOException {
+    void concurrentDelete(final boolean isSynthetic, PartitionCount partitionCount) throws IOException {
         concurrentTestWithinTransaction(isSynthetic, (dataModel, recordStore) ->
                 RecordCursor.fromList(dataModel.recordsUnderTest())
                         .mapPipelined(record -> record.deleteRecord(recordStore), 10)
                         .asList().join(),
-                (inserted, actual) -> assertEquals(0, actual), partitionHighWatermark);
+                (inserted, actual) -> assertEquals(0, actual),
+                // Assert that there is only one partition left, and that it has 0 documents
+                partitionCounts -> partitionCounts.values().forEach(counts -> assertThat(counts, contains(0))),
+                partitionCount);
     }
 
     /**
@@ -1141,21 +1155,20 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
      */
     @ParameterizedTest
     @MethodSource("concurrentParameters")
-    void concurrentInsert(final boolean isSynthetic, final int partitionHighWatermark) throws IOException {
+    void concurrentInsert(final boolean isSynthetic, final PartitionCount partitionCount) throws IOException {
         concurrentTestWithinTransaction(isSynthetic, (dataModel, recordStore) ->
                         RecordCursor.fromList(dataModel.recordsUnderTest())
                                 .mapPipelined(record -> { // ignore the record, we're just using that as a count
                                     return dataModel.saveRecordAsync(true, recordStore, 1);
                                 }, 10)
                                 .asList().join(),
-                (inserted, actual) -> assertEquals(inserted * 2, actual), partitionHighWatermark);
+                (inserted, actual) -> assertEquals(inserted * 2, actual), null, partitionCount);
     }
 
     private static Stream<Arguments> concurrentMixParameters() {
         return ParameterizedTestUtils.cartesianProduct(
                 ParameterizedTestUtils.booleans("isSynthetic"),
-                // there are 500 docs, so -1 is unpartitioned, 100 is partitioned into multiple partitions and 100,000 is partitioned into one partition
-                Stream.of(-1, 100, 100_000));
+                Arrays.stream(PartitionCount.values()));
     }
 
     /**
@@ -1169,7 +1182,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
      */
     @ParameterizedTest
     @MethodSource("concurrentMixParameters")
-    void concurrentMix(final boolean isSynthetic, final int partitionHighWatermark) throws IOException {
+    void concurrentMix(final boolean isSynthetic, final PartitionCount partitionCount) throws IOException {
         // We never touch the same record twice.
         AtomicInteger step = new AtomicInteger(0);
         concurrentTestWithinTransaction(isSynthetic, (dataModel, recordStore) ->
@@ -1187,12 +1200,14 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                                 }, 10)
                                 .asList().join(),
                 // Note: this assertion only works because we are inserting an even multiple of 3 to begin with
-                Assertions::assertEquals, partitionHighWatermark);
+                Assertions::assertEquals, null, partitionCount);
     }
 
     private void concurrentTestWithinTransaction(boolean isSynthetic,
                                                  final BiConsumer<LuceneIndexTestDataModel, FDBRecordStore> applyChangeConcurrently,
-                                                 final BiConsumer<Integer, Integer> assertDataModelCount, final int partitionHighWatermark) throws IOException {
+                                                 final BiConsumer<Integer, Integer> assertDataModelCount,
+                                                 @Nullable final Consumer<Map<Tuple, List<Integer>>> assertPartitionCounts,
+                                                 final PartitionCount partitionCountToPopulate) throws IOException {
         // Once the two issues noted below are fixed, we should make this parameterized, and run with additional random
         // configurations.
         AtomicInteger threadCounter = new AtomicInteger();
@@ -1210,6 +1225,20 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
         final long seed = 320947L;
         final boolean isGrouped = true;
         final boolean primaryKeySegmentIndexEnabled = true;
+        int partitionHighWatermark;
+
+        switch (partitionCountToPopulate) {
+            case NONE:
+            default:
+                partitionHighWatermark = 0;
+                break;
+            case ONE:
+                partitionHighWatermark = 100_000;
+                break;
+            case MULTIPLE:
+                partitionHighWatermark = 100;
+                break;
+        }
 
         final LuceneIndexTestDataModel dataModel = new LuceneIndexTestDataModel.Builder(seed, this::getStoreBuilder, pathManager)
                 .setIsGrouped(isGrouped)
@@ -1265,6 +1294,9 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
         System.out.println(dataModel.groupingKeyToPrimaryKeyToPartitionKey);
         assertDataModelCount.accept(500,
                 dataModel.groupingKeyToPrimaryKeyToPartitionKey.values().stream().mapToInt(Map::size).sum());
+        if ((assertPartitionCounts != null) && (dataModel.partitionHighWatermark > 0)) {
+            assertPartitionCounts.accept(dataModel.getPartitionCounts(() -> openContext(contextProps)));
+        }
 
         dataModel.validate(() -> openContext(contextProps));
 

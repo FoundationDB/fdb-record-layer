@@ -76,10 +76,6 @@ public class LuceneRepartitionPlannerTest {
             for (int i = 0; i < allPartitions.size(); i++) {
                 LucenePartitionInfoProto.LucenePartitionInfo currentPartitionInfo = allPartitions.get(i);
 
-                if (currentPartitionInfo.getCount() == 0) {
-                    continue;
-                }
-
                 Pair<LucenePartitionInfoProto.LucenePartitionInfo, LucenePartitionInfoProto.LucenePartitionInfo> neighborPartitions =
                         LucenePartitioner.getPartitionNeighbors(allPartitions, i);
 
@@ -136,6 +132,9 @@ public class LuceneRepartitionPlannerTest {
                             allPartitions.sort(Collections.reverseOrder(Comparator.comparing(p -> Tuple.fromBytes(p.getFrom().toByteArray()))));
                         }
                         totalMoved += actualCountToMove;
+                        break;
+                    case REMOVE_EMPTY_PARTITION:
+                        allPartitions.remove(i);
                         break;
                     default:
                         break;

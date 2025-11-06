@@ -164,6 +164,7 @@ public class LuceneIndexTestValidator {
 
     private void validatePartitionedGroup(final Index index, final String universalSearch, final boolean allowDuplicatePrimaryKeys, final Tuple groupingKey, final int partitionLowWatermark, final int partitionHighWatermark, final List<Tuple> records, final Map<Tuple, Map<Tuple, Tuple>> missingDocuments) throws IOException {
         List<LucenePartitionInfoProto.LucenePartitionInfo> partitionInfos = getPartitionMeta(index, groupingKey);
+        assertThat(partitionInfos.size(), greaterThan(0));
         partitionInfos.sort(Comparator.comparing(info -> Tuple.fromBytes(info.getFrom().toByteArray())));
         Set<Integer> usedPartitionIds = new HashSet<>();
         Tuple lastToTuple = null;
@@ -214,7 +215,7 @@ public class LuceneIndexTestValidator {
                                     final List<LucenePartitionInfoProto.LucenePartitionInfo> partitionInfos, final int partitionIndex,
                                     final Set<Integer> usedPartitionIds, Tuple previousToTuple) {
         final LucenePartitionInfoProto.LucenePartitionInfo partitionInfo = partitionInfos.get(partitionIndex);
-        assertTrue(isParititionCountWithinBounds(partitionInfos, partitionIndex, partitionLowWatermark, partitionHighWatermark),
+        assertTrue(isPartitionCountWithinBounds(partitionInfos, partitionIndex, partitionLowWatermark, partitionHighWatermark),
                 () -> partitionMessage(groupingKey, partitionLowWatermark, partitionHighWatermark, partitionInfos, partitionIndex));
         assertTrue(usedPartitionIds.add(partitionInfo.getId()), () -> "Duplicate id: " + partitionInfo);
         final Tuple fromTuple = Tuple.fromBytes(partitionInfo.getFrom().toByteArray());
@@ -286,10 +287,10 @@ public class LuceneIndexTestValidator {
         }
     }
 
-    boolean isParititionCountWithinBounds(@Nonnull final List<LucenePartitionInfoProto.LucenePartitionInfo> partitionInfos,
-                                          int currentPartitionIndex,
-                                          int lowWatermark,
-                                          int highWatermark) {
+    boolean isPartitionCountWithinBounds(@Nonnull final List<LucenePartitionInfoProto.LucenePartitionInfo> partitionInfos,
+                                         int currentPartitionIndex,
+                                         int lowWatermark,
+                                         int highWatermark) {
         int currentCount = partitionInfos.get(currentPartitionIndex).getCount();
         if (currentCount > highWatermark) {
             return false;

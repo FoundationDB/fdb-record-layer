@@ -44,6 +44,7 @@ import com.apple.foundationdb.record.cursors.ChainedCursor;
 import com.apple.foundationdb.record.locking.LockIdentifier;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
+import com.apple.foundationdb.record.lucene.codec.LazyOpener;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectoryManager;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.RecordType;
@@ -112,6 +113,7 @@ public class LucenePartitioner {
     private final int indexPartitionLowWatermark;
     private final KeyExpression partitioningKeyExpression;
     private final LuceneRepartitionPlanner repartitionPlanner;
+    private final LazyOpener<FDBDirectoryManager> directoryManagerSupplier;
 
     public LucenePartitioner(@Nonnull IndexMaintainerState state) {
         this.state = state;
@@ -138,6 +140,7 @@ public class LucenePartitioner {
             throw new RecordCoreArgumentException("High watermark must be greater than low watermark");
         }
         this.repartitionPlanner = new LuceneRepartitionPlanner(indexPartitionLowWatermark, indexPartitionHighWatermark);
+        this.directoryManagerSupplier = LazyOpener.supply(() -> FDBDirectoryManager.getManager(state));
     }
 
     /**
@@ -621,7 +624,7 @@ public class LucenePartitioner {
                     }
                     LucenePartitionInfoProto.LucenePartitionInfo.Builder builder = Objects.requireNonNull(serialized).toBuilder();
                     // note that the to/from of the partition do not get updated, since that would require us to know
-                    // what the next potential boundary value(s) are. The values, nonetheless, remain valid.
+                    // what the next potential boundary value(s) are. The counts, nonetheless, remain valid.
                     builder.setCount(serialized.getCount() - amount);
 
                     if (builder.getCount() < 0) {
@@ -878,7 +881,7 @@ public class LucenePartitioner {
                     }
 
                     if (repartitioningContext.action == LuceneRepartitionPlanner.RepartitioningAction.REMOVE_EMPTY_PARTITION) {
-                        return removeEmptyPartition(repartitioningContext);
+                        return CompletableFuture.completedFuture(removeEmptyPartition(repartitioningContext));
                     } else {
                         return moveDocsFromPartitionThenLog(repartitioningContext, logMessages);
                     }
@@ -1107,12 +1110,11 @@ public class LucenePartitioner {
             long updateStart = System.nanoTime();
 
             final int destinationPartitionId = destinationPartition.getId();
-            for (FDBIndexableRecord<Message> record : records) {
-                LuceneDocumentFromRecord.getRecordFields(state.index.getRootExpression(), record)
+            for (FDBIndexableRecord<Message> rec : records) {
+                LuceneDocumentFromRecord.getRecordFields(state.index.getRootExpression(), rec)
                         .entrySet().forEach(entry -> {
-                            indexMaintainer.writeDocument(record, entry, destinationPartitionId);
-                            // TODO could update the partition once
-                            addToAndSavePartitionMetadata(record, groupingKey, destinationPartitionId);
+                            indexMaintainer.writeDocument(rec, entry, destinationPartitionId);
+                            addToAndSavePartitionMetadata(rec, groupingKey, destinationPartitionId);
                         });
             }
             if (LOGGER.isDebugEnabled()) {
@@ -1146,21 +1148,58 @@ public class LucenePartitioner {
         });
     }
 
+    /**
+     * Remove an empty partition from the index.
+     * @param repartitioningContext the context returned from the partitioning planner
+     * @return 0 in case no operation was performed, 1 if the operation was successful
+     */
+    @VisibleForTesting
     @Nonnull
-    private CompletableFuture<Integer> removeEmptyPartition(@Nonnull final LuceneRepartitionPlanner.RepartitioningContext repartitioningContext) {
+    int removeEmptyPartition(@Nonnull final LuceneRepartitionPlanner.RepartitioningContext repartitioningContext) {
         // sanity check
         if (repartitioningContext.countToMove != 0) {
-            if (LOGGER.isDebugEnabled()) {
-                LOGGER.debug("removeEmptyPartition called with invalid countToMove {}", repartitioningContext.countToMove);
+            if (LOGGER.isWarnEnabled()) {
+                LOGGER.warn("removeEmptyPartition called with invalid countToMove {}", repartitioningContext.countToMove);
             }
-            return CompletableFuture.completedFuture(0);
+            return 0;
         }
         if ((repartitioningContext.olderPartition == null) && (repartitioningContext.newerPartition == null)) {
-            if (LOGGER.isDebugEnabled()) {
-                LOGGER.debug("removeEmptyPartition called with null neighboring partitions");
+            if (LOGGER.isWarnEnabled()) {
+                LOGGER.warn("removeEmptyPartition called with null neighboring partitions");
             }
-            return CompletableFuture.completedFuture(0);
+            return 0;
         }
+
+        try {
+            if (verifyNoDocumentsInPartition(repartitioningContext.sourcePartition, repartitioningContext.groupingKey)) {
+                clearEmptyPartition(repartitioningContext);
+                return 1;
+            } else {
+                if (LOGGER.isWarnEnabled()) {
+                    LOGGER.warn("removeEmptyPartition called with documents still in the index");
+                }
+                return 0;
+            }
+        } catch (IOException ioe) {
+            // log the error and stop the process - this would not prevent other groups from being rebalanced
+            if (LOGGER.isWarnEnabled()) {
+                LOGGER.warn("removeEmptyPartition failed with an exception", ioe);
+            }
+            return 0;
+        }
+    }
+
+    /**
+     * Return TRUE if the partition is empty (no docs in the actual Lucene index).
+     * @param partitionInfo the partition to check
+     * @param groupingKey the grouping key for the index
+     * @return TRUE if the index is empty, FALSE otherwise
+     */
+    private boolean verifyNoDocumentsInPartition(@Nonnull LucenePartitionInfoProto.LucenePartitionInfo partitionInfo, final Tuple groupingKey) throws IOException {
+        return directoryManagerSupplier.get().getIndexReader(groupingKey, partitionInfo.getId()).numDocs() == 0;
+    }
+
+    private void clearEmptyPartition(@Nonnull final LuceneRepartitionPlanner.RepartitioningContext repartitioningContext) {
         RepartitionTimings timings = new RepartitionTimings();
         final StoreTimerSnapshot timerSnapshot = getStoreTimerSnapshot();
         timings.startNanos = System.nanoTime();
@@ -1180,13 +1219,13 @@ public class LucenePartitioner {
         if (repartitioningContext.olderPartition != null) {
             // update other partition's metadata (set "to" from deleted partition)
             LucenePartitionInfoProto.LucenePartitionInfo.Builder builder = repartitioningContext.olderPartition.toBuilder();
-            builder.setTo(ByteString.copyFrom(partitionInfo.getTo().toByteArray())); // ensure we get a copy of the original bytes
+            builder.setTo(partitionInfo.getTo());
             savePartitionMetadata(groupingKey, builder);
         } else {
             // no older partition - need to delete the newer partition data and set a new "from" ("from" is the key)
             state.context.ensureActive().clear(partitionMetadataKeyFromPartitioningValue(groupingKey, getPartitionKey(repartitioningContext.newerPartition)));
             LucenePartitionInfoProto.LucenePartitionInfo.Builder builder = repartitioningContext.newerPartition.toBuilder();
-            builder.setFrom(ByteString.copyFrom(partitionInfo.getFrom().toByteArray())); // ensure we get a copy of the original bytes
+            builder.setFrom(partitionInfo.getFrom());
             savePartitionMetadata(groupingKey, builder);
         }
         timings.metadataUpdateNanos = System.nanoTime();
@@ -1205,7 +1244,6 @@ public class LucenePartitioner {
             }
             LOGGER.debug(logMessage.toString());
         }
-        return CompletableFuture.completedFuture(1);
     }
 
     /**
