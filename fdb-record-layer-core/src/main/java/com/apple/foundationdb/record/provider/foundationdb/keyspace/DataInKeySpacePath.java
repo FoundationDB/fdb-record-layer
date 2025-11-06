@@ -24,12 +24,10 @@ import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.tuple.Tuple;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.concurrent.CompletableFuture;
 
 /**
  * Class representing a {@link KeyValue} pair within in {@link KeySpacePath}.
@@ -69,14 +67,4 @@ public class DataInKeySpacePath {
         return remainder;
     }
 
-    /**
-     * Converts this data item to a {@link ResolvedKeySpacePath} by resolving the path and applying the remainder.
-     * @param context the context to use for resolving the path
-     * @return a future that completes with the resolved path including the remainder
-     */
-    @Nonnull
-    public CompletableFuture<ResolvedKeySpacePath> getResolvedPath(@Nonnull FDBRecordContext context) {
-        return path.toResolvedPathAsync(context)
-                .thenApply(resolvedPath -> remainder == null ? resolvedPath : resolvedPath.withRemainder(remainder));
-    }
 }
