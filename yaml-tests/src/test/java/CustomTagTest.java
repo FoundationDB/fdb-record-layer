@@ -34,7 +34,7 @@ import java.util.stream.Stream;
 /**
  * Tests for custom YAML tags such as {@link com.apple.foundationdb.relational.yamltests.tags.IgnoreTag}.
  */
-public class CustomTagTest {
+class CustomTagTest {
     private static final String CLUSTER_FILE = FDBTestEnvironment.randomClusterFile();
     private static final EmbeddedConfig config = new EmbeddedConfig(CLUSTER_FILE);
 
