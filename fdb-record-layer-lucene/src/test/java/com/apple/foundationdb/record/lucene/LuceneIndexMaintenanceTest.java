@@ -1031,22 +1031,27 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
     void concurrentMix(final boolean isSynthetic) throws IOException {
         // We never touch the same record twice.
         AtomicInteger step = new AtomicInteger(0);
+        AtomicInteger updates = new AtomicInteger(0);
+        AtomicInteger deletes = new AtomicInteger(0);
+        AtomicInteger saves = new AtomicInteger(0);
         concurrentTestWithinTransaction(isSynthetic, (dataModel, recordStore) ->
                         RecordCursor.fromList(dataModel.recordsUnderTest())
                                 .mapPipelined(record -> {
                                     switch (step.incrementAndGet() % 3) {
                                         case 0:
+                                            updates.incrementAndGet();
                                             return record.updateOtherValue(recordStore);
                                         case 1:
+                                            deletes.incrementAndGet();
                                             return record.deleteRecord(recordStore);
                                         default:
+                                            saves.incrementAndGet();
                                             return dataModel.saveRecordAsync(true, recordStore, 1)
                                                     .thenAccept(vignore -> { });
                                     }
                                 }, 10)
                                 .asList().join(),
-                // Note: this assertion only works because we are inserting an even multiple of 3 to begin with
-                Assertions::assertEquals);
+                (inserted, actual) -> assertEquals(inserted + saves.get() - deletes.get(), actual));
     }
 
     private void concurrentTestWithinTransaction(boolean isSynthetic,
@@ -1080,7 +1085,8 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                 .build();
 
         final int repartitionCount = 10;
-        final int loopCount = 50;
+        final int recordsPerIteration = 10;
+        final int loopCount = 40;
 
         final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
                 .addProp(LuceneRecordContextProperties.LUCENE_REPARTITION_DOCUMENT_COUNT, repartitionCount)
@@ -1096,16 +1102,11 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                     "docMaxPerGroup", dataModel.groupingKeyToPrimaryKeyToPartitionKey.values().stream().mapToInt(Map::size).max()));
 
             try (FDBRecordContext context = openContext(contextProps)) {
-                dataModel.saveRecords(10, context, 1);
+                dataModel.saveRecords(recordsPerIteration, context, 1);
                 commit(context);
             }
             explicitMergeIndex(dataModel.index, contextProps, dataModel.schemaSetup);
         }
-
-        final Map<Tuple, Map<Tuple, Tuple>> initial = dataModel.groupingKeyToPrimaryKeyToPartitionKey.entrySet().stream().collect(Collectors.toMap(
-                Map.Entry::getKey,
-                entry -> Map.copyOf(entry.getValue())
-        ));
 
         dataModel.validate(() -> openContext(contextProps));
 
@@ -1113,16 +1114,13 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
             FDBRecordStore recordStore = Objects.requireNonNull(dataModel.schemaSetup.apply(context));
             recordStore.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(false);
             assertThat(dataModel.recordsUnderTest(), Matchers.hasSize(Matchers.greaterThan(30)));
-            LOGGER.info("concurrentUpdate: Starting updates");
+            LOGGER.info("concurrentTestWithinTransaction: Starting applyChanges");
             applyChangeConcurrently.accept(dataModel, recordStore);
+            LOGGER.info("concurrentTestWithinTransaction: Done applyChanges");
             commit(context);
         }
 
-        System.out.println("=== initial ===");
-        System.out.println(initial);
-        System.out.println("=== updated ===");
-        System.out.println(dataModel.groupingKeyToPrimaryKeyToPartitionKey);
-        assertDataModelCount.accept(500,
+        assertDataModelCount.accept(recordsPerIteration * loopCount,
                 dataModel.groupingKeyToPrimaryKeyToPartitionKey.values().stream().mapToInt(Map::size).sum());
 
         dataModel.validate(() -> openContext(contextProps));
@@ -1140,7 +1138,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                         Arguments.of(random.nextBoolean(),
                                 random.nextBoolean(),
                                 random.nextBoolean(),
-                                random.nextInt(30) + 3,
+                                random.nextInt(20) + 3,
                                 random.nextLong())));
     }
 

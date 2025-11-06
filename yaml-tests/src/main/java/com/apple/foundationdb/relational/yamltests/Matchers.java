@@ -561,6 +561,10 @@ public class Matchers {
                                                    @Nullable final Object actual,
                                                    int rowNumber,
                                                    @Nonnull String cellRef) throws SQLException {
+        if (expected instanceof IgnoreTag.IgnoreMatcher) {
+            return ResultSetMatchResult.success();
+        }
+
         if (expected == null && actual == null) {
             return ResultSetMatchResult.success();
         }

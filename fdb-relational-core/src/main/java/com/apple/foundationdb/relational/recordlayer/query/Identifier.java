@@ -147,8 +147,7 @@ public class Identifier {
     @Nonnull
     public static Identifier toProtobufCompliant(@Nonnull final Identifier identifier) {
         final var qualifier = identifier.getQualifier().stream().map(DataTypeUtils::toProtoBufCompliantName).collect(Collectors.toList());
-        final var name = DataTypeUtils.toProtoBufCompliantName(identifier.getName());
-        return Identifier.of(name, qualifier);
+        return Identifier.of(DataTypeUtils.toProtoBufCompliantName(identifier.getName()), qualifier);
     }
 
     @Override

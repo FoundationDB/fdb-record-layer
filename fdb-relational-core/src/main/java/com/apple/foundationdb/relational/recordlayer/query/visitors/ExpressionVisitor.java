@@ -48,7 +48,6 @@ import com.apple.foundationdb.relational.recordlayer.query.LogicalOperator;
 import com.apple.foundationdb.relational.recordlayer.query.LogicalPlanFragment;
 import com.apple.foundationdb.relational.recordlayer.query.OrderByExpression;
 import com.apple.foundationdb.relational.recordlayer.query.ParseHelpers;
-import com.apple.foundationdb.relational.recordlayer.query.PseudoColumn;
 import com.apple.foundationdb.relational.recordlayer.query.SemanticAnalyzer;
 import com.apple.foundationdb.relational.recordlayer.query.StringTrieNode;
 import com.apple.foundationdb.relational.recordlayer.query.TautologicalValue;
@@ -181,11 +180,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     @Override
     public Expression visitFullColumnName(@Nonnull RelationalParser.FullColumnNameContext fullColumnNameContext) {
         final var id = visitFullId(fullColumnNameContext.fullId());
-        if (!PseudoColumn.isPseudoColumn(id.getName())) {
-            return getDelegate().getSemanticAnalyzer().resolveIdentifier(Identifier.toProtobufCompliant(id), getDelegate().getCurrentPlanFragment());
-        } else {
-            return getDelegate().getSemanticAnalyzer().resolveIdentifier(id.replaceQualifier(q -> q.stream().map(DataTypeUtils::toProtoBufCompliantName).collect(Collectors.toList())), getDelegate().getCurrentPlanFragment());
-        }
+        return getDelegate().getSemanticAnalyzer().resolveIdentifier(Identifier.toProtobufCompliant(id), getDelegate().getCurrentPlanFragment());
     }
 
     @Nonnull

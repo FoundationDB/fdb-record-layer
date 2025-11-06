@@ -106,13 +106,6 @@ public class KeySpacePathWrapper implements KeySpacePath {
         return inner.add(dirName, value);
     }
 
-    @Deprecated
-    @Override
-    @Nullable
-    public Tuple getRemainder() {
-        return inner.getRemainder();
-    }
-
     @Override
     @Nullable
     public KeySpacePath getParent() {
@@ -134,19 +127,6 @@ public class KeySpacePathWrapper implements KeySpacePath {
     @Override
     public Object getValue() {
         return inner.getValue();
-    }
-
-    @Deprecated
-    @Override
-    @Nonnull
-    public PathValue getStoredValue() {
-        return inner.getStoredValue();
-    }
-
-    @Deprecated
-    @Override
-    public boolean hasStoredValue() {
-        return inner.hasStoredValue();
     }
 
     @Override
@@ -177,17 +157,6 @@ public class KeySpacePathWrapper implements KeySpacePath {
     @Nonnull
     public CompletableFuture<Void> deleteAllDataAsync(@Nonnull FDBRecordContext context) {
         return inner.deleteAllDataAsync(context);
-    }
-
-    @Deprecated
-    @Override
-    @Nonnull
-    public RecordCursor<KeySpacePath> listAsync(@Nonnull FDBRecordContext context,
-                                                @Nonnull String subdirName,
-                                                @Nullable ValueRange<?> range,
-                                                @Nullable byte[] continuation,
-                                                @Nonnull ScanProperties scanProperties) {
-        return inner.listAsync(context, subdirName, range, continuation, scanProperties);
     }
 
     @Nonnull

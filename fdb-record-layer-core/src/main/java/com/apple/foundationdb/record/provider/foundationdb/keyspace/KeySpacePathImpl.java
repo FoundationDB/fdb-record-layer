@@ -55,13 +55,6 @@ class KeySpacePathImpl implements KeySpacePath {
     @Nullable
     private final Object value;
 
-    // The following variables are only available with a path has been reconstructed from a tuple
-    private final boolean wasFromTuple;
-    @Nullable
-    private final PathValue resolvedPathValue;
-    @Nullable
-    protected final Tuple remainder;
-
     /**
      * Create a path element.
      *
@@ -69,47 +62,26 @@ class KeySpacePathImpl implements KeySpacePath {
      * @param directory the directory in which this path element resides
      * @param value the value to be used for this directory. This may not be the actual value that will be used
      *    in the tuple produced from the path
-     * @param wasFromTuple this will be true if this path was produced using {@link KeySpace#pathFromKey(FDBRecordContext, Tuple)}
-     * @param resolvedPathValue if <code>wasFromTuple</code> is true, this is the future that will be resolved when the
-     *    path is resolved
-     * @param remainder if <code>wasFromTuple</code> is true, this is any remainder of the euple that fell off the
-     *    end of the path
      */
     private KeySpacePathImpl(@Nullable KeySpacePath parent,
                              @Nonnull KeySpaceDirectory directory,
-                             @Nullable Object value,
-                             boolean wasFromTuple,
-                             @Nullable PathValue resolvedPathValue,
-                             @Nullable Tuple remainder) {
-        // Run-time assertion.
-        if (!wasFromTuple && (resolvedPathValue != null || remainder != null)) {
-            throw new IllegalArgumentException("Paths that weren't resolved from a tuple cannot provide storage information!");
-        }
-
+                             @Nullable Object value) {
         this.directory = directory;
         this.value = value;
         this.parent = parent;
-        this.wasFromTuple = wasFromTuple;
-        this.resolvedPathValue = resolvedPathValue;
-        this.remainder = remainder;
     }
 
     @Nonnull
     static KeySpacePath newPath(@Nullable KeySpacePath parent,
                                 @Nonnull KeySpaceDirectory directory,
-                                @Nullable Object value,
-                                boolean wasFromTuple,
-                                @Nullable PathValue resolvedPathValue,
-                                @Nullable Tuple remainder) {
-        return directory.wrap(new KeySpacePathImpl(parent, directory, value, wasFromTuple,
-                resolvedPathValue, remainder));
+                                @Nullable Object value) {
+        return directory.wrap(new KeySpacePathImpl(parent, directory, value));
     }
 
     @Nonnull
     static KeySpacePath newPath(@Nullable KeySpacePath parent,
                                 @Nonnull KeySpaceDirectory directory) {
-        return directory.wrap(new KeySpacePathImpl(parent, directory, directory.getValue(),
-                false, null, null));
+        return directory.wrap(new KeySpacePathImpl(parent, directory, directory.getValue()));
     }
 
     @Nonnull
@@ -129,33 +101,13 @@ class KeySpacePathImpl implements KeySpacePath {
     @Override
     public KeySpacePath add(@Nonnull String dirName, @Nullable Object value) {
         KeySpaceDirectory subdir = directory.getSubdirectory(dirName);
-        return subdir.wrap(new KeySpacePathImpl(self(), subdir, value,
-                false, null, null));
-    }
-
-    @Deprecated
-    @Nonnull
-    @Override
-    public RecordCursor<KeySpacePath> listAsync(@Nonnull FDBRecordContext context, 
-                                                @Nonnull String subdirName, 
-                                                @Nullable ValueRange<?> range,
-                                                @Nullable byte[] continuation,
-                                                @Nonnull ScanProperties scanProperties) {
-        return directory.listSubdirectoryAsync(self(), context, subdirName, range, continuation, scanProperties)
-                .map(ResolvedKeySpacePath::toPath);
+        return subdir.wrap(new KeySpacePathImpl(self(), subdir, value));
     }
 
     @Nonnull
     @Override
     public RecordCursor<ResolvedKeySpacePath> listSubdirectoryAsync(@Nonnull FDBRecordContext context, @Nonnull String subdirName, @Nullable ValueRange<?> range, @Nullable byte[] continuation, @Nonnull ScanProperties scanProperties) {
         return directory.listSubdirectoryAsync(self(), context, subdirName, range, continuation, scanProperties);
-    }
-
-    @Deprecated
-    @Nullable
-    @Override
-    public Tuple getRemainder() {
-        return remainder;
     }
 
     @Nullable
@@ -182,30 +134,10 @@ class KeySpacePathImpl implements KeySpacePath {
         return value;
     }
 
-    @Deprecated
-    @Nonnull
-    @Override
-    public PathValue getStoredValue() {
-        if (!wasFromTuple) {
-            throw new IllegalStateException("Path must be produced using pathFromKey() or list()");
-        }
-        return resolvedPathValue;
-    }
-
-    @Deprecated
-    @Override
-    public boolean hasStoredValue() {
-        return wasFromTuple;
-    }
-
     @Nonnull
     @Override
     public CompletableFuture<PathValue> resolveAsync(@Nonnull FDBRecordContext context) {
-        if (wasFromTuple) {
-            return CompletableFuture.completedFuture(resolvedPathValue);
-        } else {
-            return getDirectory().toTupleValueAsync(context, getValue());
-        }
+        return getDirectory().toTupleValueAsync(context, getValue());
     }
 
     @Nonnull
@@ -335,7 +267,6 @@ class KeySpacePathImpl implements KeySpacePath {
                 parent);
     }
 
-    @SuppressWarnings("deprecation")
     @Override
     public String toString(@Nullable Tuple t) {
         Iterator<Object> it = null;
@@ -350,18 +281,12 @@ class KeySpacePathImpl implements KeySpacePath {
             Object storedValue = null;
             if (it != null && it.hasNext()) {
                 storedValue = it.next();
-            } else if (entry.hasStoredValue()) {
-                storedValue = entry.getStoredValue().getResolvedValue();
             }
             if (storedValue != null && !Objects.equals(dirValue, storedValue)) {
                 ResolvedKeySpacePath.appendValue(sb, storedValue);
                 sb.append("->");
             }
             ResolvedKeySpacePath.appendValue(sb, dirValue);
-        }
-
-        if (getRemainder() != null) {
-            sb.append('+').append(getRemainder());
         }
 
         return sb.toString();

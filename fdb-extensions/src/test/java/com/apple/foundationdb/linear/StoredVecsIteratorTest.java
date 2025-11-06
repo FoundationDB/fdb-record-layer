@@ -33,7 +33,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 
-public class StoredVecsIteratorTest {
+class StoredVecsIteratorTest {
     @SuppressWarnings("checkstyle:AbbreviationAsWordInName")
     @Test
     void readSIFT() throws IOException {

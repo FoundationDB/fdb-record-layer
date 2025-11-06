@@ -95,12 +95,12 @@ public final class FhtKacRotator implements LinearOperator {
     }
 
     @Override
-    public int getRowDimension() {
+    public int getNumRowDimensions() {
         return numDimensions;
     }
 
     @Override
-    public int getColumnDimension() {
+    public int getNumColumnDimensions() {
         return numDimensions;
     }
 
@@ -111,7 +111,7 @@ public final class FhtKacRotator implements LinearOperator {
 
     @Nonnull
     @Override
-    public RealVector operate(@Nonnull final RealVector x) {
+    public RealVector apply(@Nonnull final RealVector x) {
         return new DoubleRealVector(operate(x.getData()));
     }
 
@@ -142,12 +142,12 @@ public final class FhtKacRotator implements LinearOperator {
 
     @Nonnull
     @Override
-    public RealVector operateTranspose(@Nonnull final RealVector x) {
+    public RealVector transposedApply(@Nonnull final RealVector x) {
         return new DoubleRealVector(operateTranspose(x.getData()));
     }
 
     @Nonnull
-    public double[] operateTranspose(@Nonnull final double[] x) {
+    private double[] operateTranspose(@Nonnull final double[] x) {
         if (x.length != numDimensions) {
             throw new IllegalArgumentException("dimensionality of x != n");
         }
