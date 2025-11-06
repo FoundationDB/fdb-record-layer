@@ -150,7 +150,7 @@ public class IndexingMerger {
         mergeControl.mergeHadFailed(); // report to adjust stats
         final FDBException ex = IndexingBase.findException(e, FDBException.class);
         final IndexDeferredMaintenanceControl.LastStep lastStep = mergeControl.getLastStep();
-        if (!IndexingBase.shouldLessenWork(ex)) {
+        if (shouldAbort(ex)) {
             giveUpMerging(mergeControl, e);
         }
         switch (lastStep) {
@@ -173,6 +173,12 @@ public class IndexingMerger {
                 break; // "A switch statement does not contain a break", croaks a grumpy pmdMain.
         }
         return AsyncUtil.READY_TRUE; // and retry
+    }
+
+    @SuppressWarnings("unused")
+    private boolean shouldAbort(@Nullable FDBException ex) {
+        // TODO: return true if the exception is clearly not retriable
+        return false;
     }
 
     private void handleRepartitioningFailure(final IndexDeferredMaintenanceControl mergeControl, Throwable e) {
