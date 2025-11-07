@@ -55,8 +55,8 @@ public class InsertVectorTest {
         try (RelationalConnection conn = DriverManager.getConnection(database.getConnectionUri().toString()).unwrap(RelationalConnection.class)) {
             conn.setSchema("TEST_SCHEMA");
             try (RelationalStatement s = conn.createStatement()) {
-                RelationalStruct record = EmbeddedRelationalStruct.newBuilder().addInt("PK", 0).build();
-                s.executeInsert("V", record);
+                RelationalStruct rec = EmbeddedRelationalStruct.newBuilder().addInt("PK", 0).build();
+                s.executeInsert("V", rec);
                 try (RelationalResultSet rs = s.executeGet("V", new KeySet().setKeyColumn("PK", 0), Options.NONE)) {
                     ResultSetAssert.assertThat(rs)
                             .hasNextRow()
@@ -75,8 +75,8 @@ public class InsertVectorTest {
         try (RelationalConnection conn = DriverManager.getConnection(database.getConnectionUri().toString()).unwrap(RelationalConnection.class)) {
             conn.setSchema("TEST_SCHEMA");
             try (RelationalStatement s = conn.createStatement()) {
-                RelationalStruct record = EmbeddedRelationalStruct.newBuilder().addInt("PK", 0).addObject("V1", new FloatRealVector(new float[]{1f, 2f, 3f, 4f})).build();
-                s.executeInsert("V", record);
+                RelationalStruct rec = EmbeddedRelationalStruct.newBuilder().addInt("PK", 0).addObject("V1", new FloatRealVector(new float[]{1f, 2f, 3f, 4f})).build();
+                s.executeInsert("V", rec);
                 try (RelationalResultSet rs = s.executeGet("V", new KeySet().setKeyColumn("PK", 0), Options.NONE)) {
                     ResultSetAssert.assertThat(rs)
                             .hasNextRow()
@@ -95,12 +95,12 @@ public class InsertVectorTest {
         try (RelationalConnection conn = DriverManager.getConnection(database.getConnectionUri().toString()).unwrap(RelationalConnection.class)) {
             conn.setSchema("TEST_SCHEMA");
             try (RelationalStatement s = conn.createStatement()) {
-                RelationalStruct record = EmbeddedRelationalStruct.newBuilder().addInt("PK", 0)
+                RelationalStruct rec = EmbeddedRelationalStruct.newBuilder().addInt("PK", 0)
                         .addObject("V1", new FloatRealVector(new float[]{1f, 2f, 3f, 4f}))
                         .addObject("V2", new HalfRealVector(new int[]{1, 2, 3}))
                         .addObject("V3", new DoubleRealVector(new double[]{1d, 2d}))
                         .build();
-                s.executeInsert("V", record);
+                s.executeInsert("V", rec);
                 try (RelationalResultSet rs = s.executeGet("V", new KeySet().setKeyColumn("PK", 0), Options.NONE)) {
                     ResultSetAssert.assertThat(rs)
                             .hasNextRow()
@@ -119,9 +119,9 @@ public class InsertVectorTest {
         try (RelationalConnection conn = DriverManager.getConnection(database.getConnectionUri().toString()).unwrap(RelationalConnection.class)) {
             conn.setSchema("TEST_SCHEMA");
             try (RelationalStatement s = conn.createStatement()) {
-                RelationalStruct record = EmbeddedRelationalStruct.newBuilder().addInt("PK", 0).addObject("V1", new FloatRealVector(new float[] {1f, 2f, 3f, 4f, 5f})).build();
+                RelationalStruct rec = EmbeddedRelationalStruct.newBuilder().addInt("PK", 0).addObject("V1", new FloatRealVector(new float[] {1f, 2f, 3f, 4f, 5f})).build();
                 RelationalAssertions.assertThrowsSqlException(
-                                () -> s.executeInsert("V", record))
+                                () -> s.executeInsert("V", rec))
                         .hasErrorCode(ErrorCode.CANNOT_CONVERT_TYPE);
             }
         }
@@ -132,9 +132,9 @@ public class InsertVectorTest {
         try (RelationalConnection conn = DriverManager.getConnection(database.getConnectionUri().toString()).unwrap(RelationalConnection.class)) {
             conn.setSchema("TEST_SCHEMA");
             try (RelationalStatement s = conn.createStatement()) {
-                RelationalStruct record = EmbeddedRelationalStruct.newBuilder().addInt("PK", 0).addObject("V1", new DoubleRealVector(new double[] {1d, 2d, 3d, 4d})).build();
+                RelationalStruct rec = EmbeddedRelationalStruct.newBuilder().addInt("PK", 0).addObject("V1", new DoubleRealVector(new double[] {1d, 2d, 3d, 4d})).build();
                 RelationalAssertions.assertThrowsSqlException(
-                                () -> s.executeInsert("V", record))
+                                () -> s.executeInsert("V", rec))
                         .hasErrorCode(ErrorCode.CANNOT_CONVERT_TYPE);
             }
         }
@@ -145,9 +145,9 @@ public class InsertVectorTest {
         try (RelationalConnection conn = DriverManager.getConnection(database.getConnectionUri().toString()).unwrap(RelationalConnection.class)) {
             conn.setSchema("TEST_SCHEMA");
             try (RelationalStatement s = conn.createStatement()) {
-                RelationalStruct record = EmbeddedRelationalStruct.newBuilder().addInt("PK", 0).addInt("V1", 42).build();
+                RelationalStruct rec = EmbeddedRelationalStruct.newBuilder().addInt("PK", 0).addInt("V1", 42).build();
                 RelationalAssertions.assertThrowsSqlException(
-                                () -> s.executeInsert("V", record))
+                                () -> s.executeInsert("V", rec))
                         .hasErrorCode(ErrorCode.CANNOT_CONVERT_TYPE);
             }
         }
