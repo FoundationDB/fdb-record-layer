@@ -279,6 +279,7 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
                                     Assert.that(vector instanceof DoubleRealVector, ErrorCode.CANNOT_CONVERT_TYPE, "Wrong precision for vector");
                                     break;
                                 default:
+                                    Assert.fail(ErrorCode.INTERNAL_ERROR, "Unknown precision for vector");
                             }
                             builder.setField(fd, ((AbstractRealVector) vector).getRawData());
                         }
