@@ -26,6 +26,7 @@ import com.apple.test.Tags;
 import com.google.protobuf.ByteString;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import java.util.ArrayList;
@@ -34,6 +35,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -45,8 +47,18 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 @Tag(Tags.RequiresFDB)
 public class LuceneRepartitionPlannerTest {
+
+    private static Stream<Arguments> luceneRepartitionPlannerTest() {
+        return Stream.concat(LuceneIndexTest.simplePartitionConsolidationTest(),
+                Stream.of(
+                        // ensure empty partition gets removed
+                        Arguments.of(1, 5, 3, new int[] {5, 0, 4}, new int[] {5, 4}, 9002508147645127223L),
+                        // ensure empty partition isn't erroring out
+                        Arguments.of(1, 5, 3, new int[] {0}, new int[] {0}, 9002508147645127223L)));
+    }
+
     @ParameterizedTest
-    @MethodSource(value = "com.apple.foundationdb.record.lucene.LuceneIndexTest#simplePartitionConsolidationTest")
+    @MethodSource
     public void luceneRepartitionPlannerTest(int lowWatermark,
                                              int highWatermark,
                                              int repartitionDocumentCount,
@@ -75,10 +87,6 @@ public class LuceneRepartitionPlannerTest {
             totalMoved = 0;
             for (int i = 0; i < allPartitions.size(); i++) {
                 LucenePartitionInfoProto.LucenePartitionInfo currentPartitionInfo = allPartitions.get(i);
-
-                if (currentPartitionInfo.getCount() == 0) {
-                    continue;
-                }
 
                 Pair<LucenePartitionInfoProto.LucenePartitionInfo, LucenePartitionInfoProto.LucenePartitionInfo> neighborPartitions =
                         LucenePartitioner.getPartitionNeighbors(allPartitions, i);
@@ -136,6 +144,9 @@ public class LuceneRepartitionPlannerTest {
                             allPartitions.sort(Collections.reverseOrder(Comparator.comparing(p -> Tuple.fromBytes(p.getFrom().toByteArray()))));
                         }
                         totalMoved += actualCountToMove;
+                        break;
+                    case REMOVE_EMPTY_PARTITION:
+                        allPartitions.remove(i);
                         break;
                     default:
                         break;
