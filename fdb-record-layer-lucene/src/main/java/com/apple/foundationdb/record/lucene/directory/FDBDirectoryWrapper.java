@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.lucene.directory;
 
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.lucene.LuceneAnalyzerWrapper;
 import com.apple.foundationdb.record.lucene.LuceneEvents;
 import com.apple.foundationdb.record.lucene.LuceneLoggerInfoStream;
@@ -62,6 +63,7 @@ import java.util.concurrent.ThreadLocalRandom;
  * {@link FDBDirectory} contains cached information from FDB, it is important for cache coherency that all writers
  * (etc.) accessing that directory go through the same wrapper object so that they share a common cache.
  */
+@API(API.Status.INTERNAL)
 public class FDBDirectoryWrapper implements AutoCloseable {
     private static final Logger LOGGER = LoggerFactory.getLogger(FDBDirectoryWrapper.class);
 
@@ -207,15 +209,6 @@ public class FDBDirectoryWrapper implements AutoCloseable {
                     state.context.getExecutor(),
                     state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_OPEN_PARALLELISM));
         }
-    }
-
-    /**
-     * Get a {@link DirectoryReader} wrapped around the {@link #getWriter()} to be able to get segments associated with
-     * documents. This resource will be closed when {@code this} is closed, and should not be closed by callers
-     */
-    @SuppressWarnings("PMD.CloseResource")
-    public DirectoryReader getWriterReader() throws IOException {
-        return getWriterReader(false);
     }
 
     /**
