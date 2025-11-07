@@ -30,6 +30,8 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexDeferredMaintena
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.foundationdb.util.CloseException;
+import com.apple.foundationdb.util.CloseableUtils;
 import com.google.common.annotations.VisibleForTesting;
 import org.apache.lucene.codecs.Codec;
 import org.apache.lucene.index.ConcurrentMergeScheduler;
@@ -50,6 +52,8 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.Map;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
@@ -92,7 +96,12 @@ public class FDBDirectoryWrapper implements AutoCloseable {
      * segments associated with documents being deleted.
      */
     private LazyCloseable<DirectoryReader> writerReader;
-
+    /**
+     * WriterReaders that were replaced (through {@link #getWriterReader(boolean)} )} with a {@code refresh==true}).
+     * These readers should all be closed, but they may still be in use while this class is in circulation, so their
+     * closure is postponed until this class' {@link #close()} call.
+     */
+    private Queue<LazyCloseable<DirectoryReader>> readersToClose;
 
     FDBDirectoryWrapper(@Nonnull final IndexMaintainerState state,
                         @Nonnull final Tuple key,
@@ -109,6 +118,7 @@ public class FDBDirectoryWrapper implements AutoCloseable {
         this.analyzerWrapper = analyzerWrapper;
         writer = LazyCloseable.supply(() -> createIndexWriter(exceptionAtCreation));
         writerReader = LazyCloseable.supply(() -> DirectoryReader.open(writer.get()));
+        readersToClose = new ConcurrentLinkedQueue<>();
     }
 
     @VisibleForTesting
@@ -219,7 +229,7 @@ public class FDBDirectoryWrapper implements AutoCloseable {
             final DirectoryReader newReader = DirectoryReader.openIfChanged(writerReader.get());
             if (newReader != null) {
                 // previous reader instantiated but then writer changed
-                writerReader.close();
+                readersToClose.add(writerReader);
                 writerReader = LazyCloseable.supply(() -> newReader);
             }
         }
@@ -377,6 +387,11 @@ public class FDBDirectoryWrapper implements AutoCloseable {
     @SuppressWarnings("PMD.CloseResource")
     public synchronized void close() throws IOException {
         IOUtils.close(writer, writerReader, directory);
+        try {
+            CloseableUtils.closeAll(readersToClose.toArray(new LazyCloseable<?>[0]));
+        } catch (CloseException e) {
+            throw new IOException(e);
+        }
     }
 
     public void mergeIndex() throws IOException {

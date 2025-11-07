@@ -300,9 +300,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         @Nullable final LucenePrimaryKeySegmentIndex segmentIndex = directoryManager.getDirectory(groupingKey, partitionId).getPrimaryKeySegmentIndex();
 
         if (segmentIndex != null) {
-            // Use refresh to ensure the reader can see the latest deletes
-            final DirectoryReader directoryReader = directoryManager.getWriterReader(groupingKey, partitionId, true);
-            final LucenePrimaryKeySegmentIndex.DocumentIndexEntry documentIndexEntry = segmentIndex.findDocument(directoryReader, primaryKey);
+            final LucenePrimaryKeySegmentIndex.DocumentIndexEntry documentIndexEntry = getDocumentIndexEntryWithRetry(segmentIndex, groupingKey, partitionId, primaryKey);
             if (documentIndexEntry != null) {
                 state.context.ensureActive().clear(documentIndexEntry.entryKey); // TODO: Only if valid?
                 long valid = indexWriter.tryDeleteDocument(documentIndexEntry.indexReader, documentIndexEntry.docId);
@@ -351,6 +349,30 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         // if we delete by query, we aren't certain whether the document was actually deleted (if, for instance, it wasn't in Lucene
         // to begin with)
         return 0;
+    }
+
+    /**
+     * Try to find the document for the given record in the segment index.
+     * This method would first try to find the document using teh existing reader. If it can't, it will refresh the reader
+     * and try again. The issue is that when the documents have been updated in memory (e.g. in the same transaction), the
+     * writer may cache the changes in NRT and the reader (created earlier) can't see them. Refreshing the reader from the
+     * writer can alleviate this. If the index can't find the document with the refresh reader, null is returned.
+     * @param groupingKey
+     * @param partitionId
+     * @param primaryKey
+     * @return
+     * @throws IOException
+     */
+    private LucenePrimaryKeySegmentIndex.DocumentIndexEntry getDocumentIndexEntryWithRetry(LucenePrimaryKeySegmentIndex segmentIndex, final Tuple groupingKey, final Integer partitionId, final Tuple primaryKey) throws IOException {
+        // Use refresh to ensure the reader can see the latest deletes
+        DirectoryReader directoryReader = directoryManager.getWriterReader(groupingKey, partitionId, false);
+        LucenePrimaryKeySegmentIndex.DocumentIndexEntry documentIndexEntry = segmentIndex.findDocument(directoryReader, primaryKey);
+        if (documentIndexEntry != null) {
+            return documentIndexEntry;
+        } else {
+            directoryReader = directoryManager.getWriterReader(groupingKey, partitionId, true);
+            return segmentIndex.findDocument(directoryReader, primaryKey);
+        }
     }
 
     @Override
