@@ -185,7 +185,7 @@ jobs:
       - name: Publish Artifacts
         uses: ./actions/run-gradle
         with:
-          gradle_command: publish publishMavenCentralBundle -PreleaseBuild=true -PpublishBuild=true -PgithubPublish=true -PcentralPublish=true
+          gradle_command: publish closeAndReleaseStagingRepositories -PreleaseBuild=true -PpublishBuild=true -PgithubPublish=true -PcentralPublish=true
         env:
           ORG_GRADLE_PROJECT_signingKey: ${{ secrets.GPG_PRIVATE_KEY }}
           ORG_GRADLE_PROJECT_signingPassword: ${{ secrets.GPG_PASSPHRASE }}

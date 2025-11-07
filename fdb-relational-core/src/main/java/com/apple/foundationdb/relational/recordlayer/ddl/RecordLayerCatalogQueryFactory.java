@@ -37,7 +37,6 @@ import com.apple.foundationdb.relational.api.metadata.Schema;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.ArrayRow;
 import com.apple.foundationdb.relational.recordlayer.IteratorResultSet;
-import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 
 import javax.annotation.Nonnull;
 import java.net.URI;
@@ -65,7 +64,7 @@ public class RecordLayerCatalogQueryFactory extends CatalogQueryFactory {
             public RelationalResultSet executeAction(Transaction txn) throws RelationalException {
                 final Schema schema = catalog.loadSchema(txn, dbId, schemaId);
 
-                final List<String> tableNames = schema.getTables().stream().map(Metadata::getName).map(DataTypeUtils::toUserIdentifier)
+                final List<String> tableNames = schema.getTables().stream().map(Metadata::getName)
                         .collect(Collectors.toList());
 
                 final List<String> indexNames = schema.getTables().stream().flatMap(t -> t.getIndexes().stream()).map(Metadata::getName)

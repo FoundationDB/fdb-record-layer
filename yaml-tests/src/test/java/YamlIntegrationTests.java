@@ -343,11 +343,6 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
-    public void validIdentifiersTest(YamlTest.Runner runner) throws Exception {
-        runner.runYamsql("valid-identifiers.yamsql");
-    }
-
-    @TestTemplate
     public void vectorTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("vector.yamsql");
     }

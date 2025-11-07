@@ -113,14 +113,6 @@ publishing {
                     }
                 }
             }
-
-            if (Boolean.parseBoolean(centralPublish)) {
-                // Publish this project to the root project's staging repo. This will be
-                // bundled up by createMavenCentralBundle for publishing
-                maven {
-                    url = rootProject.layout.buildDirectory.dir("staging-repo")
-                }
-            }
         }
     }
 }

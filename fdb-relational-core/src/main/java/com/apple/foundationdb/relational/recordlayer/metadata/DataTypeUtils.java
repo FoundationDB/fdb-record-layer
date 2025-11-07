@@ -21,11 +21,13 @@
 package com.apple.foundationdb.relational.recordlayer.metadata;
 
 import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
+
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 
@@ -34,19 +36,10 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @API(API.Status.EXPERIMENTAL)
 public class DataTypeUtils {
-
-    private static final String DOUBLE_UNDERSCORE_ESCAPE = "__0";
-    private static final String DOLLAR_ESCAPE = "__1";
-    private static final String DOT_ESCAPE = "__2";
-
-    private static final List<String> INVALID_START_SEQUENCES = List.of(".", "$", DOUBLE_UNDERSCORE_ESCAPE, DOLLAR_ESCAPE, DOT_ESCAPE);
-
-    private static final Pattern VALID_PROTOBUF_COMPLIANT_NAME_PATTERN = Pattern.compile("^[A-Za-z_][A-Za-z0-9_]*$");
 
     @Nonnull
     private static final BiMap<DataType, Type> primitivesMap;
@@ -62,20 +55,6 @@ public class DataTypeUtils {
     @SpotBugsSuppressWarnings(value = "NP_NONNULL_RETURN_VIOLATION", justification = "should never happen, there is failUnchecked directly before that.")
     @Nonnull
     public static DataType toRelationalType(@Nonnull final Type type) {
-        return toRelationalType(type, false);
-    }
-
-    /**
-     * Converts a Record Layer {@link Type} into a Relational {@link DataType}.
-     *
-     * Note: This method is expensive, use with care, i.e. try to cache its result as much as possible.
-     *
-     * @param type The Relational data type.
-     * @return The corresponding Record Layer type.
-     */
-    @SpotBugsSuppressWarnings(value = "NP_NONNULL_RETURN_VIOLATION", justification = "should never happen, there is failUnchecked directly before that.")
-    @Nonnull
-    public static DataType toRelationalType(@Nonnull final Type type, boolean toUserIdentifier) {
         if (primitivesMap.containsValue(type)) {
             return primitivesMap.inverse().get(type);
         }
@@ -96,19 +75,15 @@ public class DataTypeUtils {
         switch (typeCode) {
             case RECORD:
                 final var record = (Type.Record) type;
-                final var columns = record.getFields().stream().map(field -> {
-                    final var fieldName = toUserIdentifier ? DataTypeUtils.toUserIdentifier(field.getFieldName()) : field.getFieldName();
-                    return DataType.StructType.Field.from(fieldName, toRelationalType(field.getFieldType(), toUserIdentifier), field.getFieldIndex());
-                }).collect(Collectors.toList());
-                final var name = record.getName() == null ? getUniqueName() : (toUserIdentifier ? DataTypeUtils.toUserIdentifier(record.getName()) : record.getName());
-                return DataType.StructType.from(name, columns, record.isNullable());
+                final var columns = record.getFields().stream().map(field -> DataType.StructType.Field.from(field.getFieldName(), toRelationalType(field.getFieldType()), field.getFieldIndex())).collect(Collectors.toList());
+                return DataType.StructType.from(record.getName() == null ? toProtoBufCompliantName(UUID.randomUUID().toString()) : record.getName(), columns, record.isNullable());
             case ARRAY:
                 final var asArray = (Type.Array) type;
                 return DataType.ArrayType.from(toRelationalType(Assert.notNullUnchecked(asArray.getElementType())), asArray.isNullable());
             case ENUM:
                 final var asEnum = (Type.Enum) type;
                 final var enumValues = asEnum.getEnumValues().stream().map(v -> DataType.EnumType.EnumValue.of(v.getName(), v.getNumber())).collect(Collectors.toList());
-                return DataType.EnumType.from(asEnum.getName() == null ? getUniqueName() : asEnum.getName(), enumValues, asEnum.isNullable());
+                return DataType.EnumType.from(asEnum.getName() == null ? toProtoBufCompliantName(UUID.randomUUID().toString()) : asEnum.getName(), enumValues, asEnum.isNullable());
             default:
                 Assert.failUnchecked(String.format(Locale.ROOT, "unexpected type %s", type));
                 return null; // make compiler happy.
@@ -116,41 +91,14 @@ public class DataTypeUtils {
     }
 
     @Nonnull
-    private static String getUniqueName() {
-        final var uuid = UUID.randomUUID().toString();
-        final var modified = uuid.replace("-", "_");
-        final char c = uuid.charAt(0);
+    private static String toProtoBufCompliantName(@Nonnull final String input) {
+        Assert.thatUnchecked(input.length() > 0);
+        final var modified = input.replace("-", "_");
+        final char c = input.charAt(0);
         if (c == '_' || ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z')) {
             return modified;
         }
         return "id" + modified;
-    }
-
-    @Nonnull
-    public static String toProtoBufCompliantName(final String name) {
-        Assert.thatUnchecked(INVALID_START_SEQUENCES.stream().noneMatch(name::startsWith), ErrorCode.INVALID_NAME, "name cannot start with %s", INVALID_START_SEQUENCES);
-        String translated;
-        if (name.startsWith("__")) {
-            translated = "__" + translateSpecialCharacters(name.substring(2));
-        } else {
-            Assert.thatUnchecked(!name.isEmpty(), ErrorCode.INVALID_NAME, "name cannot be empty String.");
-            translated = translateSpecialCharacters(name);
-        }
-        checkValidProtoBufCompliantName(translated);
-        return translated;
-    }
-
-    @Nonnull
-    private static String translateSpecialCharacters(final String userIdentifier) {
-        return userIdentifier.replace("__", DOUBLE_UNDERSCORE_ESCAPE).replace("$", DOLLAR_ESCAPE).replace(".", DOT_ESCAPE);
-    }
-
-    public static void checkValidProtoBufCompliantName(String name) {
-        Assert.thatUnchecked(VALID_PROTOBUF_COMPLIANT_NAME_PATTERN.matcher(name).matches(), ErrorCode.INVALID_NAME, name + " is not a valid name!");
-    }
-
-    public static String toUserIdentifier(String protoIdentifier) {
-        return protoIdentifier.replace(DOT_ESCAPE, ".").replace(DOLLAR_ESCAPE, "$").replace(DOUBLE_UNDERSCORE_ESCAPE, "__");
     }
 
     /**
