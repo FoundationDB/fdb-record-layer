@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.server;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
