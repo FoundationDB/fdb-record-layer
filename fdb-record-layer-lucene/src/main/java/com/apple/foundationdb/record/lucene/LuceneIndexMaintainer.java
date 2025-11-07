@@ -365,6 +365,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
      * @return segment index entry if the record was found, null if none
      * @throws IOException in case of error
      */
+    @SuppressWarnings("PMD.CloseResource")
     private LucenePrimaryKeySegmentIndex.DocumentIndexEntry getDocumentIndexEntryWithRetry(LucenePrimaryKeySegmentIndex segmentIndex, final Tuple groupingKey, final Integer partitionId, final Tuple primaryKey) throws IOException {
         DirectoryReader directoryReader = directoryManager.getWriterReader(groupingKey, partitionId, false);
         LucenePrimaryKeySegmentIndex.DocumentIndexEntry documentIndexEntry = segmentIndex.findDocument(directoryReader, primaryKey);
