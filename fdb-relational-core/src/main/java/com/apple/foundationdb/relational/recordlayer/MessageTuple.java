@@ -57,11 +57,11 @@ public class MessageTuple extends AbstractRow {
         final var fieldOptions = fieldDescriptor.getOptions().getExtension(RecordMetaDataOptionsProto.field);
         final var fieldValue = message.getField(message.getDescriptorForType().getFields().get(position));
         if (fieldOptions.hasVectorOptions()) {
-            final var precision = fieldOptions.getVectorOptions().getPrecision();
             final var byteStringFieldValue = (ByteString)fieldValue;
             if (byteStringFieldValue.isEmpty()) {
                 return null;
             } else {
+                final var precision = fieldOptions.getVectorOptions().getPrecision();
                 return VectorUtils.parseVector(byteStringFieldValue, precision);
             }
         }
@@ -87,10 +87,10 @@ public class MessageTuple extends AbstractRow {
             final var byteString = (ByteString) field;
             final var fieldVectorOptionsMaybe = fieldOptions.getExtension(RecordMetaDataOptionsProto.field);
             if (fieldVectorOptionsMaybe.hasVectorOptions()) {
-                final var precision = fieldVectorOptionsMaybe.getVectorOptions().getPrecision();
                 if (byteString.isEmpty()) {
                     return null;
                 } else {
+                    final var precision = fieldVectorOptionsMaybe.getVectorOptions().getPrecision();
                     return VectorUtils.parseVector(byteString, precision);
                 }
             }
