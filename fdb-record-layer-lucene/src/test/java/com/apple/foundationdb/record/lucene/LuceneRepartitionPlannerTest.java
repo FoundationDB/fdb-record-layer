@@ -51,10 +51,10 @@ public class LuceneRepartitionPlannerTest {
     private static Stream<Arguments> luceneRepartitionPlannerTest() {
         return Stream.concat(LuceneIndexTest.simplePartitionConsolidationTest(),
                 Stream.of(
-                // ensure empty partition gets removed
-                Arguments.of(1, 5, 3, new int[] {5, 0, 4}, new int[] {5, 4}, 9002508147645127223L),
-                // ensure empty partition isn't erroring out
-                Arguments.of(1, 5, 3, new int[] {0}, new int[] {0}, 9002508147645127223L)));
+                        // ensure empty partition gets removed
+                        Arguments.of(1, 5, 3, new int[] {5, 0, 4}, new int[] {5, 4}, 9002508147645127223L),
+                        // ensure empty partition isn't erroring out
+                        Arguments.of(1, 5, 3, new int[] {0}, new int[] {0}, 9002508147645127223L)));
     }
 
     @ParameterizedTest
