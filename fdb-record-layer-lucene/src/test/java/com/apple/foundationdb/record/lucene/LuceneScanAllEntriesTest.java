@@ -235,7 +235,7 @@ public class LuceneScanAllEntriesTest extends FDBRecordStoreConcurrentTestBase {
 
     @ParameterizedTest
     @BooleanSource
-    public void indexScanWithEvenRecNoFilterTest(boolean isGrouped) throws Exception {
+    public void indexScanWithEvenRecNoFilterTest(boolean isGrouped) {
         final long seed = 9876543L;
         final boolean isSynthetic = false;
 
@@ -313,7 +313,7 @@ public class LuceneScanAllEntriesTest extends FDBRecordStoreConcurrentTestBase {
 
     @ParameterizedTest
     @BooleanSource
-    public void indexScanWithRecNoIndexPredicateTest(boolean isGrouped) throws Exception {
+    public void indexScanWithRecNoIndexPredicateTest(boolean isGrouped) {
         final long seed = 5432198L;
 
         // Create an index predicate that only indexes records with even recNo
@@ -413,9 +413,7 @@ public class LuceneScanAllEntriesTest extends FDBRecordStoreConcurrentTestBase {
 
         // Attempt to save records - should throw RecordCoreException from the filter for recNo 1002L
         try (FDBRecordContext context = openContext()) {
-            RecordCoreException exception = Assertions.assertThrows(RecordCoreException.class, () -> {
-                dataModel.saveRecords(1, context, 2);
-            });
+            RecordCoreException exception = Assertions.assertThrows(RecordCoreException.class, () -> dataModel.saveRecords(1, context, 2));
 
             Assertions.assertTrue(exception.getMessage().startsWith("Filter failed for recNo:"),
                     "Exception message should indicate filter failure");
