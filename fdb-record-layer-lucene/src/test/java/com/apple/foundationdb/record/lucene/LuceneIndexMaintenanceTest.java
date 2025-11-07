@@ -116,7 +116,6 @@ import static org.hamcrest.Matchers.anyOf;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.hasItem;
-import static org.hamcrest.Matchers.hasItems;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -1260,7 +1259,9 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                                     }
                                 }, 10)
                                 .asList().join(),
-                (inserted, actual) -> assertEquals(inserted + saves.get() - deletes.get(), actual));
+                (inserted, actual) -> assertEquals(inserted + saves.get() - deletes.get(), actual),
+                noopConsumer(),
+                partitionCount);
     }
 
     private void concurrentTestWithinTransaction(boolean isSynthetic,
