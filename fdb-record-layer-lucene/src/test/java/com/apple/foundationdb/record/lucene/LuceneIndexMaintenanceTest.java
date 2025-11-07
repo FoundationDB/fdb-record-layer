@@ -928,7 +928,6 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
 
         // save records
         try (FDBRecordContext context = openContext(contextProps)) {
-            final FDBRecordStore store = dataModel.createOrOpenRecordStore(context);
             dataModel.saveRecordsToAllGroups(documentCount, context);
             commit(context);
         }

@@ -357,19 +357,21 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
      * and try again. The issue is that when the documents have been updated in memory (e.g. in the same transaction), the
      * writer may cache the changes in NRT and the reader (created earlier) can't see them. Refreshing the reader from the
      * writer can alleviate this. If the index can't find the document with the refresh reader, null is returned.
-     * @param groupingKey
-     * @param partitionId
-     * @param primaryKey
-     * @return
-     * @throws IOException
+     * Note that the refresh of the reader will do so at the {@link com.apple.foundationdb.record.lucene.directory.FDBDirectoryWrapper}
+     * and so has impact on the entire directory.
+     * @param groupingKey the grouping key for the index
+     * @param partitionId the partition ID for the index
+     * @param primaryKey the record primary key to look for
+     * @return segment index entry if the record was found, null if none
+     * @throws IOException in case of error
      */
     private LucenePrimaryKeySegmentIndex.DocumentIndexEntry getDocumentIndexEntryWithRetry(LucenePrimaryKeySegmentIndex segmentIndex, final Tuple groupingKey, final Integer partitionId, final Tuple primaryKey) throws IOException {
-        // Use refresh to ensure the reader can see the latest deletes
         DirectoryReader directoryReader = directoryManager.getWriterReader(groupingKey, partitionId, false);
         LucenePrimaryKeySegmentIndex.DocumentIndexEntry documentIndexEntry = segmentIndex.findDocument(directoryReader, primaryKey);
         if (documentIndexEntry != null) {
             return documentIndexEntry;
         } else {
+            // Use refresh to ensure the reader can see the latest deletes
             directoryReader = directoryManager.getWriterReader(groupingKey, partitionId, true);
             return segmentIndex.findDocument(directoryReader, primaryKey);
         }
