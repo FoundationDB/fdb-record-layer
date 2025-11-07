@@ -22,7 +22,6 @@ package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.annotation.API;
 
-import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
@@ -30,7 +29,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 
 @API(API.Status.EXPERIMENTAL)
 public class Identifier {
@@ -142,12 +140,6 @@ public class Identifier {
             }
         }
         return true;
-    }
-
-    @Nonnull
-    public static Identifier toProtobufCompliant(@Nonnull final Identifier identifier) {
-        final var qualifier = identifier.getQualifier().stream().map(DataTypeUtils::toProtoBufCompliantName).collect(Collectors.toList());
-        return Identifier.of(DataTypeUtils.toProtoBufCompliantName(identifier.getName()), qualifier);
     }
 
     @Override
