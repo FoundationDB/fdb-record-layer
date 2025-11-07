@@ -34,7 +34,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBSyntheticRecord;
-import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.ValueIndexScrubbingToolsMissing;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordFromStoredRecordPlan;
@@ -68,10 +67,13 @@ public class LuceneIndexScrubbingToolsMissing extends ValueIndexScrubbingToolsMi
     private final LucenePartitioner partitioner;
     @Nonnull
     private final FDBDirectoryManager directoryManager;
+    @Nonnull
+    private final LuceneIndexMaintainer indexMaintainer;
 
-    public LuceneIndexScrubbingToolsMissing(@Nonnull LucenePartitioner partitioner, @Nonnull FDBDirectoryManager directoryManager) {
+    public LuceneIndexScrubbingToolsMissing(@Nonnull LucenePartitioner partitioner, @Nonnull FDBDirectoryManager directoryManager, @Nonnull LuceneIndexMaintainer indexMaintainer) {
         this.partitioner = partitioner;
         this.directoryManager = directoryManager;
+        this.indexMaintainer = indexMaintainer;
     }
 
 
@@ -126,12 +128,7 @@ public class LuceneIndexScrubbingToolsMissing extends ValueIndexScrubbingToolsMi
         if (rec == null || !recordTypes.contains(rec.getRecordType())) {
             return false;
         }
-        final IndexMaintainer indexMaintainer = store.getIndexMaintainer(index);
-        if (indexMaintainer instanceof LuceneIndexMaintainer) {
-            LuceneIndexMaintainer luceneIndexMaintainer = (LuceneIndexMaintainer) indexMaintainer;
-            return luceneIndexMaintainer.maybeFilterRecord(rec) != null;
-        }
-        return true;
+        return indexMaintainer.maybeFilterRecord(rec) != null;
     }
 
     @SuppressWarnings("PMD.CloseResource")

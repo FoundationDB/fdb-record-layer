@@ -799,7 +799,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                 final Map<String, String> options = state.index.getOptions();
                 if (Boolean.parseBoolean(options.get(LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_ENABLED)) ||
                         Boolean.parseBoolean(options.get(LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED))) {
-                    return new LuceneIndexScrubbingToolsMissing(partitioner, directoryManager);
+                    return new LuceneIndexScrubbingToolsMissing(partitioner, directoryManager, this);
                 }
                 return null;
             default:

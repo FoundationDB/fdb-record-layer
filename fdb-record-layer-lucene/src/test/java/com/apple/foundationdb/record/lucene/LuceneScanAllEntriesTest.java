@@ -48,6 +48,7 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.protobuf.Descriptors;
+import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -58,6 +59,7 @@ import javax.annotation.Nonnull;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -255,7 +257,7 @@ public class LuceneScanAllEntriesTest extends FDBRecordStoreConcurrentTestBase {
             List<IndexEntry> indexEntries = dataModel.findAllRecordsByQuery(context, 2);
             // We expect 5 records with even recNo values to be indexed
             assertEquals(5, indexEntries.size(), "Should have indexed only records with even recNo");
-            verifyEvenRecNoOnly(indexEntries, dataModel.createOrOpenRecordStore(context));
+            verifyByRecNo(indexEntries, dataModel.createOrOpenRecordStore(context), recNo -> (recNo & 1) == 0);
         }
 
         try (FDBRecordContext context = openContext()) {
@@ -271,7 +273,7 @@ public class LuceneScanAllEntriesTest extends FDBRecordStoreConcurrentTestBase {
         }
     }
 
-    private void verifyEvenRecNoOnly(final List<IndexEntry> indexEntries, final FDBRecordStore store) {
+    private void verifyByRecNo(final List<IndexEntry> indexEntries, final FDBRecordStore store, Predicate<Long> verifyer) {
         // Verify that all indexed records have even recNo
         for (IndexEntry entry : indexEntries) {
             Tuple primaryKey = entry.getPrimaryKey();
@@ -280,11 +282,11 @@ public class LuceneScanAllEntriesTest extends FDBRecordStoreConcurrentTestBase {
             // For non-synthetic parent records, the recNo is in the tuple
             FDBStoredRecord<?> storedRecord = store.loadRecord(primaryKey);
             assertNotNull(storedRecord, "Record should exist");
-            com.google.protobuf.Message message = storedRecord.getRecord();
-            com.google.protobuf.Descriptors.FieldDescriptor recNoField =
+            Message message = storedRecord.getRecord();
+            Descriptors.FieldDescriptor recNoField =
                     message.getDescriptorForType().findFieldByName("rec_no");
             long recNo = (long) message.getField(recNoField);
-            assertEquals(0, recNo % 2, "All indexed records should have even recNo, but found: " + recNo);
+            assertTrue(verifyer.test(recNo), "Unexpected recNo was found. recNo: " + recNo);
         }
     }
 
@@ -347,30 +349,13 @@ public class LuceneScanAllEntriesTest extends FDBRecordStoreConcurrentTestBase {
 
             // We expect 5 records with recNo > 1006 values to be indexed
             assertEquals(5, indexEntries.size(), "Should have indexed only records with even recNo");
-            verifyRecNoBiggerThan(1006, indexEntries, dataModel.createOrOpenRecordStore(context));
+            verifyByRecNo(indexEntries, dataModel.createOrOpenRecordStore(context), recNo -> recNo > 1006);
         }
 
         try (FDBRecordContext context = openContext()) {
             // The same filter should apply to index scrubbing - else "missing" index entries will be detected
             final long missingIndexEntries = dataModel.findMissingIndexEntries(context, null);
             assertEquals(0, missingIndexEntries);
-        }
-    }
-
-    private void verifyRecNoBiggerThan(final long num, final List<IndexEntry> indexEntries, final FDBRecordStore store) {
-        // Verify that all indexed records recNo > 1006
-        for (IndexEntry entry : indexEntries) {
-            Tuple primaryKey = entry.getPrimaryKey();
-            // The recNo is part of the primary key - need to extract and verify it's qualifies
-            // For grouped records, structure is (group, recNo) or similar
-            // For non-synthetic parent records, the recNo is in the tuple
-            FDBStoredRecord<?> storedRecord = store.loadRecord(primaryKey);
-            assertNotNull(storedRecord, "Record should exist");
-            com.google.protobuf.Message message = storedRecord.getRecord();
-            com.google.protobuf.Descriptors.FieldDescriptor recNoField =
-                    message.getDescriptorForType().findFieldByName("rec_no");
-            long recNo = (long) message.getField(recNoField);
-            assertTrue(recNo > num);
         }
     }
 
@@ -427,18 +412,18 @@ public class LuceneScanAllEntriesTest extends FDBRecordStoreConcurrentTestBase {
                         .build();
 
         // Attempt to save records - should throw RecordCoreException from the filter for recNo 1002L
-        RecordCoreException exception = Assertions.assertThrows(RecordCoreException.class, () -> {
-            try (FDBRecordContext context = openContext()) {
+        try (FDBRecordContext context = openContext()) {
+            RecordCoreException exception = Assertions.assertThrows(RecordCoreException.class, () -> {
                 dataModel.saveRecords(1, context, 2);
-            }
-        });
+            });
 
-        Assertions.assertTrue(exception.getMessage().startsWith("Filter failed for recNo:"),
-                "Exception message should indicate filter failure");
-        Assertions.assertEquals(1002L, exception.getLogInfo().get("rec_no"),
-                "Exception should log the rec_no that caused the failure");
-        Assertions.assertEquals(dataModel.index.getName(), exception.getLogInfo().get("index"),
-                "Exception should log the index name");
+            Assertions.assertTrue(exception.getMessage().startsWith("Filter failed for recNo:"),
+                    "Exception message should indicate filter failure");
+            Assertions.assertEquals(1002L, exception.getLogInfo().get("rec_no"),
+                    "Exception should log the rec_no that caused the failure");
+            Assertions.assertEquals(dataModel.index.getName(), exception.getLogInfo().get("index"),
+                    "Exception should log the index name");
+        }
     }
 
     @Nonnull
@@ -448,7 +433,7 @@ public class LuceneScanAllEntriesTest extends FDBRecordStoreConcurrentTestBase {
         // Create an index maintenance filter that throws an exception for specific record with recNo 1002L
         // This can be used to tests error handling when the filter itself fails
         IndexMaintenanceFilter failingFilter = (index, rec) -> {
-            com.google.protobuf.Descriptors.FieldDescriptor recNoField =
+            Descriptors.FieldDescriptor recNoField =
                     rec.getDescriptorForType().findFieldByName("rec_no");
             if (recNoField != null && rec.hasField(recNoField)) {
                 long recNo = (long) rec.getField(recNoField);
@@ -515,7 +500,7 @@ public class LuceneScanAllEntriesTest extends FDBRecordStoreConcurrentTestBase {
             Descriptors.FieldDescriptor parentField =
                     rec.getDescriptorForType().findFieldByName("parent");
             if (parentField != null && rec.hasField(parentField)) {
-                com.google.protobuf.Message parentMessage = (com.google.protobuf.Message) rec.getField(parentField);
+                Message parentMessage = (Message) rec.getField(parentField);
                 Descriptors.FieldDescriptor recNoField =
                         parentMessage.getDescriptorForType().findFieldByName("rec_no");
                 if (recNoField != null && parentMessage.hasField(recNoField)) {
@@ -545,7 +530,7 @@ public class LuceneScanAllEntriesTest extends FDBRecordStoreConcurrentTestBase {
             // Load the parent record using the extracted parent primary key
             FDBStoredRecord<?> storedRecord = store.loadRecord(parentPrimaryKey);
             assertNotNull(storedRecord, "Parent record should exist");
-            com.google.protobuf.Message message = storedRecord.getRecord();
+            Message message = storedRecord.getRecord();
 
             Descriptors.FieldDescriptor recNoField =
                     message.getDescriptorForType().findFieldByName("rec_no");
