@@ -280,6 +280,7 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
                                     break;
                                 default:
                                     Assert.fail(ErrorCode.INTERNAL_ERROR, "Unknown precision for vector");
+                                    break;
                             }
                             builder.setField(fd, ((AbstractRealVector) vector).getRawData());
                         }
