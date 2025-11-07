@@ -186,6 +186,24 @@ test_block:
     -
       - query: insert into tDoubleVector values (200, null)
       - count: 1
+    -
+      - query: select * from tHalfVector where a = 200
+      - initialVersionAtLeast: !current_version
+      - result: [{200, !null _}]
+      - initialVersionLessThan: !current_version
+      - error: "XXXXX"
+    -
+      - query: select * from tFloatVector where a = 200
+      - initialVersionAtLeast: !current_version
+      - result: [{200, !null _}]
+      - initialVersionLessThan: !current_version
+      - error: "XXXXX"
+    -
+      - query: select * from tDoubleVector where a = 200
+      - initialVersionAtLeast: !current_version
+      - result: [{200, !null _}]
+      - initialVersionLessThan: !current_version
+      - error: "XXXXX"
     # IS NULL tests for NULL vectors
     -
       - query: select b is null from tHalfVector where a = 200
