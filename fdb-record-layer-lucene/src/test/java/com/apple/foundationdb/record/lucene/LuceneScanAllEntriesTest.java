@@ -59,7 +59,7 @@ import javax.annotation.Nonnull;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.function.Predicate;
+import java.util.function.LongPredicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -273,7 +273,7 @@ public class LuceneScanAllEntriesTest extends FDBRecordStoreConcurrentTestBase {
         }
     }
 
-    private void verifyByRecNo(final List<IndexEntry> indexEntries, final FDBRecordStore store, Predicate<Long> verifyer) {
+    private void verifyByRecNo(final List<IndexEntry> indexEntries, final FDBRecordStore store, LongPredicate verifier) {
         // Verify that all indexed records have even recNo
         for (IndexEntry entry : indexEntries) {
             Tuple primaryKey = entry.getPrimaryKey();
@@ -286,7 +286,7 @@ public class LuceneScanAllEntriesTest extends FDBRecordStoreConcurrentTestBase {
             Descriptors.FieldDescriptor recNoField =
                     message.getDescriptorForType().findFieldByName("rec_no");
             long recNo = (long) message.getField(recNoField);
-            assertTrue(verifyer.test(recNo), "Unexpected recNo was found. recNo: " + recNo);
+            assertTrue(verifier.test(recNo), "Unexpected recNo was found. recNo: " + recNo);
         }
     }
 
