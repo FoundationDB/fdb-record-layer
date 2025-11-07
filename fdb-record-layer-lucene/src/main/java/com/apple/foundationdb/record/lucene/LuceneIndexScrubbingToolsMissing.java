@@ -103,7 +103,7 @@ public class LuceneIndexScrubbingToolsMissing extends ValueIndexScrubbingToolsMi
         }
 
         final FDBStoredRecord<Message> rec = result.get();
-        if (!shouldHandleItem(store, rec)) {
+        if (!shouldHandleItem(rec)) {
             return CompletableFuture.completedFuture(null);
         }
 
@@ -124,7 +124,7 @@ public class LuceneIndexScrubbingToolsMissing extends ValueIndexScrubbingToolsMi
                 });
     }
 
-    private boolean shouldHandleItem(final FDBRecordStore store, FDBStoredRecord<Message> rec) {
+    private boolean shouldHandleItem(FDBStoredRecord<Message> rec) {
         if (rec == null || !recordTypes.contains(rec.getRecordType())) {
             return false;
         }
