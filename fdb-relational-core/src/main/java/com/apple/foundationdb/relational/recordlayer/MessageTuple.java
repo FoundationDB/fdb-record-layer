@@ -21,14 +21,10 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.linear.DoubleRealVector;
-import com.apple.foundationdb.linear.FloatRealVector;
-import com.apple.foundationdb.linear.HalfRealVector;
-import com.apple.foundationdb.linear.RealVector;
-import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaDataOptionsProto;
 import com.apple.foundationdb.record.TupleFieldsProto;
 import com.apple.foundationdb.record.metadata.expressions.TupleFieldsHelper;
+import com.apple.foundationdb.record.util.VectorUtils;
 import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceException;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.DescriptorProtos;
@@ -61,9 +57,13 @@ public class MessageTuple extends AbstractRow {
         final var fieldOptions = fieldDescriptor.getOptions().getExtension(RecordMetaDataOptionsProto.field);
         final var fieldValue = message.getField(message.getDescriptorForType().getFields().get(position));
         if (fieldOptions.hasVectorOptions()) {
-            final var precision = fieldOptions.getVectorOptions().getPrecision();
             final var byteStringFieldValue = (ByteString)fieldValue;
-            return getVectorFromBytes(byteStringFieldValue, precision);
+            if (byteStringFieldValue.isEmpty()) {
+                return null;
+            } else {
+                final var precision = fieldOptions.getVectorOptions().getPrecision();
+                return VectorUtils.parseVector(byteStringFieldValue, precision);
+            }
         }
         if (fieldDescriptor.isRepeated()) {
             final var list = (List<?>) fieldValue;
@@ -74,21 +74,6 @@ public class MessageTuple extends AbstractRow {
         } else {
             return null;
         }
-    }
-
-    @Nonnull
-    private static RealVector getVectorFromBytes(@Nonnull final ByteString byteString, int precision) {
-        final var bytes = byteString.toByteArray();
-        if (precision == 64) {
-            return DoubleRealVector.fromBytes(bytes);
-        }
-        if (precision == 32) {
-            return FloatRealVector.fromBytes(bytes);
-        }
-        if (precision == 16) {
-            return HalfRealVector.fromBytes(bytes);
-        }
-        throw new RecordCoreException("unexpected vector precision " + precision);
     }
 
     public static Object sanitizeField(@Nonnull final Object field, @Nonnull final DescriptorProtos.FieldOptions fieldOptions) {
@@ -102,8 +87,12 @@ public class MessageTuple extends AbstractRow {
             final var byteString = (ByteString) field;
             final var fieldVectorOptionsMaybe = fieldOptions.getExtension(RecordMetaDataOptionsProto.field);
             if (fieldVectorOptionsMaybe.hasVectorOptions()) {
-                final var precision = fieldVectorOptionsMaybe.getVectorOptions().getPrecision();
-                return getVectorFromBytes(byteString, precision);
+                if (byteString.isEmpty()) {
+                    return null;
+                } else {
+                    final var precision = fieldVectorOptionsMaybe.getVectorOptions().getPrecision();
+                    return VectorUtils.parseVector(byteString, precision);
+                }
             }
             return byteString.toByteArray();
         }
