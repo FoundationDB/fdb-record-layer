@@ -21,11 +21,13 @@
 package com.apple.foundationdb.relational.recordlayer.query.visitors;
 
 import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.recordlayer.query.Identifier;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
+
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
@@ -46,7 +48,7 @@ public final class IdentifierVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nonnull
     @Override
     public Identifier visitTableName(@Nonnull RelationalParser.TableNameContext tableNameContext) {
-        return Identifier.toProtobufCompliant(visitFullId((tableNameContext.fullId())));
+        return visitFullId(tableNameContext.fullId());
     }
 
     @Nonnull
@@ -118,6 +120,6 @@ public final class IdentifierVisitor extends DelegatingVisitor<BaseVisitor> {
 
     @Override
     public Identifier visitTableFunctionName(final RelationalParser.TableFunctionNameContext ctx) {
-        return Identifier.toProtobufCompliant(visitFullId(ctx.fullId()));
+        return visitFullId(ctx.fullId());
     }
 }
