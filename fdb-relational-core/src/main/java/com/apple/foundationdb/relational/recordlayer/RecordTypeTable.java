@@ -21,9 +21,14 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.linear.AbstractRealVector;
+import com.apple.foundationdb.linear.DoubleRealVector;
+import com.apple.foundationdb.linear.FloatRealVector;
+import com.apple.foundationdb.linear.HalfRealVector;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordMetaData;
+import com.apple.foundationdb.record.RecordMetaDataOptionsProto;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.RecordType;
@@ -57,6 +62,7 @@ import java.sql.SQLException;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.function.Function;
@@ -195,7 +201,7 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
                     final var maybeEnumValue = struct.getString(i + 1);
                     if (maybeEnumValue != null) {
                         final var valueDescriptor = fd.getEnumType().findValueByName(maybeEnumValue);
-                        Assert.thatUnchecked(valueDescriptor != null, ErrorCode.CANNOT_CONVERT_TYPE, "Invalid enum value: %s", maybeEnumValue);
+                        Assert.that(valueDescriptor != null, ErrorCode.CANNOT_CONVERT_TYPE, "Invalid enum value: %s", maybeEnumValue);
                         builder.setField(fd, valueDescriptor);
                     }
                     continue;
@@ -209,7 +215,11 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
                     case STRING:
                         final var obj = struct.getObject(i + 1);
                         if (obj != null) {
-                            builder.setField(fd, obj);
+                            try {
+                                builder.setField(fd, obj);
+                            } catch (IllegalArgumentException ex) {
+                                throw new RelationalException("Unexpected Column type " + struct.getMetaData().getColumnTypeName(i) + " for column " + columnName, ErrorCode.CANNOT_CONVERT_TYPE, ex);
+                            }
                         }
                         break;
                     case BYTES:
@@ -237,24 +247,47 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
                                 }
                             }
                         } else {
-                            if (fd.getType() == Descriptors.FieldDescriptor.Type.MESSAGE) {
-                                Assert.thatUnchecked(NullableArrayUtils.isWrappedArrayDescriptor(fd.getMessageType()));
-                                // wrap array in a struct and call toDynamicMessage again
-                                final var wrapper = new ImmutableRowStruct(new ArrayRow(array), RelationalStructMetaData.of(
-                                        DataType.StructType.from("STRUCT", List.of(
-                                                DataType.StructType.Field.from(NullableArrayUtils.REPEATED_FIELD_NAME, array.getMetaData().asRelationalType(), 0)
-                                        ), true)));
-                                builder.setField(fd, toDynamicMessage(wrapper, fd.getMessageType()));
-                            } else {
-                                Assert.failUnchecked("Field Type expected to be of Type ARRAY but is actually " + fd.getType());
+                            Assert.that(fd.getType() == Descriptors.FieldDescriptor.Type.MESSAGE, ErrorCode.CANNOT_CONVERT_TYPE,
+                                    "Field Type expected to be of Type ARRAY but is actually " + fd.getType());
+                            Assert.that(NullableArrayUtils.isWrappedArrayDescriptor(fd.getMessageType()));
+                            // wrap array in a struct and call toDynamicMessage again
+                            final var wrapper = new ImmutableRowStruct(new ArrayRow(array), RelationalStructMetaData.of(
+                                    DataType.StructType.from("STRUCT", List.of(
+                                            DataType.StructType.Field.from(NullableArrayUtils.REPEATED_FIELD_NAME, array.getMetaData().asRelationalType(), 0)
+                                    ), true)));
+                            builder.setField(fd, toDynamicMessage(wrapper, fd.getMessageType()));
+                        }
+                        break;
+                    case VECTOR:
+                        final var vector = struct.getObject(i + 1);
+                        if (vector != null) {
+                            Assert.that(vector instanceof AbstractRealVector, ErrorCode.CANNOT_CONVERT_TYPE,
+                                    "Field Type expected to be of Type VECTOR but is actually " + fd.getType());
+                            final var fieldOptionMaybe = Optional.ofNullable(fd.getOptions()).map(f -> f.getExtension(RecordMetaDataOptionsProto.field));
+                            Assert.that(fieldOptionMaybe.isPresent() && fieldOptionMaybe.get().hasVectorOptions(), ErrorCode.CANNOT_CONVERT_TYPE, "Cannot insert non vector type into vector column");
+                            final var vectorOptions = fieldOptionMaybe.get().getVectorOptions();
+                            Assert.that(vectorOptions.getDimensions() == ((AbstractRealVector)vector).getNumDimensions(), ErrorCode.CANNOT_CONVERT_TYPE, "Wrong number of dimension for vector");
+                            final int precision = vectorOptions.getPrecision();
+                            switch (precision) {
+                                case 16:
+                                    Assert.that(vector instanceof HalfRealVector, ErrorCode.CANNOT_CONVERT_TYPE, "Wrong precision for vector");
+                                    break;
+                                case 32:
+                                    Assert.that(vector instanceof FloatRealVector, ErrorCode.CANNOT_CONVERT_TYPE, "Wrong precision for vector");
+                                    break;
+                                case 64:
+                                    Assert.that(vector instanceof DoubleRealVector, ErrorCode.CANNOT_CONVERT_TYPE, "Wrong precision for vector");
+                                    break;
+                                default:
                             }
+                            builder.setField(fd, ((AbstractRealVector) vector).getRawData());
                         }
                         break;
                     case NULL:
                         break;
                     default:
-                        Assert.failUnchecked(ErrorCode.INTERNAL_ERROR, (String.format(Locale.ROOT, "Unexpected Column type <%s> for column <%s>",
-                                struct.getMetaData().getColumnType(i), columnName)));
+                        Assert.fail(ErrorCode.INTERNAL_ERROR, (String.format(Locale.ROOT, "Unexpected Column type <%s> for column <%s>",
+                                struct.getMetaData().getColumnTypeName(i), columnName)));
                         break;
                 }
             }

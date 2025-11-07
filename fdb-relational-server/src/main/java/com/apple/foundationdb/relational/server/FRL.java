@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
+import com.apple.foundationdb.record.util.VectorUtils;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalDriver;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
@@ -256,20 +257,6 @@ public class FRL implements AutoCloseable {
         }
     }
 
-    @Nonnull
-    public static RealVector parseVector(@Nonnull final ByteString byteString, int precision) {
-        if (precision == 16) {
-            return HalfRealVector.fromBytes(byteString.toByteArray());
-        }
-        if (precision == 32) {
-            return FloatRealVector.fromBytes(byteString.toByteArray());
-        }
-        if (precision == 64) {
-            return DoubleRealVector.fromBytes(byteString.toByteArray());
-        }
-        throw new RecordCoreException("unexpected vector type with precision " + precision);
-    }
-
     private static void addPreparedStatementParameter(@Nonnull RelationalPreparedStatement relationalPreparedStatement,
                                                       @Nonnull Parameter parameter, int index) throws SQLException {
         final var oneOfValue = parameter.getParameter();
@@ -288,7 +275,7 @@ public class FRL implements AutoCloseable {
         } else if (oneOfValue.hasBinary()) {
             if (parameter.hasMetadata() && parameter.getMetadata().hasVectorMetadata()) {
                 final var vectorProtoType = parameter.getMetadata().getVectorMetadata();
-                relationalPreparedStatement.setObject(index, parseVector(oneOfValue.getBinary(), vectorProtoType.getPrecision()));
+                relationalPreparedStatement.setObject(index, VectorUtils.parseVector(oneOfValue.getBinary(), vectorProtoType.getPrecision()));
             } else {
                 relationalPreparedStatement.setBytes(index, oneOfValue.getBinary().toByteArray());
             }
