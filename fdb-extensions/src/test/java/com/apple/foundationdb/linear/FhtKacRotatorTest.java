@@ -33,7 +33,7 @@ import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.within;
 
-public class FhtKacRotatorTest {
+class FhtKacRotatorTest {
     @Nonnull
     private static Stream<Arguments> randomSeedsWithNumDimensions() {
         return RandomizedTestUtils.randomSeeds(0xdeadc0deL, 0xfdb5ca1eL, 0xf005ba1L)
@@ -48,8 +48,8 @@ public class FhtKacRotatorTest {
 
         final Random random = new Random(seed);
         final RealVector x = RealVectorTest.createRandomDoubleVector(random, numDimensions);
-        final RealVector y = rotator.operate(x);
-        final RealVector z = rotator.operateTranspose(y);
+        final RealVector y = rotator.apply(x);
+        final RealVector z = rotator.invertedApply(y);
 
         Assertions.assertThat(Metric.EUCLIDEAN_METRIC.distance(x, z)).isCloseTo(0, within(2E-10));
     }
@@ -64,8 +64,8 @@ public class FhtKacRotatorTest {
 
         final Random random = new Random(seed);
         final RealVector x = RealVectorTest.createRandomDoubleVector(random, numDimensions);
-        final RealVector x_ = rotator1.operate(x);
-        final RealVector x__ = rotator2.operate(x);
+        final RealVector x_ = rotator1.apply(x);
+        final RealVector x__ = rotator2.apply(x);
 
         Assertions.assertThat(x_).isEqualTo(x__);
     }
@@ -74,10 +74,10 @@ public class FhtKacRotatorTest {
     @MethodSource("randomSeedsWithNumDimensions")
     void testOrthogonality(final long seed, final int numDimensions) {
         final FhtKacRotator rotator = new FhtKacRotator(seed, numDimensions, 10);
-        final ColumnMajorRealMatrix p = new ColumnMajorRealMatrix(rotator.computeP().transpose().getData());
+        final ColumnMajorRealMatrix p = rotator.computeP().transpose().quickTranspose();
 
         for (int j = 0; j < numDimensions; j ++) {
-            final RealVector rotated = rotator.operateTranspose(new DoubleRealVector(p.getColumn(j)));
+            final RealVector rotated = rotator.invertedApply(new DoubleRealVector(p.getColumn(j)));
             for (int i = 0; i < numDimensions; i++) {
                 double expected = (i == j) ? 1.0 : 0.0;
                 Assertions.assertThat(Math.abs(rotated.getComponent(i) - expected))

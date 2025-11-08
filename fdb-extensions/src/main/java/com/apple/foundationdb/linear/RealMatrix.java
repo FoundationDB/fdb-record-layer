@@ -26,9 +26,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 public interface RealMatrix extends LinearOperator {
-    @Nonnull
-    double[][] getData();
-
     double getEntry(int row, int column);
 
     @Override
@@ -41,12 +38,12 @@ public interface RealMatrix extends LinearOperator {
 
     @Nonnull
     @Override
-    default RealVector operate(@Nonnull final RealVector vector) {
-        Verify.verify(getColumnDimension() == vector.getNumDimensions());
-        final double[] result = new double[getRowDimension()];
-        for (int i = 0; i < getRowDimension(); i ++) {
+    default RealVector apply(@Nonnull final RealVector vector) {
+        Verify.verify(getNumColumnDimensions() == vector.getNumDimensions());
+        final double[] result = new double[getNumRowDimensions()];
+        for (int i = 0; i < getNumRowDimensions(); i ++) {
             double sum = 0.0d;
-            for (int j = 0; j < getColumnDimension(); j ++) {
+            for (int j = 0; j < getNumColumnDimensions(); j ++) {
                 sum += getEntry(i, j) * vector.getComponent(j);
             }
             result[i] = sum;
@@ -56,12 +53,12 @@ public interface RealMatrix extends LinearOperator {
 
     @Nonnull
     @Override
-    default RealVector operateTranspose(@Nonnull final RealVector vector) {
-        Verify.verify(getRowDimension() == vector.getNumDimensions());
-        final double[] result = new double[getColumnDimension()];
-        for (int j = 0; j < getColumnDimension(); j ++) {
+    default RealVector transposedApply(@Nonnull final RealVector vector) {
+        Verify.verify(getNumRowDimensions() == vector.getNumDimensions());
+        final double[] result = new double[getNumColumnDimensions()];
+        for (int j = 0; j < getNumColumnDimensions(); j ++) {
             double sum = 0.0d;
-            for (int i = 0; i < getRowDimension(); i ++) {
+            for (int i = 0; i < getNumRowDimensions(); i ++) {
                 sum += getEntry(i, j) * vector.getComponent(i);
             }
             result[j] = sum;
@@ -79,10 +76,21 @@ public interface RealMatrix extends LinearOperator {
     RowMajorRealMatrix toRowMajor();
 
     @Nonnull
+    double[][] getRowMajorData();
+
+    @Nonnull
     ColumnMajorRealMatrix toColumnMajor();
 
     @Nonnull
+    double[][] getColumnMajorData();
+
+    @Nonnull
     RealMatrix quickTranspose();
+
+    @Nonnull
+    default RealMatrix flipMajor() {
+        return transpose().quickTranspose();
+    }
 
     default boolean valueEquals(@Nullable final Object o) {
         if (!(o instanceof RealMatrix)) {
@@ -90,13 +98,13 @@ public interface RealMatrix extends LinearOperator {
         }
 
         final RealMatrix that = (RealMatrix)o;
-        if (getRowDimension() != that.getRowDimension() ||
-                getColumnDimension() != that.getColumnDimension()) {
+        if (getNumRowDimensions() != that.getNumRowDimensions() ||
+                getNumColumnDimensions() != that.getNumColumnDimensions()) {
             return false;
         }
 
-        for (int i = 0; i < getRowDimension(); i ++) {
-            for (int j = 0; j < getColumnDimension(); j ++) {
+        for (int i = 0; i < getNumRowDimensions(); i ++) {
+            for (int j = 0; j < getNumColumnDimensions(); j ++) {
                 if (getEntry(i, j) != that.getEntry(i, j)) {
                     return false;
                 }
@@ -107,8 +115,8 @@ public interface RealMatrix extends LinearOperator {
 
     default int valueBasedHashCode() {
         int hashCode = 0;
-        for (int i = 0; i < getRowDimension(); i ++) {
-            for (int j = 0; j < getColumnDimension(); j ++) {
+        for (int i = 0; i < getNumRowDimensions(); i ++) {
+            for (int j = 0; j < getNumColumnDimensions(); j ++) {
                 hashCode += 31 * Double.hashCode(getEntry(i, j));
             }
         }
