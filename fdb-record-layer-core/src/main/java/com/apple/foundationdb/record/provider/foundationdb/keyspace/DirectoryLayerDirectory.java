@@ -30,6 +30,7 @@ import com.apple.foundationdb.tuple.TupleHelpers;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
@@ -146,6 +147,18 @@ public class DirectoryLayerDirectory extends KeySpaceDirectory {
         super(name, KeyType.LONG, value, wrapper);
         this.scopeGenerator = scopeGenerator;
         this.createHooks = createHooks;
+    }
+
+    @Override
+    protected boolean isValueValid(@Nullable Object value) {
+        // DirectoryLayerDirectory accepts both String (logical names) and Long (directory layer values),
+        // but we're making this method stricter, and I hope that using Long is only for a handful of tests,
+        // despite comments saying that the resolved value should be allowed.
+        if (value instanceof String) {
+            // If this directory has a constant value, check that the provided value matches it
+            return getValue() == KeySpaceDirectory.ANY_VALUE || Objects.equals(getValue(), value);
+        }
+        return false;
     }
 
     @Override
