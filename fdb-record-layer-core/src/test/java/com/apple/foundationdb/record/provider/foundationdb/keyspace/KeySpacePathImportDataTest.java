@@ -76,15 +76,15 @@ class KeySpacePathImportDataTest {
         UUID memberId = UUID.randomUUID();
         
         KeySpace root = new KeySpace(
-                new KeySpaceDirectory("company", KeyType.STRING, rootUuid)  // STRING with constant
-                        .addSubdirectory(new KeySpaceDirectory("version", KeyType.LONG, 1L)  // LONG with constant
-                                .addSubdirectory(new KeySpaceDirectory("department", KeyType.STRING)  // STRING variable
-                                        .addSubdirectory(new KeySpaceDirectory("employee_id", KeyType.LONG)  // LONG variable
-                                                .addSubdirectory(new KeySpaceDirectory("binary_data", KeyType.BYTES)  // BYTES
-                                                        .addSubdirectory(new KeySpaceDirectory("null_section", KeyType.NULL)  // NULL
-                                                                .addSubdirectory(new KeySpaceDirectory("member", KeyType.UUID)  // UUID
-                                                                        .addSubdirectory(new KeySpaceDirectory("active", KeyType.BOOLEAN)  // BOOLEAN
-                                                                                .addSubdirectory(new KeySpaceDirectory("rating", KeyType.FLOAT))))))))));  // FLOAT
+                new KeySpaceDirectory("company", KeyType.STRING, rootUuid)
+                        .addSubdirectory(new KeySpaceDirectory("version", KeyType.LONG, 1L)
+                                .addSubdirectory(new KeySpaceDirectory("department", KeyType.STRING)
+                                        .addSubdirectory(new KeySpaceDirectory("employee_id", KeyType.LONG)
+                                                .addSubdirectory(new KeySpaceDirectory("binary_data", KeyType.BYTES)
+                                                        .addSubdirectory(new KeySpaceDirectory("null_section", KeyType.NULL)
+                                                                .addSubdirectory(new KeySpaceDirectory("member", KeyType.UUID)
+                                                                        .addSubdirectory(new KeySpaceDirectory("active", KeyType.BOOLEAN)
+                                                                                .addSubdirectory(new KeySpaceDirectory("rating", KeyType.FLOAT))))))))));
 
 
         // Create comprehensive test data covering ALL KeyType values
@@ -106,22 +106,13 @@ class KeySpacePathImportDataTest {
                 .add("rating", 3.8f);
 
         try (FDBRecordContext context = database.openContext()) {
-            Transaction tr = context.ensureActive();
-
-            byte[] key1 = emp1Path.toSubspace(context).pack(Tuple.from("profile", "name"));
-            setToTuple(tr, key1, "John Doe");
-
-            byte[] key2 = emp2Path.toSubspace(context).pack(Tuple.from("profile", "name"));
-            setToTuple(tr, key2, "Jane Smith");
-
-            byte[] longKey = emp1Path.toSubspace(context).pack(Tuple.from("salary"));
-            setToTuple(tr, longKey, 75000);
+            setInPath(emp1Path, context, Tuple.from("profile", "name"), "John Doe");
+            setInPath(emp2Path, context, Tuple.from("profile", "name"), "Jane Smith");
+            setInPath(emp1Path, context, Tuple.from("salary"), 75000);
+            setInPath(emp1Path, context, Tuple.from("info", 42, true, "complex"), "Complex Test");
 
             byte[] binaryKey = emp1Path.toSubspace(context).pack(Tuple.from("binary_metadata"));
-            tr.set(binaryKey, "binary_test_data".getBytes());
-            
-            byte[] complexKey = emp1Path.toSubspace(context).pack(Tuple.from("info", 42, true, "complex"));
-            setToTuple(tr, complexKey, "Complex Test");
+            context.ensureActive().set(binaryKey, "binary_test_data".getBytes());
 
             context.commit();
         }
@@ -130,21 +121,18 @@ class KeySpacePathImportDataTest {
 
         // Verify all different KeyType values were handled correctly during import
         try (FDBRecordContext context = database.openContext()) {
-            byte[] key1 = emp1Path.toSubspace(context).pack(Tuple.from("profile", "name"));
-            byte[] key2 = emp2Path.toSubspace(context).pack(Tuple.from("profile", "name"));
-            assertEquals(Tuple.from("John Doe"), getTuple(context, key1));
-            assertEquals(Tuple.from("Jane Smith"), getTuple(context, key2));
-            
-            byte[] longKey = emp1Path.toSubspace(context).pack(Tuple.from("salary"));
-            assertEquals(Tuple.from(75000), getTuple(context, longKey));
+            assertEquals(Tuple.from("John Doe"),
+                    getTupleFromPath(context, emp1Path, Tuple.from("profile", "name")));
+            assertEquals(Tuple.from("Jane Smith"),
+                    getTupleFromPath(context, emp2Path, Tuple.from("profile", "name")));
+            assertEquals(Tuple.from(75000),
+                    getTupleFromPath(context, emp1Path, Tuple.from("salary")));
+            assertEquals(Tuple.from("Complex Test"),
+                    getTupleFromPath(context, emp1Path, Tuple.from("info", 42, true, "complex")));
             
             // Verify BYTES data (raw binary, not in tuple)
             byte[] binaryKey = emp1Path.toSubspace(context).pack(Tuple.from("binary_metadata"));
             assertArrayEquals("binary_test_data".getBytes(), context.ensureActive().get(binaryKey).join());
-            
-            // Verify complex hierarchy with mixed types in remainder (LONG, BOOLEAN, STRING)
-            byte[] complexKey = emp1Path.toSubspace(context).pack(Tuple.from("info", 42, true, "complex"));
-            assertEquals(Tuple.from("Complex Test"), getTuple(context, complexKey));
         }
     }
 
@@ -360,16 +348,18 @@ class KeySpacePathImportDataTest {
     private void verifySingleKey(KeySpacePath path, Tuple remainder, Tuple expected) {
         try (FDBRecordContext context = database.openContext()) {
             byte[] key = path.toSubspace(context).pack(remainder);
-            assertEquals(expected, getTuple(context, key));
+            assertEquals(expected, Tuple.fromBytes(context.ensureActive().get(key).join()));
         }
     }
 
-    private static void setToTuple(final Transaction tr, final byte[] key1, Object items) {
-        byte[] value1 = Tuple.from(items).pack();
-        tr.set(key1, value1);
+    private static void setInPath(final KeySpacePath path, final FDBRecordContext context,
+                                  final Tuple remainder, final Object value) {
+        byte[] key = path.toSubspace(context).pack(remainder);
+        context.ensureActive().set(key, Tuple.from(value).pack());
     }
 
-    private static Tuple getTuple(final FDBRecordContext context, final byte[] key) {
+    private static Tuple getTupleFromPath(final FDBRecordContext context, final KeySpacePath path, final Tuple remainder) {
+        byte[] key = path.toSubspace(context).pack(remainder);
         return Tuple.fromBytes(context.ensureActive().get(key).join());
     }
 
