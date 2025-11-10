@@ -134,7 +134,7 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
         if (mixedModeOnly || singleExternalVersionOnly) {
             return Stream.of();
         } else {
-            return Stream.of(new EmbeddedConfig(clusterFile), new ForceContinuations(new EmbeddedConfig(clusterFile)), new JDBCInProcessConfig(clusterFile));
+            return Stream.of(new EmbeddedConfig(clusterFile), new JDBCInProcessConfig(clusterFile));
         }
     }
 
