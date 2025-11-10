@@ -23,30 +23,51 @@ package com.apple.foundationdb.record.lucene;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IsolationLevel;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordMetaDataProvider;
 import com.apple.foundationdb.record.ScanProperties;
+import com.apple.foundationdb.record.TestRecordsGroupedParentChildProto;
 import com.apple.foundationdb.record.cursors.AutoContinuingCursor;
+import com.apple.foundationdb.record.metadata.IndexPredicate;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseRunner;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreConcurrentTestBase;
+import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
+import com.apple.foundationdb.record.provider.foundationdb.IndexMaintenanceFilter;
+import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
+import com.apple.foundationdb.record.query.expressions.Comparisons;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
+import com.google.protobuf.Descriptors;
+import com.google.protobuf.Message;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import javax.annotation.Nonnull;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.function.LongPredicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestDataModel.CHILD_SEARCH_TERM;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestDataModel.PARENT_SEARCH_TERM;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Test for Lucene index scanning where the query contains "*:*" term matching all documents.
@@ -210,5 +231,310 @@ public class LuceneScanAllEntriesTest extends FDBRecordStoreConcurrentTestBase {
         List<IndexEntry> indexEntries = cursor.asList().join();
         assertEquals(primaryKeys,
                 indexEntries.stream().map(IndexEntry::getPrimaryKey).collect(Collectors.toSet()));
+    }
+
+    @ParameterizedTest
+    @BooleanSource
+    public void indexScanWithEvenRecNoFilterTest(boolean isGrouped) {
+        final long seed = 9876543L;
+        final boolean isSynthetic = false;
+
+        final LuceneIndexTestDataModel dataModel =
+                new LuceneIndexTestDataModel.Builder(seed, this::getStoreBuilderFilterOddRecNo, pathManager)
+                .setIsGrouped(isGrouped)
+                .setIsSynthetic(isSynthetic)
+                .setPrimaryKeySegmentIndexEnabled(true)
+                .setPartitionHighWatermark(10)
+                .build();
+
+        try (FDBRecordContext context = openContext()) {
+            // Save 10 records - only even recNo values should be indexed
+            dataModel.saveRecords(10, context, 2);
+            commit(context);
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            List<IndexEntry> indexEntries = dataModel.findAllRecordsByQuery(context, 2);
+            // We expect 5 records with even recNo values to be indexed
+            assertEquals(5, indexEntries.size(), "Should have indexed only records with even recNo");
+            verifyByRecNo(indexEntries, dataModel.createOrOpenRecordStore(context), recNo -> (recNo & 1) == 0);
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            // overwrite records
+            dataModel.saveRecords(10, context, 2);
+            commit(context);
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            // The same filter should apply to index scrubbing - else "missing" index entries will be detected
+            final long missingIndexEntries = dataModel.findMissingIndexEntries(context, null);
+            assertEquals(0, missingIndexEntries);
+        }
+    }
+
+    private void verifyByRecNo(final List<IndexEntry> indexEntries, final FDBRecordStore store, LongPredicate verifier) {
+        // Verify that all indexed records have even recNo
+        for (IndexEntry entry : indexEntries) {
+            Tuple primaryKey = entry.getPrimaryKey();
+            // The recNo is part of the primary key - need to extract and verify it's even
+            // For grouped records, structure is (group, recNo) or similar
+            // For non-synthetic parent records, the recNo is in the tuple
+            FDBStoredRecord<?> storedRecord = store.loadRecord(primaryKey);
+            assertNotNull(storedRecord, "Record should exist");
+            Message message = storedRecord.getRecord();
+            Descriptors.FieldDescriptor recNoField =
+                    message.getDescriptorForType().findFieldByName("rec_no");
+            long recNo = (long) message.getField(recNoField);
+            assertTrue(verifier.test(recNo), "Unexpected recNo was found. recNo: " + recNo);
+        }
+    }
+
+    @Nonnull
+    private FDBRecordStore.Builder getStoreBuilderFilterOddRecNo(@Nonnull FDBRecordContext context,
+                                                                   @Nonnull RecordMetaDataProvider metaData,
+                                                                   @Nonnull final KeySpacePath path) {
+        // Create an index maintenance filter that only indexes records with even recNo
+        IndexMaintenanceFilter evenRecNoFilter = (index, rec) -> {
+            Descriptors.FieldDescriptor recNoField =
+                    rec.getDescriptorForType().findFieldByName("rec_no");
+            if (recNoField != null && rec.hasField(recNoField)) {
+                long recNo = (long) rec.getField(recNoField);
+                if (recNo % 2 == 0) {
+                    return IndexMaintenanceFilter.IndexValues.ALL;
+                }
+            }
+            return IndexMaintenanceFilter.IndexValues.NONE;
+        };
+
+        return getStoreBuilder(context, metaData, path)
+                .setIndexMaintenanceFilter(evenRecNoFilter);
+    }
+
+    @ParameterizedTest
+    @BooleanSource
+    public void indexScanWithRecNoIndexPredicateTest(boolean isGrouped) {
+        final long seed = 5432198L;
+
+        // Create an index predicate that only indexes records with even recNo
+        // We'll create a predicate: rec_no % 2 == 0
+        // Since there's no modulo operator, we'll use an OR of specific even values
+        final Type.Record recordType = Type.Record.fromDescriptor(
+                TestRecordsGroupedParentChildProto.MyParentRecord.getDescriptor());
+        final QuantifiedObjectValue recordValue = QuantifiedObjectValue.of(Quantifier.current(), recordType);
+        final FieldValue recNoField = FieldValue.ofFieldName(recordValue, "rec_no");
+
+        // Create predicate for rec_no > 1006
+        final QueryPredicate filterPredicate = new ValuePredicate(recNoField, new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, 1006L));
+
+        // Convert to IndexPredicate
+        final IndexPredicate indexPredicate = IndexPredicate.fromQueryPredicate(filterPredicate);
+
+        // Build the data model using the Builder
+        final LuceneIndexTestDataModel dataModel = new LuceneIndexTestDataModel.Builder(seed, this::getStoreBuilder, pathManager)
+                .setIsGrouped(isGrouped)
+                .setIsSynthetic(false)
+                .setPrimaryKeySegmentIndexEnabled(true)
+                .setPartitionHighWatermark(10)
+                .setPredicate(indexPredicate)
+                .build();
+
+        try (FDBRecordContext context = openContext()) {
+            dataModel.saveRecords(10, context, 2);
+            commit(context);
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            List<IndexEntry> indexEntries = dataModel.findAllRecordsByQuery(context, 2);
+
+            // We expect 5 records with recNo > 1006 values to be indexed
+            assertEquals(5, indexEntries.size(), "Should have indexed only records with even recNo");
+            verifyByRecNo(indexEntries, dataModel.createOrOpenRecordStore(context), recNo -> recNo > 1006);
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            // The same filter should apply to index scrubbing - else "missing" index entries will be detected
+            final long missingIndexEntries = dataModel.findMissingIndexEntries(context, null);
+            assertEquals(0, missingIndexEntries);
+        }
+    }
+
+    @ParameterizedTest
+    @BooleanSource
+    public void indexScanWithSomeFilterThrowsExceptionTest(boolean isGrouped) {
+        final long seed = 1234567L;
+
+        final LuceneIndexTestDataModel dataModel =
+                new LuceneIndexTestDataModel.Builder(seed, this::getStoreBuilderWithSomeFilter, pathManager)
+                        .setIsGrouped(isGrouped)
+                        .setIsSynthetic(false)
+                        .setPrimaryKeySegmentIndexEnabled(true)
+                        .setPartitionHighWatermark(10)
+                        .build();
+
+        // Attempt to save records - should throw RecordCoreException because SOME is not supported
+        RecordCoreException exception = Assertions.assertThrows(RecordCoreException.class, () -> {
+            try (FDBRecordContext context = openContext()) {
+                // Try to save a single record with the SOME filter active
+                // This should trigger the exception during index maintenance
+                dataModel.saveRecords(1, context);
+                commit(context);
+            }
+        });
+
+        // Verify the exception message
+        assertEquals("Lucene does not support this kind of filtering", exception.getMessage());
+    }
+
+    @Nonnull
+    private FDBRecordStore.Builder getStoreBuilderWithSomeFilter(@Nonnull FDBRecordContext context,
+                                                                 @Nonnull RecordMetaDataProvider metaData,
+                                                                 @Nonnull final KeySpacePath path) {
+        // Create an index maintenance filter that returns SOME
+        // This should trigger an exception since Lucene doesn't support partial indexing
+        IndexMaintenanceFilter someFilter = (index, rec) -> IndexMaintenanceFilter.IndexValues.SOME;
+
+        return getStoreBuilder(context, metaData, path)
+                .setIndexMaintenanceFilter(someFilter);
+    }
+
+    @ParameterizedTest
+    @BooleanSource
+    public void indexScanWithFailingFilterThrowsExceptionTest(boolean isGrouped) {
+        final long seed = 7654321L;
+
+        final LuceneIndexTestDataModel dataModel =
+                new LuceneIndexTestDataModel.Builder(seed, this::getStoreBuilderWithFailingFilterFor1002L, pathManager)
+                        .setIsGrouped(isGrouped)
+                        .setIsSynthetic(false)
+                        .setPrimaryKeySegmentIndexEnabled(true)
+                        .setPartitionHighWatermark(10)
+                        .build();
+
+        // Attempt to save records - should throw RecordCoreException from the filter for recNo 1002L
+        try (FDBRecordContext context = openContext()) {
+            RecordCoreException exception = Assertions.assertThrows(RecordCoreException.class, () -> dataModel.saveRecords(1, context, 2));
+
+            Assertions.assertTrue(exception.getMessage().startsWith("Filter failed for recNo:"),
+                    "Exception message should indicate filter failure");
+            Assertions.assertEquals(1002L, exception.getLogInfo().get("rec_no"),
+                    "Exception should log the rec_no that caused the failure");
+            Assertions.assertEquals(dataModel.index.getName(), exception.getLogInfo().get("index"),
+                    "Exception should log the index name");
+        }
+    }
+
+    @Nonnull
+    private FDBRecordStore.Builder getStoreBuilderWithFailingFilterFor1002L(@Nonnull FDBRecordContext context,
+                                                                            @Nonnull RecordMetaDataProvider metaData,
+                                                                            @Nonnull final KeySpacePath path) {
+        // Create an index maintenance filter that throws an exception for specific record with recNo 1002L
+        // This can be used to tests error handling when the filter itself fails
+        IndexMaintenanceFilter failingFilter = (index, rec) -> {
+            Descriptors.FieldDescriptor recNoField =
+                    rec.getDescriptorForType().findFieldByName("rec_no");
+            if (recNoField != null && rec.hasField(recNoField)) {
+                long recNo = (long) rec.getField(recNoField);
+                if (recNo == 1002L) {
+                    throw new RecordCoreException("Filter failed for recNo: " + recNo)
+                            .addLogInfo("rec_no", recNo)
+                            .addLogInfo("index", index.getName());
+                }
+                return IndexMaintenanceFilter.IndexValues.ALL;
+            }
+            return IndexMaintenanceFilter.IndexValues.NONE;
+        };
+
+        return getStoreBuilder(context, metaData, path)
+                .setIndexMaintenanceFilter(failingFilter);
+    }
+
+    @ParameterizedTest
+    @BooleanSource
+    public void indexScanWithEvenRecNoFilterSyntheticTest(boolean isGrouped) {
+        final long seed = 777L;
+
+        final LuceneIndexTestDataModel dataModel =
+                new LuceneIndexTestDataModel.Builder(seed, this::getStoreBuilderFilterOddRecNoSynthetic, pathManager)
+                        .setIsGrouped(isGrouped)
+                        .setIsSynthetic(true)
+                        .setPrimaryKeySegmentIndexEnabled(true)
+                        .setPartitionHighWatermark(10)
+                        .build();
+
+        try (FDBRecordContext context = openContext()) {
+            dataModel.saveRecords(10, context, 2);
+            commit(context);
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            List<IndexEntry> indexEntries = dataModel.findAllRecordsByQuery(context, 2);
+            // We expect 5 synthetic records with even parent rec_no values to be indexed
+            assertEquals(5, indexEntries.size(), "Should have indexed only synthetic records with even parent rec_no");
+            verifyEvenRecNoOnlySynthetic(indexEntries, dataModel.createOrOpenRecordStore(context));
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            // Overwrite records to test update path
+            dataModel.saveRecords(10, context, 2);
+            commit(context);
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            // The same filter should apply to index scrubbing - else "missing" index entries will be detected
+            final long missingIndexEntries = dataModel.findMissingIndexEntries(context, null);
+            assertEquals(0, missingIndexEntries);
+        }
+    }
+
+    @Nonnull
+    private FDBRecordStore.Builder getStoreBuilderFilterOddRecNoSynthetic(@Nonnull FDBRecordContext context,
+                                                                          @Nonnull RecordMetaDataProvider metaData,
+                                                                          @Nonnull final KeySpacePath path) {
+        // Create an index maintenance filter that only indexes synthetic records with even parent rec_no
+        IndexMaintenanceFilter evenRecNoFilter = (index, rec) -> {
+            // For synthetic records, we need to access the parent constituent
+            // The synthetic record has structure: { parent: MyParentRecord, child: MyChildRecord }
+            Descriptors.FieldDescriptor parentField =
+                    rec.getDescriptorForType().findFieldByName("parent");
+            if (parentField != null && rec.hasField(parentField)) {
+                Message parentMessage = (Message) rec.getField(parentField);
+                Descriptors.FieldDescriptor recNoField =
+                        parentMessage.getDescriptorForType().findFieldByName("rec_no");
+                if (recNoField != null && parentMessage.hasField(recNoField)) {
+                    long recNo = (long) parentMessage.getField(recNoField);
+                    if (recNo % 2 == 0) {
+                        return IndexMaintenanceFilter.IndexValues.ALL;
+                    }
+                }
+            }
+            return IndexMaintenanceFilter.IndexValues.NONE;
+        };
+
+        return getStoreBuilder(context, metaData, path)
+                .setIndexMaintenanceFilter(evenRecNoFilter);
+    }
+
+    @SuppressWarnings("unchecked")
+    private void verifyEvenRecNoOnlySynthetic(final List<IndexEntry> indexEntries, FDBRecordStore store) {
+        // Verify that all indexed synthetic records have even rec_no at parent
+        for (IndexEntry entry : indexEntries) {
+            Tuple syntheticPrimaryKey = entry.getPrimaryKey();
+
+            // Extract parent primary key from synthetic primary key
+            List<Object> parentKeyItems = (List<Object>) syntheticPrimaryKey.get(1);
+            Tuple parentPrimaryKey = Tuple.fromList(parentKeyItems);
+
+            // Load the parent record using the extracted parent primary key
+            FDBStoredRecord<?> storedRecord = store.loadRecord(parentPrimaryKey);
+            assertNotNull(storedRecord, "Parent record should exist");
+            Message message = storedRecord.getRecord();
+
+            Descriptors.FieldDescriptor recNoField =
+                    message.getDescriptorForType().findFieldByName("rec_no");
+            long recNo = (long) message.getField(recNoField);
+
+            assertEquals(0, recNo % 2, "All indexed synthetic records should have even parent rec_no, but found: " + recNo);
+        }
     }
 }

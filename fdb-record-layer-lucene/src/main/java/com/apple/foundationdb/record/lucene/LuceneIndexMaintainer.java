@@ -56,6 +56,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexDeferredMaintenanceControl;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
+import com.apple.foundationdb.record.provider.foundationdb.IndexMaintenanceFilter;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOperation;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOperationResult;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanBounds;
@@ -458,9 +459,12 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     }
 
     @Nonnull
-    <M extends Message> CompletableFuture<Void> update(@Nullable FDBIndexableRecord<M> oldRecord,
-                                                       @Nullable FDBIndexableRecord<M> newRecord,
+    <M extends Message> CompletableFuture<Void> update(@Nullable FDBIndexableRecord<M> oldRecordUnfiltered,
+                                                       @Nullable FDBIndexableRecord<M> newRecordUnfiltered,
                                                        @Nullable Integer destinationPartitionIdHint) {
+        FDBIndexableRecord<M> oldRecord = maybeFilterRecord(oldRecordUnfiltered);
+        FDBIndexableRecord<M> newRecord = maybeFilterRecord(newRecordUnfiltered);
+
         LOG.trace("update oldRecord={}, newRecord={}", oldRecord, newRecord);
 
         // Extract information for grouping from old and new records
@@ -505,6 +509,19 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         return tryDeleteInWriteOnlyMode(Objects.requireNonNull(newRecord), entry.getKey()).thenCompose(countDeleted ->
                 partitioner.addToAndSavePartitionMetadata(newRecord, entry.getKey(), destinationPartitionIdHint)
                         .thenAccept(partitionId -> writeDocument(newRecord, entry, partitionId)));
+    }
+
+    @Nullable
+    public <M extends Message> FDBIndexableRecord<M> maybeFilterRecord(FDBIndexableRecord<M> rec) {
+        if (rec != null) {
+            final IndexMaintenanceFilter.IndexValues filterType = getFilterTypeForRecord(rec);
+            if (filterType == IndexMaintenanceFilter.IndexValues.NONE) {
+                return null;
+            } else if (filterType == IndexMaintenanceFilter.IndexValues.SOME) {
+                throw new RecordCoreException("Lucene does not support this kind of filtering");
+            }
+        }
+        return rec;
     }
 
     /**
@@ -782,7 +799,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                 final Map<String, String> options = state.index.getOptions();
                 if (Boolean.parseBoolean(options.get(LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_ENABLED)) ||
                         Boolean.parseBoolean(options.get(LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED))) {
-                    return new LuceneIndexScrubbingToolsMissing(partitioner, directoryManager);
+                    return new LuceneIndexScrubbingToolsMissing(partitioner, directoryManager, this);
                 }
                 return null;
             default:
