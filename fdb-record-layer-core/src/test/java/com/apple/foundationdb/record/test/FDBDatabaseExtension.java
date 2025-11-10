@@ -165,6 +165,12 @@ public class FDBDatabaseExtension implements AfterEachCallback {
                 });
     }
 
+    /**
+     * Return a random subset of the databases available.
+     * @param count the number of desired databases
+     * @return a random subset of the databases available. This may be less than {@code count} if there aren't that many
+     * databases available.
+     */
     public List<FDBDatabase> getDatabases(int count) {
         List<String> clusterFiles = new ArrayList<>(FDBTestEnvironment.allClusterFiles());
         Collections.shuffle(clusterFiles);

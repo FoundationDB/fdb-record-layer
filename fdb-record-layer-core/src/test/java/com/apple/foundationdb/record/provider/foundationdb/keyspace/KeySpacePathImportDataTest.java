@@ -210,7 +210,7 @@ class KeySpacePathImportDataTest {
 
         setSingleKey(keySpace.path("root1").add("data", 1L), Tuple.from("record"), Tuple.from("other"));
 
-        // Now try to import that into keySpace2
+        // Now try to import that into root2
         assertBadImport(keySpace.path("root1"), keySpace.path("root2"));
     }
 
@@ -231,7 +231,7 @@ class KeySpacePathImportDataTest {
 
         setSingleKey(keySpace1.path("root1").add("data", 1L), Tuple.from("record"), Tuple.from("other"));
 
-        // Now try to import that into keySpace2
+        // Now try to import that into root2
         assertBadImport(keySpace1.path("root1"), keySpace2.path("root2"));
     }
 
@@ -391,7 +391,6 @@ class KeySpacePathImportDataTest {
     }
 
     private void assertBadImport(final KeySpacePath path, final List<DataInKeySpacePath> invalidData) {
-        // Try to import into keySpace1 - should fail
         try (FDBRecordContext context = database.openContext()) {
             Assertions.assertThatThrownBy(() -> path.importData(context, invalidData).join())
                     .isInstanceOf(CompletionException.class)
@@ -412,11 +411,9 @@ class KeySpacePathImportDataTest {
 
     @Nonnull
     private List<DataInKeySpacePath> getExportedData(final KeySpacePath path) {
-        List<DataInKeySpacePath> exportedData = new ArrayList<>();
         try (FDBRecordContext context = database.openContext()) {
-            path.exportAllData(context, null, ScanProperties.FORWARD_SCAN)
-                    .forEach(exportedData::add).join();
+            return path.exportAllData(context, null, ScanProperties.FORWARD_SCAN)
+                    .asList().join();
         }
-        return exportedData;
     }
 }

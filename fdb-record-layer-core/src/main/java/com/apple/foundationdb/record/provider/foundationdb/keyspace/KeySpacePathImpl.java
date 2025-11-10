@@ -329,7 +329,8 @@ class KeySpacePathImpl implements KeySpacePath {
                     if (!TupleHelpers.isPrefix(targetTuple, itemPathTuple)) {
                         throw new RecordCoreIllegalImportDataException(
                                 "Data item path does not belong under target path",
-                                "target", targetTuple, "item", itemPathTuple);
+                                "target", targetTuple,
+                                "item", itemPathTuple);
                     }
 
                     // Reconstruct the key using the path and remainder

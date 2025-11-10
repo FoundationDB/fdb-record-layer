@@ -24,6 +24,9 @@ import com.apple.foundationdb.record.RecordCoreArgumentException;
 
 import javax.annotation.Nonnull;
 
+/**
+ * Thrown if the data being imported into {@link KeySpacePath#importData} does not belong in that path.
+ */
 public class RecordCoreIllegalImportDataException extends RecordCoreArgumentException {
     private static final long serialVersionUID = 1L;
     
