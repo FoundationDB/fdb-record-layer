@@ -36,6 +36,7 @@ import com.apple.foundationdb.record.query.plan.cascades.StableSelectorCostModel
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
+import com.apple.foundationdb.record.util.ProtoUtils;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
@@ -241,7 +242,8 @@ public final class PlanGenerator {
             return maybePlan.optimize(planner, planContext, currentPlanHashMode);
         } catch (MetaDataException mde) {
             // we need a better way for translating error codes between record layer and Relational SQL error codes
-            throw new RelationalException(mde.getMessage(), ErrorCode.SYNTAX_OR_ACCESS_VIOLATION, mde).toUncheckedWrappedException();
+            ErrorCode code = mde instanceof ProtoUtils.InvalidNameException ? ErrorCode.INVALID_NAME : ErrorCode.SYNTAX_OR_ACCESS_VIOLATION;
+            throw new RelationalException(mde.getMessage(), code, mde).toUncheckedWrappedException();
         } catch (VerifyException | SemanticException ve) {
             throw ExceptionUtil.toRelationalException(ve).toUncheckedWrappedException();
         } catch (RelationalException e) {

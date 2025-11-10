@@ -24,9 +24,11 @@ import com.apple.foundationdb.annotation.API;
 
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.util.ProtoUtils;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.api.metadata.Table;
@@ -38,8 +40,10 @@ import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.DescriptorProtos;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -289,7 +293,7 @@ public final class RecordLayerTable implements Table {
 
         @Nonnull
         public Builder addPrimaryKeyPart(@Nonnull final List<String> primaryKeyPart) {
-            primaryKeyParts.add(toKeyExpression(primaryKeyPart));
+            primaryKeyParts.add(toKeyExpression(record, primaryKeyPart));
             return this;
         }
 
@@ -306,20 +310,48 @@ public final class RecordLayerTable implements Table {
         }
 
         @Nonnull
-        private static KeyExpression toKeyExpression(@Nonnull final List<String> fields) {
+        private static KeyExpression toKeyExpression(@Nullable Type.Record record, @Nonnull final List<String> fields) {
             Assert.thatUnchecked(!fields.isEmpty());
-            return toKeyExpression(fields, 0);
+            return toKeyExpression(record, fields.iterator());
         }
 
         @Nonnull
-        private static KeyExpression toKeyExpression(@Nonnull final List<String> fields, int i) {
-            Assert.thatUnchecked(0 <= i && i < fields.size());
-            if (i == fields.size() - 1) {
-                return Key.Expressions.field(fields.get(i));
+        private static KeyExpression toKeyExpression(@Nullable Type.Record record, @Nonnull final Iterator<String> fields) {
+            Assert.thatUnchecked(fields.hasNext());
+            String fieldName = fields.next();
+            Type.Record.Field field = getFieldDefinition(record, fieldName);
+            final FieldKeyExpression expression = Key.Expressions.field(getFieldStorageName(field, fieldName));
+            if (fields.hasNext()) {
+                Type.Record fieldType = getFieldRecordType(record, field);
+                return expression.nest(toKeyExpression(fieldType, fields));
+            } else {
+                return expression;
             }
-            return Key.Expressions.field(fields.get(i)).nest(toKeyExpression(fields, i + 1));
         }
 
+        @Nullable
+        private static Type.Record.Field getFieldDefinition(@Nullable Type.Record record, @Nonnull String fieldName) {
+            return record == null ? null : record.getFieldNameFieldMap().get(fieldName);
+        }
+
+        @Nonnull
+        private static String getFieldStorageName(@Nullable Type.Record.Field field, @Nonnull String fieldName) {
+            return field == null ? ProtoUtils.toProtoBufCompliantName(fieldName) : field.getStorageFieldName();
+        }
+
+        @Nullable
+        private static Type.Record getFieldRecordType(@Nullable Type.Record record, @Nullable Type.Record.Field field) {
+            if (field == null) {
+                return null;
+            }
+            Type fieldType = field.getFieldType();
+            if (!(fieldType instanceof Type.Record)) {
+                Assert.failUnchecked(ErrorCode.INVALID_COLUMN_REFERENCE, "Field '" + field.getFieldName() + "' on type '" + (record == null ? "UNKNONW" : record.getName()) + "' is not a struct");
+            }
+            return (Type.Record) fieldType;
+        }
+
+        @Nonnull
         private KeyExpression getPrimaryKey() {
             if (primaryKeyParts.isEmpty()) {
                 return EmptyKeyExpression.EMPTY;

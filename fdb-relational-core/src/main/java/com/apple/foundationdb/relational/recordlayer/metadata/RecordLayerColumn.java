@@ -27,6 +27,7 @@ import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.util.Assert;
 
 import javax.annotation.Nonnull;
+import java.util.Objects;
 
 @API(API.Status.EXPERIMENTAL)
 public class RecordLayerColumn implements Column {
@@ -58,6 +59,32 @@ public class RecordLayerColumn implements Column {
 
     public int getIndex() {
         return index;
+    }
+
+    @Override
+    public boolean equals(final Object object) {
+        if (this == object) {
+            return true;
+        }
+        if (object == null || getClass() != object.getClass()) {
+            return false;
+        }
+        final RecordLayerColumn that = (RecordLayerColumn)object;
+        return index == that.index && Objects.equals(name, that.name) && Objects.equals(dataType, that.dataType);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(name, dataType, index);
+    }
+
+    @Override
+    public String toString() {
+        return "RecordLayerColumn{" +
+                "name='" + name + '\'' +
+                ", dataType=" + dataType +
+                ", index=" + index +
+                '}';
     }
 
     public static final class Builder {

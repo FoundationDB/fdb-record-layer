@@ -67,10 +67,10 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Values;
 import com.apple.foundationdb.record.query.plan.cascades.values.VersionValue;
 import com.apple.foundationdb.record.query.plan.planning.BooleanPredicateNormalizer;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
-import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.NullableArrayUtils;
 import com.google.common.base.Verify;
@@ -143,10 +143,13 @@ public final class IndexGenerator {
     }
 
     @Nonnull
-    public RecordLayerIndex generate(@Nonnull String indexName, boolean isUnique, @Nonnull Type.Record tableType, boolean containsNullableArray) {
+    public RecordLayerIndex generate(@Nonnull RecordLayerSchemaTemplate.Builder schemaTemplateBuilder, @Nonnull String indexName, boolean isUnique, boolean containsNullableArray) {
+        final String recordTypeName = getRecordTypeName();
+        // Have to use the storage name here because the index generator uses it
+        final Type.Record tableType = schemaTemplateBuilder.findTableByStorageName(recordTypeName).getType();
         final var indexBuilder = RecordLayerIndex.newBuilder()
                 .setName(indexName)
-                .setTableName(getRecordTypeName())
+                .setTableType(tableType)
                 .setUnique(isUnique);
 
         collectQuantifiers(relationalExpression);
@@ -529,7 +532,8 @@ public final class IndexGenerator {
             return VersionKeyExpression.VERSION;
         } else if (value instanceof FieldValue) {
             FieldValue fieldValue = (FieldValue) value;
-            return toKeyExpression(fieldValue.getFieldPath().getFieldAccessors().stream().map(acc -> Pair.of(acc.getName(), acc.getType())).collect(toList()));
+            Type childType = fieldValue.getChild().getResultType();
+            return toKeyExpression(childType, fieldValue.getFieldPath().getFieldAccessors().iterator());
         } else if (value instanceof ArithmeticValue) {
             var children = value.getChildren();
             var builder = ImmutableList.<KeyExpression>builder();
@@ -561,15 +565,16 @@ public final class IndexGenerator {
         Assert.thatUnchecked(!trieNode.getChildrenMap().isEmpty());
 
         final var childrenMap = trieNode.getChildrenMap();
-        final var exprConstituents = childrenMap.keySet().stream().map(key -> {
-            final var expr = toKeyExpression(Objects.requireNonNull(key.getName()), key.getType());
-            final var value = childrenMap.get(key);
-            if (value.getChildrenMap() != null) {
-                return expr.nest(toKeyExpression(value, orderingFunctions));
-            } else if (orderingFunctions.containsKey(value.getValue())) {
-                return function(orderingFunctions.get(value.getValue()), expr);
+        final var exprConstituents = childrenMap.entrySet().stream().map(nodeEntry -> {
+            final FieldValue.ResolvedAccessor accessor = nodeEntry.getKey();
+            final FieldValueTrieNode node = nodeEntry.getValue();
+            final FieldKeyExpression fieldExpr = toFieldKeyExpression(accessor.getField());
+            if (node.getChildrenMap() != null) {
+                return fieldExpr.nest(toKeyExpression(node, orderingFunctions));
+            } else if (orderingFunctions.containsKey(node.getValue())) {
+                return function(orderingFunctions.get(node.getValue()), fieldExpr);
             } else {
-                return expr;
+                return fieldExpr;
             }
         }).map(v -> (KeyExpression) v).collect(toList());
         if (exprConstituents.size() == 1) {
@@ -647,17 +652,16 @@ public final class IndexGenerator {
 
         private final int marker;
 
-        private AnnotatedAccessor(@Nonnull Type fieldType,
-                                  @Nullable String fieldName,
-                                  int fieldOrdinal,
+        private AnnotatedAccessor(@Nonnull Type.Record.Field field,
+                                  int ordinal,
                                   int marker) {
-            super(fieldName, fieldOrdinal, fieldType);
+            super(field, ordinal);
             this.marker = marker;
         }
 
         @Nonnull
         public static AnnotatedAccessor of(@Nonnull FieldValue.ResolvedAccessor resolvedAccessor, int marker) {
-            return new AnnotatedAccessor(resolvedAccessor.getType(), resolvedAccessor.getName(), resolvedAccessor.getOrdinal(), marker);
+            return new AnnotatedAccessor(resolvedAccessor.getField(), resolvedAccessor.getOrdinal(), marker);
         }
 
         @Override
@@ -726,7 +730,9 @@ public final class IndexGenerator {
             final var valueWithChild = (ValueWithChild) value;
             return valueWithChild.withNewChild(dereference(valueWithChild.getChild()));
         } else if (value instanceof QuantifiedObjectValue) {
-            return dereference(correlatedKeyExpressions.get(value.getCorrelatedTo().stream().findFirst().orElseThrow()));
+            Value dereferenced = dereference(correlatedKeyExpressions.get(value.getCorrelatedTo().stream().findFirst().orElseThrow()));
+            // Don't dereference the QOV if it changes the result type
+            return dereferenced.getResultType().equals(value.getResultType()) ? dereferenced : value;
         } else if (value instanceof ArithmeticValue) {
             final List<Value> newChildren = new ArrayList<>();
             for (Value v:value.getChildren()) {
@@ -739,23 +745,20 @@ public final class IndexGenerator {
     }
 
     @Nonnull
-    private KeyExpression toKeyExpression(@Nonnull List<Pair<String, Type>> fields) {
-        return toKeyExpression(fields, 0);
-    }
-
-    @Nonnull
-    private KeyExpression toKeyExpression(@Nonnull List<Pair<String, Type>> fields, int index) {
-        Assert.thatUnchecked(!fields.isEmpty());
-        final var field = fields.get(index);
-        final var keyExpression = toKeyExpression(field.getLeft(), field.getRight());
-        if (index + 1 < fields.size()) {
-            return keyExpression.nest(toKeyExpression(fields, index + 1));
+    private KeyExpression toKeyExpression(@Nonnull Type type, @Nonnull Iterator<FieldValue.ResolvedAccessor> resolvedAccessors) {
+        Assert.thatUnchecked(resolvedAccessors.hasNext(), "cannot resolve empty list");
+        final Type.Record.Field field = resolvedAccessors.next().getField();
+        final FieldKeyExpression fieldExpression = toFieldKeyExpression(field);
+        if (resolvedAccessors.hasNext()) {
+            KeyExpression childExpression = toKeyExpression(field.getFieldType(), resolvedAccessors);
+            return fieldExpression.nest(childExpression);
+        } else {
+            return fieldExpression;
         }
-        return keyExpression;
     }
 
     @Nonnull
-    public String getRecordTypeName() {
+    private String getRecordTypeName() {
         final var expressionRefs = relationalExpressions.stream()
                 .filter(r -> r instanceof LogicalTypeFilterExpression)
                 .map(r -> (LogicalTypeFilterExpression) r)
@@ -766,13 +769,24 @@ public final class IndexGenerator {
         return recordTypes.stream().findFirst().orElseThrow();
     }
 
+    /*
     @Nonnull
-    private static FieldKeyExpression toKeyExpression(@Nonnull String name, @Nonnull Type type) {
-        Assert.notNullUnchecked(name);
-        final var fanType = type.getTypeCode() == Type.TypeCode.ARRAY ?
+    private static Type.Record.Field resolveField(@Nonnull Type type, @Nonnull FieldValue.ResolvedAccessor resolvedAccessor) {
+        Assert.thatUnchecked(type.isRecord(), "field accessors must be resolved on record types");
+        final Type.Record recordType = (Type.Record) type;
+        return recordType.getFieldNameFieldMap().get(resolvedAccessor.getName());
+    }
+     */
+
+    @Nonnull
+    private static FieldKeyExpression toFieldKeyExpression(@Nonnull Type.Record.Field fieldType) {
+        Assert.notNullUnchecked(fieldType.getStorageFieldName());
+        final var fanType = fieldType.getFieldType().getTypeCode() == Type.TypeCode.ARRAY ?
                 KeyExpression.FanType.FanOut :
                 KeyExpression.FanType.None;
-        return field(name, fanType);
+        // At this point, we need to use the storage field name as that will be the name referenced
+        // in Protobuf storage
+        return field(fieldType.getStorageFieldName(), fanType);
     }
 
     @Nonnull
