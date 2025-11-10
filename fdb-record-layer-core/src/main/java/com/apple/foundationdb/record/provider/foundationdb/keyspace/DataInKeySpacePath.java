@@ -24,11 +24,10 @@ import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
-import com.apple.foundationdb.tuple.ByteArrayUtil2;
+import com.apple.foundationdb.tuple.Tuple;
 
 import javax.annotation.Nonnull;
-import java.util.concurrent.CompletableFuture;
+import javax.annotation.Nullable;
 
 /**
  * Class representing a {@link KeyValue} pair within in {@link KeySpacePath}.
@@ -37,24 +36,35 @@ import java.util.concurrent.CompletableFuture;
 public class DataInKeySpacePath {
 
     @Nonnull
-    private final CompletableFuture<ResolvedKeySpacePath> resolvedPath;
+    private final KeySpacePath path;
+    @Nullable
+    private final Tuple remainder;
     @Nonnull
     private final byte[] value;
 
-    public DataInKeySpacePath(KeySpacePath path, KeyValue rawKeyValue, FDBRecordContext context) {
-        this.resolvedPath = path.toResolvedPathAsync(context, rawKeyValue.getKey());
-        this.value = rawKeyValue.getValue();
-        if (this.value == null) {
+    public DataInKeySpacePath(@Nonnull final KeySpacePath path, @Nullable final Tuple remainder,
+                              @Nullable final byte[] value) {
+        this.path = path;
+        this.remainder = remainder;
+        if (value == null) {
             throw new RecordCoreArgumentException("Value cannot be null")
-                    .addLogInfo(LogMessageKeys.KEY, ByteArrayUtil2.loggable(rawKeyValue.getKey()));
+                    .addLogInfo(LogMessageKeys.KEY, path);
         }
-    }
-
-    public CompletableFuture<ResolvedKeySpacePath> getResolvedPath() {
-        return resolvedPath;
+        this.value = value;
     }
 
     public byte[] getValue() {
         return this.value;
     }
+
+    @Nonnull
+    public KeySpacePath getPath() {
+        return path;
+    }
+
+    @Nullable
+    public Tuple getRemainder() {
+        return remainder;
+    }
+
 }

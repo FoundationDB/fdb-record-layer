@@ -352,8 +352,13 @@ class RelationalResultSetFacade implements RelationalResultSet {
                     case ENUM:
                         o = getString(oneBasedColumn);
                         break;
-                    case VECTOR:
-                        o = TypeConversion.parseVector(getBytes(oneBasedColumn), ((DataType.VectorType)relationalType).getPrecision());
+                    case VECTOR: {
+                        final var bytes = getBytes(oneBasedColumn);
+                        if (wasNull()) {
+                            return null;
+                        }
+                        o = TypeConversion.parseVector(bytes, ((DataType.VectorType)relationalType).getPrecision());
+                    }
                         break;
                     default:
                         throw new SQLException("Unsupported type " + type);

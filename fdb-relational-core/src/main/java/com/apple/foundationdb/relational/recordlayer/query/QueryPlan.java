@@ -404,7 +404,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                             parsedContinuation.getExecutionState(),
                             executeProperties));
             final var currentPlanHashMode = OptionsUtils.getCurrentPlanHashMode(options);
-            final var dataType = (DataType.StructType) DataTypeUtils.toRelationalType(type, true);
+            final var dataType = (DataType.StructType) DataTypeUtils.toRelationalType(type);
             return executionContext.metricCollector.clock(RelationalMetric.RelationalEvent.CREATE_RESULT_SET_ITERATOR, () -> {
                 final ResumableIterator<Row> iterator = RecordLayerIterator.create(cursor, messageFDBQueriedRecord -> new MessageTuple(messageFDBQueriedRecord.getMessage()));
                 return new RecordLayerResultSet(RelationalStructMetaData.of(dataType), iterator, connection,

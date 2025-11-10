@@ -47,6 +47,11 @@ public class VectorUtils {
     @Nonnull
     public static RealVector parseVector(@Nonnull final ByteString byteString, @Nonnull final Type.Vector vectorType) {
         final var precision = vectorType.getPrecision();
+        return parseVector(byteString, precision);
+    }
+
+    @Nonnull
+    public static RealVector parseVector(@Nonnull final ByteString byteString, int precision) {
         if (precision == 16) {
             return HalfRealVector.fromBytes(byteString.toByteArray());
         }
@@ -56,7 +61,7 @@ public class VectorUtils {
         if (precision == 64) {
             return DoubleRealVector.fromBytes(byteString.toByteArray());
         }
-        throw new RecordCoreException("unexpected vector type " + vectorType);
+        throw new RecordCoreException("unexpected vector precision " + precision);
     }
 
 

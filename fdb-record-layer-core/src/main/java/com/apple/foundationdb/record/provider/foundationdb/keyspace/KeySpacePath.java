@@ -158,25 +158,6 @@ public interface KeySpacePath {
     CompletableFuture<ResolvedKeySpacePath> toResolvedPathAsync(@Nonnull FDBRecordContext context);
 
     /**
-     * Given a tuple from an FDB key, attempts to determine what sub-path through this directory the tuple
-     * represents, returning a <code>ResolvedKeySpacePath</code> representing the leaf-most directory in the path.
-     * <p>
-     *     If entries remained in the tuple beyond the leaf directory, then {@link ResolvedKeySpacePath#getRemainder()}
-     *     can be used to fetch the remaining portion.
-     *     See also {@link KeySpace#resolveFromKeyAsync(FDBRecordContext, Tuple)} if you need to resolve from the root.
-     * </p>
-     * @param context  context used, if needed, for any database operations
-     * @param key a raw key from the database
-     * @return the {@link ResolvedKeySpacePath} corresponding to that key, with a potential remainder.
-     * @throws com.apple.foundationdb.record.RecordCoreArgumentException if the key provided is not part of this path
-     */
-    @API(API.Status.EXPERIMENTAL)
-    @Nonnull
-    default CompletableFuture<ResolvedKeySpacePath> toResolvedPathAsync(@Nonnull FDBRecordContext context, byte[] key) {
-        throw new UnsupportedOperationException("toResolvedPathAsync is not supported");
-    }
-
-    /**
      * Resolves the path into a {@link ResolvedKeySpacePath}, a form the retains all of the information about
      * the path itself along with the value to which each path entry is resolved.
      *

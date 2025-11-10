@@ -7,6 +7,41 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.8
 
+### 4.8.12.0
+
+<h4> New Features </h4>
+
+* Add vector type support for Direct Access API inserts - [PR #3733](https://github.com/FoundationDB/fdb-record-layer/pull/3733)
+<h4> Bug Fixes </h4>
+
+* Revert Identifier Translation for Protobuf Compliant Names - [PR #3726](https://github.com/FoundationDB/fdb-record-layer/pull/3726)
+* Disallow insertion of vectors of different precision and dimensions. - [PR #3730](https://github.com/FoundationDB/fdb-record-layer/pull/3730)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Revert publishing directly via sonatype API - [PR #3728](https://github.com/FoundationDB/fdb-record-layer/pull/3728)
+* Fix incorrect handling of `!ignore` custom tag in YAML - [PR #3725](https://github.com/FoundationDB/fdb-record-layer/pull/3725)
+
+</details>
+
+
+**[Full Changelog (4.8.11.0...4.8.12.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.8.11.0...4.8.12.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+❌`4.6.5.0`, ❌`4.7.1.0`, ❌`4.7.2.0`, ✅`4.7.3.0`, ✅`4.8.1.0`, ✅`4.8.2.0`, ✅`4.8.3.0`, ✅`4.8.5.0`, ✅`4.8.6.0`, ✅`4.8.11.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/19173304176)
+
+
+
 ### 4.8.11.0
 
 <h4> Breaking Changes </h4>
