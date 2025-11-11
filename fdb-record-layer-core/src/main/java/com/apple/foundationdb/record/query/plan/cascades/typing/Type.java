@@ -2281,7 +2281,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
             for (final var field : fields) {
                 final var fieldType = field.getFieldType();
-                final var fieldName = field.getStorageFieldName();
+                final var fieldName = field.getFieldStorageName();
                 fieldType.addProtoField(typeRepositoryBuilder, recordMsgBuilder,
                         field.getFieldIndex(),
                         fieldName,
@@ -2615,7 +2615,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
             private final Optional<Integer> fieldIndexOptional;
 
             @Nonnull
-            private final Optional<String> storageFieldNameOptional;
+            private final Optional<String> fieldStorageNameOptional;
 
             /**
              * Memoized hash function.
@@ -2634,11 +2634,11 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
              * @param fieldNameOptional The field name.
              * @param fieldIndexOptional The field index.
              */
-            protected Field(@Nonnull final Type fieldType, @Nonnull final Optional<String> fieldNameOptional, @Nonnull Optional<Integer> fieldIndexOptional, @Nonnull Optional<String> storageFieldNameOptional) {
+            protected Field(@Nonnull final Type fieldType, @Nonnull final Optional<String> fieldNameOptional, @Nonnull Optional<Integer> fieldIndexOptional, @Nonnull Optional<String> fieldStorageNameOptional) {
                 this.fieldType = fieldType;
                 this.fieldNameOptional = fieldNameOptional;
                 this.fieldIndexOptional = fieldIndexOptional;
-                this.storageFieldNameOptional = storageFieldNameOptional;
+                this.fieldStorageNameOptional = fieldStorageNameOptional;
             }
 
             /**
@@ -2669,13 +2669,13 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
             }
 
             @Nonnull
-            public Optional<String> getStorageFieldNameOptional() {
-                return storageFieldNameOptional;
+            public Optional<String> getFieldStorageNameOptional() {
+                return fieldStorageNameOptional;
             }
 
             @Nonnull
-            public String getStorageFieldName() {
-                return getStorageFieldNameOptional().orElseThrow(() -> new RecordCoreException("field name should have been set"));
+            public String getFieldStorageName() {
+                return getFieldStorageNameOptional().orElseThrow(() -> new RecordCoreException("field name should have been set"));
             }
 
             /**
@@ -2716,7 +2716,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
                     return this;
                 }
                 var newFieldType = getFieldType().withNullability(newNullability);
-                return new Field(newFieldType, fieldNameOptional, fieldIndexOptional, storageFieldNameOptional);
+                return new Field(newFieldType, fieldNameOptional, fieldIndexOptional, fieldStorageNameOptional);
             }
 
             @Nonnull
@@ -2759,9 +2759,9 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
                 fieldProtoBuilder.setFieldType(fieldType.toTypeProto(serializationContext));
                 fieldNameOptional.ifPresent(fieldProtoBuilder::setFieldName);
                 fieldIndexOptional.ifPresent(fieldProtoBuilder::setFieldIndex);
-                storageFieldNameOptional.ifPresent(storageFieldName -> {
+                fieldStorageNameOptional.ifPresent(storageFieldName -> {
                     if (!fieldProtoBuilder.getFieldName().equals(storageFieldName)) {
-                        fieldProtoBuilder.setStorageFieldName(storageFieldName);
+                        fieldProtoBuilder.setFieldStorageName(storageFieldName);
                     }
                 });
                 return fieldProtoBuilder.build();
@@ -2772,7 +2772,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
                 final Type fieldType = Type.fromTypeProto(serializationContext, Objects.requireNonNull(fieldProto.getFieldType()));
                 final Optional<String> fieldNameOptional = fieldProto.hasFieldName() ? Optional.of(fieldProto.getFieldName()) : Optional.empty();
                 final Optional<Integer> fieldIndexOptional = fieldProto.hasFieldIndex() ? Optional.of(fieldProto.getFieldIndex()) : Optional.empty();
-                final Optional<String> storageFieldNameOptional = fieldProto.hasStorageFieldName() ? Optional.of(fieldProto.getStorageFieldName()) : fieldNameOptional;
+                final Optional<String> storageFieldNameOptional = fieldProto.hasFieldStorageName() ? Optional.of(fieldProto.getFieldStorageName()) : fieldNameOptional;
                 return new Field(fieldType, fieldNameOptional, fieldIndexOptional, storageFieldNameOptional);
             }
 

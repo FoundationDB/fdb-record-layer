@@ -310,19 +310,19 @@ public final class RecordLayerTable implements Table {
         }
 
         @Nonnull
-        private static KeyExpression toKeyExpression(@Nullable Type.Record record, @Nonnull final List<String> fields) {
+        private static KeyExpression toKeyExpression(@Nullable Type.Record type, @Nonnull final List<String> fields) {
             Assert.thatUnchecked(!fields.isEmpty());
-            return toKeyExpression(record, fields.iterator());
+            return toKeyExpression(type, fields.iterator());
         }
 
         @Nonnull
-        private static KeyExpression toKeyExpression(@Nullable Type.Record record, @Nonnull final Iterator<String> fields) {
+        private static KeyExpression toKeyExpression(@Nullable Type.Record type, @Nonnull final Iterator<String> fields) {
             Assert.thatUnchecked(fields.hasNext());
             String fieldName = fields.next();
-            Type.Record.Field field = getFieldDefinition(record, fieldName);
+            Type.Record.Field field = getFieldDefinition(type, fieldName);
             final FieldKeyExpression expression = Key.Expressions.field(getFieldStorageName(field, fieldName));
             if (fields.hasNext()) {
-                Type.Record fieldType = getFieldRecordType(record, field);
+                Type.Record fieldType = getFieldRecordType(type, field);
                 return expression.nest(toKeyExpression(fieldType, fields));
             } else {
                 return expression;
@@ -330,13 +330,13 @@ public final class RecordLayerTable implements Table {
         }
 
         @Nullable
-        private static Type.Record.Field getFieldDefinition(@Nullable Type.Record record, @Nonnull String fieldName) {
-            return record == null ? null : record.getFieldNameFieldMap().get(fieldName);
+        private static Type.Record.Field getFieldDefinition(@Nullable Type.Record type, @Nonnull String fieldName) {
+            return type == null ? null : type.getFieldNameFieldMap().get(fieldName);
         }
 
         @Nonnull
         private static String getFieldStorageName(@Nullable Type.Record.Field field, @Nonnull String fieldName) {
-            return field == null ? ProtoUtils.toProtoBufCompliantName(fieldName) : field.getStorageFieldName();
+            return field == null ? ProtoUtils.toProtoBufCompliantName(fieldName) : field.getFieldStorageName();
         }
 
         @Nullable

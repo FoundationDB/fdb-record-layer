@@ -176,15 +176,15 @@ public final class RecordLayerIndex implements Index  {
         }
 
         @Nonnull
-        public Builder setTableStorageName(@Nonnull String tableStorageName) {
+        public Builder setTableStorageName(String tableStorageName) {
             this.tableStorageName = tableStorageName;
             return this;
         }
 
         @Nonnull
-        public Builder setTableType(@Nonnull Type.Record record) {
-            return setTableName(record.getName())
-                    .setTableStorageName(record.getStorageName());
+        public Builder setTableType(@Nonnull Type.Record tableType) {
+            return setTableName(tableType.getName())
+                    .setTableStorageName(tableType.getStorageName());
         }
 
         @Nonnull

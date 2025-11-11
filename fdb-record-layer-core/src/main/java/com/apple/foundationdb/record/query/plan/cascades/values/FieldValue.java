@@ -531,7 +531,7 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
         @Nonnull
         private static List<Optional<String>> computeFieldNames(@Nonnull final List<ResolvedAccessor> fieldAccessors) {
             return fieldAccessors.stream()
-                    .map(accessor -> accessor.getField().getStorageFieldNameOptional())
+                    .map(accessor -> accessor.getField().getFieldStorageNameOptional())
                     .collect(ImmutableList.toImmutableList());
         }
 
@@ -635,24 +635,10 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
     public static class ResolvedAccessor implements PlanSerializable {
         @Nonnull
         final Field field;
-
-        /*
-        @Nullable
-        final String name;
-
-        @Nullable
-        private final Type type;
-         */
-
         final int ordinal;
 
         protected ResolvedAccessor(@Nonnull Field field, int ordinal) {
             Preconditions.checkArgument(ordinal >= 0);
-            /*
-            this.name = name;
-            this.ordinal = ordinal;
-            this.type = type;
-             */
             this.field = field;
             this.ordinal = ordinal;
         }
@@ -703,11 +689,14 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
         @Override
         public PResolvedAccessor toProto(@Nonnull final PlanSerializationContext serializationContext) {
             PResolvedAccessor.Builder builder = PResolvedAccessor.newBuilder();
+            // Older serialization: write out the name, ordinal, and type manually
             builder.setName(field.getFieldName());
             builder.setOrdinal(ordinal);
             if (field.getFieldType() != null) {
                 builder.setType(getType().toTypeProto(serializationContext));
             }
+            // Newer serialization: write that information in a nested field
+            builder.setField(field.toProto(serializationContext));
             return builder.build();
         }
 
@@ -720,7 +709,17 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
             } else {
                 type = null;
             }
-            final Field field = Field.of(type, Optional.of(resolvedAccessorProto.getName()));
+
+            final Field field;
+            if (resolvedAccessorProto.hasField()) {
+                // Newer serialization: use a single nested field. If both are set, we need to deserialize
+                // the field after reading the type information, as the type will be cached in the
+                // serialization context
+                field = Field.fromProto(serializationContext, resolvedAccessorProto.getField());
+            } else {
+                // Older serialization: get the name and type information from separate fields
+                field = Field.of(Objects.requireNonNull(type), Optional.of(resolvedAccessorProto.getName()));
+            }
             return new ResolvedAccessor(field, resolvedAccessorProto.getOrdinal());
         }
 
