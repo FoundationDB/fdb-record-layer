@@ -21,6 +21,7 @@
 package com.apple.foundationdb.async.hnsw;
 
 import com.apple.foundationdb.linear.Metric;
+import com.google.common.base.Preconditions;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 
 import javax.annotation.Nonnull;
@@ -88,6 +89,7 @@ public final class Config {
      * This attribute (named {@code M_max} by the HNSW paper) is the maximum connectivity value for nodes stored on a
      * layer greater than {@code 0}. We will never create more that {@code mMax} neighbors for a node. That means that
      * we even prune the neighbors of a node if the actual number of neighbors would otherwise exceed {@code mMax}.
+     * Note that this attribute must be greater than or equal to {@link #m}.
      */
     private final int mMax;
 
@@ -95,12 +97,12 @@ public final class Config {
      * This attribute (named {@code M_max0} by the HNSW paper) is the maximum connectivity value for nodes stored on
      * layer {@code 0}. We will never create more that {@code mMax0} neighbors for a node that is stored on that layer.
      * That means that we even prune the neighbors of a node if the actual number of neighbors would otherwise exceed
-     * {@code mMax0}.
+     * {@code mMax0}. Note that this attribute must be greater than or equal to {@link #mMax}.
      */
     private final int mMax0;
 
     /**
-     * Maximum size of the search queues (on independent queue per layer) that are used during the insertion of a new
+     * Maximum size of the search queues (one independent queue per layer) that are used during the insertion of a new
      * node. If {@code efConstruction} is set to {@code 1}, the search naturally follows a greedy approach
      * (monotonous descent), whereas a high number for {@code efConstruction} allows for a more nuanced search that can
      * tolerate (false) local minima.
@@ -172,6 +174,8 @@ public final class Config {
                    final double sampleVectorStatsProbability, final double maintainStatsProbability,
                    final int statsThreshold, final boolean useRaBitQ, final int raBitQNumExBits,
                    final int maxNumConcurrentNodeFetches, final int maxNumConcurrentNeighborhoodFetches) {
+        Preconditions.checkArgument(m <= mMax);
+        Preconditions.checkArgument(mMax <= mMax0);
         this.randomSeed = randomSeed;
         this.metric = metric;
         this.numDimensions = numDimensions;
