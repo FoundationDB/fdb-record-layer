@@ -240,10 +240,11 @@ public final class PlanGenerator {
                             planContext.getConstantActionFactory(), planContext.getDbUri(), caseSensitive)
                             .generateLogicalPlan(ast.getParseTree()));
             return maybePlan.optimize(planner, planContext, currentPlanHashMode);
+        } catch (ProtoUtils.InvalidNameException ine) {
+            throw new RelationalException(ine.getMessage(), ErrorCode.INVALID_NAME, ine).toUncheckedWrappedException();
         } catch (MetaDataException mde) {
             // we need a better way for translating error codes between record layer and Relational SQL error codes
-            ErrorCode code = mde instanceof ProtoUtils.InvalidNameException ? ErrorCode.INVALID_NAME : ErrorCode.SYNTAX_OR_ACCESS_VIOLATION;
-            throw new RelationalException(mde.getMessage(), code, mde).toUncheckedWrappedException();
+            throw new RelationalException(mde.getMessage(), ErrorCode.SYNTAX_OR_ACCESS_VIOLATION, mde).toUncheckedWrappedException();
         } catch (VerifyException | SemanticException ve) {
             throw ExceptionUtil.toRelationalException(ve).toUncheckedWrappedException();
         } catch (RelationalException e) {

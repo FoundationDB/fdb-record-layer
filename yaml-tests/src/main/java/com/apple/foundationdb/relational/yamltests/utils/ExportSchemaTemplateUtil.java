@@ -30,10 +30,24 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 
+/**
+ * Utility to generate a JSON export of a schema template. The output of this file can then be commited
+ * to the repository and then the referenced by a test using the {@code lode schema template} directive.
+ * This allows the user to test a schema template that either wouldn't be generated from the DDL or to
+ * verify that a certain serialized meta-data will be interpreted as expected at runtime.
+ */
 public class ExportSchemaTemplateUtil {
     private ExportSchemaTemplateUtil() {
     }
 
+    /**
+     * Export a {@link RecordMetaData} object to a file. This will overwrite an existing file with
+     * the new meta-data if set.
+     *
+     * @param metaData meta-data to export
+     * @param exportLocation path to export location
+     * @throws IOException any problem encountered writing the file
+     */
     public static void export(@Nonnull RecordMetaData metaData, @Nonnull Path exportLocation) throws IOException {
         final RecordMetaDataProto.MetaData metaDataProto = metaData.toProto();
 

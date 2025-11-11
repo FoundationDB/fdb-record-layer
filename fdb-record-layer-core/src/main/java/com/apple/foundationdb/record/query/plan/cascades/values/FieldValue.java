@@ -62,6 +62,7 @@ import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -735,8 +736,10 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
         }
 
         @Nonnull
-        public static ResolvedAccessor of(@Nullable final String fieldName, final int ordinalFieldNumber) {
-            final Field field = Field.of(null, Optional.ofNullable(fieldName));
+        public static ResolvedAccessor of(@Nonnull final Type.Record recordType, @Nonnull final String fieldName, final int ordinalFieldNumber) {
+            final Map<String, Field> fieldNameMap = recordType.getFieldNameFieldMap();
+            Field field = fieldNameMap.get(fieldName);
+            SemanticException.check(field != null, SemanticException.ErrorCode.RECORD_DOES_NOT_CONTAIN_FIELD);
             return new ResolvedAccessor(field, ordinalFieldNumber);
         }
     }
