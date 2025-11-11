@@ -1752,8 +1752,8 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
         @Nonnull
         private final Supplier<Integer> hashFunctionSupplier = Suppliers.memoize(this::computeHashCode);
 
-        public Enum(final boolean isNullable,
-                    @Nullable final List<EnumValue> enumValues) {
+        private Enum(final boolean isNullable,
+                     @Nullable final List<EnumValue> enumValues) {
             this(isNullable, enumValues, null, null);
         }
 
@@ -1896,10 +1896,12 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
             return new Enum(false, enumValuesBuilder.build(), null, null);
         }
 
+        @Nonnull
         private static Enum fromProtoValues(boolean isNullable, @Nonnull List<Descriptors.EnumValueDescriptor> values) {
-            return new Enum(isNullable, enumValuesFromProto(values), null, null);
+            return Enum.fromValues(isNullable, enumValuesFromProto(values));
         }
 
+        @Nonnull
         public static List<EnumValue> enumValuesFromProto(@Nonnull final List<Descriptors.EnumValueDescriptor> enumValueDescriptors) {
             return enumValueDescriptors
                     .stream()
