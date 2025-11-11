@@ -43,7 +43,6 @@ import org.slf4j.MDC;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -724,11 +723,6 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
         Assertions.assertThat(cursor.get().isClosed()).isTrue();
     }
 
-    @CsvSource({
-            "test-request-123,20,false",  // Basic MDC propagation
-            ",10,false",                            // Null context
-            "trace-xyz-789,30,true"         // Multiple transactions
-    })
     private static Stream<Arguments> mdcParams() {
         return Stream.of(
                 Arguments.of("value", 10, 0, 1), // have MDC value, one transaction
@@ -742,13 +736,14 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
     void testMdcContextPropagation(String mdcValue, int numRecords, int deletesPerTransaction, int expectedTransactions) throws Exception {
         String mdcKey = "mdckey";
         final AtomicInteger transactionCount = new AtomicInteger(0);
-
-        // Set MDC context if provided
-        if (mdcValue != null) {
-            MDC.put(mdcKey, mdcValue);
-        }
+        final Map<String, String> original = MDC.getCopyOfContextMap();
 
         try {
+            // Set MDC context if provided
+            if (mdcValue != null) {
+                MDC.clear();
+                MDC.put(mdcKey, mdcValue);
+            }
             final Consumer<ThrottledRetryingIterator.QuotaManager> transactionStart =
                     quotaManager -> transactionCount.incrementAndGet();
             final ItemHandler<Integer> itemHandler = (store, item, quotaManager) -> {
@@ -777,7 +772,7 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
 
             assertThat(transactionCount.get()).isEqualTo(expectedTransactions);
         } finally {
-            MDC.clear();
+            MDC.setContextMap(original);
         }
     }
 
