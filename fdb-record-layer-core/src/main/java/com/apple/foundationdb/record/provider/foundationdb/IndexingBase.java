@@ -248,7 +248,7 @@ public abstract class IndexingBase {
 
             return AsyncUtil.whenAll(indexesToClear.stream().map(store::clearAndMarkIndexWriteOnly).collect(Collectors.toList()))
                     .thenCompose(vignore -> markIndexesWriteOnly(continuedBuild, store))
-                    .thenCompose(vignore -> setIndexingTypeOrThrow(store, continuedBuild))
+                    .thenCompose(vignore -> checkAndSetIndexingType(store, continuedBuild))
                     .thenApply(ignore -> true);
         }), common.indexLogMessageKeyValues("IndexingBase::handleIndexingState")
         ).thenCompose(doIndex ->
@@ -343,7 +343,7 @@ public abstract class IndexingBase {
 
     @Nonnull
     @SuppressWarnings("PMD.CloseResource")
-    private CompletableFuture<Void> setIndexingTypeOrThrow(FDBRecordStore store, boolean continuedBuild) {
+    private CompletableFuture<Void> checkAndSetIndexingType(FDBRecordStore store, boolean continuedBuild) {
         // continuedBuild is set if this session isn't a continuation of a previous indexing
         IndexBuildProto.IndexBuildIndexingStamp indexingTypeStamp = getIndexingTypeStamp(store);
         final IndexBuildProto.IndexBuildIndexingStamp.Method method = indexingTypeStamp.getMethod();
@@ -352,12 +352,12 @@ public abstract class IndexingBase {
                 method == IndexBuildProto.IndexBuildIndexingStamp.Method.SCRUB_REPAIR;
         heartbeat = new IndexingHeartbeat(common.getIndexerId(), indexingTypeStamp.getMethod().toString(), common.config.getLeaseLengthMillis(), allowMutual);
 
-        return forEachTargetIndex(index -> setIndexingTypeOrThrow(store, continuedBuild, index, indexingTypeStamp)
+        return forEachTargetIndex(index -> checkAndSetIndexingType(store, continuedBuild, index, indexingTypeStamp)
                 .thenCompose(ignore -> updateHeartbeat(store, index)));
     }
 
     @Nonnull
-    private CompletableFuture<Void> setIndexingTypeOrThrow(FDBRecordStore store, boolean continuedBuild, Index index, IndexBuildProto.IndexBuildIndexingStamp newStamp) {
+    private CompletableFuture<Void> checkAndSetIndexingType(FDBRecordStore store, boolean continuedBuild, Index index, IndexBuildProto.IndexBuildIndexingStamp newStamp) {
         if (forceStampOverwrite && !continuedBuild) {
             // Fresh session + overwrite = no questions asked
             store.saveIndexingTypeStamp(index, newStamp);
@@ -383,7 +383,7 @@ public abstract class IndexingBase {
                     }
                     if (isTypeStampBlocked(savedStamp) && !policy.shouldAllowUnblock(savedStamp.getBlockID())) {
                         // Indexing is blocked
-                        throw newPartlyBuiltException(savedStamp, newStamp, index);
+                        return failedFutureVoid(newPartlyBuiltException(savedStamp, newStamp, index));
                     }
                     if (areSimilar(newStamp, savedStamp)) {
                         // Similar stamps, replace it
@@ -404,7 +404,7 @@ public abstract class IndexingBase {
                                 throwUnlessNoRecordWasScanned(noRecordScanned, store, index, newStamp, savedStamp));
                     }
                     // fall down to exception
-                    throw newPartlyBuiltException(savedStamp, newStamp, index);
+                    return failedFutureVoid(newPartlyBuiltException(savedStamp, newStamp, index));
                 });
     }
 
@@ -423,6 +423,12 @@ public abstract class IndexingBase {
                 .setBlockID("")
                 .setBlockExpireEpochMilliSeconds(0)
                 .build();
+    }
+
+    private CompletableFuture<Void> failedFutureVoid(Throwable ex) {
+        CompletableFuture<Void> failedFuture = new CompletableFuture<>();
+        failedFuture.completeExceptionally(ex);
+        return failedFuture;
     }
 
     @Nonnull
@@ -448,7 +454,7 @@ public abstract class IndexingBase {
                     .toString());
         }
         final IndexBuildProto.IndexBuildIndexingStamp fakeSavedStamp = IndexingMultiTargetByRecords.compileSingleTargetLegacyIndexingTypeStamp();
-        throw newPartlyBuiltException(fakeSavedStamp, indexingTypeStamp, index);
+        return failedFutureVoid(newPartlyBuiltException(fakeSavedStamp, indexingTypeStamp, index));
     }
 
     @Nonnull
@@ -464,7 +470,7 @@ public abstract class IndexingBase {
             return AsyncUtil.DONE;
         }
         // A force overwrite cannot be allowed when partly built
-        throw newPartlyBuiltException(savedStamp, indexingTypeStamp, index);
+        return failedFutureVoid(newPartlyBuiltException(savedStamp, indexingTypeStamp, index));
     }
 
     @Nonnull
@@ -990,7 +996,7 @@ public abstract class IndexingBase {
             IndexingRangeSet rangeSet = IndexingRangeSet.forIndexBuild(store, index);
             return rangeSet.insertRangeAsync(null, null);
         }))
-                .thenCompose(vignore -> setIndexingTypeOrThrow(store, false))
+                .thenCompose(vignore -> checkAndSetIndexingType(store, false))
                 .thenCompose(vignore -> rebuildIndexInternalAsync(store))
                 .whenComplete((ignore, ignoreEx) ->  clearHeartbeats(store));
     }
