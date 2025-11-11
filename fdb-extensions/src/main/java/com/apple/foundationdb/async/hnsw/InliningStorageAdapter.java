@@ -103,7 +103,12 @@ class InliningStorageAdapter extends AbstractStorageAdapter<NodeReferenceWithVec
 
         return AsyncUtil.collect(readTransaction.getRange(Range.startsWith(rangeKey),
                         ReadTransaction.ROW_LIMIT_UNLIMITED, false, StreamingMode.WANT_ALL), readTransaction.getExecutor())
-                .thenApply(keyValues -> nodeFromRaw(storageTransform, layer, primaryKey, keyValues));
+                .thenApply(keyValues -> {
+                    if (keyValues.isEmpty()) {
+                        return null;
+                    }
+                    return nodeFromRaw(storageTransform, layer, primaryKey, keyValues);
+                });
     }
 
     /**

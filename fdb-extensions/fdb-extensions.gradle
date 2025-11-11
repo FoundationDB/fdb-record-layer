@@ -44,21 +44,44 @@ dependencies {
     testFixturesAnnotationProcessor(libs.autoService)
 }
 
-def siftSmallFile = layout.buildDirectory.file('downloads/siftsmall.tar.gz')
-def extractDir = layout.buildDirectory.dir("extracted")
+// Describe all files here
+def siftDownloads = [
+        siftsmall: [
+                url : 'https://huggingface.co/datasets/vecdata/siftsmall/resolve/3106e1b83049c44713b1ce06942d0ab474bbdfb6/siftsmall.tar.gz',
+                dest: layout.buildDirectory.file("downloads/siftsmall.tar.gz")
+        ],
+        sift1mbase: [
+                url : 'https://huggingface.co/datasets/qbo-odp/sift1m/resolve/main/sift_base.fvecs',
+                dest: layout.buildDirectory.file("downloads/sift_base.fvecs")
+        ],
+        sift1mgroundtruth: [
+                url : 'https://huggingface.co/datasets/qbo-odp/sift1m/resolve/main/sift_groundtruth.ivecs',
+                dest: layout.buildDirectory.file("downloads/sift_groundtruth.ivecs")
+        ],
+        sift1mquery: [
+                url : 'https://huggingface.co/datasets/qbo-odp/sift1m/resolve/main/sift_query.fvecs',
+                dest: layout.buildDirectory.file("downloads/sift_query.fvecs")
+        ],
+]
 
-// Task that downloads the CSV exactly once unless it changed
-tasks.register('downloadSiftSmall', de.undercouch.gradle.tasks.download.Download) {
-    src 'https://huggingface.co/datasets/vecdata/siftsmall/resolve/3106e1b83049c44713b1ce06942d0ab474bbdfb6/siftsmall.tar.gz'
-    dest siftSmallFile.get().asFile
-    onlyIfModified true
-    tempAndMove true
-    retries 3
+// Register one Download task per entry
+def downloadTasks = siftDownloads.collect { name, cfg ->
+    tasks.register("download${name.capitalize()}", Download) {
+        src cfg.url
+        dest cfg.dest.get().asFile
+        onlyIfModified true
+        tempAndMove true
+        retries 3
+        overwrite false
+        outputs.file(dest)
+    }
 }
 
+def extractDir = layout.buildDirectory.dir("extracted")
+
 tasks.register('extractSiftSmall', Copy) {
-    dependsOn 'downloadSiftSmall'
-    from(tarTree(resources.gzip(siftSmallFile)))
+    dependsOn downloadTasks
+    from(tarTree(resources.gzip(siftDownloads.siftsmall.dest)))
     into extractDir
 
     doLast {
@@ -72,6 +95,7 @@ tasks.register('extractSiftSmall', Copy) {
 }
 
 test {
+    dependsOn downloadTasks
     dependsOn tasks.named('extractSiftSmall')
     inputs.dir extractDir
 }
