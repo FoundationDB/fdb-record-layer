@@ -43,6 +43,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.Executor;
@@ -401,6 +402,13 @@ public class ThrottledRetryingIterator<T> implements AutoCloseable {
                                          CursorFactory<T> cursorCreator,
                                          ItemHandler<T> singleItemHandler) {
         return new Builder<>(database, FDBRecordContextConfig.newBuilder(), cursorCreator, singleItemHandler);
+    }
+
+    public static <T> Builder<T> builder(FDBDatabase database,
+                                         CursorFactory<T> cursorCreator,
+                                         @Nullable Map<String, String> mdcContext,
+                                         ItemHandler<T> singleItemHandler) {
+        return new Builder<>(database, FDBRecordContextConfig.newBuilder().setMdcContext(mdcContext), cursorCreator, singleItemHandler);
     }
 
     /**
