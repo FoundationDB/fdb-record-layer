@@ -735,7 +735,6 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
     @MethodSource("mdcParams")
     void testMdcContextPropagation(String mdcValue, int numRecords, int deletesPerTransaction, int expectedTransactions) throws Exception {
         String mdcKey = "mdckey";
-        final AtomicInteger transactionCount = new AtomicInteger(0);
         final Map<String, String> original = MDC.getCopyOfContextMap();
 
         try {
@@ -744,6 +743,7 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
                 MDC.clear();
                 MDC.put(mdcKey, mdcValue);
             }
+            final AtomicInteger transactionCount = new AtomicInteger(0);
             final Consumer<ThrottledRetryingIterator.QuotaManager> transactionStart =
                     quotaManager -> transactionCount.incrementAndGet();
             final ItemHandler<Integer> itemHandler = (store, item, quotaManager) -> {
@@ -761,7 +761,8 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
 
             Map<String, String> mdcContext = (mdcValue == null) ? null : MDC.getCopyOfContextMap();
             ThrottledRetryingIterator.Builder<Integer> builder =
-                    ThrottledRetryingIterator.builder(fdb, intCursor(numRecords, null), mdcContext, itemHandler);
+                    ThrottledRetryingIterator.builder(fdb, intCursor(numRecords, null), itemHandler)
+                            .withMdcContext(mdcContext);
 
             builder.withMaxRecordsDeletesPerTransaction(deletesPerTransaction)
                     .withTransactionInitNotification(transactionStart);
