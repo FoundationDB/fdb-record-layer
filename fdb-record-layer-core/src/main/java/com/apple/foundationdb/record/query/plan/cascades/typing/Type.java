@@ -1793,12 +1793,20 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
         @Nonnull
         @Override
         public Enum withNullability(final boolean newIsNullable) {
+            if (newIsNullable == isNullable()) {
+                return this;
+            }
             return new Enum(newIsNullable, enumValues, name, storageName);
         }
 
         @Nullable
         public String getName() {
             return name;
+        }
+
+        @Nullable
+        public String getStorageName() {
+            return storageName;
         }
 
         @Override

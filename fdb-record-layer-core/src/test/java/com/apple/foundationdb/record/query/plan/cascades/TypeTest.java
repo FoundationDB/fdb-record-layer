@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
-import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TestRecords2Proto;
@@ -29,16 +28,21 @@ import com.apple.foundationdb.record.TestRecords4Proto;
 import com.apple.foundationdb.record.TestRecords4WrapperProto;
 import com.apple.foundationdb.record.TestRecordsUuidProto;
 import com.apple.foundationdb.record.TupleFieldsProto;
+import com.apple.foundationdb.record.planprotos.PType;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
-import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
 import com.apple.foundationdb.record.util.RandomUtil;
+import com.apple.foundationdb.record.util.pair.Pair;
+import com.google.common.base.VerifyException;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Streams;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
+import org.assertj.core.api.AutoCloseableSoftAssertions;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtensionContext;
@@ -46,6 +50,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.ArgumentsProvider;
 import org.junit.jupiter.params.provider.ArgumentsSource;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -61,7 +66,10 @@ import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Tests for synthesizing a protobuf descriptor from a {@link Type} object and lifting a Java object type into an
@@ -231,14 +239,13 @@ class TypeTest {
             return Stream.of(
 
                     // Typed objects
-                    Arguments.of(LiteralValue.ofScalar(false), LiteralValue.ofScalar(false).getResultType()),
-                    Arguments.of(LiteralValue.ofScalar(42), LiteralValue.ofScalar(42).getResultType()),
-                    Arguments.of(LiteralValue.ofScalar(42.1d), LiteralValue.ofScalar(42.1d).getResultType()),
-                    Arguments.of(LiteralValue.ofScalar(42.2f), LiteralValue.ofScalar(42.2f).getResultType()),
-                    Arguments.of(LiteralValue.ofScalar(43L), LiteralValue.ofScalar(43L).getResultType()),
-                    Arguments.of(LiteralValue.ofScalar("foo"), LiteralValue.ofScalar("foo").getResultType()),
-                    Arguments.of(LiteralValue.ofScalar(ByteString.copyFrom("bar", Charset.defaultCharset().name())),
-                            LiteralValue.ofScalar(ByteString.copyFrom("bar", Charset.defaultCharset().name())).getResultType()),
+                    Arguments.of(LiteralValue.ofScalar(false), Type.primitiveType(Type.TypeCode.BOOLEAN, false)),
+                    Arguments.of(LiteralValue.ofScalar(42), Type.primitiveType(Type.TypeCode.INT, false)),
+                    Arguments.of(LiteralValue.ofScalar(42.1d), Type.primitiveType(Type.TypeCode.DOUBLE, false)),
+                    Arguments.of(LiteralValue.ofScalar(42.2f), Type.primitiveType(Type.TypeCode.FLOAT, false)),
+                    Arguments.of(LiteralValue.ofScalar(43L), Type.primitiveType(Type.TypeCode.LONG, false)),
+                    Arguments.of(LiteralValue.ofScalar("foo"), Type.primitiveType(Type.TypeCode.STRING, false)),
+                    Arguments.of(LiteralValue.ofScalar(ByteString.copyFrom("bar", Charset.defaultCharset().name())), Type.primitiveType(Type.TypeCode.BYTES, false)),
 
 
                     // Primitives
@@ -297,14 +304,365 @@ class TypeTest {
     @ParameterizedTest(name = "[{index} Java object {0}, Expected type {1}]")
     @ArgumentsSource(TypesProvider.class)
     void testTypeLifting(@Nullable final Object object, @Nonnull final Type expectedType) {
-        Assertions.assertEquals(expectedType, Type.fromObject(object));
+        final Type typeFromObject = Type.fromObject(object);
+        Assertions.assertEquals(expectedType, typeFromObject);
+    }
+
+    @Nonnull
+    static Stream<Type.Enum> enumTypes() {
+        return Stream.of(
+                Type.Enum.fromValues(false, List.of(Type.Enum.EnumValue.from("A", 0), Type.Enum.EnumValue.from("B", 1), Type.Enum.EnumValue.from("C", 2))),
+                Type.Enum.fromValues(false, List.of(Type.Enum.EnumValue.from("A", 0), Type.Enum.EnumValue.from("B", 1), Type.Enum.EnumValue.from("C", 3))),
+                Type.Enum.fromValues(false, List.of(Type.Enum.EnumValue.from("A", 0), Type.Enum.EnumValue.from("B", 1), Type.Enum.EnumValue.from("D", 2))),
+                Type.Enum.fromValues(false, List.of(Type.Enum.EnumValue.from("A..", 0), Type.Enum.EnumValue.from("B__", 1), Type.Enum.EnumValue.from("__C$", 2)))
+        );
+    }
+
+    @Nonnull
+    static Stream<Type.Record> recordTypes() {
+        return Stream.of(
+                Type.Record.fromFields(List.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.empty()))),
+                Type.Record.fromFields(List.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("a")))),
+                Type.Record.fromFields(List.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("b")))),
+                Type.Record.fromFields(List.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("a")))),
+                Type.Record.fromFields(List.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("b")))),
+                Type.Record.fromFields(List.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.empty(), Optional.of(1)))),
+                Type.Record.fromFields(List.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("a"), Optional.of(2)))),
+                Type.Record.fromFields(List.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("b"), Optional.of(2)))),
+                Type.Record.fromFields(List.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("a.b"), Optional.of(2)))),
+                Type.Record.fromFields(List.of(
+                        Type.Record.Field.of(Type.Record.fromFields(List.of(
+                                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING, true), Optional.of("b"), Optional.of(2)))
+                        ), Optional.of("a"), Optional.of(1)))),
+                Type.Record.fromFields(List.of(
+                        Type.Record.Field.of(Type.Record.fromFields(List.of(
+                                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING, false), Optional.of("b"), Optional.of(2)))
+                        ), Optional.of("a"), Optional.of(1)))),
+                Type.Record.fromFields(List.of(
+                        Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("a"), Optional.of(1)),
+                        Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("b"), Optional.of(3)))),
+                Type.Record.fromFields(List.of(
+                        Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG, false), Optional.of("a"), Optional.of(1)),
+                        Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("b"), Optional.of(3)))),
+                Type.Record.fromFields(List.of(
+                        Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("a"), Optional.of(1)),
+                        Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING, false), Optional.of("b"), Optional.of(3)))),
+                Type.Record.fromFields(List.of(
+                        Type.Record.Field.of(new Type.Array(false, Type.primitiveType(Type.TypeCode.LONG, false)), Optional.of("a"), Optional.of(1)),
+                        Type.Record.Field.of(new Type.Array(false, Type.primitiveType(Type.TypeCode.STRING, false)), Optional.of("b"), Optional.of(3)))),
+                Type.Record.fromFields(List.of(
+                        Type.Record.Field.of(new Type.Array(true, Type.primitiveType(Type.TypeCode.LONG, false)), Optional.of("a"), Optional.of(1)),
+                        Type.Record.Field.of(new Type.Array(false, Type.primitiveType(Type.TypeCode.STRING, false)), Optional.of("b"), Optional.of(3)))),
+                Type.Record.fromFields(List.of(
+                        Type.Record.Field.of(new Type.Array(true, Type.primitiveType(Type.TypeCode.LONG, false)), Optional.of("a"), Optional.of(1)),
+                        Type.Record.Field.of(new Type.Array(true, Type.primitiveType(Type.TypeCode.STRING, false)), Optional.of("b"), Optional.of(3)))),
+                Type.Record.fromFields(List.of(
+                        Type.Record.Field.of(new Type.Array(false, Type.primitiveType(Type.TypeCode.LONG, true)), Optional.of("a"), Optional.of(1)),
+                        Type.Record.Field.of(new Type.Array(false, Type.primitiveType(Type.TypeCode.STRING, false)), Optional.of("b"), Optional.of(3)))),
+                Type.Record.fromFields(List.of(
+                        Type.Record.Field.of(new Type.Array(false, Type.primitiveType(Type.TypeCode.LONG, true)), Optional.of("a"), Optional.of(1)),
+                        Type.Record.Field.of(new Type.Array(false, Type.primitiveType(Type.TypeCode.STRING, true)), Optional.of("b"), Optional.of(3)))),
+                Type.Record.fromFields(List.of(
+                        Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("a"), Optional.of(1)),
+                        Type.Record.Field.of(Type.Enum.fromValues(false, List.of(Type.Enum.EnumValue.from("A", 0), Type.Enum.EnumValue.from("B", 1))), Optional.of("b"), Optional.of(3))))
+        );
+    }
+
+    @Nonnull
+    static Stream<Type> types() {
+        Stream<Type> primitiveTypes = Stream.of(Type.TypeCode.values())
+                .filter(Type.TypeCode::isPrimitive)
+                .filter(code -> code != Type.TypeCode.VECTOR)
+                .map(Type::primitiveType);
+
+        Stream<Type> otherTypes = Stream.of(
+                new Type.AnyRecord(false),
+                Type.uuidType(false),
+                Type.Vector.of(false, 16, 500),
+                Type.Vector.of(false, 32, 500),
+                Type.Vector.of(false, 16, 1000),
+                Type.Vector.of(false, 32, 1000)
+        );
+
+        Stream<Type> nullableAndNonNullableTypes = Stream.concat(
+                Stream.of(Type.any(), Type.nullType(), Type.noneType()),
+                Streams.concat(primitiveTypes, otherTypes, enumTypes(), recordTypes()).flatMap(t -> Stream.of(t.withNullability(false), t.withNullability(true)))
+        );
+
+        return nullableAndNonNullableTypes
+                .flatMap(t -> Stream.of(t, new Type.Array(false, t), new Type.Array(true, t), new Type.Relation(t)));
+    }
+
+    @Nonnull
+    static Stream<Arguments> typesWithIndex() {
+        final List<Type> typeList = types().collect(Collectors.toList());
+        return IntStream.range(0, typeList.size())
+                .mapToObj(index -> Arguments.of(index, typeList.get(index)));
+    }
+
+    @ParameterizedTest(name = "[{index} serialization of {0}]")
+    @MethodSource("types")
+    void testSerialization(@Nonnull final Type type) {
+        PlanSerializationContext serializationContext = PlanSerializationContext.newForCurrentMode();
+        final PType typeProto = type.toTypeProto(serializationContext);
+
+        PlanSerializationContext deserializationContext = PlanSerializationContext.newForCurrentMode();
+        final Type recreatedType = Type.fromTypeProto(deserializationContext, typeProto);
+        Assertions.assertEquals(type, recreatedType);
+    }
+
+    @ParameterizedTest(name = "[{index} nullability of {0}]")
+    @MethodSource("types")
+    void testNullability(@Nonnull final Type type) {
+        if (type instanceof Type.None || type instanceof Type.Relation) {
+            // None and Relational are special and are always not nullable
+            Assertions.assertSame(type, type.notNullable());
+            Assertions.assertThrows(VerifyException.class, type::nullable);
+            return;
+        }
+
+        final Type nullableType = type.nullable();
+        if (type.isNullable()) {
+            Assertions.assertSame(nullableType, type);
+        } else {
+            Assertions.assertNotEquals(nullableType, type);
+        }
+
+        if (type instanceof Type.Any || type instanceof Type.Null) {
+            // These types do not have a not-nullable variation
+            Assertions.assertThrows(Throwable.class, type::notNullable);
+            return;
+        }
+
+        final Type notNullableType = type.notNullable();
+        if (type.isNullable()) {
+            Assertions.assertNotEquals(notNullableType, type);
+        } else {
+            Assertions.assertSame(notNullableType, type);
+        }
+
+        // Converting the type back and forth from nullable and not nullable should
+        // produce the original type
+        Assertions.assertTrue(nullableType.isNullable());
+        Assertions.assertFalse(notNullableType.isNullable());
+        Assertions.assertEquals(nullableType, notNullableType.nullable());
+        Assertions.assertEquals(notNullableType, nullableType.notNullable());
+    }
+
+    @ParameterizedTest(name = "pairwiseEquality[{index} {1}]")
+    @MethodSource("typesWithIndex")
+    void pairwiseEquality(int index, @Nonnull Type type) {
+        final List<Type> typeList = types().collect(Collectors.toList());
+        try (AutoCloseableSoftAssertions softly = new AutoCloseableSoftAssertions()) {
+            // Check this type for equality/inequality against items in the list. It should only be equal to the
+            // item at the same position.
+            // Note that we could have one test case for each pair of types, bun then we'd have thousands and
+            // thousands of tests added to the report, which clogs things up.
+            final PType typeProto = type.toTypeProto(PlanSerializationContext.newForCurrentMode());
+            for (int i = 0; i < typeList.size(); i++) {
+                final Type otherType = typeList.get(i);
+                final PType otherTypeProto = otherType.toTypeProto(PlanSerializationContext.newForCurrentMode());
+
+                if (i == index) {
+                    softly.assertThat(type)
+                            .isEqualTo(otherType)
+                            .hasSameHashCodeAs(otherType);
+                    softly.assertThat(typeProto)
+                            .isEqualTo(otherTypeProto);
+                } else {
+                    softly.assertThat(type)
+                            .isNotEqualTo(otherType);
+                    softly.assertThat(typeProto)
+                            .isNotEqualTo(otherTypeProto);
+                }
+            }
+        }
+    }
+
+    enum EnumForTesting {
+        ALPHA,
+        BRAVO,
+        __CHARLIE,
+        DELTA__1,
     }
 
     @Test
-    void testAnyRecordSerialization() {
-        PlanSerializationContext serializationContext = new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE,
-                PlanHashable.CURRENT_FOR_CONTINUATION);
-        Type.AnyRecord r1 = new Type.AnyRecord(false);
-        Assertions.assertEquals(r1, Type.AnyRecord.fromProto(serializationContext, r1.toProto(serializationContext)));
+    void createEnumFromJavaEnum() {
+        final Type.Enum fromJava = Type.Enum.forJavaEnum(EnumForTesting.class);
+        assertThat(fromJava)
+                .isEqualTo(Type.Enum.fromValues(false, List.of(
+                        // Java enum values assigned field positions starting with zero
+                        Type.Enum.EnumValue.from("ALPHA", 0),
+                        Type.Enum.EnumValue.from("BRAVO", 1),
+                        Type.Enum.EnumValue.from("__CHARLIE", 2),
+                        Type.Enum.EnumValue.from("DELTA__1", 3))));
+        assertThat(fromJava.getName())
+                .isNull();
+        assertThat(fromJava.getStorageName())
+                .isNull();
+        assertThat(fromJava.getEnumValues().stream().map(Type.Enum.EnumValue::getStorageName).collect(Collectors.toList()))
+                .containsExactly("ALPHA", "BRAVO", "__CHARLIE", "DELTA__01");
+    }
+
+    @Nonnull
+    static Stream<Arguments> enumTypesWithNames() {
+        return Stream.of(Pair.<String, String>of(null, null),
+                        Pair.of("myEnumType", "myEnumType"),
+                        Pair.of("__myEnumType", "__myEnumType"),
+                        Pair.of("__myEnum.Type", "__myEnum__2Type"),
+                        Pair.of("__myEnum$Type", "__myEnum__1Type"),
+                        Pair.of("__myEnum__Type", "__myEnum__0Type")
+                ).flatMap(namePair -> enumTypes().map(enumType -> {
+                    if (namePair.getLeft() == null) {
+                        return Arguments.of(enumType, namePair.getRight());
+                    } else {
+                        return Arguments.of(Type.Enum.fromValuesWithName(namePair.getLeft(), enumType.isNullable(), enumType.getEnumValues()), namePair.getRight());
+                    }
+                }));
+    }
+
+    @ParameterizedTest(name = "createEnumProtobuf[{0} storageName={1}]")
+    @MethodSource("enumTypesWithNames")
+    void createEnumProtobuf(@Nonnull Type.Enum enumType, @Nullable String expectedStorageName) {
+        final TypeRepository.Builder typeBuilder = TypeRepository.newBuilder();
+        enumType.defineProtoType(typeBuilder);
+        typeBuilder.build();
+        final TypeRepository repository = typeBuilder.build();
+
+        final String enumTypeName = repository.getProtoTypeName(enumType);
+        assertThat(repository.getEnumTypes())
+                .containsExactly(enumTypeName);
+        if (expectedStorageName == null) {
+            assertThat(enumType.getName())
+                    .isNull();
+            assertThat(enumType.getStorageName())
+                    .isNull();
+            assertThat(enumTypeName)
+                    .isNotNull();
+        } else {
+            assertThat(expectedStorageName)
+                    .isEqualTo(enumTypeName)
+                    .isEqualTo(enumType.getStorageName());
+        }
+        final Descriptors.EnumDescriptor enumDescriptor = repository.getEnumDescriptor(enumType);
+        assertThat(enumDescriptor)
+                .isNotNull()
+                .isSameAs(repository.getEnumDescriptor(enumTypeName));
+        assertThat(enumDescriptor.getName())
+                .isEqualTo(enumTypeName);
+
+        final Type.Enum fromProto = Type.Enum.fromValues(enumType.isNullable(), Type.Enum.enumValuesFromProto(enumDescriptor.getValues()));
+        assertThat(fromProto)
+                .isEqualTo(enumType);
+    }
+
+    @ParameterizedTest(name = "enumEqualsIgnoresName[{0}]")
+    @MethodSource("enumTypes")
+    void enumEqualsIgnoresName(@Nonnull Type.Enum enumType) {
+        final Type.Enum typeWithName1 = Type.Enum.fromValuesWithName("name_one", enumType.isNullable(), enumType.getEnumValues());
+        final Type.Enum typeWithName2 = Type.Enum.fromValuesWithName("name_two", enumType.isNullable(), enumType.getEnumValues());
+
+        assertThat(typeWithName1.getName())
+                .isNotEqualTo(typeWithName2.getName());
+        assertThat(typeWithName1)
+                .isEqualTo(typeWithName2)
+                .hasSameHashCodeAs(typeWithName2);
+    }
+
+    @Nonnull
+    static Stream<Arguments> recordTypesWithNames() {
+        return Stream.of(Pair.<String, String>of(null, null),
+                Pair.of("myEnumType", "myEnumType"),
+                Pair.of("__myEnumType", "__myEnumType"),
+                Pair.of("__myEnum.Type", "__myEnum__2Type"),
+                Pair.of("__myEnum$Type", "__myEnum__1Type"),
+                Pair.of("__myEnum__Type", "__myEnum__0Type")
+        ).flatMap(namePair -> recordTypes().map(recordType -> {
+            if (namePair.getLeft() == null) {
+                return Arguments.of(recordType, namePair.getRight());
+            } else {
+                return Arguments.of(recordType.withName(namePair.getLeft()), namePair.getRight());
+            }
+        }));
+    }
+
+    @ParameterizedTest(name = "createRecordProtobuf[{0} storageName={1}]")
+    @MethodSource("recordTypesWithNames")
+    void createRecordProtobuf(@Nonnull Type.Record recordType, @Nullable String expectedStorageName) {
+        final TypeRepository.Builder typeBuilder = TypeRepository.newBuilder();
+        recordType.defineProtoType(typeBuilder);
+        typeBuilder.build();
+        final TypeRepository repository = typeBuilder.build();
+
+        final String recordTypeName = repository.getProtoTypeName(recordType);
+        assertThat(repository.getMessageTypes())
+                .contains(recordTypeName);
+        if (expectedStorageName == null) {
+            assertThat(recordType.getName())
+                    .isNull();
+            assertThat(recordType.getStorageName())
+                    .isNull();
+            assertThat(recordTypeName)
+                    .isNotNull();
+        } else {
+            assertThat(recordTypeName)
+                    .isEqualTo(expectedStorageName)
+                    .isEqualTo(recordType.getStorageName());
+        }
+        final Descriptors.Descriptor messageDescriptor = repository.getMessageDescriptor(recordType);
+        assertThat(messageDescriptor)
+                .isNotNull()
+                .isSameAs(repository.getMessageDescriptor(recordTypeName));
+        assertThat(messageDescriptor.getName())
+                .isEqualTo(recordTypeName);
+
+        final Type.Record fromDescriptor = Type.Record.fromDescriptor(messageDescriptor).withNullability(recordType.isNullable());
+        assertThat(fromDescriptor.getName())
+                .as("storage name of record not included in type from message descriptor")
+                .isNull();
+        assertThat(fromDescriptor)
+                .isEqualTo(adjustFieldsForDescriptorParsing(recordType));
+    }
+
+    @Nonnull
+    private Type.Record adjustFieldsForDescriptorParsing(@Nonnull Type.Record record) {
+        // There are a number of changes that happen to a type when we create a protobuf descriptor for it that
+        // fail to round trip. These may be bugs, but we can at least assert that everything except for these
+        // components are preserved
+        final ImmutableList.Builder<Type.Record.Field> newFields = ImmutableList.builderWithExpectedSize(record.getFields().size());
+        for (Type.Record.Field field : record.getFields()) {
+            Type fieldType = field.getFieldType();
+            if (fieldType instanceof Type.Array) {
+                // Array types retain their nullability as there are separate. However, they make their own element types not nullable
+                Type elementType = ((Type.Array)fieldType).getElementType();
+                if (elementType instanceof Type.Record) {
+                    elementType = adjustFieldsForDescriptorParsing((Type.Record) elementType);
+                }
+                elementType = elementType.withNullability(false);
+                fieldType = new Type.Array(fieldType.isNullable(), elementType);
+            } else if (fieldType instanceof Type.Record) {
+                // We need to recursively apply operations to record field types
+                fieldType = adjustFieldsForDescriptorParsing((Type.Record) fieldType).withNullability(true);
+            } else {
+                // By default, the field is nullable. This is because the generated descriptor uses
+                // LABEL_OPTIONAL on each type, so we make the field nullable
+                fieldType = fieldType.withNullability(true);
+            }
+            newFields.add(Type.Record.Field.of(fieldType, field.getFieldNameOptional(), field.getFieldIndexOptional()));
+        }
+        return Type.Record.fromFields(record.isNullable(), newFields.build());
+    }
+
+    @ParameterizedTest(name = "recordEqualsIgnoresName[{0}]")
+    @MethodSource("recordTypes")
+    void recordEqualsIgnoresName(@Nonnull Type.Record recordType) {
+        final Type.Record typeWithName1 = recordType.withName("name_one");
+        final Type.Record typeWithName2 = recordType.withName("name_two");
+
+        assertThat(typeWithName1.getName())
+                .isNotEqualTo(typeWithName2.getName());
+        assertThat(typeWithName1)
+                .isEqualTo(typeWithName2)
+                .hasSameHashCodeAs(typeWithName2);
     }
 }

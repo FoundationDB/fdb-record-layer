@@ -80,11 +80,7 @@ public class RecordLayerColumn implements Column {
 
     @Override
     public String toString() {
-        return "RecordLayerColumn{" +
-                "name='" + name + '\'' +
-                ", dataType=" + dataType +
-                ", index=" + index +
-                '}';
+        return name + ": " + dataType + " = " + index;
     }
 
     public static final class Builder {
