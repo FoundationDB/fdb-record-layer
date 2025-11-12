@@ -148,6 +148,15 @@ public class StructDataMetadataTest {
     }
 
     @Test
+    void canReadProjectedStructTypeNameDirectlyProjected() throws Exception {
+        try (final RelationalResultSet resultSet = statement.executeQuery("SELECT ST1 FROM T")) {
+            Assertions.assertTrue(resultSet.next(), "Did not find a record!");
+            RelationalStruct struct = resultSet.getStruct("ST1");
+            Assertions.assertEquals("STRUCT_1", struct.getMetaData().getTypeName());
+        }
+    }
+
+    @Test
     void errorAccessingNonExistentColumn() throws Exception {
         try (final RelationalResultSet resultSet = statement.executeGet("T", new KeySet().setKeyColumn("NAME", "test_record_1"), Options.NONE)) {
             Assertions.assertTrue(resultSet.next(), "Did not find a record!");
