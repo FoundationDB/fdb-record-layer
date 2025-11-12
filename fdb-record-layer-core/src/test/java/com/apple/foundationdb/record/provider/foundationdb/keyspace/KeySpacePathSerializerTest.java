@@ -31,7 +31,12 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nullable;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -44,6 +49,23 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  * Tests for {@link KeySpacePathSerializer}.
  */
 class KeySpacePathSerializerTest {
+
+    private static final UUID TEST_UUID = UUID.randomUUID();
+    private static final Map<KeyType, Object> KEY_TYPE_TEST_VALUES;
+
+    static {
+        // Using HashMap to allow null values (Map.of() doesn't allow nulls)
+        Map<KeyType, Object> testValues = new HashMap<>();
+        testValues.put(KeyType.NULL, null);
+        testValues.put(KeyType.STRING, "test_string");
+        testValues.put(KeyType.LONG, 12345L);
+        testValues.put(KeyType.FLOAT, 3.14f);
+        testValues.put(KeyType.DOUBLE, 2.71828);
+        testValues.put(KeyType.BOOLEAN, true);
+        testValues.put(KeyType.BYTES, new byte[]{1, 2, 3, (byte) 0xFF});
+        testValues.put(KeyType.UUID, TEST_UUID);
+        KEY_TYPE_TEST_VALUES = Collections.unmodifiableMap(testValues);
+    }
 
     @Test
     void testSerializeAndDeserializeSimplePath() {
@@ -118,8 +140,21 @@ class KeySpacePathSerializerTest {
         assertArrayEquals(value, deserialized.getValue());
     }
 
+    private static Stream<Arguments> testSerializeDeserializeAllKeyTypes() {
+        return KEY_TYPE_TEST_VALUES.entrySet().stream()
+                .map(entry -> Arguments.of(entry.getKey(), entry.getValue()));
+    }
+
+    @Test
+    void testKeyTypeTestValuesIncludesAllKeyTypes() {
+        // Verify that KEY_TYPE_TEST_VALUES contains all KeyType enum values
+        var allKeyTypes = Arrays.stream(KeyType.values()).collect(Collectors.toSet());
+        var coveredKeyTypes = KEY_TYPE_TEST_VALUES.keySet();
+        assertEquals(allKeyTypes, coveredKeyTypes);
+    }
+
     @ParameterizedTest
-    @MethodSource("provideKeyTypes")
+    @MethodSource
     void testSerializeDeserializeAllKeyTypes(KeyType keyType, Object value) {
         KeySpace root = new KeySpace(
                 new KeySpaceDirectory("root", KeyType.STRING, "root")
@@ -142,21 +177,6 @@ class KeySpacePathSerializerTest {
             assertEquals(value, deserialized.getPath().getValue());
         }
         assertArrayEquals(dataValue, deserialized.getValue());
-    }
-
-    private static Stream<Arguments> provideKeyTypes() {
-        UUID testUuid = UUID.randomUUID();
-        return Stream.of(
-                Arguments.of(KeyType.NULL, null),
-                Arguments.of(KeyType.STRING, "test_string"),
-                Arguments.of(KeyType.LONG, 12345L),
-                Arguments.of(KeyType.FLOAT, 3.14f),
-                Arguments.of(KeyType.DOUBLE, 2.71828),
-                Arguments.of(KeyType.BOOLEAN, true),
-                Arguments.of(KeyType.BOOLEAN, false),
-                Arguments.of(KeyType.BYTES, new byte[]{1, 2, 3, (byte) 0xFF}),
-                Arguments.of(KeyType.UUID, testUuid)
-        );
     }
 
     @Test
