@@ -102,7 +102,8 @@ public abstract class RecordRepair implements AutoCloseable {
         this.storeBuilder = config.getStoreBuilder();
         this.validationKind = config.getValidationKind();
         ThrottledRetryingIterator.Builder<Tuple> iteratorBuilder =
-                ThrottledRetryingIterator.builder(database, cursorFactory(), MDC.getCopyOfContextMap(), this::handleOneItem);
+                ThrottledRetryingIterator.builder(database, cursorFactory(), this::handleOneItem)
+                        .withMdcContext(MDC.getCopyOfContextMap());
         throttledIterator = configureThrottlingIterator(iteratorBuilder, config).build();
     }
 
