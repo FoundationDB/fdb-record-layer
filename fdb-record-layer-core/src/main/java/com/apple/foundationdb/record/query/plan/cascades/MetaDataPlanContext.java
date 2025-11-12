@@ -31,7 +31,6 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexMatchCandidateRe
 import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 
