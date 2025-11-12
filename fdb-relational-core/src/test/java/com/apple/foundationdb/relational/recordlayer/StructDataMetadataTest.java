@@ -126,6 +126,28 @@ public class StructDataMetadataTest {
     }
 
     @Test
+    void canReadProjectedStructTypeNameInNestedStar() throws Exception {
+        try (final RelationalResultSet resultSet = statement.executeQuery("SELECT (*) FROM T")) {
+            Assertions.assertTrue(resultSet.next(), "Did not find a record!");
+            RelationalStruct struct = resultSet.getStruct(1).getStruct("ST1");
+            Assertions.assertEquals("STRUCT_1", struct.getMetaData().getTypeName());
+        }
+    }
+
+    // When projecting *, the underlying struct types are lost and replaced with a generic UUID type.
+    // This test should be replaced with the correct expected behavior once this is fixed.
+    // When projecting (*), everything works as expected, see `canReadProjectedStructTypeNameInNestedStar`.
+    // See https://github.com/FoundationDB/fdb-record-layer/issues/3743
+    @Test
+    void cannotReadProjectedStructTypeNameInUnnestedStar() throws Exception {
+        try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM T")) {
+            Assertions.assertTrue(resultSet.next(), "Did not find a record!");
+            RelationalStruct struct = resultSet.getStruct("ST1");
+            Assertions.assertNotEquals("STRUCT_1", struct.getMetaData().getTypeName());
+        }
+    }
+
+    @Test
     void errorAccessingNonExistentColumn() throws Exception {
         try (final RelationalResultSet resultSet = statement.executeGet("T", new KeySet().setKeyColumn("NAME", "test_record_1"), Options.NONE)) {
             Assertions.assertTrue(resultSet.next(), "Did not find a record!");
