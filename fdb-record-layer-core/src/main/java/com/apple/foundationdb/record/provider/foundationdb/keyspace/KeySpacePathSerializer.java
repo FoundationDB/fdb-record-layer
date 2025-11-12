@@ -55,13 +55,13 @@ public class KeySpacePathSerializer {
 
     @Nonnull
     public ByteString serialize(@Nonnull DataInKeySpacePath data) {
-        KeySpaceProto.DataInKeySpacePath.Builder builder = KeySpaceProto.DataInKeySpacePath.newBuilder();
         final List<KeySpacePath> dataPath = data.getPath().flatten();
         // two paths are only equal if their parents are equal, so we don't have to validate the whole prefix here
         if (dataPath.size() < root.size() ||
                 !dataPath.get(root.size() - 1).equals(root.get(root.size() - 1))) {
             throw new RecordCoreArgumentException("Data is not contained within root path");
         }
+        KeySpaceProto.DataInKeySpacePath.Builder builder = KeySpaceProto.DataInKeySpacePath.newBuilder();
         for (int i = root.size(); i < dataPath.size(); i++) {
             final KeySpacePath keySpacePath = dataPath.get(i);
             builder.addPath(serialize(keySpacePath));
@@ -138,8 +138,6 @@ public class KeySpacePathSerializer {
 
     @Nonnull
     private static KeySpaceProto.KeySpacePathEntry serialize(@Nonnull final KeySpacePath keySpacePath) {
-        KeySpaceProto.KeySpacePathEntry.Builder builder = KeySpaceProto.KeySpacePathEntry.newBuilder()
-                .setName(keySpacePath.getDirectoryName());
         final Object value = keySpacePath.getValue();
         final KeySpaceDirectory.KeyType keyType = keySpacePath.getDirectory().getKeyType();
 
@@ -158,6 +156,8 @@ public class KeySpacePathSerializer {
             }
         }
 
+        KeySpaceProto.KeySpacePathEntry.Builder builder = KeySpaceProto.KeySpacePathEntry.newBuilder()
+                .setName(keySpacePath.getDirectoryName());
         try {
             switch (keyType) {
                 case NULL:

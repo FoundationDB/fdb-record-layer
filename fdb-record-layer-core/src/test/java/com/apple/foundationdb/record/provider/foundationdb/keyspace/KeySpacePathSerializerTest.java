@@ -140,17 +140,17 @@ class KeySpacePathSerializerTest {
         assertArrayEquals(value, deserialized.getValue());
     }
 
-    private static Stream<Arguments> testSerializeDeserializeAllKeyTypes() {
-        return KEY_TYPE_TEST_VALUES.entrySet().stream()
-                .map(entry -> Arguments.of(entry.getKey(), entry.getValue()));
-    }
-
     @Test
     void testKeyTypeTestValuesIncludesAllKeyTypes() {
         // Verify that KEY_TYPE_TEST_VALUES contains all KeyType enum values
         var allKeyTypes = Arrays.stream(KeyType.values()).collect(Collectors.toSet());
         var coveredKeyTypes = KEY_TYPE_TEST_VALUES.keySet();
         assertEquals(allKeyTypes, coveredKeyTypes);
+    }
+
+    static Stream<Arguments> testSerializeDeserializeAllKeyTypes() {
+        return KEY_TYPE_TEST_VALUES.entrySet().stream()
+                .map(entry -> Arguments.of(entry.getKey(), entry.getValue()));
     }
 
     @ParameterizedTest
