@@ -24,11 +24,13 @@ import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory.KeyType;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.ByteString;
+import org.junit.jupiter.api.Named;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import javax.annotation.Nullable;
 import java.util.UUID;
 import java.util.stream.Stream;
 
@@ -292,34 +294,39 @@ class KeySpacePathSerializerTest {
         assertNull(deserialized.getPath().getValue());
     }
 
-    @Test
-    void testSerializeNullKeyTypeWithNonNullValue() {
-        KeySpace root = new KeySpace(
-                new KeySpaceDirectory("root", KeyType.STRING, "root")
-                        .addSubdirectory(new KeySpaceDirectory("null_dir", KeyType.NULL)));
-
-        KeySpacePath rootPath = root.path("root");
-        // Manually create a path with incorrect value for NULL type
-        KeySpacePath fullPath = rootPath.add("null_dir", "should_be_null");
-        byte[] value = new byte[]{1};
-
-        DataInKeySpacePath data = new DataInKeySpacePath(fullPath, null, value);
-
-        KeySpacePathSerializer serializer = new KeySpacePathSerializer(rootPath);
-
-        assertThrows(RecordCoreArgumentException.class, () -> serializer.serialize(data));
+    static Stream<Arguments> testSerializeDeserializeDifferentRoot() {
+        return Stream.of(
+                Arguments.of(Named.of("Same", new KeySpaceDirectory("tenant", KeyType.STRING)
+                        .addSubdirectory(new KeySpaceDirectory("record", KeyType.LONG))),
+                        Named.of("successful", null)),
+                Arguments.of(Named.of("Different constant",
+                        new KeySpaceDirectory("tenant", KeyType.STRING)
+                                .addSubdirectory(new KeySpaceDirectory("record", KeyType.LONG, 104L))),
+                        RecordCoreArgumentException.class),
+                Arguments.of(Named.of("Different type",
+                                new KeySpaceDirectory("tenant", KeyType.STRING)
+                                        .addSubdirectory(new KeySpaceDirectory("record", KeyType.STRING))),
+                        RecordCoreArgumentException.class),
+                Arguments.of(Named.of("Null type",
+                                new KeySpaceDirectory("tenant", KeyType.STRING)
+                                        .addSubdirectory(new KeySpaceDirectory("record", KeyType.NULL))),
+                        RecordCoreArgumentException.class),
+                Arguments.of(Named.of("Different name",
+                                new KeySpaceDirectory("tenant", KeyType.STRING)
+                                        .addSubdirectory(new KeySpaceDirectory("compact disc", KeyType.STRING))),
+                        NoSuchDirectoryException.class));
     }
 
-    @Test
-    void testSerializeDeserializeDifferentRootSameSubHierarchy() {
-        // Create a KeySpace with two identical sub-hierarchies under different roots
+    @ParameterizedTest
+    @MethodSource
+    void testSerializeDeserializeDifferentRoot(KeySpaceDirectory destDirectory,
+                                               @Nullable Class<? extends Exception> errorType) {
         KeySpace keySpace = new KeySpace(
                 new KeySpaceDirectory("source_app", KeyType.STRING, "app1")
                         .addSubdirectory(new KeySpaceDirectory("tenant", KeyType.STRING)
                                 .addSubdirectory(new KeySpaceDirectory("record", KeyType.LONG))),
                 new KeySpaceDirectory("dest_app", KeyType.STRING, "app2")
-                        .addSubdirectory(new KeySpaceDirectory("tenant", KeyType.STRING)
-                                .addSubdirectory(new KeySpaceDirectory("record", KeyType.LONG))));
+                        .addSubdirectory(destDirectory));
 
         // Create data in source hierarchy
         KeySpacePath sourcePath = keySpace.path("source_app")
@@ -330,17 +337,21 @@ class KeySpacePathSerializerTest {
 
         // Serialize from source
         KeySpacePathSerializer sourceSerializer = new KeySpacePathSerializer(keySpace.path("source_app"));
-        ByteString serialized = sourceSerializer.serialize(sourceData);
+        ByteString serialized1 = sourceSerializer.serialize(sourceData);
 
         // Deserialize to destination
-        KeySpacePathSerializer destSerializer = new KeySpacePathSerializer(keySpace.path("dest_app"));
-        DataInKeySpacePath deserializedData = destSerializer.deserialize(serialized);
+        KeySpacePathSerializer destSerializer1 = new KeySpacePathSerializer(keySpace.path("dest_app"));
 
-        // Verify the logical path values are preserved (but root is different)
-        assertEquals("dest_app", deserializedData.getPath().getParent().getParent().getDirectoryName());
-        assertEquals("tenant1", deserializedData.getPath().getParent().getValue());
-        assertEquals(42L, deserializedData.getPath().getValue());
-        assertArrayEquals(value, deserializedData.getValue());
+        if (errorType == null) {
+            DataInKeySpacePath deserializedData = destSerializer1.deserialize(serialized1);
+
+            assertEquals("dest_app", deserializedData.getPath().getParent().getParent().getDirectoryName());
+            assertEquals("tenant1", deserializedData.getPath().getParent().getValue());
+            assertEquals(42L, deserializedData.getPath().getValue());
+            assertArrayEquals(new byte[] {10, 20, 30}, deserializedData.getValue());
+        } else {
+            assertThrows(errorType, () -> destSerializer1.deserialize(serialized1));
+        }
     }
 
     @Test

@@ -91,6 +91,7 @@ public class KeySpacePathSerializer {
         // Add each path entry from the proto
         for (KeySpaceProto.KeySpacePathEntry entry : proto.getPathList()) {
             Object value = deserializeValue(entry);
+            path.getDirectory().getSubdirectory(entry.getName()).validateValue(value);
             path = path.add(entry.getName(), value);
         }
 
