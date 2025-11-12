@@ -1565,7 +1565,6 @@ public class KeySpaceDirectoryTest {
 
     private static final Map<KeySpaceDirectory.KeyType, KeyPathValues> VALUES = Map.of(
             KeySpaceDirectory.KeyType.NULL, new KeyPathValues(() -> null,
-                    // TODO add("v" null) should work for a constant of null and we should test that
                     List.of(), List.of("not_null", 42, true)),
             KeySpaceDirectory.KeyType.STRING, new KeyPathValues(() -> "foo",
                     List.of("bar", ""), List.of(3, "foo".getBytes(), true, 3.14)),
@@ -1596,7 +1595,6 @@ public class KeySpaceDirectoryTest {
 
     static Stream<Arguments> testValidateConstant() {
         return VALUES.entrySet().stream()
-                // Skip BYTES for constant value testing since array equality doesn't use .equals()
                 .flatMap(entry -> Stream.concat(
                         Stream.concat(entry.getValue().otherValidValues.stream(), entry.getValue().invalidValues.stream())
                                 .map(valueToAdd -> Arguments.of(entry.getKey(), entry.getValue().value.get(), valueToAdd, false)),
