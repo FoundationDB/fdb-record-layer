@@ -254,8 +254,6 @@ test_block:
       - result: [{!l 100}, {!l 200}, {!l 400}]
     -
       - query: select min_ever(col3) from t2
-       # Cannot enable FORCE_CONTINUATIONS with ungrouped aggregate scan because of: https://github.com/FoundationDB/fdb-record-layer/issues/3206
-      - maxRows: 0
       - explain: "AISCAN(MV7 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
       - result: [{!l 1}]
     -
