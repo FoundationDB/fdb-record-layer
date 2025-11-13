@@ -148,9 +148,8 @@ public class IndexingMerger {
         // merges. Not perfect, but as long as it's rare the impact should be minimal.
 
         mergeControl.mergeHadFailed(); // report to adjust stats
-        final FDBException ex = IndexingBase.findException(e, FDBException.class);
         final IndexDeferredMaintenanceControl.LastStep lastStep = mergeControl.getLastStep();
-        if (!IndexingBase.shouldLessenWork(ex)) {
+        if (shouldAbort(e)) {
             giveUpMerging(mergeControl, e);
         }
         switch (lastStep) {
@@ -173,6 +172,24 @@ public class IndexingMerger {
                 break; // "A switch statement does not contain a break", croaks a grumpy pmdMain.
         }
         return AsyncUtil.READY_TRUE; // and retry
+    }
+
+    private boolean shouldAbort(@Nullable Throwable e) {
+        if (e == null) {
+            return true;
+        }
+        // Expecting AsyncToSyncTimeoutException or an instance of TimeoutException. However, cannot
+        // refer to AsyncToSyncTimeoutException without creating a lucene dependency
+        // TODO: remove this kludge
+        if (e.getClass().getCanonicalName().contains("Timeout") ) {
+            return false;
+        }
+        final FDBException ex = IndexingBase.findException(e, FDBException.class);
+        if (ex == null) {
+            return true;
+        }
+        // TODO: return true if the exception is clearly not retriable
+        return false;
     }
 
     private void handleRepartitioningFailure(final IndexDeferredMaintenanceControl mergeControl, Throwable e) {
