@@ -29,6 +29,8 @@ import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.IndexValidator;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.MetaDataValidator;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactory;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
@@ -37,9 +39,10 @@ import com.google.auto.service.AutoService;
 import javax.annotation.Nonnull;
 import java.util.Arrays;
 import java.util.Set;
+import java.util.function.Function;
 
 /**
- * A factory for {@link VectorIndexMaintainer} indexes.
+ * A factory for {@link VectorIndexMaintainer} index maintainers.
  */
 @AutoService(IndexMaintainerFactory.class)
 @API(API.Status.EXPERIMENTAL)
@@ -55,146 +58,125 @@ public class VectorIndexMaintainerFactory implements IndexMaintainerFactory {
     @Override
     @Nonnull
     public IndexValidator getIndexValidator(Index index) {
-        return new IndexValidator(index) {
-            @Override
-            public void validate(@Nonnull MetaDataValidator metaDataValidator) {
-                super.validate(metaDataValidator);
-                validateNotVersion();
-                validateStructure();
-            }
-
-            /**
-             * TODO.
-             */
-            private void validateStructure() {
-                //
-                // There is no structural constraint on the key expression of the index. We just happen to interpret
-                // things in specific ways:
-                //
-                // - without GroupingKeyExpression:
-                //   - one HNSW for the entire table (ungrouped HNSW)
-                //   - first column of the expression gives us access to the field containing the vector
-                // - with GroupingKeyExpression:
-                //   - one HNSW for each grouping prefix
-                //   - first column in the grouped expression gives us access to the field containing the vector
-                //
-                // In any case, the vector is always a half-precision-encoded vector of dimensionality
-                // blob.length / 2 (for now).
-                //
-                // TODO We do not support extraneous columns to support advanced covering index scans for now. That
-                //      Will probably encoded by a KeyWithValueExpression in the root position (but not now)
-                //
-            }
-
-            @Override
-            @SuppressWarnings("PMD.CompareObjectsWithEquals")
-            public void validateChangedOptions(@Nonnull final Index oldIndex,
-                                               @Nonnull final Set<String> changedOptions) {
-                if (!changedOptions.isEmpty()) {
-                    // Allow changing from unspecified to the default (or vice versa), but not otherwise.
-                    final Config oldOptions = VectorIndexHelper.getConfig(oldIndex);
-                    final Config newOptions = VectorIndexHelper.getConfig(index);
-
-                    if (changedOptions.contains(IndexOptions.HNSW_RANDOM_SEED)) {
-                        if (oldOptions.getRandomSeed() != newOptions.getRandomSeed()) {
-                            throw new MetaDataException("HNSW random seed changed",
-                                    LogMessageKeys.INDEX_NAME, index.getName());
-                        }
-                        changedOptions.remove(IndexOptions.HNSW_RANDOM_SEED);
-                    }
-                    if (changedOptions.contains(IndexOptions.HNSW_METRIC)) {
-                        if (oldOptions.getMetric() != newOptions.getMetric()) {
-                            throw new MetaDataException("HNSW metric changed",
-                                    LogMessageKeys.INDEX_NAME, index.getName());
-                        }
-                        changedOptions.remove(IndexOptions.HNSW_METRIC);
-                    }
-                    if (changedOptions.contains(IndexOptions.HNSW_NUM_DIMENSIONS)) {
-                        if (oldOptions.getNumDimensions() != newOptions.getNumDimensions()) {
-                            throw new MetaDataException("HNSW numDimensions changed",
-                                    LogMessageKeys.INDEX_NAME, index.getName());
-                        }
-                        changedOptions.remove(IndexOptions.HNSW_NUM_DIMENSIONS);
-                    }
-                    if (changedOptions.contains(IndexOptions.HNSW_USE_INLINING)) {
-                        if (oldOptions.isUseInlining() != newOptions.isUseInlining()) {
-                            throw new MetaDataException("HNSW useInlining changed",
-                                    LogMessageKeys.INDEX_NAME, index.getName());
-                        }
-                        changedOptions.remove(IndexOptions.HNSW_USE_INLINING);
-                    }
-                    if (changedOptions.contains(IndexOptions.HNSW_M)) {
-                        if (oldOptions.getM() != newOptions.getM()) {
-                            throw new MetaDataException("HNSW M changed",
-                                    LogMessageKeys.INDEX_NAME, index.getName());
-                        }
-                        changedOptions.remove(IndexOptions.HNSW_M);
-                    }
-                    if (changedOptions.contains(IndexOptions.HNSW_M_MAX)) {
-                        if (oldOptions.getMMax() != newOptions.getMMax()) {
-                            throw new MetaDataException("HNSW mMax changed",
-                                    LogMessageKeys.INDEX_NAME, index.getName());
-                        }
-                        changedOptions.remove(IndexOptions.HNSW_M_MAX);
-                    }
-                    if (changedOptions.contains(IndexOptions.HNSW_M_MAX_0)) {
-                        if (oldOptions.getMMax0() != newOptions.getMMax0()) {
-                            throw new MetaDataException("HNSW mMax0 changed",
-                                    LogMessageKeys.INDEX_NAME, index.getName());
-                        }
-                        changedOptions.remove(IndexOptions.HNSW_M_MAX_0);
-                    }
-                    if (changedOptions.contains(IndexOptions.HNSW_EF_CONSTRUCTION)) {
-                        if (oldOptions.getEfConstruction() != newOptions.getEfConstruction()) {
-                            throw new MetaDataException("HNSW efConstruction changed",
-                                    LogMessageKeys.INDEX_NAME, index.getName());
-                        }
-                        changedOptions.remove(IndexOptions.HNSW_EF_CONSTRUCTION);
-                    }
-                    if (changedOptions.contains(IndexOptions.HNSW_EXTEND_CANDIDATES)) {
-                        if (oldOptions.isExtendCandidates() != newOptions.isExtendCandidates()) {
-                            throw new MetaDataException("HNSW extendCandidates changed",
-                                    LogMessageKeys.INDEX_NAME, index.getName());
-                        }
-                        changedOptions.remove(IndexOptions.HNSW_EXTEND_CANDIDATES);
-                    }
-                    if (changedOptions.contains(IndexOptions.HNSW_KEEP_PRUNED_CONNECTIONS)) {
-                        if (oldOptions.isKeepPrunedConnections() != newOptions.isKeepPrunedConnections()) {
-                            throw new MetaDataException("HNSW keepPrunedConnections changed",
-                                    LogMessageKeys.INDEX_NAME, index.getName());
-                        }
-                        changedOptions.remove(IndexOptions.HNSW_KEEP_PRUNED_CONNECTIONS);
-                    }
-                    if (changedOptions.contains(IndexOptions.HNSW_USE_RABITQ)) {
-                        if (oldOptions.isUseRaBitQ() != newOptions.isUseRaBitQ()) {
-                            throw new MetaDataException("HNSW useRaBitQ changed",
-                                    LogMessageKeys.INDEX_NAME, index.getName());
-                        }
-                        changedOptions.remove(IndexOptions.HNSW_USE_RABITQ);
-                    }
-                    if (changedOptions.contains(IndexOptions.HNSW_RABITQ_NUM_EX_BITS)) {
-                        if (oldOptions.getRaBitQNumExBits() != newOptions.getRaBitQNumExBits()) {
-                            throw new MetaDataException("HNSW RaBitQ numExBits changed",
-                                    LogMessageKeys.INDEX_NAME, index.getName());
-                        }
-                        changedOptions.remove(IndexOptions.HNSW_RABITQ_NUM_EX_BITS);
-                    }
-
-                    // The following index options can be changed.
-                    changedOptions.remove(IndexOptions.HNSW_SAMPLE_VECTOR_STATS_PROBABILITY);
-                    changedOptions.remove(IndexOptions.HNSW_MAINTAIN_STATS_PROBABILITY);
-                    changedOptions.remove(IndexOptions.HNSW_STATS_THRESHOLD);
-                    changedOptions.remove(IndexOptions.HNSW_MAX_NUM_CONCURRENT_NODE_FETCHES);
-                    changedOptions.remove(IndexOptions.HNSW_MAX_NUM_CONCURRENT_NEIGHBORHOOD_FETCHES);
-                }
-                super.validateChangedOptions(oldIndex, changedOptions);
-            }
-        };
+        return new VectorIndexValidator(index);
     }
 
     @Override
     @Nonnull
     public IndexMaintainer getIndexMaintainer(@Nonnull final IndexMaintainerState state) {
         return new VectorIndexMaintainer(state);
+    }
+
+    /**
+     * Index validator for HNSW-based vector indexes.
+     */
+    private static class VectorIndexValidator extends IndexValidator {
+        public VectorIndexValidator(final Index index) {
+            super(index);
+        }
+
+        @Override
+        public void validate(@Nonnull MetaDataValidator metaDataValidator) {
+            super.validate(metaDataValidator);
+            validateStructure();
+        }
+
+        /**
+         * Validates the key expression structure of a vector index.
+         * <p>
+         * The root expression must be a {@link KeyWithValueExpression}. Its split point divides the columns:
+         * <ul>
+         * <li>columns before the split point: index prefix (for partitioning)</li>
+         * <li>columns after the split point: vector column followed by optional covering columns</li>
+         * </ul>
+         * The first column after the split point is always the vector column, so at least one column
+         * is required after the split point. There are some other structural requirements to the root key
+         * expression of a vector index and some general requirements to the index itself:
+         * <ul>
+         * <li>the root key expression must not contain a grouping key expression</li>
+         * <li>the index must not be unique</li>
+         * <li>the index must not contain any version columns</li>
+         * </ul>
+         * <p>
+         * TODO: Currently only exactly one column after the split point is supported (no covering columns yet).
+         */
+        private void validateStructure() {
+            validateNotGrouping();
+            validateNotUnique();
+            validateNotVersion();
+
+            final KeyExpression key = index.getRootExpression();
+            if (!(key instanceof KeyWithValueExpression)) {
+                throw new KeyExpression.InvalidExpressionException(
+                        "vector index type must use top key with value expression",
+                        LogMessageKeys.INDEX_TYPE, index.getType(),
+                        LogMessageKeys.INDEX_NAME, index.getName(),
+                        LogMessageKeys.INDEX_KEY, index.getRootExpression());
+            }
+            if (key.createsDuplicates()) {
+                throw new KeyExpression.InvalidExpressionException(
+                        "fan outs not supported in index type",
+                        LogMessageKeys.INDEX_TYPE, index.getType(),
+                        LogMessageKeys.INDEX_NAME, index.getName(),
+                        LogMessageKeys.INDEX_KEY, index.getRootExpression());
+            }
+        }
+
+        @Override
+        @SuppressWarnings("PMD.CompareObjectsWithEquals")
+        public void validateChangedOptions(@Nonnull final Index oldIndex,
+                                           @Nonnull final Set<String> changedOptions) {
+            if (!changedOptions.isEmpty()) {
+                final Config oldOptions = VectorIndexHelper.getConfig(oldIndex);
+                final Config newOptions = VectorIndexHelper.getConfig(index);
+
+                // do not allow changing any of the following
+                disallowChange(changedOptions, IndexOptions.HNSW_RANDOM_SEED,
+                        oldOptions, newOptions, Config::getRandomSeed);
+                disallowChange(changedOptions, IndexOptions.HNSW_METRIC,
+                        oldOptions, newOptions, Config::getMetric);
+                disallowChange(changedOptions, IndexOptions.HNSW_NUM_DIMENSIONS,
+                        oldOptions, newOptions, Config::getNumDimensions);
+                disallowChange(changedOptions, IndexOptions.HNSW_USE_INLINING,
+                        oldOptions, newOptions, Config::isUseInlining);
+                disallowChange(changedOptions, IndexOptions.HNSW_M,
+                        oldOptions, newOptions, Config::getM);
+                disallowChange(changedOptions, IndexOptions.HNSW_M_MAX,
+                        oldOptions, newOptions, Config::getMMax);
+                disallowChange(changedOptions, IndexOptions.HNSW_M_MAX_0,
+                        oldOptions, newOptions, Config::getMMax0);
+                disallowChange(changedOptions, IndexOptions.HNSW_EF_CONSTRUCTION,
+                        oldOptions, newOptions, Config::getEfConstruction);
+                disallowChange(changedOptions, IndexOptions.HNSW_EXTEND_CANDIDATES,
+                        oldOptions, newOptions, Config::isExtendCandidates);
+                disallowChange(changedOptions, IndexOptions.HNSW_KEEP_PRUNED_CONNECTIONS,
+                        oldOptions, newOptions, Config::isKeepPrunedConnections);
+                disallowChange(changedOptions, IndexOptions.HNSW_USE_RABITQ,
+                        oldOptions, newOptions, Config::isUseRaBitQ);
+                disallowChange(changedOptions, IndexOptions.HNSW_RABITQ_NUM_EX_BITS,
+                        oldOptions, newOptions, Config::getRaBitQNumExBits);
+
+                // The following index options can be changed.
+                changedOptions.remove(IndexOptions.HNSW_SAMPLE_VECTOR_STATS_PROBABILITY);
+                changedOptions.remove(IndexOptions.HNSW_MAINTAIN_STATS_PROBABILITY);
+                changedOptions.remove(IndexOptions.HNSW_STATS_THRESHOLD);
+                changedOptions.remove(IndexOptions.HNSW_MAX_NUM_CONCURRENT_NODE_FETCHES);
+                changedOptions.remove(IndexOptions.HNSW_MAX_NUM_CONCURRENT_NEIGHBORHOOD_FETCHES);
+            }
+            super.validateChangedOptions(oldIndex, changedOptions);
+        }
+
+        private <T> void disallowChange(@Nonnull final Set<String> changedOptions,
+                                        @Nonnull final String optionName,
+                                        @Nonnull final Config oldConfig, @Nonnull final Config newConfig,
+                                        Function<Config, T> extractorFunction) {
+            if (changedOptions.contains(optionName)) {
+                if (!extractorFunction.apply(oldConfig).equals(extractorFunction.apply(newConfig))) {
+                    throw new MetaDataException(optionName + " changed",
+                            LogMessageKeys.INDEX_NAME, index.getName());
+                }
+                changedOptions.remove(optionName);
+            }
+        }
     }
 }

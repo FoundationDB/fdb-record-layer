@@ -119,7 +119,6 @@ public abstract class VectorIndexTestBase extends FDBRecordStoreQueryTestBase {
 
     @Nonnull
     static RealVector randomHalfVector(final Random random, final int numDimensions) {
-        // we do this in this convoluted way to make sure we won't get NaNs and other special surprises
         final Half[] componentData = new Half[numDimensions];
         for (int i = 0; i < componentData.length; i++) {
             componentData[i] = Half.valueOf(random.nextFloat());
@@ -236,6 +235,7 @@ public abstract class VectorIndexTestBase extends FDBRecordStoreQueryTestBase {
                     FDBQueriedRecord<Message> rec = cursor.next();
                     VectorRecord.Builder myrec = VectorRecord.newBuilder();
                     myrec.mergeFrom(Objects.requireNonNull(rec).getRecord());
+                    // TODO
                     System.out.println(myrec);
                 }
             }
@@ -274,6 +274,7 @@ public abstract class VectorIndexTestBase extends FDBRecordStoreQueryTestBase {
                     FDBQueriedRecord<Message> rec = cursor.next();
                     VectorRecord.Builder myrec = VectorRecord.newBuilder();
                     myrec.mergeFrom(Objects.requireNonNull(rec).getRecord());
+                    // TODO
                     System.out.println(myrec);
                 }
             }

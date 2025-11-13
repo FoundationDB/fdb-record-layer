@@ -416,10 +416,6 @@ message PArithmeticValue {
       BITMAP_BUCKET_NUMBER_II = 105;
       BITMAP_BIT_POSITION_LI = 106;
       BITMAP_BIT_POSITION_II = 107;
-
-      // TODO
-      EUCLIDEAN_DISTANCE_VV = 108;
-      COSINE_DISTANCE_VV = 109;
   }
 
   optional PPhysicalOperator operator = 1;
