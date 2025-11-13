@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalArray;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
 import com.apple.foundationdb.relational.api.KeySet;
@@ -32,9 +33,12 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.api.function.ThrowingConsumer;
 
 import java.nio.charset.StandardCharsets;
 import java.sql.Array;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Set;
 
@@ -82,6 +86,11 @@ public class StructDataMetadataTest {
                 .addStruct("ST1", EmbeddedRelationalStruct.newBuilder().addString("A", "Hello").build())
                 .build();
         statement.executeInsert("T", m);
+        m = EmbeddedRelationalStruct.newBuilder()
+                .addString("NAME", "test_record_2")
+                .addStruct("ST1", EmbeddedRelationalStruct.newBuilder().addString("A", "World").build())
+                .build();
+        statement.executeInsert("T", m);
 
         m = EmbeddedRelationalStruct.newBuilder()
                 .addString("T_NAME", "nt_record")
@@ -125,13 +134,29 @@ public class StructDataMetadataTest {
         }
     }
 
-    @Test
-    void canReadProjectedStructTypeNameInNestedStar() throws Exception {
-        try (final RelationalResultSet resultSet = statement.executeQuery("SELECT (*) FROM T")) {
+    private void canReadStructTypeName(String query, ThrowingConsumer<RelationalResultSet> assertOnMetaData) throws Throwable {
+        Continuation continuation;
+        statement.setMaxRows(1);
+        try (final RelationalResultSet resultSet = statement.executeQuery(query)) {
             Assertions.assertTrue(resultSet.next(), "Did not find a record!");
+            assertOnMetaData.accept(resultSet);
+            continuation = resultSet.getContinuation();
+        }
+        try (final PreparedStatement ps = connection.prepareStatement("EXECUTE CONTINUATION ?")) {
+            ps.setBytes(1, continuation.serialize());
+            try (final ResultSet resultSet = ps.executeQuery()) {
+                Assertions.assertTrue(resultSet.next(), "Did not find a record!");
+                assertOnMetaData.accept(resultSet.unwrap(RelationalResultSet.class));
+            }
+        }
+    }
+
+    @Test
+    void canReadProjectedStructTypeNameInNestedStar() throws Throwable {
+        canReadStructTypeName("SELECT (*) FROM T", resultSet -> {
             RelationalStruct struct = resultSet.getStruct(1).getStruct("ST1");
             Assertions.assertEquals("STRUCT_1", struct.getMetaData().getTypeName());
-        }
+        });
     }
 
     // When projecting *, the underlying struct types are lost and replaced with a generic UUID type.
@@ -139,21 +164,19 @@ public class StructDataMetadataTest {
     // When projecting (*), everything works as expected, see `canReadProjectedStructTypeNameInNestedStar`.
     // See https://github.com/FoundationDB/fdb-record-layer/issues/3743
     @Test
-    void cannotReadProjectedStructTypeNameInUnnestedStar() throws Exception {
-        try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM T")) {
-            Assertions.assertTrue(resultSet.next(), "Did not find a record!");
+    void canReadProjectedStructTypeNameInUnnestedStar() throws Throwable {
+        canReadStructTypeName("SELECT * FROM T", resultSet -> {
             RelationalStruct struct = resultSet.getStruct("ST1");
             Assertions.assertNotEquals("STRUCT_1", struct.getMetaData().getTypeName());
-        }
+        });
     }
 
     @Test
-    void canReadProjectedStructTypeNameDirectlyProjected() throws Exception {
-        try (final RelationalResultSet resultSet = statement.executeQuery("SELECT ST1 FROM T")) {
-            Assertions.assertTrue(resultSet.next(), "Did not find a record!");
+    void canReadProjectedStructTypeNameDirectlyProjected() throws Throwable {
+        canReadStructTypeName("SELECT ST1 FROM T", resultSet -> {
             RelationalStruct struct = resultSet.getStruct("ST1");
             Assertions.assertEquals("STRUCT_1", struct.getMetaData().getTypeName());
-        }
+        });
     }
 
     @Test
