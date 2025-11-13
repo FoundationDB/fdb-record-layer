@@ -33,6 +33,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
@@ -42,6 +44,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletionException;
 
+import static org.assertj.core.api.Assumptions.assumeThat;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -67,8 +70,9 @@ class KeySpacePathImportDataTest {
         }
     }
 
-    @Test
-    void importComprehensiveData() {
+    @ParameterizedTest
+    @EnumSource(CopyConfig.class)
+    void importComprehensiveData(CopyConfig copyConfig) {
         // Test importing data covering ALL KeyType enum values in a single complex directory structure:
         // - NULL, BYTES, STRING, LONG, FLOAT, DOUBLE, BOOLEAN, UUID
         // - Constant value directories  
@@ -122,10 +126,10 @@ class KeySpacePathImportDataTest {
             context.commit();
         }
 
-        copyData(root.path("company"), root.path("company"));
+        final FDBDatabase targetDatabase = copyData(root.path("company"), root.path("company"), copyConfig);
 
         // Verify all different KeyType values were handled correctly during import
-        try (FDBRecordContext context = destinationDatabase.openContext()) {
+        try (FDBRecordContext context = targetDatabase.openContext()) {
             assertEquals(Tuple.from("John Doe"),
                     getTupleFromPath(context, emp1Path, Tuple.from("profile", "name")));
             assertEquals(Tuple.from("Jane Smith"),
@@ -149,7 +153,7 @@ class KeySpacePathImportDataTest {
                 new KeySpaceDirectory("test", KeyType.STRING, UUID.randomUUID().toString()));
 
         KeySpacePath testPath = root.path("test");
-        importData(testPath, Collections.emptyList()); // should not throw any exception
+        importData(destinationDatabase, testPath, Collections.emptyList()); // should not throw any exception
 
         assertTrue(getExportedData(testPath).isEmpty(),
                 "there should not have been any data created");
@@ -166,12 +170,12 @@ class KeySpacePathImportDataTest {
         final KeySpacePath dataPath = root.path("root").add("data", 1L);
 
         // Import one value
-        importData(root.path("root"), List.of(new DataInKeySpacePath(dataPath,
+        importData(destinationDatabase, root.path("root"), List.of(new DataInKeySpacePath(dataPath,
                 Tuple.from("record"), Tuple.from("old_value").pack())));
         verifySingleKey(destinationDatabase, dataPath, Tuple.from("record"), Tuple.from("old_value"));
 
         // Import a different value
-        importData(root.path("root"), List.of(new DataInKeySpacePath(dataPath,
+        importData(destinationDatabase, root.path("root"), List.of(new DataInKeySpacePath(dataPath,
                 Tuple.from("record"), Tuple.from("new_value").pack())));
 
         // Verify the data was overwritten
@@ -191,14 +195,14 @@ class KeySpacePathImportDataTest {
         // Write one key
         final Tuple remainder1 = Tuple.from("recordA");
         final Tuple value1 = Tuple.from("old_value");
-        importData(root.path("root"), List.of(new DataInKeySpacePath(dataPath,
+        importData(destinationDatabase, root.path("root"), List.of(new DataInKeySpacePath(dataPath,
                 remainder1, value1.pack())));
         verifySingleKey(destinationDatabase, dataPath, remainder1, value1);
 
         // write a different key
         final Tuple remainder2 = Tuple.from("recordB");
         final Tuple value2 = Tuple.from("new_value");
-        importData(root.path("root"), List.of(new DataInKeySpacePath(dataPath,
+        importData(destinationDatabase, root.path("root"), List.of(new DataInKeySpacePath(dataPath,
                 remainder2, value2.pack())));
 
         // Verify the data was overwritten
@@ -219,16 +223,16 @@ class KeySpacePathImportDataTest {
         importData.add(new DataInKeySpacePath(dataPath, remainder, Tuple.from("value").pack()));
 
         // Verify we can re-import the data multiple times
-        importData(root.path("root"), importData);
-        importData(root.path("root"), importData);
-        importData(root.path("root"), importData);
+        importData(destinationDatabase, root.path("root"), importData);
+        importData(destinationDatabase, root.path("root"), importData);
+        importData(destinationDatabase, root.path("root"), importData);
 
         verifySingleKey(destinationDatabase, dataPath, remainder, Tuple.from("value"));
     }
 
-
-    @Test
-    void importDataWithDirectoryLayer() {
+    @ParameterizedTest
+    @EnumSource(CopyConfig.class)
+    void importDataWithDirectoryLayer(final CopyConfig copyConfig) {
         // Test importing data into a keyspace using DirectoryLayer directories
         // Should verify that DirectoryLayer mappings work correctly during import
         final String tenantUuid = UUID.randomUUID().toString();
@@ -239,9 +243,9 @@ class KeySpacePathImportDataTest {
         final KeySpacePath dataPath = root.path("tenant").add("user_id", 999L);
         setSingleKey(dataPath, Tuple.from("data"), Tuple.from("directory_test"));
 
-        copyData(root.path("tenant"), root.path("tenant"));
+        final FDBDatabase targetDatabase = copyData(root.path("tenant"), root.path("tenant"), copyConfig);
 
-        verifySingleKey(destinationDatabase, dataPath, Tuple.from("data"), Tuple.from("directory_test"));
+        verifySingleKey(targetDatabase, dataPath, Tuple.from("data"), Tuple.from("directory_test"));
     }
 
     @Test
@@ -284,8 +288,9 @@ class KeySpacePathImportDataTest {
         assertBadImport(keySpace1.path("root1"), keySpace2.path("root2"));
     }
 
-    @Test
-    void importDataWithSubdirectoryPath() {
+    @ParameterizedTest
+    @EnumSource(CopyConfig.class)
+    void importDataWithSubdirectoryPath(final CopyConfig copyConfig) {
         // Test importing data where the target path is a subdirectory of the import path
         // Should succeed only if all the data is in the subdirectory
         final String rootUuid = UUID.randomUUID().toString();
@@ -298,9 +303,9 @@ class KeySpacePathImportDataTest {
         setSingleKey(level1Path, Tuple.from("item1"), Tuple.from("value1"));
 
         // Export from root, import to subdirectory
-        copyData(root.path("root"), level1Path);
+        final FDBDatabase targetDatabase = copyData(root.path("root"), level1Path, copyConfig);
 
-        verifySingleKey(destinationDatabase, level1Path, Tuple.from("item1"), Tuple.from("value1"));
+        verifySingleKey(targetDatabase, level1Path, Tuple.from("item1"), Tuple.from("value1"));
     }
 
     @Test
@@ -346,17 +351,18 @@ class KeySpacePathImportDataTest {
         assertBadImport(keySpace.path("root1"), mixedData);
     }
 
-    @Test
-    void importDataWithWrapperClasses() {
+    @ParameterizedTest
+    @EnumSource(CopyConfig.class)
+    void importDataWithWrapperClasses(final CopyConfig copyConfig) {
         // Test importing data using wrapper classes like EnvironmentKeySpace
         // Should verify that wrapper functionality works correctly with import
         final EnvironmentKeySpace keySpace = EnvironmentKeySpace.setupSampleData(sourceDatabase);
 
         EnvironmentKeySpace.DataPath dataStore = keySpace.root().userid(100L).application("app1").dataStore();
 
-        copyData(keySpace.root(), keySpace.root());
+        final FDBDatabase targetDatabase = copyData(keySpace.root(), keySpace.root(), copyConfig);
 
-        verifySingleKey(destinationDatabase, dataStore, Tuple.from("record2", 0), Tuple.from("user100_app1_data2_0"));
+        verifySingleKey(targetDatabase, dataStore, Tuple.from("record2", 0), Tuple.from("user100_app1_data2_0"));
     }
 
     @Test
@@ -378,10 +384,7 @@ class KeySpacePathImportDataTest {
                 new DataInKeySpacePath(dataPath, Tuple.from("item"), Tuple.from("final_value").pack())
         );
 
-        try (FDBRecordContext context = destinationDatabase.openContext()) {
-            root.path("root").importData(context, duplicateData).join();
-            context.commit();
-        }
+        importData(destinationDatabase, root.path("root"), duplicateData);
 
         verifySingleKey(destinationDatabase, dataPath, Tuple.from("item"), Tuple.from("final_value"));
     }
@@ -412,21 +415,37 @@ class KeySpacePathImportDataTest {
         return Tuple.fromBytes(context.ensureActive().get(key).join());
     }
 
-    private void copyData(final KeySpacePath sourcePath, KeySpacePath destinationPath) {
+    enum CopyConfig {
+        WithinCluster,
+        BetweenClusters
+    }
+
+    private FDBDatabase copyData(final KeySpacePath sourcePath, KeySpacePath destinationPath, final CopyConfig copyConfig) {
         // Export the data
         final List<DataInKeySpacePath> exportedData = getExportedData(sourcePath);
 
-        if (sourceDatabase == destinationDatabase) {
-            // Clear the data and import it back
-            clearSourcePath(sourcePath);
+        FDBDatabase targetDatabase;
+        switch (copyConfig) {
+            case WithinCluster:
+                // Clear the data and import it back
+                clearSourcePath(sourcePath);
+                targetDatabase = sourceDatabase;
+                break;
+            case BetweenClusters:
+                assumeThat(destinationDatabase).isNotEqualTo(sourceDatabase);
+                targetDatabase = destinationDatabase;
+                break;
+            default:
+                throw new IllegalStateException("Unexpected value: " + copyConfig);
         }
 
         // Import the data
-        importData(destinationPath, exportedData);
+        importData(targetDatabase, destinationPath, exportedData);
+        return targetDatabase;
     }
 
-    private void importData(final KeySpacePath path, final List<DataInKeySpacePath> exportedData) {
-        try (FDBRecordContext context = destinationDatabase.openContext()) {
+    private void importData(FDBDatabase targetDatabase, final KeySpacePath path, final List<DataInKeySpacePath> exportedData) {
+        try (FDBRecordContext context = targetDatabase.openContext()) {
             path.importData(context, exportedData).join();
             context.commit();
         }
