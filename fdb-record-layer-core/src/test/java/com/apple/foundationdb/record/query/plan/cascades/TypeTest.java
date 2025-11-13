@@ -665,4 +665,37 @@ class TypeTest {
                 .isEqualTo(typeWithName2)
                 .hasSameHashCodeAs(typeWithName2);
     }
+
+    @ParameterizedTest(name = "updateFieldNullability[{0}]")
+    @MethodSource("recordTypes")
+    void updateFieldNullability(@Nonnull Type.Record recordType) {
+        for (Type.Record.Field field : recordType.getFields()) {
+            final Type fieldType = field.getFieldType();
+
+            // Validate that the non-nullable field type matches the not-nullable version of the field
+            final Type.Record.Field nonNullableField = field.withNullability(false);
+            assertThat(nonNullableField.getFieldType())
+                    .isEqualTo(fieldType.notNullable())
+                    .isNotEqualTo(fieldType.nullable())
+                    .matches(Type::isNotNullable);
+
+            // Validate that the nullable field type matches the nullable version of the field
+            final Type.Record.Field nullableField = field.withNullability(true);
+            assertThat(nullableField.getFieldType())
+                    .isEqualTo(fieldType.nullable())
+                    .isNotEqualTo(fieldType.notNullable())
+                    .matches(Type::isNullable);
+
+            // All other components of the field should remain the same
+            assertThat(field.getFieldIndexOptional())
+                    .isEqualTo(nullableField.getFieldIndexOptional())
+                    .isEqualTo(nonNullableField.getFieldIndexOptional());
+            assertThat(field.getFieldNameOptional())
+                    .isEqualTo(nullableField.getFieldNameOptional())
+                    .isEqualTo(nonNullableField.getFieldNameOptional());
+            assertThat(field.getFieldStorageNameOptional())
+                    .isEqualTo(nullableField.getFieldStorageNameOptional())
+                    .isEqualTo(nonNullableField.getFieldStorageNameOptional());
+        }
+    }
 }
