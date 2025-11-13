@@ -21,8 +21,10 @@
 package com.apple.foundationdb.async.hnsw;
 
 import com.apple.foundationdb.Database;
+import com.apple.foundationdb.Range;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.async.rtree.RTree;
+import com.apple.foundationdb.directory.DirectoryLayer;
 import com.apple.foundationdb.linear.AffineOperator;
 import com.apple.foundationdb.linear.DoubleRealVector;
 import com.apple.foundationdb.linear.HalfRealVector;
@@ -31,16 +33,17 @@ import com.apple.foundationdb.linear.Quantizer;
 import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.linear.StoredVecsIterator;
 import com.apple.foundationdb.rabitq.EncodedRealVector;
+import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.test.TestDatabaseExtension;
 import com.apple.foundationdb.test.TestExecutors;
 import com.apple.foundationdb.test.TestSubspaceExtension;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.RandomSeedSource;
 import com.apple.test.RandomizedTestUtils;
-import com.apple.test.SuperSlow;
 import com.apple.test.Tags;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.collect.ObjectArrays;
@@ -50,6 +53,7 @@ import org.assertj.core.util.Lists;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
@@ -66,8 +70,10 @@ import java.nio.channels.FileChannel;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.Deque;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
@@ -79,6 +85,7 @@ import java.util.TreeSet;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BinaryOperator;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.LongStream;
@@ -101,7 +108,7 @@ class HNSWTest {
     @RegisterExtension
     static final TestDatabaseExtension dbExtension = new TestDatabaseExtension();
     @RegisterExtension
-    TestSubspaceExtension rtSubspace = new TestSubspaceExtension(dbExtension);
+    TestSubspaceExtension hnswSubspace = new TestSubspaceExtension(dbExtension);
     @RegisterExtension
     TestSubspaceExtension rtSecondarySubspace = new TestSubspaceExtension(dbExtension);
 
@@ -119,7 +126,7 @@ class HNSWTest {
         final int numDimensions = 768;
         final CompactStorageAdapter storageAdapter =
                 new CompactStorageAdapter(HNSW.newConfigBuilder().build(numDimensions), CompactNode.factory(),
-                        rtSubspace.getSubspace(), OnWriteListener.NOOP, OnReadListener.NOOP);
+                        hnswSubspace.getSubspace(), OnWriteListener.NOOP, OnReadListener.NOOP);
         final AbstractNode<NodeReference> originalNode =
                 db.run(tr -> {
                     final NodeFactory<NodeReference> nodeFactory = storageAdapter.getNodeFactory();
@@ -159,7 +166,7 @@ class HNSWTest {
         final int numDimensions = 768;
         final InliningStorageAdapter storageAdapter =
                 new InliningStorageAdapter(HNSW.newConfigBuilder().build(numDimensions),
-                        InliningNode.factory(), rtSubspace.getSubspace(),
+                        InliningNode.factory(), hnswSubspace.getSubspace(),
                         OnWriteListener.NOOP, OnReadListener.NOOP);
         final Node<NodeReferenceWithVector> originalNode =
                 db.run(tr -> {
@@ -208,10 +215,11 @@ class HNSWTest {
         final Metric metric = Metric.EUCLIDEAN_METRIC;
         final AtomicLong nextNodeIdAtomic = new AtomicLong(0L);
 
+        final TestOnWriteListener onWriteListener = new TestOnWriteListener();
         final TestOnReadListener onReadListener = new TestOnReadListener();
 
         final int numDimensions = 128;
-        final HNSW hnsw = new HNSW(rtSubspace.getSubspace(), TestExecutors.defaultThreadPool(),
+        final HNSW hnsw = new HNSW(hnswSubspace.getSubspace(), TestExecutors.defaultThreadPool(),
                 HNSW.newConfigBuilder().setMetric(metric)
                         .setUseInlining(useInlining).setExtendCandidates(extendCandidates)
                         .setKeepPrunedConnections(keepPrunedConnections)
@@ -221,17 +229,17 @@ class HNSWTest {
                         .setMaintainStatsProbability(0.1d)
                         .setStatsThreshold(100)
                         .setM(32).setMMax(32).setMMax0(64).build(numDimensions),
-                OnWriteListener.NOOP, onReadListener);
+                onWriteListener, onReadListener);
 
         final int k = 50;
         final HalfRealVector queryVector = createRandomHalfVector(random, numDimensions);
         final TreeSet<PrimaryKeyVectorAndDistance> recordsOrderedByDistance =
                 new TreeSet<>(Comparator.comparing(PrimaryKeyVectorAndDistance::getDistance));
 
-        for (int i = 0; i < 1000;) {
-            i += basicInsertBatch(hnsw, 100, nextNodeIdAtomic, onReadListener,
-                    tr -> {
-                        final var primaryKey = createNextPrimaryKey(nextNodeIdAtomic);
+        for (long i = 0; i < 1000;) {
+            final Stats batchStats = insertBatch(hnsw, i, 100,
+                    id -> {
+                        final var primaryKey = primaryKey(id);
                         final HalfRealVector dataVector = createRandomHalfVector(random, numDimensions);
                         final double distance = metric.distance(dataVector, queryVector);
                         final PrimaryKeyVectorAndDistance record =
@@ -242,6 +250,8 @@ class HNSWTest {
                         }
                         return record;
                     });
+            batchStats.logInsertInfo(i);
+            i += batchStats.getNumRecords();
         }
 
         onReadListener.reset();
@@ -267,7 +277,7 @@ class HNSWTest {
         final double recall = (double)recallCount / (double)k;
         logger.info("search transaction took elapsedTime={}ms; read nodes={}, read bytes={}, recall={}",
                 TimeUnit.NANOSECONDS.toMillis(endTs - beginTs),
-                onReadListener.getNodeCountByLayer(), onReadListener.getBytesReadByLayer(),
+                onReadListener.getNodesReadByLayer(), onReadListener.getBytesReadByLayer(),
                 String.format(Locale.ROOT, "%.2f", recall * 100.0d));
         Assertions.assertThat(recall).isGreaterThan(0.9);
 
@@ -295,7 +305,7 @@ class HNSWTest {
 
         final AtomicLong nextNodeIdAtomic = new AtomicLong(0L);
         final int numDimensions = 128;
-        final HNSW hnsw = new HNSW(rtSubspace.getSubspace(), TestExecutors.defaultThreadPool(),
+        final HNSW hnsw = new HNSW(hnswSubspace.getSubspace(), TestExecutors.defaultThreadPool(),
                 HNSW.newConfigBuilder().setMetric(metric)
                         .setUseRaBitQ(true)
                         .setRaBitQNumExBits(5)
@@ -303,7 +313,7 @@ class HNSWTest {
                         .setMaintainStatsProbability(1.0d) // for every vector we maintain the stats
                         .setStatsThreshold(950) // after 950 vectors we enable RaBitQ
                         .setM(32).setMMax(32).setMMax0(64).build(numDimensions),
-                OnWriteListener.NOOP, OnReadListener.NOOP);
+                new TestOnWriteListener(), new TestOnReadListener());
 
         final int k = 499;
         final DoubleRealVector queryVector = createRandomDoubleVector(random, numDimensions);
@@ -311,10 +321,10 @@ class HNSWTest {
         final TreeSet<PrimaryKeyVectorAndDistance> recordsOrderedByDistance =
                 new TreeSet<>(Comparator.comparing(PrimaryKeyVectorAndDistance::getDistance));
 
-        for (int i = 0; i < 1000;) {
-            i += basicInsertBatch(hnsw, 100, nextNodeIdAtomic, new TestOnReadListener(),
-                    tr -> {
-                        final var primaryKey = createNextPrimaryKey(nextNodeIdAtomic);
+        for (long i = 0; i < 1000;) {
+            final Stats batchStats = insertBatch(hnsw, i, 100,
+                    id -> {
+                        final var primaryKey = primaryKey(id);
                         final DoubleRealVector dataVector = createRandomDoubleVector(random, numDimensions);
                         final double distance = metric.distance(dataVector, queryVector);
                         dataMap.put(primaryKey, dataVector);
@@ -327,6 +337,8 @@ class HNSWTest {
                         }
                         return record;
                     });
+            batchStats.logInsertInfo(i);
+            i += batchStats.getNumRecords();
         }
 
         //
@@ -384,41 +396,42 @@ class HNSWTest {
         Assertions.assertThat(encodedVectorCount).isGreaterThan(0);
     }
 
-    private int basicInsertBatch(final HNSW hnsw, final int batchSize,
-                                 @Nonnull final AtomicLong nextNodeIdAtomic, @Nonnull final TestOnReadListener onReadListener,
-                                 @Nonnull final Function<Transaction, PrimaryKeyAndVector> insertFunction) {
+    private Stats insertBatch(@Nonnull final HNSW hnsw, final long startIndex, final int batchSize,
+                              @Nonnull final Function<Long, PrimaryKeyAndVector> generatorFunction) {
+        final TestOnReadListener onReadListener = (TestOnReadListener)hnsw.getOnReadListener();
+        final TestOnWriteListener onWriteListener = (TestOnWriteListener)hnsw.getOnWriteListener();
         return db.run(tr -> {
             onReadListener.reset();
-            final long nextNodeId = nextNodeIdAtomic.get();
+            onWriteListener.reset();
             final long beginTs = System.nanoTime();
             for (int i = 0; i < batchSize; i ++) {
-                final var record = insertFunction.apply(tr);
+                final var record = generatorFunction.apply(startIndex + i);
                 if (record == null) {
-                    return i;
+                    return new Stats(i, System.nanoTime() - beginTs,
+                            onReadListener.getNodesReadByLayer(), onReadListener.getBytesReadByLayer(),
+                            onWriteListener.getNodesWrittenByLayer(), onWriteListener.getBytesReadByLayer(),
+                            onReadListener.getSumMByLayer(), 0, 0, 0);
                 }
                 hnsw.insert(tr, record.getPrimaryKey(), record.getVector()).join();
             }
-            final long endTs = System.nanoTime();
-            logger.info("inserted batchSize={} records starting at nodeId={} took elapsedTime={}ms, readCounts={}, readBytes={}",
-                    batchSize, nextNodeId, TimeUnit.NANOSECONDS.toMillis(endTs - beginTs),
-                    onReadListener.getNodeCountByLayer(), onReadListener.getBytesReadByLayer());
-            return batchSize;
+            return new Stats(batchSize, System.nanoTime() - beginTs,
+                    onReadListener.getNodesReadByLayer(), onReadListener.getBytesReadByLayer(),
+                    onWriteListener.getNodesWrittenByLayer(), onWriteListener.getBytesReadByLayer(),
+                    onReadListener.getSumMByLayer(), 0, 0, 0);
         });
     }
 
     @Test
-    @SuperSlow
+    //@SuperSlow
     void testSIFTInsertSmall() throws Exception {
         final Metric metric = Metric.EUCLIDEAN_METRIC;
         final int k = 100;
         final AtomicLong nextNodeIdAtomic = new AtomicLong(0L);
 
-        final TestOnReadListener onReadListener = new TestOnReadListener();
-
-        final HNSW hnsw = new HNSW(rtSubspace.getSubspace(), TestExecutors.defaultThreadPool(),
+        final HNSW hnsw = new HNSW(hnswSubspace.getSubspace(), TestExecutors.defaultThreadPool(),
                 HNSW.newConfigBuilder().setUseRaBitQ(true).setRaBitQNumExBits(5)
                         .setMetric(metric).setM(32).setMMax(32).setMMax0(64).build(128),
-                OnWriteListener.NOOP, onReadListener);
+                new TestOnWriteListener(), new TestOnReadListener());
 
         final Path siftSmallPath = Paths.get(".out/extracted/siftsmall/siftsmall_base.fvecs");
 
@@ -427,16 +440,16 @@ class HNSWTest {
         try (final var fileChannel = FileChannel.open(siftSmallPath, StandardOpenOption.READ)) {
             final Iterator<DoubleRealVector> vectorIterator = new StoredVecsIterator.StoredFVecsIterator(fileChannel);
 
-            int i = 0;
+            long i = 0;
             final AtomicReference<RealVector> sumReference = new AtomicReference<>(null);
             while (vectorIterator.hasNext()) {
-                i += basicInsertBatch(hnsw, 100, nextNodeIdAtomic, onReadListener,
-                        tr -> {
+                final Stats batchStats = insertBatch(hnsw, i, 100,
+                        id -> {
                             if (!vectorIterator.hasNext()) {
                                 return null;
                             }
                             final DoubleRealVector doubleVector = vectorIterator.next();
-                            final Tuple currentPrimaryKey = createNextPrimaryKey(nextNodeIdAtomic);
+                            final Tuple currentPrimaryKey = primaryKey(id);
                             final HalfRealVector currentVector = doubleVector.toHalfRealVector();
 
                             if (sumReference.get() == null) {
@@ -448,6 +461,8 @@ class HNSWTest {
                             dataMap.put(Math.toIntExact(currentPrimaryKey.getLong(0)), currentVector);
                             return new PrimaryKeyAndVector(currentPrimaryKey, currentVector);
                         });
+                batchStats.logInsertInfo(i);
+                i += batchStats.getNumRecords();
             }
             Assertions.assertThat(i).isEqualTo(10000);
         }
@@ -480,7 +495,7 @@ class HNSWTest {
                 final long endTs = System.nanoTime();
                 logger.info("retrieved result in elapsedTimeMs={}, reading numNodes={}, readBytes={}",
                         TimeUnit.NANOSECONDS.toMillis(endTs - beginTs),
-                        onReadListener.getNodeCountByLayer(), onReadListener.getBytesReadByLayer());
+                        onReadListener.getNodesReadByLayer(), onReadListener.getBytesReadByLayer());
 
                 int recallCount = 0;
                 for (final ResultEntry resultEntry : results) {
@@ -512,6 +527,206 @@ class HNSWTest {
                 logger.info("query returned results recall={}", String.format(Locale.ROOT, "%.2f", recall * 100.0d));
             }
         }
+    }
+
+    @Test
+    void testSIFTInsert1MClear() {
+        clearSubspace(getSameSubspace("testSIFTInsert1M"));
+    }
+
+    @Test
+    @Timeout(value = 1000, unit = TimeUnit.MINUTES)
+    void testSIFTInsert1M() throws Exception {
+        final Metric metric = Metric.EUCLIDEAN_METRIC;
+        final long skip = 420_000;
+        final int statsQueueMaxSize = 10;
+        final AtomicLong nextNodeIdAtomic = new AtomicLong(0L);
+
+        final Subspace subspace = getSameSubspace("testSIFTInsert1M");
+
+        final HNSW hnsw = new HNSW(subspace, TestExecutors.defaultThreadPool(),
+                HNSW.newConfigBuilder().setUseRaBitQ(true).setRaBitQNumExBits(5)
+                        .setMetric(metric).setM(32).setMMax(32).setMMax0(64).build(128),
+                new TestOnWriteListener(), new TestOnReadListener());
+
+        final Deque<Stats> insertStatsQueue = new ArrayDeque<>();
+        Stats runningInsertStats = null;
+        final Deque<Stats> queryStatsQueue = new ArrayDeque<>();
+        Stats runningQueryStats = null;
+
+        final Path siftBasePath = Paths.get(".out/downloads/sift_base.fvecs");
+        try (final var fileChannel = FileChannel.open(siftBasePath, StandardOpenOption.READ)) {
+            final Iterator<DoubleRealVector> vectorIterator = new StoredVecsIterator.StoredFVecsIterator(fileChannel);
+
+            boolean doneSkipping = false;
+            long i = 0;
+            while (vectorIterator.hasNext()) {
+                if (!doneSkipping) {
+                    if (i < skip || db.run(transaction ->
+                            hnsw.exists(transaction, Tuple.from(nextNodeIdAtomic.get()))).join()) {
+                        if (skip >= i) {
+                            if (i % 5000 == 0) {
+                                logger.info("skipping numRecords = {}", i);
+                            }
+                        } else {
+                            if (i % 10 == 0) {
+                                logger.info("skipping records since record exists numRecords = {}", i);
+                            }
+                        }
+
+                        vectorIterator.next();
+                        i++;
+                        nextNodeIdAtomic.set(i);
+                        continue;
+                    }
+
+                    doneSkipping = true;
+                    logger.info("done skipping numRecords = {}", i);
+                }
+
+                final Stats insertStats = insertBatch(hnsw, i, 10,
+                        id -> {
+                            if (!vectorIterator.hasNext()) {
+                                return null;
+                            }
+                            final DoubleRealVector doubleVector = vectorIterator.next();
+                            final Tuple currentPrimaryKey = primaryKey(id);
+                            final HalfRealVector currentVector = doubleVector.toHalfRealVector();
+
+                            return new PrimaryKeyAndVector(currentPrimaryKey, currentVector);
+                        });
+                insertStats.logInsertTrace(i);
+
+                if (runningInsertStats == null) {
+                    runningInsertStats = insertStats;
+                    insertStatsQueue.addFirst(insertStats);
+                } else {
+                    while (insertStatsQueue.size() >= statsQueueMaxSize) {
+                        final Stats removedStats = insertStatsQueue.removeLast();
+                        runningInsertStats = runningInsertStats.remove(removedStats);
+                    }
+                    insertStatsQueue.addFirst(insertStats);
+                    runningInsertStats = runningInsertStats.add(insertStats);
+                }
+                i += insertStats.getNumRecords();
+
+                if (i % 1000 == 0) {
+                    runningInsertStats.logInsertAveragesInfo(i - 1000);
+
+                    final Stats queryStats = querySIFT(hnsw, i);
+                    if (queryStats != null) {
+                        if (runningQueryStats == null) {
+                            runningQueryStats = queryStats;
+                            queryStatsQueue.addFirst(queryStats);
+                        } else {
+                            while (queryStatsQueue.size() >= statsQueueMaxSize) {
+                                final Stats removedStats = queryStatsQueue.removeLast();
+                                runningQueryStats = runningQueryStats.remove(removedStats);
+                            }
+                            queryStatsQueue.addFirst(queryStats);
+                            runningQueryStats = runningQueryStats.add(queryStats);
+                        }
+
+                        runningQueryStats.logQueryAveragesInfo(i);
+                    }
+                }
+            }
+        }
+    }
+
+    @Test
+    void testSIFTQuery1M() throws Exception {
+        final Subspace subspace = getSameSubspace("testSIFTInsert1M");
+        final Metric metric = Metric.EUCLIDEAN_METRIC;
+
+        final HNSW hnsw = new HNSW(subspace, TestExecutors.defaultThreadPool(),
+                HNSW.newConfigBuilder().setUseRaBitQ(true).setRaBitQNumExBits(5)
+                        .setMetric(metric).setM(32).setMMax(32).setMMax0(64).build(128),
+                new TestOnWriteListener(), new TestOnReadListener());
+
+        final Stats queryStats = Objects.requireNonNull(querySIFT(hnsw, 430000));
+        queryStats.logQueryAveragesInfo(430000);
+    }
+
+    @Nullable
+    private Stats querySIFT(@Nonnull final HNSW hnsw, final long numInserted) throws IOException {
+        final Path siftGroundTruthPath = Paths.get(".out/downloads/sift_groundtruth.ivecs");
+        final Path siftQueryPath = Paths.get(".out/downloads/sift_query.fvecs");
+
+        final TestOnReadListener onReadListener = (TestOnReadListener)hnsw.getOnReadListener();
+
+        Stats stats = null;
+        try (final var queryChannel = FileChannel.open(siftQueryPath, StandardOpenOption.READ);
+                final var groundTruthChannel = FileChannel.open(siftGroundTruthPath, StandardOpenOption.READ)) {
+            final Iterator<DoubleRealVector> queryIterator = new StoredVecsIterator.StoredFVecsIterator(queryChannel);
+            final Iterator<List<Integer>> groundTruthIterator = new StoredVecsIterator.StoredIVecsIterator(groundTruthChannel);
+
+            Verify.verify(queryIterator.hasNext() == groundTruthIterator.hasNext());
+
+            int i = 0;
+            while (queryIterator.hasNext()) {
+                final DoubleRealVector queryVector = queryIterator.next();
+                final Set<Integer> groundTruthIndices = Sets.newHashSet(groundTruthIterator.next());
+                // remove all indexes for items not yet inserted
+                groundTruthIndices.removeIf(id -> id >= numInserted);
+                if (groundTruthIndices.isEmpty()) {
+                    continue;
+                }
+
+                onReadListener.reset();
+                final long beginTs = System.nanoTime();
+                final List<? extends ResultEntry> results =
+                        db.run(tr -> hnsw.kNearestNeighborsSearch(tr, groundTruthIndices.size(),
+                                efSearchFromK(groundTruthIndices.size()), true, queryVector).join());
+                final long endTs = System.nanoTime();
+
+                int recallCount = 0;
+                for (final ResultEntry resultEntry : results) {
+                    final int primaryKeyIndex = (int)resultEntry.getPrimaryKey().getLong(0);
+                    if (groundTruthIndices.contains(primaryKeyIndex)) {
+                        recallCount ++;
+                    }
+                }
+
+                final Stats currentStats =
+                        new Stats(0L, endTs - beginTs,
+                                onReadListener.getNodesReadByLayer(), onReadListener.getBytesReadByLayer(),
+                                ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of(), 1,
+                                groundTruthIndices.size(), recallCount);
+
+                if (stats == null) {
+                    stats = currentStats;
+                } else {
+                    stats = stats.add(currentStats);
+                }
+
+                i ++;
+                if (i >= 100) {
+                    break;
+                }
+            }
+        }
+        return stats;
+    }
+
+    private static int efSearchFromK(final int k) {
+        return 100;
+        //return Math.min(Math.max(4 * k, 64), 400);
+    }
+
+    @Nonnull
+    private Subspace getSameSubspace(@Nonnull final String name) {
+        return dbExtension.getDatabase().runAsync(tr ->
+                DirectoryLayer.getDefault().createOrOpen(tr, List.of("fdb-extensions-test"))
+                        .thenApply(directorySubspace -> directorySubspace.subspace(Tuple.from(name)))
+        ).join();
+    }
+
+    private void clearSubspace(@Nonnull final Subspace subspace) {
+        dbExtension.getDatabase().run(tx -> {
+            tx.clear(Range.startsWith(subspace.pack()));
+            return null;
+        });
     }
 
     private <N extends NodeReference> void writeNode(@Nonnull final Transaction transaction,
@@ -575,42 +790,48 @@ class HNSWTest {
     }
 
     @Nonnull
-    private static Tuple createNextPrimaryKey(@Nonnull final AtomicLong nextIdAtomic) {
-        return Tuple.from(nextIdAtomic.getAndIncrement());
+    private static Tuple primaryKey(final long id) {
+        return Tuple.from(id);
     }
 
     private static class TestOnReadListener implements OnReadListener {
-        final Map<Integer, Long> nodeCountByLayer;
-        final Map<Integer, Long> sumMByLayer;
-        final Map<Integer, Long> bytesReadByLayer;
+        @Nonnull
+        private final Map<Integer, Long> nodesReadByLayer;
+        @Nonnull
+        private final Map<Integer, Long> bytesReadByLayer;
+        @Nonnull
+        private final Map<Integer, Long> sumMByLayer;
 
         public TestOnReadListener() {
-            this.nodeCountByLayer = Maps.newConcurrentMap();
-            this.sumMByLayer = Maps.newConcurrentMap();
+            this.nodesReadByLayer = Maps.newConcurrentMap();
             this.bytesReadByLayer = Maps.newConcurrentMap();
+            this.sumMByLayer = Maps.newConcurrentMap();
         }
 
-        public Map<Integer, Long> getNodeCountByLayer() {
-            return nodeCountByLayer;
+        @Nonnull
+        public Map<Integer, Long> getNodesReadByLayer() {
+            return nodesReadByLayer;
         }
 
+        @Nonnull
         public Map<Integer, Long> getBytesReadByLayer() {
             return bytesReadByLayer;
         }
 
+        @Nonnull
         public Map<Integer, Long> getSumMByLayer() {
             return sumMByLayer;
         }
 
         public void reset() {
-            nodeCountByLayer.clear();
+            nodesReadByLayer.clear();
             bytesReadByLayer.clear();
             sumMByLayer.clear();
         }
 
         @Override
         public void onNodeRead(final int layer, @Nonnull final Node<? extends NodeReference> node) {
-            nodeCountByLayer.compute(layer, (l, oldValue) -> (oldValue == null ? 0 : oldValue) + 1L);
+            nodesReadByLayer.compute(layer, (l, oldValue) -> (oldValue == null ? 0 : oldValue) + 1L);
             sumMByLayer.compute(layer, (l, oldValue) -> (oldValue == null ? 0 : oldValue) + node.getNeighbors().size());
         }
 
@@ -618,6 +839,44 @@ class HNSWTest {
         public void onKeyValueRead(final int layer, @Nonnull final byte[] key, @Nullable final byte[] value) {
             bytesReadByLayer.compute(layer, (l, oldValue) -> (oldValue == null ? 0 : oldValue) +
                     key.length + (value == null ? 0 : value.length));
+        }
+    }
+
+    private static class TestOnWriteListener implements OnWriteListener {
+        @Nonnull
+        private final Map<Integer, Long> nodesWrittenByLayer;
+        @Nonnull
+        private final Map<Integer, Long> bytesWrittenByLayer;
+
+        public TestOnWriteListener() {
+            this.nodesWrittenByLayer = Maps.newConcurrentMap();
+            this.bytesWrittenByLayer = Maps.newConcurrentMap();
+        }
+
+        @Nonnull
+        public Map<Integer, Long> getNodesWrittenByLayer() {
+            return nodesWrittenByLayer;
+        }
+
+        @Nonnull
+        public Map<Integer, Long> getBytesReadByLayer() {
+            return bytesWrittenByLayer;
+        }
+
+        public void reset() {
+            nodesWrittenByLayer.clear();
+            bytesWrittenByLayer.clear();
+        }
+
+        @Override
+        public void onNodeWritten(final int layer, @Nonnull final Node<? extends NodeReference> node) {
+            nodesWrittenByLayer.compute(layer, (l, oldValue) -> (oldValue == null ? 0 : oldValue) + 1L);
+        }
+
+        @Override
+        public void onKeyValueWritten(final int layer, @Nonnull final byte[] key, @Nonnull final byte[] value) {
+            bytesWrittenByLayer.compute(layer, (l, oldValue) -> (oldValue == null ? 0 : oldValue) +
+                    key.length + value.length);
         }
     }
 
@@ -656,6 +915,228 @@ class HNSWTest {
 
         public double getDistance() {
             return distance;
+        }
+    }
+
+    private static class Stats {
+        private final long numRecords;
+        private final long elapsedTimeNs;
+        @Nonnull
+        private final Map<Integer, Long> nodesReadByLayerMap;
+        @Nonnull
+        private final Map<Integer, Long> bytesReadByLayerMap;
+        @Nonnull
+        private final Map<Integer, Long> nodesWrittenByLayerMap;
+        @Nonnull
+        private final Map<Integer, Long> bytesWrittenByLayerMap;
+        @Nonnull
+        @SuppressWarnings("checkstyle:MemberName")
+        private final Map<Integer, Long> mByLayerMap;
+        private final long numQueries;
+        private final long numResults;
+        private final long numRecall;
+
+        public Stats(final long numRecords, final long elapsedTimeNs,
+                     @Nonnull final Map<Integer, Long> nodesReadByLayerMap,
+                     @Nonnull final Map<Integer, Long> bytesReadByLayerMap,
+                     @Nonnull final Map<Integer, Long> nodesWrittenByLayerMap,
+                     @Nonnull final Map<Integer, Long> bytesWrittenByLayerMap,
+                     @Nonnull final Map<Integer, Long> mByLayerMap,
+                     final long numQueries,
+                     final long numResults,
+                     final long numRecall) {
+            this.numRecords = numRecords;
+            this.elapsedTimeNs = elapsedTimeNs;
+            this.nodesReadByLayerMap = ImmutableMap.copyOf(nodesReadByLayerMap);
+            this.bytesReadByLayerMap = ImmutableMap.copyOf(bytesReadByLayerMap);
+            this.nodesWrittenByLayerMap = ImmutableMap.copyOf(nodesWrittenByLayerMap);
+            this.bytesWrittenByLayerMap = ImmutableMap.copyOf(bytesWrittenByLayerMap);
+            this.mByLayerMap = ImmutableMap.copyOf(mByLayerMap);
+            this.numQueries = numQueries;
+            this.numResults = numResults;
+            this.numRecall = numRecall;
+        }
+
+        public long getNumRecords() {
+            return numRecords;
+        }
+
+        public long getElapsedTimeNs() {
+            return elapsedTimeNs;
+        }
+
+        @Nonnull
+        public Map<Integer, Long> getNodesReadByLayerMap() {
+            return nodesReadByLayerMap;
+        }
+
+        @Nonnull
+        public Map<Integer, Long> getBytesReadByLayerMap() {
+            return bytesReadByLayerMap;
+        }
+
+        @Nonnull
+        public Map<Integer, Long> getNodesWrittenByLayerMap() {
+            return nodesWrittenByLayerMap;
+        }
+
+        @Nonnull
+        public Map<Integer, Long> getBytesWrittenByLayerMap() {
+            return bytesWrittenByLayerMap;
+        }
+
+        @Nonnull
+        public Map<Integer, Long> getMByLayerMap() {
+            return mByLayerMap;
+        }
+
+        public long getNumQueries() {
+            return numQueries;
+        }
+
+        public long getNumResults() {
+            return numResults;
+        }
+
+        public long getNumRecall() {
+            return numRecall;
+        }
+
+        @Nonnull
+        public Stats add(@Nonnull final Stats other) {
+            return new Stats(getNumRecords() + other.getNumRecords(),
+                    getElapsedTimeNs() + other.getElapsedTimeNs(),
+                    aggregateMap(getNodesReadByLayerMap(), other.getNodesReadByLayerMap(), Long::sum),
+                    aggregateMap(getBytesReadByLayerMap(), other.getBytesReadByLayerMap(), Long::sum),
+                    aggregateMap(getNodesWrittenByLayerMap(), other.getNodesWrittenByLayerMap(), Long::sum),
+                    aggregateMap(getBytesWrittenByLayerMap(), other.getBytesWrittenByLayerMap(), Long::sum),
+                    aggregateMap(getMByLayerMap(), other.getMByLayerMap(), Long::sum),
+                    getNumQueries() + other.getNumQueries(),
+                    getNumResults() + other.getNumResults(),
+                    getNumRecall() + other.getNumRecall());
+        }
+
+        @Nonnull
+        public Stats remove(@Nonnull final Stats other) {
+            return new Stats(getNumRecords() - other.getNumRecords(),
+                    getElapsedTimeNs() - other.getElapsedTimeNs(),
+                    aggregateMap(getNodesReadByLayerMap(), other.getNodesReadByLayerMap(), (l, r) -> l - r),
+                    aggregateMap(getBytesReadByLayerMap(), other.getBytesReadByLayerMap(), (l, r) -> l - r),
+                    aggregateMap(getNodesWrittenByLayerMap(), other.getNodesWrittenByLayerMap(), (l, r) -> l - r),
+                    aggregateMap(getBytesWrittenByLayerMap(), other.getBytesWrittenByLayerMap(), (l, r) -> l - r),
+                    aggregateMap(getMByLayerMap(), other.getMByLayerMap(), (l, r) -> l - r),
+                    getNumQueries() - other.getNumQueries(),
+                    getNumResults() - other.getNumResults(),
+                    getNumRecall() - other.getNumRecall());
+        }
+
+        public void logInsertInfo(final long index) {
+            if (logger.isInfoEnabled()) {
+                logger.info(getInsertLogMessage(index));
+            }
+        }
+
+        public void logInsertTrace(final long index) {
+            if (logger.isTraceEnabled()) {
+                logger.trace(getInsertLogMessage(index));
+            }
+        }
+
+        @Nonnull
+        private String getInsertLogMessage(final long index) {
+            return String.format("inserted batchSize=%d records starting at nodeId=%d took elapsedTime=%dms, nodesRead=%s, bytesRead=%s",
+                    getNumRecords(), index, TimeUnit.NANOSECONDS.toMillis(getElapsedTimeNs()),
+                    getNodesReadByLayerMap(), getBytesReadByLayerMap());
+        }
+
+        public void logInsertAveragesInfo(final long index) {
+            if (logger.isInfoEnabled()) {
+                logger.info(getInsertAveragesLogMessage(index));
+            }
+        }
+
+        @Nonnull
+        private String getInsertAveragesLogMessage(final long index) {
+            //return String.format("after inserting %d records starting at nodeId=%d; elapsedTime=%dms, nodesRead=%d, bytesRead=%d, nodesWritten=%d, bytesWritten=%d, m=%d, nodesRead=%s, bytesRead=%s, nodesWritten=%s, bytesWritten=%s, m=%s",
+            return String.format("i %d,%d,%d,%d,%d,%d,%d,%d,%s,%s,%s,%s,%s",
+                    getNumRecords(), index,
+                    TimeUnit.NANOSECONDS.toMillis(getElapsedTimeNs() / getNumRecords()),
+                    sumMap(getNodesReadByLayerMap()) / getNumRecords(),
+                    sumMap(getBytesReadByLayerMap()) / getNumRecords(),
+                    sumMap(getNodesWrittenByLayerMap()) / getNumRecords(),
+                    sumMap(getBytesWrittenByLayerMap()) / getNumRecords(),
+                    sumMap(getMByLayerMap()) / sumMap(getNodesReadByLayerMap()),
+                    averageOfMap(getNodesReadByLayerMap(), getNumRecords()),
+                    averageOfMap(getBytesReadByLayerMap(), getNumRecords()),
+                    averageOfMap(getNodesWrittenByLayerMap(), getNumRecords()),
+                    averageOfMap(getBytesWrittenByLayerMap(), getNumRecords()),
+                    averageOfMap(getMByLayerMap(), getNodesReadByLayerMap()));
+        }
+
+        public void logQueryAveragesInfo(final long index) {
+            if (logger.isInfoEnabled()) {
+                logger.info(getQueryAveragesLogMessage(index));
+            }
+        }
+
+        @Nonnull
+        private String getQueryAveragesLogMessage(final long index) {
+            //return String.format("querying, num=%d; averages after inserting %d records took elapsedTime=%dms, recall=%.2f, nodesRead=%d, bytesRead=%d, nodesRead=%s, bytesRead=%s",
+            return String.format("%d,%d,%d,%.2f,%d,%d,%s,%s",
+                    getNumQueries(),
+                    index,
+                    TimeUnit.NANOSECONDS.toMillis(getElapsedTimeNs() / getNumQueries()),
+                    (double)getNumRecall() * 100.0d / getNumResults(),
+                    sumMap(getNodesReadByLayerMap()) / getNumQueries(),
+                    sumMap(getBytesReadByLayerMap()) / getNumQueries(),
+                    averageOfMap(getNodesReadByLayerMap(), getNumQueries()),
+                    averageOfMap(getBytesReadByLayerMap(), getNumQueries()));
+        }
+
+        @Nonnull
+        private static Map<Integer, Long> aggregateMap(@Nonnull final Map<Integer, Long> map1,
+                                                       @Nonnull final Map<Integer, Long> map2,
+                                                       @Nonnull final BinaryOperator<Long> operator) {
+            final ImmutableMap.Builder<Integer, Long> resultBuilder = ImmutableMap.builder();
+
+            for (final Map.Entry<Integer, Long> entry1 : map1.entrySet()) {
+                if (map2.containsKey(entry1.getKey())) {
+                    resultBuilder.put(entry1.getKey(), operator.apply(entry1.getValue(), map2.get(entry1.getKey())));
+                } else {
+                    resultBuilder.put(entry1);
+                }
+            }
+
+            for (final Map.Entry<Integer, Long> entry2 : map2.entrySet()) {
+                if (!map1.containsKey(entry2.getKey())) {
+                    resultBuilder.put(entry2);
+                }
+            }
+
+            return resultBuilder.build();
+        }
+
+        @Nonnull
+        private static Map<Integer, Long> averageOfMap(@Nonnull final Map<Integer, Long> map, final long numRecords) {
+            final ImmutableMap.Builder<Integer, Long> resultBuilder = ImmutableMap.builder();
+            for (final Map.Entry<Integer, Long> entry : map.entrySet()) {
+                resultBuilder.put(entry.getKey(), entry.getValue() / numRecords);
+            }
+            return resultBuilder.build();
+        }
+
+        @Nonnull
+        private static Map<Integer, Long> averageOfMap(@Nonnull final Map<Integer, Long> dividentMap,
+                                                       @Nonnull final Map<Integer, Long> divisorMap) {
+            final ImmutableMap.Builder<Integer, Long> resultBuilder = ImmutableMap.builder();
+            for (final Map.Entry<Integer, Long> entry : dividentMap.entrySet()) {
+                resultBuilder.put(entry.getKey(), entry.getValue() / divisorMap.get(entry.getKey()));
+            }
+            return resultBuilder.build();
+        }
+
+        private static long sumMap(@Nonnull final Map<Integer, Long> map) {
+            return map.values().stream().mapToLong(v -> v).sum();
         }
     }
 }
