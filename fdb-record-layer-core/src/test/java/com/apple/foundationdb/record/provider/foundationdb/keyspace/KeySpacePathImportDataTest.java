@@ -47,6 +47,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletionException;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assumptions.assumeThat;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -159,7 +160,7 @@ class KeySpacePathImportDataTest {
         KeySpacePath testPath = root.path("test");
         importData(destinationDatabase, testPath, Collections.emptyList()); // should not throw any exception
 
-        assertTrue(getExportedData(testPath).isEmpty(),
+        assertTrue(getExportedData(sourceDatabase, testPath).isEmpty(),
                 "there should not have been any data created");
     }
 
@@ -349,8 +350,8 @@ class KeySpacePathImportDataTest {
         setSingleKey(path2, Tuple.from("data"), Tuple.from("data2"));
 
         List<DataInKeySpacePath> mixedData = new ArrayList<>();
-        mixedData.addAll(getExportedData(path1));
-        mixedData.addAll(getExportedData(path2));
+        mixedData.addAll(getExportedData(sourceDatabase, path1));
+        mixedData.addAll(getExportedData(sourceDatabase, path2));
 
         assertBadImport(keySpace.path("root1"), mixedData);
     }
@@ -418,6 +419,25 @@ class KeySpacePathImportDataTest {
                 importData(destinationDatabase, rootPath, data));
     }
 
+    @ParameterizedTest
+    @BooleanSource({"manyPaths", "useDirectoryLayer"})
+    void importALotOfData(boolean manyPaths, boolean useDirectoryLayer) {
+        // Test importing a lot of data within a single path
+        final String rootUuid = UUID.randomUUID().toString();
+        KeySpace root = new KeySpace(
+                new KeySpaceDirectory("root", KeyType.STRING, rootUuid)
+                        .addSubdirectory(useDirectoryLayer
+                                         ? new DirectoryLayerDirectory("data")
+                                         : new KeySpaceDirectory("data", KeyType.STRING)));
+
+        final KeySpacePath rootPath = root.path("root");
+
+        final DataGenerator data = new DataGenerator(rootPath, 10_000, manyPaths);
+        importData(destinationDatabase, rootPath, data);
+        final List<DataInKeySpacePath> exportedData = getExportedData(destinationDatabase, rootPath);
+        assertThat(exportedData).containsExactlyInAnyOrderElementsOf(data);
+    }
+
     private void setSingleKey(KeySpacePath path, Tuple remainder, Tuple value) {
         try (FDBRecordContext context = sourceDatabase.openContext()) {
             byte[] key = path.toSubspace(context).pack(remainder);
@@ -451,7 +471,7 @@ class KeySpacePathImportDataTest {
 
     private FDBDatabase copyData(final KeySpacePath sourcePath, KeySpacePath destinationPath, final CopyConfig copyConfig) {
         // Export the data
-        final List<DataInKeySpacePath> exportedData = getExportedData(sourcePath);
+        final List<DataInKeySpacePath> exportedData = getExportedData(sourceDatabase, sourcePath);
 
         FDBDatabase targetDatabase;
         switch (copyConfig) {
@@ -481,7 +501,7 @@ class KeySpacePathImportDataTest {
     }
 
     private void assertBadImport(KeySpacePath sourcePath, KeySpacePath destinationPath) {
-        List<DataInKeySpacePath> exportedData = getExportedData(sourcePath);
+        List<DataInKeySpacePath> exportedData = getExportedData(sourceDatabase, sourcePath);
         assertBadImport(destinationPath, exportedData);
     }
 
@@ -500,13 +520,13 @@ class KeySpacePathImportDataTest {
             context.commit();
         }
         // just an extra check to make sure the test is working as expected
-        assertTrue(getExportedData(path).isEmpty(),
+        assertTrue(getExportedData(sourceDatabase, path).isEmpty(),
                 "Clearing should remove all the data");
     }
 
     @Nonnull
-    private List<DataInKeySpacePath> getExportedData(final KeySpacePath path) {
-        try (FDBRecordContext context = sourceDatabase.openContext()) {
+    private List<DataInKeySpacePath> getExportedData(FDBDatabase targetDatabase, final KeySpacePath path) {
+        try (FDBRecordContext context = targetDatabase.openContext()) {
             return path.exportAllData(context, null, ScanProperties.FORWARD_SCAN)
                     .asList().join();
         }
