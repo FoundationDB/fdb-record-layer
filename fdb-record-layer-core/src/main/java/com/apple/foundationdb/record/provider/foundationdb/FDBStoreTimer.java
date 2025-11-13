@@ -761,6 +761,14 @@ public class FDBStoreTimer extends StoreTimer {
         LOCKS_ATTEMPTED("number of attempts to register a lock", false),
         /** Count of the locks released. */
         LOCKS_RELEASED("number of locks released", false),
+        VECTOR_NODE_READS("intermediate nodes read", false),
+        VECTOR_NODE_READ_BYTES("intermediate node bytes read", true),
+        VECTOR_NODE0_READS("intermediate nodes read", false),
+        VECTOR_NODE0_READ_BYTES("intermediate node bytes read", true),
+        VECTOR_NODE_WRITES("intermediate nodes written", false),
+        VECTOR_NODE_WRITE_BYTES("intermediate node bytes written", true),
+        VECTOR_NODE0_WRITES("intermediate nodes written", false),
+        VECTOR_NODE0_WRITE_BYTES("intermediate node bytes written", true),
         ;
 
         private final String title;

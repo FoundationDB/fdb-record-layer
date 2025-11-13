@@ -581,7 +581,7 @@ public class HNSW {
         return onReadListener.onAsyncRead(
                         storageAdapter.fetchNode(readTransaction, storageTransform, layer,
                                 nodeReference.getPrimaryKey()))
-                .thenApply(node -> biMapFunction.apply(nodeReference, node));
+                .thenApply(node -> biMapFunction.apply(nodeReference, Objects.requireNonNull(node)));
     }
 
     /**
@@ -754,13 +754,28 @@ public class HNSW {
         }
 
         return StorageAdapter.fetchAccessInfo(getConfig(), transaction, getSubspace(), getOnReadListener())
-                .thenCompose(accessInfo -> {
-                    final AccessInfo currentAccessInfo;
+                .thenCombine(exists(transaction, newPrimaryKey),
+                        (accessInfo, nodeAlreadyExists) -> {
+                            if (nodeAlreadyExists) {
+                                if (logger.isDebugEnabled()) {
+                                    logger.debug("new record already exists in HNSW with key={} on layer={}",
+                                            newPrimaryKey, insertionLayer);
+                                }
+                            }
+                            return new AccessInfoAndNodeExistence(accessInfo, nodeAlreadyExists);
+                        })
+                .thenCompose(accessInfoAndNodeExistence -> {
+                    if (accessInfoAndNodeExistence.isNodeExists()) {
+                        return AsyncUtil.DONE;
+                    }
+
+                    final AccessInfo accessInfo = accessInfoAndNodeExistence.getAccessInfo();
                     final AffineOperator storageTransform = storageTransform(accessInfo);
                     final Transformed<RealVector> transformedNewVector = storageTransform.transform(newVector);
                     final Quantizer quantizer = quantizer(accessInfo);
                     final Estimator estimator = quantizer.estimator();
 
+                    final AccessInfo currentAccessInfo;
                     if (accessInfo == null) {
                         // this is the first node
                         writeLonelyNodes(quantizer, transaction, newPrimaryKey, transformedNewVector,
@@ -819,6 +834,15 @@ public class HNSW {
                             .thenCompose(ignored ->
                                     addToStatsIfNecessary(transaction, currentAccessInfo, transformedNewVector));
                 }).thenCompose(ignored -> AsyncUtil.DONE);
+    }
+
+    @Nonnull
+    @VisibleForTesting
+    CompletableFuture<Boolean> exists(@Nonnull final ReadTransaction readTransaction,
+                                      @Nonnull final Tuple primaryKey) {
+        final StorageAdapter<? extends NodeReference> storageAdapter = getStorageAdapterForLayer(0);
+        return storageAdapter.fetchNode(readTransaction, AffineOperator.identity(), 0, primaryKey)
+                .thenApply(Objects::nonNull);
     }
 
     /**
@@ -1545,5 +1569,25 @@ public class HNSW {
             resultBuilder.add(queue.poll());
         }
         return resultBuilder.build();
+    }
+
+    private static class AccessInfoAndNodeExistence {
+        @Nullable
+        private final AccessInfo accessInfo;
+        private final boolean nodeExists;
+
+        public AccessInfoAndNodeExistence(@Nullable final AccessInfo accessInfo, final boolean nodeExists) {
+            this.accessInfo = accessInfo;
+            this.nodeExists = nodeExists;
+        }
+
+        @Nullable
+        public AccessInfo getAccessInfo() {
+            return accessInfo;
+        }
+
+        public boolean isNodeExists() {
+            return nodeExists;
+        }
     }
 }
