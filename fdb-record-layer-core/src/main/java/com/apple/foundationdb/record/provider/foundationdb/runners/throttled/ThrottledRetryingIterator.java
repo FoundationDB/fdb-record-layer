@@ -43,6 +43,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.Executor;
@@ -389,14 +390,6 @@ public class ThrottledRetryingIterator<T> implements AutoCloseable {
         }
     }
 
-    public static <T> Builder<T> builder(TransactionalRunner runner,
-                                         Executor executor,
-                                         ScheduledExecutorService scheduledExecutor,
-                                         CursorFactory<T> cursorCreator,
-                                         ItemHandler<T> singleItemHandler) {
-        return new Builder<>(runner, executor, scheduledExecutor, cursorCreator, singleItemHandler);
-    }
-
     public static <T> Builder<T> builder(FDBDatabase database,
                                          CursorFactory<T> cursorCreator,
                                          ItemHandler<T> singleItemHandler) {
@@ -409,9 +402,13 @@ public class ThrottledRetryingIterator<T> implements AutoCloseable {
      * @param <T> the item type being iterated on.
      */
     public static class Builder<T> {
-        private final TransactionalRunner transactionalRunner;
-        private final Executor executor;
-        private final ScheduledExecutorService scheduledExecutor;
+        // Fields constructed during build()
+        private TransactionalRunner transactionalRunner;
+        private Executor executor;
+        private ScheduledExecutorService scheduledExecutor;
+        // Fields initialized by setters/constructor
+        private FDBDatabase database;
+        private FDBRecordContextConfig.Builder contextConfigBuilder;
         private final CursorFactory<T> cursorCreator;
         private final ItemHandler<T> singleItemHandler;
         private Consumer<QuotaManager> transactionSuccessNotification;
@@ -444,11 +441,17 @@ public class ThrottledRetryingIterator<T> implements AutoCloseable {
         }
 
         private Builder(FDBDatabase database, FDBRecordContextConfig.Builder contextConfigBuilder, CursorFactory<T> cursorCreator, ItemHandler<T> singleItemHandler) {
-            this(new TransactionalRunner(database, contextConfigBuilder),
-                    database.newContextExecutor(contextConfigBuilder.getMdcContext()),
-                    database.getScheduledExecutor(),
-                    cursorCreator,
-                    singleItemHandler);
+            // Mandatory fields are set in the constructor. Everything else is optional.
+            this.database = database;
+            this.contextConfigBuilder = contextConfigBuilder;
+            this.cursorCreator = cursorCreator;
+            this.singleItemHandler = singleItemHandler;
+            // set defaults
+            this.transactionTimeQuotaMillis = (int)TimeUnit.SECONDS.toMillis(4);
+            this.maxRecordDeletesPerTransaction = 0;
+            this.maxRecordScannedPerSec = 0;
+            this.maxRecordDeletesPerSec = 0;
+            this.numOfRetries = NUMBER_OF_RETRIES;
         }
 
         /**
@@ -539,10 +542,26 @@ public class ThrottledRetryingIterator<T> implements AutoCloseable {
         }
 
         /**
+         * Set the MDC context for the runner/executor.
+         * This MDC context will be carried out into the runner and executor and will allow them to pass that down to
+         * LOGGER calls used by the item handlers.
+         * Defaults to empty context.
+         * @param mdcContext the MDC context to use
+         * @return this builder
+         */
+        public Builder<T> withMdcContext(Map<String, String> mdcContext) {
+            this.contextConfigBuilder.setMdcContext(mdcContext);
+            return this;
+        }
+
+        /**
          * Create the iterator.
          * @return the newly minted iterator
          */
         public ThrottledRetryingIterator<T> build() {
+            this.transactionalRunner = new TransactionalRunner(database, contextConfigBuilder);
+            this.executor = database.newContextExecutor(contextConfigBuilder.getMdcContext());
+            this.scheduledExecutor = database.getScheduledExecutor();
             return new ThrottledRetryingIterator<>(this);
         }
     }
