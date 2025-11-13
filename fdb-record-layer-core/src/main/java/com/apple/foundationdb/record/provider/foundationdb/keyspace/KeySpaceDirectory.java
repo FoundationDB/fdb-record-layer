@@ -177,6 +177,47 @@ public class KeySpaceDirectory {
     }
 
     /**
+     * Validate that the given value can be used with this directory.
+     * @param value a potential value
+     * @throws RecordCoreArgumentException if the value is not valid
+     */
+    protected void validateValue(@Nullable Object value) {
+        // Validate that the value is valid for this directory
+        if (!isValueValid(value)) {
+            throw new RecordCoreArgumentException("Value does not match directory requirements")
+                .addLogInfo(LogMessageKeys.DIR_NAME, name,
+                    LogMessageKeys.EXPECTED_TYPE, getKeyType(),
+                    LogMessageKeys.ACTUAL, value,
+                    "actual_type", value == null ? "null" : value.getClass().getName(),
+                    "expected_value", getValue() != KeySpaceDirectory.ANY_VALUE ? getValue() : "any");
+        }
+    }
+
+    /**
+     * Checks if the provided value is valid for this directory. This method can be overridden by subclasses
+     * to provide custom validation logic. For example, {@link DirectoryLayerDirectory} accepts both String
+     * (logical names) and Long (directory layer values) even though its key type is LONG.
+     *
+     * @param value the value to validate
+     * @return {@code true} if the value is valid for this directory
+     */
+    protected boolean isValueValid(@Nullable Object value) {
+        // Check if value matches the key type
+        if (!keyType.isMatch(value)) {
+            return false;
+        }
+        // If this directory has a constant value, check that the provided value matches it
+        if (this.value != ANY_VALUE) {
+            if (this.value instanceof byte[] && value instanceof byte[]) {
+                return Arrays.equals((byte[]) this.value, (byte[]) value);
+            } else {
+                return Objects.equals(this.value, value);
+            }
+        }
+        return true;
+    }
+
+    /**
      * Given a position in a tuple, checks to see if this directory is compatible with the value at the
      * position, returning either a path indicating that it was compatible or nothing if it was not compatible.
      * This method allows overriding implementations to consume as much or as little of the tuple as necessary

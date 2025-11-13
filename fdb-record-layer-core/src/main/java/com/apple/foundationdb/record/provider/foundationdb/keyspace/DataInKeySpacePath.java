@@ -53,6 +53,7 @@ public class DataInKeySpacePath {
         this.value = value;
     }
 
+    @Nonnull
     public byte[] getValue() {
         return this.value;
     }
