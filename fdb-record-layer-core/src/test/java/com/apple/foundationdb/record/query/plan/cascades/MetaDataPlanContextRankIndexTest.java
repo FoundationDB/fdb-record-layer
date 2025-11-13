@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.TestRecordsRankProto;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
-import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactoryRegistryImpl;
 import com.apple.foundationdb.record.provider.foundationdb.query.FDBRecordStoreQueryTestBase;
@@ -48,10 +47,9 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Tests for {@link MetaDataPlanContext} methods with rank indexes, specifically testing:
+ * Tests for {@link MetaDataPlanContext} methods with rank indexes.
  * <ul>
  * <li>{@link MetaDataPlanContext#forRootReference} - verifies rank indexes only create
  *     match candidates for value scans (BY_VALUE) and NOT for rank scans (BY_RANK)</li>
