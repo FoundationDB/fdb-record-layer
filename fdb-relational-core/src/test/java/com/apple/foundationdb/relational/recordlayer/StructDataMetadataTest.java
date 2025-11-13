@@ -25,6 +25,7 @@ import com.apple.foundationdb.relational.api.EmbeddedRelationalArray;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
+import com.apple.foundationdb.relational.api.RelationalArray;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
@@ -103,7 +104,18 @@ public class StructDataMetadataTest {
                 .build();
         statement.executeInsert("NT", m);
 
-        final var atBuilder = EmbeddedRelationalStruct.newBuilder();
+        m = EmbeddedRelationalStruct.newBuilder()
+                .addString("T_NAME", "nt_record2")
+                .addStruct("ST1", EmbeddedRelationalStruct.newBuilder()
+                        .addLong("C", 5678L)
+                        .addStruct("D", EmbeddedRelationalStruct.newBuilder()
+                                .addString("A", "Ciao")
+                                .build())
+                        .build())
+                .build();
+        statement.executeInsert("NT", m);
+
+        var atBuilder = EmbeddedRelationalStruct.newBuilder();
         m = atBuilder.addString("A_NAME", "a_test_rec")
                 .addArray("ST2", EmbeddedRelationalArray.newBuilder()
                         .addStruct(EmbeddedRelationalStruct.newBuilder()
@@ -112,6 +124,21 @@ public class StructDataMetadataTest {
                                 .build())
                         .addStruct(EmbeddedRelationalStruct.newBuilder()
                                 .addBytes("C", "Bonjour".getBytes(StandardCharsets.UTF_8))
+                                .addBoolean("D", false)
+                                .build())
+                        .build())
+                .build();
+        statement.executeInsert("AT", m);
+
+        atBuilder = EmbeddedRelationalStruct.newBuilder();
+        m = atBuilder.addString("A_NAME", "another_test_rec")
+                .addArray("ST2", EmbeddedRelationalArray.newBuilder()
+                        .addStruct(EmbeddedRelationalStruct.newBuilder()
+                                .addBytes("C", "今日は".getBytes(StandardCharsets.UTF_8))
+                                .addBoolean("D", true)
+                                .build())
+                        .addStruct(EmbeddedRelationalStruct.newBuilder()
+                                .addBytes("C", "مرحبًا".getBytes(StandardCharsets.UTF_8))
                                 .addBoolean("D", false)
                                 .build())
                         .build())
@@ -159,15 +186,55 @@ public class StructDataMetadataTest {
         });
     }
 
-    // When projecting *, the underlying struct types are lost and replaced with a generic UUID type.
-    // This test should be replaced with the correct expected behavior once this is fixed.
-    // When projecting (*), everything works as expected, see `canReadProjectedStructTypeNameInNestedStar`.
-    // See https://github.com/FoundationDB/fdb-record-layer/issues/3743
+    @Test
+    void canReadProjectedNestedStructTypeNameInNestedStar() throws Throwable {
+        canReadStructTypeName("SELECT (*) FROM NT", resultSet -> {
+            RelationalStruct struct = resultSet.getStruct(1).getStruct("ST1").getStruct("D");
+            // Replace following assert with AssertEquals once fixed.
+            // See https://github.com/FoundationDB/fdb-record-layer/issues/3743
+            Assertions.assertNotEquals("STRUCT_1", struct.getMetaData().getTypeName());
+        });
+    }
+
+    @Test
+    void canReadProjectedStructInArrayTypeNameInNestedStar() throws Throwable {
+        canReadStructTypeName("SELECT (*) FROM AT", resultSet -> {
+            RelationalArray array = resultSet.getStruct(1).getArray("ST2");
+            Assertions.assertEquals("STRUCT", array.getMetaData().getElementTypeName());
+            // Replace following assert with AssertEquals once fixed.
+            // See https://github.com/FoundationDB/fdb-record-layer/issues/3743
+            Assertions.assertNotEquals("STRUCT_3", array.getMetaData().getElementStructMetaData().getTypeName());
+        });
+    }
+
     @Test
     void canReadProjectedStructTypeNameInUnnestedStar() throws Throwable {
         canReadStructTypeName("SELECT * FROM T", resultSet -> {
             RelationalStruct struct = resultSet.getStruct("ST1");
+            // Replace following assert with AssertEquals once fixed.
+            // See https://github.com/FoundationDB/fdb-record-layer/issues/3743
             Assertions.assertNotEquals("STRUCT_1", struct.getMetaData().getTypeName());
+        });
+    }
+
+    @Test
+    void canReadProjectedNestedStructTypeNameInUnnestedStar() throws Throwable {
+        canReadStructTypeName("SELECT * FROM NT", resultSet -> {
+            RelationalStruct struct = resultSet.getStruct("ST1").getStruct("D");
+            // Replace following assert with AssertEquals once fixed.
+            // See https://github.com/FoundationDB/fdb-record-layer/issues/3743
+            Assertions.assertNotEquals("STRUCT_1", struct.getMetaData().getTypeName());
+        });
+    }
+
+    @Test
+    void canReadProjectedStructInArrayTypeNameInUnnestedStar() throws Throwable {
+        canReadStructTypeName("SELECT * FROM AT", resultSet -> {
+            RelationalArray array = resultSet.getArray("ST2");
+            Assertions.assertEquals("STRUCT", array.getMetaData().getElementTypeName());
+            // Replace following assert with AssertEquals once fixed.
+            // See https://github.com/FoundationDB/fdb-record-layer/issues/3743
+            Assertions.assertNotEquals("STRUCT_3", array.getMetaData().getElementStructMetaData().getTypeName());
         });
     }
 
@@ -176,6 +243,27 @@ public class StructDataMetadataTest {
         canReadStructTypeName("SELECT ST1 FROM T", resultSet -> {
             RelationalStruct struct = resultSet.getStruct("ST1");
             Assertions.assertEquals("STRUCT_1", struct.getMetaData().getTypeName());
+        });
+    }
+
+    @Test
+    void canReadProjectedNestedStructTypeNameDirectlyProjected() throws Throwable {
+        canReadStructTypeName("SELECT ST1 FROM NT", resultSet -> {
+            RelationalStruct struct = resultSet.getStruct("ST1").getStruct("D");
+            // Replace following assert with AssertEquals once fixed.
+            // See https://github.com/FoundationDB/fdb-record-layer/issues/3743
+            Assertions.assertNotEquals("STRUCT_1", struct.getMetaData().getTypeName());
+        });
+    }
+
+    @Test
+    void canReadProjectedStructInArrayTypeNameDirectlyProjected() throws Throwable {
+        canReadStructTypeName("SELECT * FROM AT", resultSet -> {
+            RelationalArray array = resultSet.getArray("ST2");
+            Assertions.assertEquals("STRUCT", array.getMetaData().getElementTypeName());
+            // Replace following assert with AssertEquals once fixed.
+            // See https://github.com/FoundationDB/fdb-record-layer/issues/3743
+            Assertions.assertNotEquals("STRUCT_3", array.getMetaData().getElementStructMetaData().getTypeName());
         });
     }
 
