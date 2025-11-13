@@ -513,10 +513,10 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
     @Override
     public LogicalOperator visitDeleteStatement(@Nonnull RelationalParser.DeleteStatementContext ctx) {
         Assert.thatUnchecked(ctx.limitClause() == null, "limit is not supported");
-        final var tableId = visitFullId(ctx.tableName().fullId());
-        final var semanticAnalyzer = getDelegate().getSemanticAnalyzer();
-        final var table = semanticAnalyzer.getTable(tableId);
-        final var tableAccess = getDelegate().getLogicalOperatorCatalog().lookupTableAccess(tableId, semanticAnalyzer);
+        final Identifier tableId = visitFullId(ctx.tableName().fullId());
+        final SemanticAnalyzer semanticAnalyzer = getDelegate().getSemanticAnalyzer();
+        final RecordLayerTable table = Assert.castUnchecked(semanticAnalyzer.getTable(tableId), RecordLayerTable.class);
+        final LogicalOperator tableAccess = getDelegate().getLogicalOperatorCatalog().lookupTableAccess(tableId, semanticAnalyzer);
 
         getDelegate().pushPlanFragment().setOperator(tableAccess);
         final var output = Expressions.ofSingle(semanticAnalyzer.expandStar(Optional.empty(), getDelegate().getLogicalOperators()));
@@ -524,7 +524,7 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         Optional<Expression> whereMaybe = ctx.whereExpr() == null ? Optional.empty() : Optional.of(visitWhereExpr(ctx.whereExpr()));
         final var deleteSource = LogicalOperator.generateSimpleSelect(output, getDelegate().getLogicalOperators(), whereMaybe, Optional.of(tableId), ImmutableSet.of(), false);
 
-        final var deleteExpression = new DeleteExpression(Assert.castUnchecked(deleteSource.getQuantifier(), Quantifier.ForEach.class), table.getName());
+        final var deleteExpression = new DeleteExpression(Assert.castUnchecked(deleteSource.getQuantifier(), Quantifier.ForEach.class), table.getType().getStorageName());
         final var deleteQuantifier = Quantifier.forEach(Reference.initialOf(deleteExpression));
         final var resultingDelete = LogicalOperator.newUnnamedOperator(Expressions.fromQuantifier(deleteQuantifier), deleteQuantifier);
 

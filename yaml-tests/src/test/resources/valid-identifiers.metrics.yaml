@@ -363,6 +363,55 @@ all-tests:
     insert_time_ms: 0
     insert_new_count: 37
     insert_reused_count: 2
+update-delete-statements:
+-   query: EXPLAIN UPDATE "foo.tableA" SET "foo.tableA.A2" = 100 WHERE "foo.tableA.A1"
+        = 1
+    explain: 'COVERING(foo.tableA.idx [EQUALS promote(@c10 AS LONG)] -> [foo__2tableA__2A1:
+        KEY[0], foo__2tableA__2A2: KEY[1], foo__2tableA__2A3: KEY[2]]) | DISTINCT
+        BY PK | FETCH | UPDATE foo__2tableA'
+    task_count: 849
+    task_total_time_ms: 19
+    transform_count: 159
+    transform_time_ms: 8
+    transform_yield_count: 63
+    insert_time_ms: 1
+    insert_new_count: 96
+    insert_reused_count: 3
+-   query: EXPLAIN UPDATE "foo.tableA" SET "foo.tableA.A2" = 100 WHERE "foo.tableA.A1"
+        > 1 RETURNING "new"."foo.tableA.A1"
+    explain: 'COVERING(foo.tableA.idx [[GREATER_THAN promote(@c10 AS LONG)]] -> [foo__2tableA__2A1:
+        KEY[0], foo__2tableA__2A2: KEY[1], foo__2tableA__2A3: KEY[2]]) | DISTINCT
+        BY PK | FETCH | UPDATE foo__2tableA | MAP (_.new.foo.tableA.A1 AS foo.tableA.A1)'
+    task_count: 897
+    task_total_time_ms: 14
+    transform_count: 170
+    transform_time_ms: 5
+    transform_yield_count: 60
+    insert_time_ms: 0
+    insert_new_count: 100
+    insert_reused_count: 3
+-   query: EXPLAIN DELETE FROM "foo.tableA" WHERE "foo.tableA.A1" = 1 RETURNING "foo.tableA.A1"
+        + "foo.tableA.A2" + "foo.tableA.A3"
+    explain: ISCAN(foo.tableA.idx [EQUALS promote(@c7 AS LONG)]) | DELETE | MAP (_.foo.tableA.A1
+        + _.foo.tableA.A2 + _.foo.tableA.A3 AS _0)
+    task_count: 832
+    task_total_time_ms: 19
+    transform_count: 164
+    transform_time_ms: 6
+    transform_yield_count: 65
+    insert_time_ms: 1
+    insert_new_count: 95
+    insert_reused_count: 3
+-   query: EXPLAIN DELETE FROM "foo.tableA" WHERE "foo.tableA.A2" = 100
+    explain: ISCAN(foo.tableA.idx3 [EQUALS promote(@c7 AS LONG)]) | DELETE
+    task_count: 636
+    task_total_time_ms: 12
+    transform_count: 134
+    transform_time_ms: 5
+    transform_yield_count: 54
+    insert_time_ms: 0
+    insert_new_count: 76
+    insert_reused_count: 3
 unnamed-12:
 -   query: EXPLAIN SELECT * FROM T1
     explain: SCAN(<,>) | TFILTER T1 | MAP (_.ID AS ID, _.T1.COL1 AS T1.COL1, _.T1.COL2

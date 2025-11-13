@@ -436,6 +436,94 @@ S
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">foo.enum.type$enum__1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS enum_type.id, ENUM&lt;A(0), B$C(1), C.D(2), E__F(3), __G$H(4)&gt; AS enum_type.enum__1, ENUM&lt;A(0), B$C(1), C.D(2), E__F(3), __G$H(4)&gt; AS enum_type.enum__2)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}Ú
+k
+update-delete-statementsOEXPLAIN UPDATE "foo.tableA" SET "foo.tableA.A2" = 100 WHERE "foo.tableA.A1" = 1Ç
+—ñ’µ	ü Ç∑Ù(?0ˆ∂L8`@ªCOVERING(foo.tableA.idx [EQUALS promote(@c10 AS LONG)] -> [foo__2tableA__2A1: KEY[0], foo__2tableA__2A2: KEY[1], foo__2tableA__2A3: KEY[2]]) | DISTINCT BY PK | FETCH | UPDATE foo__2tableA•digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Modification</td></tr><tr><td align="left">UPDATE</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightcoral" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS foo.tableA.A1, LONG AS foo.tableA.A2, LONG AS foo.tableA.A3 AS old, LONG AS foo.tableA.A1, LONG AS foo.tableA.A2, LONG AS foo.tableA.A3 AS new)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Fetch Records</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS foo.tableA.A1, LONG AS foo.tableA.A2, LONG AS foo.tableA.A3)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Unordered Primary Key Distinct</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS foo.tableA.A1, LONG AS foo.tableA.A2, LONG AS foo.tableA.A3)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c10 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS foo.tableA.A1, LONG AS foo.tableA.A2, LONG AS foo.tableA.A3)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">foo.tableA.idx</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS foo.tableA.A1, LONG AS foo.tableA.A2, LONG AS foo.tableA.A3)" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">foo__2tableA</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS foo.tableA.A1, LONG AS foo.tableA.A2, LONG AS foo.tableA.A3 AS old, LONG AS foo.tableA.A1, LONG AS foo.tableA.A2, LONG AS foo.tableA.A3 AS new)" ];
+  3 -> 2 [ label=<&nbsp;q142> label="q142" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ label=<&nbsp;q140> label="q140" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="none" arrowtail="normal" dir="both" ];
+  {
+    rank=same;
+    rankDir=LR;
+    2 -> 6 [ color="red" style="invis" ];
+  }
+}¿
+ã
+update-delete-statementsoEXPLAIN UPDATE "foo.tableA" SET "foo.tableA.A2" = 100 WHERE "foo.tableA.A1" > 1 RETURNING "new"."foo.tableA.A1"Ø
+ÅÖ˜ˇ™ …«Œ(<0ıå08d@COVERING(foo.tableA.idx [[GREATER_THAN promote(@c10 AS LONG)]] -> [foo__2tableA__2A1: KEY[0], foo__2tableA__2A2: KEY[1], foo__2tableA__2A3: KEY[2]]) | DISTINCT BY PK | FETCH | UPDATE foo__2tableA | MAP (_.new.foo.tableA.A1 AS foo.tableA.A1)ùdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6.new.foo.tableA.A1 AS foo.tableA.A1)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS foo.tableA.A1)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Modification</td></tr><tr><td align="left">UPDATE</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightcoral" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS foo.tableA.A1, LONG AS foo.tableA.A2, LONG AS foo.tableA.A3 AS old, LONG AS foo.tableA.A1, LONG AS foo.tableA.A2, LONG AS foo.tableA.A3 AS new)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Fetch Records</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS foo.tableA.A1, LONG AS foo.tableA.A2, LONG AS foo.tableA.A3)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">foo__2tableA</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS foo.tableA.A1, LONG AS foo.tableA.A2, LONG AS foo.tableA.A3 AS old, LONG AS foo.tableA.A1, LONG AS foo.tableA.A2, LONG AS foo.tableA.A3 AS new)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Unordered Primary Key Distinct</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS foo.tableA.A1, LONG AS foo.tableA.A2, LONG AS foo.tableA.A3)" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [[GREATER_THAN promote(@c10 AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS foo.tableA.A1, LONG AS foo.tableA.A2, LONG AS foo.tableA.A3)" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">foo.tableA.idx</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS foo.tableA.A1, LONG AS foo.tableA.A2, LONG AS foo.tableA.A3)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="none" arrowtail="normal" dir="both" ];
+  5 -> 3 [ label=<&nbsp;q145> label="q145" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 5 [ label=<&nbsp;q143> label="q143" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 6 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  {
+    rank=same;
+    rankDir=LR;
+    3 -> 4 [ color="red" style="invis" ];
+  }
+}≈
+î
+update-delete-statementsxEXPLAIN DELETE FROM "foo.tableA" WHERE "foo.tableA.A1" = 1 RETURNING "foo.tableA.A1" + "foo.tableA.A2" + "foo.tableA.A3"´
+¿â’ú	§ ë⁄¶(A0…å>8_@~ISCAN(foo.tableA.idx [EQUALS promote(@c7 AS LONG)]) | DELETE | MAP (_.foo.tableA.A1 + _.foo.tableA.A2 + _.foo.tableA.A3 AS _0)ådigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6.foo.tableA.A1 + q6.foo.tableA.A2 + q6.foo.tableA.A3 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Modification</td></tr><tr><td align="left">DELETE</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightcoral" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS foo.tableA.A1, LONG AS foo.tableA.A2, LONG AS foo.tableA.A3)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c7 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS foo.tableA.A1, LONG AS foo.tableA.A2, LONG AS foo.tableA.A3)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS foo.tableA.A1, LONG AS foo.tableA.A2, LONG AS foo.tableA.A3)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">foo.tableA.idx</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS foo.tableA.A1, LONG AS foo.tableA.A2, LONG AS foo.tableA.A3)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="none" arrowtail="normal" dir="both" ];
+  5 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  {
+    rank=same;
+    rankDir=LR;
+    3 -> 4 [ color="red" style="invis" ];
+  }
+}Ã
+X
+update-delete-statements<EXPLAIN DELETE FROM "foo.tableA" WHERE "foo.tableA.A2" = 100Ô
+¸ò˛˛Ü “…¬(60ôÅ'8L@=ISCAN(foo.tableA.idx3 [EQUALS promote(@c7 AS LONG)]) | DELETEëdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Modification</td></tr><tr><td align="left">DELETE</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightcoral" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS foo.tableA.A1, LONG AS foo.tableA.A2, LONG AS foo.tableA.A3)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c7 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS foo.tableA.A1, LONG AS foo.tableA.A2, LONG AS foo.tableA.A3)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">foo.tableA.idx3</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS foo.tableA.A1, LONG AS foo.tableA.A2, LONG AS foo.tableA.A3)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS foo.tableA.A1, LONG AS foo.tableA.A2, LONG AS foo.tableA.A3)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="none" arrowtail="normal" dir="both" ];
+  {
+    rank=same;
+    rankDir=LR;
+    2 -> 4 [ color="red" style="invis" ];
+  }
 }‘
 &
 
