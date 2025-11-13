@@ -24,8 +24,6 @@ import com.apple.foundationdb.record.RecordMetaDataOptionsProto;
 import com.apple.foundationdb.record.TupleFieldsProto;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
-import com.google.common.collect.BiMap;
-import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.protobuf.DescriptorProtos;
@@ -436,13 +434,15 @@ public class TypeRepository {
     public static class Builder {
         private @Nonnull final FileDescriptorProto.Builder fileDescProtoBuilder;
         private @Nonnull final FileDescriptorSet.Builder fileDescSetBuilder;
-        private @Nonnull final BiMap<Type, String> typeToNameMap;
+        private @Nonnull final Map<Type, String> typeToNameMap;
+        private @Nonnull final Map<String, Type> nameToCanonicalTypeMap;
 
         private Builder() {
             fileDescProtoBuilder = FileDescriptorProto.newBuilder();
             fileDescProtoBuilder.addAllDependency(DEPENDENCIES.stream().map(FileDescriptor::getFullName).collect(Collectors.toList()));
             fileDescSetBuilder = FileDescriptorSet.newBuilder();
-            typeToNameMap = HashBiMap.create();
+            typeToNameMap = new HashMap<>();
+            nameToCanonicalTypeMap = new HashMap<>();
         }
 
         @Nonnull
@@ -472,9 +472,36 @@ public class TypeRepository {
         @Nonnull
         public Builder addTypeIfNeeded(@Nonnull final Type type) {
             if (!typeToNameMap.containsKey(type)) {
+                // Check if we have a structurally identical type with different nullability already registered
+                Type canonicalType = findCanonicalTypeForStructure(type);
+                if (canonicalType != null) {
+                    // Use the same protobuf name as the canonical type
+                    String existingProtoName = typeToNameMap.get(canonicalType);
+                    if (existingProtoName != null) {
+                        typeToNameMap.put(type, existingProtoName);
+                        return this;
+                    }
+                }
+
+                // Standard case: define the protobuf type
                 type.defineProtoType(this);
             }
             return this;
+        }
+
+        /**
+         * Finds a type in typeToNameMap that has the same structure as the given type but different nullability.
+         * Returns null if no such type exists.
+         */
+        @Nullable
+        private Type findCanonicalTypeForStructure(@Nonnull final Type type) {
+            for (Map.Entry<Type, String> entry : typeToNameMap.entrySet()) {
+                Type existingType = entry.getKey();
+                if (differsOnlyInNullability(type, existingType)) {
+                    return existingType;
+                }
+            }
+            return null;
         }
 
         @Nonnull
@@ -484,7 +511,7 @@ public class TypeRepository {
 
         @Nonnull
         public Optional<Type> getTypeByName(@Nonnull final String name) {
-            return Optional.ofNullable(typeToNameMap.inverse().get(name));
+            return Optional.ofNullable(nameToCanonicalTypeMap.get(name));
         }
 
         @Nonnull
@@ -501,9 +528,54 @@ public class TypeRepository {
 
         @Nonnull
         public Builder registerTypeToTypeNameMapping(@Nonnull final Type type, @Nonnull final String protoTypeName) {
-            Verify.verify(!typeToNameMap.containsKey(type));
+            final String existingTypeName = typeToNameMap.get(type);
+            if (existingTypeName != null) {
+                // Type already registered, verify same protobuf name
+                Verify.verify(existingTypeName.equals(protoTypeName), "Type %s is already registered with name %s, cannot register with different name %s", type, existingTypeName, protoTypeName);
+                return this;
+            }
+
+            // Check if a type with same structure but different nullability is already registered
+            final Type existingTypeForName = nameToCanonicalTypeMap.get(protoTypeName);
+            if (existingTypeForName != null) {
+                Verify.verify(differsOnlyInNullability(type, existingTypeForName), "Name %s is already registered with a different type, cannot register different types with same name", existingTypeName);
+                // Allow both nullable and non-nullable variants to map to the same protobuf type
+                // Don't update nameToCanonicalTypeMap - keep the first registered type as canonical
+                typeToNameMap.put(type, protoTypeName);
+                return this;
+            }
+
+            // Standard case: new type with new name
             typeToNameMap.put(type, protoTypeName);
+            nameToCanonicalTypeMap.put(protoTypeName, type);
             return this;
+        }
+
+        /**
+         * Checks if two types differ only in their nullability setting.
+         * This is used to allow both nullable and non-nullable variants of the same structural type
+         * to map to the same protobuf type name.
+         */
+        private boolean differsOnlyInNullability(@Nonnull final Type type1, @Nonnull final Type type2) {
+            if (type1.equals(type2)) {
+                return false; // Same type, doesn't differ
+            }
+
+            // Handle Type.Null specially - it can only be nullable, so it can't have a non-nullable variant
+            if (type1 instanceof Type.Null || type2 instanceof Type.Null) {
+                return false; // Type.Null can't have non-nullable variants
+            }
+
+            // Check if they have different nullability
+            if (type1.isNullable() == type2.isNullable()) {
+                return false; // Same nullability, so they differ in structure
+            }
+
+            // Create non-nullable versions to compare structure
+            final Type nonNullable1 = type1.isNullable() ? type1.notNullable() : type1;
+            final Type nonNullable2 = type2.isNullable() ? type2.notNullable() : type2;
+
+            return nonNullable1.equals(nonNullable2);
         }
 
         @Nonnull
