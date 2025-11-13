@@ -23,10 +23,12 @@ package com.apple.foundationdb.record.provider.foundationdb.keyspace;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
+import com.apple.foundationdb.record.provider.foundationdb.FDBExceptions;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory.KeyType;
 import com.apple.foundationdb.record.test.FDBDatabaseExtension;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -40,6 +42,7 @@ import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletionException;
@@ -47,6 +50,7 @@ import java.util.concurrent.CompletionException;
 import static org.assertj.core.api.Assumptions.assumeThat;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -389,6 +393,31 @@ class KeySpacePathImportDataTest {
         verifySingleKey(destinationDatabase, dataPath, Tuple.from("item"), Tuple.from("final_value"));
     }
 
+    @ParameterizedTest
+    @BooleanSource({"manyPaths", "useDirectoryLayer"})
+    void importTooMuchData(boolean manyPaths, boolean useDirectoryLayer) {
+        // Test importing too much data within a single path
+        // we do it both with 1 path, and many paths, because resolving a directory layer requires reads to the
+        // database which should slow things down, and result in different errors
+        // using a standard path we can write data until we get OOM, and if we have a more reasonable limit, we'll
+        // get a transaction-too-large.
+        assumeThat(!manyPaths || !useDirectoryLayer)
+                .as("https://github.com/FoundationDB/fdb-record-layer/issues/3751")
+                .isTrue();
+        final String rootUuid = UUID.randomUUID().toString();
+        KeySpace root = new KeySpace(
+                new KeySpaceDirectory("root", KeyType.STRING, rootUuid)
+                        .addSubdirectory(useDirectoryLayer
+                                         ? new DirectoryLayerDirectory("data")
+                                         : new KeySpaceDirectory("data", KeyType.STRING)));
+
+        final KeySpacePath rootPath = root.path("root");
+
+        final DataGenerator data = new DataGenerator(rootPath, 100_000, manyPaths);
+        assertThrows(FDBExceptions.FDBStoreTransactionSizeException.class, () ->
+                importData(destinationDatabase, rootPath, data));
+    }
+
     private void setSingleKey(KeySpacePath path, Tuple remainder, Tuple value) {
         try (FDBRecordContext context = sourceDatabase.openContext()) {
             byte[] key = path.toSubspace(context).pack(remainder);
@@ -444,7 +473,7 @@ class KeySpacePathImportDataTest {
         return targetDatabase;
     }
 
-    private void importData(FDBDatabase targetDatabase, final KeySpacePath path, final List<DataInKeySpacePath> exportedData) {
+    private void importData(FDBDatabase targetDatabase, final KeySpacePath path, final Iterable<DataInKeySpacePath> exportedData) {
         try (FDBRecordContext context = targetDatabase.openContext()) {
             path.importData(context, exportedData).join();
             context.commit();
@@ -480,6 +509,43 @@ class KeySpacePathImportDataTest {
         try (FDBRecordContext context = sourceDatabase.openContext()) {
             return path.exportAllData(context, null, ScanProperties.FORWARD_SCAN)
                     .asList().join();
+        }
+    }
+
+    private static class DataGenerator implements Iterable<DataInKeySpacePath> {
+
+        private final KeySpacePath rootPath;
+        private final int limit;
+        private final boolean manyPaths;
+
+        public DataGenerator(final KeySpacePath rootPath, int limit, final boolean manyPaths) {
+            this.rootPath = rootPath;
+            this.limit = limit;
+            this.manyPaths = manyPaths;
+        }
+
+        @Override
+        public Iterator<DataInKeySpacePath> iterator() {
+            return new Iterator<>() {
+                int counter = 0;
+
+                @Override
+                public boolean hasNext() {
+                    return counter < limit;
+                }
+
+                @Override
+                public DataInKeySpacePath next() {
+                    counter++;
+                    // importing 100_000 different paths in a transaction is unreasonable, beyond what we need for
+                    // https://github.com/FoundationDB/fdb-record-layer/issues/3751
+                    final KeySpacePath path = manyPaths ? rootPath.add("data", "path " + counter % 1_000)
+                                              : rootPath.add("data", "OnlyPath");
+                    return new DataInKeySpacePath(
+                            path,
+                            Tuple.from(counter), Tuple.from("value", counter).pack());
+                }
+            };
         }
     }
 }
