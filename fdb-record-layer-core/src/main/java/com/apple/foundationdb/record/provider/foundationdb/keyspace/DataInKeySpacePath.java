@@ -24,10 +24,13 @@ import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
+import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Arrays;
+import java.util.Objects;
 
 /**
  * Class representing a {@link KeyValue} pair within in {@link KeySpacePath}.
@@ -67,4 +70,22 @@ public class DataInKeySpacePath {
         return remainder;
     }
 
+    @Override
+    public boolean equals(final Object o) {
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        final DataInKeySpacePath that = (DataInKeySpacePath)o;
+        return Objects.equals(path, that.path) && Objects.equals(remainder, that.remainder) && Arrays.equals(value, that.value);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(path, remainder, Arrays.hashCode(value));
+    }
+
+    @Override
+    public String toString() {
+        return path + "+" + remainder + "->" + ByteArrayUtil2.loggable(value);
+    }
 }
