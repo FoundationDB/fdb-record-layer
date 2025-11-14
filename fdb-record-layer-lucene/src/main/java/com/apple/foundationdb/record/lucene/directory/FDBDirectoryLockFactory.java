@@ -92,6 +92,8 @@ public final class FDBDirectoryLockFactory extends LockFactory {
          */
         private FDBRecordContext closingContext = null;
         private final Object fileLockSetLock = new Object();
+        private boolean clearingLockNow = false;
+        private final Object clearingLockNowLock = new Object();
 
         private FDBDirectoryLock(final AgilityContext agilityContext, final String lockName, byte[] fileLockKey, int timeWindowMilliseconds) {
             this.agilityContext = agilityContext;
@@ -210,6 +212,17 @@ public final class FDBDirectoryLockFactory extends LockFactory {
         }
 
         private void fileLockClearFlushAndClose(boolean isRecovery) {
+            if (clearingLockNow) {
+                // Here: this function is being called from too many paths. Until cleanup, this guard is here to avoid recursions
+                return;
+            }
+            synchronized (clearingLockNowLock) {
+                // repeat under lock
+                if (clearingLockNow) {
+                    return;
+                }
+                clearingLockNow = true;
+            }
             Function<FDBRecordContext, CompletableFuture<Void>> fileLockFunc = aContext ->
                     aContext.ensureActive().get(fileLockKey)
                             .thenAccept(val -> {
@@ -223,6 +236,12 @@ public final class FDBDirectoryLockFactory extends LockFactory {
                                     } else if (! isRecovery) {
                                         throw new AlreadyClosedException("FileLock: Expected to be locked during close.This=" + this + " existingUuid=" + existingUuid); // The string append methods should handle null arguments.
                                     }
+                                }
+                            })
+                            .whenComplete((res, err) -> {
+                                synchronized (clearingLockNowLock) {
+                                    // clearing under lock to avoid spotbugsMain's "Inconsistent synchronization" issue.
+                                    clearingLockNow = false;
                                 }
                             });
 
