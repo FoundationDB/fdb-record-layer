@@ -514,6 +514,7 @@ class KeySpacePathImportDataTest {
     }
 
     private void clearSourcePath(final KeySpacePath path) {
+        // Note: this does not touch the directory layer
         try (FDBRecordContext context = sourceDatabase.openContext()) {
             Transaction tr = context.ensureActive();
             tr.clear(path.toSubspace(context).range());
