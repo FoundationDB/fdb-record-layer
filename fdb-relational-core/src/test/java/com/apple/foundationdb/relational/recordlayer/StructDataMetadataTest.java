@@ -254,6 +254,32 @@ public class StructDataMetadataTest {
     }
 
     @Test
+    void canReadProjectedDynamicStruct() throws Throwable {
+        canReadStructTypeName("SELECT STRUCT STRUCT_6(name, st1.a, st1) FROM T", resultSet -> {
+            RelationalStruct struct = resultSet.getStruct(1);
+            Assertions.assertEquals("STRUCT_6", struct.getMetaData().getTypeName());
+            Assertions.assertEquals("STRUCT_1", struct.getStruct(3).getMetaData().getTypeName());
+        });
+    }
+
+    @Test
+    void canReadProjectedStructWithDynamicStructInside() throws Throwable {
+        canReadStructTypeName("SELECT STRUCT STRUCT_6(name, STRUCT STRUCT_7(name, st1.a)) FROM T", resultSet -> {
+            RelationalStruct struct = resultSet.getStruct(1);
+            Assertions.assertEquals("STRUCT_6", struct.getMetaData().getTypeName());
+            Assertions.assertEquals("STRUCT_7", struct.getStruct(2).getMetaData().getTypeName());
+        });
+    }
+
+    @Test
+    void canReadAnonymousStructWithDynamicStructInside() throws Throwable {
+        canReadStructTypeName("SELECT (name, STRUCT STRUCT_7(name, st1.a)) FROM T", resultSet -> {
+            RelationalStruct struct = resultSet.getStruct(1);
+            Assertions.assertEquals("STRUCT_7", struct.getStruct(2).getMetaData().getTypeName());
+        });
+    }
+
+    @Test
     void errorAccessingNonExistentColumn() throws Exception {
         try (final RelationalResultSet resultSet = statement.executeGet("T", new KeySet().setKeyColumn("NAME", "test_record_1"), Options.NONE)) {
             Assertions.assertTrue(resultSet.next(), "Did not find a record!");
