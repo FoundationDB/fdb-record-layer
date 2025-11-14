@@ -66,7 +66,7 @@ class KeySpacePathImportDataTest {
 
     @BeforeEach
     void setUp() {
-        final List<FDBDatabase> databases = dbExtension.getDatabases(2);
+        final List<FDBDatabase> databases = dbExtension.getRandomDatabaseSubset(2);
         sourceDatabase = databases.get(0);
         if (databases.size() > 1) {
             destinationDatabase = databases.get(1);

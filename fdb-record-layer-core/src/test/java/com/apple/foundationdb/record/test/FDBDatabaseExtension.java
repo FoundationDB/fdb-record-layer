@@ -167,14 +167,14 @@ public class FDBDatabaseExtension implements AfterEachCallback {
 
     /**
      * Return a random subset of the databases available.
-     * @param count the number of desired databases
-     * @return a random subset of the databases available. This may be less than {@code count} if there aren't that many
+     * @param maxCount the number of desired databases
+     * @return a random subset of the databases available. This may be less than {@code maxCount} if there aren't that many
      * databases available.
      */
-    public List<FDBDatabase> getDatabases(int count) {
+    public List<FDBDatabase> getRandomDatabaseSubset(int maxCount) {
         List<String> clusterFiles = new ArrayList<>(FDBTestEnvironment.allClusterFiles());
         Collections.shuffle(clusterFiles);
-        return clusterFiles.stream().limit(count).map(this::getDatabase).collect(Collectors.toList());
+        return clusterFiles.stream().limit(maxCount).map(this::getDatabase).collect(Collectors.toList());
     }
 
     public void checkForOpenContexts() {
