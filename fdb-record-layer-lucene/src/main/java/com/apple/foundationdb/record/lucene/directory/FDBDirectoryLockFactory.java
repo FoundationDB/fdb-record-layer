@@ -212,8 +212,12 @@ public final class FDBDirectoryLockFactory extends LockFactory {
         }
 
         private void fileLockClearFlushAndClose(boolean isRecovery) {
-            synchronized (clearingLockNowLock) {
+            if (clearingLockNow) {
                 // Here: this function is being called from too many paths. Until cleanup, this guard is here to avoid recursions
+                return;
+            }
+            synchronized (clearingLockNowLock) {
+                // repeat under lock
                 if (clearingLockNow) {
                     return;
                 }
@@ -232,6 +236,12 @@ public final class FDBDirectoryLockFactory extends LockFactory {
                                     } else if (! isRecovery) {
                                         throw new AlreadyClosedException("FileLock: Expected to be locked during close.This=" + this + " existingUuid=" + existingUuid); // The string append methods should handle null arguments.
                                     }
+                                }
+                            })
+                            .whenComplete((res, err) -> {
+                                synchronized (clearingLockNowLock) {
+                                    // clearing under lock to avoid spotbugsMain's "Inconsistent synchronization" issue.
+                                    clearingLockNow = false;
                                 }
                             });
 
@@ -253,10 +263,6 @@ public final class FDBDirectoryLockFactory extends LockFactory {
             } finally {
                 closed = flushed; // allow close retry
                 closingContext = null;
-                synchronized (clearingLockNowLock) {
-                    // clearing under lock to avoid spotbugsMain's "Inconsistent synchronization" issue.
-                    clearingLockNow = false;
-                }
             }
         }
 
