@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.StableSelectorCostModel;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
@@ -41,6 +42,7 @@ import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
+import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
 import com.apple.foundationdb.relational.continuation.CompiledStatement;
 import com.apple.foundationdb.relational.continuation.TypedQueryArgument;
@@ -61,6 +63,7 @@ import org.apache.logging.log4j.Logger;
 import javax.annotation.Nonnull;
 import java.sql.SQLException;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -323,12 +326,26 @@ public final class PlanGenerator {
         planGenerationContext.setContinuation(continuationProto);
         final var continuationPlanConstraint =
                 QueryPlanConstraint.fromProto(serializationContext, compiledStatement.getPlanConstraint());
+
+        final Type resultType = recordQueryPlan.getResultType().getInnerType();
+        final List<DataType> semanticFieldTypes;
+        if (resultType instanceof Type.Record) {
+            final Type.Record recordType = (Type.Record) resultType;
+            semanticFieldTypes = recordType.getFields().stream()
+                    .map(field -> com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils.toRelationalType(field.getFieldType()))
+                    .collect(java.util.stream.Collectors.toList());
+        } else {
+            // Fallback for non-record types (shouldn't happen for SELECT results)
+            semanticFieldTypes = java.util.Collections.emptyList();
+        }
+
         return new QueryPlan.ContinuedPhysicalQueryPlan(recordQueryPlan, typeRepository,
                 continuationPlanConstraint,
                 planGenerationContext,
                 "EXECUTE CONTINUATION " + ast.getQueryCacheKey().getCanonicalQueryString(),
                 currentPlanHashMode,
-                serializedPlanHashMode);
+                serializedPlanHashMode,
+                semanticFieldTypes);
     }
 
     private void resetTimer() {

@@ -157,7 +157,7 @@ public class StructDataMetadataTest {
             Assertions.assertEquals("Hello", struct.getString("A"), "Incorrect value for nested struct!");
 
             //check that the JDBC attributes methods work properly
-            Assertions.assertArrayEquals(struct.getAttributes(), new Object[]{"Hello"}, "Incorrect attributes!");
+            Assertions.assertArrayEquals(new Object[]{"Hello"}, struct.getAttributes(), "Incorrect attributes!");
         }
     }
 
@@ -190,9 +190,7 @@ public class StructDataMetadataTest {
     void canReadProjectedNestedStructTypeNameInNestedStar() throws Throwable {
         canReadStructTypeName("SELECT (*) FROM NT", resultSet -> {
             RelationalStruct struct = resultSet.getStruct(1).getStruct("ST1").getStruct("D");
-            // Replace following assert with AssertEquals once fixed.
-            // See https://github.com/FoundationDB/fdb-record-layer/issues/3743
-            Assertions.assertNotEquals("STRUCT_1", struct.getMetaData().getTypeName());
+            Assertions.assertEquals("STRUCT_1", struct.getMetaData().getTypeName());
         });
     }
 
@@ -201,9 +199,7 @@ public class StructDataMetadataTest {
         canReadStructTypeName("SELECT (*) FROM AT", resultSet -> {
             RelationalArray array = resultSet.getStruct(1).getArray("ST2");
             Assertions.assertEquals("STRUCT", array.getMetaData().getElementTypeName());
-            // Replace following assert with AssertEquals once fixed.
-            // See https://github.com/FoundationDB/fdb-record-layer/issues/3743
-            Assertions.assertNotEquals("STRUCT_3", array.getMetaData().getElementStructMetaData().getTypeName());
+            Assertions.assertEquals("STRUCT_3", array.getMetaData().getElementStructMetaData().getTypeName());
         });
     }
 
@@ -211,9 +207,7 @@ public class StructDataMetadataTest {
     void canReadProjectedStructTypeNameInUnnestedStar() throws Throwable {
         canReadStructTypeName("SELECT * FROM T", resultSet -> {
             RelationalStruct struct = resultSet.getStruct("ST1");
-            // Replace following assert with AssertEquals once fixed.
-            // See https://github.com/FoundationDB/fdb-record-layer/issues/3743
-            Assertions.assertNotEquals("STRUCT_1", struct.getMetaData().getTypeName());
+            Assertions.assertEquals("STRUCT_1", struct.getMetaData().getTypeName());
         });
     }
 
@@ -221,9 +215,7 @@ public class StructDataMetadataTest {
     void canReadProjectedNestedStructTypeNameInUnnestedStar() throws Throwable {
         canReadStructTypeName("SELECT * FROM NT", resultSet -> {
             RelationalStruct struct = resultSet.getStruct("ST1").getStruct("D");
-            // Replace following assert with AssertEquals once fixed.
-            // See https://github.com/FoundationDB/fdb-record-layer/issues/3743
-            Assertions.assertNotEquals("STRUCT_1", struct.getMetaData().getTypeName());
+            Assertions.assertEquals("STRUCT_1", struct.getMetaData().getTypeName());
         });
     }
 
@@ -232,9 +224,7 @@ public class StructDataMetadataTest {
         canReadStructTypeName("SELECT * FROM AT", resultSet -> {
             RelationalArray array = resultSet.getArray("ST2");
             Assertions.assertEquals("STRUCT", array.getMetaData().getElementTypeName());
-            // Replace following assert with AssertEquals once fixed.
-            // See https://github.com/FoundationDB/fdb-record-layer/issues/3743
-            Assertions.assertNotEquals("STRUCT_3", array.getMetaData().getElementStructMetaData().getTypeName());
+            Assertions.assertEquals("STRUCT_3", array.getMetaData().getElementStructMetaData().getTypeName());
         });
     }
 
@@ -250,9 +240,7 @@ public class StructDataMetadataTest {
     void canReadProjectedNestedStructTypeNameDirectlyProjected() throws Throwable {
         canReadStructTypeName("SELECT ST1 FROM NT", resultSet -> {
             RelationalStruct struct = resultSet.getStruct("ST1").getStruct("D");
-            // Replace following assert with AssertEquals once fixed.
-            // See https://github.com/FoundationDB/fdb-record-layer/issues/3743
-            Assertions.assertNotEquals("STRUCT_1", struct.getMetaData().getTypeName());
+            Assertions.assertEquals("STRUCT_1", struct.getMetaData().getTypeName());
         });
     }
 
@@ -261,9 +249,7 @@ public class StructDataMetadataTest {
         canReadStructTypeName("SELECT * FROM AT", resultSet -> {
             RelationalArray array = resultSet.getArray("ST2");
             Assertions.assertEquals("STRUCT", array.getMetaData().getElementTypeName());
-            // Replace following assert with AssertEquals once fixed.
-            // See https://github.com/FoundationDB/fdb-record-layer/issues/3743
-            Assertions.assertNotEquals("STRUCT_3", array.getMetaData().getElementStructMetaData().getTypeName());
+            Assertions.assertEquals("STRUCT_3", array.getMetaData().getElementStructMetaData().getTypeName());
         });
     }
 

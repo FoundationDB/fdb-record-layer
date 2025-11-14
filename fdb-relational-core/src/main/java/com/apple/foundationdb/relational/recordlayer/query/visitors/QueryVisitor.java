@@ -35,6 +35,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.generated.RelationalLexer;
 import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
@@ -81,18 +82,46 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         return new QueryVisitor(baseVisitor);
     }
 
+    /**
+     * Capture semantic type structure from expressions.
+     *
+     * This preserves struct type names (like "STRUCT_1", "STRUCT_2") that are known during
+     * semantic analysis but get lost in planner Type conversion (which has null names).
+     *
+     * Field names in the returned StructType are TEMPORARY PLACEHOLDERS. The actual field names
+     * will be taken from the planner Type.Record during result set creation.
+     *
+     * @param expressions The expressions from LogicalOperator.getOutput()
+     * @return List of DataTypes preserving struct type names (field names are placeholders)
+     */
+    @Nonnull
+    private static List<DataType> captureSemanticTypeStructure(
+            @Nonnull Expressions expressions) {
+        final ImmutableList.Builder<DataType> types = ImmutableList.builder();
+        for (final var expression : expressions) {
+            types.add(expression.getDataType());
+        }
+        return types.build();
+    }
+
     @Nonnull
     @Override
     public QueryPlan.LogicalQueryPlan visitSelectStatement(@Nonnull RelationalParser.SelectStatementContext ctx) {
         final var logicalOperator = parseChild(ctx);
-        return QueryPlan.LogicalQueryPlan.of(logicalOperator.getQuantifier().getRangesOver().get(), getDelegate().getPlanGenerationContext(), "TODO");
+        // Capture semantic type structure (preserves struct type names, field names come from planner later)
+        final var semanticTypes = captureSemanticTypeStructure(logicalOperator.getOutput());
+        return QueryPlan.LogicalQueryPlan.of(logicalOperator.getQuantifier().getRangesOver().get(),
+                getDelegate().getPlanGenerationContext(), getDelegate().getPlanGenerationContext().getQuery(), semanticTypes);
     }
 
     @Nonnull
     @Override
     public QueryPlan.LogicalQueryPlan visitDmlStatement(@Nonnull RelationalParser.DmlStatementContext ctx) {
         final var logicalOperator = parseChild(ctx);
-        return QueryPlan.LogicalQueryPlan.of(logicalOperator.getQuantifier().getRangesOver().get(), getDelegate().getPlanGenerationContext(), "TODO");
+        // Capture semantic type structure (preserves struct type names, field names come from planner later)
+        final var semanticTypes = captureSemanticTypeStructure(logicalOperator.getOutput());
+        return QueryPlan.LogicalQueryPlan.of(logicalOperator.getQuantifier().getRangesOver().get(),
+                getDelegate().getPlanGenerationContext(), getDelegate().getPlanGenerationContext().getQuery(), semanticTypes);
     }
 
     @Nonnull
@@ -556,7 +585,10 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
     public QueryPlan.LogicalQueryPlan visitFullDescribeStatement(@Nonnull RelationalParser.FullDescribeStatementContext ctx) {
         getDelegate().getPlanGenerationContext().setForExplain(ctx.EXPLAIN() != null);
         final var logicalOperator = Assert.castUnchecked(ctx.describeObjectClause().accept(this), LogicalOperator.class);
-        return QueryPlan.LogicalQueryPlan.of(logicalOperator.getQuantifier().getRangesOver().get(), getDelegate().getPlanGenerationContext(), "TODO");
+        // Capture semantic type structure (preserves struct type names, field names come from planner later)
+        final var semanticTypes = captureSemanticTypeStructure(logicalOperator.getOutput());
+        return QueryPlan.LogicalQueryPlan.of(logicalOperator.getQuantifier().getRangesOver().get(),
+                getDelegate().getPlanGenerationContext(), getDelegate().getPlanGenerationContext().getQuery(), semanticTypes);
     }
 
     @Nonnull
