@@ -168,7 +168,49 @@ enumDefinition
     ;
 
 indexDefinition
-    : (UNIQUE)? INDEX indexName=uid AS queryTerm indexAttributes?
+    : (UNIQUE)? INDEX indexName=uid AS queryTerm indexAttributes?                                        #indexAsSelectDefinition
+    | (UNIQUE)? INDEX indexName=uid ON source=fullId indexColumnList includeClause? indexOptions?        #indexOnSourceDefinition
+    | VECTOR INDEX indexName=uid ON source=fullId indexColumnList partitionClause? vectorIndexOptions?   #vectorIndexDefinition
+    ;
+
+indexColumnList
+    : '(' indexColumnSpec (',' indexColumnSpec)* ')'
+    ;
+
+indexColumnSpec
+    : columnName=uid orderClause?
+    ;
+
+includeClause
+    : INCLUDE '(' uidList ')'
+    ;
+
+indexType
+    : UNIQUE | VECTOR
+    ;
+
+indexOptions
+    : OPTIONS '(' indexOption (COMMA indexOption)* ')'
+    ;
+
+indexOption
+    : LEGACY_EXTREMUM_EVER
+    ;
+
+vectorIndexOptions
+    : OPTIONS '(' vectorIndexOption (COMMA vectorIndexOptions)* ')'
+    ;
+
+vectorIndexOption
+    : HNSW_EF_CONSTRUCTION '=' mValue=DECIMAL_LITERAL
+    | HNSW_M '=' mValue=DECIMAL_LITERAL
+    | HNSW_M_MAX '=' mValue=DECIMAL_LITERAL
+    | HNSW_MAINTAIN_STATS_PROBABILITY '=' mValue=DECIMAL_LITERAL
+    | HNSW_METRIC '=' mValue=DECIMAL_LITERAL // change
+    | HNSW_RABITQ_NUM_EX_BITS '=' mValue=DECIMAL_LITERAL
+    | HNSW_SAMPLE_VECTOR_STATS_PROBABILITY '=' mValue=DECIMAL_LITERAL
+    | HNSW_STATS_THRESHOLD '=' mValue=DECIMAL_LITERAL
+    | HNSW_USE_RABITQ '=' mValue=DECIMAL_LITERAL // change
     ;
 
 indexAttributes
@@ -408,7 +450,12 @@ orderByClause
     ;
 
 orderByExpression
-    : expression order=(ASC | DESC)? (NULLS nulls=(FIRST | LAST))?
+    : expression orderClause?
+    ;
+
+orderClause
+    : order=(ASC | DESC) (NULLS nulls=(FIRST | LAST))?
+    | NULLS nulls=(FIRST | LAST)
     ;
 
 tableSources // done
@@ -1099,10 +1146,11 @@ frameRange
     | expression (PRECEDING | FOLLOWING)
     ;
 
-partitionClause
-    : PARTITION BY expression (',' expression)*
-    ;
 */
+
+partitionClause
+    : PARTITION BY uid (',' uid)*
+    ;
 
 scalarFunctionName
     : functionNameBase

@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.annotation;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.squareup.javapoet.AnnotationSpec;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
@@ -43,11 +44,13 @@ import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Types;
 import javax.tools.Diagnostic;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -55,6 +58,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * A separate class to support (@link GenerateVisitorAnnotationProcessor) so that dependency on javapoet does not leak to anyone
@@ -102,8 +106,8 @@ class GenerateVisitorAnnotationHelper {
                     .getEnclosedElements()
                     .stream()
                     .flatMap(packageElement -> packageElement.getEnclosedElements().stream())
-                    .filter(element -> element.getKind() == ElementKind.CLASS &&
-                            !element.getModifiers().contains(Modifier.ABSTRACT))
+                    .flatMap(element -> element.getKind() == ElementKind.CLASS && element.getModifiers().contains(Modifier.ABSTRACT) ? element.getEnclosedElements().stream() :  Stream.of(element) )
+                    .filter(element -> element.getKind() == ElementKind.CLASS && !element.getModifiers().contains(Modifier.ABSTRACT))
                     .map(Element::asType)
                     .filter(mirror -> mirror.getKind() == TypeKind.DECLARED)
                     .filter(mirror -> typeUtils.isSubtype(mirror, rootTypeMirror))
@@ -152,10 +156,11 @@ class GenerateVisitorAnnotationHelper {
                         .addModifiers(Modifier.PUBLIC)
                         .addTypeVariable(typeVariableName);
 
+        final var packageName = packageElement.getQualifiedName().toString();
         final var jumpMapBuilder = FieldSpec.builder(ParameterizedTypeName.get(ClassName.get(Map.class),
                         ParameterizedTypeName.get(ClassName.get(Class.class), WildcardTypeName.subtypeOf(Object.class)),
                         ParameterizedTypeName.get(ClassName.get(BiFunction.class),
-                                ParameterizedTypeName.get(ClassName.get(packageElement.getQualifiedName().toString(), interfaceName), WildcardTypeName.subtypeOf(Object.class)),
+                                ParameterizedTypeName.get(ClassName.get(packageName, interfaceName), WildcardTypeName.subtypeOf(Object.class)),
                                 TypeName.get(rootTypeMirror),
                                 WildcardTypeName.subtypeOf(Object.class))),
                 "jumpMap", Modifier.PUBLIC, Modifier.STATIC, Modifier.FINAL);
@@ -163,7 +168,7 @@ class GenerateVisitorAnnotationHelper {
         final var initializerStrings = subClassTypeMirrors.stream()
                 .map(typeMirror -> {
                     final var typeElement = (TypeElement)typeUtils.asElement(typeMirror);
-                    return "Map.entry(" + typeElement.getSimpleName() + ".class, (visitor, element) -> visitor." + methodNameOfVisitMethod(generateVisitor, typeElement) + "((" + typeElement.getSimpleName() + ")element))";
+                    return "Map.entry(" + getRawTypeName(typeMirror, packageName) + ".class, (visitor, element) -> visitor." + methodNameOfVisitMethod(generateVisitor, typeElement) + "((" + getWildcardTypeName(typeMirror, packageName) + ")element))";
                 })
                 .collect(Collectors.joining(", \n"));
 
@@ -172,6 +177,7 @@ class GenerateVisitorAnnotationHelper {
                 .build();
 
         typeBuilder.addField(jumpMapBuilder
+                .addAnnotation(AnnotationSpec.builder(SuppressWarnings.class).addMember("value", "$S", "unchecked").build())
                 .initializer(initializerBlock)
                 .build());
 
@@ -183,7 +189,7 @@ class GenerateVisitorAnnotationHelper {
                             .methodBuilder(methodName)
                             .addModifiers(Modifier.PUBLIC, Modifier.ABSTRACT)
                             .addAnnotation(Nonnull.class)
-                            .addParameter(ParameterSpec.builder(TypeName.get(typeMirror), parameterName).addAnnotation(Nonnull.class).build())
+                            .addParameter(ParameterSpec.builder(getWildcardTypeName(typeMirror, packageName), parameterName).addAnnotation(Nonnull.class).build())
                             .returns(typeVariableName);
             typeBuilder.addMethod(specificVisitMethodBuilder.build());
         }
@@ -193,7 +199,7 @@ class GenerateVisitorAnnotationHelper {
                         .methodBuilder(defaultMethodName)
                         .addModifiers(Modifier.PUBLIC, Modifier.ABSTRACT)
                         .addAnnotation(Nonnull.class)
-                        .addParameter(ParameterSpec.builder(TypeName.get(rootTypeMirror), parameterName).addAnnotation(Nonnull.class).build())
+                        .addParameter(ParameterSpec.builder(getWildcardTypeName(rootTypeMirror, packageName), parameterName).addAnnotation(Nonnull.class).build())
                         .returns(typeVariableName);
         typeBuilder.addMethod(visitDefaultMethodBuilder.build());
 
@@ -214,6 +220,105 @@ class GenerateVisitorAnnotationHelper {
                 .skipJavaLangImports(true)
                 .build()
                 .writeTo(Objects.requireNonNull(filer));
+    }
+
+    /**
+     * Converts a type mirror to a raw TypeName without type parameters.
+     * <p>
+     * For generic types, this method returns the raw type without any type arguments
+     * (e.g., {@code List<String>} becomes {@code List}). For non-generic types, the type
+     * is returned as-is. If the type belongs to the same package as {@code currentPackage},
+     * the package prefix is omitted from the generated type name.
+     * <p>
+     * This is particularly useful when generating code that needs to reference the
+     * {@code .class} literal of a generic type, as class literals must use raw types.
+     *
+     * @param typeMirror the type mirror to convert
+     * @param currentPackage the current package name, used to determine whether to omit
+     *                       package prefixes for types in the same package
+     * @return a TypeName representing the raw type (without type parameters) if the type
+     *         is generic, or the original type name if not generic
+     */
+    @Nonnull
+    private static TypeName getRawTypeName(@Nonnull TypeMirror typeMirror, @Nonnull String currentPackage) {
+        if (typeMirror.getKind() == TypeKind.DECLARED) {
+            final var declaredType = (DeclaredType) typeMirror;
+            final var typeElement = (TypeElement) declaredType.asElement();
+            final boolean isGeneric = !typeElement.getTypeParameters().isEmpty();
+
+            if (isGeneric) {
+                final ClassName className = ClassName.get(typeElement);
+                return removePackagePrefix(className, currentPackage);
+            }
+        }
+
+        // return as-is, remove the package if it is the same as the currentPackage.
+        final TypeName typeName = TypeName.get(typeMirror);
+        if (typeName instanceof ClassName) {
+            return removePackagePrefix((ClassName) typeName, currentPackage);
+        }
+
+        return typeName;
+    }
+
+    /**
+     * Converts a type mirror to a TypeName with wildcard type arguments for generic types.
+     * <p>
+     * For generic types, this method creates a parameterized type with wildcard bounds
+     * (e.g., {@code List<String>} becomes {@code List<?>}). For non-generic types, the type
+     * is returned as-is. If the type belongs to the same package as {@code currentPackage},
+     * the package prefix is omitted from the generated type name.
+     *
+     * @param typeMirror the type mirror to convert
+     * @param currentPackage the current package name, used to determine whether to omit
+     *                       package prefixes for types in the same package
+     * @return a TypeName representing the type with wildcard type arguments if the type
+     *         is generic, or the original type name if not generic
+     */
+    @Nonnull
+    private static TypeName getWildcardTypeName(@Nonnull final TypeMirror typeMirror, @Nonnull final String currentPackage) {
+        if (typeMirror.getKind() == TypeKind.DECLARED) {
+            final var declaredType = (DeclaredType) typeMirror;
+            final var typeElement = (TypeElement) declaredType.asElement();
+            final boolean isGeneric = !typeElement.getTypeParameters().isEmpty();
+
+            if (isGeneric) {
+                ClassName rawType = ClassName.get(typeElement);
+                rawType = removePackagePrefix(rawType, currentPackage);
+
+                final WildcardTypeName[] wildcards = new WildcardTypeName[typeElement.getTypeParameters().size()];
+                Arrays.fill(wildcards, WildcardTypeName.subtypeOf(Object.class));
+                return ParameterizedTypeName.get(rawType, wildcards);
+            }
+        }
+
+        // return as-is, remove the package if it is the same as the currentPackage.
+        final TypeName typeName = TypeName.get(typeMirror);
+        if (typeName instanceof ClassName) {
+            return removePackagePrefix((ClassName) typeName, currentPackage);
+        }
+
+        return typeName;
+    }
+
+    /**
+     * Removes the package prefix from a ClassName if it belongs to the same package as currentPackage.
+     * <p>
+     * This is useful when generating code references to types that are in the same package,
+     * as the package prefix can be omitted for brevity.
+     *
+     * @param className the ClassName to potentially strip the package prefix from
+     * @param currentPackage the current package name to compare against
+     * @return a ClassName without the package prefix if it's in the same package,
+     *         otherwise returns the original ClassName unchanged
+     */
+    @Nonnull
+    private static ClassName removePackagePrefix(@Nonnull final ClassName className, @Nonnull final String currentPackage) {
+        if (className.packageName().equals(currentPackage)) {
+            return ClassName.get("", className.topLevelClassName().simpleName(),
+                    className.simpleNames().subList(1, className.simpleNames().size()).toArray(new String[0]));
+        }
+        return className;
     }
 
     private static void generateImplementationWithDefaults(@Nonnull final Types typeUtils,
@@ -240,7 +345,7 @@ class GenerateVisitorAnnotationHelper {
                             .addModifiers(Modifier.PUBLIC, Modifier.DEFAULT)
                             .addAnnotation(Nonnull.class)
                             .addAnnotation(Override.class)
-                            .addParameter(ParameterSpec.builder(TypeName.get(typeMirror), parameterName).addAnnotation(Nonnull.class).build())
+                            .addParameter(ParameterSpec.builder(getWildcardTypeName(typeMirror, packageElement.getQualifiedName().toString()), parameterName).addAnnotation(Nonnull.class).build())
                             .returns(typeVariableName)
                             .addCode(CodeBlock.builder()
                                     .addStatement("return " + defaultMethodName + "(" + parameterName + ")")

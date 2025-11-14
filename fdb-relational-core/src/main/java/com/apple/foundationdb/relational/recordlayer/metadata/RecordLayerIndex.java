@@ -114,6 +114,17 @@ public final class RecordLayerIndex implements Index  {
     }
 
     @Nonnull
+    public Builder toBuilder() {
+        return newBuilder().setName(getName())
+                .setIndexType(getIndexType())
+                .setTableName(getTableName())
+                .setUnique(isUnique())
+                .setKeyExpression(getKeyExpression())
+                .setPredicate(getPredicate())
+                .setOptions(getOptions());
+    }
+
+    @Nonnull
     public static RecordLayerIndex from(@Nonnull final String tableName, @Nonnull final com.apple.foundationdb.record.metadata.Index index) {
         final var indexProto = index.toProto();
         return newBuilder().setName(index.getName())
@@ -196,6 +207,15 @@ public final class RecordLayerIndex implements Index  {
         @Nonnull
         public Builder setOptions(@Nonnull final Map<String, String> options) {
             optionsBuilder = ImmutableMap.builderWithExpectedSize(options.size());
+            optionsBuilder.putAll(options);
+            return this;
+        }
+
+        @Nonnull
+        public Builder addAllOptions(@Nonnull final Map<String, String> options) {
+            if (optionsBuilder == null) {
+                optionsBuilder = ImmutableMap.builder();
+            }
             optionsBuilder.putAll(options);
             return this;
         }

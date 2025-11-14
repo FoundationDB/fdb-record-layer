@@ -45,7 +45,9 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerView;
 import com.apple.foundationdb.relational.recordlayer.query.Expression;
 import com.apple.foundationdb.relational.recordlayer.query.Expressions;
 import com.apple.foundationdb.relational.recordlayer.query.Identifier;
-import com.apple.foundationdb.relational.recordlayer.query.IndexGenerator;
+import com.apple.foundationdb.relational.recordlayer.query.LogicalOperators;
+import com.apple.foundationdb.relational.recordlayer.query.ddl.OnSourceIndexGenerator;
+import com.apple.foundationdb.relational.recordlayer.query.ddl.MaterializedViewIndexGenerator;
 import com.apple.foundationdb.relational.recordlayer.query.LogicalOperator;
 import com.apple.foundationdb.relational.recordlayer.query.PreparedParams;
 import com.apple.foundationdb.relational.recordlayer.query.ProceduralPlan;
@@ -58,11 +60,13 @@ import com.google.common.collect.ImmutableSet;
 import org.antlr.v4.runtime.ParserRuleContext;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -192,21 +196,91 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
 
     @Nonnull
     @Override
-    public RecordLayerIndex visitIndexDefinition(@Nonnull RelationalParser.IndexDefinitionContext ctx) {
-        final var indexId = visitUid(ctx.indexName);
+    public RecordLayerIndex visitIndexAsSelectDefinition(@Nonnull RelationalParser.IndexAsSelectDefinitionContext indexDefinitionContext) {
+        final var indexId = visitUid(indexDefinitionContext.indexName);
 
         final var ddlCatalog = metadataBuilder.build();
         // parse the index SQL query using the newly constructed metadata.
         getDelegate().replaceSchemaTemplate(ddlCatalog);
         final var viewPlan = getDelegate().getPlanGenerationContext().withDisabledLiteralProcessing(() ->
-                Assert.castUnchecked(ctx.queryTerm().accept(this), LogicalOperator.class).getQuantifier().getRangesOver().get());
+                Assert.castUnchecked(indexDefinitionContext.queryTerm().accept(this), LogicalOperator.class).getQuantifier().getRangesOver().get());
 
-        final var useLegacyBasedExtremumEver = ctx.indexAttributes() != null && ctx.indexAttributes().indexAttribute().stream().anyMatch(attribute -> attribute.LEGACY_EXTREMUM_EVER() != null);
-        final var isUnique = ctx.UNIQUE() != null;
-        final var generator = IndexGenerator.from(viewPlan, useLegacyBasedExtremumEver);
+        final var useLegacyBasedExtremumEver = indexDefinitionContext.indexAttributes() != null && indexDefinitionContext.indexAttributes().indexAttribute().stream().anyMatch(attribute -> attribute.LEGACY_EXTREMUM_EVER() != null);
+        final var isUnique = indexDefinitionContext.UNIQUE() != null;
+        final var generator = MaterializedViewIndexGenerator.from(viewPlan, useLegacyBasedExtremumEver);
         final var table = metadataBuilder.findTable(generator.getRecordTypeName());
         Assert.thatUnchecked(viewPlan instanceof LogicalSortExpression, ErrorCode.INVALID_COLUMN_REFERENCE, "Cannot create index and order by an expression that is not present in the projection list");
         return generator.generate(indexId.getName(), isUnique, table.getType(), containsNullableArray);
+    }
+
+    @Nonnull
+    @Override
+    public RecordLayerIndex visitIndexOnSourceDefinition(@Nonnull final RelationalParser.IndexOnSourceDefinitionContext indexDefinitionContext) {
+        final var ddlCatalog = metadataBuilder.build();
+        // parse the index SQL query using the newly constructed metadata.
+        getDelegate().replaceSchemaTemplate(ddlCatalog);
+        getDelegate().pushPlanFragment();
+        final var sourceIdentifier = visitFullId(indexDefinitionContext.source);
+        var logicalOperator = generateSourceAccessForIndex(sourceIdentifier);
+
+        getDelegate().getCurrentPlanFragment().setOperator(logicalOperator);
+
+        final Identifier indexId = visitUid(indexDefinitionContext.indexName);
+        final var isUnique = indexDefinitionContext.UNIQUE() != null;
+
+        @Nullable final var indexOptions = indexDefinitionContext.indexOptions();
+        final var useLegacyExtremum = indexOptions != null && indexOptions.indexOption().stream().anyMatch(option -> option.LEGACY_EXTREMUM_EVER() != null);
+        final var indexGeneratorBuilder = OnSourceIndexGenerator.newBuilder()
+                .setIndexName(indexId)
+                .setIndexSource(getDelegate().getCurrentPlanFragment())
+                .setSemanticAnalyzer(getDelegate().getSemanticAnalyzer())
+                .setUseLegacyExtremum(useLegacyExtremum)
+                .setUseNullableArrays(containsNullableArray)
+                .setUnique(isUnique);
+
+        indexDefinitionContext.indexColumnList().indexColumnSpec().forEach(columnSpec -> {
+            final var columnId = visitUid(columnSpec.columnName);
+            final var orderContext = columnSpec.orderClause();
+            if (orderContext != null) {
+                final boolean isDesc = orderContext.DESC() != null;
+                final boolean nullsLast;
+                if (orderContext.nulls == null) {
+                    nullsLast = isDesc;
+                } else {
+                    nullsLast = orderContext.LAST() != null;
+                }
+                indexGeneratorBuilder.addKeyColumn(OnSourceIndexGenerator.IndexedColumn.of(columnId, isDesc, nullsLast));
+            } else {
+                indexGeneratorBuilder.addKeyColumn(OnSourceIndexGenerator.IndexedColumn.of(columnId, false, false));
+            }
+        });
+
+        if (indexDefinitionContext.includeClause() != null) {
+            indexDefinitionContext.includeClause().uidList().uid().forEach(uid -> {
+                final var columnId = visitUid(uid);
+                indexGeneratorBuilder.addValueColumn(OnSourceIndexGenerator.IndexedColumn.of(columnId, false, false));
+            });
+        }
+
+        getDelegate().popPlanFragment();
+        return indexGeneratorBuilder.build().generate(ddlCatalog);
+    }
+
+    @Nonnull
+    private LogicalOperator generateSourceAccessForIndex(@Nonnull final Identifier sourceIdentifier) {
+        final var semanticAnalyzer = getDelegate().getSemanticAnalyzer();
+        var logicalOperator = getDelegate().getPlanGenerationContext().withDisabledLiteralProcessing(() ->
+                LogicalOperator.generateAccess(sourceIdentifier, Optional.empty(), Set.of(),
+                        semanticAnalyzer, getDelegate().getCurrentPlanFragment(),
+                        getDelegate().getLogicalOperatorCatalog()));
+
+        if (semanticAnalyzer.tableExists(sourceIdentifier)) {
+            final var output = logicalOperator.getOutput().expanded().rewireQov(logicalOperator.getQuantifier().getFlowedObjectValue());
+            logicalOperator = LogicalOperator.generateSimpleSelect(output, LogicalOperators.ofSingle(logicalOperator),
+                    Optional.empty(), Optional.empty(), ImmutableSet.of(), true);
+        }
+
+        return logicalOperator;
     }
 
     @Nonnull
@@ -265,7 +339,6 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         }
         structClauses.build().stream().map(this::visitStructDefinition).map(RecordLayerTable::getDatatype).forEach(metadataBuilder::addAuxiliaryType);
         tableClauses.build().stream().map(this::visitTableDefinition).forEach(metadataBuilder::addTable);
-        final var indexes = indexClauses.build().stream().map(this::visitIndexDefinition).collect(ImmutableList.toImmutableList());
         // TODO: this is currently relying on the lexical order of the function to resolve function dependencies which
         //       is limited.
         sqlInvokedFunctionClauses.build().forEach(functionClause -> {
@@ -276,6 +349,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
             final var view = getViewMetadata(viewClause, metadataBuilder.build());
             metadataBuilder.addView(view);
         });
+        final var indexes = indexClauses.build().stream().map(clause -> Assert.castUnchecked(visit(clause), RecordLayerIndex.class)).collect(ImmutableList.toImmutableList());
         for (final var index : indexes) {
             final var table = metadataBuilder.extractTable(index.getTableName());
             final var tableWithIndex = RecordLayerTable.Builder.from(table).addIndex(index).build();
@@ -389,9 +463,13 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         // prepared parameters in views are not supported.
         QueryParser.validateNoPreparedParams(viewCtx);
 
+        getDelegate().pushPlanFragment();
+
         // 3. visit the SQL string to generate (compile) the corresponding SQL plan.
         final var viewQuery = getDelegate().getPlanGenerationContext().withDisabledLiteralProcessing(() ->
                 Assert.castUnchecked(viewCtx.viewQuery.accept(this), LogicalOperator.class));
+
+        getDelegate().popPlanFragment();
 
         // 4. Return it.
         return RecordLayerView.newBuilder()
@@ -454,7 +532,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
             List<DataType> dataTypeList = parameters.stream().map(Expression::getDataType).collect(Collectors.toList());
             List<QuantifiedObjectValue> paramValueList = dataTypeList.stream().map(dt -> QuantifiedObjectValue.of(CorrelationIdentifier.uniqueId(), DataTypeUtils.toRecordLayerType(dt))).collect(Collectors.toList());
 
-            Assert.thatUnchecked(parameters.asList().size() == 1, "we only support 1 input parameter for user defined scalar function now");
+            Assert.thatUnchecked(parameters.asList().size() == 1, "only single input parameter for user defined scalar function is supported");
 
             // only support fullId functionBody now
             final var functionBody = visitUserDefinedScalarFunctionStatementBody(Assert.castUnchecked(bodyCtx, RelationalParser.UserDefinedScalarFunctionStatementBodyContext.class));

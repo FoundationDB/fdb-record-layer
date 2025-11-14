@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.api.ddl;
 
+import com.apple.foundationdb.record.RecordMetaDataProto;
+import com.apple.foundationdb.record.expressions.RecordKeyExpressionProto;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
@@ -61,6 +63,8 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.keyWithValu
 import static com.apple.foundationdb.record.metadata.Key.Expressions.value;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.version;
 import static com.apple.foundationdb.relational.util.NullableArrayUtils.REPEATED_FIELD_NAME;
+
+import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
 public class IndexTest {
     @RegisterExtension
@@ -110,7 +114,7 @@ public class IndexTest {
     }
 
     private void indexIs(@Nonnull final String stmt, @Nonnull final KeyExpression expectedKey, @Nonnull final String indexType,
-                         @Nonnull final Consumer<Index> validator) throws Exception {
+                         @Nonnull final Consumer<RecordLayerIndex> validator) throws Exception {
         shouldWorkWithInjectedFactory(stmt, new AbstractMetadataOperationsFactory() {
             @Nonnull
             @Override
@@ -123,11 +127,12 @@ public class IndexTest {
                 Assertions.assertEquals(1, table.getIndexes().size(), "Incorrect number of indexes!");
                 final Index index = Assert.optionalUnchecked(table.getIndexes().stream().findFirst());
                 Assertions.assertInstanceOf(RecordLayerIndex.class, index);
+                final var recordLayerIndex = (RecordLayerIndex)index;
                 Assertions.assertEquals("MV1", index.getName(), "Incorrect index name!");
                 Assertions.assertEquals(indexType, index.getIndexType());
-                final KeyExpression actualKey = KeyExpression.fromProto(((RecordLayerIndex) index).getKeyExpression().toKeyExpression());
+                final KeyExpression actualKey = KeyExpression.fromProto((recordLayerIndex).getKeyExpression().toKeyExpression());
                 Assertions.assertEquals(expectedKey, actualKey);
-                validator.accept(index);
+                validator.accept(recordLayerIndex);
                 return txn -> {
                 };
             }
@@ -197,7 +202,7 @@ public class IndexTest {
     }
 
     @Test
-    void createdIndexWorksDeepNestingAndConcatCartesian() throws Exception {
+    void createdLegacyIndexWorksDeepNestingAndConcatCartesian() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TYPE AS STRUCT A(x bigint) " +
                 "CREATE TYPE AS STRUCT C(z bigint, k bigint) " +
@@ -219,7 +224,29 @@ public class IndexTest {
     }
 
     @Test
-    void createdIndexWorksDeepNestingAndNestedCartesianConcat() throws Exception {
+    void createdIndexWorksDeepNestingAndConcatCartesian() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT A(x bigint) " +
+                "CREATE TYPE AS STRUCT C(z bigint, k bigint) " +
+                "CREATE TYPE AS STRUCT B(a A array, c C array) " +
+                "CREATE TABLE T(p bigint, b B array, primary key(p))" +
+                "CREATE VIEW v1 AS SELECT SQ1.x,SQ2.z, SQ2.k from " +
+                "  T AS t," +
+                "  (select M.x from t.b AS Y, (select x from Y.a) M) SQ1," +
+                "  (select M.z, M.k from t.b AS Y, (select z,k from Y.c) M) SQ2 " +
+                "CREATE INDEX MV1 ON v1(Z, K, X)";
+        indexIs(stmt,
+                concat(field("B").nest(field(REPEATED_FIELD_NAME, KeyExpression.FanType.FanOut)
+                                .nest(field("C").nest(field(REPEATED_FIELD_NAME, KeyExpression.FanType.FanOut)
+                                        .nest(concat(field("Z"), field("K")))))),
+                        field("B").nest(field(REPEATED_FIELD_NAME, KeyExpression.FanType.FanOut)
+                                .nest(field("A").nest(field(REPEATED_FIELD_NAME, KeyExpression.FanType.FanOut)
+                                        .nest(field("X")))))),
+                IndexTypes.VALUE);
+    }
+
+    @Test
+    void createdLegacyIndexWorksDeepNestingAndNestedCartesianConcat() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TYPE AS STRUCT A(x bigint) " +
                 "CREATE TYPE AS STRUCT C(z bigint) " +
@@ -235,14 +262,67 @@ public class IndexTest {
     }
 
     @Test
-    void createIndexWithPredicateIsSupported() throws Exception {
+    void createdIndexWorksDeepNestingAndNestedCartesianConcat() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT A(x bigint) " +
+                "CREATE TYPE AS STRUCT C(z bigint) " +
+                "CREATE TYPE AS STRUCT B(a A array, c C array) " +
+                "CREATE TABLE T(p bigint, b B array, primary key(p))" +
+                "CREATE VIEW v1 AS SELECT SQ.x, SQ.z from T AS t, (select M.x, N.z from t.b AS Y, (select x from Y.a) M, (select z from Y.c) N) SQ  " +
+                "CREATE INDEX mv1 on v1(x, z)";
+        indexIs(stmt,
+                field("B", KeyExpression.FanType.None).nest(field(NullableArrayUtils.getRepeatedFieldName(), KeyExpression.FanType.FanOut).nest(
+                        concat(field("A", KeyExpression.FanType.None).nest(field(NullableArrayUtils.getRepeatedFieldName(), KeyExpression.FanType.FanOut).nest(field("X", KeyExpression.FanType.None))),
+                                field("C", KeyExpression.FanType.None).nest(field(NullableArrayUtils.getRepeatedFieldName(), KeyExpression.FanType.FanOut).nest(field("Z", KeyExpression.FanType.None)))
+                        ))),
+                IndexTypes.VALUE);
+    }
+
+    @Test
+    void createLegacyIndexWithPredicateIsSupported() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TYPE AS STRUCT A(x bigint) " +
                 "CREATE TYPE AS STRUCT B(y string) " +
                 "CREATE TABLE T(p bigint, a A array, b B array, primary key(p))" +
                 "CREATE INDEX mv1 AS SELECT p FROM T where p > 10 order by p";
+        indexIs(stmt, field("P", KeyExpression.FanType.None), IndexTypes.VALUE, index -> {
+            assertThat(index.isUnique()).isFalse();
+            assertThat(index.getName()).isEqualTo("MV1");
+            assertThat(index.getPredicate()).isEqualTo(RecordMetaDataProto.Predicate.newBuilder()
+                    .setValuePredicate(RecordMetaDataProto.ValuePredicate.newBuilder().addValue("P")
+                            .setComparison(RecordMetaDataProto.Comparison.newBuilder()
+                                    .setSimpleComparison(RecordMetaDataProto.SimpleComparison.newBuilder()
+                                            .setType(RecordMetaDataProto.ComparisonType.GREATER_THAN)
+                                            .setOperand(RecordKeyExpressionProto.Value.newBuilder().setLongValue(10L).build())
+                                            .build())
+                                    .build())
+                            .build())
+                    .build());
+        });
+    }
+
+    @Test
+    void createIndexWithPredicateIsSupported() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT A(x bigint) " +
+                "CREATE TYPE AS STRUCT B(y string) " +
+                "CREATE TABLE T(p bigint, a A array, b B array, primary key(p))" +
+                "CREATE VIEW v AS SELECT p FROM T where p > 10 " +
+                "CREATE INDEX mv1 ON v(p)";
         // todo (yhatem) verify the predicate.
-        indexIs(stmt, field("P", KeyExpression.FanType.None), IndexTypes.VALUE);
+        indexIs(stmt, field("P", KeyExpression.FanType.None), IndexTypes.VALUE, index -> {
+            assertThat(index.isUnique()).isFalse();
+            assertThat(index.getPredicate()).isEqualTo(RecordMetaDataProto.Predicate.newBuilder()
+                    .setValuePredicate(RecordMetaDataProto.ValuePredicate.newBuilder().addValue("P")
+                            .setComparison(RecordMetaDataProto.Comparison.newBuilder()
+                                    .setSimpleComparison(RecordMetaDataProto.SimpleComparison.newBuilder()
+                                            .setType(RecordMetaDataProto.ComparisonType.GREATER_THAN)
+                                            .setOperand(RecordKeyExpressionProto.Value.newBuilder().setLongValue(10L).build())
+                                            .build())
+                                    .build())
+                            .build())
+                    .build());
+        });
     }
 
     @Test
@@ -703,7 +783,7 @@ public class IndexTest {
         indexIs(stmt,
                 field("COL2").groupBy(field("COL1")),
                 "MIN".equals(index) ? IndexTypes.PERMUTED_MIN : IndexTypes.PERMUTED_MAX,
-                idx -> Assertions.assertEquals("0", ((RecordLayerIndex) idx).getOptions().get("permutedSize"))
+                idx -> Assertions.assertEquals("0", idx.getOptions().get("permutedSize"))
         );
     }
 
@@ -716,7 +796,7 @@ public class IndexTest {
         indexIs(stmt,
                 field("COL2").groupBy(field("COL1")),
                 "MIN".equals(index) ? IndexTypes.PERMUTED_MIN : IndexTypes.PERMUTED_MAX,
-                idx -> Assertions.assertEquals("0", ((RecordLayerIndex) idx).getOptions().get("permutedSize"))
+                idx -> Assertions.assertEquals("0", idx.getOptions().get("permutedSize"))
         );
     }
 
@@ -729,7 +809,7 @@ public class IndexTest {
         indexIs(stmt,
                 field("COL2").groupBy(field("COL1")),
                 "MIN".equals(index) ? IndexTypes.PERMUTED_MIN : IndexTypes.PERMUTED_MAX,
-                idx -> Assertions.assertEquals("0", ((RecordLayerIndex) idx).getOptions().get("permutedSize"))
+                idx -> Assertions.assertEquals("0", idx.getOptions().get("permutedSize"))
         );
     }
 
@@ -742,7 +822,7 @@ public class IndexTest {
         indexIs(stmt,
                 field("COL4").groupBy(concatenateFields("COL1", "COL2", "COL3")),
                 "MIN".equals(index) ? IndexTypes.PERMUTED_MIN : IndexTypes.PERMUTED_MAX,
-                idx -> Assertions.assertEquals("1", ((RecordLayerIndex) idx).getOptions().get("permutedSize"))
+                idx -> Assertions.assertEquals("1", idx.getOptions().get("permutedSize"))
         );
     }
 

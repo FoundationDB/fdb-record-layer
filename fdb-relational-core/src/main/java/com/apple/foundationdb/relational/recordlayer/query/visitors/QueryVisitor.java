@@ -587,8 +587,8 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
             final var matchingExpressionMaybe = isAliasMaybe.flatMap(alias -> semanticAnalyzer.lookupAlias(visitFullId(alias), validSelectAliases));
             matchingExpressionMaybe.ifPresentOrElse(
                     matchingExpression -> {
-                        final var descending = ParseHelpers.isDescending(orderByExpression);
-                        final var nullsLast = ParseHelpers.isNullsLast(orderByExpression, descending);
+                        final var descending = ParseHelpers.isDescending(orderByExpression.orderClause());
+                        final var nullsLast = ParseHelpers.isNullsLast(orderByExpression.orderClause(), descending);
                         orderBysBuilder.add(OrderByExpression.of(matchingExpression, descending, nullsLast));
                     },
                     () -> orderBysBuilder.add(visitOrderByExpression(orderByExpression))
