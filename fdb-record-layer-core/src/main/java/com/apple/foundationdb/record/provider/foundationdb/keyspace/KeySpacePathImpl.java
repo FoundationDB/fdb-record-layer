@@ -29,7 +29,6 @@ import com.apple.foundationdb.record.ValueRange;
 import com.apple.foundationdb.record.cursors.LazyCursor;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
-import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursor;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
@@ -322,35 +321,41 @@ class KeySpacePathImpl implements KeySpacePath {
     public CompletableFuture<Void> importData(@Nonnull FDBRecordContext context,
                                               @Nonnull Iterable<DataInKeySpacePath> dataToImport) {
         return toTupleAsync(context).thenCompose(targetTuple -> {
-            List<CompletableFuture<Void>> importFutures = new ArrayList<>();
+            // We use a mapPipelined here to help control the rate of insertions into the directory layer if those
+            // are happening.
+            // DirectoryLayer operations are done in a separate transaction for two reasons:
+            // 1. To reduce conflicts
+            // 2. So that it can immediately be cached without having to do it in a post-commit hook, which can make
+            //    things complicated
+            // So if we just spun off a future for every data item, they would conflict like crazy, and retrying all
+            // of those conflicts would cause this future to take way longer than if we pipeline.
+            // This shouldn't make much of a difference in the general case because almost all the directory layer
+            // lookups should be from cache.
+            final RecordCursor<Void> insertionWork = RecordCursor.fromIterator(dataToImport.iterator())
+                    .mapPipelined(dataItem ->
+                            dataItem.getPath().toTupleAsync(context).thenAccept(itemPathTuple -> {
+                                // Validate that this data belongs under this path
+                                if (!TupleHelpers.isPrefix(targetTuple, itemPathTuple)) {
+                                    throw new RecordCoreIllegalImportDataException(
+                                            "Data item path does not belong under target path",
+                                            "target", targetTuple,
+                                            "item", itemPathTuple);
+                                }
 
-            for (DataInKeySpacePath dataItem : dataToImport) {
-                CompletableFuture<Void> importFuture = dataItem.getPath().toTupleAsync(context).thenCompose(itemPathTuple -> {
-                    // Validate that this data belongs under this path
-                    if (!TupleHelpers.isPrefix(targetTuple, itemPathTuple)) {
-                        throw new RecordCoreIllegalImportDataException(
-                                "Data item path does not belong under target path",
-                                "target", targetTuple,
-                                "item", itemPathTuple);
-                    }
+                                // Reconstruct the key using the path and remainder
+                                Tuple keyTuple = itemPathTuple;
+                                if (dataItem.getRemainder() != null) {
+                                    keyTuple = keyTuple.addAll(dataItem.getRemainder());
+                                }
 
-                    // Reconstruct the key using the path and remainder
-                    Tuple keyTuple = itemPathTuple;
-                    if (dataItem.getRemainder() != null) {
-                        keyTuple = keyTuple.addAll(dataItem.getRemainder());
-                    }
-
-                    // Store the data
-                    byte[] keyBytes = keyTuple.pack();
-                    byte[] valueBytes = dataItem.getValue();
-                    context.ensureActive().set(keyBytes, valueBytes);
-
-                    return AsyncUtil.DONE;
-                });
-                importFutures.add(context.instrument(FDBStoreTimer.Events.IMPORT_DATA, importFuture));
-            }
-
-            return AsyncUtil.whenAll(importFutures);
+                                // Store the data
+                                byte[] keyBytes = keyTuple.pack();
+                                byte[] valueBytes = dataItem.getValue();
+                                context.ensureActive().set(keyBytes, valueBytes);
+                            }),
+                            1);
+            return insertionWork.forEach(vignore -> { })
+                    .whenComplete((vignore, e) -> insertionWork.close());
         });
     }
 

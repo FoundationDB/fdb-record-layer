@@ -44,6 +44,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 import java.util.concurrent.CompletionException;
 
@@ -402,9 +403,6 @@ class KeySpacePathImportDataTest {
         // database which should slow things down, and result in different errors
         // using a standard path we can write data until we get OOM, and if we have a more reasonable limit, we'll
         // get a transaction-too-large.
-        assumeThat(!manyPaths || !useDirectoryLayer)
-                .as("https://github.com/FoundationDB/fdb-record-layer/issues/3751")
-                .isTrue();
         final String rootUuid = UUID.randomUUID().toString();
         KeySpace root = new KeySpace(
                 new KeySpaceDirectory("root", KeyType.STRING, rootUuid)
@@ -423,9 +421,6 @@ class KeySpacePathImportDataTest {
     @BooleanSource({"manyPaths", "useDirectoryLayer"})
     void importALotOfData(boolean manyPaths, boolean useDirectoryLayer) {
         // Test importing a lot of data within a single path
-        assumeThat(!manyPaths || !useDirectoryLayer)
-                .as("https://github.com/FoundationDB/fdb-record-layer/issues/3751")
-                .isTrue();
         final String rootUuid = UUID.randomUUID().toString();
         KeySpace root = new KeySpace(
                 new KeySpaceDirectory("root", KeyType.STRING, rootUuid)
@@ -435,14 +430,11 @@ class KeySpacePathImportDataTest {
 
         final KeySpacePath rootPath = root.path("root");
 
-        // Insert the first entry by itself to prime the directory layer
-        // https://github.com/FoundationDB/fdb-record-layer/issues/3751
-        // This data will be overwritten by the second import
-        importData(destinationDatabase, rootPath, new DataGenerator(rootPath, 1, manyPaths));
-
         final DataGenerator data = new DataGenerator(rootPath, 10_000, manyPaths);
         importData(destinationDatabase, rootPath, data);
         final List<DataInKeySpacePath> exportedData = getExportedData(destinationDatabase, rootPath);
+        // Note: The order won't be the same in the directory layer case, because the order is based on the resolved
+        // values, not the logical, or resolved values on the source
         assertThat(exportedData).containsExactlyInAnyOrderElementsOf(data);
     }
 
@@ -566,9 +558,7 @@ class KeySpacePathImportDataTest {
                 @Override
                 public DataInKeySpacePath next() {
                     counter++;
-                    // importing 100_000 different paths in a transaction is unreasonable, beyond what we need for
-                    // https://github.com/FoundationDB/fdb-record-layer/issues/3751
-                    final KeySpacePath path = manyPaths ? rootPath.add("data", "path " + counter % 1_000)
+                    final KeySpacePath path = manyPaths ? rootPath.add("data", String.format(Locale.ROOT, "path %04d", counter / 100))
                                               : rootPath.add("data", "OnlyPath");
                     return new DataInKeySpacePath(
                             path,
