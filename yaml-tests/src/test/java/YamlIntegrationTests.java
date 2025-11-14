@@ -343,6 +343,12 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    @MaintainYamlTestConfig(YamlTestConfigFilters.CORRECT_EXPLAIN_AND_METRICS)
+    public void indexDdl(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("index-ddl.yamsql");
+    }
+
+    @TestTemplate
     public void validIdentifiersTest(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("valid-identifiers.yamsql");
     }

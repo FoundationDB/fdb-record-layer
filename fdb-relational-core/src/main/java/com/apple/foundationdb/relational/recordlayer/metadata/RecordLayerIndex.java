@@ -201,6 +201,15 @@ public final class RecordLayerIndex implements Index  {
         }
 
         @Nonnull
+        public Builder addAllOptions(@Nonnull final Map<String, String> options) {
+            if (optionsBuilder == null) {
+                optionsBuilder = ImmutableMap.builder();
+            }
+            optionsBuilder.putAll(options);
+            return this;
+        }
+
+        @Nonnull
         public Builder setOption(@Nonnull final String optionKey, @Nonnull final String optionValue) {
             if (optionsBuilder == null) {
                 optionsBuilder = ImmutableMap.builder();

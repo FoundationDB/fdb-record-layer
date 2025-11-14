@@ -199,8 +199,8 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     @Override
     public OrderByExpression visitOrderByExpression(@Nonnull RelationalParser.OrderByExpressionContext orderByExpressionContext) {
         final var expression = Assert.castUnchecked(orderByExpressionContext.expression().accept(this), Expression.class);
-        final var descending = ParseHelpers.isDescending(orderByExpressionContext);
-        final var nullsLast = ParseHelpers.isNullsLast(orderByExpressionContext, descending);
+        final var descending = ParseHelpers.isDescending(orderByExpressionContext.orderClause());
+        final var nullsLast = ParseHelpers.isNullsLast(orderByExpressionContext.orderClause(), descending);
         return OrderByExpression.of(expression, descending, nullsLast);
     }
 

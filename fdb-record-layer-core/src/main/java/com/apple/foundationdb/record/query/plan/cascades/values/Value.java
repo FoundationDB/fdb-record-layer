@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.values;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.annotation.GenerateVisitor;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
@@ -91,6 +92,7 @@ import java.util.function.Supplier;
  * A scalar value type.
  */
 @API(API.Status.EXPERIMENTAL)
+@GenerateVisitor
 public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEquivalence<Value>, PlanHashable, Typed, Narrowable<Value>, PlanSerializable {
 
     @Nonnull
