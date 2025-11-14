@@ -423,6 +423,9 @@ class KeySpacePathImportDataTest {
     @BooleanSource({"manyPaths", "useDirectoryLayer"})
     void importALotOfData(boolean manyPaths, boolean useDirectoryLayer) {
         // Test importing a lot of data within a single path
+        assumeThat(!manyPaths || !useDirectoryLayer)
+                .as("https://github.com/FoundationDB/fdb-record-layer/issues/3751")
+                .isTrue();
         final String rootUuid = UUID.randomUUID().toString();
         KeySpace root = new KeySpace(
                 new KeySpaceDirectory("root", KeyType.STRING, rootUuid)
@@ -431,6 +434,11 @@ class KeySpacePathImportDataTest {
                                          : new KeySpaceDirectory("data", KeyType.STRING)));
 
         final KeySpacePath rootPath = root.path("root");
+
+        // Insert the first entry by itself to prime the directory layer
+        // https://github.com/FoundationDB/fdb-record-layer/issues/3751
+        // This data will be overwritten by the second import
+        importData(destinationDatabase, rootPath, new DataGenerator(rootPath, 1, manyPaths));
 
         final DataGenerator data = new DataGenerator(rootPath, 10_000, manyPaths);
         importData(destinationDatabase, rootPath, data);
