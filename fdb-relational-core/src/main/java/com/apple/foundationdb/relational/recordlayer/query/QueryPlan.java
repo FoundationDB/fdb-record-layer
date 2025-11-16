@@ -91,6 +91,7 @@ import java.sql.Struct;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -508,7 +509,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
         @Nonnull
         private String createStructuralSignature(@Nonnull final Descriptor descriptor) {
             return descriptor.getFields().stream()
-                    .map(f -> f.getName().toLowerCase())
+                    .map(f -> f.getName().toLowerCase(Locale.ROOT))
                     .sorted()
                     .collect(java.util.stream.Collectors.joining(","));
         }
@@ -519,7 +520,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
         @Nonnull
         private String createStructuralSignature(@Nonnull final DataType.StructType structType) {
             return structType.getFields().stream()
-                    .map(f -> f.getName().toLowerCase())
+                    .map(f -> f.getName().toLowerCase(Locale.ROOT))
                     .sorted()
                     .collect(java.util.stream.Collectors.joining(","));
         }
