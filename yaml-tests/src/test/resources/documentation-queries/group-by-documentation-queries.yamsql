@@ -1,0 +1,81 @@
+---
+options:
+  supported_version: 4.3.2.0
+---
+schema_template:
+    create table employees(id bigint, department string, role string, salary bigint, primary key(id))
+    create index dept_idx as select department from employees order by department
+    create index role_idx as select role from employees order by role
+---
+setup:
+  steps:
+    - query: insert into employees
+            values (1, 'Engineering', 'Developer', 100000),
+                   (2, 'Engineering', 'Developer', 110000),
+                   (3, 'Engineering', 'Manager', 150000),
+                   (4, 'Sales', 'Representative', 80000),
+                   (5, 'Sales', 'Manager', 120000)
+---
+test_block:
+  name: group-by-documentation-tests
+  preset: single_repetition_ordered
+  tests:
+    # GROUP BY Single Column
+    -
+      - query: SELECT department, COUNT(*) AS employee_count
+              FROM employees
+              GROUP BY department
+      - supported_version: 4.3.2.0
+      - unorderedResult: [{department: "Engineering", employee_count: 3},
+                          {department: "Sales", employee_count: 2}]
+
+    # GROUP BY Multiple Columns
+    -
+      - query: SELECT department, role, COUNT(*) AS employee_count
+              FROM employees
+              GROUP BY department, role
+      - supported_version: 4.3.2.0
+      - unorderedResult: [{department: "Engineering", role: "Developer", employee_count: 2},
+                          {department: "Engineering", role: "Manager", employee_count: 1},
+                          {department: "Sales", role: "Representative", employee_count: 1},
+                          {department: "Sales", role: "Manager", employee_count: 1}]
+
+    # GROUP BY with Aggregate Functions - Average salary
+    -
+      - query: SELECT department, AVG(salary) AS avg_salary
+              FROM employees
+              GROUP BY department
+      - supported_version: 4.3.2.0
+      - unorderedResult: [{department: "Engineering", avg_salary: 120000.0},
+                          {department: "Sales", avg_salary: 100000.0}]
+
+    # Calculate multiple aggregates
+    -
+      - query: SELECT department,
+                     COUNT(*) AS employee_count,
+                     MIN(salary) AS min_salary,
+                     MAX(salary) AS max_salary,
+                     AVG(salary) AS avg_salary
+              FROM employees
+              GROUP BY department
+      - supported_version: 4.3.2.0
+      - unorderedResult: [{department: "Engineering", employee_count: 3, min_salary: 100000, max_salary: 150000, avg_salary: 120000.0},
+                          {department: "Sales", employee_count: 2, min_salary: 80000, max_salary: 120000, avg_salary: 100000.0}]
+
+    # GROUP BY with HAVING Clause
+    -
+      - query: SELECT department, AVG(salary) AS avg_salary
+              FROM employees
+              GROUP BY department
+              HAVING AVG(salary) > 110000
+      - supported_version: 4.3.2.0
+      - unorderedResult: [{department: "Engineering", avg_salary: 120000.0}]
+
+    # GROUP BY with Column Aliases
+    -
+      - query: SELECT department AS dept, COUNT(*) AS total
+              FROM employees
+              GROUP BY department AS dept
+      - supported_version: 4.3.2.0
+      - unorderedResult: [{dept: "Engineering", total: 3},
+                          {dept: "Sales", total: 2}]
