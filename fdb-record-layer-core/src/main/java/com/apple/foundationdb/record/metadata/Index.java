@@ -190,25 +190,6 @@ public class Index {
         this.lastModifiedVersion = orig.lastModifiedVersion;
     }
 
-    /**
-     * Copy constructor. This will create an index that is identical to the current <code>Index</code> with a given
-     * set of index options.
-     * @param orig original index to copy
-     * @param indexOptions the index options.
-     */
-    public Index(@Nonnull Index orig, @Nonnull final Map<String, String> indexOptions) {
-        this(orig.name, orig.rootExpression, orig.type, ImmutableMap.copyOf(indexOptions), orig.predicate);
-        if (orig.primaryKeyComponentPositions != null) {
-            this.primaryKeyComponentPositions = Arrays.copyOf(orig.primaryKeyComponentPositions, orig.primaryKeyComponentPositions.length);
-        } else {
-            this.primaryKeyComponentPositions = null;
-        }
-        this.subspaceKey = normalizeSubspaceKey(name, orig.subspaceKey);
-        this.useExplicitSubspaceKey = orig.useExplicitSubspaceKey;
-        this.addedVersion = orig.addedVersion;
-        this.lastModifiedVersion = orig.lastModifiedVersion;
-    }
-
     @SuppressWarnings({"deprecation", "squid:CallToDeprecatedMethod", "java:S3776"}) // Old (deprecated) index type needs grouping compatibility
     @SpotBugsSuppressWarnings("NP_NONNULL_FIELD_NOT_INITIALIZED_IN_CONSTRUCTOR")
     public Index(@Nonnull RecordMetaDataProto.Index proto) throws KeyExpression.DeserializationException {

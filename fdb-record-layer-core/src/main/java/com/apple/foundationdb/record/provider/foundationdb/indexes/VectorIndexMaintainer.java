@@ -60,6 +60,7 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanBounds;
 import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursor;
 import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanBounds;
+import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanOptions;
 import com.apple.foundationdb.record.query.QueryToKeyMatcher;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
@@ -176,14 +177,12 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
                                                                                @Nonnull final ReadTransaction transaction,
                                                                                @Nonnull final VectorIndexScanBounds vectorIndexScanBounds) {
         return hnsw.kNearestNeighborsSearch(transaction, vectorIndexScanBounds.getAdjustedLimit(),
-                        (int)(1.5 * vectorIndexScanBounds.getAdjustedLimit()), true,
+                        efSearch(vectorIndexScanBounds), returnVectors(hnsw.getConfig(), vectorIndexScanBounds),
                         Objects.requireNonNull(vectorIndexScanBounds.getQueryVector()))
                 .thenApply(resultEntries -> {
                     final ImmutableList.Builder<IndexEntry> nearestNeighborEntriesBuilder = ImmutableList.builder();
                     for (final ResultEntry nearestNeighbor : resultEntries) {
-                        if (vectorIndexScanBounds.getSuffixRange().contains(nearestNeighbor.getPrimaryKey())) {
-                            nearestNeighborEntriesBuilder.add(toIndexEntry(prefixTuple, nearestNeighbor));
-                        }
+                        nearestNeighborEntriesBuilder.add(toIndexEntry(prefixTuple, nearestNeighbor));
                     }
                     final ImmutableList<IndexEntry> nearestNeighborsEntries = nearestNeighborEntriesBuilder.build();
                     return new ListCursor<>(getExecutor(), nearestNeighborsEntries, 0)
@@ -337,6 +336,31 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
         throw new RecordCoreException("structure of vector index is not supported");
     }
 
+    private int efSearch(@Nonnull final VectorIndexScanBounds scanBounds) {
+        final VectorIndexScanOptions scanOptions = scanBounds.getVectorIndexScanOptions();
+        final Integer efSearchOptionValue = scanOptions.getOption(VectorIndexScanOptions.HNSW_EF_SEARCH);
+        if (efSearchOptionValue != null) {
+            return efSearchOptionValue;
+        }
+        final var k = scanBounds.getAdjustedLimit();
+        return Math.min(Math.max(4 * k, 64), 400);
+    }
+
+    private boolean returnVectors(@Nonnull final Config config, @Nonnull final VectorIndexScanBounds scanBounds) {
+        final VectorIndexScanOptions scanOptions = scanBounds.getVectorIndexScanOptions();
+        final Boolean returnVectorsValue = scanOptions.getOption(VectorIndexScanOptions.HNSW_RETURN_VECTORS);
+        if (returnVectorsValue != null) {
+            return returnVectorsValue;
+        }
+
+        //
+        // If we use RaBitQ, the vectors returned must be reconstructed which means we potentially wasted computation
+        // resources if the user didn't explicitly ask for it. If RaBitQ is not used, the vectors returned are identical
+        // to their inserted counterparts. We also already fetched them, so returning them is free.
+        //
+        return !config.isUseRaBitQ();
+    }
+
     static class OnRead implements OnReadListener {
         @Nonnull
         private final FDBStoreTimer timer;
@@ -448,7 +472,7 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
             if (cachedByteString == null) {
                 final RecordCursorProto.VectorIndexScanContinuation.Builder builder =
                         RecordCursorProto.VectorIndexScanContinuation.newBuilder();
-                for (final var indexEntry : indexEntries) {
+                for (final var indexEntry : getIndexEntries()) {
                     builder.addIndexEntries(RecordCursorProto.VectorIndexScanContinuation.IndexEntry.newBuilder()
                             .setKey(ByteString.copyFrom(indexEntry.getKey().pack()))
                             .setValue(ByteString.copyFrom(indexEntry.getKey().pack()))

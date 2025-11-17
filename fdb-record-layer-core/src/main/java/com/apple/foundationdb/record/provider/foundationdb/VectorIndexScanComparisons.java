@@ -60,14 +60,14 @@ public class VectorIndexScanComparisons implements IndexScanParameters {
     @Nonnull
     private final DistanceRankValueComparison distanceRankValueComparison;
     @Nonnull
-    private final ScanComparisons suffixScanComparisons;
+    private final VectorIndexScanOptions vectorIndexScanOptions;
 
     public VectorIndexScanComparisons(@Nonnull final ScanComparisons prefixScanComparisons,
                                       @Nonnull final DistanceRankValueComparison distanceRankValueComparison,
-                                      @Nonnull final ScanComparisons suffixKeyComparisonRanges) {
+                                      @Nonnull final VectorIndexScanOptions vectorIndexScanOptions) {
         this.prefixScanComparisons = prefixScanComparisons;
         this.distanceRankValueComparison = distanceRankValueComparison;
-        this.suffixScanComparisons = suffixKeyComparisonRanges;
+        this.vectorIndexScanOptions = vectorIndexScanOptions;
     }
 
     @Nonnull
@@ -87,8 +87,8 @@ public class VectorIndexScanComparisons implements IndexScanParameters {
     }
 
     @Nonnull
-    public ScanComparisons getSuffixScanComparisons() {
-        return suffixScanComparisons;
+    public VectorIndexScanOptions getVectorIndexScanOptions() {
+        return vectorIndexScanOptions;
     }
 
     @Nonnull
@@ -97,18 +97,25 @@ public class VectorIndexScanComparisons implements IndexScanParameters {
                                       @Nonnull final EvaluationContext context) {
         return new VectorIndexScanBounds(prefixScanComparisons.toTupleRange(store, context),
                 distanceRankValueComparison.getType(), distanceRankValueComparison.getVector(store, context),
-                distanceRankValueComparison.getLimit(store, context), suffixScanComparisons.toTupleRange(store, context));
+                distanceRankValueComparison.getLimit(store, context), vectorIndexScanOptions);
     }
 
     @Override
     public int planHash(@Nonnull PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(mode, prefixScanComparisons, distanceRankValueComparison,
-                suffixScanComparisons);
+                vectorIndexScanOptions);
     }
 
     @Override
     public boolean isUnique(@Nonnull Index index) {
-        return prefixScanComparisons.isEquality() && prefixScanComparisons.size() == index.getColumnSize();
+        //
+        // This is currently never true as we would need an equality-bound scan comparison that includes the primary
+        // key which we currently cannot express. We can only express equality-bound constraints on the prefix, thus
+        // the only case where this is true, and we can detect it would currently occur if the prefix contained the
+        // primary key which in turn would make for a very uninteresting scenario, as each partition would contain
+        // exactly one vector.
+        //
+        return false;
     }
 
     @Nonnull
@@ -133,13 +140,9 @@ public class VectorIndexScanComparisons implements IndexScanParameters {
                     new ExplainTokens().addNested(distanceRankValueComparison.explain().getExplainTokens());
         }
 
-        tupleRange = suffixScanComparisons.toTupleRangeWithoutContext();
-        final var suffix = tupleRange == null
-                           ? suffixScanComparisons.explain().getExplainTokens()
-                           : new ExplainTokens().addToString(tupleRange);
-
         return ExplainTokensWithPrecedence.of(prefix.addOptionalWhitespace().addToString(":{").addOptionalWhitespace()
-                .addNested(distanceRank).addOptionalWhitespace().addToString("}:").addOptionalWhitespace().addNested(suffix));
+                .addNested(distanceRank).addOptionalWhitespace().addToString("}:")
+                .addOptionalWhitespace().addNested(vectorIndexScanOptions.explain().getExplainTokens()));
     }
 
     @SuppressWarnings("checkstyle:VariableDeclarationUsageDistance")
@@ -167,15 +170,8 @@ public class VectorIndexScanComparisons implements IndexScanParameters {
             attributeMapBuilder.put("comparison", Attribute.gml(distanceRankValueComparison));
         }
 
-        tupleRange = suffixScanComparisons.toTupleRangeWithoutContext();
-        if (tupleRange != null) {
-            detailsBuilder.add("suffix: " + tupleRange.getLowEndpoint().toString(false) + "{{slow}}, {{shigh}}" + tupleRange.getHighEndpoint().toString(true));
-            attributeMapBuilder.put("slow", Attribute.gml(tupleRange.getLow() == null ? "-∞" : tupleRange.getLow().toString()));
-            attributeMapBuilder.put("shigh", Attribute.gml(tupleRange.getHigh() == null ? "∞" : tupleRange.getHigh().toString()));
-        } else {
-            detailsBuilder.add("suffix comparisons: {{scomparisons}}");
-            attributeMapBuilder.put("scomparisons", Attribute.gml(suffixScanComparisons.toString()));
-        }
+        detailsBuilder.add("scan options: {{scanoptions}}");
+        attributeMapBuilder.put("scanoptions", Attribute.gml(vectorIndexScanOptions.toString()));
     }
 
     @Nonnull
@@ -184,7 +180,6 @@ public class VectorIndexScanComparisons implements IndexScanParameters {
         final ImmutableSet.Builder<CorrelationIdentifier> correlatedToBuilder = ImmutableSet.builder();
         correlatedToBuilder.addAll(prefixScanComparisons.getCorrelatedTo());
         correlatedToBuilder.addAll(distanceRankValueComparison.getCorrelatedTo());
-        correlatedToBuilder.addAll(suffixScanComparisons.getCorrelatedTo());
         return correlatedToBuilder.build();
     }
 
@@ -213,14 +208,14 @@ public class VectorIndexScanComparisons implements IndexScanParameters {
         if (!distanceRankValueComparison.semanticEquals(that.distanceRankValueComparison, aliasMap)) {
             return false;
         }
-        return suffixScanComparisons.semanticEquals(that.suffixScanComparisons, aliasMap);
+        return vectorIndexScanOptions.equals(that.vectorIndexScanOptions);
     }
 
     @Override
     public int semanticHashCode() {
         int hashCode = prefixScanComparisons.semanticHashCode();
         hashCode = 31 * hashCode + distanceRankValueComparison.semanticHashCode();
-        return 31 * hashCode + suffixScanComparisons.semanticHashCode();
+        return 31 * hashCode + vectorIndexScanOptions.hashCode();
     }
 
     @Nonnull
@@ -234,29 +229,25 @@ public class VectorIndexScanComparisons implements IndexScanParameters {
         final DistanceRankValueComparison translatedDistanceRankValueComparison =
                 distanceRankValueComparison.translateCorrelations(translationMap, shouldSimplifyValues);
 
-        final ScanComparisons translatedSuffixKeyScanComparisons =
-                suffixScanComparisons.translateCorrelations(translationMap, shouldSimplifyValues);
-
         if (translatedPrefixScanComparisons != prefixScanComparisons ||
-                translatedDistanceRankValueComparison != distanceRankValueComparison ||
-                translatedSuffixKeyScanComparisons != suffixScanComparisons) {
-            return withComparisons(translatedPrefixScanComparisons, translatedDistanceRankValueComparison,
-                    translatedSuffixKeyScanComparisons);
+                translatedDistanceRankValueComparison != distanceRankValueComparison) {
+            return withComparisonsAndOptions(translatedPrefixScanComparisons, translatedDistanceRankValueComparison,
+                    vectorIndexScanOptions);
         }
         return this;
     }
 
     @Nonnull
-    protected VectorIndexScanComparisons withComparisons(@Nonnull final ScanComparisons prefixScanComparisons,
-                                                         @Nonnull final DistanceRankValueComparison distanceRankValueComparison,
-                                                         @Nonnull final ScanComparisons suffixKeyScanComparisons) {
+    protected VectorIndexScanComparisons withComparisonsAndOptions(@Nonnull final ScanComparisons prefixScanComparisons,
+                                                                   @Nonnull final DistanceRankValueComparison distanceRankValueComparison,
+                                                                   @Nonnull final VectorIndexScanOptions vectorIndexScanOptions) {
         return new VectorIndexScanComparisons(prefixScanComparisons, distanceRankValueComparison,
-                suffixKeyScanComparisons);
+                vectorIndexScanOptions);
     }
 
     @Override
     public String toString() {
-        return "BY_VALUE(VECTOR):" + prefixScanComparisons + ":" + distanceRankValueComparison + ":" + suffixScanComparisons;
+        return "BY_VALUE(VECTOR):" + prefixScanComparisons + ":" + distanceRankValueComparison + ":" + vectorIndexScanOptions;
     }
 
     @Override
@@ -277,7 +268,7 @@ public class VectorIndexScanComparisons implements IndexScanParameters {
         final PVectorIndexScanComparisons.Builder builder = PVectorIndexScanComparisons.newBuilder();
         builder.setPrefixScanComparisons(prefixScanComparisons.toProto(serializationContext));
         builder.setDistanceRankValueComparison(distanceRankValueComparison.toProto(serializationContext));
-        builder.setSuffixScanComparisons(suffixScanComparisons.toProto(serializationContext));
+        builder.setVectorIndexScanOptions(vectorIndexScanOptions.toProto(serializationContext));
         return builder.build();
     }
 
@@ -292,23 +283,20 @@ public class VectorIndexScanComparisons implements IndexScanParameters {
                                                        @Nonnull final PVectorIndexScanComparisons vectorIndexScanComparisonsProto) {
         return new VectorIndexScanComparisons(ScanComparisons.fromProto(serializationContext,
                 Objects.requireNonNull(vectorIndexScanComparisonsProto.getPrefixScanComparisons())),
-                Objects.requireNonNull(DistanceRankValueComparison.fromProto(serializationContext, vectorIndexScanComparisonsProto.getDistanceRankValueComparison())),
-                ScanComparisons.fromProto(serializationContext, Objects.requireNonNull(vectorIndexScanComparisonsProto.getSuffixScanComparisons())));
+                DistanceRankValueComparison.fromProto(serializationContext, Objects.requireNonNull(vectorIndexScanComparisonsProto.getDistanceRankValueComparison())),
+                VectorIndexScanOptions.fromProto(Objects.requireNonNull(vectorIndexScanComparisonsProto.getVectorIndexScanOptions())));
     }
 
     @Nonnull
     public static VectorIndexScanComparisons byValue(@Nullable ScanComparisons prefixScanComparisons,
                                                      @Nonnull final DistanceRankValueComparison distanceRankValueComparison,
-                                                     @Nullable ScanComparisons suffixKeyScanComparisons) {
+                                                     @Nonnull VectorIndexScanOptions vectorIndexScanOptions) {
         if (prefixScanComparisons == null) {
             prefixScanComparisons = ScanComparisons.EMPTY;
         }
 
-        if (suffixKeyScanComparisons == null) {
-            suffixKeyScanComparisons = ScanComparisons.EMPTY;
-        }
-
-        return new VectorIndexScanComparisons(prefixScanComparisons, distanceRankValueComparison, suffixKeyScanComparisons);
+        return new VectorIndexScanComparisons(prefixScanComparisons, distanceRankValueComparison,
+                vectorIndexScanOptions);
     }
 
     /**

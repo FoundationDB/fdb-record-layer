@@ -43,20 +43,18 @@ public class VectorIndexScanBounds implements IndexScanBounds {
     @Nullable
     private final RealVector queryVector;
     private final int limit;
-
-    @Nonnull
-    private final TupleRange suffixRange;
+    @Nonnull final VectorIndexScanOptions vectorIndexScanOptions;
 
     public VectorIndexScanBounds(@Nonnull final TupleRange prefixRange,
                                  @Nonnull final Comparisons.Type comparisonType,
                                  @Nullable final RealVector queryVector,
                                  final int limit,
-                                 @Nonnull final TupleRange suffixRange) {
+                                 @Nonnull final VectorIndexScanOptions vectorIndexScanOptions) {
         this.prefixRange = prefixRange;
         this.comparisonType = comparisonType;
         this.queryVector = queryVector;
         this.limit = limit;
-        this.suffixRange = suffixRange;
+        this.vectorIndexScanOptions = vectorIndexScanOptions;
     }
 
     @Nonnull
@@ -84,6 +82,11 @@ public class VectorIndexScanBounds implements IndexScanBounds {
         return limit;
     }
 
+    @Nonnull
+    public VectorIndexScanOptions getVectorIndexScanOptions() {
+        return vectorIndexScanOptions;
+    }
+
     public int getAdjustedLimit() {
         switch (getComparisonType()) {
             case DISTANCE_RANK_LESS_THAN:
@@ -93,11 +96,6 @@ public class VectorIndexScanBounds implements IndexScanBounds {
             default:
                 throw new RecordCoreException("unsupported comparison");
         }
-    }
-
-    @Nonnull
-    public TupleRange getSuffixRange() {
-        return suffixRange;
     }
 
     public boolean isWithinLimit(int rank) {

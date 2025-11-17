@@ -1574,7 +1574,7 @@ public class Comparisons {
 
         @Nonnull
         @Override
-        public Comparison withType(@Nonnull final Type newType) {
+        public ValueComparison withType(@Nonnull final Type newType) {
             if (type == newType) {
                 return this;
             }
@@ -1620,7 +1620,8 @@ public class Comparisons {
 
         @Nonnull
         @Override
-        public Comparison translateCorrelations(@Nonnull final TranslationMap translationMap, final boolean shouldSimplifyValues) {
+        public ValueComparison translateCorrelations(@Nonnull final TranslationMap translationMap,
+                                                     final boolean shouldSimplifyValues) {
             if (comparandValue.getCorrelatedTo()
                     .stream()
                     .noneMatch(translationMap::containsSourceAlias)) {
@@ -1718,7 +1719,7 @@ public class Comparisons {
 
         @Nonnull
         @Override
-        public Comparison withParameterRelationshipMap(@Nonnull final ParameterRelationshipGraph parameterRelationshipGraph) {
+        public ValueComparison withParameterRelationshipMap(@Nonnull final ParameterRelationshipGraph parameterRelationshipGraph) {
             Verify.verify(this.parameterRelationshipGraph.isUnbound());
             return new ValueComparison(type, comparandValue, parameterRelationshipGraph);
         }
@@ -1769,6 +1770,7 @@ public class Comparisons {
         }
     }
 
+    @SpotBugsSuppressWarnings("EQ_DOESNT_OVERRIDE_EQUALS")
     public static class DistanceRankValueComparison extends ValueComparison {
         private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Distance-Rank-Value-Comparison");
 
@@ -1804,21 +1806,22 @@ public class Comparisons {
 
         @Nonnull
         @Override
-        public Comparison withType(@Nonnull final Type newType) {
+        public DistanceRankValueComparison withType(@Nonnull final Type newType) {
             if (getType() == newType) {
                 return this;
             }
-            return new ValueComparison(newType, getComparandValue(), parameterRelationshipGraph);
+            return new DistanceRankValueComparison(newType, getComparandValue(), parameterRelationshipGraph,
+                    getLimitValue());
         }
 
         @Nonnull
         @Override
         @SuppressWarnings("PMD.CompareObjectsWithEquals")
-        public ValueComparison withValue(@Nonnull final Value value) {
+        public DistanceRankValueComparison withValue(@Nonnull final Value value) {
             if (getComparandValue() == value) {
                 return this;
             }
-            return new ValueComparison(getType(), value);
+            return new DistanceRankValueComparison(getType(), value, parameterRelationshipGraph, getLimitValue());
         }
 
         @Nonnull
@@ -1832,8 +1835,8 @@ public class Comparisons {
                                         replacedLimitValue == getLimitValue()) {
                                     return this;
                                 }
-                                return new DistanceRankValueComparison(getType(), replacedComparandValue, parameterRelationshipGraph,
-                                        replacedLimitValue);
+                                return new DistanceRankValueComparison(getType(), replacedComparandValue,
+                                        parameterRelationshipGraph, replacedLimitValue);
                             }));
         }
 
@@ -1878,33 +1881,13 @@ public class Comparisons {
         @Override
         @SuppressWarnings("PMD.CompareObjectsWithEquals")
         public Boolean eval(@Nullable FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context, @Nullable Object v) {
-            throw new RecordCoreException("this comparison can only be evaluated using an index");
+            throw new IllegalStateException("this comparison can only be evaluated using an index");
         }
 
         @Nonnull
         @Override
         public String typelessString() {
-            return getComparandValue() + ":" + getLimitValue();
-        }
-
-        @Override
-        public final boolean equals(final Object o) {
-            if (!(o instanceof DistanceRankValueComparison)) {
-                return false;
-            }
-            final DistanceRankValueComparison that = (DistanceRankValueComparison)o;
-            if (!super.equals(o)) {
-                return false;
-            }
-
-            return limitValue.equals(that.limitValue);
-        }
-
-        @Override
-        public int hashCode() {
-            int result = super.hashCode();
-            result = 31 * result + limitValue.hashCode();
-            return result;
+            return typelessExplain().render(DefaultExplainFormatter.forDebugging()).toString();
         }
 
         @Override
@@ -1916,14 +1899,14 @@ public class Comparisons {
         @Override
         public ExplainTokensWithPrecedence explain() {
             return ExplainTokensWithPrecedence.of(new ExplainTokens().addKeyword(getType().name())
-                    .addWhitespace().addNested(getComparandValue().explain().getExplainTokens())
-                    .addKeyword(":").addWhitespace()
-                    .addNested(getLimitValue().explain().getExplainTokens()));
+                    .addWhitespace().addNested(typelessExplain()));
         }
 
-        @Override
-        public int computeHashCode() {
-            return Objects.hash(getType().name(), getComparandValue(), getLimitValue());
+        @Nonnull
+        private ExplainTokens typelessExplain() {
+            return new ExplainTokens().addNested(getComparandValue().explain().getExplainTokens())
+                    .addKeyword(":").addWhitespace()
+                    .addNested(getLimitValue().explain().getExplainTokens());
         }
 
         @Override
@@ -1937,9 +1920,14 @@ public class Comparisons {
             }
         }
 
+        @Override
+        public int computeHashCode() {
+            return Objects.hash(super.computeHashCode(), getType().name(), getComparandValue(), getLimitValue());
+        }
+
         @Nonnull
         @Override
-        public Comparison withParameterRelationshipMap(@Nonnull final ParameterRelationshipGraph parameterRelationshipGraph) {
+        public DistanceRankValueComparison withParameterRelationshipMap(@Nonnull final ParameterRelationshipGraph parameterRelationshipGraph) {
             Verify.verify(this.parameterRelationshipGraph.isUnbound());
             return new DistanceRankValueComparison(getType(), getComparandValue(), parameterRelationshipGraph,
                     getLimitValue());

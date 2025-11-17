@@ -613,7 +613,6 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
             } else {
                 builder.addInequalityComparison(vectorIndexComparisons.getDistanceRankValueComparison());
             }
-            builder.addAll(vectorIndexComparisons.getSuffixScanComparisons());
             return builder.build();
         }
         if (scanParameters instanceof IndexScanComparisons) {

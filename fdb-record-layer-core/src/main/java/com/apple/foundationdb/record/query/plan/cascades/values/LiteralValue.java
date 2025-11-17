@@ -145,7 +145,9 @@ public class LiteralValue<T> extends AbstractValue implements LeafValue, Value.R
     @Override
     public PLiteralValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
         final var builder = PLiteralValue.newBuilder();
-        builder.setValue(PlanSerialization.valueObjectToProto(value));
+        // TODO there should be no punishment if the type is serialized alongside with the value
+        final var resultTypeProto = resultType.isVector() ? resultType.toTypeProto(serializationContext) : null;
+        builder.setValue(PlanSerialization.valueObjectToProto(value, resultTypeProto));
         builder.setResultType(resultType.toTypeProto(serializationContext));
         return builder.build();
     }

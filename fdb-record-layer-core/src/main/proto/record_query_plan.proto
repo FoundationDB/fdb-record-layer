@@ -1880,7 +1880,15 @@ message PTimeWindowScanComparisons {
 message PVectorIndexScanComparisons {
   optional PScanComparisons prefix_scan_comparisons = 1;
   optional PDistanceRankValueComparison distance_rank_value_comparison = 2;
-  optional PScanComparisons suffix_scan_comparisons = 3;
+  optional PVectorIndexScanOptions vector_index_scan_options = 3;
+}
+
+message PVectorIndexScanOptions {
+  message POptionEntry {
+    optional string key = 1;
+    optional com.apple.foundationdb.record.expressions.Value value = 2;
+  }
+  repeated POptionEntry optionEntries = 1;
 }
 
 enum PIndexFetchMethod {
