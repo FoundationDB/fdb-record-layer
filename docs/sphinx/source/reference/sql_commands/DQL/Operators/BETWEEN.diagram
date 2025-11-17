@@ -1,0 +1,8 @@
+Diagram(
+    NonTerminal('expression'),
+    Optional(Terminal('NOT')),
+    Terminal('BETWEEN'),
+    NonTerminal('lower_bound'),
+    Terminal('AND'),
+    NonTerminal('upper_bound')
+)

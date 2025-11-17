@@ -1,0 +1,11 @@
+Diagram(
+    NonTerminal('expression'),
+    Optional(Terminal('NOT')),
+    Terminal('IN'),
+    Terminal('('),
+    OneOrMore(
+        NonTerminal('value'),
+        Terminal(',')
+    ),
+    Terminal(')')
+)
