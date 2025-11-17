@@ -214,7 +214,7 @@ public final class FDBDirectoryLockFactory extends LockFactory {
             if (clearingLockNow) {
                 // Here: this function is being called from too many paths. Until cleanup, this guard is here to avoid recursions
                 // Note that without a lock, this protects recursion but not concurrency.
-                return;
+                throw new AlreadyClosedException("Temporary exception for test only (DO NOT MERGE)");
             }
             clearingLockNow = true;
             Function<FDBRecordContext, CompletableFuture<Void>> fileLockFunc = aContext ->
@@ -231,8 +231,7 @@ public final class FDBDirectoryLockFactory extends LockFactory {
                                         throw new AlreadyClosedException("FileLock: Expected to be locked during close.This=" + this + " existingUuid=" + existingUuid); // The string append methods should handle null arguments.
                                     }
                                 }
-                            })
-                            .whenComplete((res, err) -> clearingLockNow = false);
+                            });
 
             if (agilityContext.isClosed()) {
                 // Here: this is considered to be a recovery path, may bypass closed context.
