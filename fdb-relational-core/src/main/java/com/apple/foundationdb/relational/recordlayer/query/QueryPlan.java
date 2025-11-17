@@ -78,6 +78,7 @@ import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.protobuf.Descriptors;
 import com.google.protobuf.Descriptors.Descriptor;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
@@ -508,8 +509,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
         @Nonnull
         private String createStructuralSignature(@Nonnull final Descriptor descriptor) {
             return descriptor.getFields().stream()
-                    .map(f -> f.getName().toLowerCase())
-                    .sorted()
+                    .map(Descriptors.FieldDescriptor::getName)
                     .collect(java.util.stream.Collectors.joining(","));
         }
 
@@ -519,8 +519,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
         @Nonnull
         private String createStructuralSignature(@Nonnull final DataType.StructType structType) {
             return structType.getFields().stream()
-                    .map(f -> f.getName().toLowerCase())
-                    .sorted()
+                    .map(DataType.StructType.Field::getName)
                     .collect(java.util.stream.Collectors.joining(","));
         }
 
