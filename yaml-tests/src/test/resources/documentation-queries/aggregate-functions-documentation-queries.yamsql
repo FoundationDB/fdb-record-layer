@@ -1,0 +1,49 @@
+---
+options:
+  supported_version: 4.3.2.0
+---
+schema_template:
+    create table sales(id bigint, product string, region string, amount bigint, primary key(id))
+---
+setup:
+  steps:
+    - query: insert into sales
+            values (1, 'Widget', 'North', 100),
+                   (2, 'Widget', 'South', 150),
+                   (3, 'Gadget', 'North', 200),
+                   (4, 'Gadget', 'South', NULL),
+                   (5, 'Widget', 'North', 120)
+---
+test_block:
+  name: aggregate-functions-documentation-tests
+  preset: single_repetition_ordered
+  tests:
+    # COUNT(*) - Count All Rows
+    -
+      - query: SELECT COUNT(*) AS total_sales FROM sales
+      - supported_version: 4.3.2.0
+      - result: [{total_sales: 5}]
+
+    # COUNT(column) - Count Non-NULL Values
+    -
+      - query: SELECT COUNT(amount) AS sales_with_amount FROM sales
+      - supported_version: 4.3.2.0
+      - result: [{sales_with_amount: 4}]
+
+    # COUNT with GROUP BY - per product
+    -
+      - query: SELECT product, COUNT(*) AS sales_count
+              FROM sales
+              GROUP BY product
+      - supported_version: 4.3.2.0
+      - unorderedResult: [{product: "Widget", sales_count: 3},
+                          {product: "Gadget", sales_count: 2}]
+
+    # COUNT with GROUP BY - non-NULL amounts per region
+    -
+      - query: SELECT region, COUNT(amount) AS non_null_amounts
+              FROM sales
+              GROUP BY region
+      - supported_version: 4.3.2.0
+      - unorderedResult: [{region: "North", non_null_amounts: 3},
+                          {region: "South", non_null_amounts: 1}]

@@ -7,6 +7,17 @@ Aggregate functions perform calculations on zero, one, or multiple rows of value
 List of functions (by sub-category)
 ###################################
 
+Standard SQL Aggregates
+------------------------
+
+.. toctree::
+    :maxdepth: 1
+
+    aggregate_functions/count
+
+Specialized Aggregates
+----------------------
+
 .. toctree::
     :maxdepth: 1
 
