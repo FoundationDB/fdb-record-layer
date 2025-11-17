@@ -47,3 +47,99 @@ test_block:
       - supported_version: 4.3.2.0
       - unorderedResult: [{region: "North", non_null_amounts: 3},
                           {region: "South", non_null_amounts: 1}]
+
+    # SUM - Sum All Values
+    -
+      - query: SELECT SUM(amount) AS total_amount FROM sales
+      - supported_version: 4.3.2.0
+      - result: [{total_amount: 570}]
+
+    # SUM with GROUP BY - per product
+    -
+      - query: SELECT product, SUM(amount) AS total_amount
+              FROM sales
+              GROUP BY product
+      - supported_version: 4.3.2.0
+      - unorderedResult: [{product: "Widget", total_amount: 370},
+                          {product: "Gadget", total_amount: 200}]
+
+    # SUM with GROUP BY - per region
+    -
+      - query: SELECT region, SUM(amount) AS total_amount
+              FROM sales
+              GROUP BY region
+      - supported_version: 4.3.2.0
+      - unorderedResult: [{region: "North", total_amount: 420},
+                          {region: "South", total_amount: 150}]
+
+    # AVG - Average All Values
+    -
+      - query: SELECT AVG(amount) AS average_amount FROM sales
+      - supported_version: 4.3.2.0
+      - result: [{average_amount: 142.5}]
+
+    # AVG with GROUP BY - per product
+    -
+      - query: SELECT product, AVG(amount) AS average_amount
+              FROM sales
+              GROUP BY product
+      - supported_version: 4.3.2.0
+      - unorderedResult: [{product: "Widget", average_amount: 123.33333333333333},
+                          {product: "Gadget", average_amount: 200.0}]
+
+    # AVG with GROUP BY - per region
+    -
+      - query: SELECT region, AVG(amount) AS average_amount
+              FROM sales
+              GROUP BY region
+      - supported_version: 4.3.2.0
+      - unorderedResult: [{region: "North", average_amount: 140.0},
+                          {region: "South", average_amount: 150.0}]
+
+    # MIN - Minimum Value
+    -
+      - query: SELECT MIN(amount) AS min_amount FROM sales
+      - supported_version: 4.3.2.0
+      - result: [{min_amount: 100}]
+
+    # MIN with GROUP BY - per product
+    -
+      - query: SELECT product, MIN(amount) AS min_amount
+              FROM sales
+              GROUP BY product
+      - supported_version: 4.3.2.0
+      - unorderedResult: [{product: "Widget", min_amount: 100},
+                          {product: "Gadget", min_amount: 200}]
+
+    # MIN with GROUP BY - per region
+    -
+      - query: SELECT region, MIN(amount) AS min_amount
+              FROM sales
+              GROUP BY region
+      - supported_version: 4.3.2.0
+      - unorderedResult: [{region: "North", min_amount: 100},
+                          {region: "South", min_amount: 150}]
+
+    # MAX - Maximum Value
+    -
+      - query: SELECT MAX(amount) AS max_amount FROM sales
+      - supported_version: 4.3.2.0
+      - result: [{max_amount: 200}]
+
+    # MAX with GROUP BY - per product
+    -
+      - query: SELECT product, MAX(amount) AS max_amount
+              FROM sales
+              GROUP BY product
+      - supported_version: 4.3.2.0
+      - unorderedResult: [{product: "Widget", max_amount: 150},
+                          {product: "Gadget", max_amount: 200}]
+
+    # MAX with GROUP BY - per region
+    -
+      - query: SELECT region, MAX(amount) AS max_amount
+              FROM sales
+              GROUP BY region
+      - supported_version: 4.3.2.0
+      - unorderedResult: [{region: "North", max_amount: 200},
+                          {region: "South", max_amount: 150}]

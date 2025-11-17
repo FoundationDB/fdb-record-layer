@@ -14,6 +14,10 @@ Standard SQL Aggregates
     :maxdepth: 1
 
     aggregate_functions/count
+    aggregate_functions/sum
+    aggregate_functions/avg
+    aggregate_functions/min
+    aggregate_functions/max
 
 Specialized Aggregates
 ----------------------
