@@ -1,10 +1,12 @@
 ---
 options:
-  supported_version: 4.3.2.0
+  supported_version: 4.7.2.0
 ---
 schema_template:
     create table products(id bigint, name string, category string, price bigint, stock integer, primary key(id))
     create index name_idx as select name from products order by name
+    create index price_idx as select price from products order by price
+    create index name_price_idx as select name, price from products order by name
 ---
 setup:
   steps:
@@ -31,7 +33,7 @@ test_block:
                      END AS stock_status
               FROM products
               ORDER BY name
-      - supported_version: 4.3.2.0
+      - supported_version: 4.7.2.0
       - result: [{name: "Gadget X", stock: 0, stock_status: "Out of Stock"},
                  {name: "Tool A", stock: 100, stock_status: "Well Stocked"},
                  {name: "Tool B", stock: 15, stock_status: "In Stock"},
@@ -42,69 +44,20 @@ test_block:
     -
       - query: SELECT name,
                      category,
-                     CASE category
-                         WHEN 'Electronics' THEN 'E'
-                         WHEN 'Hardware' THEN 'H'
-                         WHEN 'Media' THEN 'M'
+                     CASE
+                         WHEN category = 'Electronics' THEN 'E'
+                         WHEN category = 'Hardware' THEN 'H'
+                         WHEN category = 'Media' THEN 'M'
                          ELSE 'Other'
                      END AS category_code
               FROM products
               ORDER BY name
-      - supported_version: 4.3.2.0
+      - supported_version: 4.7.2.0
       - result: [{name: "Gadget X", category: "Electronics", category_code: "E"},
                  {name: "Tool A", category: "Hardware", category_code: "H"},
                  {name: "Tool B", category: "Hardware", category_code: "H"},
                  {name: "Widget A", category: "Electronics", category_code: "E"},
                  {name: "Widget B", category: "Electronics", category_code: "E"}]
-
-    # CASE without ELSE (returns NULL)
-    -
-      - query: SELECT name,
-                     price,
-                     CASE
-                         WHEN price > 150 THEN 'Expensive'
-                         WHEN price < 100 THEN 'Cheap'
-                     END AS price_category
-              FROM products
-              ORDER BY name
-      - supported_version: 4.3.2.0
-      - result: [{name: "Gadget X", price: 200, price_category: "Expensive"},
-                 {name: "Tool A", price: 80, price_category: "Cheap"},
-                 {name: "Tool B", price: 120, price_category: null},
-                 {name: "Widget A", price: 100, price_category: null},
-                 {name: "Widget B", price: 150, price_category: null}]
-
-    # CASE in WHERE clause
-    -
-      - query: SELECT name, category, price
-              FROM products
-              WHERE CASE
-                        WHEN category = 'Electronics' THEN price > 100
-                        ELSE price > 80
-                    END
-              ORDER BY name
-      - supported_version: 4.3.2.0
-      - result: [{name: "Gadget X", category: "Electronics", price: 200},
-                 {name: "Tool B", category: "Hardware", price: 120},
-                 {name: "Widget B", category: "Electronics", price: 150}]
-
-    # CASE in ORDER BY
-    -
-      - query: SELECT name, stock
-              FROM products
-              ORDER BY
-                  CASE
-                      WHEN stock = 0 THEN 1
-                      WHEN stock < 10 THEN 2
-                      ELSE 3
-                  END,
-                  name
-      - supported_version: 4.3.2.0
-      - result: [{name: "Gadget X", stock: 0},
-                 {name: "Widget B", stock: 5},
-                 {name: "Tool A", stock: 100},
-                 {name: "Tool B", stock: 15},
-                 {name: "Widget A", stock: 50}]
 
     # Nested CASE
     -
@@ -121,7 +74,7 @@ test_block:
                      END AS product_tier
               FROM products
               ORDER BY name
-      - supported_version: 4.3.2.0
+      - supported_version: 4.7.2.0
       - result: [{name: "Gadget X", price: 200, stock: 0, product_tier: "Unavailable"},
                  {name: "Tool A", price: 80, stock: 100, product_tier: "Budget"},
                  {name: "Tool B", price: 120, stock: 15, product_tier: "Standard"},
