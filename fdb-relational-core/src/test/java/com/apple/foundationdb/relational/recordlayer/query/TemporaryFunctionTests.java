@@ -1023,7 +1023,7 @@ public class TemporaryFunctionTests {
                 RelationalAssertions.assertThrowsSqlException(() -> statement.execute("create temporary function sq1(in x bigint) " +
                                 "on commit drop function as select * from t1 where a < 40 + x "))
                         .hasErrorCode(ErrorCode.UNDEFINED_TABLE)
-                        .hasMessageContaining("Unknown table T1");
+                        .hasMessageContaining("Unknown table \"T1\"");
             }
             connection.rollback();
         }
@@ -1045,7 +1045,7 @@ public class TemporaryFunctionTests {
                 RelationalAssertions.assertThrowsSqlException(() -> statement.execute("create temporary function sq1(in x bigint) " +
                                 "on commit drop function as select * from t1 where a < 40 + x "))
                         .hasErrorCode(ErrorCode.UNDEFINED_TABLE)
-                        .hasMessageContaining("Unknown table t1");
+                        .hasMessageContaining("Unknown table \"t1\"");
             }
             connection.rollback();
         }

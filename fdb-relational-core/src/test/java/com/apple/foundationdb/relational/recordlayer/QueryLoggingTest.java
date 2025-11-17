@@ -364,7 +364,7 @@ public class QueryLoggingTest {
         Assert.assertThrows(Exception.class, () -> statement.executeQuery("SELECT * FROM REST where rest_no = 0 OPTIONS (LOG QUERY)"));
         final var thrown = logAppender.getLastLogEvent().getThrown();
         org.junit.jupiter.api.Assertions.assertNotNull(thrown);
-        Assertions.assertThat(thrown).hasMessage("Unknown table REST")
+        Assertions.assertThat(thrown).hasMessage("Unknown table \"REST\"")
                 .hasNoCause();
     }
 

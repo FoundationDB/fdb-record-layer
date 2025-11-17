@@ -350,7 +350,7 @@ public class SemanticAnalyzer {
                 return resolvedMaybe.get();
             }
         }
-        Assert.failUnchecked(ErrorCode.UNDEFINED_COLUMN, String.format(Locale.ROOT, "Attempting to query non existing column '%s'", identifier));
+        Assert.failUnchecked(ErrorCode.UNDEFINED_COLUMN, String.format(Locale.ROOT, "Attempting to query non existing column %s", identifier));
         return null; // unreachable.
     }
 

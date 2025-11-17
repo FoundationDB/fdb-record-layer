@@ -29,6 +29,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @API(API.Status.EXPERIMENTAL)
 public class Identifier {
@@ -59,7 +60,11 @@ public class Identifier {
 
     @Override
     public String toString() {
-        return String.join(".", qualifier) + (qualifier.isEmpty() ? "" : ".") + name;
+        return qualifier.stream()
+                .map(q -> "\"" + q + "\"")
+                .collect(Collectors.joining("."))
+                + (qualifier.isEmpty() ? "" : ".")
+                + "\"" + name + "\"";
     }
 
     @Nonnull

@@ -621,7 +621,7 @@ public class IndexTest {
                 "CREATE TABLE T1(col1 bigint, primary key(col1)) " +
                 "CREATE INDEX mv1 AS SELECT t2.\"__ROW_VERSION\" FROM T1 AS t ORDER BY t2.\"__ROW_VERSION\" " +
                 "WITH OPTIONS(store_row_versions=true)";
-        shouldFailWith(stmt, ErrorCode.UNDEFINED_COLUMN, "Attempting to query non existing column 'T2.__ROW_VERSION'");
+        shouldFailWith(stmt, ErrorCode.UNDEFINED_COLUMN, "Attempting to query non existing column \"T2\".\"__ROW_VERSION\"");
     }
 
     @Test
@@ -680,7 +680,7 @@ public class IndexTest {
                 "CREATE TABLE T1(col1 bigint, a A Array, primary key(col1)) " +
                 "CREATE INDEX mv1 AS SELECT X.col2, \"__ROW_VERSION\" FROM T1, (SELECT col2 FROM T1.A) X ORDER BY X.col2, \"__ROW_VERSION\" " +
                 "WITH OPTIONS(store_row_versions=true)";
-        shouldFailWith(stmt, ErrorCode.AMBIGUOUS_COLUMN, "Ambiguous reference '__ROW_VERSION'");
+        shouldFailWith(stmt, ErrorCode.AMBIGUOUS_COLUMN, "Ambiguous reference '\"__ROW_VERSION\"'");
     }
 
     @Test
