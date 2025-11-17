@@ -189,7 +189,7 @@ public class KeySpaceDirectory {
                     LogMessageKeys.EXPECTED_TYPE, getKeyType(),
                     LogMessageKeys.ACTUAL, value,
                     "actual_type", value == null ? "null" : value.getClass().getName(),
-                    "expected_value", getValue() != KeySpaceDirectory.ANY_VALUE ? getValue() : "any");
+                    "expected_value", getValue());
         }
     }
 

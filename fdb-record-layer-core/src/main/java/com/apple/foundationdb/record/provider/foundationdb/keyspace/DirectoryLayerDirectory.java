@@ -156,7 +156,7 @@ public class DirectoryLayerDirectory extends KeySpaceDirectory {
         // despite comments saying that the resolved value should be allowed.
         if (value instanceof String) {
             // If this directory has a constant value, check that the provided value matches it
-            return getValue() == KeySpaceDirectory.ANY_VALUE || Objects.equals(getValue(), value);
+            return Objects.equals(getValue(), KeySpaceDirectory.ANY_VALUE) || Objects.equals(getValue(), value);
         }
         return false;
     }
