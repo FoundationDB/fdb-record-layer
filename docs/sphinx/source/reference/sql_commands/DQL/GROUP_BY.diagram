@@ -13,4 +13,10 @@ Diagram(
         ),
         Terminal(',')
     ),
+    Optional(
+      Sequence(
+        Terminal('HAVING'),
+        NonTerminal('having-expression')
+      )
+    )
 )

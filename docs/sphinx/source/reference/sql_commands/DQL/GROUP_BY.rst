@@ -19,6 +19,7 @@ The GROUP BY clause is used in SELECT statements:
     SELECT column1, aggregate_function(column2)
     FROM table_name
     GROUP BY column1
+    HAVING aggregate_function(column2) > value
 
 Parameters
 ==========
@@ -35,6 +36,15 @@ Parameters
 
 ``alias`` (optional)
     An optional alias for the grouping expression
+
+``HAVING condition`` (optional)
+    Filters groups after aggregation. The condition can reference:
+
+    - Grouped columns
+    - Aggregate functions (e.g., ``AVG(salary) > 100000``)
+    - Combinations using AND, OR, NOT
+
+    Unlike WHERE which filters rows before grouping, HAVING filters groups after aggregation.
 
 Returns
 =======
