@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.ValueRange;
 import com.apple.foundationdb.record.cursors.LazyCursor;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursor;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
@@ -354,8 +355,10 @@ class KeySpacePathImpl implements KeySpacePath {
                                 context.ensureActive().set(keyBytes, valueBytes);
                             }),
                             1);
-            return insertionWork.forEach(vignore -> { })
+            // Use forEach to force consuming the entire cursor, which will cause the inserts to happen
+            final CompletableFuture<Void> allInsertions = insertionWork.forEach(vignore -> { })
                     .whenComplete((vignore, e) -> insertionWork.close());
+            return context.instrument(FDBStoreTimer.Events.IMPORT_DATA, allInsertions);
         });
     }
 
