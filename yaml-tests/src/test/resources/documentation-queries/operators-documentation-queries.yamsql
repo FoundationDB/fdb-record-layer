@@ -6,6 +6,7 @@ schema_template:
     create table products(id bigint, name string, category string, price bigint, stock integer, primary key(id))
     create index price_idx as select price from products order by price
     create index category_idx as select category from products order by category
+    create index name_idx as select name from products order by name
 ---
 setup:
   steps:
