@@ -1,16 +1,8 @@
 Diagram(
     Terminal('GROUP'),
     Terminal('BY'),
-    NonTerminal('expression'),
-    Optional(
-        Sequence(
-            Terminal('AS'),
-            NonTerminal('alias')
-        )
-    ),
     OneOrMore(
         Sequence(
-            Terminal(','),
             NonTerminal('expression'),
             Optional(
                 Sequence(
@@ -18,6 +10,7 @@ Diagram(
                     NonTerminal('alias')
                 )
             )
-        )
+        ),
+        Terminal(',')
     ),
 )

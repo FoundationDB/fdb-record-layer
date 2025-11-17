@@ -270,12 +270,11 @@ GROUP BY supports grouping on nested struct fields:
 Execution Model
 ---------------
 
-The Relational Layer does not perform in-memory grouping. All GROUP BY operations must be backed by an appropriate index. This is a fundamental architectural constraint that ensures queries can execute efficiently over large datasets.
+FRL does not perform in-memory grouping. All GROUP BY operations must be backed by an appropriate index. This is a fundamental architectural constraint that ensures queries can execute efficiently over large datasets. An aggregate index will yield the best performance, but an index ordered by the desired grouping column will also work.
 
 See Also
 ========
 
 * :ref:`Aggregate Functions <aggregate_functions>` - Functions used with GROUP BY
 * :ref:`Indexes <index_definition>` - Creating indexes for GROUP BY
-* :ref:`HAVING Clause <having>` - Filtering grouped results
 * :ref:`SELECT Statement <select>` - Full SELECT syntax
