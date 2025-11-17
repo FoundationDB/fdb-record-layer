@@ -43,4 +43,9 @@ class DocumentationQueriesTests {
     void vectorDocumentationQueriesTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql(PREFIX + "/vector-documentation-queries.yamsql");
     }
+
+    @TestTemplate
+    void orderByDocumentationQueriesTests(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql(PREFIX + "/order-by-documentation-queries.yamsql");
+    }
 }
