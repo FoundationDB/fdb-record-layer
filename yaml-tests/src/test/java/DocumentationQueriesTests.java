@@ -43,4 +43,14 @@ class DocumentationQueriesTests {
     void vectorDocumentationQueriesTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql(PREFIX + "/vector-documentation-queries.yamsql");
     }
+
+    @TestTemplate
+    void aggregateFunctionsDocumentationQueriesTests(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql(PREFIX + "/aggregate-functions-documentation-queries.yamsql");
+    }
+
+    @TestTemplate
+    void scalarFunctionsDocumentationQueriesTests(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql(PREFIX + "/scalar-functions-documentation-queries.yamsql");
+    }
 }

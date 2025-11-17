@@ -4,6 +4,8 @@ options:
 ---
 schema_template:
     create table sales(id bigint, product string, region string, amount bigint, primary key(id))
+    create index product_idx as select product from sales order by product
+    create index region_idx as select region from sales order by region
 ---
 setup:
   steps:
