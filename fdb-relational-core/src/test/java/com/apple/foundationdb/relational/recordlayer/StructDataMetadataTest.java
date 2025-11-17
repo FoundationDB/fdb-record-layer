@@ -378,4 +378,66 @@ public class StructDataMetadataTest {
             }
         }
     }
+
+    @Test
+    void structTypeMetadataPreservedAcrossPlanCache() throws SQLException {
+        // Execute query first time (cache miss - semanticFieldTypes captured)
+        try (final RelationalResultSet resultSet1 = statement.executeQuery("SELECT * FROM T WHERE NAME = 'test_record_1'")) {
+            Assertions.assertTrue(resultSet1.next(), "Did not find a record!");
+            RelationalStruct struct1 = resultSet1.getStruct("ST1");
+            Assertions.assertEquals("STRUCT_1", struct1.getMetaData().getTypeName(),
+                    "First execution should have correct struct type name");
+        }
+
+        // Execute same query again (cache hit - withExecutionContext called)
+        try (final RelationalResultSet resultSet2 = statement.executeQuery("SELECT * FROM T WHERE NAME = 'test_record_1'")) {
+            Assertions.assertTrue(resultSet2.next(), "Did not find a record!");
+            RelationalStruct struct2 = resultSet2.getStruct("ST1");
+            // This assertion would fail if withExecutionContext doesn't preserve semanticFieldTypes
+            Assertions.assertEquals("STRUCT_1", struct2.getMetaData().getTypeName(),
+                    "Cached plan execution should preserve struct type name");
+        }
+    }
+
+    @Test
+    void nestedStructTypeMetadataPreservedAcrossPlanCache() throws SQLException {
+        // Execute query first time (cache miss - semanticFieldTypes captured)
+        try (final RelationalResultSet resultSet1 = statement.executeQuery("SELECT * FROM NT WHERE T_NAME = 'nt_record'")) {
+            Assertions.assertTrue(resultSet1.next(), "Did not find a record!");
+            RelationalStruct struct1 = resultSet1.getStruct("ST1");
+            RelationalStruct nestedStruct1 = struct1.getStruct("D");
+            Assertions.assertEquals("STRUCT_1", nestedStruct1.getMetaData().getTypeName(),
+                    "First execution should have correct nested struct type name");
+        }
+
+        // Execute same query again (cache hit - withExecutionContext called)
+        try (final RelationalResultSet resultSet2 = statement.executeQuery("SELECT * FROM NT WHERE T_NAME = 'nt_record'")) {
+            Assertions.assertTrue(resultSet2.next(), "Did not find a record!");
+            RelationalStruct struct2 = resultSet2.getStruct("ST1");
+            RelationalStruct nestedStruct2 = struct2.getStruct("D");
+            // This assertion would fail if withExecutionContext doesn't preserve semanticFieldTypes
+            Assertions.assertEquals("STRUCT_1", nestedStruct2.getMetaData().getTypeName(),
+                    "Cached plan execution should preserve nested struct type name");
+        }
+    }
+
+    @Test
+    void arrayStructTypeMetadataPreservedAcrossPlanCache() throws SQLException {
+        // Execute query first time (cache miss - semanticFieldTypes captured)
+        try (final RelationalResultSet resultSet1 = statement.executeQuery("SELECT * FROM AT WHERE A_NAME = 'a_test_rec'")) {
+            Assertions.assertTrue(resultSet1.next(), "Did not find a record!");
+            RelationalArray array1 = resultSet1.getArray("ST2");
+            Assertions.assertEquals("STRUCT_3", array1.getMetaData().getElementStructMetaData().getTypeName(),
+                    "First execution should have correct array element struct type name");
+        }
+
+        // Execute same query again (cache hit - withExecutionContext called)
+        try (final RelationalResultSet resultSet2 = statement.executeQuery("SELECT * FROM AT WHERE A_NAME = 'a_test_rec'")) {
+            Assertions.assertTrue(resultSet2.next(), "Did not find a record!");
+            RelationalArray array2 = resultSet2.getArray("ST2");
+            // This assertion would fail if withExecutionContext doesn't preserve semanticFieldTypes
+            Assertions.assertEquals("STRUCT_3", array2.getMetaData().getElementStructMetaData().getTypeName(),
+                    "Cached plan execution should preserve array element struct type name");
+        }
+    }
 }
