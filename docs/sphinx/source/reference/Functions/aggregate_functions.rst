@@ -2,6 +2,8 @@
 Aggregate Functions
 ===================
 
+.. _aggregate_functions:
+
 Aggregate functions perform calculations on zero, one, or multiple rows of values, and they return a single value.
 
 List of functions (by sub-category)

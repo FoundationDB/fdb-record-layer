@@ -171,6 +171,8 @@ Calculate multiple aggregates:
       - :json:`120000`
       - :json:`100000.0`
 
+.. _having:
+
 GROUP BY with HAVING Clause
 -----------------------------
 
