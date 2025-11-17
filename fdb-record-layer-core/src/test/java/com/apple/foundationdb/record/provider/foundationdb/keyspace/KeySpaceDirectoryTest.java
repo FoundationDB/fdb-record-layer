@@ -40,6 +40,7 @@ import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 import com.apple.test.BooleanSource;
+import com.apple.test.ParameterizedTestUtils;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
@@ -1640,8 +1641,8 @@ public class KeySpaceDirectoryTest {
     void testValidationInvalidValues(KeySpaceDirectory.KeyType keyType, Object value) {
         final KeySpaceDirectory directory = new KeySpaceDirectory("test_dir", keyType);
 
-        // Should fail - value doesn't match the key type
-        Assertions.assertThrows(RecordCoreArgumentException.class, () -> directory.validateValue(value));
+        Assertions.assertThrows(RecordCoreArgumentException.class, () -> directory.validateValue(value),
+                "value doesn't match the key type");
     }
 
     static Stream<KeySpaceDirectory.KeyType> testValidationNullToNonNullType() {
@@ -1654,8 +1655,57 @@ public class KeySpaceDirectoryTest {
     void testValidationNullToNonNullType(KeySpaceDirectory.KeyType keyType) {
         final KeySpaceDirectory directory = new KeySpaceDirectory("test_dir", keyType);
 
-        // Should fail - null not allowed for non-NULL types
-        Assertions.assertThrows(RecordCoreArgumentException.class, () -> directory.validateValue(null));
+        Assertions.assertThrows(RecordCoreArgumentException.class, () -> directory.validateValue(null),
+                "null not allowed for non-NULL types");
+    }
+
+    static Stream<Arguments> testDirectoryLayerDirectoryValidateValueValidStrings() {
+        return Stream.of(
+                // ANY_VALUE directory - accepts any string
+                Arguments.of(false, "foo", true),
+                Arguments.of(false, "bar", true),
+                Arguments.of(false, "", true),
+                Arguments.of(false, "any_string_value", true),
+
+                // Constant directory - only accepts matching constant
+                Arguments.of(true, "production", true),
+                Arguments.of(true, "staging", false),
+                Arguments.of(true, "", false),
+                Arguments.of(true, "other", false)
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource
+    void testDirectoryLayerDirectoryValidateValueValidStrings(boolean isConstant, String value, boolean shouldSucceed) {
+        DirectoryLayerDirectory directory = isConstant
+                                            ? new DirectoryLayerDirectory("test_dir", "production")
+                                            : new DirectoryLayerDirectory("test_dir");
+
+        if (shouldSucceed) {
+            directory.validateValue(value);
+        } else {
+            Assertions.assertThrows(RecordCoreArgumentException.class, () -> directory.validateValue(value),
+                    "value doesn't match constant");
+        }
+    }
+
+    static Stream<Arguments> testDirectoryLayerDirectoryValidateValueInvalidTypes() {
+        return ParameterizedTestUtils.cartesianProduct(
+                ParameterizedTestUtils.booleans("isConstant"),
+                Stream.of(42L, 123, 3.14f, 2.718, true, new byte[]{1, 2, 3}, UUID.randomUUID(), null)
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource
+    void testDirectoryLayerDirectoryValidateValueInvalidTypes(boolean isConstant, Object value) {
+        DirectoryLayerDirectory directory = isConstant
+                                            ? new DirectoryLayerDirectory("test_dir", "production")
+                                            : new DirectoryLayerDirectory("test_dir");
+
+        Assertions.assertThrows(RecordCoreArgumentException.class, () -> directory.validateValue(value),
+                "DirectoryLayerDirectory only accepts Strings");
     }
 
     static final class KeyPathValues {
