@@ -73,17 +73,14 @@ import com.apple.foundationdb.relational.recordlayer.RecordLayerIterator;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerResultSet;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerSchema;
 import com.apple.foundationdb.relational.recordlayer.ResumableIterator;
+import com.apple.foundationdb.relational.recordlayer.metadata.TypeMetadataEnricher;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
-import com.google.protobuf.Descriptors;
-import com.google.protobuf.Descriptors.Descriptor;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
-
-import java.util.HashMap;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -424,7 +421,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                             executeProperties));
             final var currentPlanHashMode = OptionsUtils.getCurrentPlanHashMode(options);
 
-            final DataType.StructType resultDataType = mergeSemanticTypesWithPlannerNames(type, semanticFieldTypes, fdbRecordStore.getRecordMetaData());
+            final DataType.StructType resultDataType = TypeMetadataEnricher.mergeSemanticTypesWithPlannerNames(type, semanticFieldTypes, fdbRecordStore.getRecordMetaData());
 
             return executionContext.metricCollector.clock(RelationalMetric.RelationalEvent.CREATE_RESULT_SET_ITERATOR, () -> {
                 final ResumableIterator<Row> iterator = RecordLayerIterator.create(cursor, messageFDBQueriedRecord -> new MessageTuple(messageFDBQueriedRecord.getMessage()));
@@ -432,144 +429,6 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                         (continuation, reason) -> enrichContinuation(continuation,
                                 currentPlanHashMode, reason));
             });
-        }
-
-        /**
-         * Merge semantic type structure (preserving struct type names) with planner field names.
-         *
-         * - Field names and field count come from planner Type.Record
-         *   (planner handles aliases, star expansion, and "_0" naming for unnamed expressions)
-         * - Type structure (especially nested struct type names) come from semantic DataTypes
-         *   (semantic analysis preserves "STRUCT_1", "STRUCT_2" which planner loses)
-         * - Additionally enrich nested structs with RecordMetaData descriptor names
-         *
-         * @param plannerType The Type.Record from the physical plan (has correct field names)
-         * @param semanticTypes The semantic DataTypes captured before planning (have struct type names)
-         * @param recordMetaData Schema metadata for enriching nested types
-         * @return Merged DataType.StructType with planner names and semantic type structure
-         */
-        @Nonnull
-        private DataType.StructType mergeSemanticTypesWithPlannerNames(
-                @Nonnull final Type plannerType,
-                @Nonnull final List<DataType> semanticTypes,
-                @Nonnull final RecordMetaData recordMetaData) throws RelationalException {
-
-            Assert.that(plannerType instanceof Type.Record, ErrorCode.INTERNAL_ERROR,
-                    "Expected Type.Record but got %s", plannerType.getTypeCode());
-
-            final Type.Record recordType = (Type.Record) plannerType;
-            final List<Type.Record.Field> plannerFields = recordType.getFields();
-
-            // Planner and semantic should have same field count
-            Assert.that(plannerFields.size() == semanticTypes.size(), ErrorCode.INTERNAL_ERROR,
-                    "Field count mismatch: planner has %d fields, semantic has %d",
-                    plannerFields.size(), semanticTypes.size());
-
-            // Build descriptor cache for enriching nested structs
-            final Map<String, Descriptor> descriptorCache = new HashMap<>();
-            for (var recordTypeEntry : recordMetaData.getRecordTypes().values()) {
-                cacheDescriptorAndNested(recordTypeEntry.getDescriptor(), descriptorCache);
-            }
-            final var fileDescriptor = recordMetaData.getRecordTypes().values().iterator().next()
-                    .getDescriptor().getFile();
-            for (var messageType : fileDescriptor.getMessageTypes()) {
-                cacheDescriptorAndNested(messageType, descriptorCache);
-            }
-
-            // Merge: field names from planner, types from semantic (enriched)
-            final ImmutableList.Builder<DataType.StructType.Field> mergedFields = ImmutableList.builder();
-            for (int i = 0; i < plannerFields.size(); i++) {
-                final String fieldName = plannerFields.get(i).getFieldName();
-                final DataType enrichedType = enrichDataType(semanticTypes.get(i), descriptorCache);
-                mergedFields.add(DataType.StructType.Field.from(fieldName, enrichedType, i));
-            }
-
-            return DataType.StructType.from("QUERY_RESULT", mergedFields.build(), true);
-        }
-
-        /**
-         * Cache a descriptor and all its nested types, keyed by their structural signature.
-         */
-        private void cacheDescriptorAndNested(@Nonnull final Descriptor descriptor,
-                                              @Nonnull final Map<String, Descriptor> cache) {
-            // Create a structural signature for this descriptor (field names and count)
-            final String signature = createStructuralSignature(descriptor);
-            cache.put(signature, descriptor);
-
-            // Process nested types
-            for (var nestedType : descriptor.getNestedTypes()) {
-                cacheDescriptorAndNested(nestedType, cache);
-            }
-        }
-
-        /**
-         * Create a structural signature for a descriptor based on field names only.
-         * Field indices can vary between DataType and protobuf representations.
-         */
-        @Nonnull
-        private String createStructuralSignature(@Nonnull final Descriptor descriptor) {
-            return descriptor.getFields().stream()
-                    .map(Descriptors.FieldDescriptor::getName)
-                    .collect(java.util.stream.Collectors.joining(","));
-        }
-
-        /**
-         * Create a structural signature for a DataType.StructType based on field names only.
-         */
-        @Nonnull
-        private String createStructuralSignature(@Nonnull final DataType.StructType structType) {
-            return structType.getFields().stream()
-                    .map(DataType.StructType.Field::getName)
-                    .collect(java.util.stream.Collectors.joining(","));
-        }
-
-        /**
-         * Recursively enrich a struct type with proper names from the descriptor cache.
-         */
-        @Nonnull
-        private DataType.StructType enrichStructType(@Nonnull final DataType.StructType structType,
-                                                      @Nonnull final Map<String, Descriptor> descriptorCache) {
-            // Enrich each field recursively
-            final List<DataType.StructType.Field> enrichedFields = structType.getFields().stream()
-                    .map(field -> enrichField(field, descriptorCache))
-                    .collect(java.util.stream.Collectors.toList());
-
-            // Try to find a matching descriptor for this struct type
-            final String signature = createStructuralSignature(structType);
-            final Descriptor matchedDescriptor = descriptorCache.get(signature);
-
-            // Use the descriptor's name if found, otherwise keep the existing name
-            final String enrichedName = matchedDescriptor != null ? matchedDescriptor.getName() : structType.getName();
-
-            return DataType.StructType.from(enrichedName, enrichedFields, structType.isNullable());
-        }
-
-        /**
-         * Enrich a field, recursively enriching any nested struct types.
-         */
-        @Nonnull
-        private DataType.StructType.Field enrichField(@Nonnull final DataType.StructType.Field field,
-                                                       @Nonnull final Map<String, Descriptor> descriptorCache) {
-            final DataType enrichedType = enrichDataType(field.getType(), descriptorCache);
-            return DataType.StructType.Field.from(field.getName(), enrichedType, field.getIndex());
-        }
-
-        /**
-         * Enrich a DataType, handling structs, arrays, and primitives.
-         */
-        @Nonnull
-        private DataType enrichDataType(@Nonnull final DataType dataType,
-                                         @Nonnull final Map<String, Descriptor> descriptorCache) {
-            if (dataType instanceof DataType.StructType) {
-                return enrichStructType((DataType.StructType) dataType, descriptorCache);
-            } else if (dataType instanceof DataType.ArrayType) {
-                final DataType.ArrayType arrayType = (DataType.ArrayType) dataType;
-                final DataType enrichedElementType = enrichDataType(arrayType.getElementType(), descriptorCache);
-                return DataType.ArrayType.from(enrichedElementType, arrayType.isNullable());
-            } else {
-                // Primitive types don't need enrichment
-                return dataType;
-            }
         }
 
         @Nonnull
