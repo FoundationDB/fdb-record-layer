@@ -75,12 +75,12 @@ import java.util.stream.Stream;
  */
 class BooleanValueTest {
 
-    private static final Type.Enum ENUM_TYPE_FOR_TEST = new Type.Enum(false, List.of(
-            new Type.Enum.EnumValue("SPADES", 0),
-            new Type.Enum.EnumValue("HEARTS", 1),
-            new Type.Enum.EnumValue("DIAMONDS", 2),
-            new Type.Enum.EnumValue("CLUBS", 3)
-    ), "enumTestType");
+    private static final Type.Enum ENUM_TYPE_FOR_TEST = Type.Enum.fromValuesWithName("enumTestType", false, List.of(
+            Type.Enum.EnumValue.from("SPADES", 0),
+            Type.Enum.EnumValue.from("HEARTS", 1),
+            Type.Enum.EnumValue.from("DIAMONDS", 2),
+            Type.Enum.EnumValue.from("CLUBS", 3)
+    ));
 
     private static final TypeRepository.Builder typeRepositoryBuilder = TypeRepository.newBuilder().setName("foo").setPackage("a.b.c")
             .addTypeIfNeeded(ENUM_TYPE_FOR_TEST);

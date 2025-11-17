@@ -41,6 +41,7 @@ import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.MessageHelpers.CoercionTrieNode;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
+import com.apple.foundationdb.record.util.ProtoUtils;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Suppliers;
@@ -144,7 +145,7 @@ public class PromoteValue extends AbstractValue implements CreatesDynamicTypesVa
 
         @Nonnull
         public static Descriptors.EnumValueDescriptor stringToEnumValue(Descriptors.EnumDescriptor enumDescriptor, String value) {
-            final var maybeValue = enumDescriptor.findValueByName(value);
+            final var maybeValue = enumDescriptor.findValueByName(ProtoUtils.toProtoBufCompliantName(value));
             SemanticException.check(maybeValue != null, SemanticException.ErrorCode.INVALID_ENUM_VALUE, value);
             return maybeValue;
         }

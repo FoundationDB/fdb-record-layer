@@ -58,6 +58,7 @@ import com.apple.foundationdb.relational.api.metadata.Table;
 import com.apple.foundationdb.relational.api.metadata.View;
 import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerView;
 import com.apple.foundationdb.relational.recordlayer.query.functions.SqlFunctionCatalog;
 import com.apple.foundationdb.relational.recordlayer.query.functions.WithPlanGenerationSideEffects;
@@ -274,9 +275,12 @@ public class SemanticAnalyzer {
     }
 
     @Nonnull
-    public Set<String> getAllTableNames() {
+    public Set<String> getAllTableStorageNames() {
         try {
-            return metadataCatalog.getTables().stream().map(Metadata::getName).collect(ImmutableSet.toImmutableSet());
+            return metadataCatalog.getTables().stream()
+                    .map(table -> Assert.castUnchecked(table, RecordLayerTable.class))
+                    .map(table -> Assert.notNullUnchecked(table.getType().getStorageName()))
+                    .collect(ImmutableSet.toImmutableSet());
         } catch (RelationalException e) {
             throw e.toUncheckedWrappedException();
         }
@@ -616,7 +620,7 @@ public class SemanticAnalyzer {
             final var typeName = Assert.notNullUnchecked(parsedTypeInfo.getCustomType()).getName();
             final var maybeFound = dataTypeProvider.apply(typeName);
             // if we cannot find the type now, mark it, we will try to resolve it later on via a second pass.
-            type = maybeFound.orElseGet(() -> DataType.UnresolvedType.of(typeName, isNullable));
+            type = maybeFound.map(dataType -> dataType.withNullable(isNullable)).orElseGet(() -> DataType.UnresolvedType.of(typeName, isNullable));
         } else {
             final var primitiveType = Assert.notNullUnchecked(parsedTypeInfo.getPrimitiveTypeContext());
             if (primitiveType.vectorType() != null) {

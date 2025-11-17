@@ -7,6 +7,45 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.8
 
+### 4.8.13.0
+
+<h4> Breaking Changes </h4>
+
+* Change DataInKeySpacePath to contain a KeySpacePath instead of ResolvedKeySpacePath - [PR #3716](https://github.com/FoundationDB/fdb-record-layer/pull/3716)
+<h4> New Features </h4>
+
+* Reintroduce translation of identifiers to Protobuf compliant names - [PR #3736](https://github.com/FoundationDB/fdb-record-layer/pull/3736)
+<h4> Bug Fixes </h4>
+
+* Skip rank index match candidate generation for SQL queries - [PR #3748](https://github.com/FoundationDB/fdb-record-layer/pull/3748)
+* Lucene: index filters support - [PR #3688](https://github.com/FoundationDB/fdb-record-layer/pull/3688)
+* Make Lucene partitioner thread-safe - [PR #3699](https://github.com/FoundationDB/fdb-record-layer/pull/3699)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Create test showcasing bug with enums and index scans - [PR #3735](https://github.com/FoundationDB/fdb-record-layer/pull/3735)
+* Add ResultSet MetaData tests to assert current behavior with underlying struct type names - [PR #3744](https://github.com/FoundationDB/fdb-record-layer/pull/3744)
+
+</details>
+
+
+**[Full Changelog (4.8.12.0...4.8.13.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.8.12.0...4.8.13.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+❌`4.7.1.0`, ❌`4.7.2.0`, ❌`4.7.3.0`, ✅`4.8.1.0`, ✅`4.8.2.0`, ✅`4.8.3.0`, ✅`4.8.5.0`, ✅`4.8.6.0`, ✅`4.8.11.0`, ✅`4.8.12.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/19332292964)
+
+
+
 ### 4.8.12.0
 
 <h4> New Features </h4>
