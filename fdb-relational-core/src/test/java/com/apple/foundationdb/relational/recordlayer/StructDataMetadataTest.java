@@ -161,21 +161,50 @@ public class StructDataMetadataTest {
         }
     }
 
-    private void canReadStructTypeName(String query, ThrowingConsumer<RelationalResultSet> assertOnMetaData) throws Throwable {
-        Continuation continuation;
-        statement.setMaxRows(1);
-        try (final RelationalResultSet resultSet = statement.executeQuery(query)) {
-            Assertions.assertTrue(resultSet.next(), "Did not find a record!");
-            assertOnMetaData.accept(resultSet);
-            continuation = resultSet.getContinuation();
+    /**
+     * Helper method to test struct type metadata preservation across query execution and continuations.
+     *
+     * @param query The SQL query to execute
+     * @param assertOnMetaData Consumer to assert on the result set metadata
+     * @param numBaseQueryRuns Number of times to run the base query (tests PhysicalQueryPlan.withExecutionContext when > 1)
+     * @param numContinuationRuns Number of times to run the continuation (tests ContinuedPhysicalQueryPlan.withExecutionContext when > 1)
+     */
+    private void canReadStructTypeName(String query,
+                                      ThrowingConsumer<RelationalResultSet> assertOnMetaData,
+                                      int numBaseQueryRuns,
+                                      int numContinuationRuns) throws Throwable {
+        // Only set maxRows if we're testing continuations
+        if (numContinuationRuns > 0) {
+            statement.setMaxRows(1);
         }
-        try (final PreparedStatement ps = connection.prepareStatement("EXECUTE CONTINUATION ?")) {
-            ps.setBytes(1, continuation.serialize());
-            try (final ResultSet resultSet = ps.executeQuery()) {
-                Assertions.assertTrue(resultSet.next(), "Did not find a record!");
-                assertOnMetaData.accept(resultSet.unwrap(RelationalResultSet.class));
+
+        Continuation continuation = null;
+
+        // Run base query the specified number of times
+        for (int i = 0; i < numBaseQueryRuns; i++) {
+            try (final RelationalResultSet resultSet = statement.executeQuery(query)) {
+                Assertions.assertTrue(resultSet.next(), "Did not find a record on base query run " + (i + 1));
+                assertOnMetaData.accept(resultSet);
+                if (i == 0 && numContinuationRuns > 0) {
+                    continuation = resultSet.getContinuation();
+                }
             }
         }
+
+        // Run continuation the specified number of times
+        for (int i = 0; i < numContinuationRuns; i++) {
+            try (final PreparedStatement ps = connection.prepareStatement("EXECUTE CONTINUATION ?")) {
+                ps.setBytes(1, continuation.serialize());
+                try (final ResultSet resultSet = ps.executeQuery()) {
+                    Assertions.assertTrue(resultSet.next(), "Did not find a record on continuation run " + (i + 1));
+                    assertOnMetaData.accept(resultSet.unwrap(RelationalResultSet.class));
+                }
+            }
+        }
+    }
+
+    private void canReadStructTypeName(String query, ThrowingConsumer<RelationalResultSet> assertOnMetaData) throws Throwable {
+        canReadStructTypeName(query, assertOnMetaData, 1, 1);
     }
 
     @Test
@@ -380,64 +409,49 @@ public class StructDataMetadataTest {
     }
 
     @Test
-    void structTypeMetadataPreservedAcrossPlanCache() throws SQLException {
-        // Execute query first time (cache miss - semanticFieldTypes captured)
-        try (final RelationalResultSet resultSet1 = statement.executeQuery("SELECT * FROM T WHERE NAME = 'test_record_1'")) {
-            Assertions.assertTrue(resultSet1.next(), "Did not find a record!");
-            RelationalStruct struct1 = resultSet1.getStruct("ST1");
-            Assertions.assertEquals("STRUCT_1", struct1.getMetaData().getTypeName(),
-                    "First execution should have correct struct type name");
-        }
-
-        // Execute same query again (cache hit - withExecutionContext called)
-        try (final RelationalResultSet resultSet2 = statement.executeQuery("SELECT * FROM T WHERE NAME = 'test_record_1'")) {
-            Assertions.assertTrue(resultSet2.next(), "Did not find a record!");
-            RelationalStruct struct2 = resultSet2.getStruct("ST1");
-            // This assertion would fail if withExecutionContext doesn't preserve semanticFieldTypes
-            Assertions.assertEquals("STRUCT_1", struct2.getMetaData().getTypeName(),
-                    "Cached plan execution should preserve struct type name");
-        }
+    void structTypeMetadataPreservedAcrossPlanCache() throws Throwable {
+        canReadStructTypeName("SELECT * FROM T WHERE NAME = 'test_record_1'", resultSet -> {
+            RelationalStruct struct = resultSet.getStruct("ST1");
+            Assertions.assertEquals("STRUCT_1", struct.getMetaData().getTypeName(),
+                    "Struct type name should be preserved across plan cache");
+        }, 2, 0);
     }
 
     @Test
-    void nestedStructTypeMetadataPreservedAcrossPlanCache() throws SQLException {
-        // Execute query first time (cache miss - semanticFieldTypes captured)
-        try (final RelationalResultSet resultSet1 = statement.executeQuery("SELECT * FROM NT WHERE T_NAME = 'nt_record'")) {
-            Assertions.assertTrue(resultSet1.next(), "Did not find a record!");
-            RelationalStruct struct1 = resultSet1.getStruct("ST1");
-            RelationalStruct nestedStruct1 = struct1.getStruct("D");
-            Assertions.assertEquals("STRUCT_1", nestedStruct1.getMetaData().getTypeName(),
-                    "First execution should have correct nested struct type name");
-        }
-
-        // Execute same query again (cache hit - withExecutionContext called)
-        try (final RelationalResultSet resultSet2 = statement.executeQuery("SELECT * FROM NT WHERE T_NAME = 'nt_record'")) {
-            Assertions.assertTrue(resultSet2.next(), "Did not find a record!");
-            RelationalStruct struct2 = resultSet2.getStruct("ST1");
-            RelationalStruct nestedStruct2 = struct2.getStruct("D");
-            // This assertion would fail if withExecutionContext doesn't preserve semanticFieldTypes
-            Assertions.assertEquals("STRUCT_1", nestedStruct2.getMetaData().getTypeName(),
-                    "Cached plan execution should preserve nested struct type name");
-        }
+    void nestedStructTypeMetadataPreservedAcrossPlanCache() throws Throwable {
+        canReadStructTypeName("SELECT * FROM NT WHERE T_NAME = 'nt_record'", resultSet -> {
+            RelationalStruct struct = resultSet.getStruct("ST1");
+            RelationalStruct nestedStruct = struct.getStruct("D");
+            Assertions.assertEquals("STRUCT_1", nestedStruct.getMetaData().getTypeName(),
+                    "Nested struct type name should be preserved across plan cache");
+        }, 2, 0);
     }
 
     @Test
-    void arrayStructTypeMetadataPreservedAcrossPlanCache() throws SQLException {
-        // Execute query first time (cache miss - semanticFieldTypes captured)
-        try (final RelationalResultSet resultSet1 = statement.executeQuery("SELECT * FROM AT WHERE A_NAME = 'a_test_rec'")) {
-            Assertions.assertTrue(resultSet1.next(), "Did not find a record!");
-            RelationalArray array1 = resultSet1.getArray("ST2");
-            Assertions.assertEquals("STRUCT_3", array1.getMetaData().getElementStructMetaData().getTypeName(),
-                    "First execution should have correct array element struct type name");
-        }
+    void arrayStructTypeMetadataPreservedAcrossPlanCache() throws Throwable {
+        canReadStructTypeName("SELECT * FROM AT WHERE A_NAME = 'a_test_rec'", resultSet -> {
+            RelationalArray array = resultSet.getArray("ST2");
+            Assertions.assertEquals("STRUCT_3", array.getMetaData().getElementStructMetaData().getTypeName(),
+                    "Array element struct type name should be preserved across plan cache");
+        }, 2, 0);
+    }
 
-        // Execute same query again (cache hit - withExecutionContext called)
-        try (final RelationalResultSet resultSet2 = statement.executeQuery("SELECT * FROM AT WHERE A_NAME = 'a_test_rec'")) {
-            Assertions.assertTrue(resultSet2.next(), "Did not find a record!");
-            RelationalArray array2 = resultSet2.getArray("ST2");
-            // This assertion would fail if withExecutionContext doesn't preserve semanticFieldTypes
-            Assertions.assertEquals("STRUCT_3", array2.getMetaData().getElementStructMetaData().getTypeName(),
-                    "Cached plan execution should preserve array element struct type name");
-        }
+    @Test
+    void structTypeMetadataPreservedInContinuationAcrossPlanCache() throws Throwable {
+        canReadStructTypeName("SELECT * FROM T", resultSet -> {
+            RelationalStruct struct = resultSet.getStruct("ST1");
+            Assertions.assertEquals("STRUCT_1", struct.getMetaData().getTypeName(),
+                    "Struct type name should be preserved in continuation across plan cache");
+        }, 1, 2);
+    }
+
+    @Test
+    void nestedStructTypeMetadataPreservedInContinuationAcrossPlanCache() throws Throwable {
+        canReadStructTypeName("SELECT * FROM NT", resultSet -> {
+            RelationalStruct struct = resultSet.getStruct("ST1");
+            RelationalStruct nestedStruct = struct.getStruct("D");
+            Assertions.assertEquals("STRUCT_1", nestedStruct.getMetaData().getTypeName(),
+                    "Nested struct type name should be preserved in continuation across plan cache");
+        }, 1, 2);
     }
 }
