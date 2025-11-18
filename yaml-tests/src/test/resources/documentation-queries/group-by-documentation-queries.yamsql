@@ -6,6 +6,7 @@ schema_template:
     create table employees(id bigint, department string, role string, salary bigint, primary key(id))
     create index dept_idx as select department from employees order by department
     create index role_idx as select role from employees order by role
+    create index dept_role_idx as select department, role from employees order by department, role
 ---
 setup:
   steps:
