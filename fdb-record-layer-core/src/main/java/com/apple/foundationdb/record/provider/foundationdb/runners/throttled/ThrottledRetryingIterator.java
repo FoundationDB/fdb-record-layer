@@ -419,27 +419,6 @@ public class ThrottledRetryingIterator<T> implements AutoCloseable {
         private int maxRecordDeletesPerSec;
         private int numOfRetries;
 
-        /**
-         * Constructor.
-         * @param runner the FDB runner to use when creating transactions
-         * @param cursorCreator the factory to use when creating the inner cursor
-         * @param singleItemHandler the handler of a single item while iterating
-         */
-        private Builder(TransactionalRunner runner, Executor executor, ScheduledExecutorService scheduledExecutor, CursorFactory<T> cursorCreator, ItemHandler<T> singleItemHandler) {
-            // Mandatory fields are set in the constructor. Everything else is optional.
-            this.transactionalRunner = runner;
-            this.executor = executor;
-            this.scheduledExecutor = scheduledExecutor;
-            this.cursorCreator = cursorCreator;
-            this.singleItemHandler = singleItemHandler;
-            // set defaults
-            this.transactionTimeQuotaMillis = (int)TimeUnit.SECONDS.toMillis(4);
-            this.maxRecordDeletesPerTransaction = 0;
-            this.maxRecordScannedPerSec = 0;
-            this.maxRecordDeletesPerSec = 0;
-            this.numOfRetries = NUMBER_OF_RETRIES;
-        }
-
         private Builder(FDBDatabase database, FDBRecordContextConfig.Builder contextConfigBuilder, CursorFactory<T> cursorCreator, ItemHandler<T> singleItemHandler) {
             // Mandatory fields are set in the constructor. Everything else is optional.
             this.database = database;
