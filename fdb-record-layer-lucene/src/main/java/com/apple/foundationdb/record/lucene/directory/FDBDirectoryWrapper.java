@@ -390,4 +390,9 @@ public class FDBDirectoryWrapper implements AutoCloseable {
     public void mergeIndex() throws IOException {
         getWriter().maybeMerge();
     }
+
+    @VisibleForTesting
+    public Queue<LazyCloseable<DirectoryReader>> getReadersToClose() {
+        return readersToClose;
+    }
 }

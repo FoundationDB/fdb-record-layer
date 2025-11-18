@@ -361,12 +361,11 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
 
     /**
      * Try to find the document for the given record in the segment index.
-     * This method would first try to find the document using teh existing reader. If it can't, it will refresh the reader
-     * and try again. The issue is that when the documents have been updated in memory (e.g. in the same transaction), the
-     * writer may cache the changes in NRT and the reader (created earlier) can't see them. Refreshing the reader from the
-     * writer can alleviate this. If the index can't find the document with the refresh reader, null is returned.
-     * Note that the refresh of the reader will do so at the {@link com.apple.foundationdb.record.lucene.directory.FDBDirectoryWrapper}
-     * and so has impact on the entire directory.
+     * This method would first try to find the document using the existing reader. If it can't, it will refresh the reader
+     * and try again. The incentive for this is when the documents have been updated in memory (e.g. in the same transaction), the
+     * writer may cache the changes in NRT and the reader (created before the updates) can't see them. Refreshing the reader from the
+     * writer can alleviate this by re-reading the changes in the NRT.
+     * If the index can't find the document with the refreshed reader, null is returned.
      * @param groupingKey the grouping key for the index
      * @param partitionId the partition ID for the index
      * @param primaryKey the record primary key to look for
