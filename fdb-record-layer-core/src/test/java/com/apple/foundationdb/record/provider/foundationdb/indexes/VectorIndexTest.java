@@ -82,7 +82,7 @@ import java.util.stream.Stream;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 
-public class VectorIndexTest extends VectorIndexTestBase {
+class VectorIndexTest extends VectorIndexTestBase {
     private static final Logger logger = LoggerFactory.getLogger(VectorIndexTest.class);
 
     @Nonnull

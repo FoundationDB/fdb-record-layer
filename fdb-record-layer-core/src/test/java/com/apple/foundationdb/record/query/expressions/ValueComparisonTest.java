@@ -38,7 +38,7 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class ValueComparisonTest extends ComparisonsTestBase {
+class ValueComparisonTest extends ComparisonsTestBase {
     @Test
     void withValueTest() {
         final ValueComparison original = comparison();

@@ -32,7 +32,7 @@ import javax.annotation.Nonnull;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class VectorIndexScanOptionsTest {
+class VectorIndexScanOptionsTest {
     @Test
     void builderRoundTripTest() {
         final Builder builder = VectorIndexScanOptions.builder();

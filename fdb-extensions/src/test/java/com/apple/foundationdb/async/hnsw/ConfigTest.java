@@ -41,7 +41,7 @@ class ConfigTest {
         final int efConstruction = Config.DEFAULT_EF_CONSTRUCTION + 1;
         final boolean extendCandidates = true;
         final boolean keepPrunedConnections = true;
-        final int statsThreshold = 1;
+        final int statsThreshold = 5000;
         final double sampleVectorStatsProbability = 0.000001d;
         final double maintainStatsProbability = 0.000002d;
 
@@ -116,7 +116,7 @@ class ConfigTest {
     void testEqualsHashCodeAndToString() {
         final Config config1 = HNSW.newConfigBuilder().build(768);
         final Config config2 = HNSW.newConfigBuilder().build(768);
-        final Config config3 = HNSW.newConfigBuilder().setM(1).build(768);
+        final Config config3 = HNSW.newConfigBuilder().setM(4).build(768);
 
         Assertions.assertThat(config1.hashCode()).isEqualTo(config2.hashCode());
         Assertions.assertThat(config1).isEqualTo(config2);

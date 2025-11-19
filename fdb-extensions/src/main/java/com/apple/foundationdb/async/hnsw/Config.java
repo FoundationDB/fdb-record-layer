@@ -181,10 +181,10 @@ public final class Config {
         Preconditions.checkArgument(m <= mMax);
         Preconditions.checkArgument(mMax <= mMax0);
         Preconditions.checkArgument(efConstruction > 100 && efConstruction <= 400);
-        Preconditions.checkArgument(sampleVectorStatsProbability > 0.0d &&
-                sampleVectorStatsProbability <= 1.0d);
-        Preconditions.checkArgument(maintainStatsProbability > 0.0d && maintainStatsProbability <= 1.0d);
-        Preconditions.checkArgument(statsThreshold > 10);
+        Preconditions.checkArgument(!useRaBitQ || (sampleVectorStatsProbability > 0.0d &&
+                sampleVectorStatsProbability <= 1.0d));
+        Preconditions.checkArgument(!useRaBitQ || (maintainStatsProbability > 0.0d && maintainStatsProbability <= 1.0d));
+        Preconditions.checkArgument(!useRaBitQ || statsThreshold > 10);
         Preconditions.checkArgument(raBitQNumExBits > 0 && raBitQNumExBits < 16);
         Preconditions.checkArgument(maxNumConcurrentNodeFetches > 0 && maxNumConcurrentNodeFetches < 64);
         Preconditions.checkArgument(maxNumConcurrentNeighborhoodFetches > 0 &&

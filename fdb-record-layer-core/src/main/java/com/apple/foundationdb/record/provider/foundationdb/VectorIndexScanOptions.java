@@ -40,7 +40,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
-public class VectorIndexScanOptions implements PlanHashable, PlanSerializable {
+public final class VectorIndexScanOptions implements PlanHashable, PlanSerializable {
     public static final OptionKey<Integer> HNSW_EF_SEARCH = new OptionKey<>("hnswEfSearch", Integer.class);
     public static final OptionKey<Boolean> HNSW_RETURN_VECTORS = new OptionKey<>("hnswReturnVectors", Boolean.class);
 

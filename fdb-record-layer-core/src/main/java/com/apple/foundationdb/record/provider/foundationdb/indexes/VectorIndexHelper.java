@@ -37,7 +37,7 @@ import javax.annotation.Nonnull;
  * Helper functions for index maintainers that use a {@link HNSW}.
  */
 @API(API.Status.EXPERIMENTAL)
-public class VectorIndexHelper {
+public final class VectorIndexHelper {
     private VectorIndexHelper() {
     }
 

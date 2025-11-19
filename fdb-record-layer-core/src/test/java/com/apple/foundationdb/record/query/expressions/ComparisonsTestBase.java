@@ -42,7 +42,7 @@ import java.util.function.Function;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class ComparisonsTestBase {
+class ComparisonsTestBase {
     protected ComparisonsTestBase() {
         // nothing
     }
@@ -75,7 +75,7 @@ public class ComparisonsTestBase {
                         comparisonProto);
         assertThat(roundTripped.planHash(PlanHashable.CURRENT_FOR_CONTINUATION))
                 .isEqualTo(original.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
-        assertThat(roundTripped.hashCode()).isEqualTo(original.hashCode());
+        assertThat(roundTripped).hasSameHashCodeAs(original);
         assertThat(roundTripped).isEqualTo(original);
     }
 

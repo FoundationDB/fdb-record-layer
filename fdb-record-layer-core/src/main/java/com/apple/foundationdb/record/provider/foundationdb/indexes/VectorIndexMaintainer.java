@@ -152,7 +152,7 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
         } else {
             //
             // As {@code prefix == 0}, there only is exactly one prefix ({@code null}). While it is possible to also
-            // just do a flatmap over some non-existing outer, it's probably be more efficient to just do a plain scan
+            // just do a flatmap over some non-existing outer, it's probably more efficient to just do a plain scan
             // of the HNSW here.
             //
             return scanSinglePartition(null, continuation, indexSubspace, timer, vectorIndexScanBounds)
@@ -196,23 +196,25 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
 
         final HNSW hnsw = new HNSW(hnswSubspace, getExecutor(), getConfig(),
                 OnWriteListener.NOOP, new OnRead(timer));
-        final ReadTransaction transaction = state.context.readTransaction(true);
+        final ReadTransaction transaction = state.context.readTransaction(false);
         return new LazyCursor<>(
                 state.context.acquireReadLock(new LockIdentifier(hnswSubspace))
                         .thenApply(lock ->
                                 new AsyncLockCursor<>(lock,
                                         new LazyCursor<>(
-                                                kNearestNeighborSearch(prefixTuple, hnsw, transaction, vectorIndexScanBounds),
+                                                kNearestNeighborSearch(prefixTuple, hnsw, transaction,
+                                                        vectorIndexScanBounds),
                                                 getExecutor()))),
                 state.context.getExecutor());
     }
 
     @SuppressWarnings({"resource", "checkstyle:MethodName"})
     @Nonnull
-    private CompletableFuture<RecordCursor<IndexEntry>> kNearestNeighborSearch(@Nullable final Tuple prefixTuple,
-                                                                               @Nonnull final HNSW hnsw,
-                                                                               @Nonnull final ReadTransaction transaction,
-                                                                               @Nonnull final VectorIndexScanBounds vectorIndexScanBounds) {
+    private CompletableFuture<RecordCursor<IndexEntry>>
+            kNearestNeighborSearch(@Nullable final Tuple prefixTuple,
+                                   @Nonnull final HNSW hnsw,
+                                   @Nonnull final ReadTransaction transaction,
+                                   @Nonnull final VectorIndexScanBounds vectorIndexScanBounds) {
         return hnsw.kNearestNeighborsSearch(transaction, vectorIndexScanBounds.getAdjustedLimit(),
                         efSearch(vectorIndexScanBounds), returnVectors(hnsw.getConfig(), vectorIndexScanBounds),
                         Objects.requireNonNull(vectorIndexScanBounds.getQueryVector()))
@@ -467,7 +469,7 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
         }
     }
 
-    private static class Continuation implements RecordCursorContinuation {
+    private static final class Continuation implements RecordCursorContinuation {
         @Nonnull
         private final List<IndexEntry> indexEntries;
         @Nonnull
