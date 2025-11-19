@@ -269,7 +269,7 @@ public class IndexOptions {
      * this option must be greater than or equal to {@link #HNSW_M}. The default value is set to
      * {@link Config#DEFAULT_M_MAX}. See {@link Config#getMMax()}.
      */
-    public static final String HNSW_M_MAX = "hnswMax";
+    public static final String HNSW_M_MAX = "hnswMMax";
 
     /**
      * HNSW-only: This option (named {@code M_max0} by the HNSW paper) is the maximum connectivity value for nodes
@@ -278,7 +278,7 @@ public class IndexOptions {
      * otherwise exceed {@code mMax0}. Note that this option must be greater than or equal to {@link #HNSW_M_MAX}.
      * The default value is set to {@link Config#DEFAULT_M_MAX_0}. See {@link Config#getMMax0()}.
      */
-    public static final String HNSW_M_MAX_0 = "hnswMax0";
+    public static final String HNSW_M_MAX_0 = "hnswMMax0";
 
     /**
      * HNSW-only: Maximum size of the search queues (one independent queue per layer) that are used during the insertion

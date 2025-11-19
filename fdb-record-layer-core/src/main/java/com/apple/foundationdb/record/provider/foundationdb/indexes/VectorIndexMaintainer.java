@@ -100,9 +100,16 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
         return config;
     }
 
-    @SuppressWarnings("resource")
+    /**
+     * Scan the vector index.
+     * @param scanBounds the {@link VectorIndexScanBounds bounds} of the scan to perform
+     * @param continuation any continuation from a previous scan invocation
+     * @param scanProperties skip, limit and other properties of the scan
+     * @return a {@link RecordCursor} of index entries
+     */
     @Nonnull
     @Override
+    @SuppressWarnings("resource")
     public RecordCursor<IndexEntry> scan(@Nonnull final IndexScanBounds scanBounds, @Nullable final byte[] continuation,
                                          @Nonnull final ScanProperties scanProperties) {
         if (!scanBounds.getScanType().equals(IndexScanType.BY_VALUE)) {
@@ -122,52 +129,82 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
         final FDBStoreTimer timer = Objects.requireNonNull(state.context.getTimer());
 
         //
-        // Skip-scan through the prefixes in a way that we only consider each distinct prefix. That skip scan
-        // forms the outer of a join with an inner that searches the R-tree for that prefix using the
-        // spatial predicates of the scan bounds.
+        // If there is a {@code prefix > 0}, then we model the scan as a flatmap over the distinct prefixes as the outer
+        // and the correlated HNSW search as the inner.
         //
-        return RecordCursor.flatMapPipelined(prefixSkipScan(prefixSize, timer, vectorIndexScanBounds, innerScanProperties),
-                        (prefixTuple, innerContinuation) -> {
-                            final Subspace hnswSubspace;
-                            if (prefixTuple != null) {
+        if (prefixSize > 0) {
+            //
+            // Skip-scan through the prefixes in a way that we only consider each distinct prefix. That skip scan
+            // forms the outer of a join with an inner that searches the R-tree for that prefix using the
+            // spatial predicates of the scan bounds.
+            //
+            return RecordCursor.flatMapPipelined(prefixSkipScan(prefixSize, timer, vectorIndexScanBounds, innerScanProperties),
+                            (prefixTuple, innerContinuation) -> {
                                 Verify.verify(prefixTuple.size() == prefixSize);
-                                hnswSubspace = indexSubspace.subspace(prefixTuple);
-                            } else {
-                                hnswSubspace = indexSubspace;
-                            }
+                                final Subspace hnswSubspace = indexSubspace.subspace(prefixTuple);
 
-                            if (innerContinuation != null) {
-                                final RecordCursorProto.VectorIndexScanContinuation parsedContinuation =
-                                        Continuation.fromBytes(innerContinuation);
-                                final ImmutableList.Builder<IndexEntry> indexEntriesBuilder = ImmutableList.builder();
-                                for (int i = 0; i < parsedContinuation.getIndexEntriesCount(); i ++) {
-                                    final RecordCursorProto.VectorIndexScanContinuation.IndexEntry indexEntryProto =
-                                            parsedContinuation.getIndexEntries(i);
-                                    indexEntriesBuilder.add(new IndexEntry(state.index,
-                                            Tuple.fromBytes(indexEntryProto.getKey().toByteArray()),
-                                            Tuple.fromBytes(indexEntryProto.getValue().toByteArray())));
-                                }
-                                final ImmutableList<IndexEntry> indexEntries = indexEntriesBuilder.build();
-                                return new ListCursor<>(indexEntries, parsedContinuation.getInnerContinuation().toByteArray())
-                                        .mapResult(result ->
-                                                result.withContinuation(new Continuation(indexEntries, result.getContinuation())));
-                            }
+                                return scanSinglePartition(prefixTuple, innerContinuation, hnswSubspace,
+                                        timer, vectorIndexScanBounds);
+                            },
+                            continuation,
+                            state.store.getPipelineSize(PipelineOperation.INDEX_TO_RECORD))
+                    .skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit());
+        } else {
+            //
+            // As {@code prefix == 0}, there only is exactly one prefix ({@code null}). While it is possible to also
+            // just do a flatmap over some non-existing outer, it's probably be more efficient to just do a plain scan
+            // of the HNSW here.
+            //
+            return scanSinglePartition(null, continuation, indexSubspace, timer, vectorIndexScanBounds)
+                    .skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit());
+        }
+    }
 
-                            final HNSW hnsw = new HNSW(hnswSubspace, getExecutor(), getConfig(),
-                                    OnWriteListener.NOOP, new OnRead(timer));
-                            final ReadTransaction transaction = state.context.readTransaction(true);
-                            return new LazyCursor<>(
-                                    state.context.acquireReadLock(new LockIdentifier(hnswSubspace))
-                                            .thenApply(lock ->
-                                                    new AsyncLockCursor<>(lock,
-                                                            new LazyCursor<>(
-                                                                    kNearestNeighborSearch(prefixTuple, hnsw, transaction, vectorIndexScanBounds),
-                                                                    getExecutor()))),
-                                    state.context.getExecutor());
-                        },
-                        continuation,
-                        state.store.getPipelineSize(PipelineOperation.INDEX_TO_RECORD))
-                .skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit());
+    /**
+     * Scan one partition of the vector index, i.e. the one HNSW that holds the data for the partition identified
+     * by {@code prefixTuple}.
+     * @param prefixTuple the tuple identifying the partition
+     * @param continuation the continuation for this scan or {@code null} if this is the first execution
+     * @param hnswSubspace the subspace where the HNSW resides.
+     * @param timer the times
+     * @param vectorIndexScanBounds the bounds for this scan.
+     * @return a {@link RecordCursor} returning the index entries for this scan.
+     */
+    @Nonnull
+    @SuppressWarnings("resource")
+    private RecordCursor<IndexEntry> scanSinglePartition(@Nullable final Tuple prefixTuple,
+                                                         @Nullable final byte[] continuation,
+                                                         @Nonnull final Subspace hnswSubspace,
+                                                         @Nonnull final FDBStoreTimer timer,
+                                                         @Nonnull final VectorIndexScanBounds vectorIndexScanBounds) {
+        if (continuation != null) {
+            final RecordCursorProto.VectorIndexScanContinuation parsedContinuation =
+                    Continuation.fromBytes(continuation);
+            final ImmutableList.Builder<IndexEntry> indexEntriesBuilder = ImmutableList.builder();
+            for (int i = 0; i < parsedContinuation.getIndexEntriesCount(); i++) {
+                final RecordCursorProto.VectorIndexScanContinuation.IndexEntry indexEntryProto =
+                        parsedContinuation.getIndexEntries(i);
+                indexEntriesBuilder.add(new IndexEntry(state.index,
+                        Tuple.fromBytes(indexEntryProto.getKey().toByteArray()),
+                        Tuple.fromBytes(indexEntryProto.getValue().toByteArray())));
+            }
+            final ImmutableList<IndexEntry> indexEntries = indexEntriesBuilder.build();
+            return new ListCursor<>(indexEntries, parsedContinuation.getInnerContinuation().toByteArray())
+                    .mapResult(result ->
+                            result.withContinuation(new Continuation(indexEntries, result.getContinuation())));
+        }
+
+        final HNSW hnsw = new HNSW(hnswSubspace, getExecutor(), getConfig(),
+                OnWriteListener.NOOP, new OnRead(timer));
+        final ReadTransaction transaction = state.context.readTransaction(true);
+        return new LazyCursor<>(
+                state.context.acquireReadLock(new LockIdentifier(hnswSubspace))
+                        .thenApply(lock ->
+                                new AsyncLockCursor<>(lock,
+                                        new LazyCursor<>(
+                                                kNearestNeighborSearch(prefixTuple, hnsw, transaction, vectorIndexScanBounds),
+                                                getExecutor()))),
+                state.context.getExecutor());
     }
 
     @SuppressWarnings({"resource", "checkstyle:MethodName"})
@@ -197,7 +234,7 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
     }
 
     @Nonnull
-    private IndexEntry toIndexEntry(final Tuple prefixTuple, final ResultEntry resultEntry) {
+    private IndexEntry toIndexEntry(@Nullable final Tuple prefixTuple, @Nonnull final ResultEntry resultEntry) {
         final List<Object> keyItems = Lists.newArrayList();
         if (prefixTuple != null) {
             keyItems.addAll(prefixTuple.getItems());
@@ -214,7 +251,7 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
     @Override
     public RecordCursor<IndexEntry> scan(@Nonnull final IndexScanType scanType, @Nonnull final TupleRange range,
                                          @Nullable final byte[] continuation, @Nonnull final ScanProperties scanProperties) {
-        throw new RecordCoreException("index maintainer does not support this scan api");
+        throw new IllegalStateException("index maintainer does not support this scan api");
     }
 
     @Nonnull
@@ -222,20 +259,15 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
                                                                  @Nonnull final StoreTimer timer,
                                                                  @Nonnull final VectorIndexScanBounds vectorIndexScanBounds,
                                                                  @Nonnull final ScanProperties innerScanProperties) {
-        final Function<byte[], RecordCursor<Tuple>> outerFunction;
-        if (prefixSize > 0) {
-            outerFunction = outerContinuation -> timer.instrument(MultiDimensionalIndexHelper.Events.MULTIDIMENSIONAL_SKIP_SCAN,
-                    new ChainedCursor<>(state.context,
-                            lastKeyOptional -> nextPrefixTuple(vectorIndexScanBounds.getPrefixRange(),
-                                    prefixSize, lastKeyOptional.orElse(null), innerScanProperties),
-                            Tuple::pack,
-                            Tuple::fromBytes,
-                            outerContinuation,
-                            innerScanProperties));
-        } else {
-            outerFunction = outerContinuation -> RecordCursor.fromFuture(CompletableFuture.completedFuture(null));
-        }
-        return outerFunction;
+        Verify.verify(prefixSize > 0);
+        return outerContinuation -> timer.instrument(MultiDimensionalIndexHelper.Events.MULTIDIMENSIONAL_SKIP_SCAN,
+                new ChainedCursor<>(state.context,
+                        lastKeyOptional -> nextPrefixTuple(vectorIndexScanBounds.getPrefixRange(),
+                                prefixSize, lastKeyOptional.orElse(null), innerScanProperties),
+                        Tuple::pack,
+                        Tuple::fromBytes,
+                        outerContinuation,
+                        innerScanProperties));
     }
 
     @SuppressWarnings({"resource", "PMD.CloseResource"})

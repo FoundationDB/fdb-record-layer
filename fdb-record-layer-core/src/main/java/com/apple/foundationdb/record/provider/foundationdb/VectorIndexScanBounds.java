@@ -97,17 +97,4 @@ public class VectorIndexScanBounds implements IndexScanBounds {
                 throw new RecordCoreException("unsupported comparison");
         }
     }
-
-    public boolean isWithinLimit(int rank) {
-        switch (getComparisonType()) {
-            case DISTANCE_RANK_EQUALS:
-                return rank == limit;
-            case DISTANCE_RANK_LESS_THAN:
-                return rank < limit;
-            case DISTANCE_RANK_LESS_THAN_OR_EQUAL:
-                return rank <= limit;
-            default:
-                throw new RecordCoreException("unsupported comparison");
-        }
-    }
 }

@@ -79,6 +79,12 @@ public class VectorIndexMaintainerFactory implements IndexMaintainerFactory {
         public void validate(@Nonnull MetaDataValidator metaDataValidator) {
             super.validate(metaDataValidator);
             validateStructure();
+
+            try {
+                VectorIndexHelper.getConfig(index);
+            } catch (final IllegalArgumentException illegalArgumentException) {
+                throw new MetaDataException("incorrect index options", illegalArgumentException);
+            }
         }
 
         /**
@@ -171,8 +177,11 @@ public class VectorIndexMaintainerFactory implements IndexMaintainerFactory {
                                         @Nonnull final Config oldConfig, @Nonnull final Config newConfig,
                                         Function<Config, T> extractorFunction) {
             if (changedOptions.contains(optionName)) {
-                if (!extractorFunction.apply(oldConfig).equals(extractorFunction.apply(newConfig))) {
-                    throw new MetaDataException(optionName + " changed",
+                final T oldValue = extractorFunction.apply(oldConfig);
+                final T newValue = extractorFunction.apply(newConfig);
+                if (!oldValue.equals(newValue)) {
+                    throw new MetaDataException("attempted to change " + optionName +
+                            " from " + oldValue + " to " + newValue,
                             LogMessageKeys.INDEX_NAME, index.getName());
                 }
                 changedOptions.remove(optionName);

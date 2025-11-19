@@ -174,8 +174,22 @@ public final class Config {
                    final double sampleVectorStatsProbability, final double maintainStatsProbability,
                    final int statsThreshold, final boolean useRaBitQ, final int raBitQNumExBits,
                    final int maxNumConcurrentNodeFetches, final int maxNumConcurrentNeighborhoodFetches) {
+        Preconditions.checkArgument(numDimensions >= 1);
+        Preconditions.checkArgument(m >= 4 && m <= 200);
+        Preconditions.checkArgument(mMax >= 4 && mMax <= 200);
+        Preconditions.checkArgument(mMax0 >= 4 && mMax0 <= 300);
         Preconditions.checkArgument(m <= mMax);
         Preconditions.checkArgument(mMax <= mMax0);
+        Preconditions.checkArgument(efConstruction > 100 && efConstruction <= 400);
+        Preconditions.checkArgument(sampleVectorStatsProbability > 0.0d &&
+                sampleVectorStatsProbability <= 1.0d);
+        Preconditions.checkArgument(maintainStatsProbability > 0.0d && maintainStatsProbability <= 1.0d);
+        Preconditions.checkArgument(statsThreshold > 10);
+        Preconditions.checkArgument(raBitQNumExBits > 0 && raBitQNumExBits < 16);
+        Preconditions.checkArgument(maxNumConcurrentNodeFetches > 0 && maxNumConcurrentNodeFetches < 64);
+        Preconditions.checkArgument(maxNumConcurrentNeighborhoodFetches > 0 &&
+                maxNumConcurrentNeighborhoodFetches < 64);
+
         this.randomSeed = randomSeed;
         this.metric = metric;
         this.numDimensions = numDimensions;
