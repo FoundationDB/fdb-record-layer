@@ -383,6 +383,35 @@ public class CascadesPlanner implements QueryPlanner {
                                     Debugger.getDebuggerMaybe()
                                             .flatMap(Debugger::getStatsMaps).orElse(null))
                             .build());
+        } catch (UnableToPlanException e) {
+            if (logger.isErrorEnabled()) {
+                final var logBuilder = KeyValueLogMessage.build("Unable to plan query",
+                        "recordMetadata", metaData.toString(),
+                        "parameterValues", evaluationContext.getBindings().toString(),
+                        "indexStates", recordStoreState.getIndexStates().toString(),
+                        "dataStoreInfo", recordStoreState.getStoreHeader().toString(),
+                        "taskCount", taskCount,
+                        "maxQueueSize", maxQueueSize,
+                        "plannerConfiguration", configuration.toString());
+
+                // Add plan cache info if present
+                if (e.getPlanCacheInfo() != null) {
+                    logBuilder.addKeyAndValue("planCacheInfo", e.getPlanCacheInfo());
+                }
+
+                // Add match candidates info if present
+                if (e.getMatchCandidatesInfo() != null) {
+                    logBuilder.addKeyAndValue("matchCandidatesInfo", e.getMatchCandidatesInfo());
+                }
+
+                // Add connection options info if present
+                if (e.getConnectionOptionsInfo() != null) {
+                    logBuilder.addKeyAndValue("connectionOptionsInfo", e.getConnectionOptionsInfo());
+                }
+
+                logger.error(logBuilder.toString(), e);
+            }
+            throw e;
         } finally {
             Debugger.withDebugger(Debugger::onDone);
         }
@@ -392,7 +421,19 @@ public class CascadesPlanner implements QueryPlanner {
         final Set<RelationalExpression> finalExpressions = currentRoot.getFinalExpressions();
         Verify.verify(finalExpressions.size() <= 1, "more than one variant present");
         if (finalExpressions.isEmpty()) {
-            throw new UnableToPlanException("Cascades planner could not plan query");
+            // Build match candidates info
+            final var matchCandidates = planContext.getMatchCandidates();
+            final var matchCandidatesBuilder = new StringBuilder("Match Candidates:\n");
+            if (matchCandidates.isEmpty()) {
+                matchCandidatesBuilder.append("  (none)");
+            } else {
+                for (final var candidate : matchCandidates) {
+                    matchCandidatesBuilder.append(String.format("  - %s%n", candidate.toString()));
+                }
+            }
+
+            throw new UnableToPlanException("Cascades planner could not plan query")
+                    .withMatchCandidatesInfo(matchCandidatesBuilder.toString());
         }
 
         final RelationalExpression singleRoot = Iterables.getOnlyElement(finalExpressions);

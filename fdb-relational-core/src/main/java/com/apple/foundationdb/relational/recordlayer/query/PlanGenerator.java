@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.StableSelectorCostModel;
+import com.apple.foundationdb.record.query.plan.cascades.UnableToPlanException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
@@ -240,6 +241,41 @@ public final class PlanGenerator {
                             planContext.getConstantActionFactory(), planContext.getDbUri(), caseSensitive)
                             .generateLogicalPlan(ast.getParseTree()));
             return maybePlan.optimize(planner, planContext, currentPlanHashMode);
+        } catch (UnableToPlanException e) {
+            // Attach plan cache information to the exception before rethrowing
+            if (cache.isPresent()) {
+                final var cacheStats = cache.get().getStats();
+                final var allPrimaryKeys = cacheStats.getAllKeys();
+                final var cacheInfoBuilder = new StringBuilder("Plan Cache Tertiary Layer:\n");
+
+                for (final var primaryKey : allPrimaryKeys) {
+                    final var secondaryKeys = cacheStats.getAllSecondaryKeys(primaryKey);
+                    for (final var secondaryKey : secondaryKeys) {
+                        final var tertiaryMappings = cacheStats.getAllTertiaryMappings(primaryKey, secondaryKey);
+                        if (!tertiaryMappings.isEmpty()) {
+                            cacheInfoBuilder.append(String.format("  [%s][%s]: %d entries%n",
+                                primaryKey, secondaryKey, tertiaryMappings.size()));
+                            for (final var entry : tertiaryMappings.entrySet()) {
+                                cacheInfoBuilder.append(String.format("    - %s%n", entry.getKey().toString()));
+                            }
+                        }
+                    }
+                }
+
+                cacheInfoBuilder.append(String.format("Cache Stats: size=%d, hits=%d, misses=%d",
+                    cacheStats.numEntries(), cacheStats.numHits(), cacheStats.numMisses()));
+
+                e.withPlanCacheInfo(cacheInfoBuilder.toString());
+            }
+
+            // Attach connection options information to the exception
+            final var optionsBuilder = new StringBuilder("Connection Options:\n");
+            for (final var entry : options.entries()) {
+                optionsBuilder.append(String.format("  %s = %s%n", entry.getKey(), entry.getValue()));
+            }
+            e.withConnectionOptionsInfo(optionsBuilder.toString());
+
+            throw e;
         } catch (ProtoUtils.InvalidNameException ine) {
             throw new RelationalException(ine.getMessage(), ErrorCode.INVALID_NAME, ine).toUncheckedWrappedException();
         } catch (MetaDataException mde) {
