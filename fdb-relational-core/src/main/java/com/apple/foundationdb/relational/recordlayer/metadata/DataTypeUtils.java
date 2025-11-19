@@ -21,12 +21,13 @@
 package com.apple.foundationdb.relational.recordlayer.metadata;
 
 import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.util.ProtoUtils;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
+
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 
@@ -34,6 +35,7 @@ import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @API(API.Status.EXPERIMENTAL)
@@ -74,18 +76,29 @@ public class DataTypeUtils {
             case RECORD:
                 final var record = (Type.Record) type;
                 final var columns = record.getFields().stream().map(field -> DataType.StructType.Field.from(field.getFieldName(), toRelationalType(field.getFieldType()), field.getFieldIndex())).collect(Collectors.toList());
-                return DataType.StructType.from(record.getName() == null ? ProtoUtils.uniqueTypeName() : record.getName(), columns, record.isNullable());
+                return DataType.StructType.from(record.getName() == null ? toProtoBufCompliantName(UUID.randomUUID().toString()) : record.getName(), columns, record.isNullable());
             case ARRAY:
                 final var asArray = (Type.Array) type;
                 return DataType.ArrayType.from(toRelationalType(Assert.notNullUnchecked(asArray.getElementType())), asArray.isNullable());
             case ENUM:
                 final var asEnum = (Type.Enum) type;
                 final var enumValues = asEnum.getEnumValues().stream().map(v -> DataType.EnumType.EnumValue.of(v.getName(), v.getNumber())).collect(Collectors.toList());
-                return DataType.EnumType.from(asEnum.getName() == null ? ProtoUtils.uniqueName("") : asEnum.getName(), enumValues, asEnum.isNullable());
+                return DataType.EnumType.from(asEnum.getName() == null ? toProtoBufCompliantName(UUID.randomUUID().toString()) : asEnum.getName(), enumValues, asEnum.isNullable());
             default:
                 Assert.failUnchecked(String.format(Locale.ROOT, "unexpected type %s", type));
                 return null; // make compiler happy.
         }
+    }
+
+    @Nonnull
+    private static String toProtoBufCompliantName(@Nonnull final String input) {
+        Assert.thatUnchecked(input.length() > 0);
+        final var modified = input.replace("-", "_");
+        final char c = input.charAt(0);
+        if (c == '_' || ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z')) {
+            return modified;
+        }
+        return "id" + modified;
     }
 
     /**
@@ -119,8 +132,8 @@ public class DataTypeUtils {
                 return new Type.Array(asArray.isNullable(), toRecordLayerType(asArray.getElementType()));
             case ENUM:
                 final var asEnum = (DataType.EnumType) type;
-                final List<Type.Enum.EnumValue> enumValues = asEnum.getValues().stream().map(v -> Type.Enum.EnumValue.from(v.getName(), v.getNumber())).collect(Collectors.toList());
-                return Type.Enum.fromValuesWithName(asEnum.getName(), asEnum.isNullable(), enumValues);
+                final List<Type.Enum.EnumValue> enumValues = asEnum.getValues().stream().map(v -> new Type.Enum.EnumValue(v.getName(), v.getNumber())).collect(Collectors.toList());
+                return new Type.Enum(asEnum.isNullable(), enumValues, asEnum.getName());
             case VECTOR:
                 final var vectorType = (DataType.VectorType)type;
                 final var precision = vectorType.getPrecision();
