@@ -242,36 +242,22 @@ public final class PlanGenerator {
                             .generateLogicalPlan(ast.getParseTree()));
             return maybePlan.optimize(planner, planContext, currentPlanHashMode);
         } catch (UnableToPlanException e) {
-            // Attach plan cache information to the exception before rethrowing
-            if (cache.isPresent()) {
-                final var cacheStats = cache.get().getStats();
-                final var allPrimaryKeys = cacheStats.getAllKeys();
-                final var cacheInfoBuilder = new StringBuilder("Plan Cache Tertiary Layer:\n");
+            // Log plan cache information when planning fails
+            logPlanCacheOnFailure(cache, logger);
 
-                for (final var primaryKey : allPrimaryKeys) {
-                    final var secondaryKeys = cacheStats.getAllSecondaryKeys(primaryKey);
-                    for (final var secondaryKey : secondaryKeys) {
-                        final var tertiaryMappings = cacheStats.getAllTertiaryMappings(primaryKey, secondaryKey);
-                        if (!tertiaryMappings.isEmpty()) {
-                            cacheInfoBuilder.append(String.format("  [%s][%s]: %d entries%n", primaryKey, secondaryKey, tertiaryMappings.size()));
-                            for (final var entry : tertiaryMappings.entrySet()) {
-                                cacheInfoBuilder.append(String.format("    - %s%n", entry.getKey().toString()));
-                            }
-                        }
-                    }
+            // Log connection options information when planning fails
+            if (logger.isErrorEnabled()) {
+                final var optionsBuilder = new StringBuilder("Connection Options:\n");
+                for (final var entry : options.entries()) {
+                    final var key = entry.getKey();
+                    final var value = entry.getValue();
+                    optionsBuilder.append(String.format("  %s = %s%n",
+                            key,
+                            value != null ? value.toString() : "null"));
                 }
-
-                cacheInfoBuilder.append(String.format("Cache Stats: size=%d, hits=%d, misses=%d", cacheStats.numEntries(), cacheStats.numHits(), cacheStats.numMisses()));
-
-                e.withPlanCacheInfo(cacheInfoBuilder.toString());
+                logger.error(KeyValueLogMessage.of("Connection options when unable to plan",
+                        "connectionOptions", optionsBuilder.toString()));
             }
-
-            // Attach connection options information to the exception
-            final var optionsBuilder = new StringBuilder("Connection Options:\n");
-            for (final var entry : options.entries()) {
-                optionsBuilder.append(String.format("  %s = %s%n", entry.getKey(), entry.getValue()));
-            }
-            e.withConnectionOptionsInfo(optionsBuilder.toString());
 
             throw e;
         } catch (ProtoUtils.InvalidNameException ine) {
@@ -406,6 +392,44 @@ public final class PlanGenerator {
     @Nonnull
     public Options getOptions() {
         return options;
+    }
+
+    /**
+     * Logs the plan cache state when unable to plan a query.
+     * This method collects tertiary cache statistics and logs them for debugging purposes.
+     *
+     * @param cache The optional plan cache
+     * @param logger The logger instance
+     */
+    static void logPlanCacheOnFailure(@Nonnull final Optional<RelationalPlanCache> cache,
+                                      @Nonnull final Logger logger) {
+        if (cache.isPresent() && logger.isErrorEnabled()) {
+            final var cacheStats = cache.get().getStats();
+            final var allPrimaryKeys = cacheStats.getAllKeys();
+            final var cacheInfoBuilder = new StringBuilder("Plan Cache Tertiary Layer:\n");
+
+            for (final var primaryKey : allPrimaryKeys) {
+                final var secondaryKeys = cacheStats.getAllSecondaryKeys(primaryKey);
+                for (final var secondaryKey : secondaryKeys) {
+                    final var tertiaryMappings = cacheStats.getAllTertiaryMappings(primaryKey, secondaryKey);
+                    if (!tertiaryMappings.isEmpty()) {
+                        cacheInfoBuilder.append(String.format("  [%s][%s]: %d entries%n", primaryKey, secondaryKey, tertiaryMappings.size()));
+                        for (final var entry : tertiaryMappings.entrySet()) {
+                            cacheInfoBuilder.append(String.format("    - %s%n", entry.getKey().toString()));
+                        }
+                    }
+                }
+            }
+
+            cacheInfoBuilder.append(String.format("Cache Stats: size=%d, hits=%d, misses=%d",
+                    cacheStats.numEntries(), cacheStats.numHits(), cacheStats.numMisses()));
+
+            logger.error(KeyValueLogMessage.of("Plan cache state when unable to plan",
+                    "planCacheTertiaryLayer", cacheInfoBuilder.toString(),
+                    "planCachePrimarySize", cacheStats.numEntries(),
+                    "planCachePrimaryHits", cacheStats.numHits(),
+                    "planCachePrimaryMisses", cacheStats.numMisses()));
+        }
     }
 
     /**

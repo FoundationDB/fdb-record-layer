@@ -34,36 +34,10 @@ public class UnableToPlanException extends RecordCoreException {
     private static final long serialVersionUID = -640771754012134420L;
 
     @Nullable
-    private String planCacheInfo;
-
-    @Nullable
     private String matchCandidatesInfo;
-
-    @Nullable
-    private String connectionOptionsInfo;
 
     public UnableToPlanException(@Nonnull String msg, @Nullable Object ... keyValues) {
         super(msg, keyValues);
-    }
-
-    /**
-     * Set plan cache information to be included when logging this exception.
-     * @param planCacheInfo String representation of plan cache statistics
-     * @return this exception for chaining
-     */
-    @Nonnull
-    public UnableToPlanException withPlanCacheInfo(@Nullable String planCacheInfo) {
-        this.planCacheInfo = planCacheInfo;
-        return this;
-    }
-
-    /**
-     * Get the plan cache information associated with this exception.
-     * @return plan cache info string, or null if not set
-     */
-    @Nullable
-    public String getPlanCacheInfo() {
-        return planCacheInfo;
     }
 
     /**
@@ -84,25 +58,5 @@ public class UnableToPlanException extends RecordCoreException {
     @Nullable
     public String getMatchCandidatesInfo() {
         return matchCandidatesInfo;
-    }
-
-    /**
-     * Set connection options information to be included when logging this exception.
-     * @param connectionOptionsInfo String representation of connection options
-     * @return this exception for chaining
-     */
-    @Nonnull
-    public UnableToPlanException withConnectionOptionsInfo(@Nullable String connectionOptionsInfo) {
-        this.connectionOptionsInfo = connectionOptionsInfo;
-        return this;
-    }
-
-    /**
-     * Get the connection options information associated with this exception.
-     * @return connection options info string, or null if not set
-     */
-    @Nullable
-    public String getConnectionOptionsInfo() {
-        return connectionOptionsInfo;
     }
 }

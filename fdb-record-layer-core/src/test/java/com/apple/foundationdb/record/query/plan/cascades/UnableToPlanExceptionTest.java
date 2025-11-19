@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.cascades;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 
@@ -31,21 +32,12 @@ import static org.junit.jupiter.api.Assertions.assertSame;
  */
 public class UnableToPlanExceptionTest {
     @Test
-    public void testWithPlanCacheInfo() {
+    public void testBasicExceptionCreation() {
         final UnableToPlanException exception = new UnableToPlanException("Test message");
-        final String cacheInfo = "Plan Cache Tertiary Layer:\n  [key1][key2]: 5 entries\n    - entry1\n    - entry2";
 
-        final UnableToPlanException result = exception.withPlanCacheInfo(cacheInfo);
-
-        // Verify it returns the same instance (fluent API)
-        assertSame(exception, result);
-
-        // Verify the cache info was set
-        assertEquals(cacheInfo, exception.getPlanCacheInfo());
-
-        // Verify other fields are still null
+        assertNotNull(exception);
+        assertEquals("Test message", exception.getMessage());
         assertNull(exception.getMatchCandidatesInfo());
-        assertNull(exception.getConnectionOptionsInfo());
     }
 
     @Test
@@ -60,47 +52,47 @@ public class UnableToPlanExceptionTest {
 
         // Verify the match candidates info was set
         assertEquals(matchCandidatesInfo, exception.getMatchCandidatesInfo());
-
-        // Verify other fields are still null
-        assertNull(exception.getPlanCacheInfo());
-        assertNull(exception.getConnectionOptionsInfo());
     }
 
     @Test
-    public void testWithConnectionOptionsInfo() {
-        final UnableToPlanException exception = new UnableToPlanException("Test message");
-        final String optionsInfo = "Connection Options:\n  MAX_ROWS = 100\n  TRANSACTION_TIMEOUT = 5000";
-
-        final UnableToPlanException result = exception.withConnectionOptionsInfo(optionsInfo);
-
-        // Verify it returns the same instance (fluent API)
-        assertSame(exception, result);
-
-        // Verify the options info was set
-        assertEquals(optionsInfo, exception.getConnectionOptionsInfo());
-
-        // Verify other fields are still null
-        assertNull(exception.getPlanCacheInfo());
-        assertNull(exception.getMatchCandidatesInfo());
-    }
-
-    @Test
-    public void testWithNullValues() {
+    public void testWithNullValue() {
         final UnableToPlanException exception = new UnableToPlanException("Test message");
 
-        // Set to non-null values first
-        exception.withPlanCacheInfo("cache");
+        // Set to non-null value first
         exception.withMatchCandidatesInfo("match");
-        exception.withConnectionOptionsInfo("options");
+        assertEquals("match", exception.getMatchCandidatesInfo());
 
         // Now set to null
-        exception.withPlanCacheInfo(null);
         exception.withMatchCandidatesInfo(null);
-        exception.withConnectionOptionsInfo(null);
-
-        // Verify all are null
-        assertNull(exception.getPlanCacheInfo());
         assertNull(exception.getMatchCandidatesInfo());
-        assertNull(exception.getConnectionOptionsInfo());
+    }
+
+    @Test
+    public void testExceptionWithKeyValues() {
+        final UnableToPlanException exception = new UnableToPlanException(
+                "Test message",
+                "key1", "value1",
+                "key2", "value2"
+        );
+
+        assertNotNull(exception);
+        assertEquals("Test message", exception.getMessage());
+
+        // Add diagnostic info
+        exception.withMatchCandidatesInfo("candidates info");
+        assertEquals("candidates info", exception.getMatchCandidatesInfo());
+    }
+
+    @Test
+    public void testOverwritingValue() {
+        final UnableToPlanException exception = new UnableToPlanException("Test message");
+
+        // Set initial value
+        exception.withMatchCandidatesInfo("match1");
+        assertEquals("match1", exception.getMatchCandidatesInfo());
+
+        // Overwrite with new value
+        exception.withMatchCandidatesInfo("match2");
+        assertEquals("match2", exception.getMatchCandidatesInfo());
     }
 }
