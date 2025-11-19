@@ -260,8 +260,6 @@ public final class PlanGenerator {
             }
 
             throw e;
-        } catch (ProtoUtils.InvalidNameException ine) {
-            throw new RelationalException(ine.getMessage(), ErrorCode.INVALID_NAME, ine).toUncheckedWrappedException();
         } catch (MetaDataException mde) {
             // we need a better way for translating error codes between record layer and Relational SQL error codes
             throw new RelationalException(mde.getMessage(), ErrorCode.SYNTAX_OR_ACCESS_VIOLATION, mde).toUncheckedWrappedException();

@@ -91,20 +91,20 @@ public class FileDescriptorSerializer extends SkeletonVisitor {
     @Override
     public void visit(@Nonnull final Table table) {
         Assert.thatUnchecked(table instanceof RecordLayerTable);
-        final RecordLayerTable recordLayerTable = (RecordLayerTable) table;
-        final Type.Record type = recordLayerTable.getType();
-        final String typeDescriptor = registerTypeDescriptors(type);
-        final Map<Integer, DescriptorProtos.FieldOptions> generations = recordLayerTable.getGenerations();
+        final var recordLayerTable = (RecordLayerTable) table;
+        final var type = recordLayerTable.getType();
+        final var typeDescriptor = registerTypeDescriptors(type);
+        final var generations = recordLayerTable.getGenerations();
 
         checkTableGenerations(generations);
 
         int fieldCounter = 0;
         // add the table as an entry in the final 'RecordTypeUnion' entry of the record store metadata. There is one
         // field for each generation of the RecordLayerTable.
-        for (Map.Entry<Integer, DescriptorProtos.FieldOptions> version : generations.entrySet()) {
+        for (var version : generations.entrySet()) {
             final var tableEntryInUnionDescriptor = DescriptorProtos.FieldDescriptorProto.newBuilder()
                     .setNumber(version.getKey())
-                    .setName(typeDescriptor + "_" + (fieldCounter++))
+                    .setName(recordLayerTable.getName() + "_" + (fieldCounter++))
                     .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_MESSAGE)
                     .setTypeName(typeDescriptor)
                     .setOptions(version.getValue())

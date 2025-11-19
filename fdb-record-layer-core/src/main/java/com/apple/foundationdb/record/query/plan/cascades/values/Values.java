@@ -111,7 +111,8 @@ public class Values {
         for (int i = 0; i < fields.size(); i++) {
             final var field = fields.get(i);
             final var singleStepPath =
-                    FieldValue.FieldPath.ofSingle(FieldValue.ResolvedAccessor.of(field, i));
+                    FieldValue.FieldPath.ofSingle(FieldValue.ResolvedAccessor.of(
+                            field.getFieldNameOptional().orElse(null), i, field.getFieldType()));
             primitiveAccessorsForType(field.getFieldType(),
                     () -> FieldValue.ofFieldsAndFuseIfPossible(baseValueSupplier.get(), singleStepPath))
                     .forEach(orderingValuesBuilder::add);
