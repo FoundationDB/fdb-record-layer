@@ -253,8 +253,7 @@ public final class PlanGenerator {
                     for (final var secondaryKey : secondaryKeys) {
                         final var tertiaryMappings = cacheStats.getAllTertiaryMappings(primaryKey, secondaryKey);
                         if (!tertiaryMappings.isEmpty()) {
-                            cacheInfoBuilder.append(String.format("  [%s][%s]: %d entries%n",
-                                primaryKey, secondaryKey, tertiaryMappings.size()));
+                            cacheInfoBuilder.append(String.format("  [%s][%s]: %d entries%n", primaryKey, secondaryKey, tertiaryMappings.size()));
                             for (final var entry : tertiaryMappings.entrySet()) {
                                 cacheInfoBuilder.append(String.format("    - %s%n", entry.getKey().toString()));
                             }
@@ -262,8 +261,7 @@ public final class PlanGenerator {
                     }
                 }
 
-                cacheInfoBuilder.append(String.format("Cache Stats: size=%d, hits=%d, misses=%d",
-                    cacheStats.numEntries(), cacheStats.numHits(), cacheStats.numMisses()));
+                cacheInfoBuilder.append(String.format("Cache Stats: size=%d, hits=%d, misses=%d", cacheStats.numEntries(), cacheStats.numHits(), cacheStats.numMisses()));
 
                 e.withPlanCacheInfo(cacheInfoBuilder.toString());
             }
