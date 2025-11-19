@@ -148,15 +148,13 @@ public class QueryExecutor {
                 preMetricCollector.getCountsForCounter(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT) : 0;
         final var toReturn = executeStatementAndCheckForceContinuations(s, statementHasQuery, queryString, connection, maxRows);
         final var postMetricCollector = connection.getMetricCollector();
-        if (postMetricCollector != null) {
-            final var postValue = postMetricCollector.hasCounter(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT) ?
-                                  postMetricCollector.getCountsForCounter(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT) : 0;
-            final var planFound = preMetricCollector != postMetricCollector ? postValue == 1 : postValue == preValue + 1;
-            if (!planFound) {
-                reportTestFailure("‼️ Expected to retrieve the plan from the cache at line " + lineNumber);
-            } else {
-                logger.debug("🎁 Retrieved the plan from the cache!");
-            }
+        final var postValue = postMetricCollector.hasCounter(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT) ?
+                              postMetricCollector.getCountsForCounter(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT) : 0;
+        final var planFound = preMetricCollector != postMetricCollector ? postValue == 1 : postValue == preValue + 1;
+        if (!planFound) {
+            reportTestFailure("‼️ Expected to retrieve the plan from the cache at line " + lineNumber);
+        } else {
+            logger.debug("🎁 Retrieved the plan from the cache!");
         }
         return toReturn;
     }
