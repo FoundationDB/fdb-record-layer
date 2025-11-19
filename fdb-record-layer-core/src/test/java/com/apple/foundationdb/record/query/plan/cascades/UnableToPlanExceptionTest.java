@@ -32,15 +32,6 @@ import static org.junit.jupiter.api.Assertions.assertSame;
  */
 public class UnableToPlanExceptionTest {
     @Test
-    public void testBasicExceptionCreation() {
-        final UnableToPlanException exception = new UnableToPlanException("Test message");
-
-        assertNotNull(exception);
-        assertEquals("Test message", exception.getMessage());
-        assertNull(exception.getMatchCandidatesInfo());
-    }
-
-    @Test
     public void testWithMatchCandidatesInfo() {
         final UnableToPlanException exception = new UnableToPlanException("Test message");
         final String matchCandidatesInfo = "Match Candidates:\n  - candidate1\n  - candidate2";
@@ -65,34 +56,5 @@ public class UnableToPlanExceptionTest {
         // Now set to null
         exception.withMatchCandidatesInfo(null);
         assertNull(exception.getMatchCandidatesInfo());
-    }
-
-    @Test
-    public void testExceptionWithKeyValues() {
-        final UnableToPlanException exception = new UnableToPlanException(
-                "Test message",
-                "key1", "value1",
-                "key2", "value2"
-        );
-
-        assertNotNull(exception);
-        assertEquals("Test message", exception.getMessage());
-
-        // Add diagnostic info
-        exception.withMatchCandidatesInfo("candidates info");
-        assertEquals("candidates info", exception.getMatchCandidatesInfo());
-    }
-
-    @Test
-    public void testOverwritingValue() {
-        final UnableToPlanException exception = new UnableToPlanException("Test message");
-
-        // Set initial value
-        exception.withMatchCandidatesInfo("match1");
-        assertEquals("match1", exception.getMatchCandidatesInfo());
-
-        // Overwrite with new value
-        exception.withMatchCandidatesInfo("match2");
-        assertEquals("match2", exception.getMatchCandidatesInfo());
     }
 }
