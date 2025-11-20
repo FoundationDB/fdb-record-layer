@@ -51,7 +51,7 @@ import java.util.Map;
  * type metadata for result sets.
  */
 @API(API.Status.EXPERIMENTAL)
-public class TypeMetadataEnricher {
+public final class TypeMetadataEnricher {
 
     private TypeMetadataEnricher() {
         // Utility class - prevent instantiation
