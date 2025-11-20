@@ -147,7 +147,8 @@ public class VectorIndexScanComparisons implements IndexScanParameters {
 
     @SuppressWarnings("checkstyle:VariableDeclarationUsageDistance")
     @Override
-    public void getPlannerGraphDetails(@Nonnull ImmutableList.Builder<String> detailsBuilder, @Nonnull ImmutableMap.Builder<String, Attribute> attributeMapBuilder) {
+    public void getPlannerGraphDetails(@Nonnull final ImmutableList.Builder<String> detailsBuilder,
+                                       @Nonnull final ImmutableMap.Builder<String, Attribute> attributeMapBuilder) {
         @Nullable TupleRange tupleRange = prefixScanComparisons.toTupleRangeWithoutContext();
         if (tupleRange != null) {
             detailsBuilder.add("prefix: " + tupleRange.getLowEndpoint().toString(false) + "{{plow}}, {{phigh}}" + tupleRange.getHighEndpoint().toString(true));

@@ -49,9 +49,9 @@ public final class VectorIndexHelper {
     @Nonnull
     public static Config getConfig(@Nonnull final Index index) {
         final ConfigBuilder builder = HNSW.newConfigBuilder();
-        final String hnswRandomSeedOption = index.getOption(IndexOptions.HNSW_RANDOM_SEED);
+        final String hnswRandomSeedOption = index.getOption(IndexOptions.HNSW_DETERMINISTIC_SEEDING);
         if (hnswRandomSeedOption != null) {
-            builder.setRandomSeed(Long.parseLong(hnswRandomSeedOption));
+            builder.setDeterministicSeeding(Boolean.parseBoolean(hnswRandomSeedOption));
         }
         final String hnswMetricOption = index.getOption(IndexOptions.HNSW_METRIC);
         if (hnswMetricOption != null) {
@@ -124,10 +124,10 @@ public final class VectorIndexHelper {
     }
 
     /**
-     * Instrumentation events specific to R-tree index maintenance.
+     * Instrumentation events specific to vector index maintenance.
      */
     public enum Events implements StoreTimer.DetailEvent {
-        VECTOR_SCAN("scanning the HNSW of a vector index"),
+        VECTOR_SCAN("scanning the partition of a vector index"),
         VECTOR_SKIP_SCAN("skip scan the prefix tuples of a vector index scan");
 
         private final String title;

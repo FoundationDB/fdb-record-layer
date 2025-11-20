@@ -105,7 +105,7 @@ class VectorIndexTest extends VectorIndexTestBase {
     void basicWriteReadTest(final long seed, final boolean useAsync) throws Exception {
         final Random random = new Random(seed);
         final List<FDBStoredRecord<Message>> savedRecords =
-                saveRecords(useAsync, this::addVectorIndexes, random, 1000);
+                saveRecords(useAsync, this::addVectorIndexes, random, 1000, 0.3);
         try (final FDBRecordContext context = openContext()) {
             openRecordStore(context, this::addVectorIndexes);
             for (int l = 0; l < 1000; l ++) {
@@ -113,9 +113,6 @@ class VectorIndexTest extends VectorIndexTestBase {
                         recordStore.loadRecord(savedRecords.get(l).getPrimaryKey());
 
                 Assertions.assertThat(loadedRecord).isNotNull();
-                VectorRecord.Builder recordBuilder =
-                        VectorRecord.newBuilder();
-                recordBuilder.mergeFrom(loadedRecord.getRecord());
                 Assertions.assertThat(loadedRecord.getRecord()).isEqualTo(savedRecords.get(l).getRecord());
             }
             commit(context);
@@ -294,7 +291,7 @@ class VectorIndexTest extends VectorIndexTestBase {
             validateIndexEvolution(metaDataValidator, index,
                     ImmutableMap.<String, String>builder()
                             // cannot change those per se but must accept same value
-                            .put(IndexOptions.HNSW_RANDOM_SEED, "0")
+                            .put(IndexOptions.HNSW_DETERMINISTIC_SEEDING, "false")
                             .put(IndexOptions.HNSW_METRIC, Metric.EUCLIDEAN_METRIC.name())
                             .put(IndexOptions.HNSW_NUM_DIMENSIONS, "128")
                             .put(IndexOptions.HNSW_USE_INLINING, "false")
@@ -316,7 +313,7 @@ class VectorIndexTest extends VectorIndexTestBase {
 
             Assertions.assertThatThrownBy(() -> validateIndexEvolution(metaDataValidator, index,
                     ImmutableMap.of(IndexOptions.HNSW_NUM_DIMENSIONS, "128",
-                            IndexOptions.HNSW_RANDOM_SEED, "1"))).isInstanceOf(MetaDataException.class);
+                            IndexOptions.HNSW_DETERMINISTIC_SEEDING, "true"))).isInstanceOf(MetaDataException.class);
 
             Assertions.assertThatThrownBy(() -> validateIndexEvolution(metaDataValidator, index,
                     ImmutableMap.of(IndexOptions.HNSW_NUM_DIMENSIONS, "128",

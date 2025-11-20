@@ -36,6 +36,7 @@ import com.google.common.collect.Maps;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Collections;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -54,7 +55,6 @@ public final class VectorIndexScanOptions implements PlanHashable, PlanSerializa
     private final Map<OptionKey<?>, Object> optionsMap;
 
     private VectorIndexScanOptions(@Nonnull final Map<OptionKey<?>, Object> optionsMap) {
-        // creating an ordinary hashmap here since it is not null-averse
         this.optionsMap = optionsMap;
     }
 
@@ -160,6 +160,7 @@ public final class VectorIndexScanOptions implements PlanHashable, PlanSerializa
         }
 
         public Builder(@Nonnull final Map<OptionKey<?>, Object> optionsMap) {
+            // creating an ordinary hashmap here since it is not null-averse
             this.optionsMap = Maps.newHashMap(optionsMap);
         }
 
@@ -177,7 +178,10 @@ public final class VectorIndexScanOptions implements PlanHashable, PlanSerializa
 
         @Nonnull
         public VectorIndexScanOptions build() {
-            return new VectorIndexScanOptions(Maps.newHashMap(optionsMap));
+            if (optionsMap.isEmpty()) {
+                return EMPTY;
+            }
+            return new VectorIndexScanOptions(Collections.unmodifiableMap(Maps.newHashMap(optionsMap)));
         }
 
         @Override

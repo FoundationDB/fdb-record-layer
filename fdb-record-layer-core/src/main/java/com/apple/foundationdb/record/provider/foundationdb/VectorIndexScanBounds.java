@@ -60,7 +60,7 @@ public class VectorIndexScanBounds implements IndexScanBounds {
     @Nonnull
     @Override
     public IndexScanType getScanType() {
-        return IndexScanType.BY_VALUE;
+        return IndexScanType.BY_DISTANCE;
     }
 
     @Nonnull

@@ -269,7 +269,6 @@ message PValue {
     PSubscriptValue subscript_value = 52;
     PParameterObjectValue parameter_object_value = 53;
     PCastValue cast_value = 54;
-    PEuclideanDistanceRank euclidean_distance_rank = 55;
   }
 }
 
@@ -655,10 +654,6 @@ message PQueriedValue {
 }
 
 message PRankValue {
-  optional PWindowedValue super = 1;
-}
-
-message PEuclideanDistanceRank {
   optional PWindowedValue super = 1;
 }
 

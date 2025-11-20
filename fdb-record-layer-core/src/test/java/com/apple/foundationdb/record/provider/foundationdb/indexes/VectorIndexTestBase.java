@@ -1,9 +1,9 @@
 /*
- * MultidimensionalIndexTestBase.java
+ * VectorIndexTestBase.java
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2023 Apple Inc. and the FoundationDB project authors
+ * Copyright 2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -63,7 +63,7 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenate
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 
 /**
- * Tests for multidimensional type indexes.
+ * Common test helpers for vector type indexes.
  */
 @Tag(Tags.RequiresFDB)
 public class VectorIndexTestBase extends FDBRecordStoreQueryTestBase {
@@ -107,15 +107,19 @@ public class VectorIndexTestBase extends FDBRecordStoreQueryTestBase {
         createOrOpenRecordStore(context, metaDataBuilder.getRecordMetaData());
     }
 
-    protected static Function<Long, VectorRecord> getRecordGenerator(@Nonnull final Random random) {
+    protected static Function<Long, VectorRecord> getRecordGenerator(@Nonnull final Random random,
+                                                                     final double nullProbability) {
         return recNo -> {
-            final RealVector vector = randomHalfVector(random, 128);
+            final VectorRecord.Builder recordBuilder =
+                    VectorRecord.newBuilder()
+                            .setRecNo(recNo)
+                            .setGroupId(recNo.intValue() % 2);
+            if (random.nextDouble() >= nullProbability) {
+                final RealVector vector = randomHalfVector(random, 128);
+                recordBuilder.setVectorData(ByteString.copyFrom(vector.getRawData()));
+            }
 
-            return VectorRecord.newBuilder()
-                    .setRecNo(recNo)
-                    .setVectorData(ByteString.copyFrom(vector.getRawData()))
-                    .setGroupId(recNo.intValue() % 2)
-                    .build();
+            return recordBuilder.build();
         };
     }
 
@@ -133,7 +137,15 @@ public class VectorIndexTestBase extends FDBRecordStoreQueryTestBase {
                                                          @Nonnull final RecordMetaDataHook hook,
                                                          @Nonnull final Random random,
                                                          final int numSamples) throws Exception {
-        final var recordGenerator = getRecordGenerator(random);
+        return saveRecords(useAsync, hook, random, numSamples, 0.0d);
+    }
+
+    protected List<FDBStoredRecord<Message>> saveRecords(final boolean useAsync,
+                                                         @Nonnull final RecordMetaDataHook hook,
+                                                         @Nonnull final Random random,
+                                                         final int numSamples,
+                                                         final double nullProbability) throws Exception {
+        final var recordGenerator = getRecordGenerator(random, nullProbability);
         if (useAsync) {
             return asyncBatch(hook, numSamples, 100,
                     recNo -> recordStore.saveRecordAsync(recordGenerator.apply(recNo)));

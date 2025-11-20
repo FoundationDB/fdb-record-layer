@@ -232,7 +232,7 @@ public interface RealVector {
             case DOUBLE:
                 return DoubleRealVector.fromBytes(vectorBytes);
             default:
-                throw new RuntimeException("unable to serialize vector");
+                throw new RuntimeException("unable to deserialize vector");
         }
     }
 }

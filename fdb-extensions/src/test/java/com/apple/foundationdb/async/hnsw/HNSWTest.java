@@ -212,15 +212,21 @@ class HNSWTest {
 
         final int numDimensions = 128;
         final HNSW hnsw = new HNSW(rtSubspace.getSubspace(), TestExecutors.defaultThreadPool(),
-                HNSW.newConfigBuilder().setMetric(metric)
-                        .setUseInlining(useInlining).setExtendCandidates(extendCandidates)
+                HNSW.newConfigBuilder()
+                        .setDeterministicSeeding(true)
+                        .setMetric(metric)
+                        .setUseInlining(useInlining)
+                        .setExtendCandidates(extendCandidates)
                         .setKeepPrunedConnections(keepPrunedConnections)
                         .setUseRaBitQ(useRaBitQ)
                         .setRaBitQNumExBits(5)
                         .setSampleVectorStatsProbability(1.0d)
                         .setMaintainStatsProbability(0.1d)
                         .setStatsThreshold(100)
-                        .setM(32).setMMax(32).setMMax0(64).build(numDimensions),
+                        .setM(32)
+                        .setMMax(32)
+                        .setMMax0(64)
+                        .build(numDimensions),
                 OnWriteListener.NOOP, onReadListener);
 
         final int k = 50;
@@ -296,13 +302,18 @@ class HNSWTest {
         final AtomicLong nextNodeIdAtomic = new AtomicLong(0L);
         final int numDimensions = 128;
         final HNSW hnsw = new HNSW(rtSubspace.getSubspace(), TestExecutors.defaultThreadPool(),
-                HNSW.newConfigBuilder().setMetric(metric)
+                HNSW.newConfigBuilder()
+                        .setDeterministicSeeding(true)
+                        .setMetric(metric)
                         .setUseRaBitQ(true)
                         .setRaBitQNumExBits(5)
                         .setSampleVectorStatsProbability(1.0d) // every vector is sampled
                         .setMaintainStatsProbability(1.0d) // for every vector we maintain the stats
                         .setStatsThreshold(950) // after 950 vectors we enable RaBitQ
-                        .setM(32).setMMax(32).setMMax0(64).build(numDimensions),
+                        .setM(32)
+                        .setMMax(32)
+                        .setMMax0(64)
+                        .build(numDimensions),
                 OnWriteListener.NOOP, OnReadListener.NOOP);
 
         final int k = 499;
@@ -416,8 +427,15 @@ class HNSWTest {
         final TestOnReadListener onReadListener = new TestOnReadListener();
 
         final HNSW hnsw = new HNSW(rtSubspace.getSubspace(), TestExecutors.defaultThreadPool(),
-                HNSW.newConfigBuilder().setUseRaBitQ(true).setRaBitQNumExBits(5)
-                        .setMetric(metric).setM(32).setMMax(32).setMMax0(64).build(128),
+                HNSW.newConfigBuilder()
+                        .setDeterministicSeeding(false)
+                        .setUseRaBitQ(true)
+                        .setRaBitQNumExBits(5)
+                        .setMetric(metric)
+                        .setM(32)
+                        .setMMax(32)
+                        .setMMax0(64)
+                        .build(128),
                 OnWriteListener.NOOP, onReadListener);
 
         final Path siftSmallPath = Paths.get(".out/extracted/siftsmall/siftsmall_base.fvecs");

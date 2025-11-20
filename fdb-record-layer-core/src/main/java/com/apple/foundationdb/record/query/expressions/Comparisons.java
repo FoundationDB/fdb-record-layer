@@ -1793,8 +1793,7 @@ public class Comparisons {
                                            @Nonnull final ParameterRelationshipGraph parameterRelationshipGraph,
                                            @Nonnull final Value limitValue) {
             super(type, comparandValue, parameterRelationshipGraph);
-            Verify.verify(type == Type.DISTANCE_RANK_EQUALS ||
-                    type == Type.DISTANCE_RANK_LESS_THAN ||
+            Verify.verify(type == Type.DISTANCE_RANK_LESS_THAN ||
                     type == Type.DISTANCE_RANK_LESS_THAN_OR_EQUAL);
             this.limitValue = limitValue;
         }

@@ -32,7 +32,7 @@ import java.util.Objects;
  */
 @SuppressWarnings("checkstyle:MemberName")
 public final class Config {
-    public static final long DEFAULT_RANDOM_SEED = 0L;
+    public static final boolean DEFAULT_DETERMINISTIC_SEEDING = false;
     @Nonnull public static final Metric DEFAULT_METRIC = Metric.EUCLIDEAN_METRIC;
     public static final boolean DEFAULT_USE_INLINING = false;
     public static final int DEFAULT_M = 16;
@@ -53,122 +53,26 @@ public final class Config {
     public static final int DEFAULT_MAX_NUM_CONCURRENT_NODE_FETCHES = 16;
     public static final int DEFAULT_MAX_NUM_CONCURRENT_NEIGHBOR_FETCHES = 16;
 
-    /**
-     * The random seed that is used to probabilistically determine the highest layer of an insert.
-     */
-    private final long randomSeed;
-
-    /**
-     * The metric that is used to determine distances between vectors.
-     */
+    private final boolean deterministicSeeding;
     @Nonnull
     private final Metric metric;
-
-    /**
-     * The number of dimensions used. All vectors must have exactly this number of dimensions.
-     */
     private final int numDimensions;
-
-    /**
-     * Indicator if all layers except layer {@code 0} use inlining. If inlining is used, each node is persisted
-     * as a key/value pair per neighbor which includes the vectors of the neighbors but not for itself. If inlining is
-     * not used, each node is persisted as exactly one key/value pair per node which stores its own vector but
-     * specifically excludes the vectors of the neighbors.
-     */
     private final boolean useInlining;
-
-    /**
-     * This attribute (named {@code M} by the HNSW paper) is the connectivity value for all nodes stored on any layer.
-     * While by no means enforced or even enforceable, we strive to create and maintain exactly {@code m} neighbors for
-     * a node. Due to insert/delete operations it is possible that the actual number of neighbors a node references is
-     * not exactly {@code m} at any given time.
-     */
     private final int m;
-
-    /**
-     * This attribute (named {@code M_max} by the HNSW paper) is the maximum connectivity value for nodes stored on a
-     * layer greater than {@code 0}. We will never create more that {@code mMax} neighbors for a node. That means that
-     * we even prune the neighbors of a node if the actual number of neighbors would otherwise exceed {@code mMax}.
-     * Note that this attribute must be greater than or equal to {@link #m}.
-     */
     private final int mMax;
-
-    /**
-     * This attribute (named {@code M_max0} by the HNSW paper) is the maximum connectivity value for nodes stored on
-     * layer {@code 0}. We will never create more that {@code mMax0} neighbors for a node that is stored on that layer.
-     * That means that we even prune the neighbors of a node if the actual number of neighbors would otherwise exceed
-     * {@code mMax0}. Note that this attribute must be greater than or equal to {@link #mMax}.
-     */
     private final int mMax0;
-
-    /**
-     * Maximum size of the search queues (one independent queue per layer) that are used during the insertion of a new
-     * node. If {@code efConstruction} is set to {@code 1}, the search naturally follows a greedy approach
-     * (monotonous descent), whereas a high number for {@code efConstruction} allows for a more nuanced search that can
-     * tolerate (false) local minima.
-     */
     private final int efConstruction;
-
-    /**
-     * Indicator to signal if, during the insertion of a node, the set of nearest neighbors of that node is to be
-     * extended by the actual neighbors of those neighbors to form a set of candidates that the new node may be
-     * connected to during the insert operation.
-     */
     private final boolean extendCandidates;
-
-    /**
-     * Indicator to signal if, during the insertion of a node, candidates that have been discarded due to not satisfying
-     * the select-neighbor heuristic may get added back in to pad the set of neighbors if the new node would otherwise
-     * have too few neighbors (see {@link #m}).
-     */
     private final boolean keepPrunedConnections;
-
-    /**
-     * If sampling is necessary (currently iff {@link #isUseRaBitQ()} is {@code true}), this attribute represents the
-     * probability of a vector being inserted to also be written into the
-     * {@link StorageAdapter#SUBSPACE_PREFIX_SAMPLES} subspace. The vectors in that subspace are continuously aggregated
-     * until a total {@link #statsThreshold} has been reached.
-     */
     private final double sampleVectorStatsProbability;
-
-    /**
-     * If sampling is necessary (currently iff {@link #isUseRaBitQ()} is {@code true}), this attribute represents the
-     * probability of the {@link StorageAdapter#SUBSPACE_PREFIX_SAMPLES} subspace to be further aggregated (rolled-up)
-     * when a new vector is inserted. The vectors in that subspace are continuously aggregated until a total
-     * {@link #statsThreshold} has been reached.
-     */
     private final double maintainStatsProbability;
-
-    /**
-     * If sampling is necessary (currently iff {@link #isUseRaBitQ()} is {@code true}), this attribute represents the
-     * threshold (being a number of vectors) that when reached causes the stats maintenance logic to compute the actual
-     * statistics (currently the centroid of the vectors that have been inserted to far).
-     */
     private final int statsThreshold;
-
-    /**
-     * Indicator if we should RaBitQ quantization. See {@link com.apple.foundationdb.rabitq.RaBitQuantizer} for more
-     * details.
-     */
     private final boolean useRaBitQ;
-
-    /**
-     * Number of bits per dimensions iff {@link #isUseRaBitQ()} is set to {@code true}, ignored otherwise. If RaBitQ
-     * encoding is used, a vector is stored using roughly {@code 25 + numDimensions * (numExBits + 1) / 8} bytes.
-     */
     private final int raBitQNumExBits;
-
-    /**
-     * Maximum number of concurrent node fetches during search and modification operations.
-     */
     private final int maxNumConcurrentNodeFetches;
-
-    /**
-     * Maximum number of concurrent neighborhood fetches during modification operations when the neighbors are pruned.
-     */
     private final int maxNumConcurrentNeighborhoodFetches;
 
-    private Config(final long randomSeed, @Nonnull final Metric metric, final int numDimensions,
+    private Config(final boolean deterministicSeeding, @Nonnull final Metric metric, final int numDimensions,
                    final boolean useInlining, final int m, final int mMax, final int mMax0,
                    final int efConstruction, final boolean extendCandidates, final boolean keepPrunedConnections,
                    final double sampleVectorStatsProbability, final double maintainStatsProbability,
@@ -190,7 +94,7 @@ public final class Config {
         Preconditions.checkArgument(maxNumConcurrentNeighborhoodFetches > 0 &&
                 maxNumConcurrentNeighborhoodFetches < 64);
 
-        this.randomSeed = randomSeed;
+        this.deterministicSeeding = deterministicSeeding;
         this.metric = metric;
         this.numDimensions = numDimensions;
         this.useInlining = useInlining;
@@ -209,78 +113,160 @@ public final class Config {
         this.maxNumConcurrentNeighborhoodFetches = maxNumConcurrentNeighborhoodFetches;
     }
 
-    public long getRandomSeed() {
-        return randomSeed;
+    /**
+     * Indicator that if {@code true} causes the insert logic of the HNSW to be seeded using a hash of the primary key
+     * of the record that is inserted. That can be useful for testing. If {@code isDeterministicSeeding} is
+     * {@code false}, we use {@link System#nanoTime()} for seeding.
+     */
+    public boolean isDeterministicSeeding() {
+        return deterministicSeeding;
     }
 
+    /**
+     * The metric that is used to determine distances between vectors.
+     */
     @Nonnull
     public Metric getMetric() {
         return metric;
     }
 
+    /**
+     * The number of dimensions used. All vectors must have exactly this number of dimensions.
+     */
     public int getNumDimensions() {
         return numDimensions;
     }
 
+    /**
+     * Indicator if all layers except layer {@code 0} use inlining. If inlining is used, each node is persisted
+     * as a key/value pair per neighbor which includes the vectors of the neighbors but not for itself. If inlining is
+     * not used, each node is persisted as exactly one key/value pair per node which stores its own vector but
+     * specifically excludes the vectors of the neighbors.
+     */
     public boolean isUseInlining() {
         return useInlining;
     }
 
+    /**
+     * This attribute (named {@code M} by the HNSW paper) is the connectivity value for all nodes stored on any layer.
+     * While by no means enforced or even enforceable, we strive to create and maintain exactly {@code m} neighbors for
+     * a node. Due to insert/delete operations it is possible that the actual number of neighbors a node references is
+     * not exactly {@code m} at any given time.
+     */
     public int getM() {
         return m;
     }
 
+    /**
+     * This attribute (named {@code M_max} by the HNSW paper) is the maximum connectivity value for nodes stored on a
+     * layer greater than {@code 0}. We will never create more that {@code mMax} neighbors for a node. That means that
+     * we even prune the neighbors of a node if the actual number of neighbors would otherwise exceed {@code mMax}.
+     * Note that this attribute must be greater than or equal to {@link #m}.
+     */
     public int getMMax() {
         return mMax;
     }
 
+    /**
+     * This attribute (named {@code M_max0} by the HNSW paper) is the maximum connectivity value for nodes stored on
+     * layer {@code 0}. We will never create more that {@code mMax0} neighbors for a node that is stored on that layer.
+     * That means that we even prune the neighbors of a node if the actual number of neighbors would otherwise exceed
+     * {@code mMax0}. Note that this attribute must be greater than or equal to {@link #mMax}.
+     */
     public int getMMax0() {
         return mMax0;
     }
 
+    /**
+     * Maximum size of the search queues (one independent queue per layer) that are used during the insertion of a new
+     * node. If {@code efConstruction} is set to {@code 1}, the search naturally follows a greedy approach
+     * (monotonous descent), whereas a high number for {@code efConstruction} allows for a more nuanced search that can
+     * tolerate (false) local minima.
+     */
     public int getEfConstruction() {
         return efConstruction;
     }
 
+    /**
+     * Indicator to signal if, during the insertion of a node, the set of nearest neighbors of that node is to be
+     * extended by the actual neighbors of those neighbors to form a set of candidates that the new node may be
+     * connected to during the insert operation.
+     */
     public boolean isExtendCandidates() {
         return extendCandidates;
     }
 
+    /**
+     * Indicator to signal if, during the insertion of a node, candidates that have been discarded due to not satisfying
+     * the select-neighbor heuristic may get added back in to pad the set of neighbors if the new node would otherwise
+     * have too few neighbors (see {@link #m}).
+     */
     public boolean isKeepPrunedConnections() {
         return keepPrunedConnections;
     }
 
+    /**
+     * If sampling is necessary (currently iff {@link #isUseRaBitQ()} is {@code true}), this attribute represents the
+     * probability of a vector being inserted to also be written into the
+     * {@link StorageAdapter#SUBSPACE_PREFIX_SAMPLES} subspace. The vectors in that subspace are continuously aggregated
+     * until a total {@link #statsThreshold} has been reached.
+     */
     public double getSampleVectorStatsProbability() {
         return sampleVectorStatsProbability;
     }
 
+    /**
+     * If sampling is necessary (currently iff {@link #isUseRaBitQ()} is {@code true}), this attribute represents the
+     * probability of the {@link StorageAdapter#SUBSPACE_PREFIX_SAMPLES} subspace to be further aggregated (rolled-up)
+     * when a new vector is inserted. The vectors in that subspace are continuously aggregated until a total
+     * {@link #statsThreshold} has been reached.
+     */
     public double getMaintainStatsProbability() {
         return maintainStatsProbability;
     }
 
+    /**
+     * If sampling is necessary (currently iff {@link #isUseRaBitQ()} is {@code true}), this attribute represents the
+     * threshold (being a number of vectors) that when reached causes the stats maintenance logic to compute the actual
+     * statistics (currently the centroid of the vectors that have been inserted to far).
+     */
     public int getStatsThreshold() {
         return statsThreshold;
     }
 
+    /**
+     * Indicator if we should RaBitQ quantization. See {@link com.apple.foundationdb.rabitq.RaBitQuantizer} for more
+     * details.
+     */
     public boolean isUseRaBitQ() {
         return useRaBitQ;
     }
 
+    /**
+     * Number of bits per dimensions iff {@link #isUseRaBitQ()} is set to {@code true}, ignored otherwise. If RaBitQ
+     * encoding is used, a vector is stored using roughly {@code 25 + numDimensions * (numExBits + 1) / 8} bytes.
+     */
     public int getRaBitQNumExBits() {
         return raBitQNumExBits;
     }
 
+    /**
+     * Maximum number of concurrent node fetches during search and modification operations.
+     */
     public int getMaxNumConcurrentNodeFetches() {
         return maxNumConcurrentNodeFetches;
     }
 
+    /**
+     * Maximum number of concurrent neighborhood fetches during modification operations when the neighbors are pruned.
+     */
     public int getMaxNumConcurrentNeighborhoodFetches() {
         return maxNumConcurrentNeighborhoodFetches;
     }
 
     @Nonnull
     public ConfigBuilder toBuilder() {
-        return new ConfigBuilder(getRandomSeed(), getMetric(), isUseInlining(), getM(), getMMax(), getMMax0(),
+        return new ConfigBuilder(isDeterministicSeeding(), getMetric(), isUseInlining(), getM(), getMMax(), getMMax0(),
                 getEfConstruction(), isExtendCandidates(), isKeepPrunedConnections(),
                 getSampleVectorStatsProbability(), getMaintainStatsProbability(), getStatsThreshold(),
                 isUseRaBitQ(), getRaBitQNumExBits(), getMaxNumConcurrentNodeFetches(),
@@ -296,7 +282,7 @@ public final class Config {
             return false;
         }
         final Config config = (Config)o;
-        return randomSeed == config.randomSeed && numDimensions == config.numDimensions &&
+        return deterministicSeeding == config.deterministicSeeding && numDimensions == config.numDimensions &&
                 useInlining == config.useInlining && m == config.m && mMax == config.mMax && mMax0 == config.mMax0 &&
                 efConstruction == config.efConstruction && extendCandidates == config.extendCandidates &&
                 keepPrunedConnections == config.keepPrunedConnections &&
@@ -310,7 +296,7 @@ public final class Config {
 
     @Override
     public int hashCode() {
-        return Objects.hash(randomSeed, metric, numDimensions, useInlining, m, mMax, mMax0, efConstruction,
+        return Objects.hash(deterministicSeeding, metric, numDimensions, useInlining, m, mMax, mMax0, efConstruction,
                 extendCandidates, keepPrunedConnections, sampleVectorStatsProbability, maintainStatsProbability,
                 statsThreshold, useRaBitQ, raBitQNumExBits, maxNumConcurrentNodeFetches, maxNumConcurrentNeighborhoodFetches);
     }
@@ -318,7 +304,7 @@ public final class Config {
     @Override
     @Nonnull
     public String toString() {
-        return "Config[randomSeed=" + getRandomSeed() + ", metric=" + getMetric() +
+        return "Config[deterministicSeeding=" + isDeterministicSeeding() + ", metric=" + getMetric() +
                 ", numDimensions=" + getNumDimensions() + ", isUseInlining=" + isUseInlining() + ", M=" + getM() +
                 ", MMax=" + getMMax() + ", MMax0=" + getMMax0() + ", efConstruction=" + getEfConstruction() +
                 ", isExtendCandidates=" + isExtendCandidates() +
@@ -339,7 +325,7 @@ public final class Config {
     @CanIgnoreReturnValue
     @SuppressWarnings("checkstyle:MemberName")
     public static class ConfigBuilder {
-        private long randomSeed = DEFAULT_RANDOM_SEED;
+        private boolean deterministicSeeding = DEFAULT_DETERMINISTIC_SEEDING;
         @Nonnull
         private Metric metric = DEFAULT_METRIC;
         private boolean useInlining = DEFAULT_USE_INLINING;
@@ -363,13 +349,13 @@ public final class Config {
         public ConfigBuilder() {
         }
 
-        public ConfigBuilder(final long randomSeed, @Nonnull final Metric metric, final boolean useInlining,
+        public ConfigBuilder(final boolean deterministicSeeding, @Nonnull final Metric metric, final boolean useInlining,
                              final int m, final int mMax, final int mMax0, final int efConstruction,
                              final boolean extendCandidates, final boolean keepPrunedConnections,
                              final double sampleVectorStatsProbability, final double maintainStatsProbability,
                              final int statsThreshold, final boolean useRaBitQ, final int raBitQNumExBits,
                              final int maxNumConcurrentNodeFetches, final int maxNumConcurrentNeighborhoodFetches) {
-            this.randomSeed = randomSeed;
+            this.deterministicSeeding = deterministicSeeding;
             this.metric = metric;
             this.useInlining = useInlining;
             this.m = m;
@@ -387,13 +373,13 @@ public final class Config {
             this.maxNumConcurrentNeighborhoodFetches = maxNumConcurrentNeighborhoodFetches;
         }
 
-        public long getRandomSeed() {
-            return randomSeed;
+        public boolean isDeterministicSeeding() {
+            return deterministicSeeding;
         }
 
         @Nonnull
-        public ConfigBuilder setRandomSeed(final long randomSeed) {
-            this.randomSeed = randomSeed;
+        public ConfigBuilder setDeterministicSeeding(final boolean deterministicSeeding) {
+            this.deterministicSeeding = deterministicSeeding;
             return this;
         }
 
@@ -547,7 +533,7 @@ public final class Config {
         }
 
         public Config build(final int numDimensions) {
-            return new Config(getRandomSeed(), getMetric(), numDimensions, isUseInlining(), getM(), getMMax(),
+            return new Config(isDeterministicSeeding(), getMetric(), numDimensions, isUseInlining(), getM(), getMMax(),
                     getMMax0(), getEfConstruction(), isExtendCandidates(), isKeepPrunedConnections(),
                     getSampleVectorStatsProbability(), getMaintainStatsProbability(), getStatsThreshold(),
                     isUseRaBitQ(), getRaBitQNumExBits(), getMaxNumConcurrentNodeFetches(),

@@ -80,7 +80,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 
 /**
  * An index maintainer for keeping an {@link HNSW}.
@@ -112,7 +111,7 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
     @SuppressWarnings("resource")
     public RecordCursor<IndexEntry> scan(@Nonnull final IndexScanBounds scanBounds, @Nullable final byte[] continuation,
                                          @Nonnull final ScanProperties scanProperties) {
-        if (!scanBounds.getScanType().equals(IndexScanType.BY_VALUE)) {
+        if (!scanBounds.getScanType().equals(IndexScanType.BY_DISTANCE)) {
             throw new RecordCoreException("Can only scan vector index by value.");
         }
         if (!(scanBounds instanceof VectorIndexScanBounds)) {
@@ -314,35 +313,41 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
     protected <M extends Message> CompletableFuture<Void> updateIndexKeys(@Nonnull final FDBIndexableRecord<M> savedRecord,
                                                                           final boolean remove,
                                                                           @Nonnull final List<IndexEntry> indexEntries) {
+        Verify.verify(indexEntries.size() == 1);
         final KeyWithValueExpression keyWithValueExpression = getKeyWithValueExpression(state.index.getRootExpression());
         final int prefixSize = keyWithValueExpression.getColumnSize();
         final Subspace indexSubspace = getIndexSubspace();
-        final var futures = indexEntries.stream().map(indexEntry -> {
-            final var indexKeyItems = indexEntry.getKey().getItems();
-            final Tuple prefixKey = Tuple.fromList(indexKeyItems.subList(0, prefixSize));
+        final var indexEntry = indexEntries.get(0);
 
-            final Subspace rtSubspace;
-            if (prefixSize > 0) {
-                rtSubspace = indexSubspace.subspace(prefixKey);
+        final byte[] vectorBytes = indexEntry.getValue().getBytes(0);
+        if (vectorBytes == null) {
+            //
+            // If there is no vector (e.g. vector is NULL), we don't even need to index it.
+            //
+            return AsyncUtil.DONE;
+        }
+
+        final Tuple prefixKey = indexEntry.getKey();
+        final Subspace rtSubspace;
+        if (prefixSize > 0) {
+            rtSubspace = indexSubspace.subspace(prefixKey);
+        } else {
+            rtSubspace = indexSubspace;
+        }
+        return state.context.doWithWriteLock(new LockIdentifier(rtSubspace), () -> {
+            final List<Object> primaryKeyParts = Lists.newArrayList(savedRecord.getPrimaryKey().getItems());
+            state.index.trimPrimaryKey(primaryKeyParts);
+            final Tuple trimmedPrimaryKey = Tuple.fromList(primaryKeyParts);
+            final FDBStoreTimer timer = Objects.requireNonNull(getTimer());
+            final HNSW hnsw =
+                    new HNSW(rtSubspace, getExecutor(), getConfig(), new OnWrite(timer), OnReadListener.NOOP);
+            if (remove) {
+                throw new UnsupportedOperationException("not implemented");
             } else {
-                rtSubspace = indexSubspace;
+                return hnsw.insert(state.transaction, trimmedPrimaryKey,
+                        RealVector.fromBytes(vectorBytes));
             }
-            return state.context.doWithWriteLock(new LockIdentifier(rtSubspace), () -> {
-                final List<Object> primaryKeyParts = Lists.newArrayList(savedRecord.getPrimaryKey().getItems());
-                state.index.trimPrimaryKey(primaryKeyParts);
-                final Tuple trimmedPrimaryKey = Tuple.fromList(primaryKeyParts);
-                final FDBStoreTimer timer = Objects.requireNonNull(getTimer());
-                final HNSW hnsw =
-                        new HNSW(rtSubspace, getExecutor(), getConfig(), new OnWrite(timer), OnReadListener.NOOP);
-                if (remove) {
-                    throw new UnsupportedOperationException("not implemented");
-                } else {
-                    return hnsw.insert(state.transaction, trimmedPrimaryKey,
-                            RealVector.fromBytes(indexEntry.getValue().getBytes(0)));
-                }
-            });
-        }).collect(Collectors.toList());
-        return AsyncUtil.whenAll(futures);
+        });
     }
 
     @Override
@@ -377,7 +382,7 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
             return efSearchOptionValue;
         }
         final var k = scanBounds.getAdjustedLimit();
-        return Math.min(Math.max(4 * k, 64), 400);
+        return Math.min(Math.max(4 * k, 64), Math.max(k, 400));
     }
 
     private boolean returnVectors(@Nonnull final Config config, @Nonnull final VectorIndexScanBounds scanBounds) {

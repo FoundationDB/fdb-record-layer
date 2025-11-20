@@ -137,8 +137,8 @@ public class VectorIndexMaintainerFactory implements IndexMaintainerFactory {
                 final Config newOptions = VectorIndexHelper.getConfig(index);
 
                 // do not allow changing any of the following
-                disallowChange(changedOptions, IndexOptions.HNSW_RANDOM_SEED,
-                        oldOptions, newOptions, Config::getRandomSeed);
+                disallowChange(changedOptions, IndexOptions.HNSW_DETERMINISTIC_SEEDING,
+                        oldOptions, newOptions, Config::isDeterministicSeeding);
                 disallowChange(changedOptions, IndexOptions.HNSW_METRIC,
                         oldOptions, newOptions, Config::getMetric);
                 disallowChange(changedOptions, IndexOptions.HNSW_NUM_DIMENSIONS,
