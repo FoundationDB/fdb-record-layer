@@ -40,7 +40,6 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWit
 import com.apple.foundationdb.record.query.plan.cascades.values.EmptyValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.apple.foundationdb.record.util.ProtoUtils;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -120,7 +119,7 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
     @Nonnull
     @Override
     public GraphExpansion visitExpression(@Nonnull FieldKeyExpression fieldKeyExpression) {
-        final String fieldName = ProtoUtils.toUserIdentifier(fieldKeyExpression.getFieldName());
+        final String fieldName = fieldKeyExpression.getFieldName();
         final KeyExpression.FanType fanType = fieldKeyExpression.getFanType();
         final VisitorState state = getCurrentState();
         final List<String> fieldNamePrefix = state.getFieldNamePrefix();
