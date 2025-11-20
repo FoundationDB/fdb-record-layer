@@ -21,13 +21,13 @@
 package com.apple.foundationdb.relational.recordlayer.metadata;
 
 import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.util.ProtoUtils;
 import com.apple.foundationdb.relational.api.metadata.Index;
 import com.apple.foundationdb.relational.util.Assert;
-
 import com.google.common.collect.ImmutableMap;
 
 import javax.annotation.Nonnull;
@@ -40,6 +40,9 @@ public final class RecordLayerIndex implements Index  {
 
     @Nonnull
     private final String tableName;
+
+    @Nonnull
+    private final String storageTableName;
 
     private final String indexType;
 
@@ -56,12 +59,14 @@ public final class RecordLayerIndex implements Index  {
     private final RecordMetaDataProto.Predicate predicate;
 
     private RecordLayerIndex(@Nonnull final String tableName,
+                             @Nonnull final String storageTableName,
                              @Nonnull final String indexType,
                              @Nonnull final String name,
                              @Nonnull final KeyExpression keyExpression,
                              @Nullable final RecordMetaDataProto.Predicate predicate,
                              @Nonnull final Map<String, String> options) {
         this.tableName = tableName;
+        this.storageTableName = storageTableName;
         this.indexType = indexType;
         this.name = name;
         this.keyExpression = keyExpression;
@@ -73,6 +78,11 @@ public final class RecordLayerIndex implements Index  {
     @Override
     public String getTableName() {
         return tableName;
+    }
+
+    @Nonnull
+    public String getTableStorageName() {
+        return storageTableName;
     }
 
     @Nonnull
@@ -149,6 +159,7 @@ public final class RecordLayerIndex implements Index  {
 
     public static class Builder {
         private String tableName;
+        private String tableStorageName;
         private String indexType;
         private String name;
         private KeyExpression keyExpression;
@@ -162,6 +173,18 @@ public final class RecordLayerIndex implements Index  {
         public Builder setTableName(String tableName) {
             this.tableName = tableName;
             return this;
+        }
+
+        @Nonnull
+        public Builder setTableStorageName(String tableStorageName) {
+            this.tableStorageName = tableStorageName;
+            return this;
+        }
+
+        @Nonnull
+        public Builder setTableType(@Nonnull Type.Record tableType) {
+            return setTableName(tableType.getName())
+                    .setTableStorageName(tableType.getStorageName());
         }
 
         @Nonnull
@@ -223,9 +246,12 @@ public final class RecordLayerIndex implements Index  {
         public RecordLayerIndex build() {
             Assert.notNullUnchecked(name, "index name is not set");
             Assert.notNullUnchecked(tableName, "table name is not set");
+            if (tableStorageName == null) {
+                tableStorageName = ProtoUtils.toProtoBufCompliantName(tableName);
+            }
             Assert.notNullUnchecked(indexType, "index type is not set");
             Assert.notNullUnchecked(keyExpression, "index key expression is not set");
-            return new RecordLayerIndex(tableName, indexType, name, keyExpression, predicate,
+            return new RecordLayerIndex(tableName, tableStorageName, indexType, name, keyExpression, predicate,
                     optionsBuilder == null ? ImmutableMap.of() : optionsBuilder.build());
         }
     }

@@ -90,11 +90,13 @@ message PType {
     message PEnumValue {
       optional string name = 1;
       optional int32 number = 2;
+      optional string storage_name = 3;
     }
 
     optional bool is_nullable = 1;
     repeated PEnumValue enum_values = 2;
     optional string name = 3; // referential name -- not used in the planner
+    optional string storage_name = 4;
   }
 
   message PRecordType {
@@ -102,12 +104,14 @@ message PType {
       optional PType field_type = 1;
       optional string field_name = 2;
       optional int32 field_index = 3;
+      optional string field_storage_name = 4;
     }
 
     optional int32 reference_id = 1;
     optional string name = 2;  // referential name -- not used in the planner
     optional bool is_nullable = 3;
     repeated PField fields = 4;
+    optional string storage_name = 5;
   }
 
   message PRelationType {
@@ -482,6 +486,7 @@ message PFieldPath {
     optional string name = 1;
     optional int32 ordinal = 2;
     optional PType type = 3;
+    optional PType.PRecordType.PField field = 4;
   }
   repeated PResolvedAccessor field_accessors = 1;
 }
