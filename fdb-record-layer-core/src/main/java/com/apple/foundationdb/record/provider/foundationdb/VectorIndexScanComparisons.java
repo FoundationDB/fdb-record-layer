@@ -73,7 +73,7 @@ public class VectorIndexScanComparisons implements IndexScanParameters {
     @Nonnull
     @Override
     public IndexScanType getScanType() {
-        return IndexScanType.BY_VALUE;
+        return IndexScanType.BY_DISTANCE;
     }
 
     @Nonnull
@@ -89,6 +89,23 @@ public class VectorIndexScanComparisons implements IndexScanParameters {
     @Nonnull
     public VectorIndexScanOptions getVectorIndexScanOptions() {
         return vectorIndexScanOptions;
+    }
+
+    @Override
+    public boolean hasScanComparisons() {
+        return true;
+    }
+
+    @Override
+    public ScanComparisons getScanComparisons() {
+        final var builder = new ScanComparisons.Builder();
+        builder.addAll(getPrefixScanComparisons());
+        if (getDistanceRankValueComparison().getType().isEquality()) {
+            builder.addEqualityComparison(getDistanceRankValueComparison());
+        } else {
+            builder.addInequalityComparison(getDistanceRankValueComparison());
+        }
+        return builder.build();
     }
 
     @Nonnull

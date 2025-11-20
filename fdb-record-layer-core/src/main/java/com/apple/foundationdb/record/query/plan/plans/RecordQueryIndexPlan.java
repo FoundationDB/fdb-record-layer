@@ -60,7 +60,6 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexScanRange;
 import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursorBase;
 import com.apple.foundationdb.record.provider.foundationdb.MultidimensionalIndexScanComparisons;
 import com.apple.foundationdb.record.provider.foundationdb.UnsupportedRemoteFetchIndexException;
-import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanComparisons;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
@@ -598,28 +597,14 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
 
     @Override
     public boolean hasScanComparisons() {
-        return (scanParameters instanceof IndexScanComparisons) || (scanParameters instanceof VectorIndexScanComparisons);
+        return scanParameters.hasScanComparisons();
     }
 
     @Nonnull
     @Override
     public ScanComparisons getScanComparisons() {
-        if (scanParameters instanceof VectorIndexScanComparisons) {
-            final var vectorIndexComparisons = (VectorIndexScanComparisons)scanParameters;
-            final var builder = new ScanComparisons.Builder();
-            builder.addAll(vectorIndexComparisons.getPrefixScanComparisons());
-            if (vectorIndexComparisons.getDistanceRankValueComparison().getType().isEquality()) {
-                builder.addEqualityComparison(vectorIndexComparisons.getDistanceRankValueComparison());
-            } else {
-                builder.addInequalityComparison(vectorIndexComparisons.getDistanceRankValueComparison());
-            }
-            return builder.build();
-        }
-        if (scanParameters instanceof IndexScanComparisons) {
-            return ((IndexScanComparisons)scanParameters).getComparisons();
-        } else {
-            throw new RecordCoreException("this plan does not use ScanComparisons");
-        }
+        Verify.verify(hasScanComparisons());
+        return scanParameters.getScanComparisons();
     }
 
     @Nonnull
