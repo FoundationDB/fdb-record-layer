@@ -405,7 +405,7 @@ class VectorIndexTest extends VectorIndexTestBase {
                         new LiteralValue<>(k));
 
         final VectorIndexScanComparisons vectorIndexScanComparisons =
-                new VectorIndexScanComparisons(ScanComparisons.EMPTY, distanceRankComparison,
+                VectorIndexScanComparisons.byDistance(ScanComparisons.EMPTY, distanceRankComparison,
                         VectorIndexScanOptions.empty());
 
         final var baseRecordType =

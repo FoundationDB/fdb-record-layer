@@ -99,7 +99,12 @@ public class VectorIndexScanComparisons implements IndexScanParameters {
     @Override
     public ScanComparisons getScanComparisons() {
         final var builder = new ScanComparisons.Builder();
-        builder.addAll(getPrefixScanComparisons());
+        builder.addAll(prefixScanComparisons.getEqualityComparisons(), ImmutableSet.of());
+        if (!prefixScanComparisons.isEquality()) {
+            builder.addAll(ImmutableList.of(), prefixScanComparisons.getInequalityComparisons());
+            return builder.build();
+        }
+        // only equalities coming from the prefix
         if (getDistanceRankValueComparison().getType().isEquality()) {
             builder.addEqualityComparison(getDistanceRankValueComparison());
         } else {
@@ -306,9 +311,9 @@ public class VectorIndexScanComparisons implements IndexScanParameters {
     }
 
     @Nonnull
-    public static VectorIndexScanComparisons byValue(@Nullable ScanComparisons prefixScanComparisons,
-                                                     @Nonnull final DistanceRankValueComparison distanceRankValueComparison,
-                                                     @Nonnull VectorIndexScanOptions vectorIndexScanOptions) {
+    public static VectorIndexScanComparisons byDistance(@Nullable ScanComparisons prefixScanComparisons,
+                                                        @Nonnull final DistanceRankValueComparison distanceRankValueComparison,
+                                                        @Nonnull VectorIndexScanOptions vectorIndexScanOptions) {
         if (prefixScanComparisons == null) {
             prefixScanComparisons = ScanComparisons.EMPTY;
         }

@@ -78,21 +78,28 @@ public final class Config {
                    final double sampleVectorStatsProbability, final double maintainStatsProbability,
                    final int statsThreshold, final boolean useRaBitQ, final int raBitQNumExBits,
                    final int maxNumConcurrentNodeFetches, final int maxNumConcurrentNeighborhoodFetches) {
-        Preconditions.checkArgument(numDimensions >= 1);
-        Preconditions.checkArgument(m >= 4 && m <= 200);
-        Preconditions.checkArgument(mMax >= 4 && mMax <= 200);
-        Preconditions.checkArgument(mMax0 >= 4 && mMax0 <= 300);
-        Preconditions.checkArgument(m <= mMax);
-        Preconditions.checkArgument(mMax <= mMax0);
-        Preconditions.checkArgument(efConstruction > 100 && efConstruction <= 400);
-        Preconditions.checkArgument(!useRaBitQ || (sampleVectorStatsProbability > 0.0d &&
-                sampleVectorStatsProbability <= 1.0d));
-        Preconditions.checkArgument(!useRaBitQ || (maintainStatsProbability > 0.0d && maintainStatsProbability <= 1.0d));
-        Preconditions.checkArgument(!useRaBitQ || statsThreshold > 10);
-        Preconditions.checkArgument(raBitQNumExBits > 0 && raBitQNumExBits < 16);
-        Preconditions.checkArgument(maxNumConcurrentNodeFetches > 0 && maxNumConcurrentNodeFetches < 64);
+        Preconditions.checkArgument(numDimensions >= 1, "numDimensions must be (1, MAX_INT]");
+        Preconditions.checkArgument(m >= 4 && m <= 200, "m must be [4, 200]");
+        Preconditions.checkArgument(mMax >= 4 && mMax <= 200, "mMax must be [4, 200]");
+        Preconditions.checkArgument(mMax0 >= 4 && mMax0 <= 300, "mMax0 must be [4, 300]");
+        Preconditions.checkArgument(m <= mMax, "m must be less than or equal to mMax");
+        Preconditions.checkArgument(mMax <= mMax0, "mMax must be less than or equal to mMax0");
+        Preconditions.checkArgument(efConstruction >= 100 && efConstruction <= 400,
+                "efConstruction must be [100, 400]");
+        Preconditions.checkArgument(!useRaBitQ ||
+                (sampleVectorStatsProbability > 0.0d && sampleVectorStatsProbability <= 1.0d),
+                "sampleVectorStatsProbability out of range");
+        Preconditions.checkArgument(!useRaBitQ ||
+                (maintainStatsProbability > 0.0d && maintainStatsProbability <= 1.0d),
+                "maintainStatsProbability out of range");
+        Preconditions.checkArgument(!useRaBitQ || statsThreshold > 10, "statThreshold out of range");
+        Preconditions.checkArgument(!useRaBitQ || (raBitQNumExBits > 0 && raBitQNumExBits < 16),
+                "raBitQNumExBits out of range");
+        Preconditions.checkArgument(maxNumConcurrentNodeFetches > 0 && maxNumConcurrentNodeFetches <= 64,
+                "maxNumConcurrentNodeFetches must be (0, 64]");
         Preconditions.checkArgument(maxNumConcurrentNeighborhoodFetches > 0 &&
-                maxNumConcurrentNeighborhoodFetches < 64);
+                maxNumConcurrentNeighborhoodFetches <= 64,
+                "maxNumConcurrentNeighborhoodFetches must be (0, 64]");
 
         this.deterministicSeeding = deterministicSeeding;
         this.metric = metric;
