@@ -522,26 +522,6 @@ public class AstNormalizerTests {
     }
 
     @Test
-    void continuationIsStripped() throws Exception {
-        validate(List.of("select * from t1 with continuation b64'yv4='",
-                        "select * from   t1 with      continuation x'cafe'",
-                        "select * from t1"),
-                "select * from \"T1\" ");
-    }
-
-    @Test
-    void parseContinuation() throws Exception {
-        final var expectedContinuationStr = "FBUCFA==";
-        validate(List.of("select * from t1 with continuation b64'" + expectedContinuationStr + "'",
-                        "select * from t1 with  continuation    b64'" + expectedContinuationStr + "'"),
-                PreparedParams.empty(),
-                "select * from \"T1\" ",
-                List.of(Map.of(), Map.of()),
-                expectedContinuationStr,
-                -1);
-    }
-
-    @Test
     void parseInPredicateAllConstants() throws Exception {
         // although these queries have different number of arguments in their in-predicate
         // they are treated as equivalent because Cascades will plan them the same way
@@ -884,27 +864,6 @@ public class AstNormalizerTests {
                 Map.of(constantId(1), ByteString.copyFrom(Hex.decodeHex("cafe")),
                         constantId(3), ByteString.copyFrom(Hex.decodeHex("0A0C")),
                         constantId(5), ByteString.copyFrom(Hex.decodeHex("0B0C"))));
-    }
-
-    @Test
-    void parseContinuationWithPreparedParameters() throws Exception {
-        final var expectedContinuationStr = "FBUCFA==";
-        final var expectedContinuation = Base64.getDecoder().decode(expectedContinuationStr);
-        validate(List.of("select * from t1 with continuation ?",
-                        "select * from t1 with  continuation    ?          "),
-                PreparedParams.ofUnnamed(Map.of(1, expectedContinuation)),
-                "select * from \"T1\" ",
-                List.of(Map.of(), Map.of()),
-                expectedContinuationStr,
-                -1);
-
-        validate(List.of("select * from t1 with continuation ?param",
-                        "select * from t1 with  continuation    ?param          "),
-                PreparedParams.ofNamed(Map.of("param", expectedContinuation)),
-                "select * from \"T1\" ",
-                List.of(Map.of(), Map.of()),
-                expectedContinuationStr,
-                -1);
     }
 
     @Test

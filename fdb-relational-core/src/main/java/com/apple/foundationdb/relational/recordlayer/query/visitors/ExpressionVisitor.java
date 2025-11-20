@@ -123,12 +123,6 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
 
     @Nonnull
     @Override
-    public Expression visitContinuation(@Nonnull RelationalParser.ContinuationContext ctx) {
-        return visitContinuationAtom(ctx.continuationAtom());
-    }
-
-    @Nonnull
-    @Override
     public Expression visitContinuationAtom(@Nonnull RelationalParser.ContinuationAtomContext ctx) {
         return getDelegate().getPlanGenerationContext().withDisabledLiteralProcessing(() -> {
             final var continuationExpression = parseChild(ctx);
