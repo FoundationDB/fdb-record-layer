@@ -37,7 +37,6 @@ import com.apple.foundationdb.record.query.plan.cascades.UnableToPlanException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
-import com.apple.foundationdb.record.util.ProtoUtils;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
@@ -243,7 +242,7 @@ public final class PlanGenerator {
             return maybePlan.optimize(planner, planContext, currentPlanHashMode);
         } catch (UnableToPlanException e) {
             // Log plan cache information when planning fails
-            logPlanCacheOnFailure(cache, logger);
+            cache.ifPresent(relationalPlanCache -> logPlanCacheOnFailure(relationalPlanCache, logger));
 
             // Log connection options information when planning fails
             if (logger.isErrorEnabled()) {
@@ -399,10 +398,10 @@ public final class PlanGenerator {
      * @param cache The optional plan cache
      * @param logger The logger instance
      */
-    static void logPlanCacheOnFailure(@Nonnull final Optional<RelationalPlanCache> cache,
+    static void logPlanCacheOnFailure(@Nonnull final RelationalPlanCache cache,
                                       @Nonnull final Logger logger) {
-        if (cache.isPresent() && logger.isErrorEnabled()) {
-            final var cacheStats = cache.get().getStats();
+        if (logger.isErrorEnabled()) {
+            final var cacheStats = cache.getStats();
             final var allPrimaryKeys = cacheStats.getAllKeys();
             final var cacheInfoBuilder = new StringBuilder("Plan Cache Tertiary Layer:\n");
 

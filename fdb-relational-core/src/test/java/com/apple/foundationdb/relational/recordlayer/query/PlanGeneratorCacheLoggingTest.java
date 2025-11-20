@@ -45,7 +45,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Tests for {@link PlanGenerator#logPlanCacheOnFailure(Optional, org.apache.logging.log4j.Logger)}.
+ * Tests for {@link PlanGenerator#logPlanCacheOnFailure(RelationalPlanCache, org.apache.logging.log4j.Logger)}.
  */
 public class PlanGeneratorCacheLoggingTest {
 
@@ -68,22 +68,12 @@ public class PlanGeneratorCacheLoggingTest {
     }
 
     @Test
-    public void testNoCacheScenario() {
-        // When cache is not present (empty Optional)
-        PlanGenerator.logPlanCacheOnFailure(Optional.empty(), logger);
-
-        // No logging should occur
-        assertTrue(testAppender.getEvents().isEmpty(),
-                "No log events should be generated when cache is not present");
-    }
-
-    @Test
     public void testColdCacheScenario() {
         // Create a cache with no entries (cold cache)
         final RelationalPlanCache cache = RelationalPlanCache.buildWithDefaults();
 
         // Log the cache state
-        PlanGenerator.logPlanCacheOnFailure(Optional.of(cache), logger);
+        PlanGenerator.logPlanCacheOnFailure(cache, logger);
 
         // Should log even with empty cache
         assertFalse(testAppender.getEvents().isEmpty(),
@@ -163,11 +153,11 @@ public class PlanGeneratorCacheLoggingTest {
                 },
                 plan -> plan,
                 stream -> stream.findFirst().orElse(null),
-                event -> {}
+                event -> { }
         );
 
         // Log the cache state
-        PlanGenerator.logPlanCacheOnFailure(Optional.of(cache), logger);
+        PlanGenerator.logPlanCacheOnFailure(cache, logger);
 
         // Should log with cache content
         assertFalse(testAppender.getEvents().isEmpty(),
