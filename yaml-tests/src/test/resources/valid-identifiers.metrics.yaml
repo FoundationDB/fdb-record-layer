@@ -634,56 +634,101 @@ unnamed-12:
     insert_new_count: 21
     insert_reused_count: 2
 -   query: EXPLAIN SELECT * FROM "___T6.__UNESCAPED"
-    explain: ISCAN(T6$COL2 <,>)
-    task_count: 296
-    task_total_time_ms: 10
-    transform_count: 72
-    transform_time_ms: 3
-    transform_yield_count: 29
+    explain: ISCAN(T6$ENUM2 <,>)
+    task_count: 405
+    task_total_time_ms: 227
+    transform_count: 98
+    transform_time_ms: 95
+    transform_yield_count: 43
     insert_time_ms: 0
-    insert_new_count: 29
-    insert_reused_count: 3
+    insert_new_count: 42
+    insert_reused_count: 5
 -   query: EXPLAIN SELECT * FROM "___T6.__UNESCAPED" WHERE "T6$__COL1__" = 10
-    explain: ISCAN(T6$COL2 <,>) | FILTER _.T6$__COL1__ EQUALS promote(@c8 AS LONG)
-    task_count: 351
-    task_total_time_ms: 12
-    transform_count: 81
-    transform_time_ms: 5
-    transform_yield_count: 30
-    insert_time_ms: 0
-    insert_new_count: 37
-    insert_reused_count: 2
+    explain: ISCAN(T6$ENUM2 <,>) | FILTER _.T6$__COL1__ EQUALS promote(@c8 AS LONG)
+    task_count: 484
+    task_total_time_ms: 346
+    transform_count: 110
+    transform_time_ms: 118
+    transform_yield_count: 44
+    insert_time_ms: 1
+    insert_new_count: 54
+    insert_reused_count: 3
 -   query: EXPLAIN SELECT ID, "__T6.COL2__VALUE" FROM "___T6.__UNESCAPED" WHERE "T6$__COL1__"
         = 10
     explain: ISCAN(T6$COL2 <,>) | FILTER _.T6$__COL1__ EQUALS promote(@c10 AS LONG)
         | MAP (_.ID AS ID, _.__T6.COL2__VALUE AS __T6.COL2__VALUE)
-    task_count: 375
-    task_total_time_ms: 14
-    transform_count: 99
-    transform_time_ms: 4
-    transform_yield_count: 28
-    insert_time_ms: 0
-    insert_new_count: 39
-    insert_reused_count: 4
+    task_count: 520
+    task_total_time_ms: 297
+    transform_count: 136
+    transform_time_ms: 165
+    transform_yield_count: 41
+    insert_time_ms: 3
+    insert_new_count: 57
+    insert_reused_count: 6
 -   query: EXPLAIN SELECT * FROM "___T6.__UNESCAPED" WHERE "__T6.COL2__VALUE" < 10
     explain: ISCAN(T6$COL2 [[LESS_THAN promote(@c8 AS LONG)]])
-    task_count: 367
-    task_total_time_ms: 15
-    transform_count: 85
-    transform_time_ms: 6
-    transform_yield_count: 31
-    insert_time_ms: 0
-    insert_new_count: 37
-    insert_reused_count: 3
+    task_count: 500
+    task_total_time_ms: 353
+    transform_count: 114
+    transform_time_ms: 128
+    transform_yield_count: 45
+    insert_time_ms: 1
+    insert_new_count: 54
+    insert_reused_count: 4
 -   query: EXPLAIN SELECT ID, "__T6.COL2__VALUE" FROM "___T6.__UNESCAPED" WHERE "__T6.COL2__VALUE"
         < 10
     explain: 'COVERING(T6$COL2 [[LESS_THAN promote(@c10 AS LONG)]] -> [ID: KEY[2],
         __T6__2COL2__VALUE: KEY[0]]) | MAP (_.ID AS ID, _.__T6.COL2__VALUE AS __T6.COL2__VALUE)'
-    task_count: 463
-    task_total_time_ms: 9
+    task_count: 608
+    task_total_time_ms: 410
+    transform_count: 147
+    transform_time_ms: 153
+    transform_yield_count: 47
+    insert_time_ms: 2
+    insert_new_count: 66
+    insert_reused_count: 6
+-   query: EXPLAIN SELECT * FROM "___T6.__UNESCAPED" WHERE "T6$__ENUM_1" = '__D.__'
+    explain: ISCAN(T6$ENUM2 <,>) | FILTER _.T6$__ENUM_1 EQUALS promote(@c8 AS ENUM<A(0),
+        B__(1), C__(2), __D.__(3)>)
+    task_count: 484
+    task_total_time_ms: 334
     transform_count: 110
-    transform_time_ms: 3
-    transform_yield_count: 34
+    transform_time_ms: 132
+    transform_yield_count: 44
+    insert_time_ms: 1
+    insert_new_count: 54
+    insert_reused_count: 3
+-   query: EXPLAIN SELECT ID, "T6$__ENUM_2" FROM "___T6.__UNESCAPED" WHERE "T6$__ENUM_1"
+        = '__D.__'
+    explain: ISCAN(T6$COL2 <,>) | FILTER _.T6$__ENUM_1 EQUALS promote(@c10 AS ENUM<A(0),
+        B__(1), C__(2), __D.__(3)>) | MAP (_.ID AS ID, _.T6$__ENUM_2 AS T6$__ENUM_2)
+    task_count: 520
+    task_total_time_ms: 306
+    transform_count: 136
+    transform_time_ms: 166
+    transform_yield_count: 41
+    insert_time_ms: 2
+    insert_new_count: 57
+    insert_reused_count: 6
+-   query: EXPLAIN SELECT * FROM "___T6.__UNESCAPED" WHERE "T6$__ENUM_2" = '__D.__'
+    explain: ISCAN(T6$ENUM2 [EQUALS promote(@c8 AS ENUM<A(0), B__(1), C__(2), __D.__(3)>)])
+    task_count: 500
+    task_total_time_ms: 383
+    transform_count: 112
+    transform_time_ms: 119
+    transform_yield_count: 45
     insert_time_ms: 0
-    insert_new_count: 48
+    insert_new_count: 54
     insert_reused_count: 4
+-   query: EXPLAIN SELECT ID, "T6$__ENUM_1" FROM "___T6.__UNESCAPED" WHERE "T6$__ENUM_2"
+        = '__D.__'
+    explain: ISCAN(T6$ENUM2 [EQUALS promote(@c10 AS ENUM<A(0), B__(1), C__(2), __D.__(3)>)])
+        | MAP (_.ID AS ID, _.T6$__ENUM_1 AS T6$__ENUM_1)
+    task_count: 549
+    task_total_time_ms: 315
+    transform_count: 139
+    transform_time_ms: 130
+    transform_yield_count: 43
+    insert_time_ms: 1
+    insert_new_count: 59
+    insert_reused_count: 5

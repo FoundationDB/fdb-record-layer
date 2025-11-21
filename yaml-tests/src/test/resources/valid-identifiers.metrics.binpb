@@ -840,67 +840,122 @@ unnamed-12JEXPLAIN SELECT ID, "__T5__COL2" FROM T5__UNESCAPED WHERE "__T5__COL2
   4 -> 3 [ label=<&nbsp;q19> label="q19" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q26> label="q26" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}‰
+}÷	
 7
 
-unnamed-12)EXPLAIN SELECT * FROM "___T6.__UNESCAPED"®
-®Ü€ÍH ã¥„(0“ƒ8@ISCAN(T6$COL2 <,>)ˆdigraph G {
+unnamed-12)EXPLAIN SELECT * FROM "___T6.__UNESCAPED"ö	
+ïƒÍ“lb Ä¥∏-(+0íì&8*@ISCAN(T6$ENUM2 <,>)Ádigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T6$__COL1__, LONG AS __T6.COL2__VALUE)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T6$COL2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T6$__COL1__, LONG AS __T6.COL2__VALUE)" ];
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T6$__COL1__, LONG AS __T6.COL2__VALUE, ENUM&lt;A(0), B__(1), C__(2), __D.__(3)&gt; AS T6$__ENUM_1, ENUM&lt;A(0), B__(1), C__(2), __D.__(3)&gt; AS T6$__ENUM_2)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T6$ENUM2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T6$__COL1__, LONG AS __T6.COL2__VALUE, ENUM&lt;A(0), B__(1), C__(2), __D.__(3)&gt; AS T6$__ENUM_1, ENUM&lt;A(0), B__(1), C__(2), __D.__(3)&gt; AS T6$__ENUM_2)" ];
   2 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}»
+}≥
 P
 
-unnamed-12BEXPLAIN SELECT * FROM "___T6.__UNESCAPED" WHERE "T6$__COL1__" = 10Û
-ﬂäí˛Q Éå÷(0√”,8%@EISCAN(T6$COL2 <,>) | FILTER _.T6$__COL1__ EQUALS promote(@c8 AS LONG)édigraph G {
+unnamed-12BEXPLAIN SELECT * FROM "___T6.__UNESCAPED" WHERE "T6$__COL1__" = 10ﬁ
+‰Á≤ú•n ﬂÀ¶8(,0πÇZ86@FISCAN(T6$ENUM2 <,>) | FILTER _.T6$__COL1__ EQUALS promote(@c8 AS LONG)˜digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.T6$__COL1__ EQUALS promote(@c8 AS LONG)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T6$__COL1__, LONG AS __T6.COL2__VALUE)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T6$__COL1__, LONG AS __T6.COL2__VALUE)" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T6$COL2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T6$__COL1__, LONG AS __T6.COL2__VALUE)" ];
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.T6$__COL1__ EQUALS promote(@c8 AS LONG)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T6$__COL1__, LONG AS __T6.COL2__VALUE, ENUM&lt;A(0), B__(1), C__(2), __D.__(3)&gt; AS T6$__ENUM_1, ENUM&lt;A(0), B__(1), C__(2), __D.__(3)&gt; AS T6$__ENUM_2)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T6$__COL1__, LONG AS __T6.COL2__VALUE, ENUM&lt;A(0), B__(1), C__(2), __D.__(3)&gt; AS T6$__ENUM_1, ENUM&lt;A(0), B__(1), C__(2), __D.__(3)&gt; AS T6$__ENUM_2)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T6$ENUM2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T6$__COL1__, LONG AS __T6.COL2__VALUE, ENUM&lt;A(0), B__(1), C__(2), __D.__(3)&gt; AS T6$__ENUM_1, ENUM&lt;A(0), B__(1), C__(2), __D.__(3)&gt; AS T6$__ENUM_2)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}≠
+}ò
 e
 
-unnamed-12WEXPLAIN SELECT ID, "__T6.COL2__VALUE" FROM "___T6.__UNESCAPED" WHERE "T6$__COL1__" = 10√
-˜¿˝¸c –Õ¶(0ﬁ—38'@ÅISCAN(T6$COL2 <,>) | FILTER _.T6$__COL1__ EQUALS promote(@c10 AS LONG) | MAP (_.ID AS ID, _.__T6.COL2__VALUE AS __T6.COL2__VALUE)°digraph G {
+unnamed-12WEXPLAIN SELECT ID, "__T6.COL2__VALUE" FROM "___T6.__UNESCAPED" WHERE "T6$__COL1__" = 10Æ
+à≠ˇ˘çà ´ÅÉO()0ıÎ∑89@ÅISCAN(T6$COL2 <,>) | FILTER _.T6$__COL1__ EQUALS promote(@c10 AS LONG) | MAP (_.ID AS ID, _.__T6.COL2__VALUE AS __T6.COL2__VALUE)âdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q43.ID AS ID, q43.__T6.COL2__VALUE AS __T6.COL2__VALUE)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS __T6.COL2__VALUE)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.T6$__COL1__ EQUALS promote(@c10 AS LONG)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T6$__COL1__, LONG AS __T6.COL2__VALUE)" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T6$__COL1__, LONG AS __T6.COL2__VALUE)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T6$COL2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T6$__COL1__, LONG AS __T6.COL2__VALUE)" ];
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q60.ID AS ID, q60.__T6.COL2__VALUE AS __T6.COL2__VALUE)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS __T6.COL2__VALUE)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.T6$__COL1__ EQUALS promote(@c10 AS LONG)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T6$__COL1__, LONG AS __T6.COL2__VALUE, ENUM&lt;A(0), B__(1), C__(2), __D.__(3)&gt; AS T6$__ENUM_1, ENUM&lt;A(0), B__(1), C__(2), __D.__(3)&gt; AS T6$__ENUM_2)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T6$__COL1__, LONG AS __T6.COL2__VALUE, ENUM&lt;A(0), B__(1), C__(2), __D.__(3)&gt; AS T6$__ENUM_1, ENUM&lt;A(0), B__(1), C__(2), __D.__(3)&gt; AS T6$__ENUM_2)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T6$COL2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T6$__COL1__, LONG AS __T6.COL2__VALUE, ENUM&lt;A(0), B__(1), C__(2), __D.__(3)&gt; AS T6$__ENUM_1, ENUM&lt;A(0), B__(1), C__(2), __D.__(3)&gt; AS T6$__ENUM_2)" ];
   3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q43> label="q43" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}∏
+  2 -> 1 [ label=<&nbsp;q60> label="q60" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}©
+
 U
 
-unnamed-12GEXPLAIN SELECT * FROM "___T6.__UNESCAPED" WHERE "__T6.COL2__VALUE" < 10ﬁ
-Ô“¥≥U €íû(0…—'8%@1ISCAN(T6$COL2 [[LESS_THAN promote(@c8 AS LONG)]])çdigraph G {
+unnamed-12GEXPLAIN SELECT * FROM "___T6.__UNESCAPED" WHERE "__T6.COL2__VALUE" < 10œ	
+Ùó±¥®r ‘πΩ=(-0òîJ86@1ISCAN(T6$COL2 [[LESS_THAN promote(@c8 AS LONG)]])˝digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [[LESS_THAN promote(@c8 AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T6$__COL1__, LONG AS __T6.COL2__VALUE)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T6$COL2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T6$__COL1__, LONG AS __T6.COL2__VALUE)" ];
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [[LESS_THAN promote(@c8 AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T6$__COL1__, LONG AS __T6.COL2__VALUE, ENUM&lt;A(0), B__(1), C__(2), __D.__(3)&gt; AS T6$__ENUM_1, ENUM&lt;A(0), B__(1), C__(2), __D.__(3)&gt; AS T6$__ENUM_2)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T6$COL2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T6$__COL1__, LONG AS __T6.COL2__VALUE, ENUM&lt;A(0), B__(1), C__(2), __D.__(3)&gt; AS T6$__ENUM_1, ENUM&lt;A(0), B__(1), C__(2), __D.__(3)&gt; AS T6$__ENUM_2)" ];
   2 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}’
+}»
 j
 
-unnamed-12\EXPLAIN SELECT ID, "__T6.COL2__VALUE" FROM "___T6.__UNESCAPED" WHERE "__T6.COL2__VALUE" < 10Ê
-œŒ¨›n Óê‡("0Ö‰80@úCOVERING(T6$COL2 [[LESS_THAN promote(@c10 AS LONG)]] -> [ID: KEY[2], __T6__2COL2__VALUE: KEY[0]]) | MAP (_.ID AS ID, _.__T6.COL2__VALUE AS __T6.COL2__VALUE)©digraph G {
+unnamed-12\EXPLAIN SELECT ID, "__T6.COL2__VALUE" FROM "___T6.__UNESCAPED" WHERE "__T6.COL2__VALUE" < 10Ÿ
+‡ÅùÈ√ì ÂıçI(/0¥ûÖ8B@úCOVERING(T6$COL2 [[LESS_THAN promote(@c10 AS LONG)]] -> [ID: KEY[2], __T6__2COL2__VALUE: KEY[0]]) | MAP (_.ID AS ID, _.__T6.COL2__VALUE AS __T6.COL2__VALUE)ôdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q65.ID AS ID, q65.__T6.COL2__VALUE AS __T6.COL2__VALUE)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS __T6.COL2__VALUE)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [[LESS_THAN promote(@c10 AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T6$__COL1__, LONG AS __T6.COL2__VALUE)" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T6$COL2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T6$__COL1__, LONG AS __T6.COL2__VALUE)" ];
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q92.ID AS ID, q92.__T6.COL2__VALUE AS __T6.COL2__VALUE)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS __T6.COL2__VALUE)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [[LESS_THAN promote(@c10 AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T6$__COL1__, LONG AS __T6.COL2__VALUE, ENUM&lt;A(0), B__(1), C__(2), __D.__(3)&gt; AS T6$__ENUM_1, ENUM&lt;A(0), B__(1), C__(2), __D.__(3)&gt; AS T6$__ENUM_2)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T6$COL2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T6$__COL1__, LONG AS __T6.COL2__VALUE, ENUM&lt;A(0), B__(1), C__(2), __D.__(3)&gt; AS T6$__ENUM_1, ENUM&lt;A(0), B__(1), C__(2), __D.__(3)&gt; AS T6$__ENUM_2)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q65> label="q65" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q92> label="q92" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}Å
+V
+
+unnamed-12HEXPLAIN SELECT * FROM "___T6.__UNESCAPED" WHERE "T6$__ENUM_1" = '__D.__'¶
+‰“∆¡ün £∆Å?(,0≤¥F86@gISCAN(T6$ENUM2 <,>) | FILTER _.T6$__ENUM_1 EQUALS promote(@c8 AS ENUM<A(0), B__(1), C__(2), __D.__(3)>)ûdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.T6$__ENUM_1 EQUALS promote(@c8 AS ENUM&lt;A(0), B__(1), C__(2), __D.__(3)&gt;)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T6$__COL1__, LONG AS __T6.COL2__VALUE, ENUM&lt;A(0), B__(1), C__(2), __D.__(3)&gt; AS T6$__ENUM_1, ENUM&lt;A(0), B__(1), C__(2), __D.__(3)&gt; AS T6$__ENUM_2)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T6$__COL1__, LONG AS __T6.COL2__VALUE, ENUM&lt;A(0), B__(1), C__(2), __D.__(3)&gt; AS T6$__ENUM_1, ENUM&lt;A(0), B__(1), C__(2), __D.__(3)&gt; AS T6$__ENUM_2)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T6$ENUM2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T6$__COL1__, LONG AS __T6.COL2__VALUE, ENUM&lt;A(0), B__(1), C__(2), __D.__(3)&gt; AS T6$__ENUM_1, ENUM&lt;A(0), B__(1), C__(2), __D.__(3)&gt; AS T6$__ENUM_2)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}Ô
+f
+
+unnamed-12XEXPLAIN SELECT ID, "T6$__ENUM_2" FROM "___T6.__UNESCAPED" WHERE "T6$__ENUM_1" = '__D.__'Ñ
+à‹¬àíà ‡üO()0Î∫ï89@òISCAN(T6$COL2 <,>) | FILTER _.T6$__ENUM_1 EQUALS promote(@c10 AS ENUM<A(0), B__(1), C__(2), __D.__(3)>) | MAP (_.ID AS ID, _.T6$__ENUM_2 AS T6$__ENUM_2)»digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q60.ID AS ID, q60.T6$__ENUM_2 AS T6$__ENUM_2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, ENUM&lt;A(0), B__(1), C__(2), __D.__(3)&gt; AS T6$__ENUM_2)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.T6$__ENUM_1 EQUALS promote(@c10 AS ENUM&lt;A(0), B__(1), C__(2), __D.__(3)&gt;)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T6$__COL1__, LONG AS __T6.COL2__VALUE, ENUM&lt;A(0), B__(1), C__(2), __D.__(3)&gt; AS T6$__ENUM_1, ENUM&lt;A(0), B__(1), C__(2), __D.__(3)&gt; AS T6$__ENUM_2)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T6$__COL1__, LONG AS __T6.COL2__VALUE, ENUM&lt;A(0), B__(1), C__(2), __D.__(3)&gt; AS T6$__ENUM_1, ENUM&lt;A(0), B__(1), C__(2), __D.__(3)&gt; AS T6$__ENUM_2)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T6$COL2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T6$__COL1__, LONG AS __T6.COL2__VALUE, ENUM&lt;A(0), B__(1), C__(2), __D.__(3)&gt; AS T6$__ENUM_1, ENUM&lt;A(0), B__(1), C__(2), __D.__(3)&gt; AS T6$__ENUM_2)" ];
+  3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q60> label="q60" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}Í
+
+V
+
+unnamed-12HEXPLAIN SELECT * FROM "___T6.__UNESCAPED" WHERE "T6$__ENUM_2" = '__D.__'è
+
+Ùƒ∫˝∂p ¥ÛÏ8(-0®Â;86@NISCAN(T6$ENUM2 [EQUALS promote(@c8 AS ENUM<A(0), B__(1), C__(2), __D.__(3)>)])†	digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c8 AS ENUM&lt;A(0), B__(1), C__(2), __D.__(3)&gt;)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T6$__COL1__, LONG AS __T6.COL2__VALUE, ENUM&lt;A(0), B__(1), C__(2), __D.__(3)&gt; AS T6$__ENUM_1, ENUM&lt;A(0), B__(1), C__(2), __D.__(3)&gt; AS T6$__ENUM_2)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T6$ENUM2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T6$__COL1__, LONG AS __T6.COL2__VALUE, ENUM&lt;A(0), B__(1), C__(2), __D.__(3)&gt; AS T6$__ENUM_1, ENUM&lt;A(0), B__(1), C__(2), __D.__(3)&gt; AS T6$__ENUM_2)" ];
+  2 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}’
+f
+
+unnamed-12XEXPLAIN SELECT ID, "T6$__ENUM_1" FROM "___T6.__UNESCAPED" WHERE "T6$__ENUM_2" = '__D.__'Í
+•±˝°ñã ¬œ¨>(+0Ó¯n8;@ÄISCAN(T6$ENUM2 [EQUALS promote(@c10 AS ENUM<A(0), B__(1), C__(2), __D.__(3)>)]) | MAP (_.ID AS ID, _.T6$__ENUM_1 AS T6$__ENUM_1)«digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q2.ID AS ID, q2.T6$__ENUM_1 AS T6$__ENUM_1)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, ENUM&lt;A(0), B__(1), C__(2), __D.__(3)&gt; AS T6$__ENUM_1)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c10 AS ENUM&lt;A(0), B__(1), C__(2), __D.__(3)&gt;)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T6$__COL1__, LONG AS __T6.COL2__VALUE, ENUM&lt;A(0), B__(1), C__(2), __D.__(3)&gt; AS T6$__ENUM_1, ENUM&lt;A(0), B__(1), C__(2), __D.__(3)&gt; AS T6$__ENUM_2)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T6$ENUM2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T6$__COL1__, LONG AS __T6.COL2__VALUE, ENUM&lt;A(0), B__(1), C__(2), __D.__(3)&gt; AS T6$__ENUM_1, ENUM&lt;A(0), B__(1), C__(2), __D.__(3)&gt; AS T6$__ENUM_2)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
 }

@@ -544,14 +544,14 @@ setup:
                (30,  5, -1),
                (31, -1, -1)
     - query: INSERT INTO "___T6.__UNESCAPED"
-        VALUES (32, 10, 16),
-               (33, 10, 17),
-               (34, 10, 18),
-               (35, 10, 19),
-               (36, 10, 20),
-               (37, -1,  5),
-               (38,  5, -1),
-               (39, -1, -1)
+        VALUES (32, 10, 16, 'A',      'A'),
+               (33, 10, 17, 'B__',    'B__'),
+               (34, 10, 18, 'C__',    'C__'),
+               (35, 10, 19, '__D.__', '__D.__'),
+               (36, 10, 20, 'B__',    'A'),
+               (37, -1,  5, 'C__',    'B__'),
+               (38,  5, -1, '__D.__', 'C__'),
+               (39, -1, -1, 'A',      '__D.__')
 ---
 test_block:
   connect: "jdbc:embed:/FRL/IDENTIFIERS_PROTO_YAML?schema=TEST"
@@ -694,26 +694,26 @@ test_block:
         ]
     -
       - query: SELECT * FROM "___T6.__UNESCAPED"
-      - explain: "ISCAN(T6$COL2 <,>)"
+      - explain: "ISCAN(T6$ENUM2 <,>)"
       - unorderedResult: [
-          {"ID": 32, "T6$__COL1__": 10, "__T6.COL2__VALUE" : 16},
-          {"ID": 33, "T6$__COL1__": 10, "__T6.COL2__VALUE" : 17},
-          {"ID": 34, "T6$__COL1__": 10, "__T6.COL2__VALUE" : 18},
-          {"ID": 35, "T6$__COL1__": 10, "__T6.COL2__VALUE" : 19},
-          {"ID": 36, "T6$__COL1__": 10, "__T6.COL2__VALUE" : 20},
-          {"ID": 37, "T6$__COL1__": -1, "__T6.COL2__VALUE" :  5},
-          {"ID": 38, "T6$__COL1__":  5, "__T6.COL2__VALUE" : -1},
-          {"ID": 39, "T6$__COL1__": -1, "__T6.COL2__VALUE" : -1},
+          {"ID": 32, "T6$__COL1__": 10, "__T6.COL2__VALUE" : 16, "T6$__ENUM_1": 'A',      "T6$__ENUM_2": 'A' },
+          {"ID": 33, "T6$__COL1__": 10, "__T6.COL2__VALUE" : 17, "T6$__ENUM_1": 'B__',    "T6$__ENUM_2": 'B__' },
+          {"ID": 34, "T6$__COL1__": 10, "__T6.COL2__VALUE" : 18, "T6$__ENUM_1": 'C__',    "T6$__ENUM_2": 'C__' },
+          {"ID": 35, "T6$__COL1__": 10, "__T6.COL2__VALUE" : 19, "T6$__ENUM_1": '__D.__', "T6$__ENUM_2": '__D.__' },
+          {"ID": 36, "T6$__COL1__": 10, "__T6.COL2__VALUE" : 20, "T6$__ENUM_1": 'B__',    "T6$__ENUM_2": 'A' },
+          {"ID": 37, "T6$__COL1__": -1, "__T6.COL2__VALUE" :  5, "T6$__ENUM_1": 'C__',    "T6$__ENUM_2": 'B__' },
+          {"ID": 38, "T6$__COL1__":  5, "__T6.COL2__VALUE" : -1, "T6$__ENUM_1": '__D.__', "T6$__ENUM_2": 'C__' },
+          {"ID": 39, "T6$__COL1__": -1, "__T6.COL2__VALUE" : -1, "T6$__ENUM_1": 'A',      "T6$__ENUM_2": '__D.__' },
         ]
     -
       - query: SELECT * FROM "___T6.__UNESCAPED" WHERE "T6$__COL1__" = 10
-      - explain: "ISCAN(T6$COL2 <,>) | FILTER _.T6$__COL1__ EQUALS promote(@c8 AS LONG)"
+      - explain: "ISCAN(T6$ENUM2 <,>) | FILTER _.T6$__COL1__ EQUALS promote(@c8 AS LONG)"
       - unorderedResult: [
-          {"ID": 32, "T6$__COL1__": 10, "__T6.COL2__VALUE" : 16},
-          {"ID": 33, "T6$__COL1__": 10, "__T6.COL2__VALUE" : 17},
-          {"ID": 34, "T6$__COL1__": 10, "__T6.COL2__VALUE" : 18},
-          {"ID": 35, "T6$__COL1__": 10, "__T6.COL2__VALUE" : 19},
-          {"ID": 36, "T6$__COL1__": 10, "__T6.COL2__VALUE" : 20},
+          {"ID": 32, "T6$__COL1__": 10, "__T6.COL2__VALUE" : 16, "T6$__ENUM_1": 'A',      "T6$__ENUM_2": 'A' },
+          {"ID": 33, "T6$__COL1__": 10, "__T6.COL2__VALUE" : 17, "T6$__ENUM_1": 'B__',    "T6$__ENUM_2": 'B__' },
+          {"ID": 34, "T6$__COL1__": 10, "__T6.COL2__VALUE" : 18, "T6$__ENUM_1": 'C__',    "T6$__ENUM_2": 'C__' },
+          {"ID": 35, "T6$__COL1__": 10, "__T6.COL2__VALUE" : 19, "T6$__ENUM_1": '__D.__', "T6$__ENUM_2": '__D.__' },
+          {"ID": 36, "T6$__COL1__": 10, "__T6.COL2__VALUE" : 20, "T6$__ENUM_1": 'B__',    "T6$__ENUM_2": 'A' },
         ]
     -
       - query: SELECT ID, "__T6.COL2__VALUE" FROM "___T6.__UNESCAPED" WHERE "T6$__COL1__" = 10
@@ -729,9 +729,9 @@ test_block:
       - query: SELECT * FROM "___T6.__UNESCAPED" WHERE "__T6.COL2__VALUE" < 10
       - explain: "ISCAN(T6$COL2 [[LESS_THAN promote(@c8 AS LONG)]])"
       - result: [
-          {"ID": 38, "T6$__COL1__":  5, "__T6.COL2__VALUE" : -1},
-          {"ID": 39, "T6$__COL1__": -1, "__T6.COL2__VALUE" : -1},
-          {"ID": 37, "T6$__COL1__": -1, "__T6.COL2__VALUE" :  5},
+          {"ID": 38, "T6$__COL1__":  5, "__T6.COL2__VALUE" : -1, "T6$__ENUM_1": '__D.__', "T6$__ENUM_2": 'C__' },
+          {"ID": 39, "T6$__COL1__": -1, "__T6.COL2__VALUE" : -1, "T6$__ENUM_1": 'A',      "T6$__ENUM_2": '__D.__' },
+          {"ID": 37, "T6$__COL1__": -1, "__T6.COL2__VALUE" :  5, "T6$__ENUM_1": 'C__',    "T6$__ENUM_2": 'B__' },
         ]
     -
       - query: SELECT ID, "__T6.COL2__VALUE" FROM "___T6.__UNESCAPED" WHERE "__T6.COL2__VALUE" < 10
@@ -740,6 +740,38 @@ test_block:
           {"ID": 38, "__T6.COL2__VALUE" : -1},
           {"ID": 39, "__T6.COL2__VALUE" : -1},
           {"ID": 37, "__T6.COL2__VALUE" :  5},
+        ]
+    -
+      - query: SELECT * FROM "___T6.__UNESCAPED" WHERE "T6$__ENUM_1" = '__D.__'
+      - explain: "ISCAN(T6$ENUM2 <,>) | FILTER _.T6$__ENUM_1 EQUALS promote(@c8 AS ENUM<A(0), B__(1), C__(2), __D.__(3)>)"
+      - unorderedResult: [
+          {"ID": 35, "T6$__COL1__": 10, "__T6.COL2__VALUE" : 19, "T6$__ENUM_1": '__D.__', "T6$__ENUM_2": '__D.__' },
+          {"ID": 38, "T6$__COL1__":  5, "__T6.COL2__VALUE" : -1, "T6$__ENUM_1": '__D.__', "T6$__ENUM_2": 'C__' },
+        ]
+    -
+      - query: SELECT ID, "T6$__ENUM_2" FROM "___T6.__UNESCAPED" WHERE "T6$__ENUM_1" = '__D.__'
+      - explain: "ISCAN(T6$COL2 <,>) | FILTER _.T6$__ENUM_1 EQUALS promote(@c10 AS ENUM<A(0), B__(1), C__(2), __D.__(3)>) | MAP (_.ID AS ID, _.T6$__ENUM_2 AS T6$__ENUM_2)"
+      - unorderedResult: [
+          {"ID": 35, "T6$__ENUM_2": '__D.__' },
+          {"ID": 38, "T6$__ENUM_2": 'C__' },
+        ]
+    -
+      - query: SELECT * FROM "___T6.__UNESCAPED" WHERE "T6$__ENUM_2" = '__D.__'
+      - explain: "ISCAN(T6$ENUM2 [EQUALS promote(@c8 AS ENUM<A(0), B__(1), C__(2), __D.__(3)>)])"
+      # Disable force_continuations on this plan until we resolve: https://github.com/FoundationDB/fdb-record-layer/issues/3734
+      - maxRows: 0
+      - result: [
+          {"ID": 35, "T6$__COL1__": 10, "__T6.COL2__VALUE" : 19, "T6$__ENUM_1": '__D.__', "T6$__ENUM_2": '__D.__' },
+          {"ID": 39, "T6$__COL1__": -1, "__T6.COL2__VALUE" : -1, "T6$__ENUM_1": 'A',      "T6$__ENUM_2": '__D.__' },
+        ]
+    -
+      - query: SELECT ID, "T6$__ENUM_1" FROM "___T6.__UNESCAPED" WHERE "T6$__ENUM_2" = '__D.__'
+      - explain: "ISCAN(T6$ENUM2 [EQUALS promote(@c10 AS ENUM<A(0), B__(1), C__(2), __D.__(3)>)]) | MAP (_.ID AS ID, _.T6$__ENUM_1 AS T6$__ENUM_1)"
+      # Disable force_continuations on this plan until we resolve: https://github.com/FoundationDB/fdb-record-layer/issues/3734
+      - maxRows: 0
+      - result: [
+          {"ID": 35, "T6$__ENUM_1": '__D.__' },
+          {"ID": 39, "T6$__ENUM_1": 'A' },
         ]
 ---
 setup:

@@ -75,10 +75,19 @@ message T5__UNESCAPED {
   int64 __T5__COL2 = 3;
 }
 
+enum T6__2__ENUM__0 {
+  A = 0;
+  B__0 = 1;
+  C__ = 2;
+  __D__2__ = 3;
+}
+
 message ___T6__2__UNESCAPED {
   int64 ID = 1;
   int64 T6__1__COL1__0 = 2;
   int64 __T6__2COL2__VALUE = 3;
+  optional T6__2__ENUM__0 T6__1__ENUM_1 = 4;
+  optional T6__2__ENUM__0 T6__1__ENUM_2 = 5;
 }
 
 message RecordTypeUnion {

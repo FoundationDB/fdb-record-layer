@@ -145,7 +145,13 @@ public class PromoteValue extends AbstractValue implements CreatesDynamicTypesVa
 
         @Nonnull
         public static Descriptors.EnumValueDescriptor stringToEnumValue(Descriptors.EnumDescriptor enumDescriptor, String value) {
-            final var maybeValue = enumDescriptor.findValueByName(ProtoUtils.toProtoBufCompliantName(value));
+            Descriptors.EnumValueDescriptor maybeValue = null;
+            for (Descriptors.EnumValueDescriptor valueDescriptor : enumDescriptor.getValues()) {
+                if (ProtoUtils.toUserIdentifier(valueDescriptor.getName()).equals(value)) {
+                    maybeValue = valueDescriptor;
+                    break;
+                }
+            }
             SemanticException.check(maybeValue != null, SemanticException.ErrorCode.INVALID_ENUM_VALUE, value);
             return maybeValue;
         }
