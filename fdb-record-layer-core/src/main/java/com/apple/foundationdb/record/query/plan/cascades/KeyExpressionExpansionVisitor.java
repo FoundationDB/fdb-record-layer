@@ -242,7 +242,7 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
             case None:
                 List<String> newPrefix = ImmutableList.<String>builder()
                         .addAll(fieldNamePrefix)
-                        .add(parent.getFieldName())
+                        .add(ProtoUtils.toUserIdentifier((parent.getFieldName())))
                         .build();
                 if (NullableArrayTypeUtils.isArrayWrapper(nestingKeyExpression)) {
                     final RecordKeyExpressionProto.KeyExpression childProto = nestingKeyExpression.getChild().toKeyExpression();

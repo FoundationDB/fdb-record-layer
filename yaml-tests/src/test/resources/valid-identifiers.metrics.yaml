@@ -1,4 +1,33 @@
 all-tests:
+-   query: EXPLAIN select t.id from "foo.table$nested.repeated" as t, t."level0.field1"
+        as b where exists (select "level2$array.field.1" from b."level1$field.1" where
+        "level2$array.field.1" = 10)
+    explain: SCAN(<,>) | TFILTER foo__2table__1nested__2repeated | FLATMAP q0 -> {
+        EXPLODE q0.level0.field1 | FLATMAP q1 -> { EXPLODE q1.level1$field.1 | FILTER
+        _.level2$array.field.1 EQUALS promote(@c27 AS LONG) | MAP (_.level2$array.field.1
+        AS level2$array.field.1) | DEFAULT NULL | FILTER _ NOT_NULL AS q2 RETURN (1
+        AS _0) } AS q3 RETURN (q0.ID AS ID) }
+    task_count: 471
+    task_total_time_ms: 165
+    transform_count: 173
+    transform_time_ms: 127
+    transform_yield_count: 32
+    insert_time_ms: 7
+    insert_new_count: 42
+    insert_reused_count: 5
+-   query: EXPLAIN select "level0.field1"."level1$field.1"."level2$field.1" from "foo.table$nested"
+        where id = 1
+    explain: 'COVERING(foo.table$nested.idx <,> -> [ID: KEY[2], level0__2field1: [level1__1field__21:
+        [level2__1field__21: KEY[0]]]]) | FILTER _.ID EQUALS promote(@c12 AS LONG)
+        | MAP (_.level0.field1.level1$field.1.level2$field.1 AS level2$field.1)'
+    task_count: 474
+    task_total_time_ms: 196
+    transform_count: 114
+    transform_time_ms: 143
+    transform_yield_count: 33
+    insert_time_ms: 10
+    insert_new_count: 52
+    insert_reused_count: 6
 -   query: EXPLAIN select "foo.tableA".* from "foo.tableA";
     explain: 'COVERING(foo.tableA.idx <,> -> [foo__2tableA__2A1: KEY[0], foo__2tableA__2A2:
         KEY[1], foo__2tableA__2A3: KEY[2]]) | MAP (_.foo.tableA.A1 AS foo.tableA.A1,
