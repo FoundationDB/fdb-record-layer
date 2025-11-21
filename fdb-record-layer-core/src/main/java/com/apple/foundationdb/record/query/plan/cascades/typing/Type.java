@@ -2128,7 +2128,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
          * @param isNullable True if the record type is nullable, otherwise false.
          * @param normalizedFields The list of {@link Record} {@link Field}s.
          */
-        protected Record(@Nullable final String name, @Nullable final String storageName, final boolean isNullable, @Nullable final List<Field> normalizedFields) {
+        public Record(@Nullable final String name, @Nullable final String storageName, final boolean isNullable, @Nullable final List<Field> normalizedFields) {
             this.name = name;
             this.storageName = storageName;
             this.isNullable = isNullable;

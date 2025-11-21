@@ -69,9 +69,23 @@ message T4 {
   int64 T4__2COL2 = 4;
 }
 
+message T5__UNESCAPED {
+  int64 ID = 1;
+  int64 T5__COL1 = 2;
+  int64 __T5__COL2 = 3;
+}
+
+message ___T6__2__UNESCAPED {
+  int64 ID = 1;
+  int64 T6__1__COL1__0 = 2;
+  int64 __T6__2COL2__VALUE = 3;
+}
+
 message RecordTypeUnion {
   T1 _T1 = 1;
   T2 _T2 = 2;
   __T3 ___T3 = 3;
   T4 _T4 = 4;
+  T5__UNESCAPED _T5__UNESCAPED = 5;
+  ___T6__2__UNESCAPED ____T6__2__UNESCAPED = 6;
 }

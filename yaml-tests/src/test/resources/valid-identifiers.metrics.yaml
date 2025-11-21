@@ -578,3 +578,112 @@ unnamed-12:
     insert_time_ms: 0
     insert_new_count: 15
     insert_reused_count: 2
+-   query: EXPLAIN SELECT * FROM T5__UNESCAPED
+    explain: SCAN(<,>) | TFILTER T5__UNESCAPED
+    task_count: 159
+    task_total_time_ms: 7
+    transform_count: 41
+    transform_time_ms: 2
+    transform_yield_count: 13
+    insert_time_ms: 0
+    insert_new_count: 13
+    insert_reused_count: 2
+-   query: EXPLAIN SELECT * FROM T5__UNESCAPED WHERE T5__COL1 = 10
+    explain: SCAN(<,>) | TFILTER T5__UNESCAPED | FILTER _.T5__COL1 EQUALS promote(@c8
+        AS LONG)
+    task_count: 187
+    task_total_time_ms: 4
+    transform_count: 48
+    transform_time_ms: 2
+    transform_yield_count: 14
+    insert_time_ms: 0
+    insert_new_count: 17
+    insert_reused_count: 2
+-   query: EXPLAIN SELECT ID, "__T5__COL2" FROM T5__UNESCAPED WHERE T5__COL1 = 10
+    explain: SCAN(<,>) | TFILTER T5__UNESCAPED | FILTER _.T5__COL1 EQUALS promote(@c10
+        AS LONG) | MAP (_.ID AS ID, _.__T5__COL2 AS __T5__COL2)
+    task_count: 230
+    task_total_time_ms: 10
+    transform_count: 61
+    transform_time_ms: 3
+    transform_yield_count: 15
+    insert_time_ms: 0
+    insert_new_count: 21
+    insert_reused_count: 2
+-   query: EXPLAIN SELECT * FROM T5__UNESCAPED WHERE "__T5__COL2" < 10
+    explain: SCAN(<,>) | TFILTER T5__UNESCAPED | FILTER _.__T5__COL2 LESS_THAN promote(@c8
+        AS LONG)
+    task_count: 187
+    task_total_time_ms: 10
+    transform_count: 48
+    transform_time_ms: 4
+    transform_yield_count: 14
+    insert_time_ms: 0
+    insert_new_count: 17
+    insert_reused_count: 2
+-   query: EXPLAIN SELECT ID, "__T5__COL2" FROM T5__UNESCAPED WHERE "__T5__COL2" <
+        10
+    explain: SCAN(<,>) | TFILTER T5__UNESCAPED | FILTER _.__T5__COL2 LESS_THAN promote(@c10
+        AS LONG) | MAP (_.ID AS ID, _.__T5__COL2 AS __T5__COL2)
+    task_count: 230
+    task_total_time_ms: 11
+    transform_count: 61
+    transform_time_ms: 4
+    transform_yield_count: 15
+    insert_time_ms: 0
+    insert_new_count: 21
+    insert_reused_count: 2
+-   query: EXPLAIN SELECT * FROM "___T6.__UNESCAPED"
+    explain: ISCAN(T6$COL2 <,>)
+    task_count: 296
+    task_total_time_ms: 10
+    transform_count: 72
+    transform_time_ms: 3
+    transform_yield_count: 29
+    insert_time_ms: 0
+    insert_new_count: 29
+    insert_reused_count: 3
+-   query: EXPLAIN SELECT * FROM "___T6.__UNESCAPED" WHERE "T6$__COL1__" = 10
+    explain: ISCAN(T6$COL2 <,>) | FILTER _.T6$__COL1__ EQUALS promote(@c8 AS LONG)
+    task_count: 351
+    task_total_time_ms: 12
+    transform_count: 81
+    transform_time_ms: 5
+    transform_yield_count: 30
+    insert_time_ms: 0
+    insert_new_count: 37
+    insert_reused_count: 2
+-   query: EXPLAIN SELECT ID, "__T6.COL2__VALUE" FROM "___T6.__UNESCAPED" WHERE "T6$__COL1__"
+        = 10
+    explain: ISCAN(T6$COL2 <,>) | FILTER _.T6$__COL1__ EQUALS promote(@c10 AS LONG)
+        | MAP (_.ID AS ID, _.__T6.COL2__VALUE AS __T6.COL2__VALUE)
+    task_count: 375
+    task_total_time_ms: 14
+    transform_count: 99
+    transform_time_ms: 4
+    transform_yield_count: 28
+    insert_time_ms: 0
+    insert_new_count: 39
+    insert_reused_count: 4
+-   query: EXPLAIN SELECT * FROM "___T6.__UNESCAPED" WHERE "__T6.COL2__VALUE" < 10
+    explain: ISCAN(T6$COL2 [[LESS_THAN promote(@c8 AS LONG)]])
+    task_count: 367
+    task_total_time_ms: 15
+    transform_count: 85
+    transform_time_ms: 6
+    transform_yield_count: 31
+    insert_time_ms: 0
+    insert_new_count: 37
+    insert_reused_count: 3
+-   query: EXPLAIN SELECT ID, "__T6.COL2__VALUE" FROM "___T6.__UNESCAPED" WHERE "__T6.COL2__VALUE"
+        < 10
+    explain: 'COVERING(T6$COL2 [[LESS_THAN promote(@c10 AS LONG)]] -> [ID: KEY[2],
+        __T6__2COL2__VALUE: KEY[0]]) | MAP (_.ID AS ID, _.__T6.COL2__VALUE AS __T6.COL2__VALUE)'
+    task_count: 463
+    task_total_time_ms: 9
+    transform_count: 110
+    transform_time_ms: 3
+    transform_yield_count: 34
+    insert_time_ms: 0
+    insert_new_count: 48
+    insert_reused_count: 4

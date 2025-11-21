@@ -138,7 +138,8 @@ public class RecordMetadataDeserializer {
     private RecordLayerTable.Builder generateTableBuilder(@Nonnull String userName, @Nonnull final RecordType recordType) {
         // todo (yhatem) we rely on the record type for deserialization from ProtoBuf for now, later on
         //      we will avoid this step by having our own deserializers.
-        final var recordLayerType = Type.Record.fromFieldsWithName(userName, false, Type.Record.fromDescriptor(recordType.getDescriptor()).getFields());
+        final var recordLayerType = new Type.Record(userName, recordType.getName(), false,
+                Type.Record.fromDescriptor(recordType.getDescriptor()).getFields());
         // todo (yhatem) this is hacky and must be cleaned up. We need to understand the actually field types so we can take decisions
         // on higher level based on these types (wave3).
         if (recordLayerType.getFields().stream().anyMatch(f -> f.getFieldType().isRecord())) {
@@ -147,14 +148,15 @@ public class RecordMetadataDeserializer {
                 final var protoField = recordType.getDescriptor().getFields().get(i);
                 final var field = recordLayerType.getField(i);
                 if (field.getFieldType().isRecord()) {
-                    Type.Record r = Type.Record.fromFieldsWithName(ProtoUtils.toUserIdentifier(protoField.getMessageType().getName()), field.getFieldType().isNullable(), ((Type.Record) field.getFieldType()).getFields());
+                    final String fieldTypeName = protoField.getMessageType().getName();
+                    Type.Record r = new Type.Record(ProtoUtils.toUserIdentifier(fieldTypeName), fieldTypeName, field.getFieldType().isNullable(), ((Type.Record) field.getFieldType()).getFields());
                     newFields.add(Type.Record.Field.of(r, field.getFieldNameOptional(), field.getFieldIndexOptional()));
                 } else {
                     newFields.add(field);
                 }
             }
             return RecordLayerTable.Builder
-                    .from(Type.Record.fromFieldsWithName(userName, false, newFields.build()))
+                    .from(new Type.Record(userName, recordType.getName(), false, newFields.build()))
                     .setPrimaryKey(recordType.getPrimaryKey())
                     .addIndexes(recordType.getIndexes().stream().map(index -> RecordLayerIndex.from(recordType.getName(), index)).collect(Collectors.toSet()));
         }

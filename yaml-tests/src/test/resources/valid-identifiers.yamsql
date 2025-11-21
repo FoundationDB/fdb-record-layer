@@ -18,7 +18,7 @@
 # limitations under the License.
 ---
 options:
-    supported_version: 4.8.13.0
+    supported_version: !current_version
 ---
 schema_template:
     CREATE TYPE AS STRUCT "foo.struct"(S1 bigint, S2 bigint)
@@ -534,6 +534,24 @@ setup:
                (21, (22, 20), -1,  5),
                (22, (22, 20),  5, -1),
                (23, (22, 20), -1, -1)
+    - query: INSERT INTO T5__UNESCAPED
+        VALUES (24, 10, 16),
+               (25, 10, 17),
+               (26, 10, 18),
+               (27, 10, 19),
+               (28, 10, 20),
+               (29, -1,  5),
+               (30,  5, -1),
+               (31, -1, -1)
+    - query: INSERT INTO "___T6.__UNESCAPED"
+        VALUES (32, 10, 16),
+               (33, 10, 17),
+               (34, 10, 18),
+               (35, 10, 19),
+               (36, 10, 20),
+               (37, -1,  5),
+               (38,  5, -1),
+               (39, -1, -1)
 ---
 test_block:
   connect: "jdbc:embed:/FRL/IDENTIFIERS_PROTO_YAML?schema=TEST"
@@ -625,6 +643,104 @@ test_block:
       - query: SELECT "___hidden"."a" FROM T4
       - explain: "SCAN(<,>) | TFILTER T4 | MAP (_.___hidden.a AS a)"
       - result: [{11}, {11}, {11}, {11}, {22}, {22}, {22}, {22} ]
+    -
+      - query: SELECT * FROM T5__UNESCAPED
+      - explain: "SCAN(<,>) | TFILTER T5__UNESCAPED"
+      - result: [
+          {"ID": 24, "T5__COL1": 10, "__T5__COL2" : 16},
+          {"ID": 25, "T5__COL1": 10, "__T5__COL2" : 17},
+          {"ID": 26, "T5__COL1": 10, "__T5__COL2" : 18},
+          {"ID": 27, "T5__COL1": 10, "__T5__COL2" : 19},
+          {"ID": 28, "T5__COL1": 10, "__T5__COL2" : 20},
+          {"ID": 29, "T5__COL1": -1, "__T5__COL2" :  5},
+          {"ID": 30, "T5__COL1":  5, "__T5__COL2" : -1},
+          {"ID": 31, "T5__COL1": -1, "__T5__COL2" : -1},
+        ]
+    -
+      - query: SELECT * FROM T5__UNESCAPED WHERE T5__COL1 = 10
+      - explain: "SCAN(<,>) | TFILTER T5__UNESCAPED | FILTER _.T5__COL1 EQUALS promote(@c8 AS LONG)"
+      - result: [
+          {"ID": 24, "T5__COL1": 10, "__T5__COL2" : 16},
+          {"ID": 25, "T5__COL1": 10, "__T5__COL2" : 17},
+          {"ID": 26, "T5__COL1": 10, "__T5__COL2" : 18},
+          {"ID": 27, "T5__COL1": 10, "__T5__COL2" : 19},
+          {"ID": 28, "T5__COL1": 10, "__T5__COL2" : 20},
+        ]
+    -
+      - query: SELECT ID, "__T5__COL2" FROM T5__UNESCAPED WHERE T5__COL1 = 10
+      - explain: "SCAN(<,>) | TFILTER T5__UNESCAPED | FILTER _.T5__COL1 EQUALS promote(@c10 AS LONG) | MAP (_.ID AS ID, _.__T5__COL2 AS __T5__COL2)"
+      - result: [
+          {"ID": 24, "__T5__COL2" : 16},
+          {"ID": 25, "__T5__COL2" : 17},
+          {"ID": 26, "__T5__COL2" : 18},
+          {"ID": 27, "__T5__COL2" : 19},
+          {"ID": 28, "__T5__COL2" : 20},
+        ]
+    -
+      - query: SELECT * FROM T5__UNESCAPED WHERE "__T5__COL2" < 10
+      - explain: "SCAN(<,>) | TFILTER T5__UNESCAPED | FILTER _.__T5__COL2 LESS_THAN promote(@c8 AS LONG)"
+      - result: [
+          {"ID": 29, "T5__COL1": -1, "__T5__COL2" :  5},
+          {"ID": 30, "T5__COL1":  5, "__T5__COL2" : -1},
+          {"ID": 31, "T5__COL1": -1, "__T5__COL2" : -1},
+        ]
+    -
+      - query: SELECT ID, "__T5__COL2" FROM T5__UNESCAPED WHERE "__T5__COL2" < 10
+      - explain: "SCAN(<,>) | TFILTER T5__UNESCAPED | FILTER _.__T5__COL2 LESS_THAN promote(@c10 AS LONG) | MAP (_.ID AS ID, _.__T5__COL2 AS __T5__COL2)"
+      - result: [
+          {"ID": 29, "__T5__COL2" :  5},
+          {"ID": 30, "__T5__COL2" : -1},
+          {"ID": 31, "__T5__COL2" : -1},
+        ]
+    -
+      - query: SELECT * FROM "___T6.__UNESCAPED"
+      - explain: "ISCAN(T6$COL2 <,>)"
+      - unorderedResult: [
+          {"ID": 32, "T6$__COL1__": 10, "__T6.COL2__VALUE" : 16},
+          {"ID": 33, "T6$__COL1__": 10, "__T6.COL2__VALUE" : 17},
+          {"ID": 34, "T6$__COL1__": 10, "__T6.COL2__VALUE" : 18},
+          {"ID": 35, "T6$__COL1__": 10, "__T6.COL2__VALUE" : 19},
+          {"ID": 36, "T6$__COL1__": 10, "__T6.COL2__VALUE" : 20},
+          {"ID": 37, "T6$__COL1__": -1, "__T6.COL2__VALUE" :  5},
+          {"ID": 38, "T6$__COL1__":  5, "__T6.COL2__VALUE" : -1},
+          {"ID": 39, "T6$__COL1__": -1, "__T6.COL2__VALUE" : -1},
+        ]
+    -
+      - query: SELECT * FROM "___T6.__UNESCAPED" WHERE "T6$__COL1__" = 10
+      - explain: "ISCAN(T6$COL2 <,>) | FILTER _.T6$__COL1__ EQUALS promote(@c8 AS LONG)"
+      - unorderedResult: [
+          {"ID": 32, "T6$__COL1__": 10, "__T6.COL2__VALUE" : 16},
+          {"ID": 33, "T6$__COL1__": 10, "__T6.COL2__VALUE" : 17},
+          {"ID": 34, "T6$__COL1__": 10, "__T6.COL2__VALUE" : 18},
+          {"ID": 35, "T6$__COL1__": 10, "__T6.COL2__VALUE" : 19},
+          {"ID": 36, "T6$__COL1__": 10, "__T6.COL2__VALUE" : 20},
+        ]
+    -
+      - query: SELECT ID, "__T6.COL2__VALUE" FROM "___T6.__UNESCAPED" WHERE "T6$__COL1__" = 10
+      - explain: "ISCAN(T6$COL2 <,>) | FILTER _.T6$__COL1__ EQUALS promote(@c10 AS LONG) | MAP (_.ID AS ID, _.__T6.COL2__VALUE AS __T6.COL2__VALUE)"
+      - unorderedResult: [
+          {"ID": 32, "__T6.COL2__VALUE" : 16},
+          {"ID": 33, "__T6.COL2__VALUE" : 17},
+          {"ID": 34, "__T6.COL2__VALUE" : 18},
+          {"ID": 35, "__T6.COL2__VALUE" : 19},
+          {"ID": 36, "__T6.COL2__VALUE" : 20},
+        ]
+    -
+      - query: SELECT * FROM "___T6.__UNESCAPED" WHERE "__T6.COL2__VALUE" < 10
+      - explain: "ISCAN(T6$COL2 [[LESS_THAN promote(@c8 AS LONG)]])"
+      - result: [
+          {"ID": 38, "T6$__COL1__":  5, "__T6.COL2__VALUE" : -1},
+          {"ID": 39, "T6$__COL1__": -1, "__T6.COL2__VALUE" : -1},
+          {"ID": 37, "T6$__COL1__": -1, "__T6.COL2__VALUE" :  5},
+        ]
+    -
+      - query: SELECT ID, "__T6.COL2__VALUE" FROM "___T6.__UNESCAPED" WHERE "__T6.COL2__VALUE" < 10
+      - explain: "COVERING(T6$COL2 [[LESS_THAN promote(@c10 AS LONG)]] -> [ID: KEY[2], __T6__2COL2__VALUE: KEY[0]]) | MAP (_.ID AS ID, _.__T6.COL2__VALUE AS __T6.COL2__VALUE)"
+      - result: [
+          {"ID": 38, "__T6.COL2__VALUE" : -1},
+          {"ID": 39, "__T6.COL2__VALUE" : -1},
+          {"ID": 37, "__T6.COL2__VALUE" :  5},
+        ]
 ---
 setup:
   connect: "jdbc:embed:/__SYS?schema=CATALOG"
