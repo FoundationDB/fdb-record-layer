@@ -174,10 +174,11 @@ public class VectorIndexTestBase extends FDBRecordStoreQueryTestBase {
         return records;
     }
 
-    private <M extends Message> List<FDBStoredRecord<M>> asyncBatch(@Nonnull final RecordMetaDataHook hook,
-                                                                    final int numRecords,
-                                                                    final int batchSize,
-                                                                    @Nonnull final Function<Long, CompletableFuture<FDBStoredRecord<M>>> recordConsumer) throws Exception {
+    private <M extends Message> List<FDBStoredRecord<M>>
+            asyncBatch(@Nonnull final RecordMetaDataHook hook,
+                       final int numRecords,
+                       final int batchSize,
+                       @Nonnull final Function<Long, CompletableFuture<FDBStoredRecord<M>>> recordConsumer) throws Exception {
         final List<FDBStoredRecord<M>> records = Lists.newArrayList();
         while (records.size() < numRecords) {
             try (FDBRecordContext context = openContext()) {

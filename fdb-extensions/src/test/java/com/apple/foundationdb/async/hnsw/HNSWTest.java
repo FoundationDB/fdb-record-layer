@@ -79,7 +79,7 @@ import java.util.TreeSet;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Function;
+import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import java.util.stream.LongStream;
 import java.util.stream.Stream;
@@ -235,9 +235,9 @@ class HNSWTest {
                 new TreeSet<>(Comparator.comparing(PrimaryKeyVectorAndDistance::getDistance));
 
         for (int i = 0; i < 1000;) {
-            i += basicInsertBatch(hnsw, 100, nextNodeIdAtomic, onReadListener,
-                    tr -> {
-                        final var primaryKey = createNextPrimaryKey(nextNodeIdAtomic);
+            i += basicInsertBatch(hnsw, 100, i, onReadListener,
+                    (tr, nextId) -> {
+                        final var primaryKey = createPrimaryKey(nextId);
                         final HalfRealVector dataVector = createRandomHalfVector(random, numDimensions);
                         final double distance = metric.distance(dataVector, queryVector);
                         final PrimaryKeyVectorAndDistance record =
@@ -247,6 +247,21 @@ class HNSWTest {
                             recordsOrderedByDistance.pollLast();
                         }
                         return record;
+                    });
+        }
+
+        //
+        // Attempt to mutate some records by updating them using the same primary keys but different random vectors.
+        // This should not fail but should be silently ignored. If this succeeds, the following searches will all
+        // return records that are not aligned with recordsOrderedByDistance.
+        //
+        for (int i = 0; i < 100;) {
+            i += basicInsertBatch(hnsw, 100, 0, onReadListener,
+                    (tr, ignored) -> {
+                        final var primaryKey = createPrimaryKey(random.nextInt(1000));
+                        final HalfRealVector dataVector = createRandomHalfVector(random, numDimensions);
+                        final double distance = metric.distance(dataVector, queryVector);
+                        return new PrimaryKeyVectorAndDistance(primaryKey, dataVector, distance);
                     });
         }
 
@@ -323,9 +338,9 @@ class HNSWTest {
                 new TreeSet<>(Comparator.comparing(PrimaryKeyVectorAndDistance::getDistance));
 
         for (int i = 0; i < 1000;) {
-            i += basicInsertBatch(hnsw, 100, nextNodeIdAtomic, new TestOnReadListener(),
-                    tr -> {
-                        final var primaryKey = createNextPrimaryKey(nextNodeIdAtomic);
+            i += basicInsertBatch(hnsw, 100, i, new TestOnReadListener(),
+                    (tr, nextId) -> {
+                        final var primaryKey = createPrimaryKey(nextId);
                         final DoubleRealVector dataVector = createRandomDoubleVector(random, numDimensions);
                         final double distance = metric.distance(dataVector, queryVector);
                         dataMap.put(primaryKey, dataVector);
@@ -396,14 +411,13 @@ class HNSWTest {
     }
 
     private int basicInsertBatch(final HNSW hnsw, final int batchSize,
-                                 @Nonnull final AtomicLong nextNodeIdAtomic, @Nonnull final TestOnReadListener onReadListener,
-                                 @Nonnull final Function<Transaction, PrimaryKeyAndVector> insertFunction) {
+                                 final long firstId, @Nonnull final TestOnReadListener onReadListener,
+                                 @Nonnull final BiFunction<Transaction, Long, PrimaryKeyAndVector> insertFunction) {
         return db.run(tr -> {
             onReadListener.reset();
-            final long nextNodeId = nextNodeIdAtomic.get();
             final long beginTs = System.nanoTime();
             for (int i = 0; i < batchSize; i ++) {
-                final var record = insertFunction.apply(tr);
+                final var record = insertFunction.apply(tr, firstId + i);
                 if (record == null) {
                     return i;
                 }
@@ -411,7 +425,7 @@ class HNSWTest {
             }
             final long endTs = System.nanoTime();
             logger.info("inserted batchSize={} records starting at nodeId={} took elapsedTime={}ms, readCounts={}, readBytes={}",
-                    batchSize, nextNodeId, TimeUnit.NANOSECONDS.toMillis(endTs - beginTs),
+                    batchSize, firstId, TimeUnit.NANOSECONDS.toMillis(endTs - beginTs),
                     onReadListener.getNodeCountByLayer(), onReadListener.getBytesReadByLayer());
             return batchSize;
         });
@@ -422,8 +436,6 @@ class HNSWTest {
     void testSIFTInsertSmall() throws Exception {
         final Metric metric = Metric.EUCLIDEAN_METRIC;
         final int k = 100;
-        final AtomicLong nextNodeIdAtomic = new AtomicLong(0L);
-
         final TestOnReadListener onReadListener = new TestOnReadListener();
 
         final HNSW hnsw = new HNSW(rtSubspace.getSubspace(), TestExecutors.defaultThreadPool(),
@@ -448,13 +460,13 @@ class HNSWTest {
             int i = 0;
             final AtomicReference<RealVector> sumReference = new AtomicReference<>(null);
             while (vectorIterator.hasNext()) {
-                i += basicInsertBatch(hnsw, 100, nextNodeIdAtomic, onReadListener,
-                        tr -> {
+                i += basicInsertBatch(hnsw, 100, i, onReadListener,
+                        (tr, nextId) -> {
                             if (!vectorIterator.hasNext()) {
                                 return null;
                             }
                             final DoubleRealVector doubleVector = vectorIterator.next();
-                            final Tuple currentPrimaryKey = createNextPrimaryKey(nextNodeIdAtomic);
+                            final Tuple currentPrimaryKey = createPrimaryKey(nextId);
                             final HalfRealVector currentVector = doubleVector.toHalfRealVector();
 
                             if (sumReference.get() == null) {
@@ -589,12 +601,12 @@ class HNSWTest {
 
     @Nonnull
     private static Tuple createRandomPrimaryKey(final @Nonnull Random random) {
-        return Tuple.from(random.nextLong());
+        return createPrimaryKey(random.nextLong());
     }
 
     @Nonnull
-    private static Tuple createNextPrimaryKey(@Nonnull final AtomicLong nextIdAtomic) {
-        return Tuple.from(nextIdAtomic.getAndIncrement());
+    private static Tuple createPrimaryKey(final long nextId) {
+        return Tuple.from(nextId);
     }
 
     private static class TestOnReadListener implements OnReadListener {

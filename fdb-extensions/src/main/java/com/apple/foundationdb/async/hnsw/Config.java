@@ -145,10 +145,34 @@ public final class Config {
     }
 
     /**
-     * Indicator if all layers except layer {@code 0} use inlining. If inlining is used, each node is persisted
-     * as a key/value pair per neighbor which includes the vectors of the neighbors but not for itself. If inlining is
-     * not used, each node is persisted as exactly one key/value pair per node which stores its own vector but
-     * specifically excludes the vectors of the neighbors.
+     * Indicator if all layers except layer {@code 0} use inlining. One entire layer is fully managed using either
+     * the compact or the inlining layout. If inlining is used, each node is persisted as a key/value pair per neighbor
+     * which includes the vectors of the neighbors but not the vector for itself. If inlining is not used, and therefore
+     * the compact layout is used instead, each node is persisted as exactly one key/value pair per node which stores
+     * its own vector but specifically excludes the vectors of the neighbors.
+     * <p>
+     * If a layer uses the compact storage layout, each vector is stored with the node and therefore is stored exactly
+     * once. During a nearest neighbor search, a fetch of the neighborhood of a node incurs a fetch (get) for each of
+     * the neighbors of that node.
+     * <p>
+     * If a layer uses the inlining storage layout, a vector of a node is stored with the neighboring information of an
+     * adjacent node pointing to this node and is therefore is stored multiple times (once per neighbor). During a
+     * nearest neighbor search, however, the neighboring vectors of a vector can all be fetched in one range scan.
+     * <p>
+     * Choosing which storage format is right for the use case depends on some factors:
+     * <ul>
+     *     <li>
+     *         Inlining leaves uses more storage in the database as vectors are stored multiple times. However, since
+     *         inlining is only supported for layers greater than {@code 0}, the overhead of storing more data should be
+     *         acceptable in most use cases.
+     *     </li>
+     *     <li>
+     *         Inlining should outperform the compact storage model during search. Tests have shown a latency
+     *         improvement of searches of roughly 5% - 10%. Insert performance is slightly decreased due to higher
+     *         number of bytes that need to be written. Note that this overhead can be mitigated by using
+     *         {@link #isUseRaBitQ()} to drastically reduce the sizes of vectors on disk.
+     *     </li>
+     * </ul>
      */
     public boolean isUseInlining() {
         return useInlining;
