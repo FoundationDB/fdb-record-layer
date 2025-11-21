@@ -21,7 +21,17 @@ options:
     supported_version: !current_version
 ---
 schema_template:
-    CREATE TYPE AS STRUCT "foo.struct"(S1 bigint, S2 bigint)
+    create type as struct "nested.type$level2" ("level2$field.1" bigint, "level2$field.2" bigint)
+    create type as struct "nested.type$level1" ("level1$field.1" "nested.type$level2", "level1$field.2" "nested.type$level2")
+    create table "foo.table$nested" (id bigint, "level0.field1" "nested.type$level1", primary key(id))
+    create index "foo.table$nested.idx" as select "level0.field1"."level1$field.1"."level2$field.1" from "foo.table$nested" order by "level0.field1"."level1$field.1"."level2$field.1"
+
+    create type as struct "nested.repeated.type$level2" ("level2$array.field.1" bigint, "level2$field.2" bigint)
+    create type as struct "nested.repeated.type$level1" ("level1$field.1" "nested.repeated.type$level2" array, "level1$field.2" "nested.type$level2")
+    create table "foo.table$nested.repeated" (id bigint, "level0.field1" "nested.repeated.type$level1" array, primary key(id))
+    create index "foo.table$nested.repeated.idx" as select B."level2$array.field.1" from "foo.table$nested.repeated" as t, (select A."level2$array.field.1" from t."level0.field1" as Y, (select "level2$array.field.1" from Y."level1$field.1") A) B
+
+    create type as struct "foo.struct"(S1 bigint, S2 bigint)
     create table "foo.tableA"("foo.tableA.A1" bigint, "foo.tableA.A2" bigint, "foo.tableA.A3" bigint, primary key("foo.tableA.A1"))
     create index "foo.tableA.idx" as select "foo.tableA.A1", "foo.tableA.A2", "foo.tableA.A3" FROM "foo.tableA" order by "foo.tableA.A1", "foo.tableA.A2", "foo.tableA.A3"
     create index "foo.tableA.idx2" as select sum("foo.tableA.A1") FROM "foo.tableA" group by "foo.tableA.A2"
@@ -71,30 +81,37 @@ schema_template:
 ---
 setup:
   steps:
-    - query: INSERT INTO "foo.tableA"
-        VALUES (1, 10, 1),
+    - query: insert into  "foo.table$nested"
+        values (1, ((10, 20), (30, 40))),
+               (2, ((100, 200), (300, 400))),
+               (3, ((1000, 2000), (3000, 4000)))
+    - query: insert into "foo.table$nested.repeated"
+        values (1, [([(10, 20), (30, 40), (50, 60)], (400, 500))]),
+               (2, [([(100, 200), (300, 400), (500, 600)], (900, 1000))])
+    - query: insert into "foo.tableA"
+        values (1, 10, 1),
                (2, 10, 2)
-    - query: INSERT INTO "foo.tableB"
-        VALUES (1, 20, (4, 40)),
+    - query: insert into "foo.tableB"
+        values (1, 20, (4, 40)),
                (2, 20, (5, 50)),
                (3, 20, (6, 60))
 
-    - query: INSERT INTO "foo.tableE"
-        VALUES (1, [1, 2, 3], (4, 40)),
+    - query: insert into "foo.tableE"
+        values (1, [1, 2, 3], (4, 40)),
                (2, [2, 3, 4], (5, 50)),
                (3, [3, 4, 5], (6, 60))
-    - query: INSERT INTO "foo$tableC"
-        VALUES (1, 20, 1),
+    - query: insert into "foo$tableC"
+        values (1, 20, 1),
                (2, 20, 2),
                (3, 20, 3),
                (4, 20, 4)
-    - query: INSERT INTO "__foo__tableD"
-        VALUES (1, 20, 1),
+    - query: insert into "__foo__tableD"
+        values (1, 20, 1),
                (2, 20, 2),
                (3, 20, 3),
                (4, 20, 4)
-    - query: INSERT INTO "my$adjacency$list"
-        VALUES (1, -1),
+    - query: insert into "my$adjacency$list"
+        values (1, -1),
                (2, 1),
                (3, 1),
                (4, 1),
@@ -102,8 +119,8 @@ setup:
                (6, 2)
 
       # Note: the insert below flips the order of the enum__1 and enum__2 columns
-    - query: INSERT INTO "foo.enum.type"("enum_type.id", "enum_type.enum__2", "enum_type.enum__1")
-        VALUES ( 1, 'B$C', 'A'),
+    - query: insert into "foo.enum.type"("enum_type.id", "enum_type.enum__2", "enum_type.enum__1")
+        values ( 1, 'B$C', 'A'),
                ( 2, 'B$C', 'B$C'),
                ( 3, 'B$C', 'C.D'),
                ( 4, 'B$C', 'E__F'),
@@ -120,13 +137,21 @@ test_block:
   preset: single_repetition_ordered
   tests:
     -
-      - query: INSERT INTO "foo.tableA" ("foo.tableA.A3", "foo.tableA.A1", "foo.tableA.A2") VALUES (3, 3, 10)
+      - query: insert into "foo.tableA" ("foo.tableA.A3", "foo.tableA.A1", "foo.tableA.A2") values (3, 3, 10)
       - count: 1
 ---
 test_block:
   name: all-tests
   preset: single_repetition_ordered
   tests:
+    - # select from nested repeated table
+      - query: select t.id from "foo.table$nested.repeated" as t, t."level0.field1" as b where exists (select "level2$array.field.1" from b."level1$field.1" where "level2$array.field.1" = 10)
+      - explain: "SCAN(<,>) | TFILTER foo__2table__1nested__2repeated | FLATMAP q0 -> { EXPLODE q0.level0.field1 | FLATMAP q1 -> { EXPLODE q1.level1$field.1 | FILTER _.level2$array.field.1 EQUALS promote(@c27 AS LONG) | MAP (_.level2$array.field.1 AS level2$array.field.1) | DEFAULT NULL | FILTER _ NOT_NULL AS q2 RETURN (1 AS _0) } AS q3 RETURN (q0.ID AS ID) }"
+      - result: [{1}]
+    - # select from nested table
+      - query: select "level0.field1"."level1$field.1"."level2$field.1" from "foo.table$nested" where id = 1
+      - explain: "COVERING(foo.table$nested.idx <,> -> [ID: KEY[2], level0__2field1: [level1__1field__21: [level2__1field__21: KEY[0]]]]) | FILTER _.ID EQUALS promote(@c12 AS LONG) | MAP (_.level0.field1.level1$field.1.level2$field.1 AS level2$field.1)"
+      - result: [{10}]
     -
       # qualified star
       - query: select "foo.tableA".* from "foo.tableA";
@@ -507,26 +532,26 @@ setup:
 setup:
   connect: "jdbc:embed:/FRL/IDENTIFIERS_PROTO_YAML?schema=TEST"
   steps:
-    - query: INSERT INTO T1
-        VALUES (1, 10, 1),
+    - query: insert into T1
+        values (1, 10, 1),
                (2, 10, 2),
                (3, 10, 3),
                (4, 10, 4),
                (5, 10, 5)
-    - query: INSERT INTO T2
-        VALUES (6, 10, 6),
+    - query: insert into T2
+        values (6, 10, 6),
                (7, 10, 7),
                (8, 10, 8),
                (9, 10, 9),
                (10, 10, 10)
-    - query: INSERT INTO "__T3"
-        VALUES (11, 10, 11, null),
+    - query: insert into "__T3"
+        values (11, 10, 11, null),
                (12, 10, 12, 'T3.E.A'),
                (13, 10, 13, 'T3.E.B'),
                (14, 10, 14, 'T3.E.C'),
                (15, 10, 15, 'T3.E.A')
-    - query: INSERT INTO T4
-        VALUES (16, (11, 16), 10, 16),
+    - query: insert into T4
+        values (16, (11, 16), 10, 16),
                (17, (11, 17), 10, 17),
                (18, (11, 18), 10, 18),
                (19, (11, 19), 10, 19),
