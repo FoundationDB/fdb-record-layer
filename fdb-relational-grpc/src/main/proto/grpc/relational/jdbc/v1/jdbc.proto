@@ -157,7 +157,6 @@ message Options {
   optional bool case_sensitive_identifiers = 22;
   optional string current_plan_hash_mode = 23;
   optional string valid_plan_hash_modes = 24;
-  optional bool continuations_contain_compiled_statements = 25 [deprecated = true];
   optional int64 async_operations_timeout_millis = 26;
   optional bool encrypt_when_serializing = 27;
   optional string encryption_key_store = 28;
