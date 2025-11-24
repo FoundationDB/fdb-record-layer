@@ -12,7 +12,7 @@ Syntax
 .. raw:: html
     :file: CASE.diagram.svg
 
-CASE expressions come in two forms:
+CASE expressions use conditional evaluation:
 
 **Searched CASE** (evaluates conditions):
 
@@ -25,25 +25,8 @@ CASE expressions come in two forms:
         ELSE default_result
     END
 
-**Simple CASE** (compares against a value):
-
-.. code-block:: sql
-
-    CASE expression
-        WHEN value1 THEN result1
-        WHEN value2 THEN result2
-        ...
-        ELSE default_result
-    END
-
 Parameters
 ==========
-
-Searched CASE
--------------
-
-``CASE WHEN condition THEN result [WHEN condition THEN result]... [ELSE result] END``
-    Evaluates conditions in order and returns the result for the first TRUE condition.
 
 ``condition``
     A boolean expression evaluated for each WHEN clause.
@@ -53,24 +36,6 @@ Searched CASE
 
 ``ELSE result`` (optional)
     The default value returned if no conditions are TRUE. If omitted and no conditions match, returns NULL.
-
-Simple CASE
------------
-
-``CASE expression WHEN value THEN result [WHEN value THEN result]... [ELSE result] END``
-    Compares an expression against multiple values and returns the result for the first match.
-
-``expression``
-    The value to compare against each WHEN clause.
-
-``value``
-    A value to compare with the expression using equality (``=``).
-
-``result``
-    The value to return if the expression equals this value.
-
-``ELSE result`` (optional)
-    The default value returned if no values match. If omitted and no values match, returns NULL.
 
 Returns
 =======
@@ -182,19 +147,19 @@ Calculate discount based on price and category:
       - :json:`120`
       - :json:`114.0`
 
-Simple CASE - Value Matching
------------------------------
+Value Matching with CASE
+-------------------------
 
-Map category codes to names:
+Map category codes to names using WHEN conditions:
 
 .. code-block:: sql
 
     SELECT name,
            category,
-           CASE category
-               WHEN 'Electronics' THEN 'E'
-               WHEN 'Hardware' THEN 'H'
-               WHEN 'Media' THEN 'M'
+           CASE
+               WHEN category = 'Electronics' THEN 'E'
+               WHEN category = 'Hardware' THEN 'H'
+               WHEN category = 'Media' THEN 'M'
                ELSE 'Other'
            END AS category_code
     FROM products
@@ -311,42 +276,6 @@ To explicitly check for NULL:
         ELSE 'Affordable'
     END
 
-Simple vs Searched CASE
-------------------------
-
-**Simple CASE** limitations:
-
-- Uses equality comparison only (``=``)
-- Cannot use comparison operators like ``>``, ``<``, ``BETWEEN``
-- Cannot combine multiple conditions with AND/OR
-- NULL comparisons always fail (``NULL = NULL`` is NULL, not TRUE)
-
-**Searched CASE** is more flexible:
-
-- Can use any boolean expression
-- Supports all comparison operators
-- Can combine conditions with AND/OR/NOT
-- Can explicitly test for NULL with ``IS NULL``
-
-When to use each:
-
-.. code-block:: sql
-
-    -- Simple CASE: Good for exact value matching
-    CASE status
-        WHEN 'A' THEN 'Active'
-        WHEN 'I' THEN 'Inactive'
-        ELSE 'Unknown'
-    END
-
-    -- Searched CASE: Good for complex conditions
-    CASE
-        WHEN status = 'A' AND days > 30 THEN 'Long Active'
-        WHEN status = 'A' THEN 'Active'
-        WHEN status IS NULL THEN 'Unknown'
-        ELSE 'Inactive'
-    END
-
 Type Compatibility
 ------------------
 
@@ -366,15 +295,6 @@ All result expressions must return compatible types:
         WHEN x > 100 THEN 'High'
         ELSE 0
     END
-
-Performance Considerations
---------------------------
-
-CASE expressions are evaluated at query execution time. For frequently used CASE logic, consider:
-
-- Creating computed columns
-- Using indexes on columns referenced in CASE conditions
-- Simplifying complex nested CASE expressions
 
 See Also
 ========

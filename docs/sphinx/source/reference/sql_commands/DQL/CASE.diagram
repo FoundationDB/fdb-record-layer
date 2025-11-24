@@ -1,6 +1,5 @@
 Diagram(
     Terminal('CASE'),
-    Optional(NonTerminal('expression')),
     OneOrMore(
         Sequence(
             Terminal('WHEN'),
