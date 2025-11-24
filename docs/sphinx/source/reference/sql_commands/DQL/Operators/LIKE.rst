@@ -23,9 +23,6 @@ The LIKE operator is used in WHERE clauses:
 Parameters
 ==========
 
-``expression [NOT] LIKE pattern [ESCAPE escape_char]``
-    Tests whether a string expression matches a pattern containing wildcards.
-
 ``expression``
     The string value to test. Must be of type STRING.
 
@@ -125,10 +122,10 @@ Find all products whose names contain "an":
     :header-rows: 1
 
     * - :sql:`name`
-    * - :json:`"banana"`
-    * - :json:`"canal"`
     * - :json:`"appliance"`
     * - :json:`"application"`
+    * - :json:`"banana"`
+    * - :json:`"canal"`
 
 Single Character Matching with _
 ---------------------------------
@@ -205,10 +202,10 @@ To search for literal ``%`` or ``_`` characters, use the ESCAPE clause:
         (2, 'data%summary.txt'),
         (3, 'test_file.csv')
 
-    -- Find files with literal underscore before a digit
+    -- Find files with literal underscore
     SELECT filename
     FROM files
-    WHERE filename LIKE '%\\_%' ESCAPE '\\'
+    WHERE filename LIKE '%\_%' ESCAPE '\'
 
 .. list-table::
     :header-rows: 1
@@ -217,7 +214,7 @@ To search for literal ``%`` or ``_`` characters, use the ESCAPE clause:
     * - :json:`"report_2024.pdf"`
     * - :json:`"test_file.csv"`
 
-With the ESCAPE clause, ``\\_`` matches a literal underscore character.
+With the ESCAPE clause, ``\_`` matches a literal underscore character.
 
 Important Notes
 ===============
@@ -226,12 +223,6 @@ Case Sensitivity
 ----------------
 
 LIKE comparisons are **case-sensitive**. ``'ABC' LIKE 'abc'`` returns ``FALSE``.
-
-To perform case-insensitive matching, convert both sides to the same case:
-
-.. code-block:: sql
-
-    WHERE LOWER(name) LIKE LOWER('APP%')
 
 NULL Handling
 -------------
@@ -268,13 +259,13 @@ Wildcard Summary
       - Exactly one character
       - ``'c_t'``
       - ``'cat'``, ``'cot'``, ``'cut'``
-    * - ``\\%`` (with ESCAPE)
+    * - ``\%`` (with ESCAPE)
       - Literal ``%``
-      - ``'50\\%' ESCAPE '\\'``
+      - ``'50\%' ESCAPE '\'``
       - ``'50%'``
-    * - ``\\_`` (with ESCAPE)
+    * - ``\_`` (with ESCAPE)
       - Literal ``_``
-      - ``'test\\_file' ESCAPE '\\'``
+      - ``'test\_file' ESCAPE '\'``
       - ``'test_file'``
 
 Supported Types

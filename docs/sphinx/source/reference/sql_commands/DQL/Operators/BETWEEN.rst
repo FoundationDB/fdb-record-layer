@@ -23,9 +23,6 @@ The BETWEEN operator is used in WHERE clauses:
 Parameters
 ==========
 
-``expression [NOT] BETWEEN lower_bound AND upper_bound``
-    Tests whether an expression's value is within the inclusive range ``[lower_bound, upper_bound]``.
-
 ``expression``
     The value to test. Can be a column name, calculation, or any valid expression.
 

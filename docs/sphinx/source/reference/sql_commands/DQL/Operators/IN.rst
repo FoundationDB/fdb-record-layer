@@ -23,9 +23,6 @@ The IN operator is used in WHERE clauses:
 Parameters
 ==========
 
-``expression [NOT] IN (value1, value2, ...)``
-    Tests whether an expression matches any value in the provided list.
-
 ``expression``
     The value to test. Can be a column name, calculation, or any valid expression.
 
@@ -198,7 +195,7 @@ To avoid NULL-related issues with NOT IN, consider filtering NULLs or using alte
 Equivalence
 -----------
 
-IN is shorthand for multiple OR comparisons:
+IN is shorthand for multiple comparisons:
 
 .. code-block:: sql
 

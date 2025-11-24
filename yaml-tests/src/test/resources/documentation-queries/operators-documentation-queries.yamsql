@@ -54,6 +54,22 @@ test_block:
       - supported_version: 4.3.5.0
       - result: [{name: "Widget A", price: 100}]
 
+    # Empty Range
+    -
+      - query: SELECT name, price
+              FROM products
+              WHERE price BETWEEN 150 AND 100
+      - supported_version: 4.3.5.0
+      - result: []
+
+    # Combined with OR
+    -
+      - query: SELECT name, price
+              FROM products
+              WHERE price BETWEEN 80 AND 100 OR price BETWEEN 180 AND 220 ORDER BY PRICE
+      - supported_version: 4.3.5.0
+      - result: [ {name: "Tool A", price: 80}, {name: "Widget A", price: 100}, {name: "Gadget X", price: 200} ]
+
     # LIKE prefix matching
     -
       - query: SELECT name
@@ -118,7 +134,7 @@ test_block:
               WHERE category IN ('Electronics', 'Media')
               ORDER BY name
       - supported_version: 4.3.5.0
-      - unorderedResult: [{name: "Book A", category: "Media"},
+      - result: [{name: "Book A", category: "Media"},
                           {name: "Book B", category: "Media"},
                           {name: "Gadget X", category: "Electronics"},
                           {name: "Widget A", category: "Electronics"},
