@@ -350,7 +350,6 @@ public class YamlIntegrationTests {
      * @see MetaDataExportUtilityTests#createValidIdentifiersMetaData() for how the custom meta-data is generated
      */
     @TestTemplate
-    @MaintainYamlTestConfig(YamlTestConfigFilters.CORRECT_EXPLAIN_AND_METRICS)
     public void validIdentifierTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("valid-identifiers.yamsql");
     }
