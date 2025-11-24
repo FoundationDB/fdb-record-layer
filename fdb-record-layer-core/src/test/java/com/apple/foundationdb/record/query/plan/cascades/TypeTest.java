@@ -630,12 +630,12 @@ class TypeTest {
     }
 
     @Nonnull
-    private Type.Record adjustFieldsForDescriptorParsing(@Nonnull Type.Record record) {
+    private Type.Record adjustFieldsForDescriptorParsing(@Nonnull Type.Record recordType) {
         // There are a number of changes that happen to a type when we create a protobuf descriptor for it that
         // fail to round trip. These may be bugs, but we can at least assert that everything except for these
         // components are preserved
-        final ImmutableList.Builder<Type.Record.Field> newFields = ImmutableList.builderWithExpectedSize(record.getFields().size());
-        for (Type.Record.Field field : record.getFields()) {
+        final ImmutableList.Builder<Type.Record.Field> newFields = ImmutableList.builderWithExpectedSize(recordType.getFields().size());
+        for (Type.Record.Field field : recordType.getFields()) {
             Type fieldType = field.getFieldType();
             if (fieldType instanceof Type.Array) {
                 // Array types retain their nullability as there are separate. However, they make their own element types not nullable
@@ -655,7 +655,7 @@ class TypeTest {
             }
             newFields.add(Type.Record.Field.of(fieldType, field.getFieldNameOptional(), field.getFieldIndexOptional()));
         }
-        return Type.Record.fromFields(record.isNullable(), newFields.build());
+        return Type.Record.fromFields(recordType.isNullable(), newFields.build());
     }
 
     @ParameterizedTest(name = "recordEqualsIgnoresName[{0}]")
@@ -900,7 +900,6 @@ class TypeTest {
 
         }
         for (Type.Record.Field field : recordType.getFields()) {
-            Type fieldType = field.getFieldType();
             Descriptors.FieldDescriptor fieldDescriptor = descriptor.findFieldByName(field.getFieldStorageName());
             softly.assertThat(fieldDescriptor)
                     .as("field descriptor not found for field %s", field)
@@ -913,6 +912,7 @@ class TypeTest {
             // Extract the element from arrays. If the type is not nullable, we just replace the field
             // type with its element type. If the field is nullable, we need to also replace the
             // field descriptor so it points to the underlying values.
+            Type fieldType = field.getFieldType();
             if (fieldType instanceof Type.Array) {
                 Type.Array fieldArrayType = (Type.Array) fieldType;
                 fieldType = fieldArrayType.getElementType();
