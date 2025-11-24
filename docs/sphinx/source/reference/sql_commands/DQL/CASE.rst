@@ -279,7 +279,10 @@ To explicitly check for NULL:
 Type Compatibility
 ------------------
 
-All result expressions must return compatible types:
+.. important::
+
+   All result expressions in a CASE statement must return compatible types.
+   Mixing types (e.g., strings and numbers) will cause an error.
 
 .. code-block:: sql
 
