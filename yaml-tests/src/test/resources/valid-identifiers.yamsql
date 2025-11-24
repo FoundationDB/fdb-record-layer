@@ -33,6 +33,10 @@ schema_template:
     create index "foo.table$nested.repeated.idx.field.1.2.1" as select "nested$level1"."level1$field.2"."level2$field.1" from "foo.table$nested.repeated" as "level0$t", "level0$t"."level0.field1" AS "nested$level1"
     create index "foo.table$nested.repeated.idx.field.1.1.1" as select "nested$level2"."level2$array.field.1"            from "foo.table$nested.repeated" as "level0$t", "level0$t"."level0.field1" AS "nested$level1", "nested$level1"."level1$field.1" AS "nested$level2"
 
+    create table "foo.table$repeated" (id bigint, "field.0$array" bigint array, "field.1$array" string array, primary key (id))
+    create index "foo.table$repeated.1" as select t."field.0$array" from "foo.table$repeated" AS t
+    create index "foo.table$repeated.2" as select t."field.1$array" from "foo.table$repeated" AS t
+
     create type as struct "foo.struct"(S1 bigint, S2 bigint)
     create table "foo.tableA"("foo.tableA.A1" bigint, "foo.tableA.A2" bigint, "foo.tableA.A3" bigint, primary key("foo.tableA.A1"))
     create index "foo.tableA.idx" as select "foo.tableA.A1", "foo.tableA.A2", "foo.tableA.A3" FROM "foo.tableA" order by "foo.tableA.A1", "foo.tableA.A2", "foo.tableA.A3"
@@ -90,6 +94,9 @@ setup:
     - query: insert into "foo.table$nested.repeated"
         values (1, [([(10, 20),   (30, 40),   (50, 60)],   (90,  100),  10), ([(11, 21),   (31, 41),   (51,  61)],  (91,  101),  11)]),
                (2, [([(100, 200), (300, 400), (500, 600)], (900, 1000), 20), ([(101, 201), (301, 401), (501, 601)], (901, 1001), 21)])
+    - query: insert into  "foo.table$repeated"
+        values (1, [ 1,  2,  3], ['foo', 'bar', 'baz']),
+               (2, [10, 20, 30], ['foo', 'quox'])
     - query: insert into "foo.tableA"
         values (1, 10, 1),
                (2, 10, 2)
@@ -97,7 +104,6 @@ setup:
         values (1, 20, (4, 40)),
                (2, 20, (5, 50)),
                (3, 20, (6, 60))
-
     - query: insert into "foo.tableE"
         values (1, [1, 2, 3], (4, 40)),
                (2, [2, 3, 4], (5, 50)),
@@ -144,24 +150,49 @@ test_block:
 ---
 test_block:
   name: all-tests
-  preset: single_repetition_ordered
   tests:
-    - # select from nested repeated table
+    -
+      # select from nested repeated table
       - query: select t.id from "foo.table$nested.repeated" as t where exists (select * from t."level0.field1" as x where x."level1$field.3" = 20)
       - explain: "COVERING(foo.table$nested.repeated.idx.field.1.3 [EQUALS promote(@c25 AS LONG)] -> [ID: KEY[2]]) | MAP (_.ID AS ID)"
       - result: [{2}]
     -
+      # select a nested field field on a nested repeated struct
       - query: select t.id from "foo.table$nested.repeated" as t where exists (select * from t."level0.field1" as x where x."level1$field.2"."level2$field.1" = 91)
       - explain: "COVERING(foo.table$nested.repeated.idx.field.1.2.1 [EQUALS promote(@c27 AS LONG)] -> [ID: KEY[2]]) | MAP (_.ID AS ID)"
       - result: [{1}]
-    - # select from deeply nested repeated table
+    -
+      # select from deeply nested repeated table
       - query: select t.id from "foo.table$nested.repeated" as t where exists (select * from t."level0.field1" as b, b."level1$field.1" where "level2$array.field.1" = 10)
       - explain: "COVERING(foo.table$nested.repeated.idx.field.1.1.1 [EQUALS promote(@c27 AS LONG)] -> [ID: KEY[2]]) | MAP (_.ID AS ID)"
       - result: [{1}]
-    - # select from nested table
+    -
+      # select from nested table
       - query: select "level0.field1"."level1$field.1"."level2$field.1" from "foo.table$nested" where id = 1
       - explain: "COVERING(foo.table$nested.idx <,> -> [ID: KEY[2], level0__2field1: [level1__1field__21: [level2__1field__21: KEY[0]]]]) | FILTER _.ID EQUALS promote(@c12 AS LONG) | MAP (_.level0.field1.level1$field.1.level2$field.1 AS level2$field.1)"
       - result: [{10}]
+    -
+      # select with predicates on repeated scalar fields
+      - query: select "foo.table$repeated".id from "foo.table$repeated" where 'foo' IN "foo.table$repeated"."field.1$array"
+      # Ideally, this would use the index "foo.table$repeated.2". It appears to be a matching problem unrelated to the identifier choices
+      - explain: "SCAN(<,>) | TFILTER foo__2table__1repeated | FILTER @c8 IN _.field.1$array | MAP (_.ID AS ID)"
+      - result: [{1}, {2}]
+    -
+      # select with predicates on repeated scalar fields
+      - query: select "foo.table$repeated".id from "foo.table$repeated" where exists (select 1 from "foo.table$repeated"."field.1$array" r where r = 'foo')
+      - explain: "COVERING(foo.table$repeated.2 [EQUALS @c20] -> [ID: KEY[2]]) | MAP (_.ID AS ID)"
+      - result: [{1}, {2}]
+    -
+      # select repeated scalar fields
+      - query: select t."field.1$array" from "foo.table$repeated" as t where 3 IN t."field.0$array"
+      # Ideally, this would use the index "foo.table$repeated.1". It appears to be a matching problem unrelated to the identifier choices
+      - explain: "SCAN(<,>) | TFILTER foo__2table__1repeated | FILTER promote(@c10 AS LONG) IN _.field.0$array | MAP (_.field.1$array AS field.1$array)"
+      - result: [{["foo", "bar", "baz"]}]
+    -
+      # select repeated scalar fields
+      - query: select t."field.1$array" from "foo.table$repeated" as t where exists (select 1 from t."field.0$array" r where r = 3)
+      - explain: "ISCAN(foo.table$repeated.1 [EQUALS promote(@c22 AS LONG)]) | MAP (_.field.1$array AS field.1$array)"
+      - result: [{["foo", "bar", "baz"]}]
     -
       # qualified star
       - query: select "foo.tableA".* from "foo.tableA";

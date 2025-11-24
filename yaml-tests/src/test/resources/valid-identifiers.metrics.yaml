@@ -50,6 +50,54 @@ all-tests:
     insert_time_ms: 3
     insert_new_count: 52
     insert_reused_count: 6
+-   query: EXPLAIN select "foo.table$repeated".id from "foo.table$repeated" where
+        'foo' IN "foo.table$repeated"."field.1$array"
+    explain: SCAN(<,>) | TFILTER foo__2table__1repeated | FILTER @c8 IN _.field.1$array
+        | MAP (_.ID AS ID)
+    task_count: 404
+    task_total_time_ms: 15
+    transform_count: 121
+    transform_time_ms: 8
+    transform_yield_count: 27
+    insert_time_ms: 1
+    insert_new_count: 38
+    insert_reused_count: 4
+-   query: EXPLAIN select "foo.table$repeated".id from "foo.table$repeated" where
+        exists (select 1 from "foo.table$repeated"."field.1$array" r where r = 'foo')
+    explain: 'COVERING(foo.table$repeated.2 [EQUALS @c20] -> [ID: KEY[2]]) | MAP (_.ID
+        AS ID)'
+    task_count: 476
+    task_total_time_ms: 14
+    transform_count: 139
+    transform_time_ms: 6
+    transform_yield_count: 36
+    insert_time_ms: 0
+    insert_new_count: 46
+    insert_reused_count: 2
+-   query: EXPLAIN select t."field.1$array" from "foo.table$repeated" as t where 3
+        IN t."field.0$array"
+    explain: SCAN(<,>) | TFILTER foo__2table__1repeated | FILTER promote(@c10 AS LONG)
+        IN _.field.0$array | MAP (_.field.1$array AS field.1$array)
+    task_count: 404
+    task_total_time_ms: 10
+    transform_count: 121
+    transform_time_ms: 5
+    transform_yield_count: 27
+    insert_time_ms: 0
+    insert_new_count: 38
+    insert_reused_count: 4
+-   query: EXPLAIN select t."field.1$array" from "foo.table$repeated" as t where exists
+        (select 1 from t."field.0$array" r where r = 3)
+    explain: ISCAN(foo.table$repeated.1 [EQUALS promote(@c22 AS LONG)]) | MAP (_.field.1$array
+        AS field.1$array)
+    task_count: 448
+    task_total_time_ms: 17
+    transform_count: 135
+    transform_time_ms: 10
+    transform_yield_count: 34
+    insert_time_ms: 0
+    insert_new_count: 43
+    insert_reused_count: 2
 -   query: EXPLAIN select "foo.tableA".* from "foo.tableA";
     explain: 'COVERING(foo.tableA.idx <,> -> [foo__2tableA__2A1: KEY[0], foo__2tableA__2A2:
         KEY[1], foo__2tableA__2A3: KEY[2]]) | MAP (_.foo.tableA.A1 AS foo.tableA.A1,
