@@ -2145,7 +2145,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
          * @param isNullable True if the record type is nullable, otherwise false.
          * @param normalizedFields The list of {@link Record} {@link Field}s.
          */
-        public Record(@Nullable final String name, @Nullable final String storageName, final boolean isNullable, @Nullable final List<Field> normalizedFields) {
+        protected Record(@Nullable final String name, @Nullable final String storageName, final boolean isNullable, @Nullable final List<Field> normalizedFields) {
             this.name = name;
             this.storageName = storageName;
             this.isNullable = isNullable;
@@ -2602,12 +2602,14 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
                                                           ? Optional.empty()
                                                           : Optional.of(fieldName))
                                     .orElse("_" + i);
-                    final var storageFieldName = ProtoUtils.toProtoBufCompliantName(explicitFieldName);
+                    final var fieldStorageName =
+                            field.getFieldStorageNameOptional()
+                                    .orElseGet(() -> ProtoUtils.toProtoBufCompliantName(explicitFieldName));
                     fieldToBeAdded =
                             new Field(field.getFieldType(),
                                     Optional.of(explicitFieldName),
                                     Optional.of(i + 1),
-                                    Optional.of(storageFieldName));
+                                    Optional.of(fieldStorageName));
                 }
 
                 if (!(fieldNamesSeen.add(fieldToBeAdded.getFieldName()))) {
@@ -2679,8 +2681,11 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
             }
 
             /**
-             * Returns the field name.
-             * @return The field name.
+             * Returns the field name if set. This should be the name of the field as the user would refer to it.
+             * This may not be set if the user has used un-named fields, in which case names based on the field
+             * index will be generated.
+             *
+             * @return The field name if set.
              */
             @Nonnull
             public Optional<String> getFieldNameOptional() {
@@ -2688,19 +2693,37 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
             }
 
             /**
-             * Returns the field name.
+             * Returns the field name. If the underlying {@link Optional} is not set, this will throw an error.
+             *
              * @return The field name.
+             * @see #getFieldStorageNameOptional()
+             * @throws RecordCoreException if the field is not set
              */
             @Nonnull
             public String getFieldName() {
                 return getFieldNameOptional().orElseThrow(() -> new RecordCoreException("field name should have been set"));
             }
 
+            /**
+             * Returns the name of the underlying field in protobuf storage if set. This can differ from the user-visible
+             * field name if, for example, there are characters in there are fields that need to be adjusted in order
+             * to produce a valid protobuf identifier.
+             *
+             * @return The protobuf field name used to serialize this field if set.
+             * @see ProtoUtils#toProtoBufCompliantName(String) for the escaping used
+             */
             @Nonnull
             public Optional<String> getFieldStorageNameOptional() {
                 return fieldStorageNameOptional;
             }
 
+            /**
+             * Returns the name of the underlying field in protobuf storage if set. If the underlying {@link Optional}
+             * is not set, this will throw an error.
+             *
+             * @return The protobuf field name used to serialize this field.
+             * @see #getFieldStorageNameOptional()
+             */
             @Nonnull
             public String getFieldStorageName() {
                 return getFieldStorageNameOptional().orElseThrow(() -> new RecordCoreException("field name should have been set"));

@@ -153,7 +153,7 @@ public class PromoteValue extends AbstractValue implements CreatesDynamicTypesVa
                 }
             }
             SemanticException.check(maybeValue != null, SemanticException.ErrorCode.INVALID_ENUM_VALUE, value);
-            return maybeValue;
+            return Objects.requireNonNull(maybeValue);
         }
 
         public static UUID stringToUuidValue(String value) {
