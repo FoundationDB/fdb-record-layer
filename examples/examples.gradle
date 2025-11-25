@@ -24,6 +24,9 @@ apply plugin: 'application'
 def coreProject = ":${ext.coreProjectName}"
 dependencies {
     implementation project(coreProject)
+    implementation project(':fdb-relational-api')
+    implementation project(':fdb-relational-core')
+    implementation project(':fdb-relational-jdbc')
     implementation(libs.protobuf)
     implementation(libs.slf4j.api)
     runtimeOnly(libs.log4j.slf4jBinding) // binding
