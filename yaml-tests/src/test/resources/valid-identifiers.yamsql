@@ -175,6 +175,7 @@ test_block:
       # select with predicates on repeated scalar fields
       - query: select "foo.table$repeated".id from "foo.table$repeated" where 'foo' IN "foo.table$repeated"."field.1$array"
       # Ideally, this would use the index "foo.table$repeated.2". It appears to be a matching problem unrelated to the identifier choices
+      # See: https://github.com/FoundationDB/fdb-record-layer/issues/3777
       - explain: "SCAN(<,>) | TFILTER foo__2table__1repeated | FILTER @c8 IN _.field.1$array | MAP (_.ID AS ID)"
       - result: [{1}, {2}]
     -
@@ -186,6 +187,7 @@ test_block:
       # select repeated scalar fields
       - query: select t."field.1$array" from "foo.table$repeated" as t where 3 IN t."field.0$array"
       # Ideally, this would use the index "foo.table$repeated.1". It appears to be a matching problem unrelated to the identifier choices
+      # See: https://github.com/FoundationDB/fdb-record-layer/issues/3777
       - explain: "SCAN(<,>) | TFILTER foo__2table__1repeated | FILTER promote(@c10 AS LONG) IN _.field.0$array | MAP (_.field.1$array AS field.1$array)"
       - result: [{["foo", "bar", "baz"]}]
     -

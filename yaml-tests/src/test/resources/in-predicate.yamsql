@@ -201,6 +201,7 @@ test_block:
       - query: select id from array_table where 'apple' in fruits
       - supported_version: 4.8.1.0
       # Note: this should be able to match the "fruits" index like the above query, but it does not
+      # See: https://github.com/FoundationDB/fdb-record-layer/issues/3777
       - explain: "SCAN(<,>) | TFILTER ARRAY_TABLE | FILTER @c6 IN _.FRUITS | MAP (_.ID AS ID)"
       - unorderedResult: [{1}, {3}]
     -
