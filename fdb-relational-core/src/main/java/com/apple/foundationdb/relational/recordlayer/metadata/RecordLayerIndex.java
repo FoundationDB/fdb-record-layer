@@ -42,7 +42,7 @@ public final class RecordLayerIndex implements Index  {
     private final String tableName;
 
     @Nonnull
-    private final String storageTableName;
+    private final String tableStorageName;
 
     private final String indexType;
 
@@ -59,14 +59,14 @@ public final class RecordLayerIndex implements Index  {
     private final RecordMetaDataProto.Predicate predicate;
 
     private RecordLayerIndex(@Nonnull final String tableName,
-                             @Nonnull final String storageTableName,
+                             @Nonnull final String tableStorageName,
                              @Nonnull final String indexType,
                              @Nonnull final String name,
                              @Nonnull final KeyExpression keyExpression,
                              @Nullable final RecordMetaDataProto.Predicate predicate,
                              @Nonnull final Map<String, String> options) {
         this.tableName = tableName;
-        this.storageTableName = storageTableName;
+        this.tableStorageName = tableStorageName;
         this.indexType = indexType;
         this.name = name;
         this.keyExpression = keyExpression;
@@ -82,7 +82,7 @@ public final class RecordLayerIndex implements Index  {
 
     @Nonnull
     public String getTableStorageName() {
-        return storageTableName;
+        return tableStorageName;
     }
 
     @Nonnull
@@ -124,7 +124,7 @@ public final class RecordLayerIndex implements Index  {
     }
 
     @Nonnull
-    public static RecordLayerIndex from(@Nonnull final String tableName, @Nonnull final com.apple.foundationdb.record.metadata.Index index) {
+    public static RecordLayerIndex from(@Nonnull final String tableName, @Nonnull String tableStorageName, @Nonnull final com.apple.foundationdb.record.metadata.Index index) {
         final var indexProto = index.toProto();
         return newBuilder().setName(index.getName())
                 .setIndexType(index.getType())
