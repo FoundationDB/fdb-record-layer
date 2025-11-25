@@ -1395,6 +1395,9 @@ message PComparison {
     LIKE = 19;
     IS_DISTINCT_FROM = 20;
     NOT_DISTINCT_FROM = 21;
+    DISTANCE_RANK_EQUALS = 22;
+    DISTANCE_RANK_LESS_THAN = 23;
+    DISTANCE_RANK_LESS_THAN_OR_EQUAL = 24;
   }
 
   extensions 5000 to max;
@@ -1411,6 +1414,7 @@ message PComparison {
     PRecordTypeComparison record_type_comparison = 10;
     PConversionSimpleComparison conversion_simple_comparison = 11;
     PConversionParameterComparison conversion_parameter_comparison = 12;
+    PDistanceRankValueComparison distance_rank_value_comparison = 13;
   }
 }
 
@@ -1475,6 +1479,11 @@ message PInvertedFunctionComparison {
 
 message PRecordTypeComparison {
   optional string record_type_name = 1;
+}
+
+message PDistanceRankValueComparison {
+  optional PValueComparison super = 1;
+  optional PValue limitValue = 2;
 }
 
 //
@@ -1822,6 +1831,7 @@ message PIndexScanParameters {
     PIndexScanComparisons index_scan_comparisons = 2;
     PMultidimensionalIndexScanComparisons multidimensional_index_scan_comparisons = 3;
     PTimeWindowScanComparisons time_window_scan_comparisons = 4;
+    PVectorIndexScanComparisons vector_index_scan_comparisons = 5;
   }
 }
 
@@ -1855,6 +1865,20 @@ message PTimeWindowForFunction {
 message PTimeWindowScanComparisons {
  optional PIndexScanComparisons super = 1;
  optional PTimeWindowForFunction time_window = 2;
+}
+
+message PVectorIndexScanComparisons {
+  optional PScanComparisons prefix_scan_comparisons = 1;
+  optional PDistanceRankValueComparison distance_rank_value_comparison = 2;
+  optional PVectorIndexScanOptions vector_index_scan_options = 3;
+}
+
+message PVectorIndexScanOptions {
+  message POptionEntry {
+    optional string key = 1;
+    optional com.apple.foundationdb.record.expressions.Value value = 2;
+  }
+  repeated POptionEntry optionEntries = 1;
 }
 
 enum PIndexFetchMethod {
