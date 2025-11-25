@@ -581,7 +581,7 @@ public class HNSW {
         return onReadListener.onAsyncRead(
                         storageAdapter.fetchNode(readTransaction, storageTransform, layer,
                                 nodeReference.getPrimaryKey()))
-                .thenApply(node -> biMapFunction.apply(nodeReference, node));
+                .thenApply(node -> biMapFunction.apply(nodeReference, Objects.requireNonNull(node)));
     }
 
     /**
@@ -754,6 +754,18 @@ public class HNSW {
         }
 
         return StorageAdapter.fetchAccessInfo(getConfig(), transaction, getSubspace(), getOnReadListener())
+                .thenCombine(exists(transaction, newPrimaryKey),
+                        (accessInfo, nodeAlreadyExists) -> {
+                            if (nodeAlreadyExists) {
+                                if (logger.isInfoEnabled()) {
+                                    logger.info("new record already exists in HNSW with key={} on layer={}", newPrimaryKey,
+                                            insertionLayer);
+                                }
+
+                                throw new IllegalStateException("key already exists");
+                            }
+                            return accessInfo;
+                        })
                 .thenCompose(accessInfo -> {
                     final AccessInfo currentAccessInfo;
                     final AffineOperator storageTransform = storageTransform(accessInfo);
@@ -819,6 +831,15 @@ public class HNSW {
                             .thenCompose(ignored ->
                                     addToStatsIfNecessary(transaction, currentAccessInfo, transformedNewVector));
                 }).thenCompose(ignored -> AsyncUtil.DONE);
+    }
+
+    @Nonnull
+    @VisibleForTesting
+    CompletableFuture<Boolean> exists(@Nonnull final ReadTransaction readTransaction,
+                                      @Nonnull final Tuple primaryKey) {
+        final StorageAdapter<? extends NodeReference> storageAdapter = getStorageAdapterForLayer(0);
+        return storageAdapter.fetchNode(readTransaction, AffineOperator.identity(), 0, primaryKey)
+                .thenApply(Objects::nonNull);
     }
 
     /**
