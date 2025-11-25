@@ -52,7 +52,7 @@ By default, NULL values sort as follows:
 Returns
 =======
 
-Returns all selected rows sorted according to the specified order. The order is guaranteed to be stable and deterministic.
+Returns all selected rows sorted according to the specified order. The sorting ensures that rows are ordered based on the values in the ``ORDER BY`` columns. However, the relative order of rows that compare as equal according to all specified ``ORDER BY`` columns is not guaranteed to be stable or deterministic and may vary between executions.
 
 Examples
 ========
