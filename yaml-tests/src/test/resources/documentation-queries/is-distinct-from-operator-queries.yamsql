@@ -1,7 +1,4 @@
 ---
-options:
-  supported_version: 4.3.5.0
----
 schema_template:
     create table products(id bigint, name string, category string, price bigint, stock integer, primary key(id))
     create index price_idx as select price from products order by price
@@ -29,7 +26,6 @@ test_block:
               FROM products
               WHERE price IS DISTINCT FROM 100
               ORDER BY name
-      - supported_version: 4.3.5.0
       - result: [{name: "Book A", price: 25},
                  {name: "Book B", price: 30},
                  {name: "Gadget X", price: 200},
@@ -42,5 +38,4 @@ test_block:
       - query: SELECT name, price
               FROM products
               WHERE price IS NOT DISTINCT FROM 100
-      - supported_version: 4.3.5.0
       - result: [{name: "Widget A", price: 100}]

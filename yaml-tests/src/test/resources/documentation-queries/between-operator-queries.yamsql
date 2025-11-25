@@ -1,7 +1,4 @@
 ---
-options:
-  supported_version: 4.3.5.0
----
 schema_template:
     create table products(id bigint, name string, category string, price bigint, stock integer, primary key(id))
     create index price_idx as select price from products order by price
@@ -29,7 +26,6 @@ test_block:
               FROM products
               WHERE price BETWEEN 100 AND 150
               ORDER BY price
-      - supported_version: 4.3.5.0
       - result: [{name: "Widget A", price: 100},
                  {name: "Tool B", price: 120},
                  {name: "Widget B", price: 150}]
@@ -40,7 +36,6 @@ test_block:
               FROM products
               WHERE price NOT BETWEEN 100 AND 150
               ORDER BY price
-      - supported_version: 4.3.5.0
       - result: [{name: "Book A", price: 25},
                  {name: "Book B", price: 30},
                  {name: "Tool A", price: 80},
@@ -51,7 +46,6 @@ test_block:
       - query: SELECT name, price
               FROM products
               WHERE price BETWEEN 100 AND 100
-      - supported_version: 4.3.5.0
       - result: [{name: "Widget A", price: 100}]
 
     # Empty Range
@@ -59,7 +53,6 @@ test_block:
       - query: SELECT name, price
               FROM products
               WHERE price BETWEEN 150 AND 100
-      - supported_version: 4.3.5.0
       - result: []
 
     # Combined with OR
@@ -67,5 +60,4 @@ test_block:
       - query: SELECT name, price
               FROM products
               WHERE price BETWEEN 80 AND 100 OR price BETWEEN 180 AND 220 ORDER BY PRICE
-      - supported_version: 4.3.5.0
       - result: [ {name: "Tool A", price: 80}, {name: "Widget A", price: 100}, {name: "Gadget X", price: 200} ]

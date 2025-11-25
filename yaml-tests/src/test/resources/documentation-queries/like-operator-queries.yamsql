@@ -1,7 +1,4 @@
 ---
-options:
-  supported_version: 4.3.5.0
----
 schema_template:
     create table products(id bigint, name string, category string, price bigint, stock integer, primary key(id))
     create index price_idx as select price from products order by price
@@ -29,7 +26,6 @@ test_block:
               FROM products
               WHERE name LIKE 'W%'
               ORDER BY name
-      - supported_version: 4.3.5.0
       - result: [{name: "Widget A"},
                  {name: "Widget B"}]
 
@@ -39,7 +35,6 @@ test_block:
               FROM products
               WHERE name LIKE '%B'
               ORDER BY name
-      - supported_version: 4.3.5.0
       - result: [{name: "Book B"},
                  {name: "Tool B"},
                  {name: "Widget B"}]
@@ -50,7 +45,6 @@ test_block:
               FROM products
               WHERE name LIKE '%oo%'
               ORDER BY name
-      - supported_version: 4.3.5.0
       - result: [{name: "Book A"},
                  {name: "Book B"},
                  {name: "Tool A"},
@@ -62,7 +56,6 @@ test_block:
               FROM products
               WHERE name NOT LIKE 'Widget%'
               ORDER BY name
-      - supported_version: 4.3.5.0
       - result: [{name: "Book A"},
                  {name: "Book B"},
                  {name: "Gadget X"},
