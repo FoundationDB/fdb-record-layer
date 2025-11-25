@@ -43,4 +43,9 @@ class DocumentationQueriesTests {
     void vectorDocumentationQueriesTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql(PREFIX + "/vector-documentation-queries.yamsql");
     }
+
+    @TestTemplate
+    void udfDocumentationQueriesTests(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql(PREFIX + "/udf-documentation-queries.yamsql");
+    }
 }

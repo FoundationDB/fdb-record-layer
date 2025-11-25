@@ -1,0 +1,19 @@
+Diagram(
+    Group(
+        OneOrMore(
+            Sequence(
+                Optional(Terminal('IN')),
+                NonTerminal('parameterName'),
+                NonTerminal('dataType'),
+                Optional(
+                    Sequence(
+                        Terminal('DEFAULT'),
+                        NonTerminal('defaultValue')
+                    )
+                )
+            ),
+            Terminal(',')
+        ),
+        'functionParameters'
+    )
+)
