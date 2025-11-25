@@ -35,7 +35,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.EmptyValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.apple.foundationdb.record.util.ProtoUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
@@ -125,7 +124,7 @@ public class ScalarTranslationVisitor implements KeyExpressionVisitor<ScalarTran
         }
 
         final ScalarVisitorState state = getCurrentState();
-        final String fieldName = ProtoUtils.toUserIdentifier(fieldKeyExpression.getFieldName());
+        final String fieldName = fieldKeyExpression.getFieldName();
         final List<String> fieldNamePrefix = state.getFieldNamePrefix();
         final List<String> fieldNames = ImmutableList.<String>builder()
                 .addAll(fieldNamePrefix)

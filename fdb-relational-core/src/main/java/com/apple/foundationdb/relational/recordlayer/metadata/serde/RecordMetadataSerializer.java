@@ -66,7 +66,7 @@ public class RecordMetadataSerializer extends SkeletonVisitor {
         Assert.thatUnchecked(table instanceof RecordLayerTable);
         final var recLayerTable = (RecordLayerTable) table;
         final KeyExpression keyExpression = recLayerTable.getPrimaryKey();
-        final RecordTypeBuilder recordType = getBuilder().getRecordType(recLayerTable.getType().getStorageName());
+        final RecordTypeBuilder recordType = getBuilder().getRecordType(table.getName());
         recordType.setRecordTypeKey(recordTypeCounter++);
         recordType.setPrimaryKey(keyExpression);
     }
@@ -79,8 +79,8 @@ public class RecordMetadataSerializer extends SkeletonVisitor {
         // have a version that matches the schema template's version
         // See: TODO (Relational index misses version information)
         Assert.thatUnchecked(index instanceof RecordLayerIndex);
-        final RecordLayerIndex recLayerIndex = (RecordLayerIndex) index;
-        getBuilder().addIndex(recLayerIndex.getTableStorageName(),
+        final var recLayerIndex = (RecordLayerIndex) index;
+        getBuilder().addIndex(index.getTableName(),
                 new Index(index.getName(),
                         recLayerIndex.getKeyExpression(),
                         index.getIndexType(),

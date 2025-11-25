@@ -204,8 +204,9 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         final var useLegacyBasedExtremumEver = ctx.indexAttributes() != null && ctx.indexAttributes().indexAttribute().stream().anyMatch(attribute -> attribute.LEGACY_EXTREMUM_EVER() != null);
         final var isUnique = ctx.UNIQUE() != null;
         final var generator = IndexGenerator.from(viewPlan, useLegacyBasedExtremumEver);
+        final var table = metadataBuilder.findTable(generator.getRecordTypeName());
         Assert.thatUnchecked(viewPlan instanceof LogicalSortExpression, ErrorCode.INVALID_COLUMN_REFERENCE, "Cannot create index and order by an expression that is not present in the projection list");
-        return generator.generate(metadataBuilder, indexId.getName(), isUnique, containsNullableArray);
+        return generator.generate(indexId.getName(), isUnique, table.getType(), containsNullableArray);
     }
 
     @Nonnull
@@ -264,7 +265,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         }
         structClauses.build().stream().map(this::visitStructDefinition).map(RecordLayerTable::getDatatype).forEach(metadataBuilder::addAuxiliaryType);
         tableClauses.build().stream().map(this::visitTableDefinition).forEach(metadataBuilder::addTable);
-        final List<RecordLayerIndex> indexes = indexClauses.build().stream().map(this::visitIndexDefinition).collect(ImmutableList.toImmutableList());
+        final var indexes = indexClauses.build().stream().map(this::visitIndexDefinition).collect(ImmutableList.toImmutableList());
         // TODO: this is currently relying on the lexical order of the function to resolve function dependencies which
         //       is limited.
         sqlInvokedFunctionClauses.build().forEach(functionClause -> {
@@ -275,7 +276,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
             final var view = getViewMetadata(viewClause, metadataBuilder.build());
             metadataBuilder.addView(view);
         });
-        for (final RecordLayerIndex index : indexes) {
+        for (final var index : indexes) {
             final var table = metadataBuilder.extractTable(index.getTableName());
             final var tableWithIndex = RecordLayerTable.Builder.from(table).addIndex(index).build();
             metadataBuilder.addTable(tableWithIndex);

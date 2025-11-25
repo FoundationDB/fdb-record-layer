@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
-import com.apple.foundationdb.record.util.ProtoUtils;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.relational.api.Row;
@@ -92,7 +91,7 @@ public abstract class AbstractRow implements Row {
         if (o instanceof Enum<?>) {
             return ((Enum<?>) o).name();
         } else if (o instanceof Descriptors.EnumValueDescriptor) {
-            return ProtoUtils.toUserIdentifier(((Descriptors.EnumValueDescriptor) o).getName());
+            return ((Descriptors.EnumValueDescriptor) o).getName();
         } else if (!(o instanceof String)) {
             throw new InvalidTypeException("Value <" + o + "> cannot be cast to a String");
         }

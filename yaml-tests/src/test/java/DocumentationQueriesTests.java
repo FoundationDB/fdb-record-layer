@@ -63,4 +63,9 @@ class DocumentationQueriesTests {
     void isDistinctFromOperatorQueriesTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql(PREFIX + "/is-distinct-from-operator-queries.yamsql");
     }
+
+    @TestTemplate
+    void orderByDocumentationQueriesTests(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql(PREFIX + "/order-by-documentation-queries.yamsql");
+    }
 }
