@@ -205,6 +205,5 @@ See [Record Layer Documentation](https://foundationdb.github.io/fdb-record-layer
 
 ## Getting Help
 
-* **Documentation Issues**: [Submit Documentation Feedback](https://github.com/FoundationDB/fdb-record-layer/issues)
 * **Bugs & Feature Requests**: [GitHub Issues](https://github.com/FoundationDB/fdb-record-layer/issues)
 * **Community**: [FoundationDB Community Forums](https://forums.foundationdb.org/)
