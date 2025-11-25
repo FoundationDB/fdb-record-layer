@@ -31,7 +31,6 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.UpdateExpre
 import com.apple.foundationdb.record.query.plan.cascades.predicates.CompatibleTypeEvolutionPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
@@ -58,7 +57,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
-import com.google.protobuf.ByteString;
 import org.antlr.v4.runtime.ParserRuleContext;
 
 import javax.annotation.Nonnull;
@@ -98,12 +96,6 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nonnull
     @Override
     public LogicalOperator visitQuery(@Nonnull RelationalParser.QueryContext ctx) {
-        if (ctx.continuation() != null) {
-            final var continuationExpression = visitContinuation(ctx.continuation());
-            final var continuationValue = Assert.castUnchecked(continuationExpression.getUnderlying(), LiteralValue.class);
-            final var continuationBytes = Assert.castUnchecked(continuationValue.getLiteralValue(), ByteString.class);
-            getDelegate().getPlanGenerationContext().setContinuation(continuationBytes.toByteArray());
-        }
         if (ctx.ctes() != null) {
             final var currentPlanFragment = getDelegate().pushPlanFragment();
             visitCtes(ctx.ctes()).forEach(currentPlanFragment::addOperator);

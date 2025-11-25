@@ -626,12 +626,6 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
 
     @Nonnull
     @Override
-    public Expression visitContinuation(RelationalParser.ContinuationContext ctx) {
-        return expressionVisitor.visitContinuation(ctx);
-    }
-
-    @Nonnull
-    @Override
     public Expression visitContinuationAtom(@Nonnull RelationalParser.ContinuationAtomContext ctx) {
         return expressionVisitor.visitContinuationAtom(ctx);
     }
