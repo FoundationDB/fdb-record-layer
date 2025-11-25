@@ -24,8 +24,13 @@ import com.apple.foundationdb.async.hnsw.NodeReference;
 import com.apple.foundationdb.linear.HalfRealVector;
 import com.apple.foundationdb.linear.Metric;
 import com.apple.foundationdb.record.Bindings;
+import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.ExecuteProperties;
+import com.apple.foundationdb.record.ExecuteState;
+import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexFetchMethod;
 import com.apple.foundationdb.record.IndexScanType;
+import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.ScanProperties;
@@ -81,6 +86,7 @@ import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
+import static org.assertj.core.api.Assertions.assertThat;
 
 class VectorIndexTest extends VectorIndexTestBase {
     private static final Logger logger = LoggerFactory.getLogger(VectorIndexTest.class);
@@ -88,6 +94,13 @@ class VectorIndexTest extends VectorIndexTestBase {
     @Nonnull
     static Stream<Arguments> randomSeedsWithAsync() {
         return RandomizedTestUtils.randomSeeds(0xdeadc0deL)
+                .flatMap(seed -> Sets.cartesianProduct(ImmutableSet.of(true, false)).stream()
+                        .map(arguments -> Arguments.of(ObjectArrays.concat(seed, arguments.toArray()))));
+    }
+
+    @Nonnull
+    static Stream<Arguments> randomSeedsWithReturnVectors() {
+        return RandomizedTestUtils.randomSeeds(0xdeadbeefL)
                 .flatMap(seed -> Sets.cartesianProduct(ImmutableSet.of(true, false)).stream()
                         .map(arguments -> Arguments.of(ObjectArrays.concat(seed, arguments.toArray()))));
     }
@@ -112,8 +125,8 @@ class VectorIndexTest extends VectorIndexTestBase {
                 final FDBStoredRecord<Message> loadedRecord =
                         recordStore.loadRecord(savedRecords.get(l).getPrimaryKey());
 
-                Assertions.assertThat(loadedRecord).isNotNull();
-                Assertions.assertThat(loadedRecord.getRecord()).isEqualTo(savedRecords.get(l).getRecord());
+                assertThat(loadedRecord).isNotNull();
+                assertThat(loadedRecord.getRecord()).isEqualTo(savedRecords.get(l).getRecord());
             }
             commit(context);
         }
@@ -175,8 +188,8 @@ class VectorIndexTest extends VectorIndexTestBase {
                     }
                 }
             } while (continuation != null);
-            Assertions.assertThat(allCounter).isEqualTo(k);
-            Assertions.assertThat((double)recallCounter / k).isGreaterThan(0.9);
+            assertThat(allCounter).isEqualTo(k);
+            assertThat((double)recallCounter / k).isGreaterThan(0.9);
         }
     }
 
@@ -227,12 +240,12 @@ class VectorIndexTest extends VectorIndexTestBase {
                     }
                 }
             } while (continuation != null);
-            Assertions.assertThat(Ints.asList(allCounters))
+            assertThat(Ints.asList(allCounters))
                     .allSatisfy(allCounter ->
-                            Assertions.assertThat(allCounter).isEqualTo(k));
-            Assertions.assertThat(Ints.asList(recallCounters))
+                            assertThat(allCounter).isEqualTo(k));
+            assertThat(Ints.asList(recallCounters))
                     .allSatisfy(recallCounter ->
-                            Assertions.assertThat((double)recallCounter / k).isGreaterThan(0.9));
+                            assertThat((double)recallCounter / k).isGreaterThan(0.9));
         }
     }
 
@@ -253,7 +266,7 @@ class VectorIndexTest extends VectorIndexTestBase {
 
             final int[] allCounters = new int[2];
             final int[] recallCounters = new int[2];
-            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = executeQuery(indexPlan)) {
+            try (final RecordCursorIterator<FDBQueriedRecord<Message>> cursor = executeQuery(indexPlan)) {
                 while (cursor.hasNext()) {
                     final FDBQueriedRecord<Message> rec = cursor.next();
                     final VectorRecord record =
@@ -266,11 +279,11 @@ class VectorIndexTest extends VectorIndexTestBase {
                     }
                 }
             }
-            Assertions.assertThat(allCounters[0]).isEqualTo(0);
-            Assertions.assertThat(allCounters[1]).isEqualTo(k);
+            assertThat(allCounters[0]).isEqualTo(0);
+            assertThat(allCounters[1]).isEqualTo(k);
 
-            Assertions.assertThat((double)recallCounters[0] / k).isEqualTo(0.0);
-            Assertions.assertThat((double)recallCounters[1] / k).isGreaterThan(0.9);
+            assertThat((double)recallCounters[0] / k).isEqualTo(0.0);
+            assertThat((double)recallCounters[1] / k).isGreaterThan(0.9);
         }
     }
 
@@ -396,17 +409,74 @@ class VectorIndexTest extends VectorIndexTestBase {
         }
     }
 
+
+    @ParameterizedTest
+    @MethodSource("randomSeedsWithReturnVectors")
+    void directIndexReadGroupedWithContinuationTest(final long seed, final boolean returnVectors) throws Exception {
+        final int k = 100;
+        final Random random = new Random(seed);
+        final HalfRealVector queryVector = randomHalfVector(random, 128);
+
+        final Map<Integer, Set<Long>> expectedResults =
+                saveRandomRecords(random, this::addGroupedVectorIndex, true, 1000, queryVector);
+
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, this::addGroupedVectorIndex);
+
+            final int[] allCounters = new int[2];
+            final int[] recallCounters = new int[2];
+
+            final Index index =
+                    Objects.requireNonNull(recordStore.getMetaDataProvider())
+                            .getRecordMetaData().getIndex("GroupedVectorIndex");
+            final IndexMaintainer indexMaintainer = recordStore.getIndexMaintainer(index);
+            final VectorIndexScanComparisons vectorIndexScanComparisons =
+                    createVectorIndexScanComparisons(queryVector, k,
+                            VectorIndexScanOptions.builder()
+                                    .putOption(VectorIndexScanOptions.HNSW_RETURN_VECTORS, returnVectors)
+                                    .build());
+            final ScanProperties scanProperties = ExecuteProperties.newBuilder()
+                    .setIsolationLevel(IsolationLevel.SERIALIZABLE)
+                    .setState(ExecuteState.NO_LIMITS)
+                    .setReturnedRowLimit(Integer.MAX_VALUE).build().asScanProperties(false);
+
+
+            try (final RecordCursor<IndexEntry> cursor =
+                         indexMaintainer.scan(vectorIndexScanComparisons.bind(recordStore, index,
+                                 EvaluationContext.empty()), null, scanProperties)) {
+                final RecordCursorIterator<IndexEntry> cursorIterator = cursor.asIterator();
+                int numRecords = 0;
+                while (cursorIterator.hasNext()) {
+                    final IndexEntry indexEntry = Objects.requireNonNull(cursorIterator.next());
+                    numRecords++;
+                    final int groupId = Math.toIntExact(indexEntry.getPrimaryKey().getLong(0));
+                    final long recNo = Math.toIntExact(indexEntry.getPrimaryKey().getLong(1));
+                    allCounters[groupId]++;
+                    if (expectedResults.get(groupId).contains(recNo)) {
+                        recallCounters[groupId]++;
+                    }
+                    assertThat(indexEntry.getValue().get(0) != null).isEqualTo(returnVectors);
+                }
+                if (logger.isInfoEnabled()) {
+                    logger.info("grouped read {} records, allCounters={}, recallCounters={}", numRecords, allCounters,
+                            recallCounters);
+                }
+            }
+
+            assertThat(Ints.asList(allCounters))
+                    .allSatisfy(allCounter ->
+                            assertThat(allCounter).isEqualTo(k));
+            assertThat(Ints.asList(recallCounters))
+                    .allSatisfy(recallCounter ->
+                            assertThat((double)recallCounter / k).isGreaterThan(0.9));
+        }
+    }
+
     @Nonnull
     private static RecordQueryIndexPlan createIndexPlan(@Nonnull final HalfRealVector queryVector, final int k,
                                                         @Nonnull final String indexName) {
-        final Comparisons.DistanceRankValueComparison distanceRankComparison =
-                new Comparisons.DistanceRankValueComparison(Comparisons.Type.DISTANCE_RANK_LESS_THAN_OR_EQUAL,
-                        new LiteralValue<>(Type.Vector.of(false, 16, 128), queryVector),
-                        new LiteralValue<>(k));
-
-        final VectorIndexScanComparisons vectorIndexScanComparisons =
-                VectorIndexScanComparisons.byDistance(ScanComparisons.EMPTY, distanceRankComparison,
-                        VectorIndexScanOptions.empty());
+        final var vectorIndexScanComparisons =
+                createVectorIndexScanComparisons(queryVector, k, VectorIndexScanOptions.empty());
 
         final var baseRecordType =
                 Type.Record.fromFieldDescriptorsMap(
@@ -416,6 +486,18 @@ class VectorIndexTest extends VectorIndexTestBase {
                 vectorIndexScanComparisons, IndexFetchMethod.SCAN_AND_FETCH,
                 RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords.PRIMARY_KEY, false, false,
                 Optional.empty(), baseRecordType, QueryPlanConstraint.noConstraint());
+    }
+
+    @Nonnull
+    private static VectorIndexScanComparisons createVectorIndexScanComparisons(@Nonnull final HalfRealVector queryVector, final int k,
+                                                                               @Nonnull final VectorIndexScanOptions vectorIndexScanOptions) {
+        final Comparisons.DistanceRankValueComparison distanceRankComparison =
+                new Comparisons.DistanceRankValueComparison(Comparisons.Type.DISTANCE_RANK_LESS_THAN_OR_EQUAL,
+                        new LiteralValue<>(Type.Vector.of(false, 16, 128), queryVector),
+                        new LiteralValue<>(k));
+
+        return VectorIndexScanComparisons.byDistance(ScanComparisons.EMPTY,
+                distanceRankComparison, vectorIndexScanOptions);
     }
 
     @Nonnull

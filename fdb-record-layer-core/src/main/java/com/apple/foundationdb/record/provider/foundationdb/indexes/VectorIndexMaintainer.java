@@ -143,7 +143,7 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
                                 final Subspace hnswSubspace = indexSubspace.subspace(prefixTuple);
 
                                 return scanSinglePartition(prefixTuple, innerContinuation, hnswSubspace,
-                                        timer, vectorIndexScanBounds);
+                                        timer, vectorIndexScanBounds, scanProperties);
                             },
                             continuation,
                             state.store.getPipelineSize(PipelineOperation.INDEX_TO_RECORD))
@@ -154,7 +154,8 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
             // just do a flatmap over some non-existing outer, it's probably more efficient to just do a plain scan
             // of the HNSW here.
             //
-            return scanSinglePartition(null, continuation, indexSubspace, timer, vectorIndexScanBounds)
+            return scanSinglePartition(null, continuation,
+                    indexSubspace, timer, vectorIndexScanBounds, scanProperties)
                     .skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit());
         }
     }
@@ -164,10 +165,11 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
      * by {@code prefixTuple}.
      * @param prefixTuple the tuple identifying the partition
      * @param continuation the continuation for this scan or {@code null} if this is the first execution
-     * @param hnswSubspace the subspace where the HNSW resides.
+     * @param hnswSubspace the subspace where the HNSW resides
      * @param timer the times
-     * @param vectorIndexScanBounds the bounds for this scan.
-     * @return a {@link RecordCursor} returning the index entries for this scan.
+     * @param vectorIndexScanBounds the bounds for this scan
+     * @param scanProperties the scan properties for this scan
+     * @return a {@link RecordCursor} returning the index entries for this scan
      */
     @Nonnull
     @SuppressWarnings("resource")
@@ -175,7 +177,8 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
                                                          @Nullable final byte[] continuation,
                                                          @Nonnull final Subspace hnswSubspace,
                                                          @Nonnull final FDBStoreTimer timer,
-                                                         @Nonnull final VectorIndexScanBounds vectorIndexScanBounds) {
+                                                         @Nonnull final VectorIndexScanBounds vectorIndexScanBounds,
+                                                         @Nonnull final ScanProperties scanProperties) {
         if (continuation != null) {
             final RecordCursorProto.VectorIndexScanContinuation parsedContinuation =
                     Continuation.fromBytes(continuation);
@@ -195,7 +198,8 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
 
         final HNSW hnsw = new HNSW(hnswSubspace, getExecutor(), getConfig(),
                 OnWriteListener.NOOP, new OnRead(timer));
-        final ReadTransaction transaction = state.context.readTransaction(false);
+        final ReadTransaction transaction =
+                state.context.readTransaction(scanProperties.getExecuteProperties().getIsolationLevel().isSnapshot());
         return new LazyCursor<>(
                 state.context.acquireReadLock(new LockIdentifier(hnswSubspace))
                         .thenApply(lock ->

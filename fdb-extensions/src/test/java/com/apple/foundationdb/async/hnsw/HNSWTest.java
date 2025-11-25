@@ -77,7 +77,6 @@ import java.util.Random;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
@@ -206,8 +205,6 @@ class HNSWTest {
                          final boolean keepPrunedConnections, final boolean useRaBitQ) {
         final Random random = new Random(seed);
         final Metric metric = Metric.EUCLIDEAN_METRIC;
-        final AtomicLong nextNodeIdAtomic = new AtomicLong(0L);
-
         final TestOnReadListener onReadListener = new TestOnReadListener();
 
         final int numDimensions = 128;
@@ -314,7 +311,6 @@ class HNSWTest {
         final Random random = new Random(seed);
         final Metric metric = Metric.EUCLIDEAN_METRIC;
 
-        final AtomicLong nextNodeIdAtomic = new AtomicLong(0L);
         final int numDimensions = 128;
         final HNSW hnsw = new HNSW(rtSubspace.getSubspace(), TestExecutors.defaultThreadPool(),
                 HNSW.newConfigBuilder()
