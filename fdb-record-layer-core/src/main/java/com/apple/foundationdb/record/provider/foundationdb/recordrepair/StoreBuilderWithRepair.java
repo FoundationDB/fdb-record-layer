@@ -28,9 +28,7 @@ import com.apple.foundationdb.record.provider.foundationdb.RecordStoreNoInfoAndN
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Consumer;
 
 /**
  * A flavor of {@link FDBRecordStore.Builder} that can handle the case where the store cannot be opened.
@@ -57,7 +55,7 @@ public class StoreBuilderWithRepair extends FDBRecordStore.Builder {
     }
 
     /**
-     * Override the {@link super#openAsync()} method to add support for repairing the header.
+     * Override the {@link FDBRecordStore.Builder#openAsync()} method to add support for repairing the header.
      * In case the store fails to be opened normally, try to repair it given the provided repair
      * parameters.
      *
