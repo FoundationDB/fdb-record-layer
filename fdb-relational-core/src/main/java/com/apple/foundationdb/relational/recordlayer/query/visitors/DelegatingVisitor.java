@@ -567,8 +567,9 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
         return getDelegate().visitIndexOnSourceDefinition(ctx);
     }
 
+    @Nonnull
     @Override
-    public Object visitVectorIndexDefinition(final RelationalParser.VectorIndexDefinitionContext ctx) {
+    public RecordLayerIndex visitVectorIndexDefinition(final RelationalParser.VectorIndexDefinitionContext ctx) {
         return getDelegate().visitVectorIndexDefinition(ctx);
     }
 

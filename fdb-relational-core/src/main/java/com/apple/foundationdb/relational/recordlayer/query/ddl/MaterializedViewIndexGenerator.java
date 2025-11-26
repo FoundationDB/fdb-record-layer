@@ -144,7 +144,7 @@ public final class MaterializedViewIndexGenerator {
     }
 
     @Nonnull
-    public RecordLayerIndex generate(@Nonnull String indexName, boolean isUnique, @Nonnull Type.Record tableType, boolean containsNullableArray) {
+    public RecordLayerIndex.Builder generate(@Nonnull String indexName, boolean isUnique, @Nonnull Type.Record tableType, boolean containsNullableArray) {
         final var indexBuilder = RecordLayerIndex.newBuilder()
                 .setName(indexName)
                 .setTableName(getRecordTypeName())
@@ -233,7 +233,7 @@ public final class MaterializedViewIndexGenerator {
                 Assert.failUnchecked(ErrorCode.UNSUPPORTED_OPERATION, "Unsupported index definition. Cannot order " + indexType + " index by aggregate value");
             }
         }
-        return indexBuilder.build();
+        return indexBuilder;
     }
 
     @Nonnull

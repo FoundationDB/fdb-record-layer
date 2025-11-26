@@ -133,6 +133,11 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
     }
 
     @Nonnull
+    protected IdentifierVisitor getIdentifierVisitor() {
+        return identifierVisitor;
+    }
+
+    @Nonnull
     public Plan<?> generateLogicalPlan(@Nonnull ParseTree parseTree) {
         final var result = visit(parseTree);
         return Assert.castUnchecked(result, Plan.class, ErrorCode.INTERNAL_ERROR, () -> "Could not generate a logical plan");
@@ -406,6 +411,12 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
     @Override
     public RecordLayerIndex visitIndexOnSourceDefinition(@Nonnull RelationalParser.IndexOnSourceDefinitionContext ctx) {
         return ddlVisitor.visitIndexOnSourceDefinition(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public RecordLayerIndex visitVectorIndexDefinition(final RelationalParser.VectorIndexDefinitionContext ctx) {
+        return ddlVisitor.visitVectorIndexDefinition(ctx);
     }
 
     @Nonnull

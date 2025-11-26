@@ -21,6 +21,8 @@
 package com.apple.foundationdb.relational.recordlayer.query.visitors;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.metadata.IndexOptions;
+import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.RawSqlFunction;
 import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
@@ -46,6 +48,7 @@ import com.apple.foundationdb.relational.recordlayer.query.Expression;
 import com.apple.foundationdb.relational.recordlayer.query.Expressions;
 import com.apple.foundationdb.relational.recordlayer.query.Identifier;
 import com.apple.foundationdb.relational.recordlayer.query.LogicalOperators;
+import com.apple.foundationdb.relational.recordlayer.query.ParseHelpers;
 import com.apple.foundationdb.relational.recordlayer.query.ddl.OnSourceIndexGenerator;
 import com.apple.foundationdb.relational.recordlayer.query.ddl.MaterializedViewIndexGenerator;
 import com.apple.foundationdb.relational.recordlayer.query.LogicalOperator;
@@ -56,6 +59,7 @@ import com.apple.foundationdb.relational.recordlayer.query.SemanticAnalyzer;
 import com.apple.foundationdb.relational.recordlayer.query.functions.CompiledSqlFunction;
 import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.antlr.v4.runtime.ParserRuleContext;
 
@@ -65,6 +69,7 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
@@ -210,26 +215,24 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         final var generator = MaterializedViewIndexGenerator.from(viewPlan, useLegacyBasedExtremumEver);
         final var table = metadataBuilder.findTable(generator.getRecordTypeName());
         Assert.thatUnchecked(viewPlan instanceof LogicalSortExpression, ErrorCode.INVALID_COLUMN_REFERENCE, "Cannot create index and order by an expression that is not present in the projection list");
-        return generator.generate(indexId.getName(), isUnique, table.getType(), containsNullableArray);
+        return generator.generate(indexId.getName(), isUnique, table.getType(), containsNullableArray).build();
     }
 
     @Nonnull
     @Override
     public RecordLayerIndex visitIndexOnSourceDefinition(@Nonnull final RelationalParser.IndexOnSourceDefinitionContext indexDefinitionContext) {
         final var ddlCatalog = metadataBuilder.build();
-        // parse the index SQL query using the newly constructed metadata.
         getDelegate().replaceSchemaTemplate(ddlCatalog);
         getDelegate().pushPlanFragment();
         final var sourceIdentifier = visitFullId(indexDefinitionContext.source);
         var logicalOperator = generateSourceAccessForIndex(sourceIdentifier);
-
         getDelegate().getCurrentPlanFragment().setOperator(logicalOperator);
 
         final Identifier indexId = visitUid(indexDefinitionContext.indexName);
         final var isUnique = indexDefinitionContext.UNIQUE() != null;
-
         @Nullable final var indexOptions = indexDefinitionContext.indexOptions();
-        final var useLegacyExtremum = indexOptions != null && indexOptions.indexOption().stream().anyMatch(option -> option.LEGACY_EXTREMUM_EVER() != null);
+        final var useLegacyExtremum = indexOptions != null && indexOptions.indexOption().stream()
+                .anyMatch(option -> option.LEGACY_EXTREMUM_EVER() != null);
         final var indexGeneratorBuilder = OnSourceIndexGenerator.newBuilder()
                 .setIndexName(indexId)
                 .setIndexSource(getDelegate().getCurrentPlanFragment())
@@ -238,32 +241,52 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
                 .setUseNullableArrays(containsNullableArray)
                 .setUnique(isUnique);
 
-        indexDefinitionContext.indexColumnList().indexColumnSpec().forEach(columnSpec -> {
-            final var columnId = visitUid(columnSpec.columnName);
-            final var orderContext = columnSpec.orderClause();
-            if (orderContext != null) {
-                final boolean isDesc = orderContext.DESC() != null;
-                final boolean nullsLast;
-                if (orderContext.nulls == null) {
-                    nullsLast = isDesc;
-                } else {
-                    nullsLast = orderContext.LAST() != null;
-                }
-                indexGeneratorBuilder.addKeyColumn(OnSourceIndexGenerator.IndexedColumn.of(columnId, isDesc, nullsLast));
-            } else {
-                indexGeneratorBuilder.addKeyColumn(OnSourceIndexGenerator.IndexedColumn.of(columnId, false, false));
-            }
-        });
+        indexDefinitionContext.indexColumnList().indexColumnSpec().forEach(colSpec ->
+                indexGeneratorBuilder.addKeyColumn(OnSourceIndexGenerator.IndexedColumn
+                        .parseColSpec(colSpec, getDelegate().getIdentifierVisitor())));
 
         if (indexDefinitionContext.includeClause() != null) {
             indexDefinitionContext.includeClause().uidList().uid().forEach(uid -> {
-                final var columnId = visitUid(uid);
-                indexGeneratorBuilder.addValueColumn(OnSourceIndexGenerator.IndexedColumn.of(columnId, false, false));
+                indexGeneratorBuilder.addValueColumn(OnSourceIndexGenerator.IndexedColumn
+                        .parseUid(uid, getDelegate().getIdentifierVisitor()));
             });
         }
 
         getDelegate().popPlanFragment();
-        return indexGeneratorBuilder.build().generate(ddlCatalog);
+        return indexGeneratorBuilder.build().generate(ddlCatalog).build();
+    }
+
+    @Nonnull
+    @Override
+    public RecordLayerIndex visitVectorIndexDefinition(final RelationalParser.VectorIndexDefinitionContext indexDefinitionContext) {
+        final var ddlCatalog = metadataBuilder.build();
+        getDelegate().replaceSchemaTemplate(ddlCatalog);
+        getDelegate().pushPlanFragment();
+        final var sourceIdentifier = visitFullId(indexDefinitionContext.source);
+        var logicalOperator = generateSourceAccessForIndex(sourceIdentifier);
+        getDelegate().getCurrentPlanFragment().setOperator(logicalOperator);
+
+        final Identifier indexId = visitUid(indexDefinitionContext.indexName);
+        final var indexOptions = parseVectorOptions(indexDefinitionContext.vectorIndexOptions());
+        final var indexGeneratorBuilder = OnSourceIndexGenerator.newBuilder()
+                .setIndexName(indexId)
+                .setIndexSource(getDelegate().getCurrentPlanFragment())
+                .setSemanticAnalyzer(getDelegate().getSemanticAnalyzer())
+                .addAllIndexOptions(indexOptions)
+                .setUseNullableArrays(containsNullableArray);
+
+        indexDefinitionContext.indexColumnList().indexColumnSpec().forEach(colSpec ->
+                indexGeneratorBuilder.addValueColumn(OnSourceIndexGenerator.IndexedColumn
+                        .parseColSpec(colSpec, getDelegate().getIdentifierVisitor())));
+
+        if (indexDefinitionContext.partitionClause() != null) {
+            indexDefinitionContext.partitionClause().indexColumnSpec().forEach(colSpec ->
+                    indexGeneratorBuilder.addKeyColumn(OnSourceIndexGenerator.IndexedColumn
+                            .parseColSpec(colSpec, getDelegate().getIdentifierVisitor())));
+        }
+
+        getDelegate().popPlanFragment();
+        return indexGeneratorBuilder.build().generate(ddlCatalog).setIndexType(IndexTypes.VECTOR).build();
     }
 
     @Nonnull
@@ -281,6 +304,38 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         }
 
         return logicalOperator;
+    }
+
+    @Nonnull
+    private Map<String, String> parseVectorOptions(@Nullable final RelationalParser.VectorIndexOptionsContext indexOptionsContext) {
+        final var indexOptionsBuilder = ImmutableMap.<String, String>builder();
+        if (indexOptionsContext == null) {
+            return indexOptionsBuilder.build();
+        }
+
+        for (final var vectorIndexOption : indexOptionsContext.vectorIndexOptions()) {
+            final var option = vectorIndexOption.vectorIndexOption();
+            if (option.HNSW_EF_CONSTRUCTION() != null) {
+                indexOptionsBuilder.put(IndexOptions.HNSW_EF_CONSTRUCTION, option.efConstruction.getText());
+            } else if (option.HNSW_M() != null) {
+                indexOptionsBuilder.put(IndexOptions.HNSW_M, option.m.getText());
+            } else if (option.HNSW_M_MAX() != null) {
+                indexOptionsBuilder.put(IndexOptions.HNSW_M_MAX, option.mMax.getText());
+            } else if (option.HNSW_MAINTAIN_STATS_PROBABILITY() != null) {
+                indexOptionsBuilder.put(IndexOptions.HNSW_MAINTAIN_STATS_PROBABILITY, option.maintainStatsProbability.getText());
+            } else if (option.HNSW_METRIC() != null) {
+                indexOptionsBuilder.put(IndexOptions.HNSW_METRIC, option.metric.getText());
+            } else if (option.HNSW_RABITQ_NUM_EX_BITS() != null) {
+                indexOptionsBuilder.put(IndexOptions.HNSW_RABITQ_NUM_EX_BITS, option.rabitQNumExBits.getText());
+            } else if (option.HNSW_SAMPLE_VECTOR_STATS_PROBABILITY() != null) {
+                indexOptionsBuilder.put(IndexOptions.HNSW_SAMPLE_VECTOR_STATS_PROBABILITY, option.statsProbability.getText());
+            } else if (option.HNSW_STATS_THRESHOLD() != null) {
+                indexOptionsBuilder.put(IndexOptions.HNSW_STATS_THRESHOLD, option.statsThreshold.getText());
+            } else if (option.HNSW_USE_RABITQ() != null) {
+                indexOptionsBuilder.put(IndexOptions.HNSW_USE_RABITQ, option.useRabitQ.getText());
+            }
+        }
+        return indexOptionsBuilder.build();
     }
 
     @Nonnull

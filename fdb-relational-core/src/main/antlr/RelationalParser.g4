@@ -202,15 +202,15 @@ vectorIndexOptions
     ;
 
 vectorIndexOption
-    : HNSW_EF_CONSTRUCTION '=' mValue=DECIMAL_LITERAL
-    | HNSW_M '=' mValue=DECIMAL_LITERAL
-    | HNSW_M_MAX '=' mValue=DECIMAL_LITERAL
-    | HNSW_MAINTAIN_STATS_PROBABILITY '=' mValue=DECIMAL_LITERAL
-    | HNSW_METRIC '=' mValue=DECIMAL_LITERAL // change
-    | HNSW_RABITQ_NUM_EX_BITS '=' mValue=DECIMAL_LITERAL
-    | HNSW_SAMPLE_VECTOR_STATS_PROBABILITY '=' mValue=DECIMAL_LITERAL
-    | HNSW_STATS_THRESHOLD '=' mValue=DECIMAL_LITERAL
-    | HNSW_USE_RABITQ '=' mValue=DECIMAL_LITERAL // change
+     : HNSW_EF_CONSTRUCTION '=' efConstruction=decimalLiteral
+    | HNSW_M '=' m=decimalLiteral
+    | HNSW_M_MAX '=' mMax=decimalLiteral
+    | HNSW_MAINTAIN_STATS_PROBABILITY '=' maintainStatsProbability=decimalLiteral
+    | HNSW_METRIC '=' metric=stringLiteral
+    | HNSW_RABITQ_NUM_EX_BITS '=' rabitQNumExBits=decimalLiteral
+    | HNSW_SAMPLE_VECTOR_STATS_PROBABILITY '=' statsProbability=decimalLiteral
+    | HNSW_STATS_THRESHOLD '=' statsThreshold=decimalLiteral
+    | HNSW_USE_RABITQ '=' useRabitQ=booleanLiteral
     ;
 
 indexAttributes
@@ -1149,7 +1149,7 @@ frameRange
 */
 
 partitionClause
-    : PARTITION BY uid (',' uid)*
+    : PARTITION BY '(' indexColumnSpec (',' indexColumnSpec)* ')'
     ;
 
 scalarFunctionName

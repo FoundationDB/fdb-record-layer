@@ -1007,4 +1007,18 @@ public class IndexTest {
                 concat(field("COL1"), function("order_desc_nulls_last", field("COL2")), function("order_asc_nulls_last", field("COL3"))),
                 IndexTypes.VALUE);
     }
+
+    @Test
+    void createVectorIndexWorksCorrectly() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT A(x bigint) " +
+                "CREATE TYPE AS STRUCT C(z bigint, k bigint) " +
+                "CREATE TYPE AS STRUCT B(a A array, c C array) " +
+                "CREATE TABLE T(p bigint, b vector(3, float), c bigint, z bigint, primary key(p))" +
+                "CREATE VIEW V1 AS SELECT p, b, c, z from T where c > 50 " +
+                "CREATE VECTOR INDEX MV1 ON V1(b) PARTITION BY(z)";
+        indexIs(stmt,
+                keyWithValue(concat(field("Z"), field("B")), 1),
+                IndexTypes.VECTOR);
+    }
 }
