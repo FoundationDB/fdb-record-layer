@@ -1,0 +1,63 @@
+---
+schema_template:
+    create table products(id bigint, name string, category string, price bigint, stock integer, primary key(id))
+    create index price_idx as select price from products order by price
+    create index category_idx as select category from products order by category
+    create index name_idx as select name from products order by name
+---
+setup:
+  steps:
+    - query: insert into products
+            values (1, 'Widget A', 'Electronics', 100, 50),
+                   (2, 'Widget B', 'Electronics', 150, 30),
+                   (3, 'Gadget X', 'Electronics', 200, 20),
+                   (4, 'Tool A', 'Hardware', 80, 100),
+                   (5, 'Tool B', 'Hardware', 120, 15),
+                   (6, 'Book A', 'Media', 25, 200),
+                   (7, 'Book B', 'Media', 30, 150)
+---
+test_block:
+  name: like-operator-tests
+  preset: single_repetition_ordered
+  tests:
+    # LIKE prefix matching
+    -
+      - query: SELECT name
+              FROM products
+              WHERE name LIKE 'W%'
+              ORDER BY name
+      - result: [{name: "Widget A"},
+                 {name: "Widget B"}]
+
+    # LIKE suffix matching
+    -
+      - query: SELECT name
+              FROM products
+              WHERE name LIKE '%B'
+              ORDER BY name
+      - result: [{name: "Book B"},
+                 {name: "Tool B"},
+                 {name: "Widget B"}]
+
+    # LIKE substring matching
+    -
+      - query: SELECT name
+              FROM products
+              WHERE name LIKE '%oo%'
+              ORDER BY name
+      - result: [{name: "Book A"},
+                 {name: "Book B"},
+                 {name: "Tool A"},
+                 {name: "Tool B"}]
+
+    # NOT LIKE
+    -
+      - query: SELECT name
+              FROM products
+              WHERE name NOT LIKE 'Widget%'
+              ORDER BY name
+      - result: [{name: "Book A"},
+                 {name: "Book B"},
+                 {name: "Gadget X"},
+                 {name: "Tool A"},
+                 {name: "Tool B"}]

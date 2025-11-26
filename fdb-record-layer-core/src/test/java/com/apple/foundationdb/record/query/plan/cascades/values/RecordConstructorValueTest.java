@@ -51,14 +51,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 public class RecordConstructorValueTest {
 
-    private static final String[] suits = new String[] {"SPADES", "HEARTS", "DIAMONDS", "CLUBS"};
+    private static final String[] suites = new String[] {"SPADES", "HEARTS", "DIAMONDS", "CLUBS"};
 
     private static Type.Enum getCardsEnum() {
         final var enumValues = new ArrayList<Type.Enum.EnumValue>();
-        for (var i = 0; i < suits.length; i++) {
-            enumValues.add(Type.Enum.EnumValue.from(suits[i], i));
+        for (var i = 0; i < suites.length; i++) {
+            enumValues.add(new Type.Enum.EnumValue(suites[i], i));
         }
-        return Type.Enum.fromValuesWithName("enumType", false, enumValues);
+        return new Type.Enum(false, enumValues, "enumType");
     }
 
     @Test
@@ -118,8 +118,8 @@ public class RecordConstructorValueTest {
         final var typeDescriptor = typeRepoSrc.getMessageDescriptor("simpleType");
         var messageBuilder = DynamicMessage.newBuilder(Objects.requireNonNull(typeDescriptor));
         var enumFieldSrc = typeDescriptor.findFieldByName("suits");
-        for (int i = suits.length - 1; i >= 0; i--) {
-            messageBuilder.addRepeatedField(enumFieldSrc, Objects.requireNonNull(typeRepoSrc.getEnumValue("enumType", suits[i])));
+        for (int i = suites.length - 1; i >= 0; i--) {
+            messageBuilder.addRepeatedField(enumFieldSrc, Objects.requireNonNull(typeRepoSrc.getEnumValue("enumType", suites[i])));
         }
         var message = messageBuilder.build();
 
@@ -145,8 +145,8 @@ public class RecordConstructorValueTest {
         final var typeRepoTarget = repo.build();
 
         final var list = new ArrayList<Descriptors.EnumValueDescriptor>();
-        for (int i = suits.length - 1; i >= 0; i--) {
-            list.add(Objects.requireNonNull(typeRepoSrc.getEnumValue("enumType", suits[i])));
+        for (int i = suites.length - 1; i >= 0; i--) {
+            list.add(Objects.requireNonNull(typeRepoSrc.getEnumValue("enumType", suites[i])));
         }
 
         var copied = RecordConstructorValue.deepCopyIfNeeded(typeRepoTarget, arrayType, list);

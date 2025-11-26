@@ -342,18 +342,6 @@ public class YamlIntegrationTests {
         runner.runYamsql("cast-tests.yamsql");
     }
 
-    /**
-     * Tests that validate the way that identifiers get translated back and forth from Protobuf.
-     *
-     * @param runner test runner to use
-     * @throws Exception any exceptions during the test
-     * @see MetaDataExportUtilityTests#createValidIdentifiersMetaData() for how the custom meta-data is generated
-     */
-    @TestTemplate
-    public void validIdentifierTests(YamlTest.Runner runner) throws Exception {
-        runner.runYamsql("valid-identifiers.yamsql");
-    }
-
     @TestTemplate
     public void vectorTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("vector.yamsql");

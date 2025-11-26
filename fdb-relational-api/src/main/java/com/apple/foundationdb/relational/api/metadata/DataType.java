@@ -1072,23 +1072,6 @@ public abstract class DataType {
             public String toString() {
                 return name;
             }
-
-            @Override
-            public boolean equals(final Object object) {
-                if (this == object) {
-                    return true;
-                }
-                if (object == null || getClass() != object.getClass()) {
-                    return false;
-                }
-                final EnumValue enumValue = (EnumValue)object;
-                return number == enumValue.number && Objects.equals(name, enumValue.name);
-            }
-
-            @Override
-            public int hashCode() {
-                return Objects.hash(name, number);
-            }
         }
 
         @Override

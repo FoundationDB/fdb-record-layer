@@ -21,7 +21,6 @@
 package com.apple.foundationdb.relational.utils;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.util.ProtoUtils;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.SqlTypeNamesSupport;
@@ -443,7 +442,7 @@ public class RelationalStructAssert extends AbstractAssert<RelationalStructAsser
             } else if (object instanceof Array) {
                 ArrayAssert.assertThat((Array) object).isEqualTo(value);
             } else if (object instanceof Descriptors.EnumValueDescriptor) {
-                Assertions.assertThat(ProtoUtils.toUserIdentifier(((Descriptors.EnumValueDescriptor) object).getName())).isEqualTo(value);
+                Assertions.assertThat(((Descriptors.EnumValueDescriptor) object).getName()).isEqualTo(value);
             } else {
                 Assertions.assertThat(object).isEqualTo(value);
             }
