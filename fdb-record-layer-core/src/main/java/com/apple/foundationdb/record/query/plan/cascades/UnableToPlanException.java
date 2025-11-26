@@ -33,7 +33,30 @@ import javax.annotation.Nullable;
 public class UnableToPlanException extends RecordCoreException {
     private static final long serialVersionUID = -640771754012134420L;
 
+    @Nullable
+    private String matchCandidatesInfo;
+
     public UnableToPlanException(@Nonnull String msg, @Nullable Object ... keyValues) {
         super(msg, keyValues);
+    }
+
+    /**
+     * Set match candidates information to be included when logging this exception.
+     * @param matchCandidatesInfo String representation of match candidates
+     * @return this exception for chaining
+     */
+    @Nonnull
+    public UnableToPlanException withMatchCandidatesInfo(@Nullable String matchCandidatesInfo) {
+        this.matchCandidatesInfo = matchCandidatesInfo;
+        return this;
+    }
+
+    /**
+     * Get the match candidates information associated with this exception.
+     * @return match candidates info string, or null if not set
+     */
+    @Nullable
+    public String getMatchCandidatesInfo() {
+        return matchCandidatesInfo;
     }
 }

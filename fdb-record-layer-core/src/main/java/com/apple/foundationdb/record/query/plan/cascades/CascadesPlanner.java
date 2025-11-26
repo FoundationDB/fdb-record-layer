@@ -383,16 +383,65 @@ public class CascadesPlanner implements QueryPlanner {
                                     Debugger.getDebuggerMaybe()
                                             .flatMap(Debugger::getStatsMaps).orElse(null))
                             .build());
+        } catch (UnableToPlanException e) {
+            if (logger.isErrorEnabled()) {
+                final var logBuilder = KeyValueLogMessage.build("Unable to plan query",
+                        "recordMetadata", metaData.toProto().toString(),
+                        "parameterValues", evaluationContext.getBindings().toString(),
+                        "indexStates", recordStoreState.getIndexStates().toString(),
+                        "dataStoreInfo", recordStoreState.getStoreHeader().toString(),
+                        "taskCount", taskCount,
+                        "maxQueueSize", maxQueueSize,
+                        "plannerConfiguration", configuration.toString());
+
+                // Add match candidates info if present
+                if (e.getMatchCandidatesInfo() != null) {
+                    logBuilder.addKeyAndValue("matchCandidatesInfo", e.getMatchCandidatesInfo());
+                }
+
+                logger.error(logBuilder.toString(), e);
+            }
+            throw e;
         } finally {
             Debugger.withDebugger(Debugger::onDone);
         }
+    }
+
+    /**
+     * Builds a detailed string representation of match candidates for diagnostic purposes.
+     * This includes the candidate type, name, record types, uniqueness, and column size.
+     *
+     * @param matchCandidates the collection of match candidates to describe
+     * @return a formatted string describing all match candidates
+     */
+    @Nonnull
+    static String buildMatchCandidatesInfo(@Nonnull final Collection<? extends MatchCandidate> matchCandidates) {
+        final var matchCandidatesBuilder = new StringBuilder("Match Candidates:\n");
+        if (matchCandidates.isEmpty()) {
+            matchCandidatesBuilder.append("  (none)");
+        } else {
+            for (final var candidate : matchCandidates) {
+                matchCandidatesBuilder.append(String.format("  - Type: %s, Name: %s, RecordTypes: [%s], Unique: %s, ColumnSize: %d%n",
+                        candidate.getClass().getSimpleName(),
+                        candidate.getName(),
+                        String.join(", ", candidate.getQueriedRecordTypeNames()),
+                        candidate.isUnique(),
+                        candidate.getColumnSize()));
+            }
+        }
+        return matchCandidatesBuilder.toString();
     }
 
     private RecordQueryPlan resultOrFail() {
         final Set<RelationalExpression> finalExpressions = currentRoot.getFinalExpressions();
         Verify.verify(finalExpressions.size() <= 1, "more than one variant present");
         if (finalExpressions.isEmpty()) {
-            throw new UnableToPlanException("Cascades planner could not plan query");
+            // Build match candidates info
+            final var matchCandidates = planContext.getMatchCandidates();
+            final var matchCandidatesInfo = buildMatchCandidatesInfo(matchCandidates);
+
+            throw new UnableToPlanException("Cascades planner could not plan query")
+                    .withMatchCandidatesInfo(matchCandidatesInfo);
         }
 
         final RelationalExpression singleRoot = Iterables.getOnlyElement(finalExpressions);

@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.StableSelectorCostModel;
+import com.apple.foundationdb.record.query.plan.cascades.UnableToPlanException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
@@ -239,6 +240,25 @@ public final class PlanGenerator {
                             planContext.getConstantActionFactory(), planContext.getDbUri(), caseSensitive)
                             .generateLogicalPlan(ast.getParseTree()));
             return maybePlan.optimize(planner, planContext, currentPlanHashMode);
+        } catch (UnableToPlanException e) {
+            // Log plan cache information when planning fails
+            cache.ifPresent(relationalPlanCache -> logPlanCacheOnFailure(relationalPlanCache, logger));
+
+            // Log connection options information when planning fails
+            if (logger.isErrorEnabled()) {
+                final var optionsBuilder = new StringBuilder("Connection Options:\n");
+                for (final var entry : options.entries()) {
+                    final var key = entry.getKey();
+                    final var value = entry.getValue();
+                    optionsBuilder.append(String.format("  %s = %s%n",
+                            key,
+                            value != null ? value.toString() : "null"));
+                }
+                logger.error(KeyValueLogMessage.of("Connection options when unable to plan",
+                        "connectionOptions", optionsBuilder.toString()));
+            }
+
+            throw e;
         } catch (MetaDataException mde) {
             // we need a better way for translating error codes between record layer and Relational SQL error codes
             throw new RelationalException(mde.getMessage(), ErrorCode.SYNTAX_OR_ACCESS_VIOLATION, mde).toUncheckedWrappedException();
@@ -369,6 +389,44 @@ public final class PlanGenerator {
     @Nonnull
     public Options getOptions() {
         return options;
+    }
+
+    /**
+     * Logs the plan cache state when unable to plan a query.
+     * This method collects tertiary cache statistics and logs them for debugging purposes.
+     *
+     * @param cache The optional plan cache
+     * @param logger The logger instance
+     */
+    static void logPlanCacheOnFailure(@Nonnull final RelationalPlanCache cache,
+                                      @Nonnull final Logger logger) {
+        if (logger.isErrorEnabled()) {
+            final var cacheStats = cache.getStats();
+            final var allPrimaryKeys = cacheStats.getAllKeys();
+            final var cacheInfoBuilder = new StringBuilder("Plan Cache Tertiary Layer:\n");
+
+            for (final var primaryKey : allPrimaryKeys) {
+                final var secondaryKeys = cacheStats.getAllSecondaryKeys(primaryKey);
+                for (final var secondaryKey : secondaryKeys) {
+                    final var tertiaryMappings = cacheStats.getAllTertiaryMappings(primaryKey, secondaryKey);
+                    if (!tertiaryMappings.isEmpty()) {
+                        cacheInfoBuilder.append(String.format("  [%s][%s]: %d entries%n", primaryKey, secondaryKey, tertiaryMappings.size()));
+                        for (final var entry : tertiaryMappings.entrySet()) {
+                            cacheInfoBuilder.append(String.format("    - %s%n", entry.getKey().toString()));
+                        }
+                    }
+                }
+            }
+
+            cacheInfoBuilder.append(String.format("Cache Stats: size=%d, hits=%d, misses=%d",
+                    cacheStats.numEntries(), cacheStats.numHits(), cacheStats.numMisses()));
+
+            logger.error(KeyValueLogMessage.of("Plan cache state when unable to plan",
+                    "planCacheTertiaryLayer", cacheInfoBuilder.toString(),
+                    "planCachePrimarySize", cacheStats.numEntries(),
+                    "planCachePrimaryHits", cacheStats.numHits(),
+                    "planCachePrimaryMisses", cacheStats.numMisses()));
+        }
     }
 
     /**

@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer.query.cache;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
@@ -30,6 +31,8 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.RemovalListener;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ticker;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -91,6 +94,9 @@ import java.util.stream.Stream;
  */
 @API(API.Status.EXPERIMENTAL)
 public class MultiStageCache<K, S, T, V> extends AbstractCache<K, S, T, V> {
+
+    @Nonnull
+    private static final Logger logger = LoggerFactory.getLogger(MultiStageCache.class);
 
     @Nonnull
     private final Cache<K, Cache<S, Cache<T, V>>> mainCache;
@@ -167,7 +173,14 @@ public class MultiStageCache<K, S, T, V> extends AbstractCache<K, S, T, V> {
             final var secondaryCacheBuilder = Caffeine.newBuilder()
                     .maximumSize(secondarySize)
                     .recordStats()
-                    .removalListener((RemovalListener<S, Cache<T, V>>) (k, v, i) -> {
+                    .removalListener((RemovalListener<S, Cache<T, V>>) (k, v, cause) -> {
+                        if (logger.isDebugEnabled()) {
+                            logger.debug(KeyValueLogMessage.of("Plan cache secondary entry evicted",
+                                    "primaryKey", key,
+                                    "secondaryKey", k,
+                                    "cause", cause.toString(),
+                                    "remainingEntries", v != null ? v.estimatedSize() : 0));
+                        }
                         final var value = mainCache.getIfPresent(key);
                         if (value != null && value.asMap().isEmpty()) {
                             mainCache.invalidate(key); // best effort
@@ -190,7 +203,15 @@ public class MultiStageCache<K, S, T, V> extends AbstractCache<K, S, T, V> {
             final var tertiaryCacheBuilder = Caffeine.newBuilder()
                     .maximumSize(tertiarySize)
                     .recordStats()
-                    .removalListener((RemovalListener<T, V>) (k, v, i) -> {
+                    .removalListener((RemovalListener<T, V>) (k, v, cause) -> {
+                        if (logger.isDebugEnabled()) {
+                            logger.debug(KeyValueLogMessage.of("Plan cache tertiary entry evicted",
+                                    "primaryKey", key,
+                                    "secondaryKey", secondaryKey,
+                                    "tertiaryKey", k,
+                                    "cause", cause.toString(),
+                                    "valueType", v != null ? v.getClass().getSimpleName() : "null"));
+                        }
                         final var value = secondaryCache.getIfPresent(secondaryKey);
                         if (value != null && value.asMap().isEmpty()) {
                             secondaryCache.invalidate(secondaryKey); // best effort
