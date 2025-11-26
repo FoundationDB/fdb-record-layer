@@ -139,13 +139,11 @@ test_block:
       - unorderedResult: [
           {{ _0: 5, _1: 'e', _2: 5.0}}]
     -
-      # "new" should not be quoted. TODO ([Post] Fix identifiers case-sensitivity matching in plan generator)
-      - query: update C set st = coalesce(st, null) where c1 = 4 returning "new".st
+      - query: update C set st = coalesce(st, null) where c1 = 4 returning NEW.st
       - unorderedResult: [
           {!null _}]
     -
-      # "new" should not be quoted. TODO ([Post] Fix identifiers case-sensitivity matching in plan generator)
-      - query: update C set st = coalesce(st, (5, 'e', 5.0)) where c1 = 4 returning "new".st
+      - query: update C set st = coalesce(st, (5, 'e', 5.0)) where c1 = 4 returning NEW.st
       - unorderedResult: [
             {{ T1: 5, A: 'e', B: 5.0}}]
 ...

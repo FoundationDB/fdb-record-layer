@@ -489,6 +489,10 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         //        }
 
         if (ctx.RETURNING() != null) {
+            // Store the updateQuantifier in State so SemanticAnalyzer can access it
+            final var stateBuilder = LogicalPlanFragment.State.newBuilder().withUpdateQuantifier(updateQuantifier);
+            getDelegate().getCurrentPlanFragment().setState(stateBuilder.build());
+
             final var selectExpressions = visitSelectElements(ctx.selectElements());
             final var result = LogicalOperator.generateSelect(selectExpressions, getDelegate().getLogicalOperators(),
                     Optional.empty(), List.of(), Optional.empty(),

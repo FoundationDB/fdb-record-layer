@@ -416,8 +416,7 @@ public class PreparedStatementTests {
                 final var count = statement.executeUpdate("INSERT INTO RestaurantReviewer(id) VALUES (1)");
                 Assertions.assertThat(count).isEqualTo(1);
             }
-            // "new" should not be quoted. TODO ([Post] Fix identifiers case-sensitivity matching in plan generator)
-            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("UPDATE RestaurantReviewer SET secrets = ?param WHERE id = 1 RETURNING \"new\".*")) {
+            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("UPDATE RestaurantReviewer SET secrets = ?param WHERE id = 1 RETURNING NEW.*")) {
                 final var array = List.of(new byte[]{1, 2, 3, 4}, new byte[]{5, 6, 7, 8});
                 final var arrayObject = ddl.getConnection().createArrayOf("BINARY", array.toArray());
                 ps.setArray("param", arrayObject);
@@ -442,8 +441,7 @@ public class PreparedStatementTests {
                 final var count = statement.executeUpdate("INSERT INTO RestaurantComplexRecord(rest_no) VALUES (1)");
                 Assertions.assertThat(count).isEqualTo(1);
             }
-            // "new" should not be quoted. TODO ([Post] Fix identifiers case-sensitivity matching in plan generator)
-            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("UPDATE RestaurantComplexRecord SET key = ?param WHERE rest_no = 1 RETURNING \"new\".*")) {
+            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("UPDATE RestaurantComplexRecord SET key = ?param WHERE rest_no = 1 RETURNING NEW.*")) {
                 ps.setBytes("param", new byte[]{1, 2, 3, 4});
                 try (final var resultSet = ps.executeQuery()) {
                     ResultSetAssert.assertThat(resultSet)
@@ -668,8 +666,7 @@ public class PreparedStatementTests {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 statement.execute("INSERT INTO RestaurantReviewer(id, stats) VALUES (1, (2, 'a', 'b')), (2, (3, 'b', 'c')), (3, (4, 'c', 'd')), (4, (5, 'd', 'e')), (5, (6, 'e', 'f'))");
             }
-            // "new" should not be quoted. TODO ([Post] Fix identifiers case-sensitivity matching in plan generator)
-            final var query = "UPDATE RestaurantReviewer SET stats = ?param WHERE id = 1 RETURNING \"new\".stats";
+            final var query = "UPDATE RestaurantReviewer SET stats = ?param WHERE id = 1 RETURNING NEW.stats";
             try (var ps = ddl.setSchemaAndGetConnection().prepareStatement(query)) {
                 ps.setObject("param", ddl.getConnection().createStruct("blah", statsAttributes));
                 final var expectedStats = EmbeddedRelationalStruct.newBuilder()
@@ -705,8 +702,7 @@ public class PreparedStatementTests {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 statement.execute("INSERT INTO RestaurantComplexRecord(rest_no, name) VALUES (1, 'mango & miso'), (2, 'basil & brawn'), (3, 'peach & pepper'), (4, 'smoky skillet'), (5, 'the tin pot')");
             }
-            // "new" should not be quoted. TODO ([Post] Fix identifiers case-sensitivity matching in plan generator)
-            final var query = "UPDATE RestaurantComplexRecord SET location = ?param WHERE rest_no = 1 RETURNING \"new\".location";
+            final var query = "UPDATE RestaurantComplexRecord SET location = ?param WHERE rest_no = 1 RETURNING NEW.location";
             try (var ps = ddl.setSchemaAndGetConnection().prepareStatement(query)) {
                 final var latLong = ddl.getConnection().createStruct("LATLONG", attributes);
                 final var location = ddl.getConnection().createStruct("LOCATION", new Object[]{"next door", 217, latLong});
@@ -740,8 +736,7 @@ public class PreparedStatementTests {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 statement.execute("INSERT INTO RestaurantComplexRecord(rest_no, name) VALUES (1, 'mango & miso'), (2, 'basil & brawn'), (3, 'peach & pepper'), (4, 'smoky skillet'), (5, 'the tin pot')");
             }
-            // "new" should not be quoted. TODO ([Post] Fix identifiers case-sensitivity matching in plan generator)
-            final var query = "UPDATE RestaurantComplexRecord SET customer = ?param WHERE rest_no = 1 RETURNING \"new\".customer";
+            final var query = "UPDATE RestaurantComplexRecord SET customer = ?param WHERE rest_no = 1 RETURNING NEW.customer";
             try (var ps = ddl.setSchemaAndGetConnection().prepareStatement(query)) {
 
                 final var customer = ddl.getConnection().createArrayOf("STRING", customerAttributes);
@@ -767,8 +762,7 @@ public class PreparedStatementTests {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 statement.execute("INSERT INTO RestaurantComplexRecord(rest_no, name) VALUES (1, 'mango & miso'), (2, 'basil & brawn'), (3, 'peach & pepper'), (4, 'smoky skillet'), (5, 'the tin pot')");
             }
-            // "new" should not be quoted. TODO ([Post] Fix identifiers case-sensitivity matching in plan generator)
-            final var query = "UPDATE RestaurantComplexRecord SET tags = ?param WHERE rest_no = 1 RETURNING \"new\".tags OPTIONS (LOG QUERY)";
+            final var query = "UPDATE RestaurantComplexRecord SET tags = ?param WHERE rest_no = 1 RETURNING NEW.tags OPTIONS (LOG QUERY)";
             final var restaurantTagAttributes = new Object[][]{{"chinese", 343}, {"top-rated", 2356}, {"exotic", 10}};
             try (var ps = ddl.setSchemaAndGetConnection().prepareStatement(query)) {
                 ps.setArray("param", createTagArray(ddl.getConnection(), restaurantTagAttributes));

@@ -58,8 +58,8 @@ import java.util.stream.Collectors;
  */
 public class UpdateExpression extends AbstractRelationalExpressionWithChildren implements PlannerGraphRewritable {
 
-    private static final String OLD_FIELD_NAME = "old";
-    private static final String NEW_FIELD_NAME = "new";
+    private static final String OLD_FIELD_NAME = "OLD";
+    private static final String NEW_FIELD_NAME = "NEW";
 
     @Nonnull
     private final Quantifier.ForEach inner;
