@@ -91,6 +91,7 @@ public class ThrottledRetryingIterator<T> implements AutoCloseable {
     @Nullable
     private final Consumer<QuotaManager> transactionInitNotification;
     private final int numOfRetries;
+    private final boolean commitWhenDone;
 
     private boolean closed = false;
     /** Starting time of the current/most-recent transaction. */
@@ -116,6 +117,7 @@ public class ThrottledRetryingIterator<T> implements AutoCloseable {
         this.transactionInitNotification = builder.transactionInitNotification;
         this.cursorRowsLimit = 0;
         this.numOfRetries = builder.numOfRetries;
+        this.commitWhenDone = builder.commitWhenDone;
         futureManager = new FutureAutoClose();
     }
 
@@ -218,7 +220,7 @@ public class ThrottledRetryingIterator<T> implements AutoCloseable {
                     .whenComplete((r, e) ->
                             cursor.close());
             });
-        }).thenApply(ignore -> cont.get());
+        }, commitWhenDone).thenApply(ignore -> cont.get());
     }
 
     private CompletableFuture<Boolean> handleSuccess(QuotaManager quotaManager) {
@@ -421,6 +423,7 @@ public class ThrottledRetryingIterator<T> implements AutoCloseable {
         private int maxRecordScannedPerSec;
         private int maxRecordDeletesPerSec;
         private int numOfRetries;
+        private boolean commitWhenDone;
 
         /**
          * Constructor.
@@ -441,6 +444,7 @@ public class ThrottledRetryingIterator<T> implements AutoCloseable {
             this.maxRecordScannedPerSec = 0;
             this.maxRecordDeletesPerSec = 0;
             this.numOfRetries = NUMBER_OF_RETRIES;
+            this.commitWhenDone = false;
         }
 
         private Builder(FDBDatabase database, FDBRecordContextConfig.Builder contextConfigBuilder, CursorFactory<T> cursorCreator, ItemHandler<T> singleItemHandler) {
@@ -535,6 +539,19 @@ public class ThrottledRetryingIterator<T> implements AutoCloseable {
          */
         public Builder<T> withNumOfRetries(int numOfRetries) {
             this.numOfRetries = Math.max(0, numOfRetries);
+            return this;
+        }
+
+        /**
+         * Set whether to commit the transaction when done.
+         * Setting this to TRUE will commit every transaction created before creating a new one. Setting to FALSE will
+         * roll back the transactions.
+         * Defaults to FALSE.
+         * @param commitWhenDone whether to commit or roll back the transactions created
+         * @return this builder
+         */
+        public Builder<T> withCommitWhenDone(boolean commitWhenDone) {
+            this.commitWhenDone = commitWhenDone;
             return this;
         }
 
