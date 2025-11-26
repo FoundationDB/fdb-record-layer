@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
+import com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoolean;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type.TypeCode;
@@ -100,7 +101,7 @@ public class StringFnValue extends AbstractValue {
     @Override
     public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSupplier) {
         return ExplainTokensWithPrecedence.of(new ExplainTokens()
-                .addFunctionCall(function.name().toLowerCase(Locale.ROOT),
+                .addFunctionCall(function.getFunctionName(),
                         Value.explainFunctionArguments(explainSupplier)));
     }
 
@@ -133,9 +134,23 @@ public class StringFnValue extends AbstractValue {
         return PlanHashable.objectsPlanHash(mode, BASE_HASH, function, child);
     }
 
+    @Nonnull
+    @Override
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
+    public ConstrainedBoolean equalsWithoutChildren(@Nonnull final Value other) {
+        if (this == other) {
+            return ConstrainedBoolean.alwaysTrue();
+        }
+        if (!(other instanceof StringFnValue)) {
+            return ConstrainedBoolean.falseValue();
+        }
+        final StringFnValue that = (StringFnValue) other;
+        return this.function == that.function ? ConstrainedBoolean.alwaysTrue() : ConstrainedBoolean.falseValue();
+    }
+
     @Override
     public String toString() {
-        return function.name() + "(" + child + ")";
+        return function.getFunctionName() + "(" + child + ")";
     }
 
     @Override
@@ -212,6 +227,11 @@ public class StringFnValue extends AbstractValue {
 
         StringFn(@Nonnull final String functionName) {
             this.functionName = functionName;
+        }
+
+        @Nonnull
+        public String getFunctionName() {
+            return functionName;
         }
 
         @Nonnull
