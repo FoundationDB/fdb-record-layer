@@ -507,16 +507,29 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
             return serializedPlanHashMode;
         }
 
-        @SuppressWarnings("PMD.CompareObjectsWithEquals")
+        /**
+         * Returns a plan with updated execution context.
+         *
+         * <p>Note: This method is never called in production because ContinuedPhysicalQueryPlan instances
+         * are not cached - each EXECUTE CONTINUATION deserializes the plan fresh from the continuation blob.
+         * However, we must override to satisfy the Plan interface contract.
+         *
+         * <p>TODO: Refactor the class hierarchy to eliminate this dead code. Potential approaches:
+         * <ul>
+         *   <li>Collapse ContinuedPhysicalQueryPlan into PhysicalQueryPlan with a flag</li>
+         *   <li>Use composition instead of inheritance</li>
+         *   <li>Make Plan.withExecutionContext() optional with default implementation</li>
+         * </ul>
+         *
+         * @param queryExecutionContext The new execution context (ignored - never called)
+         * @return This instance (since continuation plans are never cached)
+         */
         @Override
         @Nonnull
         public PhysicalQueryPlan withExecutionContext(@Nonnull final QueryExecutionContext queryExecutionContext) {
-            if (queryExecutionContext == this.getQueryExecutionContext()) {
-                return this;
-            }
-            return new ContinuedPhysicalQueryPlan(getRecordQueryPlan(), getTypeRepository(), getContinuationConstraint(),
-                    queryExecutionContext, query, queryExecutionContext.getPlanHashMode(), getSerializedPlanHashMode(),
-                    getSemanticFieldTypes());
+            // This method is never called in production - continuation plans bypass the cache.
+            // Return this to avoid maintaining dead code.
+            return this;
         }
 
         @Override
