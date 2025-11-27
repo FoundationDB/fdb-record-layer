@@ -22,6 +22,7 @@ Syntax
     DQL/WITH
     DQL/WHERE
     DQL/CASE
+    DQL/ORDER_BY
     DQL/EXPLAIN
 
 .. toctree::

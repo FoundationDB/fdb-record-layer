@@ -1,9 +1,9 @@
 /*
- * package-info.java
+ * test_records_multidimensional.proto
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
+ * Copyright 2023 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,8 +17,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+syntax = "proto2";
 
-/**
- * Utility methods to be used in conjunction with the YAML testing framework.
- */
-package com.apple.foundationdb.relational.yamltests.utils;
+package com.apple.foundationdb.record.test.vector;
+
+option java_package = "com.apple.foundationdb.record.vector";
+option java_outer_classname = "TestRecordsVectorsProto";
+
+import "record_metadata_options.proto";
+
+option (schema).store_record_versions = true;
+
+message VectorRecord {
+  optional int64 rec_no = 1 [(field).primary_key = true];
+  optional int32 group_id = 2;
+  optional bytes vector_data = 3;
+}
+
+message RecordTypeUnion {
+  optional VectorRecord _VectorRecord = 1;
+}
