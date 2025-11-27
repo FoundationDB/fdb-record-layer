@@ -214,7 +214,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         final var isUnique = indexDefinitionContext.UNIQUE() != null;
         final var generator = MaterializedViewIndexGenerator.from(viewPlan, useLegacyBasedExtremumEver);
         Assert.thatUnchecked(viewPlan instanceof LogicalSortExpression, ErrorCode.INVALID_COLUMN_REFERENCE, "Cannot create index and order by an expression that is not present in the projection list");
-        return generator.generate(metadataBuilder, indexId.getName(), isUnique, containsNullableArray).build();
+        return generator.generate(metadataBuilder, indexId.getName(), isUnique, containsNullableArray, false).build();
     }
 
     @Nonnull
@@ -238,6 +238,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
                 .setSemanticAnalyzer(getDelegate().getSemanticAnalyzer())
                 .setUseLegacyExtremum(useLegacyExtremum)
                 .setUseNullableArrays(containsNullableArray)
+                .setMetadataBuilder(metadataBuilder)
                 .setUnique(isUnique);
 
         indexDefinitionContext.indexColumnList().indexColumnSpec().forEach(colSpec ->
@@ -252,7 +253,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         }
 
         getDelegate().popPlanFragment();
-        return indexGeneratorBuilder.build().generate(ddlCatalog).build();
+        return indexGeneratorBuilder.build().generate().build();
     }
 
     @Nonnull
@@ -265,8 +266,6 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         var logicalOperator = generateSourceAccessForIndex(sourceIdentifier);
         getDelegate().getCurrentPlanFragment().setOperator(logicalOperator);
 
-
-
         final Identifier indexId = visitUid(indexDefinitionContext.indexName);
         final var indexOptions = parseVectorOptions(indexDefinitionContext.vectorIndexOptions());
         final var indexGeneratorBuilder = OnSourceIndexGenerator.newBuilder()
@@ -274,6 +273,8 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
                 .setIndexSource(getDelegate().getCurrentPlanFragment())
                 .setSemanticAnalyzer(getDelegate().getSemanticAnalyzer())
                 .addAllIndexOptions(indexOptions)
+                .setMetadataBuilder(metadataBuilder)
+                .setGenerateKeyValueExpressionWithEmptyKey(true)
                 .setUseNullableArrays(containsNullableArray);
 
         indexDefinitionContext.indexColumnList().indexColumnSpec().forEach(colSpec ->
@@ -302,7 +303,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         }
 
         getDelegate().popPlanFragment();
-        return indexGeneratorBuilder.build().generate(ddlCatalog).setIndexType(IndexTypes.VECTOR).build();
+        return indexGeneratorBuilder.build().generate().setIndexType(IndexTypes.VECTOR).build();
     }
 
     @Nonnull

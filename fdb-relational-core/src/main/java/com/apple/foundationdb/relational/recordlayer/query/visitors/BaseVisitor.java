@@ -419,24 +419,6 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
         return ddlVisitor.visitVectorIndexDefinition(ctx);
     }
 
-    @Nonnull
-    @Override
-    public Object visitIndexColumnList(@Nonnull RelationalParser.IndexColumnListContext ctx) {
-        return ddlVisitor.visitIndexColumnList(ctx);
-    }
-
-    @Nonnull
-    @Override
-    public Object visitIndexColumnSpec(@Nonnull RelationalParser.IndexColumnSpecContext ctx) {
-        return ddlVisitor.visitIndexColumnSpec(ctx);
-    }
-
-    @Nonnull
-    @Override
-    public Object visitIncludeClause(@Nonnull RelationalParser.IncludeClauseContext ctx) {
-        return ddlVisitor.visitIncludeClause(ctx);
-    }
-
     @Override
     public Object visitIndexAttributes(RelationalParser.IndexAttributesContext ctx) {
         return visitChildren(ctx);
@@ -1720,10 +1702,5 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
     @Nonnull
     public URI getDbUri() {
         return dbUri;
-    }
-
-    @Override
-    public Object visitOrderClause(@Nonnull RelationalParser.OrderClauseContext ctx) {
-        return visitChildren(ctx);
     }
 }

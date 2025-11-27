@@ -144,7 +144,8 @@ public final class MaterializedViewIndexGenerator {
     }
 
     @Nonnull
-    public RecordLayerIndex.Builder generate(@Nonnull RecordLayerSchemaTemplate.Builder schemaTemplateBuilder, @Nonnull String indexName, boolean isUnique, boolean containsNullableArray) {
+    public RecordLayerIndex.Builder generate(@Nonnull RecordLayerSchemaTemplate.Builder schemaTemplateBuilder, @Nonnull String indexName,
+                                             boolean isUnique, boolean containsNullableArray, boolean generateKeyValueExpressionWithEmptyKey) {
         final String recordTypeName = getRecordTypeName();
         // Have to use the storage name here because the index generator uses it
         final Type.Record tableType = schemaTemplateBuilder.findTableByStorageName(recordTypeName).getType();
@@ -189,7 +190,10 @@ public final class MaterializedViewIndexGenerator {
             }
             final var reordered = reorderValues(fieldValues, orderByValues);
             final var expression = generate(reordered, orderingFunctions);
-            final var splitPoint = orderByValues.isEmpty() ? -1 : orderByValues.size();
+            var splitPoint = orderByValues.size();
+            if (orderByValues.isEmpty() && !generateKeyValueExpressionWithEmptyKey) {
+                splitPoint = -1;
+            }
             if (splitPoint != -1 && splitPoint < fieldValues.size()) {
                 indexBuilder.setKeyExpression(KeyExpression.fromProto(NullableArrayUtils.wrapArray(keyWithValue(expression, splitPoint).toKeyExpression(), tableType, containsNullableArray)));
             } else {
@@ -232,7 +236,7 @@ public final class MaterializedViewIndexGenerator {
             if (IndexTypes.PERMUTED_MIN.equals(indexType) || IndexTypes.PERMUTED_MAX.equals(indexType)) {
                 int permutedSize = aggregateOrderIndex < 0 ? 0 : (fieldValues.size() - aggregateOrderIndex);
                 indexBuilder.setOption(IndexOptions.PERMUTED_SIZE_OPTION, permutedSize);
-            } else if (aggregateOrderIndex >= 0) {
+            } else if (aggregateOrderIndex > 0) {
                 Assert.failUnchecked(ErrorCode.UNSUPPORTED_OPERATION, "Unsupported index definition. Cannot order " + indexType + " index by aggregate value");
             }
         }

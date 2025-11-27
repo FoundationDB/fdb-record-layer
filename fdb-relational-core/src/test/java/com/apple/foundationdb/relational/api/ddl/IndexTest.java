@@ -54,8 +54,12 @@ import javax.annotation.Nonnull;
 import java.util.Locale;
 import java.util.function.Consumer;
 
-import static com.apple.foundationdb.record.RecordMetaDataProto.*;
-import static com.apple.foundationdb.record.expressions.RecordKeyExpressionProto.*;
+import static com.apple.foundationdb.record.RecordMetaDataProto.Comparison;
+import static com.apple.foundationdb.record.RecordMetaDataProto.ComparisonType;
+import static com.apple.foundationdb.record.RecordMetaDataProto.Predicate;
+import static com.apple.foundationdb.record.RecordMetaDataProto.SimpleComparison;
+import static com.apple.foundationdb.record.RecordMetaDataProto.ValuePredicate;
+import static com.apple.foundationdb.record.expressions.RecordKeyExpressionProto.Value;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
@@ -1034,6 +1038,18 @@ public class IndexTest {
                                     .build())
                             .build());
                 });
+    }
+
+
+    @Test
+    void createVectorIndexWithoutPartitionClauseWorksCorrectly() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p bigint, b vector(3, float), c bigint, z bigint, primary key(p))" +
+                "CREATE VIEW V1 AS SELECT p, b, c, z from T " +
+                "CREATE VECTOR INDEX MV1 USING HNSW ON V1(b)";
+        indexIs(stmt,
+                keyWithValue(field("B"), 0),
+                IndexTypes.VECTOR);
     }
 
     @Test

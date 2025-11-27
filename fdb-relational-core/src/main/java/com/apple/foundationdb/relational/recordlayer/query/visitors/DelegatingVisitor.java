@@ -1426,7 +1426,7 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
 
     @Override
     public Object visitPartitionClause(final RelationalParser.PartitionClauseContext ctx) {
-        return null;
+        return getDelegate().visitPartitionClause(ctx);
     }
 
     @Nonnull

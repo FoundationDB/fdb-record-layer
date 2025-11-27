@@ -33,7 +33,6 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
-import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.recordlayer.query.Expression;
 import com.apple.foundationdb.relational.recordlayer.query.Expressions;
 import com.apple.foundationdb.relational.recordlayer.query.Identifier;
@@ -126,13 +125,19 @@ public final class OnSourceIndexGenerator {
 
     private final boolean useNullableArrays;
 
+    private final boolean generateKeyValueExpressionWithEmptyKey;
+
     @Nonnull
     private final Map<String, String> indexOptions;
+
+    @Nonnull
+    private final RecordLayerSchemaTemplate.Builder metadataBuilder;
 
     public OnSourceIndexGenerator(@Nonnull final Identifier indexName, @Nonnull final LogicalPlanFragment source,
                                   @Nonnull final List<IndexedColumn> keyColumns, @Nonnull final List<IndexedColumn> valueColumns,
                                   final boolean isUnique, final boolean useLegacyExtremum, final boolean useNullableArrays,
-                                  @Nonnull final Map<String, String> indexOptions) {
+                                  final boolean generateKeyValueExpressionWithEmptyKey, @Nonnull final Map<String, String> indexOptions,
+                                  @Nonnull final RecordLayerSchemaTemplate.Builder metadataBuilder) {
         this.indexName = indexName;
         this.source = source;
         this.keyColumns = ImmutableList.copyOf(keyColumns);
@@ -140,7 +145,9 @@ public final class OnSourceIndexGenerator {
         this.isUnique = isUnique;
         this.useLegacyExtremum = useLegacyExtremum;
         this.useNullableArrays = useNullableArrays;
+        this.generateKeyValueExpressionWithEmptyKey = generateKeyValueExpressionWithEmptyKey;
         this.indexOptions = ImmutableMap.copyOf(indexOptions);
+        this.metadataBuilder = metadataBuilder;
     }
 
     /**
@@ -159,11 +166,10 @@ public final class OnSourceIndexGenerator {
      * The generated index will be ordered according to the key columns and can optionally enforce uniqueness
      * if configured via {@link Builder#setUnique(boolean)}.
      *
-     * @param catalog the schema catalog used to resolve table types for the index
      * @return a fully configured {@link RecordLayerIndex} ready to be added to the schema
      */
     @Nonnull
-    public RecordLayerIndex.Builder generate(@Nonnull final RecordLayerSchemaTemplate catalog) {
+    public RecordLayerIndex.Builder generate() {
         final var keyIdentifiers = keyColumns.stream().map(IndexedColumn::getIdentifier).collect(ImmutableList.toImmutableList());
         final var keyIdentifiersAsSet = ImmutableSet.copyOf(keyIdentifiers);
         final var valueIdentifiers = valueColumns.stream().map(IndexedColumn::getIdentifier)
@@ -218,8 +224,7 @@ public final class OnSourceIndexGenerator {
                 Quantifier.forEach(Reference.initialOf(newSelectExpression)));
         final var indexPlan = LogicalOperator.generateSort(resultingOperator, orderByExpressions, ImmutableSet.of(), Optional.empty());
         final var indexGenerator = MaterializedViewIndexGenerator.from(indexPlan.getQuantifier().getRangesOver().get(), useLegacyExtremum);
-        final var tableType = Assert.castUnchecked(catalog.findTableByName(indexGenerator.getRecordTypeName()).get(), RecordLayerTable.class);
-        final var indexBuilder = indexGenerator.generate(indexName.toString(), isUnique, tableType.getType(), useNullableArrays);
+        final var indexBuilder = indexGenerator.generate(metadataBuilder, indexName.toString(), isUnique, useNullableArrays, generateKeyValueExpressionWithEmptyKey);
         indexBuilder.addAllOptions(indexOptions);
         return indexBuilder;
     }
@@ -330,6 +335,10 @@ public final class OnSourceIndexGenerator {
 
         private boolean useNullableArrays;
 
+        private boolean generateKeyValueExpressionWithEmptyKey;
+
+        private RecordLayerSchemaTemplate.Builder metadataBuilder;
+
         private Builder() {
             this.keyColumns = new ArrayList<>();
             this.valueColumns = new ArrayList<>();
@@ -402,13 +411,27 @@ public final class OnSourceIndexGenerator {
         }
 
         @Nonnull
+        public Builder setGenerateKeyValueExpressionWithEmptyKey(boolean generateKeyValueExpressionWithEmptyKey) {
+            this.generateKeyValueExpressionWithEmptyKey = generateKeyValueExpressionWithEmptyKey;
+            return this;
+        }
+
+
+        @Nonnull
+        public Builder setMetadataBuilder(final RecordLayerSchemaTemplate.Builder metadataBuilder) {
+            this.metadataBuilder = metadataBuilder;
+            return this;
+        }
+
+        @Nonnull
         public OnSourceIndexGenerator build() {
             Assert.notNullUnchecked(indexName);
             Assert.notNullUnchecked(indexSource);
             Assert.notNullUnchecked(semanticAnalyzer);
-            Assert.thatUnchecked(!keyColumns.isEmpty());
+            Assert.notNullUnchecked(metadataBuilder);
             return new OnSourceIndexGenerator(indexName, indexSource, keyColumns, valueColumns,
-                    isUnique, useLegacyExtremum, useNullableArrays, indexOptions);
+                    isUnique, useLegacyExtremum, useNullableArrays, generateKeyValueExpressionWithEmptyKey,
+                    indexOptions, metadataBuilder);
         }
     }
 }

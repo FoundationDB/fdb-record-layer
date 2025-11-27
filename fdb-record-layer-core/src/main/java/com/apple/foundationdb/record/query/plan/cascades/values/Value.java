@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.query.plan.cascades.values;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.annotation.GenerateVisitor;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
@@ -92,7 +91,6 @@ import java.util.function.Supplier;
  * A scalar value type.
  */
 @API(API.Status.EXPERIMENTAL)
-@GenerateVisitor
 public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEquivalence<Value>, PlanHashable, Typed, Narrowable<Value>, PlanSerializable {
 
     @Nonnull
@@ -309,31 +307,6 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
             Verify.verify(value.getCorrelatedTo().isEmpty());
             return value;
         }, false).orElseThrow(() -> new RecordCoreException("unable to map tree"));
-    }
-
-    @Nonnull
-    @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    default Value translateCorrelationsRecursively(@Nonnull final TranslationMap translationMap) {
-        if (translationMap.definesOnlyIdentities()) {
-            return this;
-        }
-        return replaceLeavesMaybe(value -> {
-            if (value instanceof LeafValue) {
-                final var leafValue = (LeafValue)value;
-                final var correlatedTo = value.getCorrelatedTo();
-                if (correlatedTo.isEmpty()) {
-                    return leafValue;
-                }
-
-                Verify.verify(correlatedTo.size() == 1);
-                final var sourceAlias = Iterables.getOnlyElement(correlatedTo);
-                return translationMap.containsSourceAlias(sourceAlias)
-                       ? translationMap.applyTranslationFunction(sourceAlias, leafValue)
-                       : leafValue;
-            }
-            Verify.verify(value.getCorrelatedTo().isEmpty());
-            return value;
-        }, true).orElseThrow(() -> new RecordCoreException("unable to map tree"));
     }
 
     @Nonnull
