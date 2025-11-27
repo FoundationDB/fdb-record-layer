@@ -33,7 +33,6 @@ test_block:
                      END AS stock_status
               FROM products
               ORDER BY name
-      - supported_version: 4.7.2.0
       - result: [{name: "Gadget X", stock: 0, stock_status: "Out of Stock"},
                  {name: "Tool A", stock: 100, stock_status: "Well Stocked"},
                  {name: "Tool B", stock: 15, stock_status: "In Stock"},
@@ -52,7 +51,6 @@ test_block:
                      END AS category_code
               FROM products
               ORDER BY name
-      - supported_version: 4.7.2.0
       - result: [{name: "Gadget X", category: "Electronics", category_code: "E"},
                  {name: "Tool A", category: "Hardware", category_code: "H"},
                  {name: "Tool B", category: "Hardware", category_code: "H"},
@@ -74,7 +72,6 @@ test_block:
                      END AS product_tier
               FROM products
               ORDER BY name
-      - supported_version: 4.7.2.0
       - result: [{name: "Gadget X", price: 200, stock: 0, product_tier: "Unavailable"},
                  {name: "Tool A", price: 80, stock: 100, product_tier: "Budget"},
                  {name: "Tool B", price: 120, stock: 15, product_tier: "Standard"},
