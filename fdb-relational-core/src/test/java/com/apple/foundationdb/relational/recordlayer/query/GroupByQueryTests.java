@@ -35,7 +35,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.net.URI;
-import java.util.Base64;
 
 import static com.apple.foundationdb.relational.recordlayer.query.QueryTestUtils.insertT1Record;
 import static com.apple.foundationdb.relational.recordlayer.query.QueryTestUtils.insertT1RecordColAIsNull;
@@ -149,13 +148,15 @@ public class GroupByQueryTests {
                                 .hasNoNextRow();
                         continuation = resultSet.getContinuation();
                     }
-                    String postfix = " WITH CONTINUATION B64'" + Base64.getEncoder().encodeToString(continuation.serialize()) + "'";
-                    Assertions.assertTrue(statement.execute(query + postfix), "Did not return a result set from a select statement!");
-                    try (final RelationalResultSet resultSet = statement.getResultSet()) {
-                        ResultSetAssert.assertThat(resultSet).hasNextRow()
-                                .isRowExactly(9.5)
-                                .hasNoNextRow();
-                        continuation = resultSet.getContinuation();
+                    try (var ps = conn.prepareStatement("EXECUTE CONTINUATION ?continuation")) {
+                        ps.setBytes("continuation", continuation.serialize());
+                        Assertions.assertTrue(ps.execute(), "Did not return a result set from a select statement!");
+                        try (final RelationalResultSet resultSet = ps.getResultSet()) {
+                            ResultSetAssert.assertThat(resultSet).hasNextRow()
+                                    .isRowExactly(9.5)
+                                    .hasNoNextRow();
+                            continuation = resultSet.getContinuation();
+                        }
                     }
                 }
             }

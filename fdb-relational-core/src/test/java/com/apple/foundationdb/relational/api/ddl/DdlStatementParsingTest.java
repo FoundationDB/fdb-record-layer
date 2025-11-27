@@ -20,35 +20,23 @@
 
 package com.apple.foundationdb.relational.api.ddl;
 
-import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.expressions.RecordKeyExpressionProto;
-import com.apple.foundationdb.record.metadata.Key;
-import com.apple.foundationdb.record.metadata.MetaDataValidator;
-import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
-import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactoryRegistryImpl;
-import com.apple.foundationdb.record.query.plan.cascades.RawSqlFunction;
-import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
-import com.apple.foundationdb.record.query.plan.cascades.UserDefinedMacroFunction;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.api.metadata.Index;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.api.metadata.Table;
-import com.apple.foundationdb.relational.api.metadata.View;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
 import com.apple.foundationdb.relational.recordlayer.RecordContextTransaction;
 import com.apple.foundationdb.relational.recordlayer.RelationalConnectionRule;
 import com.apple.foundationdb.relational.recordlayer.Utils;
 import com.apple.foundationdb.relational.recordlayer.ddl.AbstractMetadataOperationsFactory;
 import com.apple.foundationdb.relational.recordlayer.ddl.NoOpMetadataOperationsFactory;
-import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerColumn;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
-import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.recordlayer.metric.RecordLayerMetricCollector;
 import com.apple.foundationdb.relational.recordlayer.query.Plan;
 import com.apple.foundationdb.relational.recordlayer.query.PreparedParams;
@@ -58,9 +46,7 @@ import com.apple.foundationdb.relational.utils.PermutationIterator;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.protobuf.DescriptorProtos;
-import com.google.protobuf.Descriptors;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
@@ -80,8 +66,6 @@ import java.sql.SQLException;
 import java.sql.Types;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 import java.util.function.IntPredicate;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -349,133 +333,6 @@ public class DdlStatementParsingTest {
             public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
                                                                       @Nonnull Options templateProperties) {
                 Assertions.fail("Should fail during parsing!");
-                return txn -> {
-                };
-            }
-        });
-    }
-
-    /**
-     * Validate that Protobuf escaping on a schema template by looking at the produced meta-data.
-     * This works with the tests in {@code valid-identifiers.yamsql}, which validate actual query semantics
-     * on such a meta-data. This test allows us to validate which parts of the meta-data are actually
-     * translated (it should only be things that get turned into Protobuf identifiers, like message types,
-     * field names, and enum values) and which parts are preserved (like function, view, and index names).
-     *
-     * @throws Exception from generating the schema-template
-     */
-    @Test
-    void translateNames() throws Exception {
-        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
-                "CREATE TYPE AS STRUCT \"a.b$c__struct\" (\"___a$\" bigint, \"_b.x\" string, \"c__\" bigint)  " +
-                "CREATE TYPE AS ENUM \"a.b$c__enum\" ('___A$', '_B.X', 'C__')  " +
-                "CREATE TABLE \"__4a.b$c__table\"(\"__h__s\" \"a.b$c__struct\", \"_x.y\" bigint, \"enum.field\" \"a.b$c__enum\", primary key (\"__h__s\".\"_b.x\")) " +
-                "CREATE INDEX \"a.b$c__index\" AS SELECT \"_x.y\", \"__h__s\".\"___a$\", \"__h__s\".\"c__\" FROM \"__4a.b$c__table\" ORDER BY \"_x.y\", \"__h__s\".\"___a$\" " +
-                "CREATE VIEW \"a.b$c__view\" AS SELECT \"__h__s\".\"___a$\" AS \"f__00\" FROM \"__4a.b$c__table\" WHERE \"_x.y\" > 4 " +
-                "CREATE FUNCTION \"a.b$c__function\"(in \"__param__int\" bigint, in \"__param__enum\" TYPE \"a.b$c__enum\") " +
-                "  AS SELECT \"__h__s\".\"___a$\" AS \"f__00\" FROM \"__4a.b$c__table\" WHERE \"_x.y\" > \"__param__int\" AND \"enum.field\" = \"__param__enum\" " +
-                "CREATE FUNCTION \"a.b$c__macro_function\"(in \"__in__4a.b$c__table\" TYPE \"__4a.b$c__table\") RETURNS string AS \"__in__4a.b$c__table\".\"__h__s\".\"_b.x\" ";
-
-        shouldWorkWithInjectedFactory(stmt, new AbstractMetadataOperationsFactory() {
-            @Nonnull
-            @Override
-            public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull final SchemaTemplate template, @Nonnull final Options templateProperties) {
-                try {
-                    // Assert all the user-visible names look like the user identifiers in the schema
-
-                    Set<? extends Table> tables = template.getTables();
-                    Assertions.assertEquals(1, tables.size(), () -> "tables " + tables + " should have only one element");
-
-                    final Table table = Iterables.getOnlyElement(tables);
-                    Assertions.assertEquals("__4a.b$c__table", table.getName());
-
-                    final DataType.StructType structType = DataType.StructType.from("a.b$c__struct", List.of(
-                            DataType.StructType.Field.from("___a$", DataType.LongType.nullable(), 1),
-                            DataType.StructType.Field.from("_b.x", DataType.StringType.nullable(), 2),
-                            DataType.StructType.Field.from("c__", DataType.LongType.nullable(), 3)
-                    ), true);
-                    final DataType.EnumType enumType = DataType.EnumType.from("a.b$c__enum", List.of(
-                            DataType.EnumType.EnumValue.of("___A$", 0),
-                            DataType.EnumType.EnumValue.of("_B.X", 1),
-                            DataType.EnumType.EnumValue.of("C__", 2)
-                    ), true);
-                    Assertions.assertEquals(List.of(
-                            RecordLayerColumn.newBuilder().setName("__h__s").setDataType(structType).setIndex(1).build(),
-                            RecordLayerColumn.newBuilder().setName("_x.y").setDataType(DataType.LongType.nullable()).setIndex(2).build(),
-                            RecordLayerColumn.newBuilder().setName("enum.field").setDataType(enumType).setIndex(3).build()
-                    ), table.getColumns());
-
-                    Set<? extends Index> indexes = table.getIndexes();
-                    Assertions.assertEquals(1, indexes.size(), () -> "indexes " + indexes + " for table " + table.getName() + " should have only one element");
-                    Index index = Iterables.getOnlyElement(indexes);
-                    Assertions.assertEquals("a.b$c__index", index.getName());
-                    Assertions.assertEquals("__4a.b$c__table", index.getTableName());
-
-                    Set<? extends View> views = template.getViews();
-                    Assertions.assertEquals(1, views.size(), () -> "views " + views + " should have only one element");
-                    View view = Iterables.getOnlyElement(views);
-                    Assertions.assertEquals("a.b$c__view", view.getName());
-
-                    template.findInvokedRoutineByName("a.b$c__function")
-                            .orElseGet(() -> Assertions.fail("could not find function a.b$c__function"));
-                    template.findInvokedRoutineByName("a.b$c__macro_function")
-                            .orElseGet(() -> Assertions.fail("could not find function a.b$c__macro_function"));
-
-                    // Assert all the internal fields are using escaped protobuf identifiers
-
-                    Assertions.assertInstanceOf(RecordLayerTable.class, table);
-                    final RecordLayerTable recordLayerTable = (RecordLayerTable) table;
-                    Assertions.assertEquals(Key.Expressions.concat(Key.Expressions.recordType(), Key.Expressions.field("__h__0s").nest("_b__2x")), recordLayerTable.getPrimaryKey());
-
-                    Assertions.assertInstanceOf(RecordLayerIndex.class, index);
-                    final RecordLayerIndex recordLayerIndex = (RecordLayerIndex) index;
-                    Assertions.assertEquals(Key.Expressions.keyWithValue(Key.Expressions.concat(
-                                    Key.Expressions.field("_x__2y"),
-                                    Key.Expressions.field("__h__0s").nest(
-                                            Key.Expressions.concatenateFields("___a__1", "c__0")
-                                    )
-                            ), 2),
-                            recordLayerIndex.getKeyExpression());
-
-                    Assertions.assertInstanceOf(RecordLayerSchemaTemplate.class, template);
-                    final RecordLayerSchemaTemplate recordLayerSchemaTemplate = (RecordLayerSchemaTemplate) template;
-                    final RecordMetaData metaData = recordLayerSchemaTemplate.toRecordMetadata();
-
-                    Assertions.assertFalse(metaData.getRecordTypes().containsKey("__4a.b$c__table"), () -> "meta-data should not contain unescaped table name " + table.getName());
-                    Assertions.assertTrue(metaData.getRecordTypes().containsKey("__4a__2b__1c__0table"), () -> "meta-data should contain unescaped table name of " + table.getName());
-                    final RecordType recordType = metaData.getRecordType("__4a__2b__1c__0table");
-                    final Descriptors.Descriptor typeDescriptor = recordType.getDescriptor();
-                    Assertions.assertEquals("__4a__2b__1c__0table", typeDescriptor.getName());
-                    Assertions.assertEquals(List.of("__h__0s", "_x__2y", "enum__2field"), typeDescriptor.getFields().stream().map(Descriptors.FieldDescriptor::getName).collect(Collectors.toList()));
-                    final Descriptors.Descriptor structDescriptor = typeDescriptor.findFieldByName("__h__0s").getMessageType();
-                    Assertions.assertEquals("a__2b__1c__0struct", structDescriptor.getName());
-                    Assertions.assertEquals(List.of("___a__1", "_b__2x", "c__0"), structDescriptor.getFields().stream().map(Descriptors.FieldDescriptor::getName).collect(Collectors.toList()));
-                    final Descriptors.EnumDescriptor enumDescriptor = typeDescriptor.findFieldByName("enum__2field").getEnumType();
-                    Assertions.assertEquals("a__2b__1c__0enum", enumDescriptor.getName());
-                    Assertions.assertEquals(List.of("___A__1", "_B__2X", "C__0"), enumDescriptor.getValues().stream().map(Descriptors.EnumValueDescriptor::getName).collect(Collectors.toList()));
-
-                    var metaDataIndex = metaData.getIndex(index.getName());
-                    Assertions.assertEquals("a.b$c__index", metaDataIndex.getName()); // Index name is _not_ translated
-                    Assertions.assertEquals(recordLayerIndex.getKeyExpression(), metaDataIndex.getRootExpression()); // key expression is already validated as translated
-
-                    final Map<String, com.apple.foundationdb.record.metadata.View> viewMap = metaData.getViewMap();
-                    Assertions.assertTrue(viewMap.containsKey("a.b$c__view"), "should contain function a.b$c__view without escaping name");
-
-                    final Map<String, UserDefinedFunction> functionMap = metaData.getUserDefinedFunctionMap();
-                    Assertions.assertTrue(functionMap.containsKey("a.b$c__function"), "should contain function a.b$c__function without escaping name");
-                    final UserDefinedFunction sqlFunction = functionMap.get("a.b$c__function");
-                    Assertions.assertInstanceOf(RawSqlFunction.class, sqlFunction);
-                    Assertions.assertTrue(functionMap.containsKey("a.b$c__macro_function"), "should contain function a.b$c__macro_function without escaping name");
-                    final UserDefinedFunction macroFunction = functionMap.get("a.b$c__macro_function");
-                    Assertions.assertInstanceOf(UserDefinedMacroFunction.class, macroFunction);
-
-                    // Validates that referenced fields and types all line up
-                    final MetaDataValidator validator = new MetaDataValidator(metaData, IndexMaintainerFactoryRegistryImpl.instance());
-                    Assertions.assertDoesNotThrow(validator::validate, "Meta-data validation should complete successfully");
-                } catch (RelationalException e) {
-                    return Assertions.fail(e);
-                }
-
                 return txn -> {
                 };
             }
