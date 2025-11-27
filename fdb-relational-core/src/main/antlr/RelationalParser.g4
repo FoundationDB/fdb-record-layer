@@ -168,9 +168,9 @@ enumDefinition
     ;
 
 indexDefinition
-    : (UNIQUE)? INDEX indexName=uid AS queryTerm indexAttributes?                                        #indexAsSelectDefinition
-    | (UNIQUE)? INDEX indexName=uid ON source=fullId indexColumnList includeClause? indexOptions?        #indexOnSourceDefinition
-    | VECTOR INDEX indexName=uid ON source=fullId indexColumnList partitionClause? vectorIndexOptions?   #vectorIndexDefinition
+    : (UNIQUE)? INDEX indexName=uid AS queryTerm indexAttributes?                                                                  #indexAsSelectDefinition
+    | (UNIQUE)? INDEX indexName=uid ON source=fullId indexColumnList includeClause? indexOptions?                                  #indexOnSourceDefinition
+    | VECTOR INDEX indexName=uid USING HNSW ON source=fullId indexColumnList includeClause? partitionClause? vectorIndexOptions?   #vectorIndexDefinition
     ;
 
 indexColumnList
@@ -198,19 +198,28 @@ indexOption
     ;
 
 vectorIndexOptions
-    : OPTIONS '(' vectorIndexOption (COMMA vectorIndexOptions)* ')'
+    : OPTIONS '(' vectorIndexOption (COMMA vectorIndexOption)* ')'
     ;
 
 vectorIndexOption
-     : HNSW_EF_CONSTRUCTION '=' efConstruction=decimalLiteral
-    | HNSW_M '=' m=decimalLiteral
-    | HNSW_M_MAX '=' mMax=decimalLiteral
-    | HNSW_MAINTAIN_STATS_PROBABILITY '=' maintainStatsProbability=decimalLiteral
-    | HNSW_METRIC '=' metric=stringLiteral
-    | HNSW_RABITQ_NUM_EX_BITS '=' rabitQNumExBits=decimalLiteral
-    | HNSW_SAMPLE_VECTOR_STATS_PROBABILITY '=' statsProbability=decimalLiteral
-    | HNSW_STATS_THRESHOLD '=' statsThreshold=decimalLiteral
-    | HNSW_USE_RABITQ '=' useRabitQ=booleanLiteral
+    : EF_CONSTRUCTION '=' efConstruction=DECIMAL_LITERAL
+    | CONNECTIVITY '=' connectivity=DECIMAL_LITERAL
+    | M_MAX '=' mMax=DECIMAL_LITERAL
+    | M_MAX_0 '=' mMaxZero=DECIMAL_LITERAL
+    | MAINTAIN_STATS_PROBABILITY '=' maintainStatsProbability=REAL_LITERAL
+    | METRIC '=' metric=hnswMetric
+    | RABITQ_NUM_EX_BITS '=' rabitQNumExBits=DECIMAL_LITERAL
+    | SAMPLE_VECTOR_STATS_PROBABILITY '=' statsProbability=REAL_LITERAL
+    | STATS_THRESHOLD '=' statsThreshold=DECIMAL_LITERAL
+    | USE_RABITQ '=' useRabitQ=booleanLiteral
+    ;
+
+hnswMetric
+    : MANHATTAN_METRIC
+    | EUCLIDEAN_METRIC
+    | EUCLIDEAN_SQUARE_METRIC
+    | COSINE_METRIC
+    | DOT_PRODUCT_METRIC
     ;
 
 indexAttributes

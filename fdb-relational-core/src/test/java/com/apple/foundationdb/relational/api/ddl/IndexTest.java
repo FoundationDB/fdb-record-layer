@@ -20,8 +20,7 @@
 
 package com.apple.foundationdb.relational.api.ddl;
 
-import com.apple.foundationdb.record.RecordMetaDataProto;
-import com.apple.foundationdb.record.expressions.RecordKeyExpressionProto;
+import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
@@ -55,6 +54,8 @@ import javax.annotation.Nonnull;
 import java.util.Locale;
 import java.util.function.Consumer;
 
+import static com.apple.foundationdb.record.RecordMetaDataProto.*;
+import static com.apple.foundationdb.record.expressions.RecordKeyExpressionProto.*;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
@@ -288,12 +289,12 @@ public class IndexTest {
         indexIs(stmt, field("P", KeyExpression.FanType.None), IndexTypes.VALUE, index -> {
             assertThat(index.isUnique()).isFalse();
             assertThat(index.getName()).isEqualTo("MV1");
-            assertThat(index.getPredicate()).isEqualTo(RecordMetaDataProto.Predicate.newBuilder()
-                    .setValuePredicate(RecordMetaDataProto.ValuePredicate.newBuilder().addValue("P")
-                            .setComparison(RecordMetaDataProto.Comparison.newBuilder()
-                                    .setSimpleComparison(RecordMetaDataProto.SimpleComparison.newBuilder()
-                                            .setType(RecordMetaDataProto.ComparisonType.GREATER_THAN)
-                                            .setOperand(RecordKeyExpressionProto.Value.newBuilder().setLongValue(10L).build())
+            assertThat(index.getPredicate()).isEqualTo(Predicate.newBuilder()
+                    .setValuePredicate(ValuePredicate.newBuilder().addValue("P")
+                            .setComparison(Comparison.newBuilder()
+                                    .setSimpleComparison(SimpleComparison.newBuilder()
+                                            .setType(ComparisonType.GREATER_THAN)
+                                            .setOperand(Value.newBuilder().setLongValue(10L).build())
                                             .build())
                                     .build())
                             .build())
@@ -312,12 +313,12 @@ public class IndexTest {
         // todo (yhatem) verify the predicate.
         indexIs(stmt, field("P", KeyExpression.FanType.None), IndexTypes.VALUE, index -> {
             assertThat(index.isUnique()).isFalse();
-            assertThat(index.getPredicate()).isEqualTo(RecordMetaDataProto.Predicate.newBuilder()
-                    .setValuePredicate(RecordMetaDataProto.ValuePredicate.newBuilder().addValue("P")
-                            .setComparison(RecordMetaDataProto.Comparison.newBuilder()
-                                    .setSimpleComparison(RecordMetaDataProto.SimpleComparison.newBuilder()
-                                            .setType(RecordMetaDataProto.ComparisonType.GREATER_THAN)
-                                            .setOperand(RecordKeyExpressionProto.Value.newBuilder().setLongValue(10L).build())
+            assertThat(index.getPredicate()).isEqualTo(Predicate.newBuilder()
+                    .setValuePredicate(ValuePredicate.newBuilder().addValue("P")
+                            .setComparison(Comparison.newBuilder()
+                                    .setSimpleComparison(SimpleComparison.newBuilder()
+                                            .setType(ComparisonType.GREATER_THAN)
+                                            .setOperand(Value.newBuilder().setLongValue(10L).build())
                                             .build())
                                     .build())
                             .build())
@@ -1011,14 +1012,179 @@ public class IndexTest {
     @Test
     void createVectorIndexWorksCorrectly() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
-                "CREATE TYPE AS STRUCT A(x bigint) " +
-                "CREATE TYPE AS STRUCT C(z bigint, k bigint) " +
-                "CREATE TYPE AS STRUCT B(a A array, c C array) " +
                 "CREATE TABLE T(p bigint, b vector(3, float), c bigint, z bigint, primary key(p))" +
                 "CREATE VIEW V1 AS SELECT p, b, c, z from T where c > 50 " +
-                "CREATE VECTOR INDEX MV1 ON V1(b) PARTITION BY(z)";
+                "CREATE VECTOR INDEX MV1 USING HNSW ON V1(b) PARTITION BY(z)";
         indexIs(stmt,
                 keyWithValue(concat(field("Z"), field("B")), 1),
-                IndexTypes.VECTOR);
+                IndexTypes.VECTOR,
+                idx -> {
+                    final var predicate = idx.getPredicate();
+                    assertThat(predicate).isEqualTo(Predicate.newBuilder()
+                            .setValuePredicate(ValuePredicate
+                                    .newBuilder()
+                                    .addValue("C")
+                                    .setComparison(Comparison
+                                            .newBuilder()
+                                            .setSimpleComparison(SimpleComparison.newBuilder()
+                                                    .setType(ComparisonType.GREATER_THAN)
+                                                    .setOperand(Value.newBuilder().setLongValue(50).build())
+                                                    .build())
+                                            .build())
+                                    .build())
+                            .build());
+                });
+    }
+
+    @Test
+    void createVectorIndexWithOptionsWorksCorrectly() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p bigint, b vector(3, float), c bigint, primary key(p))" +
+                "CREATE VECTOR INDEX MV1 USING HNSW ON T(b) PARTITION BY (p) " +
+                "OPTIONS (CONNECTIVITY = 16, M_MAX = 32, EF_CONSTRUCTION = 200, METRIC = COSINE_METRIC)";
+        indexIs(stmt,
+                keyWithValue(concat(field("P"), field("B")), 1),
+                IndexTypes.VECTOR,
+                idx -> {
+                    final var options = idx.getOptions();
+                    Assertions.assertEquals("3", options.get(IndexOptions.HNSW_NUM_DIMENSIONS));
+                    Assertions.assertEquals("16", options.get(IndexOptions.HNSW_M));
+                    Assertions.assertEquals("32", options.get(IndexOptions.HNSW_M_MAX));
+                    Assertions.assertEquals("200", options.get(IndexOptions.HNSW_EF_CONSTRUCTION));
+                    Assertions.assertEquals("COSINE_METRIC", options.get(IndexOptions.HNSW_METRIC));
+                    validateVectorIndex(idx);
+                });
+    }
+
+    @Test
+    void createVectorIndexWithRabitQOptionsWorksCorrectly() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p bigint, b vector(128, float), primary key(p))" +
+                "CREATE VECTOR INDEX MV1 USING HNSW ON T(b) PARTITION BY (p) " +
+                "OPTIONS (USE_RABITQ = true, RABITQ_NUM_EX_BITS = 4, MAINTAIN_STATS_PROBABILITY = 0.01)";
+        indexIs(stmt,
+                keyWithValue(concat(field("P"), field("B")), 1),
+                IndexTypes.VECTOR,
+                idx -> {
+                    final var options = idx.getOptions();
+                    Assertions.assertEquals("128", options.get(IndexOptions.HNSW_NUM_DIMENSIONS));
+                    Assertions.assertEquals("true", options.get(IndexOptions.HNSW_USE_RABITQ));
+                    Assertions.assertEquals("4", options.get(IndexOptions.HNSW_RABITQ_NUM_EX_BITS));
+                    Assertions.assertEquals("0.01", options.get(IndexOptions.HNSW_MAINTAIN_STATS_PROBABILITY));
+                    validateVectorIndex(idx);
+                });
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {2, 16, 256, 1024})
+    void createVectorIndexWithVariousDimensionsWorksCorrectly(int dimensions) throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p bigint, b vector(" + dimensions + ", float), primary key(p))" +
+                "CREATE VECTOR INDEX MV1 USING HNSW ON T(b) PARTITION BY (p)";
+        indexIs(stmt, keyWithValue(concat(field("P"), field("B")), 1), IndexTypes.VECTOR,
+                idx -> {
+                    Assertions.assertEquals(String.valueOf(dimensions), idx.getOptions().get(IndexOptions.HNSW_NUM_DIMENSIONS));
+                    validateVectorIndex(idx);
+                });
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"EUCLIDEAN_METRIC", "MANHATTAN_METRIC", "DOT_PRODUCT_METRIC", "EUCLIDEAN_SQUARE_METRIC"})
+    void createVectorIndexWithAllMetricTypesWorksCorrectly(String metric) throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p bigint, b vector(512, float), primary key(p))" +
+                "CREATE VECTOR INDEX MV1 USING HNSW ON T(b) PARTITION BY (p) OPTIONS (METRIC = " + metric + ")";
+
+        indexIs(stmt, keyWithValue(concat(field("P"), field("B")), 1), IndexTypes.VECTOR,
+                idx -> {
+                    Assertions.assertEquals("512", idx.getOptions().get(IndexOptions.HNSW_NUM_DIMENSIONS));
+                    Assertions.assertEquals(metric, idx.getOptions().get(IndexOptions.HNSW_METRIC));
+                    // Validate using VectorIndexMaintainerFactory validator
+                    validateVectorIndex(idx);
+                });
+    }
+
+    private void validateVectorIndex(RecordLayerIndex recordLayerIndex) {
+        // Convert RecordLayerIndex to core Index
+        final var coreIndex = new com.apple.foundationdb.record.metadata.Index(
+                recordLayerIndex.getName(),
+                recordLayerIndex.getKeyExpression(),
+                recordLayerIndex.getIndexType(),
+                recordLayerIndex.getOptions(),
+                recordLayerIndex.getPredicate() != null
+                        ? com.apple.foundationdb.record.metadata.IndexPredicate.fromProto(recordLayerIndex.getPredicate())
+                        : null
+        );
+
+        // Validate using VectorIndexHelper - this validates the configuration options
+        // VectorIndexHelper.getConfig() will throw IllegalArgumentException if options are invalid
+        Assertions.assertDoesNotThrow(() ->
+                com.apple.foundationdb.record.provider.foundationdb.indexes.VectorIndexHelper.getConfig(coreIndex),
+                "Vector index configuration should be valid");
+    }
+
+    @Test
+    void createVectorIndexWithStatsOptionsWorksCorrectly() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p bigint, b vector(64, float), primary key(p))" +
+                "CREATE VECTOR INDEX MV1 USING HNSW ON T(b) PARTITION BY (p) " +
+                "OPTIONS (SAMPLE_VECTOR_STATS_PROBABILITY = 0.05)";
+        indexIs(stmt,
+                keyWithValue(concat(field("P"), field("B")), 1),
+                IndexTypes.VECTOR,
+                idx -> {
+                    final var options = idx.getOptions();
+                    Assertions.assertEquals("64", options.get(IndexOptions.HNSW_NUM_DIMENSIONS));
+                    Assertions.assertEquals("0.05", options.get(IndexOptions.HNSW_SAMPLE_VECTOR_STATS_PROBABILITY));
+                    validateVectorIndex(idx);
+                });
+    }
+
+    @Test
+    void createVectorIndexOnMultipleColumnsFails() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p bigint, b vector(3, float), c vector(3, float), primary key(p))" +
+                "CREATE VECTOR INDEX MV1 USING HNSW ON T(b, c) PARTITION BY (p)";
+        shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "invalid number of indexed columns, only one column is supported");
+    }
+
+    @Test
+    void createVectorIndexOnNonVectorColumnFails() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p bigint, b bigint, primary key(p))" +
+                "CREATE VECTOR INDEX MV1 USING HNSW ON T(b) PARTITION BY (p)";
+        shouldFailWith(stmt, ErrorCode.SYNTAX_ERROR, "indexed column must be of vector type");
+    }
+
+    @Test
+    void createVectorIndexOnStringColumnFails() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p bigint, b string, primary key(p))" +
+                "CREATE VECTOR INDEX MV1 USING HNSW ON T(b) PARTITION BY (p)";
+        shouldFailWith(stmt, ErrorCode.SYNTAX_ERROR, "indexed column must be of vector type");
+    }
+
+    @Test
+    void createVectorIndexWithIncludeClauseFails() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p bigint, b vector(3, float), c bigint, d string, primary key(p)) " +
+                "CREATE VECTOR INDEX MV1 USING HNSW ON T(b) INCLUDE (c, d) PARTITION BY (p) ";
+        shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "INCLUDE clause is not supported for vector indexes");
+    }
+
+    @Test
+    void createVectorIndexWithIncludeClauseAndPartitionFails() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p bigint, b vector(3, float), c bigint, z bigint, primary key(p))" +
+                "CREATE VECTOR INDEX MV1 USING HNSW ON T(b) INCLUDE (c) PARTITION BY(z)";
+        shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "INCLUDE clause is not supported for vector indexes");
+    }
+
+    @Test
+    void createVectorIndexWithIncludeClauseAndOptionsFails() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p bigint, b vector(3, float), c bigint, primary key(p))" +
+                "CREATE VECTOR INDEX MV1 USING HNSW ON T(b) INCLUDE (c) PARTITION BY (p) OPTIONS (CONNECTIVITY = 16)";
+        shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "INCLUDE clause is not supported for vector indexes");
     }
 }

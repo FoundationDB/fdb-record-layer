@@ -267,6 +267,11 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
         return getDelegate().visitVectorIndexOption(ctx);
     }
 
+    @Override
+    public Object visitHnswMetric(final RelationalParser.HnswMetricContext ctx) {
+        return getDelegate().visitHnswMetric(ctx);
+    }
+
     @Nonnull
     @Override
     public Object visitIndexAttributes(@Nonnull RelationalParser.IndexAttributesContext ctx) {

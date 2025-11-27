@@ -367,6 +367,11 @@ public final class OnSourceIndexGenerator {
         }
 
         @Nonnull
+        public List<IndexedColumn> getValueColumns() {
+            return valueColumns;
+        }
+
+        @Nonnull
         public Builder addIndexOption(@Nonnull final String key, @Nonnull final String value) {
             indexOptions.put(key, value);
             return this;

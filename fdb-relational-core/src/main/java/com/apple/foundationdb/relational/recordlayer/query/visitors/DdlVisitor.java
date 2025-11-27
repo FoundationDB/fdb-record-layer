@@ -48,7 +48,6 @@ import com.apple.foundationdb.relational.recordlayer.query.Expression;
 import com.apple.foundationdb.relational.recordlayer.query.Expressions;
 import com.apple.foundationdb.relational.recordlayer.query.Identifier;
 import com.apple.foundationdb.relational.recordlayer.query.LogicalOperators;
-import com.apple.foundationdb.relational.recordlayer.query.ParseHelpers;
 import com.apple.foundationdb.relational.recordlayer.query.ddl.OnSourceIndexGenerator;
 import com.apple.foundationdb.relational.recordlayer.query.ddl.MaterializedViewIndexGenerator;
 import com.apple.foundationdb.relational.recordlayer.query.LogicalOperator;
@@ -61,6 +60,7 @@ import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import org.antlr.v4.runtime.ParserRuleContext;
 
 import javax.annotation.Nonnull;
@@ -266,6 +266,8 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         var logicalOperator = generateSourceAccessForIndex(sourceIdentifier);
         getDelegate().getCurrentPlanFragment().setOperator(logicalOperator);
 
+
+
         final Identifier indexId = visitUid(indexDefinitionContext.indexName);
         final var indexOptions = parseVectorOptions(indexDefinitionContext.vectorIndexOptions());
         final var indexGeneratorBuilder = OnSourceIndexGenerator.newBuilder()
@@ -278,6 +280,21 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         indexDefinitionContext.indexColumnList().indexColumnSpec().forEach(colSpec ->
                 indexGeneratorBuilder.addValueColumn(OnSourceIndexGenerator.IndexedColumn
                         .parseColSpec(colSpec, getDelegate().getIdentifierVisitor())));
+
+        // parse the number of dimensions.
+        final var indexedColumns = indexGeneratorBuilder.getValueColumns();
+        Assert.thatUnchecked(indexedColumns.size() == 1, ErrorCode.UNSUPPORTED_OPERATION,
+                () -> "invalid number of indexed columns, only one column is supported, found " + indexedColumns.size() + " columns");
+        final var indexedCol = Iterables.getOnlyElement(indexedColumns).getIdentifier();
+        final var type = getDelegate().getSemanticAnalyzer().resolveIdentifier(indexedCol, getDelegate().getCurrentPlanFragment())
+                .getDataType();
+        Assert.thatUnchecked(type.getCode() == DataType.Code.VECTOR, ErrorCode.SYNTAX_ERROR,
+                () -> "indexed column must be of vector type, found '" + type.getCode() + "' instead");
+        final var numberOfDimensions = ((DataType.VectorType)type).getDimensions();
+        indexGeneratorBuilder.addIndexOption(IndexOptions.HNSW_NUM_DIMENSIONS, String.valueOf(numberOfDimensions));
+
+        Assert.isNullUnchecked(indexDefinitionContext.includeClause(), ErrorCode.UNSUPPORTED_OPERATION,
+                "INCLUDE clause is not supported for vector indexes");
 
         if (indexDefinitionContext.partitionClause() != null) {
             indexDefinitionContext.partitionClause().indexColumnSpec().forEach(colSpec ->
@@ -313,25 +330,24 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
             return indexOptionsBuilder.build();
         }
 
-        for (final var vectorIndexOption : indexOptionsContext.vectorIndexOptions()) {
-            final var option = vectorIndexOption.vectorIndexOption();
-            if (option.HNSW_EF_CONSTRUCTION() != null) {
+        for (final var option : indexOptionsContext.vectorIndexOption()) {
+            if (option.EF_CONSTRUCTION() != null) {
                 indexOptionsBuilder.put(IndexOptions.HNSW_EF_CONSTRUCTION, option.efConstruction.getText());
-            } else if (option.HNSW_M() != null) {
-                indexOptionsBuilder.put(IndexOptions.HNSW_M, option.m.getText());
-            } else if (option.HNSW_M_MAX() != null) {
+            } else if (option.CONNECTIVITY() != null) {
+                indexOptionsBuilder.put(IndexOptions.HNSW_M, option.connectivity.getText());
+            } else if (option.M_MAX() != null) {
                 indexOptionsBuilder.put(IndexOptions.HNSW_M_MAX, option.mMax.getText());
-            } else if (option.HNSW_MAINTAIN_STATS_PROBABILITY() != null) {
+            } else if (option.MAINTAIN_STATS_PROBABILITY() != null) {
                 indexOptionsBuilder.put(IndexOptions.HNSW_MAINTAIN_STATS_PROBABILITY, option.maintainStatsProbability.getText());
-            } else if (option.HNSW_METRIC() != null) {
+            } else if (option.METRIC() != null) {
                 indexOptionsBuilder.put(IndexOptions.HNSW_METRIC, option.metric.getText());
-            } else if (option.HNSW_RABITQ_NUM_EX_BITS() != null) {
+            } else if (option.RABITQ_NUM_EX_BITS() != null) {
                 indexOptionsBuilder.put(IndexOptions.HNSW_RABITQ_NUM_EX_BITS, option.rabitQNumExBits.getText());
-            } else if (option.HNSW_SAMPLE_VECTOR_STATS_PROBABILITY() != null) {
+            } else if (option.SAMPLE_VECTOR_STATS_PROBABILITY() != null) {
                 indexOptionsBuilder.put(IndexOptions.HNSW_SAMPLE_VECTOR_STATS_PROBABILITY, option.statsProbability.getText());
-            } else if (option.HNSW_STATS_THRESHOLD() != null) {
+            } else if (option.STATS_THRESHOLD() != null) {
                 indexOptionsBuilder.put(IndexOptions.HNSW_STATS_THRESHOLD, option.statsThreshold.getText());
-            } else if (option.HNSW_USE_RABITQ() != null) {
+            } else if (option.USE_RABITQ() != null) {
                 indexOptionsBuilder.put(IndexOptions.HNSW_USE_RABITQ, option.useRabitQ.getText());
             }
         }
