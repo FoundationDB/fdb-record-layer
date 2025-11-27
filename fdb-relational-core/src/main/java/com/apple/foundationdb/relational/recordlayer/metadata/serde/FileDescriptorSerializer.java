@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordMetaDataOptionsProto;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
+import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.api.metadata.Metadata;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.api.metadata.Table;
@@ -91,10 +92,11 @@ public class FileDescriptorSerializer extends SkeletonVisitor {
     @Override
     public void visit(@Nonnull final Table table) {
         Assert.thatUnchecked(table instanceof RecordLayerTable);
-        final RecordLayerTable recordLayerTable = (RecordLayerTable) table;
-        final Type.Record type = recordLayerTable.getType();
-        final String typeDescriptor = registerTypeDescriptors(type);
-        final Map<Integer, DescriptorProtos.FieldOptions> generations = recordLayerTable.getGenerations();
+        final var recordLayerTable = (RecordLayerTable) table;
+        final var type = recordLayerTable.getType();
+        final var dataType = recordLayerTable.getDatatype();
+        final var typeDescriptor = registerTypeDescriptors(type, dataType);
+        final var generations = recordLayerTable.getGenerations();
 
         checkTableGenerations(generations);
 
@@ -115,7 +117,7 @@ public class FileDescriptorSerializer extends SkeletonVisitor {
 
     // (yhatem) this is temporary, we use rec layer typing also as a bridge to PB serialization for now.
     @Nonnull
-    private String registerTypeDescriptors(@Nonnull final Type.Record type) {
+    private String registerTypeDescriptors(@Nonnull final Type.Record type, @Nonnull final DataType.StructType dataType) {
         final var builder = TypeRepository.newBuilder();
         type.defineProtoType(builder);
         final var typeDescriptors = builder.build();
@@ -125,7 +127,15 @@ public class FileDescriptorSerializer extends SkeletonVisitor {
                 continue;
             }
             final var descriptor = typeDescriptors.getMessageDescriptor(descriptorName);
-            fileBuilder.addMessageType(descriptor.toProto());
+            final var descriptorProto = descriptor.toProto();
+            // Add invisible flag to field options only for the top-level table descriptor
+            final DescriptorProtos.DescriptorProto modifiedDescriptorProto;
+            if (descriptorName.equals(typeDescriptor)) {
+                modifiedDescriptorProto = addInvisibleFieldOptions(descriptorProto, dataType);
+            } else {
+                modifiedDescriptorProto = descriptorProto;
+            }
+            fileBuilder.addMessageType(modifiedDescriptorProto);
             descriptorNames.add(descriptorName);
         }
         for (final var enumName : typeDescriptors.getEnumTypes()) {
@@ -137,6 +147,36 @@ public class FileDescriptorSerializer extends SkeletonVisitor {
             enumNames.add(enumName);
         }
         return typeDescriptor;
+    }
+
+    @Nonnull
+    private DescriptorProtos.DescriptorProto addInvisibleFieldOptions(@Nonnull final DescriptorProtos.DescriptorProto descriptorProto,
+                                                                      @Nonnull final DataType.StructType dataType) {
+        final var builder = descriptorProto.toBuilder();
+
+        // Build a set of invisible field names for O(1) lookup instead of O(N) stream filter per field
+        final var invisibleFieldNames = dataType.getFields().stream()
+                .filter(DataType.StructType.Field::isInvisible)
+                .map(DataType.StructType.Field::getName)
+                .collect(Collectors.toSet());
+
+        // Check each field against the set - O(N) total instead of O(N²)
+        for (int i = 0; i < builder.getFieldCount(); i++) {
+            final var fieldProto = builder.getField(i);
+            final var fieldName = fieldProto.getName();
+
+            if (invisibleFieldNames.contains(fieldName)) {
+                final var fieldOptions = RecordMetaDataOptionsProto.FieldOptions.newBuilder()
+                        .setInvisible(true)
+                        .build();
+                final var modifiedFieldProto = fieldProto.toBuilder()
+                        .setOptions(fieldProto.getOptions().toBuilder()
+                                .setExtension(RecordMetaDataOptionsProto.field, fieldOptions))
+                        .build();
+                builder.setField(i, modifiedFieldProto);
+            }
+        }
+        return builder.build();
     }
 
     @Override

@@ -81,7 +81,7 @@ public final class OrderByExpression {
                 // expand *
                 .flatMap(orderBy ->
                         orderBy.getExpression() instanceof Star ?
-                                ((Star) orderBy.getExpression()).getExpansion().stream().map(orderBy::withExpression) :
+                                ((Star) orderBy.getExpression()).getExpansion().nonInvisible().stream().map(orderBy::withExpression) :
                                 Stream.of(orderBy))
                 .map(orderBy -> {
                     final var orderByExpression = orderBy.getExpression();

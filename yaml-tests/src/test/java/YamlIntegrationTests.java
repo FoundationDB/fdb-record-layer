@@ -358,4 +358,9 @@ public class YamlIntegrationTests {
     public void viewsTest(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("views.yamsql");
     }
+
+    @TestTemplate
+    public void invisibleColumns(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("invisible-columns.yamsql");
+    }
 }

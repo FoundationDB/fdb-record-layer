@@ -69,18 +69,35 @@ public class Expression {
     @Nonnull
     private final Supplier<Value> underlying;
 
+    private final boolean invisible;
+
     public Expression(@Nonnull Optional<Identifier> name,
                       @Nonnull DataType dataType,
                       @Nonnull Value expression) {
-        this(name, dataType, () -> expression);
+        this(name, dataType, () -> expression, false);
     }
 
     public Expression(@Nonnull Optional<Identifier> name,
                       @Nonnull DataType dataType,
                       @Nonnull Supplier<Value> valueSupplier) {
+        this(name, dataType, valueSupplier, false);
+    }
+
+    public Expression(@Nonnull Optional<Identifier> name,
+                      @Nonnull DataType dataType,
+                      @Nonnull Value expression,
+                      boolean invisible) {
+        this(name, dataType, () -> expression, invisible);
+    }
+
+    public Expression(@Nonnull Optional<Identifier> name,
+                      @Nonnull DataType dataType,
+                      @Nonnull Supplier<Value> valueSupplier,
+                      boolean invisible) {
         this.name = name;
         this.dataType = dataType;
         this.underlying = Suppliers.memoize(valueSupplier::get);
+        this.invisible = invisible;
     }
 
     @Nonnull
@@ -98,12 +115,40 @@ public class Expression {
         return underlying.get();
     }
 
+    /**
+     * Returns whether this expression represents an invisible column.
+     * <p>
+     * Invisible columns are excluded from {@code SELECT *} queries but can be explicitly selected.
+     * For example, given a table with an invisible column {@code secret}:
+     * <ul>
+     *   <li>{@code SELECT * FROM t} - excludes {@code secret}</li>
+     *   <li>{@code SELECT secret FROM t} - includes {@code secret} (made visible via {@link Expressions#makeVisible()})</li>
+     *   <li>{@code SELECT * FROM (SELECT secret FROM t)} - includes {@code secret} from subquery</li>
+     * </ul>
+     * <p>
+     * The invisible flag is set when columns are loaded from table metadata (via {@link LogicalOperator})
+     * and is cleared when columns are explicitly selected (via {@link Expressions#makeVisible()}).
+     *
+     * @return {@code true} if this expression is invisible, {@code false} otherwise
+     */
+    public boolean isInvisible() {
+        return invisible;
+    }
+
+    @Nonnull
+    public Expression withInvisible(boolean invisible) {
+        if (this.invisible == invisible) {
+            return this;
+        }
+        return new Expression(getName(), getDataType(), getUnderlying(), invisible);
+    }
+
     @Nonnull
     public Expression withName(@Nonnull Identifier name) {
         if (getName().isPresent() && getName().get().equals(name)) {
             return this;
         }
-        return new Expression(Optional.of(name), getDataType(), getUnderlying());
+        return new Expression(Optional.of(name), getDataType(), getUnderlying(), invisible);
     }
 
     @Nonnull
@@ -111,7 +156,7 @@ public class Expression {
         if (getUnderlying().semanticEquals(underlying, AliasMap.identitiesFor(underlying.getCorrelatedTo()))) {
             return this;
         }
-        return new Expression(getName(), DataTypeUtils.toRelationalType(underlying.getResultType()), underlying);
+        return new Expression(getName(), DataTypeUtils.toRelationalType(underlying.getResultType()), underlying, invisible);
     }
 
     @Nonnull
@@ -123,7 +168,7 @@ public class Expression {
         if (!name.isQualified()) {
             return this;
         }
-        return new Expression(Optional.of(name.withoutQualifier()), getDataType(), getUnderlying());
+        return new Expression(Optional.of(name.withoutQualifier()), getDataType(), getUnderlying(), invisible);
     }
 
     @Nonnull
@@ -141,7 +186,7 @@ public class Expression {
         if (newNameMaybe.equals(name)) {
             return this;
         }
-        return new Expression(Optional.of(newNameMaybe), getDataType(), getUnderlying());
+        return new Expression(Optional.of(newNameMaybe), getDataType(), getUnderlying(), invisible);
     }
 
     @Nonnull
@@ -157,10 +202,10 @@ public class Expression {
             return this;
         }
         if (qualifier.isEmpty()) {
-            return new Expression(Optional.of(name.withoutQualifier()), getDataType(), getUnderlying());
+            return new Expression(Optional.of(name.withoutQualifier()), getDataType(), getUnderlying(), invisible);
         }
         final var newName = name.withQualifier(qualifier.get().fullyQualifiedName());
-        return new Expression(Optional.of(newName), getDataType(), getUnderlying());
+        return new Expression(Optional.of(newName), getDataType(), getUnderlying(), invisible);
     }
 
     public boolean isAggregate() {
