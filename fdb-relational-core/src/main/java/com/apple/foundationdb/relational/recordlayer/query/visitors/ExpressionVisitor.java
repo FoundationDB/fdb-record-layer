@@ -763,7 +763,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
                                 })
                         .collect(ImmutableMap.toImmutableMap(NonnullPair::getLeft, NonnullPair::getRight,
                                 (l, r) -> {
-                                    throw Assert.failUnchecked(ErrorCode.AMBIGUOUS_COLUMN, "duplicate column '" + l + "'");
+                                    throw Assert.failUnchecked(ErrorCode.AMBIGUOUS_COLUMN, "duplicate column " + l);
                                 }));
         return CompatibleTypeEvolutionPredicate.FieldAccessTrieNode.of(Type.any(), uidMap);
     }

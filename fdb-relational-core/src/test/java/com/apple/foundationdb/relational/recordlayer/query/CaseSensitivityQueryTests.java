@@ -63,14 +63,14 @@ public class CaseSensitivityQueryTests {
             try (var statement = connection.createStatement()) {
                 RelationalAssertions.assertThrowsSqlException(() -> statement.execute("select * from restaurant"))
                         .hasErrorCode(ErrorCode.UNDEFINED_TABLE)
-                        .hasMessageContaining("Unknown table \"RESTAURANT\"");
+                        .hasMessageContaining("Unknown table RESTAURANT");
             }
 
             connection.setOption(Options.Name.CASE_SENSITIVE_IDENTIFIERS, true);
             try (var statement = connection.createStatement()) {
                 RelationalAssertions.assertThrowsSqlException(() -> statement.execute("select * from restaurant"))
                         .hasErrorCode(ErrorCode.UNDEFINED_TABLE)
-                        .hasMessageContaining("Unknown table \"restaurant\"");
+                        .hasMessageContaining("Unknown table restaurant");
             }
         }
     }
@@ -96,14 +96,14 @@ public class CaseSensitivityQueryTests {
             try (var statement = connection.createStatement()) {
                 RelationalAssertions.assertThrowsSqlException(() -> statement.execute("select * from \"restaurant\""))
                         .hasErrorCode(ErrorCode.UNDEFINED_TABLE)
-                        .hasMessageContaining("Unknown table \"restaurant\"");
+                        .hasMessageContaining("Unknown table restaurant");
             }
 
             connection.setOption(Options.Name.CASE_SENSITIVE_IDENTIFIERS, true);
             try (var statement = connection.createStatement()) {
                 RelationalAssertions.assertThrowsSqlException(() -> statement.execute("select * from ResTaurant"))
                         .hasErrorCode(ErrorCode.UNDEFINED_TABLE)
-                        .hasMessageContaining("Unknown table \"ResTaurant\"");
+                        .hasMessageContaining("Unknown table ResTaurant");
             }
         }
     }
@@ -130,14 +130,14 @@ public class CaseSensitivityQueryTests {
             try (var statement = connection.createStatement()) {
                 RelationalAssertions.assertThrowsSqlException(() -> statement.execute("select * from restaurant"))
                         .hasErrorCode(ErrorCode.UNDEFINED_TABLE)
-                        .hasMessageContaining("Unknown table \"RESTAURANT\"");
+                        .hasMessageContaining("Unknown table RESTAURANT");
             }
 
             connection.setOption(Options.Name.CASE_SENSITIVE_IDENTIFIERS, true);
             try (var statement = connection.createStatement()) {
                 RelationalAssertions.assertThrowsSqlException(() -> statement.execute("select * from restaurant"))
                         .hasErrorCode(ErrorCode.UNDEFINED_TABLE)
-                        .hasMessageContaining("Unknown table \"restaurant\"");
+                        .hasMessageContaining("Unknown table restaurant");
             }
         }
     }

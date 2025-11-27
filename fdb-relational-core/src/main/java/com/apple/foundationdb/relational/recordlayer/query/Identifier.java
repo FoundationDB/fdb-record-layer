@@ -60,11 +60,7 @@ public class Identifier {
 
     @Override
     public String toString() {
-        return qualifier.stream()
-                .map(q -> "\"" + q + "\"")
-                .collect(Collectors.joining("."))
-                + (qualifier.isEmpty() ? "" : ".")
-                + "\"" + name + "\"";
+        return String.join(".", qualifier) + (qualifier.isEmpty() ? "" : ".") + name;
     }
 
     @Nonnull
