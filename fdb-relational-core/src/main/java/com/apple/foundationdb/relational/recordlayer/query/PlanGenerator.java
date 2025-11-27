@@ -47,6 +47,7 @@ import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
 import com.apple.foundationdb.relational.continuation.CompiledStatement;
 import com.apple.foundationdb.relational.continuation.TypedQueryArgument;
 import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
+import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.query.cache.PhysicalPlanEquivalence;
 import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanCache;
@@ -332,7 +333,7 @@ public final class PlanGenerator {
         if (resultType instanceof Type.Record) {
             final Type.Record recordType = (Type.Record) resultType;
             semanticFieldTypes = recordType.getFields().stream()
-                    .map(field -> com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils.toRelationalType(field.getFieldType()))
+                    .map(field -> DataTypeUtils.toRelationalType(field.getFieldType()))
                     .collect(java.util.stream.Collectors.toList());
         } else {
             // Fallback for non-record types (shouldn't happen for SELECT results)
