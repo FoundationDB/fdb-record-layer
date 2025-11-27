@@ -213,9 +213,8 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         final var useLegacyBasedExtremumEver = indexDefinitionContext.indexAttributes() != null && indexDefinitionContext.indexAttributes().indexAttribute().stream().anyMatch(attribute -> attribute.LEGACY_EXTREMUM_EVER() != null);
         final var isUnique = indexDefinitionContext.UNIQUE() != null;
         final var generator = MaterializedViewIndexGenerator.from(viewPlan, useLegacyBasedExtremumEver);
-        final var table = metadataBuilder.findTable(generator.getRecordTypeName());
         Assert.thatUnchecked(viewPlan instanceof LogicalSortExpression, ErrorCode.INVALID_COLUMN_REFERENCE, "Cannot create index and order by an expression that is not present in the projection list");
-        return generator.generate(indexId.getName(), isUnique, table.getType(), containsNullableArray).build();
+        return generator.generate(metadataBuilder, indexId.getName(), isUnique, containsNullableArray).build();
     }
 
     @Nonnull
@@ -421,7 +420,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
             metadataBuilder.addView(view);
         });
         final var indexes = indexClauses.build().stream().map(clause -> Assert.castUnchecked(visit(clause), RecordLayerIndex.class)).collect(ImmutableList.toImmutableList());
-        for (final var index : indexes) {
+        for (final RecordLayerIndex index : indexes) {
             final var table = metadataBuilder.extractTable(index.getTableName());
             final var tableWithIndex = RecordLayerTable.Builder.from(table).addIndex(index).build();
             metadataBuilder.addTable(tableWithIndex);

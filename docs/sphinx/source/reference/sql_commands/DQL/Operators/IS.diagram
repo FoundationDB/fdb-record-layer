@@ -1,0 +1,10 @@
+Diagram(
+    NonTerminal('expression'),
+    Terminal('IS'),
+    Optional(Terminal('NOT'), 1),
+    Choice(0,
+        Terminal('NULL'),
+        Terminal('TRUE'),
+        Terminal('FALSE')
+    )
+)
