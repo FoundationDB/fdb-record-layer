@@ -1,7 +1,4 @@
 ---
-options:
-  supported_version: 4.7.2.0
----
 schema_template:
     create table products(id bigint, name string, category string, price bigint, stock integer, primary key(id))
     create index name_idx as select name from products order by name
