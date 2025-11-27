@@ -14,8 +14,6 @@ Syntax
 
 CASE expressions use conditional evaluation:
 
-**Searched CASE** (evaluates conditions):
-
 .. code-block:: sql
 
     CASE
@@ -69,8 +67,8 @@ For these examples, assume we have a ``products`` table:
         (4, 'Tool A', 'Hardware', 80, 100),
         (5, 'Tool B', 'Hardware', 120, 15)
 
-Searched CASE - Simple Condition
-----------------------------------
+Simple Condition
+----------------
 
 Categorize products by stock level:
 
@@ -108,8 +106,8 @@ Categorize products by stock level:
       - :json:`15`
       - :json:`"In Stock"`
 
-Searched CASE - Multiple Conditions
-------------------------------------
+Multiple Conditions
+-------------------
 
 Calculate discount based on price and category:
 
