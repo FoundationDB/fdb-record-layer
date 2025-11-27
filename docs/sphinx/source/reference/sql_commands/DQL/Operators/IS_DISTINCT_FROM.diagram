@@ -1,0 +1,8 @@
+Diagram(
+    NonTerminal('expression1'),
+    Terminal('IS'),
+    Optional(Terminal('NOT'), 1),
+    Terminal('DISTINCT'),
+    Terminal('FROM'),
+    NonTerminal('expression2')
+)

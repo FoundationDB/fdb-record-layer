@@ -103,8 +103,11 @@ public class ExecutePropertyTests {
         try (var conn = driver.connect(database.getConnectionUri(), Options.builder().withOption(optionName, optionValue).build())) {
             conn.setSchema("TEST_SCHEMA");
             while (!continuation.atEnd()) {
-                try (var ps = conn.prepareStatement("SELECT * FROM FOO WITH CONTINUATION ?")) {
-                    ps.setBytes(1, continuation.serialize());
+                String query = continuation.atBeginning() ? "SELECT * FROM FOO" : "EXECUTE CONTINUATION ?";
+                try (var ps = conn.prepareStatement(query)) {
+                    if (!continuation.atBeginning()) {
+                        ps.setBytes(1, continuation.serialize());
+                    }
                     try (final RelationalResultSet rs = ps.executeQuery()) {
                         for (int currentRowCount = 0; currentRowCount < expectedRowCountPerQuery; currentRowCount++) {
                             if (nextCorrectResult == 17L) {

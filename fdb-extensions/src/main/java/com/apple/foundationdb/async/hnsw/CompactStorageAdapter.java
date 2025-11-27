@@ -86,7 +86,8 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
      * @param layer the layer of the node to fetch
      * @param primaryKey the primary key of the node to fetch
      *
-     * @return a future that will complete with the fetched {@link AbstractNode}
+     * @return a future that will complete with the fetched {@link AbstractNode} or {@code null} if the node cannot
+     *         be fetched
      *
      * @throws IllegalStateException if the node cannot be found in the database for the given key
      */
@@ -101,7 +102,7 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
         return readTransaction.get(keyBytes)
                 .thenApply(valueBytes -> {
                     if (valueBytes == null) {
-                        throw new IllegalStateException("cannot fetch node");
+                        return null;
                     }
                     return nodeFromRaw(storageTransform, layer, primaryKey, keyBytes, valueBytes);
                 });

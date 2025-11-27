@@ -27,7 +27,6 @@ import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
-import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
 import com.apple.foundationdb.relational.continuation.ContinuationProto;
 import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
@@ -44,7 +43,6 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.net.URI;
 import java.sql.SQLException;
-import java.util.Base64;
 import java.util.Objects;
 
 public class QueryWithContinuationTest {
@@ -80,7 +78,7 @@ public class QueryWithContinuationTest {
                 continuation = assertResult(ps, 10L, 11L);
                 assertContinuation(continuation, false, false);
             }
-            try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WITH CONTINUATION ?continuation")) {
+            try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("EXECUTE CONTINUATION ?continuation")) {
                 ps.setMaxRows(2);
                 ps.setBytes("continuation", continuation.serialize());
                 continuation = assertResult(ps, 12L, 13L);
@@ -128,7 +126,7 @@ public class QueryWithContinuationTest {
                 continuation = assertResult(ps, 10L, 11L);
                 assertContinuation(continuation, false, false);
             }
-            try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WITH CONTINUATION ?continuation")) {
+            try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("EXECUTE CONTINUATION ?continuation")) {
                 ps.setBytes("continuation", continuation.serialize());
                 ps.setMaxRows(2);
                 continuation = assertResult(ps, 12L, 13L);
@@ -146,22 +144,23 @@ public class QueryWithContinuationTest {
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             executeInsert(ddl);
             Continuation continuation;
-            try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE REST_NO > ?p")) {
-                ps.setMaxRows(2);
-                ps.setInt("p", 9);
-                continuation = assertResult(ps, 10L, 11L);
-                assertContinuation(continuation, false, false);
-            }
-            try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE REST_NO > ?p WITH CONTINUATION ?continuation")) {
-                ps.setBytes("continuation", continuation.serialize());
-                ps.setMaxRows(2);
-                ps.setInt("p", 9);
-                continuation = assertResult(ps, 12L, 13L);
-                assertContinuation(continuation, false, false);
+            try (final var connection = ddl.setSchemaAndGetConnection()) {
+                try (var statement = connection.prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE REST_NO > ?p")) {
+                    statement.setMaxRows(2);
+                    statement.setInt("p", 9);
+                    continuation = assertResult(statement, 10L, 11L);
+                    assertContinuation(continuation, false, false);
+                }
+                try (var statement = connection.prepareStatement("EXECUTE CONTINUATION ?continuation")) {
+                    statement.setBytes("continuation", continuation.serialize());
+                    statement.setMaxRows(2);
+                    continuation = assertResult(statement, 12L, 13L);
+                    assertContinuation(continuation, false, false);
 
-                ps.setBytes("continuation", continuation.serialize());
-                continuation = assertResult(ps, 14L);
-                assertContinuation(continuation, false, true);
+                    statement.setBytes("continuation", continuation.serialize());
+                    continuation = assertResult(statement, 14L);
+                    assertContinuation(continuation, false, true);
+                }
             }
         }
     }
@@ -171,21 +170,22 @@ public class QueryWithContinuationTest {
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             executeInsert(ddl);
             Continuation continuation;
-            try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE REST_NO > 9")) {
-                ps.setMaxRows(2);
-                continuation = assertResult(ps, 10L, 11L);
-                assertContinuation(continuation, false, false);
-            }
-            try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE REST_NO > 9 WITH CONTINUATION ?continuation")) {
-                ps.setMaxRows(2);
-                ps.setBytes("continuation", continuation.serialize());
-                ps.setInt("l", 2);
-                continuation = assertResult(ps, 12L, 13L);
-                assertContinuation(continuation, false, false);
+            try (final var connection = ddl.setSchemaAndGetConnection()) {
+                try (var statement = connection.prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE REST_NO > 9")) {
+                    statement.setMaxRows(2);
+                    continuation = assertResult(statement, 10L, 11L);
+                    assertContinuation(continuation, false, false);
+                }
+                try (var statement = connection.prepareStatement("EXECUTE CONTINUATION ?continuation")) {
+                    statement.setMaxRows(2);
+                    statement.setBytes("continuation", continuation.serialize());
+                    continuation = assertResult(statement, 12L, 13L);
+                    assertContinuation(continuation, false, false);
 
-                ps.setBytes("continuation", continuation.serialize());
-                continuation = assertResult(ps, 14L);
-                assertContinuation(continuation, false, true);
+                    statement.setBytes("continuation", continuation.serialize());
+                    continuation = assertResult(statement, 14L);
+                    assertContinuation(continuation, false, true);
+                }
             }
         }
     }
@@ -195,16 +195,18 @@ public class QueryWithContinuationTest {
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             executeInsert(ddl);
             Continuation continuation;
-            try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE REST_NO > 9")) {
-                ps.setMaxRows(2);
-                continuation = assertResult(ps, 10L, 11L);
-                assertContinuation(continuation, false, false);
-            }
-            try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE REST_NO > 9 WITH CONTINUATION ?continuation")) {
-                ps.setMaxRows(4);
-                ps.setBytes("continuation", continuation.serialize());
-                continuation = assertResult(ps, 12L, 13L, 14L);
-                assertContinuation(continuation, false, true);
+            try (final var connection = ddl.setSchemaAndGetConnection()) {
+                try (var statement = connection.prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE REST_NO > 9")) {
+                    statement.setMaxRows(2);
+                    continuation = assertResult(statement, 10L, 11L);
+                    assertContinuation(continuation, false, false);
+                }
+                try (var statement = connection.prepareStatement("EXECUTE CONTINUATION ?continuation")) {
+                    statement.setMaxRows(4);
+                    statement.setBytes("continuation", continuation.serialize());
+                    continuation = assertResult(statement, 12L, 13L, 14L);
+                    assertContinuation(continuation, false, true);
+                }
             }
         }
     }
@@ -214,146 +216,18 @@ public class QueryWithContinuationTest {
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             executeInsert(ddl);
             Continuation continuation;
-            try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE REST_NO > 9")) {
-                ps.setMaxRows(2);
-                continuation = assertResult(ps, 10L, 11L);
-                assertContinuation(continuation, false, false);
-            }
-            try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE REST_NO > 9 WITH CONTINUATION ?continuation")) {
-                ps.setBytes("continuation", continuation.serialize());
-                ps.setMaxRows(4);
-                continuation = assertResult(ps, 12L, 13L, 14L);
-                assertContinuation(continuation, false, true);
-            }
-        }
-    }
-
-    @Test
-    void preparedStatementInitialContEmpty() throws Exception {
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
-            executeInsert(ddl);
-            Continuation continuation;
-            try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE REST_NO > ?p WITH CONTINUATION ?continuation")) {
-                ps.setMaxRows(2);
-                ps.setBytes("continuation", new byte[0]);
-                ps.setInt("p", 9);
-                continuation = assertResult(ps, 10L, 11L);
-                assertContinuation(continuation, false, false);
-
-                ps.setBytes("continuation", continuation.serialize());
-                continuation = assertResult(ps, 12L, 13L);
-                assertContinuation(continuation, false, false);
-
-                ps.setBytes("continuation", continuation.serialize());
-                continuation = assertResult(ps, 14L);
-                assertContinuation(continuation, false, true);
-            }
-        }
-    }
-
-    @Test
-    void preparedStatementWithParamChangedFails() throws Exception {
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
-            executeInsert(ddl);
-            Continuation continuation;
-            try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE REST_NO > ?p")) {
-                ps.setMaxRows(2);
-                ps.setInt("p", 9);
-                continuation = assertResult(ps, 10L, 11L);
-                assertContinuation(continuation, false, false);
-            }
-            try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE REST_NO > ?p WITH CONTINUATION ?continuation")) {
-                ps.setMaxRows(2);
-                ps.setBytes("continuation", continuation.serialize());
-                ps.setInt("p", 10);
-                Assertions.assertThatThrownBy(ps::executeQuery)
-                        .hasCauseInstanceOf(RelationalException.class)
-                        .hasMessageContaining("Continuation binding does not match query");
-            }
-        }
-    }
-
-    @Test
-    void preparedStatementWithLiteralChangedFails() throws Exception {
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
-            executeInsert(ddl);
-            Continuation continuation;
-            try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE REST_NO > 9")) {
-                ps.setMaxRows(2);
-                continuation = assertResult(ps, 10L, 11L);
-                assertContinuation(continuation, false, false);
-            }
-            try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE REST_NO > 10 WITH CONTINUATION ?continuation")) {
-                ps.setMaxRows(2);
-                ps.setBytes("continuation", continuation.serialize());
-                Assertions.assertThatThrownBy(ps::executeQuery)
-                        .hasCauseInstanceOf(RelationalException.class)
-                        .hasMessageContaining("Continuation binding does not match query");
-            }
-        }
-    }
-
-    @Test
-    void preparedStatementWithLiteralChangedToParamFails() throws Exception {
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
-            executeInsert(ddl);
-            Continuation continuation;
-            try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE REST_NO > 9")) {
-                ps.setMaxRows(2);
-                continuation = assertResult(ps, 10L, 11L);
-                assertContinuation(continuation, false, false);
-            }
-            try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE REST_NO > ?p WITH CONTINUATION ?continuation")) {
-                ps.setMaxRows(2);
-                ps.setBytes("continuation", continuation.serialize());
-                ps.setInt("p", 9);
-                Assertions.assertThatThrownBy(ps::executeQuery)
-                        .hasCauseInstanceOf(RelationalException.class)
-                        .hasMessageContaining("Continuation binding does not match query");
-            }
-        }
-    }
-
-    @Test
-    void preparedStatementWithParamNameChangedFails() throws Exception {
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
-            executeInsert(ddl);
-            Continuation continuation;
-            try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE REST_NO > ?p")) {
-                ps.setMaxRows(2);
-                ps.setInt("p", 9);
-                continuation = assertResult(ps, 10L, 11L);
-                assertContinuation(continuation, false, false);
-            }
-            try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE REST_NO > ?otherName WITH CONTINUATION ?continuation")) {
-                ps.setMaxRows(2);
-                ps.setBytes("continuation", continuation.serialize());
-                ps.setInt("otherName", 9);
-                Assertions.assertThatThrownBy(() -> ps.executeQuery())
-                        .hasCauseInstanceOf(RelationalException.class)
-                        .hasMessageContaining("Continuation binding does not match query");
-            }
-        }
-    }
-
-    @Test
-    void preparedStatementWithPlanChangedFails() throws Exception {
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
-            executeInsert(ddl);
-            Continuation continuation;
-            try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE REST_NO > ?p")) {
-                ps.setMaxRows(2);
-                ps.setInt("p", 9);
-                continuation = assertResult(ps, 10L, 11L);
-                assertContinuation(continuation, false, false);
-            }
-            try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT REST_NO FROM RestaurantComplexRecord WHERE REST_NO > ?p WITH CONTINUATION ?continuation")) {
-                ps.setMaxRows(2);
-                ps.setBytes("continuation", continuation.serialize());
-                ps.setInt("p", 9);
-                Assertions.assertThatThrownBy(() -> ps.executeQuery())
-                        .hasCauseInstanceOf(RelationalException.class)
-                        .hasMessageContaining("Continuation plan does not match query");
+            try (final var connection = ddl.setSchemaAndGetConnection()) {
+                try (var statement = connection.prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE REST_NO > 9")) {
+                    statement.setMaxRows(2);
+                    continuation = assertResult(statement, 10L, 11L);
+                    assertContinuation(continuation, false, false);
+                }
+                try (var statement = connection.prepareStatement("EXECUTE CONTINUATION ?continuation")) {
+                    statement.setBytes("continuation", continuation.serialize());
+                    statement.setMaxRows(4);
+                    continuation = assertResult(statement, 12L, 13L, 14L);
+                    assertContinuation(continuation, false, true);
+                }
             }
         }
     }
@@ -363,36 +237,39 @@ public class QueryWithContinuationTest {
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             executeInsert(ddl);
             Continuation continuation;
-            try (RelationalStatement statement = ddl.setSchemaAndGetConnection().createStatement()) {
-                statement.setMaxRows(2);
-                try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord")) {
-                    ResultSetAssert.assertThat(resultSet)
-                            .hasNextRow().hasColumn("REST_NO", 10L)
-                            .hasNextRow().hasColumn("REST_NO", 11L)
-                            .hasNoNextRow();
-                    continuation = resultSet.getContinuation();
-                    assertContinuation(continuation, false, false);
+            try (final var connection = ddl.setSchemaAndGetConnection()) {
+                try (RelationalStatement statement = connection.createStatement()) {
+                    statement.setMaxRows(2);
+                    try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord")) {
+                        ResultSetAssert.assertThat(resultSet)
+                                .hasNextRow().hasColumn("REST_NO", 10L)
+                                .hasNextRow().hasColumn("REST_NO", 11L)
+                                .hasNoNextRow();
+                        continuation = resultSet.getContinuation();
+                        assertContinuation(continuation, false, false);
+                    }
                 }
-            }
-            try (RelationalStatement statement = ddl.setSchemaAndGetConnection().createStatement()) {
-                String continuationString = Base64.getEncoder().encodeToString(continuation.serialize());
-                statement.setMaxRows(2);
-                try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord WITH CONTINUATION B64'" + continuationString + "'")) {
-                    ResultSetAssert.assertThat(resultSet)
-                            .hasNextRow().hasColumn("REST_NO", 12L)
-                            .hasNextRow().hasColumn("REST_NO", 13L)
-                            .hasNoNextRow();
-                    continuation = resultSet.getContinuation();
-                    assertContinuation(continuation, false, false);
-                }
-                continuationString = Base64.getEncoder().encodeToString(continuation.serialize());
-                statement.setMaxRows(2);
-                try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord WITH CONTINUATION B64'" + continuationString + "'")) {
-                    ResultSetAssert.assertThat(resultSet)
-                            .hasNextRow().hasColumn("REST_NO", 14L)
-                            .hasNoNextRow();
-                    continuation = resultSet.getContinuation();
-                    assertContinuation(continuation, false, true);
+                try (var statement = connection.prepareStatement("EXECUTE CONTINUATION ?continuation")) {
+                    statement.setMaxRows(2);
+                    statement.setBytes("continuation", continuation.serialize());
+                    try (final RelationalResultSet resultSet = statement.executeQuery()) {
+                        ResultSetAssert.assertThat(resultSet)
+                                .hasNextRow().hasColumn("REST_NO", 12L)
+                                .hasNextRow().hasColumn("REST_NO", 13L)
+                                .hasNoNextRow();
+                        continuation = resultSet.getContinuation();
+                        assertContinuation(continuation, false, false);
+                    }
+
+                    statement.setBytes("continuation", continuation.serialize());
+                    statement.setMaxRows(2);
+                    try (final RelationalResultSet resultSet = statement.executeQuery()) {
+                        ResultSetAssert.assertThat(resultSet)
+                                .hasNextRow().hasColumn("REST_NO", 14L)
+                                .hasNoNextRow();
+                        continuation = resultSet.getContinuation();
+                        assertContinuation(continuation, false, true);
+                    }
                 }
             }
         }
@@ -427,9 +304,9 @@ public class QueryWithContinuationTest {
                         PlanHashable.PlanHashMode.VL0.name() + "," + PlanHashable.PlanHashMode.VC0.name());
                 connection.setOption(Options.Name.CURRENT_PLAN_HASH_MODE, PlanHashable.PlanHashMode.VC0.name());
                 try (RelationalStatement statement = connection.createStatement()) {
-                    String continuationString = Base64.getEncoder().encodeToString(continuation.serialize());
+                    String continuationString = java.util.Base64.getEncoder().encodeToString(continuation.serialize());
                     statement.setMaxRows(2);
-                    try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord WITH CONTINUATION B64'" + continuationString + "'")) {
+                    try (final RelationalResultSet resultSet = statement.executeQuery("EXECUTE CONTINUATION B64'" + continuationString + "'")) {
                         ResultSetAssert.assertThat(resultSet)
                                 .hasNextRow().hasColumn("REST_NO", 12L)
                                 .hasNextRow().hasColumn("REST_NO", 13L)
@@ -442,16 +319,16 @@ public class QueryWithContinuationTest {
                         Assertions.assertThat(metricCollector.hasCounter(RelationalMetric.RelationalCount.CONTINUATION_ACCEPTED)).isTrue();
                         Assertions.assertThat(metricCollector.getCountsForCounter(RelationalMetric.RelationalCount.CONTINUATION_ACCEPTED)).isEqualTo(1L);
                         Assertions.assertThat(metricCollector.hasCounter(RelationalMetric.RelationalCount.CONTINUATION_DOWN_LEVEL)).isTrue();
-                        Assertions.assertThat(metricCollector.getCountsForCounter(RelationalMetric.RelationalCount.CONTINUATION_DOWN_LEVEL)).isEqualTo(2L);
+                        Assertions.assertThat(metricCollector.getCountsForCounter(RelationalMetric.RelationalCount.CONTINUATION_DOWN_LEVEL)).isEqualTo(1L);
                     }
                 }
 
                 connection.setOption(Options.Name.VALID_PLAN_HASH_MODES, PlanHashable.PlanHashMode.VC0.name());
                 connection.setOption(Options.Name.CURRENT_PLAN_HASH_MODE, PlanHashable.PlanHashMode.VC0.name());
                 try (RelationalStatement statement = connection.createStatement()) {
-                    String continuationString = Base64.getEncoder().encodeToString(continuation.serialize());
+                    String continuationString = java.util.Base64.getEncoder().encodeToString(continuation.serialize());
                     statement.setMaxRows(2);
-                    try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord WITH CONTINUATION B64'" + continuationString + "'")) {
+                    try (final RelationalResultSet resultSet = statement.executeQuery("EXECUTE CONTINUATION B64'" + continuationString + "'")) {
                         ResultSetAssert.assertThat(resultSet)
                                 .hasNextRow().hasColumn("REST_NO", 14L)
                                 .hasNoNextRow();
@@ -462,7 +339,7 @@ public class QueryWithContinuationTest {
                         final var metricCollector = Objects.requireNonNull(embeddedRelationalConnection.getMetricCollector());
                         Assertions.assertThat(metricCollector.hasCounter(RelationalMetric.RelationalCount.CONTINUATION_ACCEPTED)).isTrue();
                         Assertions.assertThat(metricCollector.getCountsForCounter(RelationalMetric.RelationalCount.CONTINUATION_ACCEPTED)).isEqualTo(1L);
-                        Assertions.assertThat(metricCollector.hasCounter(RelationalMetric.RelationalCount.CONTINUATION_DOWN_LEVEL)).isTrue();
+                        // No down-level in this execution (continuation was created with VC0, executed with VC0)
                     }
                 }
             }
@@ -474,89 +351,39 @@ public class QueryWithContinuationTest {
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             executeInsert(ddl);
             Continuation continuation;
-            try (RelationalStatement statement = ddl.setSchemaAndGetConnection().createStatement()) {
-                statement.setMaxRows(2);
-                try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord WHERE REST_NO > 9")) {
-                    ResultSetAssert.assertThat(resultSet)
-                            .hasNextRow().hasColumn("REST_NO", 10L)
-                            .hasNextRow().hasColumn("REST_NO", 11L)
-                            .hasNoNextRow();
-                    continuation = resultSet.getContinuation();
-                    assertContinuation(continuation, false, false);
+            try (final var connection = ddl.setSchemaAndGetConnection()) {
+                try (RelationalStatement statement = connection.createStatement()) {
+                    statement.setMaxRows(2);
+                    try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord WHERE REST_NO > 9")) {
+                        ResultSetAssert.assertThat(resultSet)
+                                .hasNextRow().hasColumn("REST_NO", 10L)
+                                .hasNextRow().hasColumn("REST_NO", 11L)
+                                .hasNoNextRow();
+                        continuation = resultSet.getContinuation();
+                        assertContinuation(continuation, false, false);
+                    }
                 }
-            }
-            try (RelationalStatement statement = ddl.setSchemaAndGetConnection().createStatement()) {
-                String continuationString = Base64.getEncoder().encodeToString(continuation.serialize());
-                statement.setMaxRows(2);
-                try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord WHERE REST_NO > 9 WITH CONTINUATION B64'" + continuationString + "'")) {
-                    ResultSetAssert.assertThat(resultSet)
-                            .hasNextRow().hasColumn("REST_NO", 12L)
-                            .hasNextRow().hasColumn("REST_NO", 13L)
-                            .hasNoNextRow();
-                    continuation = resultSet.getContinuation();
-                    assertContinuation(continuation, false, false);
+                try (var statement = connection.prepareStatement("EXECUTE CONTINUATION ?continuation")) {
+                    statement.setMaxRows(2);
+                    statement.setBytes("continuation", continuation.serialize());
+                    try (final RelationalResultSet resultSet = statement.executeQuery()) {
+                        ResultSetAssert.assertThat(resultSet)
+                                .hasNextRow().hasColumn("REST_NO", 12L)
+                                .hasNextRow().hasColumn("REST_NO", 13L)
+                                .hasNoNextRow();
+                        continuation = resultSet.getContinuation();
+                        assertContinuation(continuation, false, false);
+                    }
+                    statement.setMaxRows(2);
+                    statement.setBytes("continuation", continuation.serialize());
+                    try (final RelationalResultSet resultSet = statement.executeQuery()) {
+                        ResultSetAssert.assertThat(resultSet)
+                                .hasNextRow().hasColumn("REST_NO", 14L)
+                                .hasNoNextRow();
+                        continuation = resultSet.getContinuation();
+                        assertContinuation(continuation, false, true);
+                    }
                 }
-                continuationString = Base64.getEncoder().encodeToString(continuation.serialize());
-                statement.setMaxRows(2);
-                try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord WHERE REST_NO > 9 WITH CONTINUATION B64'" + continuationString + "'")) {
-                    ResultSetAssert.assertThat(resultSet)
-                            .hasNextRow().hasColumn("REST_NO", 14L)
-                            .hasNoNextRow();
-                    continuation = resultSet.getContinuation();
-                    assertContinuation(continuation, false, true);
-                }
-            }
-        }
-    }
-
-    @Test
-    void standardStatementWithDifferentLiteralFails() throws Exception {
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
-            executeInsert(ddl);
-            Continuation continuation;
-            try (RelationalStatement statement = ddl.setSchemaAndGetConnection().createStatement()) {
-                statement.setMaxRows(2);
-                try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord WHERE REST_NO > 9")) {
-                    ResultSetAssert.assertThat(resultSet)
-                            .hasNextRow().hasColumn("REST_NO", 10L)
-                            .hasNextRow().hasColumn("REST_NO", 11L)
-                            .hasNoNextRow();
-                    continuation = resultSet.getContinuation();
-                    assertContinuation(continuation, false, false);
-                }
-            }
-            try (RelationalStatement statement = ddl.setSchemaAndGetConnection().createStatement()) {
-                String continuationString = Base64.getEncoder().encodeToString(continuation.serialize());
-                statement.setMaxRows(2);
-                Assertions.assertThatThrownBy(() -> statement.executeQuery("SELECT REST_NO FROM RestaurantComplexRecord WHERE REST_NO > 10 WITH CONTINUATION B64'" + continuationString + "'"))
-                        .hasCauseInstanceOf(RelationalException.class)
-                        .hasMessageContaining("Continuation binding does not match query");
-            }
-        }
-    }
-
-    @Test
-    void standardStatementWithDifferentPlanFails() throws Exception {
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
-            executeInsert(ddl);
-            Continuation continuation;
-            try (RelationalStatement statement = ddl.setSchemaAndGetConnection().createStatement()) {
-                statement.setMaxRows(2);
-                try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord")) {
-                    ResultSetAssert.assertThat(resultSet)
-                            .hasNextRow().hasColumn("REST_NO", 10L)
-                            .hasNextRow().hasColumn("REST_NO", 11L)
-                            .hasNoNextRow();
-                    continuation = resultSet.getContinuation();
-                    assertContinuation(continuation, false, false);
-                }
-            }
-            try (RelationalStatement statement = ddl.setSchemaAndGetConnection().createStatement()) {
-                String continuationString = Base64.getEncoder().encodeToString(continuation.serialize());
-                statement.setMaxRows(2);
-                Assertions.assertThatThrownBy(() -> statement.executeQuery("SELECT REST_NO FROM RestaurantComplexRecord WITH CONTINUATION B64'" + continuationString + "'"))
-                        .hasCauseInstanceOf(RelationalException.class)
-                        .hasMessageContaining("Continuation plan does not match query");
             }
         }
     }

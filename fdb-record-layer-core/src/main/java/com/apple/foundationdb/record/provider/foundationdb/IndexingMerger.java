@@ -92,7 +92,14 @@ public class IndexingMerger {
                                     mergeControl.setLastStep(IndexDeferredMaintenanceControl.LastStep.NONE);
                                     mergeControl.setRepartitionCapped(false);
                                     return store.getIndexMaintainer(index).mergeIndex();
-                                }).thenApply(ignore -> false),
+                                })
+                                .thenApply(ignore -> false)
+                                .whenComplete((value, ex) -> {
+                                    if (ex != null) {
+                                        // failed to open the store
+                                        LOGGER.warn("Failed to open record store", ex);
+                                    }
+                                }),
                         Result::of,
                         common.indexLogMessageKeyValues()
                 ).handle((ignore, e) -> {

@@ -268,10 +268,6 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
 
     @Nonnull
     @Override
-    Expression visitContinuation(RelationalParser.ContinuationContext ctx);
-
-    @Nonnull
-    @Override
     Expression visitContinuationAtom(@Nonnull RelationalParser.ContinuationAtomContext ctx);
 
     @Nonnull

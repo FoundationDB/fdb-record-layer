@@ -1745,7 +1745,7 @@ public class RecordQueryPlanner implements QueryPlanner {
         Set<String> possibleTypes;
         if (candidateScan.index == null) {
             Verify.verify(indexScanParameters instanceof IndexScanComparisons);
-            final ScanComparisons scanComparisons = ((IndexScanComparisons)indexScanParameters).getComparisons();
+            final ScanComparisons scanComparisons = ((IndexScanComparisons)indexScanParameters).getScanComparisons();
             if (primaryKeyHasRecordTypePrefix && RecordTypeKeyComparison.hasRecordTypeKeyComparison(scanComparisons)) {
                 possibleTypes = RecordTypeKeyComparison.recordTypeKeyComparisonTypes(scanComparisons);
             } else {

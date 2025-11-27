@@ -48,6 +48,8 @@ public class IndexScanType implements PlanHashable, PlanSerializable {
     public static final IndexScanType BY_TIME_WINDOW = new IndexScanType("BY_TIME_WINDOW");
     @Nonnull
     public static final IndexScanType BY_TEXT_TOKEN = new IndexScanType("BY_TEXT_TOKEN");
+    @Nonnull
+    public static final IndexScanType BY_DISTANCE = new IndexScanType("BY_DISTANCE");
 
     private final String name;
 

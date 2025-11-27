@@ -492,7 +492,7 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
     }
 
     void indexReadTest(final boolean useAsync, final long seed, final int numRecords, @Nonnull final String storage,
-                   final boolean storeHilbertValues, final boolean useNodeSlotIndex) throws Exception {
+                       final boolean storeHilbertValues, final boolean useNodeSlotIndex) throws Exception {
         final RecordMetaDataHook additionalIndexes =
                 metaDataBuilder -> {
                     addCalendarNameStartEpochIndex(metaDataBuilder);
@@ -501,11 +501,16 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
         loadRecords(useAsync, false, additionalIndexes, seed, ImmutableList.of("business"), numRecords);
         final long intervalStartInclusive = epochMean + 3600L;
         final long intervalEndInclusive = epochMean + 5L * 3600L;
+        final HypercubeScanParameters hypercubeScanParameters =
+                new HypercubeScanParameters("business",
+                        (Long)null, intervalEndInclusive,
+                        intervalStartInclusive, null);
+        Assertions.assertFalse(hypercubeScanParameters.hasScanComparisons());
+        Assertions.assertThrows(RecordCoreException.class, hypercubeScanParameters::getScanComparisons);
+
         final RecordQueryIndexPlan indexPlan =
                 new RecordQueryIndexPlan("EventIntervals",
-                        new HypercubeScanParameters("business",
-                                (Long)null, intervalEndInclusive,
-                                intervalStartInclusive, null),
+                        hypercubeScanParameters,
                         false);
         Set<Message> actualResults = getResults(additionalIndexes, indexPlan);
 

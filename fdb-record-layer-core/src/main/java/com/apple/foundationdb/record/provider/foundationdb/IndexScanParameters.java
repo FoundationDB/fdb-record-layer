@@ -26,8 +26,10 @@ import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.planprotos.PIndexScanParameters;
+import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.Correlated;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
@@ -84,6 +86,14 @@ public interface IndexScanParameters extends PlanHashable, Correlated<IndexScanP
      * @param attributeMapBuilder builder into which to put attributes
      */
     void getPlannerGraphDetails(@Nonnull ImmutableList.Builder<String> detailsBuilder, @Nonnull ImmutableMap.Builder<String, Attribute> attributeMapBuilder);
+
+    default boolean hasScanComparisons() {
+        return false;
+    }
+
+    default ScanComparisons getScanComparisons() {
+        throw new RecordCoreException("this index scan parameter object does not use ScanComparisons");
+    }
 
     @Nonnull
     IndexScanParameters translateCorrelations(@Nonnull TranslationMap translationMap, boolean shouldSimplifyValues);

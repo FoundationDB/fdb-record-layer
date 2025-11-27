@@ -341,7 +341,7 @@ selectStatement
     ;
 
 query
-    : ctes? queryExpressionBody continuation?
+    : ctes? queryExpressionBody
     ;
 
 ctes
@@ -367,10 +367,6 @@ tableFunctionArgs
 
 tableFunctionName
     : fullId
-    ;
-
-continuation
-    : WITH CONTINUATION continuationAtom
     ;
 
 // done
@@ -402,7 +398,6 @@ updateStatement
       SET updatedElement (',' updatedElement)*
       (WHERE whereExpr)?
       (RETURNING selectElements)?
-      (WITH CONTINUATION continuationAtom)?
       queryOptions?
     ;
 

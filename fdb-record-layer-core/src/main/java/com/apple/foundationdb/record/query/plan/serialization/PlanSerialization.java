@@ -124,9 +124,10 @@ public class PlanSerialization {
             // this can be extended in the future to cover other types as well, such as
             // FDBRecordVersion, and UUID instead of having special sub-message requirements
             final var type = Type.fromTypeProto(PlanSerializationContext.newForCurrentMode(), proto.getType());
-            Verify.verify(type.isVector());
-            final var primitiveObject = proto.getPrimitiveObject();
-            return VectorUtils.parseVector(primitiveObject.getBytesValue(), (Type.Vector)type);
+            if (type.isVector()) {
+                final var primitiveObject = proto.getPrimitiveObject();
+                return VectorUtils.parseVector(primitiveObject.getBytesValue(), (Type.Vector)type);
+            }
         }
 
         if (proto.hasEnumObject()) {

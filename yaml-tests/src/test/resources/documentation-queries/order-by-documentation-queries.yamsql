@@ -1,0 +1,82 @@
+---
+options:
+  supported_version: 4.3.2.0
+---
+schema_template:
+    create table products(id bigint, name string, category string, price bigint, primary key(id))
+    create index price_idx as select price, category from products order by price
+    create index category_idx as select category, price from products order by category
+    create index category_price_idx as select category, price from products order by category, price
+---
+setup:
+  steps:
+    - query: insert into products
+            values (1, 'Widget A', 'Electronics', 100),
+                   (2, 'Widget B', 'Electronics', 150),
+                   (3, 'Gadget X', 'Electronics', 200),
+                   (4, 'Tool A', 'Hardware', 80),
+                   (5, 'Tool B', 'Hardware', 120)
+---
+test_block:
+  name: order-by-documentation-tests
+  preset: single_repetition_ordered
+  tests:
+    # ORDER BY Single Column ASC
+    -
+      - query: SELECT name, price
+              FROM products
+              ORDER BY price
+      - supported_version: 4.3.2.0
+      - result: [{name: "Tool A", price: 80},
+                 {name: "Widget A", price: 100},
+                 {name: "Tool B", price: 120},
+                 {name: "Widget B", price: 150},
+                 {name: "Gadget X", price: 200}]
+
+    # ORDER BY Single Column DESC
+    -
+      - query: SELECT name, price
+              FROM products
+              ORDER BY price DESC
+      - supported_version: 4.3.2.0
+      - result: [{name: "Gadget X", price: 200},
+                 {name: "Widget B", price: 150},
+                 {name: "Tool B", price: 120},
+                 {name: "Widget A", price: 100},
+                 {name: "Tool A", price: 80}]
+
+    # ORDER BY Multiple Columns
+    -
+      - query: SELECT category, name, price
+              FROM products
+              ORDER BY category, price
+      - supported_version: 4.3.2.0
+      - result: [{category: "Electronics", name: "Widget A", price: 100},
+                 {category: "Electronics", name: "Widget B", price: 150},
+                 {category: "Electronics", name: "Gadget X", price: 200},
+                 {category: "Hardware", name: "Tool A", price: 80},
+                 {category: "Hardware", name: "Tool B", price: 120}]
+
+    # ORDER BY with WHERE
+    -
+      - query: SELECT name, price
+              FROM products
+              WHERE price >= 100
+              ORDER BY price
+      - supported_version: 4.3.2.0
+      - result: [{name: "Widget A", price: 100},
+                 {name: "Tool B", price: 120},
+                 {name: "Widget B", price: 150},
+                 {name: "Gadget X", price: 200}]
+
+    # ORDER BY Non-Projected Column
+    -
+      - query: SELECT name
+              FROM products
+              ORDER BY price
+      - supported_version: 4.3.2.0
+      - result: [{name: "Tool A"},
+                 {name: "Widget A"},
+                 {name: "Tool B"},
+                 {name: "Widget B"},
+                 {name: "Gadget X"}]
