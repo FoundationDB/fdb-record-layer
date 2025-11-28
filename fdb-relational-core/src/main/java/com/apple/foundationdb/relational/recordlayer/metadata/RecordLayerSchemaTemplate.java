@@ -350,21 +350,6 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         return views.stream().filter(view -> view.getName().equals(viewName)).findFirst();
     }
 
-    /**
-     * Retrieves an auxiliary type (struct, etc.) by looking up its name.
-     *
-     * @param typeName The name of the type.
-     * @return An {@link Optional} containing the {@link DataType.Named} if it is found, otherwise {@code Empty}.
-     */
-    @Nonnull
-    public Optional<DataType.Named> findAuxiliaryType(@Nonnull final String typeName) {
-        // SQL is case-insensitive, so do case-insensitive lookup
-        return auxiliaryTypes.entrySet().stream()
-                .filter(entry -> entry.getKey().equalsIgnoreCase(typeName))
-                .map(Map.Entry::getValue)
-                .findFirst();
-    }
-
     @Nonnull
     private Collection<? extends InvokedRoutine> computeTemporaryInvokedRoutines() {
         return invokedRoutines.stream().filter(RecordLayerInvokedRoutine::isTemporary)
