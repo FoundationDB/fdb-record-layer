@@ -209,22 +209,40 @@ public final class Expressions implements Iterable<Expression> {
     }
 
     /**
-     * Returns the semantic data types for all expressions in this collection.
+     * Returns a StructType representing the semantic types of all expressions with their field names.
      *
-     * <p>This preserves struct type names (like "STRUCT_1", "STRUCT_2") that are known during
-     * semantic analysis but may get lost in planner Type conversion (which can have null names).
+     * <p>This wraps the individual expression data types into a single StructType that is
+     * structurally equivalent to the planner's Type.Record output. The StructType includes:
+     * <ul>
+     *   <li>Field names from the expressions (handles aliases, star expansion, etc.)</li>
+     *   <li>Type structure from semantic analysis (preserves struct type names)</li>
+     * </ul>
      *
-     * <p>This method enables caching and better encapsulation of type information at the
-     * {@link Expressions} level, allowing downstream code to access semantic type structure
-     * without re-extracting it from individual {@link Expression} instances.
+     * <p>This StructType can be used directly for result set metadata after enriching nested
+     * struct names from RecordMetaData descriptors.
      *
-     * @return An immutable list of {@link DataType}s corresponding to each expression's semantic type
+     * <p>Note: The StructType name is a generated UUID since this is a general-purpose method.
+     * Contexts that need a specific name (e.g., "QUERY_RESULT" for top-level queries) should
+     * wrap or recreate the StructType with an appropriate name.
+     *
+     * @return A StructType with field names and semantic types from expressions
      */
     @Nonnull
-    public List<DataType> getDataTypes() {
-        return underlying.stream()
-                .map(Expression::getDataType)
-                .collect(ImmutableList.toImmutableList());
+    public DataType.StructType getStructType() {
+        final ImmutableList.Builder<DataType.StructType.Field> fieldsBuilder = ImmutableList.builder();
+        int index = 0;
+        for (final Expression expression : underlying) {
+            // Use expression name if available, otherwise generate a name
+            final String fieldName = expression.getName()
+                    .map(Identifier::toString)
+                    .orElse("_" + index);
+            fieldsBuilder.add(DataType.StructType.Field.from(fieldName, expression.getDataType(), index));
+            index++;
+        }
+        // Use UUID-based name since this is a general-purpose method
+        // Top-level contexts (like query results) will override with "QUERY_RESULT"
+        final String generatedName = "id" + java.util.UUID.randomUUID().toString().replace("-", "_");
+        return DataType.StructType.from(generatedName, fieldsBuilder.build(), true);
     }
 
     @Nonnull

@@ -56,6 +56,7 @@ import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.RelationalLoggingUtil;
 import com.google.common.base.VerifyException;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 import com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.logging.log4j.LogManager;
@@ -329,15 +330,19 @@ public final class PlanGenerator {
                 QueryPlanConstraint.fromProto(serializationContext, compiledStatement.getPlanConstraint());
 
         final Type resultType = recordQueryPlan.getResultType().getInnerType();
-        final List<DataType> semanticFieldTypes;
+        final DataType.StructType semanticStructType;
         if (resultType instanceof Type.Record) {
             final Type.Record recordType = (Type.Record) resultType;
-            semanticFieldTypes = recordType.getFields().stream()
-                    .map(field -> DataTypeUtils.toRelationalType(field.getFieldType()))
+            final List<DataType.StructType.Field> fields = recordType.getFields().stream()
+                    .map(field -> DataType.StructType.Field.from(
+                            field.getFieldName(),
+                            DataTypeUtils.toRelationalType(field.getFieldType()),
+                            field.getFieldIndex()))
                     .collect(java.util.stream.Collectors.toList());
+            semanticStructType = DataType.StructType.from("QUERY_RESULT", fields, true);
         } else {
             // Fallback for non-record types (shouldn't happen for SELECT results)
-            semanticFieldTypes = java.util.Collections.emptyList();
+            semanticStructType = DataType.StructType.from("QUERY_RESULT", ImmutableList.of(), true);
         }
 
         return new QueryPlan.ContinuedPhysicalQueryPlan(recordQueryPlan, typeRepository,
@@ -346,7 +351,7 @@ public final class PlanGenerator {
                 "EXECUTE CONTINUATION " + ast.getQueryCacheKey().getCanonicalQueryString(),
                 currentPlanHashMode,
                 serializedPlanHashMode,
-                semanticFieldTypes);
+                semanticStructType);
     }
 
     private void resetTimer() {

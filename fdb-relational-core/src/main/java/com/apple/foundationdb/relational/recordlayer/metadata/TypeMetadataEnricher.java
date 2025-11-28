@@ -22,12 +22,7 @@ package com.apple.foundationdb.relational.recordlayer.metadata;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordMetaData;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
-import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.DataType;
-import com.apple.foundationdb.relational.util.Assert;
-import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Descriptors.Descriptor;
 
@@ -58,39 +53,20 @@ public final class TypeMetadataEnricher {
     }
 
     /**
-     * Merge semantic type structure (preserving struct type names) with planner field names.
+     * Enrich a StructType by replacing UUID-based nested struct names with proper names from RecordMetaData descriptors.
      *
-     * <p>This method combines:
-     * <ul>
-     *   <li>Field names and field count from planner Type.Record
-     *       (planner handles aliases, star expansion, and "_0" naming for unnamed expressions)</li>
-     *   <li>Type structure (especially nested struct type names) from semantic DataTypes
-     *       (semantic analysis preserves "STRUCT_1", "STRUCT_2" which planner loses)</li>
-     *   <li>Additionally enrich nested structs with RecordMetaData descriptor names</li>
-     * </ul>
+     * <p>This method handles the case where semantic DataTypes have UUID-based names for nested structs
+     * (because they were created from planner Types with null names). It matches nested structs to
+     * descriptors by structural signature and replaces the UUID names with descriptor names.
      *
-     * @param plannerType The Type.Record from the physical plan (has correct field names)
-     * @param semanticTypes The semantic DataTypes captured before planning (have struct type names)
+     * @param structType The StructType to enrich (with field names already set correctly)
      * @param recordMetaData Schema metadata for enriching nested types
-     * @return Merged DataType.StructType with planner names and semantic type structure
-     * @throws RelationalException if type structures don't match
+     * @return Enriched StructType with proper nested struct names
      */
     @Nonnull
-    public static DataType.StructType mergeSemanticTypesWithPlannerNames(
-            @Nonnull final Type plannerType,
-            @Nonnull final List<DataType> semanticTypes,
-            @Nonnull final RecordMetaData recordMetaData) throws RelationalException {
-
-        Assert.that(plannerType instanceof Type.Record, ErrorCode.INTERNAL_ERROR,
-                "Expected Type.Record but got %s", plannerType.getTypeCode());
-
-        final Type.Record recordType = (Type.Record) plannerType;
-        final List<Type.Record.Field> plannerFields = recordType.getFields();
-
-        // Planner and semantic should have same field count
-        Assert.that(plannerFields.size() == semanticTypes.size(), ErrorCode.INTERNAL_ERROR,
-                "Field count mismatch: planner has %d fields, semantic has %d",
-                plannerFields.size(), semanticTypes.size());
+    public static DataType.StructType enrichNestedStructs(
+            @Nonnull final DataType.StructType structType,
+            @Nonnull final RecordMetaData recordMetaData) {
 
         // Build descriptor cache for enriching nested structs
         final Map<String, Descriptor> descriptorCache = new HashMap<>();
@@ -103,15 +79,12 @@ public final class TypeMetadataEnricher {
             cacheDescriptorAndNested(messageType, descriptorCache);
         }
 
-        // Merge: field names from planner, types from semantic (enriched)
-        final ImmutableList.Builder<DataType.StructType.Field> mergedFields = ImmutableList.builder();
-        for (int i = 0; i < plannerFields.size(); i++) {
-            final String fieldName = plannerFields.get(i).getFieldName();
-            final DataType enrichedType = enrichDataType(semanticTypes.get(i), descriptorCache);
-            mergedFields.add(DataType.StructType.Field.from(fieldName, enrichedType, i));
-        }
+        // Enrich nested structs recursively
+        final List<DataType.StructType.Field> enrichedFields = structType.getFields().stream()
+                .map(field -> enrichField(field, descriptorCache))
+                .collect(java.util.stream.Collectors.toList());
 
-        return DataType.StructType.from("QUERY_RESULT", mergedFields.build(), true);
+        return DataType.StructType.from(structType.getName(), enrichedFields, structType.isNullable());
     }
 
     /**

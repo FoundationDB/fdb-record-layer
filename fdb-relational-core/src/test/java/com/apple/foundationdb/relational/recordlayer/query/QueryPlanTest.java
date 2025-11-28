@@ -74,6 +74,13 @@ class QueryPlanTest {
         final ImmutableList<DataType> semanticFieldTypes = ImmutableList.of(
                 DataType.Primitives.STRING.type());
 
+        // Wrap semantic types in a StructType
+        final DataType.StructType semanticStructType = DataType.StructType.from("QUERY_RESULT",
+                ImmutableList.of(
+                        DataType.StructType.Field.from("field_0", DataType.Primitives.INTEGER.type(), 0),
+                        DataType.StructType.Field.from("field_1", DataType.Primitives.STRING.type(), 1)),
+                true);
+
         // Create a ContinuedPhysicalQueryPlan instance
         final QueryPlan.ContinuedPhysicalQueryPlan continuedPlan = new QueryPlan.ContinuedPhysicalQueryPlan(
                 mockRecordQueryPlan,
@@ -83,7 +90,7 @@ class QueryPlanTest {
                 "EXECUTE CONTINUATION test",
                 PlanHashMode.VC0,
                 PlanHashMode.VL0,
-                semanticFieldTypes);
+                semanticStructType);
 
         // Create a different execution context
         final QueryExecutionContext differentContext = new MutablePlanGenerationContext(
