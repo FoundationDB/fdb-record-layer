@@ -21,6 +21,7 @@ Syntax
     DQL/SELECT
     DQL/WITH
     DQL/WHERE
+    DQL/GROUP_BY
     DQL/ORDER_BY
     DQL/EXPLAIN
 

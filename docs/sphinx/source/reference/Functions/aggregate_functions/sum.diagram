@@ -1,0 +1,6 @@
+Diagram(
+    Terminal('SUM'),
+    Terminal('('),
+    NonTerminal('expression'),
+    Terminal(')'),
+)

@@ -30,6 +30,11 @@ class DocumentationQueriesTests {
     private static final String PREFIX = "documentation-queries";
 
     @TestTemplate
+    void aggregateFunctionsDocumentationQueriesTests(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql(PREFIX + "/aggregate-functions-documentation-queries.yamsql");
+    }
+
+    @TestTemplate
     void betweenOperatorQueriesTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql(PREFIX + "/between-operator-queries.yamsql");
     }
@@ -37,6 +42,11 @@ class DocumentationQueriesTests {
     @TestTemplate
     void castDocumentationQueriesTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql(PREFIX + "/cast-documentation-queries.yamsql");
+    }
+
+    @TestTemplate
+    void groupByDocumentationQueriesTests(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql(PREFIX + "/group-by-documentation-queries.yamsql");
     }
 
     @TestTemplate
@@ -57,6 +67,11 @@ class DocumentationQueriesTests {
     @TestTemplate
     void orderByDocumentationQueriesTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql(PREFIX + "/order-by-documentation-queries.yamsql");
+    }
+
+    @TestTemplate
+    void scalarFunctionsDocumentationQueriesTests(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql(PREFIX + "/scalar-functions-documentation-queries.yamsql");
     }
 
     @TestTemplate

@@ -1,0 +1,22 @@
+Diagram(
+    Terminal('GROUP'),
+    Terminal('BY'),
+    OneOrMore(
+        Sequence(
+            NonTerminal('expression'),
+            Optional(
+                Sequence(
+                    Terminal('AS'),
+                    NonTerminal('alias')
+                )
+            )
+        ),
+        Terminal(',')
+    ),
+    Optional(
+      Sequence(
+        Terminal('HAVING'),
+        NonTerminal('having-expression')
+      )
+    )
+)
