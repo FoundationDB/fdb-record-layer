@@ -33,7 +33,7 @@ Parameters
 ``data_type``
     The SQL data type of the parameter (e.g., ``BIGINT``, ``STRING``, ``INTEGER``).
 
-``DEFAULT default_value``
+``default_value``
     Optional default value for the parameter. If provided, the parameter becomes optional when calling the function.
 
 ``query``
