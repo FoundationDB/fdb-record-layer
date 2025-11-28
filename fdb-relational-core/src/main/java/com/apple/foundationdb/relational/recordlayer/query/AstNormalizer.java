@@ -271,15 +271,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
             visit(ctx.ctes());
         }
         ctx.queryExpressionBody().accept(this);
-        if (ctx.continuation() != null) {
-            ctx.continuation().accept(this);
-        }
         return null;
-    }
-
-    @Override
-    public Object visitContinuation(@Nonnull RelationalParser.ContinuationContext ctx) {
-        return ctx.continuationAtom().accept(this);
     }
 
     @Override

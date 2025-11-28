@@ -176,7 +176,7 @@ public class CursorTest {
             } catch (SQLException e) {
                 throw new RuntimeException(e);
             }
-            try (final var preparedStatement = conn.prepareStatement("select * from RESTAURANT with continuation ?param")) {
+            try (final var preparedStatement = conn.prepareStatement("EXECUTE CONTINUATION ?param")) {
                 preparedStatement.setBytes("param", continuation.serialize());
                 try (final var resultSet = preparedStatement.executeQuery()) {
                     Assertions.assertThrows(SQLException.class, resultSet::getContinuation);
@@ -218,7 +218,7 @@ public class CursorTest {
         // 2. Further count the rows in other execution without limits and see if total number of rows is 10
         try (final var conn = DriverManager.getConnection(database.getConnectionUri().toString()).unwrap(RelationalConnection.class)) {
             conn.setSchema(database.getSchemaName());
-            try (final var preparedStatement = conn.prepareStatement("select * from RESTAURANT with continuation ?param")) {
+            try (final var preparedStatement = conn.prepareStatement("EXECUTE CONTINUATION ?param")) {
                 preparedStatement.setBytes("param", continuation.serialize());
                 try (final var resultSet = preparedStatement.executeQuery()) {
                     Assertions.assertThrows(SQLException.class, resultSet::getContinuation);
