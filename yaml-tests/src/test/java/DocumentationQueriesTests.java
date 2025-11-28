@@ -55,6 +55,11 @@ class DocumentationQueriesTests {
     }
 
     @TestTemplate
+    void joinsDocumentationQueriesTests(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql(PREFIX + "/joins-documentation-queries.yamsql");
+    }
+
+    @TestTemplate
     void likeOperatorQueriesTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql(PREFIX + "/like-operator-queries.yamsql");
     }
