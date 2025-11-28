@@ -30,18 +30,8 @@ class DocumentationQueriesTests {
     private static final String PREFIX = "documentation-queries";
 
     @TestTemplate
-    void withDocumentationQueriesTests(YamlTest.Runner runner) throws Exception {
-        runner.runYamsql(PREFIX + "/with-documentation-queries.yamsql");
-    }
-
-    @TestTemplate
-    void castDocumentationQueriesTests(YamlTest.Runner runner) throws Exception {
-        runner.runYamsql(PREFIX + "/cast-documentation-queries.yamsql");
-    }
-
-    @TestTemplate
-    void vectorDocumentationQueriesTests(YamlTest.Runner runner) throws Exception {
-        runner.runYamsql(PREFIX + "/vector-documentation-queries.yamsql");
+    void betweenOperatorQueriesTests(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql(PREFIX + "/between-operator-queries.yamsql");
     }
 
     @TestTemplate
@@ -50,13 +40,8 @@ class DocumentationQueriesTests {
     }
 
     @TestTemplate
-    void betweenOperatorQueriesTests(YamlTest.Runner runner) throws Exception {
-        runner.runYamsql(PREFIX + "/between-operator-queries.yamsql");
-    }
-
-    @TestTemplate
-    void likeOperatorQueriesTests(YamlTest.Runner runner) throws Exception {
-        runner.runYamsql(PREFIX + "/like-operator-queries.yamsql");
+    void castDocumentationQueriesTests(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql(PREFIX + "/cast-documentation-queries.yamsql");
     }
 
     @TestTemplate
@@ -70,7 +55,22 @@ class DocumentationQueriesTests {
     }
 
     @TestTemplate
+    void likeOperatorQueriesTests(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql(PREFIX + "/like-operator-queries.yamsql");
+    }
+
+    @TestTemplate
     void orderByDocumentationQueriesTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql(PREFIX + "/order-by-documentation-queries.yamsql");
+    }
+
+    @TestTemplate
+    void vectorDocumentationQueriesTests(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql(PREFIX + "/vector-documentation-queries.yamsql");
+    }
+
+    @TestTemplate
+    void withDocumentationQueriesTests(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql(PREFIX + "/with-documentation-queries.yamsql");
     }
 }
