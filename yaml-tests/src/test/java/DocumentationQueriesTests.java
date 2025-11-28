@@ -35,6 +35,11 @@ class DocumentationQueriesTests {
     }
 
     @TestTemplate
+    void caseDocumentationQueriesTests(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql(PREFIX + "/case-documentation-queries.yamsql");
+    }
+
+    @TestTemplate
     void castDocumentationQueriesTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql(PREFIX + "/cast-documentation-queries.yamsql");
     }
