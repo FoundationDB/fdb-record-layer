@@ -833,6 +833,20 @@ public class IndexTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"MIN", "MAX"})
+    void createAggregateIndexOnSourceOnMinMaxWithPermutedOrdering(String index) throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T1(col1 bigint, col2 bigint, col3 bigint, col4 bigint, primary key(col1)) " +
+                String.format(Locale.ROOT, "CREATE VIEW v1 AS SELECT col1, col2, col3, %s(col4) as agg FROM T1 group by col1, col2, col3 ", index) +
+                "CREATE INDEX mv1 ON v1(col1, col2, agg, col3)";
+        indexIs(stmt,
+                field("COL4").groupBy(concatenateFields("COL1", "COL2", "COL3")),
+                "MIN".equals(index) ? IndexTypes.PERMUTED_MIN : IndexTypes.PERMUTED_MAX,
+                idx -> Assertions.assertEquals("1", idx.getOptions().get("permutedSize"))
+        );
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"MIN", "MAX"})
     void createAggregateIndexOnMinMaxWithGroupingColumnsMissingInOrdering(String index) throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TABLE T1(col1 bigint, col2 bigint, col3 bigint, col4 bigint, primary key(col1)) " +

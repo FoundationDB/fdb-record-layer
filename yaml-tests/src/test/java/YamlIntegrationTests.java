@@ -233,6 +233,21 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void indexDdl(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("index-ddl.yamsql");
+    }
+
+    @TestTemplate
+    public void indexDdlValuesOnly(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("index-ddl-values-only.yamsql");
+    }
+
+    @TestTemplate
+    public void indexDdlAggregatesOnly(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("index-ddl-aggregates-only.yamsql");
+    }
+
+    @TestTemplate
     public void insertEnum(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("insert-enum.yamsql");
     }
@@ -352,17 +367,6 @@ public class YamlIntegrationTests {
     @TestTemplate
     public void validIdentifierTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("valid-identifiers.yamsql");
-    }
-
-    @TestTemplate
-    public void indexDdl(YamlTest.Runner runner) throws Exception {
-        runner.runYamsql("index-ddl.yamsql");
-    }
-
-    @TestTemplate
-    @MaintainYamlTestConfig(YamlTestConfigFilters.CORRECT_EXPLAIN_AND_METRICS)
-    public void indexDdlValuesOnly(YamlTest.Runner runner) throws Exception {
-        runner.runYamsql("index-ddl-values-only.yamsql");
     }
 
     @TestTemplate
