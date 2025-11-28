@@ -1,0 +1,18 @@
+Diagram(
+    Terminal('CASE'),
+    OneOrMore(
+        Sequence(
+            Terminal('WHEN'),
+            NonTerminal('condition'),
+            Terminal('THEN'),
+            NonTerminal('result')
+        )
+    ),
+    Optional(
+        Sequence(
+            Terminal('ELSE'),
+            NonTerminal('result')
+        )
+    ),
+    Terminal('END')
+)
