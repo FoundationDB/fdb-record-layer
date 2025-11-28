@@ -34,7 +34,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
-import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.generated.RelationalLexer;
 import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
