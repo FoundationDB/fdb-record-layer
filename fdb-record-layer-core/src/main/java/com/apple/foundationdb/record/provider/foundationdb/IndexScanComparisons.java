@@ -92,8 +92,14 @@ public class IndexScanComparisons implements IndexScanParameters {
         return scanType;
     }
 
+    @Override
+    public boolean hasScanComparisons() {
+        return true;
+    }
+
     @Nonnull
-    public ScanComparisons getComparisons() {
+    @Override
+    public ScanComparisons getScanComparisons() {
         return scanComparisons;
     }
 

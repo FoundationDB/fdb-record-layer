@@ -32,7 +32,7 @@ class ConfigTest {
         Assertions.assertThat(HNSW.newConfigBuilder().build(768)).isEqualTo(defaultConfig);
         Assertions.assertThat(defaultConfig.toBuilder().build(768)).isEqualTo(defaultConfig);
 
-        final long randomSeed = 1L;
+        final boolean deterministicSeeding = true;
         final Metric metric = Metric.COSINE_METRIC;
         final boolean useInlining = true;
         final int m = Config.DEFAULT_M + 1;
@@ -41,7 +41,7 @@ class ConfigTest {
         final int efConstruction = Config.DEFAULT_EF_CONSTRUCTION + 1;
         final boolean extendCandidates = true;
         final boolean keepPrunedConnections = true;
-        final int statsThreshold = 1;
+        final int statsThreshold = 5000;
         final double sampleVectorStatsProbability = 0.000001d;
         final double maintainStatsProbability = 0.000002d;
 
@@ -51,7 +51,7 @@ class ConfigTest {
         final int maxNumConcurrentNodeFetches = 1;
         final int maxNumConcurrentNeighborhoodFetches = 2;
 
-        Assertions.assertThat(defaultConfig.getRandomSeed()).isNotEqualTo(randomSeed);
+        Assertions.assertThat(defaultConfig.isDeterministicSeeding()).isNotEqualTo(deterministicSeeding);
         Assertions.assertThat(defaultConfig.getMetric()).isNotSameAs(metric);
         Assertions.assertThat(defaultConfig.isUseInlining()).isNotEqualTo(useInlining);
         Assertions.assertThat(defaultConfig.getM()).isNotEqualTo(m);
@@ -73,7 +73,7 @@ class ConfigTest {
 
         final Config newConfig =
                 defaultConfig.toBuilder()
-                        .setRandomSeed(randomSeed)
+                        .setDeterministicSeeding(deterministicSeeding)
                         .setMetric(metric)
                         .setUseInlining(useInlining)
                         .setM(m)
@@ -91,7 +91,7 @@ class ConfigTest {
                         .setMaxNumConcurrentNeighborhoodFetches(maxNumConcurrentNeighborhoodFetches)
                         .build(768);
 
-        Assertions.assertThat(newConfig.getRandomSeed()).isEqualTo(randomSeed);
+        Assertions.assertThat(newConfig.isDeterministicSeeding()).isEqualTo(deterministicSeeding);
         Assertions.assertThat(newConfig.getMetric()).isSameAs(metric);
         Assertions.assertThat(newConfig.isUseInlining()).isEqualTo(useInlining);
         Assertions.assertThat(newConfig.getM()).isEqualTo(m);
@@ -116,7 +116,7 @@ class ConfigTest {
     void testEqualsHashCodeAndToString() {
         final Config config1 = HNSW.newConfigBuilder().build(768);
         final Config config2 = HNSW.newConfigBuilder().build(768);
-        final Config config3 = HNSW.newConfigBuilder().setM(1).build(768);
+        final Config config3 = HNSW.newConfigBuilder().setM(4).build(768);
 
         Assertions.assertThat(config1.hashCode()).isEqualTo(config2.hashCode());
         Assertions.assertThat(config1).isEqualTo(config2);

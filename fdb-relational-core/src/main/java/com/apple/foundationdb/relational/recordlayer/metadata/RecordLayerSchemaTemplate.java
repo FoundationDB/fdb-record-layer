@@ -570,9 +570,10 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         }
 
         @Nonnull
-        public RecordLayerTable findTable(@Nonnull final String name) {
-            Assert.thatUnchecked(tables.containsKey(name), ErrorCode.UNDEFINED_TABLE, "could not find '%s'", name);
-            return tables.get(name);
+        public RecordLayerTable findTableByStorageName(@Nonnull final String storageName) {
+            return tables.values().stream().filter(t -> t.getType().getStorageName().equals(storageName))
+                    .findAny()
+                    .orElseThrow(() -> Assert.failUnchecked(ErrorCode.UNDEFINED_TABLE, "could not find '" + storageName + "'"));
         }
 
         @Nonnull
