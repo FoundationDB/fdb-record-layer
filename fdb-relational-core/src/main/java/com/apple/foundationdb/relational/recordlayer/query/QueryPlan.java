@@ -178,11 +178,6 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
         }
 
         @Nonnull
-        public DataType.StructType getSemanticStructType() {
-            return semanticStructType;
-        }
-
-        @Nonnull
         @Override
         public Type getResultType() {
             return Assert.notNullUnchecked(recordQueryPlan.getResultType().getInnerType());
