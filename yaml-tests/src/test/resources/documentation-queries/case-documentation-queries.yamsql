@@ -18,7 +18,7 @@ test_block:
   name: case-documentation-tests
   preset: single_repetition_ordered
   tests:
-    Simple condition
+    # Simple condition
     -
       - query: SELECT name,
                      stock,
@@ -36,7 +36,7 @@ test_block:
                  {name: "Widget A", stock: 50, stock_status: "Well Stocked"},
                  {name: "Widget B", stock: 5, stock_status: "Low Stock"}]
 
-    Value matching
+    # Value matching
     -
       - query: SELECT name,
                      category,
