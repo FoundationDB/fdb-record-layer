@@ -1,7 +1,4 @@
 ---
-options:
-  supported_version: 4.3.2.0
----
 schema_template:
     create table a(ida integer, x integer, primary key(ida))
     create index a_ida_idx as select ida from a order by ida
@@ -27,14 +24,12 @@ test_block:
     # Non-Correlated EXISTS Subquery
     -
       - query: SELECT ida FROM a WHERE EXISTS (SELECT ida FROM a WHERE ida = 1)
-      - supported_version: 4.3.2.0
       - unorderedResult: [{ida: 1}, {ida: 2}, {ida: 3}]
 
     # Correlated Subquery in FROM Clause
     -
       - query: SELECT x, sq.idr, sq.nr
               FROM a, (SELECT * FROM r WHERE r.idr = a.x) sq
-      - supported_version: 4.3.2.0
       - unorderedResult: [{x: 1, idr: 1, nr: [{f: 11}, {f: 12}, {f: 13}]},
                           {x: 2, idr: 2, nr: [{f: 21}, {f: 22}, {f: 23}]},
                           {x: 3, idr: 3, nr: [{f: 31}, {f: 32}, {f: 33}]}]
@@ -42,13 +37,11 @@ test_block:
     # Array Unnesting with PartiQL
     -
       - query: SELECT idr FROM r, r.nr AS NEST WHERE NEST.f = 23
-      - supported_version: 4.3.2.0
       - result: [{idr: 2}]
 
     # Array Unnesting with Subquery
     -
       - query: SELECT idr FROM r, (SELECT * FROM r.nr) AS NEST WHERE NEST.f = 23
-      - supported_version: 4.3.2.0
       - result: [{idr: 2}]
 
     # Correlated Subquery with GROUP BY
@@ -59,7 +52,6 @@ test_block:
                   WHERE q > a.x
                   GROUP BY q
               )
-      - supported_version: 4.3.2.0
       - unorderedResult: [{x: 1}, {x: 2}, {x: 3}]
 
     # Correlation in Aggregation Functions
@@ -70,5 +62,4 @@ test_block:
                   WHERE q > x
                   GROUP BY q
               )
-      - supported_version: 4.3.2.0
       - unorderedResult: [{x: 1}, {x: 2}, {x: 3}]
