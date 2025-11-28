@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -205,6 +206,25 @@ public final class Expressions implements Iterable<Expression> {
     @Nonnull
     public List<Type> underlyingTypes() {
         return Streams.stream(underlying()).map(Value::getResultType).collect(ImmutableList.toImmutableList());
+    }
+
+    /**
+     * Returns the semantic data types for all expressions in this collection.
+     *
+     * <p>This preserves struct type names (like "STRUCT_1", "STRUCT_2") that are known during
+     * semantic analysis but may get lost in planner Type conversion (which can have null names).
+     *
+     * <p>This method enables caching and better encapsulation of type information at the
+     * {@link Expressions} level, allowing downstream code to access semantic type structure
+     * without re-extracting it from individual {@link Expression} instances.
+     *
+     * @return An immutable list of {@link DataType}s corresponding to each expression's semantic type
+     */
+    @Nonnull
+    public List<DataType> getDataTypes() {
+        return underlying.stream()
+                .map(Expression::getDataType)
+                .collect(ImmutableList.toImmutableList());
     }
 
     @Nonnull
