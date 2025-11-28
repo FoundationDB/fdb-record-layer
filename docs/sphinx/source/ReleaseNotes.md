@@ -7,6 +7,66 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.8
 
+### 4.8.15.0
+
+<h4> Breaking Changes </h4>
+
+* Remove deprecated `WITH CONTINUATION` syntax. - [PR #3765](https://github.com/FoundationDB/fdb-record-layer/pull/3765)
+<h4> New Features </h4>
+
+* vector index maintainer - [PR #3738](https://github.com/FoundationDB/fdb-record-layer/pull/3738)
+<h4> Bug Fixes </h4>
+
+* Reintroduce type renaming with more resilient handling for unexpected protobuf names - [PR #3770](https://github.com/FoundationDB/fdb-record-layer/pull/3770)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Add operator documentation (BETWEEN, LIKE, IN, IS DISTINCT FROM) - [PR #3762](https://github.com/FoundationDB/fdb-record-layer/pull/3762)
+* Rewrite README to emphasize SQL/relational API - [PR #3756](https://github.com/FoundationDB/fdb-record-layer/pull/3756)
+* Add ORDER BY documentation - [PR #3761](https://github.com/FoundationDB/fdb-record-layer/pull/3761)
+
+</details>
+
+
+**[Full Changelog (4.8.14.0...4.8.15.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.8.14.0...4.8.15.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.7.3.0`, ✅`4.8.1.0`, ✅`4.8.2.0`, ✅`4.8.3.0`, ✅`4.8.5.0`, ✅`4.8.6.0`, ✅`4.8.11.0`, ✅`4.8.12.0`, ✅`4.8.13.0`, ✅`4.8.14.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/19739361797)
+
+
+
+### 4.8.14.0
+
+<h4> New Features </h4>
+
+* Add logging for failure to open record store - [PR #3759](https://github.com/FoundationDB/fdb-record-layer/pull/3759)
+<h4> Bug Fixes </h4>
+
+* Revert "Reintroduce translation of identifiers to Protobuf compliant names (#3736)" - [PR #3767](https://github.com/FoundationDB/fdb-record-layer/pull/3767)
+
+
+**[Full Changelog (4.8.13.0...4.8.14.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.8.13.0...4.8.14.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+❌`4.7.2.0`, ✅`4.7.3.0`, ✅`4.8.1.0`, ✅`4.8.2.0`, ✅`4.8.3.0`, ✅`4.8.5.0`, ✅`4.8.6.0`, ✅`4.8.11.0`, ✅`4.8.12.0`, ✅`4.8.13.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/19513136138)
+
+
+
 ### 4.8.13.0
 
 <h4> Breaking Changes </h4>

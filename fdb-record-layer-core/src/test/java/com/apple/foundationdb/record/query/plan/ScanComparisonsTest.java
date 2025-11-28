@@ -46,7 +46,7 @@ public class ScanComparisonsTest {
     }
 
     @Test
-    public void justEquals() throws Exception {
+    public void justEquals() {
         ScanComparisons.Builder comparisons = new ScanComparisons.Builder();
         comparisons.addEqualityComparison(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "abc"));
         comparisons.addEqualityComparison(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "xyz"));
@@ -54,14 +54,14 @@ public class ScanComparisonsTest {
     }
 
     @Test
-    public void justLess() throws Exception {
+    public void justLess() {
         ScanComparisons.Builder comparisons = new ScanComparisons.Builder();
         comparisons.addInequalityComparison(new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, "xyz"));
         checkRange("([null],[xyz])", comparisons, context());
     }
 
     @Test
-    public void multipleLess() throws Exception {
+    public void multipleLess() {
         ScanComparisons.Builder comparisons = new ScanComparisons.Builder();
         comparisons.addInequalityComparison(new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, "mno"));
         comparisons.addInequalityComparison(new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, "xyz"));
@@ -69,14 +69,14 @@ public class ScanComparisonsTest {
     }
 
     @Test
-    public void justLessEquals() throws Exception {
+    public void justLessEquals() {
         ScanComparisons.Builder comparisons = new ScanComparisons.Builder();
         comparisons.addInequalityComparison(new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN_OR_EQUALS, "xyz"));
         checkRange("([null],[xyz]]", comparisons, context());
     }
 
     @Test
-    public void lessAndLessEqualsSame() throws Exception {
+    public void lessAndLessEqualsSame() {
         ScanComparisons.Builder comparisons = new ScanComparisons.Builder();
         comparisons.addInequalityComparison(new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN_OR_EQUALS, "xyz"));
         comparisons.addInequalityComparison(new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, "xyz"));
@@ -84,14 +84,14 @@ public class ScanComparisonsTest {
     }
 
     @Test
-    public void justGreater() throws Exception {
+    public void justGreater() {
         ScanComparisons.Builder comparisons = new ScanComparisons.Builder();
         comparisons.addInequalityComparison(new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, "xyz"));
         checkRange("([xyz],>", comparisons, context());
     }
 
     @Test
-    public void multipleGreater() throws Exception {
+    public void multipleGreater() {
         ScanComparisons.Builder comparisons = new ScanComparisons.Builder();
         comparisons.addInequalityComparison(new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, "mno"));
         comparisons.addInequalityComparison(new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, "xyz"));
@@ -99,14 +99,14 @@ public class ScanComparisonsTest {
     }
 
     @Test
-    public void justGreaterEquals() throws Exception {
+    public void justGreaterEquals() {
         ScanComparisons.Builder comparisons = new ScanComparisons.Builder();
         comparisons.addInequalityComparison(new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN_OR_EQUALS, "xyz"));
         checkRange("[[xyz],>", comparisons, context());
     }
 
     @Test
-    public void greaterAndGreaterEqualsSame() throws Exception {
+    public void greaterAndGreaterEqualsSame() {
         ScanComparisons.Builder comparisons = new ScanComparisons.Builder();
         comparisons.addInequalityComparison(new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN_OR_EQUALS, "xyz"));
         comparisons.addInequalityComparison(new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, "xyz"));
@@ -132,7 +132,7 @@ public class ScanComparisonsTest {
     }
 
     @Test
-    public void notNull() throws Exception {
+    public void notNull() {
         ScanComparisons.Builder comparisons = new ScanComparisons.Builder();
         comparisons.addInequalityComparison(new Comparisons.NullComparison(Comparisons.Type.NOT_NULL));
         comparisons.addInequalityComparison(new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, "zzz"));
@@ -140,7 +140,7 @@ public class ScanComparisonsTest {
     }
 
     @Test
-    public void ambiguousUntilBound() throws Exception {
+    public void ambiguousUntilBound() {
         ScanComparisons.Builder comparisons = new ScanComparisons.Builder();
         comparisons.addInequalityComparison(new Comparisons.ParameterComparison(Comparisons.Type.GREATER_THAN_OR_EQUALS, "p1"));
         comparisons.addInequalityComparison(new Comparisons.ParameterComparison(Comparisons.Type.GREATER_THAN, "p2"));
@@ -149,7 +149,7 @@ public class ScanComparisonsTest {
     }
 
     @Test
-    public void multiColumn() throws Exception {
+    public void multiColumn() {
         ScanComparisons.Builder comparisons = new ScanComparisons.Builder();
         comparisons.addEqualityComparison(new Comparisons.NullComparison(Comparisons.Type.IS_NULL));
         comparisons.addInequalityComparison(new Comparisons.MultiColumnComparison(new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, Tuple.from("xxx", "yyy"))));

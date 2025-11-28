@@ -425,11 +425,12 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
                                       @Nonnull Descriptors.FieldDescriptor.Type protoType,
                                       @Nonnull FieldDescriptorProto.Label protoLabel,
                                       @Nullable DescriptorProtos.FieldOptions fieldOptions,
-                                      boolean isNullable) {
+                                      boolean isNullable,
+                                      boolean preserveNames) {
         final var typeCode = TypeCode.fromProtobufFieldDescriptor(protoType, fieldOptions);
         if (protoLabel == FieldDescriptorProto.Label.LABEL_REPEATED) {
             // collection type
-            return fromProtoTypeToArray(descriptor, protoType, typeCode, fieldOptions, false);
+            return fromProtoTypeToArray(descriptor, protoType, typeCode, fieldOptions, false, preserveNames);
         } else if (typeCode.isPrimitive()) {
             final var fieldOptionMaybe = Optional.ofNullable(fieldOptions).map(f -> f.getExtension(RecordMetaDataOptionsProto.field));
             if (fieldOptionMaybe.isPresent() && fieldOptionMaybe.get().hasVectorOptions()) {
@@ -439,7 +440,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
             return primitiveType(typeCode, isNullable);
         } else if (typeCode == TypeCode.ENUM) {
             final var enumDescriptor = (Descriptors.EnumDescriptor)Objects.requireNonNull(descriptor);
-            return Enum.fromProtoValues(isNullable, enumDescriptor.getValues());
+            return preserveNames ? Enum.fromDescriptorPreservingNames(isNullable, enumDescriptor) : Enum.fromDescriptor(isNullable, enumDescriptor);
         } else if (typeCode == TypeCode.RECORD) {
             Objects.requireNonNull(descriptor);
             final var messageDescriptor = (Descriptors.Descriptor)descriptor;
@@ -447,11 +448,12 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
                 // find TypeCode of array elements
                 final var elementField = messageDescriptor.findFieldByName(NullableArrayTypeUtils.getRepeatedFieldName());
                 final var elementTypeCode = TypeCode.fromProtobufFieldDescriptor(elementField.getType(), elementField.getOptions());
-                return fromProtoTypeToArray(descriptor, protoType, elementTypeCode, elementField.getOptions(), true);
+                return fromProtoTypeToArray(descriptor, protoType, elementTypeCode, elementField.getOptions(), true, preserveNames);
             } else if (TupleFieldsProto.UUID.getDescriptor().equals(messageDescriptor)) {
                 return Type.uuidType(isNullable);
             } else {
-                return Record.fromFieldDescriptorsMap(isNullable, Record.toFieldDescriptorMap(messageDescriptor.getFields()));
+                final Type.Record recordType = preserveNames ? Record.fromDescriptorPreservingName(messageDescriptor) : Record.fromDescriptor(messageDescriptor);
+                return recordType.withNullability(isNullable);
             }
         }
 
@@ -469,7 +471,8 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
                                               @Nonnull Descriptors.FieldDescriptor.Type protoType,
                                               @Nonnull TypeCode typeCode,
                                               @Nullable DescriptorProtos.FieldOptions fieldOptions,
-                                              boolean isNullable) {
+                                              boolean isNullable,
+                                              boolean preserveNames) {
         if (typeCode.isPrimitive()) {
             final Type type;
             if (typeCode == TypeCode.VECTOR) {
@@ -480,18 +483,27 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
             }
             return new Array(isNullable, type);
         } else if (typeCode == TypeCode.ENUM) {
-            final var enumDescriptor = (Descriptors.EnumDescriptor)Objects.requireNonNull(descriptor);
-            final var enumType = Enum.fromProtoValues(false, enumDescriptor.getValues());
+            final Descriptors.EnumDescriptor enumDescriptor;
+            if (isNullable) {
+                // Unwrap the nullable array
+                enumDescriptor = ((Descriptors.Descriptor)Objects.requireNonNull(descriptor)).findFieldByName(NullableArrayTypeUtils.getRepeatedFieldName()).getEnumType();
+            } else {
+                enumDescriptor = (Descriptors.EnumDescriptor)Objects.requireNonNull(descriptor);
+            }
+            Objects.requireNonNull(enumDescriptor);
+            final var enumType = preserveNames ? Enum.fromDescriptorPreservingNames(false, enumDescriptor) : Enum.fromDescriptor(false, enumDescriptor);
             return new Array(isNullable, enumType);
         } else {
+            final Descriptors.Descriptor recordDescriptor;
             if (isNullable) {
-                Descriptors.Descriptor wrappedDescriptor = ((Descriptors.Descriptor)Objects.requireNonNull(descriptor)).findFieldByName(NullableArrayTypeUtils.getRepeatedFieldName()).getMessageType();
-                Objects.requireNonNull(wrappedDescriptor);
-                return new Array(true, fromProtoType(wrappedDescriptor, Descriptors.FieldDescriptor.Type.MESSAGE, FieldDescriptorProto.Label.LABEL_OPTIONAL, fieldOptions, false));
+                // Unwrap the nullable array
+                recordDescriptor = ((Descriptors.Descriptor)Objects.requireNonNull(descriptor)).findFieldByName(NullableArrayTypeUtils.getRepeatedFieldName()).getMessageType();
+                protoType = Descriptors.FieldDescriptor.Type.MESSAGE;
             } else {
-                // case 2: any arbitrary sub message we don't understand
-                return new Array(false, fromProtoType(descriptor, protoType, FieldDescriptorProto.Label.LABEL_OPTIONAL, fieldOptions, false));
+                recordDescriptor = (Descriptors.Descriptor) descriptor;
             }
+            Objects.requireNonNull(recordDescriptor);
+            return new Array(isNullable, fromProtoType(recordDescriptor, protoType, FieldDescriptorProto.Label.LABEL_OPTIONAL, fieldOptions, false, preserveNames));
         }
     }
 
@@ -1905,8 +1917,13 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
         }
 
         @Nonnull
-        private static Enum fromProtoValues(boolean isNullable, @Nonnull List<Descriptors.EnumValueDescriptor> values) {
-            return Enum.fromValues(isNullable, enumValuesFromProto(values));
+        public static Enum fromDescriptor(boolean isNullable, @Nonnull Descriptors.EnumDescriptor enumDescriptor) {
+            return Enum.fromValues(isNullable, enumValuesFromProto(enumDescriptor.getValues()));
+        }
+
+        @Nonnull
+        public static Enum fromDescriptorPreservingNames(boolean isNullable, @Nonnull Descriptors.EnumDescriptor enumDescriptor) {
+            return new Type.Enum(isNullable, enumValuesFromProto(enumDescriptor.getValues()), ProtoUtils.toUserIdentifier(enumDescriptor.getName()), enumDescriptor.getName());
         }
 
         @Nonnull
@@ -2498,22 +2515,17 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
          */
         @Nonnull
         public static Record fromFieldDescriptorsMap(final boolean isNullable, @Nonnull final Map<String, Descriptors.FieldDescriptor> fieldDescriptorMap) {
+            return fromFields(isNullable, fieldsFromDescriptorMap(fieldDescriptorMap, false));
+        }
+
+        @Nonnull
+        private static List<Field> fieldsFromDescriptorMap(@Nonnull final Map<String, Descriptors.FieldDescriptor> fieldDescriptorMap, boolean preserveNames) {
             final var fieldsBuilder = ImmutableList.<Field>builder();
             for (final var entry : Objects.requireNonNull(fieldDescriptorMap).entrySet()) {
                 final var fieldDescriptor = entry.getValue();
-                final var fieldOptions = fieldDescriptor.getOptions();
-                fieldsBuilder.add(
-                        new Field(fromProtoType(getTypeSpecificDescriptor(fieldDescriptor),
-                                fieldDescriptor.getType(),
-                                fieldDescriptor.toProto().getLabel(),
-                                fieldOptions,
-                                !fieldDescriptor.isRequired()),
-                                Optional.of(ProtoUtils.toUserIdentifier(entry.getKey())),
-                                Optional.of(fieldDescriptor.getNumber()),
-                                Optional.of(entry.getKey())));
+                fieldsBuilder.add(Field.fromDescriptor(fieldDescriptor, preserveNames));
             }
-
-            return fromFields(isNullable, fieldsBuilder.build());
+            return fieldsBuilder.build();
         }
 
         /**
@@ -2525,6 +2537,12 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
         @Nonnull
         public static Record fromDescriptor(final Descriptors.Descriptor descriptor) {
             return fromFieldDescriptorsMap(toFieldDescriptorMap(descriptor.getFields()));
+        }
+
+        @Nonnull
+        public static Record fromDescriptorPreservingName(final Descriptors.Descriptor descriptor) {
+            return new Record(ProtoUtils.toUserIdentifier(descriptor.getName()), descriptor.getName(), false,
+                    fieldsFromDescriptorMap(toFieldDescriptorMap(descriptor.getFields()), true));
         }
 
         /**
@@ -2584,12 +2602,14 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
                                                           ? Optional.empty()
                                                           : Optional.of(fieldName))
                                     .orElse("_" + i);
-                    final var storageFieldName = ProtoUtils.toProtoBufCompliantName(explicitFieldName);
+                    final var fieldStorageName =
+                            field.getFieldStorageNameOptional()
+                                    .orElseGet(() -> ProtoUtils.toProtoBufCompliantName(explicitFieldName));
                     fieldToBeAdded =
                             new Field(field.getFieldType(),
                                     Optional.of(explicitFieldName),
                                     Optional.of(i + 1),
-                                    Optional.of(storageFieldName));
+                                    Optional.of(fieldStorageName));
                 }
 
                 if (!(fieldNamesSeen.add(fieldToBeAdded.getFieldName()))) {
@@ -2661,8 +2681,11 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
             }
 
             /**
-             * Returns the field name.
-             * @return The field name.
+             * Returns the field name if set. This should be the name of the field as the user would refer to it.
+             * This may not be set if the user has used un-named fields, in which case names based on the field
+             * index will be generated.
+             *
+             * @return The field name if set.
              */
             @Nonnull
             public Optional<String> getFieldNameOptional() {
@@ -2670,19 +2693,37 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
             }
 
             /**
-             * Returns the field name.
+             * Returns the field name. If the underlying {@link Optional} is not set, this will throw an error.
+             *
              * @return The field name.
+             * @see #getFieldStorageNameOptional()
+             * @throws RecordCoreException if the field is not set
              */
             @Nonnull
             public String getFieldName() {
                 return getFieldNameOptional().orElseThrow(() -> new RecordCoreException("field name should have been set"));
             }
 
+            /**
+             * Returns the name of the underlying field in protobuf storage if set. This can differ from the user-visible
+             * field name if, for example, there are characters in there are fields that need to be adjusted in order
+             * to produce a valid protobuf identifier.
+             *
+             * @return The protobuf field name used to serialize this field if set.
+             * @see ProtoUtils#toProtoBufCompliantName(String) for the escaping used
+             */
             @Nonnull
             public Optional<String> getFieldStorageNameOptional() {
                 return fieldStorageNameOptional;
             }
 
+            /**
+             * Returns the name of the underlying field in protobuf storage if set. If the underlying {@link Optional}
+             * is not set, this will throw an error.
+             *
+             * @return The protobuf field name used to serialize this field.
+             * @see #getFieldStorageNameOptional()
+             */
             @Nonnull
             public String getFieldStorageName() {
                 return getFieldStorageNameOptional().orElseThrow(() -> new RecordCoreException("field name should have been set"));
@@ -2703,21 +2744,6 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
              */
             public int getFieldIndex() {
                 return getFieldIndexOptional().orElseThrow(() -> new RecordCoreException("field index should have been set"));
-            }
-
-            /**
-             * Returns a new field with a new name.
-             * @param newName The new name.
-             * @return if the name is different from the current field name, returns a new {@code Field} with the new name,
-             *         the same {@link Type}, and index, otherwise it returns {@code this} {@link Field}.
-             */
-            @Nonnull
-            public Field withName(@Nonnull final String newName) {
-                if (fieldNameOptional.map(fieldName -> fieldName.equals(newName)).orElse(false)) {
-                    return this;
-                } else {
-                    return Field.of(getFieldType(), Optional.of(newName), getFieldIndexOptional());
-                }
             }
 
             @Nonnull
@@ -2775,6 +2801,20 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
                     }
                 });
                 return fieldProtoBuilder.build();
+            }
+
+            @Nonnull
+            private static Field fromDescriptor(@Nonnull Descriptors.FieldDescriptor fieldDescriptor, boolean preserveNames) {
+                final Type fieldType = Type.fromProtoType(Type.getTypeSpecificDescriptor(fieldDescriptor),
+                        fieldDescriptor.getType(),
+                        fieldDescriptor.toProto().getLabel(),
+                        fieldDescriptor.getOptions(),
+                        !fieldDescriptor.isRequired(),
+                        preserveNames);
+                return new Field(fieldType,
+                        Optional.of(ProtoUtils.toUserIdentifier(fieldDescriptor.getName())),
+                        Optional.of(fieldDescriptor.getNumber()),
+                        Optional.of(fieldDescriptor.getName()));
             }
 
             @Nonnull

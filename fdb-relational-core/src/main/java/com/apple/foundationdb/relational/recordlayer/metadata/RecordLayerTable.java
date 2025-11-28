@@ -340,13 +340,13 @@ public final class RecordLayerTable implements Table {
         }
 
         @Nullable
-        private static Type.Record getFieldRecordType(@Nullable Type.Record record, @Nullable Type.Record.Field field) {
+        private static Type.Record getFieldRecordType(@Nullable Type.Record recordType, @Nullable Type.Record.Field field) {
             if (field == null) {
                 return null;
             }
             Type fieldType = field.getFieldType();
             if (!(fieldType instanceof Type.Record)) {
-                Assert.failUnchecked(ErrorCode.INVALID_COLUMN_REFERENCE, "Field '" + field.getFieldName() + "' on type '" + (record == null ? "UNKNONW" : record.getName()) + "' is not a struct");
+                Assert.failUnchecked(ErrorCode.INVALID_COLUMN_REFERENCE, "Field '" + field.getFieldName() + "' on type '" + (recordType == null ? "UNKNONW" : recordType.getName()) + "' is not a struct");
             }
             return (Type.Record) fieldType;
         }

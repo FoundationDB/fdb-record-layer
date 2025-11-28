@@ -70,6 +70,8 @@ class MetaDataExportUtilityTests {
         });
 
         metaDataBuilder.addIndex(metaDataBuilder.getRecordType("T2"), new Index("T2$T2.COL1", "T2__1COL1"));
+        metaDataBuilder.addIndex(metaDataBuilder.getRecordType("___T6__2__UNESCAPED"), new Index("T6$COL2", "__T6__2COL2__VALUE"));
+        metaDataBuilder.addIndex(metaDataBuilder.getRecordType("___T6__2__UNESCAPED"), new Index("T6$ENUM2", "T6__1__ENUM_2"));
         metaDataBuilder.addUserDefinedFunction(new RawSqlFunction("__func__T3$col2",
                 "CREATE FUNCTION \"__func__T3$col2\"(in \"x$\" bigint) AS select \"__T3$COL1\" as \"c.1\", \"__T3$COL3\" as \"c.2\" from \"__T3\" WHERE \"__T3$COL2\" = \"x$\""));
         metaDataBuilder.addView(new View("T4$view",
