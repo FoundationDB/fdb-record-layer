@@ -11,6 +11,7 @@ to change frequently. This reference is currently also a work in progress to be 
 reference/sql_types
 reference/sql_commands
 reference/Functions
+reference/Subqueries
 ```
 
 ```{toctree}
