@@ -350,7 +350,7 @@ public class SemanticAnalyzer {
                 return resolvedMaybe.get();
             }
         }
-        Assert.failUnchecked(ErrorCode.UNDEFINED_COLUMN, String.format(Locale.ROOT, "Attempting to query non existing column '%s'", identifier));
+        Assert.failUnchecked(ErrorCode.UNDEFINED_COLUMN, String.format(Locale.ROOT, "Attempting to query non existing column %s", identifier));
         return null; // unreachable.
     }
 
@@ -358,12 +358,12 @@ public class SemanticAnalyzer {
     public Expression resolveIdentifier(@Nonnull Identifier identifier,
                                         @Nonnull LogicalOperators operators) {
         var attributes = lookup(identifier, operators, true);
-        Assert.thatUnchecked(attributes.size() <= 1, ErrorCode.AMBIGUOUS_COLUMN, () -> String.format(Locale.ROOT, "Ambiguous reference '%s'", identifier));
+        Assert.thatUnchecked(attributes.size() <= 1, ErrorCode.AMBIGUOUS_COLUMN, () -> String.format(Locale.ROOT, "Ambiguous reference %s", identifier));
         if (attributes.isEmpty()) {
             attributes = lookup(identifier, operators, false);
         }
         Assert.thatUnchecked(!attributes.isEmpty(), ErrorCode.UNDEFINED_COLUMN, () -> String.format(Locale.ROOT, "Unknown reference %s", identifier));
-        Assert.thatUnchecked(attributes.size() == 1, ErrorCode.AMBIGUOUS_COLUMN, () -> String.format(Locale.ROOT, "Ambiguous reference '%s'", identifier));
+        Assert.thatUnchecked(attributes.size() == 1, ErrorCode.AMBIGUOUS_COLUMN, () -> String.format(Locale.ROOT, "Ambiguous reference %s", identifier));
         return attributes.get(0);
     }
 
@@ -371,14 +371,14 @@ public class SemanticAnalyzer {
     private Optional<Expression> resolveIdentifierMaybe(@Nonnull Identifier identifier,
                                                         @Nonnull LogicalOperators operators) {
         var attributes = lookup(identifier, operators, true);
-        Assert.thatUnchecked(attributes.size() <= 1, ErrorCode.AMBIGUOUS_COLUMN, () -> String.format(Locale.ROOT, "Ambiguous reference '%s'", identifier));
+        Assert.thatUnchecked(attributes.size() <= 1, ErrorCode.AMBIGUOUS_COLUMN, () -> String.format(Locale.ROOT, "Ambiguous reference %s", identifier));
         if (attributes.isEmpty()) {
             attributes = lookup(identifier, operators, false);
         }
         if (attributes.isEmpty()) {
             return Optional.empty();
         }
-        Assert.thatUnchecked(attributes.size() == 1, ErrorCode.AMBIGUOUS_COLUMN, () -> String.format(Locale.ROOT, "Ambiguous reference '%s'", identifier));
+        Assert.thatUnchecked(attributes.size() == 1, ErrorCode.AMBIGUOUS_COLUMN, () -> String.format(Locale.ROOT, "Ambiguous reference %s", identifier));
         return Optional.of(attributes.get(0));
     }
 
