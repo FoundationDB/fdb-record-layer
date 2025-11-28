@@ -55,8 +55,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.PriorityQueue;
 import java.util.Queue;
-import java.util.Random;
 import java.util.Set;
+import java.util.SplittableRandom;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicReference;
@@ -89,8 +89,6 @@ public class HNSW {
     @Nonnull
     private static final Logger logger = LoggerFactory.getLogger(HNSW.class);
 
-    @Nonnull
-    private final Random random;
     @Nonnull
     private final Subspace subspace;
     @Nonnull
@@ -141,7 +139,6 @@ public class HNSW {
                 @Nonnull final Config config,
                 @Nonnull final OnWriteListener onWriteListener,
                 @Nonnull final OnReadListener onReadListener) {
-        this.random = new Random(config.getRandomSeed());
         this.subspace = subspace;
         this.executor = executor;
         this.config = config;
@@ -581,7 +578,7 @@ public class HNSW {
         return onReadListener.onAsyncRead(
                         storageAdapter.fetchNode(readTransaction, storageTransform, layer,
                                 nodeReference.getPrimaryKey()))
-                .thenApply(node -> biMapFunction.apply(nodeReference, node));
+                .thenApply(node -> biMapFunction.apply(nodeReference, Objects.requireNonNull(node)));
     }
 
     /**
@@ -748,19 +745,35 @@ public class HNSW {
     @Nonnull
     public CompletableFuture<Void> insert(@Nonnull final Transaction transaction, @Nonnull final Tuple newPrimaryKey,
                                           @Nonnull final RealVector newVector) {
-        final int insertionLayer = insertionLayer();
+        final SplittableRandom random = random(newPrimaryKey);
+        final int insertionLayer = insertionLayer(random);
         if (logger.isTraceEnabled()) {
             logger.trace("new node with key={} selected to be inserted into layer={}", newPrimaryKey, insertionLayer);
         }
 
         return StorageAdapter.fetchAccessInfo(getConfig(), transaction, getSubspace(), getOnReadListener())
-                .thenCompose(accessInfo -> {
-                    final AccessInfo currentAccessInfo;
+                .thenCombine(exists(transaction, newPrimaryKey),
+                        (accessInfo, nodeAlreadyExists) -> {
+                            if (nodeAlreadyExists) {
+                                if (logger.isDebugEnabled()) {
+                                    logger.debug("new record already exists in HNSW with key={} on layer={}",
+                                            newPrimaryKey, insertionLayer);
+                                }
+                            }
+                            return new AccessInfoAndNodeExistence(accessInfo, nodeAlreadyExists);
+                        })
+                .thenCompose(accessInfoAndNodeExistence -> {
+                    if (accessInfoAndNodeExistence.isNodeExists()) {
+                        return AsyncUtil.DONE;
+                    }
+
+                    final AccessInfo accessInfo = accessInfoAndNodeExistence.getAccessInfo();
                     final AffineOperator storageTransform = storageTransform(accessInfo);
                     final Transformed<RealVector> transformedNewVector = storageTransform.transform(newVector);
                     final Quantizer quantizer = quantizer(accessInfo);
                     final Estimator estimator = quantizer.estimator();
 
+                    final AccessInfo currentAccessInfo;
                     if (accessInfo == null) {
                         // this is the first node
                         writeLonelyNodes(quantizer, transaction, newPrimaryKey, transformedNewVector,
@@ -817,8 +830,22 @@ public class HNSW {
                                     insertIntoLayers(transaction, storageTransform, quantizer, newPrimaryKey,
                                             transformedNewVector, nodeReference, lMax, insertionLayer))
                             .thenCompose(ignored ->
-                                    addToStatsIfNecessary(transaction, currentAccessInfo, transformedNewVector));
+                                    addToStatsIfNecessary(random.split(), transaction, currentAccessInfo, transformedNewVector));
                 }).thenCompose(ignored -> AsyncUtil.DONE);
+    }
+
+    @Nonnull
+    @VisibleForTesting
+    CompletableFuture<Boolean> exists(@Nonnull final ReadTransaction readTransaction,
+                                      @Nonnull final Tuple primaryKey) {
+        final StorageAdapter<? extends NodeReference> storageAdapter = getStorageAdapterForLayer(0);
+
+        //
+        // Call fetchNode() to check for the node's existence; we are handing in the identity operator, since we don't
+        // care about the vector itself at all.
+        //
+        return storageAdapter.fetchNode(readTransaction, AffineOperator.identity(), 0, primaryKey)
+                .thenApply(Objects::nonNull);
     }
 
     /**
@@ -832,21 +859,23 @@ public class HNSW {
      * in order to finally compute the centroid if {@link Config#getStatsThreshold()} number of vectors have been
      * sampled and aggregated. That centroid is then used to update the access info.
      *
+     * @param random a random to use
      * @param transaction the transaction
      * @param currentAccessInfo this current access info that was fetched as part of an insert
      * @param transformedNewVector the new vector (in the transformed coordinate system) that may be added
      * @return a future that returns {@code null} when completed
      */
     @Nonnull
-    private CompletableFuture<Void> addToStatsIfNecessary(@Nonnull final Transaction transaction,
+    private CompletableFuture<Void> addToStatsIfNecessary(@Nonnull final SplittableRandom random,
+                                                          @Nonnull final Transaction transaction,
                                                           @Nonnull final AccessInfo currentAccessInfo,
                                                           @Nonnull final Transformed<RealVector> transformedNewVector) {
         if (getConfig().isUseRaBitQ() && !currentAccessInfo.canUseRaBitQ()) {
-            if (shouldSampleVector()) {
+            if (shouldSampleVector(random)) {
                 StorageAdapter.appendSampledVector(transaction, getSubspace(),
                         1, transformedNewVector, onWriteListener);
             }
-            if (shouldMaintainStats()) {
+            if (shouldMaintainStats(random)) {
                 return StorageAdapter.consumeSampledVectors(transaction, getSubspace(),
                                 50, onReadListener)
                         .thenApply(sampledVectors -> {
@@ -1512,6 +1541,15 @@ public class HNSW {
                 getOnReadListener());
     }
 
+    @Nonnull
+    private SplittableRandom random(@Nonnull final Tuple primaryKey) {
+        if (config.isDeterministicSeeding()) {
+            return new SplittableRandom(primaryKey.hashCode());
+        } else {
+            return new SplittableRandom(System.nanoTime());
+        }
+    }
+
     /**
      * Calculates a random layer for a new element to be inserted.
      * <p>
@@ -1521,20 +1559,20 @@ public class HNSW {
      * is {@code floor(-ln(u) * lambda)}, where {@code u} is a uniform random
      * number and {@code lambda} is a normalization factor derived from a system
      * configuration parameter {@code M}.
-     *
+     * @param random a random to use
      * @return a non-negative integer representing the randomly selected layer.
      */
-    private int insertionLayer() {
+    private int insertionLayer(@Nonnull final SplittableRandom random) {
         double lambda = 1.0 / Math.log(getConfig().getM());
         double u = 1.0 - random.nextDouble();  // Avoid log(0)
         return (int) Math.floor(-Math.log(u) * lambda);
     }
 
-    private boolean shouldSampleVector() {
+    private boolean shouldSampleVector(@Nonnull final SplittableRandom random) {
         return random.nextDouble() < getConfig().getSampleVectorStatsProbability();
     }
 
-    private boolean shouldMaintainStats() {
+    private boolean shouldMaintainStats(@Nonnull final SplittableRandom random) {
         return random.nextDouble() < getConfig().getMaintainStatsProbability();
     }
 
@@ -1545,5 +1583,25 @@ public class HNSW {
             resultBuilder.add(queue.poll());
         }
         return resultBuilder.build();
+    }
+
+    private static class AccessInfoAndNodeExistence {
+        @Nullable
+        private final AccessInfo accessInfo;
+        private final boolean nodeExists;
+
+        public AccessInfoAndNodeExistence(@Nullable final AccessInfo accessInfo, final boolean nodeExists) {
+            this.accessInfo = accessInfo;
+            this.nodeExists = nodeExists;
+        }
+
+        @Nullable
+        public AccessInfo getAccessInfo() {
+            return accessInfo;
+        }
+
+        public boolean isNodeExists() {
+            return nodeExists;
+        }
     }
 }

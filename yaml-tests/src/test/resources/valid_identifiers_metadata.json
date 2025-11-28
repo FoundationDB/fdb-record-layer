@@ -1,0 +1,391 @@
+{
+  "records": {
+    "name": "identifiers.proto",
+    "package": "com.apple.foundationdb.relational.yamltests.generated.identifierstests",
+    "dependency": ["record_metadata_options.proto"],
+    "messageType": [{
+      "name": "T1",
+      "field": [{
+        "name": "ID",
+        "number": 1,
+        "label": "LABEL_OPTIONAL",
+        "type": "TYPE_INT64"
+      }, {
+        "name": "T1__2COL1",
+        "number": 2,
+        "label": "LABEL_OPTIONAL",
+        "type": "TYPE_INT64"
+      }, {
+        "name": "T1__2COL2",
+        "number": 3,
+        "label": "LABEL_OPTIONAL",
+        "type": "TYPE_INT64"
+      }]
+    }, {
+      "name": "T2",
+      "field": [{
+        "name": "ID",
+        "number": 1,
+        "label": "LABEL_OPTIONAL",
+        "type": "TYPE_INT64"
+      }, {
+        "name": "T2__1COL1",
+        "number": 2,
+        "label": "LABEL_OPTIONAL",
+        "type": "TYPE_INT64"
+      }, {
+        "name": "T2__1COL2",
+        "number": 3,
+        "label": "LABEL_OPTIONAL",
+        "type": "TYPE_INT64"
+      }]
+    }, {
+      "name": "__T3",
+      "field": [{
+        "name": "ID",
+        "number": 1,
+        "label": "LABEL_OPTIONAL",
+        "type": "TYPE_INT64"
+      }, {
+        "name": "__T3__1COL1",
+        "number": 2,
+        "label": "LABEL_OPTIONAL",
+        "type": "TYPE_INT64"
+      }, {
+        "name": "__T3__1COL2",
+        "number": 3,
+        "label": "LABEL_OPTIONAL",
+        "type": "TYPE_INT64"
+      }, {
+        "name": "__T3__1COL3",
+        "number": 4,
+        "label": "LABEL_OPTIONAL",
+        "type": "TYPE_ENUM",
+        "typeName": ".com.apple.foundationdb.relational.yamltests.generated.identifierstests.__T3__2ENUM",
+        "oneofIndex": 0,
+        "proto3Optional": true
+      }],
+      "oneofDecl": [{
+        "name": "X__T3__1COL3"
+      }]
+    }, {
+      "name": "internal",
+      "field": [{
+        "name": "a",
+        "number": 1,
+        "label": "LABEL_OPTIONAL",
+        "type": "TYPE_INT64"
+      }, {
+        "name": "b",
+        "number": 2,
+        "label": "LABEL_OPTIONAL",
+        "type": "TYPE_INT64"
+      }]
+    }, {
+      "name": "T4",
+      "field": [{
+        "name": "ID",
+        "number": 1,
+        "label": "LABEL_OPTIONAL",
+        "type": "TYPE_INT64"
+      }, {
+        "name": "___hidden",
+        "number": 2,
+        "label": "LABEL_OPTIONAL",
+        "type": "TYPE_MESSAGE",
+        "typeName": ".com.apple.foundationdb.relational.yamltests.generated.identifierstests.internal"
+      }, {
+        "name": "T4__2COL1",
+        "number": 3,
+        "label": "LABEL_OPTIONAL",
+        "type": "TYPE_INT64"
+      }, {
+        "name": "T4__2COL2",
+        "number": 4,
+        "label": "LABEL_OPTIONAL",
+        "type": "TYPE_INT64"
+      }]
+    }, {
+      "name": "T5__UNESCAPED",
+      "field": [{
+        "name": "ID",
+        "number": 1,
+        "label": "LABEL_OPTIONAL",
+        "type": "TYPE_INT64"
+      }, {
+        "name": "T5__COL1",
+        "number": 2,
+        "label": "LABEL_OPTIONAL",
+        "type": "TYPE_INT64"
+      }, {
+        "name": "__T5__COL2",
+        "number": 3,
+        "label": "LABEL_OPTIONAL",
+        "type": "TYPE_INT64"
+      }]
+    }, {
+      "name": "___T6__2__UNESCAPED",
+      "field": [{
+        "name": "ID",
+        "number": 1,
+        "label": "LABEL_OPTIONAL",
+        "type": "TYPE_INT64"
+      }, {
+        "name": "T6__1__COL1__0",
+        "number": 2,
+        "label": "LABEL_OPTIONAL",
+        "type": "TYPE_INT64"
+      }, {
+        "name": "__T6__2COL2__VALUE",
+        "number": 3,
+        "label": "LABEL_OPTIONAL",
+        "type": "TYPE_INT64"
+      }, {
+        "name": "T6__1__ENUM_1",
+        "number": 4,
+        "label": "LABEL_OPTIONAL",
+        "type": "TYPE_ENUM",
+        "typeName": ".com.apple.foundationdb.relational.yamltests.generated.identifierstests.T6__2__ENUM__0",
+        "oneofIndex": 0,
+        "proto3Optional": true
+      }, {
+        "name": "T6__1__ENUM_2",
+        "number": 5,
+        "label": "LABEL_OPTIONAL",
+        "type": "TYPE_ENUM",
+        "typeName": ".com.apple.foundationdb.relational.yamltests.generated.identifierstests.T6__2__ENUM__0",
+        "oneofIndex": 1,
+        "proto3Optional": true
+      }],
+      "oneofDecl": [{
+        "name": "_T6__1__ENUM_1"
+      }, {
+        "name": "_T6__1__ENUM_2"
+      }]
+    }, {
+      "name": "RecordTypeUnion",
+      "field": [{
+        "name": "_T1",
+        "number": 1,
+        "label": "LABEL_OPTIONAL",
+        "type": "TYPE_MESSAGE",
+        "typeName": ".com.apple.foundationdb.relational.yamltests.generated.identifierstests.T1"
+      }, {
+        "name": "_T2",
+        "number": 2,
+        "label": "LABEL_OPTIONAL",
+        "type": "TYPE_MESSAGE",
+        "typeName": ".com.apple.foundationdb.relational.yamltests.generated.identifierstests.T2"
+      }, {
+        "name": "___T3",
+        "number": 3,
+        "label": "LABEL_OPTIONAL",
+        "type": "TYPE_MESSAGE",
+        "typeName": ".com.apple.foundationdb.relational.yamltests.generated.identifierstests.__T3"
+      }, {
+        "name": "_T4",
+        "number": 4,
+        "label": "LABEL_OPTIONAL",
+        "type": "TYPE_MESSAGE",
+        "typeName": ".com.apple.foundationdb.relational.yamltests.generated.identifierstests.T4"
+      }, {
+        "name": "_T5__UNESCAPED",
+        "number": 5,
+        "label": "LABEL_OPTIONAL",
+        "type": "TYPE_MESSAGE",
+        "typeName": ".com.apple.foundationdb.relational.yamltests.generated.identifierstests.T5__UNESCAPED"
+      }, {
+        "name": "____T6__2__UNESCAPED",
+        "number": 6,
+        "label": "LABEL_OPTIONAL",
+        "type": "TYPE_MESSAGE",
+        "typeName": ".com.apple.foundationdb.relational.yamltests.generated.identifierstests.___T6__2__UNESCAPED"
+      }]
+    }],
+    "enumType": [{
+      "name": "__T3__2ENUM",
+      "value": [{
+        "name": "T3__2E__2A",
+        "number": 0
+      }, {
+        "name": "T3__2E__2B",
+        "number": 1
+      }, {
+        "name": "T3__2E__2C",
+        "number": 2
+      }]
+    }, {
+      "name": "T6__2__ENUM__0",
+      "value": [{
+        "name": "A",
+        "number": 0
+      }, {
+        "name": "B__0",
+        "number": 1
+      }, {
+        "name": "C__",
+        "number": 2
+      }, {
+        "name": "__D__2__",
+        "number": 3
+      }]
+    }],
+    "options": {
+      "javaOuterClassname": "IdentifiersTestProto"
+    },
+    "syntax": "proto3"
+  },
+  "indexes": [{
+    "recordType": ["T2"],
+    "name": "T2$T2.COL1",
+    "rootExpression": {
+      "field": {
+        "fieldName": "T2__1COL1",
+        "fanType": "SCALAR",
+        "nullInterpretation": "NOT_UNIQUE"
+      }
+    },
+    "subspaceKey": "AlQyJFQyLkNPTDEA",
+    "lastModifiedVersion": 1,
+    "type": "value",
+    "addedVersion": 1
+  }, {
+    "recordType": ["___T6__2__UNESCAPED"],
+    "name": "T6$COL2",
+    "rootExpression": {
+      "field": {
+        "fieldName": "__T6__2COL2__VALUE",
+        "fanType": "SCALAR",
+        "nullInterpretation": "NOT_UNIQUE"
+      }
+    },
+    "subspaceKey": "AlQ2JENPTDIA",
+    "lastModifiedVersion": 2,
+    "type": "value",
+    "addedVersion": 2
+  }, {
+    "recordType": ["___T6__2__UNESCAPED"],
+    "name": "T6$ENUM2",
+    "rootExpression": {
+      "field": {
+        "fieldName": "T6__1__ENUM_2",
+        "fanType": "SCALAR",
+        "nullInterpretation": "NOT_UNIQUE"
+      }
+    },
+    "subspaceKey": "AlQ2JEVOVU0yAA==",
+    "lastModifiedVersion": 3,
+    "type": "value",
+    "addedVersion": 3
+  }],
+  "recordTypes": [{
+    "name": "T4",
+    "primaryKey": {
+      "then": {
+        "child": [{
+          "recordTypeKey": {
+          }
+        }, {
+          "field": {
+            "fieldName": "ID",
+            "fanType": "SCALAR",
+            "nullInterpretation": "NOT_UNIQUE"
+          }
+        }]
+      }
+    }
+  }, {
+    "name": "T5__UNESCAPED",
+    "primaryKey": {
+      "then": {
+        "child": [{
+          "recordTypeKey": {
+          }
+        }, {
+          "field": {
+            "fieldName": "ID",
+            "fanType": "SCALAR",
+            "nullInterpretation": "NOT_UNIQUE"
+          }
+        }]
+      }
+    }
+  }, {
+    "name": "__T3",
+    "primaryKey": {
+      "then": {
+        "child": [{
+          "recordTypeKey": {
+          }
+        }, {
+          "field": {
+            "fieldName": "ID",
+            "fanType": "SCALAR",
+            "nullInterpretation": "NOT_UNIQUE"
+          }
+        }]
+      }
+    }
+  }, {
+    "name": "T1",
+    "primaryKey": {
+      "then": {
+        "child": [{
+          "recordTypeKey": {
+          }
+        }, {
+          "field": {
+            "fieldName": "ID",
+            "fanType": "SCALAR",
+            "nullInterpretation": "NOT_UNIQUE"
+          }
+        }]
+      }
+    }
+  }, {
+    "name": "T2",
+    "primaryKey": {
+      "then": {
+        "child": [{
+          "recordTypeKey": {
+          }
+        }, {
+          "field": {
+            "fieldName": "ID",
+            "fanType": "SCALAR",
+            "nullInterpretation": "NOT_UNIQUE"
+          }
+        }]
+      }
+    }
+  }, {
+    "name": "___T6__2__UNESCAPED",
+    "primaryKey": {
+      "then": {
+        "child": [{
+          "recordTypeKey": {
+          }
+        }, {
+          "field": {
+            "fieldName": "ID",
+            "fanType": "SCALAR",
+            "nullInterpretation": "NOT_UNIQUE"
+          }
+        }]
+      }
+    }
+  }],
+  "splitLongRecords": false,
+  "version": 3,
+  "storeRecordVersions": false,
+  "userDefinedFunctions": [{
+    "sqlFunction": {
+      "name": "__func__T3$col2",
+      "definition": "CREATE FUNCTION \"__func__T3$col2\"(in \"x$\" bigint) AS select \"__T3$COL1\" as \"c.1\", \"__T3$COL3\" as \"c.2\" from \"__T3\" WHERE \"__T3$COL2\" \u003d \"x$\""
+    }
+  }],
+  "views": [{
+    "name": "T4$view",
+    "definition": "select \"T4.COL1\" AS \"c__1\", \"T4.COL2\" AS \"c__2\" from T4 where \"T4.COL1\" \u003e 0 and \"T4.COL2\" \u003e 0"
+  }]
+}

@@ -58,6 +58,7 @@ import com.apple.foundationdb.relational.api.metadata.Table;
 import com.apple.foundationdb.relational.api.metadata.View;
 import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerView;
 import com.apple.foundationdb.relational.recordlayer.query.functions.SqlFunctionCatalog;
 import com.apple.foundationdb.relational.recordlayer.query.functions.WithPlanGenerationSideEffects;
@@ -274,9 +275,12 @@ public class SemanticAnalyzer {
     }
 
     @Nonnull
-    public Set<String> getAllTableNames() {
+    public Set<String> getAllTableStorageNames() {
         try {
-            return metadataCatalog.getTables().stream().map(Metadata::getName).collect(ImmutableSet.toImmutableSet());
+            return metadataCatalog.getTables().stream()
+                    .map(table -> Assert.castUnchecked(table, RecordLayerTable.class))
+                    .map(table -> Assert.notNullUnchecked(table.getType().getStorageName()))
+                    .collect(ImmutableSet.toImmutableSet());
         } catch (RelationalException e) {
             throw e.toUncheckedWrappedException();
         }
@@ -346,7 +350,7 @@ public class SemanticAnalyzer {
                 return resolvedMaybe.get();
             }
         }
-        Assert.failUnchecked(ErrorCode.UNDEFINED_COLUMN, String.format(Locale.ROOT, "Attempting to query non existing column '%s'", identifier));
+        Assert.failUnchecked(ErrorCode.UNDEFINED_COLUMN, String.format(Locale.ROOT, "Attempting to query non existing column %s", identifier));
         return null; // unreachable.
     }
 
@@ -354,12 +358,12 @@ public class SemanticAnalyzer {
     public Expression resolveIdentifier(@Nonnull Identifier identifier,
                                         @Nonnull LogicalOperators operators) {
         var attributes = lookup(identifier, operators, true);
-        Assert.thatUnchecked(attributes.size() <= 1, ErrorCode.AMBIGUOUS_COLUMN, () -> String.format(Locale.ROOT, "Ambiguous reference '%s'", identifier));
+        Assert.thatUnchecked(attributes.size() <= 1, ErrorCode.AMBIGUOUS_COLUMN, () -> String.format(Locale.ROOT, "Ambiguous reference %s", identifier));
         if (attributes.isEmpty()) {
             attributes = lookup(identifier, operators, false);
         }
         Assert.thatUnchecked(!attributes.isEmpty(), ErrorCode.UNDEFINED_COLUMN, () -> String.format(Locale.ROOT, "Unknown reference %s", identifier));
-        Assert.thatUnchecked(attributes.size() == 1, ErrorCode.AMBIGUOUS_COLUMN, () -> String.format(Locale.ROOT, "Ambiguous reference '%s'", identifier));
+        Assert.thatUnchecked(attributes.size() == 1, ErrorCode.AMBIGUOUS_COLUMN, () -> String.format(Locale.ROOT, "Ambiguous reference %s", identifier));
         return attributes.get(0);
     }
 
@@ -367,14 +371,14 @@ public class SemanticAnalyzer {
     private Optional<Expression> resolveIdentifierMaybe(@Nonnull Identifier identifier,
                                                         @Nonnull LogicalOperators operators) {
         var attributes = lookup(identifier, operators, true);
-        Assert.thatUnchecked(attributes.size() <= 1, ErrorCode.AMBIGUOUS_COLUMN, () -> String.format(Locale.ROOT, "Ambiguous reference '%s'", identifier));
+        Assert.thatUnchecked(attributes.size() <= 1, ErrorCode.AMBIGUOUS_COLUMN, () -> String.format(Locale.ROOT, "Ambiguous reference %s", identifier));
         if (attributes.isEmpty()) {
             attributes = lookup(identifier, operators, false);
         }
         if (attributes.isEmpty()) {
             return Optional.empty();
         }
-        Assert.thatUnchecked(attributes.size() == 1, ErrorCode.AMBIGUOUS_COLUMN, () -> String.format(Locale.ROOT, "Ambiguous reference '%s'", identifier));
+        Assert.thatUnchecked(attributes.size() == 1, ErrorCode.AMBIGUOUS_COLUMN, () -> String.format(Locale.ROOT, "Ambiguous reference %s", identifier));
         return Optional.of(attributes.get(0));
     }
 
@@ -616,7 +620,7 @@ public class SemanticAnalyzer {
             final var typeName = Assert.notNullUnchecked(parsedTypeInfo.getCustomType()).getName();
             final var maybeFound = dataTypeProvider.apply(typeName);
             // if we cannot find the type now, mark it, we will try to resolve it later on via a second pass.
-            type = maybeFound.orElseGet(() -> DataType.UnresolvedType.of(typeName, isNullable));
+            type = maybeFound.map(dataType -> dataType.withNullable(isNullable)).orElseGet(() -> DataType.UnresolvedType.of(typeName, isNullable));
         } else {
             final var primitiveType = Assert.notNullUnchecked(parsedTypeInfo.getPrimitiveTypeContext());
             if (primitiveType.vectorType() != null) {

@@ -1,0 +1,13 @@
+Diagram(
+    NonTerminal('expression'),
+    Optional(Terminal('NOT'), 1),
+    Terminal('LIKE'),
+    NonTerminal('pattern'),
+    Optional(
+        Sequence(
+            Terminal('ESCAPE'),
+            NonTerminal('escape_char')
+        ),
+        1
+    )
+)
