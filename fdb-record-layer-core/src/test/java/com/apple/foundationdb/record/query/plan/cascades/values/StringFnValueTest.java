@@ -256,6 +256,39 @@ class StringFnValueTest {
     }
 
     /**
+     * Tests planHash() directly on StringFn enum for LOWER.
+     */
+    @Test
+    void testStringFnPlanHashLower() {
+        final int hash1 = StringFnValue.StringFn.LOWER.planHash(PlanHashable.CURRENT_FOR_CONTINUATION);
+        final int hash2 = StringFnValue.StringFn.LOWER.planHash(PlanHashable.CURRENT_FOR_CONTINUATION);
+
+        Assertions.assertEquals(hash1, hash2, "Same enum value should produce same planHash");
+    }
+
+    /**
+     * Tests planHash() directly on StringFn enum for UPPER.
+     */
+    @Test
+    void testStringFnPlanHashUpper() {
+        final int hash1 = StringFnValue.StringFn.UPPER.planHash(PlanHashable.CURRENT_FOR_CONTINUATION);
+        final int hash2 = StringFnValue.StringFn.UPPER.planHash(PlanHashable.CURRENT_FOR_CONTINUATION);
+
+        Assertions.assertEquals(hash1, hash2, "Same enum value should produce same planHash");
+    }
+
+    /**
+     * Tests that different StringFn enum values have different plan hashes.
+     */
+    @Test
+    void testStringFnPlanHashDifferent() {
+        final int lowerHash = StringFnValue.StringFn.LOWER.planHash(PlanHashable.CURRENT_FOR_CONTINUATION);
+        final int upperHash = StringFnValue.StringFn.UPPER.planHash(PlanHashable.CURRENT_FOR_CONTINUATION);
+
+        Assertions.assertNotEquals(lowerHash, upperHash, "Different enum values should produce different planHashes");
+    }
+
+    /**
      * Tests serialization and deserialization for LOWER function.
      */
     @Test
