@@ -170,9 +170,10 @@ public class ScalarTranslationVisitor implements KeyExpressionVisitor<ScalarTran
         final ScalarVisitorState state = getCurrentState();
         final List<String> fieldNamePrefix = state.getFieldNamePrefix();
         final KeyExpression child = nestingKeyExpression.getChild();
+        final String parentFieldName = ProtoUtils.toUserIdentifier(parent.getFieldName());
         final List<String> newPrefix = ImmutableList.<String>builder()
                 .addAll(fieldNamePrefix)
-                .add(parent.getFieldName())
+                .add(parentFieldName)
                 .build();
         // TODO resolve type
         return pop(child.expand(push(state.withFieldNamePrefix(newPrefix))));

@@ -28,12 +28,15 @@ import com.apple.foundationdb.record.TestRecords4Proto;
 import com.apple.foundationdb.record.TestRecords4WrapperProto;
 import com.apple.foundationdb.record.TestRecordsUuidProto;
 import com.apple.foundationdb.record.TupleFieldsProto;
+import com.apple.foundationdb.record.TypeTestProto;
 import com.apple.foundationdb.record.planprotos.PType;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
+import com.apple.foundationdb.record.util.ProtoUtils;
 import com.apple.foundationdb.record.util.RandomUtil;
 import com.apple.foundationdb.record.util.pair.Pair;
+import com.apple.test.BooleanSource;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
@@ -43,6 +46,7 @@ import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
 import org.assertj.core.api.AutoCloseableSoftAssertions;
+import org.assertj.core.api.SoftAssertions;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtensionContext;
@@ -59,6 +63,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -551,7 +556,7 @@ class TypeTest {
         assertThat(enumDescriptor.getName())
                 .isEqualTo(enumTypeName);
 
-        final Type.Enum fromProto = Type.Enum.fromValues(enumType.isNullable(), Type.Enum.enumValuesFromProto(enumDescriptor.getValues()));
+        final Type.Enum fromProto = Type.Enum.fromDescriptor(enumType.isNullable(), enumDescriptor);
         assertThat(fromProto)
                 .isEqualTo(enumType);
     }
@@ -625,12 +630,12 @@ class TypeTest {
     }
 
     @Nonnull
-    private Type.Record adjustFieldsForDescriptorParsing(@Nonnull Type.Record record) {
+    private Type.Record adjustFieldsForDescriptorParsing(@Nonnull Type.Record recordType) {
         // There are a number of changes that happen to a type when we create a protobuf descriptor for it that
         // fail to round trip. These may be bugs, but we can at least assert that everything except for these
         // components are preserved
-        final ImmutableList.Builder<Type.Record.Field> newFields = ImmutableList.builderWithExpectedSize(record.getFields().size());
-        for (Type.Record.Field field : record.getFields()) {
+        final ImmutableList.Builder<Type.Record.Field> newFields = ImmutableList.builderWithExpectedSize(recordType.getFields().size());
+        for (Type.Record.Field field : recordType.getFields()) {
             Type fieldType = field.getFieldType();
             if (fieldType instanceof Type.Array) {
                 // Array types retain their nullability as there are separate. However, they make their own element types not nullable
@@ -650,7 +655,7 @@ class TypeTest {
             }
             newFields.add(Type.Record.Field.of(fieldType, field.getFieldNameOptional(), field.getFieldIndexOptional()));
         }
-        return Type.Record.fromFields(record.isNullable(), newFields.build());
+        return Type.Record.fromFields(recordType.isNullable(), newFields.build());
     }
 
     @ParameterizedTest(name = "recordEqualsIgnoresName[{0}]")
@@ -697,5 +702,275 @@ class TypeTest {
                     .isEqualTo(nullableField.getFieldStorageNameOptional())
                     .isEqualTo(nonNullableField.getFieldStorageNameOptional());
         }
+    }
+
+    /**
+     * Validate all primitive types can be parsed as field elements of a type. If this test fails after introducing
+     * a new primitive type, update the Protobuf definition in {@code type_test.proto} or exclude it from consideration
+     * if its type should not automatically be inferred for some reason.
+     */
+    @Test
+    void testPrimitivesFromDescriptor() {
+        final Descriptors.Descriptor descriptor = TypeTestProto.PrimitiveFields.getDescriptor();
+        final Type.Record type = Type.Record.fromDescriptor(descriptor);
+
+        try (AutoCloseableSoftAssertions softly = new AutoCloseableSoftAssertions()) {
+            for (Type.TypeCode typeCode : Type.TypeCode.values()) {
+                if (!typeCode.isPrimitive() || typeCode == Type.TypeCode.NULL || typeCode == Type.TypeCode.UNKNOWN || typeCode == Type.TypeCode.VERSION || typeCode == Type.TypeCode.VECTOR) {
+                    continue;
+                }
+                Type primitiveType = Type.primitiveType(typeCode);
+                final String nameBase = typeCode.name().toLowerCase(Locale.ROOT) + "_field";
+
+                // Should contain nullable, not-nullable, nullable array, and not-nullable array fields
+                assertContainsField(softly, type, nameBase, primitiveType.nullable(), descriptor);
+                assertContainsField(softly, type, "req_" + nameBase, primitiveType.notNullable(), descriptor);
+                assertContainsField(softly, type, "arr_" + nameBase, new Type.Array(true, primitiveType.notNullable()), descriptor);
+                assertContainsField(softly, type, "req_arr_" + nameBase, new Type.Array(false, primitiveType.notNullable()), descriptor);
+            }
+
+            // Ensure all fields have been picked up
+            final List<Descriptors.FieldDescriptor> fieldDescriptors = descriptor.getFields();
+            for (Descriptors.FieldDescriptor fieldDescriptor : fieldDescriptors) {
+                softly.assertThat(type.getFieldNameFieldMap())
+                        .containsKey(fieldDescriptor.getName());
+            }
+        }
+    }
+
+    /**
+     * Simple case of resolving fields from a protobuf descriptor. None of the field names require any messaging for escape sequences.
+     */
+    @ParameterizedTest(name = "testSimpleFromDescriptor[preserveNames={0}]")
+    @BooleanSource
+    void testSimpleFromDescriptor(boolean preserveNames) {
+        final Descriptors.Descriptor descriptor = TypeTestProto.Type1.getDescriptor();
+        final Type.Record type = preserveNames ? Type.Record.fromDescriptorPreservingName(descriptor) : Type.Record.fromDescriptor(descriptor);
+
+        final Descriptors.Descriptor outerDescriptor = TypeTestProto.Type2.getDescriptor();
+        final Type.Record outerType = preserveNames ? Type.Record.fromDescriptorPreservingName(outerDescriptor) : Type.Record.fromDescriptor(outerDescriptor);
+
+        try (AutoCloseableSoftAssertions softly = new AutoCloseableSoftAssertions()) {
+            assertContainsField(softly, type, "alpha", Type.primitiveType(Type.TypeCode.STRING, true), descriptor);
+            assertContainsField(softly, type, "beta", Type.primitiveType(Type.TypeCode.LONG, false), descriptor);
+            assertContainsField(softly, type, "uuid_field", Type.UUID_NULL_INSTANCE, descriptor);
+            assertTypeNames(softly, type, descriptor, preserveNames);
+            assertTypeNames(softly, roundTrip(type), descriptor, preserveNames);
+
+            assertContainsField(softly, outerType, "alpha", type.nullable(), outerDescriptor);
+            assertContainsField(softly, outerType, "beta", type.notNullable(), outerDescriptor);
+            final Type.Enum enumType = Type.Enum.fromValues(true,
+                    List.of(Type.Enum.EnumValue.from("ALPHA", 0), Type.Enum.EnumValue.from("BRAVO", 1), Type.Enum.EnumValue.from("CHARLIE", 3), Type.Enum.EnumValue.from("DELTA", 4)));
+            assertContainsField(softly, outerType, "gamma", enumType, outerDescriptor);
+            assertContainsField(softly, outerType, "delta", new Type.Array(true, type.notNullable()), outerDescriptor);
+            assertContainsField(softly, outerType, "epsilon", new Type.Array(false, type.notNullable()), outerDescriptor);
+            assertContainsField(softly, outerType, "zeta", new Type.Array(true, enumType.notNullable()), outerDescriptor);
+            assertContainsField(softly, outerType, "eta", new Type.Array(false, enumType.notNullable()), outerDescriptor);
+            assertTypeNames(softly, outerType, outerDescriptor, preserveNames);
+            assertTypeNames(softly, roundTrip(outerType), outerDescriptor, preserveNames);
+        }
+    }
+
+    /**
+     * Test where a type descriptor has some field names that require escaping. In this case, all the field translations
+     * are reversible, so it doesn't matter if the name is preserved from the protobuf file or re-calculated using
+     * {@link com.apple.foundationdb.record.util.ProtoUtils#toProtoBufCompliantName(String)}.
+     */
+    @ParameterizedTest(name = "testEscapesFromDescriptor[preserveNames={0}]")
+    @BooleanSource
+    void testEscapesFromDescriptor(boolean preserveNames) {
+        final Descriptors.Descriptor descriptor = TypeTestProto.Type1__0Escaped.getDescriptor();
+        final Type.Record type = preserveNames ? Type.Record.fromDescriptorPreservingName(descriptor) : Type.Record.fromDescriptor(descriptor);
+
+        final Descriptors.Descriptor outerDescriptor = TypeTestProto.Type2__0Escaped.getDescriptor();
+        final Type.Record outerType = preserveNames ? Type.Record.fromDescriptorPreservingName(outerDescriptor) : Type.Record.fromDescriptor(outerDescriptor);
+
+        try (AutoCloseableSoftAssertions softly = new AutoCloseableSoftAssertions()) {
+            assertContainsField(softly, type, "alpha$", Type.primitiveType(Type.TypeCode.STRING, true), descriptor.findFieldByName("alpha__1"));
+            assertContainsField(softly, type, "beta.", Type.primitiveType(Type.TypeCode.LONG, false), descriptor.findFieldByName("beta__2"));
+            assertContainsField(softly, type, "uuid__field", Type.UUID_NULL_INSTANCE, descriptor.findFieldByName("uuid__0field"));
+            assertTypeNames(softly, type, descriptor, preserveNames);
+            assertTypeNames(softly, roundTrip(type), descriptor, preserveNames);
+
+            assertContainsField(softly, outerType, "alpha$", type.nullable(), outerDescriptor.findFieldByName("alpha__1"));
+            assertContainsField(softly, outerType, "beta.", type.notNullable(), outerDescriptor.findFieldByName("beta__2"));
+            final Type.Enum enumType = Type.Enum.fromValues(true,
+                    List.of(Type.Enum.EnumValue.from("ALPHA__", 0), Type.Enum.EnumValue.from("BRAVO$", 1), Type.Enum.EnumValue.from("CHARLIE.", 4), Type.Enum.EnumValue.from("DELTA__3", 3)));
+            assertContainsField(softly, outerType, "gamma__", enumType, outerDescriptor.findFieldByName("gamma__0"));
+            assertContainsField(softly, outerType, "delta.array", new Type.Array(true, type.notNullable()), outerDescriptor.findFieldByName("delta__2array"));
+            assertContainsField(softly, outerType, "epsilon.array", new Type.Array(false, type.notNullable()), outerDescriptor.findFieldByName("epsilon__2array"));
+            assertContainsField(softly, outerType, "zeta.array", new Type.Array(true, enumType.notNullable()), outerDescriptor.findFieldByName("zeta__2array"));
+            assertContainsField(softly, outerType, "eta.array", new Type.Array(false, enumType.notNullable()), outerDescriptor.findFieldByName("eta__2array"));
+            assertTypeNames(softly, outerType, outerDescriptor, preserveNames);
+            assertTypeNames(softly, roundTrip(outerType), outerDescriptor, preserveNames);
+        }
+    }
+
+    /**
+     * Test where a type descriptor has some field names that require escaping, but the original fields are imperfect.
+     * The escaped names which are stored are <em>not</em> reversible back to the original field names. This can happen
+     * if we have an unescaped double-underscore in the field. To make sure the storage names that come back from, say,
+     * placing the field in a type repository, we need to preserve the original field names.
+     */
+    @ParameterizedTest(name = "testEscapesMalformedFromDescriptor[preserveNames={0}]")
+    @BooleanSource
+    void testEscapesMalformedFromDescriptor(boolean preserveNames) {
+        final Descriptors.Descriptor descriptor = TypeTestProto.Type1__EscapingNotReversible.getDescriptor();
+        final Type.Record type = preserveNames ? Type.Record.fromDescriptorPreservingName(descriptor) : Type.Record.fromDescriptor(descriptor);
+
+        final Descriptors.Descriptor outerDescriptor = TypeTestProto.Type2__EscapedNotReversible.getDescriptor();
+        final Type.Record outerType = preserveNames ? Type.Record.fromDescriptorPreservingName(outerDescriptor) : Type.Record.fromDescriptor(outerDescriptor);
+
+        try (AutoCloseableSoftAssertions softly = new AutoCloseableSoftAssertions()) {
+            assertContainsField(softly, type, "alpha$__blah", Type.primitiveType(Type.TypeCode.STRING, true), descriptor.findFieldByName("alpha__1__blah"));
+            assertContainsField(softly, type, "beta.__", Type.primitiveType(Type.TypeCode.LONG, false), descriptor.findFieldByName("beta__2__"));
+            assertContainsField(softly, type, "uuid__$field", Type.UUID_NULL_INSTANCE, descriptor.findFieldByName("uuid____1field"));
+            assertTypeNames(softly, type, descriptor, preserveNames);
+            assertTypeNames(softly, roundTrip(type), descriptor, preserveNames);
+
+            assertContainsField(softly, outerType, "alpha__blah", type.nullable(), outerDescriptor.findFieldByName("alpha__blah"));
+            assertContainsField(softly, outerType, "beta.__", type.notNullable(), outerDescriptor.findFieldByName("beta__2__"));
+            final Type.Enum enumType = Type.Enum.fromValues(true,
+                    List.of(Type.Enum.EnumValue.from("ALPHA__", 0), Type.Enum.EnumValue.from("BRAVO_$", 1), Type.Enum.EnumValue.from("CHARLIE__.", 7), Type.Enum.EnumValue.from("DELTA__3", 4)));
+            assertContainsField(softly, outerType, "gamma__", enumType, outerDescriptor.findFieldByName("gamma__"));
+            assertContainsField(softly, outerType, "delta__array", new Type.Array(true, type.notNullable()), outerDescriptor.findFieldByName("delta__array"));
+            assertContainsField(softly, outerType, "epsilon__array", new Type.Array(false, type.notNullable()), outerDescriptor.findFieldByName("epsilon__array"));
+            assertTypeNames(softly, outerType, outerDescriptor, preserveNames);
+            assertTypeNames(softly, roundTrip(outerType), outerDescriptor, preserveNames);
+        }
+    }
+
+    private static void assertContainsField(@Nonnull SoftAssertions softly, @Nonnull Type.Record recordType, @Nonnull String fieldName, @Nonnull Type fieldType, @Nonnull Descriptors.Descriptor messageDescriptor) {
+        final Descriptors.FieldDescriptor fieldDescriptor = messageDescriptor.findFieldByName(fieldName);
+        softly.assertThat(fieldDescriptor)
+                .as("field %s not found in descriptor", fieldDescriptor)
+                .isNotNull();
+        assertContainsField(softly, recordType, fieldName, fieldType, fieldDescriptor);
+    }
+
+    private static void assertContainsField(@Nonnull SoftAssertions softly, @Nonnull Type.Record recordType, @Nonnull String fieldName, @Nonnull Type fieldType, @Nullable Descriptors.FieldDescriptor fieldDescriptor) {
+        final Map<String, Type.Record.Field> fieldMap = recordType.getFieldNameFieldMap();
+        softly.assertThat(fieldMap)
+                .as("should have had field %s", fieldName)
+                .containsKey(fieldName);
+        final Type.Record.Field field = fieldMap.get(fieldName);
+        if (field == null) {
+            return;
+        }
+        softly.assertThat(field.getFieldType())
+                .as("field %s had unexpected type", fieldName)
+                .isEqualTo(fieldType);
+        softly.assertThat(field.getFieldName())
+                .as("field %s had unexpected name", fieldName)
+                .isEqualTo(fieldName);
+        if (fieldDescriptor == null) {
+            softly.fail("cannot compare with null field descriptor for field %s", fieldName);
+        } else {
+            softly.assertThat(field.getFieldStorageName())
+                    .as("field %s had unexpected storage name", fieldName)
+                    .isEqualTo(fieldDescriptor.getName());
+            if (field.getFieldType() instanceof Type.Enum) {
+                Type.Enum fieldEnumType = (Type.Enum) field.getFieldType();
+                final List<String> storageNames = fieldEnumType.getEnumValues().stream().map(Type.Enum.EnumValue::getStorageName).collect(Collectors.toList());
+                final List<String> expectedStorageNames = fieldDescriptor.getEnumType().getValues().stream().map(Descriptors.EnumValueDescriptor::getName).collect(Collectors.toList());
+                softly.assertThat(storageNames)
+                        .as("field %s enum type should have same names as stored enum", fieldName)
+                        .isEqualTo(expectedStorageNames);
+
+                final List<Integer> numbers = fieldEnumType.getEnumValues().stream().map(Type.Enum.EnumValue::getNumber).collect(Collectors.toList());
+                final List<Integer> expectedNumbers = fieldDescriptor.getEnumType().getValues().stream().map(Descriptors.EnumValueDescriptor::getNumber).collect(Collectors.toList());
+                softly.assertThat(numbers)
+                        .as("field %s enum type should have same numbers as stored enum", fieldName)
+                        .isEqualTo(expectedNumbers);
+            }
+        }
+    }
+
+    private static void assertTypeNames(@Nonnull SoftAssertions softly, @Nonnull Type.Record recordType, @Nonnull Descriptors.Descriptor descriptor, boolean preserveNames) {
+        if (preserveNames) {
+            softly.assertThat(recordType.getName())
+                    .isEqualTo(ProtoUtils.toUserIdentifier(descriptor.getName()));
+            softly.assertThat(recordType.getStorageName())
+                    .isEqualTo(descriptor.getName());
+        } else {
+            softly.assertThat(recordType.getName())
+                    .isNull();
+            softly.assertThat(recordType.getStorageName())
+                    .isNull();
+
+        }
+        for (Type.Record.Field field : recordType.getFields()) {
+            Descriptors.FieldDescriptor fieldDescriptor = descriptor.findFieldByName(field.getFieldStorageName());
+            softly.assertThat(fieldDescriptor)
+                    .as("field descriptor not found for field %s", field)
+                    .isNotNull();
+            if (fieldDescriptor == null) {
+                // Can't proceed further
+                return;
+            }
+
+            // Extract the element from arrays. If the type is not nullable, we just replace the field
+            // type with its element type. If the field is nullable, we need to also replace the
+            // field descriptor so it points to the underlying values.
+            Type fieldType = field.getFieldType();
+            if (fieldType instanceof Type.Array) {
+                Type.Array fieldArrayType = (Type.Array) fieldType;
+                fieldType = fieldArrayType.getElementType();
+                if (fieldArrayType.isNullable()) {
+                    fieldDescriptor = fieldDescriptor.getMessageType().findFieldByName("values");
+                }
+                softly.assertThat(fieldDescriptor.isRepeated())
+                        .as("array field %s should be over repeated field", field)
+                        .isTrue();
+            }
+
+            // Look to make sure enum and record names are preserved (or not)
+            if (fieldType instanceof Type.Enum) {
+                final Type.Enum fieldEnumType = (Type.Enum) fieldType;
+                if (preserveNames) {
+                    final Descriptors.EnumDescriptor fieldEnumDescriptor = fieldDescriptor.getEnumType();
+                    softly.assertThat(fieldEnumType.getName())
+                            .isEqualTo(ProtoUtils.toUserIdentifier(fieldEnumDescriptor.getName()));
+                    softly.assertThat(fieldEnumType.getStorageName())
+                            .isEqualTo(fieldEnumDescriptor.getName());
+                } else {
+                    softly.assertThat(fieldEnumType.getName())
+                            .isNull();
+                    softly.assertThat(fieldEnumType.getStorageName())
+                            .isNull();
+                }
+            } else if (fieldType instanceof Type.Record) {
+                final Type.Record fieldRecordType = (Type.Record) fieldType;
+                final Descriptors.Descriptor fieldTypeDescriptor = fieldDescriptor.getMessageType();
+                if (preserveNames) {
+                    softly.assertThat(fieldRecordType.getName())
+                            .isEqualTo(ProtoUtils.toUserIdentifier(fieldTypeDescriptor.getName()));
+                    softly.assertThat(fieldRecordType.getStorageName())
+                            .isEqualTo(fieldTypeDescriptor.getName());
+                } else {
+                    softly.assertThat(fieldRecordType.getName())
+                            .isNull();
+                    softly.assertThat(fieldRecordType.getStorageName())
+                            .isNull();
+                }
+
+                // Recurse down
+                assertTypeNames(softly, fieldRecordType, fieldTypeDescriptor, preserveNames);
+            }
+        }
+    }
+
+    /**
+     * Send a type to Protobuf and back. This allows us to check that certain features are preserved even in the face
+     * of type serialization/deserialization.
+     *
+     * @param type the type to serialize and deserialize
+     * @return the deserialized type
+     */
+    @SuppressWarnings("unchecked")
+    @Nonnull
+    private static <T extends Type> T roundTrip(@Nonnull T type) {
+        return (T) Type.fromTypeProto(PlanSerializationContext.newForCurrentMode(),
+                type.toTypeProto(PlanSerializationContext.newForCurrentMode()));
     }
 }

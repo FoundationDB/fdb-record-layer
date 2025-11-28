@@ -20,8 +20,9 @@
 
 package com.apple.foundationdb.linear;
 
-import com.google.common.base.Preconditions;
 import com.apple.foundationdb.half.Half;
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
 
@@ -34,6 +35,8 @@ import javax.annotation.Nonnull;
  * data type conversions and raw data representation.
  */
 public interface RealVector {
+    ImmutableList<VectorType> VECTOR_TYPES = ImmutableList.copyOf(VectorType.values());
+
     /**
      * Returns the number of elements in the vector, i.e. the number of dimensions.
      * @return the number of dimensions
@@ -188,5 +191,48 @@ public interface RealVector {
             result[i] = getComponent(i) * scalarFactor;
         }
         return withData(result);
+    }
+
+    @Nonnull
+    static VectorType fromVectorTypeOrdinal(final int ordinal) {
+        return VECTOR_TYPES.get(ordinal);
+    }
+
+    /**
+     * Creates a {@link RealVector} from a byte array.
+     * <p>
+     * This method interprets the input byte array by interpreting the first byte of the array as the type of vector.
+     * It then delegates to {@link #fromBytes(VectorType, byte[])} to do the actual deserialization.
+     *
+     * @param vectorBytes the non-null byte array to convert.
+     * @return a new {@link RealVector} instance created from the byte array.
+     */
+    @Nonnull
+    static RealVector fromBytes(@Nonnull final byte[] vectorBytes) {
+        final byte vectorTypeOrdinal = vectorBytes[0];
+        return fromBytes(fromVectorTypeOrdinal(vectorTypeOrdinal), vectorBytes);
+    }
+
+    /**
+     * Creates a {@link RealVector} from a byte array.
+     * <p>
+     * This implementation dispatches to the actual logic that deserialize a byte array to a vector which is located in
+     * the respective implementations of {@link RealVector}.
+     * @param vectorType the vector type of the serialized vector
+     * @param vectorBytes the non-null byte array to convert.
+     * @return a new {@link RealVector} instance created from the byte array.
+     */
+    @Nonnull
+    static RealVector fromBytes(@Nonnull final VectorType vectorType, @Nonnull final byte[] vectorBytes) {
+        switch (vectorType) {
+            case HALF:
+                return HalfRealVector.fromBytes(vectorBytes);
+            case SINGLE:
+                return FloatRealVector.fromBytes(vectorBytes);
+            case DOUBLE:
+                return DoubleRealVector.fromBytes(vectorBytes);
+            default:
+                throw new RuntimeException("unable to deserialize vector");
+        }
     }
 }

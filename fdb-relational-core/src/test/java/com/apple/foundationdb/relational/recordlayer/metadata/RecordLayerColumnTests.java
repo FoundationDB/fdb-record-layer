@@ -21,7 +21,14 @@
 package com.apple.foundationdb.relational.recordlayer.metadata;
 
 import com.apple.foundationdb.relational.api.metadata.DataType;
+import org.assertj.core.api.AutoCloseableSoftAssertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
+
+import javax.annotation.Nonnull;
+import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -29,66 +36,85 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Unit tests for {@link RecordLayerColumn}.
  */
 class RecordLayerColumnTests {
+    private static final RecordLayerColumn BLAH_COLUMN = RecordLayerColumn.newBuilder()
+            .setName("blah")
+            .setDataType(DataType.LongType.nullable())
+            .setIndex(1)
+            .build();
 
     @Test
-    void basicBuilder() {
-        final RecordLayerColumn column = RecordLayerColumn.newBuilder()
-                .setName("blah")
-                .setDataType(DataType.LongType.nullable())
-                .setIndex(1)
-                .build();
-        assertThat(column)
-                .hasToString("blah: long ∪ ∅ = 1");
-
+    void basicCopy() {
         final RecordLayerColumn copy = RecordLayerColumn.newBuilder()
-                .setName(column.getName())
-                .setDataType(column.getDataType())
-                .setIndex(column.getIndex())
+                .setName(BLAH_COLUMN.getName())
+                .setDataType(BLAH_COLUMN.getDataType())
+                .setIndex(BLAH_COLUMN.getIndex())
                 .build();
-        assertThat(copy)
-                .hasToString("blah: long ∪ ∅ = 1")
-                .isEqualTo(column)
-                .hasSameHashCodeAs(column);
+        try (AutoCloseableSoftAssertions softly = new AutoCloseableSoftAssertions()) {
+            softly.assertThat(copy)
+                    .hasToString("blah: long ∪ ∅ = 1");
+            softly.assertThat(BLAH_COLUMN)
+                    .hasToString("blah: long ∪ ∅ = 1");
+            softly.assertThat(copy.getName())
+                    .isEqualTo("blah");
+            softly.assertThat(copy.getDataType())
+                    .isEqualTo(DataType.LongType.nullable());
+            softly.assertThat(copy.getIndex())
+                    .isOne();
+        }
+    }
 
-        final RecordLayerColumn differentName = RecordLayerColumn.newBuilder()
-                .setName("blag")
-                .setDataType(column.getDataType())
-                .setIndex(column.getIndex())
-                .build();
-        assertThat(differentName)
-                .hasToString("blag: long ∪ ∅ = 1")
-                .isNotEqualTo(column)
-                .doesNotHaveSameHashCodeAs(column);
+    @Nonnull
+    static Stream<Arguments> testDiffersFromBlah() {
+        return Stream.of(
+                Arguments.of(
+                        // Different name
+                        RecordLayerColumn.newBuilder()
+                                .setName("blag")
+                                .setDataType(BLAH_COLUMN.getDataType())
+                                .setIndex(BLAH_COLUMN.getIndex())
+                                .build(),
+                        "blag: long ∪ ∅ = 1"
+                ),
+                Arguments.of(
+                        // Different type 1
+                        RecordLayerColumn.newBuilder()
+                                .setName(BLAH_COLUMN.getName())
+                                .setDataType(DataType.LongType.notNullable())
+                                .setIndex(BLAH_COLUMN.getIndex())
+                                .build(),
+                        "blah: long = 1"
+                ),
+                Arguments.of(
+                        // Different type 2
+                        RecordLayerColumn.newBuilder()
+                                .setName(BLAH_COLUMN.getName())
+                                .setDataType(DataType.StringType.nullable())
+                                .setIndex(BLAH_COLUMN.getIndex())
+                                .build(),
+                        "blah: string ∪ ∅ = 1"
+                ),
+                Arguments.of(
+                        // Different index
+                        RecordLayerColumn.newBuilder()
+                                .setName(BLAH_COLUMN.getName())
+                                .setDataType(BLAH_COLUMN.getDataType())
+                                .setIndex(BLAH_COLUMN.getIndex() + 1)
+                                .build(),
+                        "blah: long ∪ ∅ = 2"
+                )
+        );
+    }
 
-        final RecordLayerColumn differentType1 = RecordLayerColumn.newBuilder()
-                .setName(column.getName())
-                .setDataType(DataType.LongType.notNullable())
-                .setIndex(column.getIndex())
-                .build();
-        assertThat(differentType1)
-                .hasToString("blah: long = 1")
-                .isNotEqualTo(column)
-                .doesNotHaveSameHashCodeAs(column);
-
-        final RecordLayerColumn differentType2 = RecordLayerColumn.newBuilder()
-                .setName(column.getName())
-                .setDataType(DataType.StringType.nullable())
-                .setIndex(column.getIndex())
-                .build();
-        assertThat(differentType2)
-                .hasToString("blah: string ∪ ∅ = 1")
-                .isNotEqualTo(column)
-                .doesNotHaveSameHashCodeAs(column);
-
-        final RecordLayerColumn differentIndex = RecordLayerColumn.newBuilder()
-                .setName(column.getName())
-                .setDataType(column.getDataType())
-                .setIndex(column.getIndex() + 1)
-                .build();
-        assertThat(differentIndex)
-                .hasToString("blah: long ∪ ∅ = 2")
-                .isNotEqualTo(column)
-                .doesNotHaveSameHashCodeAs(column);
+    @ParameterizedTest(name = "testDiffersFromBlah[{1}]")
+    @MethodSource
+    void testDiffersFromBlah(@Nonnull RecordLayerColumn differentColumn, @Nonnull String toString) {
+        try (AutoCloseableSoftAssertions softly = new AutoCloseableSoftAssertions()) {
+            softly.assertThat(differentColumn)
+                    .hasToString(toString)
+                    .isNotEqualTo(BLAH_COLUMN)
+                    .doesNotHaveSameHashCodeAs(BLAH_COLUMN)
+                    .matches(c -> !BLAH_COLUMN.getName().equals(c.getName()) || !BLAH_COLUMN.getDataType().equals(c.getDataType()) || BLAH_COLUMN.getIndex() != c.getIndex());
+        }
     }
 
     @Test

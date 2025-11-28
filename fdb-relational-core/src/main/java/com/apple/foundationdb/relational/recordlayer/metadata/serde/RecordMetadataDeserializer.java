@@ -40,7 +40,6 @@ import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
-import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Descriptors;
 
 import javax.annotation.Nonnull;
@@ -48,6 +47,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -97,7 +97,7 @@ public class RecordMetadataDeserializer {
                     break;
                 case ENUM:
                     // todo (yhatem) this is temporary, we rely on rec layer type system to deserialize protobuf descriptors.
-                    final var recordLayerType = new Type.Enum(false, Type.Enum.enumValuesFromProto(registeredType.getEnumType().getValues()), ProtoUtils.toUserIdentifier(registeredType.getName()), registeredType.getName());
+                    final var recordLayerType = Type.Enum.fromDescriptorPreservingNames(false, registeredType.getEnumType());
                     schemaTemplateBuilder.addAuxiliaryType((DataType.Named) DataTypeUtils.toRelationalType(recordLayerType));
                     break;
                 default:
@@ -131,37 +131,18 @@ public class RecordMetadataDeserializer {
 
     @Nonnull
     private RecordLayerTable.Builder generateTableBuilder(@Nonnull final String userName, @Nonnull final String storageName) {
-        return generateTableBuilder(userName, recordMetaData.getRecordType(storageName));
-    }
+        final RecordType recordType = recordMetaData.getRecordType(storageName);
 
-    @Nonnull
-    private RecordLayerTable.Builder generateTableBuilder(@Nonnull String userName, @Nonnull final RecordType recordType) {
         // todo (yhatem) we rely on the record type for deserialization from ProtoBuf for now, later on
         //      we will avoid this step by having our own deserializers.
-        final var recordLayerType = Type.Record.fromFieldsWithName(userName, false, Type.Record.fromDescriptor(recordType.getDescriptor()).getFields());
         // todo (yhatem) this is hacky and must be cleaned up. We need to understand the actually field types so we can take decisions
-        // on higher level based on these types (wave3).
-        if (recordLayerType.getFields().stream().anyMatch(f -> f.getFieldType().isRecord())) {
-            ImmutableList.Builder<Type.Record.Field> newFields = ImmutableList.builder();
-            for (int i = 0; i < recordLayerType.getFields().size(); i++) {
-                final var protoField = recordType.getDescriptor().getFields().get(i);
-                final var field = recordLayerType.getField(i);
-                if (field.getFieldType().isRecord()) {
-                    Type.Record r = Type.Record.fromFieldsWithName(ProtoUtils.toUserIdentifier(protoField.getMessageType().getName()), field.getFieldType().isNullable(), ((Type.Record) field.getFieldType()).getFields());
-                    newFields.add(Type.Record.Field.of(r, field.getFieldNameOptional(), field.getFieldIndexOptional()));
-                } else {
-                    newFields.add(field);
-                }
-            }
-            return RecordLayerTable.Builder
-                    .from(Type.Record.fromFieldsWithName(userName, false, newFields.build()))
-                    .setPrimaryKey(recordType.getPrimaryKey())
-                    .addIndexes(recordType.getIndexes().stream().map(index -> RecordLayerIndex.from(recordType.getName(), index)).collect(Collectors.toSet()));
-        }
+        //      on higher level based on these types (wave3).
+        final var recordLayerType = Type.Record.fromDescriptorPreservingName(recordType.getDescriptor());
         return RecordLayerTable.Builder
                 .from(recordLayerType)
+                .setName(userName)
                 .setPrimaryKey(recordType.getPrimaryKey())
-                .addIndexes(recordType.getIndexes().stream().map(index -> RecordLayerIndex.from(recordType.getName(), index)).collect(Collectors.toSet()));
+                .addIndexes(recordType.getIndexes().stream().map(index -> RecordLayerIndex.from(Objects.requireNonNull(recordLayerType.getName()), Objects.requireNonNull(recordLayerType.getStorageName()), index)).collect(Collectors.toSet()));
     }
 
     @Nonnull
