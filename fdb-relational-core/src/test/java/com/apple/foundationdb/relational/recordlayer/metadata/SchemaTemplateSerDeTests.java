@@ -22,8 +22,10 @@ package com.apple.foundationdb.relational.recordlayer.metadata;
 
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordStoreState;
+import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
+import com.apple.foundationdb.record.metadata.RecordTypeBuilder;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactoryRegistryImpl;
 import com.apple.foundationdb.record.query.plan.cascades.RawSqlFunction;
@@ -46,7 +48,9 @@ import com.apple.foundationdb.relational.recordlayer.query.functions.CompiledSql
 import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.protobuf.DescriptorProtos;
+import com.google.protobuf.Descriptors;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assertions;
@@ -330,6 +334,113 @@ public class SchemaTemplateSerDeTests {
         Assertions.assertInstanceOf(DataType.StructType.class, type);
         final var typeName = ((DataType.StructType) type).getName();
         Assertions.assertEquals("Subtype", typeName);
+    }
+
+
+    @Test
+    void deserializationTranslatesUserDefinedNameCorrectly() {
+        final var metaDataBuilder = RecordMetaData.newBuilder();
+        metaDataBuilder.setRecords(createEscapedRecordTypesDescriptor());
+        RecordTypeBuilder typeBuilder = metaDataBuilder.getRecordType("Foo__0Bar__1Baz__2End");
+        final var primaryKey = Key.Expressions.concat(Key.Expressions.recordType(), Key.Expressions.field("id"));
+        typeBuilder.setPrimaryKey(primaryKey);
+        typeBuilder.setRecordTypeKey(1L);
+        metaDataBuilder.addIndex(typeBuilder, new Index("Foo__Bar$Baz.End$$a__b$c.d", "a__0b__1c__2d"));
+        final RecordMetaData metaData = metaDataBuilder.build();
+        final var actualSchemaTemplate = RecordLayerSchemaTemplate.fromRecordMetadata(metaData, "TestSchemaTemplate", metaData.getVersion());
+
+        // the RecordLayerSchemaTemplate deserializer translates proto fields to user-defined names.
+        final var expectedTableName = "Foo__Bar$Baz.End";
+        Assertions.assertEquals(1, actualSchemaTemplate.getTables().size());
+        final var tableMaybe = actualSchemaTemplate.findTableByName(expectedTableName);
+        Assertions.assertTrue(tableMaybe.isPresent());
+        final var actualTable = tableMaybe.get();
+        final var actualRecordTable = Assertions.assertInstanceOf(RecordLayerTable.class, actualTable);
+        Assertions.assertEquals("Foo__0Bar__1Baz__2End", actualRecordTable.getType().getStorageName());
+
+        final var expectedTable = RecordLayerTable.newBuilder(false)
+                .setName(expectedTableName)
+                .addColumn(RecordLayerColumn.newBuilder()
+                        .setName("id")
+                        .setDataType(DataType.Primitives.NULLABLE_LONG.type())
+                        .build())
+                .addColumn(RecordLayerColumn.newBuilder()
+                        .setName("a__b$c.d")
+                        .setDataType(DataType.Primitives.NULLABLE_LONG.type())
+                        .build())
+                .addColumn(RecordLayerColumn.newBuilder()
+                        .setName("otherField")
+                        .setDataType(DataType.Primitives.NULLABLE_STRING.type())
+                        .build())
+                .setPrimaryKey(primaryKey)
+                .build();
+        Assertions.assertEquals(expectedTable.getName(), actualRecordTable.getName());
+        Assertions.assertEquals(expectedTable.getColumns(), actualRecordTable.getColumns());
+        Assertions.assertEquals(expectedTable.getPrimaryKey(), actualRecordTable.getPrimaryKey());
+
+        final var actualIndexes = actualTable.getIndexes();
+        Assertions.assertEquals(1, actualIndexes.size(), () -> "actual indexes: " + actualIndexes + " should have size 1");
+        final var actualIndex = Iterables.getOnlyElement(actualIndexes);
+        Assertions.assertEquals("Foo__Bar$Baz.End$$a__b$c.d", actualIndex.getName());
+        Assertions.assertEquals(expectedTableName, actualIndex.getTableName());
+        Assertions.assertInstanceOf(RecordLayerIndex.class, actualIndex);
+        final var actualRecordLayerIndex = (RecordLayerIndex) actualIndex;
+        Assertions.assertEquals(Key.Expressions.field("a__0b__1c__2d"), actualRecordLayerIndex.getKeyExpression());
+        Assertions.assertEquals("Foo__0Bar__1Baz__2End", actualRecordLayerIndex.getTableStorageName());
+    }
+
+    @Test
+    void deserializeTemplateWithMalformedNamesCorrectly() {
+        final var metaDataBuilder = RecordMetaData.newBuilder();
+        metaDataBuilder.setRecords(createRecordTypesDescriptorWithMalformedEscaping());
+        RecordTypeBuilder typeBuilder = metaDataBuilder.getRecordType("_Foo__Bar__1Baz");
+        final var primaryKey = Key.Expressions.concat(Key.Expressions.recordType(), Key.Expressions.field("id"));
+        typeBuilder.setPrimaryKey(primaryKey);
+        typeBuilder.setRecordTypeKey(1L);
+        metaDataBuilder.addIndex(typeBuilder, new Index("_Foo__Bar__1Baz$a__b$c.d", "a__b__1c__2d"));
+        final RecordMetaData metaData = metaDataBuilder.build();
+        final var actualSchemaTemplate = RecordLayerSchemaTemplate.fromRecordMetadata(metaData, "TestSchemaTemplate", metaData.getVersion());
+
+        // the RecordLayerSchemaTemplate deserializer translates proto fields to user-defined names as best it can.
+        // Note that if we went back the other way, the table name we'd have gotten back would have a type name of
+        // "Foo__0Bar__1Baz"
+        final var expectedTableName = "_Foo__Bar$Baz";
+        Assertions.assertEquals(1, actualSchemaTemplate.getTables().size());
+        final var tableMaybe = actualSchemaTemplate.findTableByName(expectedTableName);
+        Assertions.assertTrue(tableMaybe.isPresent());
+        final var actualTable = tableMaybe.get();
+        final var actualRecordTable = Assertions.assertInstanceOf(RecordLayerTable.class, actualTable);
+        Assertions.assertEquals("_Foo__Bar__1Baz", actualRecordTable.getType().getStorageName());
+
+        final var expectedTable = RecordLayerTable.newBuilder(false)
+                .setName(expectedTableName)
+                .addColumn(RecordLayerColumn.newBuilder()
+                        .setName("id")
+                        .setDataType(DataType.Primitives.NULLABLE_LONG.type())
+                        .build())
+                .addColumn(RecordLayerColumn.newBuilder()
+                        .setName("a__b$c.d")
+                        .setDataType(DataType.Primitives.NULLABLE_LONG.type())
+                        .build())
+                .addColumn(RecordLayerColumn.newBuilder()
+                        .setName("otherField")
+                        .setDataType(DataType.Primitives.NULLABLE_STRING.type())
+                        .build())
+                .setPrimaryKey(primaryKey)
+                .build();
+        Assertions.assertEquals(expectedTable.getName(), actualRecordTable.getName());
+        Assertions.assertEquals(expectedTable.getColumns(), actualRecordTable.getColumns());
+        Assertions.assertEquals(expectedTable.getPrimaryKey(), actualRecordTable.getPrimaryKey());
+
+        final var actualIndexes = actualTable.getIndexes();
+        Assertions.assertEquals(1, actualIndexes.size(), () -> "actual indexes: " + actualIndexes + " should have size 1");
+        final var actualIndex = Iterables.getOnlyElement(actualIndexes);
+        Assertions.assertEquals("_Foo__Bar__1Baz$a__b$c.d", actualIndex.getName());
+        Assertions.assertEquals(expectedTableName, actualIndex.getTableName());
+        Assertions.assertInstanceOf(RecordLayerIndex.class, actualIndex);
+        final var actualRecordLayerIndex = (RecordLayerIndex) actualIndex;
+        Assertions.assertEquals(Key.Expressions.field("a__b__1c__2d"), actualRecordLayerIndex.getKeyExpression());
+        Assertions.assertEquals("_Foo__Bar__1Baz", actualRecordLayerIndex.getTableStorageName());
     }
 
     @Test
@@ -817,6 +928,98 @@ public class SchemaTemplateSerDeTests {
         Assertions.assertFalse(viewOpt.isPresent());
     }
 
+    @Nonnull
+    private static Descriptors.FileDescriptor createEscapedRecordTypesDescriptor() {
+        DescriptorProtos.FileDescriptorProto fileDescriptorProto = DescriptorProtos.FileDescriptorProto.newBuilder()
+                .setName("test_schema_with_escaping.proto")
+                .setPackage("com.apple.foundationdb.record.test1")
+                .setSyntax("proto2")
+                .addMessageType(DescriptorProtos.DescriptorProto.newBuilder()
+                        .setName("Foo__0Bar__1Baz__2End")
+                        .addField(DescriptorProtos.FieldDescriptorProto.newBuilder()
+                                .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL)
+                                .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_INT64)
+                                .setName("id")
+                                .setNumber(1)
+                        )
+                        .addField(DescriptorProtos.FieldDescriptorProto.newBuilder()
+                                .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL)
+                                .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_INT64)
+                                .setName("a__0b__1c__2d")
+                                .setNumber(2)
+                        )
+                        .addField(DescriptorProtos.FieldDescriptorProto.newBuilder()
+                                .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL)
+                                .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_STRING)
+                                .setName("otherField")
+                                .setNumber(3)
+                        )
+                )
+                .addMessageType(DescriptorProtos.DescriptorProto.newBuilder()
+                        .setName("RecordTypeUnion")
+                        .addField(DescriptorProtos.FieldDescriptorProto.newBuilder()
+                                .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL)
+                                .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_MESSAGE)
+                                .setTypeName("Foo__0Bar__1Baz__2End")
+                                .setName("_Foo__0Bar__1Baz__2End")
+                                .setNumber(1)
+                        )
+                )
+                .build();
+
+        try {
+            return Descriptors.FileDescriptor.buildFrom(fileDescriptorProto, new Descriptors.FileDescriptor[0]);
+        } catch (Descriptors.DescriptorValidationException e) {
+            return Assertions.fail("unable to build file descriptor", e);
+        }
+    }
+
+    @Nonnull
+    private static Descriptors.FileDescriptor createRecordTypesDescriptorWithMalformedEscaping() {
+        DescriptorProtos.FileDescriptorProto fileDescriptorProto = DescriptorProtos.FileDescriptorProto.newBuilder()
+                .setName("test_schema_with_malformed_escaping.proto")
+                .setPackage("com.apple.foundationdb.record.test1")
+                .setSyntax("proto2")
+                .addMessageType(DescriptorProtos.DescriptorProto.newBuilder()
+                        .setName("_Foo__Bar__1Baz")
+                        .addField(DescriptorProtos.FieldDescriptorProto.newBuilder()
+                                .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL)
+                                .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_INT64)
+                                .setName("id")
+                                .setNumber(1)
+                        )
+                        .addField(DescriptorProtos.FieldDescriptorProto.newBuilder()
+                                .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL)
+                                .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_INT64)
+                                .setName("a__b__1c__2d")
+                                .setNumber(2)
+                        )
+                        .addField(DescriptorProtos.FieldDescriptorProto.newBuilder()
+                                .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL)
+                                .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_STRING)
+                                .setName("otherField")
+                                .setNumber(3)
+                        )
+                )
+                .addMessageType(DescriptorProtos.DescriptorProto.newBuilder()
+                        .setName("RecordTypeUnion")
+                        .addField(DescriptorProtos.FieldDescriptorProto.newBuilder()
+                                .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL)
+                                .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_MESSAGE)
+                                .setTypeName("_Foo__Bar__1Baz")
+                                .setName("__Foo__Bar__1Baz")
+                                .setNumber(1)
+                        )
+                )
+                .build();
+
+        try {
+            return Descriptors.FileDescriptor.buildFrom(fileDescriptorProto, new Descriptors.FileDescriptor[0]);
+        } catch (Descriptors.DescriptorValidationException e) {
+            return Assertions.fail("unable to build file descriptor", e);
+        }
+    }
+
     private static final class RecordMetadataDeserializerWithPeekingFunctionSupplier extends RecordMetadataDeserializer {
 
         @Nonnull
@@ -874,4 +1077,6 @@ public class SchemaTemplateSerDeTests {
                    IndexMaintainerFactoryRegistryImpl.instance(), Options.builder().withOption(Options.Name.CASE_SENSITIVE_IDENTIFIERS, true).build());
         }
     }
+
+
 }
