@@ -44,12 +44,14 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath
 import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyStorage;
 import com.apple.foundationdb.record.query.QueryToKeyMatcher;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.auto.service.AutoService;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -58,6 +60,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
@@ -67,6 +70,7 @@ import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Tests specifically of {@link OnlineIndexer#mergeIndex()}.
@@ -195,6 +199,186 @@ public class OnlineIndexerMergeTest extends FDBRecordStoreConcurrentTestBase {
                         Stream.generate(() -> mergeLimit).limit(5)).collect(Collectors.toList()),
                 mergeLimits);
         assertEquals(repeat(0, mergeLimits.size()), repartitionLimits);
+    }
+
+    /**
+     * Test that a RuntimeException (non-FDB, non-timeout) causes the merger to abort immediately.
+     */
+    @Test
+    void testNonRetriableExceptionAborts() {
+        final String indexType = "nonRetriableExceptionIndex";
+        AtomicInteger attemptCount = new AtomicInteger(0);
+
+        TestFactory.register(indexType, state -> {
+            adjustMergeControl(state);
+            attemptCount.incrementAndGet();
+
+            // Throw a RuntimeException that is not retriable
+            final CompletableFuture<Void> future = new CompletableFuture<>();
+            future.completeExceptionally(new IllegalStateException("Non-retriable error"));
+            return future;
+        });
+
+        final FDBRecordStore.Builder storeBuilder = createStore(indexType);
+        try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
+                .setRecordStoreBuilder(storeBuilder)
+                .setTargetIndexesByName(List.of(INDEX_NAME))
+                .setMaxAttempts(10)
+                .build()) {
+            Assertions.assertThrows(IllegalStateException.class, indexer::mergeIndex);
+        }
+
+        // Should only attempt once, no retries
+        assertEquals(1, attemptCount.get());
+    }
+
+    /**
+     * Test that a TimeoutException causes retry behavior (not abort).
+     */
+    @ParameterizedTest
+    @BooleanSource
+    void testTimeoutExceptionRetries(boolean customTimeout) {
+        final String indexType = "timeoutExceptionIndex";
+        final String exceptionMessage = "my timeout";
+        AtomicInteger attemptCount = new AtomicInteger(0);
+
+        TestFactory.register(indexType, state -> {
+            adjustMergeControl(state);
+
+            attemptCount.incrementAndGet();
+
+            // Throw a TimeoutException (not FDB timeout)
+            final CompletableFuture<Void> future = new CompletableFuture<>();
+            future.completeExceptionally(
+                    customTimeout ?
+                    new CustomOperationTimeoutException(exceptionMessage) :
+                    new java.util.concurrent.TimeoutException(exceptionMessage));
+            return future;
+        });
+
+        final FDBRecordStore.Builder storeBuilder = createStore(indexType);
+        try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
+                .setRecordStoreBuilder(storeBuilder)
+                .setTargetIndexesByName(List.of(INDEX_NAME))
+                .setMaxAttempts(5)
+                .build()) {
+            Exception thrownException = Assertions.assertThrows(Exception.class, indexer::mergeIndex);
+            // Assert that the timeout exception is in the cause chain
+            var timeoutCause =
+                    customTimeout ?
+                    findCause(thrownException, CustomOperationTimeoutException.class) :
+                    findCause(thrownException, TimeoutException.class);
+            Assertions.assertNotNull(timeoutCause);
+            Assertions.assertEquals(exceptionMessage, timeoutCause.getMessage());
+        }
+        // Assert multiple retries
+        assertTrue(1 < attemptCount.get());
+    }
+
+    private static void adjustMergeControl(final IndexMaintainerState state) {
+        final IndexDeferredMaintenanceControl mergeControl = state.store.getIndexDeferredMaintenanceControl();
+        mergeControl.setLastStep(IndexDeferredMaintenanceControl.LastStep.MERGE);
+        if (mergeControl.getMergesLimit() == 0) {
+            mergeControl.setMergesTried(10);
+            mergeControl.setMergesFound(10);
+        } else {
+            mergeControl.setMergesTried(mergeControl.getMergesLimit());
+            mergeControl.setMergesFound(10);
+        }
+    }
+
+    private static class CustomOperationTimeoutException extends RuntimeException {
+        private static final long serialVersionUID = -7034897190745766777L;
+
+        public CustomOperationTimeoutException(String message) {
+            super(message);
+        }
+    }
+
+    private static <T extends Throwable> T findCause(Throwable throwable, Class<T> causeType) {
+        Throwable current = throwable;
+        while (current != null) {
+            if (causeType.isInstance(current)) {
+                return causeType.cast(current);
+            }
+            current = current.getCause();
+        }
+        return null;
+    }
+
+    /**
+     * Test that an FDBException wrapped in another exception still triggers retry behavior.
+     */
+    @Test
+    void testWrappedFDBExceptionRetries() {
+        final String indexType = "wrappedFdbExceptionIndex";
+        AtomicInteger attemptCount = new AtomicInteger(0);
+
+        TestFactory.register(indexType, state -> {
+            adjustMergeControl(state);
+
+            attemptCount.incrementAndGet();
+
+            // Wrap FDBException in multiple layers to test deep unwrapping
+            final CompletableFuture<Void> future = new CompletableFuture<>();
+            FDBException fdbEx = new FDBException("Transaction too old", FDBError.TRANSACTION_TOO_OLD.code());
+            RuntimeException wrapper = new RuntimeException("Wrapper level 1",
+                    new IllegalStateException("Wrapper level 2", fdbEx));
+            future.completeExceptionally(wrapper);
+            return future;
+        });
+
+        final FDBRecordStore.Builder storeBuilder = createStore(indexType);
+        try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
+                .setRecordStoreBuilder(storeBuilder)
+                .setTargetIndexesByName(List.of(INDEX_NAME))
+                .setMaxAttempts(5)
+                .build()) {
+
+            Exception thrownException = Assertions.assertThrows(Exception.class, indexer::mergeIndex);
+
+            // Assert that FDBException is in the cause chain
+            FDBException fdbCause = findCause(thrownException, FDBException.class);
+            Assertions.assertNotNull(fdbCause);
+            assertEquals(FDBError.TRANSACTION_TOO_OLD.code(), fdbCause.getCode());
+        }
+
+        // Assert multiple retries
+        assertTrue(1 < attemptCount.get());
+    }
+
+    /**
+     * Test that a non-retriable exception during REPARTITION phase causes immediate abort.
+     */
+    @Test
+    void testNonRetriableExceptionDuringRepartitionAborts() {
+        final String indexType = "nonRetriableRepartitionIndex";
+        AtomicInteger attemptCount = new AtomicInteger(0);
+
+        TestFactory.register(indexType, state -> {
+            final IndexDeferredMaintenanceControl mergeControl = state.store.getIndexDeferredMaintenanceControl();
+            mergeControl.setLastStep(IndexDeferredMaintenanceControl.LastStep.REPARTITION);
+            mergeControl.setRepartitionDocumentCount(20);
+
+            attemptCount.incrementAndGet();
+
+            // Throw a non-retriable exception during repartition
+            final CompletableFuture<Void> future = new CompletableFuture<>();
+            future.completeExceptionally(new NullPointerException("Unexpected null during repartition"));
+            return future;
+        });
+
+        final FDBRecordStore.Builder storeBuilder = createStore(indexType);
+        try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
+                .setRecordStoreBuilder(storeBuilder)
+                .setTargetIndexesByName(List.of(INDEX_NAME))
+                .setMaxAttempts(10)
+                .build()) {
+            Assertions.assertThrows(NullPointerException.class, indexer::mergeIndex);
+        }
+
+        // Should only attempt once, no retries
+        assertEquals(1, attemptCount.get());
     }
 
     @Nonnull
@@ -333,7 +517,15 @@ public class OnlineIndexerMergeTest extends FDBRecordStoreConcurrentTestBase {
         @Nonnull
         @Override
         public Iterable<String> getIndexTypes() {
-            return List.of("repartitionTimeoutIndex", "mergeTimeoutIndex", "mergeLimitedIndex");
+            return List.of(
+                    "repartitionTimeoutIndex",
+                    "mergeLimitedIndex",
+                    "nonRetriableExceptionIndex",
+                    "wrappedFdbExceptionIndex",
+                    "mergeTimeoutIndex",
+                    "timeoutExceptionIndex",
+                    "nonRetriableRepartitionIndex"
+            );
         }
 
         @Nonnull

@@ -34,8 +34,10 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -181,15 +183,22 @@ public class IndexingMerger {
         // Expecting AsyncToSyncTimeoutException or an instance of TimeoutException. However, cannot
         // refer to AsyncToSyncTimeoutException without creating a lucene dependency
         // TODO: remove this kludge
-        if (e.getClass().getCanonicalName().contains("Timeout") ) {
+        Set<Throwable> seenSet = Collections.newSetFromMap(new IdentityHashMap<>());
+        for (Throwable t = e;
+                 t != null && !seenSet.contains(t);
+                 t = t.getCause()) {
+            if (t.getClass().getCanonicalName().contains("Timeout")) {
+                return false;
+            }
+            seenSet.add(t);
+        }
+
+        final FDBException ex = IndexingBase.findException(e, FDBException.class);
+        if (ex != null) {
             return false;
         }
-        final FDBException ex = IndexingBase.findException(e, FDBException.class);
-        if (ex == null) {
-            return true;
-        }
         // TODO: return true if the exception is clearly not retriable
-        return false;
+        return true;
     }
 
     private void handleRepartitioningFailure(final IndexDeferredMaintenanceControl mergeControl, Throwable e) {
