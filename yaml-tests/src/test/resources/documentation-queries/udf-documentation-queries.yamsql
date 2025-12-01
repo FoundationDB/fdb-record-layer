@@ -1,0 +1,90 @@
+#
+# udf-documentation-queries.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+---
+options:
+    supported_version: 4.3.2.0
+---
+schema_template:
+    create table employees(
+        id bigint,
+        name string,
+        department string,
+        salary bigint,
+        primary key(id))
+    create index dept_idx as select department, salary from employees order by department, salary
+    create function employees_in_dept(in dept string)
+        as select id, name, salary from employees where department = dept
+    create function employees_by_dept_and_salary(in dept string, in min_salary bigint)
+        as select id, name, salary from employees where department = dept and salary >= min_salary
+    create function search_employees(in dept string default 'Engineering', in min_salary bigint default 0)
+        as select id, name, department, salary from employees where department = dept and salary >= min_salary
+    create function same_dept_employees(in emp_dept string)
+        as select id, name from employees where department = emp_dept
+    create function high_earners(in dept string)
+        as select * from employees_in_dept(dept) where salary > 100000
+---
+setup:
+  steps:
+    - query: insert into employees values
+        (1, 'Alice', 'Engineering', 100000),
+        (2, 'Bob', 'Engineering', 110000),
+        (3, 'Carol', 'Engineering', 150000),
+        (4, 'Dave', 'Sales', 80000),
+        (5, 'Eve', 'Sales', 120000)
+---
+test_block:
+  name: udf-documentation-queries
+  tests:
+    # Basic Function with Parameters
+    -
+      - query: select * from employees_in_dept('Engineering');
+      - result: [{1, 'Alice', 100000}, {2, 'Bob', 110000}, {3, 'Carol', 150000}]
+
+    # Function with Multiple Parameters - positional
+    -
+      - query: select * from employees_by_dept_and_salary('Engineering', 110000);
+      - result: [{2, 'Bob', 110000}, {3, 'Carol', 150000}]
+
+    # Function with DEFAULT Parameters - all defaults
+    -
+      - query: select * from search_employees();
+      - result: [{1, 'Alice', 'Engineering', 100000}, {2, 'Bob', 'Engineering', 110000}, {3, 'Carol', 'Engineering', 150000}]
+
+    # Function with DEFAULT Parameters - named parameters in any order
+    -
+      - query: select * from search_employees(min_salary => 100000, dept => 'Sales');
+      - result: [{5, 'Eve', 'Sales', 120000}]
+
+    # Using Functions in JOINs
+    -
+      - query: select A.name as emp1, B.name as emp2
+                from employees_in_dept('Engineering') A, employees_in_dept('Engineering') B
+                where A.id < B.id;
+      - result: [{emp1: 'Alice', emp2: 'Bob'}, {emp1: 'Alice', emp2: 'Carol'}, {emp1: 'Bob', emp2: 'Carol'}]
+
+    # Using Functions in Subqueries
+    -
+      - query: select name, department from employees e
+                where exists (select * from same_dept_employees(e.department) where id > e.id);
+      - result: [{'Alice', 'Engineering'}, {'Bob', 'Engineering'}, {'Dave', 'Sales'}]
+
+    # Nested Function Calls
+    -
+      - query: select * from high_earners('Engineering');
+      - result: [{2, 'Bob', 110000}, {3, 'Carol', 150000}]
