@@ -185,11 +185,11 @@ class TypeRepositoryTest {
         final Type.Record t = Type.Record.fromFields(fields);
         builder.addTypeIfNeeded(t);
         final TypeRepository actualSchemaBefore = builder.build();
-        Assertions.assertEquals(countTypes(t), actualSchemaBefore.getMessageTypes().size());
+        Assertions.assertEquals(countTypes(t), actualSchemaBefore.getMessageTypeNames().size());
         // add record type explicitly, this should NOT cause the addition of a new descriptor.
         builder.addTypeIfNeeded(child);
         final TypeRepository actualSchemaAfter = builder.build();
-        Assertions.assertEquals(actualSchemaAfter.getMessageTypes().size(), actualSchemaBefore.getMessageTypes().size());
+        Assertions.assertEquals(actualSchemaAfter.getMessageTypeNames().size(), actualSchemaBefore.getMessageTypeNames().size());
     }
 
     @Test
@@ -199,11 +199,11 @@ class TypeRepositoryTest {
         final TypeRepository.Builder builder = TypeRepository.newBuilder();
         builder.addTypeIfNeeded(array);
         final TypeRepository actualSchemaBefore = builder.build();
-        Assertions.assertEquals(countTypes(array), actualSchemaBefore.getMessageTypes().size());
+        Assertions.assertEquals(countTypes(array), actualSchemaBefore.getMessageTypeNames().size());
         // add record type explicitly, this should NOT cause the addition of a new descriptor.
         builder.addTypeIfNeeded(child);
         final TypeRepository actualSchemaAfter = builder.build();
-        Assertions.assertEquals(actualSchemaAfter.getMessageTypes().size(), actualSchemaBefore.getMessageTypes().size());
+        Assertions.assertEquals(actualSchemaAfter.getMessageTypeNames().size(), actualSchemaBefore.getMessageTypeNames().size());
     }
 
     @Test
@@ -213,11 +213,11 @@ class TypeRepositoryTest {
         final TypeRepository.Builder builder = TypeRepository.newBuilder();
         builder.addTypeIfNeeded(array);
         final TypeRepository actualSchemaBefore = builder.build();
-        Assertions.assertEquals(countTypes(array), actualSchemaBefore.getMessageTypes().size());
+        Assertions.assertEquals(countTypes(array), actualSchemaBefore.getMessageTypeNames().size());
         // add record type explicitly, this should NOT cause the addition of a new descriptor.
         builder.addTypeIfNeeded(child);
         final TypeRepository actualSchemaAfter = builder.build();
-        Assertions.assertEquals(actualSchemaAfter.getMessageTypes().size(), actualSchemaBefore.getMessageTypes().size());
+        Assertions.assertEquals(actualSchemaAfter.getMessageTypeNames().size(), actualSchemaBefore.getMessageTypeNames().size());
     }
 
     @ParameterizedTest
@@ -245,7 +245,7 @@ class TypeRepositoryTest {
         builder.addTypeIfNeeded(t);
         builder.addTypeIfNeeded(t);
         final TypeRepository actualRepository = builder.build();
-        Assertions.assertEquals(countTypes(t), actualRepository.getMessageTypes().size());
+        Assertions.assertEquals(countTypes(t), actualRepository.getMessageTypeNames().size());
     }
 
     @Test

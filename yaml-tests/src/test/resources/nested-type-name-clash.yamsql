@@ -1,0 +1,324 @@
+#
+# nested-type-name-clash.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2021-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+---
+options:
+  # Requires type repository improvements for queries to avoid type name clashes
+  supported_version: !current_version
+  connection_options:
+    CASE_SENSITIVE_IDENTIFIERS: true
+---
+setup:
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  steps:
+    - query: drop schema template if exists NESTED_TYPE_NAME_CLASH_TEMPLATE
+    - query: drop database if exists /FRL/NESTED_TYPE_NAME_CLASH_YAML
+    - query: create database /FRL/NESTED_TYPE_NAME_CLASH_YAML
+    - load schema template: NESTED_TYPE_NAME_CLASH_TEMPLATE from com.apple.foundationdb.relational.yamltests.generated.nestedtypenameclash.NestedTypeNameClashProto
+    - query: create schema /FRL/NESTED_TYPE_NAME_CLASH_YAML/TEST with template NESTED_TYPE_NAME_CLASH_TEMPLATE
+---
+setup:
+  connect: "jdbc:embed:/FRL/NESTED_TYPE_NAME_CLASH_YAML?schema=TEST"
+  steps:
+    - query: INSERT INTO OuterRecord VALUES
+               (100, ('alpha',   (1, 'A', 'ONE',   'ALFA',    (10), ('foo'), (false)), 'A', 'ONE',   'ALFA',    (100), ('blah_foo'), (false)), (1, 'A', 'ONE',   'ALFA',    (1000), ('second_foo'), (true))),
+               (101, ('alpha',   (1, 'A', 'ONE',   'ALFA',    (10), ('foo'), (false)), 'A', 'ONE',   'ALFA',    (100), ('blah_foo'), (false)), (2, 'B', 'TWO',   'BRAVO',   (1000), ('second_foo'), (true))),
+               (102, ('alpha',   (1, 'A', 'ONE',   'ALFA',    (10), ('foo'), (false)), 'A', 'ONE',   'ALFA',    (100), ('blah_foo'), (false)), (3, 'C', 'THREE', 'CHARLIE', (1000), ('second_foo'), (true))),
+               (103, ('alpha',   (1, 'A', 'ONE',   'ALFA',    (10), ('foo'), (false)), 'A', 'ONE',   'ALFA',    (100), ('blah_foo'), (false)), (4, 'D', 'FOUR',  'DELTA',   (1000), ('second_foo'), (true))),
+               (104, ('bravo',   (2, 'B', 'TWO',   'BRAVO',   (11), ('bar'), (true)),  'A', 'ONE',   'ALFA',    (100), ('blah_foo'), (false)), (1, 'A', 'ONE',   'ALFA',    (1002), ('second_bar'), (false))),
+               (105, ('charlie', (3, 'C', 'THREE', 'CHARLIE', (12), ('baz'), (false)), 'A', 'ONE',   'ALFA',    (100), ('blah_foo'), (false)), (1, 'A', 'ONE',   'ALFA',    (1004), ('second_baz'), (false))),
+               (106, ('delta',   (4, 'D', 'FOUR',  'DELTA',   (13), ('qux'), (true)),  'A', 'ONE',   'ALFA',    (100), ('blah_foo'), (false)), (1, 'A', 'ONE',   'ALFA',    (1008), ('second_qux'), (false))),
+               (107, ('alpha',   (1, 'A', 'ONE',   'ALFA',    (10), ('foo'), (false)), 'B', 'TWO',   'BRAVO',   (103), ('blah_bar'), (true)),  (1, 'A', 'ONE',   'ALFA',    (1000), ('second_foo'), (true))),
+               (108, ('alpha',   (1, 'A', 'ONE',   'ALFA',    (10), ('foo'), (true)),  'C', 'THREE', 'CHARLIE', (105), ('blah_baz'), (true)),  (1, 'A', 'ONE',   'ALFA',    (1000), ('second_foo'), (true)))
+---
+test_block:
+  connect: "jdbc:embed:/FRL/NESTED_TYPE_NAME_CLASH_YAML?schema=TEST"
+  name: nested-type-name-clash
+  tests:
+    # Select only the id field
+    -
+      - query: SELECT OuterRecord.id FROM OuterRecord WHERE middle.middle_id = 'alpha';
+      - explain: "SCAN(<,>) | FILTER _.middle.middle_id EQUALS promote(@c12 AS STRING) | MAP (_.id AS id)"
+      - result: [
+         { id: 100 },
+         { id: 101 },
+         { id: 102 },
+         { id: 103 },
+         { id: 107 },
+         { id: 108 },
+        ]
+    -
+      - query: SELECT OuterRecord.id FROM OuterRecord WHERE middle.middle_id = 'bravo';
+      - result: [
+         { id: 104 },
+        ]
+    -
+      - query: SELECT OuterRecord.id FROM OuterRecord WHERE "inner".inner_id = 1;
+      - explain: "SCAN(<,>) | FILTER _.inner.inner_id EQUALS promote(@c12 AS LONG) | MAP (_.id AS id)"
+      - result: [
+         { id: 100 },
+         { id: 104 },
+         { id: 105 },
+         { id: 106 },
+         { id: 107 },
+         { id: 108 },
+        ]
+    -
+      - query: SELECT OuterRecord.id FROM OuterRecord WHERE "inner".inner_id = 3;
+      - result: [
+         { id: 102 },
+        ]
+    -
+      - query: SELECT OuterRecord.id FROM OuterRecord WHERE middle."inner".inner_id = 1;
+      - explain: "SCAN(<,>) | FILTER _.middle.inner.inner_id EQUALS promote(@c14 AS LONG) | MAP (_.id AS id)"
+      - result: [
+         { id: 100 },
+         { id: 101 },
+         { id: 102 },
+         { id: 103 },
+         { id: 107 },
+         { id: 108 },
+        ]
+    -
+      - query: SELECT OuterRecord.id FROM OuterRecord WHERE middle."inner".inner_id = 4;
+      - result: [
+         { id: 106 },
+        ]
+    -
+      - query: SELECT OuterRecord.id FROM OuterRecord WHERE middle.middle_type = 'A';
+      - explain: "SCAN(<,>) | FILTER _.middle.middle_type EQUALS promote(@c12 AS ENUM<A(0), B(1), C(2)>) | MAP (_.id AS id)"
+      - result: [
+         { id: 100 },
+         { id: 101 },
+         { id: 102 },
+         { id: 103 },
+         { id: 104 },
+         { id: 105 },
+         { id: 106 },
+        ]
+    -
+      - query: SELECT OuterRecord.id FROM OuterRecord WHERE "inner".inner_type = 'A';
+      - explain: "SCAN(<,>) | FILTER _.inner.inner_type EQUALS promote(@c12 AS ENUM<A(0), B(1), C(2), D(3)>) | MAP (_.id AS id)"
+      - result: [
+         { id: 100 },
+         { id: 104 },
+         { id: 105 },
+         { id: 106 },
+         { id: 107 },
+         { id: 108 },
+        ]
+    -
+      - query: SELECT OuterRecord.id FROM OuterRecord WHERE middle."inner".inner_type = 'A';
+      - explain: "SCAN(<,>) | FILTER _.middle.inner.inner_type EQUALS promote(@c14 AS ENUM<A(0), B(1), C(2), D(3)>) | MAP (_.id AS id)"
+      - result: [
+         { id: 100 },
+         { id: 101 },
+         { id: 102 },
+         { id: 103 },
+         { id: 107 },
+         { id: 108 },
+        ]
+
+    # Type clashes in the projected columns
+    -
+      - query: SELECT o.id,
+                      o.middle.middle_blah, o.middle.middle_whatever, o.middle.middle_anything,
+                      o."inner".inner_blah, o."inner".inner_whatever, o."inner".inner_payload,
+                      o.middle."inner".inner_blah AS inner_blah_2, o.middle."inner".inner_whatever AS inner_whatever_2, o."inner".inner_payload AS inner_payload_2
+                FROM OuterRecord AS o WHERE o."inner".inner_blah.blah_blah > 1000;
+      - explain: "SCAN(<,>) | FILTER _.inner.inner_blah.blah_blah GREATER_THAN promote(@c82 AS LONG) | MAP (_.id AS id, _.middle.middle_blah AS middle_blah, _.middle.middle_whatever AS middle_whatever, _.middle.middle_anything AS middle_anything, _.inner.inner_blah AS inner_blah, _.inner.inner_whatever AS inner_whatever, _.inner.inner_payload AS inner_payload, _.middle.inner.inner_blah AS inner_blah_2, _.middle.inner.inner_whatever AS inner_whatever_2, _.inner.inner_payload AS inner_payload_2)"
+      - result: [
+          { id: 104, middle_blah: { blah: 100 }, middle_whatever: { whatever: "blah_foo" }, middle_anything: { datum: false }, inner_blah: { blah_blah: 1002 }, inner_whatever: { whatever: "second_bar" }, inner_payload: { datum: false }, inner_blah_2: { blah_blah: 11 }, inner_whatever_2: { whatever: "bar" }, inner_payload_2: { datum: false } },
+          { id: 105, middle_blah: { blah: 100 }, middle_whatever: { whatever: "blah_foo" }, middle_anything: { datum: false }, inner_blah: { blah_blah: 1004 }, inner_whatever: { whatever: "second_baz" }, inner_payload: { datum: false }, inner_blah_2: { blah_blah: 12 }, inner_whatever_2: { whatever: "baz" }, inner_payload_2: { datum: false } },
+          { id: 106, middle_blah: { blah: 100 }, middle_whatever: { whatever: "blah_foo" }, middle_anything: { datum: false }, inner_blah: { blah_blah: 1008 }, inner_whatever: { whatever: "second_qux" }, inner_payload: { datum: false }, inner_blah_2: { blah_blah: 13 }, inner_whatever_2: { whatever: "qux" }, inner_payload_2: { datum: false } },
+      ]
+
+    # Various self-joins, some of which should be possible and some of which should not be
+    -
+      - query:
+          SELECT A.id, B.id
+            FROM OuterRecord AS A, OuterRecord AS B
+            WHERE A.middle.middle_type = B."inner".inner_type
+      # Should fail as enums do not have the same values
+      - error: XX000
+    -
+      - query:
+          SELECT A.id, B.id
+            FROM OuterRecord AS A, OuterRecord AS B
+            WHERE A.middle.middle_category = B."inner".inner_category
+      # Should succeed as the two enum types have the same name and values
+      - explain: "SCAN(<,>) | FLATMAP q0 -> { SCAN(<,>) | FILTER q0.middle.middle_category EQUALS _.inner.inner_category AS q1 RETURN (q0.id AS _0, q1.id AS _1) }"
+      - result: [
+          { '_0': 100, '_1': 100 },
+          { '_0': 100, '_1': 104 },
+          { '_0': 100, '_1': 105 },
+          { '_0': 100, '_1': 106 },
+          { '_0': 100, '_1': 107 },
+          { '_0': 100, '_1': 108 },
+          { '_0': 101, '_1': 100 },
+          { '_0': 101, '_1': 104 },
+          { '_0': 101, '_1': 105 },
+          { '_0': 101, '_1': 106 },
+          { '_0': 101, '_1': 107 },
+          { '_0': 101, '_1': 108 },
+          { '_0': 102, '_1': 100 },
+          { '_0': 102, '_1': 104 },
+          { '_0': 102, '_1': 105 },
+          { '_0': 102, '_1': 106 },
+          { '_0': 102, '_1': 107 },
+          { '_0': 102, '_1': 108 },
+          { '_0': 103, '_1': 100 },
+          { '_0': 103, '_1': 104 },
+          { '_0': 103, '_1': 105 },
+          { '_0': 103, '_1': 106 },
+          { '_0': 103, '_1': 107 },
+          { '_0': 103, '_1': 108 },
+          { '_0': 104, '_1': 100 },
+          { '_0': 104, '_1': 104 },
+          { '_0': 104, '_1': 105 },
+          { '_0': 104, '_1': 106 },
+          { '_0': 104, '_1': 107 },
+          { '_0': 104, '_1': 108 },
+          { '_0': 105, '_1': 100 },
+          { '_0': 105, '_1': 104 },
+          { '_0': 105, '_1': 105 },
+          { '_0': 105, '_1': 106 },
+          { '_0': 105, '_1': 107 },
+          { '_0': 105, '_1': 108 },
+          { '_0': 106, '_1': 100 },
+          { '_0': 106, '_1': 104 },
+          { '_0': 106, '_1': 105 },
+          { '_0': 106, '_1': 106 },
+          { '_0': 106, '_1': 107 },
+          { '_0': 106, '_1': 108 },
+          { '_0': 107, '_1': 101 },
+          { '_0': 108, '_1': 102 },
+        ]
+    -
+      - query:
+          SELECT A.id, B.id
+            FROM OuterRecord AS A, OuterRecord AS B
+            WHERE A.middle.middle_grouping = B."inner".inner_sign
+      # Should succeed as the two enum types have the same values
+      - explain: "SCAN(<,>) | FLATMAP q0 -> { SCAN(<,>) | FILTER q0.middle.middle_grouping EQUALS _.inner.inner_sign AS q1 RETURN (q0.id AS _0, q1.id AS _1) }"
+      - result: [
+          { '_0': 100, '_1': 100 },
+          { '_0': 100, '_1': 104 },
+          { '_0': 100, '_1': 105 },
+          { '_0': 100, '_1': 106 },
+          { '_0': 100, '_1': 107 },
+          { '_0': 100, '_1': 108 },
+          { '_0': 101, '_1': 100 },
+          { '_0': 101, '_1': 104 },
+          { '_0': 101, '_1': 105 },
+          { '_0': 101, '_1': 106 },
+          { '_0': 101, '_1': 107 },
+          { '_0': 101, '_1': 108 },
+          { '_0': 102, '_1': 100 },
+          { '_0': 102, '_1': 104 },
+          { '_0': 102, '_1': 105 },
+          { '_0': 102, '_1': 106 },
+          { '_0': 102, '_1': 107 },
+          { '_0': 102, '_1': 108 },
+          { '_0': 103, '_1': 100 },
+          { '_0': 103, '_1': 104 },
+          { '_0': 103, '_1': 105 },
+          { '_0': 103, '_1': 106 },
+          { '_0': 103, '_1': 107 },
+          { '_0': 103, '_1': 108 },
+          { '_0': 104, '_1': 100 },
+          { '_0': 104, '_1': 104 },
+          { '_0': 104, '_1': 105 },
+          { '_0': 104, '_1': 106 },
+          { '_0': 104, '_1': 107 },
+          { '_0': 104, '_1': 108 },
+          { '_0': 105, '_1': 100 },
+          { '_0': 105, '_1': 104 },
+          { '_0': 105, '_1': 105 },
+          { '_0': 105, '_1': 106 },
+          { '_0': 105, '_1': 107 },
+          { '_0': 105, '_1': 108 },
+          { '_0': 106, '_1': 100 },
+          { '_0': 106, '_1': 104 },
+          { '_0': 106, '_1': 105 },
+          { '_0': 106, '_1': 106 },
+          { '_0': 106, '_1': 107 },
+          { '_0': 106, '_1': 108 },
+          { '_0': 107, '_1': 101 },
+          { '_0': 108, '_1': 102 },
+        ]
+    -
+      - query:
+          SELECT A.id, B.id
+            FROM OuterRecord AS A, OuterRecord AS B
+            WHERE A.middle.middle_blah.blah = B."inner".inner_blah.blah_blah
+      # Comparison on compatible primitive field. Should succeed
+      - explain: "SCAN(<,>) | FLATMAP q0 -> { SCAN(<,>) | FILTER q0.middle.middle_blah.blah EQUALS _.inner.inner_blah.blah_blah AS q1 RETURN (q0.id AS _0, q1.id AS _1) }"
+    -
+      - query:
+          SELECT A.id, B.id
+            FROM OuterRecord AS A, OuterRecord AS B
+            WHERE A.middle."inner".inner_blah = B."inner".inner_blah
+      # Fails because we do not support struct comparison. When we do, this should start to succeed
+      - error: XX000
+    -
+      - query:
+          SELECT A.id, B.id
+            FROM OuterRecord AS A, OuterRecord AS B
+            WHERE A.middle.middle_blah = B."inner".inner_blah
+      # Fails because we do not support struct comparison. However, even when we do, the types should still be incompatible due to field name issues
+      - error: XX000
+    -
+      - query:
+          SELECT A.id, B.id
+            FROM OuterRecord AS A, OuterRecord AS B
+            WHERE A.middle.middle_whatever = B."inner".inner_whatever
+      # Fails because we do not support struct comparison. However, even when we do, this should succeed as the types are identical
+      - error: XX000
+    -
+      - query:
+          SELECT A.id, B.id
+            FROM OuterRecord AS A, OuterRecord AS B
+            WHERE A.middle.middle_anything = B."inner".inner_payload
+      # Fails because we do not support struct comparison. However, even when we do, this should succeed as the types are structurally equal
+      - error: XX000
+
+    # Select *
+    # -
+    #   # Unfortunately, we cannot run this query because of issues with parsing the enum through JDBC.
+    #   # If we did include this test case, we'd have to disable all mixed mode tests on this file.
+    #   # See: https://github.com/FoundationDB/fdb-record-layer/issues/3754
+    #   - query: SELECT * FROM OuterRecord WHERE middle.middle_id = 'alpha';
+    #   - explain: "SCAN(<,>) | FILTER _.middle.middle_id EQUALS promote(@c10 AS STRING)"
+    #   - maxRows: 0
+    #   - result: [
+    #      { id: 100, middle: { middle_id: "alpha", inner: { inner_id: 1, inner_type: "A", inner_category: "ONE", inner_sign: "ALFA", inner_blah: { blah_blah: 10 }, inner_whatever: {  whatever: "foo" }, inner_payload: { datum: false } }, middle_type: "A", middle_category: "ONE",   middle_grouping: "ALFA",    middle_blah: { blah: 100 }, middle_whatever: { whatever: "blah_foo" }, middle_anything: { datum: false } }, inner: { inner_id: 1, inner_type: "A", inner_category: "ONE",   inner_sign: "ALFA",     inner_blah: { blah_blah: 1000 }, inner_whatever: { whatever: "second_foo" }, inner_payload: { datum: true } } },
+    #      { id: 101, middle: { middle_id: "alpha", inner: { inner_id: 1, inner_type: "A", inner_category: "ONE", inner_sign: "ALFA", inner_blah: { blah_blah: 10 }, inner_whatever: {  whatever: "foo" }, inner_payload: { datum: false } }, middle_type: "A", middle_category: "ONE",   middle_grouping: "ALFA",    middle_blah: { blah: 100 }, middle_whatever: { whatever: "blah_foo" }, middle_anything: { datum: false } }, inner: { inner_id: 2, inner_type: "B", inner_category: "TWO",   inner_sign: "BRAVO",    inner_blah: { blah_blah: 1000 }, inner_whatever: { whatever: "second_foo" }, inner_payload: { datum: true } } },
+    #      { id: 102, middle: { middle_id: "alpha", inner: { inner_id: 1, inner_type: "A", inner_category: "ONE", inner_sign: "ALFA", inner_blah: { blah_blah: 10 }, inner_whatever: {  whatever: "foo" }, inner_payload: { datum: false } }, middle_type: "A", middle_category: "ONE",   middle_grouping: "ALFA",    middle_blah: { blah: 100 }, middle_whatever: { whatever: "blah_foo" }, middle_anything: { datum: false } }, inner: { inner_id: 3, inner_type: "C", inner_category: "THREE", inner_sign: "CHARLIE",  inner_blah: { blah_blah: 1000 }, inner_whatever: { whatever: "second_foo" }, inner_payload: { datum: true } } },
+    #      { id: 103, middle: { middle_id: "alpha", inner: { inner_id: 1, inner_type: "A", inner_category: "ONE", inner_sign: "ALFA", inner_blah: { blah_blah: 10 }, inner_whatever: {  whatever: "foo" }, inner_payload: { datum: false } }, middle_type: "A", middle_category: "ONE",   middle_grouping: "ALFA",    middle_blah: { blah: 100 }, middle_whatever: { whatever: "blah_foo" }, middle_anything: { datum: false } }, inner: { inner_id: 4, inner_type: "D", inner_category: "FOUR",  inner_sign: "DELTA",    inner_blah: { blah_blah: 1000 }, inner_whatever: { whatever: "second_foo" }, inner_payload: { datum: true } } },
+    #      { id: 107, middle: { middle_id: "alpha", inner: { inner_id: 1, inner_type: "A", inner_category: "ONE", inner_sign: "ALFA", inner_blah: { blah_blah: 10 }, inner_whatever: {  whatever: "foo" }, inner_payload: { datum: false } }, middle_type: "B", middle_category: "TWO",   middle_grouping: "BRAVO",   middle_blah: { blah: 103 }, middle_whatever: { whatever: "blah_bar" }, middle_anything: { datum: true  } }, inner: { inner_id: 1, inner_type: "A", inner_category: "ONE",   inner_sign: "ALFA",     inner_blah: { blah_blah: 1000 }, inner_whatever: { whatever: "second_foo" }, inner_payload: { datum: true } } },
+    #      { id: 108, middle: { middle_id: "alpha", inner: { inner_id: 1, inner_type: "A", inner_category: "ONE", inner_sign: "ALFA", inner_blah: { blah_blah: 10 }, inner_whatever: {  whatever: "foo" }, inner_payload: { datum: true  } }, middle_type: "C", middle_category: "THREE", middle_grouping: "CHARLIE", middle_blah: { blah: 105 }, middle_whatever: { whatever: "blah_baz" }, middle_anything: { datum: true  } }, inner: { inner_id: 1, inner_type: "A", inner_category: "ONE",   inner_sign: "ALFA",     inner_blah: { blah_blah: 1000 }, inner_whatever: { whatever: "second_foo" }, inner_payload: { datum: true } } },
+    #     ]
+---
+setup:
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  steps:
+    - query: drop schema template NESTED_TYPE_NAME_CLASH_TEMPLATE
+    - query: drop database /FRL/NESTED_TYPE_NAME_CLASH_YAML
+...

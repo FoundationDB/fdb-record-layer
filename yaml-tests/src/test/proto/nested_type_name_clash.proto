@@ -1,0 +1,135 @@
+/*
+ * nested_type_name_clash.proto
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2021-2026 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+syntax = "proto3";
+
+// make sure to use this package naming convention:
+// com.apple.foundationdb.relational.yamltests.generated.<name_of_test_suite>
+// adding "generated" is important to exclude the generated Java file from Jacoco reports.
+// suffixing the namespace with your test name is important for segregating similarly-named
+// generated-Java-classes (such as RecordTypeUnion) into separate packages, otherwise you
+// get an error from `protoc`.
+package com.apple.foundationdb.relational.yamltests.generated.nestedtypenameclash;
+
+option java_outer_classname = "NestedTypeNameClashProto";
+
+import "record_metadata_options.proto";
+
+message OuterRecord {
+  optional int64 id = 1 [(com.apple.foundationdb.record.field).primary_key = true];
+  optional Middle middle = 2;
+  optional Inner inner = 3;
+}
+
+message Middle {
+  enum Type {
+    // Same name as Inner.Type, but with different values
+    A = 0;
+    B = 1;
+    C = 2;
+  }
+  enum Category {
+    // Same name as Inner.Category
+    ONE = 0;
+    TWO = 1;
+    THREE = 2;
+    FOUR = 3;
+  }
+  enum Grouping {
+    // Structurally equal to Inner.Sign, but different name
+    ALFA = 0;
+    BRAVO = 1;
+    CHARLIE = 2;
+    DELTA = 3;
+  }
+
+  message Blah {
+    // Same name as Inner.Blah, but different fields
+    optional int64 blah = 1;
+  }
+  message Whatever {
+    // Identical to Inner.Whatever
+    optional string whatever = 1;
+  }
+  message Anything {
+    // Structurally equal to Inner.Payload
+    optional bool datum = 1;
+  }
+
+  optional string middle_id = 1;
+  optional Inner inner = 2;
+
+  optional Type middle_type = 3;
+  optional Category middle_category = 4;
+  optional Grouping middle_grouping = 5;
+  optional Blah middle_blah = 6;
+  optional Whatever middle_whatever = 7;
+  optional Anything middle_anything = 8;
+}
+
+message Inner {
+  enum Type {
+    // Same name as Middle.Type, but with different values
+    A = 0;
+    B = 1;
+    C = 2;
+    D = 3;
+  }
+  enum Category {
+    // Same name as Middle.Category
+    ONE = 0;
+    TWO = 1;
+    THREE = 2;
+    FOUR = 3;
+  }
+  enum Sign {
+    // Structurally equal to Middle.Grouping, but different name
+    ALFA = 0;
+    BRAVO = 1;
+    CHARLIE = 2;
+    DELTA = 3;
+  }
+
+  message Blah {
+    // Same name as Middle.Blah, but different fields
+    optional int64 blah_blah = 1;
+  }
+  message Whatever {
+    // Identical to Outer.Whatever
+    optional string whatever = 1;
+  }
+  message Payload {
+    // Structurally equal to Middle.Anything
+    optional bool datum = 1;
+  }
+
+  optional int64 inner_id = 1;
+
+  optional Type inner_type = 2;
+  optional Category inner_category = 3;
+  optional Sign inner_sign = 4;
+  optional Blah inner_blah = 5;
+  optional Whatever inner_whatever = 6;
+  optional Payload inner_payload = 7;
+}
+
+message RecordTypeUnion {
+  OuterRecord _OuterRecord = 1;
+}

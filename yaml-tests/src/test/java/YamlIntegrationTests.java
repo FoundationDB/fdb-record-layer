@@ -213,6 +213,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void nestedTypeNameClash(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("nested-type-name-clash.yamsql");
+    }
+
+    @TestTemplate
     public void nestedWithNulls(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("nested-with-nulls.yamsql");
     }

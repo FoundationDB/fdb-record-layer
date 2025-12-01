@@ -1,0 +1,129 @@
+nested-type-name-clash:
+-   query: EXPLAIN SELECT OuterRecord.id FROM OuterRecord WHERE middle.middle_id =
+        'alpha';
+    explain: SCAN(<,>) | FILTER _.middle.middle_id EQUALS promote(@c12 AS STRING)
+        | MAP (_.id AS id)
+    task_count: 222
+    task_total_time_ms: 115
+    transform_count: 64
+    transform_time_ms: 87
+    transform_yield_count: 17
+    insert_time_ms: 7
+    insert_new_count: 22
+    insert_reused_count: 2
+-   query: EXPLAIN SELECT OuterRecord.id FROM OuterRecord WHERE "inner".inner_id =
+        1;
+    explain: SCAN(<,>) | FILTER _.inner.inner_id EQUALS promote(@c12 AS LONG) | MAP
+        (_.id AS id)
+    task_count: 206
+    task_total_time_ms: 12
+    transform_count: 59
+    transform_time_ms: 5
+    transform_yield_count: 15
+    insert_time_ms: 0
+    insert_new_count: 18
+    insert_reused_count: 2
+-   query: EXPLAIN SELECT OuterRecord.id FROM OuterRecord WHERE middle."inner".inner_id
+        = 1;
+    explain: SCAN(<,>) | FILTER _.middle.inner.inner_id EQUALS promote(@c14 AS LONG)
+        | MAP (_.id AS id)
+    task_count: 206
+    task_total_time_ms: 11
+    transform_count: 59
+    transform_time_ms: 5
+    transform_yield_count: 15
+    insert_time_ms: 0
+    insert_new_count: 18
+    insert_reused_count: 2
+-   query: EXPLAIN SELECT OuterRecord.id FROM OuterRecord WHERE middle.middle_type
+        = 'A';
+    explain: SCAN(<,>) | FILTER _.middle.middle_type EQUALS promote(@c12 AS ENUM<A(0),
+        B(1), C(2)>) | MAP (_.id AS id)
+    task_count: 206
+    task_total_time_ms: 12
+    transform_count: 59
+    transform_time_ms: 6
+    transform_yield_count: 15
+    insert_time_ms: 1
+    insert_new_count: 18
+    insert_reused_count: 2
+-   query: EXPLAIN SELECT OuterRecord.id FROM OuterRecord WHERE "inner".inner_type
+        = 'A';
+    explain: SCAN(<,>) | FILTER _.inner.inner_type EQUALS promote(@c12 AS ENUM<A(0),
+        B(1), C(2), D(3)>) | MAP (_.id AS id)
+    task_count: 206
+    task_total_time_ms: 12
+    transform_count: 59
+    transform_time_ms: 5
+    transform_yield_count: 15
+    insert_time_ms: 1
+    insert_new_count: 18
+    insert_reused_count: 2
+-   query: EXPLAIN SELECT OuterRecord.id FROM OuterRecord WHERE middle."inner".inner_type
+        = 'A';
+    explain: SCAN(<,>) | FILTER _.middle.inner.inner_type EQUALS promote(@c14 AS ENUM<A(0),
+        B(1), C(2), D(3)>) | MAP (_.id AS id)
+    task_count: 206
+    task_total_time_ms: 7
+    transform_count: 59
+    transform_time_ms: 3
+    transform_yield_count: 15
+    insert_time_ms: 0
+    insert_new_count: 18
+    insert_reused_count: 2
+-   query: EXPLAIN SELECT o.id, o.middle.middle_blah, o.middle.middle_whatever, o.middle.middle_anything,
+        o."inner".inner_blah, o."inner".inner_whatever, o."inner".inner_payload, o.middle."inner".inner_blah
+        AS inner_blah_2, o.middle."inner".inner_whatever AS inner_whatever_2, o."inner".inner_payload
+        AS inner_payload_2 FROM OuterRecord AS o WHERE o."inner".inner_blah.blah_blah
+        > 1000;
+    explain: SCAN(<,>) | FILTER _.inner.inner_blah.blah_blah GREATER_THAN promote(@c82
+        AS LONG) | MAP (_.id AS id, _.middle.middle_blah AS middle_blah, _.middle.middle_whatever
+        AS middle_whatever, _.middle.middle_anything AS middle_anything, _.inner.inner_blah
+        AS inner_blah, _.inner.inner_whatever AS inner_whatever, _.inner.inner_payload
+        AS inner_payload, _.middle.inner.inner_blah AS inner_blah_2, _.middle.inner.inner_whatever
+        AS inner_whatever_2, _.inner.inner_payload AS inner_payload_2)
+    task_count: 206
+    task_total_time_ms: 10
+    transform_count: 59
+    transform_time_ms: 5
+    transform_yield_count: 15
+    insert_time_ms: 0
+    insert_new_count: 18
+    insert_reused_count: 2
+-   query: EXPLAIN SELECT A.id, B.id FROM OuterRecord AS A, OuterRecord AS B WHERE
+        A.middle.middle_category = B."inner".inner_category
+    explain: SCAN(<,>) | FLATMAP q0 -> { SCAN(<,>) | FILTER q0.middle.middle_category
+        EQUALS _.inner.inner_category AS q1 RETURN (q0.id AS _0, q1.id AS _1) }
+    task_count: 257
+    task_total_time_ms: 32
+    transform_count: 88
+    transform_time_ms: 21
+    transform_yield_count: 20
+    insert_time_ms: 4
+    insert_new_count: 28
+    insert_reused_count: 5
+-   query: EXPLAIN SELECT A.id, B.id FROM OuterRecord AS A, OuterRecord AS B WHERE
+        A.middle.middle_grouping = B."inner".inner_sign
+    explain: SCAN(<,>) | FLATMAP q0 -> { SCAN(<,>) | FILTER q0.middle.middle_grouping
+        EQUALS _.inner.inner_sign AS q1 RETURN (q0.id AS _0, q1.id AS _1) }
+    task_count: 257
+    task_total_time_ms: 13
+    transform_count: 88
+    transform_time_ms: 7
+    transform_yield_count: 20
+    insert_time_ms: 1
+    insert_new_count: 28
+    insert_reused_count: 5
+-   query: EXPLAIN SELECT A.id, B.id FROM OuterRecord AS A, OuterRecord AS B WHERE
+        A.middle.middle_blah.blah = B."inner".inner_blah.blah_blah
+    explain: SCAN(<,>) | FLATMAP q0 -> { SCAN(<,>) | FILTER q0.middle.middle_blah.blah
+        EQUALS _.inner.inner_blah.blah_blah AS q1 RETURN (q0.id AS _0, q1.id AS _1)
+        }
+    task_count: 257
+    task_total_time_ms: 16
+    transform_count: 88
+    transform_time_ms: 9
+    transform_yield_count: 20
+    insert_time_ms: 1
+    insert_new_count: 28
+    insert_reused_count: 5

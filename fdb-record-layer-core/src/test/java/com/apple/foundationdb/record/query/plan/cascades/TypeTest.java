@@ -33,10 +33,8 @@ import com.apple.foundationdb.record.planprotos.PType;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
-import com.apple.foundationdb.record.util.ProtoUtils;
 import com.apple.foundationdb.record.util.RandomUtil;
 import com.apple.foundationdb.record.util.pair.Pair;
-import com.apple.test.BooleanSource;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
@@ -65,7 +63,6 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Random;
 import java.util.UUID;
@@ -215,7 +212,7 @@ class TypeTest {
         final TypeRepository typeRepository = builder.build();
         final Descriptors.FileDescriptor fileDescriptor = Descriptors.FileDescriptor.buildFrom(
                 DescriptorProtos.FileDescriptorProto.newBuilder()
-                        .addAllMessageType(typeRepository.getMessageTypes().stream().map(typeRepository::getMessageDescriptor).filter(Objects::nonNull).map(Descriptors.Descriptor::toProto).collect(Collectors.toUnmodifiableList()))
+                        .addAllMessageType(typeRepository.getMessageDescriptors().stream().map(Descriptors.Descriptor::toProto).collect(Collectors.toUnmodifiableList()))
                         .build(),
                 TypeRepository.DEPENDENCIES.toArray(new Descriptors.FileDescriptor[0]));
         final Descriptors.Descriptor messageDescriptor = fileDescriptor.findMessageTypeByName(typeName.get());
@@ -535,7 +532,7 @@ class TypeTest {
         final TypeRepository repository = typeBuilder.build();
 
         final String enumTypeName = repository.getProtoTypeName(enumType);
-        assertThat(repository.getEnumTypes())
+        assertThat(repository.getEnumTypeNames())
                 .containsExactly(enumTypeName);
         if (expectedStorageName == null) {
             assertThat(enumType.getName())
@@ -551,8 +548,7 @@ class TypeTest {
         }
         final Descriptors.EnumDescriptor enumDescriptor = repository.getEnumDescriptor(enumType);
         assertThat(enumDescriptor)
-                .isNotNull()
-                .isSameAs(repository.getEnumDescriptor(enumTypeName));
+                .isNotNull();
         assertThat(enumDescriptor.getName())
                 .isEqualTo(enumTypeName);
 
@@ -569,9 +565,64 @@ class TypeTest {
 
         assertThat(typeWithName1.getName())
                 .isNotEqualTo(typeWithName2.getName());
+        assertThat(typeWithName1.getStorageName())
+                .isNotEqualTo(typeWithName2.getStorageName());
         assertThat(typeWithName1)
                 .isEqualTo(typeWithName2)
                 .hasSameHashCodeAs(typeWithName2);
+
+        final Type.Enum reserialized1 = roundTrip(typeWithName1);
+        final Type.Enum reserialized2 = roundTrip(typeWithName2);
+
+        assertThat(reserialized1)
+                .isEqualTo(typeWithName1)
+                .isEqualTo(typeWithName2)
+                .isEqualTo(reserialized2)
+                .hasSameHashCodeAs(typeWithName1)
+                .hasSameHashCodeAs(typeWithName2)
+                .hasSameHashCodeAs(reserialized2);
+        assertThat(reserialized1.getName())
+                .isEqualTo(typeWithName1.getName());
+        assertThat(reserialized2.getName())
+                .isEqualTo(typeWithName2.getName());
+        assertThat(reserialized1.getStorageName())
+                .isEqualTo(typeWithName1.getStorageName());
+        assertThat(reserialized2.getStorageName())
+                .isEqualTo(typeWithName2.getStorageName());
+    }
+
+    @ParameterizedTest(name = "enumEqualsIgnoresName[{0}]")
+    @MethodSource("enumTypes")
+    void enumEqualsIgnoresStorageName(@Nonnull Type.Enum enumType) {
+        final Type.Enum typeWithName1 = enumType.withName("name__one", "name__one");
+        final Type.Enum typeWithName2 = enumType.withName("name__one", "name__0one");
+
+        assertThat(typeWithName1.getName())
+                .isEqualTo(typeWithName2.getName());
+        assertThat(typeWithName1.getStorageName())
+                .isNotEqualTo(typeWithName2.getStorageName());
+        assertThat(typeWithName1)
+                .isEqualTo(typeWithName2)
+                .hasSameHashCodeAs(typeWithName2);
+
+        final Type.Enum reserialized1 = roundTrip(typeWithName1);
+        final Type.Enum reserialized2 = roundTrip(typeWithName2);
+
+        assertThat(reserialized1)
+                .isEqualTo(typeWithName1)
+                .isEqualTo(typeWithName2)
+                .isEqualTo(reserialized2)
+                .hasSameHashCodeAs(typeWithName1)
+                .hasSameHashCodeAs(typeWithName2)
+                .hasSameHashCodeAs(reserialized2);
+        assertThat(reserialized1.getName())
+                .isEqualTo(typeWithName1.getName());
+        assertThat(reserialized2.getName())
+                .isEqualTo(typeWithName2.getName());
+        assertThat(reserialized1.getStorageName())
+                .isEqualTo(typeWithName1.getStorageName());
+        assertThat(reserialized2.getStorageName())
+                .isEqualTo(typeWithName2.getStorageName());
     }
 
     @Nonnull
@@ -600,7 +651,7 @@ class TypeTest {
         final TypeRepository repository = typeBuilder.build();
 
         final String recordTypeName = repository.getProtoTypeName(recordType);
-        assertThat(repository.getMessageTypes())
+        assertThat(repository.getMessageTypeNames())
                 .contains(recordTypeName);
         if (expectedStorageName == null) {
             assertThat(recordType.getName())
@@ -616,8 +667,7 @@ class TypeTest {
         }
         final Descriptors.Descriptor messageDescriptor = repository.getMessageDescriptor(recordType);
         assertThat(messageDescriptor)
-                .isNotNull()
-                .isSameAs(repository.getMessageDescriptor(recordTypeName));
+                .isNotNull();
         assertThat(messageDescriptor.getName())
                 .isEqualTo(recordTypeName);
 
@@ -669,6 +719,57 @@ class TypeTest {
         assertThat(typeWithName1)
                 .isEqualTo(typeWithName2)
                 .hasSameHashCodeAs(typeWithName2);
+
+        final Type.Record reserialized1 = roundTrip(typeWithName1);
+        final Type.Record reserialized2 = roundTrip(typeWithName2);
+        assertThat(reserialized1)
+                .isEqualTo(typeWithName1)
+                .isEqualTo(typeWithName2)
+                .isEqualTo(typeWithName2)
+                .hasSameHashCodeAs(typeWithName1)
+                .hasSameHashCodeAs(typeWithName2)
+                .hasSameHashCodeAs(reserialized2);
+        assertThat(reserialized1.getName())
+                .isEqualTo(typeWithName1.getName());
+        assertThat(reserialized2.getName())
+                .isEqualTo(typeWithName2.getName());
+        assertThat(reserialized1.getStorageName())
+                .isEqualTo(typeWithName1.getStorageName());
+        assertThat(reserialized2.getStorageName())
+                .isEqualTo(typeWithName2.getStorageName());
+    }
+
+    @ParameterizedTest(name = "recordEqualsIgnoresName[{0}]")
+    @MethodSource("recordTypes")
+    void recordEqualsIgnoresStorageName(@Nonnull Type.Record recordType) {
+        final Type.Record typeWithName1 = recordType.withName("name__one", "name__one");
+        final Type.Record typeWithName2 = recordType.withName("name__one");
+
+        assertThat(typeWithName1.getName())
+                .isEqualTo(typeWithName2.getName());
+        assertThat(typeWithName1.getStorageName())
+                .isNotEqualTo(typeWithName2.getStorageName());
+        assertThat(typeWithName1)
+                .isEqualTo(typeWithName2)
+                .hasSameHashCodeAs(typeWithName2);
+
+        final Type.Record reserialized1 = roundTrip(typeWithName1);
+        final Type.Record reserialized2 = roundTrip(typeWithName2);
+        assertThat(reserialized1)
+                .isEqualTo(typeWithName1)
+                .isEqualTo(typeWithName2)
+                .isEqualTo(typeWithName2)
+                .hasSameHashCodeAs(typeWithName1)
+                .hasSameHashCodeAs(typeWithName2)
+                .hasSameHashCodeAs(reserialized2);
+        assertThat(reserialized1.getName())
+                .isEqualTo(typeWithName1.getName());
+        assertThat(reserialized2.getName())
+                .isEqualTo(typeWithName2.getName());
+        assertThat(reserialized1.getStorageName())
+                .isEqualTo(typeWithName1.getStorageName());
+        assertThat(reserialized2.getStorageName())
+                .isEqualTo(typeWithName2.getStorageName());
     }
 
     @ParameterizedTest(name = "updateFieldNullability[{0}]")
@@ -741,21 +842,20 @@ class TypeTest {
     /**
      * Simple case of resolving fields from a protobuf descriptor. None of the field names require any messaging for escape sequences.
      */
-    @ParameterizedTest(name = "testSimpleFromDescriptor[preserveNames={0}]")
-    @BooleanSource
-    void testSimpleFromDescriptor(boolean preserveNames) {
+    @Test
+    void testSimpleFromDescriptor() {
         final Descriptors.Descriptor descriptor = TypeTestProto.Type1.getDescriptor();
-        final Type.Record type = preserveNames ? Type.Record.fromDescriptorPreservingName(descriptor) : Type.Record.fromDescriptor(descriptor);
+        final Type.Record type = Type.Record.fromDescriptor(descriptor);
 
         final Descriptors.Descriptor outerDescriptor = TypeTestProto.Type2.getDescriptor();
-        final Type.Record outerType = preserveNames ? Type.Record.fromDescriptorPreservingName(outerDescriptor) : Type.Record.fromDescriptor(outerDescriptor);
+        final Type.Record outerType = Type.Record.fromDescriptor(outerDescriptor);
 
         try (AutoCloseableSoftAssertions softly = new AutoCloseableSoftAssertions()) {
             assertContainsField(softly, type, "alpha", Type.primitiveType(Type.TypeCode.STRING, true), descriptor);
             assertContainsField(softly, type, "beta", Type.primitiveType(Type.TypeCode.LONG, false), descriptor);
             assertContainsField(softly, type, "uuid_field", Type.UUID_NULL_INSTANCE, descriptor);
-            assertTypeNames(softly, type, descriptor, preserveNames);
-            assertTypeNames(softly, roundTrip(type), descriptor, preserveNames);
+            assertTypeNames(softly, type, descriptor);
+            assertTypeNames(softly, roundTrip(type), descriptor);
 
             assertContainsField(softly, outerType, "alpha", type.nullable(), outerDescriptor);
             assertContainsField(softly, outerType, "beta", type.notNullable(), outerDescriptor);
@@ -766,8 +866,8 @@ class TypeTest {
             assertContainsField(softly, outerType, "epsilon", new Type.Array(false, type.notNullable()), outerDescriptor);
             assertContainsField(softly, outerType, "zeta", new Type.Array(true, enumType.notNullable()), outerDescriptor);
             assertContainsField(softly, outerType, "eta", new Type.Array(false, enumType.notNullable()), outerDescriptor);
-            assertTypeNames(softly, outerType, outerDescriptor, preserveNames);
-            assertTypeNames(softly, roundTrip(outerType), outerDescriptor, preserveNames);
+            assertTypeNames(softly, outerType, outerDescriptor);
+            assertTypeNames(softly, roundTrip(outerType), outerDescriptor);
         }
     }
 
@@ -776,21 +876,20 @@ class TypeTest {
      * are reversible, so it doesn't matter if the name is preserved from the protobuf file or re-calculated using
      * {@link com.apple.foundationdb.record.util.ProtoUtils#toProtoBufCompliantName(String)}.
      */
-    @ParameterizedTest(name = "testEscapesFromDescriptor[preserveNames={0}]")
-    @BooleanSource
-    void testEscapesFromDescriptor(boolean preserveNames) {
+    @Test
+    void testEscapesFromDescriptor() {
         final Descriptors.Descriptor descriptor = TypeTestProto.Type1__0Escaped.getDescriptor();
-        final Type.Record type = preserveNames ? Type.Record.fromDescriptorPreservingName(descriptor) : Type.Record.fromDescriptor(descriptor);
+        final Type.Record type = Type.Record.fromDescriptor(descriptor);
 
         final Descriptors.Descriptor outerDescriptor = TypeTestProto.Type2__0Escaped.getDescriptor();
-        final Type.Record outerType = preserveNames ? Type.Record.fromDescriptorPreservingName(outerDescriptor) : Type.Record.fromDescriptor(outerDescriptor);
+        final Type.Record outerType = Type.Record.fromDescriptor(outerDescriptor);
 
         try (AutoCloseableSoftAssertions softly = new AutoCloseableSoftAssertions()) {
             assertContainsField(softly, type, "alpha$", Type.primitiveType(Type.TypeCode.STRING, true), descriptor.findFieldByName("alpha__1"));
             assertContainsField(softly, type, "beta.", Type.primitiveType(Type.TypeCode.LONG, false), descriptor.findFieldByName("beta__2"));
             assertContainsField(softly, type, "uuid__field", Type.UUID_NULL_INSTANCE, descriptor.findFieldByName("uuid__0field"));
-            assertTypeNames(softly, type, descriptor, preserveNames);
-            assertTypeNames(softly, roundTrip(type), descriptor, preserveNames);
+            assertTypeNames(softly, type, descriptor);
+            assertTypeNames(softly, roundTrip(type), descriptor);
 
             assertContainsField(softly, outerType, "alpha$", type.nullable(), outerDescriptor.findFieldByName("alpha__1"));
             assertContainsField(softly, outerType, "beta.", type.notNullable(), outerDescriptor.findFieldByName("beta__2"));
@@ -801,8 +900,8 @@ class TypeTest {
             assertContainsField(softly, outerType, "epsilon.array", new Type.Array(false, type.notNullable()), outerDescriptor.findFieldByName("epsilon__2array"));
             assertContainsField(softly, outerType, "zeta.array", new Type.Array(true, enumType.notNullable()), outerDescriptor.findFieldByName("zeta__2array"));
             assertContainsField(softly, outerType, "eta.array", new Type.Array(false, enumType.notNullable()), outerDescriptor.findFieldByName("eta__2array"));
-            assertTypeNames(softly, outerType, outerDescriptor, preserveNames);
-            assertTypeNames(softly, roundTrip(outerType), outerDescriptor, preserveNames);
+            assertTypeNames(softly, outerType, outerDescriptor);
+            assertTypeNames(softly, roundTrip(outerType), outerDescriptor);
         }
     }
 
@@ -812,21 +911,20 @@ class TypeTest {
      * if we have an unescaped double-underscore in the field. To make sure the storage names that come back from, say,
      * placing the field in a type repository, we need to preserve the original field names.
      */
-    @ParameterizedTest(name = "testEscapesMalformedFromDescriptor[preserveNames={0}]")
-    @BooleanSource
-    void testEscapesMalformedFromDescriptor(boolean preserveNames) {
+    @Test
+    void testEscapesMalformedFromDescriptor() {
         final Descriptors.Descriptor descriptor = TypeTestProto.Type1__EscapingNotReversible.getDescriptor();
-        final Type.Record type = preserveNames ? Type.Record.fromDescriptorPreservingName(descriptor) : Type.Record.fromDescriptor(descriptor);
+        final Type.Record type = Type.Record.fromDescriptor(descriptor);
 
         final Descriptors.Descriptor outerDescriptor = TypeTestProto.Type2__EscapedNotReversible.getDescriptor();
-        final Type.Record outerType = preserveNames ? Type.Record.fromDescriptorPreservingName(outerDescriptor) : Type.Record.fromDescriptor(outerDescriptor);
+        final Type.Record outerType = Type.Record.fromDescriptor(outerDescriptor);
 
         try (AutoCloseableSoftAssertions softly = new AutoCloseableSoftAssertions()) {
             assertContainsField(softly, type, "alpha$__blah", Type.primitiveType(Type.TypeCode.STRING, true), descriptor.findFieldByName("alpha__1__blah"));
             assertContainsField(softly, type, "beta.__", Type.primitiveType(Type.TypeCode.LONG, false), descriptor.findFieldByName("beta__2__"));
             assertContainsField(softly, type, "uuid__$field", Type.UUID_NULL_INSTANCE, descriptor.findFieldByName("uuid____1field"));
-            assertTypeNames(softly, type, descriptor, preserveNames);
-            assertTypeNames(softly, roundTrip(type), descriptor, preserveNames);
+            assertTypeNames(softly, type, descriptor);
+            assertTypeNames(softly, roundTrip(type), descriptor);
 
             assertContainsField(softly, outerType, "alpha__blah", type.nullable(), outerDescriptor.findFieldByName("alpha__blah"));
             assertContainsField(softly, outerType, "beta.__", type.notNullable(), outerDescriptor.findFieldByName("beta__2__"));
@@ -835,8 +933,8 @@ class TypeTest {
             assertContainsField(softly, outerType, "gamma__", enumType, outerDescriptor.findFieldByName("gamma__"));
             assertContainsField(softly, outerType, "delta__array", new Type.Array(true, type.notNullable()), outerDescriptor.findFieldByName("delta__array"));
             assertContainsField(softly, outerType, "epsilon__array", new Type.Array(false, type.notNullable()), outerDescriptor.findFieldByName("epsilon__array"));
-            assertTypeNames(softly, outerType, outerDescriptor, preserveNames);
-            assertTypeNames(softly, roundTrip(outerType), outerDescriptor, preserveNames);
+            assertTypeNames(softly, outerType, outerDescriptor);
+            assertTypeNames(softly, roundTrip(outerType), outerDescriptor);
         }
     }
 
@@ -886,19 +984,12 @@ class TypeTest {
         }
     }
 
-    private static void assertTypeNames(@Nonnull SoftAssertions softly, @Nonnull Type.Record recordType, @Nonnull Descriptors.Descriptor descriptor, boolean preserveNames) {
-        if (preserveNames) {
-            softly.assertThat(recordType.getName())
-                    .isEqualTo(ProtoUtils.toUserIdentifier(descriptor.getName()));
-            softly.assertThat(recordType.getStorageName())
-                    .isEqualTo(descriptor.getName());
-        } else {
-            softly.assertThat(recordType.getName())
-                    .isNull();
-            softly.assertThat(recordType.getStorageName())
-                    .isNull();
+    private static void assertTypeNames(@Nonnull SoftAssertions softly, @Nonnull Type.Record recordType, @Nonnull Descriptors.Descriptor descriptor) {
+        softly.assertThat(recordType.getName())
+                .isNull();
+        softly.assertThat(recordType.getStorageName())
+                .isNull();
 
-        }
         for (Type.Record.Field field : recordType.getFields()) {
             Descriptors.FieldDescriptor fieldDescriptor = descriptor.findFieldByName(field.getFieldStorageName());
             softly.assertThat(fieldDescriptor)
@@ -927,35 +1018,20 @@ class TypeTest {
             // Look to make sure enum and record names are preserved (or not)
             if (fieldType instanceof Type.Enum) {
                 final Type.Enum fieldEnumType = (Type.Enum) fieldType;
-                if (preserveNames) {
-                    final Descriptors.EnumDescriptor fieldEnumDescriptor = fieldDescriptor.getEnumType();
-                    softly.assertThat(fieldEnumType.getName())
-                            .isEqualTo(ProtoUtils.toUserIdentifier(fieldEnumDescriptor.getName()));
-                    softly.assertThat(fieldEnumType.getStorageName())
-                            .isEqualTo(fieldEnumDescriptor.getName());
-                } else {
-                    softly.assertThat(fieldEnumType.getName())
-                            .isNull();
-                    softly.assertThat(fieldEnumType.getStorageName())
-                            .isNull();
-                }
+                softly.assertThat(fieldEnumType.getName())
+                        .isNull();
+                softly.assertThat(fieldEnumType.getStorageName())
+                        .isNull();
             } else if (fieldType instanceof Type.Record) {
                 final Type.Record fieldRecordType = (Type.Record) fieldType;
                 final Descriptors.Descriptor fieldTypeDescriptor = fieldDescriptor.getMessageType();
-                if (preserveNames) {
-                    softly.assertThat(fieldRecordType.getName())
-                            .isEqualTo(ProtoUtils.toUserIdentifier(fieldTypeDescriptor.getName()));
-                    softly.assertThat(fieldRecordType.getStorageName())
-                            .isEqualTo(fieldTypeDescriptor.getName());
-                } else {
-                    softly.assertThat(fieldRecordType.getName())
-                            .isNull();
-                    softly.assertThat(fieldRecordType.getStorageName())
-                            .isNull();
-                }
+                softly.assertThat(fieldRecordType.getName())
+                        .isNull();
+                softly.assertThat(fieldRecordType.getStorageName())
+                        .isNull();
 
                 // Recurse down
-                assertTypeNames(softly, fieldRecordType, fieldTypeDescriptor, preserveNames);
+                assertTypeNames(softly, fieldRecordType, fieldTypeDescriptor);
             }
         }
     }

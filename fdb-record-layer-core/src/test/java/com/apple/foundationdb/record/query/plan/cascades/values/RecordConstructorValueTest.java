@@ -71,16 +71,16 @@ public class RecordConstructorValueTest {
         final var typeRepoSrc = repo.build();
         final var typeRepoTarget = repo.build();
 
-        final var typeDescriptor = typeRepoSrc.getMessageDescriptor("simpleType");
+        final var typeDescriptor = typeRepoSrc.getMessageDescriptor(type);
         var messageBuilder = DynamicMessage.newBuilder(Objects.requireNonNull(typeDescriptor));
         var enumFieldSrc = typeDescriptor.findFieldByName("suit");
-        messageBuilder.setField(enumFieldSrc, Objects.requireNonNull(typeRepoSrc.getEnumValue("enumType", "SPADES")));
+        messageBuilder.setField(enumFieldSrc, Objects.requireNonNull(typeRepoSrc.getEnumValue(enumType, "SPADES")));
         var message = messageBuilder.build();
 
         var copiedMessage = RecordConstructorValue.deepCopyIfNeeded(typeRepoTarget, type, message);
         assertNotNull(copiedMessage);
         assertNotSame(message, copiedMessage);
-        var enumFieldTargetValue = ((Message)copiedMessage).getField(Objects.requireNonNull(typeRepoTarget.getMessageDescriptor("simpleType")).findFieldByName("suit"));
+        var enumFieldTargetValue = ((Message)copiedMessage).getField(Objects.requireNonNull(typeRepoTarget.getMessageDescriptor(type)).findFieldByName("suit"));
         assertThat(enumFieldTargetValue, instanceOf(Descriptors.EnumValueDescriptor.class));
         assertEquals(((Descriptors.EnumValueDescriptor) message.getField(enumFieldSrc)).getName(), ((Descriptors.EnumValueDescriptor) enumFieldTargetValue).getName());
         assertNotSame(message.getField(enumFieldSrc), enumFieldTargetValue);
@@ -95,7 +95,7 @@ public class RecordConstructorValueTest {
         final var typeRepoSrc = repo.build();
         final var typeRepoTarget = repo.build();
 
-        final var enumValueSrc = typeRepoSrc.getEnumValue("enumType", "SPADES");
+        final var enumValueSrc = typeRepoSrc.getEnumValue(enumType, "SPADES");
 
         final var copied = RecordConstructorValue.deepCopyIfNeeded(typeRepoTarget, enumType, enumValueSrc);
         assertTrue(copied instanceof Descriptors.EnumValueDescriptor);
@@ -115,17 +115,17 @@ public class RecordConstructorValueTest {
         final var typeRepoSrc = repo.build();
         final var typeRepoTarget = repo.build();
 
-        final var typeDescriptor = typeRepoSrc.getMessageDescriptor("simpleType");
+        final var typeDescriptor = typeRepoSrc.getMessageDescriptor(type);
         var messageBuilder = DynamicMessage.newBuilder(Objects.requireNonNull(typeDescriptor));
         var enumFieldSrc = typeDescriptor.findFieldByName("suits");
         for (int i = suits.length - 1; i >= 0; i--) {
-            messageBuilder.addRepeatedField(enumFieldSrc, Objects.requireNonNull(typeRepoSrc.getEnumValue("enumType", suits[i])));
+            messageBuilder.addRepeatedField(enumFieldSrc, Objects.requireNonNull(typeRepoSrc.getEnumValue(enumType, suits[i])));
         }
         var message = messageBuilder.build();
 
         var copiedMessage = RecordConstructorValue.deepCopyIfNeeded(typeRepoTarget, type, message);
         assertNotNull(copiedMessage);
-        var enumFieldTarget = Objects.requireNonNull(typeRepoTarget.getMessageDescriptor("simpleType")).findFieldByName("suits");
+        var enumFieldTarget = Objects.requireNonNull(typeRepoTarget.getMessageDescriptor(type)).findFieldByName("suits");
         for (int i = 0; i < 4; i++) {
             var enumFieldTargetValue = ((Message) copiedMessage).getRepeatedField(enumFieldTarget, i);
             assertTrue(enumFieldTargetValue instanceof Descriptors.EnumValueDescriptor);
@@ -146,7 +146,7 @@ public class RecordConstructorValueTest {
 
         final var list = new ArrayList<Descriptors.EnumValueDescriptor>();
         for (int i = suits.length - 1; i >= 0; i--) {
-            list.add(Objects.requireNonNull(typeRepoSrc.getEnumValue("enumType", suits[i])));
+            list.add(Objects.requireNonNull(typeRepoSrc.getEnumValue(enumType, suits[i])));
         }
 
         var copied = RecordConstructorValue.deepCopyIfNeeded(typeRepoTarget, arrayType, list);

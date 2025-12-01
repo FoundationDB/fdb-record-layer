@@ -39,6 +39,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryUpdatePlan;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
@@ -762,7 +763,7 @@ class MessageTransformationTest {
         Descriptors.Descriptor wrapperDescriptor = null;
         if (nullable) {
             final var typeRepository = TypeRepository.newBuilder().addTypeIfNeeded(targetType).build();
-            wrapperDescriptor = typeRepository.getMessageDescriptor((String) typeRepository.getMessageTypes().toArray()[0]);
+            wrapperDescriptor = Iterables.getOnlyElement(typeRepository.getMessageDescriptors());
             Assertions.assertTrue(NullableArrayTypeUtils.describesWrappedArray(wrapperDescriptor));
         }
         var msg = MessageHelpers.coerceArray(targetType, (Type.Array) strArrayValue.getResultType(),
@@ -803,8 +804,7 @@ class MessageTransformationTest {
                 .addTypeIfNeeded(records.get(0).getResultType()).build();
         Descriptors.Descriptor wrapperDescriptor = null;
         if (nullable) {
-            final var arrayWrappers = typeRepository.getMessageTypes().stream()
-                    .map(typeRepository::getMessageDescriptor)
+            final var arrayWrappers = typeRepository.getMessageDescriptors().stream()
                     .filter(NullableArrayTypeUtils::describesWrappedArray)
                     .collect(Collectors.toList());
             Assertions.assertEquals(1, arrayWrappers.size());
