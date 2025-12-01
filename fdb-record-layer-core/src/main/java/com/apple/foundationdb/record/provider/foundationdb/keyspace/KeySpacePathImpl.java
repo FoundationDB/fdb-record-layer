@@ -328,10 +328,15 @@ class KeySpacePathImpl implements KeySpacePath {
             // 1. To reduce conflicts
             // 2. So that it can immediately be cached without having to do it in a post-commit hook, which can make
             //    things complicated
-            // So if we just spun off a future for every data item, they would conflict like crazy, and retrying all
-            // of those conflicts would cause this future to take way longer than if we pipeline.
-            // This shouldn't make much of a difference in the general case because almost all the directory layer
-            // lookups should be from cache.
+            // It does use `HighContentionAllocator`, but it also reuses the read version from this context.
+            // In the general case, you would have many entries with the same path, and most would just be hitting the
+            // cache, but in more degenerate scenarios (like every path has one key), having a larger pipeline could
+            // cause conflicts, and retrying in the background. So it actually ends up being more efficient to only
+            // do one path-lookup at a time. It's possible that a pipelineSize of some small number greater than 1 could
+            // be more efficient in some of these scenarios, but they aren't really worth optimizing.
+            // Also, note that since directory layer allocations are done in a separate transaction, if allocating them
+            // takes too long, on a retry, any entries that succeeded will already be committed, and the retry should
+            // be much faster.
             final RecordCursor<Void> insertionWork = RecordCursor.fromIterator(context.getExecutor(), dataToImport.iterator())
                     .mapPipelined(dataItem ->
                             dataItem.getPath().toTupleAsync(context).thenAccept(itemPathTuple -> {

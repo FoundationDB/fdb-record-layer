@@ -421,6 +421,9 @@ class KeySpacePathImportDataTest {
     @BooleanSource({"manyPaths", "useDirectoryLayer"})
     void importALotOfData(boolean manyPaths, boolean useDirectoryLayer) {
         // Test importing a lot of data within a single path
+        // This is not intended to be a performance test, just make sure that there's no bugs that cause catastrophic
+        // performance degradation. So, if this starts getting transaction_too_old in an environment we care about,
+        // it's probably reasonable to decrease the number of KeyValues we insert.
         final String rootUuid = UUID.randomUUID().toString();
         KeySpace root = new KeySpace(
                 new KeySpaceDirectory("root", KeyType.STRING, rootUuid)
