@@ -332,7 +332,7 @@ class KeySpacePathImpl implements KeySpacePath {
             // of those conflicts would cause this future to take way longer than if we pipeline.
             // This shouldn't make much of a difference in the general case because almost all the directory layer
             // lookups should be from cache.
-            final RecordCursor<Void> insertionWork = RecordCursor.fromIterator(dataToImport.iterator())
+            final RecordCursor<Void> insertionWork = RecordCursor.fromIterator(context.getExecutor(), dataToImport.iterator())
                     .mapPipelined(dataItem ->
                             dataItem.getPath().toTupleAsync(context).thenAccept(itemPathTuple -> {
                                 // Validate that this data belongs under this path

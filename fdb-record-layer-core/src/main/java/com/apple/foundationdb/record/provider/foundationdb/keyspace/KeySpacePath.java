@@ -414,8 +414,8 @@ public interface KeySpacePath {
     /**
      * Imports the provided data exported via {@link #exportAllData} into this {@code KeySpacePath}.
      * <p>
-     * This will validate that any data provided in {@code dataToImport} has a path that should be in this path,
-     * or one of the sub-directories, if not, the future will complete exceptionally with
+     * This will validate that any data provided in {@code dataToImport} has a path that should be in this path
+     * or one of the sub-directories. If not, the future will complete exceptionally with a
      * {@link RecordCoreIllegalImportDataException}.
      * If there is any data already existing under this path, the new data will overwrite if the keys are the same.
      * This will use the logical values in the {@link DataInKeySpacePath#getPath()} and
