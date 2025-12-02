@@ -530,6 +530,7 @@ RabitQ is a quantization technique that reduces memory usage for high-dimensiona
     CREATE VECTOR INDEX idx_embedding USING HNSW ON products(embedding)
         PARTITION BY(category)
         OPTIONS (
+            USE_RABITQ = true,
             SAMPLE_VECTOR_STATS_PROBABILITY = 0.05
         )
 
