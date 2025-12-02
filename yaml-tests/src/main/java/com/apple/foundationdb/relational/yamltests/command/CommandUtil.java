@@ -129,12 +129,14 @@ public class CommandUtil {
             // Some dependencies may be included in the JSON descriptor itself and do not need to be
             // provided from the environment
             JsonArray includedDependencyDefinitions = obj.getAsJsonArray("dependencies");
-            for (JsonElement element : includedDependencyDefinitions) {
-                JsonObject definition = element.getAsJsonObject();
-                includedDependencies.add(definition.get("name").getAsString());
-                if (definition.has("dependency")) {
-                    definition.getAsJsonArray("dependency")
-                            .forEach(dep -> neededDependencies.add(dep.getAsString()));
+            if (includedDependencyDefinitions != null) {
+                for (JsonElement element : includedDependencyDefinitions) {
+                    JsonObject definition = element.getAsJsonObject();
+                    includedDependencies.add(definition.get("name").getAsString());
+                    if (definition.has("dependency")) {
+                        definition.getAsJsonArray("dependency")
+                                .forEach(dep -> neededDependencies.add(dep.getAsString()));
+                    }
                 }
             }
         } catch (IOException e) {
