@@ -392,6 +392,109 @@ class KeySpacePathSerializerTest {
         assertArrayEquals(value, deserializedData.getValue());
     }
 
+    @Test
+    void testSerializeDirectoryLayerDirectoryWithStringValue() {
+        // DirectoryLayerDirectory has KeyType.LONG but typically accepts String values
+        // The serializer uses KeyType.typeOf to determine the value is a String and serialize it as STRING
+        KeySpace root = new KeySpace(
+                new KeySpaceDirectory("app", KeyType.STRING, "myapp")
+                        .addSubdirectory(new DirectoryLayerDirectory("tenant")
+                                .addSubdirectory(new KeySpaceDirectory("data", KeyType.STRING))));
+
+        KeySpacePath rootPath = root.path("app");
+        // Use String value (the typical usage with DirectoryLayerDirectory)
+        KeySpacePath fullPath = rootPath.add("tenant", "my_tenant").add("data", "mydata");
+        byte[] value = new byte[]{1, 2, 3};
+
+        DataInKeySpacePath data = new DataInKeySpacePath(fullPath, null, value);
+        DataInKeySpacePath deserialized = serializeAndDeserialize(rootPath, data);
+
+        // Verify the String value was preserved
+        assertEquals("my_tenant", deserialized.getPath().getParent().getValue());
+        assertEquals("mydata", deserialized.getPath().getValue());
+        assertArrayEquals(value, deserialized.getValue());
+    }
+
+    @Test
+    void testSerializeDirectoryLayerDirectoryWithConstant() {
+        // Test DirectoryLayerDirectory with a constant String value
+        KeySpace root = new KeySpace(
+                new KeySpaceDirectory("app", KeyType.STRING, "myapp")
+                        .addSubdirectory(new DirectoryLayerDirectory("tenant", "my_tenant")
+                                .addSubdirectory(new KeySpaceDirectory("data", KeyType.STRING))));
+
+        KeySpacePath rootPath = root.path("app");
+        KeySpacePath fullPath = rootPath.add("tenant", "my_tenant").add("data", "mydata");
+        byte[] value = new byte[]{1, 2, 3};
+
+        DataInKeySpacePath data = new DataInKeySpacePath(fullPath, null, value);
+        DataInKeySpacePath deserialized = serializeAndDeserialize(rootPath, data);
+
+        // Verify the constant String value was preserved
+        assertEquals("my_tenant", deserialized.getPath().getParent().getValue());
+        assertEquals("mydata", deserialized.getPath().getValue());
+        assertArrayEquals(value, deserialized.getValue());
+    }
+
+    @Test
+    void testSerializeDirectoryLayerDirectoryMultiLevel() {
+        // Test multiple DirectoryLayerDirectory nodes in a path with String values
+        KeySpace root = new KeySpace(
+                new KeySpaceDirectory("root", KeyType.STRING, "r")
+                        .addSubdirectory(new DirectoryLayerDirectory("app")
+                                .addSubdirectory(new DirectoryLayerDirectory("tenant")
+                                        .addSubdirectory(new KeySpaceDirectory("record", KeyType.LONG)))));
+
+        KeySpacePath rootPath = root.path("root");
+        // Use String values for DirectoryLayerDirectory nodes
+        KeySpacePath fullPath = rootPath
+                .add("app", "my_app")
+                .add("tenant", "my_tenant")
+                .add("record", 12345L);
+        byte[] value = new byte[]{10, 20};
+
+        DataInKeySpacePath data = new DataInKeySpacePath(fullPath, null, value);
+        DataInKeySpacePath deserialized = serializeAndDeserialize(rootPath, data);
+
+        assertEquals("my_app", deserialized.getPath().getParent().getParent().getValue());
+        assertEquals("my_tenant", deserialized.getPath().getParent().getValue());
+        assertEquals(12345L, deserialized.getPath().getValue());
+        assertArrayEquals(value, deserialized.getValue());
+    }
+
+    @Test
+    void testDeserializeDirectoryLayerDirectoryToDifferentRoot() {
+        // Test that DirectoryLayerDirectory paths can be serialized from one root and deserialized to another
+        KeySpace keySpace = new KeySpace(
+                new KeySpaceDirectory("source_app", KeyType.STRING, "app1")
+                        .addSubdirectory(new DirectoryLayerDirectory("tenant")
+                                .addSubdirectory(new KeySpaceDirectory("record", KeyType.LONG))),
+                new KeySpaceDirectory("dest_app", KeyType.STRING, "app2")
+                        .addSubdirectory(new DirectoryLayerDirectory("tenant")
+                                .addSubdirectory(new KeySpaceDirectory("record", KeyType.LONG))));
+
+        // Create data in source hierarchy with String value for DirectoryLayerDirectory
+        KeySpacePath sourcePath = keySpace.path("source_app")
+                .add("tenant", "tenant1")
+                .add("record", 123L);
+        byte[] value = new byte[]{5, 6, 7};
+        DataInKeySpacePath sourceData = new DataInKeySpacePath(sourcePath, null, value);
+
+        // Serialize from source
+        KeySpacePathSerializer sourceSerializer = new KeySpacePathSerializer(keySpace.path("source_app"));
+        ByteString serialized = sourceSerializer.serialize(sourceData);
+
+        // Deserialize to destination
+        KeySpacePathSerializer destSerializer = new KeySpacePathSerializer(keySpace.path("dest_app"));
+        DataInKeySpacePath deserializedData = destSerializer.deserialize(serialized);
+
+        // Verify structure is preserved
+        assertEquals("dest_app", deserializedData.getPath().getParent().getParent().getDirectoryName());
+        assertEquals("tenant1", deserializedData.getPath().getParent().getValue());
+        assertEquals(123L, deserializedData.getPath().getValue());
+        assertArrayEquals(value, deserializedData.getValue());
+    }
+
     @Nonnull
     private static DataInKeySpacePath serializeAndDeserialize(final KeySpacePath rootPath, final DataInKeySpacePath data) {
         final KeySpacePathSerializer serializer = new KeySpacePathSerializer(rootPath);

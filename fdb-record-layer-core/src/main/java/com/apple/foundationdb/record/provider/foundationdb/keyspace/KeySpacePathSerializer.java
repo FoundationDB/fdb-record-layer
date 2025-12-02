@@ -159,22 +159,11 @@ public class KeySpacePathSerializer {
     @Nonnull
     private static KeySpaceProto.KeySpacePathEntry serialize(@Nonnull final KeySpacePath keySpacePath) {
         final Object value = keySpacePath.getValue();
-        final KeySpaceDirectory.KeyType keyType = keySpacePath.getDirectory().getKeyType();
-
-        // Validate null handling: NULL type must have null value, all other types must not have null value
-        if (keyType == KeySpaceDirectory.KeyType.NULL) {
-            if (value != null) {
-                throw new RecordCoreArgumentException("NULL key type must have null value")
-                        .addLogInfo(LogMessageKeys.DIR_NAME, keySpacePath.getDirectoryName(),
-                                LogMessageKeys.ACTUAL, value);
-            }
-        } else {
-            if (value == null) {
-                throw new RecordCoreArgumentException("Non-NULL key type cannot have null value")
-                        .addLogInfo(LogMessageKeys.DIR_NAME, keySpacePath.getDirectoryName(),
-                                LogMessageKeys.EXPECTED_TYPE, keyType);
-            }
-        }
+        // Use typeOf to get the actual runtime type of the value, rather than the directory's declared keyType.
+        // This is important for DirectoryLayerDirectory, which has keyType LONG but typically stores String values.
+        final KeySpaceDirectory.KeyType keyType = value == null
+                ? KeySpaceDirectory.KeyType.NULL
+                : KeySpaceDirectory.KeyType.typeOf(value);
 
         KeySpaceProto.KeySpacePathEntry.Builder builder = KeySpaceProto.KeySpacePathEntry.newBuilder()
                 .setName(keySpacePath.getDirectoryName());
