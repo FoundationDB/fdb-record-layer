@@ -2183,7 +2183,12 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
         @Nonnull
         public Record withName(@Nonnull final String name) {
-            return new Record(name, ProtoUtils.toProtoBufCompliantName(name), isNullable, fields);
+            return withNameAndStorageName(name, ProtoUtils.toProtoBufCompliantName(name));
+        }
+
+        @Nonnull
+        public Record withNameAndStorageName(@Nonnull final String name, @Nonnull final String storageName) {
+            return new Record(name, storageName, isNullable, fields);
         }
 
         @Nullable

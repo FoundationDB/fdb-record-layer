@@ -40,6 +40,7 @@ import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
+import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Descriptors;
 
 import javax.annotation.Nonnull;
@@ -47,7 +48,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -135,14 +135,29 @@ public class RecordMetadataDeserializer {
 
         // todo (yhatem) we rely on the record type for deserialization from ProtoBuf for now, later on
         //      we will avoid this step by having our own deserializers.
+        var recordLayerType = Type.Record.fromDescriptor(recordType.getDescriptor()).withNameAndStorageName(userName, storageName);
         // todo (yhatem) this is hacky and must be cleaned up. We need to understand the actually field types so we can take decisions
-        //      on higher level based on these types (wave3).
-        final var recordLayerType = Type.Record.fromDescriptorPreservingName(recordType.getDescriptor());
+        // on higher level based on these types (wave3).
+        if (recordLayerType.getFields().stream().anyMatch(f -> f.getFieldType().isRecord())) {
+            ImmutableList.Builder<Type.Record.Field> newFields = ImmutableList.builder();
+            for (int i = 0; i < recordLayerType.getFields().size(); i++) {
+                final var protoField = recordType.getDescriptor().getFields().get(i);
+                final var field = recordLayerType.getField(i);
+                final Type fieldtype = field.getFieldType();
+                if (fieldtype.isRecord()) {
+                    final String fieldProtoType = protoField.getMessageType().getName();
+                    Type.Record r = ((Type.Record)fieldtype).withNameAndStorageName(ProtoUtils.toProtoBufCompliantName(fieldProtoType), fieldProtoType);
+                    newFields.add(Type.Record.Field.of(r, field.getFieldNameOptional(), field.getFieldIndexOptional()));
+                } else {
+                    newFields.add(field);
+                }
+            }
+            recordLayerType = Type.Record.fromFields(recordLayerType.isNullable(), newFields.build()).withNameAndStorageName(userName, storageName);
+        }
         return RecordLayerTable.Builder
                 .from(recordLayerType)
-                .setName(userName)
                 .setPrimaryKey(recordType.getPrimaryKey())
-                .addIndexes(recordType.getIndexes().stream().map(index -> RecordLayerIndex.from(Objects.requireNonNull(recordLayerType.getName()), Objects.requireNonNull(recordLayerType.getStorageName()), index)).collect(Collectors.toSet()));
+                .addIndexes(recordType.getIndexes().stream().map(index -> RecordLayerIndex.from(userName, storageName, index)).collect(Collectors.toSet()));
     }
 
     @Nonnull
