@@ -210,7 +210,6 @@ class HNSWTest {
         final int numDimensions = 128;
         final HNSW hnsw = new HNSW(rtSubspace.getSubspace(), TestExecutors.defaultThreadPool(),
                 HNSW.newConfigBuilder()
-                        .setDeterministicSeeding(true)
                         .setMetric(metric)
                         .setUseInlining(useInlining)
                         .setExtendCandidates(extendCandidates)
@@ -314,7 +313,6 @@ class HNSWTest {
         final int numDimensions = 128;
         final HNSW hnsw = new HNSW(rtSubspace.getSubspace(), TestExecutors.defaultThreadPool(),
                 HNSW.newConfigBuilder()
-                        .setDeterministicSeeding(true)
                         .setMetric(metric)
                         .setUseRaBitQ(true)
                         .setRaBitQNumExBits(5)
@@ -436,7 +434,6 @@ class HNSWTest {
 
         final HNSW hnsw = new HNSW(rtSubspace.getSubspace(), TestExecutors.defaultThreadPool(),
                 HNSW.newConfigBuilder()
-                        .setDeterministicSeeding(false)
                         .setUseRaBitQ(true)
                         .setRaBitQNumExBits(5)
                         .setMetric(metric)

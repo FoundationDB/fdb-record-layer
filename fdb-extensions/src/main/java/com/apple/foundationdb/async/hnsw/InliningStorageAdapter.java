@@ -34,6 +34,7 @@ import com.apple.foundationdb.linear.Transformed;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
@@ -73,6 +74,14 @@ class InliningStorageAdapter extends AbstractStorageAdapter<NodeReferenceWithVec
                                   @Nonnull final OnWriteListener onWriteListener,
                                   @Nonnull final OnReadListener onReadListener) {
         super(config, nodeFactory, subspace, onWriteListener, onReadListener);
+    }
+
+    @Nonnull
+    @Override
+    public Transformed<RealVector> getVector(@Nonnull final NodeReferenceWithVector nodeReference,
+                                             @Nonnull final AbstractNode<NodeReferenceWithVector> node) {
+        Verify.verify(nodeReference.isNodeReferenceWithVector());
+        return nodeReference.asNodeReferenceWithVector().getVector();
     }
 
     /**

@@ -73,6 +73,12 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
         super(config, nodeFactory, subspace, onWriteListener, onReadListener);
     }
 
+    @Nonnull
+    @Override
+    public Transformed<RealVector> getVector(@Nonnull final NodeReference nodeReference, @Nonnull final AbstractNode<NodeReference> node) {
+        return node.asCompactNode().getVector();
+    }
+
     /**
      * Asynchronously fetches a node from the database for a given layer and primary key.
      * <p>

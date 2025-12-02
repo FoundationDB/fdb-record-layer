@@ -225,13 +225,6 @@ public class IndexOptions {
     public static final String RTREE_USE_NODE_SLOT_INDEX = "rtreeUseNodeSlotIndex";
 
     /**
-     * HNSW-only: The seeding method that is used to see the PRNG that is in turn used to probabilistically determine
-     * the highest layer of an insert into an HNSW structure. See {@link Config#isDeterministicSeeding()}. The default
-     * random seed is {@link Config#DEFAULT_DETERMINISTIC_SEEDING}.
-     */
-    public static final String HNSW_DETERMINISTIC_SEEDING = "hnswDeterministicSeeding";
-
-    /**
      * HNSW-only: The metric that is used to determine distances between vectors. The default metric is
      * {@link Config#DEFAULT_METRIC}. See {@link Config#getMetric()}.
      */

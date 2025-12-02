@@ -124,6 +124,9 @@ interface StorageAdapter<N extends NodeReference> {
     @Nonnull
     OnReadListener getOnReadListener();
 
+    @Nonnull
+    Transformed<RealVector> getVector(@Nonnull N nodeReference, @Nonnull AbstractNode<N> node);
+
     /**
      * Asynchronously fetches a node from a specific layer, identified by its primary key.
      * <p>

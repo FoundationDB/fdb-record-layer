@@ -32,7 +32,6 @@ import java.util.Objects;
  */
 @SuppressWarnings("checkstyle:MemberName")
 public final class Config {
-    public static final boolean DEFAULT_DETERMINISTIC_SEEDING = false;
     @Nonnull public static final Metric DEFAULT_METRIC = Metric.EUCLIDEAN_METRIC;
     public static final boolean DEFAULT_USE_INLINING = false;
     public static final int DEFAULT_M = 16;
@@ -53,7 +52,6 @@ public final class Config {
     public static final int DEFAULT_MAX_NUM_CONCURRENT_NODE_FETCHES = 16;
     public static final int DEFAULT_MAX_NUM_CONCURRENT_NEIGHBOR_FETCHES = 16;
 
-    private final boolean deterministicSeeding;
     @Nonnull
     private final Metric metric;
     private final int numDimensions;
@@ -72,12 +70,12 @@ public final class Config {
     private final int maxNumConcurrentNodeFetches;
     private final int maxNumConcurrentNeighborhoodFetches;
 
-    private Config(final boolean deterministicSeeding, @Nonnull final Metric metric, final int numDimensions,
-                   final boolean useInlining, final int m, final int mMax, final int mMax0,
-                   final int efConstruction, final boolean extendCandidates, final boolean keepPrunedConnections,
-                   final double sampleVectorStatsProbability, final double maintainStatsProbability,
-                   final int statsThreshold, final boolean useRaBitQ, final int raBitQNumExBits,
-                   final int maxNumConcurrentNodeFetches, final int maxNumConcurrentNeighborhoodFetches) {
+    private Config(@Nonnull final Metric metric, final int numDimensions, final boolean useInlining, final int m,
+                   final int mMax, final int mMax0, final int efConstruction, final boolean extendCandidates,
+                   final boolean keepPrunedConnections, final double sampleVectorStatsProbability,
+                   final double maintainStatsProbability, final int statsThreshold, final boolean useRaBitQ,
+                   final int raBitQNumExBits, final int maxNumConcurrentNodeFetches,
+                   final int maxNumConcurrentNeighborhoodFetches) {
         Preconditions.checkArgument(numDimensions >= 1, "numDimensions must be (1, MAX_INT]");
         Preconditions.checkArgument(m >= 4 && m <= 200, "m must be [4, 200]");
         Preconditions.checkArgument(mMax >= 4 && mMax <= 200, "mMax must be [4, 200]");
@@ -101,7 +99,6 @@ public final class Config {
                 maxNumConcurrentNeighborhoodFetches <= 64,
                 "maxNumConcurrentNeighborhoodFetches must be (0, 64]");
 
-        this.deterministicSeeding = deterministicSeeding;
         this.metric = metric;
         this.numDimensions = numDimensions;
         this.useInlining = useInlining;
@@ -118,15 +115,6 @@ public final class Config {
         this.raBitQNumExBits = raBitQNumExBits;
         this.maxNumConcurrentNodeFetches = maxNumConcurrentNodeFetches;
         this.maxNumConcurrentNeighborhoodFetches = maxNumConcurrentNeighborhoodFetches;
-    }
-
-    /**
-     * Indicator that if {@code true} causes the insert logic of the HNSW to be seeded using a hash of the primary key
-     * of the record that is inserted. That can be useful for testing. If {@code isDeterministicSeeding} is
-     * {@code false}, we use {@link System#nanoTime()} for seeding.
-     */
-    public boolean isDeterministicSeeding() {
-        return deterministicSeeding;
     }
 
     /**
@@ -297,7 +285,7 @@ public final class Config {
 
     @Nonnull
     public ConfigBuilder toBuilder() {
-        return new ConfigBuilder(isDeterministicSeeding(), getMetric(), isUseInlining(), getM(), getMMax(), getMMax0(),
+        return new ConfigBuilder(getMetric(), isUseInlining(), getM(), getMMax(), getMMax0(),
                 getEfConstruction(), isExtendCandidates(), isKeepPrunedConnections(),
                 getSampleVectorStatsProbability(), getMaintainStatsProbability(), getStatsThreshold(),
                 isUseRaBitQ(), getRaBitQNumExBits(), getMaxNumConcurrentNodeFetches(),
@@ -313,10 +301,9 @@ public final class Config {
             return false;
         }
         final Config config = (Config)o;
-        return deterministicSeeding == config.deterministicSeeding && numDimensions == config.numDimensions &&
-                useInlining == config.useInlining && m == config.m && mMax == config.mMax && mMax0 == config.mMax0 &&
-                efConstruction == config.efConstruction && extendCandidates == config.extendCandidates &&
-                keepPrunedConnections == config.keepPrunedConnections &&
+        return numDimensions == config.numDimensions && useInlining == config.useInlining && m == config.m &&
+                mMax == config.mMax && mMax0 == config.mMax0 && efConstruction == config.efConstruction &&
+                extendCandidates == config.extendCandidates && keepPrunedConnections == config.keepPrunedConnections &&
                 Double.compare(sampleVectorStatsProbability, config.sampleVectorStatsProbability) == 0 &&
                 Double.compare(maintainStatsProbability, config.maintainStatsProbability) == 0 &&
                 statsThreshold == config.statsThreshold && useRaBitQ == config.useRaBitQ &&
@@ -327,17 +314,17 @@ public final class Config {
 
     @Override
     public int hashCode() {
-        return Objects.hash(deterministicSeeding, metric, numDimensions, useInlining, m, mMax, mMax0, efConstruction,
-                extendCandidates, keepPrunedConnections, sampleVectorStatsProbability, maintainStatsProbability,
-                statsThreshold, useRaBitQ, raBitQNumExBits, maxNumConcurrentNodeFetches, maxNumConcurrentNeighborhoodFetches);
+        return Objects.hash(metric, numDimensions, useInlining, m, mMax, mMax0, efConstruction, extendCandidates,
+                keepPrunedConnections, sampleVectorStatsProbability, maintainStatsProbability, statsThreshold,
+                useRaBitQ, raBitQNumExBits, maxNumConcurrentNodeFetches, maxNumConcurrentNeighborhoodFetches);
     }
 
     @Override
     @Nonnull
     public String toString() {
-        return "Config[deterministicSeeding=" + isDeterministicSeeding() + ", metric=" + getMetric() +
-                ", numDimensions=" + getNumDimensions() + ", isUseInlining=" + isUseInlining() + ", M=" + getM() +
-                ", MMax=" + getMMax() + ", MMax0=" + getMMax0() + ", efConstruction=" + getEfConstruction() +
+        return "Config[" + ", metric=" + getMetric() + ", numDimensions=" + getNumDimensions() +
+                ", isUseInlining=" + isUseInlining() + ", M=" + getM() + ", MMax=" + getMMax() +
+                ", MMax0=" + getMMax0() + ", efConstruction=" + getEfConstruction() +
                 ", isExtendCandidates=" + isExtendCandidates() +
                 ", isKeepPrunedConnections=" + isKeepPrunedConnections() +
                 ", sampleVectorStatsProbability=" + getSampleVectorStatsProbability() +
@@ -356,7 +343,6 @@ public final class Config {
     @CanIgnoreReturnValue
     @SuppressWarnings("checkstyle:MemberName")
     public static class ConfigBuilder {
-        private boolean deterministicSeeding = DEFAULT_DETERMINISTIC_SEEDING;
         @Nonnull
         private Metric metric = DEFAULT_METRIC;
         private boolean useInlining = DEFAULT_USE_INLINING;
@@ -380,13 +366,12 @@ public final class Config {
         public ConfigBuilder() {
         }
 
-        public ConfigBuilder(final boolean deterministicSeeding, @Nonnull final Metric metric, final boolean useInlining,
-                             final int m, final int mMax, final int mMax0, final int efConstruction,
-                             final boolean extendCandidates, final boolean keepPrunedConnections,
-                             final double sampleVectorStatsProbability, final double maintainStatsProbability,
-                             final int statsThreshold, final boolean useRaBitQ, final int raBitQNumExBits,
-                             final int maxNumConcurrentNodeFetches, final int maxNumConcurrentNeighborhoodFetches) {
-            this.deterministicSeeding = deterministicSeeding;
+        public ConfigBuilder(@Nonnull final Metric metric, final boolean useInlining, final int m, final int mMax,
+                             final int mMax0, final int efConstruction, final boolean extendCandidates,
+                             final boolean keepPrunedConnections, final double sampleVectorStatsProbability,
+                             final double maintainStatsProbability, final int statsThreshold, final boolean useRaBitQ,
+                             final int raBitQNumExBits, final int maxNumConcurrentNodeFetches,
+                             final int maxNumConcurrentNeighborhoodFetches) {
             this.metric = metric;
             this.useInlining = useInlining;
             this.m = m;
@@ -402,16 +387,6 @@ public final class Config {
             this.raBitQNumExBits = raBitQNumExBits;
             this.maxNumConcurrentNodeFetches = maxNumConcurrentNodeFetches;
             this.maxNumConcurrentNeighborhoodFetches = maxNumConcurrentNeighborhoodFetches;
-        }
-
-        public boolean isDeterministicSeeding() {
-            return deterministicSeeding;
-        }
-
-        @Nonnull
-        public ConfigBuilder setDeterministicSeeding(final boolean deterministicSeeding) {
-            this.deterministicSeeding = deterministicSeeding;
-            return this;
         }
 
         @Nonnull
@@ -564,7 +539,7 @@ public final class Config {
         }
 
         public Config build(final int numDimensions) {
-            return new Config(isDeterministicSeeding(), getMetric(), numDimensions, isUseInlining(), getM(), getMMax(),
+            return new Config(getMetric(), numDimensions, isUseInlining(), getM(), getMMax(),
                     getMMax0(), getEfConstruction(), isExtendCandidates(), isKeepPrunedConnections(),
                     getSampleVectorStatsProbability(), getMaintainStatsProbability(), getStatsThreshold(),
                     isUseRaBitQ(), getRaBitQNumExBits(), getMaxNumConcurrentNodeFetches(),

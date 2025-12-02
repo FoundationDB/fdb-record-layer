@@ -33,9 +33,9 @@ import java.util.List;
  * pieces of information together.
  * @param <N> the type of {@link NodeReference} used within the {@link AbstractNode}
  */
-class NodeReferenceAndNode<N extends NodeReference> {
+class NodeReferenceAndNode<T extends NodeReferenceWithVector, N extends NodeReference> {
     @Nonnull
-    private final NodeReferenceWithDistance nodeReferenceWithDistance;
+    private final T nodeReferenceWithDistance;
     @Nonnull
     private final AbstractNode<N> node;
 
@@ -46,7 +46,7 @@ class NodeReferenceAndNode<N extends NodeReference> {
      *        {@code null}.
      * @param node the actual {@link AbstractNode} object that the reference points to. Must not be {@code null}.
      */
-    public NodeReferenceAndNode(@Nonnull final NodeReferenceWithDistance nodeReferenceWithDistance,
+    public NodeReferenceAndNode(@Nonnull final T nodeReferenceWithDistance,
                                 @Nonnull final AbstractNode<N> node) {
         this.nodeReferenceWithDistance = nodeReferenceWithDistance;
         this.node = node;
@@ -57,7 +57,7 @@ class NodeReferenceAndNode<N extends NodeReference> {
      * @return the non-null {@link NodeReferenceWithDistance} object.
      */
     @Nonnull
-    public NodeReferenceWithDistance getNodeReferenceWithDistance() {
+    public T getNodeReference() {
         return nodeReferenceWithDistance;
     }
 
@@ -77,10 +77,10 @@ class NodeReferenceAndNode<N extends NodeReference> {
      * @return a {@link List} of {@link NodeReferenceAndNode}s
      */
     @Nonnull
-    public static List<NodeReferenceWithDistance> getReferences(@Nonnull List<? extends NodeReferenceAndNode<?>> referencesAndNodes) {
-        final ImmutableList.Builder<NodeReferenceWithDistance> referencesBuilder = ImmutableList.builder();
-        for (final NodeReferenceAndNode<?> referenceWithNode : referencesAndNodes) {
-            referencesBuilder.add(referenceWithNode.getNodeReferenceWithDistance());
+    public static <T extends NodeReferenceWithVector> List<T> getReferences(@Nonnull List<? extends NodeReferenceAndNode<T, ?>> referencesAndNodes) {
+        final ImmutableList.Builder<T> referencesBuilder = ImmutableList.builder();
+        for (final NodeReferenceAndNode<T, ?> referenceWithNode : referencesAndNodes) {
+            referencesBuilder.add(referenceWithNode.getNodeReference());
         }
         return referencesBuilder.build();
     }

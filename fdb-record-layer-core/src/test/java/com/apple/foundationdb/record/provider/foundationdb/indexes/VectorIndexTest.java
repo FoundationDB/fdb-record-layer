@@ -304,7 +304,6 @@ class VectorIndexTest extends VectorIndexTestBase {
             validateIndexEvolution(metaDataValidator, index,
                     ImmutableMap.<String, String>builder()
                             // cannot change those per se but must accept same value
-                            .put(IndexOptions.HNSW_DETERMINISTIC_SEEDING, "false")
                             .put(IndexOptions.HNSW_METRIC, Metric.EUCLIDEAN_METRIC.name())
                             .put(IndexOptions.HNSW_NUM_DIMENSIONS, "128")
                             .put(IndexOptions.HNSW_USE_INLINING, "false")
@@ -323,10 +322,6 @@ class VectorIndexTest extends VectorIndexTestBase {
                             .put(IndexOptions.HNSW_STATS_THRESHOLD, "500")
                             .put(IndexOptions.HNSW_MAX_NUM_CONCURRENT_NODE_FETCHES, "17")
                             .put(IndexOptions.HNSW_MAX_NUM_CONCURRENT_NEIGHBORHOOD_FETCHES, "9").build());
-
-            Assertions.assertThatThrownBy(() -> validateIndexEvolution(metaDataValidator, index,
-                    ImmutableMap.of(IndexOptions.HNSW_NUM_DIMENSIONS, "128",
-                            IndexOptions.HNSW_DETERMINISTIC_SEEDING, "true"))).isInstanceOf(MetaDataException.class);
 
             Assertions.assertThatThrownBy(() -> validateIndexEvolution(metaDataValidator, index,
                     ImmutableMap.of(IndexOptions.HNSW_NUM_DIMENSIONS, "128",
