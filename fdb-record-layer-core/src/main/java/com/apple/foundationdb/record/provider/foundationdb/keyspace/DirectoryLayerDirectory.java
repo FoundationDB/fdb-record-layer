@@ -150,7 +150,7 @@ public class DirectoryLayerDirectory extends KeySpaceDirectory {
     }
 
     @Override
-    protected boolean isValueValid(@Nullable Object value) {
+    public boolean isValueValid(@Nullable Object value) {
         // DirectoryLayerDirectory accepts both String (logical names) and Long (directory layer values),
         // but we're making this method stricter, and I hope that using Long is only for a handful of tests,
         // despite comments saying that the resolved value should be allowed.

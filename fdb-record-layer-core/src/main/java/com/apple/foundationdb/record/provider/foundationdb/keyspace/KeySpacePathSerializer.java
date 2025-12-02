@@ -34,11 +34,11 @@ import java.util.UUID;
 /**
  * Class for serializing/deserializing between {@link DataInKeySpacePath} and {@link KeySpaceProto.DataInKeySpacePath}.
  * <p>
- *     This will serialize relative to a root path, such that the serialized form is relative to that path. This can be
- *     useful to both:
+ *     This will serialize relative to a root path, such that the serialized form is relative to that path.
  *     <ul>
- *         <li>Reduce the size of the serialized data, particularly when you have a lot of these.</li>
- *         <li>Allowing as an intermediate if you have two identical sub-hierarchies in your {@link KeySpace}.</li>
+ *         <li>This reduces the size of the serialized data, which is particularly important when you have a lot of these.</li>
+ *         <li>This allows the serialized form to be used as an intermediate if you have two identical sub-hierarchies
+ *         in your {@link KeySpace}.</li>
  *     </ul>
  * </p>
  *
@@ -49,10 +49,20 @@ public class KeySpacePathSerializer {
     @Nonnull
     private final List<KeySpacePath> root;
 
+    /**
+     * Constructor a new serializer for serializing relative to a given root path.
+     * @param root a path which is a parent path of all the data you want to serialize
+     */
     public KeySpacePathSerializer(@Nonnull final KeySpacePath root) {
         this.root = root.flatten();
     }
 
+    /**
+     * Serialize the given data relative to the root.
+     * @param data a piece of data that is contained within the root
+     * @return the data serialized relative to the root
+     * @throws RecordCoreArgumentException if the given data is not contained within the root
+     */
     @Nonnull
     public ByteString serialize(@Nonnull DataInKeySpacePath data) {
         final List<KeySpacePath> dataPath = data.getPath().flatten();
@@ -73,6 +83,16 @@ public class KeySpacePathSerializer {
         return builder.build().toByteString();
     }
 
+    /**
+     * Deserialize data relative to the root.
+     * <p>
+     *     Note: The given data does not need to have come from the same path, but all sub-paths must be valid.
+     * </p>
+     * @param bytes a serialized form of {@link DataInKeySpacePath} as provided by {@link #serialize(DataInKeySpacePath)}
+     * @return the deserialized data
+     * @throws RecordCoreArgumentException if the bytes cannot be parsed, or one of the path entries is not valid
+     * @throws NoSuchDirectoryException if it refers to a directory that doesn't exist within the root
+     */
     @Nonnull
     public DataInKeySpacePath deserialize(@Nonnull ByteString bytes) {
         try {

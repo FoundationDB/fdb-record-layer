@@ -43,8 +43,10 @@ message KeySpacePathEntry {
   optional bool booleanValue = 8;
   optional UUID uuid = 9;
 
-  message UUID { // TODO find out why we use fixed64 and not just int64
+  message UUID {
     // 2 64-bit fields is two tags, the same as 1 bytes field with a length of 16 would be.
+    // Using int64 would use more space for a lot of numbers since the uuid is random, it could use up to 10 bytes
+    // instead of the fixed 8 bytes (plus the tag).
     // fixed64 would be closer to how these are really used, but would fail the unsigned validator.
     optional sfixed64 most_significant_bits = 1;
     optional sfixed64 least_significant_bits = 2;

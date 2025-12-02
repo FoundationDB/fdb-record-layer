@@ -178,10 +178,17 @@ public class KeySpaceDirectory {
 
     /**
      * Validate that the given value can be used with this directory.
+     * <p>
+     *     Ideally this would be called as part of {@link KeySpacePath#add(String, Object)} to ensure the provided value
+     *     is valid, but that code has existed for a long time, so it's possible clients are adding without respecting
+     *     the type. You should call this before calling add to make sure you don't have the same mistakes. At some point
+     *     this will be embedded in {@code add} once there's some confidence that it won't break anyone's environments.
+     * </p>
      * @param value a potential value
      * @throws RecordCoreArgumentException if the value is not valid
      */
-    protected void validateValue(@Nullable Object value) {
+    @API(API.Status.EXPERIMENTAL)
+    public void validateValue(@Nullable Object value) {
         // Validate that the value is valid for this directory
         if (!isValueValid(value)) {
             throw new RecordCoreArgumentException("Value does not match directory requirements")
@@ -195,13 +202,14 @@ public class KeySpaceDirectory {
 
     /**
      * Checks if the provided value is valid for this directory. This method can be overridden by subclasses
-     * to provide custom validation logic. For example, {@link DirectoryLayerDirectory} accepts both String
-     * (logical names) and Long (directory layer values) even though its key type is LONG.
+     * to provide custom validation logic. For example, {@link DirectoryLayerDirectory} accepts String
+     * values (logical names) even though its key type is LONG.
      *
      * @param value the value to validate
      * @return {@code true} if the value is valid for this directory
      */
-    protected boolean isValueValid(@Nullable Object value) {
+    @API(API.Status.EXPERIMENTAL)
+    public boolean isValueValid(@Nullable Object value) {
         // Check if value matches the key type
         if (!keyType.isMatch(value)) {
             return false;

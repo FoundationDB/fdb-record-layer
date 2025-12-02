@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.provider.foundationdb.keyspace;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory.KeyType;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.test.ParameterizedTestUtils;
 import com.google.protobuf.ByteString;
 import org.junit.jupiter.api.Named;
 import org.junit.jupiter.api.Test;
@@ -30,6 +31,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Arrays;
 import java.util.Collections;
@@ -68,6 +70,14 @@ class KeySpacePathSerializerTest {
     }
 
     @Test
+    void testKeyTypeTestValuesIncludesAllKeyTypes() {
+        // Verify that KEY_TYPE_TEST_VALUES contains all KeyType enum values
+        var allKeyTypes = Arrays.stream(KeyType.values()).collect(Collectors.toSet());
+        var coveredKeyTypes = KEY_TYPE_TEST_VALUES.keySet();
+        assertEquals(allKeyTypes, coveredKeyTypes);
+    }
+
+    @Test
     void testSerializeAndDeserializeSimplePath() {
         KeySpace root = new KeySpace(
                 new KeySpaceDirectory("app", KeyType.STRING, "myapp")
@@ -78,11 +88,7 @@ class KeySpacePathSerializerTest {
         byte[] value = new byte[]{1, 2, 3, 4};
 
         DataInKeySpacePath data = new DataInKeySpacePath(fullPath, null, value);
-
-        KeySpacePathSerializer serializer = new KeySpacePathSerializer(rootPath);
-        ByteString serialized = serializer.serialize(data);
-
-        DataInKeySpacePath deserialized = serializer.deserialize(serialized);
+        DataInKeySpacePath deserialized = serializeAndDeserialize(rootPath, data);
 
         assertEquals(fullPath.getDirectoryName(), deserialized.getPath().getDirectoryName());
         assertEquals("tenant1", deserialized.getPath().getValue());
@@ -102,11 +108,7 @@ class KeySpacePathSerializerTest {
         byte[] value = new byte[]{10, 20, 30};
 
         DataInKeySpacePath data = new DataInKeySpacePath(fullPath, remainder, value);
-
-        KeySpacePathSerializer serializer = new KeySpacePathSerializer(rootPath);
-        ByteString serialized = serializer.serialize(data);
-
-        DataInKeySpacePath deserialized = serializer.deserialize(serialized);
+        DataInKeySpacePath deserialized = serializeAndDeserialize(rootPath, data);
 
         assertEquals("store1", deserialized.getPath().getValue());
         assertNotNull(deserialized.getRemainder());
@@ -130,46 +132,35 @@ class KeySpacePathSerializerTest {
         byte[] value = new byte[]{100};
 
         DataInKeySpacePath data = new DataInKeySpacePath(fullPath, null, value);
-
-        KeySpacePathSerializer serializer = new KeySpacePathSerializer(rootPath);
-        ByteString serialized = serializer.serialize(data);
-
-        DataInKeySpacePath deserialized = serializer.deserialize(serialized);
+        DataInKeySpacePath deserialized = serializeAndDeserialize(rootPath, data);
 
         assertEquals("l3value", deserialized.getPath().getValue());
         assertArrayEquals(value, deserialized.getValue());
     }
 
-    @Test
-    void testKeyTypeTestValuesIncludesAllKeyTypes() {
-        // Verify that KEY_TYPE_TEST_VALUES contains all KeyType enum values
-        var allKeyTypes = Arrays.stream(KeyType.values()).collect(Collectors.toSet());
-        var coveredKeyTypes = KEY_TYPE_TEST_VALUES.keySet();
-        assertEquals(allKeyTypes, coveredKeyTypes);
-    }
-
     static Stream<Arguments> testSerializeDeserializeAllKeyTypes() {
-        return KEY_TYPE_TEST_VALUES.entrySet().stream()
-                .map(entry -> Arguments.of(entry.getKey(), entry.getValue()));
+        return ParameterizedTestUtils.cartesianProduct(
+                KEY_TYPE_TEST_VALUES.entrySet().stream(),
+                ParameterizedTestUtils.booleans("isConstant"));
     }
 
     @ParameterizedTest
     @MethodSource
-    void testSerializeDeserializeAllKeyTypes(KeyType keyType, Object value) {
+    void testSerializeDeserializeAllKeyTypes(Map.Entry<KeyType, Object> typeAndValue, boolean isConstant) {
+        final KeyType keyType = typeAndValue.getKey();
+        final Object value = typeAndValue.getValue();
         KeySpace root = new KeySpace(
                 new KeySpaceDirectory("root", KeyType.STRING, "root")
-                        .addSubdirectory(new KeySpaceDirectory("typed", keyType)));
+                        .addSubdirectory(isConstant ?
+                                         new KeySpaceDirectory("typed", keyType, value) :
+                                         new KeySpaceDirectory("typed", keyType)));
 
         KeySpacePath rootPath = root.path("root");
         KeySpacePath fullPath = rootPath.add("typed", value);
         byte[] dataValue = new byte[]{1};
 
         DataInKeySpacePath data = new DataInKeySpacePath(fullPath, null, dataValue);
-
-        KeySpacePathSerializer serializer = new KeySpacePathSerializer(rootPath);
-        ByteString serialized = serializer.serialize(data);
-
-        DataInKeySpacePath deserialized = serializer.deserialize(serialized);
+        final DataInKeySpacePath deserialized = serializeAndDeserialize(rootPath, data);
 
         if (value instanceof byte[]) {
             assertArrayEquals((byte[]) value, (byte[]) deserialized.getPath().getValue());
@@ -191,11 +182,7 @@ class KeySpacePathSerializerTest {
         byte[] value = new byte[]{1};
 
         DataInKeySpacePath data = new DataInKeySpacePath(fullPath, null, value);
-
-        KeySpacePathSerializer serializer = new KeySpacePathSerializer(rootPath);
-        ByteString serialized = serializer.serialize(data);
-
-        DataInKeySpacePath deserialized = serializer.deserialize(serialized);
+        final DataInKeySpacePath deserialized = serializeAndDeserialize(rootPath, data);
 
         // Should deserialize as Long
         assertEquals(42L, deserialized.getPath().getValue());
@@ -210,11 +197,7 @@ class KeySpacePathSerializerTest {
         byte[] value = new byte[]{5, 6, 7};
 
         DataInKeySpacePath data = new DataInKeySpacePath(rootPath, null, value);
-
-        KeySpacePathSerializer serializer = new KeySpacePathSerializer(rootPath);
-        ByteString serialized = serializer.serialize(data);
-
-        DataInKeySpacePath deserialized = serializer.deserialize(serialized);
+        final DataInKeySpacePath deserialized = serializeAndDeserialize(rootPath, data);
 
         assertEquals("rootval", deserialized.getPath().getValue());
         assertArrayEquals(value, deserialized.getValue());
@@ -235,9 +218,7 @@ class KeySpacePathSerializerTest {
         byte[] value = new byte[]{1};
 
         DataInKeySpacePath data = new DataInKeySpacePath(otherPath, null, value);
-
         KeySpacePathSerializer serializer = new KeySpacePathSerializer(rootPath);
-
         assertThrows(RecordCoreArgumentException.class, () -> serializer.serialize(data));
     }
 
@@ -250,11 +231,7 @@ class KeySpacePathSerializerTest {
         byte[] value = new byte[]{};
 
         DataInKeySpacePath data = new DataInKeySpacePath(rootPath, null, value);
-
-        KeySpacePathSerializer serializer = new KeySpacePathSerializer(rootPath);
-        ByteString serialized = serializer.serialize(data);
-
-        DataInKeySpacePath deserialized = serializer.deserialize(serialized);
+        final DataInKeySpacePath deserialized = serializeAndDeserialize(rootPath, data);
 
         assertArrayEquals(value, deserialized.getValue());
         assertEquals(0, deserialized.getValue().length);
@@ -284,11 +261,7 @@ class KeySpacePathSerializerTest {
         byte[] value = new byte[]{9, 8, 7};
 
         DataInKeySpacePath data = new DataInKeySpacePath(rootPath, remainder, value);
-
-        KeySpacePathSerializer serializer = new KeySpacePathSerializer(rootPath);
-        ByteString serialized = serializer.serialize(data);
-
-        DataInKeySpacePath deserialized = serializer.deserialize(serialized);
+        final DataInKeySpacePath deserialized = serializeAndDeserialize(rootPath, data);
 
         assertEquals(remainder, deserialized.getRemainder());
         assertArrayEquals(value, deserialized.getValue());
@@ -305,11 +278,7 @@ class KeySpacePathSerializerTest {
         byte[] value = new byte[]{1};
 
         DataInKeySpacePath data = new DataInKeySpacePath(fullPath, null, value);
-
-        KeySpacePathSerializer serializer = new KeySpacePathSerializer(rootPath);
-        ByteString serialized = serializer.serialize(data);
-
-        DataInKeySpacePath deserialized = serializer.deserialize(serialized);
+        final DataInKeySpacePath deserialized = serializeAndDeserialize(rootPath, data);
 
         assertNull(deserialized.getPath().getValue());
     }
@@ -318,6 +287,13 @@ class KeySpacePathSerializerTest {
         return Stream.of(
                 Arguments.of(Named.of("Same", new KeySpaceDirectory("tenant", KeyType.STRING)
                         .addSubdirectory(new KeySpaceDirectory("record", KeyType.LONG))),
+                        Named.of("successful", null)),
+                Arguments.of(Named.of("Extra subdirectories in destination",
+                                new KeySpaceDirectory("tenant", KeyType.STRING)
+                                        .addSubdirectory(new KeySpaceDirectory("users", KeyType.STRING))
+                                        .addSubdirectory(new KeySpaceDirectory("groups", KeyType.BYTES))
+                                        .addSubdirectory(new KeySpaceDirectory("record", KeyType.LONG))
+                                        .addSubdirectory(new KeySpaceDirectory("settings", KeyType.BOOLEAN))),
                         Named.of("successful", null)),
                 Arguments.of(Named.of("Different constant",
                         new KeySpaceDirectory("tenant", KeyType.STRING)
@@ -334,6 +310,9 @@ class KeySpacePathSerializerTest {
                 Arguments.of(Named.of("Different name",
                                 new KeySpaceDirectory("tenant", KeyType.STRING)
                                         .addSubdirectory(new KeySpaceDirectory("compact disc", KeyType.STRING))),
+                        NoSuchDirectoryException.class),
+                Arguments.of(Named.of("Missing subdirectory",
+                        new KeySpaceDirectory("tenant", KeyType.STRING)),
                         NoSuchDirectoryException.class));
     }
 
@@ -360,78 +339,18 @@ class KeySpacePathSerializerTest {
         ByteString serialized1 = sourceSerializer.serialize(sourceData);
 
         // Deserialize to destination
-        KeySpacePathSerializer destSerializer1 = new KeySpacePathSerializer(keySpace.path("dest_app"));
+        KeySpacePathSerializer destSerializer = new KeySpacePathSerializer(keySpace.path("dest_app"));
 
         if (errorType == null) {
-            DataInKeySpacePath deserializedData = destSerializer1.deserialize(serialized1);
+            DataInKeySpacePath deserializedData = destSerializer.deserialize(serialized1);
 
             assertEquals("dest_app", deserializedData.getPath().getParent().getParent().getDirectoryName());
             assertEquals("tenant1", deserializedData.getPath().getParent().getValue());
             assertEquals(42L, deserializedData.getPath().getValue());
             assertArrayEquals(new byte[] {10, 20, 30}, deserializedData.getValue());
         } else {
-            assertThrows(errorType, () -> destSerializer1.deserialize(serialized1));
+            assertThrows(errorType, () -> destSerializer.deserialize(serialized1));
         }
-    }
-
-    @Test
-    void testDeserializeIncompatiblePath() {
-        // Create a KeySpace with two roots having incompatible structures
-        KeySpace keySpace = new KeySpace(
-                new KeySpaceDirectory("source", KeyType.STRING, "src")
-                        .addSubdirectory(new KeySpaceDirectory("level1", KeyType.STRING)
-                                .addSubdirectory(new KeySpaceDirectory("level2", KeyType.LONG))),
-                new KeySpaceDirectory("dest", KeyType.STRING, "dst")
-                        .addSubdirectory(new KeySpaceDirectory("level1", KeyType.STRING)));
-
-        // Create data in source
-        KeySpacePath sourcePath = keySpace.path("source")
-                .add("level1", "value1")
-                .add("level2", 100L);
-        byte[] value = new byte[]{1, 2};
-        DataInKeySpacePath sourceData = new DataInKeySpacePath(sourcePath, null, value);
-
-        // Serialize from source
-        KeySpacePathSerializer sourceSerializer = new KeySpacePathSerializer(keySpace.path("source"));
-        ByteString serialized = sourceSerializer.serialize(sourceData);
-
-        // Try to deserialize to incompatible destination - should fail
-        KeySpacePathSerializer destSerializer = new KeySpacePathSerializer(keySpace.path("dest"));
-        assertThrows(NoSuchDirectoryException.class, () -> destSerializer.deserialize(serialized));
-    }
-
-    @Test
-    void testDeserializeWithExtraSubdirectoriesInDestination() {
-        // Create a KeySpace with two roots where destination has extra subdirectories
-        KeySpace keySpace = new KeySpace(
-                new KeySpaceDirectory("source", KeyType.STRING, "src")
-                        .addSubdirectory(new KeySpaceDirectory("data", KeyType.STRING)
-                                .addSubdirectory(new KeySpaceDirectory("users", KeyType.STRING))),
-                new KeySpaceDirectory("dest", KeyType.STRING, "dst")
-                        .addSubdirectory(new KeySpaceDirectory("data", KeyType.STRING)
-                                .addSubdirectory(new KeySpaceDirectory("users", KeyType.STRING))
-                                .addSubdirectory(new KeySpaceDirectory("groups", KeyType.LONG))
-                                .addSubdirectory(new KeySpaceDirectory("settings", KeyType.BOOLEAN))));
-
-        // Create data using only the "data/users" path
-        KeySpacePath sourcePath = keySpace.path("source").add("data", "records").add("users", "user123");
-        byte[] value = new byte[]{5, 6, 7, 8};
-        DataInKeySpacePath sourceData = new DataInKeySpacePath(sourcePath, null, value);
-
-        // Serialize from source
-        KeySpacePathSerializer sourceSerializer = new KeySpacePathSerializer(keySpace.path("source"));
-        ByteString serialized = sourceSerializer.serialize(sourceData);
-
-        // Deserialize to destination with extra directories - should succeed
-        // The extra directories (groups, settings) are not part of the data path, so deserialization should work
-        KeySpacePathSerializer destSerializer = new KeySpacePathSerializer(keySpace.path("dest"));
-        DataInKeySpacePath deserializedData = destSerializer.deserialize(serialized);
-
-        // Verify data is correctly deserialized
-        assertEquals("user123", deserializedData.getPath().getValue());
-        assertEquals("users", deserializedData.getPath().getDirectoryName());
-        assertEquals("records", deserializedData.getPath().getParent().getValue());
-        assertArrayEquals(value, deserializedData.getValue());
     }
 
     @Test
@@ -471,5 +390,11 @@ class KeySpacePathSerializerTest {
         assertEquals("users", deserializedData.getPath().getValue());
         assertEquals(remainder, deserializedData.getRemainder());
         assertArrayEquals(value, deserializedData.getValue());
+    }
+
+    @Nonnull
+    private static DataInKeySpacePath serializeAndDeserialize(final KeySpacePath rootPath, final DataInKeySpacePath data) {
+        final KeySpacePathSerializer serializer = new KeySpacePathSerializer(rootPath);
+        return serializer.deserialize(serializer.serialize(data));
     }
 }

@@ -436,7 +436,7 @@ public class KeySpaceDirectoryTest {
         }
     }
 
-    public KeyTypeValue pickDifferentType(KeyType keyType) {
+    private KeyTypeValue pickDifferentType(KeyType keyType) {
         while (true) {
             KeyTypeValue kv = valueOfEveryType.get(random.nextInt(valueOfEveryType.size()));
             if (kv.keyType != keyType) {
@@ -1757,7 +1757,7 @@ public class KeySpaceDirectoryTest {
         }
 
         @Override
-        protected boolean isValueValid(@Nullable Object value) {
+        public boolean isValueValid(@Nullable Object value) {
             // ConstantResolvingKeySpaceDirectory accepts any value and transforms it via the resolver
             // The resolved value must match the expected key type
             return true;
