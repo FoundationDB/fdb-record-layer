@@ -207,7 +207,8 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
         }
 
         if (fieldType instanceof Type.Enum) {
-            return typeRepository.getEnumValue((Type.Enum) fieldType, ((Descriptors.EnumValueDescriptor)field).getName());
+            final var typeName = typeRepository.getProtoTypeName(fieldType);
+            return typeRepository.getEnumValue(typeName, ((Descriptors.EnumValueDescriptor)field).getName());
         }
 
         //TODO if we encounter an AnyRecord we cannot ever correctly deal with this

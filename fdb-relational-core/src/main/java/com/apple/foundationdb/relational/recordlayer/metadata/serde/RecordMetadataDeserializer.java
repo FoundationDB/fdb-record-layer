@@ -97,8 +97,7 @@ public class RecordMetadataDeserializer {
                     break;
                 case ENUM:
                     // todo (yhatem) this is temporary, we rely on rec layer type system to deserialize protobuf descriptors.
-                    final var recordLayerType = Type.Enum.fromDescriptor(false, registeredType.getEnumType())
-                                    .withName(ProtoUtils.toUserIdentifier(registeredType.getEnumType().getName()), registeredType.getEnumType().getName());
+                    final var recordLayerType = Type.Enum.fromDescriptorPreservingNames(false, registeredType.getEnumType());
                     schemaTemplateBuilder.addAuxiliaryType((DataType.Named) DataTypeUtils.toRelationalType(recordLayerType));
                     break;
                 default:
@@ -136,7 +135,9 @@ public class RecordMetadataDeserializer {
 
         // todo (yhatem) we rely on the record type for deserialization from ProtoBuf for now, later on
         //      we will avoid this step by having our own deserializers.
-        final var recordLayerType = Type.Record.fromDescriptor(recordType.getDescriptor()).withName(userName, storageName);
+        // todo (yhatem) this is hacky and must be cleaned up. We need to understand the actually field types so we can take decisions
+        //      on higher level based on these types (wave3).
+        final var recordLayerType = Type.Record.fromDescriptorPreservingName(recordType.getDescriptor());
         return RecordLayerTable.Builder
                 .from(recordLayerType)
                 .setName(userName)

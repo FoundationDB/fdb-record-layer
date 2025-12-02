@@ -120,19 +120,21 @@ public class FileDescriptorSerializer extends SkeletonVisitor {
         type.defineProtoType(builder);
         final var typeDescriptors = builder.build();
         final var typeDescriptor = typeDescriptors.getMessageDescriptor(type).getName();
-        for (final Descriptors.Descriptor descriptor : typeDescriptors.getMessageDescriptors()) {
-            if (descriptorNames.contains(descriptor.getName())) {
+        for (final var descriptorName : typeDescriptors.getMessageTypes()) {
+            if (descriptorNames.contains(descriptorName)) {
                 continue;
             }
+            final var descriptor = typeDescriptors.getMessageDescriptor(descriptorName);
             fileBuilder.addMessageType(descriptor.toProto());
-            descriptorNames.add(descriptor.getName());
+            descriptorNames.add(descriptorName);
         }
-        for (final var enumDescriptor : typeDescriptors.getEnumDescriptors()) {
-            if (enumNames.contains(enumDescriptor.getName())) {
+        for (final var enumName : typeDescriptors.getEnumTypes()) {
+            if (enumNames.contains(enumName)) {
                 continue;
             }
-            fileBuilder.addEnumType(enumDescriptor.toProto());
-            enumNames.add(enumDescriptor.getName());
+            final var descriptor = typeDescriptors.getEnumDescriptor(enumName);
+            fileBuilder.addEnumType(descriptor.toProto());
+            enumNames.add(enumName);
         }
         return typeDescriptor;
     }

@@ -31,7 +31,6 @@ import com.google.common.collect.Maps;
 import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.DescriptorProtos.FileDescriptorProto;
 import com.google.protobuf.DescriptorProtos.FileDescriptorSet;
-import com.google.protobuf.Descriptors;
 import com.google.protobuf.Descriptors.Descriptor;
 import com.google.protobuf.Descriptors.DescriptorValidationException;
 import com.google.protobuf.Descriptors.EnumDescriptor;
@@ -46,7 +45,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -136,7 +134,7 @@ public class TypeRepository {
      * @return the message builder (null if not found)
      */
     @Nullable
-    private DynamicMessage.Builder newMessageBuilder(@Nonnull final String msgTypeName) {
+    public DynamicMessage.Builder newMessageBuilder(@Nonnull final String msgTypeName) {
         Descriptor msgType = getMessageDescriptor(msgTypeName);
         if (msgType == null) {
             return null;
@@ -175,7 +173,7 @@ public class TypeRepository {
      * @return the message descriptor (null if not found)
      */
     @Nullable
-    private Descriptor getMessageDescriptor(@Nonnull final String msgTypeName) {
+    public Descriptor getMessageDescriptor(@Nonnull final String msgTypeName) {
         Descriptor msgType = msgDescriptorMapShort.get(msgTypeName);
         if (msgType == null) {
             msgType = msgDescriptorMapFull.get(msgTypeName);
@@ -196,19 +194,35 @@ public class TypeRepository {
     }
 
     /**
-     * Gets the enum value descriptor for the given enum type and value name.
+     * Gets the enum value for the given enum type and name.
      *
-     * @param enumType the enum type to look for
-     * @param enumValueName the enum name
+     * @param enumTypeName the enum type name
+     * @param enumName the enum name
      * @return the enum value descriptor (null if not found)
      */
     @Nullable
-    public EnumValueDescriptor getEnumValue(@Nonnull final Type.Enum enumType, String enumValueName) {
-        EnumDescriptor enumDescriptor = getEnumDescriptor(enumType);
-        if (enumDescriptor == null) {
+    public EnumValueDescriptor getEnumValue(@Nonnull final String enumTypeName, String enumName) {
+        EnumDescriptor enumType = getEnumDescriptor(enumTypeName);
+        if (enumType == null) {
             return null;
         }
-        return enumDescriptor.findValueByName(enumValueName);
+        return enumType.findValueByName(enumName);
+    }
+
+    /**
+     * Gets the enum value for the given enum type and number.
+     *
+     * @param enumTypeName the enum type name
+     * @param enumNumber the enum number
+     * @return the enum value descriptor (null if not found)
+     */
+    @Nullable
+    public EnumValueDescriptor getEnumValue(@Nonnull final String enumTypeName, int enumNumber) {
+        EnumDescriptor enumType = getEnumDescriptor(enumTypeName);
+        if (enumType == null) {
+            return null;
+        }
+        return enumType.findValueByNumber(enumNumber);
     }
 
     /**
@@ -218,7 +232,7 @@ public class TypeRepository {
      * @return the enum descriptor (null if not found)
      */
     @Nullable
-    private EnumDescriptor getEnumDescriptor(@Nonnull final String enumTypeName) {
+    public EnumDescriptor getEnumDescriptor(@Nonnull final String enumTypeName) {
         EnumDescriptor enumType = enumDescriptorMapShort.get(enumTypeName);
         if (enumType == null) {
             enumType = enumDescriptorMapFull.get(enumTypeName);
@@ -244,17 +258,8 @@ public class TypeRepository {
      * @return the set of message type names
      */
     @Nonnull
-    public Set<String> getMessageTypeNames() {
+    public Set<String> getMessageTypes() {
         return new TreeSet<>(msgDescriptorMapFull.keySet());
-    }
-
-    @Nonnull
-    public Set<Descriptors.Descriptor> getMessageDescriptors() {
-        Set<Descriptors.Descriptor> descriptors = new TreeSet<>(
-                Comparator.comparing(Descriptor::getFullName)
-        );
-        descriptors.addAll(msgDescriptorMapFull.values());
-        return descriptors;
     }
 
     /**
@@ -263,17 +268,8 @@ public class TypeRepository {
      * @return the set of enum type names
      */
     @Nonnull
-    public Set<String> getEnumTypeNames() {
+    public Set<String> getEnumTypes() {
         return new TreeSet<>(enumDescriptorMapFull.keySet());
-    }
-
-    @Nonnull
-    public Set<Descriptors.EnumDescriptor> getEnumDescriptors() {
-        Set<Descriptors.EnumDescriptor> descriptors = new TreeSet<>(
-                Comparator.comparing(EnumDescriptor::getFullName)
-        );
-        descriptors.addAll(enumDescriptorMapFull.values());
-        return descriptors;
     }
 
     /**
@@ -303,8 +299,8 @@ public class TypeRepository {
      */
     @Override
     public String toString() {
-        Set<String> msgTypes = getMessageTypeNames();
-        Set<String> enumTypes = getEnumTypeNames();
+        Set<String> msgTypes = getMessageTypes();
+        Set<String> enumTypes = getEnumTypes();
         return "types: " + msgTypes + "\nenums: " + enumTypes + "\n" + fileDescSet;
     }
 

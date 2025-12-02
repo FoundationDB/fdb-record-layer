@@ -425,11 +425,12 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
                                       @Nonnull Descriptors.FieldDescriptor.Type protoType,
                                       @Nonnull FieldDescriptorProto.Label protoLabel,
                                       @Nullable DescriptorProtos.FieldOptions fieldOptions,
-                                      boolean isNullable) {
+                                      boolean isNullable,
+                                      boolean preserveNames) {
         final var typeCode = TypeCode.fromProtobufFieldDescriptor(protoType, fieldOptions);
         if (protoLabel == FieldDescriptorProto.Label.LABEL_REPEATED) {
             // collection type
-            return fromProtoTypeToArray(descriptor, protoType, typeCode, fieldOptions, false);
+            return fromProtoTypeToArray(descriptor, protoType, typeCode, fieldOptions, false, preserveNames);
         } else if (typeCode.isPrimitive()) {
             final var fieldOptionMaybe = Optional.ofNullable(fieldOptions).map(f -> f.getExtension(RecordMetaDataOptionsProto.field));
             if (fieldOptionMaybe.isPresent() && fieldOptionMaybe.get().hasVectorOptions()) {
@@ -439,7 +440,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
             return primitiveType(typeCode, isNullable);
         } else if (typeCode == TypeCode.ENUM) {
             final var enumDescriptor = (Descriptors.EnumDescriptor)Objects.requireNonNull(descriptor);
-            return Enum.fromDescriptor(isNullable, enumDescriptor);
+            return preserveNames ? Enum.fromDescriptorPreservingNames(isNullable, enumDescriptor) : Enum.fromDescriptor(isNullable, enumDescriptor);
         } else if (typeCode == TypeCode.RECORD) {
             Objects.requireNonNull(descriptor);
             final var messageDescriptor = (Descriptors.Descriptor)descriptor;
@@ -447,11 +448,11 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
                 // find TypeCode of array elements
                 final var elementField = messageDescriptor.findFieldByName(NullableArrayTypeUtils.getRepeatedFieldName());
                 final var elementTypeCode = TypeCode.fromProtobufFieldDescriptor(elementField.getType(), elementField.getOptions());
-                return fromProtoTypeToArray(descriptor, protoType, elementTypeCode, elementField.getOptions(), true);
+                return fromProtoTypeToArray(descriptor, protoType, elementTypeCode, elementField.getOptions(), true, preserveNames);
             } else if (TupleFieldsProto.UUID.getDescriptor().equals(messageDescriptor)) {
                 return Type.uuidType(isNullable);
             } else {
-                final Type.Record recordType = Record.fromDescriptor(messageDescriptor);
+                final Type.Record recordType = preserveNames ? Record.fromDescriptorPreservingName(messageDescriptor) : Record.fromDescriptor(messageDescriptor);
                 return recordType.withNullability(isNullable);
             }
         }
@@ -470,7 +471,8 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
                                               @Nonnull Descriptors.FieldDescriptor.Type protoType,
                                               @Nonnull TypeCode typeCode,
                                               @Nullable DescriptorProtos.FieldOptions fieldOptions,
-                                              boolean isNullable) {
+                                              boolean isNullable,
+                                              boolean preserveNames) {
         if (typeCode.isPrimitive()) {
             final Type type;
             if (typeCode == TypeCode.VECTOR) {
@@ -489,7 +491,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
                 enumDescriptor = (Descriptors.EnumDescriptor)Objects.requireNonNull(descriptor);
             }
             Objects.requireNonNull(enumDescriptor);
-            final var enumType = Enum.fromDescriptor(false, enumDescriptor);
+            final var enumType = preserveNames ? Enum.fromDescriptorPreservingNames(false, enumDescriptor) : Enum.fromDescriptor(false, enumDescriptor);
             return new Array(isNullable, enumType);
         } else {
             final Descriptors.Descriptor recordDescriptor;
@@ -501,7 +503,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
                 recordDescriptor = (Descriptors.Descriptor) descriptor;
             }
             Objects.requireNonNull(recordDescriptor);
-            return new Array(isNullable, fromProtoType(recordDescriptor, protoType, FieldDescriptorProto.Label.LABEL_OPTIONAL, fieldOptions, false));
+            return new Array(isNullable, fromProtoType(recordDescriptor, protoType, FieldDescriptorProto.Label.LABEL_OPTIONAL, fieldOptions, false, preserveNames));
         }
     }
 
@@ -1819,11 +1821,6 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
             return storageName;
         }
 
-        @Nonnull
-        public Enum withName(@Nonnull String name, @Nonnull String storageName) {
-            return new Enum(isNullable, enumValues, name, storageName);
-        }
-
         @Override
         public void defineProtoType(@Nonnull final TypeRepository.Builder typeRepositoryBuilder) {
             Verify.verify(!isErased());
@@ -1922,6 +1919,11 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
         @Nonnull
         public static Enum fromDescriptor(boolean isNullable, @Nonnull Descriptors.EnumDescriptor enumDescriptor) {
             return Enum.fromValues(isNullable, enumValuesFromProto(enumDescriptor.getValues()));
+        }
+
+        @Nonnull
+        public static Enum fromDescriptorPreservingNames(boolean isNullable, @Nonnull Descriptors.EnumDescriptor enumDescriptor) {
+            return new Type.Enum(isNullable, enumValuesFromProto(enumDescriptor.getValues()), ProtoUtils.toUserIdentifier(enumDescriptor.getName()), enumDescriptor.getName());
         }
 
         @Nonnull
@@ -2181,12 +2183,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
         @Nonnull
         public Record withName(@Nonnull final String name) {
-            return withName(name, ProtoUtils.toProtoBufCompliantName(name));
-        }
-
-        @Nonnull
-        public Record withName(@Nonnull final String name, @Nonnull final String storageName) {
-            return new Record(name, storageName, isNullable, fields);
+            return new Record(name, ProtoUtils.toProtoBufCompliantName(name), isNullable, fields);
         }
 
         @Nullable
@@ -2518,12 +2515,17 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
          */
         @Nonnull
         public static Record fromFieldDescriptorsMap(final boolean isNullable, @Nonnull final Map<String, Descriptors.FieldDescriptor> fieldDescriptorMap) {
+            return fromFields(isNullable, fieldsFromDescriptorMap(fieldDescriptorMap, false));
+        }
+
+        @Nonnull
+        private static List<Field> fieldsFromDescriptorMap(@Nonnull final Map<String, Descriptors.FieldDescriptor> fieldDescriptorMap, boolean preserveNames) {
             final var fieldsBuilder = ImmutableList.<Field>builder();
             for (final var entry : Objects.requireNonNull(fieldDescriptorMap).entrySet()) {
                 final var fieldDescriptor = entry.getValue();
-                fieldsBuilder.add(Field.fromDescriptor(fieldDescriptor));
+                fieldsBuilder.add(Field.fromDescriptor(fieldDescriptor, preserveNames));
             }
-            return fromFields(isNullable, fieldsBuilder.build());
+            return fieldsBuilder.build();
         }
 
         /**
@@ -2535,6 +2537,12 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
         @Nonnull
         public static Record fromDescriptor(final Descriptors.Descriptor descriptor) {
             return fromFieldDescriptorsMap(toFieldDescriptorMap(descriptor.getFields()));
+        }
+
+        @Nonnull
+        public static Record fromDescriptorPreservingName(final Descriptors.Descriptor descriptor) {
+            return new Record(ProtoUtils.toUserIdentifier(descriptor.getName()), descriptor.getName(), false,
+                    fieldsFromDescriptorMap(toFieldDescriptorMap(descriptor.getFields()), true));
         }
 
         /**
@@ -2796,12 +2804,13 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
             }
 
             @Nonnull
-            private static Field fromDescriptor(@Nonnull Descriptors.FieldDescriptor fieldDescriptor) {
+            private static Field fromDescriptor(@Nonnull Descriptors.FieldDescriptor fieldDescriptor, boolean preserveNames) {
                 final Type fieldType = Type.fromProtoType(Type.getTypeSpecificDescriptor(fieldDescriptor),
                         fieldDescriptor.getType(),
                         fieldDescriptor.toProto().getLabel(),
                         fieldDescriptor.getOptions(),
-                        !fieldDescriptor.isRequired());
+                        !fieldDescriptor.isRequired(),
+                        preserveNames);
                 return new Field(fieldType,
                         Optional.of(ProtoUtils.toUserIdentifier(fieldDescriptor.getName())),
                         Optional.of(fieldDescriptor.getNumber()),
