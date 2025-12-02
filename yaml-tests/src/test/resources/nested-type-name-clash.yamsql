@@ -275,7 +275,7 @@ test_block:
           SELECT A.id, B.id
             FROM OuterRecord AS A, OuterRecord AS B
             WHERE A.middle."inner".inner_blah = B."inner".inner_blah
-      # Fails because we do not support struct comparison. When we do, this should start to succeed
+      # Fails because we do not support struct comparison. When we do, this should start to succeed as the types are the same
       - error: XX000
     -
       - query:
@@ -289,14 +289,14 @@ test_block:
           SELECT A.id, B.id
             FROM OuterRecord AS A, OuterRecord AS B
             WHERE A.middle.middle_whatever = B."inner".inner_whatever
-      # Fails because we do not support struct comparison. However, even when we do, this should succeed as the types are identical
+      # Fails because we do not support struct comparison. However, when we do, this should succeed as the types are structurally equal (and have the same name)
       - error: XX000
     -
       - query:
           SELECT A.id, B.id
             FROM OuterRecord AS A, OuterRecord AS B
             WHERE A.middle.middle_anything = B."inner".inner_payload
-      # Fails because we do not support struct comparison. However, even when we do, this should succeed as the types are structurally equal
+      # Fails because we do not support struct comparison. However, when we do, this should succeed as the types are structurally equal
       - error: XX000
 
     # Select *
