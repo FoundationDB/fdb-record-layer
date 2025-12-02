@@ -36,11 +36,15 @@ import com.apple.foundationdb.tuple.Tuple;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.slf4j.MDC;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Semaphore;
@@ -51,6 +55,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -716,6 +721,60 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
         assertThatThrownBy(iterateAll::join).hasCauseInstanceOf(FDBDatabaseRunner.RunnerClosed.class);
         // Cursor is closed
         Assertions.assertThat(cursor.get().isClosed()).isTrue();
+    }
+
+    private static Stream<Arguments> mdcParams() {
+        return Stream.of(
+                Arguments.of("value", 10, 0, 1), // have MDC value, one transaction
+                Arguments.of(null, 10, 0, 1),    // null MDC, one transaction
+                Arguments.of("value", 10, 6, 2)  // have MDC, 2 transactions
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("mdcParams")
+    void testMdcContextPropagation(String mdcValue, int numRecords, int deletesPerTransaction, int expectedTransactions) throws Exception {
+        String mdcKey = "mdckey";
+        final Map<String, String> original = MDC.getCopyOfContextMap();
+
+        try {
+            // Set MDC context if provided
+            if (mdcValue != null) {
+                MDC.clear();
+                MDC.put(mdcKey, mdcValue);
+            }
+            final AtomicInteger transactionCount = new AtomicInteger(0);
+            final Consumer<ThrottledRetryingIterator.QuotaManager> transactionStart =
+                    quotaManager -> transactionCount.incrementAndGet();
+            final ItemHandler<Integer> itemHandler = (store, item, quotaManager) -> {
+                assertThat(MDC.get(mdcKey)).isEqualTo(mdcValue); // covers null case
+                quotaManager.deleteCountInc();
+                return AsyncUtil.DONE;
+            };
+
+            final FDBRecordStore.Builder storeBuilder;
+            try (FDBRecordContext context = openContext()) {
+                openSimpleRecordStore(context);
+                storeBuilder = recordStore.asBuilder();
+                commit(context);
+            }
+
+            Map<String, String> mdcContext = (mdcValue == null) ? null : MDC.getCopyOfContextMap();
+            ThrottledRetryingIterator.Builder<Integer> builder =
+                    ThrottledRetryingIterator.builder(fdb, intCursor(numRecords, null), itemHandler)
+                            .withMdcContext(mdcContext);
+
+            builder.withMaxRecordsDeletesPerTransaction(deletesPerTransaction)
+                    .withTransactionInitNotification(transactionStart);
+
+            try (ThrottledRetryingIterator<Integer> throttledIterator = builder.build()) {
+                throttledIterator.iterateAll(storeBuilder).join();
+            }
+
+            assertThat(transactionCount.get()).isEqualTo(expectedTransactions);
+        } finally {
+            MDC.setContextMap(original);
+        }
     }
 
     private ThrottledRetryingIterator.Builder<Integer> iteratorBuilder(final int numRecords,

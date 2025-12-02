@@ -1,0 +1,25 @@
+Diagram(
+    Terminal('ORDER'),
+    Terminal('BY'),
+    OneOrMore(
+        Sequence(
+            NonTerminal('expression'),
+            Optional(
+                Choice(0,
+                    Terminal('ASC'),
+                    Terminal('DESC')
+                )
+            ),
+            Optional(
+                Sequence(
+                    Terminal('NULLS'),
+                    Choice(0,
+                        Terminal('FIRST'),
+                        Terminal('LAST')
+                    )
+                )
+            )
+        ),
+        Terminal(',')
+    )
+)

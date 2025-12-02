@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.metadata;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.async.hnsw.Config;
 import com.apple.foundationdb.async.rtree.RTree;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
 
@@ -222,6 +223,143 @@ public class IndexOptions {
      * Option to indicate whether the R-tree manages and uses a secondary index to quickly find the update path.
      */
     public static final String RTREE_USE_NODE_SLOT_INDEX = "rtreeUseNodeSlotIndex";
+
+    /**
+     * HNSW-only: The seeding method that is used to see the PRNG that is in turn used to probabilistically determine
+     * the highest layer of an insert into an HNSW structure. See {@link Config#isDeterministicSeeding()}. The default
+     * random seed is {@link Config#DEFAULT_DETERMINISTIC_SEEDING}.
+     */
+    public static final String HNSW_DETERMINISTIC_SEEDING = "hnswDeterministicSeeding";
+
+    /**
+     * HNSW-only: The metric that is used to determine distances between vectors. The default metric is
+     * {@link Config#DEFAULT_METRIC}. See {@link Config#getMetric()}.
+     */
+    public static final String HNSW_METRIC = "hnswMetric";
+
+    /**
+     * HNSW-only: The number of dimensions used. All vectors must have exactly this number of dimensions. This option
+     * must be set when interacting with a vector index as it there is no default.
+     * See {@link Config#getNumDimensions()}.
+     */
+    public static final String HNSW_NUM_DIMENSIONS = "hnswNumDimensions";
+
+    /**
+     * HNSW-only: Indicator if all layers except layer {@code 0} use inlining. If inlining is used, each node is
+     * persisted as a key/value pair per neighbor which includes the vectors of the neighbors but not for itself. If
+     * inlining is not used, each node is persisted as exactly one key/value pair per node which stores its own vector
+     * but specifically excludes the vectors of the neighbors. The default value is set to
+     * {@link Config#DEFAULT_USE_INLINING}. See {@link Config#isUseInlining()}.
+     */
+    public static final String HNSW_USE_INLINING = "hnswUseInlining";
+
+    /**
+     * HNSW-only: This option (named {@code M} by the HNSW paper) is the connectivity value for all nodes stored on
+     * any layer. While by no means enforced or even enforceable, we strive to create and maintain exactly {@code m}
+     * neighbors for a node. Due to insert/delete operations it is possible that the actual number of neighbors a node
+     * references is not exactly {@code m} at any given time. The default value is set to {@link Config#DEFAULT_M}.
+     * See {@link Config#getM()}.
+     */
+    public static final String HNSW_M = "hnswM";
+
+    /**
+     * HNSW-only: This attribute (named {@code M_max} by the HNSW paper) is the maximum connectivity value for nodes
+     * stored on a layer greater than {@code 0}. A node can never have more that {@code mMax} neighbors. That means that
+     * neighbors of a node are pruned if the actual number of neighbors would otherwise exceed {@code mMax}. Note that
+     * this option must be greater than or equal to {@link #HNSW_M}. The default value is set to
+     * {@link Config#DEFAULT_M_MAX}. See {@link Config#getMMax()}.
+     */
+    public static final String HNSW_M_MAX = "hnswMMax";
+
+    /**
+     * HNSW-only: This option (named {@code M_max0} by the HNSW paper) is the maximum connectivity value for nodes
+     * stored on layer {@code 0}. We will never create more that {@code mMax0} neighbors for a node that is stored on
+     * that layer. That means that we even prune the neighbors of a node if the actual number of neighbors would
+     * otherwise exceed {@code mMax0}. Note that this option must be greater than or equal to {@link #HNSW_M_MAX}.
+     * The default value is set to {@link Config#DEFAULT_M_MAX_0}. See {@link Config#getMMax0()}.
+     */
+    public static final String HNSW_M_MAX_0 = "hnswMMax0";
+
+    /**
+     * HNSW-only: Maximum size of the search queues (one independent queue per layer) that are used during the insertion
+     * of a new node. If {@code HNSW_EF_CONSTRUCTION} is set to {@code 1}, the search naturally follows a greedy
+     * approach (monotonous descent), whereas a high number for {@code HNSW_EF_CONSTRUCTION} allows for a more nuanced
+     * search that can tolerate (false) local minima. The default value is set to {@link Config#DEFAULT_EF_CONSTRUCTION}.
+     * See {@link Config#getEfConstruction()}.
+     */
+    public static final String HNSW_EF_CONSTRUCTION = "hnswEfConstruction";
+
+    /**
+     * HNSW-only: Indicator to signal if, during the insertion of a node, the set of nearest neighbors of that node is
+     * to be extended by the actual neighbors of those neighbors to form a set of candidates that the new node may be
+     * connected to during the insert operation. The default value is set to {@link Config#DEFAULT_EXTEND_CANDIDATES}.
+     * See {@link Config#isExtendCandidates()}.
+     */
+    public static final String HNSW_EXTEND_CANDIDATES = "hnswExtendCandidates";
+
+    /**
+     * HNSW-only: Indicator to signal if, during the insertion of a node, candidates that have been discarded due to not
+     * satisfying the select-neighbor heuristic may get added back in to pad the set of neighbors if the new node would
+     * otherwise have too few neighbors (see {@link Config#getM()}). The default value is set to
+     * {@link Config#DEFAULT_KEEP_PRUNED_CONNECTIONS}. See {@link Config#isKeepPrunedConnections()}.
+     */
+    public static final String HNSW_KEEP_PRUNED_CONNECTIONS = "hnswKeepPrunedConnections";
+
+    /**
+     * HNSW-only: If sampling is necessary (currently iff {@link #HNSW_USE_RABITQ} is {@code "true"}), this option
+     * represents the probability of a vector being inserted to also be written into the samples subspace of the hnsw
+     * structure. The vectors in that subspace are continuously aggregated until a total {@link #HNSW_STATS_THRESHOLD}
+     * has been reached. The default value is set to {@link Config#DEFAULT_SAMPLE_VECTOR_STATS_PROBABILITY}. See
+     * {@link Config#getSampleVectorStatsProbability()}.
+     */
+    public static final String HNSW_SAMPLE_VECTOR_STATS_PROBABILITY = "hnswSampleVectorStatsProbability";
+
+    /**
+     * HNSW-only: If sampling is necessary (currently iff {@link #HNSW_USE_RABITQ} is {@code "true"}), this option
+     * represents the probability of the samples subspace to be further aggregated (rolled-up) when a new vector is
+     * inserted. The vectors in that subspace are continuously aggregated until a total
+     * {@link #HNSW_STATS_THRESHOLD} has been reached. The default value is set to
+     * {@link Config#DEFAULT_MAINTAIN_STATS_PROBABILITY}. See {@link Config#getMaintainStatsProbability()}.
+     */
+    public static final String HNSW_MAINTAIN_STATS_PROBABILITY = "hnswMaintainStatsProbability";
+
+    /**
+     * HNSW-only: If sampling is necessary (currently iff {@link #HNSW_USE_RABITQ} is {@code "true"}), this option
+     * represents the threshold (being a number of vectors) that when reached causes the stats maintenance logic to
+     * compute the actual statistics (currently the centroid of the vectors that have been inserted to far). The result
+     * is then inserted into the access info subspace of the index. The default value is set to
+     * {@link Config#DEFAULT_STATS_THRESHOLD}. See {@link Config#getStatsThreshold()}.
+     */
+    public static final String HNSW_STATS_THRESHOLD = "hnswStatsThreshold";
+
+    /**
+     * HNSW-only: Indicator if we should RaBitQ quantization. See {@link com.apple.foundationdb.rabitq.RaBitQuantizer}
+     * for more details. The default value is set to {@link Config#DEFAULT_USE_RABITQ}.
+     * See {@link Config#isUseRaBitQ()}.
+     */
+    public static final String HNSW_USE_RABITQ = "hnswUseRaBitQ";
+
+    /**
+     * HNSW-only: Number of bits per dimensions iff {@link #HNSW_USE_RABITQ} is set to {@code "true"}, ignored
+     * otherwise. If RaBitQ encoding is used, a vector is stored using roughly
+     * {@code 25 + numDimensions * (numExBits + 1) / 8} bytes. The default value is set to
+     * {@link Config#DEFAULT_RABITQ_NUM_EX_BITS}. See {@link Config#getRaBitQNumExBits()}.
+     */
+    public static final String HNSW_RABITQ_NUM_EX_BITS = "hnswRaBitQNumExBits";
+
+    /**
+     * HNSW-only: Maximum number of concurrent node fetches during search and modification operations. The default value
+     * is set to {@link Config#DEFAULT_MAX_NUM_CONCURRENT_NODE_FETCHES}.
+     * See {@link Config#getMaxNumConcurrentNodeFetches()}.
+     */
+    public static final String HNSW_MAX_NUM_CONCURRENT_NODE_FETCHES = "hnswMaxNumConcurrentNodeFetches";
+
+    /**
+     * HNSW-only: Maximum number of concurrent neighborhood fetches during modification operations when the neighbors
+     * are pruned. The default value is set to {@link Config#DEFAULT_MAX_NUM_CONCURRENT_NEIGHBOR_FETCHES}.
+     * See {@link Config#getMaxNumConcurrentNeighborhoodFetches()}.
+     */
+    public static final String HNSW_MAX_NUM_CONCURRENT_NEIGHBORHOOD_FETCHES = "hnswMaxNumConcurrentNeighborhoodFetches";
 
     private IndexOptions() {
     }

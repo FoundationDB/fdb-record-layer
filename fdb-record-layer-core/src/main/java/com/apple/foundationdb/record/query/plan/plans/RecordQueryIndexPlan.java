@@ -597,17 +597,14 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
 
     @Override
     public boolean hasScanComparisons() {
-        return scanParameters instanceof IndexScanComparisons;
+        return scanParameters.hasScanComparisons();
     }
 
     @Nonnull
     @Override
     public ScanComparisons getScanComparisons() {
-        if (scanParameters instanceof IndexScanComparisons) {
-            return ((IndexScanComparisons)scanParameters).getComparisons();
-        } else {
-            throw new RecordCoreException("this plan does not use ScanComparisons");
-        }
+        Verify.verify(hasScanComparisons());
+        return scanParameters.getScanComparisons();
     }
 
     @Nonnull
