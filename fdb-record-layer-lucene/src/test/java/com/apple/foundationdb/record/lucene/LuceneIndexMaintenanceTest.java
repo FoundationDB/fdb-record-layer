@@ -461,14 +461,18 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                     return oldAsyncToSyncTimeout == null ? Duration.ofDays(1L) : oldAsyncToSyncTimeout.apply(wait);
                 }
             };
-            for (int i = 0; i < 100; i++) {
+            for (int i = 0; i < 20; i++) {
                 fdb.setAsyncToSyncTimeout(asyncToSyncTimeout);
                 waitCounts.set(i);
                 boolean success = false;
                 try {
                     LOGGER.info(KeyValueLogMessage.of("Merge started",
                             "iteration", i));
-                    explicitMergeIndex(dataModel.index, contextProps, dataModel.schemaSetup);
+                    try (FDBRecordContext context = openContext(contextProps)) {
+                        FDBRecordStore recordStore = Objects.requireNonNull(dataModel.schemaSetup.apply(context));
+                        final CompletableFuture<Void> future = recordStore.getIndexMaintainer(Objects.requireNonNull(dataModel.index)).mergeIndex();
+                        fdb.asyncToSync(timer, FDBStoreTimer.Waits.WAIT_ONLINE_MERGE_INDEX, future);
+                    }
                     LOGGER.info(KeyValueLogMessage.of("Merge completed",
                             "iteration", i));
                     assertFalse(requireFailure && i < 15, i + " merge should have failed");

@@ -150,10 +150,10 @@ public class IndexingMerger {
         // merges. Not perfect, but as long as it's rare the impact should be minimal.
 
         mergeControl.mergeHadFailed(); // report to adjust stats
-        final IndexDeferredMaintenanceControl.LastStep lastStep = mergeControl.getLastStep();
         if (shouldAbort(e)) {
             giveUpMerging(mergeControl, e);
         }
+        final IndexDeferredMaintenanceControl.LastStep lastStep = mergeControl.getLastStep();
         switch (lastStep) {
             case REPARTITION:
                 // Here: this exception might be resolved by reducing the number of documents to move during repartitioning
