@@ -1678,6 +1678,18 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
     }
 
     @Nonnull
+    @Override
+    public Object visitCopyExportStatement(@Nonnull RelationalParser.CopyExportStatementContext ctx) {
+        return visitChildren(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public Object visitCopyImportStatement(@Nonnull RelationalParser.CopyImportStatementContext ctx) {
+        return visitChildren(ctx);
+    }
+
+    @Nonnull
     public DdlQueryFactory getDdlQueryFactory() {
         return ddlQueryFactory;
     }
