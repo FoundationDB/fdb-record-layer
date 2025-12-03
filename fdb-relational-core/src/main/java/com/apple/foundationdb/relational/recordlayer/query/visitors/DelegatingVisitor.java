@@ -832,6 +832,18 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
 
     @Nonnull
     @Override
+    public Object visitCopyExportStatement(@Nonnull RelationalParser.CopyExportStatementContext ctx) {
+        return getDelegate().visitCopyExportStatement(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public Object visitCopyImportStatement(@Nonnull RelationalParser.CopyImportStatementContext ctx) {
+        return getDelegate().visitCopyImportStatement(ctx);
+    }
+
+    @Nonnull
+    @Override
     public Object visitTableIndexes(@Nonnull RelationalParser.TableIndexesContext ctx) {
         return getDelegate().visitTableIndexes(ctx);
     }
