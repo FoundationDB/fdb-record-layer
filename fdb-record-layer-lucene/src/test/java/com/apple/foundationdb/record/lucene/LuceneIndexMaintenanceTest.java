@@ -1187,7 +1187,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
         Tuple groupingKey = Tuple.from(1);
         Integer partitionId = null;
         int threads = 10;
-        int loops = 10;
+        int loops = 20;
         try (FDBRecordContext context = openContext(contextProps)) {
             final FDBRecordStore store = dataModel.createOrOpenRecordStore(context);
             final LuceneIndexMaintainer indexMaintainer = getIndexMaintainer(store, dataModel.index);
@@ -1212,11 +1212,9 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                 }, context.getExecutor()));
             }
             AsyncUtil.getAll(futures).join();
-            Stream<DirectoryReader> stream = directoryManager.getDirectoryWrapper(groupingKey, partitionId).getReadersToClose()
+            Stream<DirectoryReader> stream = directoryManager.getDirectoryWrapper(groupingKey, partitionId)
+                    .getReadersToClose()
                     .stream().map(LazyCloseable::getUnchecked);
-            // add the existing reader (that is not at the readersToClose)
-            stream = Streams.concat(stream,
-                    Stream.of(directoryManager.getWriterReader(groupingKey, partitionId)));
             actualReaders = stream.collect(Collectors.toSet());
             commit(context);
         }
