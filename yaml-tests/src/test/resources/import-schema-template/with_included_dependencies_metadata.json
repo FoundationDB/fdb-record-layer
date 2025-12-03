@@ -1,8 +1,8 @@
 {
   "records": {
-    "name": "with_imports.proto",
-    "package": "com.apple.foundationdb.relational.yamltests.generated.withimports",
-    "dependency": ["record_metadata_options.proto", "imported.proto"],
+    "name": "modified_with_dependencies.proto",
+    "package": "com.apple.foundationdb.relational.yamltests.generated.withdependencies",
+    "dependency": ["modified_to_be_imported.proto"],
     "messageType": [{
       "name": "U",
       "field": [{
@@ -17,7 +17,7 @@
         "number": 2,
         "label": "LABEL_OPTIONAL",
         "type": "TYPE_MESSAGE",
-        "typeName": ".com.apple.foundationdb.relational.yamltests.generated.imported.X",
+        "typeName": ".com.apple.foundationdb.relational.yamltests.generated.tobeimported.X",
         "oneofIndex": 1,
         "proto3Optional": true
       }],
@@ -33,17 +33,17 @@
         "number": 1,
         "label": "LABEL_OPTIONAL",
         "type": "TYPE_MESSAGE",
-        "typeName": ".com.apple.foundationdb.relational.yamltests.generated.imported.T"
+        "typeName": ".com.apple.foundationdb.relational.yamltests.generated.tobeimported.T"
       }, {
         "name": "_U",
         "number": 2,
         "label": "LABEL_OPTIONAL",
         "type": "TYPE_MESSAGE",
-        "typeName": ".com.apple.foundationdb.relational.yamltests.generated.withimports.U"
+        "typeName": ".com.apple.foundationdb.relational.yamltests.generated.withdependencies.U"
       }]
     }],
     "options": {
-      "javaOuterClassname": "WithImportsProto"
+      "javaOuterClassname": "WithDependenciesProto"
     },
     "syntax": "proto3"
   },
@@ -151,8 +151,8 @@
   "version": 2,
   "storeRecordVersions": false,
   "dependencies": [{
-    "name": "imported.proto",
-    "package": "com.apple.foundationdb.relational.yamltests.generated.imported",
+    "name": "modified_to_be_imported.proto",
+    "package": "com.apple.foundationdb.relational.yamltests.generated.tobeimported",
     "messageType": [{
       "name": "X",
       "field": [{
@@ -189,7 +189,7 @@
         "number": 2,
         "label": "LABEL_OPTIONAL",
         "type": "TYPE_MESSAGE",
-        "typeName": ".com.apple.foundationdb.relational.yamltests.generated.imported.X",
+        "typeName": ".com.apple.foundationdb.relational.yamltests.generated.tobeimported.X",
         "oneofIndex": 1,
         "proto3Optional": true
       }],
@@ -200,7 +200,7 @@
       }]
     }],
     "options": {
-      "javaOuterClassname": "StandardTestsProto"
+      "javaOuterClassname": "ToBeImportedProto"
     },
     "syntax": "proto3"
   }]

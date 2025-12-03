@@ -20,11 +20,14 @@
 
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
+import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.View;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.cascades.RawSqlFunction;
 import com.apple.foundationdb.relational.yamltests.generated.identifierstests.IdentifiersTestProto;
+import com.apple.foundationdb.relational.yamltests.generated.withdependencies.WithDependenciesProto;
 import com.apple.foundationdb.relational.yamltests.utils.ExportSchemaTemplateUtil;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -61,13 +64,42 @@ class MetaDataExportUtilityTests {
         ExportSchemaTemplateUtil.export(metaData, path);
     }
 
+    private void setAllPrimaryKeys(@Nonnull RecordMetaDataBuilder metaDataBuilder, @Nonnull KeyExpression primaryKey) {
+        metaDataBuilder.getUnionDescriptor().getFields().forEach( f -> {
+            final String typeName = f.getMessageType().getName();
+            metaDataBuilder.getRecordType(typeName).setPrimaryKey(primaryKey);
+        });
+    }
+
+    @Test
+    void createIncludedDependenciesMetaData() throws IOException {
+        final RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(WithDependenciesProto.getDescriptor());
+        setAllPrimaryKeys(metaDataBuilder, Key.Expressions.concat(Key.Expressions.recordType(), Key.Expressions.field("id")));
+
+        metaDataBuilder.addIndex(metaDataBuilder.getRecordType("T"), new Index("T$x", Key.Expressions.field("x").nest(Key.Expressions.concatenateFields("a", "b"))));
+        metaDataBuilder.addIndex(metaDataBuilder.getRecordType("U"), new Index("U$x", Key.Expressions.field("x").nest(Key.Expressions.concatenateFields("a", "b"))));
+
+        final RecordMetaData metaData = metaDataBuilder.build();
+
+        // Modify the proto file names so that they aren't available in the classpath.
+        // This ensures that the test case validates that we load the dependency from the
+        // protobuf serialized MetaData proto and not from the environment.
+        RecordMetaDataProto.MetaData.Builder protoBuilder = metaData.toProto().toBuilder();
+        protoBuilder.getRecordsBuilder()
+                .setName("modified_" + protoBuilder.getRecordsBuilder().getName())
+                .clearDependency()
+                .addDependency("modified_to_be_imported.proto");
+        protoBuilder.getDependenciesBuilder(0)
+                .setName("modified_" + protoBuilder.getDependenciesBuilder(0).getName());
+        final RecordMetaData modified = RecordMetaData.build(protoBuilder.build());
+
+        exportMetaData(modified, "import-schema-template/with_included_dependencies_metadata.json");
+    }
+
     @Test
     void createValidIdentifiersMetaData() throws IOException {
         final RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(IdentifiersTestProto.getDescriptor());
-        metaDataBuilder.getUnionDescriptor().getFields().forEach( f -> {
-            final String typeName = f.getMessageType().getName();
-            metaDataBuilder.getRecordType(typeName).setPrimaryKey(Key.Expressions.concat(Key.Expressions.recordType(), Key.Expressions.field("ID")));
-        });
+        setAllPrimaryKeys(metaDataBuilder, Key.Expressions.concat(Key.Expressions.recordType(), Key.Expressions.field("ID")));
 
         metaDataBuilder.addIndex(metaDataBuilder.getRecordType("T2"), new Index("T2$T2.COL1", "T2__1COL1"));
         metaDataBuilder.addIndex(metaDataBuilder.getRecordType("___T6__2__UNESCAPED"), new Index("T6$COL2", "__T6__2COL2__VALUE"));

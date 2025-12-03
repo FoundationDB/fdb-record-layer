@@ -28,7 +28,8 @@ class ImportSchemaTemplateTests {
     /**
      * Test the logic that can load a meta-data object from JSON where the meta-data has a proto file descriptor with
      * dependencies. Validate that we can load the meta-data and then run basic queries against it.
-     * See the file {@code with_included_dependencies_metadata.json} for the meta-data definition.
+     * See {@code MetaDataExportUtilityTests.createIncludedDependenciesMetaData} for how the meta-data used
+     * in this test ({@code with_included_dependencies_metadata.json}) is generated.
      *
      * @param runner YAML runner
      * @throws Exception from the test execution
