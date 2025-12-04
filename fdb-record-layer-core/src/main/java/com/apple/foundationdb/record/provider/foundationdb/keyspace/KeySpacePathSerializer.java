@@ -64,7 +64,7 @@ public class KeySpacePathSerializer {
      * @throws RecordCoreArgumentException if the given data is not contained within the root
      */
     @Nonnull
-    public ByteString serialize(@Nonnull DataInKeySpacePath data) {
+    public KeySpaceProto.DataInKeySpacePath serialize(@Nonnull DataInKeySpacePath data) {
         final List<KeySpacePath> dataPath = data.getPath().flatten();
         // two paths are only equal if their parents are equal, so we don't have to validate the whole prefix here
         if (dataPath.size() < root.size() ||
@@ -80,7 +80,7 @@ public class KeySpacePathSerializer {
             builder.setRemainder(ByteString.copyFrom(data.getRemainder().pack()));
         }
         builder.setValue(ByteString.copyFrom(data.getValue()));
-        return builder.build().toByteString();
+        return builder.build();
     }
 
     /**
@@ -88,23 +88,13 @@ public class KeySpacePathSerializer {
      * <p>
      *     Note: The given data does not need to have come from the same path, but all sub-paths must be valid.
      * </p>
-     * @param bytes a serialized form of {@link DataInKeySpacePath} as provided by {@link #serialize(DataInKeySpacePath)}
+     * @param proto a serialized form of {@link DataInKeySpacePath} as provided by {@link #serialize(DataInKeySpacePath)}
      * @return the deserialized data
-     * @throws RecordCoreArgumentException if the bytes cannot be parsed, or one of the path entries is not valid
+     * @throws RecordCoreArgumentException if one of the path entries is not valid
      * @throws NoSuchDirectoryException if it refers to a directory that doesn't exist within the root
      */
     @Nonnull
-    public DataInKeySpacePath deserialize(@Nonnull ByteString bytes) {
-        try {
-            KeySpaceProto.DataInKeySpacePath proto = KeySpaceProto.DataInKeySpacePath.parseFrom(bytes);
-            return deserialize(proto);
-        } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-            throw new RecordCoreArgumentException("Failed to parse serialized DataInKeySpacePath", e);
-        }
-    }
-
-    @Nonnull
-    private DataInKeySpacePath deserialize(@Nonnull KeySpaceProto.DataInKeySpacePath proto) {
+    public DataInKeySpacePath deserialize(@Nonnull KeySpaceProto.DataInKeySpacePath proto) {
         // Start with the root path
         KeySpacePath path = root.get(root.size() - 1);
 

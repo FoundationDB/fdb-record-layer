@@ -24,7 +24,6 @@ import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory.KeyType;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.ParameterizedTestUtils;
-import com.google.protobuf.ByteString;
 import org.junit.jupiter.api.Named;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -245,10 +244,10 @@ class KeySpacePathSerializerTest {
         KeySpacePath rootPath = root.path("root");
         KeySpacePathSerializer serializer = new KeySpacePathSerializer(rootPath);
 
-        // Create invalid ByteString
-        ByteString invalid = ByteString.copyFrom(new byte[]{1, 2, 3, 4, 5});
+        // Create invalid proto with no value field set
+        KeySpaceProto.DataInKeySpacePath invalidProto = KeySpaceProto.DataInKeySpacePath.newBuilder().build();
 
-        assertThrows(RecordCoreArgumentException.class, () -> serializer.deserialize(invalid));
+        assertThrows(RecordCoreArgumentException.class, () -> serializer.deserialize(invalidProto));
     }
 
     @Test
@@ -336,20 +335,20 @@ class KeySpacePathSerializerTest {
 
         // Serialize from source
         KeySpacePathSerializer sourceSerializer = new KeySpacePathSerializer(keySpace.path("source_app"));
-        ByteString serialized1 = sourceSerializer.serialize(sourceData);
+        KeySpaceProto.DataInKeySpacePath serialized = sourceSerializer.serialize(sourceData);
 
         // Deserialize to destination
         KeySpacePathSerializer destSerializer = new KeySpacePathSerializer(keySpace.path("dest_app"));
 
         if (errorType == null) {
-            DataInKeySpacePath deserializedData = destSerializer.deserialize(serialized1);
+            DataInKeySpacePath deserializedData = destSerializer.deserialize(serialized);
 
             assertEquals("dest_app", deserializedData.getPath().getParent().getParent().getDirectoryName());
             assertEquals("tenant1", deserializedData.getPath().getParent().getValue());
             assertEquals(42L, deserializedData.getPath().getValue());
             assertArrayEquals(new byte[] {10, 20, 30}, deserializedData.getValue());
         } else {
-            assertThrows(errorType, () -> destSerializer.deserialize(serialized1));
+            assertThrows(errorType, () -> destSerializer.deserialize(serialized));
         }
     }
 
@@ -375,7 +374,7 @@ class KeySpacePathSerializerTest {
 
         // Serialize from production
         KeySpacePathSerializer sourceSerializer = new KeySpacePathSerializer(keySpace.path("environments").add("production"));
-        ByteString serialized = sourceSerializer.serialize(sourceData);
+        KeySpaceProto.DataInKeySpacePath serialized = sourceSerializer.serialize(sourceData);
 
         // Deserialize to staging
         KeySpacePathSerializer destSerializer = new KeySpacePathSerializer(keySpace.path("environments").add("staging"));
@@ -482,7 +481,7 @@ class KeySpacePathSerializerTest {
 
         // Serialize from source
         KeySpacePathSerializer sourceSerializer = new KeySpacePathSerializer(keySpace.path("source_app"));
-        ByteString serialized = sourceSerializer.serialize(sourceData);
+        KeySpaceProto.DataInKeySpacePath serialized = sourceSerializer.serialize(sourceData);
 
         // Deserialize to destination
         KeySpacePathSerializer destSerializer = new KeySpacePathSerializer(keySpace.path("dest_app"));
