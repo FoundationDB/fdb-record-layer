@@ -544,7 +544,7 @@ class HNSWTest {
         final NeighborsChangeSet<N> insertChangeSet =
                 new InsertNeighborsChangeSet<>(new BaseNeighborsChangeSet<>(ImmutableList.of()),
                         node.getNeighbors());
-        storageAdapter.writeNode(transaction, Quantizer.noOpQuantizer(Metric.EUCLIDEAN_METRIC), node, layer,
+        storageAdapter.writeNode(transaction, Quantizer.noOpQuantizer(Metric.EUCLIDEAN_METRIC), layer, node,
                 insertChangeSet);
     }
 

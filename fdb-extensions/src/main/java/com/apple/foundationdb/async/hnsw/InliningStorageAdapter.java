@@ -217,20 +217,28 @@ class InliningStorageAdapter extends AbstractStorageAdapter<NodeReferenceWithVec
      *
      * @param transaction the transaction context for the write operation; must not be null
      * @param quantizer the quantizer to use
+     * @param layer the layer index where the node and its neighbor changes should be written
      * @param node the node to be written, which is expected to be an
      * {@code InliningNode}; must not be null
-     * @param layer the layer index where the node and its neighbor changes should be written
      * @param neighborsChangeSet the set of changes to the node's neighbors to be
      * persisted; must not be null
      */
     @Override
     public void writeNodeInternal(@Nonnull final Transaction transaction, @Nonnull final Quantizer quantizer,
-                                  @Nonnull final AbstractNode<NodeReferenceWithVector> node, final int layer,
+                                  final int layer, @Nonnull final AbstractNode<NodeReferenceWithVector> node,
                                   @Nonnull final NeighborsChangeSet<NodeReferenceWithVector> neighborsChangeSet) {
         final InliningNode inliningNode = node.asInliningNode();
 
         neighborsChangeSet.writeDelta(this, transaction, quantizer, layer, inliningNode, t -> true);
         getOnWriteListener().onNodeWritten(layer, node);
+    }
+
+    @Override
+    protected void deleteNodeInternal(@Nonnull final Transaction transaction, final int layer,
+                                      @Nonnull final Tuple primaryKey) {
+        final byte[] key = getNodeKey(layer, primaryKey);
+        transaction.clear(Range.startsWith(key));
+        getOnWriteListener().onNodeDeleted(layer, primaryKey);
     }
 
     /**

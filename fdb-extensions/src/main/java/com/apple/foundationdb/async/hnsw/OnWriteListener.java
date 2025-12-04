@@ -45,6 +45,19 @@ public interface OnWriteListener {
     }
 
     /**
+     * Callback method invoked after a node has been successfully deleted from a specific layer.
+     * <p>
+     * This is a default method with an empty implementation, allowing implementing classes to override it only if they
+     * need to react to this event.
+     * @param layer the index of the layer where the node was deleted.
+     * @param primaryKey the {@link Tuple} used as key to identify the node that was deleted; guaranteed to be non-null.
+     */
+    @SuppressWarnings("unused")
+    default void onNodeDeleted(final int layer, @Nonnull final Tuple primaryKey) {
+        // nothing
+    }
+
+    /**
      * Callback method invoked when a neighbor is written for a specific node.
      * <p>
      * This method serves as a notification that a neighbor relationship has been established or updated. It is

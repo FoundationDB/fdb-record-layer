@@ -200,16 +200,16 @@ abstract class AbstractStorageAdapter<N extends NodeReference> implements Storag
      *
      * @param transaction the non-null {@link Transaction} context for this write operation
      * @param quantizer the quantizer to use
-     * @param node the non-null {@link Node} to be written to storage
      * @param layer the layer index where the node is being written
+     * @param node the non-null {@link Node} to be written to storage
      * @param changeSet the non-null {@link NeighborsChangeSet} detailing the modifications
      * to the node's neighbors
      */
     @Override
     public void writeNode(@Nonnull final Transaction transaction, @Nonnull final Quantizer quantizer,
-                          @Nonnull final AbstractNode<N> node, final int layer,
+                          final int layer, @Nonnull final AbstractNode<N> node,
                           @Nonnull final NeighborsChangeSet<N> changeSet) {
-        writeNodeInternal(transaction, quantizer, node, layer, changeSet);
+        writeNodeInternal(transaction, quantizer, layer, node, changeSet);
         if (logger.isTraceEnabled()) {
             logger.trace("written node with key={} at layer={}", node.getPrimaryKey(), layer);
         }
@@ -225,12 +225,22 @@ abstract class AbstractStorageAdapter<N extends NodeReference> implements Storag
      *
      * @param transaction the non-null transaction context for the write operation
      * @param quantizer the quantizer to use
-     * @param node the non-null {@link Node} to write
      * @param layer the layer or level of the node in the structure
+     * @param node the non-null {@link Node} to write
      * @param changeSet the non-null {@link NeighborsChangeSet} detailing additions or
      * removals of neighbor links
      */
     protected abstract void writeNodeInternal(@Nonnull Transaction transaction, @Nonnull Quantizer quantizer,
-                                              @Nonnull AbstractNode<N> node, int layer,
+                                              int layer, @Nonnull AbstractNode<N> node,
                                               @Nonnull NeighborsChangeSet<N> changeSet);
+
+    @Override
+    public void deleteNode(@Nonnull final Transaction transaction, final int layer, @Nonnull final Tuple primaryKey) {
+        deleteNodeInternal(transaction, layer, primaryKey);
+        if (logger.isTraceEnabled()) {
+            logger.trace("deleted node with key={} at layer={}", primaryKey, layer);
+        }
+    }
+
+    protected abstract void deleteNodeInternal(@Nonnull final Transaction transaction, final int layer, @Nonnull final Tuple primaryKey);
 }

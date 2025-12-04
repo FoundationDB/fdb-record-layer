@@ -149,18 +149,28 @@ interface StorageAdapter<N extends NodeReference> {
     /**
      * Writes a node and its neighbor changes to the data store within a given transaction.
      * <p>
-     * This method is responsible for persisting the state of a {@link AbstractNode} and applying any modifications to its
+     * This method is responsible for persisting the state of a {@link AbstractNode} and applying any modifications to
+     * its
      * neighboring nodes as defined in the {@code NeighborsChangeSet}. The entire operation is performed atomically as
      * part of the provided {@link Transaction}.
+     *
      * @param transaction the non-null transaction context for this write operation.
      * @param quantizer the quantizer to use
-     * @param node the non-null node to be written to the data store.
      * @param layer the layer index where the node resides.
+     * @param node the non-null node to be written to the data store.
      * @param changeSet the non-null set of changes describing additions or removals of
      *        neighbors for the given {@link AbstractNode}.
      */
-    void writeNode(@Nonnull Transaction transaction, @Nonnull Quantizer quantizer, @Nonnull AbstractNode<N> node,
-                   int layer, @Nonnull NeighborsChangeSet<N> changeSet);
+    void writeNode(@Nonnull Transaction transaction, @Nonnull Quantizer quantizer, int layer,
+                   @Nonnull AbstractNode<N> node, @Nonnull NeighborsChangeSet<N> changeSet);
+
+    /**
+     * Deletes a node from the database.
+     * @param transaction the transaction to use
+     * @param layer the layer the node should be removed from
+     * @param primaryKey the primary key of the node
+     */
+    void deleteNode(@Nonnull Transaction transaction, int layer, @Nonnull Tuple primaryKey);
 
     /**
      * Scans a specified layer of the structure, returning an iterable sequence of nodes.
@@ -327,6 +337,7 @@ interface StorageAdapter<N extends NodeReference> {
                         final byte[] key = keyValue.getKey();
                         final byte[] value = keyValue.getValue();
                         resultBuilder.add(aggregatedVectorFromRaw(prefixSubspace, key, value));
+                        // this is done to not lock the entire range we just read but jst the keys we did read
                         transaction.addReadConflictKey(key);
                         transaction.clear(key);
                         onReadListener.onKeyValueRead(-1, key, value);
