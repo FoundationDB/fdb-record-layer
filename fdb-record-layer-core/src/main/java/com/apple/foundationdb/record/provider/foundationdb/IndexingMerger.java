@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.record.RecordCoreTimeoutException;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
@@ -34,11 +35,10 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.Collections;
-import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -177,28 +177,10 @@ public class IndexingMerger {
     }
 
     private boolean shouldAbort(@Nullable Throwable e) {
-        if (e == null) {
-            return true;
-        }
-        // Expecting AsyncToSyncTimeoutException or an instance of TimeoutException. However, cannot
-        // refer to AsyncToSyncTimeoutException without creating a lucene dependency
-        // TODO: remove this kludge
-        Set<Throwable> seenSet = Collections.newSetFromMap(new IdentityHashMap<>());
-        for (Throwable t = e;
-                 t != null && !seenSet.contains(t);
-                 t = t.getCause()) {
-            if (t.getClass().getCanonicalName().contains("Timeout")) {
-                return false;
-            }
-            seenSet.add(t);
-        }
-
-        final FDBException ex = IndexingBase.findException(e, FDBException.class);
-        if (ex != null) {
-            return false;
-        }
-        // TODO: return true if the exception is clearly not retriable
-        return true;
+        return e == null ||
+                (IndexingBase.findException(e, RecordCoreTimeoutException.class) == null &&
+                         IndexingBase.findException(e, TimeoutException.class) == null &&
+                         IndexingBase.findException(e, FDBException.class) == null);
     }
 
     private void handleRepartitioningFailure(final IndexDeferredMaintenanceControl mergeControl, Throwable e) {

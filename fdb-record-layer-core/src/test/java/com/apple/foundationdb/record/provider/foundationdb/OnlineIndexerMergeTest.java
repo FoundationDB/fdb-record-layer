@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IsolationLevel;
+import com.apple.foundationdb.record.RecordCoreTimeoutException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
@@ -287,9 +288,8 @@ public class OnlineIndexerMergeTest extends FDBRecordStoreConcurrentTestBase {
         }
     }
 
-    private static class CustomOperationTimeoutException extends RuntimeException {
-        private static final long serialVersionUID = -7034897190745766777L;
-
+    @SuppressWarnings("serial")
+    private static class CustomOperationTimeoutException extends RecordCoreTimeoutException {
         public CustomOperationTimeoutException(String message) {
             super(message);
         }
