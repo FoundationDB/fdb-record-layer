@@ -1219,7 +1219,7 @@ public class StandardQueryTests {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 statement.executeUpdate("insert into t1 values (42, 100, 500, 101)");
                 final var message = Assertions.assertThrows(SQLException.class, () -> statement.execute("select struct asd (a, 42, struct def (b, c), struct def(b, c, a)) as X from t1")).getMessage();
-                Assertions.assertTrue(message.contains("cannot register different types with same name")); // we could improve this error message.
+                Assertions.assertTrue(message.contains("Name DEF is already registered with a different type")); // we could improve this error message.
             }
         }
     }

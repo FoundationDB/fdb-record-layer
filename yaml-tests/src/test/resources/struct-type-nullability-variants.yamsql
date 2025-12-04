@@ -3,7 +3,7 @@
 #
 # This source file is part of the FoundationDB open source project
 #
-# Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+# Copyright 2016-2025 Apple Inc. and the FoundationDB project authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,21 +27,21 @@ options:
 ---
 schema_template:
     create type as struct Address(street string, city string, zipcode integer)
-    
+
     create table users(
-        id integer, 
-        name string, 
+        id integer,
+        name string,
         home_address Address,
         primary key(id)
     )
-    
+
     create table locations(
         id integer,
         name string,
         addresses Address array,
         primary key(id)
     )
-    
+
     create table businesses(
         id integer,
         name string,
@@ -49,20 +49,19 @@ schema_template:
         branch_offices Address array,
         primary key(id)
     )
-
 ---
 setup:
   steps:
     # Insert data into users table with nullable addresses
     - query: |
-        INSERT INTO users VALUES 
+        INSERT INTO users VALUES
         (1, 'John Doe', ('123 Main St', 'Anytown', 12345)),
         (2, 'Jane Smith', ('456 Oak Ave', 'Somewhere', 67890)),
         (3, 'Bob Johnson', null)  # Null address should be allowed
-        
+
     # Insert data into locations table with address arrays
     - query: |
-        INSERT INTO locations VALUES 
+        INSERT INTO locations VALUES
         (1, 'Shopping Center', [
             ('100 Mall Dr', 'Big City', 11111),
             ('200 Plaza Way', 'Big City', 11112)
@@ -72,19 +71,18 @@ setup:
             ('400 Corporate Ct', 'Metro', 22223),
             ('500 Executive Dr', 'Metro', 22224)
         ])
-        
+
     # Insert data into businesses table (mixed usage)
     - query: |
-        INSERT INTO businesses VALUES 
-        (1, 'Tech Corp', 
+        INSERT INTO businesses VALUES
+        (1, 'Tech Corp',
          ('999 Innovation Way', 'Silicon Valley', 94000),
          [('101 Branch St', 'New York', 10001), ('202 Office Rd', 'Boston', 02101)]
         ),
-        (2, 'Global Inc', 
+        (2, 'Global Inc',
          null,  # Headquarters can be null
          [('303 Regional Ave', 'Chicago', 60601)]
         )
-
 ---
 test_block:
   name: struct-type-variants-tests
