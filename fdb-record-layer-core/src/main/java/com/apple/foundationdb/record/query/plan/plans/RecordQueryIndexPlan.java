@@ -61,9 +61,9 @@ import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursorBase;
 import com.apple.foundationdb.record.provider.foundationdb.MultidimensionalIndexScanComparisons;
 import com.apple.foundationdb.record.provider.foundationdb.UnsupportedRemoteFetchIndexException;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
-import com.apple.foundationdb.record.query.plan.cascades.AggregateIndexMatchCandidate;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
+import com.apple.foundationdb.record.query.plan.cascades.AggregateIndexMatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRanges;
@@ -72,11 +72,12 @@ import com.apple.foundationdb.record.query.plan.cascades.FinalMemoizer;
 import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
+import com.apple.foundationdb.record.query.plan.cascades.explain.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphRewritable;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.AbstractRelationalExpressionWithoutChildren;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.cascades.explain.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -133,12 +134,12 @@ import java.util.function.Supplier;
  */
 @API(API.Status.INTERNAL)
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
-                                             RecordQueryPlanWithComparisons,
-                                             RecordQueryPlanWithIndex,
-                                             PlannerGraphRewritable,
-                                             RecordQueryPlanWithMatchCandidate,
-                                             RecordQueryPlanWithConstraint {
+public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChildren implements RecordQueryPlanWithNoChildren,
+                                                                                                 RecordQueryPlanWithComparisons,
+                                                                                                 RecordQueryPlanWithIndex,
+                                                                                                 PlannerGraphRewritable,
+                                                                                                 RecordQueryPlanWithMatchCandidate,
+                                                                                                 RecordQueryPlanWithConstraint {
     public static final Logger LOGGER = LoggerFactory.getLogger(RecordQueryIndexPlan.class);
     protected static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Index-Plan");
 
@@ -218,7 +219,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
                                 @Nonnull final Optional<? extends MatchCandidate> matchCandidateOptional,
                                 @Nonnull final Type resultType,
                                 @Nonnull final QueryPlanConstraint constraint) {
-        this(indexName, commonPrimaryKey, scanParameters, indexFetchMethod, fetchIndexRecords, reverse, strictlySorted, matchCandidateOptional, resultType, constraint, KeyValueCursorBase.SerializationMode.TO_OLD);
+        this(indexName, commonPrimaryKey, scanParameters, indexFetchMethod, fetchIndexRecords, reverse, strictlySorted, matchCandidateOptional, resultType, constraint, KeyValueCursorBase.SerializationMode.TO_NEW);
     }
 
     @VisibleForTesting
@@ -343,6 +344,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
         return executeEntriesWithOverScan(tupleScanRange, widenedScanRange, store, index, continuation, executeProperties);
     }
 
+    @SuppressWarnings("resource")
     private <M extends Message> RecordCursor<IndexEntry> executeEntriesWithOverScan(@Nonnull TupleRange tupleScanRange, @Nonnull TupleRange widenedScanRange,
                                                                                     @Nonnull FDBRecordStoreBase<M> store, @Nonnull Index index,
                                                                                     @Nullable byte[] continuation, @Nonnull ExecuteProperties executeProperties) {
@@ -478,7 +480,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
 
     @Nonnull
     @Override
-    public Set<CorrelationIdentifier> getCorrelatedTo() {
+    public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return scanParameters.getCorrelatedTo();
     }
 
@@ -557,7 +559,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
     }
 
     @Override
-    public int hashCodeWithoutChildren() {
+    public int computeHashCodeWithoutChildren() {
         return Objects.hash(indexName, scanParameters, indexFetchMethod.name(), fetchIndexRecords.name(),
                 reverse, strictlySorted);
     }
@@ -595,17 +597,14 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
 
     @Override
     public boolean hasScanComparisons() {
-        return scanParameters instanceof IndexScanComparisons;
+        return scanParameters.hasScanComparisons();
     }
 
     @Nonnull
     @Override
     public ScanComparisons getScanComparisons() {
-        if (scanParameters instanceof IndexScanComparisons) {
-            return ((IndexScanComparisons)scanParameters).getComparisons();
-        } else {
-            throw new RecordCoreException("this plan does not use ScanComparisons");
-        }
+        Verify.verify(hasScanComparisons());
+        return scanParameters.getScanComparisons();
     }
 
     @Nonnull
@@ -832,7 +831,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
                 if (bytes == null) {
                     synchronized (this) {
                         if (bytes == null) {
-                            bytes = KeyValueCursorBase.Continuation.getInnerContinuation(new KeyValueCursorBase.Continuation(KeyValueCursorBase.Continuation.getInnerContinuation(baseContinuation.toBytes()), prefixLength, serializationMode).toBytes());
+                            bytes = new KeyValueCursorBase.Continuation(KeyValueCursorBase.Continuation.getInnerContinuation(baseContinuation.toBytes()), prefixLength, serializationMode).toBytes();
                         }
                     }
                 }

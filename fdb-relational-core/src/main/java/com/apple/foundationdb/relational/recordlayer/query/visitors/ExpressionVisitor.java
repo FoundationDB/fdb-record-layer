@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.CastValue;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.metadata.DataType;
@@ -118,12 +119,6 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         final var name = visitUid(ctx.key);
         final var expression = Assert.castUnchecked(visit(ctx.value), Expression.class);
         return expression.toNamedArgument(name);
-    }
-
-    @Nonnull
-    @Override
-    public Expression visitContinuation(@Nonnull RelationalParser.ContinuationContext ctx) {
-        return visitContinuationAtom(ctx.continuationAtom());
     }
 
     @Nonnull
@@ -306,6 +301,16 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
 
     @Nonnull
     @Override
+    public Expression visitUserDefinedScalarFunctionCall(@Nonnull RelationalParser.UserDefinedScalarFunctionCallContext ctx) {
+        final var functionName = Identifier.of(getDelegate().normalizeString(ctx.userDefinedScalarFunctionName().getText()));
+
+        // final var functionName = ctx.userDefinedScalarFunctionName().getText();
+        Expressions arguments = visitFunctionArgs(ctx.functionArgs());
+        return getDelegate().resolveFunction(functionName.getName(), arguments.asList().toArray(new Expression[0]));
+    }
+
+    @Nonnull
+    @Override
     public Expression visitCaseFunctionCall(@Nonnull RelationalParser.CaseFunctionCallContext ctx) {
         final ImmutableList.Builder<Value> implications = ImmutableList.builder();
         final ImmutableList.Builder<Expression> pickerValues = ImmutableList.builder();
@@ -326,6 +331,24 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         arguments.add(Expression.ofUnnamed(new ConditionSelectorValue(implications.build())));
         arguments.addAll(pickerValues.build());
         return getDelegate().resolveFunction("__pick_value", arguments.build().toArray(new Expression[0]));
+    }
+
+    @Nonnull
+    @Override
+    public Expression visitDataTypeFunctionCall(@Nonnull RelationalParser.DataTypeFunctionCallContext ctx) {
+        if (ctx.CAST() != null) {
+            final var sourceExpression = Assert.castUnchecked(ctx.expression().accept(this), Expression.class);
+            final var isRepeated = ctx.convertedDataType().ARRAY() != null;
+            final var typeInfo = SemanticAnalyzer.ParsedTypeInfo.ofPrimitiveType(ctx.convertedDataType().typeName, false, isRepeated);
+            // Cast does not currently support user-defined struct types.
+            final var targetDataType = getDelegate().getSemanticAnalyzer().lookupBuiltInType(typeInfo);
+            final var targetType = DataTypeUtils.toRecordLayerType(targetDataType);
+            final var castValue = CastValue.inject(sourceExpression.getUnderlying(), targetType);
+            return Expression.ofUnnamed(targetDataType, castValue);
+        }
+
+        Assert.failUnchecked(ErrorCode.UNSUPPORTED_OPERATION, "CONVERT function is not yet supported");
+        return null;
     }
 
     @Nonnull
@@ -516,6 +539,10 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         final Expression result;
         if (ctx.preparedStatementParameter() != null) {
             result = visitPreparedStatementParameter(ctx.preparedStatementParameter());
+        } else if (ctx.fullColumnName() != null) {
+            result = visitFullColumnName(ctx.fullColumnName());
+            // Validate that result is of type Array
+            Assert.thatUnchecked(result.getDataType().getCode() == DataType.Code.ARRAY, ErrorCode.UNSUPPORTED_QUERY, "IN list with column reference must be of array type, but got: %s", result.getDataType().getCode());
         } else if (getDelegate().getPlanGenerationContext().shouldProcessLiteral() && ParseHelpers.isConstant(ctx.expressions())) {
             getDelegate().getPlanGenerationContext().startArrayLiteral();
             final var inListItems = visitExpressions(ctx.expressions());
@@ -594,14 +621,6 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         final var left = Assert.castUnchecked(ctx.left.accept(this), Expression.class);
         final var right = Assert.castUnchecked(ctx.right.accept(this), Expression.class);
         return getDelegate().resolveFunction(ctx.mathOperator().getText(), left, right);
-    }
-
-    @Nonnull
-    @Override
-    public Expression visitExpressionWithName(@Nonnull RelationalParser.ExpressionWithNameContext ctx) {
-        final var expression = Assert.castUnchecked(ctx.expression().accept(this), Expression.class);
-        final var name = visitUid(ctx.uid());
-        return expression.withName(name);
     }
 
     @Nonnull
@@ -738,7 +757,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
                                 })
                         .collect(ImmutableMap.toImmutableMap(NonnullPair::getLeft, NonnullPair::getRight,
                                 (l, r) -> {
-                                    throw Assert.failUnchecked(ErrorCode.AMBIGUOUS_COLUMN, "duplicate column '" + l + "'");
+                                    throw Assert.failUnchecked(ErrorCode.AMBIGUOUS_COLUMN, "duplicate column " + l);
                                 }));
         return CompatibleTypeEvolutionPredicate.FieldAccessTrieNode.of(Type.any(), uidMap);
     }
@@ -777,9 +796,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
             final var resultValue = star.getUnderlying();
             return Expression.ofUnnamed(resultValue);
         }
-        final var expressions = (ctx.expressionWithName() != null) ?
-                parseRecordFieldsUnderReorderings(ImmutableList.of(ctx.expressionWithName())) :
-                parseRecordFieldsUnderReorderings(ctx.expressionWithOptionalName());
+        final var expressions = parseRecordFieldsUnderReorderings(ctx.expressionWithOptionalName());
         if (ctx.ofTypeClause() != null) {
             final var recordId = visitUid(ctx.ofTypeClause().uid());
             final var resultValue = RecordConstructorValue.ofColumnsAndName(expressions.underlyingAsColumns(), recordId.getName());
@@ -796,9 +813,9 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         final var targetTypeMaybe = maybeState.flatMap(LogicalPlanFragment.State::getTargetType);
 
         if (ctx.expressions() == null) {
-            final var elementType = targetTypeMaybe.map(type -> Assert.castUnchecked(type, Type.Array.class).getElementType())
-                    .orElse(Type.any());
-            return Expression.ofUnnamed(AbstractArrayConstructorValue.LightArrayConstructorValue.emptyArray(elementType));
+            final var elementTypeMaybe = targetTypeMaybe.map(type -> Assert.castUnchecked(type, Type.Array.class).getElementType());
+            return Expression.ofUnnamed(elementTypeMaybe.map(AbstractArrayConstructorValue.LightArrayConstructorValue::emptyArray)
+                    .orElse(AbstractArrayConstructorValue.LightArrayConstructorValue.emptyArrayOfNone()));
         }
 
         if (targetTypeMaybe.isEmpty()) {

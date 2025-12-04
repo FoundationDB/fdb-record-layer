@@ -28,8 +28,8 @@ import com.apple.foundationdb.record.TestRecords1Proto.RecordTypeUnion;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.RecordType;
+import com.apple.foundationdb.record.util.RandomSecretUtil;
 import com.apple.foundationdb.tuple.Tuple;
-import com.apple.test.BooleanSource;
 import com.apple.test.ParameterizedTestUtils;
 import com.apple.test.RandomSeedSource;
 import com.apple.test.RandomizedTestUtils;
@@ -48,13 +48,11 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.security.InvalidKeyException;
 import java.security.Key;
-import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -72,6 +70,7 @@ import static org.hamcrest.Matchers.hasEntry;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -373,11 +372,9 @@ public class TransformedRecordSerializerTest {
     }
 
     @ParameterizedTest
-    @BooleanSource
-    void encryptWhenSerializing(boolean compressToo) throws Exception {
-        KeyGenerator keyGen = KeyGenerator.getInstance("AES");
-        keyGen.init(128);
-        SecretKey key = keyGen.generateKey();
+    @MethodSource("randomAndCompressed")
+    void encryptWhenSerializing(long seed, boolean compressToo) {
+        SecretKey key = RandomSecretUtil.randomSecretKey(seed);
         TransformedRecordSerializer<Message> serializer = TransformedRecordSerializerJCE.newDefaultBuilder()
                 .setEncryptWhenSerializing(true)
                 .setEncryptionKey(key)
@@ -516,7 +513,7 @@ public class TransformedRecordSerializerTest {
 
     @ParameterizedTest
     @MethodSource("randomAndCompressed")
-    void encryptRollingKeys(long seed, boolean compressToo) throws Exception {
+    void encryptRollingKeys(long seed, boolean compressToo) {
         RollingTestKeyManager keyManager = new RollingTestKeyManager(seed);
         TransformedRecordSerializer<Message> serializer = TransformedRecordSerializerJCE.newDefaultBuilder()
                 .setEncryptWhenSerializing(true)
@@ -549,12 +546,11 @@ public class TransformedRecordSerializerTest {
         assertEquals(records, deserialized);
     }
 
-    @Test
-    void cannotDecryptUnknownKey() throws Exception {
-        KeyGenerator keyGen = KeyGenerator.getInstance("AES");
-        keyGen.init(128);
-        SecretKey key = keyGen.generateKey();
-        SecureRandom random = new SecureRandom();
+    @ParameterizedTest
+    @RandomSeedSource
+    void cannotDecryptUnknownKey(long seed) {
+        Random random = new Random(seed);
+        SecretKey key = RandomSecretUtil.randomSecretKey(random);
         TransformedRecordSerializer<Message> serializer = TransformedRecordSerializerJCE.newDefaultBuilder()
                 .setEncryptWhenSerializing(true)
                 .setKeyManager(new SerializationKeyManager() {
@@ -591,14 +587,20 @@ public class TransformedRecordSerializerTest {
         assertThat(e.getMessage(), containsString("only provide key number 0"));
     }
 
+    public static Stream<Arguments> randomAndJCE() {
+        return ParameterizedTestUtils.cartesianProduct(
+                RandomizedTestUtils.randomSeeds(0xC0DE6EEDL, 0x6EEDC0DEL),
+                ParameterizedTestUtils.booleans("jce")
+        );
+    }
+
     @ParameterizedTest
-    @BooleanSource
-    void cannotDecryptWithoutKey(boolean jce) throws Exception {
-        KeyGenerator keyGen = KeyGenerator.getInstance("AES");
-        keyGen.init(128);
+    @MethodSource("randomAndJCE")
+    void cannotDecryptWithoutKey(long seed, boolean jce) {
+        SecretKey key = RandomSecretUtil.randomSecretKey(seed);
         TransformedRecordSerializer<Message> serializer = TransformedRecordSerializerJCE.newDefaultBuilder()
                 .setEncryptWhenSerializing(true)
-                .setEncryptionKey(keyGen.generateKey())
+                .setEncryptionKey(key)
                 .setWriteValidationRatio(1.0)
                 .build();
         MySimpleRecord simpleRecord = MySimpleRecord.newBuilder().setRecNo(PRIMARY_KEY_REC_NO).setStrValueIndexed("Hello").build();
@@ -620,7 +622,7 @@ public class TransformedRecordSerializerTest {
     }
 
     @Test
-    void cannotEncryptAfterClearKey() throws Exception {
+    void cannotEncryptAfterClearKey() {
         RollingTestKeyManager keyManager = new RollingTestKeyManager(0);
         TransformedRecordSerializerJCE.Builder<Message> builder = TransformedRecordSerializerJCE.newDefaultBuilder()
                 .setEncryptWhenSerializing(true)
@@ -630,14 +632,15 @@ public class TransformedRecordSerializerTest {
         assertThat(e.getMessage(), containsString("cannot encrypt when serializing if encryption key is not set"));
     }
 
-    @Test
-    void keyDoesNotMatchAlgorithm() throws Exception {
-        KeyGenerator keyGen = KeyGenerator.getInstance("DES");
-        keyGen.init(56);
+    @ParameterizedTest
+    @RandomSeedSource
+    void keyDoesNotMatchAlgorithm(long seed) {
+        Random random = new Random(seed);
+        SecretKey key = RandomSecretUtil.randomSecretKey(random, "DES", 56);
         try {
             TransformedRecordSerializer<Message> serializer = TransformedRecordSerializerJCE.newDefaultBuilder()
                     .setEncryptWhenSerializing(true)
-                    .setEncryptionKey(keyGen.generateKey())
+                    .setEncryptionKey(key)
                     .setWriteValidationRatio(1.0)
                     .build();
             MySimpleRecord simpleRecord = MySimpleRecord.newBuilder().setRecNo(PRIMARY_KEY_REC_NO).setStrValueIndexed("Hello").build();
@@ -652,23 +655,23 @@ public class TransformedRecordSerializerTest {
         }
     }
 
-    @Test
-    void changeAlgorithm() throws Exception {
-        KeyGenerator keyGen = KeyGenerator.getInstance("AES");
-        keyGen.init(128);
+    @ParameterizedTest
+    @RandomSeedSource
+    void changeAlgorithm(long seed) {
+        Random random = new Random(seed);
+        SecretKey key = RandomSecretUtil.randomSecretKey(random, "AES", 128);
         TransformedRecordSerializer<Message> serializer = TransformedRecordSerializerJCE.newDefaultBuilder()
                 .setEncryptWhenSerializing(true)
-                .setEncryptionKey(keyGen.generateKey())
+                .setEncryptionKey(key)
                 .setWriteValidationRatio(1.0)
                 .build();
         MySimpleRecord simpleRecord = MySimpleRecord.newBuilder().setRecNo(PRIMARY_KEY_REC_NO).setStrValueIndexed("Hello").build();
         byte[] serialized = serialize(serializer, simpleRecord);
-        KeyGenerator keyGen2 = KeyGenerator.getInstance("DES");
-        keyGen2.init(56);
+        SecretKey key2 = RandomSecretUtil.randomSecretKey(random, "DES", 56);
         TransformedRecordSerializer<Message> deserializer = TransformedRecordSerializerJCE.newDefaultBuilder()
                 .setEncryptWhenSerializing(true)
-                 .setCipherName("DES")
-                .setEncryptionKey(keyGen2.generateKey())
+                .setCipherName("DES")
+                .setEncryptionKey(key2)
                 .setWriteValidationRatio(1.0)
                 .build();
         RecordSerializationException e = assertThrows(RecordSerializationException.class,
@@ -678,13 +681,14 @@ public class TransformedRecordSerializerTest {
 
     public static Stream<Arguments> compressedAndOrEncrypted() {
         return ParameterizedTestUtils.cartesianProduct(
+                RandomizedTestUtils.randomSeeds(),
                 ParameterizedTestUtils.booleans("compressed"),
                 ParameterizedTestUtils.booleans("encrypted"));
     }
 
     @ParameterizedTest
     @MethodSource("compressedAndOrEncrypted")
-    void typed(boolean compressed, boolean encrypted) throws Exception {
+    void typed(long seed, boolean compressed, boolean encrypted) {
         RecordSerializer<MySimpleRecord> typedSerializer = new TypedRecordSerializer<>(
                 TestRecords1Proto.RecordTypeUnion.getDescriptor().findFieldByNumber(TestRecords1Proto.RecordTypeUnion._MYSIMPLERECORD_FIELD_NUMBER),
                 TestRecords1Proto.RecordTypeUnion::newBuilder,
@@ -694,9 +698,7 @@ public class TransformedRecordSerializerTest {
         MySimpleRecord rec = MySimpleRecord.newBuilder().setRecNo(PRIMARY_KEY_REC_NO).setStrValueIndexed(SONNET_108).build();
 
         if (encrypted) {
-            KeyGenerator keyGen = KeyGenerator.getInstance("AES");
-            keyGen.init(128);
-            SecretKey key = keyGen.generateKey();
+            SecretKey key = RandomSecretUtil.randomSecretKey(seed);
             typedSerializer = TransformedRecordSerializerJCE.newBuilder(typedSerializer)
                 .setEncryptWhenSerializing(true)
                 .setEncryptionKey(key)
@@ -725,13 +727,13 @@ public class TransformedRecordSerializerTest {
         assertEquals(rec, untypedDeserialized);
     }
 
-    @Test
-    void defaultKeyManagerKey() throws Exception {
-        KeyGenerator keyGen = KeyGenerator.getInstance("AES");
-        keyGen.init(128);
+    @ParameterizedTest
+    @RandomSeedSource
+    void defaultKeyManagerKey(long seed) {
+        SecretKey key = RandomSecretUtil.randomSecretKey(seed);
         TransformedRecordSerializerJCE<Message> serializer = TransformedRecordSerializerJCE.newDefaultBuilder()
                 .setEncryptWhenSerializing(true)
-                .setEncryptionKey(keyGen.generateKey())
+                .setEncryptionKey(key)
                 .setWriteValidationRatio(1.0)
                 .build();
         SerializationKeyManager keyManager = serializer.keyManager;
@@ -752,7 +754,7 @@ public class TransformedRecordSerializerTest {
     }
 
     @Test
-    void invalidKeyManagerBuilder() throws Exception {
+    void invalidKeyManagerBuilder() {
         TransformedRecordSerializerJCE.Builder<Message> builder = TransformedRecordSerializerJCE.newDefaultBuilder();
         builder.setEncryptWhenSerializing(true);
 
@@ -770,6 +772,25 @@ public class TransformedRecordSerializerTest {
         builder.setEncryptionKey(keyManager.getKey(keyManager.getSerializationKey()));
         e = assertThrows(RecordCoreArgumentException.class, builder::build);
         assertThat(e.getMessage(), containsString("cannot specify both key manager and encryption key"));
+    }
+
+    @Test
+    void reuseBuilder() {
+        RollingTestKeyManager keyManager = new RollingTestKeyManager(0);
+        TransformedRecordSerializerJCE.Builder<Message> builderWithEncryptionKey = TransformedRecordSerializerJCE
+                .newDefaultBuilder()
+                .setEncryptionKey(keyManager.getKey(keyManager.getSerializationKey()));
+        TransformedRecordSerializerJCE.Builder<Message> builderWithKeyManager = TransformedRecordSerializerJCE
+                .newDefaultBuilder()
+                .setKeyManager(keyManager);
+
+        List.of(builderWithEncryptionKey, builderWithKeyManager).forEach((builder) -> {
+            builder.setEncryptWhenSerializing(false);
+            assertDoesNotThrow(builder::build);
+
+            builder.setEncryptWhenSerializing(true);
+            assertDoesNotThrow(builder::build);
+        });
     }
 
     private boolean isCompressed(byte[] serialized) {

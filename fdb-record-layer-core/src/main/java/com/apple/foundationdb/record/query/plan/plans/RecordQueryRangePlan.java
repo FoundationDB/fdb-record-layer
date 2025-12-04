@@ -39,10 +39,11 @@ import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.FinalMemoizer;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
+import com.apple.foundationdb.record.query.plan.cascades.explain.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.AbstractRelationalExpressionWithoutChildren;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.cascades.explain.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -67,7 +68,7 @@ import java.util.Set;
  * Semantically, however, {@code explode([1, 2, 3, ..., n - 1])} produces the same result as {@code range(n)}.
  */
 @API(API.Status.INTERNAL)
-public class RecordQueryRangePlan implements RecordQueryPlanWithNoChildren {
+public class RecordQueryRangePlan extends AbstractRelationalExpressionWithoutChildren implements RecordQueryPlanWithNoChildren {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Range-Plan");
 
     private final Value exclusiveLimitValue;
@@ -151,7 +152,7 @@ public class RecordQueryRangePlan implements RecordQueryPlanWithNoChildren {
 
     @Nonnull
     @Override
-    public Set<CorrelationIdentifier> getCorrelatedTo() {
+    public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return exclusiveLimitValue.getCorrelatedTo();
     }
 
@@ -199,7 +200,7 @@ public class RecordQueryRangePlan implements RecordQueryPlanWithNoChildren {
     }
 
     @Override
-    public int hashCodeWithoutChildren() {
+    public int computeHashCodeWithoutChildren() {
         return Objects.hash(exclusiveLimitValue);
     }
 

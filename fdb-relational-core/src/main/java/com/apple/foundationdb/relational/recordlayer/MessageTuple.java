@@ -21,13 +21,18 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.RecordMetaDataOptionsProto;
 import com.apple.foundationdb.record.TupleFieldsProto;
 import com.apple.foundationdb.record.metadata.expressions.TupleFieldsHelper;
+import com.apple.foundationdb.record.util.ProtoUtils;
+import com.apple.foundationdb.record.util.VectorUtils;
 import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceException;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
+import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -49,28 +54,48 @@ public class MessageTuple extends AbstractRow {
         if (position < 0 || position >= getNumFields()) {
             throw InvalidColumnReferenceException.getExceptionForInvalidPositionNumber(position);
         }
-        Descriptors.FieldDescriptor fieldDescriptor = message.getDescriptorForType().getFields().get(position);
+        final Descriptors.FieldDescriptor fieldDescriptor = message.getDescriptorForType().getFields().get(position);
+        final var fieldOptions = fieldDescriptor.getOptions().getExtension(RecordMetaDataOptionsProto.field);
+        final var fieldValue = message.getField(message.getDescriptorForType().getFields().get(position));
+        if (fieldOptions.hasVectorOptions()) {
+            final var byteStringFieldValue = (ByteString)fieldValue;
+            if (byteStringFieldValue.isEmpty()) {
+                return null;
+            } else {
+                final var precision = fieldOptions.getVectorOptions().getPrecision();
+                return VectorUtils.parseVector(byteStringFieldValue, precision);
+            }
+        }
         if (fieldDescriptor.isRepeated()) {
-            final var list = (List<?>) message.getField(message.getDescriptorForType().getFields().get(position));
-            return list.stream().map(MessageTuple::sanitizeField).collect(Collectors.toList());
+            final var list = (List<?>) fieldValue;
+            return list.stream().map(arrayItem -> sanitizeField(arrayItem, fieldDescriptor.getOptions())).collect(Collectors.toList());
         }
         if (message.hasField(fieldDescriptor)) {
-            final var field = message.getField(message.getDescriptorForType().getFields().get(position));
-            return sanitizeField(field);
+            return sanitizeField(fieldValue, fieldDescriptor.getOptions());
         } else {
             return null;
         }
     }
 
-    public static Object sanitizeField(final Object field) {
+    public static Object sanitizeField(@Nonnull final Object field, @Nonnull final DescriptorProtos.FieldOptions fieldOptions) {
         if (field instanceof Message && ((Message) field).getDescriptorForType().equals(TupleFieldsProto.UUID.getDescriptor())) {
             return TupleFieldsHelper.fromProto((Message) field, TupleFieldsProto.UUID.getDescriptor());
         }
         if (field instanceof Descriptors.EnumValueDescriptor) {
-            return ((Descriptors.EnumValueDescriptor) field).getName();
+            return ProtoUtils.toUserIdentifier(((Descriptors.EnumValueDescriptor) field).getName());
         }
         if (field instanceof ByteString) {
-            return ((ByteString) field).toByteArray();
+            final var byteString = (ByteString) field;
+            final var fieldVectorOptionsMaybe = fieldOptions.getExtension(RecordMetaDataOptionsProto.field);
+            if (fieldVectorOptionsMaybe.hasVectorOptions()) {
+                if (byteString.isEmpty()) {
+                    return null;
+                } else {
+                    final var precision = fieldVectorOptionsMaybe.getVectorOptions().getPrecision();
+                    return VectorUtils.parseVector(byteString, precision);
+                }
+            }
+            return byteString.toByteArray();
         }
         return field;
     }

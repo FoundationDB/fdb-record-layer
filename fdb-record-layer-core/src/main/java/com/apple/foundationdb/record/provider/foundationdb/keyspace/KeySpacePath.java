@@ -81,19 +81,6 @@ public interface KeySpacePath {
     KeySpacePath add(@Nonnull String dirName, @Nullable Object value);
 
     /**
-     * If this path was created via {@link KeySpace#pathFromKey(FDBRecordContext, Tuple)}, this returns
-     * any remaining portion of the input tuple that was not used to construct the path.
-     * @return the remaining portion of the original input tuple or <code>null</code>
-     *
-     * @deprecated use {@link KeySpace#resolveFromKey(FDBRecordContext, Tuple)} and
-     *     {@link ResolvedKeySpacePath#getRemainder()} instead
-     */
-    @API(API.Status.DEPRECATED)
-    @Deprecated
-    @Nullable
-    Tuple getRemainder();
-
-    /**
      * Returns the parent of this entry or null if this is the root of the path.
      * @return the parent keyspace path
      */
@@ -129,38 +116,10 @@ public interface KeySpacePath {
      * by the directory layer for this path entry's value.
      *
      * @param context the context in which to resolve the value
-     * @return future that will resolve to value to be store for this path element.  Note that if the path
-     *   was produced via {@link KeySpace#pathFromKeyAsync(FDBRecordContext, Tuple)} or {@link #listAsync(FDBRecordContext, String, byte[], ScanProperties)},
-     *   then the future that is returned will have already been completed (i.e it is safe to retrieve the
-     *   value without blocking)
+     * @return future that will resolve to value to be store for this path element.
      */
     @Nonnull
     CompletableFuture<PathValue> resolveAsync(@Nonnull FDBRecordContext context);
-
-    /**
-     * If this path was created via a call to <code>pathFromKey</code> or <code>listAsync</code> (or their blocking
-     * variants), this method may be used to determine what the underlying value was physically stored in the key.
-     *
-     * @return the value that was stored for the path element
-     * @throws IllegalStateException if this path element was not produced from one of the above method calls
-     *
-     * @deprecated use {@link KeySpace#resolveFromKey(FDBRecordContext, Tuple)} and
-     *     {@link ResolvedKeySpacePath#getResolvedPathValue()} instead
-     */
-    @API(API.Status.DEPRECATED)
-    @Deprecated
-    @Nonnull
-    PathValue getStoredValue();
-
-    /**
-     * Whether it is legal to ask this key space path for the underlying value stored in the key.
-     * @return true if it is legal to call {@link #getStoredValue()}.
-     * @see #getStoredValue()
-     * @deprecated use {@link KeySpace#resolveFromKey(FDBRecordContext, Tuple)} instead
-     */
-    @API(API.Status.DEPRECATED)
-    @Deprecated
-    boolean hasStoredValue();
 
     /**
      * Converts this path into a tuple. During this process the value that was provided for the directory, or
@@ -281,139 +240,6 @@ public interface KeySpacePath {
      */
     default void deleteAllData(@Nonnull FDBRecordContext context) {
         context.asyncToSync(FDBStoreTimer.Waits.WAIT_KEYSPACE_CLEAR, deleteAllDataAsync(context));
-    }
-
-    /**
-     * For a given subdirectory from this path element, return a list of paths for all available keys in the FDB
-     * keyspace for that directory. For example, given the tree:
-     * <pre>
-     * root
-     *   +- node
-     *       +- leaf
-     * </pre>
-     * Performing a <code>listAsync</code> from a given <code>node</code>, will result in a list of paths, one for
-     * each <code>leaf</code> that is available within the <code>node</code>'s scope.
-     *
-     * <p>The listing is performed by reading the first key of the data type (and possibly constant value) for the
-     * subdirectory and, if a key is found, skipping to the next available value after the first one that was found,
-     * and so on, each time resulting in an additional <code>KeySpacePath</code> that is returned.  In each case,
-     * the returned <code>KeySpacePath</code> may contain a remainder (see {@link #getRemainder()}) of the portion
-     * of the key tuple that was read.
-     *
-     * @param context the transaction in which to perform the listing
-     * @param subdirName the name of the subdirectory that is to be listed
-     * @param continuation an optional continuation from a previous list attempt
-     * @param scanProperties details for how the scan should be performed
-     * @return a list of fully qualified paths for each value contained within this directory
-     * @throws NoSuchDirectoryException if the subdirectory name provided does not exist
-     * @throws com.apple.foundationdb.record.RecordCoreException if a key found during the listing process did not correspond to
-     *    the directory tree
-     *
-     * @deprecated use {@link #listSubdirectoryAsync(FDBRecordContext, String, byte[], ScanProperties)} instead
-     */
-    @API(API.Status.DEPRECATED)
-    @Deprecated
-    @Nonnull
-    default RecordCursor<KeySpacePath> listAsync(@Nonnull FDBRecordContext context,
-                                                 @Nonnull String subdirName, @Nullable byte[] continuation,
-                                                 @Nonnull ScanProperties scanProperties) {
-        return listAsync(context, subdirName, null, continuation, scanProperties);
-    }
-
-    /**
-     * For a given subdirectory from this path element, return a list of paths for all available keys in the FDB
-     * keyspace for that directory. For example, given the tree:
-     * <pre>
-     * root
-     *   +- node
-     *       +- leaf
-     * </pre>
-     * Performing a <code>listAsync</code> from a given <code>node</code>, will result in a list of paths, one for
-     * each <code>leaf</code> that is available within the <code>node</code>'s scope.
-     *
-     * <p>The listing is performed by reading the first key of the data type (and possibly constant value) for the
-     * subdirectory and, if a key is found, skipping to the next available value after the first one that was found,
-     * and so on, each time resulting in an additional <code>KeySpacePath</code> that is returned.  In each case,
-     * the returned <code>KeySpacePath</code> may contain a remainder (see {@link #getRemainder()}) of the portion
-     * of the key tuple that was read.
-     *
-     * @param context the transaction in which to perform the listing
-     * @param subdirName the name of the subdirectory that is to be listed
-     * @param range the range of the subdirectory values to be listed. All will be listed if it is <code>null</code>.
-     *     If the directory is restricted to a specific constant value, it has to be <code>null</code>
-     * @param continuation an optional continuation from a previous list attempt
-     * @param scanProperties details for how the scan should be performed
-     * @return a list of fully qualified paths for each value contained within this directory
-     * @throws NoSuchDirectoryException if the subdirectory name provided does not exist
-     * @throws com.apple.foundationdb.record.RecordCoreException if a key found during the listing process did not correspond to
-     *    the directory tree
-     *
-     * @deprecated use {@link #listSubdirectoryAsync(FDBRecordContext, String, ValueRange, byte[], ScanProperties)} instead
-     */
-    @API(API.Status.DEPRECATED)
-    @Deprecated
-    @Nonnull
-    RecordCursor<KeySpacePath> listAsync(@Nonnull FDBRecordContext context, 
-                                         @Nonnull String subdirName, 
-                                         @Nullable ValueRange<?> range,
-                                         @Nullable byte[] continuation,
-                                         @Nonnull ScanProperties scanProperties);
-
-    /**
-     * Synchronous version of <code>listAsync</code>.
-     *
-     * @param context the transaction in which to perform the listing
-     * @param subdirName the name of the subdirectory that is to be listed
-     * @param scanProperties details for how the scan should be performed
-     * @return a list of fully qualified paths for each value contained within this directory
-     *
-     * @deprecated use {@link #listSubdirectory(FDBRecordContext, String, ScanProperties)} instead
-     */
-    @API(API.Status.DEPRECATED)
-    @Deprecated
-    @Nonnull
-    default List<KeySpacePath> list(@Nonnull FDBRecordContext context, @Nonnull String subdirName,
-                                    @Nonnull ScanProperties scanProperties) {
-        return context.asyncToSync(FDBStoreTimer.Waits.WAIT_KEYSPACE_LIST, listAsync(context, subdirName, null, scanProperties).asList());
-    }
-
-    /**
-     * Synchronous version of <code>listAsync</code>.
-     *
-     * @param context the transaction in which to perform the listing
-     * @param subdirName the name of the subdirectory that is to be listed
-     * @param range the range of the subdirectory values to be listed. All will be listed if it is <code>null</code>.
-     *     If the directory is restricted to a specific constant value, it has to be <code>null</code>
-     * @param continuation an optional continuation from a previous list attempt
-     * @param scanProperties details for how the scan should be performed
-     * @return a list of fully qualified paths for each value contained within this directory
-     *
-     * @deprecated use {@link #listSubdirectory(FDBRecordContext, String, ValueRange, byte[], ScanProperties)} instead
-     */
-    @API(API.Status.DEPRECATED)
-    @Deprecated
-    @Nonnull
-    default List<KeySpacePath> list(@Nonnull FDBRecordContext context, @Nonnull String subdirName,
-                                    @Nullable ValueRange<?> range,
-                                    @Nullable byte[] continuation,
-                                    @Nonnull ScanProperties scanProperties) {
-        return context.asyncToSync(FDBStoreTimer.Waits.WAIT_KEYSPACE_LIST, listAsync(context, subdirName, range, continuation, scanProperties).asList());
-    }
-
-    /**
-     * Synchronous version of <code>listAsync</code> that performs a forward, serializable scan.
-     *
-     * @param context the transaction in which to perform the listing
-     * @param subdirName the name of the subdirectory that is to be listed
-     * @return a list of fully qualified paths for each value contained within this directory
-     *
-     * @deprecated use {@link #listSubdirectory(FDBRecordContext, String)} instead
-     */
-    @API(API.Status.DEPRECATED)
-    @Deprecated
-    @Nonnull
-    default List<KeySpacePath> list(@Nonnull FDBRecordContext context, @Nonnull String subdirName) {
-        return list(context, subdirName, ScanProperties.FORWARD_SCAN);
     }
 
     /**
@@ -566,4 +392,44 @@ public interface KeySpacePath {
      */
     @API(API.Status.UNSTABLE)
     String toString(@Nonnull Tuple tuple);
+
+    /**
+     * Export all data stored under this KeySpacePath and return it in a RecordCursor.
+     * This method scans all keys that have this path as a prefix and returns the key-value pairs.
+     * Supports continuation to resume scanning from a previous position.
+     *
+     * @param context the transaction context in which to perform the data export
+     * @param continuation optional continuation from a previous export operation, or null to start from the beginning
+     * @param scanProperties properties controlling how the scan should be performed
+     * @return a RecordCursor that iterates over all KeyValue pairs under this path
+     */
+    @API(API.Status.EXPERIMENTAL)
+    @Nonnull
+    default RecordCursor<DataInKeySpacePath> exportAllData(@Nonnull FDBRecordContext context,
+                                                           @Nullable byte[] continuation,
+                                                           @Nonnull ScanProperties scanProperties) {
+        throw new UnsupportedOperationException("exportAllData is not supported");
+    }
+
+    /**
+     * Imports the provided data exported via {@link #exportAllData} into this {@code KeySpacePath}.
+     * <p>
+     * This will validate that any data provided in {@code dataToImport} has a path that should be in this path
+     * or one of the sub-directories. If not, the future will complete exceptionally with a
+     * {@link RecordCoreIllegalImportDataException}.
+     * If there is any data already existing under this path, the new data will overwrite if the keys are the same.
+     * This will use the logical values in the {@link DataInKeySpacePath#getPath()} and
+     * {@link DataInKeySpacePath#getRemainder()} to determine the key, rather
+     * than the raw key, meaning that this will work even if the data was exported from a different cluster.
+     * Note, this will not correct for any cluster-specific data, other than {@link DirectoryLayerDirectory} data;
+     * for example, if you have versionstamps, that data will not align on the destination.
+     * </p>
+     * @param context the transaction context in which to save the data
+     * @param dataToImport the data to be saved to the database
+     * @return a future to be completed once all data has been important.
+     */
+    @API(API.Status.EXPERIMENTAL)
+    @Nonnull
+    CompletableFuture<Void> importData(@Nonnull FDBRecordContext context,
+                                       @Nonnull Iterable<DataInKeySpacePath> dataToImport);
 }

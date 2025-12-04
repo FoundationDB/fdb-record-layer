@@ -24,7 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.provider.common.RecordSerializer;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.ExtendedDirectoryLayer;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveUnionPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveLevelUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryStreamingAggregationPlan;
 import com.google.common.collect.ImmutableSet;
 
@@ -182,6 +182,8 @@ public class FDBStoreTimer extends StoreTimer {
         RANGE_SET_CONTAINS("range set contains key"),
         /** The amount of time checking if a {@link com.google.common.collect.RangeSet} is empty. */
         RANGE_SET_IS_EMPTY("range set is empty"),
+        /** The amount of time importing a single KeyValue into a path. */
+        IMPORT_DATA("import KeyValue"),
 
         /** The amount of time spent clearing the space taken by an index that has been removed from the meta-data. */
         REMOVE_FORMER_INDEX("remove former index"),
@@ -615,7 +617,7 @@ public class FDBStoreTimer extends StoreTimer {
         PLAN_DAM("number of dam plans", false),
         /** The number of synthetic record type plans. */
         PLAN_SYNTHETIC_TYPE("number of synthetic record types plans", false),
-        /** The number of plans that include a {@link RecordQueryRecursiveUnionPlan}. */
+        /** The number of plans that include a {@link RecordQueryRecursiveLevelUnionPlan}. */
         PLAN_RECURSIVE_UNION("number of recursive union plans", false),
         /** The number of records given given to any filter within any plan. */
         QUERY_FILTER_GIVEN("number of records given to any filter within any plan", false),
@@ -761,6 +763,14 @@ public class FDBStoreTimer extends StoreTimer {
         LOCKS_ATTEMPTED("number of attempts to register a lock", false),
         /** Count of the locks released. */
         LOCKS_RELEASED("number of locks released", false),
+        VECTOR_NODE_READS("intermediate nodes read", false),
+        VECTOR_NODE_READ_BYTES("intermediate node bytes read", true),
+        VECTOR_NODE0_READS("intermediate nodes read", false),
+        VECTOR_NODE0_READ_BYTES("intermediate node bytes read", true),
+        VECTOR_NODE_WRITES("intermediate nodes written", false),
+        VECTOR_NODE_WRITE_BYTES("intermediate node bytes written", true),
+        VECTOR_NODE0_WRITES("intermediate nodes written", false),
+        VECTOR_NODE0_WRITE_BYTES("intermediate node bytes written", true),
         ;
 
         private final String title;

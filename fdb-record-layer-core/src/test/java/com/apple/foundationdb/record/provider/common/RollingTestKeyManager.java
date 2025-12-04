@@ -21,11 +21,10 @@
 package com.apple.foundationdb.record.provider.common;
 
 import com.apple.foundationdb.record.RecordCoreArgumentException;
+import com.apple.foundationdb.record.util.RandomSecretUtil;
 
-import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
 import java.security.Key;
-import java.security.NoSuchAlgorithmException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
@@ -34,13 +33,10 @@ import java.util.Random;
  * A {@link SerializationKeyManager} that gives out lots of different keys.
  */
 public class RollingTestKeyManager implements SerializationKeyManager {
-    private final KeyGenerator keyGenerator;
     private final Map<Integer, SecretKey> keys;
     private final Random random;
 
-    public RollingTestKeyManager(long seed) throws NoSuchAlgorithmException {
-        keyGenerator = KeyGenerator.getInstance("AES");
-        keyGenerator.init(128);
+    public RollingTestKeyManager(long seed) {
         keys = new HashMap<>();
         random = new Random(seed);
     }
@@ -49,7 +45,7 @@ public class RollingTestKeyManager implements SerializationKeyManager {
     public int getSerializationKey() {
         int newKey = random.nextInt();
         if (!keys.containsKey(newKey)) {
-            keys.put(newKey, keyGenerator.generateKey());
+            keys.put(newKey, RandomSecretUtil.randomSecretKey(random));
         }
         return newKey;
     }

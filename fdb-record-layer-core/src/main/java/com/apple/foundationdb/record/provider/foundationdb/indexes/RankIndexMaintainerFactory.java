@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.RankedSet;
+import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
@@ -32,7 +33,12 @@ import com.apple.foundationdb.record.metadata.MetaDataValidator;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactory;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
+import com.apple.foundationdb.record.query.plan.cascades.IndexExpansionInfo;
+import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
+import com.apple.foundationdb.record.query.plan.cascades.MatchCandidateExpansion;
+import com.apple.foundationdb.record.query.plan.cascades.WindowedIndexExpansionVisitor;
 import com.google.auto.service.AutoService;
+import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
 import java.util.Arrays;
@@ -102,4 +108,18 @@ public class RankIndexMaintainerFactory implements IndexMaintainerFactory {
         return new RankIndexMaintainer(state);
     }
 
+    @Nonnull
+    @Override
+    public Iterable<MatchCandidate> createMatchCandidates(@Nonnull final RecordMetaData metaData, @Nonnull final Index index, final boolean reverse) {
+        final IndexExpansionInfo info = IndexExpansionInfo.createInfo(metaData, index, reverse);
+        final ImmutableList.Builder<MatchCandidate> resultBuilder = ImmutableList.builder();
+
+        // For rank() we need to create at two candidates. One for BY_RANK scans and one for BY_VALUE scans.
+        MatchCandidateExpansion.expandValueIndexMatchCandidate(info)
+                        .ifPresent(resultBuilder::add);
+        MatchCandidateExpansion.expandIndexMatchCandidate(info, info.getCommonPrimaryKeyForTypes(), new WindowedIndexExpansionVisitor(index, info.getIndexedRecordTypes()))
+                .ifPresent(resultBuilder::add);
+
+        return resultBuilder.build();
+    }
 }

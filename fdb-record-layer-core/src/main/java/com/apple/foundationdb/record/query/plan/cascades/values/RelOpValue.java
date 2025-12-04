@@ -1042,6 +1042,26 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
 
         NOT_DISTINCT_FROM_NN(Comparisons.Type.NOT_DISTINCT_FROM, Type.TypeCode.NULL, Type.TypeCode.NULL, (l, r) -> true),
 
+        EQ_VEC_VEC(Comparisons.Type.EQUALS, Type.TypeCode.VECTOR, Type.TypeCode.VECTOR, Objects::equals),
+        EQ_VEC_NULL(Comparisons.Type.EQUALS, Type.TypeCode.VECTOR, Type.TypeCode.NULL, (l, r) -> null),
+        EQ_NULL_VEC(Comparisons.Type.EQUALS, Type.TypeCode.NULL, Type.TypeCode.VECTOR, (l, r) -> null),
+        NEQ_VEC_VEC(Comparisons.Type.NOT_EQUALS, Type.TypeCode.VECTOR, Type.TypeCode.VECTOR, (l, r) -> !l.equals(r)),
+        NEQ_VEC_NULL(Comparisons.Type.NOT_EQUALS, Type.TypeCode.VECTOR, Type.TypeCode.NULL, (l, r) -> null),
+        NEQ_NULL_VEC(Comparisons.Type.NOT_EQUALS, Type.TypeCode.NULL, Type.TypeCode.VECTOR, (l, r) -> null),
+        LT_VEC_NULL(Comparisons.Type.LESS_THAN, Type.TypeCode.VECTOR, Type.TypeCode.NULL, (l, r) -> null),
+        LT_NULL_VEC(Comparisons.Type.LESS_THAN, Type.TypeCode.NULL, Type.TypeCode.VECTOR, (l, r) -> null),
+        LTE_VEC_NULL(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.VECTOR, Type.TypeCode.NULL, (l, r) -> null),
+        LTE_NULL_VEC(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.NULL, Type.TypeCode.VECTOR, (l, r) -> null),
+        GT_VEC_NULL(Comparisons.Type.GREATER_THAN, Type.TypeCode.VECTOR, Type.TypeCode.NULL, (l, r) -> null),
+        GT_NULL_VEC(Comparisons.Type.GREATER_THAN, Type.TypeCode.NULL, Type.TypeCode.VECTOR, (l, r) -> null),
+        GTE_VEC_NULL(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.VECTOR, Type.TypeCode.NULL, (l, r) -> null),
+        GTE_NULL_VEC(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.NULL, Type.TypeCode.VECTOR, (l, r) -> null),
+        IS_DISTINCT_FROM_NULL_VEC(Comparisons.Type.IS_DISTINCT_FROM, Type.TypeCode.NULL, Type.TypeCode.VECTOR, (l, r) -> Objects.nonNull(r)),
+        IS_DISTINCT_FROM_VEC_NULL(Comparisons.Type.IS_DISTINCT_FROM, Type.TypeCode.VECTOR, Type.TypeCode.NULL, (l, r) -> Objects.nonNull(l)),
+        IS_DISTINCT_FROM_VEC_VEC(Comparisons.Type.IS_DISTINCT_FROM, Type.TypeCode.VECTOR, Type.TypeCode.VECTOR, (l, r) -> !l.equals(r)),
+        NOT_DISTINCT_FROM_VEC_NULL(Comparisons.Type.NOT_DISTINCT_FROM, Type.TypeCode.VECTOR, Type.TypeCode.NULL, (l, r) -> Objects.isNull(l)),
+        NOT_DISTINCT_FROM_NULL_VEC(Comparisons.Type.NOT_DISTINCT_FROM, Type.TypeCode.NULL, Type.TypeCode.VECTOR, (l, r) -> Objects.isNull(r)),
+        NOT_DISTINCT_FROM_VEC_VEC(Comparisons.Type.NOT_DISTINCT_FROM, Type.TypeCode.VECTOR, Type.TypeCode.VECTOR, Objects::equals),
         ;
         // We can pass down UUID or String till here.
 
@@ -1148,7 +1168,10 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
         IS_NOT_NULL_ID(Comparisons.Type.NOT_NULL, Type.TypeCode.UUID, Objects::nonNull),
 
         IS_NULL_NT(Comparisons.Type.IS_NULL, Type.TypeCode.NULL, Objects::isNull),
-        IS_NOT_NULL_NT(Comparisons.Type.NOT_NULL, Type.TypeCode.NULL, Objects::nonNull);
+        IS_NOT_NULL_NT(Comparisons.Type.NOT_NULL, Type.TypeCode.NULL, Objects::nonNull),
+
+        IS_NULL_VECTOR(Comparisons.Type.IS_NULL, Type.TypeCode.VECTOR, Objects::isNull),
+        IS_NOT_NULL_VECTOR(Comparisons.Type.NOT_NULL, Type.TypeCode.VECTOR, Objects::nonNull);
 
         @Nonnull
         private static final Supplier<BiMap<UnaryPhysicalOperator, PUnaryPhysicalOperator>> protoEnumBiMapSupplier =

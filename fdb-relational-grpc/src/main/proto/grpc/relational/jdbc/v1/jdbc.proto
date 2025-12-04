@@ -108,11 +108,23 @@ message Parameters {
 
 // A parameter has java sql type as well as actual parameter.
 message Parameter {
-  int32 java_sql_types_code = 1;
+  int32 java_sql_types_code = 1 [deprecated = true];
   // Reuse the column type here. It has much of what we need carrying
   // across parameters as well as null support, etc.
   Column parameter = 2;
-  Type type = 3;
+  Type type = 3 [deprecated = true]; // deprecated
+  ParameterMetadata metadata = 4;
+}
+
+message ParameterMetadata {
+  int32 java_sql_types_code = 1 [deprecated = true];
+  Type type = 2;
+  oneof metadata {
+    ListColumnMetadata structMetadata = 3;
+    ColumnMetadata arrayMetadata = 4;
+    EnumMetadata enumMetadata = 5;
+    VectorMetadata vectorMetadata = 6;
+  }
 }
 
 message Options {
@@ -145,13 +157,13 @@ message Options {
   optional bool case_sensitive_identifiers = 22;
   optional string current_plan_hash_mode = 23;
   optional string valid_plan_hash_modes = 24;
-  optional bool continuations_contain_compiled_statements = 25;
   optional int64 async_operations_timeout_millis = 26;
   optional bool encrypt_when_serializing = 27;
   optional string encryption_key_store = 28;
   optional string encryption_key_entry = 29;
   optional string encryption_key_password = 30;
   optional bool compress_when_serializing = 31;
+  repeated string encryption_key_entry_list = 32;
 }
 
 // Request that is part of a transactional (stateful) exchange

@@ -1,0 +1,174 @@
+/*
+ * type_test.proto
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+syntax = "proto2";
+
+package com.apple.foundationdb.record.type_test;
+
+option java_package = "com.apple.foundationdb.record";
+option java_outer_classname = "TypeTestProto";
+
+import "tuple_fields.proto";
+
+message PrimitiveFields {
+  // Optional variants:
+  optional bool boolean_field = 1;
+  optional bytes bytes_field = 2;
+  optional double double_field = 3;
+  optional float float_field = 4;
+  optional int32 int_field = 5;
+  optional int64 long_field = 6;
+  optional string string_field = 7;
+
+  // Required variants:
+  required bool req_boolean_field = 101;
+  required bytes req_bytes_field = 102;
+  required double req_double_field = 103;
+  required float req_float_field = 104;
+  required int32 req_int_field = 105;
+  required int64 req_long_field = 106;
+  required string req_string_field = 107;
+
+  // Nullable arrays
+  message BooleanArray {
+    repeated bool values = 1;
+  }
+  optional BooleanArray arr_boolean_field = 201;
+  message BytesArray {
+    repeated bytes values = 1;
+  }
+  optional BytesArray arr_bytes_field = 202;
+  message DoubleArray {
+    repeated double values = 1;
+  }
+  optional DoubleArray arr_double_field = 203;
+  message FloatArray {
+    repeated float values = 1;
+  }
+  optional FloatArray arr_float_field = 204;
+  message IntArray {
+    repeated int32 values = 1;
+  }
+  optional IntArray arr_int_field = 205;
+  message LongArray {
+    repeated int64 values = 1;
+  }
+  optional LongArray arr_long_field = 206;
+  message StringArray {
+    repeated string values = 1;
+  }
+  optional StringArray arr_string_field = 207;
+
+  // Non-nullable arrays:
+  repeated bool req_arr_boolean_field = 301;
+  repeated bytes req_arr_bytes_field = 302;
+  repeated double req_arr_double_field = 303;
+  repeated float req_arr_float_field = 304;
+  repeated int32 req_arr_int_field = 305;
+  repeated int64 req_arr_long_field = 306;
+  repeated string req_arr_string_field = 307;
+}
+
+message Type1 {
+  optional string alpha = 1;
+  required int64 beta = 2;
+  optional UUID uuid_field = 4;
+}
+
+message Type2 {
+  optional Type1 alpha = 1;
+  required Type1 beta = 5;
+
+  enum T2Enum {
+    ALPHA = 0;
+    BRAVO = 1;
+    CHARLIE = 3;
+    DELTA = 4;
+  }
+  optional T2Enum gamma = 3;
+
+  message Type1Array {
+    repeated Type1 values = 1;
+  }
+  optional Type1Array delta = 6;
+  repeated Type1 epsilon = 4;
+
+  message T2EnumArray {
+    repeated T2Enum values = 1;
+  }
+  optional T2EnumArray zeta = 7;
+  repeated T2Enum eta = 8;
+}
+
+message Type1__0Escaped {
+  optional string alpha__1 = 1;
+  required int64 beta__2 = 2;
+  optional UUID uuid__0field = 5;
+}
+
+message Type2__0Escaped {
+  optional Type1__0Escaped alpha__1 = 1;
+  required Type1__0Escaped beta__2 = 6;
+
+  enum T2Enum__0Escaped {
+    ALPHA__0 = 0;
+    BRAVO__1 = 1;
+    CHARLIE__2 = 4;
+    DELTA__03 = 3;
+  }
+  optional T2Enum__0Escaped gamma__0 = 3;
+
+  message Type1__2Array {
+    repeated Type1__0Escaped values = 1;
+  }
+  optional Type1__2Array delta__2array = 4;
+  repeated Type1__0Escaped epsilon__2array = 5;
+
+  message T2Enum__0EscapedArray {
+    repeated T2Enum__0Escaped values = 1;
+  }
+  optional T2Enum__0EscapedArray zeta__2array = 7;
+  repeated T2Enum__0Escaped eta__2array = 8;
+}
+
+message Type1__EscapingNotReversible {
+  optional string alpha__1__blah = 1;
+  required int64 beta__2__ = 2;
+  optional UUID uuid____1field = 6;
+}
+
+message Type2__EscapedNotReversible {
+  optional Type1__EscapingNotReversible alpha__blah = 1;
+  required Type1__EscapingNotReversible beta__2__ = 7;
+
+  enum T2__EnumEscapedNotReversible {
+    ALPHA__ = 0;
+    BRAVO___1 = 1;
+    CHARLIE____2 = 7;
+    DELTA__3 = 4;
+  }
+  optional T2__EnumEscapedNotReversible gamma__ = 3;
+
+  message Type1__Array {
+    repeated Type1__EscapingNotReversible values = 1;
+  }
+  optional Type1__Array delta__array = 4;
+  repeated Type1__EscapingNotReversible epsilon__array = 5;
+}

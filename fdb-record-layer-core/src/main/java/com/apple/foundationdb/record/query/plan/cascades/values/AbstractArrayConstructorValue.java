@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.planprotos.PAbstractArrayConstructorValue;
 import com.apple.foundationdb.record.planprotos.PLightArrayConstructorValue;
 import com.apple.foundationdb.record.planprotos.PValue;
@@ -279,6 +280,23 @@ public abstract class AbstractArrayConstructorValue extends AbstractValue implem
         @Nonnull
         public static LightArrayConstructorValue emptyArray(@Nonnull final Type elementType) {
             return new LightArrayConstructorValue(elementType);
+        }
+
+        @Nonnull
+        public static LightArrayConstructorValue emptyArrayOfNone() {
+            return new LightArrayConstructorValue(Type.noneType()) {
+                @Nonnull
+                @Override
+                public Type getResultType() {
+                    return Type.noneType();
+                }
+
+                @Nullable
+                @Override
+                public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+                    throw new RecordCoreException("invalid evaluation attempt");
+                }
+            };
         }
 
         /**

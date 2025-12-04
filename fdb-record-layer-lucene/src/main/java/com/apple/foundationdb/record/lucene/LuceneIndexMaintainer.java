@@ -56,6 +56,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexDeferredMaintenanceControl;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
+import com.apple.foundationdb.record.provider.foundationdb.IndexMaintenanceFilter;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOperation;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOperationResult;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanBounds;
@@ -244,6 +245,14 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         }
         if (storedField != null) {
             document.add(storedField);
+        }
+    }
+
+    <M extends Message> void writeDocument(final FDBIndexableRecord<M> newRecord, final Map.Entry<Tuple, List<LuceneDocumentFromRecord.DocumentField>> entry, final Integer partitionId) {
+        try {
+            writeDocument(entry.getValue(), entry.getKey(), partitionId, newRecord.getPrimaryKey());
+        } catch (IOException e) {
+            throw LuceneExceptions.toRecordCoreException("Issue updating new index keys", e, "newRecord", newRecord.getPrimaryKey());
         }
     }
 
@@ -450,9 +459,12 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     }
 
     @Nonnull
-    <M extends Message> CompletableFuture<Void> update(@Nullable FDBIndexableRecord<M> oldRecord,
-                                                       @Nullable FDBIndexableRecord<M> newRecord,
+    <M extends Message> CompletableFuture<Void> update(@Nullable FDBIndexableRecord<M> oldRecordUnfiltered,
+                                                       @Nullable FDBIndexableRecord<M> newRecordUnfiltered,
                                                        @Nullable Integer destinationPartitionIdHint) {
+        FDBIndexableRecord<M> oldRecord = maybeFilterRecord(oldRecordUnfiltered);
+        FDBIndexableRecord<M> newRecord = maybeFilterRecord(newRecordUnfiltered);
+
         LOG.trace("update oldRecord={}, newRecord={}", oldRecord, newRecord);
 
         // Extract information for grouping from old and new records
@@ -473,30 +485,43 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
 
         LOG.trace("update oldFields={}, newFields{}", oldRecordFields, newRecordFields);
 
-        // delete old
-        return AsyncUtil.whenAll(oldRecordFields.keySet().stream().map(t -> {
-            try {
-                return tryDelete(Objects.requireNonNull(oldRecord), t);
-            } catch (IOException e) {
-                throw LuceneExceptions.toRecordCoreException("Issue deleting", e, "record", Objects.requireNonNull(oldRecord).getPrimaryKey());
+        return AsyncUtil.whenAll(oldRecordFields.keySet().stream()
+                    // delete old
+                    .map(groupingKey -> tryDelete(Objects.requireNonNull(oldRecord), groupingKey))
+                    .collect(Collectors.toList()))
+                .thenCompose(ignored ->
+                    // update new
+                    AsyncUtil.whenAll(newRecordFields.entrySet().stream()
+                        .map(entry -> updateRecord(newRecord, destinationPartitionIdHint, entry))
+                        .collect(Collectors.toList())));
+    }
+
+    /**
+     * Internal utility to update a single record.
+     * @param newRecord the new record to save
+     * @param destinationPartitionIdHint partition ID
+     * @param entry entry from the grouping key to the document fields
+     */
+    private <M extends Message> CompletableFuture<Void> updateRecord(
+            final FDBIndexableRecord<M> newRecord,
+            final Integer destinationPartitionIdHint,
+            final Map.Entry<Tuple, List<LuceneDocumentFromRecord.DocumentField>> entry) {
+        return tryDeleteInWriteOnlyMode(Objects.requireNonNull(newRecord), entry.getKey()).thenCompose(countDeleted ->
+                partitioner.addToAndSavePartitionMetadata(newRecord, entry.getKey(), destinationPartitionIdHint)
+                        .thenAccept(partitionId -> writeDocument(newRecord, entry, partitionId)));
+    }
+
+    @Nullable
+    public <M extends Message> FDBIndexableRecord<M> maybeFilterRecord(FDBIndexableRecord<M> rec) {
+        if (rec != null) {
+            final IndexMaintenanceFilter.IndexValues filterType = getFilterTypeForRecord(rec);
+            if (filterType == IndexMaintenanceFilter.IndexValues.NONE) {
+                return null;
+            } else if (filterType == IndexMaintenanceFilter.IndexValues.SOME) {
+                throw new RecordCoreException("Lucene does not support this kind of filtering");
             }
-        }).collect(Collectors.toList())).thenCompose(ignored ->
-                // update new
-                AsyncUtil.whenAll(newRecordFields.entrySet().stream().map(entry -> {
-                    try {
-                        return tryDeleteInWriteOnlyMode(Objects.requireNonNull(newRecord), entry.getKey()).thenCompose(countDeleted ->
-                                partitioner.addToAndSavePartitionMetadata(newRecord, entry.getKey(), destinationPartitionIdHint).thenApply(partitionId -> {
-                                    try {
-                                        writeDocument(entry.getValue(), entry.getKey(), partitionId, newRecord.getPrimaryKey());
-                                    } catch (IOException e) {
-                                        throw LuceneExceptions.toRecordCoreException("Issue updating new index keys", e, "newRecord", newRecord.getPrimaryKey());
-                                    }
-                                    return null;
-                                }));
-                    } catch (IOException e) {
-                        throw LuceneExceptions.toRecordCoreException("Issue updating", e, "record", Objects.requireNonNull(newRecord).getPrimaryKey());
-                    }
-                }).collect(Collectors.toList())));
+        }
+        return rec;
     }
 
     /**
@@ -509,10 +534,9 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
      * @param groupingKey grouping key
      * @param <M> message
      * @return count of deleted docs
-     * @throws IOException propagated by {@link #tryDelete(FDBIndexableRecord, Tuple)}
      */
     private <M extends Message> CompletableFuture<Integer> tryDeleteInWriteOnlyMode(@Nonnull FDBIndexableRecord<M> record,
-                                                                                    @Nonnull Tuple groupingKey) throws IOException {
+                                                                                    @Nonnull Tuple groupingKey) {
         if (!state.store.isIndexWriteOnly(state.index)) {
             // no op
             return CompletableFuture.completedFuture(0);
@@ -529,29 +553,35 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
      * @param <M> record message
      * @return count of deleted docs: 1 indicates that the record has been deleted, 0 means that either no record was deleted or it was deleted by
      * query.
-     * @throws IOException propagated from {@link #deleteDocument(Tuple, Integer, Tuple)}
      */
     private <M extends Message> CompletableFuture<Integer> tryDelete(@Nonnull FDBIndexableRecord<M> record,
-                                                                     @Nonnull Tuple groupingKey) throws IOException {
-        // non-partitioned
-        if (!partitioner.isPartitioningEnabled()) {
-            return CompletableFuture.completedFuture(deleteDocument(groupingKey, null, record.getPrimaryKey()));
+                                                                     @Nonnull Tuple groupingKey) {
+        try {
+            // non-partitioned
+            if (!partitioner.isPartitioningEnabled()) {
+                return CompletableFuture.completedFuture(deleteDocument(groupingKey, null, record.getPrimaryKey()));
+            }
+        } catch (IOException e) {
+            throw LuceneExceptions.toRecordCoreException("Issue deleting", e, "record", Objects.requireNonNull(record).getPrimaryKey());
         }
 
         // partitioned
-        return partitioner.tryGetPartitionInfo(record, groupingKey).thenApply(partitionInfo -> {
-            if (partitionInfo != null) {
-                try {
-                    int countDeleted = deleteDocument(groupingKey, partitionInfo.getId(), record.getPrimaryKey());
-                    if (countDeleted > 0) {
-                        partitioner.decrementCountAndSave(groupingKey, partitionInfo, countDeleted);
-                    }
-                    return countDeleted;
-                } catch (IOException e) {
-                    throw LuceneExceptions.toRecordCoreException("Issue deleting", e, "record", record.getPrimaryKey());
-                }
+        return partitioner.tryGetPartitionInfo(record, groupingKey).thenCompose(partitionInfo -> {
+            if (partitionInfo == null) {
+                return CompletableFuture.completedFuture(0);
             }
-            return 0;
+            try {
+                int countDeleted = deleteDocument(groupingKey, partitionInfo.getId(), record.getPrimaryKey());
+                // this might be 0 when in writeOnly mode, but otherwise should not happen.
+                if (countDeleted > 0) {
+                    return partitioner.decrementCountAndSave(groupingKey, countDeleted, partitionInfo.getId())
+                            .thenApply(vignore -> countDeleted);
+                } else {
+                    return CompletableFuture.completedFuture(countDeleted);
+                }
+            } catch (IOException e) {
+                throw LuceneExceptions.toRecordCoreException("Issue deleting", e, "record", record.getPrimaryKey());
+            }
         });
     }
 
@@ -769,7 +799,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                 final Map<String, String> options = state.index.getOptions();
                 if (Boolean.parseBoolean(options.get(LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_ENABLED)) ||
                         Boolean.parseBoolean(options.get(LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED))) {
-                    return new LuceneIndexScrubbingToolsMissing(partitioner, directoryManager);
+                    return new LuceneIndexScrubbingToolsMissing(partitioner, directoryManager, this);
                 }
                 return null;
             default:

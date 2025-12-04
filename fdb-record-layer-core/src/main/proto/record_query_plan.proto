@@ -52,6 +52,7 @@ message PType {
     RELATION = 15;
     NONE = 16;
     UUID = 17;
+    VECTOR = 18;
   }
 
   message PPrimitiveType {
@@ -75,6 +76,12 @@ message PType {
     // nothing
   }
 
+  message PVectorType {
+    optional bool is_nullable = 1;
+    optional int32 precision = 2;
+    optional int32 dimensions = 3;
+  }
+
   message PAnyRecordType {
     optional bool is_nullable = 1;
   }
@@ -83,11 +90,13 @@ message PType {
     message PEnumValue {
       optional string name = 1;
       optional int32 number = 2;
+      optional string storage_name = 3;
     }
 
     optional bool is_nullable = 1;
     repeated PEnumValue enum_values = 2;
     optional string name = 3; // referential name -- not used in the planner
+    optional string storage_name = 4;
   }
 
   message PRecordType {
@@ -95,12 +104,14 @@ message PType {
       optional PType field_type = 1;
       optional string field_name = 2;
       optional int32 field_index = 3;
+      optional string field_storage_name = 4;
     }
 
     optional int32 reference_id = 1;
     optional string name = 2;  // referential name -- not used in the planner
     optional bool is_nullable = 3;
     repeated PField fields = 4;
+    optional string storage_name = 5;
   }
 
   message PRelationType {
@@ -123,6 +134,7 @@ message PType {
     PArrayType array_type = 8;
     PAnyRecordType any_record_type = 9;
     PUuidType uuid_type = 10;
+    PVectorType vector_type = 11;
   }
 }
 
@@ -250,16 +262,17 @@ message PValue {
     PCollateValue collate_value = 44;
     PNumericAggregationValue.PBitmapConstructAgg numeric_aggregation_value_bitmap_construct_agg = 45;
     PQuantifiedRecordValue quantified_record_value = 46;
-    PMacroFunctionValue macro_function_value = 47;
     PRangeValue range_value = 48;
     PFirstOrDefaultStreamingValue first_or_default_streaming_value = 49;
     PEvaluatesToValue evaluates_to_value = 50;
     PArrayDistinctValue array_distinct_value = 51;
     PSubscriptValue subscript_value = 52;
+    PParameterObjectValue parameter_object_value = 53;
+    PCastValue cast_value = 54;
   }
 }
 
-message PMacroFunctionValue {
+message PUserDefinedMacroFunction {
   optional string function_name = 1;
   repeated PValue arguments = 2;
   optional PValue body = 3;
@@ -473,6 +486,7 @@ message PFieldPath {
     optional string name = 1;
     optional int32 ordinal = 2;
     optional PType type = 3;
+    optional PType.PRecordType.PField field = 4;
   }
   repeated PResolvedAccessor field_accessors = 1;
 }
@@ -1163,6 +1177,27 @@ message PBinaryRelOpValue {
       NOT_DISTINCT_FROM_NID = 492;
       NOT_DISTINCT_FROM_IDN = 493;
       NOT_DISTINCT_FROM_NN = 494;
+
+      EQ_VEC_VEC = 495;
+      EQ_VEC_NULL = 496;
+      EQ_NULL_VEC = 497;
+      NEQ_VEC_VEC = 498;
+      NEQ_VEC_NULL = 499;
+      NEQ_NULL_VEC = 500;
+      LT_VEC_NULL = 501;
+      LT_NULL_VEC = 502;
+      LTE_VEC_NULL = 503;
+      LTE_NULL_VEC = 504;
+      GT_VEC_NULL = 505;
+      GT_NULL_VEC = 506;
+      GTE_VEC_NULL = 507;
+      GTE_NULL_VEC = 508;
+      IS_DISTINCT_FROM_NULL_VEC = 509;
+      IS_DISTINCT_FROM_VEC_NULL = 510;
+      IS_DISTINCT_FROM_VEC_VEC = 511;
+      NOT_DISTINCT_FROM_VEC_NULL = 512;
+      NOT_DISTINCT_FROM_NULL_VEC = 513;
+      NOT_DISTINCT_FROM_VEC_VEC = 514;
   }
   optional PRelOpValue super = 1;
   optional PBinaryPhysicalOperator operator = 2;
@@ -1206,6 +1241,9 @@ message PUnaryRelOpValue {
 
       IS_NULL_NT = 21;
       IS_NOT_NULL_NT = 22;
+
+      IS_NULL_VECTOR = 23;
+      IS_NOT_NULL_VECTOR = 24;
   }
   optional PRelOpValue super = 1;
   optional PUnaryPhysicalOperator operator = 2;
@@ -1270,6 +1308,72 @@ message PArrayDistinctValue {
   optional PValue child_value = 1;
 }
 
+message PParameterObjectValue {
+  optional string parameter_name = 1;
+  optional PType result_type = 2;
+}
+
+message PCastValue {
+  enum PPhysicalOperator {
+    // Numeric to numeric conversions
+    INT_TO_LONG = 1;
+    INT_TO_FLOAT = 2;
+    INT_TO_DOUBLE = 3;
+    LONG_TO_INT = 4;
+    LONG_TO_FLOAT = 5;
+    LONG_TO_DOUBLE = 6;
+    FLOAT_TO_INT = 7;
+    FLOAT_TO_LONG = 8;
+    FLOAT_TO_DOUBLE = 9;
+    DOUBLE_TO_INT = 10;
+    DOUBLE_TO_LONG = 11;
+    DOUBLE_TO_FLOAT = 12;
+
+    // Numeric to string conversions
+    INT_TO_STRING = 13;
+    LONG_TO_STRING = 14;
+    FLOAT_TO_STRING = 15;
+    DOUBLE_TO_STRING = 16;
+    BOOLEAN_TO_STRING = 17;
+
+    // String to numeric conversions
+    STRING_TO_INT = 18;
+    STRING_TO_LONG = 19;
+    STRING_TO_FLOAT = 20;
+    STRING_TO_DOUBLE = 21;
+
+    // Boolean conversions
+    STRING_TO_BOOLEAN = 22;
+    INT_TO_BOOLEAN = 23;
+    BOOLEAN_TO_INT = 24;
+
+    // NULL conversions
+    NULL_TO_INT = 25;
+    NULL_TO_LONG = 26;
+    NULL_TO_FLOAT = 27;
+    NULL_TO_DOUBLE = 28;
+    NULL_TO_BOOLEAN = 29;
+    NULL_TO_STRING = 30;
+    NULL_TO_ARRAY = 31;
+    NULL_TO_RECORD = 32;
+    NULL_TO_ENUM = 33;
+    NULL_TO_UUID = 34;
+
+    // ARRAY to ARRAY conversion
+    ARRAY_TO_ARRAY = 35;
+
+    // STRING to complex types.
+    STRING_TO_ENUM = 36;
+    STRING_TO_UUID = 37;
+
+    // ARRAY to VECTOR conversion
+    ARRAY_TO_VECTOR = 38;
+  }
+  optional PValue child = 1;
+  optional PType cast_to_type = 2;
+  optional PPhysicalOperator operator = 3;
+}
+
 //
 // Comparisons
 //
@@ -1296,6 +1400,9 @@ message PComparison {
     LIKE = 19;
     IS_DISTINCT_FROM = 20;
     NOT_DISTINCT_FROM = 21;
+    DISTANCE_RANK_EQUALS = 22;
+    DISTANCE_RANK_LESS_THAN = 23;
+    DISTANCE_RANK_LESS_THAN_OR_EQUAL = 24;
   }
 
   extensions 5000 to max;
@@ -1312,6 +1419,7 @@ message PComparison {
     PRecordTypeComparison record_type_comparison = 10;
     PConversionSimpleComparison conversion_simple_comparison = 11;
     PConversionParameterComparison conversion_parameter_comparison = 12;
+    PDistanceRankValueComparison distance_rank_value_comparison = 13;
   }
 }
 
@@ -1376,6 +1484,11 @@ message PInvertedFunctionComparison {
 
 message PRecordTypeComparison {
   optional string record_type_name = 1;
+}
+
+message PDistanceRankValueComparison {
+  optional PValueComparison super = 1;
+  optional PValue limitValue = 2;
 }
 
 //
@@ -1526,10 +1639,11 @@ message PRecordQueryPlan {
     PRecordQueryDefaultOnEmptyPlan default_on_empty_plan = 33;
     PTempTableScanPlan temp_table_scan_plan = 34;
     PTempTableInsertPlan temp_table_insert_plan = 35;
-    PRecursiveUnionQueryPlan recursive_union_query_plan = 36;
+    PRecordQueryRecursiveLevelUnionPlan recursive_level_union_plan = 36;
     PRecordQueryTableFunctionPlan table_function_plan = 37;
     PRecordQueryStreamingAggregationPlan2 streaming_aggregation_plan2 = 38;
     PRecordQueryMultiIntersectionOnValuesPlan multi_intersection_on_values_plan = 39;
+    PRecordQueryRecursiveDfsJoinPlan recursive_dfs_join_plan = 40;
   }
 }
 
@@ -1722,6 +1836,7 @@ message PIndexScanParameters {
     PIndexScanComparisons index_scan_comparisons = 2;
     PMultidimensionalIndexScanComparisons multidimensional_index_scan_comparisons = 3;
     PTimeWindowScanComparisons time_window_scan_comparisons = 4;
+    PVectorIndexScanComparisons vector_index_scan_comparisons = 5;
   }
 }
 
@@ -1755,6 +1870,20 @@ message PTimeWindowForFunction {
 message PTimeWindowScanComparisons {
  optional PIndexScanComparisons super = 1;
  optional PTimeWindowForFunction time_window = 2;
+}
+
+message PVectorIndexScanComparisons {
+  optional PScanComparisons prefix_scan_comparisons = 1;
+  optional PDistanceRankValueComparison distance_rank_value_comparison = 2;
+  optional PVectorIndexScanOptions vector_index_scan_options = 3;
+}
+
+message PVectorIndexScanOptions {
+  message POptionEntry {
+    optional string key = 1;
+    optional com.apple.foundationdb.record.expressions.Value value = 2;
+  }
+  repeated POptionEntry optionEntries = 1;
 }
 
 enum PIndexFetchMethod {
@@ -2128,12 +2257,13 @@ message PComparableObject {
     PFDBRecordVersion fdb_record_version = 4;
     bytes bytes_as_byte_string = 5;
   }
+  optional PType type = 6;
 }
 
 //
-// PRecursiveUnionQueryPlan
+// PRecordQueryRecursiveLevelUnionPlan
 //
-message PRecursiveUnionQueryPlan {
+message PRecordQueryRecursiveLevelUnionPlan {
   optional PPhysicalQuantifier initialStateQuantifier = 1;
   optional PPhysicalQuantifier recursiveStateQuantifier = 2;
   optional string initialTempTableAlias = 3;
@@ -2145,4 +2275,18 @@ message PRecursiveUnionQueryPlan {
 //
 message PRecordQueryTableFunctionPlan {
   optional PValue value = 1;
+}
+
+//
+// PRecordQueryRecursiveDfsJoinPlan
+//
+message PRecordQueryRecursiveDfsJoinPlan {
+  enum PDfsTraversalStrategy {
+    PRE_ORDER = 1;
+    POST_ORDER = 2;
+  }
+  optional PPhysicalQuantifier root_quantifier = 1;
+  optional PPhysicalQuantifier child_quantifier = 2;
+  optional string prior_value_correlation = 3;
+  optional PDfsTraversalStrategy dfs_traversal_strategy = 4;
 }

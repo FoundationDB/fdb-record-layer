@@ -31,7 +31,6 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.UpdateExpre
 import com.apple.foundationdb.record.query.plan.cascades.predicates.CompatibleTypeEvolutionPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
@@ -58,7 +57,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
-import com.google.protobuf.ByteString;
 import org.antlr.v4.runtime.ParserRuleContext;
 
 import javax.annotation.Nonnull;
@@ -98,12 +96,6 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nonnull
     @Override
     public LogicalOperator visitQuery(@Nonnull RelationalParser.QueryContext ctx) {
-        if (ctx.continuation() != null) {
-            final var continuationExpression = visitContinuation(ctx.continuation());
-            final var continuationValue = Assert.castUnchecked(continuationExpression.getUnderlying(), LiteralValue.class);
-            final var continuationBytes = Assert.castUnchecked(continuationValue.getLiteralValue(), ByteString.class);
-            getDelegate().getPlanGenerationContext().setContinuation(continuationBytes.toByteArray());
-        }
         if (ctx.ctes() != null) {
             final var currentPlanFragment = getDelegate().pushPlanFragment();
             visitCtes(ctx.ctes()).forEach(currentPlanFragment::addOperator);
@@ -118,7 +110,25 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
     @Override
     public LogicalOperators visitCtes(@Nonnull RelationalParser.CtesContext ctx) {
         if (ctx.RECURSIVE() != null) {
-            return LogicalOperators.of(ctx.namedQuery().stream().map(this::handleRecursiveNamedQuery).collect(ImmutableList.toImmutableList()));
+            final RecursiveUnionExpression.TraversalStrategy traversalStrategy;
+            if (ctx.traversalOrderClause() != null) {
+                final var order = ctx.traversalOrderClause();
+                if (order.LEVEL_ORDER() != null) {
+                    traversalStrategy = RecursiveUnionExpression.TraversalStrategy.LEVEL;
+                } else if (order.PRE_ORDER() != null) {
+                    traversalStrategy = RecursiveUnionExpression.TraversalStrategy.PREORDER;
+                } else if (order.POST_ORDER() != null) {
+                    traversalStrategy = RecursiveUnionExpression.TraversalStrategy.POSTORDER;
+                } else {
+                    traversalStrategy = RecursiveUnionExpression.TraversalStrategy.ANY;
+                    Assert.failUnchecked(ErrorCode.INTERNAL_ERROR, "Unsupported traversal " + order.getText());
+                }
+            } else {
+                traversalStrategy = RecursiveUnionExpression.TraversalStrategy.ANY;
+            }
+            return LogicalOperators.of(ctx.namedQuery().stream().map(namedQuery -> handleRecursiveNamedQuery(namedQuery, traversalStrategy)).collect(ImmutableList.toImmutableList()));
+        } else {
+            Assert.thatUnchecked(ctx.traversalOrderClause() == null, ErrorCode.SYNTAX_ERROR, "traversal order clause can only be defined with recursive CTE");
         }
         return LogicalOperators.of(ctx.namedQuery().stream().map(this::visitNamedQuery).collect(ImmutableList.toImmutableList()));
     }
@@ -142,7 +152,8 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
 
     @SuppressWarnings("UnstableApiUsage")
     @Nonnull
-    public LogicalOperator handleRecursiveNamedQuery(@Nonnull final RelationalParser.NamedQueryContext recursiveQueryContext) {
+    public LogicalOperator handleRecursiveNamedQuery(@Nonnull final RelationalParser.NamedQueryContext recursiveQueryContext,
+                                                     @Nonnull final RecursiveUnionExpression.TraversalStrategy traversalStrategy) {
         final var queryName = visitFullId(recursiveQueryContext.name);
         final Optional<Type> recursiveQueryType;
         final var memoized = MemoizedFunction.<ParserRuleContext, LogicalOperators>memoize(
@@ -179,7 +190,7 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         final var initialLegInsert = LogicalOperator.newTemporaryTableInsert(initialLeg, insertTempTableId, type);
         final var recursiveLegInsert = LogicalOperator.newTemporaryTableInsert(recursiveLeg, insertTempTableId, type);
         final var recursiveUnion = new RecursiveUnionExpression(initialLegInsert.getQuantifier(), recursiveLegInsert.getQuantifier(),
-                CorrelationIdentifier.of(scanId.getName()), CorrelationIdentifier.of(insertTempTableId.getName()));
+                CorrelationIdentifier.of(scanId.getName()), CorrelationIdentifier.of(insertTempTableId.getName()), traversalStrategy);
         final var quantifier = Quantifier.forEach(Reference.initialOf(recursiveUnion));
         var logicalOperator = LogicalOperator.newNamedOperator(queryName, Expressions.fromQuantifier(quantifier), quantifier);
         if (recursiveQueryContext.columnAliases != null) {
@@ -443,11 +454,11 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nonnull
     @Override
     public LogicalOperator visitUpdateStatement(@Nonnull RelationalParser.UpdateStatementContext ctx) {
-        final var tableId = visitFullId(ctx.tableName().fullId());
-        final var semanticAnalyzer = getDelegate().getSemanticAnalyzer();
-        final var table = semanticAnalyzer.getTable(tableId);
-        final var tableType = Assert.castUnchecked(table, RecordLayerTable.class).getType();
-        final var tableAccess = getDelegate().getLogicalOperatorCatalog().lookupTableAccess(tableId, semanticAnalyzer);
+        final Identifier tableId = visitFullId(ctx.tableName().fullId());
+        final SemanticAnalyzer semanticAnalyzer = getDelegate().getSemanticAnalyzer();
+        final RecordLayerTable table = Assert.castUnchecked(semanticAnalyzer.getTable(tableId), RecordLayerTable.class);
+        final Type.Record tableType = table.getType();
+        final LogicalOperator tableAccess = getDelegate().getLogicalOperatorCatalog().lookupTableAccess(tableId, semanticAnalyzer);
 
         getDelegate().pushPlanFragment().setOperator(tableAccess);
         final var output = Expressions.ofSingle(semanticAnalyzer.expandStar(Optional.empty(), getDelegate().getLogicalOperators()));
@@ -456,16 +467,16 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         final var updateSource = LogicalOperator.generateSimpleSelect(output, getDelegate().getLogicalOperators(), whereMaybe, Optional.of(tableId), ImmutableSet.of(), false);
 
         getDelegate().getCurrentPlanFragment().setOperator(updateSource);
-        final var transformMapBuilder = ImmutableMap.<FieldValue.FieldPath, Value>builder();
-        for (final var updatedElementCtx : ctx.updatedElement()) {
-            final var targetAndUpdateExpressions = visitUpdatedElement(updatedElementCtx).asList();
-            final var target = Assert.castUnchecked(targetAndUpdateExpressions.get(0).getUnderlying(), FieldValue.class).getFieldPath();
-            final var update = targetAndUpdateExpressions.get(1).getUnderlying();
+        final ImmutableMap.Builder<FieldValue.FieldPath, Value> transformMapBuilder = ImmutableMap.builder();
+        for (final RelationalParser.UpdatedElementContext updatedElementCtx : ctx.updatedElement()) {
+            final List<Expression> targetAndUpdateExpressions = visitUpdatedElement(updatedElementCtx).asList();
+            final FieldValue.FieldPath target = Assert.castUnchecked(targetAndUpdateExpressions.get(0).getUnderlying(), FieldValue.class).getFieldPath();
+            final Value update = targetAndUpdateExpressions.get(1).getUnderlying();
             transformMapBuilder.put(target, update);
         }
 
         final var updateExpression = new UpdateExpression(Assert.castUnchecked(updateSource.getQuantifier(), Quantifier.ForEach.class),
-                table.getName(),
+                Assert.notNullUnchecked(tableType.getStorageName(), "Update target type must have storage type name available"),
                 tableType,
                 transformMapBuilder.build());
         final var updateQuantifier = Quantifier.forEach(Reference.initialOf(updateExpression));
@@ -494,10 +505,10 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
     @Override
     public LogicalOperator visitDeleteStatement(@Nonnull RelationalParser.DeleteStatementContext ctx) {
         Assert.thatUnchecked(ctx.limitClause() == null, "limit is not supported");
-        final var tableId = visitFullId(ctx.tableName().fullId());
-        final var semanticAnalyzer = getDelegate().getSemanticAnalyzer();
-        final var table = semanticAnalyzer.getTable(tableId);
-        final var tableAccess = getDelegate().getLogicalOperatorCatalog().lookupTableAccess(tableId, semanticAnalyzer);
+        final Identifier tableId = visitFullId(ctx.tableName().fullId());
+        final SemanticAnalyzer semanticAnalyzer = getDelegate().getSemanticAnalyzer();
+        final RecordLayerTable table = Assert.castUnchecked(semanticAnalyzer.getTable(tableId), RecordLayerTable.class);
+        final LogicalOperator tableAccess = getDelegate().getLogicalOperatorCatalog().lookupTableAccess(tableId, semanticAnalyzer);
 
         getDelegate().pushPlanFragment().setOperator(tableAccess);
         final var output = Expressions.ofSingle(semanticAnalyzer.expandStar(Optional.empty(), getDelegate().getLogicalOperators()));
@@ -505,7 +516,7 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         Optional<Expression> whereMaybe = ctx.whereExpr() == null ? Optional.empty() : Optional.of(visitWhereExpr(ctx.whereExpr()));
         final var deleteSource = LogicalOperator.generateSimpleSelect(output, getDelegate().getLogicalOperators(), whereMaybe, Optional.of(tableId), ImmutableSet.of(), false);
 
-        final var deleteExpression = new DeleteExpression(Assert.castUnchecked(deleteSource.getQuantifier(), Quantifier.ForEach.class), table.getName());
+        final var deleteExpression = new DeleteExpression(Assert.castUnchecked(deleteSource.getQuantifier(), Quantifier.ForEach.class), table.getType().getStorageName());
         final var deleteQuantifier = Quantifier.forEach(Reference.initialOf(deleteExpression));
         final var resultingDelete = LogicalOperator.newUnnamedOperator(Expressions.fromQuantifier(deleteQuantifier), deleteQuantifier);
 

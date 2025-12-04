@@ -151,4 +151,26 @@ test_block:
                           {S: 'uvw'},
                           {S: 'ghi'},
                           {S: 'rst'}]
+---
+test_block:
+  name: multiple-keys
+  preset: single_repetition_ordered
+  options:
+    supported_version: 4.6.5.0
+    connection_options:
+      ENCRYPTION_KEY_ENTRY_LIST: [key-1, key-2]
+      ENCRYPTION_KEY_ENTRY: key-2
+  tests:
+    -
+      - query: INSERT INTO t VALUES (7, 'jkl', null)
+      - count: 1
+    -
+      - query: SELECT * FROM t
+      - unorderedResult: [{ID: 1, S: 'abc', PAD: '________________________________'},
+                          {ID: 2, S: 'def', PAD: '________________________________'},
+                          {ID: 3, S: 'xyz', PAD: !null },
+                          {ID: 4, S: 'uvw', PAD: !null },
+                          {ID: 5, S: 'ghi', PAD: '********************************'},
+                          {ID: 6, S: 'rst', PAD: 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'},
+                          {ID: 7, S: 'jkl', PAD: !null }]
 ...

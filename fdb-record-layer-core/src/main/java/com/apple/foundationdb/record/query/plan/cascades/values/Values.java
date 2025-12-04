@@ -29,13 +29,16 @@ import com.apple.foundationdb.record.query.plan.cascades.values.simplification.A
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.ValueSimplificationRuleCall;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
+import java.util.stream.StreamSupport;
 
 /**
  * Helper class for dealing with {@link Value}s.
@@ -108,13 +111,82 @@ public class Values {
         for (int i = 0; i < fields.size(); i++) {
             final var field = fields.get(i);
             final var singleStepPath =
-                    FieldValue.FieldPath.ofSingle(FieldValue.ResolvedAccessor.of(
-                            field.getFieldNameOptional().orElse(null), i, field.getFieldType()));
+                    FieldValue.FieldPath.ofSingle(FieldValue.ResolvedAccessor.of(field, i));
             primitiveAccessorsForType(field.getFieldType(),
                     () -> FieldValue.ofFieldsAndFuseIfPossible(baseValueSupplier.get(), singleStepPath))
                     .forEach(orderingValuesBuilder::add);
         }
 
         return orderingValuesBuilder.build();
+    }
+
+    /**
+     * Attempts to collapse a {@link RecordConstructorValue} that represents a simple field selection back to its
+     * underlying record value.
+     * <br>
+     * This method checks if a record constructor simply reconstructs all fields of a record in their original order
+     * without any transformations. If so, it returns the original underlying record value instead of the redundant
+     * record constructor.
+     * <br>
+     * For example, if we have a record constructor that takes a record {@code r} and creates
+     * {@code (r.field0, r.field1, r.field2)} where the fields are accessed in order (0, 1, 2), this method
+     * would return {@code r} directly instead of the constructor.
+     * <br>
+     * The method performs several validation checks:
+     * <ul>
+     * <li>All children must be {@link FieldValue} instances</li>
+     * <li>Field access must be in sequential order (0, 1, 2, ...)</li>
+     * <li>All field values must reference the same underlying record</li>
+     * <li>The result type must match the underlying record's type</li>
+     * </ul>
+     * <br>
+     * Note that this method will still return the underlying record value even if it contains more fields than the
+     * record. This is considered to be fine as it does not influence the semantics of any {@code Value} operating on
+     * top of the record, because any invisible fields to an upper {@code Value} remain invisible.
+     *
+     * @param recordConstructorValue the record constructor to potentially collapse
+     * @return an {@link Optional} containing the underlying record value if collapse is possible,
+     *         or {@link Optional#empty()} if the record constructor cannot be simplified
+     */
+    @Nonnull
+    public static Optional<Value> collapseSimpleSelectMaybe(@Nonnull final RecordConstructorValue recordConstructorValue) {
+        if (Iterables.isEmpty(recordConstructorValue.getChildren()) ||
+                StreamSupport.stream(recordConstructorValue.getChildren().spliterator(), false).anyMatch(v -> !(v instanceof FieldValue))) {
+            return Optional.empty();
+        }
+
+        final var fieldValues = recordConstructorValue.getChildren().iterator();
+
+        Value commonChildValue = null;
+        int i = 0;
+        for (; fieldValues.hasNext(); i++) {
+            final var fieldValue = (FieldValue)fieldValues.next();
+            final var fieldPath = fieldValue.getFieldPath();
+
+            if (fieldPath.getLastFieldAccessor().getOrdinal() != i) {
+                return Optional.empty();
+            }
+
+            final Value childValue;
+            if (fieldPath.size() > 1) {
+                childValue = FieldValue.ofFields(fieldValue.getChild(), fieldPath.getFieldPrefix());
+            } else {
+                Verify.verify(fieldPath.size() == 1);
+                childValue = fieldValue.getChild();
+            }
+
+            if (commonChildValue == null) {
+                commonChildValue = childValue;
+
+                if (!recordConstructorValue.getResultType().equals(commonChildValue.getResultType())) {
+                    return Optional.empty();
+                }
+            } else {
+                if (!commonChildValue.equals(childValue)) {
+                    return Optional.empty();
+                }
+            }
+        }
+        return Optional.of(Objects.requireNonNull(commonChildValue));
     }
 }

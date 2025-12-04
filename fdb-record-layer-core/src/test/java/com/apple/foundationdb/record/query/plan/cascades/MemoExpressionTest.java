@@ -21,8 +21,8 @@
 package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.AbstractRelationalExpressionWithChildren;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionWithChildren;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
 import com.apple.foundationdb.record.query.plan.cascades.rules.FinalizeExpressionsRule;
 import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
@@ -479,7 +479,7 @@ public class MemoExpressionTest {
      * A mock planner expression with very general semantics to test the correctness of various operations on the memo
      * data structure.
      */
-    private static class SyntheticPlannerExpression implements RelationalExpressionWithChildren {
+    private static class SyntheticPlannerExpression extends AbstractRelationalExpressionWithChildren {
         @Nonnull
         private final String identity;
         @Nonnull
@@ -532,7 +532,7 @@ public class MemoExpressionTest {
         }
 
         @Override
-        public int hashCodeWithoutChildren() {
+        public int computeHashCodeWithoutChildren() {
             return Objects.hash(identity);
         }
 
@@ -557,7 +557,7 @@ public class MemoExpressionTest {
 
         @Nonnull
         @Override
-        public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
+        public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
             return correlatedTo;
         }
 

@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.yamltests;
 
+import com.apple.foundationdb.record.util.ServiceLoaderProvider;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.yamltests.block.PreambleBlock;
@@ -28,17 +29,15 @@ import com.apple.foundationdb.relational.yamltests.block.TestBlock;
 import com.apple.foundationdb.relational.yamltests.block.TransactionSetupsBlock;
 import com.apple.foundationdb.relational.yamltests.command.Command;
 import com.apple.foundationdb.relational.yamltests.command.QueryConfig;
+import com.apple.foundationdb.relational.yamltests.tags.CustomTag;
 import org.yaml.snakeyaml.LoaderOptions;
-import org.yaml.snakeyaml.constructor.AbstractConstruct;
 import org.yaml.snakeyaml.constructor.SafeConstructor;
 import org.yaml.snakeyaml.nodes.Node;
 import org.yaml.snakeyaml.nodes.ScalarNode;
-import org.yaml.snakeyaml.nodes.Tag;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -50,13 +49,9 @@ public class CustomYamlConstructor extends SafeConstructor {
     public CustomYamlConstructor(LoaderOptions loaderOptions) {
         super(loaderOptions);
 
-        yamlConstructors.put(new Tag("!ignore"), new ConstructIgnore());
-        yamlConstructors.put(new Tag("!l"), new ConstructLong());
-        yamlConstructors.put(new Tag("!sc"), new ConstructStringContains());
-        yamlConstructors.put(new Tag("!uuid"), new ConstructUuidField());
-        yamlConstructors.put(new Tag("!null"), new ConstructNullPlaceholder());
-        yamlConstructors.put(new Tag("!not_null"), new ConstructNotNull());
-        yamlConstructors.put(new Tag("!current_version"), new ConstructCurrentVersion());
+        // custom tags
+        final var loader = ServiceLoaderProvider.load(CustomTag.class);
+        loader.forEach(customTag -> customTag.accept(yamlConstructors::put));
 
         //blocks
         requireLineNumber.add(PreambleBlock.OPTIONS);
@@ -142,65 +137,6 @@ public class CustomYamlConstructor extends SafeConstructor {
         @Override
         public String toString() {
             return object + "@line:" + lineNumber;
-        }
-    }
-
-    private static class ConstructIgnore extends AbstractConstruct {
-        @Override
-        public Object construct(Node node) {
-            return CustomTag.Ignore.INSTANCE;
-        }
-    }
-
-    public static class ConstructLong extends AbstractConstruct {
-        @Override
-        public Object construct(Node node) {
-            if (!(node instanceof ScalarNode)) {
-                Assert.failUnchecked(String.format(Locale.ROOT, "The value of the long (!l) tag must be a scalar, however '%s' is found!", node));
-            }
-            return Long.valueOf(((ScalarNode) node).getValue());
-        }
-    }
-
-    private static class ConstructStringContains extends AbstractConstruct {
-        @Override
-        public Object construct(Node node) {
-            if (!(node instanceof ScalarNode)) {
-                Assert.failUnchecked(String.format(Locale.ROOT, "The value of the string-contains (!sc) tag must be a scalar, however '%s' is found!", node));
-            }
-            return new CustomTag.StringContains(((ScalarNode) node).getValue());
-        }
-    }
-
-    private static class ConstructUuidField extends AbstractConstruct {
-        @Override
-        public Object construct(Node node) {
-            if (!(node instanceof ScalarNode)) {
-                Assert.failUnchecked(String.format("The value of uuid (!sc) tag must be a scalar, however '%s' is found!", node));
-            }
-            return new CustomTag.UuidField(((ScalarNode) node).getValue());
-        }
-    }
-
-    private static class ConstructNullPlaceholder extends AbstractConstruct {
-        @Override
-        public Object construct(Node node) {
-            return CustomTag.NullPlaceholder.INSTANCE;
-        }
-    }
-
-    private static class ConstructNotNull extends AbstractConstruct {
-        @Override
-        public Object construct(Node node) {
-            return CustomTag.NotNull.INSTANCE;
-        }
-    }
-
-    private static class ConstructCurrentVersion extends AbstractConstruct {
-
-        @Override
-        public Object construct(Node node) {
-            return PreambleBlock.CurrentVersion.INSTANCE;
         }
     }
 }

@@ -21,17 +21,14 @@
 package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.relational.api.Continuation;
-import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
 import com.apple.foundationdb.relational.recordlayer.Utils;
 import com.apple.foundationdb.relational.utils.Ddl;
-import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.RelationalStructAssert;
-
+import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
@@ -118,52 +115,17 @@ public class ExplainTests {
     }
 
     @Test
-    void explainWithContinuationNoSerializedPlanTest() throws Exception {
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
-            executeInsert(ddl);
-            Continuation continuation;
-            try (RelationalConnection conn = ddl.setSchemaAndGetConnection()) {
-                conn.setOption(Options.Name.CONTINUATIONS_CONTAIN_COMPILED_STATEMENTS, false);
-                try (RelationalPreparedStatement ps = conn.prepareStatement("SELECT * FROM RestaurantComplexRecord")) {
-                    ps.setMaxRows(2);
-                    continuation = consumeResultAndGetContinuation(ps, 2);
-                }
-                try (RelationalPreparedStatement ps = conn.prepareStatement("EXPLAIN SELECT * FROM RestaurantComplexRecord WITH CONTINUATION ?cont")) {
-                    ps.setMaxRows(2);
-                    ps.setObject("cont", continuation.serialize());
-                    try (final RelationalResultSet resultSet = ps.executeQuery()) {
-                        final var assertResult = ResultSetAssert.assertThat(resultSet);
-
-                        assertResult.hasNextRow()
-                                .hasColumn("PLAN", "ISCAN(RECORD_NAME_IDX <,>)")
-                                .hasColumn("PLAN_HASH", -1635569052);
-                        final var continuationInfo = resultSet.getStruct(5);
-                        org.junit.jupiter.api.Assertions.assertNotNull(continuationInfo);
-                        final var assertStruct = RelationalStructAssert.assertThat(continuationInfo);
-                        assertStruct.hasValue("EXECUTION_STATE", new byte[]{0, 21, 1, 21, 11});
-                        assertStruct.hasValue("VERSION", 1);
-                        assertStruct.hasValue("PLAN_HASH_MODE", null);
-                        assertStruct.hasValue("PLAN_HASH", -1635569052);
-                        assertStruct.hasValue("SERIALIZED_PLAN_COMPLEXITY", null);
-                    }
-                }
-            }
-        }
-    }
-
-    @Test
     void explainWithContinuationSerializedPlanTest() throws Exception {
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             executeInsert(ddl);
             Continuation continuation;
             try (final var connection = ddl.setSchemaAndGetConnection()) {
-                connection.setOption(Options.Name.CONTINUATIONS_CONTAIN_COMPILED_STATEMENTS, true);
                 try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord")) {
                     ps.setMaxRows(2);
                     continuation = consumeResultAndGetContinuation(ps, 2);
                 }
 
-                try (RelationalPreparedStatement ps = connection.prepareStatement("EXPLAIN SELECT * FROM RestaurantComplexRecord WITH CONTINUATION ?cont")) {
+                try (RelationalPreparedStatement ps = connection.prepareStatement("EXPLAIN EXECUTE CONTINUATION ?cont")) {
                     ps.setObject("cont", continuation.serialize());
                     try (final RelationalResultSet resultSet = ps.executeQuery()) {
                         final var assertResult = ResultSetAssert.assertThat(resultSet);
@@ -173,40 +135,7 @@ public class ExplainTests {
                         final var continuationInfo = resultSet.getStruct(5);
                         org.junit.jupiter.api.Assertions.assertNotNull(continuationInfo);
                         final var assertStruct = RelationalStructAssert.assertThat(continuationInfo);
-                        assertStruct.hasValue("EXECUTION_STATE", new byte[]{0, 21, 1, 21, 11});
-                        assertStruct.hasValue("VERSION", 1);
-                        assertStruct.hasValue("PLAN_HASH_MODE", "VC0");
-                        assertStruct.hasValue("PLAN_HASH", -1635569052);
-                        assertStruct.hasValue("SERIALIZED_PLAN_COMPLEXITY", 1);
-                    }
-                }
-            }
-        }
-    }
-
-    @Test
-    void explainWithContinuationSerializedPlanWithDifferentQueryTest() throws Exception {
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
-            executeInsert(ddl);
-            Continuation continuation;
-            try (final var connection = ddl.setSchemaAndGetConnection()) {
-                connection.setOption(Options.Name.CONTINUATIONS_CONTAIN_COMPILED_STATEMENTS, true);
-                try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord")) {
-                    ps.setMaxRows(2);
-                    continuation = consumeResultAndGetContinuation(ps, 2);
-                }
-
-                try (RelationalPreparedStatement ps = connection.prepareStatement("EXPLAIN SELECT rest_no FROM RestaurantComplexRecord WITH CONTINUATION ?cont")) {
-                    ps.setObject("cont", continuation.serialize());
-                    try (final RelationalResultSet resultSet = ps.executeQuery()) {
-                        final var assertResult = ResultSetAssert.assertThat(resultSet);
-                        assertResult.hasNextRow()
-                                .hasColumn("PLAN", "COVERING(RECORD_NAME_IDX <,> -> [NAME: KEY[0], REST_NO: KEY[2]]) | MAP (_.REST_NO AS REST_NO)")
-                                .hasColumn("PLAN_HASH", 4759756);
-                        final var continuationInfo = resultSet.getStruct(5);
-                        org.junit.jupiter.api.Assertions.assertNotNull(continuationInfo);
-                        final var assertStruct = RelationalStructAssert.assertThat(continuationInfo);
-                        assertStruct.hasValue("EXECUTION_STATE", new byte[]{0, 21, 1, 21, 11});
+                        assertStruct.hasValue("EXECUTION_STATE", new byte[]{10, 5, 0, 21, 1, 21, 11, 17, -84, -51, 115, -104, -35, 66, 0, 94});
                         assertStruct.hasValue("VERSION", 1);
                         assertStruct.hasValue("PLAN_HASH_MODE", "VC0");
                         assertStruct.hasValue("PLAN_HASH", -1635569052);
@@ -223,7 +152,6 @@ public class ExplainTests {
             executeInsert(ddl);
             Continuation continuation;
             try (final var connection = ddl.setSchemaAndGetConnection()) {
-                connection.setOption(Options.Name.CONTINUATIONS_CONTAIN_COMPILED_STATEMENTS, true);
                 try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord")) {
                     ps.setMaxRows(2);
                     continuation = consumeResultAndGetContinuation(ps, 2);
@@ -239,7 +167,7 @@ public class ExplainTests {
                         final var continuationInfo = resultSet.getStruct(5);
                         org.junit.jupiter.api.Assertions.assertNotNull(continuationInfo);
                         final var assertStruct = RelationalStructAssert.assertThat(continuationInfo);
-                        assertStruct.hasValue("EXECUTION_STATE", new byte[]{0, 21, 1, 21, 11});
+                        assertStruct.hasValue("EXECUTION_STATE", new byte[]{10, 5, 0, 21, 1, 21, 11, 17, -84, -51, 115, -104, -35, 66, 0, 94});
                         assertStruct.hasValue("VERSION", 1);
                         assertStruct.hasValue("PLAN_HASH_MODE", "VC0");
                         assertStruct.hasValue("PLAN_HASH", -1635569052);

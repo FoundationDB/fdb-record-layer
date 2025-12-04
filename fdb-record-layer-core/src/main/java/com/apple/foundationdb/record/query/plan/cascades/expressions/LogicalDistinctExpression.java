@@ -47,7 +47,7 @@ import java.util.Set;
  * @see com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan for the fallback implementation
  */
 @API(API.Status.EXPERIMENTAL)
-public class LogicalDistinctExpression implements RelationalExpressionWithChildren, InternalPlannerGraphRewritable {
+public class LogicalDistinctExpression extends AbstractRelationalExpressionWithChildren implements InternalPlannerGraphRewritable {
     @Nonnull
     private final Quantifier inner;
 
@@ -72,7 +72,7 @@ public class LogicalDistinctExpression implements RelationalExpressionWithChildr
 
     @Nonnull
     @Override
-    public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
+    public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return ImmutableSet.of();
     }
 
@@ -106,7 +106,7 @@ public class LogicalDistinctExpression implements RelationalExpressionWithChildr
     }
 
     @Override
-    public int hashCodeWithoutChildren() {
+    public int computeHashCodeWithoutChildren() {
         return 31;
     }
 

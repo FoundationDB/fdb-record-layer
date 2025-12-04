@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.PickValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.test.Tags;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.BeforeEach;
@@ -73,6 +74,7 @@ public class FDBSelectorPlanTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         RecordQueryPlan planUnderTest = RecordQuerySelectorPlan.from(plan(query), Collections.singletonList(100));
+        Verify.verify(planUnderTest.getCorrelatedTo().isEmpty());
 
         int count = querySimpleRecordStore(NO_HOOK, planUnderTest, EvaluationContext::empty,
                 record -> assertThat(record.getNumValue2(), is(1)),
@@ -94,6 +96,7 @@ public class FDBSelectorPlanTest extends FDBRecordStoreQueryTestBase {
 
         // This will always select plan1 for execution
         RecordQueryPlan planUnderTest = RecordQuerySelectorPlan.from(plan(query1, query2), Arrays.asList(100, 0));
+        Verify.verify(planUnderTest.getCorrelatedTo().isEmpty());
 
         int count = querySimpleRecordStore(NO_HOOK, planUnderTest, EvaluationContext::empty,
                 record -> assertThat(record.getNumValue2(), is(1)),

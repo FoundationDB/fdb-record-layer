@@ -104,12 +104,11 @@ tasks.register('codeCoverageReport', JacocoReport) {
         "**/generated/*", "**/grpc/v1/**/*"
     ]
 
-    def compiledFiles = coverageSubprojects.collect { sp ->
-        new File(sp.buildDir, "libs/${sp.name}-${sp.version}.jar")
-    }.findAll { jf -> jf.exists() }
-    classDirectories.setFrom(compiledFiles.collect { jf ->
-        zipTree(jf).matching {
-            exclude exclusions
+    classDirectories.setFrom(coverageSubprojects.collect { sp ->
+        sp.layout.buildDirectory.file("libs/${sp.name}-${sp.version}.jar").map { jf ->
+            zipTree(jf).matching {
+                exclude exclusions
+            }
         }
     })
 

@@ -37,6 +37,7 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerInvoked
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.recordlayer.query.cache.QueryCacheKey;
+import com.apple.foundationdb.relational.recordlayer.query.functions.CompiledSqlFunction;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.annotations.VisibleForTesting;
@@ -270,15 +271,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
             visit(ctx.ctes());
         }
         ctx.queryExpressionBody().accept(this);
-        if (ctx.continuation() != null) {
-            ctx.continuation().accept(this);
-        }
         return null;
-    }
-
-    @Override
-    public Object visitContinuation(@Nonnull RelationalParser.ContinuationContext ctx) {
-        return ctx.continuationAtom().accept(this);
     }
 
     @Override
@@ -300,9 +293,6 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
             }
             if (ctx.DRY() != null) {
                 queryOptions.withOption(Options.Name.DRY_RUN, true);
-            }
-            if (ctx.CONTINUATION() != null) {
-                queryOptions.withOption(Options.Name.CONTINUATIONS_CONTAIN_COMPILED_STATEMENTS, true);
             }
             return null;
         } catch (SQLException e) {
@@ -446,10 +436,16 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
 
     @Override
     public Object visitInPredicate(@Nonnull RelationalParser.InPredicateContext ctx) {
+        if (ctx.NOT() != null) {
+            ctx.NOT().accept(this);
+        }
+
         ctx.IN().accept(this);
 
         if (ctx.inList().preparedStatementParameter() != null) {
             visit(ctx.inList().preparedStatementParameter());
+        } else if (ctx.inList().fullColumnName() != null) {
+            visit(ctx.inList().fullColumnName());
         } else {
             sqlCanonicalizer.append("( ");
             if (ParseHelpers.isConstant(ctx.inList().expressions())) {
@@ -625,7 +621,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
             // immediate materialization of temporary function, this is required to collect any auxiliary literals discovered
             // during plan generation of the temporary function. The literals and combined with query literals and provided
             // for the execution of a (cached) physical plan.
-            final var compiledFunction = recordLayerRoutine.getCompilableSqlFunctionSupplier().apply(caseSensitive);
+            final var compiledFunction = (CompiledSqlFunction)recordLayerRoutine.getUserDefinedFunctionProvider().apply(caseSensitive);
             astNormalizer.queryHasherContextBuilder.getLiteralsBuilder().importLiterals(compiledFunction.getAuxiliaryLiterals());
         }
         return new NormalizationResult(

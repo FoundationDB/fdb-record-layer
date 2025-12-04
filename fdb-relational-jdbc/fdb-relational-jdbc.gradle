@@ -18,6 +18,8 @@
  * limitations under the License.
  */
 
+import org.yaml.snakeyaml.Yaml
+
 plugins {
     alias(libs.plugins.serviceloader)
     alias(libs.plugins.shadow)
@@ -29,6 +31,7 @@ apply from: rootProject.file('gradle/publishing.gradle')
 dependencies {
     implementation project(":fdb-relational-api")
     implementation project(":fdb-relational-grpc")
+    implementation project(":fdb-extensions")
     implementation(libs.grpc.inprocess)
     implementation(libs.grpc.netty)
     implementation(libs.grpc.protobuf)
@@ -45,6 +48,19 @@ dependencies {
     // FDB Relational core test fixture in the TEST context only -- not in main!!!!
     testImplementation(testFixtures(project(":fdb-relational-core")))
     testImplementation(libs.grpc.testing)
+}
+
+// We only set FDB_CLUSTER_FILE here, to help ensure that none of the other tests use it, but these tests depend on
+// automatically creating an InProcessRelationalServer through reflection, and having that support some way of providing
+// the cluster file seems complicated at best, and counter-productive at worst
+def fdbEnvironmentYamlFile = new File("${rootProject.projectDir}/fdb-environment.yaml")
+if (fdbEnvironmentYamlFile.exists()) {
+    def firstClusterFile = new Yaml().loadAll(fdbEnvironmentYamlFile.newInputStream()).first().clusterFiles.first()
+    allprojects {
+        tasks.withType(Test) { task ->
+            task.environment(FDB_CLUSTER_FILE: firstClusterFile)
+        }
+    }
 }
 
 serviceLoader {

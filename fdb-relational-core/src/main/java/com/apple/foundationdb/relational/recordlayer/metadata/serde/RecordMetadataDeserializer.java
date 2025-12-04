@@ -21,28 +21,33 @@
 package com.apple.foundationdb.relational.recordlayer.metadata.serde;
 
 import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.query.plan.cascades.RawSqlFunction;
+import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
+import com.apple.foundationdb.record.query.plan.cascades.UserDefinedMacroFunction;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.util.ProtoUtils;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerInvokedRoutine;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
-import com.apple.foundationdb.relational.recordlayer.query.functions.CompiledSqlFunction;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerView;
+import com.apple.foundationdb.relational.recordlayer.query.LogicalOperator;
 import com.apple.foundationdb.relational.util.Assert;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
-import com.google.common.collect.ImmutableList;
+import com.google.protobuf.Descriptors;
 
 import javax.annotation.Nonnull;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -74,24 +79,25 @@ public class RecordMetadataDeserializer {
         // deserialization of other descriptors that can never be used by the user.
         final var unionDescriptor = recordMetaData.getUnionDescriptor();
 
-        final var registeredTypes = unionDescriptor.getFields();
-        final var schemaTemplateBuilder = RecordLayerSchemaTemplate.newBuilder()
+        final List<Descriptors.FieldDescriptor> registeredTypes = unionDescriptor.getFields();
+        final RecordLayerSchemaTemplate.Builder schemaTemplateBuilder = RecordLayerSchemaTemplate.newBuilder()
                 .setStoreRowVersions(recordMetaData.isStoreRecordVersions())
                 .setEnableLongRows(recordMetaData.isSplitLongRecords())
                 .setIntermingleTables(!recordMetaData.primaryKeyHasRecordTypePrefix());
-        final var nameToTableBuilder = new HashMap<String, RecordLayerTable.Builder>();
-        for (final var registeredType : registeredTypes) {
+        final Map<String, RecordLayerTable.Builder> nameToTableBuilder = new HashMap<>();
+        for (final Descriptors.FieldDescriptor registeredType : registeredTypes) {
             switch (registeredType.getType()) {
                 case MESSAGE:
-                    final var name = registeredType.getMessageType().getName();
-                    if (!nameToTableBuilder.containsKey(name)) {
-                        nameToTableBuilder.put(name, generateTableBuilder(name));
+                    final String storageName = registeredType.getMessageType().getName();
+                    final String userName = ProtoUtils.toUserIdentifier(storageName);
+                    if (!nameToTableBuilder.containsKey(userName)) {
+                        nameToTableBuilder.put(userName, generateTableBuilder(userName, storageName));
                     }
-                    nameToTableBuilder.get(name).addGeneration(registeredType.getNumber(), registeredType.getOptions());
+                    nameToTableBuilder.get(userName).addGeneration(registeredType.getNumber(), registeredType.getOptions());
                     break;
                 case ENUM:
                     // todo (yhatem) this is temporary, we rely on rec layer type system to deserialize protobuf descriptors.
-                    final var recordLayerType = new Type.Enum(false, Type.Enum.enumValuesFromProto(registeredType.getEnumType().getValues()), registeredType.getName());
+                    final var recordLayerType = Type.Enum.fromDescriptorPreservingNames(false, registeredType.getEnumType());
                     schemaTemplateBuilder.addAuxiliaryType((DataType.Named) DataTypeUtils.toRelationalType(recordLayerType));
                     break;
                 default:
@@ -107,7 +113,16 @@ public class RecordMetadataDeserializer {
                 if (function.getValue() instanceof RawSqlFunction) {
                     schemaTemplateBuilder.addInvokedRoutine(generateInvokedRoutineBuilder(metadataProvider, function.getKey(),
                             Assert.castUnchecked(function.getValue(), RawSqlFunction.class).getDefinition()).build());
+                } else if (function.getValue() instanceof UserDefinedMacroFunction) {
+                    schemaTemplateBuilder.addInvokedRoutine(generateInvokedRoutineBuilder(function.getKey(), function.getValue().toString(),
+                            Assert.castUnchecked(function.getValue(), UserDefinedMacroFunction.class)).build());
                 }
+            }
+        }
+        if (!recordMetaData.getViewMap().isEmpty()) {
+            final var metadataProvider = Suppliers.memoize(schemaTemplateBuilder::build);
+            for (final var view : recordMetaData.getViewMap().entrySet()) {
+                schemaTemplateBuilder.addView(generateViewBuilder(metadataProvider, view.getKey(), view.getValue().getDefinition()).build());
             }
         }
         schemaTemplateBuilder.setCachedMetadata(getRecordMetaData());
@@ -115,46 +130,35 @@ public class RecordMetadataDeserializer {
     }
 
     @Nonnull
-    private RecordLayerTable.Builder generateTableBuilder(@Nonnull final String tableName) {
-        return generateTableBuilder(recordMetaData.getRecordType(tableName));
-    }
+    private RecordLayerTable.Builder generateTableBuilder(@Nonnull final String userName, @Nonnull final String storageName) {
+        final RecordType recordType = recordMetaData.getRecordType(storageName);
 
-    @Nonnull
-    private RecordLayerTable.Builder generateTableBuilder(@Nonnull final RecordType recordType) {
         // todo (yhatem) we rely on the record type for deserialization from ProtoBuf for now, later on
         //      we will avoid this step by having our own deserializers.
-        final var recordLayerType = Type.Record.fromFieldsWithName(recordType.getName(), false, Type.Record.fromDescriptor(recordType.getDescriptor()).getFields());
         // todo (yhatem) this is hacky and must be cleaned up. We need to understand the actually field types so we can take decisions
-        // on higher level based on these types (wave3).
-        if (recordLayerType.getFields().stream().anyMatch(f -> f.getFieldType().isRecord())) {
-            ImmutableList.Builder<Type.Record.Field> newFields = ImmutableList.builder();
-            for (int i = 0; i < recordLayerType.getFields().size(); i++) {
-                final var protoField = recordType.getDescriptor().getFields().get(i);
-                final var field = recordLayerType.getField(i);
-                if (field.getFieldType().isRecord()) {
-                    Type.Record r = Type.Record.fromFieldsWithName(protoField.getMessageType().getName(), field.getFieldType().isNullable(), ((Type.Record) field.getFieldType()).getFields());
-                    newFields.add(Type.Record.Field.of(r, field.getFieldNameOptional(), field.getFieldIndexOptional()));
-                } else {
-                    newFields.add(field);
-                }
-            }
-            return RecordLayerTable.Builder
-                    .from(Type.Record.fromFieldsWithName(recordType.getName(), false, newFields.build()))
-                    .setPrimaryKey(recordType.getPrimaryKey())
-                    .addIndexes(recordType.getIndexes().stream().map(index -> RecordLayerIndex.from(recordType.getName(), index)).collect(Collectors.toSet()));
-        }
+        //      on higher level based on these types (wave3).
+        final var recordLayerType = Type.Record.fromDescriptorPreservingName(recordType.getDescriptor());
         return RecordLayerTable.Builder
                 .from(recordLayerType)
+                .setName(userName)
                 .setPrimaryKey(recordType.getPrimaryKey())
-                .addIndexes(recordType.getIndexes().stream().map(index -> RecordLayerIndex.from(recordType.getName(), index)).collect(Collectors.toSet()));
+                .addIndexes(recordType.getIndexes().stream().map(index -> RecordLayerIndex.from(Objects.requireNonNull(recordLayerType.getName()), Objects.requireNonNull(recordLayerType.getStorageName()), index)).collect(Collectors.toSet()));
     }
 
     @Nonnull
     @VisibleForTesting
-    protected Function<Boolean, CompiledSqlFunction> getSqlFunctionCompiler(@Nonnull final String name,
+    protected Function<Boolean, UserDefinedFunction> getSqlFunctionCompiler(@Nonnull final String name,
                                                                             @Nonnull final Supplier<RecordLayerSchemaTemplate> metadata,
                                                                             @Nonnull final String functionBody) {
-        return isCaseSensitive -> RoutineParser.sqlFunctionParser(metadata.get()).parse(functionBody, isCaseSensitive);
+        return isCaseSensitive -> RoutineParser.sqlFunctionParser(metadata.get()).parseFunction(functionBody, isCaseSensitive);
+    }
+
+    @Nonnull
+    @VisibleForTesting
+    protected Function<Boolean, LogicalOperator> getViewCompiler(@Nonnull final String viewName,
+                                                                 @Nonnull final Supplier<RecordLayerSchemaTemplate> metadata,
+                                                                 @Nonnull final String viewDefinition) {
+        return isCaseSensitive -> RoutineParser.sqlFunctionParser(metadata.get()).parseView(viewName, viewDefinition, isCaseSensitive);
     }
 
     @Nonnull
@@ -165,7 +169,30 @@ public class RecordMetadataDeserializer {
                 .setName(name)
                 .setDescription(body)
                 .setTemporary(false)
-                .withCompilableRoutine(getSqlFunctionCompiler(name, metadata, body));
+                .withUserDefinedRoutine(getSqlFunctionCompiler(name, metadata, body))
+                .withSerializableFunction(new RawSqlFunction(name, body));
+    }
+
+    @Nonnull
+    private RecordLayerInvokedRoutine.Builder generateInvokedRoutineBuilder(@Nonnull final String name,
+                                                                            @Nonnull final String body,
+                                                                            @Nonnull final UserDefinedMacroFunction userDefinedScalarFunction) {
+        return RecordLayerInvokedRoutine.newBuilder()
+                .setName(name)
+                .setDescription(body)
+                .withUserDefinedRoutine(ignored -> userDefinedScalarFunction)
+                .withSerializableFunction(userDefinedScalarFunction);
+    }
+
+    @Nonnull
+    @SuppressWarnings("PMD.UnusedFormalParameter") // metadata will be used for view compilation in the future
+    private RecordLayerView.Builder generateViewBuilder(@Nonnull final Supplier<RecordLayerSchemaTemplate> metadata,
+                                                        @Nonnull final String name,
+                                                        @Nonnull final String definition) {
+        return RecordLayerView.newBuilder()
+                .setName(name)
+                .setDescription(definition)
+                .setViewCompiler(getViewCompiler(name, metadata, definition));
     }
 
     @Nonnull

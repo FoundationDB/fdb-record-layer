@@ -180,56 +180,16 @@ public class KeySpace {
     @Nonnull
     public KeySpacePath path(@Nonnull String name, @Nullable Object value) {
         KeySpaceDirectory dir = root.getSubdirectory(name);
-        return KeySpacePathImpl.newPath(null, dir, value, false, null, null);
-    }
-
-    /**
-     * Given a tuple from an FDB key, attempts to determine what path through this directory the tuple
-     * represents, returning a <code>KeySpacePath</code> representing the leaf-most directory in the path.
-     * If entries remained in the tuple beyond the leaf directory, then
-     *   {@link KeySpacePath#getRemainder()} can be used to fetch the remaining portion.
-     *
-     * @param context context used, if needed, for any database operations
-     * @param key the tuple to be decoded
-     * @return a path entry representing the leaf directory entry that corresponds to a value in the
-     * provided tuple
-     * @throws RecordCoreArgumentException if the tuple provided does not correspond to any path through
-     *   the directory structure at this point
-     *
-     * @deprecated use {@link #resolveFromKeyAsync(FDBRecordContext, Tuple)} instead
-     */
-    @Deprecated
-    @API(API.Status.DEPRECATED)
-    @Nonnull
-    public CompletableFuture<KeySpacePath> pathFromKeyAsync(@Nonnull FDBRecordContext context, @Nonnull Tuple key) {
-        return root.findChildForKey(context, null, key, key.size(), 0).thenApply(ResolvedKeySpacePath::toPath);
-    }
-
-    /**
-     * Synchronous/blocking version of <code>pathFromKeyAsync</code>.
-     *
-     * @param context context used, if needed, for any database operations
-     * @param key the tuple to be decoded
-     * @return a path entry representing the leaf directory entry that corresponds to a value in the
-     * provided tuple
-     * @throws RecordCoreArgumentException if the tuple provided does not correspond to any path through
-     *   the directory structure at this point
-     *
-     * @deprecated use {@link #resolveFromKey(FDBRecordContext, Tuple)} instead
-     */
-    @Deprecated
-    @API(API.Status.DEPRECATED)
-    @Nonnull
-    public KeySpacePath pathFromKey(@Nonnull FDBRecordContext context, @Nonnull Tuple key) {
-        return context.asyncToSync(FDBStoreTimer.Waits.WAIT_KEYSPACE_PATH_RESOLVE, pathFromKeyAsync(context, key));
+        return KeySpacePathImpl.newPath(null, dir, value);
     }
 
     /**
      * Given a tuple from an FDB key, attempts to determine what path through this directory the tuple
      * represents, returning a <code>ResolvedKeySpacePath</code> representing the leaf-most directory in the path.
-     * If entries remained in the tuple beyond the leaf directory, then {@link KeySpacePath#getRemainder()}
-     * can be used to fetch the remaining portion.
-     *
+     * <p>
+     *     If entries remained in the tuple beyond the leaf directory, then {@link ResolvedKeySpacePath#getRemainder()} can be
+     *     used to fetch the remaining portion.
+     * </p>
      * @param context context used, if needed, for any database operations
      * @param key the tuple to be decoded
      * @return a path entry representing the leaf directory entry that corresponds to a value in the

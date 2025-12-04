@@ -20,6 +20,10 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.linear.DoubleRealVector;
+import com.apple.foundationdb.linear.FloatRealVector;
+import com.apple.foundationdb.linear.HalfRealVector;
+import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalArray;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
@@ -49,6 +53,11 @@ import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
+
+import java.util.stream.Stream;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -159,7 +168,6 @@ public class StandardQueryTests {
 
     @Test
     void simpleSelectWithNonNullableArrays() throws Exception {
-        //        var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplateWithNonNullableArrays).build();
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplateWithNonNullableArrays).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 var insertedRecord = insertRestaurantComplexRecord(statement);
@@ -377,15 +385,14 @@ public class StandardQueryTests {
                 RelationalStruct l43 = insertRestaurantComplexRecord(statement, 43L, "rest1");
                 RelationalStruct l44 = insertRestaurantComplexRecord(statement, 44L, "rest1");
                 RelationalStruct l45 = insertRestaurantComplexRecord(statement, 45L, "rest2");
-                final String initialQuery = "select * from RestaurantComplexRecord where rest_no > 40";
+                String query = "select * from RestaurantComplexRecord where rest_no > 40";
                 Continuation continuation = ContinuationImpl.BEGIN;
                 final List<RelationalStruct> expected = List.of(l42, l43, l44, l45);
                 int i = 0;
 
                 while (!continuation.atEnd()) {
-                    String query = initialQuery;
                     if (!continuation.atBeginning()) {
-                        query += " WITH CONTINUATION B64'" + Base64.getEncoder().encodeToString(continuation.serialize()) + "'";
+                        query = "EXECUTE CONTINUATION B64'" + Base64.getEncoder().encodeToString(continuation.serialize()) + "'";
                     }
                     try (final RelationalResultSet resultSet = statement.executeQuery(query)) {
                         // assert result matches expected
@@ -416,7 +423,7 @@ public class StandardQueryTests {
                         .hasErrorCode(ErrorCode.SYNTAX_ERROR);
                 final String end = "select * from RestaurantComplexRecord where rest_no > 40 with continuation b64''";
                 RelationalAssertions.assertThrowsSqlException(() -> statement.executeQuery(end))
-                        .hasErrorCode(ErrorCode.INVALID_CONTINUATION);
+                        .hasErrorCode(ErrorCode.SYNTAX_ERROR);
             }
         }
     }
@@ -882,6 +889,31 @@ public class StandardQueryTests {
             }
         }
     }
+
+    @Test
+    void testIncorrectUserDefinedFunction() throws Exception {
+        final String schemaTemplate1 = "CREATE TYPE AS STRUCT LATLON (latitude string, longitude string)\n" +
+                "CREATE TYPE AS STRUCT Location (name string, coord LATLON)" +
+                "CREATE TABLE T1(uid bigint, loc Location, PRIMARY KEY(uid))\n" +
+                "CREATE FUNCTION lat(IN x TYPE Location) RETURNS string AS x.coor.latitude\n"; // "coor" is wrong
+
+        // fail to build the MacroFunctionValue in the DDL step
+        Assertions.assertThrows(SQLException.class, () -> Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate1).build()).getMessage();
+
+        final String schemaTemplate3 = "CREATE TYPE AS STRUCT LATLON (latitude string, longitude string)\n" +
+                "CREATE TYPE AS STRUCT Location (name string, coord LATLON)" +
+                "CREATE TABLE T1(uid bigint, loc Location, PRIMARY KEY(uid))\n" +
+                "CREATE FUNCTION name(IN x TYPE Location) RETURNS string AS x.name\n";  // name is a reserved word
+
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate3).build()) {
+            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM T1 WHERE name(loc) = ?name")) {
+                ps.setString("name", "Apple Park Visitor Center");
+                final var errorMsg3 = Assertions.assertThrows(SQLException.class, ps::executeQuery).getMessage();
+                Assertions.assertTrue(errorMsg3.contains("syntax error"));
+            }
+        }
+    }
+
 
     @Test
     void testBitmap() throws Exception {
@@ -1363,6 +1395,69 @@ public class StandardQueryTests {
     }
 
     @Test
+    void structArrayContains() throws Exception {
+        final String schemaTemplate = "CREATE TYPE AS STRUCT A(col2 string, col3 bigint, col4 bigint) " +
+                "CREATE TABLE T1(col1 bigint, a A Array, col5 bigint, primary key(col1))";
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.executeUpdate("insert into t1 values (42, [('Apple', 1, 100), ('Orange', 2, 200)], 142), (44, [('Grape', 3, 300), ('Pear', 4, 400)], 144)");
+                Assertions.assertTrue(statement.execute("SELECT T1.col5 FROM T1 where exists (SELECT 1 FROM T1.A r where r.col2 = 'Grape') "));
+                try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                    ResultSetAssert.assertThat(resultSet).hasNextRow()
+                            .isRowExactly(144L)
+                            .hasNoNextRow();
+                }
+                // another way of query
+                Assertions.assertTrue(statement.execute("SELECT T1.col5 FROM T1, (SELECT col2, col3 FROM T1.A) X where X.col2 = 'Grape'"));
+                try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                    ResultSetAssert.assertThat(resultSet).hasNextRow()
+                            .isRowExactly(144L)
+                            .hasNoNextRow();
+                }
+                Assertions.assertTrue(statement.execute("SELECT T1.col5 FROM T1 where exists (SELECT 1 FROM T1.A r where r.col2 in ('Grape', 'Orange'))"));
+                try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                    ResultSetAssert.assertThat(resultSet).hasNextRow()
+                            .isRowExactly(142L)
+                            .hasNextRow()
+                            .isRowExactly(144L)
+                            .hasNoNextRow();
+                }
+            }
+        }
+    }
+
+    @Test
+    void primitiveArrayContains() throws Exception {
+        final String schemaTemplate = "CREATE TABLE T1(col1 bigint, a string Array, primary key(col1))";
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.executeUpdate("insert into t1 values (42, ['Apple', 'Orange']), (44, ['Grape', 'Pear'])");
+                Assertions.assertTrue(statement.execute("SELECT * FROM T1 where exists (SELECT 1 FROM T1.A r where r = 'Grape')"));
+                try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                    ResultSetAssert.assertThat(resultSet).hasNextRow()
+                            .isRowExactly(44L, EmbeddedRelationalArray.newBuilder().addString("Grape").addString("Pear").build())
+                            .hasNoNextRow();
+                }
+                Assertions.assertTrue(statement.execute("SELECT * FROM T1 where exists (SELECT 1 FROM T1.A r where r in ('Grape', 'Orange'))"));
+                try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                    ResultSetAssert.assertThat(resultSet).hasNextRow()
+                            .isRowExactly(42L, EmbeddedRelationalArray.newBuilder().addString("Apple").addString("Orange").build())
+                            .hasNextRow()
+                            .isRowExactly(44L, EmbeddedRelationalArray.newBuilder().addString("Grape").addString("Pear").build())
+                            .hasNoNextRow();
+                }
+
+                Assertions.assertTrue(statement.execute("SELECT * FROM T1 where 'Grape' in a"));
+                try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                    ResultSetAssert.assertThat(resultSet).hasNextRow()
+                            .isRowExactly(44L, EmbeddedRelationalArray.newBuilder().addString("Grape").addString("Pear").build())
+                            .hasNoNextRow();
+                }
+            }
+        }
+    }
+
+    @Test
     void cteWorksCorrectly() throws Exception {
         final String schemaTemplate = "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))";
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
@@ -1520,6 +1615,40 @@ public class StandardQueryTests {
                             .hasColumn("PK", 1L)
                             .hasColumn("A", actualUuidValue1)
                             .hasColumn("B", structWithUuid)
+                            .hasNoNextRow();
+                }
+            }
+        }
+    }
+
+    @Nonnull
+    private static Stream<Arguments> vectorTypeProvider() {
+        return Stream.of(
+                Arguments.of("vector(3, half)", new HalfRealVector(new double[]{1.1d, 1.2d, 1.3d})),
+                Arguments.of("vector(3, float)", new FloatRealVector(new double[]{1.1d, 1.2d, 1.3d})),
+                Arguments.of("vector(3, double)", new DoubleRealVector(new double[]{1.1d, 1.2d, 1.3d}))
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("vectorTypeProvider")
+    void vectorInsertSelectPrepared(String vectorType, RealVector vector) throws Exception {
+        final String schemaTemplate = String.format("CREATE TABLE T1(pk bigint, v %s, PRIMARY KEY(pk))", vectorType);
+
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var insert = ddl.setSchemaAndGetConnection().prepareStatement("insert into t1 values (?pk, ?v)")) {
+                insert.setLong("pk", 1L);
+                insert.setObject("v", vector);
+                final var numActualInserted = insert.executeUpdate();
+                Assertions.assertEquals(1, numActualInserted);
+            }
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                Assertions.assertTrue(statement.execute("select * from t1"));
+                try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                    ResultSetAssert.assertThat(resultSet)
+                            .hasNextRow()
+                            .hasColumn("PK", 1L)
+                            .hasColumn("v", vector)
                             .hasNoNextRow();
                 }
             }

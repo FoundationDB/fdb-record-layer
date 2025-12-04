@@ -23,12 +23,10 @@ package com.apple.foundationdb.record.lucene.directory;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
-import com.apple.foundationdb.record.metadata.IndexValidator;
 import com.apple.foundationdb.record.metadata.MetaDataException;
-import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactory;
+import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactoryRegistry;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerRegistry;
-import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.record.util.ServiceLoaderProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,7 +39,7 @@ import java.util.Map;
  * A testing-oriented version of {@link IndexMaintainerRegistry} that allows overriding a registry.
  * This can be used in place of the production registry
  */
-public class TestingIndexMaintainerRegistry implements IndexMaintainerRegistry {
+public class TestingIndexMaintainerRegistry implements IndexMaintainerFactoryRegistry {
     @Nonnull
     private static final Logger LOGGER = LoggerFactory.getLogger(TestingIndexMaintainerRegistry.class);
 
@@ -54,22 +52,12 @@ public class TestingIndexMaintainerRegistry implements IndexMaintainerRegistry {
 
     @Nonnull
     @Override
-    public IndexValidator getIndexValidator(@Nonnull Index index) {
+    public IndexMaintainerFactory getIndexMaintainerFactory(@Nonnull final Index index) {
         final IndexMaintainerFactory factory = registry.get(index.getType());
         if (factory == null) {
             throw new MetaDataException("Unknown index type for " + index);
         }
-        return factory.getIndexValidator(index);
-    }
-
-    @Nonnull
-    @Override
-    public IndexMaintainer getIndexMaintainer(@Nonnull IndexMaintainerState state) {
-        final IndexMaintainerFactory factory = registry.get(state.index.getType());
-        if (factory == null) {
-            throw new MetaDataException("Unknown index type for " + state.index);
-        }
-        return factory.getIndexMaintainer(state);
+        return factory;
     }
 
     /**

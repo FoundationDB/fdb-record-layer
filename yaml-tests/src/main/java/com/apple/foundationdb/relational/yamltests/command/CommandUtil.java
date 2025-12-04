@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.yamltests.generated.schemainstance.SchemaInstanceOuterClass;
-
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -47,8 +46,11 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.StringTokenizer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -102,16 +104,39 @@ public class CommandUtil {
 
     private static RecordMetaData loadRecordMetaDataFromJson(String jsonFileName) {
         RecordMetaDataProto.MetaData.Builder builder = RecordMetaDataProto.MetaData.newBuilder();
-        List<String> deps = new ArrayList<>();
+        Set<String> neededDependencies = new LinkedHashSet<>();
+        Set<String> includedDependencies = new HashSet<>();
+
+        // These dependencies are automatically added, so we can treat them like they are bundled with the file dependencies
+        includedDependencies.add("record_metadata.proto");
+        includedDependencies.add("record_metadata_options.proto");
+        includedDependencies.add("tuple_fields.proto");
+
         try {
             String jsonStr = Files.readString(Paths.get(jsonFileName), StandardCharsets.UTF_8);
+
+            // Load the definition into the meta-data proto
             JsonFormat.parser().ignoringUnknownFields().merge(jsonStr, builder);
+
+            // Find the list of dependencies of the top-level file
             JsonObject obj = JsonParser.parseString(jsonStr).getAsJsonObject();
             JsonArray dependencyArray = obj.getAsJsonObject("records").getAsJsonArray("dependency");
             for (JsonElement element : dependencyArray) {
                 String curDep = element.getAsString();
-                if (!"record_metadata.proto".equals(curDep) && !"record_metadata_options.proto".equals(curDep)) {
-                    deps.add(curDep);
+                neededDependencies.add(curDep);
+            }
+
+            // Some dependencies may be included in the JSON descriptor itself and do not need to be
+            // provided from the environment
+            JsonArray includedDependencyDefinitions = obj.getAsJsonArray("dependencies");
+            if (includedDependencyDefinitions != null) {
+                for (JsonElement element : includedDependencyDefinitions) {
+                    JsonObject definition = element.getAsJsonObject();
+                    includedDependencies.add(definition.get("name").getAsString());
+                    if (definition.has("dependency")) {
+                        definition.getAsJsonArray("dependency")
+                                .forEach(dep -> neededDependencies.add(dep.getAsString()));
+                    }
                 }
             }
         } catch (IOException e) {
@@ -119,7 +144,10 @@ public class CommandUtil {
         }
 
         List<Descriptors.FileDescriptor> fileDescriptors = new ArrayList<>();
-        for (String dep: deps) {
+        for (String dep: neededDependencies) {
+            if (includedDependencies.contains(dep)) {
+                continue;
+            }
             try {
                 String fullClassName = getFullClassName(dep);
                 Class<?> act = Class.forName(fullClassName);

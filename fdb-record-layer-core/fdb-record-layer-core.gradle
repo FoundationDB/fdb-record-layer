@@ -35,7 +35,7 @@ dependencies {
     compileOnly(libs.autoService)
     annotationProcessor(libs.autoService)
 
-    testImplementation testFixtures(project(':fdb-extensions'))
+    testImplementation project(':fdb-test-utils')
     testImplementation(libs.bundles.test.impl)
     testRuntimeOnly(libs.bundles.test.runtime)
     testCompileOnly(libs.bundles.test.compileOnly)
@@ -44,6 +44,7 @@ dependencies {
     testImplementation(libs.junit.platform)
     testImplementation(libs.protobuf.util)
     testCompileOnly(libs.spotbugs.annotations)
+    testImplementation(libs.snakeyaml)
 
     testAnnotationProcessor(libs.autoService)
 }

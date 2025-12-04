@@ -1,0 +1,103 @@
+#
+# views.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+---
+options:
+    supported_version: 4.8.3.0
+---
+# create view join_view as select e1.name as emp1, e2.name as emp2, e1.department from employees e1, employees e2 where e1.department = e2.department and e1.id < e2.id
+schema_template:
+    create table employees(id bigint, name string, department string, salary bigint, hire_year bigint, primary key(id))
+    create index i1 as select department, salary from employees order by department, salary
+    create function high_earners(in min_salary bigint) as select id, name, department, salary from employees where salary > min_salary
+    create view simple_view as select * from employees where salary > 50000
+    create view nested_view as select * from simple_view where department = 'Engineering'
+    create view cte_view as with high_sal as (select name, salary from employees where salary > 60000) select * from high_sal
+    create view function_view as select * from high_earners(70000)
+    create view complex_view as with dept_max as (select department, max(salary) as max_salary from employees group by department) select department, max_salary from dept_max
+    create view nested_cte_view as with c1 as (with c2 as (select name, salary from employees where salary > 50000) select * from c2 where salary < 80000) select * from c1
+---
+setup:
+  steps:
+    - query: INSERT INTO employees VALUES
+        (1, 'Alice', 'Engineering', 80000, 2020),
+        (2, 'Bob', 'Engineering', 75000, 2021),
+        (3, 'Charlie', 'Sales', 45000, 2019),
+        (4, 'Diana', 'Marketing', 60000, 2022),
+        (5, 'Eve', 'Engineering', 90000, 2018),
+        (6, 'Frank', 'Sales', 55000, 2020)
+---
+test_block:
+  name: view-basic-tests
+  preset: single_repetition_ordered
+  tests:
+    -
+      - query: select * from simple_view
+      - unorderedResult: [{id: 1, name: 'Alice', department: 'Engineering', salary: 80000, hire_year: 2020},
+                          {id: 2, name: 'Bob', department: 'Engineering', salary: 75000, hire_year: 2021},
+                          {id: 4, name: 'Diana', department: 'Marketing', salary: 60000, hire_year: 2022},
+                          {id: 5, name: 'Eve', department: 'Engineering', salary: 90000, hire_year: 2018},
+                          {id: 6, name: 'Frank', department: 'Sales', salary: 55000, hire_year: 2020}]
+    -
+      - query: select * from nested_view
+      - unorderedResult: [{id: 1, name: 'Alice', department: 'Engineering', salary: 80000, hire_year: 2020},
+                          {id: 2, name: 'Bob', department: 'Engineering', salary: 75000, hire_year: 2021},
+                          {id: 5, name: 'Eve', department: 'Engineering', salary: 90000, hire_year: 2018}]
+    -
+      - query: select name, salary from nested_view where salary > 75000
+      - unorderedResult: [{name: 'Alice', salary: 80000},
+                          {name: 'Eve', salary: 90000}]
+    -
+      - query: select * from cte_view
+      - unorderedResult: [{name: 'Alice', salary: 80000},
+                          {name: 'Bob', salary: 75000},
+                          {name: 'Eve', salary: 90000}]
+    -
+      - query: select * from nested_cte_view
+      - unorderedResult: [{name: 'Bob', salary: 75000},
+                          {name: 'Diana', salary: 60000},
+                          {name: 'Frank', salary: 55000}]
+    -
+      - query: select * from function_view
+      - unorderedResult: [{id: 1, name: 'Alice', department: 'Engineering', salary: 80000},
+                          {id: 2, name: 'Bob', department: 'Engineering', salary: 75000},
+                          {id: 5, name: 'Eve', department: 'Engineering', salary: 90000}]
+    -
+      - query: select name, department from function_view where department = 'Engineering'
+      - unorderedResult: [{name: 'Alice', department: 'Engineering'},
+                          {name: 'Bob', department: 'Engineering'},
+                          {name: 'Eve', department: 'Engineering'}]
+#    -
+#      - query: select * from join_view
+#      - unorderedResult: [{emp1: 'Alice', emp2: 'Bob', department: 'Engineering'},
+#                          {emp1: 'Alice', emp2: 'Eve', department: 'Engineering'},
+#                          {emp1: 'Bob', emp2: 'Eve', department: 'Engineering'},
+#                          {emp1: 'Charlie', emp2: 'Frank', department: 'Sales'}]
+#    -
+#      - query: select emp1, emp2 from join_view where department = 'Engineering'
+#      - unorderedResult: [{emp1: 'Alice', emp2: 'Bob'},
+#                          {emp1: 'Alice', emp2: 'Eve'},
+#                          {emp1: 'Bob', emp2: 'Eve'}]
+    -
+      - query: select * from complex_view
+      - unorderedResult: [{department: 'Engineering', max_salary: 90000},
+                          {department: 'Sales', max_salary: 55000},
+                          {department: 'Marketing', max_salary: 60000}]
+    -
+      - query: select department from complex_view where max_salary > 80000
+      - unorderedResult: [{department: 'Engineering'}]

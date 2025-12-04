@@ -21,26 +21,21 @@
 package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.relational.api.Continuation;
-import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.exceptions.ContextualSQLException;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
 import com.apple.foundationdb.relational.recordlayer.RelationalConnectionRule;
 import com.apple.foundationdb.relational.recordlayer.RelationalStatementRule;
 import com.apple.foundationdb.relational.recordlayer.UniqueIndexTests;
 import com.apple.foundationdb.relational.recordlayer.Utils;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
-
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import java.sql.SQLException;
 import java.util.stream.Stream;
 
 public class ForceContinuationQueryTests {
@@ -75,14 +70,13 @@ public class ForceContinuationQueryTests {
     @RegisterExtension
     @Order(2)
     public final RelationalConnectionRule connection = new RelationalConnectionRule(db::getConnectionUri)
-            .withOptions(Options.builder().withOption(Options.Name.CONTINUATIONS_CONTAIN_COMPILED_STATEMENTS, true).build())
             .withSchema(db.getSchemaName());
 
     @RegisterExtension
     @Order(3)
     public final RelationalStatementRule statement = new RelationalStatementRule(connection);
 
-    public ForceContinuationQueryTests() throws SQLException {
+    public ForceContinuationQueryTests() {
     }
 
     @BeforeAll
@@ -98,26 +92,7 @@ public class ForceContinuationQueryTests {
         statement.execute("delete from t3");
     }
 
-    @ParameterizedTest
-    @MethodSource("failedQueries")
-    void testOldSerializationFails(String sql, long result) throws Exception {
-        Continuation continuation;
-        statement.setMaxRows(1);
-        try (var resultSet = statement.executeQuery(sql)) {
-            Assertions.assertTrue(resultSet.next());
-            Assertions.assertEquals(result, resultSet.getLong(1));
-            continuation = resultSet.getContinuation();
-        }
-        // old kvCursorContinuation cause continuation at beginning exception
-        try (final var preparedStatement = connection.prepareStatement("EXECUTE CONTINUATION ?param")) {
-            preparedStatement.setMaxRows(1);
-            preparedStatement.setBytes("param", continuation.serialize());
-            Assertions.assertThrows(ContextualSQLException.class, preparedStatement::executeQuery);
-        }
-    }
-
     // disabled until SerializationMode = TO_NEW
-    @Disabled
     @ParameterizedTest
     @MethodSource("failedQueries")
     void testNewSerialization(String sql, long result) throws Exception {
