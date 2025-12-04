@@ -23,6 +23,7 @@ package com.apple.foundationdb.relational.recordlayer.query.visitors;
 import com.apple.foundationdb.annotation.API;
 
 import com.apple.foundationdb.relational.generated.RelationalParser;
+import com.apple.foundationdb.relational.recordlayer.query.CopyPlanFactory;
 import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
 import com.apple.foundationdb.relational.recordlayer.query.SemanticAnalyzer;
 
@@ -77,5 +78,31 @@ public final class MetadataPlanVisitor extends DelegatingVisitor<BaseVisitor> {
         final var ddlFactory = getDelegate().getDdlQueryFactory();
         final var schemaTemplateId = visitUid(ctx.uid());
         return QueryPlan.MetadataQueryPlan.of(ddlFactory.getDescribeSchemaTemplateQueryAction(schemaTemplateId.getName()));
+    }
+
+    // TODO should copy go on a different visitor?
+    @Nonnull
+    @Override
+    public QueryPlan visitCopyExportStatement(@Nonnull RelationalParser.CopyExportStatementContext ctx) {
+        final var pathId = visitUid(ctx.path().uid());
+        return CopyPlanFactory.getCopyExportAction(pathId.getName());
+    }
+
+    @Nonnull
+    @Override
+    public QueryPlan visitCopyImportStatement(@Nonnull RelationalParser.CopyImportStatementContext ctx) {
+        final var pathId = visitUid(ctx.path().uid());
+        // Extract parameter information for binding
+        final var paramCtx = ctx.preparedStatementParameter();
+        final int parameterIndex = paramCtx.getStart().getTokenIndex();
+        final String parameterIdentifier;
+        if (paramCtx.QUESTION() != null) {
+            // Positional parameter - use token index as identifier
+            parameterIdentifier = "?" + parameterIndex;
+        } else {
+            // Named parameter - extract name (remove leading $)
+            parameterIdentifier = paramCtx.NAMED_PARAMETER().getText().substring(1);
+        }
+        return CopyPlanFactory.getCopyImportAction(pathId.getName(), parameterIdentifier);
     }
 }
