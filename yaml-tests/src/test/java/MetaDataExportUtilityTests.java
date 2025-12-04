@@ -35,6 +35,7 @@ import org.junit.jupiter.api.Test;
 import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.stream.Collectors;
 
 /**
  * Test utility methods that can be used to set up custom meta-data definitions for YAML tests.
@@ -84,13 +85,14 @@ class MetaDataExportUtilityTests {
         // Modify the proto file names so that they aren't available in the classpath.
         // This ensures that the test case validates that we load the dependency from the
         // protobuf serialized MetaData proto and not from the environment.
-        RecordMetaDataProto.MetaData.Builder protoBuilder = metaData.toProto().toBuilder();
+        final RecordMetaDataProto.MetaData proto = metaData.toProto();
+        RecordMetaDataProto.MetaData.Builder protoBuilder = proto.toBuilder();
         protoBuilder.getRecordsBuilder()
-                .setName("modified_" + protoBuilder.getRecordsBuilder().getName())
+                .setName("modified_" + proto.getRecords().getName())
                 .clearDependency()
-                .addDependency("modified_to_be_imported.proto");
-        protoBuilder.getDependenciesBuilder(0)
-                .setName("modified_" + protoBuilder.getDependenciesBuilder(0).getName());
+                .addAllDependency(proto.getRecords().getDependencyList().stream().map(name -> "modified_" + name).collect(Collectors.toList()));
+        protoBuilder.getDependenciesBuilderList()
+                .forEach(dependencyBuilder -> dependencyBuilder.setName("modified_" + dependencyBuilder.getName()));
         final RecordMetaData modified = RecordMetaData.build(protoBuilder.build());
 
         exportMetaData(modified, "import-schema-template/with_included_dependencies_metadata.json");
