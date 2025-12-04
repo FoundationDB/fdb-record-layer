@@ -1679,14 +1679,14 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
 
     @Nonnull
     @Override
-    public Object visitCopyExportStatement(@Nonnull RelationalParser.CopyExportStatementContext ctx) {
-        return visitChildren(ctx);
+    public QueryPlan visitCopyExportStatement(@Nonnull RelationalParser.CopyExportStatementContext ctx) {
+        return metadataPlanVisitor.visitCopyExportStatement(ctx);
     }
 
     @Nonnull
     @Override
-    public Object visitCopyImportStatement(@Nonnull RelationalParser.CopyImportStatementContext ctx) {
-        return visitChildren(ctx);
+    public QueryPlan visitCopyImportStatement(@Nonnull RelationalParser.CopyImportStatementContext ctx) {
+        return metadataPlanVisitor.visitCopyImportStatement(ctx);
     }
 
     @Nonnull
