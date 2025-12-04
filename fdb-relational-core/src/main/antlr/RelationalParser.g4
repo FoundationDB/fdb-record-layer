@@ -621,7 +621,7 @@ executeContinuationStatement
     ;
 
 copyStatement
-    : COPY path (LIMIT limitClauseAtom)?           #copyExportStatement
+    : COPY path                                    #copyExportStatement
     | COPY path FROM preparedStatementParameter    #copyImportStatement
     ;
 
