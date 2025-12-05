@@ -1195,7 +1195,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
 
             List<CompletableFuture<Void>> futures = new ArrayList<>(threads);
             for (int i = 0; i < threads; i++) {
-                futures.add(CompletableFuture.supplyAsync(() -> {
+                futures.add(CompletableFuture.runAsync(() -> {
                     try {
                         for (int j = 0; j < loops; j++) {
                             // Cause the reader to become stale
@@ -1205,7 +1205,6 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                             // Store the created reader for later
                             createdReaders.add(writerReader);
                         }
-                        return null;
                     } catch (IOException e) {
                         throw new RuntimeException(e);
                     }
