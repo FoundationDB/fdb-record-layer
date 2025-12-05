@@ -379,60 +379,64 @@ public class HNSW {
                               @Nonnull final NodeReferenceWithDistance nodeReferenceWithDistance,
                               final int layer,
                               @Nonnull final Transformed<RealVector> queryVector) {
-        if (storageAdapter.isInliningStorageAdapter()) {
-            return greedySearchInliningLayer(storageAdapter.asInliningStorageAdapter(), readTransaction,
-                    storageTransform, estimator, nodeReferenceWithDistance, layer, queryVector);
-        } else {
-            return searchLayer(storageAdapter, readTransaction, storageTransform, estimator,
-                    ImmutableList.of(nodeReferenceWithDistance), layer, 1, Maps.newConcurrentMap(), queryVector)
-                    .thenApply(searchResult ->
-                            Iterables.getOnlyElement(searchResult).getNodeReference());
-        }
+//        if (storageAdapter.isInliningStorageAdapter()) {
+//            return greedySearchInliningLayer(storageAdapter.asInliningStorageAdapter(), readTransaction,
+//                    storageTransform, estimator, nodeReferenceWithDistance, layer, queryVector);
+//        } else {
+        return searchLayer(storageAdapter, readTransaction, storageTransform, estimator,
+                ImmutableList.of(nodeReferenceWithDistance), layer, 1, Maps.newConcurrentMap(), queryVector)
+                .thenApply(searchResult ->
+                        Iterables.getOnlyElement(searchResult).getNodeReference());
+//        }
     }
 
-    @Nonnull
-    private CompletableFuture<NodeReferenceWithDistance> greedySearchInliningLayer(@Nonnull final StorageAdapter<NodeReferenceWithVector> storageAdapter,
-                                                                                   @Nonnull final ReadTransaction readTransaction,
-                                                                                   @Nonnull final StorageTransform storageTransform,
-                                                                                   @Nonnull final Estimator estimator,
-                                                                                   @Nonnull final NodeReferenceWithDistance nodeReferenceWithDistance,
-                                                                                   final int layer,
-                                                                                   @Nonnull final Transformed<RealVector> queryVector) {
-        final AtomicReference<NodeReferenceWithDistance> currentNodeReferenceAtomic =
-                new AtomicReference<>(nodeReferenceWithDistance);
-
-        return AsyncUtil.whileTrue(() -> onReadListener.onAsyncRead(
-                        storageAdapter.fetchNode(readTransaction, storageTransform, layer, currentNodeReferenceAtomic.get().getPrimaryKey()))
-                .thenApply(node -> {
-                    if (node == null) {
-                        throw new IllegalStateException("unable to fetch node");
-                    }
-                    final InliningNode inliningNode = node.asInliningNode();
-                    final List<NodeReferenceWithVector> neighbors = inliningNode.getNeighbors();
-
-                    final NodeReferenceWithDistance currentNodeReference = currentNodeReferenceAtomic.get();
-                    double minDistance = currentNodeReference.getDistance();
-
-                    NodeReferenceWithVector nearestNeighbor = null;
-                    for (final NodeReferenceWithVector neighbor : neighbors) {
-                        final double distance =
-                                estimator.distance(neighbor.getVector(), queryVector);
-                        if (distance < minDistance) {
-                            minDistance = distance;
-                            nearestNeighbor = neighbor;
-                        }
-                    }
-
-                    if (nearestNeighbor == null) {
-                        return false;
-                    }
-
-                    currentNodeReferenceAtomic.set(
-                            new NodeReferenceWithDistance(nearestNeighbor.getPrimaryKey(), nearestNeighbor.getVector(),
-                                    minDistance));
-                    return true;
-                }), executor).thenApply(ignored -> currentNodeReferenceAtomic.get());
-    }
+//    @Nonnull
+//    private CompletableFuture<NodeReferenceWithDistance> greedySearchInliningLayer(@Nonnull final InliningStorageAdapter storageAdapter,
+//                                                                                   @Nonnull final ReadTransaction readTransaction,
+//                                                                                   @Nonnull final StorageTransform storageTransform,
+//                                                                                   @Nonnull final Estimator estimator,
+//                                                                                   @Nonnull final NodeReferenceWithDistance nodeReferenceWithDistance,
+//                                                                                   final int layer,
+//                                                                                   @Nonnull final Transformed<RealVector> queryVector) {
+//        final AtomicReference<NodeReferenceWithDistance> currentNodeReferenceAtomic =
+//                new AtomicReference<>(nodeReferenceWithDistance);
+//
+//        return AsyncUtil.whileTrue(() -> onReadListener.onAsyncRead(
+//                        storageAdapter.fetchNode(readTransaction, storageTransform, layer, currentNodeReferenceAtomic.get().getPrimaryKey()))
+//                .thenApply(node -> {
+//                    if (node == null) {
+//                        //
+//                        // This cannot happen under normal circumstances as the storage adapter returns a node with no
+//                        // neighbors if it already has been deleted. Therefore, it is correct to throw here.
+//                        //
+//                        throw new IllegalStateException("unable to fetch node");
+//                    }
+//                    final InliningNode inliningNode = node.asInliningNode();
+//                    final List<NodeReferenceWithVector> neighbors = inliningNode.getNeighbors();
+//
+//                    final NodeReferenceWithDistance currentNodeReference = currentNodeReferenceAtomic.get();
+//                    double minDistance = currentNodeReference.getDistance();
+//
+//                    NodeReferenceWithVector nearestNeighbor = null;
+//                    for (final NodeReferenceWithVector neighbor : neighbors) {
+//                        final double distance =
+//                                estimator.distance(neighbor.getVector(), queryVector);
+//                        if (distance < minDistance) {
+//                            minDistance = distance;
+//                            nearestNeighbor = neighbor;
+//                        }
+//                    }
+//
+//                    if (nearestNeighbor == null) {
+//                        return false;
+//                    }
+//
+//                    currentNodeReferenceAtomic.set(
+//                            new NodeReferenceWithDistance(nearestNeighbor.getPrimaryKey(), nearestNeighbor.getVector(),
+//                                    minDistance));
+//                    return true;
+//                }), executor).thenApply(ignored -> currentNodeReferenceAtomic.get());
+//    }
 
     /**
      * Searches a single layer of the graph to find the nearest neighbors to a query vector.
@@ -502,7 +506,9 @@ public class HNSW {
 
             return fetchNodeIfNotCached(storageAdapter, readTransaction, storageTransform, layer, candidate, nodeCache)
                     .thenApply(candidateNode ->
-                            Iterables.filter(candidateNode.getNeighbors(),
+                            candidateNode == null
+                            ? ImmutableList.<N>of()
+                            : Iterables.filter(candidateNode.getNeighbors(),
                                     neighbor -> !visited.contains(Objects.requireNonNull(neighbor).getPrimaryKey())))
                     .thenCompose(neighborReferences -> fetchNeighborhoodReferences(storageAdapter, readTransaction,
                             storageTransform, layer, neighborReferences, nodeCache))
@@ -599,7 +605,10 @@ public class HNSW {
         return fetchNodeIfNecessaryAndApply(storageAdapter, readTransaction, storageTransform, layer, nodeReference,
                 nR -> nodeCache.get(nR.getPrimaryKey()),
                 (nR, node) -> {
-                    nodeCache.put(nR.getPrimaryKey(), node);
+                    // TODO maybe use a placeholder instance for null so we won't try multiple times
+                    if (node != null) {
+                        nodeCache.put(nR.getPrimaryKey(), node);
+                    }
                     return node;
                 });
     }
@@ -651,7 +660,7 @@ public class HNSW {
         return onReadListener.onAsyncRead(
                         storageAdapter.fetchNode(readTransaction, storageTransform, layer,
                                 nodeReference.getPrimaryKey()))
-                .thenApply(node -> biMapFunction.apply(nodeReference, Objects.requireNonNull(node)));
+                .thenApply(node -> biMapFunction.apply(nodeReference, node));
     }
 
     /**
@@ -697,14 +706,17 @@ public class HNSW {
                             neighborNode.asCompactNode().getVector());
                 },
                 (neighborReference, neighborNode) -> {
-                    //
-                    // At this point we know that the node needed to be fetched, which means this branch cannot be
-                    // reached for INLINING nodes as they never have to be fetched. Therefore, we can safely treat
-                    // the nodes as compact nodes.
-                    //
-                    nodeCache.put(neighborReference.getPrimaryKey(), neighborNode);
-                    return new NodeReferenceWithVector(neighborReference.getPrimaryKey(),
-                            neighborNode.asCompactNode().getVector());
+                    if (neighborNode != null) {
+                        //
+                        // At this point we know that the node needed to be fetched, which means this branch cannot be
+                        // reached for INLINING nodes as they never have to be fetched. Therefore, we can safely treat
+                        // the nodes as compact nodes.
+                        //
+                        nodeCache.put(neighborReference.getPrimaryKey(), neighborNode);
+                        return new NodeReferenceWithVector(neighborReference.getPrimaryKey(),
+                                neighborNode.asCompactNode().getVector());
+                    }
+                    return null;
                 });
     }
 
@@ -749,8 +761,11 @@ public class HNSW {
                     return new NodeReferenceAndNode<>(nodeReference, node);
                 },
                 (nodeReference, node) -> {
-                    nodeCache.put(nodeReference.getPrimaryKey(), node);
-                    return new NodeReferenceAndNode<>(nodeReference, node);
+                    if (node != null) {
+                        nodeCache.put(nodeReference.getPrimaryKey(), node);
+                        return new NodeReferenceAndNode<>(nodeReference, node);
+                    }
+                    return null;
                 });
     }
 
@@ -778,8 +793,8 @@ public class HNSW {
      * @param biMapFunction The function to apply when a node is successfully fetched, mapping the original
      * reference and the fetched {@link AbstractNode} to a result of type {@code U}.
      *
-     * @return A {@link CompletableFuture} that, upon completion, will hold a {@link java.util.List} of results
-     * of type {@code U}, corresponding to each processed node reference.
+     * @return A {@link CompletableFuture} that, upon completion, will hold a {@link java.util.List} of non-null results
+     * of type {@code U}
      */
     @Nonnull
     private <R extends NodeReference, N extends NodeReference, U> CompletableFuture<List<U>>
@@ -794,7 +809,16 @@ public class HNSW {
                 currentNeighborReference -> fetchNodeIfNecessaryAndApply(storageAdapter, readTransaction,
                         storageTransform, layer, currentNeighborReference, fetchBypassFunction, biMapFunction),
                 getConfig().getMaxNumConcurrentNodeFetches(),
-                getExecutor());
+                getExecutor())
+                .thenApply(results -> {
+                    final ImmutableList.Builder<U> filteredListBuilder = ImmutableList.builder();
+                    for (final U result : results) {
+                        if (result != null) {
+                            filteredListBuilder.add(result);
+                        }
+                    }
+                    return filteredListBuilder.build();
+                });
     }
 
     /**
@@ -1064,7 +1088,8 @@ public class HNSW {
                 (layer, previousNodeReferences) -> {
                     final StorageAdapter<? extends NodeReference> storageAdapter = getStorageAdapterForLayer(layer);
                     return insertIntoLayer(storageAdapter, transaction, storageTransform, quantizer,
-                            previousNodeReferences, layer, newPrimaryKey, newVector);
+                            previousNodeReferences, layer, newPrimaryKey, newVector)
+                            .thenApply(NodeReferenceAndNode::getReferences);
                 }, executor).thenCompose(ignored -> AsyncUtil.DONE);
     }
 
@@ -1101,11 +1126,11 @@ public class HNSW {
      * @param newVector the vector associated with the new node
      *
      * @return a {@code CompletableFuture} that completes with a list of the nearest neighbors found during the
-     * initial search phase. This list serves as the entry point for insertion into the next lower layer
-     * (i.e., {@code layer - 1}).
+     *         initial search phase. This list serves as the entry point for insertion into the next lower layer
+     *         (i.e., {@code layer - 1}).
      */
     @Nonnull
-    private <N extends NodeReference> CompletableFuture<List<NodeReferenceWithDistance>>
+    private <N extends NodeReference> CompletableFuture<List<NodeReferenceAndNode<NodeReferenceWithDistance, N>>>
             insertIntoLayer(@Nonnull final StorageAdapter<N> storageAdapter,
                             @Nonnull final Transaction transaction,
                             @Nonnull final AffineOperator storageTransform,
@@ -1122,75 +1147,72 @@ public class HNSW {
 
         return searchLayer(storageAdapter, transaction, storageTransform, estimator,
                 nearestNeighbors, layer, config.getEfConstruction(), nodeCache, newVector)
-                .thenCompose(searchResult -> {
-                    final List<NodeReferenceWithDistance> references = NodeReferenceAndNode.getReferences(searchResult);
+                .thenCompose(searchResult ->
+                        extendCandidatesIfNecessary(storageAdapter, transaction, storageTransform, estimator,
+                                searchResult, layer, getConfig().isExtendCandidates(), nodeCache, newVector)
+                                .thenCompose(extendedCandidates ->
+                                        selectCandidates(storageAdapter, transaction, storageTransform, estimator,
+                                                extendedCandidates, layer, getConfig().getM(), nodeCache))
+                                .thenCompose(selectedNeighbors -> {
+                                    final NodeFactory<N> nodeFactory = storageAdapter.getNodeFactory();
 
-                    return extendCandidatesIfNecessary(storageAdapter, transaction, storageTransform, estimator,
-                            searchResult, layer, getConfig().isExtendCandidates(), nodeCache, newVector)
-                            .thenCompose(extendedCandidates ->
-                                    selectCandidates(storageAdapter, transaction, storageTransform, estimator,
-                                            extendedCandidates, layer, getConfig().getM(), nodeCache))
-                            .thenCompose(selectedNeighbors -> {
-                                final NodeFactory<N> nodeFactory = storageAdapter.getNodeFactory();
+                                    final AbstractNode<N> newNode =
+                                            nodeFactory.create(newPrimaryKey, newVector,
+                                                    NodeReferenceAndNode.getReferences(selectedNeighbors));
 
-                                final AbstractNode<N> newNode =
-                                        nodeFactory.create(newPrimaryKey, newVector,
-                                                NodeReferenceAndNode.getReferences(selectedNeighbors));
+                                    final NeighborsChangeSet<N> newNodeChangeSet =
+                                            new InsertNeighborsChangeSet<>(
+                                                    new BaseNeighborsChangeSet<>(ImmutableList.of()),
+                                                    newNode.getNeighbors());
 
-                                final NeighborsChangeSet<N> newNodeChangeSet =
-                                        new InsertNeighborsChangeSet<>(
-                                                new BaseNeighborsChangeSet<>(ImmutableList.of()),
-                                                newNode.getNeighbors());
+                                    storageAdapter.writeNode(transaction, quantizer, layer, newNode,
+                                            newNodeChangeSet);
 
-                                storageAdapter.writeNode(transaction, quantizer, layer, newNode,
-                                        newNodeChangeSet);
+                                    // create change sets for each selected neighbor and insert new node into them
+                                    final Map<Tuple /* primaryKey */, NeighborsChangeSet<N>> neighborChangeSetMap =
+                                            Maps.newLinkedHashMap();
+                                    for (final NodeReferenceAndNode<NodeReferenceWithDistance, N> selectedNeighbor : selectedNeighbors) {
+                                        final NeighborsChangeSet<N> baseSet =
+                                                new BaseNeighborsChangeSet<>(
+                                                        selectedNeighbor.getNode().getNeighbors());
+                                        final NeighborsChangeSet<N> insertSet =
+                                                new InsertNeighborsChangeSet<>(baseSet,
+                                                        ImmutableList.of(newNode.getSelfReference(newVector)));
+                                        neighborChangeSetMap.put(selectedNeighbor.getNode().getPrimaryKey(),
+                                                insertSet);
+                                    }
 
-                                // create change sets for each selected neighbor and insert new node into them
-                                final Map<Tuple /* primaryKey */, NeighborsChangeSet<N>> neighborChangeSetMap =
-                                        Maps.newLinkedHashMap();
-                                for (final NodeReferenceAndNode<NodeReferenceWithDistance, N> selectedNeighbor : selectedNeighbors) {
-                                    final NeighborsChangeSet<N> baseSet =
-                                            new BaseNeighborsChangeSet<>(
-                                                    selectedNeighbor.getNode().getNeighbors());
-                                    final NeighborsChangeSet<N> insertSet =
-                                            new InsertNeighborsChangeSet<>(baseSet,
-                                                    ImmutableList.of(newNode.getSelfReference(newVector)));
-                                    neighborChangeSetMap.put(selectedNeighbor.getNode().getPrimaryKey(),
-                                            insertSet);
-                                }
+                                    final int currentMMax =
+                                            layer == 0 ? getConfig().getMMax0() : getConfig().getMMax();
 
-                                final int currentMMax =
-                                        layer == 0 ? getConfig().getMMax0() : getConfig().getMMax();
-
-                                return forEach(selectedNeighbors,
-                                        selectedNeighbor -> {
-                                            final NodeReferenceWithDistance selectedNeighborReference =
-                                                    selectedNeighbor.getNodeReference();
-                                            final AbstractNode<N> selectedNeighborNode = selectedNeighbor.getNode();
-                                            final NeighborsChangeSet<N> changeSet =
-                                                    Objects.requireNonNull(neighborChangeSetMap.get(selectedNeighborNode.getPrimaryKey()));
-                                            return pruneNeighborsIfNecessary(storageAdapter, transaction,
-                                                    storageTransform, estimator, layer, selectedNeighborReference,
-                                                    currentMMax, changeSet, nodeCache)
-                                                    .thenApply(nodeReferencesAndNodes -> {
-                                                        if (nodeReferencesAndNodes == null) {
-                                                            return changeSet;
-                                                        }
-                                                        return resolveChangeSetFromNewNeighbors(changeSet, nodeReferencesAndNodes);
-                                                    });
-                                        }, getConfig().getMaxNumConcurrentNeighborhoodFetches(), getExecutor())
-                                        .thenApply(changeSets -> {
-                                            for (int i = 0; i < selectedNeighbors.size(); i++) {
-                                                final NodeReferenceAndNode<NodeReferenceWithDistance, N> selectedNeighbor =
-                                                        selectedNeighbors.get(i);
-                                                final NeighborsChangeSet<N> changeSet = changeSets.get(i);
-                                                storageAdapter.writeNode(transaction, quantizer,
-                                                        layer, selectedNeighbor.getNode(), changeSet);
-                                            }
-                                            return ImmutableList.copyOf(references);
-                                        });
-                            });
-                }).thenApply(nodeReferencesWithDistances -> {
+                                    return forEach(selectedNeighbors,
+                                            selectedNeighbor -> {
+                                                final NodeReferenceWithDistance selectedNeighborReference =
+                                                        selectedNeighbor.getNodeReference();
+                                                final AbstractNode<N> selectedNeighborNode = selectedNeighbor.getNode();
+                                                final NeighborsChangeSet<N> changeSet =
+                                                        Objects.requireNonNull(neighborChangeSetMap.get(selectedNeighborNode.getPrimaryKey()));
+                                                return pruneNeighborsIfNecessary(storageAdapter, transaction,
+                                                        storageTransform, estimator, layer, selectedNeighborReference,
+                                                        currentMMax, changeSet, nodeCache)
+                                                        .thenApply(nodeReferencesAndNodes -> {
+                                                            if (nodeReferencesAndNodes == null) {
+                                                                return changeSet;
+                                                            }
+                                                            return resolveChangeSetFromNewNeighbors(changeSet, nodeReferencesAndNodes);
+                                                        });
+                                            }, getConfig().getMaxNumConcurrentNeighborhoodFetches(), getExecutor())
+                                            .thenApply(changeSets -> {
+                                                for (int i = 0; i < selectedNeighbors.size(); i++) {
+                                                    final NodeReferenceAndNode<NodeReferenceWithDistance, N> selectedNeighbor =
+                                                            selectedNeighbors.get(i);
+                                                    final NeighborsChangeSet<N> changeSet = changeSets.get(i);
+                                                    storageAdapter.writeNode(transaction, quantizer,
+                                                            layer, selectedNeighbor.getNode(), changeSet);
+                                                }
+                                                return ImmutableList.copyOf(searchResult);
+                                            });
+                                })).thenApply(nodeReferencesWithDistances -> {
                     if (logger.isTraceEnabled()) {
                         logger.trace("end insert key={} at layer={}", newPrimaryKey, layer);
                     }

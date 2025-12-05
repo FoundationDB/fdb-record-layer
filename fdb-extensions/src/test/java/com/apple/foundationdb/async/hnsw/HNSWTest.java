@@ -302,6 +302,8 @@ class HNSWTest {
         hnsw.scanLayer(db, 1, 100,
                 node -> Assertions.assertThat(readIds.add(node.getPrimaryKey().getLong(0))).isTrue());
         Assertions.assertThat(readIds.size()).isBetween(10, 50);
+
+        db.run(tr -> hnsw.delete(tr, Tuple.from(10L)).join());
     }
 
     @ParameterizedTest()
@@ -350,7 +352,7 @@ class HNSWTest {
         }
 
         //
-        // If we fetch the current state back from the db some vectors are regular vectors and some vectors are
+        // If we fetch the current state back from the db, some vectors are regular vectors and some vectors are
         // RaBitQ encoded. Since that information is not surfaced through the API, we need to scan layer 0, get
         // all vectors directly from disk (encoded/not-encoded, transformed/not-transformed) in order to check
         // that transformations/reconstructions are applied properly.
