@@ -32,7 +32,10 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseRunner;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
+import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.test.BooleanSource;
+import com.google.protobuf.Message;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -524,12 +527,7 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
         // A test with saved records, to see that future handling works
         final int numRecords = 50;
         List<Integer> itemsScanned = new ArrayList<>(numRecords);
-
-        final CursorFactory<Tuple> cursorFactory = (store, lastResult, rowLimit) -> {
-            final byte[] continuation = lastResult == null ? null : lastResult.getContinuation().toBytes();
-            final ScanProperties scanProperties = ScanProperties.FORWARD_SCAN.with(executeProperties -> executeProperties.setReturnedRowLimit(rowLimit));
-            return store.scanRecordKeys(continuation, scanProperties);
-        };
+        final CursorFactory<Tuple> cursorFactory = createCursorFactory();
 
         final ItemHandler<Tuple> itemHandler = (store, item, quotaManager) -> {
             return store.loadRecordAsync(item.get()).thenApply(rec -> {
@@ -580,6 +578,62 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
             iterateAll.join();
         }
         assertThat(itemsScanned).isEqualTo(IntStream.range(0, numRecords).boxed().collect(Collectors.toList()));
+    }
+
+    @ParameterizedTest
+    @BooleanSource
+    void testRollBackTransaction(boolean commitWhenDone) throws Exception {
+        final int numRecords = 50;
+        final CursorFactory<Tuple> cursorFactory = createCursorFactory();
+
+        final ItemHandler<Tuple> itemHandler = (store, item, quotaManager) -> {
+            // mark records as deleted so that the 10 max deletions per transaction will force multiple transactions
+            quotaManager.deleteCountInc();
+            // Actually trying to delete the records here so that we can verify that the transaction was not committed
+            // as all the records remain
+            return store.deleteRecordAsync(item.get()).thenApply(ignore -> null);
+        };
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            for (int i = 0; i < numRecords; i++) {
+                final TestRecords1Proto.MySimpleRecord rec = TestRecords1Proto.MySimpleRecord.newBuilder()
+                        .setRecNo(i)
+                        .setStrValueIndexed("Some text")
+                        .setNumValue3Indexed(1415 + i * 7)
+                        .build();
+                recordStore.saveRecord(rec);
+            }
+            commit(context);
+        }
+
+        try (ThrottledRetryingIterator<Tuple> iterator = ThrottledRetryingIterator
+                .builder(fdb, cursorFactory, itemHandler)
+                .withNumOfRetries(2)
+                .withMaxRecordsDeletesPerTransaction(10) // ensure we create multiple transactions
+                .withCommitWhenDone(commitWhenDone)
+                .build()) {
+            CompletableFuture<Void> iterateAll;
+            try (FDBRecordContext context = openContext()) {
+                openSimpleRecordStore(context);
+                iterateAll = iterator.iterateAll(recordStore.asBuilder());
+            }
+            iterateAll.join();
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            final ScanProperties scanProperties = ScanProperties.FORWARD_SCAN;
+            final RecordCursor<FDBStoredRecord<Message>> cursor = recordStore.scanRecords(null, scanProperties);
+            final List<FDBStoredRecord<Message>> records = cursor.asList().get();
+            if (commitWhenDone) {
+                // all records deleted
+                assertThat(records).isEmpty();
+            } else {
+                // Transaction rolled back - no records deleted
+                assertThat(records).hasSize(50);
+            }
+        }
     }
 
     @Test
@@ -819,6 +873,15 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
             }
             final byte[] continuation = cont == null ? null : cont.getContinuation().toBytes();
             return RecordCursor.fromList(items, continuation).limitRowsTo(limit);
+        };
+    }
+
+    @Nonnull
+    private static CursorFactory<Tuple> createCursorFactory() {
+        return (store, lastResult, rowLimit) -> {
+            final byte[] continuation = lastResult == null ? null : lastResult.getContinuation().toBytes();
+            final ScanProperties scanProperties = ScanProperties.FORWARD_SCAN.with(executeProperties -> executeProperties.setReturnedRowLimit(rowLimit));
+            return store.scanRecordKeys(continuation, scanProperties);
         };
     }
 
