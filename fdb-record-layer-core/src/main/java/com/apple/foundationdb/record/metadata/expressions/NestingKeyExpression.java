@@ -46,7 +46,7 @@ import java.util.stream.Collectors;
  * record, then it will evaluate the same as if the parent field is unset or empty (depending on the fan type).
  */
 @API(API.Status.UNSTABLE)
-public class NestingKeyExpression extends BaseKeyExpression implements KeyExpressionWithChild, AtomKeyExpression {
+public class NestingKeyExpression extends BaseKeyExpression implements KeyExpressionWithChild, AtomKeyExpression, GroupableKeyExpression {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Nesting-Key-Expression");
 
     @Nonnull
@@ -167,16 +167,14 @@ public class NestingKeyExpression extends BaseKeyExpression implements KeyExpres
         return child;
     }
 
-    /**
-     * Get this nesting as a group without any grouping keys.
-     * @return this nesting without any grouping keys
-     */
     @Nonnull
+    @Override
     public GroupingKeyExpression ungrouped() {
         return new GroupingKeyExpression(this, getColumnSize());
     }
 
     @Nonnull
+    @Override
     public GroupingKeyExpression groupBy(@Nonnull KeyExpression groupByFirst, @Nonnull KeyExpression... groupByRest) {
         return GroupingKeyExpression.of(this, groupByFirst, groupByRest);
     }

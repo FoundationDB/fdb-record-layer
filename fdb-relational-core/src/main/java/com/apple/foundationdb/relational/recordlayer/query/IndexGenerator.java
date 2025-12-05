@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.FunctionKeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.GroupableKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
@@ -394,7 +395,6 @@ public final class IndexGenerator {
         final var indexableAggregateValue = (IndexableAggregateValue) aggregateValue;
         final var child = Iterables.getOnlyElement(aggregateValue.getChildren());
         var indexTypeName = indexableAggregateValue.getIndexTypeName();
-        final KeyExpression groupedValue;
         final GroupingKeyExpression keyExpression;
         // COUNT(*) is a special case.
         if (aggregateValue instanceof CountValue && IndexTypes.COUNT.equals(indexTypeName)) {
@@ -405,7 +405,7 @@ public final class IndexGenerator {
             }
         } else if (aggregateValue instanceof NumericAggregationValue.BitmapConstructAgg && IndexTypes.BITMAP_VALUE.equals(indexTypeName)) {
             Assert.thatUnchecked(child instanceof FieldValue || child instanceof ArithmeticValue, "Unsupported index definition, expecting a column argument in aggregation function");
-            groupedValue = generate(List.of(child), Collections.emptyMap());
+            final var groupedValue = generate(List.of(child), Collections.emptyMap());
             // only support bitmap_construct_agg(bitmap_bit_position(column))
             // doesn't support bitmap_construct_agg(column)
             Assert.thatUnchecked(groupedValue instanceof FunctionKeyExpression, "Unsupported index definition, expecting a bitmap_bit_position function in bitmap_construct_agg function");
@@ -425,16 +425,11 @@ public final class IndexGenerator {
             }
         } else {
             Assert.thatUnchecked(child instanceof FieldValue, "Unsupported index definition, expecting a column argument in aggregation function");
-            groupedValue = generate(List.of(child), Collections.emptyMap());
-            Assert.thatUnchecked(groupedValue instanceof FieldKeyExpression || groupedValue instanceof ThenKeyExpression);
+            final var groupedValue = Assert.castUnchecked(generate(List.of(child), Collections.emptyMap()), GroupableKeyExpression.class);
             if (maybeGroupingExpression.isPresent()) {
-                keyExpression = (groupedValue instanceof FieldKeyExpression) ?
-                        ((FieldKeyExpression) groupedValue).groupBy(maybeGroupingExpression.get()) :
-                        ((ThenKeyExpression) groupedValue).groupBy(maybeGroupingExpression.get());
+                keyExpression = groupedValue.groupBy(maybeGroupingExpression.get());
             } else {
-                keyExpression = (groupedValue instanceof FieldKeyExpression) ?
-                        ((FieldKeyExpression) groupedValue).ungrouped() :
-                        ((ThenKeyExpression) groupedValue).ungrouped();
+                keyExpression = groupedValue.ungrouped();
             }
         }
         // special handling of min_ever and max_ever, depending on index attributes we either create the
