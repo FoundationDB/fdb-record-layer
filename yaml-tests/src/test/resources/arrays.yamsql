@@ -66,12 +66,12 @@ test_block:
       - supported_version: 4.5.13.0
       - count: 1
     -
-      # "new" should not be quoted. TODO ([Post] Fix identifiers case-sensitivity matching in plan generator)
-      - query: UPDATE A SET X = [11, 12, 13] WHERE PK = 1 RETURNING "new".X
+      - query: UPDATE A SET X = [11, 12, 13] WHERE PK = 1 RETURNING NEW.X
+      - supported_version: !current_version
       - result: [{[11, 12, 13]}]
     -
-      # "new" should not be quoted. TODO ([Post] Fix identifiers case-sensitivity matching in plan generator)
-      - query: UPDATE D SET X = [(11), (12), (13)] WHERE PK = 1 RETURNING "new".X
+      - query: UPDATE D SET X = [(11), (12), (13)] WHERE PK = 1 RETURNING NEW.X
+      - supported_version: !current_version
       - result: [{[{F: 11}, {F: 12}, {F: 13}]}]
     -
       - query: select X[3] from A where PK = 1
