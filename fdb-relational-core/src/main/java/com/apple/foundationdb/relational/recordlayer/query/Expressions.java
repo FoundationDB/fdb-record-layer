@@ -108,7 +108,7 @@ public final class Expressions implements Iterable<Expression> {
                                 simplifiedValue.pullUp(List.of(subExpression), EvaluationContext.empty(), aliasMap,
                                         constantAliases, correlationIdentifier);
                         if (pulledUpExpressionMap.containsKey(subExpression)) {
-                            return pulledUpExpressionMap.get(subExpression);
+                            return Iterables.getOnlyElement(pulledUpExpressionMap.get(subExpression));
                         }
                         return subExpression;
                     }

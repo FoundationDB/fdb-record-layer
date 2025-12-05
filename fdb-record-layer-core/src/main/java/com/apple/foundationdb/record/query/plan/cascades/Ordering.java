@@ -40,6 +40,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Multimap;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
@@ -394,7 +395,7 @@ public class Ordering {
     }
 
     @Nonnull
-    public Ordering pullUp(@Nonnull final Value value, @Nonnull EvaluationContext evaluationContext,
+    public Ordering pullUp(@Nonnull final Value value /*to pull against*/, @Nonnull EvaluationContext evaluationContext,
                            @Nonnull final AliasMap aliasMap, @Nonnull final Set<CorrelationIdentifier> constantAliases) {
         final var pulledUpBindingMapBuilder = ImmutableSetMultimap.<Value, Binding>builder();
         for (final var entry : getBindingMap().asMap().entrySet()) {
@@ -515,7 +516,7 @@ public class Ordering {
 
     @Nonnull
     private static Set<Binding> translateBindings(@Nonnull final Collection<Binding> bindings,
-                                                  @Nonnull final Function<List<Value>, Map<Value, Value>> translateFunction) {
+                                                  @Nonnull final Function<List<Value>, Multimap<Value, Value>> translateFunction) {
         final var translatedBindingsBuilder = ImmutableSet.<Binding>builder();
 
         if (areAllBindingsFixed(bindings)) {
@@ -535,7 +536,7 @@ public class Ordering {
                     if (translationMap.containsKey(valueComparison.getValue())) {
                         final var translatedComparison =
                                 new Comparisons.ValueComparison(valueComparison.getType(),
-                                        translationMap.get(valueComparison.getValue()));
+                                        Iterables.getOnlyElement(translationMap.get(valueComparison.getValue())));
                         translatedBindingsBuilder.add(Binding.fixed(translatedComparison));
                     }
                 } else {
