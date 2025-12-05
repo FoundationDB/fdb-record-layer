@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.relational.recordlayer.query;
+package com.apple.foundationdb.relational.recordlayer.query.ddl;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
@@ -70,6 +70,7 @@ import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
+import com.apple.foundationdb.relational.recordlayer.query.FieldValueTrieNode;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.NullableArrayUtils;
@@ -110,7 +111,7 @@ import static java.util.stream.Collectors.toList;
  */
 @SuppressWarnings({"PMD.TooManyStaticImports", "OptionalUsedAsFieldOrParameterType"})
 @API(API.Status.EXPERIMENTAL)
-public final class IndexGenerator {
+public final class MaterializedViewIndexGenerator {
 
     private static final String BITMAP_BIT_POSITION = "bitmap_bit_position";
     private static final String BITMAP_BUCKET_OFFSET = "bitmap_bucket_offset";
@@ -129,7 +130,7 @@ public final class IndexGenerator {
 
     private final boolean useLegacyBasedExtremumEver;
 
-    private IndexGenerator(@Nonnull RelationalExpression relationalExpression, boolean useLegacyBasedExtremumEver) {
+    private MaterializedViewIndexGenerator(@Nonnull RelationalExpression relationalExpression, boolean useLegacyBasedExtremumEver) {
         collectQuantifiers(relationalExpression);
         final var partialOrder = referencesAndDependencies().evaluate(Reference.initialOf(relationalExpression));
         relationalExpressions =
@@ -143,7 +144,8 @@ public final class IndexGenerator {
     }
 
     @Nonnull
-    public RecordLayerIndex generate(@Nonnull RecordLayerSchemaTemplate.Builder schemaTemplateBuilder, @Nonnull String indexName, boolean isUnique, boolean containsNullableArray) {
+    public RecordLayerIndex.Builder generate(@Nonnull RecordLayerSchemaTemplate.Builder schemaTemplateBuilder, @Nonnull String indexName,
+                                             boolean isUnique, boolean containsNullableArray, boolean generateKeyValueExpressionWithEmptyKey) {
         final String recordTypeName = getRecordTypeName();
         // Have to use the storage name here because the index generator uses it
         final Type.Record tableType = schemaTemplateBuilder.findTableByStorageName(recordTypeName).getType();
@@ -188,7 +190,10 @@ public final class IndexGenerator {
             }
             final var reordered = reorderValues(fieldValues, orderByValues);
             final var expression = generate(reordered, orderingFunctions);
-            final var splitPoint = orderByValues.isEmpty() ? -1 : orderByValues.size();
+            var splitPoint = orderByValues.size();
+            if (orderByValues.isEmpty() && !generateKeyValueExpressionWithEmptyKey) {
+                splitPoint = -1;
+            }
             if (splitPoint != -1 && splitPoint < fieldValues.size()) {
                 indexBuilder.setKeyExpression(KeyExpression.fromProto(NullableArrayUtils.wrapArray(keyWithValue(expression, splitPoint).toKeyExpression(), tableType, containsNullableArray)));
             } else {
@@ -231,11 +236,11 @@ public final class IndexGenerator {
             if (IndexTypes.PERMUTED_MIN.equals(indexType) || IndexTypes.PERMUTED_MAX.equals(indexType)) {
                 int permutedSize = aggregateOrderIndex < 0 ? 0 : (fieldValues.size() - aggregateOrderIndex);
                 indexBuilder.setOption(IndexOptions.PERMUTED_SIZE_OPTION, permutedSize);
-            } else if (aggregateOrderIndex >= 0) {
+            } else if (aggregateOrderIndex > 0) {
                 Assert.failUnchecked(ErrorCode.UNSUPPORTED_OPERATION, "Unsupported index definition. Cannot order " + indexType + " index by aggregate value");
             }
         }
-        return indexBuilder.build();
+        return indexBuilder;
     }
 
     @Nonnull
@@ -608,7 +613,7 @@ public final class IndexGenerator {
     }
 
     @Nullable
-    private static QueryPredicate getTopLevelPredicate(@Nonnull List<? extends RelationalExpression> expressions) {
+    public static QueryPredicate getTopLevelPredicate(@Nonnull List<? extends RelationalExpression> expressions) {
         if (expressions.isEmpty()) {
             return null;
         }
@@ -633,7 +638,11 @@ public final class IndexGenerator {
                 Assert.thatUnchecked(innerSelect.getPredicates().isEmpty(), ErrorCode.UNSUPPORTED_OPERATION, "Unsupported index definition, found predicate in inner-select");
             }
         }
-        final var predicates = ((SelectExpression) expressions.get(currentExpression)).getPredicates().stream().map(QueryPredicate::toResidualPredicate).collect(toList());
+        final var expr = expressions.get(currentExpression);
+        if (!(expr instanceof SelectExpression)) {
+            return null;
+        }
+        final var predicates = ((SelectExpression) expr).getPredicates().stream().map(QueryPredicate::toResidualPredicate).collect(toList());
         // todo (yhatem) make sure we through if the generated DNF does not meet the deserialization requirements.
         if (predicates.isEmpty()) {
             return null;
@@ -778,7 +787,7 @@ public final class IndexGenerator {
     }
 
     @Nonnull
-    public static IndexGenerator from(@Nonnull RelationalExpression relationalExpression, boolean useLongBasedExtremumEver) {
-        return new IndexGenerator(relationalExpression, useLongBasedExtremumEver);
+    public static MaterializedViewIndexGenerator from(@Nonnull RelationalExpression relationalExpression, boolean useLongBasedExtremumEver) {
+        return new MaterializedViewIndexGenerator(relationalExpression, useLongBasedExtremumEver);
     }
 }
