@@ -75,7 +75,7 @@ public class MatchOrCompensateFieldValueRule extends ValueComputationRule<Iterab
             if (toBePulledUpValue instanceof FieldValue) {
                 if (matchedValuesMap == null || !matchedValuesMap.containsKey(toBePulledUpValue)) {
                     final var toBePulledUpFieldValue = (FieldValue)toBePulledUpValue;
-                    //
+                    //∂
                     // If the current field value uses a prefix of the field value we are trying to pull up
                     // (on an equal inValue), then we have found a match. For instance if we are tyring to pull up
                     // $a.x.y.z and the value we are pulling through is b = $a.x.y we can match those with a compensation of
@@ -93,11 +93,13 @@ public class MatchOrCompensateFieldValueRule extends ValueComputationRule<Iterab
                     }
                 } else {
                     // there already is a matched field value
-                    final var compensation = matchedValuesMap.get(toBePulledUpValue);
-                    if (compensation instanceof FieldValueCompensation) {
-                        final var fieldValueCompensation = (FieldValueCompensation)compensation;
-                        final var pathSuffixOptional = FieldValue.stripFieldPrefixMaybe(fieldValueCompensation.getFieldPath(), fieldValue.getFieldPath());
-                        pathSuffixOptional.ifPresent(pathSuffix -> newMatchedValuesMap.put(toBePulledUpValue, ImmutableList.of(fieldValueCompensation.withSuffix(pathSuffix))));
+                    final var compensations = matchedValuesMap.get(toBePulledUpValue);
+                    for (var compensation: compensations) {
+                        if (compensation instanceof FieldValueCompensation) {
+                            final var fieldValueCompensation = (FieldValueCompensation)compensation;
+                            final var pathSuffixOptional = FieldValue.stripFieldPrefixMaybe(fieldValueCompensation.getFieldPath(), fieldValue.getFieldPath());
+                            pathSuffixOptional.ifPresent(pathSuffix -> newMatchedValuesMap.put(toBePulledUpValue, ImmutableList.of(fieldValueCompensation.withSuffix(pathSuffix))));
+                        }
                     }
                 }
             }
