@@ -254,11 +254,11 @@ public class MaxMatchMap {
         for (final var entry : mapping.entrySet()) {
             final var queryPart = entry.getKey();
             final var candidatePart = entry.getValue();
-            final var pulledUpdateCandidatePart = Iterables.getOnlyElement(pulledUpCandidateValueMap.get(candidatePart));
-            if (pulledUpdateCandidatePart == null) {
+            final var pulledUpdateCandidatePart = pulledUpCandidateValueMap.get(candidatePart);
+            if (pulledUpdateCandidatePart.isEmpty()) {
                 return Optional.empty();
             }
-            pulledUpMaxMatchMapBuilder.put(queryPart, pulledUpdateCandidatePart);
+            pulledUpMaxMatchMapBuilder.put(queryPart, Iterables.getOnlyElement(pulledUpdateCandidatePart));
         }
         final var pulledUpMaxMatchMap = pulledUpMaxMatchMapBuilder.build();
 
