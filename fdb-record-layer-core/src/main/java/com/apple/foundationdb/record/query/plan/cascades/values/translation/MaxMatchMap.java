@@ -254,7 +254,7 @@ public class MaxMatchMap {
         for (final var entry : mapping.entrySet()) {
             final var queryPart = entry.getKey();
             final var candidatePart = entry.getValue();
-            final var pulledUpdateCandidatePart = pulledUpCandidateValueMap.get(candidatePart);
+            final var pulledUpdateCandidatePart = Iterables.getOnlyElement(pulledUpCandidateValueMap.get(candidatePart));
             if (pulledUpdateCandidatePart == null) {
                 return Optional.empty();
             }

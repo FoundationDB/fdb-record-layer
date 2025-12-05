@@ -27,8 +27,10 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Valu
 import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -38,7 +40,7 @@ import java.util.Optional;
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class MatchConstantValueRule extends ValueComputationRule<Iterable<? extends Value>, Map<Value, ValueCompensation>, Value> {
+public class MatchConstantValueRule extends ValueComputationRule<Iterable<? extends Value>, Map<Value, List<ValueCompensation>>, Value> {
     @Nonnull
     private static final BindingMatcher<Value> rootMatcher =
             ValueMatchers.anyValue();
@@ -54,7 +56,7 @@ public class MatchConstantValueRule extends ValueComputationRule<Iterable<? exte
     }
 
     @Override
-    public void onMatch(@Nonnull final ValueComputationRuleCall<Iterable<? extends Value>, Map<Value, ValueCompensation>> call) {
+    public void onMatch(@Nonnull final ValueComputationRuleCall<Iterable<? extends Value>, Map<Value, List<ValueCompensation>>> call) {
         if (!call.isRoot()) {
             return;
         }
@@ -62,7 +64,7 @@ public class MatchConstantValueRule extends ValueComputationRule<Iterable<? exte
         final var bindings = call.getBindings();
         final var value = bindings.get(rootMatcher);
         final var toBePulledUpValues = Objects.requireNonNull(call.getArgument());
-        final var newMatchedValuesMap = new LinkedIdentityMap<Value, ValueCompensation>();
+        final var newMatchedValuesMap = new LinkedIdentityMap<Value, List<ValueCompensation>>();
         final var resultPair = call.getResult(value);
         final var matchedValuesMap = resultPair == null ? null : resultPair.getRight();
         if (matchedValuesMap != null) {
@@ -79,7 +81,7 @@ public class MatchConstantValueRule extends ValueComputationRule<Iterable<? exte
             }
 
             if (constantAliases.containsAll(correlatedTo)) {
-                newMatchedValuesMap.put(toBePulledUpValue, ignored -> toBePulledUpValue);
+                newMatchedValuesMap.put(toBePulledUpValue, ImmutableList.of(ignored -> toBePulledUpValue));
             }
         }
         call.yieldValue(value, newMatchedValuesMap);
