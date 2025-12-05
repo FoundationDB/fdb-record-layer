@@ -1218,8 +1218,10 @@ public class StandardQueryTests {
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 statement.executeUpdate("insert into t1 values (42, 100, 500, 101)");
-                final var message = Assertions.assertThrows(SQLException.class, () -> statement.execute("select struct asd (a, 42, struct def (b, c), struct def(b, c, a)) as X from t1")).getMessage();
-                Assertions.assertTrue(message.contains("value already present: DEF")); // we could improve this error message.
+                RelationalAssertions.assertThrowsSqlException(
+                        () -> statement.execute("select struct asd (a, 42, struct def (b, c), struct def(b, c, a)) as X from t1"))
+                        .hasErrorCode(ErrorCode.CANNOT_CONVERT_TYPE)
+                        .hasMessage("Struct type 'DEF' has incompatible signatures: expected 2 fields but got 3 fields");
             }
         }
     }
