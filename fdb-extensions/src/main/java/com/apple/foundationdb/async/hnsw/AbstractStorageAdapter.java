@@ -26,6 +26,7 @@ import com.apple.foundationdb.linear.AffineOperator;
 import com.apple.foundationdb.linear.Quantizer;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
+import com.google.common.base.Verify;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -96,6 +97,20 @@ abstract class AbstractStorageAdapter<N extends NodeReference> implements Storag
     @Override
     public NodeFactory<N> getNodeFactory() {
         return nodeFactory;
+    }
+
+    @Override
+    public boolean isInliningStorageAdapter() {
+        final boolean isInliningStorageAdapter = getNodeFactory().getNodeKind() == NodeKind.INLINING;
+        Verify.verify(!isInliningStorageAdapter || this instanceof InliningStorageAdapter);
+        return isInliningStorageAdapter;
+    }
+
+    @Nonnull
+    @Override
+    public InliningStorageAdapter asInliningStorageAdapter() {
+        Verify.verify(isInliningStorageAdapter());
+        return (InliningStorageAdapter)this;
     }
 
     @Override

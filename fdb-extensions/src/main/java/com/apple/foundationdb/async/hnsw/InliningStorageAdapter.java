@@ -237,8 +237,10 @@ class InliningStorageAdapter extends AbstractStorageAdapter<NodeReferenceWithVec
     protected void deleteNodeInternal(@Nonnull final Transaction transaction, final int layer,
                                       @Nonnull final Tuple primaryKey) {
         final byte[] key = getNodeKey(layer, primaryKey);
-        transaction.clear(Range.startsWith(key));
+        final Range range = Range.startsWith(key);
+        transaction.clear(range);
         getOnWriteListener().onNodeDeleted(layer, primaryKey);
+        getOnWriteListener().onRangeDeleted(layer, range);
     }
 
     /**

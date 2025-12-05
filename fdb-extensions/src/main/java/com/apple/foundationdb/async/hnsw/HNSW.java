@@ -197,9 +197,9 @@ public class HNSW {
     }
 
     @Nonnull
-    private AffineOperator storageTransform(@Nullable final AccessInfo accessInfo) {
+    private StorageTransform storageTransform(@Nullable final AccessInfo accessInfo) {
         if (accessInfo == null || !accessInfo.canUseRaBitQ()) {
-            return AffineOperator.identity();
+            return StorageTransform.identity();
         }
 
         return new StorageTransform(accessInfo.getRotatorSeed(),
@@ -259,7 +259,7 @@ public class HNSW {
                     }
                     final EntryNodeReference entryNodeReference = accessInfo.getEntryNodeReference();
 
-                    final AffineOperator storageTransform = storageTransform(accessInfo);
+                    final StorageTransform storageTransform = storageTransform(accessInfo);
                     final Transformed<RealVector> transformedQueryVector = storageTransform.transform(queryVector);
                     final Quantizer quantizer = quantizer(accessInfo);
                     final Estimator estimator = quantizer.estimator();
@@ -362,7 +362,7 @@ public class HNSW {
      * @param storageAdapter the {@link StorageAdapter} for accessing the graph data
      * @param readTransaction the {@link ReadTransaction} to use for the search
      * @param estimator a distance estimator
-     * @param nodeReference the starting point for the search on this layer, which includes the node and its distance to
+     * @param nodeReferenceWithDistance the starting point for the search on this layer, which includes the node and its distance to
      *        the query vector
      * @param layer the zero-based index of the layer to search within
      * @param queryVector the query vector for which to find the nearest neighbor
@@ -374,15 +374,64 @@ public class HNSW {
     private <N extends NodeReference> CompletableFuture<NodeReferenceWithDistance>
             greedySearchLayer(@Nonnull final StorageAdapter<N> storageAdapter,
                               @Nonnull final ReadTransaction readTransaction,
-                              @Nonnull final AffineOperator storageTransform,
+                              @Nonnull final StorageTransform storageTransform,
                               @Nonnull final Estimator estimator,
-                              @Nonnull final NodeReferenceWithDistance nodeReference,
+                              @Nonnull final NodeReferenceWithDistance nodeReferenceWithDistance,
                               final int layer,
                               @Nonnull final Transformed<RealVector> queryVector) {
-        return searchLayer(storageAdapter, readTransaction, storageTransform, estimator,
-                ImmutableList.of(nodeReference), layer, 1, Maps.newConcurrentMap(), queryVector)
-                .thenApply(searchResult ->
-                        Iterables.getOnlyElement(searchResult).getNodeReference());
+        if (storageAdapter.isInliningStorageAdapter()) {
+            return greedySearchInliningLayer(storageAdapter.asInliningStorageAdapter(), readTransaction,
+                    storageTransform, estimator, nodeReferenceWithDistance, layer, queryVector);
+        } else {
+            return searchLayer(storageAdapter, readTransaction, storageTransform, estimator,
+                    ImmutableList.of(nodeReferenceWithDistance), layer, 1, Maps.newConcurrentMap(), queryVector)
+                    .thenApply(searchResult ->
+                            Iterables.getOnlyElement(searchResult).getNodeReference());
+        }
+    }
+
+    @Nonnull
+    private CompletableFuture<NodeReferenceWithDistance> greedySearchInliningLayer(@Nonnull final StorageAdapter<NodeReferenceWithVector> storageAdapter,
+                                                                                   @Nonnull final ReadTransaction readTransaction,
+                                                                                   @Nonnull final StorageTransform storageTransform,
+                                                                                   @Nonnull final Estimator estimator,
+                                                                                   @Nonnull final NodeReferenceWithDistance nodeReferenceWithDistance,
+                                                                                   final int layer,
+                                                                                   @Nonnull final Transformed<RealVector> queryVector) {
+        final AtomicReference<NodeReferenceWithDistance> currentNodeReferenceAtomic =
+                new AtomicReference<>(nodeReferenceWithDistance);
+
+        return AsyncUtil.whileTrue(() -> onReadListener.onAsyncRead(
+                        storageAdapter.fetchNode(readTransaction, storageTransform, layer, currentNodeReferenceAtomic.get().getPrimaryKey()))
+                .thenApply(node -> {
+                    if (node == null) {
+                        throw new IllegalStateException("unable to fetch node");
+                    }
+                    final InliningNode inliningNode = node.asInliningNode();
+                    final List<NodeReferenceWithVector> neighbors = inliningNode.getNeighbors();
+
+                    final NodeReferenceWithDistance currentNodeReference = currentNodeReferenceAtomic.get();
+                    double minDistance = currentNodeReference.getDistance();
+
+                    NodeReferenceWithVector nearestNeighbor = null;
+                    for (final NodeReferenceWithVector neighbor : neighbors) {
+                        final double distance =
+                                estimator.distance(neighbor.getVector(), queryVector);
+                        if (distance < minDistance) {
+                            minDistance = distance;
+                            nearestNeighbor = neighbor;
+                        }
+                    }
+
+                    if (nearestNeighbor == null) {
+                        return false;
+                    }
+
+                    currentNodeReferenceAtomic.set(
+                            new NodeReferenceWithDistance(nearestNeighbor.getPrimaryKey(), nearestNeighbor.getVector(),
+                                    minDistance));
+                    return true;
+                }), executor).thenApply(ignored -> currentNodeReferenceAtomic.get());
     }
 
     /**
@@ -793,7 +842,7 @@ public class HNSW {
                     }
 
                     final AccessInfo accessInfo = accessInfoAndNodeExistence.getAccessInfo();
-                    final AffineOperator storageTransform = storageTransform(accessInfo);
+                    final StorageTransform storageTransform = storageTransform(accessInfo);
                     final Transformed<RealVector> transformedNewVector = storageTransform.transform(newVector);
                     final Quantizer quantizer = quantizer(accessInfo);
                     final Estimator estimator = quantizer.estimator();
@@ -944,8 +993,8 @@ public class HNSW {
                                     final AccessInfo newAccessInfo =
                                             new AccessInfo(currentAccessInfo.getEntryNodeReference().withVector(transformedEntryNodeVector),
                                                     rotatorSeed, rotatedCentroid);
-                                    StorageAdapter.writeAccessInfo(transaction, getSubspace(), newAccessInfo, onWriteListener);
-                                    StorageAdapter.removeAllSampledVectors(transaction, getSubspace());
+                                    StorageAdapter.writeAccessInfo(transaction, getSubspace(), newAccessInfo, getOnWriteListener());
+                                    StorageAdapter.deleteAllSampledVectors(transaction, getSubspace(), getOnWriteListener());
                                     if (logger.isTraceEnabled()) {
                                         logger.trace("established rotatorSeed={}, centroid with count={}, centroid={}",
                                                 rotatorSeed, partialCount, rotatedCentroid);
@@ -1406,14 +1455,7 @@ public class HNSW {
                                         final boolean isExtendCandidates,
                                         @Nonnull final Map<Tuple, AbstractNode<N>> nodeCache,
                                         @Nonnull final Transformed<RealVector> vector) {
-
-        //
-        // Add all given candidates to the result.
-        //
         final ImmutableList.Builder<NodeReferenceWithDistance> resultBuilder = ImmutableList.builder();
-        for (final NodeReferenceAndNode<NodeReferenceWithDistance, N> candidate : candidates) {
-            resultBuilder.add(candidate.getNodeReference());
-        }
 
         if (isExtendCandidates) {
             return neighborReferences(storageAdapter, readTransaction, storageTransform, null, candidates,
@@ -1427,6 +1469,13 @@ public class HNSW {
                         return resultBuilder.build();
                     });
         } else {
+            //
+            // Add all given candidates to the result.
+            //
+            for (final NodeReferenceAndNode<NodeReferenceWithDistance, N> candidate : candidates) {
+                resultBuilder.add(candidate.getNodeReference());
+            }
+
             return CompletableFuture.completedFuture(resultBuilder.build());
         }
     }
@@ -1629,6 +1678,7 @@ public class HNSW {
      */
     @Nonnull
     public CompletableFuture<Void> delete(@Nonnull final Transaction transaction, @Nonnull final Tuple primaryKey) {
+        final SplittableRandom random = random(primaryKey);
         final int topLayer = topLayer(primaryKey);
         if (logger.isTraceEnabled()) {
             logger.trace("new node with key={} selected to be deleted form layer={}", primaryKey, topLayer);
@@ -1651,68 +1701,32 @@ public class HNSW {
                     }
 
                     final AccessInfo accessInfo = accessInfoAndNodeExistence.getAccessInfo();
-                    final AffineOperator storageTransform = storageTransform(accessInfo);
-                    final Transformed<RealVector> transformedNewVector = storageTransform.transform(newVector);
+                    final EntryNodeReference entryNodeReference =
+                            accessInfo == null ? null : accessInfo.getEntryNodeReference();
+                    final StorageTransform storageTransform = storageTransform(accessInfo);
                     final Quantizer quantizer = quantizer(accessInfo);
-                    final Estimator estimator = quantizer.estimator();
 
-                    final AccessInfo currentAccessInfo;
-                    if (accessInfo == null) {
-                        // this is the first node
-                        writeLonelyNodes(quantizer, transaction, primaryKey, transformedNewVector,
-                                topLayer, -1);
-                        currentAccessInfo = new AccessInfo(
-                                new EntryNodeReference(primaryKey, transformedNewVector, topLayer),
-                                -1L, null);
-                        StorageAdapter.writeAccessInfo(transaction, getSubspace(), currentAccessInfo,
-                                getOnWriteListener());
-                        if (logger.isTraceEnabled()) {
-                            logger.trace("written initial entry node reference with key={} on layer={}",
-                                    primaryKey, topLayer);
-                        }
-                        return AsyncUtil.DONE;
-                    } else {
-                        final EntryNodeReference entryNodeReference = accessInfo.getEntryNodeReference();
-                        final int lMax = entryNodeReference.getLayer();
-                        if (topLayer > lMax) {
-                            writeLonelyNodes(quantizer, transaction, primaryKey, transformedNewVector,
-                                    topLayer, lMax);
-                            currentAccessInfo = accessInfo.withNewEntryNodeReference(
-                                    new EntryNodeReference(primaryKey, transformedNewVector,
-                                            topLayer));
-                            StorageAdapter.writeAccessInfo(transaction, getSubspace(), currentAccessInfo,
-                                    getOnWriteListener());
-                            if (logger.isTraceEnabled()) {
-                                logger.trace("written higher entry node reference with key={} on layer={}",
-                                        primaryKey, topLayer);
-                            }
-                        } else {
-                            currentAccessInfo = accessInfo;
-                        }
-                    }
+                    return deleteFromLayers(transaction, storageTransform, quantizer, random, primaryKey, topLayer)
+                            .thenCompose(potentialEntryNodeReferences -> {
+                                if (entryNodeReference != null && primaryKey.equals(entryNodeReference.getPrimaryKey())) {
+                                    // find (and store) a new entry reference
+                                    for (int i = potentialEntryNodeReferences.size() - 1; i >= 0; i --) {
+                                        final EntryNodeReference potentialEntyNodeReference =
+                                                potentialEntryNodeReferences.get(i);
+                                        if (potentialEntyNodeReference != null) {
+                                            StorageAdapter.writeAccessInfo(transaction, getSubspace(),
+                                                    accessInfo.withNewEntryNodeReference(potentialEntyNodeReference), getOnWriteListener());
+                                            // early out
+                                            return AsyncUtil.DONE;
+                                        }
+                                    }
 
-                    final EntryNodeReference entryNodeReference = accessInfo.getEntryNodeReference();
-                    final int lMax = entryNodeReference.getLayer();
-                    if (logger.isTraceEnabled()) {
-                        logger.trace("entry node read with key {} at layer {}", entryNodeReference.getPrimaryKey(), lMax);
-                    }
-
-                    final NodeReferenceWithDistance initialNodeReference =
-                            new NodeReferenceWithDistance(entryNodeReference.getPrimaryKey(),
-                                    entryNodeReference.getVector(),
-                                    estimator.distance(transformedNewVector, entryNodeReference.getVector()));
-                    return forLoop(lMax, initialNodeReference,
-                            layer -> layer > topLayer,
-                            layer -> layer - 1,
-                            (layer, previousNodeReference) -> {
-                                final StorageAdapter<? extends NodeReference> storageAdapter = getStorageAdapterForLayer(layer);
-                                return greedySearchLayer(storageAdapter, transaction, storageTransform,
-                                        estimator, previousNodeReference, layer, transformedNewVector);
-                            }, executor)
-                            .thenCompose(nodeReference ->
-                                    insertIntoLayers(transaction, storageTransform, quantizer, primaryKey,
-                                            transformedNewVector, nodeReference, lMax, topLayer));
-                }).thenCompose(ignored -> AsyncUtil.DONE);
+                                    // officially there is no data in the structure, delete access info to start new
+                                    StorageAdapter.deleteAccessInfo(transaction, getSubspace(), getOnWriteListener());
+                                }
+                                return AsyncUtil.DONE;
+                            });
+                });
     }
 
     /**
@@ -1724,23 +1738,20 @@ public class HNSW {
      * storage space that is currently being used
      * @param quantizer the quantizer to be used for this insert
      * @param primaryKey the primary key of the new node being inserted
-     * @param nodeReference the initial entry point for the search, typically the nearest neighbor found in the highest
-     *        layer
      * @param topLayer the top layer for the node.
      *
      * @return a {@link CompletableFuture} that completes when the new node has been successfully inserted into all
-     * its designated layers
+     *         its designated layers and contains an existing neighboring entry node reference on that layer.
      */
     @Nonnull
-    private CompletableFuture<Void> deleteFromLayers(@Nonnull final Transaction transaction,
-                                                     @Nonnull final AffineOperator storageTransform,
-                                                     @Nonnull final Quantizer quantizer,
-                                                     @Nonnull final SplittableRandom random,
-                                                     @Nonnull final Tuple primaryKey,
-                                                     @Nonnull final NodeReferenceWithDistance nodeReference,
-                                                     final int topLayer) {
+    private CompletableFuture<List<EntryNodeReference>> deleteFromLayers(@Nonnull final Transaction transaction,
+                                                                         @Nonnull final AffineOperator storageTransform,
+                                                                         @Nonnull final Quantizer quantizer,
+                                                                         @Nonnull final SplittableRandom random,
+                                                                         @Nonnull final Tuple primaryKey,
+                                                                         final int topLayer) {
         if (logger.isTraceEnabled()) {
-            logger.trace("nearest entry point for deleteFromLayers at topLayer={} is at key={}", topLayer, nodeReference.getPrimaryKey());
+            logger.trace("nearest entry point for deleteFromLayers at topLayer={} is at key={}", topLayer, primaryKey);
         }
 
         return MoreAsyncUtil.forEach(() -> IntStream.rangeClosed(0, topLayer).iterator(),
@@ -1750,7 +1761,7 @@ public class HNSW {
                             primaryKey);
                 },
                 getConfig().getMaxNumConcurrentNeighborhoodFetches(),
-                executor).thenCompose(ignored -> AsyncUtil.DONE);
+                executor);
     }
 
     /**
@@ -1920,7 +1931,7 @@ public class HNSW {
                                     candidateVector, distance));
                         }
                     }
-                    return repairInsForNeighborNode(storageAdapter, transaction, storageTransform, quantizer,
+                    return repairInsForNeighborNode(storageAdapter, transaction, storageTransform, estimator,
                             layer, toBeDeletedPrimaryKey, neighborReference, candidatesReferencesBuilder.build(),
                             neighborChangeSetMap, nodeCache);
                 });
@@ -1930,15 +1941,13 @@ public class HNSW {
             repairInsForNeighborNode(@Nonnull final StorageAdapter<N> storageAdapter,
                                      @Nonnull final Transaction transaction,
                                      @Nonnull final AffineOperator storageTransform,
-                                     @Nonnull final Quantizer quantizer,
+                                     @Nonnull final Estimator estimator,
                                      final int layer,
                                      @Nonnull final Tuple toBeDeletedPrimaryKey,
                                      @Nonnull final N neighborReference,
                                      @Nonnull final Iterable<NodeReferenceWithDistance> candidates,
                                      @Nonnull final Map<Tuple /* primaryKey */, NeighborsChangeSet<N>> neighborChangeSetMap,
                                      final Map<Tuple, AbstractNode<N>> nodeCache) {
-        final Estimator estimator = quantizer.estimator();
-
         return selectCandidates(storageAdapter, transaction, storageTransform, estimator, candidates,
                 layer, getConfig().getM(), nodeCache)
                 .thenCompose(selectedCandidates -> {
@@ -2059,14 +2068,6 @@ public class HNSW {
         return random.nextDouble() < getConfig().getMaintainStatsProbability();
     }
 
-    private static <T> T randomElement(@Nonnull final SplittableRandom random,
-                                       @Nonnull final Collection<T> collection) {
-        if (collection.isEmpty()) {
-            throw new IllegalArgumentException("collection is empty");
-        }
-        return Iterables.get(collection, random.nextInt(collection.size()));
-    }
-
     private static double splitMixDouble(final long x) {
         return (splitMixLong(x) >>> 11) * 0x1.0p-53;
     }
@@ -2104,7 +2105,7 @@ public class HNSW {
         /**
          * Return {@code H(I)}.
          */
-        EXCLUSIVE_ALL;
+        EXCLUSIVE_ALL
     }
 
     @FunctionalInterface

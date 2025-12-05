@@ -265,6 +265,7 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
         final byte[] key = getNodeKey(layer, primaryKey);
         transaction.clear(key);
         getOnWriteListener().onNodeDeleted(layer, primaryKey);
+        getOnWriteListener().onKeyDeleted(layer, key);
     }
 
     /**

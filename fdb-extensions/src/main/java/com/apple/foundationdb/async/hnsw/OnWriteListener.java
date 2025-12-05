@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.async.hnsw;
 
+import com.apple.foundationdb.Range;
 import com.apple.foundationdb.tuple.Tuple;
 
 import javax.annotation.Nonnull;
@@ -94,6 +95,16 @@ public interface OnWriteListener {
 
     @SuppressWarnings("unused")
     default void onKeyValueWritten(final int layer, @Nonnull final byte[] key, @Nonnull final byte[] value) {
+        // nothing
+    }
+
+    @SuppressWarnings("unused")
+    default void onKeyDeleted(final int layer, @Nonnull final byte[] key) {
+        // nothing
+    }
+
+    @SuppressWarnings("unused")
+    default void onRangeDeleted(final int layer, @Nonnull final Range range) {
         // nothing
     }
 }

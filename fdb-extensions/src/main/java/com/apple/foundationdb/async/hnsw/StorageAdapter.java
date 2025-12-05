@@ -93,6 +93,11 @@ interface StorageAdapter<N extends NodeReference> {
     @Nonnull
     NodeFactory<N> getNodeFactory();
 
+    boolean isInliningStorageAdapter();
+
+    @Nonnull
+    InliningStorageAdapter asInliningStorageAdapter();
+
     /**
      * Get the subspace used to store this HNSW structure.
      * @return the subspace
@@ -319,6 +324,21 @@ interface StorageAdapter<N extends NodeReference> {
         onWriteListener.onKeyValueWritten(entryNodeReference.getLayer(), key, value);
     }
 
+    /**
+     * Deletes the {@link AccessInfo} from the database within a given transaction and subspace.
+     * @param transaction the database transaction to use for the write operation
+     * @param subspace the subspace where the entry node reference will be stored
+     * @param onWriteListener the listener to be notified after the key-value pair is written
+     */
+    static void deleteAccessInfo(@Nonnull final Transaction transaction,
+                                 @Nonnull final Subspace subspace,
+                                 @Nonnull final OnWriteListener onWriteListener) {
+        final Subspace entryNodeSubspace = accessInfoSubspace(subspace);
+        final byte[] key = entryNodeSubspace.pack();
+        transaction.clear(key);
+        onWriteListener.onKeyDeleted(-1, key);
+    }
+
     @Nonnull
     static CompletableFuture<List<AggregatedVector>> consumeSampledVectors(@Nonnull final Transaction transaction,
                                                                            @Nonnull final Subspace subspace,
@@ -360,12 +380,14 @@ interface StorageAdapter<N extends NodeReference> {
         onWriteListener.onKeyValueWritten(-1, prefixKey, value);
     }
 
-    static void removeAllSampledVectors(@Nonnull final Transaction transaction, @Nonnull final Subspace subspace) {
+    static void deleteAllSampledVectors(@Nonnull final Transaction transaction, @Nonnull final Subspace subspace,
+                                        @Nonnull final OnWriteListener onWriteListener) {
         final Subspace prefixSubspace = samplesSubspace(subspace);
 
         final byte[] prefixKey = prefixSubspace.pack();
         final Range range = Range.startsWith(prefixKey);
         transaction.clear(range);
+        onWriteListener.onRangeDeleted(-1, range);
     }
 
     @Nonnull

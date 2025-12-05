@@ -35,6 +35,8 @@ import javax.annotation.Nullable;
  * system of the client and the coordinate system that is currently employed in the HNSW.
  */
 class StorageTransform extends AffineOperator {
+    private static final StorageTransform IDENTITY_STORAGE_TRANSFORM = new StorageTransform(null, null);
+
     public StorageTransform(final long seed, final int numDimensions,
                             @Nonnull final RealVector translationVector) {
         this(new FhtKacRotator(seed, numDimensions, 10), translationVector);
@@ -66,5 +68,10 @@ class StorageTransform extends AffineOperator {
     @Override
     public RealVector invertedApply(@Nonnull final RealVector vector) {
         return super.invertedApply(vector);
+    }
+
+    @Nonnull
+    public static StorageTransform identity() {
+        return IDENTITY_STORAGE_TRANSFORM;
     }
 }
