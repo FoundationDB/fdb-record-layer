@@ -65,6 +65,7 @@ message FieldOptions {
     optional int32 dimensions = 2 [default = 768];
   }
   optional VectorOptions vectorOptions = 4;
+  optional bool invisible = 5 [default = false];
 }
 
 extend google.protobuf.FieldOptions {

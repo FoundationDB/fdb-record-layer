@@ -49,6 +49,7 @@ import com.apple.foundationdb.relational.recordlayer.query.LogicalPlanFragment;
 import com.apple.foundationdb.relational.recordlayer.query.OrderByExpression;
 import com.apple.foundationdb.relational.recordlayer.query.ParseHelpers;
 import com.apple.foundationdb.relational.recordlayer.query.SemanticAnalyzer;
+import com.apple.foundationdb.relational.recordlayer.query.Star;
 import com.apple.foundationdb.relational.recordlayer.query.StringTrieNode;
 import com.apple.foundationdb.relational.recordlayer.query.TautologicalValue;
 import com.apple.foundationdb.relational.util.Assert;
@@ -156,7 +157,11 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     public Expressions visitSelectElements(@Nonnull RelationalParser.SelectElementsContext selectElementsContext) {
         return Expressions.of(selectElementsContext.selectElement().stream()
                 .map(selectElement -> Assert.castUnchecked(selectElement.accept(this), Expression.class))
-                .collect(ImmutableList.toImmutableList()));
+                .collect(ImmutableList.toImmutableList()))
+                // Make all explicitly selected columns visible, even if they were marked invisible in the table.
+                // This ensures "SELECT secret FROM t" returns the invisible column,
+                // and "SELECT * FROM (SELECT secret FROM t)" doesn't filter it out.
+                .makeVisible();
     }
 
     @Nonnull
@@ -224,7 +229,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         final var fields = new ArrayList<>(Collections.nCopies(columnCount, (DataType.StructType.Field) null));
         for (final var child : columnIdTrie.getChildrenMap().entrySet()) {
             final var column = toColumn(child.getKey(), child.getValue());
-            fields.set(column.getIndex(), DataType.StructType.Field.from(column.getName(), column.getDataType(), column.getIndex()));
+            fields.set(column.getIndex(), DataType.StructType.Field.from(column.getName(), column.getDataType(), column.getIndex(), column.isInvisible()));
         }
         builder.setDataType(DataType.StructType.from(columnName, fields, true));
         return builder.build();
@@ -782,18 +787,18 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         if (ctx.uid() != null) {
             final var id = visitUid(ctx.uid());
             if (ctx.STAR() == null) {
-                final var expression = getDelegate().getSemanticAnalyzer().resolveIdentifier(id, getDelegate().getCurrentPlanFragment());
-                final var resultValue = RecordConstructorValue.ofUnnamed(List.of(expression.getUnderlying()));
+                final Expression expression = getDelegate().getSemanticAnalyzer().resolveIdentifier(id, getDelegate().getCurrentPlanFragment());
+                final Value resultValue = RecordConstructorValue.ofUnnamed(List.of(expression.getUnderlying()));
                 return expression.withUnderlying(resultValue);
             } else {
-                final var star = getDelegate().getSemanticAnalyzer().expandStar(Optional.of(id), getDelegate().getLogicalOperators());
-                final var resultValue = star.getUnderlying();
+                final Star star = getDelegate().getSemanticAnalyzer().expandStar(Optional.of(id), getDelegate().getLogicalOperators());
+                final Value resultValue = star.getUnderlying();
                 return Expression.ofUnnamed(resultValue);
             }
         }
         if (ctx.STAR() != null) {
-            final var star = getDelegate().getSemanticAnalyzer().expandStar(Optional.empty(), getDelegate().getLogicalOperators());
-            final var resultValue = star.getUnderlying();
+            final Star star = getDelegate().getSemanticAnalyzer().expandStar(Optional.empty(), getDelegate().getLogicalOperators());
+            final Value resultValue = star.getUnderlying();
             return Expression.ofUnnamed(resultValue);
         }
         final var expressions = parseRecordFieldsUnderReorderings(ctx.expressionWithOptionalName());

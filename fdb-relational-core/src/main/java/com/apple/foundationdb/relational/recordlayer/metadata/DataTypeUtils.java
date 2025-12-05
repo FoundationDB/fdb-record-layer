@@ -73,7 +73,7 @@ public class DataTypeUtils {
         switch (typeCode) {
             case RECORD:
                 final var record = (Type.Record) type;
-                final var columns = record.getFields().stream().map(field -> DataType.StructType.Field.from(field.getFieldName(), toRelationalType(field.getFieldType()), field.getFieldIndex())).collect(Collectors.toList());
+                final var columns = record.getFields().stream().map(field -> DataType.StructType.Field.from(field.getFieldName(), toRelationalType(field.getFieldType()), field.getFieldIndex(), false)).collect(Collectors.toList());
                 return DataType.StructType.from(record.getName() == null ? ProtoUtils.uniqueTypeName() : record.getName(), columns, record.isNullable());
             case ARRAY:
                 final var asArray = (Type.Array) type;
