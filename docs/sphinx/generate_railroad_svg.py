@@ -20,7 +20,7 @@
 #
 
 from os import walk, path
-from railroad import Diagram, Choice, Terminal, NonTerminal, OneOrMore, Sequence, Optional, Stack
+from railroad import Diagram, Choice, Terminal, NonTerminal, OneOrMore, Sequence, Optional, Stack, Group
 import railroad
 
 # Vertical space

@@ -410,4 +410,26 @@ public interface KeySpacePath {
                                                            @Nonnull ScanProperties scanProperties) {
         throw new UnsupportedOperationException("exportAllData is not supported");
     }
+
+    /**
+     * Imports the provided data exported via {@link #exportAllData} into this {@code KeySpacePath}.
+     * <p>
+     * This will validate that any data provided in {@code dataToImport} has a path that should be in this path
+     * or one of the sub-directories. If not, the future will complete exceptionally with a
+     * {@link RecordCoreIllegalImportDataException}.
+     * If there is any data already existing under this path, the new data will overwrite if the keys are the same.
+     * This will use the logical values in the {@link DataInKeySpacePath#getPath()} and
+     * {@link DataInKeySpacePath#getRemainder()} to determine the key, rather
+     * than the raw key, meaning that this will work even if the data was exported from a different cluster.
+     * Note, this will not correct for any cluster-specific data, other than {@link DirectoryLayerDirectory} data;
+     * for example, if you have versionstamps, that data will not align on the destination.
+     * </p>
+     * @param context the transaction context in which to save the data
+     * @param dataToImport the data to be saved to the database
+     * @return a future to be completed once all data has been important.
+     */
+    @API(API.Status.EXPERIMENTAL)
+    @Nonnull
+    CompletableFuture<Void> importData(@Nonnull FDBRecordContext context,
+                                       @Nonnull Iterable<DataInKeySpacePath> dataToImport);
 }

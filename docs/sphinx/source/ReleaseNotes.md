@@ -7,6 +7,83 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.8
 
+### 4.8.16.0
+
+<h4> New Features </h4>
+
+* Introduce KeySpacePath.importData to import previously exported data - [PR #3578](https://github.com/FoundationDB/fdb-record-layer/pull/3578)
+* Add support for MDC context passing into the throttled iterator - [PR #3740](https://github.com/FoundationDB/fdb-record-layer/pull/3740)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* YAML test framework now uses the packaged dependencies from the meta-data proto if included - [PR #3793](https://github.com/FoundationDB/fdb-record-layer/pull/3793)
+* Add count without alias test - [PR #3790](https://github.com/FoundationDB/fdb-record-layer/pull/3790)
+* Document CREATE FUNCTION (user-defined functions) - [PR #3778](https://github.com/FoundationDB/fdb-record-layer/pull/3778)
+* Add joins documentation - [PR #3775](https://github.com/FoundationDB/fdb-record-layer/pull/3775)
+* Add CASE expression documentation - [PR #3763](https://github.com/FoundationDB/fdb-record-layer/pull/3763)
+* Sort yaml tests alphabetically to mitigate future conflicts - [PR #3783](https://github.com/FoundationDB/fdb-record-layer/pull/3783)
+* Remove confusing single quotes in error message - [PR #3764](https://github.com/FoundationDB/fdb-record-layer/pull/3764)
+* Remove continuations_contain_compiled_statements from JDBC - [PR #3773](https://github.com/FoundationDB/fdb-record-layer/pull/3773)
+* Deprecate SQL type codes in JDBC - [PR #3772](https://github.com/FoundationDB/fdb-record-layer/pull/3772)
+
+</details>
+
+
+**[Full Changelog (4.8.15.0...4.8.16.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.8.15.0...4.8.16.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.8.1.0`, ✅`4.8.2.0`, ✅`4.8.3.0`, ✅`4.8.5.0`, ✅`4.8.6.0`, ✅`4.8.11.0`, ✅`4.8.12.0`, ✅`4.8.13.0`, ✅`4.8.14.0`, ✅`4.8.15.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/19934528132)
+
+
+
+### 4.8.15.0
+
+<h4> Breaking Changes </h4>
+
+* Remove deprecated `WITH CONTINUATION` syntax. - [PR #3765](https://github.com/FoundationDB/fdb-record-layer/pull/3765)
+<h4> New Features </h4>
+
+* vector index maintainer - [PR #3738](https://github.com/FoundationDB/fdb-record-layer/pull/3738)
+<h4> Bug Fixes </h4>
+
+* Reintroduce type renaming with more resilient handling for unexpected protobuf names - [PR #3770](https://github.com/FoundationDB/fdb-record-layer/pull/3770)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Add operator documentation (BETWEEN, LIKE, IN, IS DISTINCT FROM) - [PR #3762](https://github.com/FoundationDB/fdb-record-layer/pull/3762)
+* Rewrite README to emphasize SQL/relational API - [PR #3756](https://github.com/FoundationDB/fdb-record-layer/pull/3756)
+* Add ORDER BY documentation - [PR #3761](https://github.com/FoundationDB/fdb-record-layer/pull/3761)
+
+</details>
+
+
+**[Full Changelog (4.8.14.0...4.8.15.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.8.14.0...4.8.15.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.7.3.0`, ✅`4.8.1.0`, ✅`4.8.2.0`, ✅`4.8.3.0`, ✅`4.8.5.0`, ✅`4.8.6.0`, ✅`4.8.11.0`, ✅`4.8.12.0`, ✅`4.8.13.0`, ✅`4.8.14.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/19739361797)
+
+
+
 ### 4.8.14.0
 
 <h4> New Features </h4>
