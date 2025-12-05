@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.FDBError;
 import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
@@ -133,7 +134,7 @@ public class IndexingThrottle {
                                                @Nullable List<Object> additionalLogMessageKeyValues,
                                                int currTries,
                                                final boolean adjustLimits) {
-            if (currTries >= common.config.getMaxRetries() || !IndexingBase.shouldLessenWork(fdbException)) {
+            if (currTries >= common.config.getMaxRetries() || !shouldLessenWork(fdbException)) {
                 // Here: should not retry or no more retries. There is no real need to handle limits.
                 return false;
             }
@@ -142,6 +143,22 @@ public class IndexingThrottle {
                 decreaseLimit(fdbException, additionalLogMessageKeyValues);
             }
             return true;
+        }
+
+        private static boolean shouldLessenWork(@Nullable FDBException ex) {
+            // These error codes represent a list of errors that can occur if there is too much work to be done
+            // in a single transaction.
+            if (ex == null) {
+                return false;
+            }
+            final Set<Integer> lessenWorkCodes = new HashSet<>(Arrays.asList(
+                    FDBError.TIMED_OUT.code(),
+                    FDBError.TRANSACTION_TOO_OLD.code(),
+                    FDBError.NOT_COMMITTED.code(),
+                    FDBError.TRANSACTION_TIMED_OUT.code(),
+                    FDBError.COMMIT_READ_INCOMPLETE.code(),
+                    FDBError.TRANSACTION_TOO_LARGE.code()));
+            return lessenWorkCodes.contains(ex.getCode());
         }
 
         void decreaseLimit(@Nonnull FDBException fdbException,
