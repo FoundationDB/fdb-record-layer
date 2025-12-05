@@ -176,7 +176,7 @@ public class ThrottledRetryingIterator<T> implements AutoCloseable {
                                                                      QuotaManager singleIterationQuotaManager) {
         AtomicReference<RecordCursorResult<T>> cont = new AtomicReference<>();
 
-        return transactionalRunner.runAsync(true, transaction -> {
+        return transactionalRunner.runAsync(true, commitWhenDone, transaction -> {
             // this layer returns last cursor result
             singleIterationQuotaManager.init();
 
@@ -220,7 +220,7 @@ public class ThrottledRetryingIterator<T> implements AutoCloseable {
                     .whenComplete((r, e) ->
                             cursor.close());
             });
-        }, commitWhenDone).thenApply(ignore -> cont.get());
+        }).thenApply(ignore -> cont.get());
     }
 
     private CompletableFuture<Boolean> handleSuccess(QuotaManager quotaManager) {

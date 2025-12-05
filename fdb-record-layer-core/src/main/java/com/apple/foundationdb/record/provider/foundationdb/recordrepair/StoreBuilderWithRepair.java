@@ -64,21 +64,8 @@ public class StoreBuilderWithRepair extends FDBRecordStore.Builder {
     @Nonnull
     @Override
     public CompletableFuture<FDBRecordStore> openAsync() {
-        return AsyncUtil.composeHandle(
-                super.openAsync(),
-                (store, ex) -> {
-                    if (ex == null) {
-                        // succeeded in opening normally
-                        return CompletableFuture.completedFuture(store);
-                    } else if (isMissingStoreHeaderCaused(ex)) {
-                        // Store header corrupt, try repairing
-                        return repairMissingHeader(userVersion, minimumPossibleFormatVersion)
-                                .thenApply(NonnullPair::getRight);
-                    } else {
-                        // Some other exception, cast to RuntimeException since this is the only one that can throws from openAsync
-                        throw (RuntimeException)ex;
-                    }
-                });
+        return repairMissingHeader(userVersion, minimumPossibleFormatVersion)
+                .thenApply(NonnullPair::getRight);
     }
 
     private boolean isMissingStoreHeaderCaused(Throwable ex) {
