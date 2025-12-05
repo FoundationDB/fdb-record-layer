@@ -25,8 +25,10 @@ import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentityMap;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -38,7 +40,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class MatchValueRule extends ValueComputationRule<Iterable<? extends Value>, Map<Value, ValueCompensation>, Value> {
+public class MatchValueRule extends ValueComputationRule<Iterable<? extends Value>, Map<Value, List<ValueCompensation>>, Value> {
     @Nonnull
     private static final BindingMatcher<Value> rootMatcher = anyValue();
 
@@ -53,12 +55,12 @@ public class MatchValueRule extends ValueComputationRule<Iterable<? extends Valu
     }
 
     @Override
-    public void onMatch(@Nonnull final ValueComputationRuleCall<Iterable<? extends Value>, Map<Value, ValueCompensation>> call) {
+    public void onMatch(@Nonnull final ValueComputationRuleCall<Iterable<? extends Value>, Map<Value, List<ValueCompensation>>> call) {
         final var bindings = call.getBindings();
         final var value = bindings.get(rootMatcher);
 
         final var toBePulledUpValues = Objects.requireNonNull(call.getArgument());
-        final var newMatchedValuesMap = new LinkedIdentityMap<Value, ValueCompensation>();
+        final var newMatchedValuesMap = new LinkedIdentityMap<Value, List<ValueCompensation>>();
 
         final var resultPair = call.getResult(value);
         final var matchedValuesMap = resultPair == null ? null : resultPair.getRight();
@@ -69,7 +71,7 @@ public class MatchValueRule extends ValueComputationRule<Iterable<? extends Valu
         for (final var toBePulledUpValue : toBePulledUpValues) {
             if (!(toBePulledUpValue instanceof FieldValue)) {
                 if (value.semanticEquals(toBePulledUpValue, call.getEquivalenceMap())) {
-                    newMatchedValuesMap.put(toBePulledUpValue, ValueCompensation.noCompensation());
+                    newMatchedValuesMap.put(toBePulledUpValue, ImmutableList.of(ValueCompensation.noCompensation()));
                 }
             }
         }

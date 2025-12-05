@@ -70,9 +70,10 @@ import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.google.common.base.Functions;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Multimap;
 import com.google.common.collect.Streams;
 import com.google.common.primitives.ImmutableIntArray;
 import com.google.protobuf.Message;
@@ -82,7 +83,6 @@ import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -566,30 +566,27 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
      *         resulting values of the pull-up logic
      */
     @Nonnull
-    default Map<Value, Value> pullUp(@Nonnull final Iterable<? extends Value> toBePulledUpValues,
-                                     @Nonnull final EvaluationContext evaluationContext,
-                                     @Nonnull final AliasMap aliasMap,
-                                     @Nonnull final Set<CorrelationIdentifier> constantAliases,
-                                     @Nonnull final CorrelationIdentifier upperBaseAlias) {
+    default Multimap<Value, Value> pullUp(@Nonnull final Iterable<? extends Value> toBePulledUpValues,
+                                          @Nonnull final EvaluationContext evaluationContext,
+                                          @Nonnull final AliasMap aliasMap,
+                                          @Nonnull final Set<CorrelationIdentifier> constantAliases,
+                                          @Nonnull final CorrelationIdentifier upperBaseAlias) {
         final var resultPair =
                 Simplification.compute(this, evaluationContext, toBePulledUpValues, aliasMap, constantAliases,
                         PullUpValueRuleSet.ofPullUpValueRules());
         if (resultPair == null) {
-            return ImmutableMap.of();
+            return ImmutableMultimap.of();
         }
 
         final var matchedValuesMap = resultPair.getRight();
-        final var resultsMapBuilder = ImmutableMap.<Value, Value>builder();
+        final var resultsMapBuilder = ImmutableMultimap.<Value, Value>builder();
         for (final var toBePulledUpValue : toBePulledUpValues) {
-            final var compensation = matchedValuesMap.get(toBePulledUpValue);
-            if (compensation != null) {
-                resultsMapBuilder.put(toBePulledUpValue,
-                        compensation.compensate(
-                                QuantifiedObjectValue.of(upperBaseAlias, this.getResultType())));
-            }
+            matchedValuesMap.getOrDefault(toBePulledUpValue, ImmutableList.of())
+                    .forEach(compensation -> resultsMapBuilder.put(toBePulledUpValue,
+                            compensation.compensate(QuantifiedObjectValue.of(upperBaseAlias, this.getResultType()))));
         }
 
-        return resultsMapBuilder.buildKeepingLast();
+        return resultsMapBuilder.build();
     }
 
     /**
@@ -605,7 +602,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
      * @param aliasMap an alias map of equalities
      * @param constantAliases a set of aliases that are considered to be constant
      * @param upperBaseAlias an alias to be treated as <em>current</em> alias
-     * @return a map from {@link Value} to {@link Value} that related the values that the called passed in with the
+     * @return a list of {@link Value}s that related the values that the called passed in with the
      *         resulting values of the pull-up logic
      */
     @Nonnull

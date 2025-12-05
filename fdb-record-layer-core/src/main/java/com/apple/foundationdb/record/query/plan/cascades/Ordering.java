@@ -57,6 +57,7 @@ import java.util.function.BiConsumer;
 import java.util.function.BiPredicate;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 /**
  * This class captures an ordering property.
@@ -400,7 +401,11 @@ public class Ordering {
             final var pulledUpBindings =
                     translateBindings(entry.getValue(),
                             toBePulledUpValues -> value.pullUp(toBePulledUpValues, evaluationContext,
-                                    aliasMap, constantAliases, Quantifier.current()));
+                                    aliasMap, constantAliases, Quantifier.current()).asMap().entrySet().stream()
+                                    .collect(Collectors.toMap(
+                                            Map.Entry::getKey,
+                                            e -> e.getValue().iterator().next()   // first element
+                                    )));
             pulledUpBindingMapBuilder.putAll(entry.getKey(), pulledUpBindings);
         }
 
@@ -408,7 +413,12 @@ public class Ordering {
         final var pulledUpBindingMap = pulledUpBindingMapBuilder.build();
         final var pulledUpValuesMap =
                 value.pullUp(pulledUpBindingMap.keySet(), evaluationContext, aliasMap, constantAliases,
-                        Quantifier.current());
+                        Quantifier.current())
+                        .asMap().entrySet().stream()
+                        .collect(Collectors.toMap(
+                                Map.Entry::getKey,
+                                e -> e.getValue().iterator().next()   // first element
+                        ));
 
         final var mappedOrderingSet = getOrderingSet().mapAll(pulledUpValuesMap);
         final var mappedValues = mappedOrderingSet.getSet();

@@ -27,9 +27,11 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Valu
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
@@ -40,7 +42,7 @@ import java.util.Objects;
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class MatchFieldValueAgainstQuantifiedObjectValueRule extends ValueComputationRule<Iterable<? extends Value>, Map<Value, ValueCompensation>, QuantifiedObjectValue> {
+public class MatchFieldValueAgainstQuantifiedObjectValueRule extends ValueComputationRule<Iterable<? extends Value>, Map<Value, List<ValueCompensation>>, QuantifiedObjectValue> {
     @Nonnull
     private static final BindingMatcher<QuantifiedObjectValue> rootMatcher =
             ValueMatchers.quantifiedObjectValue();
@@ -50,7 +52,7 @@ public class MatchFieldValueAgainstQuantifiedObjectValueRule extends ValueComput
     }
 
     @Override
-    public void onMatch(@Nonnull final ValueComputationRuleCall<Iterable<? extends Value>, Map<Value, ValueCompensation>> call) {
+    public void onMatch(@Nonnull final ValueComputationRuleCall<Iterable<? extends Value>, Map<Value, List<ValueCompensation>>> call) {
         final var bindings = call.getBindings();
         final var quantifiedObjectValue = bindings.get(rootMatcher);
         final var toBePulledUpValues = Objects.requireNonNull(call.getArgument());
@@ -59,14 +61,14 @@ public class MatchFieldValueAgainstQuantifiedObjectValueRule extends ValueComput
         final var matchedValuesMap =
                 resultPairFromChild == null ? null : resultPairFromChild.getRight();
 
-        final var newMatchedValuesMap = new LinkedIdentityMap<Value, ValueCompensation>();
+        final var newMatchedValuesMap = new LinkedIdentityMap<Value, List<ValueCompensation>>();
 
         for (final var toBePulledUpValue : toBePulledUpValues) {
             if (toBePulledUpValue instanceof FieldValue) {
                 final var toBePulledUpFieldValue = (FieldValue)toBePulledUpValue;
 
                 if (quantifiedObjectValue.semanticEquals(toBePulledUpFieldValue.getChild(), equivalenceMap)) {
-                    newMatchedValuesMap.put(toBePulledUpValue, new FieldValueCompensation(toBePulledUpFieldValue.getFieldPath()));
+                    newMatchedValuesMap.put(toBePulledUpValue, ImmutableList.of(new FieldValueCompensation(toBePulledUpFieldValue.getFieldPath())));
                 }
             } else {
                 inheritMatchedMapEntry(matchedValuesMap, newMatchedValuesMap, toBePulledUpValue);
@@ -75,8 +77,8 @@ public class MatchFieldValueAgainstQuantifiedObjectValueRule extends ValueComput
         call.yieldValue(quantifiedObjectValue, newMatchedValuesMap);
     }
 
-    private static void inheritMatchedMapEntry(@Nullable final Map<Value, ValueCompensation> matchedValuesMap,
-                                               @Nonnull final Map<Value, ValueCompensation> newMatchedValuesMap,
+    private static void inheritMatchedMapEntry(@Nullable final Map<Value, List<ValueCompensation>> matchedValuesMap,
+                                               @Nonnull final Map<Value, List<ValueCompensation>> newMatchedValuesMap,
                                                @Nonnull final Value toBePulledUpValue) {
         if (matchedValuesMap != null && matchedValuesMap.containsKey(toBePulledUpValue)) {
             newMatchedValuesMap.put(toBePulledUpValue, matchedValuesMap.get(toBePulledUpValue));

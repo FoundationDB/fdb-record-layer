@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.cascades.values.simplification;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -37,7 +38,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.ToOrderedBytesVa
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.tuple.TupleOrdering;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -89,9 +90,36 @@ class ValueComputationTest {
 
         final var upperCurrentValue = QuantifiedObjectValue.of(ALIAS, pulledThroughValue.getResultType());
 
-        final var expectedMap = ImmutableMap.of(
+        final var expectedMap = ImmutableMultimap.of(
                 _x_xa, FieldValue.ofFieldNames(upperCurrentValue, ImmutableList.of("_0", "xa")),
                 _z, FieldValue.ofFieldNames(upperCurrentValue, ImmutableList.of("_1")));
+
+        Assertions.assertEquals(expectedMap, resultsMap);
+    }
+
+    @Test
+    void testPullUpAmbiguous() {
+        final var someCurrentValue = ObjectValue.of(ALIAS, someRecordType());
+        // (_.x as _0, _.x.xa as _1)
+        final var pulledThroughValue = RecordConstructorValue.ofColumns(ImmutableList.of(
+                Column.unnamedOf(FieldValue.ofFieldNames(someCurrentValue, ImmutableList.of("x"))),
+                Column.unnamedOf(FieldValue.ofFieldNames(someCurrentValue, ImmutableList.of("x", "xa")))
+        ));
+
+        // _.x.xa
+        final var _x_xa = FieldValue.ofFieldNames(someCurrentValue, ImmutableList.of("x", "xa"));
+        final var toBePulledUpValues = ImmutableList.<Value>of(_x_xa);
+
+        final var resultsMap = pulledThroughValue.pullUp(toBePulledUpValues,
+                EvaluationContext.empty(), AliasMap.emptyMap(), ImmutableSet.of(), ALIAS);
+
+        final var upperCurrentValue = QuantifiedObjectValue.of(ALIAS, pulledThroughValue.getResultType());
+
+        // _.x.xa -> { _0.xa, _1 }
+        final var expectedMap = ImmutableMultimap.of(
+                _x_xa, FieldValue.ofFieldNames(upperCurrentValue, ImmutableList.of("_0", "xa")),
+                _x_xa, FieldValue.ofFieldNames(upperCurrentValue, ImmutableList.of("_1"))
+        );
 
         Assertions.assertEquals(expectedMap, resultsMap);
     }
@@ -122,7 +150,7 @@ class ValueComputationTest {
         // _
         final var someNewCurrentValue = QuantifiedObjectValue.of(ALIAS, completeResultValue.getResultType());
 
-        final var expectedResult = ImmutableMap.of(
+        final var expectedResult = ImmutableMultimap.of(
                 _x, FieldValue.ofOrdinalNumber(someNewCurrentValue, 0),
                 _z, FieldValue.ofOrdinalNumber(someNewCurrentValue, 1));
         Assertions.assertEquals(expectedResult, resultsMap);
@@ -150,7 +178,7 @@ class ValueComputationTest {
         final var new_a_b = FieldValue.ofFieldNames(upperCurrentValue, ImmutableList.of("a", "ab"));
         final var new_x_b = FieldValue.ofFieldNames(upperCurrentValue, ImmutableList.of("x", "xb"));
 
-        final var expectedMap = ImmutableMap.of(
+        final var expectedMap = ImmutableMultimap.of(
                 record_type, new RecordTypeValue(QuantifiedObjectValue.of(UPPER_ALIAS, new Type.AnyRecord(true))),
                 _a_ab__plus__x_xb, (Value)new ArithmeticValue.AddFn().encapsulate(ImmutableList.of(new_a_b, new_x_b)));
         Assertions.assertEquals(expectedMap, resultsMap);
@@ -178,7 +206,7 @@ class ValueComputationTest {
         final var new_a_b = FieldValue.ofFieldNames(upperCurrentValue, ImmutableList.of("_1", "a", "ab"));
         final var new_x_b = FieldValue.ofFieldNames(upperCurrentValue, ImmutableList.of("_1", "x", "xb"));
 
-        final var expectedMap = ImmutableMap.of(
+        final var expectedMap = ImmutableMultimap.of(
                 record_type, new RecordTypeValue(FieldValue.ofFieldName(upperCurrentValue, "_1")),
                 _a_ab__plus__x_xb, (Value)new ArithmeticValue.AddFn().encapsulate(ImmutableList.of(new_a_b, new_x_b)));
         Assertions.assertEquals(expectedMap, resultsMap);

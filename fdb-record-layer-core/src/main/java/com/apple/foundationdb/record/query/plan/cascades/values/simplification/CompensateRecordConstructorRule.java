@@ -26,8 +26,10 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Bind
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
+import java.util.List;
 import java.util.Map;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
@@ -44,7 +46,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class CompensateRecordConstructorRule extends ValueComputationRule<Iterable<? extends Value>, Map<Value, ValueCompensation>, RecordConstructorValue> {
+public class CompensateRecordConstructorRule extends ValueComputationRule<Iterable<? extends Value>, Map<Value, List<ValueCompensation>>, RecordConstructorValue> {
     @Nonnull
     private static final BindingMatcher<RecordConstructorValue> rootMatcher =
             recordConstructorValue(all(anyValue()));
@@ -54,17 +56,18 @@ public class CompensateRecordConstructorRule extends ValueComputationRule<Iterab
     }
 
     @Override
-    public void onMatch(@Nonnull final ValueComputationRuleCall<Iterable<? extends Value>, Map<Value, ValueCompensation>> call) {
+    public void onMatch(@Nonnull final ValueComputationRuleCall<Iterable<? extends Value>, Map<Value, List<ValueCompensation>>> call) {
         final var bindings = call.getBindings();
         final var recordConstructorValue = bindings.get(rootMatcher);
-        final var resultingMatchedValuesMap = new LinkedIdentityMap<Value, ValueCompensation>();
+        final var resultingMatchedValuesMap = new LinkedIdentityMap<Value, List<ValueCompensation>>();
 
         final var recordConstructorValueResult = call.getResult(recordConstructorValue);
-        final var matchedCompensation = recordConstructorValueResult == null
+        final var matchedCompensations = recordConstructorValueResult == null
                                         ? null : recordConstructorValueResult.getValue().get(recordConstructorValue);
-        if (matchedCompensation != null) {
-            resultingMatchedValuesMap.put(recordConstructorValue, matchedCompensation);
+        if (matchedCompensations != null) {
+            resultingMatchedValuesMap.put(recordConstructorValue, matchedCompensations);
         } else {
+            final var compensationsBuilderMap = new LinkedIdentityMap<Value, ImmutableList.Builder<ValueCompensation>>();
             for (int i = 0; i < recordConstructorValue.getColumns().size(); ++i) {
                 final var column = recordConstructorValue.getColumns().get(i);
                 final var childResultPair = call.getResult(column.getValue());
@@ -78,14 +81,19 @@ public class CompensateRecordConstructorRule extends ValueComputationRule<Iterab
                 //
                 for (final var childValueEntry : childResultPair.getRight().entrySet()) {
                     final var argumentValue = childValueEntry.getKey();
-                    final var argumentValueCompensation = childValueEntry.getValue();
+                    final var argumentValueCompensations = childValueEntry.getValue();
                     final var field = column.getField();
-                    resultingMatchedValuesMap.putIfAbsent(argumentValue,
-                            new FieldValueCompensation(FieldValue.FieldPath.ofSingle(field, i), argumentValueCompensation));
+                    final var columnIdx = i;
+                    compensationsBuilderMap
+                            .computeIfAbsent(argumentValue, k -> new ImmutableList.Builder<>())
+                            .addAll(argumentValueCompensations
+                                    .stream()
+                                    .map(compensation -> new FieldValueCompensation(FieldValue.FieldPath.ofSingle(field, columnIdx), compensation))
+                                    .iterator());
                 }
             }
+            compensationsBuilderMap.forEach((key, value) -> resultingMatchedValuesMap.put(key, value.build()));
         }
-
         call.yieldValue(recordConstructorValue, resultingMatchedValuesMap);
     }
 }

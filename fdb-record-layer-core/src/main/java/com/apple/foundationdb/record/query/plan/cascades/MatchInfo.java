@@ -121,8 +121,8 @@ public interface MatchInfo {
                                     candidateLowerExpression.getCorrelatedTo()),
                             candidateAlias);
             final var pulledUpCandidateAggregateValue = candidatePullUpMap.get(candidateAggregateValue);
-            if (pulledUpCandidateAggregateValue != null) {
-                adjustedMatchedAggregateMapBuilder.put(queryAggregateValue, pulledUpCandidateAggregateValue);
+            if (!pulledUpCandidateAggregateValue.isEmpty()) {
+                adjustedMatchedAggregateMapBuilder.put(queryAggregateValue, Iterables.getOnlyElement(pulledUpCandidateAggregateValue));
             }
         }
         return adjustedMatchedAggregateMapBuilder.build();
@@ -506,10 +506,10 @@ public interface MatchInfo {
                                 Sets.difference(queryAggregateValue.getCorrelatedToWithoutChildren(),
                                         queryExpression.getCorrelatedTo()), queryAlias);
                 final var pulledUpQueryAggregateValue = pullUpMap.get(queryAggregateValue);
-                if (pulledUpQueryAggregateValue == null) {
+                if (pulledUpQueryAggregateValue.isEmpty()) {
                     return GroupByMappings.empty();
                 }
-                unmatchedAggregateMapBuilder.put(unmatchedAggregateMapEntry.getKey(), pulledUpQueryAggregateValue);
+                unmatchedAggregateMapBuilder.put(unmatchedAggregateMapEntry.getKey(), Iterables.getOnlyElement(pulledUpQueryAggregateValue));
             }
 
             return GroupByMappings.of(matchedGroupingsMap, matchedAggregatesMap, unmatchedAggregateMapBuilder.build());
@@ -527,8 +527,8 @@ public interface MatchInfo {
                 final var pullUpMap =
                         queryResultValue.pullUp(ImmutableList.of(queryValue), EvaluationContext.empty(),
                                 AliasMap.emptyMap(), constantAliases, queryAlias);
-                final Value pulledUpQueryValue = pullUpMap.get(queryValue);
-                if (pulledUpQueryValue == null) {
+                final var pulledUpQueryValue = pullUpMap.get(queryValue);
+                if (pulledUpQueryValue.isEmpty()) {
                     continue;
                 }
 
@@ -544,10 +544,10 @@ public interface MatchInfo {
                                         candidateLowerExpression.getCorrelatedTo()),
                                 candidateAlias);
                 final var pulledUpCandidateAggregateValue = candidatePullUpMap.get(candidateAggregateValue);
-                if (pulledUpCandidateAggregateValue == null) {
+                if (pulledUpCandidateAggregateValue.isEmpty()) {
                     continue;
                 }
-                matchedAggregatesMapBuilder.put(pulledUpQueryValue, pulledUpCandidateAggregateValue);
+                matchedAggregatesMapBuilder.put(Iterables.getOnlyElement(pulledUpQueryValue), Iterables.getOnlyElement(pulledUpCandidateAggregateValue));
             }
             return matchedAggregatesMapBuilder.build();
         }

@@ -44,6 +44,7 @@ import com.apple.foundationdb.record.util.ProtoUtils;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 
 import javax.annotation.Nonnull;
@@ -349,7 +350,7 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
                     final var pulledUpValue = pulledUpPlaceholderValuesMap.get(value);
                     final var parameterAlias =
                             Objects.requireNonNull(childExpansionPlaceholderValuesMap.get(value));
-                    return Placeholder.newInstanceWithoutRanges(pulledUpValue, parameterAlias);
+                    return Placeholder.newInstanceWithoutRanges(Iterables.getOnlyElement(pulledUpValue), parameterAlias);
                 })
                 .collect(ImmutableList.toImmutableList());
     }
@@ -372,7 +373,7 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
                         throw new RecordCoreException("could not pull expansion value " + value)
                                 .addLogInfo(LogMessageKeys.VALUE, value);
                     }
-                    return pulledUpValuesMap.get(value);
+                    return Iterables.getOnlyElement(pulledUpValuesMap.get(value));
                 })
                 .map(Column::unnamedOf)
                 .collect(ImmutableList.toImmutableList());
