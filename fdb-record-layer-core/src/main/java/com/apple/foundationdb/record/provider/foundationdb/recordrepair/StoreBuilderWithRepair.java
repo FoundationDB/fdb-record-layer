@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.provider.foundationdb.recordrepair;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FormatVersion;
-import com.apple.foundationdb.record.provider.foundationdb.RecordStoreNoInfoAndNotEmptyException;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 
 import javax.annotation.Nonnull;
@@ -65,15 +64,5 @@ public class StoreBuilderWithRepair extends FDBRecordStore.Builder {
     public CompletableFuture<FDBRecordStore> openAsync() {
         return repairMissingHeader(userVersion, minimumPossibleFormatVersion)
                 .thenApply(NonnullPair::getRight);
-    }
-
-    private boolean isMissingStoreHeaderCaused(Throwable ex) {
-        while (ex != null) {
-            if (ex instanceof RecordStoreNoInfoAndNotEmptyException) {
-                return true;
-            }
-            ex = ex.getCause();
-        }
-        return false;
     }
 }
