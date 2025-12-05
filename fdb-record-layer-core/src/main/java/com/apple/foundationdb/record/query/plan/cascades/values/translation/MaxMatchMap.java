@@ -255,10 +255,10 @@ public class MaxMatchMap {
             final var queryPart = entry.getKey();
             final var candidatePart = entry.getValue();
             final var pulledUpdateCandidatePart = pulledUpCandidateValueMap.get(candidatePart);
-            if (pulledUpdateCandidatePart == null) {
+            if (pulledUpdateCandidatePart.isEmpty()) {
                 return Optional.empty();
             }
-            pulledUpMaxMatchMapBuilder.put(queryPart, pulledUpdateCandidatePart);
+            pulledUpMaxMatchMapBuilder.put(queryPart, Iterables.getOnlyElement(pulledUpdateCandidatePart));
         }
         final var pulledUpMaxMatchMap = pulledUpMaxMatchMapBuilder.build();
 

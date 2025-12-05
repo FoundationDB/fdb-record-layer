@@ -26,12 +26,12 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoolean;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Multimap;
 import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
-import java.util.Map;
 import java.util.Set;
 
 /**
@@ -58,11 +58,11 @@ public interface QuantifiedValue extends LeafValue {
 
     @Nonnull
     @Override
-    default Map<Value, Value> pullUp(@Nonnull final Iterable<? extends Value> toBePulledUpValues,
-                                     @Nonnull final EvaluationContext evaluationContext,
-                                     @Nonnull final AliasMap aliasMap,
-                                     @Nonnull final Set<CorrelationIdentifier> constantAliases,
-                                     @Nonnull final CorrelationIdentifier upperBaseAlias) {
+    default Multimap<Value, Value> pullUp(@Nonnull final Iterable<? extends Value> toBePulledUpValues,
+                                          @Nonnull final EvaluationContext evaluationContext,
+                                          @Nonnull final AliasMap aliasMap,
+                                          @Nonnull final Set<CorrelationIdentifier> constantAliases,
+                                          @Nonnull final CorrelationIdentifier upperBaseAlias) {
         final var alias = getAlias();
         final var areSimpleReferences =
                 Streams.stream(toBePulledUpValues)
@@ -71,7 +71,7 @@ public interface QuantifiedValue extends LeafValue {
         if (areSimpleReferences) {
             final var translationMap =
                     TranslationMap.rebaseWithAliasMap(AliasMap.ofAliases(alias, upperBaseAlias));
-            final var translatedMapBuilder = ImmutableMap.<Value, Value>builder();
+            final var translatedMapBuilder = ImmutableMultimap.<Value, Value>builder();
             for (final var toBePulledUpValue : toBePulledUpValues) {
                 translatedMapBuilder.put(toBePulledUpValue, toBePulledUpValue.translateCorrelations(translationMap));
             }

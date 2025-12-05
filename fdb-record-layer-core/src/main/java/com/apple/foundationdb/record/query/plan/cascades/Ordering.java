@@ -35,11 +35,13 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.DefaultValueSimplificationRuleSet;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
+import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Multimap;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
@@ -393,7 +395,7 @@ public class Ordering {
     }
 
     @Nonnull
-    public Ordering pullUp(@Nonnull final Value value, @Nonnull EvaluationContext evaluationContext,
+    public Ordering pullUp(@Nonnull final Value value /*to pull against*/, @Nonnull EvaluationContext evaluationContext,
                            @Nonnull final AliasMap aliasMap, @Nonnull final Set<CorrelationIdentifier> constantAliases) {
         final var pulledUpBindingMapBuilder = ImmutableSetMultimap.<Value, Binding>builder();
         for (final var entry : getBindingMap().asMap().entrySet()) {
@@ -401,23 +403,25 @@ public class Ordering {
                     translateBindings(entry.getValue(),
                             toBePulledUpValues -> value.pullUp(toBePulledUpValues, evaluationContext,
                                     aliasMap, constantAliases, Quantifier.current()));
-            pulledUpBindingMapBuilder.putAll(entry.getKey(), pulledUpBindings);
+            pulledUpBindingMapBuilder.putAll(entry.getKey() /* old value*/, pulledUpBindings);
         }
 
         // pull up the values we actually could also pull up some of the bindings for
         final var pulledUpBindingMap = pulledUpBindingMapBuilder.build();
-        final var pulledUpValuesMap =
+        final var pulledUpValuesMultimap =
                 value.pullUp(pulledUpBindingMap.keySet(), evaluationContext, aliasMap, constantAliases,
                         Quantifier.current());
 
-        final var mappedOrderingSet = getOrderingSet().mapAll(pulledUpValuesMap);
+        final var mappedOrderingSet = getOrderingSet().mapAll(pulledUpValuesMultimap);
         final var mappedValues = mappedOrderingSet.getSet();
         final var bindingMapBuilder = ImmutableSetMultimap.<Value, Binding>builder();
 
-        for (final var entry : pulledUpValuesMap.entrySet()) {
-            if (mappedValues.contains(entry.getValue())) {
-                Verify.verify(pulledUpBindingMap.containsKey(entry.getKey()));
-                bindingMapBuilder.putAll(entry.getValue(), pulledUpBindingMap.get(entry.getKey()));
+        for (final var entry : pulledUpValuesMultimap.asMap().entrySet()) {
+            for (final var pulledUpValue: entry.getValue()) {
+                if (mappedValues.contains(pulledUpValue)) {
+                    Verify.verify(pulledUpBindingMap.containsKey(entry.getKey()));
+                    bindingMapBuilder.putAll(pulledUpValue, pulledUpBindingMap.get(entry.getKey()));
+                }
             }
         }
 
@@ -436,7 +440,7 @@ public class Ordering {
                                         value.pushDown(toBePushedValues,
                                                 DefaultValueSimplificationRuleSet.instance(), evaluationContext,
                                                 aliasMap, constantAliases, Quantifier.current());
-                                final var resultMap = new LinkedIdentityMap<Value, Value>();
+                                final var resultMap = HashMultimap.<Value, Value>create();
                                 for (int i = 0; i < toBePushedValues.size(); i++) {
                                     final Value toBePushedValue = toBePushedValues.get(i);
                                     final Value pushedValue = Objects.requireNonNull(pushedDownValues.get(i));
@@ -505,7 +509,7 @@ public class Ordering {
 
     @Nonnull
     private static Set<Binding> translateBindings(@Nonnull final Collection<Binding> bindings,
-                                                  @Nonnull final Function<List<Value>, Map<Value, Value>> translateFunction) {
+                                                  @Nonnull final Function<List<Value>, Multimap<Value, Value>> translateFunction) {
         final var translatedBindingsBuilder = ImmutableSet.<Binding>builder();
 
         if (areAllBindingsFixed(bindings)) {
@@ -523,10 +527,9 @@ public class Ordering {
                 if (comparison instanceof Comparisons.ValueComparison) {
                     final var valueComparison = (Comparisons.ValueComparison)comparison;
                     if (translationMap.containsKey(valueComparison.getValue())) {
-                        final var translatedComparison =
-                                new Comparisons.ValueComparison(valueComparison.getType(),
-                                        translationMap.get(valueComparison.getValue()));
-                        translatedBindingsBuilder.add(Binding.fixed(translatedComparison));
+                        translationMap.get(valueComparison.getValue()).stream()
+                                .map(value -> new Comparisons.ValueComparison(valueComparison.getType(), Objects.requireNonNull(value)))
+                                .forEach(translatedValueComparison -> translatedBindingsBuilder.add(Binding.fixed(translatedValueComparison)));
                     }
                 } else {
                     translatedBindingsBuilder.add(binding);
