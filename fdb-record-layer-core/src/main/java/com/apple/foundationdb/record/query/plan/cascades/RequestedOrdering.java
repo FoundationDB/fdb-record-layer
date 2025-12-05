@@ -305,7 +305,7 @@ public class RequestedOrdering {
         Debugger.sanityCheck(() -> Verify.verify(
                 requestedOrderingParts.stream()
                         .allMatch(requestedOrderingPart -> requestedOrderingPart.getValue()
-                                .getResultType().isPrimitive())));
+                                .getResultType().isPrimitive() || requestedOrderingPart.getValue().getResultType().isUuid())));
         return new RequestedOrdering(requestedOrderingParts, distinctness, isExhaustive);
     }
 
