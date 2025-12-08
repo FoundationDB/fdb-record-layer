@@ -33,22 +33,22 @@ import java.util.List;
  * pieces of information together.
  * @param <N> the type of {@link NodeReference} used within the {@link AbstractNode}
  */
-class NodeReferenceAndNode<T extends NodeReferenceWithVector, N extends NodeReference> {
+class NodeReferenceAndNode<T extends NodeReference, N extends NodeReference> {
     @Nonnull
-    private final T nodeReferenceWithDistance;
+    private final T nodeReference;
     @Nonnull
     private final AbstractNode<N> node;
 
     /**
      * Constructs a new instance that pairs a node reference (with distance) with its
      * corresponding {@link AbstractNode} object.
-     * @param nodeReferenceWithDistance the reference to a node, which also includes distance information. Must not be
+     * @param nodeReference the reference to a node, which also includes distance information. Must not be
      *        {@code null}.
      * @param node the actual {@link AbstractNode} object that the reference points to. Must not be {@code null}.
      */
-    public NodeReferenceAndNode(@Nonnull final T nodeReferenceWithDistance,
+    public NodeReferenceAndNode(@Nonnull final T nodeReference,
                                 @Nonnull final AbstractNode<N> node) {
-        this.nodeReferenceWithDistance = nodeReferenceWithDistance;
+        this.nodeReference = nodeReference;
         this.node = node;
     }
 
@@ -58,7 +58,7 @@ class NodeReferenceAndNode<T extends NodeReferenceWithVector, N extends NodeRefe
      */
     @Nonnull
     public T getNodeReference() {
-        return nodeReferenceWithDistance;
+        return nodeReference;
     }
 
     /**

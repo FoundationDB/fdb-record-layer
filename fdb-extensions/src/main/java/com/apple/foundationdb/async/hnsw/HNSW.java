@@ -1520,7 +1520,7 @@ public class HNSW {
      *
      * @return a {@link CompletableFuture} which will complete with a list of fetched nodes
      */
-    private <T extends NodeReferenceWithVector, N extends NodeReference> CompletableFuture<List<NodeReferenceAndNode<NodeReferenceWithVector, N>>>
+    private <T extends NodeReference, N extends NodeReference> CompletableFuture<List<NodeReferenceAndNode<NodeReferenceWithVector, N>>>
             neighbors(@Nonnull final StorageAdapter<N> storageAdapter,
                       @Nonnull final ReadTransaction readTransaction,
                       @Nonnull final AffineOperator storageTransform,
@@ -1557,7 +1557,7 @@ public class HNSW {
      *
      * @return a {@link CompletableFuture} which will complete with a list of {@link NodeReferenceWithVector}
      */
-    private <T extends NodeReferenceWithVector, N extends NodeReference> CompletableFuture<List<NodeReferenceWithVector>>
+    private <T extends NodeReference, N extends NodeReference> CompletableFuture<List<NodeReferenceWithVector>>
             neighborReferences(@Nonnull final StorageAdapter<N> storageAdapter,
                                @Nonnull final ReadTransaction readTransaction,
                                @Nonnull final AffineOperator storageTransform,
@@ -1585,7 +1585,7 @@ public class HNSW {
      *
      * @return a {@link CompletableFuture} which will complete with a set of {@link NodeReferenceWithDistance}
      */
-    private <T extends NodeReferenceWithVector, N extends NodeReference> Set<NodeReference>
+    private <T extends NodeReference, N extends NodeReference> Set<NodeReference>
             resolveNeighborReferences(@Nonnull final Collection<NodeReferenceAndNode<T, N>> initialNodeReferenceAndNodes,
                                       @Nullable final SplittableRandom random,
                                       @Nonnull final HopMode hopMode,
@@ -1598,8 +1598,8 @@ public class HNSW {
                 resultBuilder.add(nodeReferenceAndNode.getNodeReference());
             }
         }
-        final ImmutableMap<Tuple, NodeReferenceAndNode<T, N>> initialNodesMap = initialNodesMapBuilder.build();
 
+        final ImmutableMap<Tuple, NodeReferenceAndNode<T, N>> initialNodesMap = initialNodesMapBuilder.build();
         final Set<Tuple> nodeReferencesSeen = Sets.newHashSet();
 
         for (final NodeReferenceAndNode<T, N> nodeReferenceAndNode : initialNodeReferenceAndNodes) {
@@ -1819,8 +1819,8 @@ public class HNSW {
                             @Nonnull final SplittableRandom random,
                             final int layer,
                             @Nonnull final Tuple toBeDeletedPrimaryKey) {
-        if (logger.isDebugEnabled()) {
-            logger.debug("begin delete key={} at layer={}", toBeDeletedPrimaryKey, layer);
+        if (logger.isTraceEnabled()) {
+            logger.trace("begin delete key={} at layer={}", toBeDeletedPrimaryKey, layer);
         }
         final Estimator estimator = quantizer.estimator();
         final Map<Tuple, AbstractNode<N>> nodeCache = Maps.newConcurrentMap();
@@ -1829,9 +1829,8 @@ public class HNSW {
 
         return storageAdapter.fetchNode(transaction, storageTransform, layer, toBeDeletedPrimaryKey)
                 .thenCompose(toBeDeletedNode -> {
-                    final NodeReferenceAndNode<NodeReferenceWithVector, N> toBeDeletedNodeReferenceAndNode =
-                            new NodeReferenceAndNode<>(new NodeReferenceWithVector(toBeDeletedPrimaryKey,
-                                    toBeDeletedNode.asCompactNode().getVector()), toBeDeletedNode);
+                    final NodeReferenceAndNode<NodeReference, N> toBeDeletedNodeReferenceAndNode =
+                            new NodeReferenceAndNode<>(new NodeReference(toBeDeletedPrimaryKey), toBeDeletedNode);
 
                     return neighbors(storageAdapter, transaction, storageTransform, random,
                             ImmutableList.of(toBeDeletedNodeReferenceAndNode), HopMode.INCLUSIVE,
@@ -1852,12 +1851,12 @@ public class HNSW {
                                 return filteredCandidatesBuilder.build();
                             })
                             .thenApply(candidates -> {
-                                if (logger.isDebugEnabled()) {
+                                if (logger.isTraceEnabled()) {
                                     final ImmutableList.Builder<String> candidateStringsBuilder = ImmutableList.builder();
                                     for (final NodeReferenceAndNode<NodeReferenceWithVector, N> candidate : candidates) {
                                         candidateStringsBuilder.add(candidate.getNode().getPrimaryKey().toString());
                                     }
-                                    logger.debug("resolved candidates={}", String.join(",",
+                                    logger.trace("resolved candidates={}", String.join(",",
                                             candidateStringsBuilder.build()));
                                 }
                                 return candidates;
@@ -1952,8 +1951,8 @@ public class HNSW {
                                         layer);
                             });
                 }).thenApply(result -> {
-                    if (logger.isDebugEnabled()) {
-                        logger.debug("end delete key={} at layer={}", toBeDeletedPrimaryKey, layer);
+                    if (logger.isTraceEnabled()) {
+                        logger.trace("end delete key={} at layer={}", toBeDeletedPrimaryKey, layer);
                     }
                     return result;
                 });
@@ -2014,12 +2013,12 @@ public class HNSW {
         return selectCandidates(storageAdapter, transaction, storageTransform, estimator, candidates,
                 layer, getConfig().getM(), nodeCache)
                 .thenApply(selectedCandidates -> {
-                    if (logger.isDebugEnabled()) {
+                    if (logger.isTraceEnabled()) {
                         final ImmutableList.Builder<String> candidateStringsBuilder = ImmutableList.builder();
                         for (final NodeReferenceAndNode<NodeReferenceWithDistance, N> candidate : selectedCandidates) {
                             candidateStringsBuilder.add(candidate.getNode().getPrimaryKey().toString());
                         }
-                        logger.debug("selected for neighbor={}, candidates={}",
+                        logger.trace("selected for neighbor={}, candidates={}",
                                 neighborReference.getPrimaryKey(),
                                 String.join(",", candidateStringsBuilder.build()));
                     }

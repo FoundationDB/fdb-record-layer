@@ -274,6 +274,7 @@ class HNSWTest {
 
         final ImmutableSet<Tuple> trueNN =
                 recordsOrderedByDistance.stream()
+                        .limit(k)
                         .map(PrimaryKeyVectorAndDistance::getPrimaryKey)
                         .collect(ImmutableSet.toImmutableSet());
 
@@ -363,6 +364,7 @@ class HNSWTest {
 
         final ImmutableSet<Tuple> trueNN =
                 recordsOrderedByDistance.stream()
+                        .limit(k)
                         .map(PrimaryKeyVectorAndDistance::getPrimaryKey)
                         .collect(ImmutableSet.toImmutableSet());
 
@@ -469,6 +471,7 @@ class HNSWTest {
 
         final ImmutableSet<Tuple> trueNN =
                 recordsOrderedByDistance.stream()
+                        .limit(k)
                         .map(PrimaryKeyVectorAndDistance::getPrimaryKey)
                         .collect(ImmutableSet.toImmutableSet());
 
@@ -523,6 +526,172 @@ class HNSWTest {
                 break;
             }
         }
+
+        onReadListener.reset();
+        final List<? extends ResultEntry> resultsAfterDeletes =
+                db.run(tr ->
+                        hnsw.kNearestNeighborsSearch(tr, k, 100, true, queryVector).join());
+
+        final ImmutableSet<Tuple> trueAfterDeletesNN =
+                recordsOrderedByDistance.stream()
+                        .map(PrimaryKeyVectorAndDistance::getPrimaryKey)
+                        .filter(primaryKey -> primaryKey.getLong(0) < 250 || primaryKey.getLong(0) >= 750)
+                        .limit(k)
+                        .collect(ImmutableSet.toImmutableSet());
+
+        int recallCountAfterDeletes = 0;
+        for (ResultEntry resultEntry : resultsAfterDeletes) {
+            logger.info("nodeId ={} at distance={}", resultEntry.getPrimaryKey().getLong(0),
+                    resultEntry.getDistance());
+            if (trueAfterDeletesNN.contains(resultEntry.getPrimaryKey())) {
+                recallCountAfterDeletes ++;
+            }
+        }
+        final double recallAfterDeletes = (double)recallCountAfterDeletes / (double)k;
+        logger.info("search transaction took elapsedTime={}ms; read nodes={}, read bytes={}, recall={}",
+                TimeUnit.NANOSECONDS.toMillis(endTs - beginTs),
+                onReadListener.getNodeCountByLayer(), onReadListener.getBytesReadByLayer(),
+                String.format(Locale.ROOT, "%.2f", recallAfterDeletes * 100.0d));
+        Assertions.assertThat(recallAfterDeletes).isGreaterThan(0.9);
+    }
+
+    @ParameterizedTest()
+    @RandomSeedSource({0x0fdbL})
+    void testBasicInsertDelete503D(final long seed) throws Exception {
+        final Random random = new Random(seed);
+        final Metric metric = Metric.EUCLIDEAN_METRIC;
+        final TestOnReadListener onReadListener = new TestOnReadListener();
+
+        final int numDimensions = 3;
+        final HNSW hnsw = new HNSW(rtSubspace.getSubspace(), TestExecutors.defaultThreadPool(),
+                HNSW.newConfigBuilder()
+                        .setMetric(metric)
+                        .setUseInlining(false)
+                        .setExtendCandidates(false)
+                        .setKeepPrunedConnections(false)
+                        .setUseRaBitQ(false)
+                        .setRaBitQNumExBits(5)
+                        .setSampleVectorStatsProbability(1.0d)
+                        .setMaintainStatsProbability(0.1d)
+                        .setStatsThreshold(100)
+                        .setM(5)
+                        .setMMax(10)
+                        .setMMax0(10)
+                        .build(numDimensions),
+                OnWriteListener.NOOP, onReadListener);
+
+        final int k = 50;
+        final HalfRealVector queryVector = createRandomHalfVector(random, numDimensions);
+        final TreeSet<PrimaryKeyVectorAndDistance> recordsOrderedByDistance =
+                new TreeSet<>(Comparator.comparing(PrimaryKeyVectorAndDistance::getDistance));
+
+        for (int i = 0; i < 1000;) {
+            i += basicInsertBatch(hnsw, 100, i, onReadListener,
+                    (tr, nextId) -> {
+                        final var primaryKey = createPrimaryKey(nextId);
+                        final HalfRealVector dataVector = createRandomHalfVector(random, numDimensions);
+                        final double distance = metric.distance(dataVector, queryVector);
+                        final PrimaryKeyVectorAndDistance record =
+                                new PrimaryKeyVectorAndDistance(primaryKey, dataVector, distance);
+                        recordsOrderedByDistance.add(record);
+                        if (recordsOrderedByDistance.size() > k) {
+                            recordsOrderedByDistance.pollLast();
+                        }
+                        return record;
+                    });
+        }
+
+        onReadListener.reset();
+        final long beginTs = System.nanoTime();
+        final List<? extends ResultEntry> results =
+                db.run(tr ->
+                        hnsw.kNearestNeighborsSearch(tr, k, 100, true, queryVector).join());
+        final long endTs = System.nanoTime();
+
+        final ImmutableSet<Tuple> trueNN =
+                recordsOrderedByDistance.stream()
+                        .limit(k)
+                        .map(PrimaryKeyVectorAndDistance::getPrimaryKey)
+                        .collect(ImmutableSet.toImmutableSet());
+
+        int recallCount = 0;
+        for (ResultEntry resultEntry : results) {
+            logger.info("nodeId ={} at distance={}", resultEntry.getPrimaryKey().getLong(0),
+                    resultEntry.getDistance());
+            if (trueNN.contains(resultEntry.getPrimaryKey())) {
+                recallCount ++;
+            }
+        }
+        final double recall = (double)recallCount / (double)k;
+        logger.info("search transaction took elapsedTime={}ms; read nodes={}, read bytes={}, recall={}",
+                TimeUnit.NANOSECONDS.toMillis(endTs - beginTs),
+                onReadListener.getNodeCountByLayer(), onReadListener.getBytesReadByLayer(),
+                String.format(Locale.ROOT, "%.2f", recall * 100.0d));
+        Assertions.assertThat(recall).isGreaterThan(0.9);
+
+        final Set<Long> insertedIds =
+                LongStream.range(0, 1000)
+                        .boxed()
+                        .collect(Collectors.toSet());
+
+        final Set<Long> readIds = Sets.newHashSet();
+        hnsw.scanLayer(db, 0, 100,
+                node -> Assertions.assertThat(readIds.add(node.getPrimaryKey().getLong(0))).isTrue());
+        Assertions.assertThat(readIds).isEqualTo(insertedIds);
+
+        readIds.clear();
+        hnsw.scanLayer(db, 1, 100,
+                node -> Assertions.assertThat(readIds.add(node.getPrimaryKey().getLong(0))).isTrue());
+        //Assertions.assertThat(readIds.size()).isBetween(10, 50);
+
+        int layer = 0;
+        while (true) {
+            if (!dumpLayer(hnsw, "before503D", layer++)) {
+                break;
+            }
+        }
+
+        for (int i = 250; i < 750;) {
+            for (int b = 0; b < 10; b ++) {
+                final Tuple primaryKey = Tuple.from((long)i);
+                db.run(tr -> hnsw.delete(tr, primaryKey).join());
+                i++;
+            }
+        }
+
+        layer = 0;
+        while (true) {
+            if (!dumpLayer(hnsw, "after503D", layer++)) {
+                break;
+            }
+        }
+
+        onReadListener.reset();
+        final List<? extends ResultEntry> resultsAfterDeletes =
+                db.run(tr ->
+                        hnsw.kNearestNeighborsSearch(tr, k, 100, true, queryVector).join());
+
+        final ImmutableSet<Tuple> trueAfterDeletesNN =
+                recordsOrderedByDistance.stream()
+                        .map(PrimaryKeyVectorAndDistance::getPrimaryKey)
+                        .filter(primaryKey -> primaryKey.getLong(0) < 250 || primaryKey.getLong(0) >= 750)
+                        .limit(k)
+                        .collect(ImmutableSet.toImmutableSet());
+
+        int recallCountAfterDeletes = 0;
+        for (ResultEntry resultEntry : resultsAfterDeletes) {
+            logger.info("nodeId ={} at distance={}", resultEntry.getPrimaryKey().getLong(0),
+                    resultEntry.getDistance());
+            if (trueAfterDeletesNN.contains(resultEntry.getPrimaryKey())) {
+                recallCountAfterDeletes ++;
+            }
+        }
+        final double recallAfterDeletes = (double)recallCountAfterDeletes / (double)k;
+        logger.info("search transaction took elapsedTime={}ms; read nodes={}, read bytes={}, recall={}",
+                TimeUnit.NANOSECONDS.toMillis(endTs - beginTs),
+                onReadListener.getNodeCountByLayer(), onReadListener.getBytesReadByLayer(),
+                String.format(Locale.ROOT, "%.2f", recallAfterDeletes * 100.0d));
+        Assertions.assertThat(recallAfterDeletes).isGreaterThan(0.9);
     }
 
     private boolean dumpLayer(@Nonnull final HNSW hnsw, @Nonnull final String prefix, final int layer) throws IOException {
@@ -536,9 +705,14 @@ class HNSWTest {
                 final CompactNode compactNode = node.asCompactNode();
                 final Transformed<RealVector> vector = compactNode.getVector();
                 try {
-                    verticesWriter.write(compactNode.getPrimaryKey().getLong(0) + "," +
-                            vector.getUnderlyingVector().getComponent(0) + "," +
-                            vector.getUnderlyingVector().getComponent(1));
+                    verticesWriter.write(compactNode.getPrimaryKey().getLong(0) + ",");
+                    final RealVector realVector = vector.getUnderlyingVector();
+                    for (int i = 0; i < realVector.getNumDimensions(); i++) {
+                        if (i != 0) {
+                            verticesWriter.write(",");
+                        }
+                        verticesWriter.write(String.valueOf(realVector.getComponent(i)));
+                    }
                     verticesWriter.newLine();
 
                     for (final var neighbor : compactNode.getNeighbors()) {
