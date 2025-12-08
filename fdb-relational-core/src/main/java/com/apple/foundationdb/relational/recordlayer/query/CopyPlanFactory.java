@@ -40,29 +40,33 @@ public final class CopyPlanFactory {
      * Creates a COPY export plan.
      *
      * @param path the KeySpace path to export from (e.g., "/FRL/MY_DATABASE")
+     *
      * @return a CopyPlan for exporting data
      */
     @Nonnull
-    public static CopyPlan getCopyExportAction(@Nonnull String path) {
+    public static CopyPlan getCopyExportAction(@Nonnull String path,
+                                               @Nonnull QueryExecutionContext queryExecutionContext,
+                                               @Nonnull PreparedParams preparedParams) {
         // Export returns a single BYTES column (not nullable)
         Type rowType = Type.Record.fromFields(List.of(
                 Type.Record.Field.of(
                         Type.primitiveType(Type.TypeCode.BYTES, false),
                         java.util.Optional.of("DATA"),
                         java.util.Optional.of(0))));
-
-        return new CopyPlan(CopyPlan.CopyType.EXPORT, path, null, rowType, null);
+        return new CopyPlan(CopyPlan.CopyType.EXPORT, path, rowType, queryExecutionContext, preparedParams);
     }
 
     /**
      * Creates a COPY import plan.
      *
      * @param path the KeySpace path to import into (e.g., "/FRL/MY_DATABASE")
-     * @param parameterIdentifier the parameter identifier containing the data to import
+     *
      * @return a CopyPlan for importing data
      */
     @Nonnull
-    public static CopyPlan getCopyImportAction(@Nonnull String path, @Nonnull String parameterIdentifier) {
+    public static CopyPlan getCopyImportAction(@Nonnull String path,
+                                               @Nonnull QueryExecutionContext queryExecutionContext,
+                                               @Nonnull PreparedParams preparedParams) {
         // Import returns a single INT column (not nullable) for count
         Type rowType = Type.Record.fromFields(List.of(
                 Type.Record.Field.of(
@@ -70,6 +74,6 @@ public final class CopyPlanFactory {
                         java.util.Optional.of("COUNT"),
                         java.util.Optional.of(0))));
 
-        return new CopyPlan(CopyPlan.CopyType.IMPORT, path, parameterIdentifier, rowType, null);
+        return new CopyPlan(CopyPlan.CopyType.IMPORT, path, rowType, queryExecutionContext, preparedParams);
     }
 }

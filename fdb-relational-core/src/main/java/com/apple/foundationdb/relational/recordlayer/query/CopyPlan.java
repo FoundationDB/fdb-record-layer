@@ -47,12 +47,13 @@ import com.apple.foundationdb.relational.recordlayer.RecordContextTransaction;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerIterator;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerResultSet;
 import com.apple.foundationdb.relational.recordlayer.RelationalKeyspaceProvider;
+import com.google.common.collect.Iterators;
 import com.google.protobuf.ByteString;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.net.URI;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 
 /**
@@ -72,26 +73,25 @@ public class CopyPlan extends QueryPlan {
     @Nonnull
     private final String path;
 
-    @Nullable
-    private final String parameterIdentifier;
-
     @Nonnull
     private final Type rowType;
 
-    @Nullable
+    @Nonnull
     private final QueryExecutionContext queryExecutionContext;
+    @Nonnull
+    private final PreparedParams preparedParams;
 
     CopyPlan(@Nonnull CopyType copyType,
              @Nonnull String path,
-             @Nullable String parameterIdentifier,
              @Nonnull Type rowType,
-             @Nullable QueryExecutionContext queryExecutionContext) {
+             @Nonnull QueryExecutionContext queryExecutionContext,
+             @Nonnull PreparedParams preparedParams) {
         super("COPY " + copyType.name() + " " + path);
         this.copyType = copyType;
         this.path = path;
-        this.parameterIdentifier = parameterIdentifier;
         this.rowType = rowType;
         this.queryExecutionContext = queryExecutionContext;
+        this.preparedParams = preparedParams;
     }
 
     @Override
@@ -181,28 +181,18 @@ public class CopyPlan extends QueryPlan {
             final KeySpacePath keySpacePath = getPath();
 
             final FDBRecordContext fdbContext = getRecordContext(context);
-
-            // Extract ARRAY parameter using parameterIdentifier
-            if (parameterIdentifier == null) {
-                throw new RelationalException(
-                        "COPY import requires a parameter identifier",
-                        ErrorCode.INTERNAL_ERROR);
-            }
-
-            // Get the parameter value from the execution context
-            var literals = queryExecutionContext.getLiterals().asMap();
-            Object parameterValue = literals.get(parameterIdentifier);
+            Object parameterValue = preparedParams.nextUnnamedParamValue(); // TODO test with named parameters
 
             if (parameterValue == null) {
                 throw new RelationalException(
-                        "Parameter " + parameterIdentifier + " is null or not found",
+                        "Parameter is null or not found",
                         ErrorCode.INVALID_PARAMETER);
             }
 
             // Validate it's an array
             if (!(parameterValue instanceof List)) {
                 throw new RelationalException(
-                        "Parameter " + parameterIdentifier + " must be an ARRAY, got: " + parameterValue.getClass().getName(),
+                        "Parameter must be an ARRAY, got: " + parameterValue.getClass().getName(),
                         ErrorCode.INVALID_PARAMETER);
             }
 
@@ -244,14 +234,15 @@ public class CopyPlan extends QueryPlan {
             }
 
             // Build result with count
-            DataType.StructType structType = DataType.StructType.from("COPY_IMPORT", List.of(
-                    DataType.StructType.Field.from("COUNT", DataType.Primitives.INTEGER.type(), 0)), true);
+            DataType.StructType structType = DataType.StructType.from("COPY_IMPORT", List.of(), false);
             RelationalStructMetaData structMetaData = RelationalStructMetaData.of(structType);
 
             // Return result set with single row containing count
-            var iterator = Collections.singleton(new ArrayRow(importCount)).iterator();
-            return new IteratorResultSet(structMetaData, iterator, importCount);
-
+            // TODO this feels wrong, should it only import as you advance the result set?
+            //      I don't think it matters if coming straight from AbstractEmbeddedStatement since that always just
+            //      consumes the whole thing, but still seems like its not fitting in the abstraction
+            final Iterator<ArrayRow> results = Iterators.transform(dataArray.iterator(), data -> new ArrayRow());
+            return new IteratorResultSet(structMetaData, results, importCount);
         } catch (RelationalException e) {
             throw e;
         } catch (Exception e) {
@@ -273,14 +264,13 @@ public class CopyPlan extends QueryPlan {
         if (queryExecutionContext == this.queryExecutionContext) {
             return this;
         }
-        return new CopyPlan(copyType, path, parameterIdentifier, rowType, queryExecutionContext);
+        return new CopyPlan(copyType, path, rowType, queryExecutionContext, preparedParams);
     }
 
     @Nonnull
     @Override
     public String explain() {
-        return "CopyPlan(" + copyType + ", path=" + path +
-                (parameterIdentifier != null ? ", param=" + parameterIdentifier : "") + ")";
+        return "CopyPlan(" + copyType + ", path=" + path + ")";
     }
 
     @Nonnull
