@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceProt
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStructMetaData;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
@@ -131,9 +132,14 @@ public class CopyPlan extends QueryPlan {
             // Create KeySpacePathSerializer for serialization
             KeySpacePathSerializer serializer = new KeySpacePathSerializer(keySpacePath);
 
-            // Export all data from the path
+            ScanProperties scanProperties = ScanProperties.FORWARD_SCAN;
+            final Integer limit = context.getOptions().getOption(Options.Name.MAX_ROWS);
+            if (limit > 0 && limit < Integer.MAX_VALUE) {
+                scanProperties = scanProperties.with(executeProperties -> executeProperties.setReturnedRowLimit(limit));
+            }
+            // Export all data from the path (up to the requested limit)
             RecordCursor<DataInKeySpacePath> cursor =
-                    keySpacePath.exportAllData(fdbContext, null, ScanProperties.FORWARD_SCAN);
+                    keySpacePath.exportAllData(fdbContext, null, scanProperties);
 
             // Transform DataInKeySpacePath to Row with serialized bytes
             var iterator = RecordLayerIterator.create(cursor, data -> {
