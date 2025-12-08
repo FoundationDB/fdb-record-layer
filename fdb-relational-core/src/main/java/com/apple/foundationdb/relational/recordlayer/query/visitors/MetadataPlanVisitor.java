@@ -93,7 +93,10 @@ public final class MetadataPlanVisitor extends DelegatingVisitor<BaseVisitor> {
     @Override
     public QueryPlan visitCopyImportStatement(@Nonnull RelationalParser.CopyImportStatementContext ctx) {
         final var pathId = visitUid(ctx.path().uid());
+        // Extract parameter information for binding
+        final var paramCtx = ctx.preparedStatementParameter();
+        final String parameterIdentifier = paramCtx.QUESTION() != null ? null : paramCtx.NAMED_PARAMETER().getText().substring(1);
         final PreparedParams preparedParams = PreparedParams.copyOf(getDelegate().getPlanGenerationContext().getPreparedParams());
-        return CopyPlanFactory.getCopyImportAction(pathId.getName(), getDelegate().getPlanGenerationContext(), preparedParams);
+        return CopyPlanFactory.getCopyImportAction(pathId.getName(), getDelegate().getPlanGenerationContext(), preparedParams, parameterIdentifier);
     }
 }
