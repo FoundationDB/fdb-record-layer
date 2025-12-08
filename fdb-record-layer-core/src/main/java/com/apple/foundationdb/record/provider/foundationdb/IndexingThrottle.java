@@ -61,6 +61,13 @@ import java.util.stream.Collectors;
 public class IndexingThrottle {
 
     @Nonnull private static final Logger LOGGER = LoggerFactory.getLogger(IndexingThrottle.class);
+    @Nonnull private static final Set<Integer> lessenWorkCodes = new HashSet<>(Arrays.asList(
+            FDBError.TIMED_OUT.code(),
+            FDBError.TRANSACTION_TOO_OLD.code(),
+            FDBError.NOT_COMMITTED.code(),
+            FDBError.TRANSACTION_TIMED_OUT.code(),
+            FDBError.COMMIT_READ_INCOMPLETE.code(),
+            FDBError.TRANSACTION_TOO_LARGE.code()));
     @Nonnull private final IndexingCommon common;
     @Nonnull private final Booker booker;
     private final boolean isScrubber;
@@ -151,13 +158,6 @@ public class IndexingThrottle {
             if (ex == null) {
                 return false;
             }
-            final Set<Integer> lessenWorkCodes = new HashSet<>(Arrays.asList(
-                    FDBError.TIMED_OUT.code(),
-                    FDBError.TRANSACTION_TOO_OLD.code(),
-                    FDBError.NOT_COMMITTED.code(),
-                    FDBError.TRANSACTION_TIMED_OUT.code(),
-                    FDBError.COMMIT_READ_INCOMPLETE.code(),
-                    FDBError.TRANSACTION_TOO_LARGE.code()));
             return lessenWorkCodes.contains(ex.getCode());
         }
 
