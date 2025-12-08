@@ -130,7 +130,7 @@ public class CopyCommandTest {
             conn.commit();
 
             try (RelationalStatement stmt = conn.createStatement();
-                 RelationalResultSet rs = stmt.executeQuery("COPY \"" + sourcePath + "\"")) {
+                     RelationalResultSet rs = stmt.executeQuery("COPY \"" + sourcePath + "\"")) {
                 while (rs.next()) {
                     exportedData.add(rs.getBytes(1));
                 }
@@ -193,7 +193,7 @@ public class CopyCommandTest {
     @Test
     void exportWithRowLimit() throws Exception {
         // Test COPY export with Statement.setMaxRows() limiting (unquoted path)
-        final String pathId = "/TEST/" + UUID.randomUUID().toString().replace("-", "_");
+        final String pathId = "/TEST/" + UUID.randomUUID().toString().replace("-", "_").toUpperCase(Locale.ROOT);
         final KeySpace keySpace = RelationalKeyspaceProvider.instance().getKeySpace();
         final KeySpacePath testPath = KeySpaceUtils.toKeySpacePath(URI.create(pathId + "/1"), keySpace);
 
@@ -228,7 +228,6 @@ public class CopyCommandTest {
     private void writeTestData(@Nonnull RelationalConnection conn, @Nonnull KeySpacePath path, @Nonnull String remainderKey, @Nonnull String value) throws Exception {
         EmbeddedRelationalConnection embeddedConn = conn.unwrap(EmbeddedRelationalConnection.class);
         FDBRecordContext context = embeddedConn.getTransaction().unwrap(RecordContextTransaction.class).getContext();
-        System.out.println("Writing to " + context.getDatabase().getClusterFile() + " " + path + " " + path.toTuple(context));
         byte[] key = path.toSubspace(context).pack(Tuple.from(remainderKey));
         context.ensureActive().set(key, Tuple.from(value).pack());
     }
