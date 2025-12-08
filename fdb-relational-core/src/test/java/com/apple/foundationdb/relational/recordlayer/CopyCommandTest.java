@@ -152,14 +152,9 @@ public class CopyCommandTest {
     @ParameterizedTest
     @BooleanSource("namedParameter")
     void wrongParameter(boolean namedParameter) throws Exception {
-        // Test basic COPY import functionality with quoted paths (allows hyphens)
+        // Test if the wrong parameter is set
         final String sourcePath = "/TEST/" + UUID.randomUUID();
         final String destPath = "/TEST/" + UUID.randomUUID();
-        final KeySpace keySpace = RelationalKeyspaceProvider.instance().getKeySpace();
-        final KeySpacePath sourceTestPath = KeySpaceUtils.toKeySpacePath(URI.create(sourcePath + "/1"), keySpace);
-        final KeySpacePath destTestPath = KeySpaceUtils.toKeySpacePath(URI.create(destPath + "/1"), keySpace);
-
-        // Export from source (using quoted path)
         List<byte[]> exportedData = exportData(sourcePath, true);
 
         // Import to destination (using quoted path)
@@ -178,7 +173,6 @@ public class CopyCommandTest {
             }
         }
     }
-
 
     @Test
     void exportEmptyPath() throws Exception {
