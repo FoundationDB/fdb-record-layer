@@ -49,7 +49,7 @@ public class RecordRepairValidateRunner extends RecordRepair {
     private final AtomicBoolean earlyReturn;
 
     RecordRepairValidateRunner(@Nonnull final Builder config, boolean allowRepair) {
-        super(config);
+        super(config, allowRepair);
         this.allowRepair = allowRepair;
         this.maxResultsReturned = config.getMaxResultsReturned();
 
