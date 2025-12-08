@@ -928,7 +928,7 @@ public class HNSW {
                                     insertIntoLayers(transaction, storageTransform, quantizer, newPrimaryKey,
                                             transformedNewVector, nodeReference, lMax, insertionLayer))
                             .thenCompose(ignored ->
-                                    addToStatsIfNecessary(random.split(), transaction, currentAccessInfo, transformedNewVector));
+                                    addToStatsIfNecessary(random, transaction, currentAccessInfo, transformedNewVector));
                 }).thenCompose(ignored -> AsyncUtil.DONE);
     }
 
@@ -1212,7 +1212,8 @@ public class HNSW {
                                                 }
                                                 return ImmutableList.copyOf(searchResult);
                                             });
-                                })).thenApply(nodeReferencesWithDistances -> {
+                                }))
+                .thenApply(nodeReferencesWithDistances -> {
                     if (logger.isTraceEnabled()) {
                         logger.trace("end insert key={} at layer={}", newPrimaryKey, layer);
                     }
@@ -1567,9 +1568,7 @@ public class HNSW {
                                final int layer,
                                @Nonnull final Map<Tuple, AbstractNode<N>> nodeCache) {
         final Iterable<NodeReference> toBeFetched =
-                Iterables.filter(resolveNeighborReferences(initialNodeReferenceAndNodes, hopMode),
-                        nodeReference -> samplingPredicate.test(random,
-                                initialNodeReferenceAndNodes.size(), nodeReference));
+                resolveNeighborReferences(initialNodeReferenceAndNodes, random, hopMode, samplingPredicate);
         return fetchNeighborhoodReferences(storageAdapter, readTransaction, storageTransform, layer, toBeFetched,
                 nodeCache);
     }
@@ -1587,8 +1586,10 @@ public class HNSW {
      * @return a {@link CompletableFuture} which will complete with a set of {@link NodeReferenceWithDistance}
      */
     private <T extends NodeReferenceWithVector, N extends NodeReference> Set<NodeReference>
-            resolveNeighborReferences(@Nonnull final Iterable<NodeReferenceAndNode<T, N>> initialNodeReferenceAndNodes,
-                                      @Nonnull final HopMode hopMode) {
+            resolveNeighborReferences(@Nonnull final Collection<NodeReferenceAndNode<T, N>> initialNodeReferenceAndNodes,
+                                      @Nullable final SplittableRandom random,
+                                      @Nonnull final HopMode hopMode,
+                                      @Nonnull final CandidateSamplingPredicate samplingPredicate) {
         final ImmutableSet.Builder<NodeReference> resultBuilder = ImmutableSet.builder();
         final ImmutableMap.Builder<Tuple, NodeReferenceAndNode<T, N>> initialNodesMapBuilder = ImmutableMap.builder();
         for (final NodeReferenceAndNode<T, N> nodeReferenceAndNode : initialNodeReferenceAndNodes) {
@@ -1604,6 +1605,12 @@ public class HNSW {
         for (final NodeReferenceAndNode<T, N> nodeReferenceAndNode : initialNodeReferenceAndNodes) {
             for (final N neighbor : nodeReferenceAndNode.getNode().getNeighbors()) {
                 final Tuple neighborPrimaryKey = neighbor.getPrimaryKey();
+
+                if (!samplingPredicate.test(random,
+                        initialNodeReferenceAndNodes.size(), neighbor)) {
+                    continue;
+                }
+
                 @Nullable final NodeReferenceAndNode<T, N> initialNode = initialNodesMap.get(neighborPrimaryKey);
                 if (initialNode != null) {
                     //
@@ -1703,7 +1710,7 @@ public class HNSW {
         final SplittableRandom random = random(primaryKey);
         final int topLayer = topLayer(primaryKey);
         if (logger.isTraceEnabled()) {
-            logger.trace("new node with key={} selected to be deleted form layer={}", primaryKey, topLayer);
+            logger.trace("new node with key={} to be deleted form layer={}", primaryKey, topLayer);
         }
 
         return StorageAdapter.fetchAccessInfo(getConfig(), transaction, getSubspace(), getOnReadListener())
@@ -1772,15 +1779,15 @@ public class HNSW {
                                                                          @Nonnull final SplittableRandom random,
                                                                          @Nonnull final Tuple primaryKey,
                                                                          final int topLayer) {
-        if (logger.isTraceEnabled()) {
-            logger.trace("nearest entry point for deleteFromLayers at topLayer={} is at key={}", topLayer, primaryKey);
+        if (logger.isDebugEnabled()) {
+            logger.debug("nearest entry point for deleteFromLayers at topLayer={} is at key={}", topLayer, primaryKey);
         }
 
         return MoreAsyncUtil.forEach(() -> IntStream.rangeClosed(0, topLayer).iterator(),
                 layer -> {
                     final StorageAdapter<? extends NodeReference> storageAdapter = getStorageAdapterForLayer(layer);
-                    return deleteFromLayer(storageAdapter, transaction, storageTransform, quantizer, random, layer,
-                            primaryKey);
+                    return deleteFromLayer(storageAdapter, transaction, storageTransform, quantizer, random.split(),
+                            layer, primaryKey);
                 },
                 getConfig().getMaxNumConcurrentNeighborhoodFetches(),
                 executor);
@@ -1812,8 +1819,8 @@ public class HNSW {
                             @Nonnull final SplittableRandom random,
                             final int layer,
                             @Nonnull final Tuple toBeDeletedPrimaryKey) {
-        if (logger.isTraceEnabled()) {
-            logger.trace("begin delete key={} at layer={}", toBeDeletedPrimaryKey, layer);
+        if (logger.isDebugEnabled()) {
+            logger.debug("begin delete key={} at layer={}", toBeDeletedPrimaryKey, layer);
         }
         final Estimator estimator = quantizer.estimator();
         final Map<Tuple, AbstractNode<N>> nodeCache = Maps.newConcurrentMap();
@@ -1836,13 +1843,43 @@ public class HNSW {
                             .thenApply(candidates -> {
                                 final ImmutableList.Builder<NodeReferenceAndNode<NodeReferenceWithVector, N>> filteredCandidatesBuilder =
                                         ImmutableList.builder();
-                                for (final NodeReferenceAndNode<NodeReferenceWithVector, N> neighbor : candidates) {
+                                for (final NodeReferenceAndNode<NodeReferenceWithVector, N> candidate : candidates) {
                                     // filter out neighbors that happen to be the node we are trying to delete
-                                    if (!neighbor.getNodeReference().getPrimaryKey().equals(toBeDeletedPrimaryKey)) {
-                                        filteredCandidatesBuilder.add(neighbor);
+                                    if (!candidate.getNodeReference().getPrimaryKey().equals(toBeDeletedPrimaryKey)) {
+                                        filteredCandidatesBuilder.add(candidate);
                                     }
                                 }
                                 return filteredCandidatesBuilder.build();
+                            })
+                            .thenApply(candidates -> {
+                                if (logger.isDebugEnabled()) {
+                                    final ImmutableList.Builder<String> candidateStringsBuilder = ImmutableList.builder();
+                                    for (final NodeReferenceAndNode<NodeReferenceWithVector, N> candidate : candidates) {
+                                        candidateStringsBuilder.add(candidate.getNode().getPrimaryKey().toString());
+                                    }
+                                    logger.debug("resolved candidates={}", String.join(",",
+                                            candidateStringsBuilder.build()));
+                                }
+                                return candidates;
+                            })
+                            .thenApply(candidates -> {
+                                for (final NodeReferenceAndNode<NodeReferenceWithVector, N> candidate : candidates) {
+                                    final AbstractNode<N> neighbors = candidate.getNode();
+                                    for (final N neighborOfCandidate : neighbors.getNeighbors()) {
+                                        if (neighborOfCandidate.getPrimaryKey().equals(toBeDeletedPrimaryKey)) {
+                                            //
+                                            // Make sure the neighbor pointing to the node-to-be-deleted is deleted as
+                                            // well.
+                                            //
+                                            candidateChangeSetMap.put(neighbors.getPrimaryKey(),
+                                                    new DeleteNeighborsChangeSet<>(
+                                                            new BaseNeighborsChangeSet<>(neighbors.getNeighbors()),
+                                                            ImmutableList.of(toBeDeletedPrimaryKey)));
+                                            break;
+                                        }
+                                    }
+                                }
+                                return candidates;
                             })
                             .thenCompose(candidates ->
                                     forEach(toBeDeletedNode.getNeighbors(), // for each direct neighbor
@@ -1915,8 +1952,8 @@ public class HNSW {
                                         layer);
                             });
                 }).thenApply(result -> {
-                    if (logger.isTraceEnabled()) {
-                        logger.trace("end delete key={} at layer={}", toBeDeletedPrimaryKey, layer);
+                    if (logger.isDebugEnabled()) {
+                        logger.debug("end delete key={} at layer={}", toBeDeletedPrimaryKey, layer);
                     }
                     return result;
                 });
@@ -1938,6 +1975,10 @@ public class HNSW {
         return fetchNodeIfNotCached(storageAdapter, transaction,
                 storageTransform, layer, neighborReference, nodeCache)
                 .thenCompose(neighborNode -> {
+                    if (neighborNode == null) {
+                        // node could not be fetched; maybe it was deleted already -> ignore
+                        return AsyncUtil.DONE;
+                    }
                     final ImmutableList.Builder<NodeReferenceWithDistance> candidatesReferencesBuilder =
                             ImmutableList.builder();
                     final Transformed<RealVector> neighborVector = storageAdapter.getVector(neighborReference, neighborNode);
@@ -1972,6 +2013,18 @@ public class HNSW {
                                      final Map<Tuple, AbstractNode<N>> nodeCache) {
         return selectCandidates(storageAdapter, transaction, storageTransform, estimator, candidates,
                 layer, getConfig().getM(), nodeCache)
+                .thenApply(selectedCandidates -> {
+                    if (logger.isDebugEnabled()) {
+                        final ImmutableList.Builder<String> candidateStringsBuilder = ImmutableList.builder();
+                        for (final NodeReferenceAndNode<NodeReferenceWithDistance, N> candidate : selectedCandidates) {
+                            candidateStringsBuilder.add(candidate.getNode().getPrimaryKey().toString());
+                        }
+                        logger.debug("selected for neighbor={}, candidates={}",
+                                neighborReference.getPrimaryKey(),
+                                String.join(",", candidateStringsBuilder.build()));
+                    }
+                    return selectedCandidates;
+                })
                 .thenCompose(selectedCandidates -> {
                     // create change sets for each selected neighbor and insert new node into them
                     for (final NodeReferenceAndNode<NodeReferenceWithDistance, N> selectedCandidate : selectedCandidates) {
