@@ -84,24 +84,17 @@ public class TypeRepository {
     private final Map<String, EnumDescriptor> enumDescriptorMapShort = new LinkedHashMap<>();
 
     /**
-     * BiMap storing nullable types and their protobuf names.
-     * Only types with isNullable() = true are stored here.
+     * BiMap storing types and their protobuf names.
+     * For non-nullable types, their nullable variants are stored here.
      */
     @Nonnull
     private final BiMap<Type, String> nullableTypeToNameMap;
-
-    /**
-     * BiMap storing non-nullable types and their protobuf names.
-     * Only types with isNullable() = false are stored here.
-     */
-    @Nonnull
-    private final BiMap<Type, String> nonNullableTypeToNameMap;
 
     @Nonnull
     public static TypeRepository empty() {
         FileDescriptorSet.Builder resultBuilder = FileDescriptorSet.newBuilder();
         try {
-            return new TypeRepository(resultBuilder.build(), HashBiMap.create(), HashBiMap.create());
+            return new TypeRepository(resultBuilder.build(), HashBiMap.create());
         } catch (final DescriptorValidationException e) {
             throw new IllegalStateException(e);
         }
@@ -133,7 +126,7 @@ public class TypeRepository {
 
     @Nonnull
     public static TypeRepository parseFrom(@Nonnull final byte[] schemaDescBuf) throws DescriptorValidationException, IOException {
-        return new TypeRepository(FileDescriptorSet.parseFrom(schemaDescBuf), HashBiMap.create(), HashBiMap.create());
+        return new TypeRepository(FileDescriptorSet.parseFrom(schemaDescBuf), HashBiMap.create());
     }
 
     /**
@@ -170,12 +163,8 @@ public class TypeRepository {
      */
     @Nonnull
     public String getProtoTypeName(@Nonnull final Type type) {
-        final String typeName;
-        if (type.isNullable()) {
-            typeName = nullableTypeToNameMap.get(type);
-        } else {
-            typeName = nonNullableTypeToNameMap.get(type);
-        }
+        final Type canonicalType = canonicalizeNullability(type);
+        final String typeName = nullableTypeToNameMap.get(canonicalType);
         return Preconditions.checkNotNull(typeName, "Type not found in repository: %s", type);
     }
 
@@ -286,6 +275,23 @@ public class TypeRepository {
     }
 
     /**
+     * Canonicalizes the nullability of a type according to these rules:
+     * - Relation and None types: return non-nullable variant
+     * - Everything else: return nullable variant
+     *
+     * @param type the type to canonicalize
+     * @return the canonicalized type with appropriate nullability
+     */
+    @Nonnull
+    private static Type canonicalizeNullability(@Nonnull final Type type) {
+        if (type.getTypeCode() == Type.TypeCode.RELATION || type.getTypeCode() == Type.TypeCode.NONE) {
+            return type.notNullable();
+        } else {
+            return type.withNullability(true);
+        }
+    }
+
+    /**
      * Returns the internal file descriptor set of this schema.
      *
      * @return the file descriptor set
@@ -318,8 +324,7 @@ public class TypeRepository {
     }
 
     private TypeRepository(@Nonnull final FileDescriptorSet fileDescSet,
-                           @Nonnull final BiMap<Type, String> nullableTypeToNameMap,
-                           @Nonnull final BiMap<Type, String> nonNullableTypeToNameMap) throws DescriptorValidationException {
+                           @Nonnull final BiMap<Type, String> nullableTypeToNameMap) throws DescriptorValidationException {
         this.fileDescSet = fileDescSet;
         Map<String, FileDescriptor> fileDescMap = init(fileDescSet);
 
@@ -342,7 +347,6 @@ public class TypeRepository {
         }
 
         this.nullableTypeToNameMap = ImmutableBiMap.copyOf(nullableTypeToNameMap);
-        this.nonNullableTypeToNameMap = ImmutableBiMap.copyOf(nonNullableTypeToNameMap);
     }
 
     @SuppressWarnings("java:S3776")
@@ -452,14 +456,12 @@ public class TypeRepository {
         private @Nonnull final FileDescriptorProto.Builder fileDescProtoBuilder;
         private @Nonnull final FileDescriptorSet.Builder fileDescSetBuilder;
         private @Nonnull final BiMap<Type, String> nullableTypeToNameMap;
-        private @Nonnull final BiMap<Type, String> nonNullableTypeToNameMap;
 
         private Builder() {
             fileDescProtoBuilder = FileDescriptorProto.newBuilder();
             fileDescProtoBuilder.addAllDependency(DEPENDENCIES.stream().map(FileDescriptor::getFullName).collect(Collectors.toList()));
             fileDescSetBuilder = FileDescriptorSet.newBuilder();
             nullableTypeToNameMap = HashBiMap.create();
-            nonNullableTypeToNameMap = HashBiMap.create();
         }
 
         @Nonnull
@@ -468,7 +470,7 @@ public class TypeRepository {
             resultBuilder.addFile(fileDescProtoBuilder.build());
             resultBuilder.mergeFrom(this.fileDescSetBuilder.build());
             try {
-                return new TypeRepository(resultBuilder.build(), nullableTypeToNameMap, nonNullableTypeToNameMap);
+                return new TypeRepository(resultBuilder.build(), nullableTypeToNameMap);
             } catch (final DescriptorValidationException dve) {
                 throw new IllegalStateException("validation should not fail", dve);
             }
@@ -496,30 +498,8 @@ public class TypeRepository {
                 return this;
             }
 
-            // Type.None is special - it can only be non-nullable and has no nullable variant
-            if (type.getTypeCode() == Type.TypeCode.NONE) {
-                if (!nonNullableTypeToNameMap.containsKey(type)) {
-                    type.defineProtoType(this);
-                }
-                return this;
-            }
-
-
-            final BiMap<Type, String> targetMap = type.isNullable() ? nullableTypeToNameMap : nonNullableTypeToNameMap;
-            final BiMap<Type, String> oppositeMap = type.isNullable() ? nonNullableTypeToNameMap : nullableTypeToNameMap;
-
-            if (!targetMap.containsKey(type)) {
-                // Check if the opposite nullability variant exists and get its protobuf name
-                final Type oppositeNullabilityType = type.isNullable() ? type.notNullable() : type.withNullability(true);
-                String existingProtoName = oppositeMap.get(oppositeNullabilityType);
-
-                if (existingProtoName != null) {
-                    // Reuse the same protobuf name for the type with different nullability
-                    targetMap.put(type, existingProtoName);
-                    return this;
-                }
-
-                // Standard case: define the protobuf type
+            final Type canonicalType = canonicalizeNullability(type);
+            if (!nullableTypeToNameMap.containsKey(canonicalType)) {
                 type.defineProtoType(this);
             }
             return this;
@@ -527,11 +507,8 @@ public class TypeRepository {
 
         @Nonnull
         public Optional<String> getTypeName(@Nonnull final Type type) {
-            if (type.isNullable()) {
-                return Optional.ofNullable(nullableTypeToNameMap.get(type));
-            } else {
-                return Optional.ofNullable(nonNullableTypeToNameMap.get(type));
-            }
+            final Type canonicalType = canonicalizeNullability(type);
+            return Optional.ofNullable(nullableTypeToNameMap.get(canonicalType));
         }
 
         @Nonnull
@@ -548,10 +525,9 @@ public class TypeRepository {
 
         @Nonnull
         public Builder registerTypeToTypeNameMapping(@Nonnull final Type type, @Nonnull final String protoTypeName) {
-            final BiMap<Type, String> targetMap = type.isNullable() ? nullableTypeToNameMap : nonNullableTypeToNameMap;
-            final BiMap<Type, String> oppositeMap = type.isNullable() ? nonNullableTypeToNameMap : nullableTypeToNameMap;
+            final Type canonicalType = canonicalizeNullability(type);
+            final String existingTypeName = nullableTypeToNameMap.get(canonicalType);
 
-            final String existingTypeName = targetMap.get(type);
             if (existingTypeName != null) {
                 // Type already registered, verify same protobuf name
                 Verify.verify(existingTypeName.equals(protoTypeName),
@@ -560,25 +536,15 @@ public class TypeRepository {
                 return this;
             }
 
-            // Check if the opposite nullability variant uses this protobuf name
-            final Type oppositeNullabilityType = type.isNullable() ? type.notNullable() : type.withNullability(true);
-            final String oppositeExistingName = oppositeMap.get(oppositeNullabilityType);
-            if (oppositeExistingName != null && oppositeExistingName.equals(protoTypeName)) {
-                // Both nullable and non-nullable variants can share the same protobuf type name
-                targetMap.put(type, protoTypeName);
-                return this;
-            }
-
-            // Check if this protobuf name is already used by a different structural type
-            final Type existingTypeForName = targetMap.inverse().get(protoTypeName);
-            if (existingTypeForName != null && !existingTypeForName.equals(type)) {
+            // Check if this protobuf name is already used by a different type
+            final Type existingTypeForName = nullableTypeToNameMap.inverse().get(protoTypeName);
+            if (existingTypeForName != null && !existingTypeForName.equals(canonicalType)) {
                 throw new IllegalArgumentException(String.format(
                         "Name %s is already registered with a different type %s, cannot register with type %s",
                         protoTypeName, existingTypeForName, type));
             }
 
-            // Standard case: new type with new name (or same name as opposite nullability)
-            targetMap.put(type, protoTypeName);
+            nullableTypeToNameMap.put(canonicalType, protoTypeName);
             return this;
         }
 
