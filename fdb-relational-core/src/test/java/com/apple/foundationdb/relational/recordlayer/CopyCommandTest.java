@@ -31,10 +31,12 @@ import com.apple.foundationdb.relational.api.exceptions.ContextualSQLException;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.params.ParameterizedTest;
 
 import javax.annotation.Nonnull;
 import java.net.URI;
@@ -69,6 +71,7 @@ public class CopyCommandTest {
         final KeySpace keySpace = RelationalKeyspaceProvider.instance().getKeySpace();
         final KeySpacePath testPath = KeySpaceUtils.toKeySpacePath(URI.create(pathId + "/1"), keySpace);
 
+
         // Export the data using COPY command (unquoted path)
         try (RelationalConnection conn = DriverManager.getConnection("jdbc:embed:/__SYS").unwrap(RelationalConnection.class)) {
             conn.setSchema("CATALOG");
@@ -88,25 +91,13 @@ public class CopyCommandTest {
             verifyTestData(conn, testPath, "key1", "value1");
             verifyTestData(conn, testPath, "key2", "value2");
 
-            try (RelationalStatement stmt = conn.createStatement();
-                     RelationalResultSet rs = stmt.executeQuery("COPY " + pathId)) {
-
-                // Verify we got data back
-                List<byte[]> exportedData = new ArrayList<>();
-                while (rs.next()) {
-                    byte[] data = rs.getBytes(1);
-                    assertNotNull(data);
-                    exportedData.add(data);
-                }
-
-                // Should have exported 2 records
-                assertEquals(2, exportedData.size());
-            }
+            assertEquals(2, exportData(pathId, false).size());
         }
     }
 
-    @Test
-    void basicImportWithinCluster() throws Exception {
+    @ParameterizedTest
+    @BooleanSource("namedParameter")
+    void basicImportWithinCluster(boolean namedParameter) throws Exception {
         // Test basic COPY import functionality with quoted paths (allows hyphens)
         final String sourcePath = "/TEST/" + UUID.randomUUID();
         final String destPath = "/TEST/" + UUID.randomUUID();
@@ -115,7 +106,7 @@ public class CopyCommandTest {
         final KeySpacePath destTestPath = KeySpaceUtils.toKeySpacePath(URI.create(destPath + "/1"), keySpace);
 
         // Export from source (using quoted path)
-        List<byte[]> exportedData = new ArrayList<>();
+        List<byte[]> exportedData;
         try (RelationalConnection conn = DriverManager.getConnection("jdbc:embed:/__SYS").unwrap(RelationalConnection.class)) {
             conn.setSchema("CATALOG");
             conn.setAutoCommit(false);
@@ -129,19 +120,19 @@ public class CopyCommandTest {
             writeTestData(conn, sourceTestPath, "key2", "value2");
             conn.commit();
 
-            try (RelationalStatement stmt = conn.createStatement();
-                     RelationalResultSet rs = stmt.executeQuery("COPY \"" + sourcePath + "\"")) {
-                while (rs.next()) {
-                    exportedData.add(rs.getBytes(1));
-                }
-            }
+            exportedData = exportData(sourcePath, true);
         }
 
         // Import to destination (using quoted path)
         try (RelationalConnection conn = DriverManager.getConnection("jdbc:embed:/__SYS").unwrap(RelationalConnection.class)) {
             conn.setSchema("CATALOG");
-            try (RelationalPreparedStatement stmt = conn.prepareStatement("COPY \"" + destPath + "\" FROM ?")) {
-                stmt.setObject(1, exportedData);
+            try (RelationalPreparedStatement stmt = conn.prepareStatement("COPY \"" + destPath + "\" FROM " + (namedParameter ? "?data" : "?"))) {
+                if (namedParameter) {
+                    stmt.setObject("data", exportedData);
+                } else {
+                    stmt.setObject(1, exportedData);
+                }
+
                 assertEquals(2, stmt.executeUpdate(), "Should have imported 2 records");
             }
         }
@@ -159,6 +150,37 @@ public class CopyCommandTest {
             verifyTestData(conn, destTestPath, "key2", "value2");
         }
     }
+
+    @ParameterizedTest
+    @BooleanSource("namedParameter")
+    void wrongParameter(boolean namedParameter) throws Exception {
+        // Test basic COPY import functionality with quoted paths (allows hyphens)
+        final String sourcePath = "/TEST/" + UUID.randomUUID();
+        final String destPath = "/TEST/" + UUID.randomUUID();
+        final KeySpace keySpace = RelationalKeyspaceProvider.instance().getKeySpace();
+        final KeySpacePath sourceTestPath = KeySpaceUtils.toKeySpacePath(URI.create(sourcePath + "/1"), keySpace);
+        final KeySpacePath destTestPath = KeySpaceUtils.toKeySpacePath(URI.create(destPath + "/1"), keySpace);
+
+        // Export from source (using quoted path)
+        List<byte[]> exportedData = exportData(sourcePath, true);
+
+        // Import to destination (using quoted path)
+        try (RelationalConnection conn = DriverManager.getConnection("jdbc:embed:/__SYS").unwrap(RelationalConnection.class)) {
+            conn.setSchema("CATALOG");
+            try (RelationalPreparedStatement stmt = conn.prepareStatement("COPY \"" + destPath + "\" FROM " + (namedParameter ? "?data" : "?"))) {
+                // set the wrong one
+                if (namedParameter) {
+                    stmt.setObject(1, exportedData);
+                } else {
+                    stmt.setObject("data", exportedData);
+                }
+
+                final ContextualSQLException exception = assertThrows(ContextualSQLException.class, stmt::executeUpdate);
+                assertEquals(ErrorCode.UNDEFINED_PARAMETER, ((RelationalException)exception.getCause()).getErrorCode());
+            }
+        }
+    }
+
 
     @Test
     void exportEmptyPath() throws Exception {
@@ -242,26 +264,12 @@ public class CopyCommandTest {
         assertEquals(Tuple.from(expectedValue), actualValue);
     }
 
-    private List<byte[]> exportData(String path) throws SQLException {
+    private List<byte[]> exportData(String path, boolean quoted) throws SQLException {
         List<byte[]> exportedData = new ArrayList<>();
         try (RelationalConnection conn = DriverManager.getConnection("jdbc:embed:/__SYS").unwrap(RelationalConnection.class)) {
             conn.setSchema("CATALOG");
             try (RelationalStatement stmt = conn.createStatement();
-                 RelationalResultSet rs = stmt.executeQuery("COPY " + path)) {
-                while (rs.next()) {
-                    exportedData.add(rs.getBytes(1));
-                }
-            }
-        }
-        return exportedData;
-    }
-
-    private List<byte[]> exportDataQuoted(String path) throws SQLException {
-        List<byte[]> exportedData = new ArrayList<>();
-        try (RelationalConnection conn = DriverManager.getConnection("jdbc:embed:/__SYS").unwrap(RelationalConnection.class)) {
-            conn.setSchema("CATALOG");
-            try (RelationalStatement stmt = conn.createStatement();
-                 RelationalResultSet rs = stmt.executeQuery("COPY \"" + path + "\"")) {
+                     RelationalResultSet rs = stmt.executeQuery("COPY " + (quoted ? "\"" + path + "\"" : path))) {
                 while (rs.next()) {
                     exportedData.add(rs.getBytes(1));
                 }

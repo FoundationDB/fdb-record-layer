@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.List;
 
 /**
@@ -53,7 +54,7 @@ public final class CopyPlanFactory {
                         Type.primitiveType(Type.TypeCode.BYTES, false),
                         java.util.Optional.of("DATA"),
                         java.util.Optional.of(0))));
-        return new CopyPlan(CopyPlan.CopyType.EXPORT, path, rowType, queryExecutionContext, preparedParams);
+        return new CopyPlan(CopyPlan.CopyType.EXPORT, path, rowType, queryExecutionContext, preparedParams, null);
     }
 
     /**
@@ -66,7 +67,8 @@ public final class CopyPlanFactory {
     @Nonnull
     public static CopyPlan getCopyImportAction(@Nonnull String path,
                                                @Nonnull QueryExecutionContext queryExecutionContext,
-                                               @Nonnull PreparedParams preparedParams) {
+                                               @Nonnull PreparedParams preparedParams,
+                                               @Nullable String parameterIdentifier) {
         // Import returns a single INT column (not nullable) for count
         Type rowType = Type.Record.fromFields(List.of(
                 Type.Record.Field.of(
@@ -74,6 +76,6 @@ public final class CopyPlanFactory {
                         java.util.Optional.of("COUNT"),
                         java.util.Optional.of(0))));
 
-        return new CopyPlan(CopyPlan.CopyType.IMPORT, path, rowType, queryExecutionContext, preparedParams);
+        return new CopyPlan(CopyPlan.CopyType.IMPORT, path, rowType, queryExecutionContext, preparedParams, parameterIdentifier);
     }
 }

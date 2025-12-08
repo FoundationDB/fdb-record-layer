@@ -52,6 +52,7 @@ import com.google.common.collect.Iterators;
 import com.google.protobuf.ByteString;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.net.URI;
 import java.util.Collections;
 import java.util.Iterator;
@@ -81,18 +82,22 @@ public class CopyPlan extends QueryPlan {
     private final QueryExecutionContext queryExecutionContext;
     @Nonnull
     private final PreparedParams preparedParams;
+    @Nullable
+    private final String parameterIdentifier;
 
     CopyPlan(@Nonnull CopyType copyType,
              @Nonnull String path,
              @Nonnull Type rowType,
              @Nonnull QueryExecutionContext queryExecutionContext,
-             @Nonnull PreparedParams preparedParams) {
+             @Nonnull PreparedParams preparedParams,
+             @Nullable String parameterIdentifier) {
         super("COPY " + copyType.name() + " " + path);
         this.copyType = copyType;
         this.path = path;
         this.rowType = rowType;
         this.queryExecutionContext = queryExecutionContext;
         this.preparedParams = preparedParams;
+        this.parameterIdentifier = parameterIdentifier;
     }
 
     @Override
@@ -187,7 +192,12 @@ public class CopyPlan extends QueryPlan {
             final KeySpacePath keySpacePath = getPath();
 
             final FDBRecordContext fdbContext = getRecordContext(context);
-            Object parameterValue = preparedParams.nextUnnamedParamValue(); // TODO test with named parameters
+            Object parameterValue;
+            if (parameterIdentifier == null) {
+                parameterValue = preparedParams.nextUnnamedParamValue();
+            } else {
+                parameterValue = preparedParams.namedParamValue(parameterIdentifier);
+            }
 
             if (parameterValue == null) {
                 throw new RelationalException(
@@ -249,7 +259,7 @@ public class CopyPlan extends QueryPlan {
             //      consumes the whole thing, but still seems like its not fitting in the abstraction
             final Iterator<ArrayRow> results = Iterators.transform(dataArray.iterator(), data -> new ArrayRow());
             return new IteratorResultSet(structMetaData, results, importCount);
-        } catch (RelationalException e) {
+        } catch (RelationalException | UncheckedRelationalException e) {
             throw e;
         } catch (Exception e) {
             throw new RelationalException("Failed to execute COPY import",
@@ -270,7 +280,7 @@ public class CopyPlan extends QueryPlan {
         if (queryExecutionContext == this.queryExecutionContext) {
             return this;
         }
-        return new CopyPlan(copyType, path, rowType, queryExecutionContext, preparedParams);
+        return new CopyPlan(copyType, path, rowType, queryExecutionContext, preparedParams, parameterIdentifier);
     }
 
     @Nonnull
