@@ -43,8 +43,10 @@ import java.net.URI;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -61,44 +63,35 @@ public class CopyCommandTest {
     @RegisterExtension
     public static final EmbeddedRelationalExtension relationalExtension = new EmbeddedRelationalExtension();
 
-    @Test
-    void basicExportWithinCluster() throws Exception {
-        // Test basic COPY export functionality with unquoted path
-        final String pathId = "/TEST/" + UUID.randomUUID().toString().toUpperCase(Locale.ROOT).replace("-", "_");
+    @ParameterizedTest
+    @BooleanSource("quoted")
+    void basicExportWithinCluster(boolean quoted) throws Exception {
+        // Test basic COPY export functionality
+        final String pathId = "/TEST/" + uuidForPath(quoted);
         // Use the shared KeySpace from RelationalKeyspaceProvider
         final KeySpace keySpace = RelationalKeyspaceProvider.instance().getKeySpace();
         final KeySpacePath testPath = KeySpaceUtils.toKeySpacePath(URI.create(pathId + "/1"), keySpace);
 
-
-        // Export the data using COPY command (unquoted path)
+        // Export the data using COPY command
         try (RelationalConnection conn = DriverManager.getConnection("jdbc:embed:/__SYS").unwrap(RelationalConnection.class)) {
             conn.setSchema("CATALOG");
-            conn.setAutoCommit(false);
-
-            // Start a transaction explicitly
-            EmbeddedRelationalConnection embeddedConn = conn.unwrap(EmbeddedRelationalConnection.class);
-            embeddedConn.createNewTransaction();
 
             // Write some test data using the connection's FDB context
-            writeTestData(conn, testPath, "key1", "value1");
-            writeTestData(conn, testPath, "key2", "value2");
-            conn.commit();
+            writeTestData(conn, testPath, Map.of("key1", "value1", "key2", "value2"));
 
-            embeddedConn.createNewTransaction();
+            // sanity check that the data was written and committed
+            verifyTestData(conn, testPath, Map.of("key1", "value1", "key2", "value2"));
 
-            verifyTestData(conn, testPath, "key1", "value1");
-            verifyTestData(conn, testPath, "key2", "value2");
-
-            assertEquals(2, exportData(pathId, false).size());
+            assertEquals(2, exportData(pathId, quoted).size());
         }
     }
 
     @ParameterizedTest
-    @BooleanSource("namedParameter")
-    void basicImportWithinCluster(boolean namedParameter) throws Exception {
+    @BooleanSource("namedAndQuoted")
+    void basicImportWithinCluster(boolean namedAndQuoted) throws Exception {
         // Test basic COPY import functionality with quoted paths (allows hyphens)
-        final String sourcePath = "/TEST/" + UUID.randomUUID();
-        final String destPath = "/TEST/" + UUID.randomUUID();
+        final String sourcePath = "/TEST/" + uuidForPath(namedAndQuoted);
+        final String destPath = "/TEST/" + uuidForPath(namedAndQuoted);
         final KeySpace keySpace = RelationalKeyspaceProvider.instance().getKeySpace();
         final KeySpacePath sourceTestPath = KeySpaceUtils.toKeySpacePath(URI.create(sourcePath + "/1"), keySpace);
         final KeySpacePath destTestPath = KeySpaceUtils.toKeySpacePath(URI.create(destPath + "/1"), keySpace);
@@ -107,25 +100,21 @@ public class CopyCommandTest {
         List<byte[]> exportedData;
         try (RelationalConnection conn = DriverManager.getConnection("jdbc:embed:/__SYS").unwrap(RelationalConnection.class)) {
             conn.setSchema("CATALOG");
-            conn.setAutoCommit(false);
-
-            // Start a transaction explicitly
-            EmbeddedRelationalConnection embeddedConn = conn.unwrap(EmbeddedRelationalConnection.class);
-            embeddedConn.createNewTransaction();
 
             // Write test data to source
-            writeTestData(conn, sourceTestPath, "key1", "value1");
-            writeTestData(conn, sourceTestPath, "key2", "value2");
-            conn.commit();
+            writeTestData(conn, sourceTestPath, Map.of("key1", "value1", "key2", "value2"));
 
-            exportedData = exportData(sourcePath, true);
+            exportedData = exportData(sourcePath, namedAndQuoted);
+
+            // Clear the source data to ensure import is working correctly
+            clearTestData(conn, sourceTestPath);
         }
 
         // Import to destination (using quoted path)
         try (RelationalConnection conn = DriverManager.getConnection("jdbc:embed:/__SYS").unwrap(RelationalConnection.class)) {
             conn.setSchema("CATALOG");
-            try (RelationalPreparedStatement stmt = conn.prepareStatement("COPY \"" + destPath + "\" FROM " + (namedParameter ? "?data" : "?"))) {
-                if (namedParameter) {
+            try (RelationalPreparedStatement stmt = conn.prepareStatement("COPY " + maybeQuote(destPath, namedAndQuoted) + " FROM " + (namedAndQuoted ? "?data" : "?"))) {
+                if (namedAndQuoted) {
                     stmt.setObject("data", exportedData);
                 } else {
                     stmt.setObject(1, exportedData);
@@ -138,14 +127,8 @@ public class CopyCommandTest {
         // Verify the data was imported
         try (RelationalConnection conn = DriverManager.getConnection("jdbc:embed:/__SYS").unwrap(RelationalConnection.class)) {
             conn.setSchema("CATALOG");
-            conn.setAutoCommit(false);
 
-            // Start a transaction explicitly
-            EmbeddedRelationalConnection embeddedConn = conn.unwrap(EmbeddedRelationalConnection.class);
-            embeddedConn.createNewTransaction();
-
-            verifyTestData(conn, destTestPath, "key1", "value1");
-            verifyTestData(conn, destTestPath, "key2", "value2");
+            verifyTestData(conn, destTestPath, Map.of("key1", "value1", "key2", "value2"));
         }
     }
 
@@ -214,17 +197,13 @@ public class CopyCommandTest {
         // Export with max rows limit
         try (RelationalConnection conn = DriverManager.getConnection("jdbc:embed:/__SYS").unwrap(RelationalConnection.class)) {
             conn.setSchema("CATALOG");
-            conn.setAutoCommit(false);
-
-            // Start a transaction explicitly
-            EmbeddedRelationalConnection embeddedConn = conn.unwrap(EmbeddedRelationalConnection.class);
-            embeddedConn.createNewTransaction();
 
             // Write 10 records
+            Map<String, String> data = new LinkedHashMap<>();
             for (int i = 0; i < 10; i++) {
-                writeTestData(conn, testPath, "key" + i, "value" + i);
+                data.put("key" + i, "value" + i);
             }
-            conn.commit();
+            writeTestData(conn, testPath, data);
 
             try (RelationalStatement stmt = conn.createStatement()) {
                 stmt.setMaxRows(5);
@@ -239,21 +218,57 @@ public class CopyCommandTest {
         }
     }
 
-    private void writeTestData(@Nonnull RelationalConnection conn, @Nonnull KeySpacePath path, @Nonnull String remainderKey, @Nonnull String value) throws Exception {
-        EmbeddedRelationalConnection embeddedConn = conn.unwrap(EmbeddedRelationalConnection.class);
-        FDBRecordContext context = embeddedConn.getTransaction().unwrap(RecordContextTransaction.class).getContext();
-        byte[] key = path.toSubspace(context).pack(Tuple.from(remainderKey));
-        context.ensureActive().set(key, Tuple.from(value).pack());
+    @Nonnull
+    private static String uuidForPath(final boolean quoted) {
+        if (quoted) {
+            return UUID.randomUUID().toString();
+        } else {
+            return UUID.randomUUID().toString().toUpperCase(Locale.ROOT).replace("-", "_");
+        }
     }
 
-    private void verifyTestData(@Nonnull RelationalConnection conn, @Nonnull KeySpacePath path, @Nonnull String remainderKey, @Nonnull String expectedValue) throws Exception {
+    private String maybeQuote(final String path, final boolean quoted) {
+        if (quoted) {
+            return "\"" + path + "\"";
+        } else {
+            return path;
+        }
+    }
+
+    private void writeTestData(@Nonnull RelationalConnection conn, @Nonnull KeySpacePath path, @Nonnull Map<String, String> data) throws Exception {
+        conn.setAutoCommit(false);
+        final FDBRecordContext context = getRecordContext(conn);
+        data.forEach((remainder, value) -> {
+            byte[] key = path.toSubspace(context).pack(Tuple.from(remainder));
+            context.ensureActive().set(key, Tuple.from(value).pack());
+        });
+
+        conn.commit();
+    }
+
+    private void clearTestData(@Nonnull RelationalConnection conn, @Nonnull KeySpacePath path) throws Exception {
+        conn.setAutoCommit(false);
+        final FDBRecordContext context = getRecordContext(conn);
+        context.ensureActive().clear(path.toSubspace(context).range());
+        conn.commit();
+    }
+
+    private void verifyTestData(@Nonnull RelationalConnection conn, @Nonnull KeySpacePath path, @Nonnull Map<String, String> expectedData) throws Exception {
+        conn.setAutoCommit(false);
+        final FDBRecordContext context = getRecordContext(conn);
+        expectedData.forEach((remainder, expectedValue) -> {
+            byte[] key = path.toSubspace(context).pack(Tuple.from(remainder));
+            byte[] actualBytes = context.ensureActive().get(key).join();
+            assertNotNull(actualBytes, "Key should exist: " + remainder);
+            Tuple actualValue = Tuple.fromBytes(actualBytes);
+            assertEquals(Tuple.from(expectedValue), actualValue);
+        });
+    }
+
+    private static FDBRecordContext getRecordContext(final @Nonnull RelationalConnection conn) throws SQLException, RelationalException {
         EmbeddedRelationalConnection embeddedConn = conn.unwrap(EmbeddedRelationalConnection.class);
-        FDBRecordContext context = embeddedConn.getTransaction().unwrap(RecordContextTransaction.class).getContext();
-        byte[] key = path.toSubspace(context).pack(Tuple.from(remainderKey));
-        byte[] actualBytes = context.ensureActive().get(key).join();
-        assertNotNull(actualBytes, "Key should exist: " + remainderKey);
-        Tuple actualValue = Tuple.fromBytes(actualBytes);
-        assertEquals(Tuple.from(expectedValue), actualValue);
+        embeddedConn.createNewTransaction();
+        return embeddedConn.getTransaction().unwrap(RecordContextTransaction.class).getContext();
     }
 
     private List<byte[]> exportData(String path, boolean quoted) throws SQLException {
@@ -261,7 +276,7 @@ public class CopyCommandTest {
         try (RelationalConnection conn = DriverManager.getConnection("jdbc:embed:/__SYS").unwrap(RelationalConnection.class)) {
             conn.setSchema("CATALOG");
             try (RelationalStatement stmt = conn.createStatement();
-                     RelationalResultSet rs = stmt.executeQuery("COPY " + (quoted ? "\"" + path + "\"" : path))) {
+                     RelationalResultSet rs = stmt.executeQuery("COPY " + maybeQuote(path, quoted))) {
                 while (rs.next()) {
                     exportedData.add(rs.getBytes(1));
                 }
