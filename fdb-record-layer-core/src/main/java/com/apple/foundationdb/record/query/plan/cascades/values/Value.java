@@ -602,8 +602,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
      * @param aliasMap an alias map of equalities
      * @param constantAliases a set of aliases that are considered to be constant
      * @param upperBaseAlias an alias to be treated as <em>current</em> alias
-     * @return a list of {@link Value}s that related the values that the called passed in with the
-     *         resulting values of the pull-up logic
+     * @return a list of resulting {@link Value}s of the push-down logic
      */
     @Nonnull
     default List<Value> pushDown(@Nonnull final Iterable<? extends Value> toBePushedDownValues,

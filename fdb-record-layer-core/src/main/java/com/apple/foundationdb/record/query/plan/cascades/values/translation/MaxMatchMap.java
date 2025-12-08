@@ -94,7 +94,7 @@ import java.util.stream.Stream;
  * correspondences between subtrees that include this subtree.
  * <br>
  * In the example above we can say that the query side value and the candidate value define maximum matches between
- * {@code q.a -> q.a}, {@code q.b -> q.b}, and {@code q.b -> q.b}. If the candidate side had been
+ * {@code q.a -> q.a}, {@code q.b -> q.b}, and {@code q.c -> q.c}. If the candidate side had been
  * {@code rcv(q.a as a, q.b as b, q.c as c)}, the maximum matches between query side and candidate side would just
  * have been {@code rcv(q.a as a, q.b as b, q.c as c) -> rcv(q.a as a, q.b as b, q.c as c)} as the entire tree under
  * the root would have matched. Even though {@code q.a -> q.a}, {@code q.b -> q.b}, and {@code q.c -> q.c} are also
