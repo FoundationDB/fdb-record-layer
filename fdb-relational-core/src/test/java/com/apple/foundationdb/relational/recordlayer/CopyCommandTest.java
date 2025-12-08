@@ -47,12 +47,10 @@ import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Tests for COPY command (export and import).
@@ -276,35 +274,5 @@ public class CopyCommandTest {
             }
         }
         return exportedData;
-    }
-
-    private int importData(String path, List<byte[]> data) throws SQLException {
-        try (RelationalConnection conn = DriverManager.getConnection("jdbc:embed:/__SYS").unwrap(RelationalConnection.class)) {
-            conn.setSchema("CATALOG");
-            try (RelationalPreparedStatement stmt = conn.prepareStatement("COPY " + path + " FROM ?")) {
-                stmt.setObject(1, data);
-                try (RelationalResultSet rs = stmt.executeQuery()) {
-                    assertTrue(rs.next());
-                    int count = rs.getInt(1);
-                    assertThat(count).isEqualTo(data.size());
-                    return count;
-                }
-            }
-        }
-    }
-
-    private int importDataQuoted(String path, List<byte[]> data) throws SQLException {
-        try (RelationalConnection conn = DriverManager.getConnection("jdbc:embed:/__SYS").unwrap(RelationalConnection.class)) {
-            conn.setSchema("CATALOG");
-            try (RelationalPreparedStatement stmt = conn.prepareStatement("COPY \"" + path + "\" FROM ?")) {
-                stmt.setObject(1, data);
-                try (RelationalResultSet rs = stmt.executeQuery()) {
-                    assertTrue(rs.next());
-                    int count = rs.getInt(1);
-                    assertThat(count).isEqualTo(data.size());
-                    return count;
-                }
-            }
-        }
     }
 }
