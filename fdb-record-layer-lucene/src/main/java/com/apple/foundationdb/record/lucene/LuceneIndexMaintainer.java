@@ -261,6 +261,10 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                                Tuple groupingKey,
                                Integer partitionId,
                                Tuple primaryKey) throws IOException {
+        if (isPartitionLocked(groupingKey, partitionId)) {
+            // TODO: QUEUE
+            return;
+        }
         final long startTime = System.nanoTime();
         Document document = new Document();
         final IndexWriter newWriter = directoryManager.getIndexWriter(groupingKey, partitionId);
@@ -304,6 +308,10 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
 
     @SuppressWarnings({"PMD.CloseResource", "java:S2095"})
     int deleteDocument(Tuple groupingKey, Integer partitionId, Tuple primaryKey) throws IOException {
+        if (isPartitionLocked(groupingKey, partitionId)) {
+            // TODO: QUEUE
+            return 0;  // When the actual delete will take place, return a real delete count and handle partition's counter.
+        }
         final long startTime = System.nanoTime();
         final IndexWriter indexWriter = directoryManager.getIndexWriter(groupingKey, partitionId);
         @Nullable final LucenePrimaryKeySegmentIndex segmentIndex = directoryManager.getDirectory(groupingKey, partitionId).getPrimaryKeySegmentIndex();
@@ -814,6 +822,12 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                 serializerErrorLogged = true;
             }
         }
+    }
+
+    private boolean isPartitionLocked(Tuple groupingKey, Integer partitionId) {
+        FDBDirectory directory = directoryManager.getDirectory(groupingKey, partitionId);
+        // Check the standard Lucene IndexWriter lock
+        return directory.isLocked("write.lock");
     }
 
     @Nullable

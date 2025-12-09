@@ -978,6 +978,10 @@ public class FDBDirectory extends Directory  {
         return lock;
     }
 
+    public boolean isLocked(@Nonnull final String lockName) {
+        return lockFactory.isLocked(lockName);
+    }
+
     private void clearLockIfLocked() {
         if (lastLock != null) {
             lastLock.fileLockClearIfLocked();

@@ -51,6 +51,8 @@ import java.util.function.Function;
  * Produce a lock over {@link FDBDirectory}.
  */
 public final class FDBDirectoryLockFactory extends LockFactory {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(FDBDirectoryLockFactory.class);
     final FDBDirectory directory;
     final int timeWindowMilliseconds;
 
@@ -73,6 +75,70 @@ public final class FDBDirectoryLockFactory extends LockFactory {
     @VisibleForTesting
     public Lock obtainLock(final AgilityContext agilityContext, final byte[] fileLockKey, final String lockName) {
         return new FDBDirectoryLock(agilityContext, lockName, fileLockKey, timeWindowMilliseconds);
+    }
+
+    /**
+     * Checks if a lock is currently active for the given lock name.
+     * This is a non-intrusive check that does not attempt to acquire or modify the lock.
+     *
+     * @param lockName the name of the lock to check (e.g., "write.lock")
+     * @return true if an active lock exists, false otherwise
+     */
+    public boolean isLocked(final String lockName) {
+        // The default is returning false, then possibly the operation will fail when trying to obtain a lock
+        try {
+            byte[] fileLockKey = directory.fileLockKey(lockName);
+            final AgilityContext agilityContext = directory.getAgilityContext();
+            if (agilityContext == null) {
+                // should never happen
+                return false;
+            }
+
+            return Boolean.TRUE.equals(agilityContext.asyncToSync(
+                    LuceneEvents.Waits.WAIT_LUCENE_FILE_LOCK_GET,
+                    agilityContext.apply(context ->
+                            context.ensureActive().get(fileLockKey)
+                                    .thenApply(this::isLockValueActive)
+                    )
+            ));
+        } catch (Exception e) {
+            LOGGER.warn("Error parsing lock value", e);
+            return false;
+        }
+    }
+
+    /**
+     * Helper method to determine if a lock value represents an active lock.
+     * Duplicates the logic from FDBDirectoryLock for self-containment.
+     *
+     * @param lockValue the raw lock value from FDB (may be null)
+     * @return true if the lock value indicates an active lock, false otherwise
+     */
+    private boolean isLockValueActive(byte[] lockValue) {
+        if (lockValue == null) {
+            return false; // No lock exists
+        }
+
+        try {
+            Tuple lockTuple = Tuple.fromBytes(lockValue);
+            UUID existingUuid = lockTuple.getUUID(0);
+            long existingTimestamp = lockTuple.getLong(1);
+
+            // No valid UUID or timestamp means no active lock
+            if (existingUuid == null || existingTimestamp <= 0) {
+                return false;
+            }
+
+            // Check if timestamp is within the valid time window
+            long nowMillis = System.currentTimeMillis();
+            return existingTimestamp > (nowMillis - timeWindowMilliseconds) &&
+                    existingTimestamp < (nowMillis + timeWindowMilliseconds);
+
+        } catch (Exception e) {
+            // Return false, maybe the operation will fail when trying to obtain lock
+            LOGGER.warn("Error parsing lock value", e);
+            return false; // Assume locked for safety on parse error
+        }
     }
 
     protected static class FDBDirectoryLock extends Lock {
