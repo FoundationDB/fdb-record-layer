@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -101,6 +102,7 @@ public final class Expressions implements Iterable<Expression> {
                                 simplifiedValue.pullUp(List.of(subExpression), EvaluationContext.empty(), aliasMap,
                                         constantAliases, correlationIdentifier);
                         if (pulledUpExpressionMap.containsKey(subExpression)) {
+                            Assert.thatUnchecked(pulledUpExpressionMap.get(subExpression).size() == 1, ErrorCode.AMBIGUOUS_COLUMN, "Ambiguous columns for " + subExpression);
                             return Iterables.getOnlyElement(pulledUpExpressionMap.get(subExpression));
                         }
                         return subExpression;
