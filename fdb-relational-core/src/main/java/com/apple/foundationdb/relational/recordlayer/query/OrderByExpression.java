@@ -92,8 +92,8 @@ public final class OrderByExpression {
                                 final var pulledUpExpressionMap =
                                         simplifiedValue.pullUp(List.of(subExpression), EvaluationContext.empty(),
                                                 aliasMap, constantAliases, correlationIdentifier);
-                                if (pulledUpExpressionMap.containsKey(subExpression)) {
-                                    return Iterables.getOnlyElement(pulledUpExpressionMap.get(subExpression));
+                                if (pulledUpExpressionMap.containsKey(subExpression) && !pulledUpExpressionMap.get(subExpression).isEmpty()) {
+                                    return Iterables.getFirst(pulledUpExpressionMap.get(subExpression), null);
                                 }
                                 return subExpression;
                             }

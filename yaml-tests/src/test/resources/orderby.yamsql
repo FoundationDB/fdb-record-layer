@@ -25,6 +25,7 @@ schema_template:
     create index i3 as select b, c from t1 order by c, b
     CREATE TYPE AS STRUCT st_1(a bigint, b bigint)
     create table t2(p bigint, q st_1, primary key(p))
+    create function t2_func() as select q as "nesting", q.a as "ordered" from t2
     create index i4 as select q.b, q.a from t2 order by q.a
     create index i5 as select q.b, q.a from t2 order by q.b, q.a
     create table t3(a bigint, b bigint, c bigint, d bigint, p bigint, primary key(p))
@@ -262,4 +263,27 @@ test_block:
       - query: select c, b from t5 order by c, b desc;
       - explain: "COVERING(I8 <,> -> [A: KEY:[3], B: from_ordered_bytes(KEY:[1], DESC_NULLS_LAST), C: KEY:[0]]) | MAP (_.C AS C, _.B AS B)"
       - result: [{0, 2}, {0, 1}, {1, 4}, {1, 3}, {5, 10}, {5, 9}, {5, 8}, {8, 7}, {8, 6}, {8, 5}]
+    -
+      # Ordering by a ambiguous projected column
+      - query: select q as "nested", q.a as "ordered" from t2 order by "ordered"
+      - supported_version: !current_version
+      - explain: "ISCAN(I4 <,>) | MAP (_.Q AS nested, _.Q.A AS ordered)"
+      - result: [ {{1, 2}, 1}, {{2, 1}, 2}, {{3, 2}, 3}, {{4, 1}, 4}, {{5, 2}, 5}, {{6, 1}, 6}, {{7, 2}, 7}, {{8, 1}, 8} ]
+    -
+      # Ordering by a ambiguous projected column in subquery
+      - query: select (T.*) from (select q as "nested", q.a as "ordered" from t2) as T order by "ordered"
+      - supported_version: !current_version
+      - explain: "ISCAN(I4 <,>) | MAP ((_.Q AS nested, _.Q.A AS ordered) AS _0)"
+      - result: [ {{{1, 2}, 1}}, {{{2, 1}, 2}}, {{{3, 2}, 3}}, {{{4, 1}, 4}}, {{{5, 2}, 5}}, {{{6, 1}, 6}}, {{{7, 2}, 7}}, {{{8, 1}, 8}} ]
+    -
+      # Ordering by a ambiguous projected column in table function
+      - query: select (*) from t2_func() order by "ordered"
+      - supported_version: !current_version
+      - explain: "ISCAN(I4 <,>) | MAP ((_.Q AS nesting, _.Q.A AS ordered) AS _0)"
+      - result: [ {{{1, 2}, 1}}, {{{2, 1}, 2}}, {{{3, 2}, 3}}, {{{4, 1}, 4}}, {{{5, 2}, 5}}, {{{6, 1}, 6}}, {{{7, 2}, 7}}, {{{8, 1}, 8}} ]
+    -
+      # qualification on order by clause is currently not supported entirely
+      - query: select (q as "nested", q.a as "ordered") as "st" from t2 order by "st"."ordered"
+      - supported_version: !current_version
+      - error: "42703"
 ...
