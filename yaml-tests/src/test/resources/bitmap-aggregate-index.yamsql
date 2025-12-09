@@ -22,8 +22,6 @@ schema_template:
       CREATE TABLE T1(id bigint, category string, PRIMARY KEY(id))
       create index bitmapIndex1 as select bitmap_construct_agg(bitmap_bit_position(id)), bitmap_bucket_offset(id) from T1 group by bitmap_bucket_offset(id)
       create index bitmapIndex2 as select bitmap_construct_agg(bitmap_bit_position(id)), category, bitmap_bucket_offset(id) from T1 group by category, bitmap_bucket_offset(id)
-      create index bitmapIndex3 as select bitmap_construct_agg(bitmap_bit_position(id)), bitmap_bucket_offset(id), bitmap_bucket_offset(id), bitmap_bucket_offset(id) from T1 group by bitmap_bucket_offset(id), bitmap_bucket_offset(id), bitmap_bucket_offset(id)
-      create index bitmapIndex4 as select bitmap_construct_agg(bitmap_bit_position(id)), bitmap_bucket_offset(id), category, bitmap_bucket_offset(id) from T1 group by bitmap_bucket_offset(id), category, bitmap_bucket_offset(id)
 
       CREATE TABLE T2(id bigint, category string, PRIMARY KEY(id))
       create index agg_index_1 as select bitmap_bucket_offset(id) from T2 order by bitmap_bucket_offset(id)
