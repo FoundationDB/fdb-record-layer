@@ -222,6 +222,11 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         var where = Optional.ofNullable(simpleTableContext.fromClause().whereExpr() == null ?
                 null :
                 visitWhereExpr(simpleTableContext.fromClause().whereExpr()));
+
+        for (final var expression : getDelegate().getCurrentPlanFragment().getJoinExpressions()) {
+            where = where.map(e -> getDelegate().resolveFunction("and", e, expression)).or(() -> Optional.of(expression));
+        }
+
         Expressions selectExpressions;
         List<OrderByExpression> orderBys = List.of();
         if (simpleTableContext.groupByClause() != null || hasAggregations(simpleTableContext.selectElements())) {
@@ -312,17 +317,28 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
     @Override
     public Void visitTableSources(@Nonnull RelationalParser.TableSourcesContext ctx) {
         for (final var tableSource : ctx.tableSource()) {
-            final var logicalOperator = Assert.castUnchecked(tableSource.accept(this), LogicalOperator.class);
-            getDelegate().getCurrentPlanFragment().addOperator(logicalOperator);
+            tableSource.accept(this);
         }
+        return null;
+    }
+
+    @Nullable
+    @Override
+    public Void visitTableSourceBase(@Nonnull RelationalParser.TableSourceBaseContext ctx) {
+        final ImmutableList.Builder<Expression> expressionListBuilder = ImmutableList.builder();
+        getDelegate().getCurrentPlanFragment().addOperator(Assert.castUnchecked(ctx.tableSourceItem().accept(this), LogicalOperator.class));
+        for (final var joinPart : ctx.joinPart()) {
+            expressionListBuilder.add(Assert.castUnchecked(joinPart.accept(this), Expression.class));
+        }
+        getDelegate().getCurrentPlanFragment().setJoinExpressions(expressionListBuilder.build());
         return null;
     }
 
     @Nonnull
     @Override
-    public LogicalOperator visitTableSourceBase(@Nonnull RelationalParser.TableSourceBaseContext ctx) {
-        Assert.thatUnchecked(ctx.joinPart().isEmpty(), "explicit join types are not supported");
-        return Assert.castUnchecked(ctx.tableSourceItem().accept(this), LogicalOperator.class);
+    public Expression visitInnerJoin(@Nonnull RelationalParser.InnerJoinContext ctx) {
+        getDelegate().getCurrentPlanFragment().addOperator(Assert.castUnchecked(ctx.tableSourceItem().accept(this), LogicalOperator.class));
+        return Assert.castUnchecked(ctx.expression().accept(this), Expression.class);
     }
 
     @Nonnull

@@ -696,9 +696,9 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
         return queryVisitor.visitTableSources(ctx);
     }
 
-    @Nonnull
+    @Nullable
     @Override
-    public LogicalOperator visitTableSourceBase(@Nonnull RelationalParser.TableSourceBaseContext ctx) {
+    public Void visitTableSourceBase(@Nonnull RelationalParser.TableSourceBaseContext ctx) {
         return queryVisitor.visitTableSourceBase(ctx);
     }
 
@@ -745,8 +745,8 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
 
     @Nonnull
     @Override
-    public Object visitInnerJoin(@Nonnull RelationalParser.InnerJoinContext ctx) {
-        return visitChildren(ctx);
+    public Expression visitInnerJoin(@Nonnull RelationalParser.InnerJoinContext ctx) {
+        return queryVisitor.visitInnerJoin(ctx);
     }
 
     @Nonnull
