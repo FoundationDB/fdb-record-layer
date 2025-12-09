@@ -128,7 +128,7 @@ public class TypeRepository {
 
     @Nonnull
     public static TypeRepository parseFrom(@Nonnull final byte[] schemaDescBuf) throws DescriptorValidationException, IOException {
-        return new TypeRepository(FileDescriptorSet.parseFrom(schemaDescBuf), HashBiMap.create());
+        return new TypeRepository(FileDescriptorSet.parseFrom(schemaDescBuf), Maps.newHashMap());
     }
 
     /**
