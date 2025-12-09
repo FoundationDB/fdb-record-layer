@@ -399,23 +399,13 @@ public class IndexTest {
     }
 
     @Test
-    void createBitMapIndexWithMultipleGroupByIsSupported() throws Exception {
-        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
-                "CREATE TABLE T1(p1 bigint, a bigint, b bigint, primary key(p1)) " +
-                "CREATE INDEX mv1 AS SELECT bitmap_construct_agg(bitmap_bit_position(p1)) as bitmap, " +
-                "bitmap_bucket_offset(p1), bitmap_bucket_offset(p1), bitmap_bucket_offset(p1) as offset FROM T1\n" +
-                "GROUP BY bitmap_bucket_offset(p1), bitmap_bucket_offset(p1), bitmap_bucket_offset(p1)";
-        indexIs(stmt, field("P1").groupBy(concat(function("bitmap_bucket_offset", concat(field("P1"), value(10000))), function("bitmap_bucket_offset", concat(field("P1"), value(10000))))), IndexTypes.BITMAP_VALUE);
-    }
-
-    @Test
     void createBitMapIndexWithRedundantFunctionsIsSupported() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TABLE T1(p1 bigint, a bigint, b bigint, primary key(p1)) " +
                 "CREATE INDEX mv1 AS SELECT bitmap_construct_agg(bitmap_bit_position(p1)) as bitmap, " +
                 "a, bitmap_bucket_offset(p1), b, bitmap_bucket_offset(p1) as offset FROM T1\n" +
                 "GROUP BY a, bitmap_bucket_offset(p1), b, bitmap_bucket_offset(p1)";
-        indexIs(stmt, field("P1").groupBy(concat(field("A"), function("bitmap_bucket_offset", concat(field("P1"), value(10000))), field("B"))), IndexTypes.BITMAP_VALUE);
+        shouldFailWith(stmt, ErrorCode.AMBIGUOUS_COLUMN, "Ambiguous columns for");
     }
 
     @Test
