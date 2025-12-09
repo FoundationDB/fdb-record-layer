@@ -399,7 +399,7 @@ public class IndexTest {
     }
 
     @Test
-    void createBitMapIndexWithRedundantFunctionsIsSupported() throws Exception {
+    void createBitMapIndexWithRedundantFunctionsIsNotSupported() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TABLE T1(p1 bigint, a bigint, b bigint, primary key(p1)) " +
                 "CREATE INDEX mv1 AS SELECT bitmap_construct_agg(bitmap_bit_position(p1)) as bitmap, " +
