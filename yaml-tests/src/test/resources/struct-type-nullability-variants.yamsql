@@ -1,0 +1,121 @@
+#
+# struct-type-nullability-variants.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2016-2025 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Tests for struct types with same name but different nullability
+# This validates that a struct type like "Address" can exist in both:
+# - Nullable form (for table columns)  
+# - Non-nullable form (for array elements)
+---
+options:
+    supported_version: !current_version
+---
+schema_template:
+    create type as struct Address(street string, city string, zipcode integer)
+
+    create table users(
+        id integer,
+        name string,
+        home_address Address,
+        primary key(id)
+    )
+
+    create table locations(
+        id integer,
+        name string,
+        addresses Address array,
+        primary key(id)
+    )
+
+    create table businesses(
+        id integer,
+        name string,
+        headquarters Address,
+        branch_offices Address array,
+        primary key(id)
+    )
+---
+setup:
+  steps:
+    # Insert data into users table with nullable addresses
+    - query: |
+        INSERT INTO users VALUES
+        (1, 'John Doe', ('123 Main St', 'Anytown', 12345)),
+        (2, 'Jane Smith', ('456 Oak Ave', 'Somewhere', 67890)),
+        (3, 'Bob Johnson', null)  # Null address should be allowed
+
+    # Insert data into locations table with address arrays
+    - query: |
+        INSERT INTO locations VALUES
+        (1, 'Shopping Center', [
+            ('100 Mall Dr', 'Big City', 11111),
+            ('200 Plaza Way', 'Big City', 11112)
+        ]),
+        (2, 'Office Complex', [
+            ('300 Business Blvd', 'Metro', 22222),
+            ('400 Corporate Ct', 'Metro', 22223),
+            ('500 Executive Dr', 'Metro', 22224)
+        ])
+
+    # Insert data into businesses table (mixed usage)
+    - query: |
+        INSERT INTO businesses VALUES
+        (1, 'Tech Corp',
+         ('999 Innovation Way', 'Silicon Valley', 94000),
+         [('101 Branch St', 'New York', 10001), ('202 Office Rd', 'Boston', 02101)]
+        ),
+        (2, 'Global Inc',
+         null,  # Headquarters can be null
+         [('303 Regional Ave', 'Chicago', 60601)]
+        )
+---
+test_block:
+  name: struct-type-variants-tests
+  tests:
+    # Test 1: Query nullable Address columns by checking a field
+    -
+      - query: SELECT id, name, home_address FROM users WHERE home_address.city = 'Anytown'
+      - explain: "SCAN(<,>) | TFILTER USERS | FILTER _.HOME_ADDRESS.CITY EQUALS promote(@c14 AS STRING) | MAP (_.ID AS ID, _.NAME AS NAME, _.HOME_ADDRESS AS HOME_ADDRESS)"
+      - result: [{1, 'John Doe', {street: '123 Main St', city: 'Anytown', zipcode: 12345}}]
+
+    # Test 2: Query nullable Address columns by checking another field
+    -
+      - query: SELECT id, name, home_address FROM users WHERE home_address.city = 'Somewhere'
+      - explain: "SCAN(<,>) | TFILTER USERS | FILTER _.HOME_ADDRESS.CITY EQUALS promote(@c14 AS STRING) | MAP (_.ID AS ID, _.NAME AS NAME, _.HOME_ADDRESS AS HOME_ADDRESS)"
+      - result: [{2, 'Jane Smith', {street: '456 Oak Ave', city: 'Somewhere', zipcode: 67890}}]
+
+    # Test 3: Query Address arrays (non-nullable elements)
+    -
+      - query: SELECT id, name, addresses FROM locations WHERE id = 1
+      - explain: "SCAN(<,>) | TFILTER LOCATIONS | FILTER _.ID EQUALS promote(@c12 AS INT) | MAP (_.ID AS ID, _.NAME AS NAME, _.ADDRESSES AS ADDRESSES)"
+      - result: [{1, 'Shopping Center', [{street: '100 Mall Dr', city: 'Big City', zipcode: 11111}, {street: '200 Plaza Way', city: 'Big City', zipcode: 11112}]}]
+
+    # Test 4: Query locations by name
+    -
+      - query: SELECT id, name FROM locations WHERE name = 'Office Complex'
+      - explain: "SCAN(<,>) | TFILTER LOCATIONS | FILTER _.NAME EQUALS promote(@c10 AS STRING) | MAP (_.ID AS ID, _.NAME AS NAME)"
+      - result: [{2, 'Office Complex'}]
+
+    # Test 5: Mixed usage - query by headquarters city
+    -
+      - query: SELECT id, name, headquarters, branch_offices
+          FROM businesses
+          WHERE headquarters.city = 'Silicon Valley'
+      - explain: "SCAN(<,>) | TFILTER BUSINESSES | FILTER _.HEADQUARTERS.CITY EQUALS promote(@c16 AS STRING) | MAP (_.ID AS ID, _.NAME AS NAME, _.HEADQUARTERS AS HEADQUARTERS, _.BRANCH_OFFICES AS BRANCH_OFFICES)"
+      - result: [{1, 'Tech Corp', {street: '999 Innovation Way', city: 'Silicon Valley', zipcode: 94000}, [{street: '101 Branch St', city: 'New York', zipcode: 10001}, {street: '202 Office Rd', city: 'Boston', zipcode: 2101}]}]
+...
