@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.ProtoSerializable;
 import com.apple.foundationdb.record.RecordCoreException;
@@ -28,6 +29,10 @@ import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.planprotos.PQueryResult;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
+import com.apple.foundationdb.record.query.plan.cascades.typing.PseudoField;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
+import com.apple.foundationdb.record.query.plan.cascades.values.MessageHelpers;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
@@ -41,6 +46,7 @@ import com.google.protobuf.ZeroCopyByteString;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -247,6 +253,34 @@ public class QueryResult implements ProtoSerializable {
         return new QueryResult(queriedRecord.getRecord(),
                 queriedRecord,
                 queriedRecord.getPrimaryKey());
+    }
+
+    @Nonnull
+    public static QueryResult fromQueriedRecord(@Nonnull Type resultType, @Nonnull EvaluationContext evaluationContext, @Nullable final FDBQueriedRecord<?> queriedRecord) {
+        if (queriedRecord == null) {
+            return new QueryResult(null, null, null);
+        }
+
+        final TypeRepository typeRepository = evaluationContext.getTypeRepository();
+        final Message datum;
+        if (!typeRepository.containsType(resultType) || !(resultType instanceof Type.Record)) {
+            // Type not in repository. Just return underlying queriedRecord
+            datum = queriedRecord.getRecord();
+        } else {
+            // Copy over data from the underlying message
+            final Message.Builder builder = Objects.requireNonNull(typeRepository.newMessageBuilder(resultType));
+            MessageHelpers.deepCopyMessage(builder, queriedRecord.getRecord());
+
+            // Extract any pseudo-fields
+            Type.Record recordType = (Type.Record) resultType;
+            for (PseudoField pseudoField : PseudoField.values()) {
+                pseudoField.fillInIfApplicable(recordType, queriedRecord, builder);
+            }
+
+            datum = builder.build();
+        }
+
+        return new QueryResult(datum, queriedRecord, queriedRecord.getPrimaryKey());
     }
 
     @Nonnull
