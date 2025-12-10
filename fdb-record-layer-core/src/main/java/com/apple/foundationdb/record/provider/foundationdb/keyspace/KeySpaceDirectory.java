@@ -977,9 +977,17 @@ public class KeySpaceDirectory {
         }
     }
 
+    /**
+     * A singleton class representing that this directory can contain any value of the associated type.
+     */
     private static class AnyValue {
+        /**
+         * Do not call this constuctor, reference the constant {@link #ANY_VALUE}.
+         */
         private AnyValue() {
         }
+
+        // explicitly not implementing equals, so that it falls back to `Object.equals` which is reference equality.
 
         @Override
         public String toString() {
