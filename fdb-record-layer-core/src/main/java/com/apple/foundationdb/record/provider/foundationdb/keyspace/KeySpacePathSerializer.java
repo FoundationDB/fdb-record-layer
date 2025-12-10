@@ -151,7 +151,7 @@ public class KeySpacePathSerializer {
         final Object value = keySpacePath.getValue();
         // Use typeOf to get the actual runtime type of the value, rather than the directory's declared keyType.
         // This is important for DirectoryLayerDirectory, which has keyType LONG but typically stores String values.
-        // If we every support something that takes a value that is not supported via KeyType, we'll need to remove this
+        // If we ever support something that takes a value that is not supported via KeyType, we'll need to remove this
         // dependency, but right now it is convenient to reuse that enum.
         final KeySpaceDirectory.KeyType keyType = value == null
                 ? KeySpaceDirectory.KeyType.NULL
@@ -193,7 +193,7 @@ public class KeySpacePathSerializer {
                             .setMostSignificantBits(uuid.getMostSignificantBits());
                     break;
                 default:
-                    throw new IllegalStateException("Unexpected value: " + keyType);
+                    throw new IllegalStateException("Unexpected value type: " + keyType);
             }
         } catch (ClassCastException e) {
             throw new RecordCoreArgumentException("KeySpacePath has incorrect value type", e)
