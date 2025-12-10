@@ -23,6 +23,8 @@ package com.apple.foundationdb.record.provider.foundationdb.query;
 import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
+import com.apple.foundationdb.record.ExecuteState;
+import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCursor;
@@ -58,12 +60,16 @@ import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerPhase;
+import com.apple.foundationdb.record.query.plan.cascades.Memoizer;
+import com.apple.foundationdb.record.query.plan.cascades.PlannerStage;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.References;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.explain.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.ToUniqueAliasesTranslationMap;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
@@ -717,16 +723,51 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
         return deserializedPlan;
     }
 
+    /**
+     * Serialize the plan to bytes, parse those bytes, reconstruct, and compare the deserialized plan against the
+     * original plan.
+     * @param plan the original plan
+     * @return the deserialized and verified plan
+     */
+    @Nonnull
+    protected static RecordQueryPlan verifyRebase(@Nonnull final RecordQueryPlan plan) {
+        final var rebasedPlans =
+                References.rebaseGraphs(ImmutableList.of(Reference.plannedOf(plan)),
+                        Memoizer.noMemoization(PlannerStage.PLANNED), new ToUniqueAliasesTranslationMap(),
+                        false);
+        Assertions.assertEquals(1, rebasedPlans.size());
+        final var rebasedPlan = rebasedPlans.get(0).getOnlyElementAsPlan();
+        Assertions.assertEquals(plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION),
+                rebasedPlan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+        Assertions.assertEquals(plan, rebasedPlan);
+        return rebasedPlan;
+    }
+
     @Nonnull
     protected RecordCursorIterator<FDBQueriedRecord<Message>> executeQuery(@Nonnull final RecordQueryPlan plan) {
         return executeQuery(plan, Bindings.EMPTY_BINDINGS);
     }
 
     @Nonnull
-    protected RecordCursorIterator<FDBQueriedRecord<Message>> executeQuery(@Nonnull final RecordQueryPlan plan, @Nonnull Bindings bindings) {
+    protected RecordCursorIterator<FDBQueriedRecord<Message>> executeQuery(@Nonnull final RecordQueryPlan plan,
+                                                                           @Nonnull final Bindings bindings) {
+        return executeQuery(plan, null, bindings, Integer.MAX_VALUE);
+    }
+
+    @Nonnull
+    @SuppressWarnings("resource")
+    protected RecordCursorIterator<FDBQueriedRecord<Message>> executeQuery(@Nonnull final RecordQueryPlan plan,
+                                                                           @Nullable byte[] continuation,
+                                                                           @Nonnull final Bindings bindings,
+                                                                           final int limit) {
         final var usedTypes = usedTypes().evaluate(plan);
         final var typeRepository = TypeRepository.newBuilder().addAllTypes(usedTypes).build();
-        return plan.execute(recordStore, EvaluationContext.forBindingsAndTypeRepository(bindings, typeRepository)).asIterator();
+        final var executeProperties = ExecuteProperties.newBuilder()
+                .setIsolationLevel(IsolationLevel.SERIALIZABLE)
+                .setState(ExecuteState.NO_LIMITS)
+                .setReturnedRowLimit(limit).build();
+        return plan.execute(recordStore, EvaluationContext.forBindingsAndTypeRepository(bindings, typeRepository),
+                continuation, executeProperties).asIterator();
     }
 
     protected static class Holder<T> {

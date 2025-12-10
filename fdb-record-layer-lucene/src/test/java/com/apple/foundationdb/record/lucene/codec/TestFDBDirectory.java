@@ -47,6 +47,7 @@ import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
@@ -163,7 +164,7 @@ public class TestFDBDirectory extends FDBDirectory {
                                     getAgilityContext().getRange(key, ByteArrayUtil.strinc(key))));
                     final Map<Long, byte[]> storedFields = rawStoredFields.stream().collect(Collectors.toMap(
                             keyValue -> storedFieldsSubspace.unpack(keyValue.getKey()).getLong(1),
-                            keyValue -> keyValue.getValue()
+                            keyValue -> Objects.requireNonNull(Objects.requireNonNull(getSerializer()).decodeFieldProtobuf(keyValue.getValue()))
                     ));
                     final NonnullPair<String, Map<Long, byte[]>> previous = previousStoredFields.getAndSet(NonnullPair.of(name, storedFields));
                     if (previous != null) {

@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.synchronizedsession.SynchronizedSessionLockedException;
 import com.apple.test.BooleanSource;
+import com.apple.test.SuperSlow;
 import com.apple.test.Tags;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -313,7 +314,6 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         buildIndexAndCrashHalfway(chunkSize, 2, timer, newIndexerBuilder(indexAhead)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .setReverseScanOrder(reverse2)
-                        .checkIndexingStampFrequencyMilliseconds(0)
                         .allowTakeoverContinue()));
 
         // 3. assert mismatch type stamp
@@ -664,21 +664,25 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
     }
 
-    // uncomment to compare
-    // @Test
+    @Test
+    @SuperSlow
     void benchMarkMultiTarget() {
+        // Expected to run in a nightly test. To run in intellij, add "-Ptests.nightly=true" to the run configuration
+        // (As in `:fdb-record-layer-core:test --tests "com.apple.foundationdb.record.provider.foundationdb.OnlineIndexerMultiTargetTest.benchMarkMultiTarget" -Ptests.nightly=true`)
         // compare single target build to multi target index building
         final FDBStoreTimer singleTimer = new FDBStoreTimer();
         final FDBStoreTimer multiTimer = new FDBStoreTimer();
-        final int numRecords = 5555;
+        final int populateChunkSize = 5555;
+        final int numRecords = 5 * populateChunkSize;
+        for (int i = 0; i < 5; i++) {
+            populateData(populateChunkSize, i * populateChunkSize);
+        }
 
         List<Index> indexes = new ArrayList<>();
         indexes.add(new Index("indexA", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
         indexes.add(new Index("indexB", field("num_value_3_indexed"), IndexTypes.VALUE));
         indexes.add(new Index("indexC", field("num_value_unique"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
         indexes.add(new Index("indexD", new GroupingKeyExpression(EmptyKeyExpression.EMPTY, 0), IndexTypes.COUNT));
-
-        populateData(numRecords);
 
         FDBRecordStoreTestBase.RecordMetaDataHook hook = allIndexesHook(indexes);
 
@@ -703,6 +707,10 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
 
         System.out.printf("%d indexes, %d records. Single build took %d milliSeconds, MultiIndex took %d%n",
                 indexes.size(), numRecords, endSingle - startSingle, endMulti - startMulti);
+
+        // validate
+        assertReadable(indexes);
+        scrubAndValidate(indexes);
     }
 
     @Test
@@ -864,21 +872,7 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
             try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes)
                     .setLeaseLengthMillis(TimeUnit.SECONDS.toMillis(20))
                     .setLimit(4)
-                    .setConfigLoader(old -> {
-                        if (passed.get()) {
-                            try {
-                                startBuildingSemaphore.release();
-                                pauseMutualBuildSemaphore.acquire(); // pause to try building indexes
-                            } catch (InterruptedException e) {
-                                throw new RuntimeException(e);
-                            } finally {
-                                pauseMutualBuildSemaphore.release();
-                            }
-                        } else {
-                            passed.set(true);
-                        }
-                        return old;
-                    })
+                    .setConfigLoader(old -> pauseAfterOnePass(old, passed, startBuildingSemaphore, pauseMutualBuildSemaphore))
                     .build()) {
                 indexBuilder.buildIndex();
             }
@@ -930,21 +924,7 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
             try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes)
                     .setLeaseLengthMillis(TimeUnit.SECONDS.toMillis(20))
                     .setLimit(4)
-                    .setConfigLoader(old -> {
-                        if (passed.get()) {
-                            try {
-                                startBuildingSemaphore.release();
-                                pauseMutualBuildSemaphore.acquire(); // pause to try building indexes
-                            } catch (InterruptedException e) {
-                                throw new RuntimeException(e);
-                            } finally {
-                                pauseMutualBuildSemaphore.release();
-                            }
-                        } else {
-                            passed.set(true);
-                        }
-                        return old;
-                    })
+                    .setConfigLoader(old -> pauseAfterOnePass(old, passed, startBuildingSemaphore, pauseMutualBuildSemaphore))
                     .build()) {
                 indexBuilder.buildIndex();
             }

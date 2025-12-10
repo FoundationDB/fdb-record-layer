@@ -27,6 +27,8 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.metadata.MetaDataException;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.provider.foundationdb.IndexMatchCandidateRegistry;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
@@ -34,6 +36,7 @@ import com.apple.foundationdb.record.query.plan.cascades.StableSelectorCostModel
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
+import com.apple.foundationdb.record.util.ProtoUtils;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
@@ -237,6 +240,8 @@ public final class PlanGenerator {
                             planContext.getConstantActionFactory(), planContext.getDbUri(), caseSensitive)
                             .generateLogicalPlan(ast.getParseTree()));
             return maybePlan.optimize(planner, planContext, currentPlanHashMode);
+        } catch (ProtoUtils.InvalidNameException ine) {
+            throw new RelationalException(ine.getMessage(), ErrorCode.INVALID_NAME, ine).toUncheckedWrappedException();
         } catch (MetaDataException mde) {
             // we need a better way for translating error codes between record layer and Relational SQL error codes
             throw new RelationalException(mde.getMessage(), ErrorCode.SYNTAX_OR_ACCESS_VIOLATION, mde).toUncheckedWrappedException();
@@ -387,15 +392,6 @@ public final class PlanGenerator {
 
     }
 
-    @Nonnull
-    private static CascadesPlanner createPlanner(@Nonnull final RecordMetaData metaData,
-                                                 @Nonnull final RecordStoreState recordStoreState,
-                                                 @Nonnull final PlanContext planContext) {
-        final var planner = new CascadesPlanner(metaData, recordStoreState);
-        planner.setConfiguration(planContext.getRecordQueryPlannerConfiguration());
-        return planner;
-    }
-
     /**
      * Creates a new instance of the plan generator.
      *
@@ -412,8 +408,28 @@ public final class PlanGenerator {
                                        @Nonnull final PlanContext planContext,
                                        @Nonnull final RecordMetaData metaData,
                                        @Nonnull final RecordStoreState recordStoreState,
+                                       @Nonnull final IndexMatchCandidateRegistry matchCandidateRegistry,
                                        @Nonnull final Options options) throws RelationalException {
-        final var planner = createPlanner(metaData, recordStoreState, planContext);
+        final var planner = new CascadesPlanner(metaData, recordStoreState, matchCandidateRegistry);
+        planner.setConfiguration(planContext.getRecordQueryPlannerConfiguration());
         return new PlanGenerator(cache, planContext, planner, options);
+    }
+
+    /**
+     * Create a new instance of the plan generator for a given store.
+     *
+     * @param cache An optional instance of the query plan cache
+     * @param planContext The context related for planning the query and looking it in the cache
+     * @param store The record store to generate the planner for
+     * @param options a set of planner options
+     * @return a new instance of the plan generator
+     * @throws RelationalException if creation of the plan generator fails
+     */
+    @Nonnull
+    public static PlanGenerator create(@Nonnull final Optional<RelationalPlanCache> cache,
+                                       @Nonnull final PlanContext planContext,
+                                       @Nonnull FDBRecordStoreBase<?> store,
+                                       @Nonnull final Options options) throws RelationalException {
+        return create(cache, planContext, store.getRecordMetaData(), store.getRecordStoreState(), store.getIndexMaintainerRegistry(), options);
     }
 }

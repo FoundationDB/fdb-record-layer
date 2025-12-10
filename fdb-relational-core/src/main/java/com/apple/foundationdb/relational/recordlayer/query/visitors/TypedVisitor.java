@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer.query.visitors;
 
+import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.CompatibleTypeEvolutionPredicate;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.metadata.DataType;
@@ -148,10 +149,6 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
 
     @Nonnull
     @Override
-    DataType visitPrimitiveType(@Nonnull RelationalParser.PrimitiveTypeContext ctx);
-
-    @Nonnull
-    @Override
     Boolean visitNullColumnConstraint(@Nonnull RelationalParser.NullColumnConstraintContext ctx);
 
     @Nonnull
@@ -183,13 +180,14 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
     ProceduralPlan visitDropTempFunction(RelationalParser.DropTempFunctionContext ctx);
 
     @Override
-    CompiledSqlFunction visitCreateFunction(RelationalParser.CreateFunctionContext ctx);
-
-    @Override
     CompiledSqlFunction visitTempSqlInvokedFunction(RelationalParser.TempSqlInvokedFunctionContext ctx);
 
     @Override
-    CompiledSqlFunction visitSqlInvokedFunction(RelationalParser.SqlInvokedFunctionContext ctx);
+    UserDefinedFunction visitSqlInvokedFunction(RelationalParser.SqlInvokedFunctionContext ctx);
+
+    @Nonnull
+    @Override
+    Identifier visitUserDefinedScalarFunctionStatementBody(@Nonnull RelationalParser.UserDefinedScalarFunctionStatementBodyContext ctx);
 
     @Override
     LogicalOperator visitStatementBody(RelationalParser.StatementBodyContext ctx);
@@ -267,10 +265,6 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
 
     @Override
     Identifier visitTableFunctionName(RelationalParser.TableFunctionNameContext ctx);
-
-    @Nonnull
-    @Override
-    Expression visitContinuation(RelationalParser.ContinuationContext ctx);
 
     @Nonnull
     @Override
@@ -744,10 +738,6 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
 
     @Nonnull
     @Override
-    Expression visitExpressionWithName(@Nonnull RelationalParser.ExpressionWithNameContext ctx);
-
-    @Nonnull
-    @Override
     Expression visitExpressionWithOptionalName(@Nonnull RelationalParser.ExpressionWithOptionalNameContext ctx);
 
     @Nonnull
@@ -761,6 +751,10 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
     @Nonnull
     @Override
     Expression visitAggregateFunctionCall(@Nonnull RelationalParser.AggregateFunctionCallContext ctx);
+
+    @Nonnull
+    @Override
+    Expression visitUserDefinedScalarFunctionCall(@Nonnull RelationalParser.UserDefinedScalarFunctionCallContext ctx);
 
     @Nonnull
     @Override

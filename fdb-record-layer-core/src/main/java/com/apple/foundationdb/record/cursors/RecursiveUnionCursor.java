@@ -32,7 +32,7 @@ import com.apple.foundationdb.record.RecordCursorVisitor;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.planprotos.PTempTable;
 import com.apple.foundationdb.record.query.plan.cascades.TempTable;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveUnionPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveLevelUnionPlan;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
@@ -58,7 +58,7 @@ import java.util.function.Function;
  * {@link TempTable}, that the recursive scan is supposed to read, is empty or not, in other words, whether recursive
  * step {@code n-1} produced any results for the current step {@code n}. If not, the recursion stops immediately.
  * <br>
- * The state management of this cursor is mostly handled one level above by the {@link RecordQueryRecursiveUnionPlan}. For example,
+ * The state management of this cursor is mostly handled one level above by the {@link RecordQueryRecursiveLevelUnionPlan}. For example,
  * the manipulation of the read and write {@link TempTable} is handled there through manipulation of the {@link EvaluationContext}.
  * A {@link RecursiveStateManager} represents all the aspects related to state management, this abstraction offers a well-defined API
  * that enables probing (e.g. for the purpose of creating a {@link Continuation}) and manipulating the recursive state
@@ -161,7 +161,7 @@ public class RecursiveUnionCursor<T> implements RecordCursor<T> {
 
     /**
      * Continuation that captures the state of execution of a {@link RecursiveUnionCursor} that is orchestrated by
-     * {@link RecordQueryRecursiveUnionPlan} through a {@link RecursiveStateManager}.
+     * {@link RecordQueryRecursiveLevelUnionPlan} through a {@link RecursiveStateManager}.
      */
     public static final class Continuation implements RecordCursorContinuation {
 
@@ -271,7 +271,7 @@ public class RecursiveUnionCursor<T> implements RecordCursor<T> {
     public interface RecursiveStateManager<T> {
 
         /**
-         * Callback notifying the manager that the current cursor being iterated over by the {@link RecordQueryRecursiveUnionPlan}
+         * Callback notifying the manager that the current cursor being iterated over by the {@link RecordQueryRecursiveLevelUnionPlan}
          * is exhausted.
          */
         void notifyCursorIsExhausted();
@@ -291,8 +291,8 @@ public class RecursiveUnionCursor<T> implements RecordCursor<T> {
         RecordCursor<T> getActiveStateCursor();
 
         /**
-         * Retrieve the {@link TempTable} that is owned by the {@link RecordQueryRecursiveUnionPlan}.
-         * @return The {@link TempTable} that is owned by the {@link RecordQueryRecursiveUnionPlan}.
+         * Retrieve the {@link TempTable} that is owned by the {@link RecordQueryRecursiveLevelUnionPlan}.
+         * @return The {@link TempTable} that is owned by the {@link RecordQueryRecursiveLevelUnionPlan}.
          */
         @Nonnull
         TempTable getRecursiveUnionTempTable();

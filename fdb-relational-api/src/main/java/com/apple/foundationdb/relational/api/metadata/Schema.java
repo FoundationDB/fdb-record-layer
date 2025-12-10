@@ -60,6 +60,17 @@ public interface Schema extends Metadata {
     }
 
     /**
+     * Returns the views inside the {@code Schema}.
+     *
+     * @return The views inside the {@code Schema}.
+     * @throws RelationalException if the schema template is NoOpSchemaTemplate
+     */
+    @Nonnull
+    default Set<? extends View> getViews() throws RelationalException {
+        return getSchemaTemplate().getViews();
+    }
+
+    /**
      * Returns a list of all table-scoped {@link Index}es in this schema.
      *
      * @return a multi-map whose key is the {@link Table} name, and value(s) is the {@link Index}.

@@ -40,7 +40,6 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.sql.DriverManager;
 import java.sql.SQLException;
-import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
 
@@ -70,8 +69,9 @@ public class SimpleDirectAccessInsertionTests {
                     rrs.next();
                     continuation1 = rrs.getContinuation();
                 }
-                String continuationString = Base64.getEncoder().encodeToString(continuation1.serialize());
-                org.junit.jupiter.api.Assertions.assertThrows(ContextualSQLException.class, () -> s.executeQuery("SELECT * FROM RESTAURANT_REVIEWER LIMIT 1 WITH CONTINUATION B64'" + continuationString + "'"), "Continuation binding does not match query");
+                // Try to use scan continuation with EXECUTE CONTINUATION - should fail
+                String continuationString = java.util.Base64.getEncoder().encodeToString(continuation1.serialize());
+                org.junit.jupiter.api.Assertions.assertThrows(ContextualSQLException.class, () -> s.executeQuery("EXECUTE CONTINUATION B64'" + continuationString + "'"), "Continuation binding does not match query");
             }
 
             // get
@@ -81,8 +81,9 @@ public class SimpleDirectAccessInsertionTests {
                     rrs.next();
                     continuation1 = rrs.getContinuation();
                 }
-                String continuationString = Base64.getEncoder().encodeToString(continuation1.serialize());
-                org.junit.jupiter.api.Assertions.assertThrows(ContextualSQLException.class, () -> s.executeQuery("SELECT * FROM RESTAURANT_REVIEWER LIMIT 1 WITH CONTINUATION B64'" + continuationString + "'"), "Continuation binding does not match query");
+                // Try to use get continuation with EXECUTE CONTINUATION - should fail
+                String continuationString = java.util.Base64.getEncoder().encodeToString(continuation1.serialize());
+                org.junit.jupiter.api.Assertions.assertThrows(ContextualSQLException.class, () -> s.executeQuery("EXECUTE CONTINUATION B64'" + continuationString + "'"), "Continuation binding does not match query");
             }
         }
     }

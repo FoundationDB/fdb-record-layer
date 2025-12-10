@@ -20,28 +20,47 @@
 
 package com.apple.foundationdb.relational.api.ddl;
 
+import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.expressions.RecordKeyExpressionProto;
+import com.apple.foundationdb.record.metadata.Key;
+import com.apple.foundationdb.record.metadata.MetaDataValidator;
+import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
+import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactoryRegistryImpl;
+import com.apple.foundationdb.record.query.plan.cascades.RawSqlFunction;
+import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
+import com.apple.foundationdb.record.query.plan.cascades.UserDefinedMacroFunction;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.api.metadata.Index;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.api.metadata.Table;
+import com.apple.foundationdb.relational.api.metadata.View;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
+import com.apple.foundationdb.relational.recordlayer.RecordContextTransaction;
 import com.apple.foundationdb.relational.recordlayer.RelationalConnectionRule;
 import com.apple.foundationdb.relational.recordlayer.Utils;
 import com.apple.foundationdb.relational.recordlayer.ddl.AbstractMetadataOperationsFactory;
 import com.apple.foundationdb.relational.recordlayer.ddl.NoOpMetadataOperationsFactory;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerColumn;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
+import com.apple.foundationdb.relational.recordlayer.metric.RecordLayerMetricCollector;
+import com.apple.foundationdb.relational.recordlayer.query.Plan;
+import com.apple.foundationdb.relational.recordlayer.query.PreparedParams;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.utils.PermutationIterator;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.protobuf.DescriptorProtos;
+import com.google.protobuf.Descriptors;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
@@ -57,13 +76,18 @@ import org.junit.jupiter.params.provider.ValueSource;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.net.URI;
+import java.sql.SQLException;
 import java.sql.Types;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.function.IntPredicate;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+
+import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
 /**
  * Tests that verify that the language behaves correctly and has nice features and stuff. It does _not_ verify
@@ -76,12 +100,17 @@ public class DdlStatementParsingTest {
 
     @RegisterExtension
     @Order(2)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(DdlStatementParsingTest.class, TestSchemas.books());
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(DdlStatementParsingTest.class, TestSchemas.books(),
+            Options.builder().withOption(Options.Name.CASE_SENSITIVE_IDENTIFIERS, true).build(), null);
 
     @RegisterExtension
     @Order(3)
     public final RelationalConnectionRule connection = new RelationalConnectionRule(database::getConnectionUri)
-            .withSchema("TEST_SCHEMA");
+            .withSchema("TEST_SCHEMA")
+            .withOptions(Options.builder().withOption(Options.Name.CASE_SENSITIVE_IDENTIFIERS, true).build());
+
+    public DdlStatementParsingTest() throws SQLException {
+    }
 
     @BeforeAll
     public static void setup() {
@@ -89,7 +118,7 @@ public class DdlStatementParsingTest {
     }
 
     private static final String[] validPrimitiveDataTypes = new String[]{
-            "integer", "bigint", "double", "boolean", "string", "bytes"
+            "integer", "bigint", "double", "boolean", "string", "bytes", "vector(3, float)", "vector(4, double)", "vector(5, half)"
     };
 
     @Nonnull
@@ -128,8 +157,13 @@ public class DdlStatementParsingTest {
                                        @Nonnull final MetadataOperationsFactory metadataOperationsFactory) throws Exception {
         connection.setAutoCommit(false);
         (connection.getUnderlyingEmbeddedConnection()).createNewTransaction();
-        DdlTestUtil.getPlanGenerator(connection.getUnderlyingEmbeddedConnection(), database.getSchemaTemplateName(),
-                "/DdlStatementParsingTest", metadataOperationsFactory).getPlan(query);
+        final var transaction = connection.getUnderlyingEmbeddedConnection().getTransaction();
+        final var plan = DdlTestUtil.getPlanGenerator(connection.getUnderlyingEmbeddedConnection(), database.getSchemaTemplateName(),
+                "/DdlStatementParsingTest", metadataOperationsFactory, PreparedParams.empty(),
+                Options.builder().withOption(Options.Name.CASE_SENSITIVE_IDENTIFIERS, true).build()).getPlan(query);
+        // execute the plan so we run any extra test-driven verifications within the transactional closure.
+        plan.execute(Plan.ExecutionContext.of(transaction, Options.NONE, connection,
+                new RecordLayerMetricCollector(transaction.unwrap(RecordContextTransaction.class).getContext())));
         connection.rollback();
         connection.setAutoCommit(true);
     }
@@ -149,8 +183,12 @@ public class DdlStatementParsingTest {
     void shouldWorkWithInjectedQueryFactory(@Nonnull final String query, @Nonnull DdlQueryFactory queryFactory) throws Exception {
         connection.setAutoCommit(false);
         (connection.getUnderlyingEmbeddedConnection()).createNewTransaction();
-        DdlTestUtil.getPlanGenerator(connection.getUnderlyingEmbeddedConnection(), database.getSchemaTemplateName(),
+        final var transaction = connection.getUnderlyingEmbeddedConnection().getTransaction();
+        final var plan = DdlTestUtil.getPlanGenerator(connection.getUnderlyingEmbeddedConnection(), database.getSchemaTemplateName(),
                 "/DdlStatementParsingTest", queryFactory).getPlan(query);
+        // execute the plan so we run any extra test-driven verifications within the transactional closure.
+        plan.execute(Plan.ExecutionContext.of(transaction, Options.NONE, connection,
+                new RecordLayerMetricCollector(transaction.unwrap(RecordContextTransaction.class).getContext())));
         connection.rollback();
         connection.setAutoCommit(true);
     }
@@ -215,7 +253,7 @@ public class DdlStatementParsingTest {
                 DescriptorProtos.FileDescriptorProto fileDescriptorProto = getProtoDescriptor(template);
                 Assertions.assertEquals(1, fileDescriptorProto.getEnumTypeCount(), "should have one enum defined");
                 fileDescriptorProto.getEnumTypeList().forEach(enumDescriptorProto -> {
-                    Assertions.assertEquals("MY_ENUM", enumDescriptorProto.getName());
+                    Assertions.assertEquals("my_enum", enumDescriptorProto.getName());
                     Assertions.assertEquals(2, enumDescriptorProto.getValueCount());
                     Assertions.assertEquals(List.of("VAL_1", "VAL_2"), enumDescriptorProto.getValueList().stream()
                             .map(DescriptorProtos.EnumValueDescriptorProto::getName)
@@ -237,7 +275,7 @@ public class DdlStatementParsingTest {
                 Arguments.of(Types.VARCHAR, "STRING"),
                 Arguments.of(Types.BOOLEAN, "BOOLEAN"),
                 Arguments.of(Types.BINARY, "BYTES"),
-                Arguments.of(Types.STRUCT, "BAZ"),
+                Arguments.of(Types.STRUCT, "baz"),
                 Arguments.of(Types.ARRAY, "STRING ARRAY")
         );
     }
@@ -280,22 +318,6 @@ public class DdlStatementParsingTest {
         }
     }
 
-    private static void checkColumnNullability(@Nonnull final SchemaTemplate template, int sqlType, boolean isNullable) {
-        Assertions.assertInstanceOf(RecordLayerSchemaTemplate.class, template);
-        Assertions.assertEquals(1, ((RecordLayerSchemaTemplate) template).getTables().size(), "should have only 1 table");
-        final var table = ((RecordLayerSchemaTemplate) template).findTableByName("BAR");
-        Assertions.assertTrue(table.isPresent());
-        final var columns = table.get().getColumns();
-        Assertions.assertEquals(2, columns.size());
-        final var maybeNullableArrayColumn = columns.stream().filter(c -> c.getName().equals("FOO_FIELD")).findFirst();
-        Assertions.assertTrue(maybeNullableArrayColumn.isPresent());
-        if (isNullable) {
-            Assertions.assertTrue(maybeNullableArrayColumn.get().getDataType().isNullable());
-        } else {
-            Assertions.assertFalse(maybeNullableArrayColumn.get().getDataType().isNullable());
-        }
-        Assertions.assertEquals(sqlType, maybeNullableArrayColumn.get().getDataType().getJdbcSqlCode());
-    }
 
     @Test
     void failsToParseEmptyTemplateStatements() throws Exception {
@@ -333,6 +355,177 @@ public class DdlStatementParsingTest {
         });
     }
 
+    /**
+     * Validate that Protobuf escaping on a schema template by looking at the produced meta-data.
+     * This works with the tests in {@code valid-identifiers.yamsql}, which validate actual query semantics
+     * on such a meta-data. This test allows us to validate which parts of the meta-data are actually
+     * translated (it should only be things that get turned into Protobuf identifiers, like message types,
+     * field names, and enum values) and which parts are preserved (like function, view, and index names).
+     *
+     * @throws Exception from generating the schema-template
+     */
+    @Test
+    void translateNames() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT \"a.b$c__struct\" (\"___a$\" bigint, \"_b.x\" string, \"c__\" bigint)  " +
+                "CREATE TYPE AS ENUM \"a.b$c__enum\" ('___A$', '_B.X', 'C__')  " +
+                "CREATE TABLE \"__4a.b$c__table\"(\"__h__s\" \"a.b$c__struct\", \"_x.y\" bigint, \"enum.field\" \"a.b$c__enum\", primary key (\"__h__s\".\"_b.x\")) " +
+                "CREATE INDEX \"a.b$c__index\" AS SELECT \"_x.y\", \"__h__s\".\"___a$\", \"__h__s\".\"c__\" FROM \"__4a.b$c__table\" ORDER BY \"_x.y\", \"__h__s\".\"___a$\" " +
+                "CREATE VIEW \"a.b$c__view\" AS SELECT \"__h__s\".\"___a$\" AS \"f__00\" FROM \"__4a.b$c__table\" WHERE \"_x.y\" > 4 " +
+                "CREATE FUNCTION \"a.b$c__function\"(in \"__param__int\" bigint, in \"__param__enum\" TYPE \"a.b$c__enum\") " +
+                "  AS SELECT \"__h__s\".\"___a$\" AS \"f__00\" FROM \"__4a.b$c__table\" WHERE \"_x.y\" > \"__param__int\" AND \"enum.field\" = \"__param__enum\" " +
+                "CREATE FUNCTION \"a.b$c__macro_function\"(in \"__in__4a.b$c__table\" TYPE \"__4a.b$c__table\") RETURNS string AS \"__in__4a.b$c__table\".\"__h__s\".\"_b.x\" ";
+
+        shouldWorkWithInjectedFactory(stmt, new AbstractMetadataOperationsFactory() {
+            @Nonnull
+            @Override
+            public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull final SchemaTemplate template, @Nonnull final Options templateProperties) {
+                try {
+                    // Assert all the user-visible names look like the user identifiers in the schema
+
+                    Set<? extends Table> tables = template.getTables();
+                    Assertions.assertEquals(1, tables.size(), () -> "tables " + tables + " should have only one element");
+
+                    final Table table = Iterables.getOnlyElement(tables);
+                    Assertions.assertEquals("__4a.b$c__table", table.getName());
+
+                    final DataType.StructType structType = DataType.StructType.from("a.b$c__struct", List.of(
+                            DataType.StructType.Field.from("___a$", DataType.LongType.nullable(), 1),
+                            DataType.StructType.Field.from("_b.x", DataType.StringType.nullable(), 2),
+                            DataType.StructType.Field.from("c__", DataType.LongType.nullable(), 3)
+                    ), true);
+                    final DataType.EnumType enumType = DataType.EnumType.from("a.b$c__enum", List.of(
+                            DataType.EnumType.EnumValue.of("___A$", 0),
+                            DataType.EnumType.EnumValue.of("_B.X", 1),
+                            DataType.EnumType.EnumValue.of("C__", 2)
+                    ), true);
+                    Assertions.assertEquals(List.of(
+                            RecordLayerColumn.newBuilder().setName("__h__s").setDataType(structType).setIndex(1).build(),
+                            RecordLayerColumn.newBuilder().setName("_x.y").setDataType(DataType.LongType.nullable()).setIndex(2).build(),
+                            RecordLayerColumn.newBuilder().setName("enum.field").setDataType(enumType).setIndex(3).build()
+                    ), table.getColumns());
+
+                    Set<? extends Index> indexes = table.getIndexes();
+                    Assertions.assertEquals(1, indexes.size(), () -> "indexes " + indexes + " for table " + table.getName() + " should have only one element");
+                    Index index = Iterables.getOnlyElement(indexes);
+                    Assertions.assertEquals("a.b$c__index", index.getName());
+                    Assertions.assertEquals("__4a.b$c__table", index.getTableName());
+
+                    Set<? extends View> views = template.getViews();
+                    Assertions.assertEquals(1, views.size(), () -> "views " + views + " should have only one element");
+                    View view = Iterables.getOnlyElement(views);
+                    Assertions.assertEquals("a.b$c__view", view.getName());
+
+                    template.findInvokedRoutineByName("a.b$c__function")
+                            .orElseGet(() -> Assertions.fail("could not find function a.b$c__function"));
+                    template.findInvokedRoutineByName("a.b$c__macro_function")
+                            .orElseGet(() -> Assertions.fail("could not find function a.b$c__macro_function"));
+
+                    // Assert all the internal fields are using escaped protobuf identifiers
+
+                    Assertions.assertInstanceOf(RecordLayerTable.class, table);
+                    final RecordLayerTable recordLayerTable = (RecordLayerTable) table;
+                    Assertions.assertEquals(Key.Expressions.concat(Key.Expressions.recordType(), Key.Expressions.field("__h__0s").nest("_b__2x")), recordLayerTable.getPrimaryKey());
+
+                    Assertions.assertInstanceOf(RecordLayerIndex.class, index);
+                    final RecordLayerIndex recordLayerIndex = (RecordLayerIndex) index;
+                    Assertions.assertEquals(Key.Expressions.keyWithValue(Key.Expressions.concat(
+                                    Key.Expressions.field("_x__2y"),
+                                    Key.Expressions.field("__h__0s").nest(
+                                            Key.Expressions.concatenateFields("___a__1", "c__0")
+                                    )
+                            ), 2),
+                            recordLayerIndex.getKeyExpression());
+
+                    Assertions.assertInstanceOf(RecordLayerSchemaTemplate.class, template);
+                    final RecordLayerSchemaTemplate recordLayerSchemaTemplate = (RecordLayerSchemaTemplate) template;
+                    final RecordMetaData metaData = recordLayerSchemaTemplate.toRecordMetadata();
+
+                    Assertions.assertFalse(metaData.getRecordTypes().containsKey("__4a.b$c__table"), () -> "meta-data should not contain unescaped table name " + table.getName());
+                    Assertions.assertTrue(metaData.getRecordTypes().containsKey("__4a__2b__1c__0table"), () -> "meta-data should contain unescaped table name of " + table.getName());
+                    final RecordType recordType = metaData.getRecordType("__4a__2b__1c__0table");
+                    final Descriptors.Descriptor typeDescriptor = recordType.getDescriptor();
+                    Assertions.assertEquals("__4a__2b__1c__0table", typeDescriptor.getName());
+                    Assertions.assertEquals(List.of("__h__0s", "_x__2y", "enum__2field"), typeDescriptor.getFields().stream().map(Descriptors.FieldDescriptor::getName).collect(Collectors.toList()));
+                    final Descriptors.Descriptor structDescriptor = typeDescriptor.findFieldByName("__h__0s").getMessageType();
+                    Assertions.assertEquals("a__2b__1c__0struct", structDescriptor.getName());
+                    Assertions.assertEquals(List.of("___a__1", "_b__2x", "c__0"), structDescriptor.getFields().stream().map(Descriptors.FieldDescriptor::getName).collect(Collectors.toList()));
+                    final Descriptors.EnumDescriptor enumDescriptor = typeDescriptor.findFieldByName("enum__2field").getEnumType();
+                    Assertions.assertEquals("a__2b__1c__0enum", enumDescriptor.getName());
+                    Assertions.assertEquals(List.of("___A__1", "_B__2X", "C__0"), enumDescriptor.getValues().stream().map(Descriptors.EnumValueDescriptor::getName).collect(Collectors.toList()));
+
+                    var metaDataIndex = metaData.getIndex(index.getName());
+                    Assertions.assertEquals("a.b$c__index", metaDataIndex.getName()); // Index name is _not_ translated
+                    Assertions.assertEquals(recordLayerIndex.getKeyExpression(), metaDataIndex.getRootExpression()); // key expression is already validated as translated
+
+                    final Map<String, com.apple.foundationdb.record.metadata.View> viewMap = metaData.getViewMap();
+                    Assertions.assertTrue(viewMap.containsKey("a.b$c__view"), "should contain function a.b$c__view without escaping name");
+
+                    final Map<String, UserDefinedFunction> functionMap = metaData.getUserDefinedFunctionMap();
+                    Assertions.assertTrue(functionMap.containsKey("a.b$c__function"), "should contain function a.b$c__function without escaping name");
+                    final UserDefinedFunction sqlFunction = functionMap.get("a.b$c__function");
+                    Assertions.assertInstanceOf(RawSqlFunction.class, sqlFunction);
+                    Assertions.assertTrue(functionMap.containsKey("a.b$c__macro_function"), "should contain function a.b$c__macro_function without escaping name");
+                    final UserDefinedFunction macroFunction = functionMap.get("a.b$c__macro_function");
+                    Assertions.assertInstanceOf(UserDefinedMacroFunction.class, macroFunction);
+
+                    // Validates that referenced fields and types all line up
+                    final MetaDataValidator validator = new MetaDataValidator(metaData, IndexMaintainerFactoryRegistryImpl.instance());
+                    Assertions.assertDoesNotThrow(validator::validate, "Meta-data validation should complete successfully");
+                } catch (RelationalException e) {
+                    return Assertions.fail(e);
+                }
+
+                return txn -> {
+                };
+            }
+        });
+    }
+
+    @Nonnull
+    private static Stream<Arguments> invalidVectorTypes() {
+        return Stream.of(
+                // Zero dimensions
+                Arguments.of("vector(0, float)"),
+                // Negative dimensions
+                Arguments.of("vector(-1, float)"),
+                // Invalid element type
+                Arguments.of("vector(3, integer)"),
+                Arguments.of("vector(3, bigint)"),
+                Arguments.of("vector(3, string)"),
+                Arguments.of("vector(3, boolean)"),
+                Arguments.of("vector(3, bytes)"),
+                Arguments.of("vector(3, int)"),
+                // Missing dimensions
+                Arguments.of("vector(float)"),
+                // Missing element type
+                Arguments.of("vector(3)"),
+                // Empty vector
+                Arguments.of("vector()"),
+                // Wrong order (type, dimensions)
+                Arguments.of("vector(float, 3)"),
+                // Non-numeric dimensions
+                Arguments.of("vector(abc, float)"),
+                // Decimal dimensions
+                Arguments.of("vector(3.5, float)"),
+                // Multiple commas
+                Arguments.of("vector(3,, float)"),
+                // Extra parameters
+                Arguments.of("vector(3, float, extra)"),
+                // Case variations of invalid types
+                Arguments.of("vector(3, FLOAT32)"),
+                Arguments.of("vector(3, DOUBLE64)")
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("invalidVectorTypes")
+    void createInvalidVectorType(String vectorType) throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE test_table (id bigint, vec_col " + vectorType + ", PRIMARY KEY(id))";
+        shouldFailWith(stmt, ErrorCode.SYNTAX_ERROR);
+    }
+
     @ParameterizedTest
     @MethodSource("columnTypePermutations")
     void createSchemaTemplateWithOutOfOrderDefinitionsWork(List<String> columns) throws Exception {
@@ -358,14 +551,14 @@ public class DdlStatementParsingTest {
     @MethodSource("columnTypePermutations")
     void createSchemaTemplates(List<String> columns) throws Exception {
         final String columnStatement = "CREATE SCHEMA TEMPLATE test_template " +
-                " CREATE TYPE AS STRUCT FOO " + makeColumnDefinition(columns, false) +
-                " CREATE TABLE BAR (col0 bigint, col1 FOO, PRIMARY KEY(col0))";
+                " CREATE TYPE AS STRUCT foo " + makeColumnDefinition(columns, false) +
+                " CREATE TABLE bar (col0 bigint, col1 foo, PRIMARY KEY(col0))";
         shouldWorkWithInjectedFactory(columnStatement, new AbstractMetadataOperationsFactory() {
             @Nonnull
             @Override
             public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
                                                                       @Nonnull Options templateProperties) {
-                Assertions.assertEquals("TEST_TEMPLATE", template.getName(), "incorrect template name!");
+                Assertions.assertEquals("test_template", template.getName(), "incorrect template name!");
                 DdlTestUtil.ParsedSchema schema = new DdlTestUtil.ParsedSchema(getProtoDescriptor(template));
                 Assertions.assertEquals(1, schema.getTables().size(), "Incorrect number of tables");
                 return txn -> {
@@ -383,16 +576,16 @@ public class DdlStatementParsingTest {
     @ParameterizedTest
     @MethodSource("columnTypePermutations")
     void createSchemaTemplateTableWithOnlyRecordType(List<String> columns) throws Exception {
-        final String baseTableDef = makeColumnDefinition(columns, false).replace(")", ", SINGLE ROW ONLY)");
+        final String baseTableDef = replaceLast(makeColumnDefinition(columns, false), ')', ", SINGLE ROW ONLY)");
         final String columnStatement = "CREATE SCHEMA TEMPLATE test_template  " +
-                "CREATE TABLE FOO " + baseTableDef;
+                "CREATE TABLE foo " + baseTableDef;
 
         shouldWorkWithInjectedFactory(columnStatement, new AbstractMetadataOperationsFactory() {
             @Nonnull
             @Override
             public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
                                                                       @Nonnull Options templateProperties) {
-                Assertions.assertEquals("TEST_TEMPLATE", template.getName(), "incorrect template name!");
+                Assertions.assertEquals("test_template", template.getName(), "incorrect template name!");
                 DdlTestUtil.ParsedSchema schema = new DdlTestUtil.ParsedSchema(getProtoDescriptor(template));
                 Assertions.assertEquals(1, schema.getTables().size(), "Incorrect number of tables");
                 return txn -> {
@@ -433,8 +626,8 @@ public class DdlStatementParsingTest {
     void createSchemaTemplateWithIndex(List<String> columns) throws Exception {
         final String indexColumns = String.join(",", chooseIndexColumns(columns, n -> n % 2 == 0));
         final String templateStatement = "CREATE SCHEMA TEMPLATE test_template  " +
-                "CREATE TYPE AS STRUCT FOO " + makeColumnDefinition(columns, false) +
-                "CREATE TABLE TBL " + makeColumnDefinition(columns, true) +
+                "CREATE TYPE AS STRUCT foo " + makeColumnDefinition(columns, false) +
+                "CREATE TABLE tbl " + makeColumnDefinition(columns, true) +
                 "CREATE INDEX v_idx as select " + indexColumns + " from tbl order by " + indexColumns;
 
         shouldWorkWithInjectedFactory(templateStatement, new AbstractMetadataOperationsFactory() {
@@ -447,7 +640,7 @@ public class DdlStatementParsingTest {
                 Table info = ((RecordLayerSchemaTemplate) template).getTables().stream().findFirst().orElseThrow();
                 Assertions.assertEquals(1, info.getIndexes().size(), "Incorrect number of indexes!");
                 final Index index = Assert.optionalUnchecked(info.getIndexes().stream().findFirst());
-                Assertions.assertEquals("V_IDX", index.getName(), "Incorrect index name!");
+                Assertions.assertEquals("v_idx", index.getName(), "Incorrect index name!");
 
                 final var actualKe = ((RecordLayerIndex) index).getKeyExpression().toKeyExpression();
                 List<RecordKeyExpressionProto.KeyExpression> keys = null;
@@ -481,8 +674,8 @@ public class DdlStatementParsingTest {
         final List<String> indexedColumns = chooseIndexColumns(columns, n -> n % 2 == 0); //choose every other column
         final List<String> unindexedColumns = chooseIndexColumns(columns, n -> n % 2 != 0);
         final String templateStatement = "CREATE SCHEMA TEMPLATE test_template " +
-                " CREATE TYPE AS STRUCT FOO " + makeColumnDefinition(columns, false) +
-                " CREATE TABLE TBL " + makeColumnDefinition(columns, true) +
+                " CREATE TYPE AS STRUCT foo " + makeColumnDefinition(columns, false) +
+                " CREATE TABLE tbl " + makeColumnDefinition(columns, true) +
                 " CREATE INDEX v_idx as select " + Stream.concat(indexedColumns.stream(), unindexedColumns.stream()).collect(Collectors.joining(",")) + " from tbl order by " + String.join(",", indexedColumns);
         shouldWorkWithInjectedFactory(templateStatement, new AbstractMetadataOperationsFactory() {
             @Nonnull
@@ -493,7 +686,7 @@ public class DdlStatementParsingTest {
                 Table info = ((RecordLayerSchemaTemplate) template).getTables().stream().findFirst().orElseThrow();
                 Assertions.assertEquals(1, info.getIndexes().size(), "Incorrect number of indexes!");
                 final Index index = Assert.optionalUnchecked(info.getIndexes().stream().findFirst());
-                Assertions.assertEquals("V_IDX", index.getName(), "Incorrect index name!");
+                Assertions.assertEquals("v_idx", index.getName(), "Incorrect index name!");
 
                 RecordKeyExpressionProto.KeyExpression actualKe = ((RecordLayerIndex) index).getKeyExpression().toKeyExpression();
                 Assertions.assertNotNull(actualKe.getKeyWithValue(), "Null KeyExpression for included columns!");
@@ -559,7 +752,7 @@ public class DdlStatementParsingTest {
             @Nonnull
             @Override
             public ConstantAction getDropSchemaTemplateConstantAction(@Nonnull String templateId, boolean throwIfDoesNotExist, @Nonnull Options options) {
-                Assertions.assertEquals("TEST_TEMPLATE", templateId, "Incorrect schema template name!");
+                Assertions.assertEquals("test_template", templateId, "Incorrect schema template name!");
                 called[0] = true;
                 return txn -> {
                 };
@@ -585,14 +778,14 @@ public class DdlStatementParsingTest {
     @ParameterizedTest
     @MethodSource("columnTypePermutations")
     void createTable(List<String> columns) throws Exception {
-        final String columnStatement = "CREATE SCHEMA TEMPLATE test_template CREATE TABLE FOO " +
+        final String columnStatement = "CREATE SCHEMA TEMPLATE test_template CREATE TABLE foo " +
                 makeColumnDefinition(columns, true);
         shouldWorkWithInjectedFactory(columnStatement, new AbstractMetadataOperationsFactory() {
             @Nonnull
             @Override
             public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
                                                                       @Nonnull Options templateProperties) {
-                Assertions.assertEquals("TEST_TEMPLATE", template.getName(), "incorrect template name!");
+                Assertions.assertEquals("test_template", template.getName(), "incorrect template name!");
                 DdlTestUtil.ParsedSchema schema = new DdlTestUtil.ParsedSchema(getProtoDescriptor(template));
                 Assertions.assertEquals(1, schema.getTables().size(), "Incorrect number of tables");
                 return txn -> {
@@ -610,8 +803,11 @@ public class DdlStatementParsingTest {
     @ParameterizedTest
     @MethodSource("columnTypePermutations")
     void createTableAndType(List<String> columns) throws Exception {
-        final String tableDef = "CREATE TABLE tbl " + makeColumnDefinition(columns, true);
         final String typeDef = "CREATE TYPE AS STRUCT typ " + makeColumnDefinition(columns, false);
+        // current implementation of metadata prunes unused types in the serialization, this may or may not
+        // be something we want to commit to long term.
+        final var columnsWithType = ImmutableList.<String>builder().addAll(columns).add("typ").build();
+        final String tableDef = "CREATE TABLE tbl " + makeColumnDefinition(columnsWithType, true);
         final String templateStatement = "CREATE SCHEMA TEMPLATE test_template " +
                 typeDef + " " +
                 tableDef;
@@ -621,12 +817,12 @@ public class DdlStatementParsingTest {
             @Override
             public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
                                                                       @Nonnull Options templateProperties) {
-                Assertions.assertEquals("TEST_TEMPLATE", template.getName(), "incorrect template name!");
+                Assertions.assertEquals("test_template", template.getName(), "incorrect template name!");
                 DdlTestUtil.ParsedSchema schema = new DdlTestUtil.ParsedSchema(getProtoDescriptor(template));
                 Assertions.assertEquals(1, schema.getTables().size(), "Incorrect number of tables");
                 return txn -> {
                     try {
-                        assertColumnsMatch(schema.getTable("tbl"), columns);
+                        assertColumnsMatch(schema.getTable("tbl"), columnsWithType);
                         assertColumnsMatch(schema.getType("typ"), columns);
                     } catch (Exception ve) {
                         throw ExceptionUtil.toRelationalException(ve);
@@ -645,7 +841,7 @@ public class DdlStatementParsingTest {
             @Nonnull
             @Override
             public ConstantAction getCreateDatabaseConstantAction(@Nonnull URI dbPath, @Nonnull Options constantActionOptions) {
-                Assertions.assertEquals(URI.create("/DB_PATH"), dbPath, "Incorrect database path!");
+                Assertions.assertEquals(URI.create("/db_path"), dbPath, "Incorrect database path!");
                 return NoOpMetadataOperationsFactory.INSTANCE.getCreateDatabaseConstantAction(dbPath, constantActionOptions);
             }
         });
@@ -901,6 +1097,238 @@ public class DdlStatementParsingTest {
         });
     }
 
+    @Test
+    void createViewWorks() throws Exception {
+        final String schemaStatement = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT baz (a bigint, b bigint) " +
+                "CREATE TYPE AS ENUM foo ('OPTION_1', 'OPTION_2') " +
+                "CREATE TABLE bar (id bigint, baz_field baz, foo_field foo, PRIMARY KEY(id)) " +
+                "CREATE VIEW v AS SELECT * FROM bar";
+
+        shouldWorkWithInjectedFactory(schemaStatement, new AbstractMetadataOperationsFactory() {
+            @Nonnull
+            @Override
+            public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
+                                                                      @Nonnull Options templateProperties) {
+                final var viewMaybe = Assertions.assertDoesNotThrow(() -> template.findViewByName("v"));
+                assertThat(viewMaybe).isPresent();
+                assertThat(Assert.optionalUnchecked(viewMaybe).getDescription()).isEqualTo("SELECT * FROM bar");
+                return txn -> {
+                };
+            }
+        });
+    }
+
+    @Test
+    void createNestedViewWorks() throws Exception {
+        final String schemaStatement = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT baz (a bigint, b bigint) " +
+                "CREATE TYPE AS ENUM foo ('OPTION_1', 'OPTION_2') " +
+                "CREATE TABLE bar (id bigint, baz_field baz, foo_field foo, PRIMARY KEY(id)) " +
+                "CREATE VIEW v1 AS SELECT * FROM bar " +
+                "CREATE VIEW v2 AS SELECT * FROM v1";
+
+        shouldWorkWithInjectedFactory(schemaStatement, new AbstractMetadataOperationsFactory() {
+            @Nonnull
+            @Override
+            public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
+                                                                      @Nonnull Options templateProperties) {
+                final var view1Maybe = Assertions.assertDoesNotThrow(() -> template.findViewByName("v1"));
+                assertThat(view1Maybe).isPresent();
+                assertThat(Assert.optionalUnchecked(view1Maybe).getDescription()).isEqualTo("SELECT * FROM bar");
+                final var view2Maybe = Assertions.assertDoesNotThrow(() -> template.findViewByName("v2"));
+                assertThat(view2Maybe).isPresent();
+                assertThat(Assert.optionalUnchecked(view2Maybe).getDescription()).isEqualTo("SELECT * FROM v1");
+                return txn -> {
+                };
+            }
+        });
+    }
+
+    @Test
+    void createViewWithJoinWorks() throws Exception {
+        final String schemaStatement = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT baz (a bigint, b bigint) " +
+                "CREATE TYPE AS ENUM foo ('OPTION_1', 'OPTION_2') " +
+                "CREATE TABLE bar (id bigint, baz_field baz, foo_field foo, PRIMARY KEY(id)) " +
+                "CREATE VIEW v1 AS SELECT * FROM bar, bar " +
+                "CREATE VIEW v2 AS SELECT * FROM v1, v1";
+
+        shouldWorkWithInjectedFactory(schemaStatement, NoOpMetadataOperationsFactory.INSTANCE);
+    }
+
+    @Test
+    void createViewWithCollidingNameDoesNotWorkCase1() throws Exception {
+        final String schemaStatement = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT baz (a bigint, b bigint) " +
+                "CREATE TYPE AS ENUM foo ('OPTION_1', 'OPTION_2') " +
+                "CREATE TABLE bar (id bigint, baz_field baz, foo_field foo, PRIMARY KEY(id)) " +
+                "CREATE VIEW bar AS SELECT * FROM bar";
+
+        shouldFailWithInjectedQueryFactory(schemaStatement, ErrorCode.INVALID_SCHEMA_TEMPLATE, new AbstractQueryFactory() {
+            @Override
+            public DdlQuery getDescribeSchemaTemplateQueryAction(@Nonnull String schemaId) {
+                Assertions.fail("Should not call the query!");
+                return DdlQuery.NoOpDdlQuery.INSTANCE;
+            }
+        });
+    }
+
+    @Test
+    void createViewWithCollidingNameDoesNotWorkCase2() throws Exception {
+        final String schemaStatement = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT baz (a bigint, b bigint) " +
+                "CREATE TYPE AS ENUM foo ('OPTION_1', 'OPTION_2') " +
+                "CREATE TABLE bar (id bigint, baz_field baz, foo_field foo, PRIMARY KEY(id)) " +
+                "CREATE VIEW v AS SELECT * FROM bar " +
+                "CREATE TABLE v(id bigint, primary key(id))";
+
+        shouldFailWithInjectedQueryFactory(schemaStatement, ErrorCode.INVALID_SCHEMA_TEMPLATE, new AbstractQueryFactory() {
+            @Override
+            public DdlQuery getDescribeSchemaTemplateQueryAction(@Nonnull String schemaId) {
+                Assertions.fail("Should not call the query!");
+                return DdlQuery.NoOpDdlQuery.INSTANCE;
+            }
+        });
+    }
+
+    @Test
+    void createInvalidViewDefinitionDoesNotWork() throws Exception {
+        final String schemaStatement = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT baz (a bigint, b bigint) " +
+                "CREATE TYPE AS ENUM foo ('OPTION_1', 'OPTION_2') " +
+                "CREATE TABLE bar (id bigint, baz_field baz, foo_field foo, PRIMARY KEY(id)) " +
+                "CREATE VIEW v AS SELECTBLA * FROM bar ";
+
+        shouldFailWithInjectedQueryFactory(schemaStatement, ErrorCode.SYNTAX_ERROR, new AbstractQueryFactory() {
+            @Override
+            public DdlQuery getDescribeSchemaTemplateQueryAction(@Nonnull String schemaId) {
+                Assertions.fail("Should not call the query!");
+                return DdlQuery.NoOpDdlQuery.INSTANCE;
+            }
+        });
+    }
+
+    @Test
+    void createViewWithReferencesToSubsequentlyDefinedTableWorks() throws Exception {
+        final String schemaStatement = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT baz (a bigint, b bigint) " +
+                "CREATE TYPE AS ENUM foo ('OPTION_1', 'OPTION_2') " +
+                "CREATE VIEW v AS SELECT * FROM bar " +
+                "CREATE TABLE bar (id bigint, baz_field baz, foo_field foo, PRIMARY KEY(id)) ";
+
+        shouldWorkWithInjectedFactory(schemaStatement, NoOpMetadataOperationsFactory.INSTANCE);
+    }
+
+    @Test
+    void createViewWithCteWorks() throws Exception {
+        final String schemaStatement = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT baz (a bigint, b bigint) " +
+                "CREATE TYPE AS ENUM foo ('OPTION_1', 'OPTION_2') " +
+                "CREATE VIEW v AS WITH C1 AS (SELECT foo_field, id, baz_field FROM bar where id > 20) SELECT * FROM C1 " +
+                "CREATE TABLE bar (id bigint, baz_field baz, foo_field foo, PRIMARY KEY(id)) ";
+
+        shouldWorkWithInjectedFactory(schemaStatement, new AbstractMetadataOperationsFactory() {
+            @Nonnull
+            @Override
+            public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
+                                                                      @Nonnull Options templateProperties) {
+                final var viewMaybe = Assertions.assertDoesNotThrow(() -> template.findViewByName("v"));
+                assertThat(viewMaybe).isPresent();
+                assertThat(Assert.optionalUnchecked(viewMaybe).getDescription()).isEqualTo("WITH C1 AS (SELECT foo_field, id, baz_field FROM bar where id > 20) SELECT * FROM C1");
+                return txn -> {
+                };
+            }
+        });
+    }
+
+    @Test
+    void createViewWithNestedCteWorks() throws Exception {
+        final String schemaStatement = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT baz (a bigint, b bigint) " +
+                "CREATE TYPE AS ENUM foo ('OPTION_1', 'OPTION_2') " +
+                "CREATE VIEW v AS WITH C1 AS (WITH C2 AS (SELECT foo_field, id, baz_field FROM bar where id > 20) SELECT * FROM C2) SELECT * FROM C1 " +
+                "CREATE TABLE bar (id bigint, baz_field baz, foo_field foo, PRIMARY KEY(id)) ";
+
+        shouldWorkWithInjectedFactory(schemaStatement, new AbstractMetadataOperationsFactory() {
+            @Nonnull
+            @Override
+            public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
+                                                                      @Nonnull Options templateProperties) {
+                final var viewMaybe = Assertions.assertDoesNotThrow(() -> template.findViewByName("v"));
+                assertThat(viewMaybe).isPresent();
+                assertThat(Assert.optionalUnchecked(viewMaybe).getDescription()).isEqualTo("WITH C1 AS (WITH C2 AS (SELECT foo_field, id, baz_field FROM bar where id > 20) SELECT * FROM C2) SELECT * FROM C1");
+                return txn -> {
+                };
+            }
+        });
+    }
+
+    @Test
+    void createViewWithFunctionAndCteComplexNestingWorks() throws Exception {
+        final String schemaStatement = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT baz (a bigint, b bigint) " +
+                "CREATE TYPE AS ENUM foo ('OPTION_1', 'OPTION_2') " +
+                "CREATE FUNCTION F1 (IN A BIGINT) AS SELECT id, baz_field, foo_field FROM bar WHERE id > A " +
+                "CREATE VIEW v AS WITH C1 AS (WITH C2 AS (SELECT foo_field, id, baz_field FROM F1(20)) SELECT * FROM C2) SELECT * FROM C1 " +
+                "CREATE TABLE bar (id bigint, baz_field baz, foo_field foo, PRIMARY KEY(id)) ";
+
+        shouldWorkWithInjectedFactory(schemaStatement, new AbstractMetadataOperationsFactory() {
+            @Nonnull
+            @Override
+            public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
+                                                                      @Nonnull Options templateProperties) {
+                final var viewMaybe = Assertions.assertDoesNotThrow(() -> template.findViewByName("v"));
+                assertThat(viewMaybe).isPresent();
+                assertThat(Assert.optionalUnchecked(viewMaybe).getDescription()).isEqualTo("WITH C1 AS (WITH C2 AS (SELECT foo_field, id, baz_field FROM F1(20)) SELECT * FROM C2) SELECT * FROM C1");
+                return txn -> {
+                };
+            }
+        });
+    }
+
+    // This will be resolved once https://github.com/FoundationDB/fdb-record-layer/issues/3493 is fixed.
+    @Test
+    void createViewWithFunctionAndCteReferencingAnotherViewDoesNotWork() throws Exception {
+        final String schemaStatement = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT baz (a bigint, b bigint) " +
+                "CREATE TYPE AS ENUM foo ('OPTION_1', 'OPTION_2') " +
+                "CREATE VIEW p AS SELECT * FROM bar " +
+                "CREATE FUNCTION F1 (IN A BIGINT) AS SELECT id, baz_field, foo_field FROM p WHERE id > A " +
+                "CREATE VIEW v AS WITH C1 AS (WITH C2 AS (SELECT foo_field, id, baz_field FROM F1(20)) SELECT * FROM C2) SELECT * FROM C1 " +
+                "CREATE TABLE bar (id bigint, baz_field baz, foo_field foo, PRIMARY KEY(id)) ";
+
+        shouldFailWithInjectedQueryFactory(schemaStatement, ErrorCode.UNDEFINED_TABLE, new AbstractQueryFactory() {
+            @Override
+            public DdlQuery getDescribeSchemaTemplateQueryAction(@Nonnull String schemaId) {
+                Assertions.fail("Should not call the query!");
+                return DdlQuery.NoOpDdlQuery.INSTANCE;
+            }
+        });
+    }
+
+    @Test
+    void createViewWithReferencesToSubsequentlyDefinedTableAndTypeWorks() throws Exception {
+        final String schemaStatement = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE VIEW v AS SELECT * FROM bar " +
+                "CREATE TABLE bar (id bigint, baz_field baz, foo_field foo, PRIMARY KEY(id)) " +
+                "CREATE TYPE AS ENUM foo ('OPTION_1', 'OPTION_2') " +
+                "CREATE TYPE AS STRUCT baz (a bigint, b bigint) ";
+
+        shouldWorkWithInjectedFactory(schemaStatement, new AbstractMetadataOperationsFactory() {
+            @Nonnull
+            @Override
+            public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
+                                                                      @Nonnull Options templateProperties) {
+                final var viewMaybe = Assertions.assertDoesNotThrow(() -> template.findViewByName("v"));
+                assertThat(viewMaybe).isPresent();
+                assertThat(Assert.optionalUnchecked(viewMaybe).getDescription()).isEqualTo("SELECT * FROM bar");
+                return txn -> {
+                };
+            }
+        });
+    }
+
     @Nonnull
     private static String makeColumnDefinition(@Nonnull final List<String> columns, boolean isTable) {
         StringBuilder columnStatement = new StringBuilder("(");
@@ -924,7 +1352,7 @@ public class DdlStatementParsingTest {
         //choose every other column
         return IntStream.range(0, columns.size())
                 .filter(indexChoice)
-                .mapToObj(n -> "COL" + n)
+                .mapToObj(n -> "col" + n)
                 .collect(Collectors.toList());
     }
 
@@ -935,5 +1363,36 @@ public class DdlStatementParsingTest {
                 .mapToObj(i -> ("col" + i + " " + expectedColumns.get(i)))
                 .collect(Collectors.toList());
         Assertions.assertEquals(expectedColStrings, columnStrings, "Incorrect columns for type <" + type.getName() + ">");
+    }
+
+    private static void checkColumnNullability(@Nonnull final SchemaTemplate template, int sqlType, boolean isNullable) {
+        Assertions.assertInstanceOf(RecordLayerSchemaTemplate.class, template);
+        Assertions.assertEquals(1, ((RecordLayerSchemaTemplate) template).getTables().size(), "should have only 1 table");
+        final var table = ((RecordLayerSchemaTemplate) template).findTableByName("bar");
+        Assertions.assertTrue(table.isPresent());
+        final var columns = table.get().getColumns();
+        Assertions.assertEquals(2, columns.size());
+        final var maybeNullableArrayColumn = columns.stream().filter(c -> c.getName().equals("foo_field")).findFirst();
+        Assertions.assertTrue(maybeNullableArrayColumn.isPresent());
+        if (isNullable) {
+            Assertions.assertTrue(maybeNullableArrayColumn.get().getDataType().isNullable());
+        } else {
+            Assertions.assertFalse(maybeNullableArrayColumn.get().getDataType().isNullable());
+        }
+        Assertions.assertEquals(sqlType, maybeNullableArrayColumn.get().getDataType().getJdbcSqlCode());
+    }
+
+    @Nonnull
+    private static String replaceLast(@Nonnull final String str, final char oldChar, @Nonnull final String replacement) {
+        if (str.isEmpty()) {
+            return str;
+        }
+
+        int lastIndex = str.lastIndexOf(oldChar);
+        if (lastIndex == -1) {
+            return str;
+        }
+
+        return str.substring(0, lastIndex) + replacement + str.substring(lastIndex + 1);
     }
 }

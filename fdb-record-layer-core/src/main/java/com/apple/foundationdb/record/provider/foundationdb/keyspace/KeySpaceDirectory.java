@@ -103,7 +103,7 @@ public class KeySpaceDirectory {
      * type may be stored in the directory, otherwise specifies a constant value that represents the
      * directory
      * @param wrapper if non-null, specifies a function that may be used to wrap any <code>KeySpacePath</code>
-     * objects return from {@link KeySpace#pathFromKey(FDBRecordContext, Tuple)}
+     * objects return from {@link KeySpace#resolveFromKeyAsync(FDBRecordContext, Tuple)}.
      *
      * @throws RecordCoreArgumentException if the provided value constant value is not valid for the
      * type of directory being created
@@ -130,7 +130,7 @@ public class KeySpaceDirectory {
      * @param name the name of the directory
      * @param keyType the data type of the values that may be contained within the directory
      * @param wrapper if non-null, specifies a function that may be used to wrap any <code>KeySpacePath</code>
-     * objects returned from {@link KeySpace#pathFromKey(FDBRecordContext, Tuple)}
+     * objects returned from {@link KeySpace#resolveFromKeyAsync(FDBRecordContext, Tuple)}
      */
     public KeySpaceDirectory(@Nonnull String name, @Nonnull KeyType keyType, @Nullable Function<KeySpacePath, KeySpacePath> wrapper) {
         this(name, keyType, keyType.getAnyValue(), wrapper);
@@ -213,14 +213,12 @@ public class KeySpaceDirectory {
             // Have we hit the leaf of the tree or run out of tuple to process?
             if (subdirs.isEmpty() || keyIndex + 1 == keySize) {
                 final Tuple remainder = (keyIndex + 1 == key.size()) ? null : TupleHelpers.subTuple(key, keyIndex + 1, key.size());
-                final KeySpacePath path = KeySpacePathImpl.newPath(parentPath, this, tupleValue,
-                        true, resolvedValue, remainder);
+                final KeySpacePath path = KeySpacePathImpl.newPath(parentPath, this, tupleValue);
 
                 return CompletableFuture.completedFuture(
                         Optional.of(new ResolvedKeySpacePath(parent, path, new PathValue(tupleValue), remainder)));
             } else {
-                final KeySpacePath path = KeySpacePathImpl.newPath(parentPath, this, tupleValue,
-                        true, resolvedValue, null);
+                final KeySpacePath path = KeySpacePathImpl.newPath(parentPath, this, tupleValue);
                 return findChildForKey(context,
                         new ResolvedKeySpacePath(parent, path, pathValue, null),
                         key, keySize, keyIndex + 1).thenApply(Optional::of);
@@ -710,13 +708,20 @@ public class KeySpaceDirectory {
         return value;
     }
 
-    protected static boolean areEqual(Object o1, Object o2) {
+    @SuppressWarnings("PMD.CompareObjectsWithEquals") // we use ref
+    protected static boolean areEqual(@Nullable Object o1, @Nullable Object o2) {
         if (o1 == null) {
             return o2 == null;
         } else {
             if (o2 == null) {
                 return false;
             }
+        }
+
+        // Handle ANY_VALUE specially - typeOf does not support ANY_VALUE
+        boolean isAnyValue = (o1 == ANY_VALUE || o2 == ANY_VALUE);
+        if (isAnyValue) {
+            return Objects.equals(o1, o2);
         }
 
         KeyType o1Type = KeyType.typeOf(o1);
@@ -737,6 +742,31 @@ public class KeySpaceDirectory {
                 return o1.equals(o2);
             default:
                 throw new RecordCoreException("Unexpected key type " + o1Type);
+        }
+    }
+
+    protected static int valueHashCode(@Nullable Object value) {
+        if (value == null) {
+            return 0;
+        }
+
+        // Handle ANY_VALUE specially
+        if (value == ANY_VALUE) {
+            return System.identityHashCode(value);
+        }
+
+        switch (KeyType.typeOf(value)) {
+            case BYTES:
+                return Arrays.hashCode((byte[]) value);
+            case LONG:
+            case STRING:
+            case FLOAT:
+            case DOUBLE:
+            case BOOLEAN:
+            case UUID:
+                return Objects.hashCode(value);
+            default:
+                throw new RecordCoreException("Unexpected key type " + KeyType.typeOf(value));
         }
     }
 

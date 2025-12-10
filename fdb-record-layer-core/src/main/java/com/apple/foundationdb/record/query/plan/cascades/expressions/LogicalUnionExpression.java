@@ -39,7 +39,7 @@ import java.util.Set;
  * @see com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionPlan for the fallback implementation
  */
 @API(API.Status.EXPERIMENTAL)
-public class LogicalUnionExpression implements RelationalExpressionWithChildren.ChildrenAsSet {
+public class LogicalUnionExpression extends AbstractRelationalExpressionWithChildren implements RelationalExpressionWithChildren.ChildrenAsSet {
     @Nonnull
     private final List<? extends Quantifier> quantifiers;
     @Nonnull
@@ -63,7 +63,7 @@ public class LogicalUnionExpression implements RelationalExpressionWithChildren.
 
     @Nonnull
     @Override
-    public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
+    public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return ImmutableSet.of();
     }
 
@@ -102,7 +102,7 @@ public class LogicalUnionExpression implements RelationalExpressionWithChildren.
     }
 
     @Override
-    public int hashCodeWithoutChildren() {
+    public int computeHashCodeWithoutChildren() {
         return Objects.hash(resultValue);
     }
 }

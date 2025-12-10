@@ -91,12 +91,6 @@ public class ConstantValue extends AbstractValue implements LeafValue {
         return value.eval(store, context);
     }
 
-    @Nonnull
-    @Override
-    public Value replaceReferenceWithField(@Nonnull final FieldValue fieldValue) {
-        return this;
-    }
-
     @Override
     public boolean isFunctionallyDependentOn(@Nonnull final Value otherValue) {
         return false;

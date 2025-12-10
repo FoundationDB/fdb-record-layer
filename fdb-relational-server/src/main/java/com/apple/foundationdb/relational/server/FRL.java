@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
+import com.apple.foundationdb.record.util.VectorUtils;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalDriver;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
@@ -196,11 +197,15 @@ public class FRL implements AutoCloseable {
         // Third transaction is then created to run the sql. Transaction closes when connection closes so do all our
         // work inside here including reading all out of the ResultSet while under transaction else callers who try
         // to read the ResultSet after the transaction has closed will get a 'transactions is not active'.
-        final var driver = (RelationalDriver) DriverManager.getDriver(createEmbeddedJDBCURI(database, schema));
-        try (var connection = driver.connect(URI.create(createEmbeddedJDBCURI(database, schema)), options)) {
+        try (var connection = connect(database, schema, options)) {
             // Options are given to the connection, don't override them in the statement
             return executeInternal(connection, sql, parameters, null);
         }
+    }
+
+    private RelationalConnection connect(String database, String schema, Options options) throws SQLException {
+        final var driver = (RelationalDriver) DriverManager.getDriver(createEmbeddedJDBCURI(database, schema));
+        return driver.connect(URI.create(createEmbeddedJDBCURI(database, schema)), options);
     }
 
     private Response executeInternal(@Nonnull RelationalConnection connection,
@@ -263,7 +268,12 @@ public class FRL implements AutoCloseable {
         } else if (oneOfValue.hasBoolean()) {
             relationalPreparedStatement.setBoolean(index, oneOfValue.getBoolean());
         } else if (oneOfValue.hasBinary()) {
-            relationalPreparedStatement.setBytes(index, oneOfValue.getBinary().toByteArray());
+            if (parameter.hasMetadata() && parameter.getMetadata().hasVectorMetadata()) {
+                final var vectorProtoType = parameter.getMetadata().getVectorMetadata();
+                relationalPreparedStatement.setObject(index, VectorUtils.parseVector(oneOfValue.getBinary(), vectorProtoType.getPrecision()));
+            } else {
+                relationalPreparedStatement.setBytes(index, oneOfValue.getBinary().toByteArray());
+            }
         } else if (oneOfValue.hasNullType()) {
             relationalPreparedStatement.setNull(index, oneOfValue.getNullType());
         } else if (oneOfValue.hasUuid()) {
@@ -279,17 +289,17 @@ public class FRL implements AutoCloseable {
         }
     }
 
-    public int update(String database, String schema, String sql) throws SQLException {
-        try (var connection = DriverManager.getConnection(createEmbeddedJDBCURI(database, schema))) {
+    public int update(String database, String schema, String sql, Options options) throws SQLException {
+        try (var connection = connect(database, schema, options)) {
             try (Statement statement = connection.createStatement()) {
                 return statement.executeUpdate(sql);
             }
         }
     }
 
-    public int insert(String database, String schema, String tableName, List<RelationalStruct> data)
+    public int insert(String database, String schema, String tableName, List<RelationalStruct> data, Options options)
             throws SQLException {
-        try (var connection = DriverManager.getConnection(createEmbeddedJDBCURI(database, schema))) {
+        try (var connection = connect(database, schema, options)) {
             try (Statement statement = connection.createStatement()) {
                 try (RelationalStatement relationalStatement = statement.unwrap(RelationalStatement.class)) {
                     return relationalStatement.executeInsert(tableName, data, Options.NONE);
@@ -298,9 +308,9 @@ public class FRL implements AutoCloseable {
         }
     }
 
-    public RelationalResultSet get(String database, String schema, String tableName, KeySet keySet)
+    public RelationalResultSet get(String database, String schema, String tableName, KeySet keySet, Options options)
             throws SQLException {
-        try (var connection = DriverManager.getConnection(createEmbeddedJDBCURI(database, schema))) {
+        try (var connection = connect(database, schema, options)) {
             try (Statement statement = connection.createStatement()) {
                 try (RelationalStatement relationalStatement = statement.unwrap(RelationalStatement.class)) {
                     return relationalStatement.executeGet(tableName, keySet, Options.NONE);
@@ -309,9 +319,9 @@ public class FRL implements AutoCloseable {
         }
     }
 
-    public RelationalResultSet scan(String database, String schema, String tableName, KeySet keySet)
+    public RelationalResultSet scan(String database, String schema, String tableName, KeySet keySet, Options options)
             throws SQLException {
-        try (var connection = DriverManager.getConnection(createEmbeddedJDBCURI(database, schema))) {
+        try (var connection = connect(database, schema, options)) {
             try (Statement statement = connection.createStatement()) {
                 try (RelationalStatement relationalStatement = statement.unwrap(RelationalStatement.class)) {
                     return relationalStatement.executeScan(tableName, keySet, Options.NONE);

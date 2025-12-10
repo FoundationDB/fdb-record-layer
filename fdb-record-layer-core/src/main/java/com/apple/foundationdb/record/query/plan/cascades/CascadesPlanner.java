@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
+import com.apple.foundationdb.record.provider.foundationdb.IndexMatchCandidateRegistry;
 import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
 import com.apple.foundationdb.record.query.ParameterRelationshipGraph;
 import com.apple.foundationdb.record.query.RecordQuery;
@@ -214,6 +215,8 @@ public class CascadesPlanner implements QueryPlanner {
     @Nonnull
     private final RecordStoreState recordStoreState;
     @Nonnull
+    private final IndexMatchCandidateRegistry matchCandidateRegistry;
+    @Nonnull
     private Reference currentRoot;
     @Nonnull
     private PlanContext planContext;
@@ -228,10 +231,11 @@ public class CascadesPlanner implements QueryPlanner {
     // max size of the task queue encountered during the planning
     private int maxQueueSize;
 
-    public CascadesPlanner(@Nonnull RecordMetaData metaData, @Nonnull RecordStoreState recordStoreState) {
+    public CascadesPlanner(@Nonnull RecordMetaData metaData, @Nonnull RecordStoreState recordStoreState, @Nonnull IndexMatchCandidateRegistry matchCandidateRegistry) {
         this.configuration = RecordQueryPlannerConfiguration.builder().build();
         this.metaData = metaData;
         this.recordStoreState = recordStoreState;
+        this.matchCandidateRegistry = matchCandidateRegistry;
         // Placeholders until we get a query.
         this.currentRoot = Reference.empty();
         this.planContext = PlanContext.emptyContext();
@@ -345,7 +349,7 @@ public class CascadesPlanner implements QueryPlanner {
                                 @Nonnull final ParameterRelationshipGraph parameterRelationshipGraph) {
         try {
             planPartial(() -> Reference.initialOf(RelationalExpression.fromRecordQuery(metaData, query)),
-                    rootReference -> MetaDataPlanContext.forRecordQuery(configuration, metaData, recordStoreState, query),
+                    rootReference -> MetaDataPlanContext.forRecordQuery(configuration, metaData, recordStoreState, matchCandidateRegistry, query),
                     EvaluationContext.empty());
             return resultOrFail();
         } finally {
@@ -365,6 +369,7 @@ public class CascadesPlanner implements QueryPlanner {
                             MetaDataPlanContext.forRootReference(configuration,
                                     metaData,
                                     recordStoreState,
+                                    matchCandidateRegistry,
                                     rootReference,
                                     allowedIndexesOptional,
                                     indexQueryabilityFilter

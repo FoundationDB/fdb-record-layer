@@ -47,7 +47,7 @@ import java.util.Set;
  * Note that this expression is only used when we plan {@link com.apple.foundationdb.record.query.RecordQuery}s.
  */
 @API(API.Status.EXPERIMENTAL)
-public class LogicalProjectionExpression implements RelationalExpressionWithChildren, PlannerGraphRewritable {
+public class LogicalProjectionExpression extends AbstractRelationalExpressionWithChildren implements PlannerGraphRewritable {
     @Nonnull
     private final List<? extends Value> projectedValues;
     @Nonnull
@@ -78,7 +78,7 @@ public class LogicalProjectionExpression implements RelationalExpressionWithChil
 
     @Nonnull
     @Override
-    public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
+    public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return projectedValues.stream()
                 .flatMap(projectedValue -> projectedValue.getCorrelatedTo().stream())
                 .collect(ImmutableSet.toImmutableSet());
@@ -142,7 +142,7 @@ public class LogicalProjectionExpression implements RelationalExpressionWithChil
     }
 
     @Override
-    public int hashCodeWithoutChildren() {
+    public int computeHashCodeWithoutChildren() {
         return Objects.hash(getResultValue());
     }
 

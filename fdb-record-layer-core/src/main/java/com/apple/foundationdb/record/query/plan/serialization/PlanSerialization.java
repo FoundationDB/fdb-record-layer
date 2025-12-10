@@ -21,16 +21,21 @@
 package com.apple.foundationdb.record.query.plan.serialization;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.expressions.RecordKeyExpressionProto;
 import com.apple.foundationdb.record.metadata.expressions.LiteralKeyExpression;
 import com.apple.foundationdb.record.planprotos.PComparableObject;
 import com.apple.foundationdb.record.planprotos.PEnumLightValue;
 import com.apple.foundationdb.record.planprotos.PFDBRecordVersion;
+import com.apple.foundationdb.record.planprotos.PType;
 import com.apple.foundationdb.record.planprotos.PUUID;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.util.ProtoUtils;
+import com.apple.foundationdb.record.util.VectorUtils;
 import com.google.common.base.Verify;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.EnumBiMap;
@@ -69,23 +74,35 @@ public class PlanSerialization {
      */
     @Nonnull
     public static PComparableObject valueObjectToProto(@Nullable final Object object) {
+        return valueObjectToProto(object, null);
+    }
+
+    @Nonnull
+    public static PComparableObject valueObjectToProto(@Nullable final Object object, @Nullable PType typeProto) {
         final PComparableObject.Builder builder = PComparableObject.newBuilder();
         if (object instanceof Internal.EnumLite) {
             builder.setEnumObject(PEnumLightValue.newBuilder()
-                            .setName(object.toString()).setNumber(((Internal.EnumLite)object).getNumber()));
+                    .setName(object.toString()).setNumber(((Internal.EnumLite)object).getNumber()));
         } else if (object instanceof UUID) {
             final UUID uuid = (UUID)object;
             builder.setUuid(PUUID.newBuilder()
-                    .setMostSigBits(uuid.getMostSignificantBits())
-                    .setLeastSigBits(uuid.getLeastSignificantBits()))
+                            .setMostSigBits(uuid.getMostSignificantBits())
+                            .setLeastSigBits(uuid.getLeastSignificantBits()))
                     .build();
         } else if (object instanceof FDBRecordVersion) {
             builder.setFdbRecordVersion(PFDBRecordVersion.newBuilder()
                     .setRawBytes(ByteString.copyFrom(((FDBRecordVersion)object).toBytes(false))).build());
         } else if (object instanceof ByteString) {
             builder.setBytesAsByteString((ByteString)object);
+        } else if (object instanceof RealVector) {
+            Verify.verifyNotNull(typeProto);
+            builder.setPrimitiveObject(RecordKeyExpressionProto.Value
+                    .newBuilder().setBytesValue(ByteString.copyFrom(((RealVector)object).getRawData())).build());
         } else {
             builder.setPrimitiveObject(LiteralKeyExpression.toProtoValue(object));
+        }
+        if (typeProto != null) {
+            builder.setType(typeProto);
         }
         return builder.build();
     }
@@ -102,6 +119,17 @@ public class PlanSerialization {
      */
     @Nullable
     public static Object protoToValueObject(@Nonnull final PComparableObject proto) {
+        if (proto.hasType()) {
+            // the only implementation that leverages the presence of the type field is Vector.
+            // this can be extended in the future to cover other types as well, such as
+            // FDBRecordVersion, and UUID instead of having special sub-message requirements
+            final var type = Type.fromTypeProto(PlanSerializationContext.newForCurrentMode(), proto.getType());
+            if (type.isVector()) {
+                final var primitiveObject = proto.getPrimitiveObject();
+                return VectorUtils.parseVector(primitiveObject.getBytesValue(), (Type.Vector)type);
+            }
+        }
+
         if (proto.hasEnumObject()) {
             final PEnumLightValue enumProto = Objects.requireNonNull(proto.getEnumObject());
             Verify.verify(enumProto.hasNumber());

@@ -120,7 +120,7 @@ import java.util.Set;
  * property.
  */
 @API(API.Status.EXPERIMENTAL)
-public class MatchableSortExpression implements RelationalExpressionWithChildren, InternalPlannerGraphRewritable {
+public class MatchableSortExpression extends AbstractRelationalExpressionWithChildren implements InternalPlannerGraphRewritable {
     /**
      * A list of {@link CorrelationIdentifier}s that refer to parameter ids of this match candidate. This
      * restricts the expressiveness of this operator to only use index keys (or non-repeateds in primary scans) to
@@ -196,7 +196,7 @@ public class MatchableSortExpression implements RelationalExpressionWithChildren
 
     @Nonnull
     @Override
-    public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
+    public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return ImmutableSet.of();
     }
 
@@ -276,7 +276,7 @@ public class MatchableSortExpression implements RelationalExpressionWithChildren
     }
 
     @Override
-    public int hashCodeWithoutChildren() {
+    public int computeHashCodeWithoutChildren() {
         return Objects.hash(getSortParameterIds(), isReverse());
     }
 

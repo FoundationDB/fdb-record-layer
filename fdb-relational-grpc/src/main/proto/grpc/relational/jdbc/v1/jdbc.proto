@@ -60,6 +60,7 @@ message ScanRequest {
   optional string database = 2;
   optional string schema = 3;
   optional string table_name = 4;
+  Options options = 5;
 }
 
 message ScanResponse {
@@ -71,6 +72,7 @@ message GetRequest {
   optional string database = 2;
   optional string schema = 3;
   optional string table_name = 4;
+  Options options = 5;
 }
 
 message GetResponse {
@@ -87,6 +89,8 @@ message InsertRequest {
   optional string schema = 3;
   optional string table_name = 4;
   // '5' is taken... see above in oneof 'data'.
+
+  Options options = 6;
 }
 
 message ListBytes {
@@ -104,15 +108,62 @@ message Parameters {
 
 // A parameter has java sql type as well as actual parameter.
 message Parameter {
-  int32 java_sql_types_code = 1;
+  int32 java_sql_types_code = 1 [deprecated = true];
   // Reuse the column type here. It has much of what we need carrying
   // across parameters as well as null support, etc.
   Column parameter = 2;
-  Type type = 3;
+  Type type = 3 [deprecated = true]; // deprecated
+  ParameterMetadata metadata = 4;
+}
+
+message ParameterMetadata {
+  int32 java_sql_types_code = 1 [deprecated = true];
+  Type type = 2;
+  oneof metadata {
+    ListColumnMetadata structMetadata = 3;
+    ColumnMetadata arrayMetadata = 4;
+    EnumMetadata enumMetadata = 5;
+    VectorMetadata vectorMetadata = 6;
+  }
 }
 
 message Options {
-  optional int32 maxRows = 1;
+  optional int32 max_rows = 1;
+  optional bytes continuation = 2;
+  optional string index_hint = 3;
+  optional int32 required_metadata_table_version = 4;
+  optional int64 transaction_timeout = 5;
+  optional bool replace_on_duplicate_pk = 6;
+  optional int32 plan_cache_primary_max_entries = 7;
+  optional int32 plan_cache_secondary_max_entries = 8;
+  optional int32 plan_cache_tertiary_max_entries = 9;
+  optional int64 plan_cache_primary_time_to_live_millis = 10;
+  optional int64 plan_cache_secondary_time_to_live_millis = 11;
+  optional int64 plan_cache_tertiary_time_to_live_millis = 12;
+  enum IndexFetchMethod {
+    SCAN_AND_FETCH = 0;
+    USE_REMOTE_FETCH = 1;
+    USE_REMOTE_FETCH_WITH_FALLBACK = 2;
+  }
+  optional IndexFetchMethod index_fetch_method = 13;
+  repeated string disabled_planner_rules = 14;
+  optional bool disable_planner_rewriting = 15;
+  optional bool log_query = 16;
+  optional int64 log_slow_query_threshold_micros = 17;
+  optional int64 execution_time_limit = 18;
+  optional int64 execution_scanned_bytes_limit = 19;
+  optional int32 execution_scanned_rows_limit = 20;
+  optional bool dry_run = 21;
+  optional bool case_sensitive_identifiers = 22;
+  optional string current_plan_hash_mode = 23;
+  optional string valid_plan_hash_modes = 24;
+  optional int64 async_operations_timeout_millis = 26;
+  optional bool encrypt_when_serializing = 27;
+  optional string encryption_key_store = 28;
+  optional string encryption_key_entry = 29;
+  optional string encryption_key_password = 30;
+  optional bool compress_when_serializing = 31;
+  repeated string encryption_key_entry_list = 32;
 }
 
 // Request that is part of a transactional (stateful) exchange
@@ -168,12 +219,15 @@ message RollbackResponse {
 }
 
 message EnableAutoCommitRequest {
+  Options options = 1;
 }
 
 message EnableAutoCommitResponse {
 }
 
-message DatabaseMetaDataRequest {}
+message DatabaseMetaDataRequest {
+  Options options = 1;
+}
 message DatabaseMetaDataResponse {
   string url = 1;
   string database_product_version = 2;

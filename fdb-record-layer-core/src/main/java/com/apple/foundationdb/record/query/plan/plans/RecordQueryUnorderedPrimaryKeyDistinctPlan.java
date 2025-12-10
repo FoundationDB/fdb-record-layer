@@ -41,6 +41,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.AbstractRelationalExpressionWithChildren;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.explain.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -66,7 +67,7 @@ import java.util.Set;
  * A query plan that removes duplicates by means of a hash table of primary keys already seen.
  */
 @API(API.Status.INTERNAL)
-public class RecordQueryUnorderedPrimaryKeyDistinctPlan implements RecordQueryPlanWithChild {
+public class RecordQueryUnorderedPrimaryKeyDistinctPlan extends AbstractRelationalExpressionWithChildren implements RecordQueryPlanWithChild {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Unordered-Primary-Key-Distinct-Plan");
 
     public static final Logger LOGGER = LoggerFactory.getLogger(RecordQueryUnorderedPrimaryKeyDistinctPlan.class);
@@ -132,7 +133,7 @@ public class RecordQueryUnorderedPrimaryKeyDistinctPlan implements RecordQueryPl
 
     @Nonnull
     @Override
-    public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
+    public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return ImmutableSet.of();
     }
 
@@ -148,7 +149,7 @@ public class RecordQueryUnorderedPrimaryKeyDistinctPlan implements RecordQueryPl
     @Nonnull
     @Override
     public RecordQueryPlanWithChild withChild(@Nonnull final Reference childRef) {
-        return new RecordQueryUnorderedPrimaryKeyDistinctPlan(Quantifier.physical(childRef));
+        return new RecordQueryUnorderedPrimaryKeyDistinctPlan(Quantifier.physical(childRef, inner.getAlias()));
     }
 
     @Nonnull
@@ -179,8 +180,8 @@ public class RecordQueryUnorderedPrimaryKeyDistinctPlan implements RecordQueryPl
     }
     
     @Override
-    public int hashCodeWithoutChildren() {
-        return BASE_HASH.planHash(PlanHashable.CURRENT_FOR_CONTINUATION);
+    public int computeHashCodeWithoutChildren() {
+        return BASE_HASH.hashCode();
     }
 
     @Override

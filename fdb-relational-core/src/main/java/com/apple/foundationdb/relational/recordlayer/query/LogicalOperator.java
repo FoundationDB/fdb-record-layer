@@ -183,6 +183,8 @@ public class LogicalOperator {
             return cteMaybe.get().withNewSharedReferenceAndAlias(alias);
         } else if (semanticAnalyzer.tableExists(identifier)) {
             return logicalOperatorCatalog.lookupTableAccess(identifier, alias, requestedIndexes, semanticAnalyzer);
+        } else if (semanticAnalyzer.viewExists(identifier)) {
+            return semanticAnalyzer.resolveView(identifier);
         } else if (semanticAnalyzer.functionExists(identifier)) {
             return semanticAnalyzer.resolveTableFunction(identifier, Expressions.empty(), false);
         } else {
@@ -230,15 +232,17 @@ public class LogicalOperator {
     public static LogicalOperator generateTableAccess(@Nonnull Identifier tableId,
                                                       @Nonnull Set<AccessHint> indexAccessHints,
                                                       @Nonnull SemanticAnalyzer semanticAnalyzer) {
-        final var tableNames = semanticAnalyzer.getAllTableNames();
+        final Set<String> tableNames = semanticAnalyzer.getAllTableStorageNames();
         semanticAnalyzer.validateIndexes(tableId, indexAccessHints);
         final var scanExpression = Quantifier.forEach(Reference.initialOf(
                 new FullUnorderedScanExpression(tableNames,
                         new Type.AnyRecord(false),
                         new AccessHints(indexAccessHints.toArray(new AccessHint[0])))));
         final var table = semanticAnalyzer.getTable(tableId);
-        final var type = Assert.castUnchecked(table, RecordLayerTable.class).getType();
-        final var typeFilterExpression = new LogicalTypeFilterExpression(ImmutableSet.of(tableId.getName()), scanExpression, type);
+        final Type.Record type = Assert.castUnchecked(table, RecordLayerTable.class).getType();
+        final String storageName = type.getStorageName();
+        Assert.thatUnchecked(storageName != null, "storage name for table access must not be null");
+        final var typeFilterExpression = new LogicalTypeFilterExpression(ImmutableSet.of(storageName), scanExpression, type);
         final var resultingQuantifier = Quantifier.forEach(Reference.initialOf(typeFilterExpression));
         final ImmutableList.Builder<Expression> attributesBuilder = ImmutableList.builder();
         int colCount = 0;
@@ -263,7 +267,15 @@ public class LogicalOperator {
                 () -> String.format(Locale.ROOT, "join correlation can occur only on column of repeated type, not %s type", expression.getDataType()));
         final var explode = new ExplodeExpression(expression.getUnderlying());
         final var resultingQuantifier = Quantifier.forEach(Reference.initialOf(explode));
-        final var outputAttributes = Expressions.of(convertToExpressions(resultingQuantifier));
+
+        Expressions outputAttributes;
+        if (resultingQuantifier.getFlowedObjectType().isPrimitive()) {
+            final ImmutableList.Builder<Expression> attributesBuilder = ImmutableList.builder();
+            attributesBuilder.add(new Expression(alias, DataTypeUtils.toRelationalType(explode.getResultValue().getResultType()), resultingQuantifier.getFlowedObjectValue()));
+            outputAttributes = Expressions.of(attributesBuilder.build());
+        } else {
+            outputAttributes = Expressions.of(convertToExpressions(resultingQuantifier));
+        }
         return LogicalOperator.newOperator(alias, outputAttributes, resultingQuantifier);
     }
 
@@ -460,10 +472,10 @@ public class LogicalOperator {
 
     @Nonnull
     public static LogicalOperator generateInsert(@Nonnull LogicalOperator insertSource, @Nonnull Table target) {
-        final var targetType = Assert.castUnchecked(target, RecordLayerTable.class).getType();
+        final Type.Record targetType = Assert.castUnchecked(target, RecordLayerTable.class).getType();
         final var insertExpression = new InsertExpression(Assert.castUnchecked(insertSource.getQuantifier(),
                         Quantifier.ForEach.class),
-                target.getName(),
+                Assert.notNullUnchecked(targetType.getStorageName(), "target type for insert must have set storage name"),
                 targetType);
         final var resultingQuantifier = Quantifier.forEach(Reference.initialOf(insertExpression));
         final var output = Expressions.fromQuantifier(resultingQuantifier);

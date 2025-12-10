@@ -21,13 +21,11 @@
 package com.apple.foundationdb.relational.api.fluentsql.expression;
 
 import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.fluentsql.FluentVisitor;
 import com.apple.foundationdb.relational.api.fluentsql.expression.details.Mixins;
 import com.apple.foundationdb.relational.api.metadata.DataType;
-
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -149,8 +147,7 @@ public class UserDefinedField<T extends DataType> implements Field<T> {
 
     private void expectingType(@Nonnull final DataType.Code code) {
         if (type.getCode() != DataType.Code.UNKNOWN && !type.getCode().equals(code)) {
-            throw new RelationalException(String.format("Type mismatch, expected type '%s', actual type '%s'",
-                    code.name(), type.getCode().name()), ErrorCode.DATATYPE_MISMATCH).toUncheckedWrappedException();
+            throw new RelationalException("Type mismatch, expected type '" + code.name() + "', actual type '" + type.getCode().name() + "'", ErrorCode.DATATYPE_MISMATCH).toUncheckedWrappedException();
         }
     }
 
