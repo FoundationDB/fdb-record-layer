@@ -7,6 +7,29 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.8
 
+### 4.8.17.0
+
+<h4> New Features </h4>
+
+* Support nullable and non-nullable types with same name in the same template - [PR #3658](https://github.com/FoundationDB/fdb-record-layer/pull/3658)
+* Add the ability to run header repair as part of record repair - [PR #3780](https://github.com/FoundationDB/fdb-record-layer/pull/3780)
+<h4> Bug Fixes </h4>
+
+* Handle multiple updates to the same record in a transaction - [PR #3722](https://github.com/FoundationDB/fdb-record-layer/pull/3722)
+
+
+**[Full Changelog (4.8.16.0...4.8.17.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.8.16.0...4.8.17.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.8.2.0`, ✅`4.8.3.0`, ✅`4.8.5.0`, ✅`4.8.6.0`, ✅`4.8.11.0`, ✅`4.8.12.0`, ✅`4.8.13.0`, ✅`4.8.14.0`, ✅`4.8.15.0`, ✅`4.8.16.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/20095205503)
+
+
+
 ### 4.8.16.0
 
 <h4> New Features </h4>
