@@ -59,7 +59,7 @@ public final class LogicalPlanFragment {
         this.parent = parent;
         this.operators = operators;
         this.state = state;
-        this.joinExpressions = java.util.List.of();
+        this.joinExpressions = List.of();
     }
 
     public void setJoinExpressions(@Nonnull List<Expression> joinExpressions) {
