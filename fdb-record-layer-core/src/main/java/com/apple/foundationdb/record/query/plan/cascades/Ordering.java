@@ -35,9 +35,9 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.DefaultValueSimplificationRuleSet;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
-import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
@@ -395,7 +395,7 @@ public class Ordering {
     }
 
     @Nonnull
-    public Ordering pullUp(@Nonnull final Value value /*to pull against*/, @Nonnull EvaluationContext evaluationContext,
+    public Ordering pullUp(@Nonnull final Value value, @Nonnull EvaluationContext evaluationContext,
                            @Nonnull final AliasMap aliasMap, @Nonnull final Set<CorrelationIdentifier> constantAliases) {
         final var pulledUpBindingMapBuilder = ImmutableSetMultimap.<Value, Binding>builder();
         for (final var entry : getBindingMap().asMap().entrySet()) {
@@ -440,18 +440,18 @@ public class Ordering {
                                         value.pushDown(toBePushedValues,
                                                 DefaultValueSimplificationRuleSet.instance(), evaluationContext,
                                                 aliasMap, constantAliases, Quantifier.current());
-                                final var resultMap = HashMultimap.<Value, Value>create();
+                                final var resultMapBuilder = ImmutableMultimap.<Value, Value>builder();
                                 for (int i = 0; i < toBePushedValues.size(); i++) {
                                     final Value toBePushedValue = toBePushedValues.get(i);
                                     final Value pushedValue = Objects.requireNonNull(pushedDownValues.get(i));
-                                    resultMap.put(toBePushedValue, pushedValue);
+                                    resultMapBuilder.put(toBePushedValue, pushedValue);
                                 }
-                                return resultMap;
+                                return resultMapBuilder.build();
                             });
             pushedBindingMapBuilder.putAll(entry.getKey(), pushedBindings);
         }
 
-        // pull up the values we actually could also pull up some of the the bindings for
+        // push down the values for which we actually could push down some of the bindings
         final var pushedBindingMap = pushedBindingMapBuilder.build();
         final var values = pushedBindingMap.keySet();
         final var pushedValues =
