@@ -328,6 +328,94 @@ class OrderingTest {
     }
 
     @Test
+    void testPullUp5() {
+        final var qov = ValueTestHelpers.qov();
+        final var a = ValueTestHelpers.field(qov, "a");
+        final var b = ValueTestHelpers.field(qov, "b");
+        final var c = ValueTestHelpers.field(qov, "c");
+        final var innerOrderedSet = PartiallyOrderedSet.of(ImmutableSet.of(a, b, c), ImmutableSetMultimap.of(b, a));
+        final var innerOrdering =
+                Ordering.ofOrderingSet(bindingMap(a, ProvidedSortOrder.ASCENDING,
+                        b, ProvidedSortOrder.ASCENDING,
+                        c, ProvidedSortOrder.ASCENDING), innerOrderedSet, false);
+
+        final var rcv2 = RecordConstructorValue.ofColumns(ImmutableList.of(
+                Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("a_1")), FieldValue.ofFieldNames(ValueTestHelpers.qov(), ImmutableList.of("a"))),
+                Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("b_1")), FieldValue.ofFieldNames(ValueTestHelpers.qov(), ImmutableList.of("b"))),
+                Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("a_2")), FieldValue.ofFieldNames(ValueTestHelpers.qov(), ImmutableList.of("a"))),
+                Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("b_2")), FieldValue.ofFieldNames(ValueTestHelpers.qov(), ImmutableList.of("b")))
+        ));
+        final var pulledUpOrdering =
+                innerOrdering.pullUp(rcv2, EvaluationContext.empty(), AliasMap.emptyMap(), Set.of());
+
+        final var qovCurrent = QuantifiedObjectValue.of(Quantifier.current(), rcv2.getResultType());
+        final var ap1 = ValueTestHelpers.field(qovCurrent, "a_1");
+        final var bp1 = ValueTestHelpers.field(qovCurrent, "b_1");
+        final var ap2 = ValueTestHelpers.field(qovCurrent, "a_2");
+        final var bp2 = ValueTestHelpers.field(qovCurrent, "b_2");
+
+        final var expectedOrdering =
+                Ordering.ofOrderingSet(bindingMap(ap1, ProvidedSortOrder.ASCENDING,
+                                bp1, ProvidedSortOrder.ASCENDING,
+                                ap2, ProvidedSortOrder.ASCENDING,
+                                bp2, ProvidedSortOrder.ASCENDING),
+                        PartiallyOrderedSet.of(ImmutableSet.of(ap1, ap2, bp1, bp2), ImmutableSetMultimap.of(bp2, ap1, bp2, ap2, bp1, ap1, bp1, ap2)),
+                        false);
+
+        assertEquals(
+                expectedOrdering,
+                pulledUpOrdering);
+    }
+
+    @Test
+    void testPushDown1() {
+        final var rcv = select("a", "b", "c");
+
+        final var qovCurrent = QuantifiedObjectValue.of(Quantifier.current(), rcv.getResultType());
+        final var ap = ValueTestHelpers.field(qovCurrent, "ap");
+        final var ordering =
+                Ordering.ofOrderingSet(bindingMap(ap, ProvidedSortOrder.ASCENDING),
+                        PartiallyOrderedSet.of(ImmutableSet.of(ap), ImmutableSetMultimap.of()),
+                        false);
+
+        final var pushedDownOrdering = ordering.pushDown(rcv, EvaluationContext.empty(), AliasMap.emptyMap(), Set.of());
+
+        final var a = ValueTestHelpers.field(ValueTestHelpers.qov(), "a");
+        final var expectedOrdering =
+                Ordering.ofOrderingSet(bindingMap(a, ProvidedSortOrder.ASCENDING),
+                        PartiallyOrderedSet.of(ImmutableSet.of(a), ImmutableSetMultimap.of()),
+                        false);
+
+        assertEquals(expectedOrdering, pushedDownOrdering);
+    }
+
+    @Test
+    void testPushDown2() {
+        final var rcv = select("a", "b", "c");
+
+        final var qovCurrent = QuantifiedObjectValue.of(Quantifier.current(), rcv.getResultType());
+        final var ap = ValueTestHelpers.field(qovCurrent, "ap");
+        final var bp = ValueTestHelpers.field(qovCurrent, "bp");
+        final var ordering =
+                Ordering.ofOrderingSet(bindingMap(ap, ProvidedSortOrder.ASCENDING,
+                                bp, ProvidedSortOrder.ASCENDING),
+                        PartiallyOrderedSet.of(ImmutableSet.of(ap, bp), ImmutableSetMultimap.of(bp, ap)),
+                        false);
+
+        final var pushedDownOrdering = ordering.pushDown(rcv, EvaluationContext.empty(), AliasMap.emptyMap(), Set.of());
+
+        final var a = ValueTestHelpers.field(ValueTestHelpers.qov(), "a");
+        final var b = ValueTestHelpers.field(ValueTestHelpers.qov(), "b");
+        final var expectedOrdering =
+                Ordering.ofOrderingSet(bindingMap(a, ProvidedSortOrder.ASCENDING,
+                                b, ProvidedSortOrder.ASCENDING),
+                        PartiallyOrderedSet.of(ImmutableSet.of(a, b), ImmutableSetMultimap.of(b, a)),
+                        false);
+
+        assertEquals(expectedOrdering, pushedDownOrdering);
+    }
+
+    @Test
     void testMergePartialOrdersNAry() {
         final var qov = ValueTestHelpers.qov();
         final var a = ValueTestHelpers.field(qov, "a");
