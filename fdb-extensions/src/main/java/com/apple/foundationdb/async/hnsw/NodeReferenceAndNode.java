@@ -26,7 +26,7 @@ import javax.annotation.Nonnull;
 import java.util.List;
 
 /**
- * A container class that pairs a {@link NodeReferenceWithDistance} with its corresponding {@link AbstractNode} object.
+ * A container class that pairs a {@link NodeReference} with its corresponding {@link AbstractNode} object.
  * <p>
  * This is often used during graph traversal or searching, where a reference to a node (along with its distance from a
  * query point) is first identified, and then the complete node data is fetched. This class holds these two related
@@ -68,6 +68,11 @@ class NodeReferenceAndNode<T extends NodeReference, N extends NodeReference> {
     @Nonnull
     public AbstractNode<N> getNode() {
         return node;
+    }
+
+    @Override
+    public String toString() {
+        return "NB[" + nodeReference + "," + node + ']';
     }
 
     /**

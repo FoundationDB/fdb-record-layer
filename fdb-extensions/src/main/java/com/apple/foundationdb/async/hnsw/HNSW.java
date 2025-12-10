@@ -1482,9 +1482,9 @@ public class HNSW {
 
         if (isExtendCandidates) {
             return neighborReferences(storageAdapter, readTransaction, storageTransform, null, candidates,
-                    HopMode.INCLUSIVE, CandidateSamplingPredicate.tautology(), layer, nodeCache)
-                    .thenApply(hop2 -> {
-                        for (final NodeReferenceWithVector nodeReferenceWithVector : hop2) {
+                    CandidateSamplingPredicate.tautology(), layer, nodeCache)
+                    .thenApply(neighborsOfCandidates -> {
+                        for (final NodeReferenceWithVector nodeReferenceWithVector : neighborsOfCandidates) {
                             final double distance = estimator.distance(nodeReferenceWithVector.getVector(), vector);
                             resultBuilder.add(new NodeReferenceWithDistance(nodeReferenceWithVector.getPrimaryKey(),
                                     nodeReferenceWithVector.getVector(), distance));
@@ -1526,15 +1526,14 @@ public class HNSW {
                       @Nonnull final AffineOperator storageTransform,
                       @Nonnull final SplittableRandom random,
                       @Nonnull final Collection<NodeReferenceAndNode<T, N>> initialNodeReferenceAndNodes,
-                      @Nonnull final HopMode hopMode,
                       @Nonnull final CandidateSamplingPredicate samplingPredicate,
                       final int layer,
                       @Nonnull final Map<Tuple, AbstractNode<N>> nodeCache) {
         return neighborReferences(storageAdapter, readTransaction, storageTransform, random,
-                initialNodeReferenceAndNodes, hopMode, samplingPredicate, layer, nodeCache)
-                .thenCompose(neighborsFirstDegree ->
+                initialNodeReferenceAndNodes, samplingPredicate, layer, nodeCache)
+                .thenCompose(neighbors ->
                         fetchSomeNodesIfNotCached(storageAdapter, readTransaction, storageTransform, layer,
-                                neighborsFirstDegree, nodeCache));
+                                neighbors, nodeCache));
     }
 
     /**
@@ -1550,7 +1549,6 @@ public class HNSW {
      * @param random a {@link SplittableRandom} to be used for sampling
      * @param initialNodeReferenceAndNodes an {@link Iterable} of initial candidate nodes, which have already been
      *        evaluated
-     * @param hopMode the {@link HopMode} we should use
      * @param samplingPredicate a predicate that restricts the number of neighbors to be fetched
      * @param layer the graph layer from which to fetch nodes
      * @param nodeCache a cache mapping primary keys to {@link AbstractNode} objects to avoid redundant fetches
@@ -1563,12 +1561,11 @@ public class HNSW {
                                @Nonnull final AffineOperator storageTransform,
                                @Nullable final SplittableRandom random,
                                @Nonnull final Collection<NodeReferenceAndNode<T, N>> initialNodeReferenceAndNodes,
-                               @Nonnull final HopMode hopMode,
                                @Nonnull final CandidateSamplingPredicate samplingPredicate,
                                final int layer,
                                @Nonnull final Map<Tuple, AbstractNode<N>> nodeCache) {
         final Iterable<NodeReference> toBeFetched =
-                resolveNeighborReferences(initialNodeReferenceAndNodes, random, hopMode, samplingPredicate);
+                resolveNeighborReferences(initialNodeReferenceAndNodes, random, samplingPredicate);
         return fetchNeighborhoodReferences(storageAdapter, readTransaction, storageTransform, layer, toBeFetched,
                 nodeCache);
     }
@@ -1588,15 +1585,12 @@ public class HNSW {
     private <T extends NodeReference, N extends NodeReference> Set<NodeReference>
             resolveNeighborReferences(@Nonnull final Collection<NodeReferenceAndNode<T, N>> initialNodeReferenceAndNodes,
                                       @Nullable final SplittableRandom random,
-                                      @Nonnull final HopMode hopMode,
                                       @Nonnull final CandidateSamplingPredicate samplingPredicate) {
         final ImmutableSet.Builder<NodeReference> resultBuilder = ImmutableSet.builder();
         final ImmutableMap.Builder<Tuple, NodeReferenceAndNode<T, N>> initialNodesMapBuilder = ImmutableMap.builder();
         for (final NodeReferenceAndNode<T, N> nodeReferenceAndNode : initialNodeReferenceAndNodes) {
             initialNodesMapBuilder.put(nodeReferenceAndNode.getNode().getPrimaryKey(), nodeReferenceAndNode);
-            if (hopMode == HopMode.INCLUSIVE) {
-                resultBuilder.add(nodeReferenceAndNode.getNodeReference());
-            }
+            resultBuilder.add(nodeReferenceAndNode.getNodeReference());
         }
 
         final ImmutableMap<Tuple, NodeReferenceAndNode<T, N>> initialNodesMap = initialNodesMapBuilder.build();
@@ -1611,16 +1605,16 @@ public class HNSW {
                     continue;
                 }
 
+                //
+                // We need to distinguish between initial node references and non-initial node references:
+                // Initial nodes references are of type T (and sometimes already contain a vector in which case
+                // we do not want to refetch the node later if we don't have to). The initial nodes already have been
+                // added earlier in this method (with or without a vector). The neighbors that are not initial most
+                // likely do not contain a vector which is fine but if T != N, we need to be careful in order to not
+                // create duplicates in this set.
+                //
                 @Nullable final NodeReferenceAndNode<T, N> initialNode = initialNodesMap.get(neighborPrimaryKey);
-                if (initialNode != null) {
-                    //
-                    // This is an initial node which happens to be a neighbor of another initial node. We already have
-                    // everything we need to put this node into the result without fetching it.
-                    //
-                    if (hopMode != HopMode.EXCLUSIVE) {
-                        resultBuilder.add(initialNode.getNodeReference());
-                    }
-                } else if (!nodeReferencesSeen.contains(neighborPrimaryKey)) {
+                if (initialNode == null && !nodeReferencesSeen.contains(neighborPrimaryKey)) {
                     //
                     // This is a node that is currently not known to us. It is not an initial node. We need to fetch it,
                     // and we need to mark it as seen so we won't consider it more than once.
@@ -1779,8 +1773,8 @@ public class HNSW {
                                                                          @Nonnull final SplittableRandom random,
                                                                          @Nonnull final Tuple primaryKey,
                                                                          final int topLayer) {
-        if (logger.isDebugEnabled()) {
-            logger.debug("nearest entry point for deleteFromLayers at topLayer={} is at key={}", topLayer, primaryKey);
+        if (logger.isTraceEnabled()) {
+            logger.trace("nearest entry point for deleteFromLayers at topLayer={} is at key={}", topLayer, primaryKey);
         }
 
         return MoreAsyncUtil.forEach(() -> IntStream.rangeClosed(0, topLayer).iterator(),
@@ -1832,35 +1826,8 @@ public class HNSW {
                     final NodeReferenceAndNode<NodeReference, N> toBeDeletedNodeReferenceAndNode =
                             new NodeReferenceAndNode<>(new NodeReference(toBeDeletedPrimaryKey), toBeDeletedNode);
 
-                    return neighbors(storageAdapter, transaction, storageTransform, random,
-                            ImmutableList.of(toBeDeletedNodeReferenceAndNode), HopMode.INCLUSIVE,
-                            CandidateSamplingPredicate.tautology(), layer, nodeCache)
-                            .thenCompose(candidates ->
-                                    neighbors(storageAdapter, transaction, storageTransform, random,
-                                            candidates, HopMode.INCLUSIVE,
-                                            this::shouldSampleCandidate, layer, nodeCache))
-                            .thenApply(candidates -> {
-                                final ImmutableList.Builder<NodeReferenceAndNode<NodeReferenceWithVector, N>> filteredCandidatesBuilder =
-                                        ImmutableList.builder();
-                                for (final NodeReferenceAndNode<NodeReferenceWithVector, N> candidate : candidates) {
-                                    // filter out neighbors that happen to be the node we are trying to delete
-                                    if (!candidate.getNodeReference().getPrimaryKey().equals(toBeDeletedPrimaryKey)) {
-                                        filteredCandidatesBuilder.add(candidate);
-                                    }
-                                }
-                                return filteredCandidatesBuilder.build();
-                            })
-                            .thenApply(candidates -> {
-                                if (logger.isTraceEnabled()) {
-                                    final ImmutableList.Builder<String> candidateStringsBuilder = ImmutableList.builder();
-                                    for (final NodeReferenceAndNode<NodeReferenceWithVector, N> candidate : candidates) {
-                                        candidateStringsBuilder.add(candidate.getNode().getPrimaryKey().toString());
-                                    }
-                                    logger.trace("resolved candidates={}", String.join(",",
-                                            candidateStringsBuilder.build()));
-                                }
-                                return candidates;
-                            })
+                    return candidatesForRepairs(storageAdapter, transaction, storageTransform, random, layer,
+                            toBeDeletedNodeReferenceAndNode, nodeCache)
                             .thenApply(candidates -> {
                                 for (final NodeReferenceAndNode<NodeReferenceWithVector, N> candidate : candidates) {
                                     final AbstractNode<N> neighbors = candidate.getNode();
@@ -1955,6 +1922,47 @@ public class HNSW {
                         logger.trace("end delete key={} at layer={}", toBeDeletedPrimaryKey, layer);
                     }
                     return result;
+                });
+    }
+
+    @Nonnull
+    private <N extends NodeReference> CompletableFuture<ImmutableList<NodeReferenceAndNode<NodeReferenceWithVector, N>>>
+            candidatesForRepairs(final @Nonnull StorageAdapter<N> storageAdapter,
+                                 final @Nonnull Transaction transaction,
+                                 final @Nonnull AffineOperator storageTransform,
+                                 final @Nonnull SplittableRandom random,
+                                 final int layer,
+                                 final NodeReferenceAndNode<NodeReference, N> toBeDeletedNodeReferenceAndNode,
+                                 final Map<Tuple, AbstractNode<N>> nodeCache) {
+        return neighbors(storageAdapter, transaction, storageTransform, random,
+                ImmutableList.of(toBeDeletedNodeReferenceAndNode),
+                CandidateSamplingPredicate.tautology(), layer, nodeCache)
+                .thenCompose(candidates ->
+                        neighbors(storageAdapter, transaction, storageTransform, random,
+                                candidates,
+                                this::shouldSampleCandidate, layer, nodeCache))
+                .thenApply(candidates -> {
+                    final ImmutableList.Builder<NodeReferenceAndNode<NodeReferenceWithVector, N>> filteredCandidatesBuilder =
+                            ImmutableList.builder();
+                    for (final NodeReferenceAndNode<NodeReferenceWithVector, N> candidate : candidates) {
+                        // filter out neighbors that happen to be the node we are trying to delete
+                        if (!candidate.getNodeReference().getPrimaryKey()
+                                .equals(toBeDeletedNodeReferenceAndNode.getNode().getPrimaryKey())) {
+                            filteredCandidatesBuilder.add(candidate);
+                        }
+                    }
+                    return filteredCandidatesBuilder.build();
+                })
+                .thenApply(candidates -> {
+                    if (logger.isTraceEnabled()) {
+                        final ImmutableList.Builder<String> candidateStringsBuilder = ImmutableList.builder();
+                        for (final NodeReferenceAndNode<NodeReferenceWithVector, N> candidate : candidates) {
+                            candidateStringsBuilder.add(candidate.getNode().getPrimaryKey().toString());
+                        }
+                        logger.trace("resolved candidates={}", String.join(",",
+                                candidateStringsBuilder.build()));
+                    }
+                    return candidates;
                 });
     }
 
@@ -2061,11 +2069,14 @@ public class HNSW {
      * found in the layer.
      */
     @VisibleForTesting
-    void scanLayer(@Nonnull final Database db,
-                   final int layer,
-                   final int batchSize,
-                   @Nonnull final Consumer<AbstractNode<? extends NodeReference>> nodeConsumer) {
-        final StorageAdapter<? extends NodeReference> storageAdapter = getStorageAdapterForLayer(layer);
+    static void scanLayer(@Nonnull final Config config,
+                          @Nonnull final Subspace subspace,
+                          @Nonnull final Database db,
+                          final int layer,
+                          final int batchSize,
+                          @Nonnull final Consumer<AbstractNode<? extends NodeReference>> nodeConsumer) {
+        final StorageAdapter<? extends NodeReference> storageAdapter =
+                storageAdapterForLayer(config, subspace, OnWriteListener.NOOP, OnReadListener.NOOP, layer);
         final AtomicReference<Tuple> lastPrimaryKeyAtomic = new AtomicReference<>();
         Tuple newPrimaryKey;
         do {
@@ -2078,7 +2089,7 @@ public class HNSW {
                             lastPrimaryKeyAtomic.set(node.getPrimaryKey());
                         });
                 return lastPrimaryKeyAtomic.get();
-            }, executor);
+            });
         } while (newPrimaryKey != null);
     }
 
@@ -2089,17 +2100,12 @@ public class HNSW {
      * use an {@code InliningStorageAdapter} for layers greater than {@code 0} and a {@code CompactStorageAdapter} for
      * layer 0. Note that we will only use inlining at all if the config indicates we should use inlining.
      *
-     * @param layer the layer number for which to get the storage adapter; currently unused
-     * @return a non-null {@link StorageAdapter} instance, which will always be a
-     * {@link CompactStorageAdapter} in the current implementation
+     * @param layer the layer number for which to get the storage adapter
+     * @return a non-null {@link StorageAdapter} instance
      */
     @Nonnull
     private StorageAdapter<? extends NodeReference> getStorageAdapterForLayer(final int layer) {
-        return config.isUseInlining() && layer > 0
-               ? new InliningStorageAdapter(getConfig(), InliningNode.factory(), getSubspace(), getOnWriteListener(),
-                getOnReadListener())
-               : new CompactStorageAdapter(getConfig(), CompactNode.factory(), getSubspace(), getOnWriteListener(),
-                getOnReadListener());
+        return storageAdapterForLayer(getConfig(), getSubspace(), getOnWriteListener(), getOnReadListener(), layer);
     }
 
     @Nonnull
@@ -2142,6 +2148,33 @@ public class HNSW {
         return random.nextDouble() < getConfig().getMaintainStatsProbability();
     }
 
+    /**
+     * Gets the appropriate storage adapter for a given layer.
+     * <p>
+     * This method selects a {@link StorageAdapter} implementation based on the layer number. The logic is intended to
+     * use an {@code InliningStorageAdapter} for layers greater than {@code 0} and a {@code CompactStorageAdapter} for
+     * layer 0. Note that we will only use inlining at all if the config indicates we should use inlining.
+     *
+     * @param config the config to use
+     * @param subspace the subspace of the HNSW object itself
+     * @param onWriteListener a listener that the new {@link StorageAdapter} will call back for any write events
+     * @param onReadListener a listener that the new {@link StorageAdapter} will call back for any read events
+     * @param layer the layer number for which to get the storage adapter
+     * @return a non-null {@link StorageAdapter} instance
+     */
+    @Nonnull
+    @VisibleForTesting
+    static StorageAdapter<? extends NodeReference>
+            storageAdapterForLayer(@Nonnull final Config config,
+                                   @Nonnull final Subspace subspace,
+                                   @Nonnull final OnWriteListener onWriteListener,
+                                   @Nonnull final OnReadListener onReadListener,
+                                   final int layer) {
+        return config.isUseInlining() && layer > 0
+               ? new InliningStorageAdapter(config, InliningNode.factory(), subspace, onWriteListener, onReadListener)
+               : new CompactStorageAdapter(config, CompactNode.factory(), subspace, onWriteListener, onReadListener);
+    }
+
     private static double splitMixDouble(final long x) {
         return (splitMixLong(x) >>> 11) * 0x1.0p-53;
     }
@@ -2161,25 +2194,6 @@ public class HNSW {
             resultBuilder.add(queue.poll());
         }
         return resultBuilder.build();
-    }
-
-    /**
-     * Let {@code I} be the set of initial nodes for {@link #neighborReferences}. Let {@code H(I)} be the set of nodes that can be
-     * reached by traversing the neighbors of nodes in {@code I}.
-     */
-    private enum HopMode {
-        /**
-         * Return {@code I union H(I)}.
-         */
-        INCLUSIVE,
-        /**
-         * Return {@code H(I) \ I}.
-         */
-        EXCLUSIVE,
-        /**
-         * Return {@code H(I)}.
-         */
-        EXCLUSIVE_ALL
     }
 
     @FunctionalInterface

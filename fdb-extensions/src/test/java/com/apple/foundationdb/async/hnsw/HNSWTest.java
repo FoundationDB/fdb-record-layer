@@ -43,18 +43,23 @@ import com.apple.test.Tags;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.ObjectArrays;
 import com.google.common.collect.Sets;
 import org.assertj.core.api.Assertions;
-import org.assertj.core.util.Lists;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.AfterTestExecutionCallback;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
+import org.junit.jupiter.params.ParameterInfo;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.aggregator.ArgumentsAccessor;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.slf4j.Logger;
@@ -70,12 +75,15 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.NavigableSet;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
 import java.util.TreeSet;
@@ -83,6 +91,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.LongStream;
 import java.util.stream.Stream;
@@ -194,43 +203,42 @@ class HNSWTest {
                         )).join());
     }
 
-    static Stream<Arguments> randomSeedsWithOptions() {
+    static Stream<Arguments> randomSeedsWithConfig() {
         return RandomizedTestUtils.randomSeeds(0xdeadc0deL)
                 .flatMap(seed -> Sets.cartesianProduct(ImmutableSet.of(true, false),
                                 ImmutableSet.of(true, false),
                                 ImmutableSet.of(true, false),
                                 ImmutableSet.of(true, false)).stream()
-                        .map(arguments -> Arguments.of(ObjectArrays.concat(seed, arguments.toArray()))));
+                        .map(arguments -> Arguments.of(ObjectArrays.concat(seed,
+                                new Object[] {HNSW.newConfigBuilder()
+                                        .setMetric(Metric.EUCLIDEAN_METRIC)
+                                        .setUseInlining(arguments.get(0))
+                                        .setExtendCandidates(arguments.get(1))
+                                        .setKeepPrunedConnections(arguments.get(2))
+                                        .setUseRaBitQ(arguments.get(3))
+                                        .setRaBitQNumExBits(5)
+                                        .setSampleVectorStatsProbability(1.0d)
+                                        .setMaintainStatsProbability(0.1d)
+                                        .setStatsThreshold(100)
+                                        .setM(32)
+                                        .setMMax(32)
+                                        .setMMax0(64)
+                                        .build(128)}))));
     }
 
-    @ParameterizedTest(name = "seed={0} useInlining={1} extendCandidates={2} keepPrunedConnections={3} useRaBitQ={4}")
-    @MethodSource("randomSeedsWithOptions")
-    void testBasicInsert(final long seed, final boolean useInlining, final boolean extendCandidates,
-                         final boolean keepPrunedConnections, final boolean useRaBitQ) {
+    @ParameterizedTest
+    @MethodSource("randomSeedsWithConfig")
+    void testBasicInsert(final long seed, final Config config) {
         final Random random = new Random(seed);
-        final Metric metric = Metric.EUCLIDEAN_METRIC;
+        final Metric metric = config.getMetric();
         final TestOnReadListener onReadListener = new TestOnReadListener();
 
-        final int numDimensions = 128;
-        final HNSW hnsw = new HNSW(rtSubspace.getSubspace(), TestExecutors.defaultThreadPool(),
-                HNSW.newConfigBuilder()
-                        .setMetric(metric)
-                        .setUseInlining(useInlining)
-                        .setExtendCandidates(extendCandidates)
-                        .setKeepPrunedConnections(keepPrunedConnections)
-                        .setUseRaBitQ(useRaBitQ)
-                        .setRaBitQNumExBits(5)
-                        .setSampleVectorStatsProbability(1.0d)
-                        .setMaintainStatsProbability(0.1d)
-                        .setStatsThreshold(100)
-                        .setM(32)
-                        .setMMax(32)
-                        .setMMax0(64)
-                        .build(numDimensions),
-                OnWriteListener.NOOP, onReadListener);
+        final HNSW hnsw =
+                new HNSW(rtSubspace.getSubspace(), TestExecutors.defaultThreadPool(), config,
+                        OnWriteListener.NOOP, onReadListener);
 
         final int k = 50;
-        final HalfRealVector queryVector = createRandomHalfVector(random, numDimensions);
+        final HalfRealVector queryVector = createRandomHalfVector(random, config.getNumDimensions());
         final TreeSet<PrimaryKeyVectorAndDistance> recordsOrderedByDistance =
                 new TreeSet<>(Comparator.comparing(PrimaryKeyVectorAndDistance::getDistance));
 
@@ -238,7 +246,7 @@ class HNSWTest {
             i += basicInsertBatch(hnsw, 100, i, onReadListener,
                     (tr, nextId) -> {
                         final var primaryKey = createPrimaryKey(nextId);
-                        final HalfRealVector dataVector = createRandomHalfVector(random, numDimensions);
+                        final HalfRealVector dataVector = createRandomHalfVector(random, config.getNumDimensions());
                         final double distance = metric.distance(dataVector, queryVector);
                         final PrimaryKeyVectorAndDistance record =
                                 new PrimaryKeyVectorAndDistance(primaryKey, dataVector, distance);
@@ -259,7 +267,7 @@ class HNSWTest {
             i += basicInsertBatch(hnsw, 100, 0, onReadListener,
                     (tr, ignored) -> {
                         final var primaryKey = createPrimaryKey(random.nextInt(1000));
-                        final HalfRealVector dataVector = createRandomHalfVector(random, numDimensions);
+                        final HalfRealVector dataVector = createRandomHalfVector(random, config.getNumDimensions());
                         final double distance = metric.distance(dataVector, queryVector);
                         return new PrimaryKeyVectorAndDistance(primaryKey, dataVector, distance);
                     });
@@ -299,434 +307,113 @@ class HNSWTest {
                         .collect(Collectors.toSet());
 
         final Set<Long> readIds = Sets.newHashSet();
-        hnsw.scanLayer(db, 0, 100,
+        scanLayer(config, 0, 100,
                 node -> Assertions.assertThat(readIds.add(node.getPrimaryKey().getLong(0))).isTrue());
         Assertions.assertThat(readIds).isEqualTo(insertedIds);
 
         readIds.clear();
-        hnsw.scanLayer(db, 1, 100,
+        scanLayer(config, 1, 100,
                 node -> Assertions.assertThat(readIds.add(node.getPrimaryKey().getLong(0))).isTrue());
         Assertions.assertThat(readIds.size()).isBetween(10, 50);
     }
 
-    @ParameterizedTest()
-    @RandomSeedSource({0x0fdbL})
-    void testBasicInsertDelete2D(final long seed) throws Exception {
+    @ExtendWith(HNSWTest.DumpLayersIfFailure.class)
+    @ParameterizedTest
+    @MethodSource("randomSeedsWithConfig")
+    void testBasicInsertDelete(final long seed, final Config config) {
         final Random random = new Random(seed);
-        final Metric metric = Metric.EUCLIDEAN_METRIC;
+        final int size = 1000;
         final TestOnReadListener onReadListener = new TestOnReadListener();
 
-        final int numDimensions = 2;
-        final HNSW hnsw = new HNSW(rtSubspace.getSubspace(), TestExecutors.defaultThreadPool(),
-                HNSW.newConfigBuilder()
-                        .setMetric(metric)
-                        .setUseInlining(false)
-                        .setExtendCandidates(false)
-                        .setKeepPrunedConnections(false)
-                        .setUseRaBitQ(false)
-                        .setRaBitQNumExBits(5)
-                        .setSampleVectorStatsProbability(1.0d)
-                        .setMaintainStatsProbability(0.1d)
-                        .setStatsThreshold(100)
-                        .setM(5)
-                        .setMMax(10)
-                        .setMMax0(10)
-                        .build(numDimensions),
+        final HNSW hnsw = new HNSW(rtSubspace.getSubspace(), TestExecutors.defaultThreadPool(), config,
                 OnWriteListener.NOOP, onReadListener);
 
         final int k = 50;
-        final HalfRealVector queryVector = createRandomHalfVector(random, numDimensions);
-        final TreeSet<PrimaryKeyVectorAndDistance> recordsOrderedByDistance =
-                new TreeSet<>(Comparator.comparing(PrimaryKeyVectorAndDistance::getDistance));
+        final List<PrimaryKeyAndVector> insertedData = randomVectors(random, config.getNumDimensions(), 1000);
 
-        for (int i = 0; i < 1000;) {
+        for (int i = 0; i < size;) {
             i += basicInsertBatch(hnsw, 100, i, onReadListener,
-                    (tr, nextId) -> {
-                        final var primaryKey = createPrimaryKey(nextId);
-                        final HalfRealVector dataVector = createRandomHalfVector(random, numDimensions);
-                        final double distance = metric.distance(dataVector, queryVector);
-                        final PrimaryKeyVectorAndDistance record =
-                                new PrimaryKeyVectorAndDistance(primaryKey, dataVector, distance);
-                        recordsOrderedByDistance.add(record);
-                        if (recordsOrderedByDistance.size() > k) {
-                            recordsOrderedByDistance.pollLast();
-                        }
-                        return record;
-                    });
+                    (tr, nextId) -> insertedData.get(Math.toIntExact(nextId)));
         }
 
-        onReadListener.reset();
-        final long beginTs = System.nanoTime();
-        final List<? extends ResultEntry> results =
-                db.run(tr ->
-                        hnsw.kNearestNeighborsSearch(tr, k, 100, true, queryVector).join());
-        final long endTs = System.nanoTime();
+        final int numVectorsPerDeleteBatch = 100;
+        List<PrimaryKeyAndVector> remainingData = insertedData;
+        do {
+            final List<PrimaryKeyAndVector> toBeDeleted =
+                    pickRandomVectors(random, remainingData, numVectorsPerDeleteBatch);
 
-        final ImmutableSet<Tuple> trueNN =
-                recordsOrderedByDistance.stream()
-                        .limit(k)
-                        .map(PrimaryKeyVectorAndDistance::getPrimaryKey)
-                        .collect(ImmutableSet.toImmutableSet());
+            onReadListener.reset();
 
-        int recallCount = 0;
-        for (ResultEntry resultEntry : results) {
-            logger.info("nodeId ={} at distance={}", resultEntry.getPrimaryKey().getLong(0),
-                    resultEntry.getDistance());
-            if (trueNN.contains(resultEntry.getPrimaryKey())) {
-                recallCount ++;
-            }
-        }
-        final double recall = (double)recallCount / (double)k;
-        logger.info("search transaction took elapsedTime={}ms; read nodes={}, read bytes={}, recall={}",
-                TimeUnit.NANOSECONDS.toMillis(endTs - beginTs),
-                onReadListener.getNodeCountByLayer(), onReadListener.getBytesReadByLayer(),
-                String.format(Locale.ROOT, "%.2f", recall * 100.0d));
-        Assertions.assertThat(recall).isGreaterThan(0.9);
-
-        final Set<Long> insertedIds =
-                LongStream.range(0, 1000)
-                        .boxed()
-                        .collect(Collectors.toSet());
-
-        final Set<Long> readIds = Sets.newHashSet();
-        hnsw.scanLayer(db, 0, 100,
-                node -> Assertions.assertThat(readIds.add(node.getPrimaryKey().getLong(0))).isTrue());
-        Assertions.assertThat(readIds).isEqualTo(insertedIds);
-
-        readIds.clear();
-        hnsw.scanLayer(db, 1, 100,
-                node -> Assertions.assertThat(readIds.add(node.getPrimaryKey().getLong(0))).isTrue());
-        //Assertions.assertThat(readIds.size()).isBetween(10, 50);
-
-        int layer = 0;
-        while (true) {
-            if (!dumpLayer(hnsw, "before", layer++)) {
-                break;
-            }
-        }
-
-        db.run(tr -> hnsw.delete(tr, Tuple.from(10L)).join());
-        db.run(tr -> hnsw.delete(tr, Tuple.from(777L)).join());
-
-        layer = 0;
-        while (true) {
-            if (!dumpLayer(hnsw, "after", layer++)) {
-                break;
-            }
-        }
-    }
-
-    @ParameterizedTest()
-    @RandomSeedSource({0x0fdbL})
-    void testBasicInsertDelete502D(final long seed) throws Exception {
-        final Random random = new Random(seed);
-        final Metric metric = Metric.EUCLIDEAN_METRIC;
-        final TestOnReadListener onReadListener = new TestOnReadListener();
-
-        final int numDimensions = 2;
-        final HNSW hnsw = new HNSW(rtSubspace.getSubspace(), TestExecutors.defaultThreadPool(),
-                HNSW.newConfigBuilder()
-                        .setMetric(metric)
-                        .setUseInlining(false)
-                        .setExtendCandidates(false)
-                        .setKeepPrunedConnections(false)
-                        .setUseRaBitQ(false)
-                        .setRaBitQNumExBits(5)
-                        .setSampleVectorStatsProbability(1.0d)
-                        .setMaintainStatsProbability(0.1d)
-                        .setStatsThreshold(100)
-                        .setM(5)
-                        .setMMax(10)
-                        .setMMax0(10)
-                        .build(numDimensions),
-                OnWriteListener.NOOP, onReadListener);
-
-        final int k = 50;
-        final HalfRealVector queryVector = createRandomHalfVector(random, numDimensions);
-        final TreeSet<PrimaryKeyVectorAndDistance> recordsOrderedByDistance =
-                new TreeSet<>(Comparator.comparing(PrimaryKeyVectorAndDistance::getDistance));
-
-        for (int i = 0; i < 1000;) {
-            i += basicInsertBatch(hnsw, 100, i, onReadListener,
-                    (tr, nextId) -> {
-                        final var primaryKey = createPrimaryKey(nextId);
-                        final HalfRealVector dataVector = createRandomHalfVector(random, numDimensions);
-                        final double distance = metric.distance(dataVector, queryVector);
-                        final PrimaryKeyVectorAndDistance record =
-                                new PrimaryKeyVectorAndDistance(primaryKey, dataVector, distance);
-                        recordsOrderedByDistance.add(record);
-                        if (recordsOrderedByDistance.size() > k) {
-                            recordsOrderedByDistance.pollLast();
-                        }
-                        return record;
-                    });
-        }
-
-        onReadListener.reset();
-        final long beginTs = System.nanoTime();
-        final List<? extends ResultEntry> results =
-                db.run(tr ->
-                        hnsw.kNearestNeighborsSearch(tr, k, 100, true, queryVector).join());
-        final long endTs = System.nanoTime();
-
-        final ImmutableSet<Tuple> trueNN =
-                recordsOrderedByDistance.stream()
-                        .limit(k)
-                        .map(PrimaryKeyVectorAndDistance::getPrimaryKey)
-                        .collect(ImmutableSet.toImmutableSet());
-
-        int recallCount = 0;
-        for (ResultEntry resultEntry : results) {
-            logger.info("nodeId ={} at distance={}", resultEntry.getPrimaryKey().getLong(0),
-                    resultEntry.getDistance());
-            if (trueNN.contains(resultEntry.getPrimaryKey())) {
-                recallCount ++;
-            }
-        }
-        final double recall = (double)recallCount / (double)k;
-        logger.info("search transaction took elapsedTime={}ms; read nodes={}, read bytes={}, recall={}",
-                TimeUnit.NANOSECONDS.toMillis(endTs - beginTs),
-                onReadListener.getNodeCountByLayer(), onReadListener.getBytesReadByLayer(),
-                String.format(Locale.ROOT, "%.2f", recall * 100.0d));
-        Assertions.assertThat(recall).isGreaterThan(0.9);
-
-        final Set<Long> insertedIds =
-                LongStream.range(0, 1000)
-                        .boxed()
-                        .collect(Collectors.toSet());
-
-        final Set<Long> readIds = Sets.newHashSet();
-        hnsw.scanLayer(db, 0, 100,
-                node -> Assertions.assertThat(readIds.add(node.getPrimaryKey().getLong(0))).isTrue());
-        Assertions.assertThat(readIds).isEqualTo(insertedIds);
-
-        readIds.clear();
-        hnsw.scanLayer(db, 1, 100,
-                node -> Assertions.assertThat(readIds.add(node.getPrimaryKey().getLong(0))).isTrue());
-        //Assertions.assertThat(readIds.size()).isBetween(10, 50);
-
-        int layer = 0;
-        while (true) {
-            if (!dumpLayer(hnsw, "before50", layer++)) {
-                break;
-            }
-        }
-
-        for (int i = 250; i < 750;) {
-            for (int b = 0; b < 10; b ++) {
-                final Tuple primaryKey = Tuple.from((long)i);
-                db.run(tr -> hnsw.delete(tr, primaryKey).join());
-                i++;
-            }
-        }
-
-        layer = 0;
-        while (true) {
-            if (!dumpLayer(hnsw, "after50", layer++)) {
-                break;
-            }
-        }
-
-        onReadListener.reset();
-        final List<? extends ResultEntry> resultsAfterDeletes =
-                db.run(tr ->
-                        hnsw.kNearestNeighborsSearch(tr, k, 100, true, queryVector).join());
-
-        final ImmutableSet<Tuple> trueAfterDeletesNN =
-                recordsOrderedByDistance.stream()
-                        .map(PrimaryKeyVectorAndDistance::getPrimaryKey)
-                        .filter(primaryKey -> primaryKey.getLong(0) < 250 || primaryKey.getLong(0) >= 750)
-                        .limit(k)
-                        .collect(ImmutableSet.toImmutableSet());
-
-        int recallCountAfterDeletes = 0;
-        for (ResultEntry resultEntry : resultsAfterDeletes) {
-            logger.info("nodeId ={} at distance={}", resultEntry.getPrimaryKey().getLong(0),
-                    resultEntry.getDistance());
-            if (trueAfterDeletesNN.contains(resultEntry.getPrimaryKey())) {
-                recallCountAfterDeletes ++;
-            }
-        }
-        final double recallAfterDeletes = (double)recallCountAfterDeletes / (double)k;
-        logger.info("search transaction took elapsedTime={}ms; read nodes={}, read bytes={}, recall={}",
-                TimeUnit.NANOSECONDS.toMillis(endTs - beginTs),
-                onReadListener.getNodeCountByLayer(), onReadListener.getBytesReadByLayer(),
-                String.format(Locale.ROOT, "%.2f", recallAfterDeletes * 100.0d));
-        Assertions.assertThat(recallAfterDeletes).isGreaterThan(0.9);
-    }
-
-    @ParameterizedTest()
-    @RandomSeedSource({0x0fdbL})
-    void testBasicInsertDelete503D(final long seed) throws Exception {
-        final Random random = new Random(seed);
-        final Metric metric = Metric.EUCLIDEAN_METRIC;
-        final TestOnReadListener onReadListener = new TestOnReadListener();
-
-        final int numDimensions = 3;
-        final HNSW hnsw = new HNSW(rtSubspace.getSubspace(), TestExecutors.defaultThreadPool(),
-                HNSW.newConfigBuilder()
-                        .setMetric(metric)
-                        .setUseInlining(false)
-                        .setExtendCandidates(false)
-                        .setKeepPrunedConnections(false)
-                        .setUseRaBitQ(false)
-                        .setRaBitQNumExBits(5)
-                        .setSampleVectorStatsProbability(1.0d)
-                        .setMaintainStatsProbability(0.1d)
-                        .setStatsThreshold(100)
-                        .setM(5)
-                        .setMMax(10)
-                        .setMMax0(10)
-                        .build(numDimensions),
-                OnWriteListener.NOOP, onReadListener);
-
-        final int k = 50;
-        final HalfRealVector queryVector = createRandomHalfVector(random, numDimensions);
-        final TreeSet<PrimaryKeyVectorAndDistance> recordsOrderedByDistance =
-                new TreeSet<>(Comparator.comparing(PrimaryKeyVectorAndDistance::getDistance));
-
-        for (int i = 0; i < 1000;) {
-            i += basicInsertBatch(hnsw, 100, i, onReadListener,
-                    (tr, nextId) -> {
-                        final var primaryKey = createPrimaryKey(nextId);
-                        final HalfRealVector dataVector = createRandomHalfVector(random, numDimensions);
-                        final double distance = metric.distance(dataVector, queryVector);
-                        final PrimaryKeyVectorAndDistance record =
-                                new PrimaryKeyVectorAndDistance(primaryKey, dataVector, distance);
-                        recordsOrderedByDistance.add(record);
-                        if (recordsOrderedByDistance.size() > k) {
-                            recordsOrderedByDistance.pollLast();
-                        }
-                        return record;
-                    });
-        }
-
-        onReadListener.reset();
-        final long beginTs = System.nanoTime();
-        final List<? extends ResultEntry> results =
-                db.run(tr ->
-                        hnsw.kNearestNeighborsSearch(tr, k, 100, true, queryVector).join());
-        final long endTs = System.nanoTime();
-
-        final ImmutableSet<Tuple> trueNN =
-                recordsOrderedByDistance.stream()
-                        .limit(k)
-                        .map(PrimaryKeyVectorAndDistance::getPrimaryKey)
-                        .collect(ImmutableSet.toImmutableSet());
-
-        int recallCount = 0;
-        for (ResultEntry resultEntry : results) {
-            logger.info("nodeId ={} at distance={}", resultEntry.getPrimaryKey().getLong(0),
-                    resultEntry.getDistance());
-            if (trueNN.contains(resultEntry.getPrimaryKey())) {
-                recallCount ++;
-            }
-        }
-        final double recall = (double)recallCount / (double)k;
-        logger.info("search transaction took elapsedTime={}ms; read nodes={}, read bytes={}, recall={}",
-                TimeUnit.NANOSECONDS.toMillis(endTs - beginTs),
-                onReadListener.getNodeCountByLayer(), onReadListener.getBytesReadByLayer(),
-                String.format(Locale.ROOT, "%.2f", recall * 100.0d));
-        Assertions.assertThat(recall).isGreaterThan(0.9);
-
-        final Set<Long> insertedIds =
-                LongStream.range(0, 1000)
-                        .boxed()
-                        .collect(Collectors.toSet());
-
-        final Set<Long> readIds = Sets.newHashSet();
-        hnsw.scanLayer(db, 0, 100,
-                node -> Assertions.assertThat(readIds.add(node.getPrimaryKey().getLong(0))).isTrue());
-        Assertions.assertThat(readIds).isEqualTo(insertedIds);
-
-        readIds.clear();
-        hnsw.scanLayer(db, 1, 100,
-                node -> Assertions.assertThat(readIds.add(node.getPrimaryKey().getLong(0))).isTrue());
-        //Assertions.assertThat(readIds.size()).isBetween(10, 50);
-
-        int layer = 0;
-        while (true) {
-            if (!dumpLayer(hnsw, "before503D", layer++)) {
-                break;
-            }
-        }
-
-        for (int i = 250; i < 750;) {
-            for (int b = 0; b < 10; b ++) {
-                final Tuple primaryKey = Tuple.from((long)i);
-                db.run(tr -> hnsw.delete(tr, primaryKey).join());
-                i++;
-            }
-        }
-
-        layer = 0;
-        while (true) {
-            if (!dumpLayer(hnsw, "after503D", layer++)) {
-                break;
-            }
-        }
-
-        onReadListener.reset();
-        final List<? extends ResultEntry> resultsAfterDeletes =
-                db.run(tr ->
-                        hnsw.kNearestNeighborsSearch(tr, k, 100, true, queryVector).join());
-
-        final ImmutableSet<Tuple> trueAfterDeletesNN =
-                recordsOrderedByDistance.stream()
-                        .map(PrimaryKeyVectorAndDistance::getPrimaryKey)
-                        .filter(primaryKey -> primaryKey.getLong(0) < 250 || primaryKey.getLong(0) >= 750)
-                        .limit(k)
-                        .collect(ImmutableSet.toImmutableSet());
-
-        int recallCountAfterDeletes = 0;
-        for (ResultEntry resultEntry : resultsAfterDeletes) {
-            logger.info("nodeId ={} at distance={}", resultEntry.getPrimaryKey().getLong(0),
-                    resultEntry.getDistance());
-            if (trueAfterDeletesNN.contains(resultEntry.getPrimaryKey())) {
-                recallCountAfterDeletes ++;
-            }
-        }
-        final double recallAfterDeletes = (double)recallCountAfterDeletes / (double)k;
-        logger.info("search transaction took elapsedTime={}ms; read nodes={}, read bytes={}, recall={}",
-                TimeUnit.NANOSECONDS.toMillis(endTs - beginTs),
-                onReadListener.getNodeCountByLayer(), onReadListener.getBytesReadByLayer(),
-                String.format(Locale.ROOT, "%.2f", recallAfterDeletes * 100.0d));
-        Assertions.assertThat(recallAfterDeletes).isGreaterThan(0.9);
-    }
-
-    private boolean dumpLayer(@Nonnull final HNSW hnsw, @Nonnull final String prefix, final int layer) throws IOException {
-        final String verticesFileName = "/Users/nseemann/Downloads/vertices-" + prefix + "-" + layer + ".csv";
-        final String edgesFileName = "/Users/nseemann/Downloads/edges-" + prefix + "-" + layer + ".csv";
-
-        final AtomicLong numReadAtomic = new AtomicLong(0L);
-        try (final BufferedWriter verticesWriter = new BufferedWriter(new FileWriter(verticesFileName));
-                final BufferedWriter edgesWriter = new BufferedWriter(new FileWriter(edgesFileName))) {
-            hnsw.scanLayer(db, layer, 100, node -> {
-                final CompactNode compactNode = node.asCompactNode();
-                final Transformed<RealVector> vector = compactNode.getVector();
-                try {
-                    verticesWriter.write(compactNode.getPrimaryKey().getLong(0) + ",");
-                    final RealVector realVector = vector.getUnderlyingVector();
-                    for (int i = 0; i < realVector.getNumDimensions(); i++) {
-                        if (i != 0) {
-                            verticesWriter.write(",");
-                        }
-                        verticesWriter.write(String.valueOf(realVector.getComponent(i)));
-                    }
-                    verticesWriter.newLine();
-
-                    for (final var neighbor : compactNode.getNeighbors()) {
-                        edgesWriter.write(compactNode.getPrimaryKey().getLong(0) + "," +
-                                neighbor.getPrimaryKey().getLong(0));
-                        edgesWriter.newLine();
-                    }
-                    numReadAtomic.getAndIncrement();
-                } catch (final IOException e) {
-                    throw new RuntimeException("unable to write to file", e);
+            long beginTs = System.nanoTime();
+            db.run(tr -> {
+                for (final PrimaryKeyAndVector primaryKeyAndVector : toBeDeleted) {
+                    hnsw.delete(tr, primaryKeyAndVector.getPrimaryKey()).join();
                 }
+                return null;
             });
-        }
-        return numReadAtomic.get() != 0;
+            long endTs = System.nanoTime();
+
+            logger.info("delete transaction of {} records after {} records took elapsedTime={}ms; read nodes={}, read bytes={}",
+                    numVectorsPerDeleteBatch,
+                    size - remainingData.size(),
+                    TimeUnit.NANOSECONDS.toMillis(endTs - beginTs),
+                    onReadListener.getNodeCountByLayer(), onReadListener.getBytesReadByLayer());
+
+            final Set<PrimaryKeyAndVector> deletedSet = toBeDeleted.stream().collect(ImmutableSet.toImmutableSet());
+            remainingData = remainingData.stream()
+                    .filter(vector -> !deletedSet.contains(vector))
+                    .collect(ImmutableList.toImmutableList());
+
+            if (!remainingData.isEmpty()) {
+                final HalfRealVector queryVector = createRandomHalfVector(random, config.getNumDimensions());
+                final ImmutableSet<Tuple> trueNN =
+                        orderedByDistances(Metric.EUCLIDEAN_METRIC, remainingData, queryVector).stream()
+                                .limit(k)
+                                .map(PrimaryKeyVectorAndDistance::getPrimaryKey)
+                                .collect(ImmutableSet.toImmutableSet());
+
+                onReadListener.reset();
+
+                beginTs = System.nanoTime();
+                final List<? extends ResultEntry> results =
+                        db.run(tr ->
+                                hnsw.kNearestNeighborsSearch(tr, k, 100, true, queryVector).join());
+                endTs = System.nanoTime();
+
+                int recallCount = 0;
+                for (ResultEntry resultEntry : results) {
+                    if (trueNN.contains(resultEntry.getPrimaryKey())) {
+                        recallCount++;
+                    }
+                }
+                final double recall = (double)recallCount / (double)trueNN.size();
+
+//                if (recall == 0.7) {
+//                    int layer = 0;
+//                    while (true) {
+//                        if (!dumpLayer(hnsw, "debug", layer++)) {
+//                            break;
+//                        }
+//                    }
+//                }
+
+                logger.info("search transaction after delete of {} records took elapsedTime={}ms; read nodes={}, read bytes={}, recall={}",
+                        size - remainingData.size(),
+                        TimeUnit.NANOSECONDS.toMillis(endTs - beginTs),
+                        onReadListener.getNodeCountByLayer(), onReadListener.getBytesReadByLayer(),
+                        String.format(Locale.ROOT, "%.2f", recall * 100.0d));
+                Assertions.assertThat(recall).isGreaterThan(0.9);
+
+                final long remainingNumNodes = countNodesOnLayer(config, 0);
+                Assertions.assertThat(remainingNumNodes).isEqualTo(remainingData.size());
+            }
+        } while (!remainingData.isEmpty());
+
+        final var accessInfo =
+                db.run(transaction -> StorageAdapter.fetchAccessInfo(hnsw.getConfig(),
+                        transaction, hnsw.getSubspace(), OnReadListener.NOOP).join());
+        Assertions.assertThat(accessInfo).isNull();
+        Assertions.assertThat((Double)null).isNotNull();
     }
 
     @ParameterizedTest()
@@ -781,7 +468,7 @@ class HNSWTest {
         // that transformations/reconstructions are applied properly.
         //
         final Map<Tuple, RealVector> fromDBMap = Maps.newHashMap();
-        hnsw.scanLayer(db, 0, 100,
+        scanLayer(hnsw.getConfig(), 0, 100,
                 node -> fromDBMap.put(node.getPrimaryKey(),
                         node.asCompactNode().getVector().getUnderlyingVector()));
 
@@ -962,6 +649,95 @@ class HNSWTest {
         }
     }
 
+    @Nonnull
+    private List<PrimaryKeyAndVector> randomVectors(@Nonnull final Random random, final int numDimensions,
+                                                    final int numberOfVectors) {
+        final ImmutableList.Builder<PrimaryKeyAndVector> resultBuilder = ImmutableList.builder();
+        for (int i = 0; i < numberOfVectors; i ++) {
+            final var primaryKey = createPrimaryKey(i);
+            final HalfRealVector dataVector = createRandomHalfVector(random, numDimensions);
+            resultBuilder.add(new PrimaryKeyAndVector(primaryKey, dataVector));
+        }
+        return resultBuilder.build();
+    }
+
+    @Nonnull
+    private List<PrimaryKeyAndVector> pickRandomVectors(@Nonnull final Random random,
+                                                        @Nonnull final Collection<PrimaryKeyAndVector> vectors,
+                                                        final int numberOfVectors) {
+        Verify.verify(numberOfVectors <= vectors.size());
+        final List<PrimaryKeyAndVector> remainingVectors = Lists.newArrayList(vectors);
+        final ImmutableList.Builder<PrimaryKeyAndVector> resultBuilder = ImmutableList.builder();
+        for (int i = 0; i < numberOfVectors; i ++) {
+            resultBuilder.add(remainingVectors.remove(random.nextInt(remainingVectors.size())));
+        }
+        return resultBuilder.build();
+    }
+
+    @Nonnull
+    private NavigableSet<PrimaryKeyVectorAndDistance> orderedByDistances(@Nonnull final Metric metric,
+                                                                         @Nonnull final List<PrimaryKeyAndVector> vectors,
+                                                                         @Nonnull final HalfRealVector queryVector) {
+        final TreeSet<PrimaryKeyVectorAndDistance> vectorsOrderedByDistance =
+                new TreeSet<>(Comparator.comparing(PrimaryKeyVectorAndDistance::getDistance));
+        for (final PrimaryKeyAndVector vector : vectors) {
+            final double distance = metric.distance(vector.getVector(), queryVector);
+            final PrimaryKeyVectorAndDistance record =
+                    new PrimaryKeyVectorAndDistance(vector.getPrimaryKey(), vector.getVector(), distance);
+            vectorsOrderedByDistance.add(record);
+        }
+        return vectorsOrderedByDistance;
+    }
+
+    private long countNodesOnLayer(@Nonnull final Config config, final int layer) {
+        final AtomicLong counter = new AtomicLong();
+        scanLayer(config, layer, 100, node -> counter.incrementAndGet());
+        return counter.get();
+    }
+
+    private void scanLayer(@Nonnull final Config config,
+                           final int layer,
+                           final int batchSize,
+                           @Nonnull final Consumer<AbstractNode<? extends NodeReference>> nodeConsumer) {
+        HNSW.scanLayer(config, rtSubspace.getSubspace(), db, layer, batchSize, nodeConsumer);
+    }
+
+    private boolean dumpLayer(@Nonnull final Config config,
+                              @Nonnull final String prefix, final int layer) throws IOException {
+        final String verticesFileName = "/Users/nseemann/Downloads/vertices-" + prefix + "-" + layer + ".csv";
+        final String edgesFileName = "/Users/nseemann/Downloads/edges-" + prefix + "-" + layer + ".csv";
+
+        final AtomicLong numReadAtomic = new AtomicLong(0L);
+        try (final BufferedWriter verticesWriter = new BufferedWriter(new FileWriter(verticesFileName));
+                final BufferedWriter edgesWriter = new BufferedWriter(new FileWriter(edgesFileName))) {
+            scanLayer(config, layer, 100, node -> {
+                final CompactNode compactNode = node.asCompactNode();
+                final Transformed<RealVector> vector = compactNode.getVector();
+                try {
+                    verticesWriter.write(compactNode.getPrimaryKey().getLong(0) + ",");
+                    final RealVector realVector = vector.getUnderlyingVector();
+                    for (int i = 0; i < realVector.getNumDimensions(); i++) {
+                        if (i != 0) {
+                            verticesWriter.write(",");
+                        }
+                        verticesWriter.write(String.valueOf(realVector.getComponent(i)));
+                    }
+                    verticesWriter.newLine();
+
+                    for (final var neighbor : compactNode.getNeighbors()) {
+                        edgesWriter.write(compactNode.getPrimaryKey().getLong(0) + "," +
+                                neighbor.getPrimaryKey().getLong(0));
+                        edgesWriter.newLine();
+                    }
+                    numReadAtomic.getAndIncrement();
+                } catch (final IOException e) {
+                    throw new RuntimeException("unable to write to file", e);
+                }
+            });
+        }
+        return numReadAtomic.get() != 0;
+    }
+
     private <N extends NodeReference> void writeNode(@Nonnull final Transaction transaction,
                                                      @Nonnull final StorageAdapter<N> storageAdapter,
                                                      @Nonnull final AbstractNode<N> node,
@@ -1027,6 +803,42 @@ class HNSWTest {
         return Tuple.from(nextId);
     }
 
+    public static class DumpLayersIfFailure implements AfterTestExecutionCallback {
+        @Override
+        public void afterTestExecution(@Nonnull final ExtensionContext context) {
+            final Optional<Throwable> failure = context.getExecutionException();
+            if (failure.isEmpty()) {
+                return;
+            }
+
+            final ParameterInfo parameterInfo = ParameterInfo.get(context);
+
+            if (parameterInfo != null) {
+                final ArgumentsAccessor args = parameterInfo.getArguments();
+
+                final HNSWTest hnswTest = (HNSWTest)context.getRequiredTestInstance();
+                final Config config = (Config)args.get(1);
+                logger.error("dumping contents of HNSW to disk");
+                dumpLayers(hnswTest, config);
+            } else {
+                logger.error("test failed with no parameterized arguments (non-parameterized test or older JUnit).");
+            }
+        }
+
+        private void dumpLayers(@Nonnull final HNSWTest hnswTest, @Nonnull final Config config) {
+            int layer = 0;
+            while (true) {
+                try {
+                    if (!hnswTest.dumpLayer(config, "debug", layer++)) {
+                        break;
+                    }
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        }
+    }
+
     private static class TestOnReadListener implements OnReadListener {
         final Map<Integer, Long> nodeCountByLayer;
         final Map<Integer, Long> sumMByLayer;
@@ -1090,6 +902,20 @@ class HNSWTest {
         public RealVector getVector() {
             return vector;
         }
+
+        @Override
+        public boolean equals(final Object o) {
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            final PrimaryKeyAndVector that = (PrimaryKeyAndVector)o;
+            return Objects.equals(getPrimaryKey(), that.getPrimaryKey()) && Objects.equals(getVector(), that.getVector());
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(getPrimaryKey(), getVector());
+        }
     }
 
     private static class PrimaryKeyVectorAndDistance extends PrimaryKeyAndVector {
@@ -1104,6 +930,23 @@ class HNSWTest {
 
         public double getDistance() {
             return distance;
+        }
+
+        @Override
+        public boolean equals(final Object o) {
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            if (!super.equals(o)) {
+                return false;
+            }
+            final PrimaryKeyVectorAndDistance that = (PrimaryKeyVectorAndDistance)o;
+            return Double.compare(getDistance(), that.getDistance()) == 0;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(super.hashCode(), getDistance());
         }
     }
 }

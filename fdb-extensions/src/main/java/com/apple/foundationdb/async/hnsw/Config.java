@@ -322,7 +322,7 @@ public final class Config {
     @Override
     @Nonnull
     public String toString() {
-        return "Config[" + ", metric=" + getMetric() + ", numDimensions=" + getNumDimensions() +
+        return "Config[" + "metric=" + getMetric() + ", numDimensions=" + getNumDimensions() +
                 ", isUseInlining=" + isUseInlining() + ", M=" + getM() + ", MMax=" + getMMax() +
                 ", MMax0=" + getMMax0() + ", efConstruction=" + getEfConstruction() +
                 ", isExtendCandidates=" + isExtendCandidates() +
