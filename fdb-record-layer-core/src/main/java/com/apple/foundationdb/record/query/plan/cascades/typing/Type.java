@@ -71,6 +71,7 @@ import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -2317,6 +2318,18 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
             }
             typeRepositoryBuilder.addMessageType(recordMsgBuilder.build());
             typeRepositoryBuilder.registerTypeToTypeNameMapping(this, typeName);
+        }
+
+        @Nonnull
+        public Type.Record addPseudoFields() {
+            final List<Type.Record.Field> newFields = new ArrayList<>(fields.size() + 1);
+            newFields.addAll(fields);
+            for (PseudoField pseudoField : PseudoField.values()) {
+                if (!getFieldNameFieldMap().containsKey(pseudoField.getFieldName())) {
+                    newFields.add(Type.Record.Field.of(pseudoField.getType(), Optional.of(pseudoField.getFieldName())));
+                }
+            }
+            return new Type.Record(name, storageName, isNullable, normalizeFields(newFields));
         }
 
         /**

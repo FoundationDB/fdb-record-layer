@@ -12,15 +12,16 @@ unnamed-2:
     insert_new_count: 79
     insert_reused_count: 6
 -   query: EXPLAIN select t1.* from t1 where col1 = 10;
-    explain: ISCAN(I1 [EQUALS promote(@c10 AS LONG)])
-    task_count: 595
-    task_total_time_ms: 42
-    transform_count: 132
-    transform_time_ms: 20
-    transform_yield_count: 59
-    insert_time_ms: 1
-    insert_new_count: 66
-    insert_reused_count: 8
+    explain: ISCAN(I1 [EQUALS promote(@c10 AS LONG)]) | MAP (_.ID AS ID, _.COL1 AS
+        COL1, _.COL2 AS COL2)
+    task_count: 723
+    task_total_time_ms: 47
+    transform_count: 180
+    transform_time_ms: 16
+    transform_yield_count: 58
+    insert_time_ms: 3
+    insert_new_count: 79
+    insert_reused_count: 6
 -   query: EXPLAIN select t1_v.* from t1_v(10);
     explain: ISCAN(I1 [EQUALS promote(@c8 AS LONG)]) | MAP (version([_]) AS __ROW_VERSION,
         _.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)

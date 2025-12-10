@@ -44,7 +44,6 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactor
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerRegistry;
 import com.apple.foundationdb.record.provider.foundationdb.MetaDataProtoEditor;
 import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
-import com.apple.foundationdb.record.query.plan.cascades.typing.PseudoField;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableMap;
@@ -63,7 +62,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Queue;
 import java.util.Set;
 import java.util.TreeMap;
@@ -1507,12 +1505,8 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
     @Nonnull
     private Type.Record plannerTypeFor(@Nonnull RecordType recordType) {
         Type.Record plannerType = Type.Record.fromDescriptor(recordType.getDescriptor());
-        if (storeRecordVersions && !plannerType.getFieldNameFieldMap().containsKey(PseudoField.ROW_VERSION.getFieldName())) {
-            Type.Record.Field rowVersionField = Type.Record.Field.of(PseudoField.ROW_VERSION.getType(), Optional.of(PseudoField.ROW_VERSION.getFieldName()));
-            final List<Type.Record.Field> newFields = new ArrayList<>(plannerType.getFields().size() + 1);
-            newFields.addAll(plannerType.getFields());
-            newFields.add(rowVersionField);
-            plannerType = Type.Record.fromFields(plannerType.isNullable(), newFields);
+        if (storeRecordVersions) {
+            plannerType = plannerType.addPseudoFields();
         }
         return plannerType;
     }
