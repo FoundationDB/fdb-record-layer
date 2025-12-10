@@ -167,28 +167,33 @@ class TypeRepositoryTest {
     void addUnsupportedTypesIsNotAllowed() {
         TypeRepository.Builder builder = TypeRepository.newBuilder();
 
-        // Test primitive types
-        for (Type.TypeCode primitiveCode : List.of(Type.TypeCode.BOOLEAN, Type.TypeCode.BYTES,
+        // Create combined list of all types to test
+        List<Type> allUnsupportedTypes = new ArrayList<>();
+
+        // Add all primitive types with both nullable and non-nullable variants
+        List<Type.TypeCode> primitiveTypeCodes = List.of(Type.TypeCode.BOOLEAN, Type.TypeCode.BYTES,
                 Type.TypeCode.DOUBLE, Type.TypeCode.FLOAT, Type.TypeCode.INT,
-                Type.TypeCode.LONG, Type.TypeCode.STRING, Type.TypeCode.VERSION)) {
-            final var primitiveType = Type.primitiveType(primitiveCode, true);
-            builder.addTypeIfNeeded(primitiveType);
-            Assertions.assertTrue(builder.getTypeName(primitiveType).isEmpty(),
-                    "Primitive type " + primitiveCode + " should not be added to repository");
+                Type.TypeCode.LONG, Type.TypeCode.STRING, Type.TypeCode.VERSION);
+
+        for (Type.TypeCode primitiveCode : primitiveTypeCodes) {
+            allUnsupportedTypes.add(Type.primitiveType(primitiveCode, true));   // nullable
+            allUnsupportedTypes.add(Type.primitiveType(primitiveCode, false));  // non-nullable
         }
 
-        // Test special types that should not be allowed
-        List<Type> unsupportedTypes = List.of(
+        // Add special types that should not be allowed
+        allUnsupportedTypes.addAll(List.of(
                 Type.any(),                           // ANY type
                 Type.nullType(),                      // NULL type
-                new Type.None(),                      // NONE type
+                Type.NONE,                      // NONE type
                 new Type.Relation(Type.primitiveType(Type.TypeCode.INT))  // RELATION type
-        );
+        ));
 
-        for (Type unsupportedType : unsupportedTypes) {
+        // Test all types in the combined list
+        for (Type unsupportedType : allUnsupportedTypes) {
             builder.addTypeIfNeeded(unsupportedType);
             Assertions.assertTrue(builder.getTypeName(unsupportedType).isEmpty(),
-                    "Unsupported type " + unsupportedType.getTypeCode() + " should not be added to repository");
+                    "Unsupported type " + unsupportedType.getTypeCode() +
+                    " (nullable: " + unsupportedType.isNullable() + ") should not be added to repository");
         }
     }
 

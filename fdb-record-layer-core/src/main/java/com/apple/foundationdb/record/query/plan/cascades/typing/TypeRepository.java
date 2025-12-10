@@ -289,7 +289,7 @@ public class TypeRepository {
         if (type.getTypeCode() == Type.TypeCode.RELATION || type.getTypeCode() == Type.TypeCode.NONE) {
             return type.notNullable();
         } else {
-            return type.withNullability(true);
+            return type.nullable();
         }
     }
 
