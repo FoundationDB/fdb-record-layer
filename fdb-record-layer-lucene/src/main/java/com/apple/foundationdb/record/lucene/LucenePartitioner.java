@@ -514,9 +514,17 @@ public class LucenePartitioner {
                             builder.setTo(ByteString.copyFrom(partitioningKey.pack()));
                         }
                         savePartitionMetadata(groupingKey, builder);
+                        if (assignedPartition.hasMergingState() && !assignedPartition.getMergingState().equals(LucenePartitionInfoProto.LucenePartitionInfo.MergingState.NORMAL)) {
+                            return getBufferPartitionId(assignedPartition.getId());
+                        }
                         return assignedPartition.getId();
                     });
                 });
+    }
+
+    private static int getBufferPartitionId(int partitionId) {
+        // TODO: better distinct id for buffer partitions
+        return partitionId | 0xf00000;
     }
 
     /**

@@ -32,4 +32,13 @@ message LucenePartitionInfo {
   required bytes to = 3;
   /* count of documents in this partition */
   required int32 count = 4;
+  /* merging state */
+  enum MergingState {
+    NORMAL     = 0;   // Normal state - no need to do anything special
+    MERGING    = 1;   // Merging state - query from both buffer partition + partition, insert new items to buffer partition, delete from both, maintain the delete list
+    DRAINING   = 2;   // Draining state - query from both, insert new items to buffer partition, delete from both, do not maintain delete list
+  }
+  optional MergingState merging_state = 5;
+  /* delete list - to be maintained during merge */
+  repeated bytes delete_keys = 6;
 }
