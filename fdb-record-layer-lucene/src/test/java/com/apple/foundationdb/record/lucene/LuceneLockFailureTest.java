@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
+import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
@@ -74,11 +75,10 @@ class LuceneLockFailureTest extends FDBRecordStoreTestBase {
     @ParameterizedTest
     @BooleanSource
     void testAddDocument(boolean partitioned) throws IOException {
-        Subspace indexSubspace;
         FDBStoredRecord<Message> record;
         try (final FDBRecordContext context = openContext()) {
             openStore(partitioned, context);
-            indexSubspace = grabLockExternally(partitioned, context, 2, 0);
+            grabLockExternally(partitioned, context, 2, 0);
             context.commit();
         }
         // save a document while locked - document should be queued
@@ -91,11 +91,16 @@ class LuceneLockFailureTest extends FDBRecordStoreTestBase {
         // verify the queue content
         try (final FDBRecordContext context = openContext()) {
             openStore(partitioned, context);
-            LucenePendingWriteQueue queue = new LucenePendingWriteQueue(context, indexSubspace);
-            final Tuple groupingKey = Tuple.from(2);
-            final CompletableFuture<List<LucenePendingWriteQueue.QueuedOperationEntry>> queuedOperations = queue.getQueuedOperations(groupingKey);
+            Index index = partitioned ? COMPLEX_PARTITIONED : SIMPLE_INDEX;
+            final IndexMaintainer indexMaintainer = recordStore.getIndexMaintainer(index);
+            LucenePendingWriteQueue queue = ((LuceneIndexMaintainer)indexMaintainer).getPendingWriteQueue();
+            // The SIMPLE_INDEX is not grouped, and is the one used for non-partitioned
+            final Tuple groupingKey = partitioned ? Tuple.from(2) : Tuple.from();
+            Integer partitionId = (partitioned) ? 0 : null;
+            final CompletableFuture<List<LucenePendingWriteQueue.QueuedOperationEntry>> queuedOperations = queue.getQueuedOperations(groupingKey, partitionId);
             final List<LucenePendingWriteQueue.QueuedOperationEntry> ops = queuedOperations.join();
             Assertions.assertEquals(1, ops.size());
+            Assertions.assertEquals(LucenePendingWriteQueueProto.QueuedOperation.OperationType.INSERT, ops.get(0).getOperation().getOperationType());
             Assertions.assertEquals(record.getPrimaryKey(), ops.get(0).getPrimaryKey());
         }
     }
@@ -121,10 +126,24 @@ class LuceneLockFailureTest extends FDBRecordStoreTestBase {
         try (final FDBRecordContext context = openContext()) {
             openStore(partitioned, context);
             // This fails since the default directory is trying to take a second lock
-            Assertions.assertThrows(FDBExceptions.FDBStoreLockTakenException.class, () -> {
-                recordStore.deleteRecord(primaryKey);
-                context.commit();
-            });
+            recordStore.deleteRecord(primaryKey);
+            context.commit();
+        }
+
+        // verify the queue content
+        try (final FDBRecordContext context = openContext()) {
+            openStore(partitioned, context);
+            Index index = partitioned ? COMPLEX_PARTITIONED : SIMPLE_INDEX;
+            final IndexMaintainer indexMaintainer = recordStore.getIndexMaintainer(index);
+            LucenePendingWriteQueue queue = ((LuceneIndexMaintainer)indexMaintainer).getPendingWriteQueue();
+            // The SIMPLE_INDEX is not grouped, and is the one used for non-partitioned
+            final Tuple groupingKey = partitioned ? Tuple.from(2) : Tuple.from();
+            Integer partitionId = partitioned ? 0 : null;
+            final CompletableFuture<List<LucenePendingWriteQueue.QueuedOperationEntry>> queuedOperations = queue.getQueuedOperations(groupingKey, partitionId);
+            final List<LucenePendingWriteQueue.QueuedOperationEntry> ops = queuedOperations.join();
+            Assertions.assertEquals(1, ops.size());
+            Assertions.assertEquals(LucenePendingWriteQueueProto.QueuedOperation.OperationType.DELETE, ops.get(0).getOperation().getOperationType());
+            Assertions.assertEquals(primaryKey, ops.get(0).getPrimaryKey());
         }
     }
 
@@ -132,9 +151,10 @@ class LuceneLockFailureTest extends FDBRecordStoreTestBase {
     @BooleanSource
     void testUpdateDocument(boolean partitioned) throws IOException {
         final Message doc = createDocument(partitioned, 6666L, ENGINEER_JOKE, 0);
+        final FDBStoredRecord<Message> record;
         try (final FDBRecordContext context = openContext()) {
             openStore(partitioned, context);
-            recordStore.saveRecord(doc);
+            record = recordStore.saveRecord(doc);
             context.commit();
         }
 
@@ -146,9 +166,24 @@ class LuceneLockFailureTest extends FDBRecordStoreTestBase {
 
         try (final FDBRecordContext context = openContext()) {
             openStore(partitioned, context);
-            // This fails since the default directory is trying to take a second lock
-            Assertions.assertThrows(FDBExceptions.FDBStoreLockTakenException.class, () ->
-                    recordStore.updateRecord(updateDocument(partitioned, doc)));
+            recordStore.updateRecord(updateDocument(partitioned, doc));
+            context.commit();
+        }
+
+        // verify the queue content
+        try (final FDBRecordContext context = openContext()) {
+            openStore(partitioned, context);
+            Index index = partitioned ? COMPLEX_PARTITIONED : SIMPLE_INDEX;
+            final IndexMaintainer indexMaintainer = recordStore.getIndexMaintainer(index);
+            LucenePendingWriteQueue queue = ((LuceneIndexMaintainer)indexMaintainer).getPendingWriteQueue();
+            // The SIMPLE_INDEX is not grouped, and is the one used for non-partitioned
+            final Tuple groupingKey = partitioned ? Tuple.from(0) : Tuple.from();
+            Integer partitionId = partitioned ? 0 : null;
+            final CompletableFuture<List<LucenePendingWriteQueue.QueuedOperationEntry>> queuedOperations = queue.getQueuedOperations(groupingKey, partitionId);
+            final List<LucenePendingWriteQueue.QueuedOperationEntry> ops = queuedOperations.join();
+            Assertions.assertEquals(1, ops.size());
+            Assertions.assertEquals(LucenePendingWriteQueueProto.QueuedOperation.OperationType.UPDATE, ops.get(0).getOperation().getOperationType());
+            Assertions.assertEquals(record.getPrimaryKey(), ops.get(0).getPrimaryKey());
         }
     }
 

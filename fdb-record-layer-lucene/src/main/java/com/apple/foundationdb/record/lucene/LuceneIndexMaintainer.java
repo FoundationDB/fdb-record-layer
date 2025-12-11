@@ -269,10 +269,10 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
             // Partition is locked during merge - enqueue the insert/update operation
             switch (overallOperation) {
                 case INSERT:
-                    pendingWriteQueue.enqueueInsert(groupingKey, primaryKey, fields);
+                    pendingWriteQueue.enqueueInsert(groupingKey, partitionId, primaryKey, fields);
                     break;
                 case UPDATE:
-                    pendingWriteQueue.enqueueUpdate(groupingKey, primaryKey, fields);
+                    pendingWriteQueue.enqueueUpdate(groupingKey, partitionId, primaryKey, fields);
                     break;
                 case DELETE:
                 default:
@@ -627,10 +627,26 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     private <M extends Message> CompletableFuture<Integer> tryDelete(@Nonnull FDBIndexableRecord<M> record,
                                                                      @Nonnull Tuple groupingKey, final OverallOperation overallOperation) {
         try {
-            // TODO: Queue elements if default partition is locked...
             // non-partitioned
             if (!partitioner.isPartitioningEnabled()) {
-                return CompletableFuture.completedFuture(deleteDocument(groupingKey, null, record.getPrimaryKey()));
+                if (isPartitionLocked(groupingKey, null)) {
+                    // Index is locked during merge - enqueue the delete operation
+                    switch (overallOperation) {
+                        case DELETE:
+                            pendingWriteQueue.enqueueDelete(groupingKey, null, record.getPrimaryKey());
+                            break;
+                        case UPDATE:
+                        case INSERT:
+                        default:
+                            // do nothing - this will be taken care of elsewhere
+                    }
+                    if (LOG.isDebugEnabled()) {
+                        LOG.debug("Enqueued delete for {} in partition {} (locked during merge)", record.getPrimaryKey(), null);
+                    }
+                    return CompletableFuture.completedFuture(0);  // When the actual delete will take place, return a real delete count and handle partition's counter.
+                } else {
+                    return CompletableFuture.completedFuture(deleteDocument(groupingKey, null, record.getPrimaryKey()));
+                }
             }
         } catch (IOException e) {
             throw LuceneExceptions.toRecordCoreException("Issue deleting", e, "record", Objects.requireNonNull(record).getPrimaryKey());
@@ -646,7 +662,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                 // Partition is locked during merge - enqueue the delete operation
                 switch (overallOperation) {
                     case DELETE:
-                        pendingWriteQueue.enqueueDelete(groupingKey, record.getPrimaryKey());
+                        pendingWriteQueue.enqueueDelete(groupingKey, partitionInfo.getId(), record.getPrimaryKey());
                         break;
                     case UPDATE:
                     case INSERT:
@@ -654,8 +670,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                         // do nothing - this will be taken care of elsewhere
                 }
                 if (LOG.isDebugEnabled()) {
-                    LOG.debug("Enqueued delete for {} in partition {} (locked during merge)",
-                            record.getPrimaryKey(), partitionInfo.getId());
+                    LOG.debug("Enqueued delete for {} in partition {} (locked during merge)", record.getPrimaryKey(), partitionInfo.getId());
                 }
                 return CompletableFuture.completedFuture(0);  // When the actual delete will take place, return a real delete count and handle partition's counter.
             }
@@ -901,5 +916,10 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
             default:
                 return null;
         }
+    }
+
+    @Nonnull
+    public LucenePendingWriteQueue getPendingWriteQueue() {
+        return pendingWriteQueue;
     }
 }
