@@ -132,6 +132,7 @@ public class FDBDirectory extends Directory  {
     private static final int STORED_FIELDS_SUBSPACE = 6;
     @VisibleForTesting
     public static final int FILE_LOCK_SUBSPACE = 7;
+    public static final int PENDING_WRITE_QUEUE_SUBSPACE = 8;
     private final AtomicLong nextTempFileCounter = new AtomicLong();
     @Nonnull
     private final Map<String, String> indexOptions;
