@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.ScanProperties;
+import com.apple.foundationdb.record.TestHelpers;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
@@ -53,6 +54,8 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -253,7 +256,7 @@ public class OnlineIndexerMergeTest extends FDBRecordStoreConcurrentTestBase {
             future.completeExceptionally(
                     customTimeout ?
                     new CustomOperationTimeoutException(exceptionMessage) :
-                    new java.util.concurrent.TimeoutException(exceptionMessage));
+                    new TimeoutException(exceptionMessage));
             return future;
         });
 
@@ -261,14 +264,13 @@ public class OnlineIndexerMergeTest extends FDBRecordStoreConcurrentTestBase {
         try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
                 .setRecordStoreBuilder(storeBuilder)
                 .setTargetIndexesByName(List.of(INDEX_NAME))
-                .setMaxAttempts(5)
                 .build()) {
             Exception thrownException = Assertions.assertThrows(Exception.class, indexer::mergeIndex);
             // Assert that the timeout exception is in the cause chain
             var timeoutCause =
                     customTimeout ?
-                    findCause(thrownException, CustomOperationTimeoutException.class) :
-                    findCause(thrownException, TimeoutException.class);
+                    TestHelpers.findCause(thrownException, CustomOperationTimeoutException.class) :
+                    TestHelpers.findCause(thrownException, TimeoutException.class);
             Assertions.assertNotNull(timeoutCause);
             Assertions.assertEquals(exceptionMessage, timeoutCause.getMessage());
         }
@@ -288,29 +290,20 @@ public class OnlineIndexerMergeTest extends FDBRecordStoreConcurrentTestBase {
         }
     }
 
-    @SuppressWarnings("serial")
-    private static class CustomOperationTimeoutException extends RecordCoreTimeoutException {
-        public CustomOperationTimeoutException(String message) {
-            super(message);
-        }
-    }
-
-    private static <T extends Throwable> T findCause(Throwable throwable, Class<T> causeType) {
-        Throwable current = throwable;
-        while (current != null) {
-            if (causeType.isInstance(current)) {
-                return causeType.cast(current);
-            }
-            current = current.getCause();
-        }
-        return null;
-    }
-
     /**
      * Test that an FDBException wrapped in another exception still triggers retry behavior.
      */
-    @Test
-    void testWrappedFDBExceptionRetries() {
+    static Stream<Arguments> testWrappedFDBExceptionRetries() {
+        return Stream.of(
+                Arguments.of( FDBError.TRANSACTION_TOO_OLD.code(), true),
+                Arguments.of(FDBError.COMMIT_READ_INCOMPLETE.code(), true),
+                Arguments.of( FDBError.NO_CLUSTER_FILE_FOUND.code(), false)
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("testWrappedFDBExceptionRetries")
+    void testWrappedFDBExceptionRetries(int fdbErrorCode, boolean shouldRetry) {
         final String indexType = "wrappedFdbExceptionIndex";
         AtomicInteger attemptCount = new AtomicInteger(0);
 
@@ -321,7 +314,7 @@ public class OnlineIndexerMergeTest extends FDBRecordStoreConcurrentTestBase {
 
             // Wrap FDBException in multiple layers to test deep unwrapping
             final CompletableFuture<Void> future = new CompletableFuture<>();
-            FDBException fdbEx = new FDBException("Transaction too old", FDBError.TRANSACTION_TOO_OLD.code());
+            final FDBException fdbEx = new FDBException("my FDB Exception", fdbErrorCode);
             RuntimeException wrapper = new RuntimeException("Wrapper level 1",
                     new IllegalStateException("Wrapper level 2", fdbEx));
             future.completeExceptionally(wrapper);
@@ -338,13 +331,17 @@ public class OnlineIndexerMergeTest extends FDBRecordStoreConcurrentTestBase {
             Exception thrownException = Assertions.assertThrows(Exception.class, indexer::mergeIndex);
 
             // Assert that FDBException is in the cause chain
-            FDBException fdbCause = findCause(thrownException, FDBException.class);
+            FDBException fdbCause = TestHelpers.findCause(thrownException, FDBException.class);
             Assertions.assertNotNull(fdbCause);
-            assertEquals(FDBError.TRANSACTION_TOO_OLD.code(), fdbCause.getCode());
+            assertEquals(fdbErrorCode, fdbCause.getCode());
         }
 
         // Assert multiple retries
-        assertTrue(1 < attemptCount.get());
+        if (shouldRetry) {
+            assertTrue(1 < attemptCount.get());
+        } else {
+            assertEquals(1, attemptCount.get());
+        }
     }
 
     /**
@@ -538,6 +535,13 @@ public class OnlineIndexerMergeTest extends FDBRecordStoreConcurrentTestBase {
         @Override
         public IndexMaintainer getIndexMaintainer(@Nonnull IndexMaintainerState state) {
             return maintainers.get(state.index.getType()).apply(state);
+        }
+    }
+
+    @SuppressWarnings("serial")
+    private static class CustomOperationTimeoutException extends RecordCoreTimeoutException {
+        public CustomOperationTimeoutException(String message) {
+            super(message);
         }
     }
 }

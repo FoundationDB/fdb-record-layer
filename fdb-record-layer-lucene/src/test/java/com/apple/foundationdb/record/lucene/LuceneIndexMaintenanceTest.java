@@ -403,6 +403,10 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
 
     /**
      * Test that the index is in a good state if the merge operation has errors.
+     * The test will validate that if Lucene merge fails randomly in the middle it will still be usable, and
+     * not corrupted. Having retries in the IndexingMerger means that it could heal, but we want to make
+     * sure that requests coming in while the merge is ongoing don't get a corrupted view.
+     *
      * @param isGrouped whether the index has a grouping key
      * @param isSynthetic whether the index is on a synthetic type
      * @param primaryKeySegmentIndexEnabled whether to enable the primaryKeySegmentIndex
@@ -468,6 +472,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                 try {
                     LOGGER.info(KeyValueLogMessage.of("Merge started",
                             "iteration", i));
+                    // To avoid merge retries, use the low level merge from the index maintainer
                     try (FDBRecordContext context = openContext(contextProps)) {
                         FDBRecordStore recordStore = Objects.requireNonNull(dataModel.schemaSetup.apply(context));
                         final CompletableFuture<Void> future = recordStore.getIndexMaintainer(Objects.requireNonNull(dataModel.index)).mergeIndex();

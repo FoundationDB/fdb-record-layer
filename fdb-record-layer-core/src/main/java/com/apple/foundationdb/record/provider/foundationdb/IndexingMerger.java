@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.FDBError;
 import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.RecordCoreTimeoutException;
@@ -177,10 +178,19 @@ public class IndexingMerger {
     }
 
     private boolean shouldAbort(@Nullable Throwable e) {
-        return e == null ||
-                (IndexingBase.findException(e, RecordCoreTimeoutException.class) == null &&
-                         IndexingBase.findException(e, TimeoutException.class) == null &&
-                         IndexingBase.findException(e, FDBException.class) == null);
+        if (e == null) {
+            return true;
+        }
+        final FDBException fdbException = IndexingBase.findException(e, FDBException.class);
+        if (fdbException != null) {
+            // abort for certain fdb codes
+            return fdbException.getCode() == FDBError.BATCH_TRANSACTION_THROTTLED.code() ||
+                    fdbException.getCode() == FDBError.TAG_THROTTLED.code() ||
+                    fdbException.getCode() == FDBError.NO_CLUSTER_FILE_FOUND.code();
+        }
+        // abort of not a timeout error
+        return (IndexingBase.findException(e, RecordCoreTimeoutException.class) == null &&
+                         IndexingBase.findException(e, TimeoutException.class) == null);
     }
 
     private void handleRepartitioningFailure(final IndexDeferredMaintenanceControl mergeControl, Throwable e) {
