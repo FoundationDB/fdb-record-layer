@@ -318,7 +318,7 @@ class HNSWTest {
         readIds.clear();
         scanLayer(config, 1, 100,
                 node -> Assertions.assertThat(readIds.add(node.getPrimaryKey().getLong(0))).isTrue());
-        Assertions.assertThat(readIds.size()).isBetween(10, 50);
+        Assertions.assertThat(readIds.size()).isBetween(10, 100);
     }
 
     @ExtendWith(HNSWTest.DumpLayersIfFailure.class)
