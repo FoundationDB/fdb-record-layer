@@ -52,7 +52,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.AfterTestExecutionCallback;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.api.parallel.Execution;
@@ -206,9 +205,9 @@ class HNSWTest {
     static Stream<Arguments> randomSeedsWithConfig() {
         return RandomizedTestUtils.randomSeeds(0xdeadc0deL)
                 .flatMap(seed -> Sets.cartesianProduct(ImmutableSet.of(true, false),
-                                ImmutableSet.of(true, false),
-                                ImmutableSet.of(true, false),
-                                ImmutableSet.of(true, false)).stream()
+                                ImmutableSet.of(false, true),
+                                ImmutableSet.of(false, true),
+                                ImmutableSet.of(false, true)).stream()
                         .map(arguments -> Arguments.of(ObjectArrays.concat(seed,
                                 new Object[] {HNSW.newConfigBuilder()
                                         .setMetric(Metric.EUCLIDEAN_METRIC)
@@ -220,7 +219,7 @@ class HNSWTest {
                                         .setSampleVectorStatsProbability(1.0d)
                                         .setMaintainStatsProbability(0.1d)
                                         .setStatsThreshold(100)
-                                        .setM(32)
+                                        .setM(16)
                                         .setMMax(32)
                                         .setMMax0(64)
                                         .build(128)}))));
@@ -317,16 +316,17 @@ class HNSWTest {
         Assertions.assertThat(readIds.size()).isBetween(10, 50);
     }
 
-    @ExtendWith(HNSWTest.DumpLayersIfFailure.class)
+    //@ExtendWith(HNSWTest.DumpLayersIfFailure.class)
     @ParameterizedTest
     @MethodSource("randomSeedsWithConfig")
     void testBasicInsertDelete(final long seed, final Config config) {
         final Random random = new Random(seed);
         final int size = 1000;
+        final TestOnWriteListener onWriteListener = new TestOnWriteListener();
         final TestOnReadListener onReadListener = new TestOnReadListener();
 
         final HNSW hnsw = new HNSW(rtSubspace.getSubspace(), TestExecutors.defaultThreadPool(), config,
-                OnWriteListener.NOOP, onReadListener);
+                onWriteListener, onReadListener);
 
         final int k = 50;
         final List<PrimaryKeyAndVector> insertedData = randomVectors(random, config.getNumDimensions(), 1000);
@@ -342,9 +342,10 @@ class HNSWTest {
             final List<PrimaryKeyAndVector> toBeDeleted =
                     pickRandomVectors(random, remainingData, numVectorsPerDeleteBatch);
 
+            onWriteListener.reset();
             onReadListener.reset();
 
-            long beginTs = System.nanoTime();
+            final long beginTs = System.nanoTime();
             db.run(tr -> {
                 for (final PrimaryKeyAndVector primaryKeyAndVector : toBeDeleted) {
                     hnsw.delete(tr, primaryKeyAndVector.getPrimaryKey()).join();
@@ -353,11 +354,20 @@ class HNSWTest {
             });
             long endTs = System.nanoTime();
 
+            Assertions.assertThat(onWriteListener.getDeleteCountByLayer().get(0)).isEqualTo(toBeDeleted.size());
+
             logger.info("delete transaction of {} records after {} records took elapsedTime={}ms; read nodes={}, read bytes={}",
                     numVectorsPerDeleteBatch,
                     size - remainingData.size(),
                     TimeUnit.NANOSECONDS.toMillis(endTs - beginTs),
                     onReadListener.getNodeCountByLayer(), onReadListener.getBytesReadByLayer());
+
+            db.run(tr -> {
+                for (final PrimaryKeyAndVector primaryKeyAndVector : toBeDeleted) {
+                    hnsw.delete(tr, primaryKeyAndVector.getPrimaryKey()).join();
+                }
+                return null;
+            });
 
             final Set<PrimaryKeyAndVector> deletedSet = toBeDeleted.stream().collect(ImmutableSet.toImmutableSet());
             remainingData = remainingData.stream()
@@ -374,11 +384,11 @@ class HNSWTest {
 
                 onReadListener.reset();
 
-                beginTs = System.nanoTime();
+                final long beginTsQuery = System.nanoTime();
                 final List<? extends ResultEntry> results =
                         db.run(tr ->
                                 hnsw.kNearestNeighborsSearch(tr, k, 100, true, queryVector).join());
-                endTs = System.nanoTime();
+                final long endTsQuery = System.nanoTime();
 
                 int recallCount = 0;
                 for (ResultEntry resultEntry : results) {
@@ -388,20 +398,17 @@ class HNSWTest {
                 }
                 final double recall = (double)recallCount / (double)trueNN.size();
 
-//                if (recall == 0.7) {
-//                    int layer = 0;
-//                    while (true) {
-//                        if (!dumpLayer(hnsw, "debug", layer++)) {
-//                            break;
-//                        }
-//                    }
-//                }
-
                 logger.info("search transaction after delete of {} records took elapsedTime={}ms; read nodes={}, read bytes={}, recall={}",
                         size - remainingData.size(),
-                        TimeUnit.NANOSECONDS.toMillis(endTs - beginTs),
+                        TimeUnit.NANOSECONDS.toMillis(endTsQuery - beginTsQuery),
                         onReadListener.getNodeCountByLayer(), onReadListener.getBytesReadByLayer(),
                         String.format(Locale.ROOT, "%.2f", recall * 100.0d));
+
+                if (recall <= 0.9) {
+                    db.run(tr ->
+                            hnsw.kNearestNeighborsSearch(tr, k, 100, true, queryVector).join());
+                }
+
                 Assertions.assertThat(recall).isGreaterThan(0.9);
 
                 final long remainingNumNodes = countNodesOnLayer(config, 0);
@@ -413,7 +420,6 @@ class HNSWTest {
                 db.run(transaction -> StorageAdapter.fetchAccessInfo(hnsw.getConfig(),
                         transaction, hnsw.getSubspace(), OnReadListener.NOOP).join());
         Assertions.assertThat(accessInfo).isNull();
-        Assertions.assertThat((Double)null).isNotNull();
     }
 
     @ParameterizedTest()
@@ -836,6 +842,27 @@ class HNSWTest {
                     throw new RuntimeException(e);
                 }
             }
+        }
+    }
+
+    private static class TestOnWriteListener implements OnWriteListener {
+        final Map<Integer, Long> deleteCountByLayer;
+
+        public TestOnWriteListener() {
+            this.deleteCountByLayer = Maps.newConcurrentMap();
+        }
+
+        public Map<Integer, Long> getDeleteCountByLayer() {
+            return deleteCountByLayer;
+        }
+
+        public void reset() {
+            deleteCountByLayer.clear();
+        }
+
+        @Override
+        public void onNodeDeleted(final int layer, @Nonnull final Tuple primaryKey) {
+            deleteCountByLayer.compute(layer, (l, oldValue) -> (oldValue == null ? 0 : oldValue) + 1L);
         }
     }
 
