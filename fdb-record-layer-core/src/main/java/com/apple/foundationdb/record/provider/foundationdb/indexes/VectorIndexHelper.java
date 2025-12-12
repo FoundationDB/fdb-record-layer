@@ -49,10 +49,6 @@ public final class VectorIndexHelper {
     @Nonnull
     public static Config getConfig(@Nonnull final Index index) {
         final ConfigBuilder builder = HNSW.newConfigBuilder();
-        final String hnswRandomSeedOption = index.getOption(IndexOptions.HNSW_DETERMINISTIC_SEEDING);
-        if (hnswRandomSeedOption != null) {
-            builder.setDeterministicSeeding(Boolean.parseBoolean(hnswRandomSeedOption));
-        }
         final String hnswMetricOption = index.getOption(IndexOptions.HNSW_METRIC);
         if (hnswMetricOption != null) {
             builder.setMetric(Metric.valueOf(hnswMetricOption));

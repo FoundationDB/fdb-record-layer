@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.async.hnsw;
 
+import com.apple.foundationdb.Range;
 import com.apple.foundationdb.tuple.Tuple;
 
 import javax.annotation.Nonnull;
@@ -41,6 +42,19 @@ public interface OnWriteListener {
      */
     @SuppressWarnings("unused")
     default void onNodeWritten(final int layer, @Nonnull final Node<? extends NodeReference> node) {
+        // nothing
+    }
+
+    /**
+     * Callback method invoked after a node has been successfully deleted from a specific layer.
+     * <p>
+     * This is a default method with an empty implementation, allowing implementing classes to override it only if they
+     * need to react to this event.
+     * @param layer the index of the layer where the node was deleted.
+     * @param primaryKey the {@link Tuple} used as key to identify the node that was deleted; guaranteed to be non-null.
+     */
+    @SuppressWarnings("unused")
+    default void onNodeDeleted(final int layer, @Nonnull final Tuple primaryKey) {
         // nothing
     }
 
@@ -81,6 +95,16 @@ public interface OnWriteListener {
 
     @SuppressWarnings("unused")
     default void onKeyValueWritten(final int layer, @Nonnull final byte[] key, @Nonnull final byte[] value) {
+        // nothing
+    }
+
+    @SuppressWarnings("unused")
+    default void onKeyDeleted(final int layer, @Nonnull final byte[] key) {
+        // nothing
+    }
+
+    @SuppressWarnings("unused")
+    default void onRangeDeleted(final int layer, @Nonnull final Range range) {
         // nothing
     }
 }

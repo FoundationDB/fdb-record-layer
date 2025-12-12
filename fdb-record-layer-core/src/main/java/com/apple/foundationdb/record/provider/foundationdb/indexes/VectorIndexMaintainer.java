@@ -346,7 +346,7 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
             final HNSW hnsw =
                     new HNSW(rtSubspace, getExecutor(), getConfig(), new OnWrite(timer), OnReadListener.NOOP);
             if (remove) {
-                throw new UnsupportedOperationException("not implemented");
+                return hnsw.delete(state.transaction, trimmedPrimaryKey);
             } else {
                 return hnsw.insert(state.transaction, trimmedPrimaryKey,
                         RealVector.fromBytes(vectorBytes));

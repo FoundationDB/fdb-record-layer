@@ -32,7 +32,6 @@ class ConfigTest {
         Assertions.assertThat(HNSW.newConfigBuilder().build(768)).isEqualTo(defaultConfig);
         Assertions.assertThat(defaultConfig.toBuilder().build(768)).isEqualTo(defaultConfig);
 
-        final boolean deterministicSeeding = true;
         final Metric metric = Metric.COSINE_METRIC;
         final boolean useInlining = true;
         final int m = Config.DEFAULT_M + 1;
@@ -51,7 +50,6 @@ class ConfigTest {
         final int maxNumConcurrentNodeFetches = 1;
         final int maxNumConcurrentNeighborhoodFetches = 2;
 
-        Assertions.assertThat(defaultConfig.isDeterministicSeeding()).isNotEqualTo(deterministicSeeding);
         Assertions.assertThat(defaultConfig.getMetric()).isNotSameAs(metric);
         Assertions.assertThat(defaultConfig.isUseInlining()).isNotEqualTo(useInlining);
         Assertions.assertThat(defaultConfig.getM()).isNotEqualTo(m);
@@ -73,7 +71,6 @@ class ConfigTest {
 
         final Config newConfig =
                 defaultConfig.toBuilder()
-                        .setDeterministicSeeding(deterministicSeeding)
                         .setMetric(metric)
                         .setUseInlining(useInlining)
                         .setM(m)
@@ -91,7 +88,6 @@ class ConfigTest {
                         .setMaxNumConcurrentNeighborhoodFetches(maxNumConcurrentNeighborhoodFetches)
                         .build(768);
 
-        Assertions.assertThat(newConfig.isDeterministicSeeding()).isEqualTo(deterministicSeeding);
         Assertions.assertThat(newConfig.getMetric()).isSameAs(metric);
         Assertions.assertThat(newConfig.isUseInlining()).isEqualTo(useInlining);
         Assertions.assertThat(newConfig.getM()).isEqualTo(m);

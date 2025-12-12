@@ -42,6 +42,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.ArgumentsProvider;
 import org.junit.jupiter.params.provider.ArgumentsSource;
+import org.junit.jupiter.params.support.ParameterDeclarations;
 
 import java.util.List;
 import java.util.Optional;
@@ -138,7 +139,8 @@ class VariadicFunctionValueTest {
 
     static class BinaryPredicateTestProvider implements ArgumentsProvider {
         @Override
-        public Stream<? extends Arguments> provideArguments(final ExtensionContext context) {
+        public Stream<? extends Arguments> provideArguments(final ParameterDeclarations parameterDeclarations,
+                                                            final ExtensionContext context) {
             return Stream.of(
                     // Greatest Function
                     Arguments.of(List.of(INT_1, INT_1), new VariadicFunctionValue.GreatestFn(), 1, false),

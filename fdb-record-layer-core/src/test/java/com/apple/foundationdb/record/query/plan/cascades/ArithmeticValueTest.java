@@ -41,6 +41,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.ArgumentsProvider;
 import org.junit.jupiter.params.provider.ArgumentsSource;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.support.ParameterDeclarations;
 
 import java.util.List;
 import java.util.Optional;
@@ -76,7 +77,8 @@ class ArithmeticValueTest {
 
     static class BinaryPredicateTestProvider implements ArgumentsProvider {
         @Override
-        public Stream<? extends Arguments> provideArguments(final ExtensionContext context) {
+        public Stream<? extends Arguments> provideArguments(final ParameterDeclarations parameterDeclarations,
+                                                            final ExtensionContext context) {
             return Stream.of(
                     Arguments.of(List.of(INT_1, INT_1), new ArithmeticValue.AddFn(), 2, false),
                     Arguments.of(List.of(INT_1, INT_1), new ArithmeticValue.SubFn(), 0, false),

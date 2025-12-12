@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.async.hnsw;
 
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.linear.AffineOperator;
 import com.apple.foundationdb.linear.FhtKacRotator;
 import com.apple.foundationdb.linear.LinearOperator;
@@ -34,7 +35,10 @@ import javax.annotation.Nullable;
  * (pre-rotated) centroid. This operator is used inside the HNSW to transform back and forth between the coordinate
  * system of the client and the coordinate system that is currently employed in the HNSW.
  */
+@SpotBugsSuppressWarnings(value = "SING_SINGLETON_HAS_NONPRIVATE_CONSTRUCTOR", justification = "Singleton designation is a false positive")
 class StorageTransform extends AffineOperator {
+    private static final StorageTransform IDENTITY_STORAGE_TRANSFORM = new StorageTransform(null, null);
+
     public StorageTransform(final long seed, final int numDimensions,
                             @Nonnull final RealVector translationVector) {
         this(new FhtKacRotator(seed, numDimensions, 10), translationVector);
@@ -66,5 +70,10 @@ class StorageTransform extends AffineOperator {
     @Override
     public RealVector invertedApply(@Nonnull final RealVector vector) {
         return super.invertedApply(vector);
+    }
+
+    @Nonnull
+    public static StorageTransform identity() {
+        return IDENTITY_STORAGE_TRANSFORM;
     }
 }

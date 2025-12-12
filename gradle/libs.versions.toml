@@ -62,8 +62,8 @@ diffutils = "4.12"
 hamcrest = "2.2"
 jcommander = "1.81"
 jline = "3.30.4"
-junit = "5.11.3"
-junit-platform = "1.7.1"
+junit = "5.14.1"
+junit-platform = "1.14.1"
 mockito = "3.7.7"
 snakeyaml = "2.2"
 
@@ -145,7 +145,7 @@ spotbugs-annotations = { module = "com.github.spotbugs:spotbugs-annotations", ve
 [bundles]
 
 test-impl = [ "assertj", "hamcrest", "junit-api", "junit-params", "log4j-core", "mockito", "bndtools" ]
-test-runtime = [ "junit-engine", "log4j-slf4jBinding"]
+test-runtime = [ "junit-engine", "junit-platform", "log4j-slf4jBinding"]
 test-compileOnly = [ "autoService", "jsr305" ]
 
 [plugins]
