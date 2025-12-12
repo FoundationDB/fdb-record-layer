@@ -92,6 +92,7 @@ public final class FDBDirectoryLockFactory extends LockFactory {
          */
         private FDBRecordContext closingContext = null;
         private final Object fileLockSetLock = new Object();
+        private boolean clearingLockNow = false;
 
         private FDBDirectoryLock(final AgilityContext agilityContext, final String lockName, byte[] fileLockKey, int timeWindowMilliseconds) {
             this.agilityContext = agilityContext;
@@ -210,6 +211,12 @@ public final class FDBDirectoryLockFactory extends LockFactory {
         }
 
         private void fileLockClearFlushAndClose(boolean isRecovery) {
+            if (clearingLockNow) {
+                // Here: this function is being called from too many paths. Until cleanup, this guard is here to avoid recursions
+                // Note that without a lock, this protects recursion but not concurrency.
+                throw new AlreadyClosedException("Temporary exception for test only (DO NOT MERGE)");
+            }
+            clearingLockNow = true;
             Function<FDBRecordContext, CompletableFuture<Void>> fileLockFunc = aContext ->
                     aContext.ensureActive().get(fileLockKey)
                             .thenAccept(val -> {
