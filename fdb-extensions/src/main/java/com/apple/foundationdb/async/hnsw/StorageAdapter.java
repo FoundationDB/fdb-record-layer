@@ -98,6 +98,11 @@ interface StorageAdapter<N extends NodeReference> {
     @Nonnull
     InliningStorageAdapter asInliningStorageAdapter();
 
+    boolean isCompactStorageAdapter();
+
+    @Nonnull
+    CompactStorageAdapter asCompactStorageAdapter();
+
     /**
      * Get the subspace used to store this HNSW structure.
      * @return the subspace

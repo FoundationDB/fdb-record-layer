@@ -52,8 +52,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.AfterTestExecutionCallback;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.junit.jupiter.params.ParameterInfo;
@@ -67,9 +69,9 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.BufferedWriter;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.channels.FileChannel;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
@@ -115,6 +117,9 @@ class HNSWTest {
     TestSubspaceExtension rtSubspace = new TestSubspaceExtension(dbExtension);
     @RegisterExtension
     TestSubspaceExtension rtSecondarySubspace = new TestSubspaceExtension(dbExtension);
+
+    @TempDir
+    Path tempDir;
 
     private Database db;
 
@@ -316,7 +321,7 @@ class HNSWTest {
         Assertions.assertThat(readIds.size()).isBetween(10, 50);
     }
 
-    //@ExtendWith(HNSWTest.DumpLayersIfFailure.class)
+    @ExtendWith(HNSWTest.DumpLayersIfFailure.class)
     @ParameterizedTest
     @MethodSource("randomSeedsWithConfig")
     void testBasicInsertDelete(final long seed, final Config config) {
@@ -403,11 +408,6 @@ class HNSWTest {
                         TimeUnit.NANOSECONDS.toMillis(endTsQuery - beginTsQuery),
                         onReadListener.getNodeCountByLayer(), onReadListener.getBytesReadByLayer(),
                         String.format(Locale.ROOT, "%.2f", recall * 100.0d));
-
-                if (recall <= 0.9) {
-                    db.run(tr ->
-                            hnsw.kNearestNeighborsSearch(tr, k, 100, true, queryVector).join());
-                }
 
                 Assertions.assertThat(recall).isGreaterThan(0.9);
 
@@ -710,28 +710,37 @@ class HNSWTest {
 
     private boolean dumpLayer(@Nonnull final Config config,
                               @Nonnull final String prefix, final int layer) throws IOException {
-        final String verticesFileName = "/Users/nseemann/Downloads/vertices-" + prefix + "-" + layer + ".csv";
-        final String edgesFileName = "/Users/nseemann/Downloads/edges-" + prefix + "-" + layer + ".csv";
+        final Path verticesFile = tempDir.resolve("vertices-" + prefix + "-" + layer + ".csv");
+        final Path edgesFile = tempDir.resolve("edges-" + prefix + "-" + layer + ".csv");
+
+        final StorageAdapter<? extends NodeReference> storageAdapter =
+                HNSW.storageAdapterForLayer(config, rtSubspace.getSubspace(),
+                        OnWriteListener.NOOP, OnReadListener.NOOP, layer);
 
         final AtomicLong numReadAtomic = new AtomicLong(0L);
-        try (final BufferedWriter verticesWriter = new BufferedWriter(new FileWriter(verticesFileName));
-                final BufferedWriter edgesWriter = new BufferedWriter(new FileWriter(edgesFileName))) {
+        try (final BufferedWriter verticesWriter = Files.newBufferedWriter(verticesFile);
+                final BufferedWriter edgesWriter = Files.newBufferedWriter(edgesFile)) {
             scanLayer(config, layer, 100, node -> {
-                final CompactNode compactNode = node.asCompactNode();
-                final Transformed<RealVector> vector = compactNode.getVector();
+                @Nullable final Transformed<RealVector> vector =
+                        storageAdapter.isCompactStorageAdapter()
+                        ? node.asCompactNode().getVector()
+                        : null;
                 try {
-                    verticesWriter.write(compactNode.getPrimaryKey().getLong(0) + ",");
-                    final RealVector realVector = vector.getUnderlyingVector();
-                    for (int i = 0; i < realVector.getNumDimensions(); i++) {
-                        if (i != 0) {
-                            verticesWriter.write(",");
+                    verticesWriter.write(Long.toString(node.getPrimaryKey().getLong(0)));
+                    if (vector != null) {
+                        verticesWriter.write(",");
+                        final RealVector realVector = vector.getUnderlyingVector();
+                        for (int i = 0; i < realVector.getNumDimensions(); i++) {
+                            if (i != 0) {
+                                verticesWriter.write(",");
+                            }
+                            verticesWriter.write(String.valueOf(realVector.getComponent(i)));
                         }
-                        verticesWriter.write(String.valueOf(realVector.getComponent(i)));
                     }
                     verticesWriter.newLine();
 
-                    for (final var neighbor : compactNode.getNeighbors()) {
-                        edgesWriter.write(compactNode.getPrimaryKey().getLong(0) + "," +
+                    for (final var neighbor : node.getNeighbors()) {
+                        edgesWriter.write(node.getPrimaryKey().getLong(0) + "," +
                                 neighbor.getPrimaryKey().getLong(0));
                         edgesWriter.newLine();
                     }
