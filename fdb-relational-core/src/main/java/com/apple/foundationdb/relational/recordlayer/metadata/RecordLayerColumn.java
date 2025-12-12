@@ -39,10 +39,13 @@ public class RecordLayerColumn implements Column {
 
     private final int index;
 
-    RecordLayerColumn(@Nonnull String name, @Nonnull DataType dataType, int index) {
+    private final boolean invisible;
+
+    RecordLayerColumn(@Nonnull String name, @Nonnull DataType dataType, int index, boolean invisible) {
         this.name = name;
         this.dataType = dataType;
         this.index = index;
+        this.invisible = invisible;
     }
 
     @Nonnull
@@ -62,6 +65,11 @@ public class RecordLayerColumn implements Column {
     }
 
     @Override
+    public boolean isInvisible() {
+        return invisible;
+    }
+
+    @Override
     public boolean equals(final Object object) {
         if (this == object) {
             return true;
@@ -70,17 +78,17 @@ public class RecordLayerColumn implements Column {
             return false;
         }
         final RecordLayerColumn that = (RecordLayerColumn)object;
-        return index == that.index && Objects.equals(name, that.name) && Objects.equals(dataType, that.dataType);
+        return index == that.index && invisible == that.invisible && Objects.equals(name, that.name) && Objects.equals(dataType, that.dataType);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(name, dataType, index);
+        return Objects.hash(name, dataType, index, invisible);
     }
 
     @Override
     public String toString() {
-        return name + ": " + dataType + " = " + index;
+        return name + ": " + dataType + " = " + index + (invisible ? " (invisible)" : "");
     }
 
     public static final class Builder {
@@ -89,8 +97,11 @@ public class RecordLayerColumn implements Column {
 
         private int index;
 
+        private boolean invisible;
+
         private Builder() {
             this.index = -1;
+            this.invisible = false;
         }
 
         @Nonnull
@@ -112,14 +123,20 @@ public class RecordLayerColumn implements Column {
             return this;
         }
 
+        @Nonnull
+        public Builder setInvisible(boolean invisible) {
+            this.invisible = invisible;
+            return this;
+        }
+
         public RecordLayerColumn build() {
-            return new RecordLayerColumn(name, dataType, index);
+            return new RecordLayerColumn(name, dataType, index, invisible);
         }
     }
 
     @Nonnull
     public static RecordLayerColumn from(@Nonnull final DataType.StructType.Field field) {
-        return new RecordLayerColumn(field.getName(), field.getType(), field.getIndex());
+        return new RecordLayerColumn(field.getName(), field.getType(), field.getIndex(), field.isInvisible());
     }
 
     @Nonnull

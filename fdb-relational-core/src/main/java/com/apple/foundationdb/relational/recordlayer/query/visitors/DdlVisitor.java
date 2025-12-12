@@ -144,6 +144,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         final var columnId = visitUid(ctx.colName);
         final var isRepeated = ctx.ARRAY() != null;
         final var isNullable = ctx.columnConstraint() != null ? (Boolean) ctx.columnConstraint().accept(this) : true;
+        final var isInvisible = ctx.columnVisibility() != null && ctx.columnVisibility().INVISIBLE() != null;
         // TODO: We currently do not support NOT NULL for any type other than ARRAY. This is because there is no way to
         //       specify not "nullability" at the RecordMetaData level. For ARRAY, specifying that is actually possible
         //       by means of NullableArrayWrapper. In essence, we don't actually need a wrapper per se for non-array types,
@@ -159,7 +160,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
             typeInfo = SemanticAnalyzer.ParsedTypeInfo.ofPrimitiveType(ctx.columnType().primitiveType(), isNullable, isRepeated);
         }
         final var columnType = semanticAnalyzer.lookupType(typeInfo, metadataBuilder::findType);
-        return RecordLayerColumn.newBuilder().setName(columnId.getName()).setDataType(columnType).build();
+        return RecordLayerColumn.newBuilder().setName(columnId.getName()).setDataType(columnType).setInvisible(isInvisible).build();
     }
 
     @Nonnull

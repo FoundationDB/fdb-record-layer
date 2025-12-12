@@ -151,7 +151,7 @@ public final class RecordLayerTable implements Table {
     private DataType.StructType calculateDataType() {
         final var columnTypes = ImmutableList.<DataType.StructType.Field>builder();
         for (final var column : columns) {
-            columnTypes.add(DataType.StructType.Field.from(column.getName(), column.getDataType(), column.getIndex()));
+            columnTypes.add(DataType.StructType.Field.from(column.getName(), column.getDataType(), column.getIndex(), column.isInvisible()));
         }
         /*
          * TODO (yhatem): note this is not entirely correct. Currently we're not setting nullable
@@ -416,7 +416,7 @@ public final class RecordLayerTable implements Table {
             for (int i = 1; i <= columns.size(); i++) {
                 final var column = columns.get(i - 1);
                 if (column.getIndex() < 0) {
-                    result.add(RecordLayerColumn.newBuilder().setName(column.getName()).setIndex(i).setDataType(column.getDataType()).build());
+                    result.add(RecordLayerColumn.newBuilder().setName(column.getName()).setIndex(i).setDataType(column.getDataType()).setInvisible(column.isInvisible()).build());
                 } else {
                     result.add(column);
                 }

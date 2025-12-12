@@ -126,7 +126,11 @@ tableDefinition
     ;
 
 columnDefinition
-    : colName=uid columnType ARRAY? columnConstraint?
+    : colName=uid columnType ARRAY? columnConstraint? columnVisibility?
+    ;
+
+columnVisibility
+    : VISIBLE | INVISIBLE
     ;
 
 // this is not aligned with SQL standard, but it eliminates ambiguities related to necessating a lookahead of 1 to resolve

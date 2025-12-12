@@ -252,11 +252,14 @@ public class LogicalOperator {
             final var fieldType = type.getField(colCount);
             final var attributeExpression = FieldValue.ofFields(resultingQuantifier.getFlowedObjectValue(),
                     FieldValue.FieldPath.ofSingle(FieldValue.ResolvedAccessor.of(fieldType, colCount)));
-            attributesBuilder.add(new Expression(Optional.of(attributeName), attributeType, attributeExpression));
+            // Create expression with invisible flag set if column is invisible
+            final var expression = new Expression(Optional.of(attributeName), attributeType, attributeExpression, column.isInvisible());
+            attributesBuilder.add(expression);
             colCount++;
         }
         final var attributes = Expressions.of(attributesBuilder.build());
-        return LogicalOperator.newNamedOperator(tableId, attributes, resultingQuantifier);
+        final var qualifiedAttributes = attributes.withQualifier(tableId);
+        return new LogicalOperator(Optional.of(tableId), qualifiedAttributes, resultingQuantifier);
     }
 
     @Nonnull
@@ -432,6 +435,8 @@ public class LogicalOperator {
                         // must be a Star expression
                         Iterables.size(output) == 1 &&
                         Iterables.getOnlyElement(output) instanceof Star &&
+                        // Cannot use optimization if there are invisible columns - they would be included in passthrough
+                        logicalOperators.first().getOutput().stream().noneMatch(Expression::isInvisible) &&
                         // special case for CTEs where it is possible that a Star is referencing aliased columns of a named query
                         // if these columns are aliased differently from the underlying query fragment, then we can only avoid
                         // projecting individual columns (and lose their aliases) if and only if their names pairwise match the

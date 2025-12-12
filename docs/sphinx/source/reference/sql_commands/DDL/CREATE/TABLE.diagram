@@ -11,6 +11,12 @@ Diagram(
                 Sequence(
                     NonTerminal('columnName'),
                     NonTerminal('columnType'),
+                    Optional(
+                        Choice(0,
+                            Terminal('INVISIBLE'),
+                            Terminal('VISIBLE')
+                        )
+                    )
                 ),
                 Terminal(',')
             ),

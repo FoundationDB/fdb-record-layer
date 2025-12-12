@@ -34,6 +34,24 @@ public interface Column extends Metadata {
      */
     DataType getDataType();
 
+    /**
+     * Returns whether this column is invisible.
+     * <p>
+     * Invisible columns are a SQL feature that hides columns from {@code SELECT *} queries
+     * while still allowing them to be explicitly selected by name.
+     * <p>
+     * Query behavior:
+     * <ul>
+     *   <li>{@code SELECT * FROM table} - excludes invisible columns</li>
+     *   <li>{@code SELECT col FROM table} - includes invisible column {@code col} if explicitly named</li>
+     * </ul>
+     *
+     * @return {@code true} if the column is invisible, {@code false} otherwise
+     */
+    default boolean isInvisible() {
+        return false;  // Default to visible for backward compatibility
+    }
+
     @Override
     default void accept(@Nonnull final Visitor visitor) {
         visitor.visit(this);

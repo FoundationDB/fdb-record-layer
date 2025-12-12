@@ -40,6 +40,7 @@ import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
+import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Descriptors;
 
 import javax.annotation.Nonnull;
@@ -130,19 +131,85 @@ public class RecordMetadataDeserializer {
     }
 
     @Nonnull
+    @SuppressWarnings("PMD.UnusedFormalParameter") // userName kept for API consistency
     private RecordLayerTable.Builder generateTableBuilder(@Nonnull final String userName, @Nonnull final String storageName) {
         final RecordType recordType = recordMetaData.getRecordType(storageName);
 
         // todo (yhatem) we rely on the record type for deserialization from ProtoBuf for now, later on
         //      we will avoid this step by having our own deserializers.
+        final var baseRecordLayerType = Type.Record.fromDescriptor(recordType.getDescriptor());
+
+        // Process nested records if needed, otherwise use the base type with the record name
+        final var recordLayerType = processNestedRecords(baseRecordLayerType, recordType);
+
+        // Build table with invisible flags applied
+        return buildTableWithInvisibleFlags(recordLayerType, recordType);
+    }
+
+    @Nonnull
+    private Type.Record processNestedRecords(@Nonnull final Type.Record baseRecordLayerType,
+                                             @Nonnull final RecordType recordType) {
         // todo (yhatem) this is hacky and must be cleaned up. We need to understand the actually field types so we can take decisions
-        //      on higher level based on these types (wave3).
-        final var recordLayerType = Type.Record.fromDescriptorPreservingName(recordType.getDescriptor());
+        // on higher level based on these types (wave3).
+        if (!baseRecordLayerType.getFields().stream().anyMatch(f -> f.getFieldType().isRecord())) {
+            // No nested records - just create a named Type.Record from the base type
+            return Type.Record.fromFieldsWithName(recordType.getName(), false, baseRecordLayerType.getFields());
+        }
+
+        // Handle nested records by preserving their names
+        ImmutableList.Builder<Type.Record.Field> newFields = ImmutableList.builder();
+        for (int i = 0; i < baseRecordLayerType.getFields().size(); i++) {
+            final var protoField = recordType.getDescriptor().getFields().get(i);
+            final var field = baseRecordLayerType.getField(i);
+            if (field.getFieldType().isRecord()) {
+                Type.Record r = Type.Record.fromFieldsWithName(
+                        protoField.getMessageType().getName(),
+                        field.getFieldType().isNullable(),
+                        ((Type.Record) field.getFieldType()).getFields()
+                );
+                newFields.add(Type.Record.Field.of(r, field.getFieldNameOptional(), field.getFieldIndexOptional()));
+            } else {
+                newFields.add(field);
+            }
+        }
+        return Type.Record.fromFieldsWithName(recordType.getName(), false, newFields.build());
+    }
+
+    @Nonnull
+    private RecordLayerTable.Builder buildTableWithInvisibleFlags(@Nonnull final Type.Record recordLayerType,
+                                                                   @Nonnull final RecordType recordType) {
+        // Convert to DataType.StructType and apply invisible flags
+        final var dataType = (DataType.StructType) DataTypeUtils.toRelationalType(recordLayerType);
+        final var dataTypeWithInvisible = applyInvisibleFlags(dataType, recordType.getDescriptor());
+
+        // Build table directly from dataType to preserve invisible flags in columns
         return RecordLayerTable.Builder
-                .from(recordLayerType)
-                .setName(userName)
+                .from(dataTypeWithInvisible)
+                .setRecord(recordLayerType)
                 .setPrimaryKey(recordType.getPrimaryKey())
-                .addIndexes(recordType.getIndexes().stream().map(index -> RecordLayerIndex.from(Objects.requireNonNull(recordLayerType.getName()), Objects.requireNonNull(recordLayerType.getStorageName()), index)).collect(Collectors.toSet()));
+                .addIndexes(recordType.getIndexes().stream()
+                        .map(index -> RecordLayerIndex.from(
+                                Objects.requireNonNull(recordLayerType.getName()),
+                                Objects.requireNonNull(recordLayerType.getStorageName()),
+                                index))
+                        .collect(Collectors.toSet()));
+    }
+
+    @Nonnull
+    private DataType.StructType applyInvisibleFlags(@Nonnull final DataType.StructType dataType,
+                                                     @Nonnull final Descriptors.Descriptor descriptor) {
+        final var fieldsBuilder = ImmutableList.<DataType.StructType.Field>builder();
+        for (int i = 0; i < dataType.getFields().size(); i++) {
+            final var field = dataType.getFields().get(i);
+            final var protoField = descriptor.getFields().get(i);
+            boolean isInvisible = false;
+            if (protoField.getOptions().hasExtension(com.apple.foundationdb.record.RecordMetaDataOptionsProto.field)) {
+                final var fieldOptions = protoField.getOptions().getExtension(com.apple.foundationdb.record.RecordMetaDataOptionsProto.field);
+                isInvisible = fieldOptions.hasInvisible() && fieldOptions.getInvisible();
+            }
+            fieldsBuilder.add(DataType.StructType.Field.from(field.getName(), field.getType(), field.getIndex(), isInvisible));
+        }
+        return DataType.StructType.from(dataType.getName(), fieldsBuilder.build(), dataType.isNullable());
     }
 
     @Nonnull
