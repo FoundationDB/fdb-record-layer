@@ -102,7 +102,7 @@ public class RecordQueryLoadByKeysPlan extends AbstractRelationalExpressionWitho
                 .filter(Objects::nonNull)
                 .map(store::queriedRecord)
                 .skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit())
-                .map(QueryResult::fromQueriedRecord);
+                .map(queriedRecord -> QueryResult.fromQueriedRecord(getResultValue().getResultType(), context, queriedRecord));
     }
 
     @Override
