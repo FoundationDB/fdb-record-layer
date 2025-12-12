@@ -271,5 +271,5 @@ abstract class AbstractStorageAdapter<N extends NodeReference> implements Storag
         }
     }
 
-    protected abstract void deleteNodeInternal(@Nonnull final Transaction transaction, final int layer, @Nonnull final Tuple primaryKey);
+    protected abstract void deleteNodeInternal(@Nonnull Transaction transaction, int layer, @Nonnull Tuple primaryKey);
 }

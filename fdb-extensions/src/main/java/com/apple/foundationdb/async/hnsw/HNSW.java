@@ -1833,7 +1833,7 @@ public class HNSW {
                                                                          @Nonnull final SplittableRandom random,
                                                                          @Nonnull final Tuple primaryKey,
                                                                          final int topLayer) {
-        return MoreAsyncUtil.forEach(() -> IntStream.rangeClosed(0, topLayer).iterator(),
+        return forEach(() -> IntStream.rangeClosed(0, topLayer).iterator(),
                 layer -> {
                     final StorageAdapter<? extends NodeReference> storageAdapter = getStorageAdapterForLayer(layer);
                     return deleteFromLayer(storageAdapter, transaction, storageTransform, quantizer, random.split(),
