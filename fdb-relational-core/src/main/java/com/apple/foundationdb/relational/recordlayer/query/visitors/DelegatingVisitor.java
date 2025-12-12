@@ -542,9 +542,9 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
         return getDelegate().visitTableSources(ctx);
     }
 
-    @Nonnull
+    @Nullable
     @Override
-    public LogicalOperator visitTableSourceBase(@Nonnull RelationalParser.TableSourceBaseContext ctx) {
+    public Void visitTableSourceBase(@Nonnull RelationalParser.TableSourceBaseContext ctx) {
         return getDelegate().visitTableSourceBase(ctx);
     }
 
@@ -592,7 +592,7 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
 
     @Nonnull
     @Override
-    public Object visitInnerJoin(@Nonnull RelationalParser.InnerJoinContext ctx) {
+    public Expression visitInnerJoin(@Nonnull RelationalParser.InnerJoinContext ctx) {
         return getDelegate().visitInnerJoin(ctx);
     }
 

@@ -310,9 +310,9 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
     @Nullable
     Void visitTableSources(@Nonnull RelationalParser.TableSourcesContext ctx);
 
-    @Nonnull
+    @Nullable
     @Override
-    LogicalOperator visitTableSourceBase(@Nonnull RelationalParser.TableSourceBaseContext ctx);
+    Void visitTableSourceBase(@Nonnull RelationalParser.TableSourceBaseContext ctx);
 
     @Nonnull
     @Override
@@ -343,7 +343,7 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
 
     @Nonnull
     @Override
-    Object visitInnerJoin(@Nonnull RelationalParser.InnerJoinContext ctx);
+    Expression visitInnerJoin(@Nonnull RelationalParser.InnerJoinContext ctx);
 
     @Nonnull
     @Override
