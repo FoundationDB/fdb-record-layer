@@ -59,6 +59,7 @@ import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.PlannerPhase;
 import com.apple.foundationdb.record.query.plan.cascades.Memoizer;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerStage;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
@@ -107,6 +108,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
@@ -670,7 +672,24 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
         assertNotNull(statsMaps);
         final var eventClassStatsMap = statsMaps.getEventClassStatsMap();
         assertTrue(eventClassStatsMap.containsKey(Debugger.ExecutingTaskEvent.class));
-        assertTrue(eventClassStatsMap.get(Debugger.ExecutingTaskEvent.class).getCount(Debugger.Location.BEGIN) > 0);
+
+        final var eventClassStatsMapForRewriting = statsMaps.getEventWithStateClassStatsMapByPlannerPhase(PlannerPhase.REWRITING);
+        assertTrue(eventClassStatsMapForRewriting.isPresent());
+        assertTrue(eventClassStatsMapForRewriting.get().containsKey(Debugger.ExecutingTaskEvent.class));
+        assertTrue(eventClassStatsMapForRewriting.get().get(Debugger.ExecutingTaskEvent.class).getCount(Debugger.Location.BEGIN) > 0);
+
+        final var eventClassStatsMapForPlanning = statsMaps.getEventWithStateClassStatsMapByPlannerPhase(PlannerPhase.PLANNING);
+        assertTrue(eventClassStatsMapForPlanning.isPresent());
+        assertTrue(eventClassStatsMapForPlanning.get().containsKey(Debugger.ExecutingTaskEvent.class));
+
+        final var totalTasks = eventClassStatsMap.get(Debugger.ExecutingTaskEvent.class).getCount(Debugger.Location.BEGIN);
+        final var rewritingTasks = eventClassStatsMapForRewriting.get().get(Debugger.ExecutingTaskEvent.class).getCount(Debugger.Location.BEGIN);
+        final var planningTasks = eventClassStatsMapForPlanning.get().get(Debugger.ExecutingTaskEvent.class).getCount(Debugger.Location.BEGIN);
+
+        assertTrue(totalTasks > 0);
+        assertTrue(rewritingTasks > 0);
+        assertTrue(planningTasks > 0);
+        assertEquals(rewritingTasks + planningTasks, totalTasks);
 
         final var plan = planResult.getPlan();
         System.out.println("\n" + ExplainPlanVisitor.prettyExplain(plan) + "\n");
@@ -699,7 +718,7 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
         final PlanSerializationContext deserializationContext = new PlanSerializationContext(new DefaultPlanSerializationRegistry(), PlanHashable.CURRENT_FOR_CONTINUATION);
         final RecordQueryPlan deserializedPlan =
                 RecordQueryPlan.fromRecordQueryPlanProto(deserializationContext, parsedPlanProto);
-        Assertions.assertEquals(plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION), deserializedPlan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+        assertEquals(plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION), deserializedPlan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         Assertions.assertTrue(plan.structuralEquals(deserializedPlan));
         return deserializedPlan;
     }
