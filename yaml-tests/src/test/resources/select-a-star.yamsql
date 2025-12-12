@@ -83,7 +83,7 @@ test_block:
       - result: [{1}, {2}, {3}]
     -
       - query: select B.* from B where exists (select A.*, B.* from A group by A1,A2,A3);
-      - explain: "SCAN(<,>) | TFILTER B | FLATMAP q0 -> { ISCAN(A_IDX <,>) | MAP (_ AS _0) | AGG () GROUP BY (_._0.A1 AS _0, _._0.A2 AS _1, _._0.A3 AS _2) | MAP (_._0._0 AS A1, _._0._1 AS A2, _._0._2 AS A3, q0.B1 AS B1, q0.B2 AS B2, q0.B3 AS B3) | DEFAULT NULL | FILTER _ NOT_NULL AS q0 RETURN q0 }"
+      - explain: "SCAN(<,>) | TFILTER B | FLATMAP q0 -> { ISCAN(A_IDX <,>) | MAP (_ AS _0) | AGG () GROUP BY (_._0.A1 AS _0, _._0.A2 AS _1, _._0.A3 AS _2) | MAP (_._0._0 AS A1, _._0._1 AS A2, _._0._2 AS A3, q0.B1 AS B1, q0.B2 AS B2, q0.B3 AS B3) | DEFAULT NULL | FILTER _ NOT_NULL AS q0 RETURN (q0.B1 AS B1, q0.B2 AS B2, q0.B3 AS B3) }"
       - result: [{1, 20, {4, 40}},
                  {2, 20, {5, 50}},
                  {3, 20, {6, 60}}]

@@ -81,6 +81,8 @@ public class RecordMetaData implements RecordMetaDataProvider {
     @Nonnull
     private final Map<String, RecordType> recordTypes;
     @Nonnull
+    private final Map<String, Type.Record> plannerTypes;
+    @Nonnull
     private final Map<String, SyntheticRecordType<?>> syntheticRecordTypes;
     @Nonnull
     private final Map<Object, SyntheticRecordType<?>> recordTypeKeyToSyntheticTypeMap;
@@ -113,6 +115,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
                 orig.getUnionDescriptor(),
                 Collections.unmodifiableMap(orig.unionFields),
                 Collections.unmodifiableMap(orig.recordTypes),
+                Collections.unmodifiableMap(orig.plannerTypes),
                 Collections.unmodifiableMap(orig.syntheticRecordTypes),
                 Collections.unmodifiableMap(orig.recordTypeKeyToSyntheticTypeMap),
                 Collections.unmodifiableMap(orig.indexes),
@@ -134,6 +137,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
                              @Nonnull Descriptors.Descriptor unionDescriptor,
                              @Nonnull Map<Descriptors.Descriptor, Descriptors.FieldDescriptor> unionFields,
                              @Nonnull Map<String, RecordType> recordTypes,
+                             @Nonnull Map<String, Type.Record> plannerTypes,
                              @Nonnull Map<String, SyntheticRecordType<?>> syntheticRecordTypes,
                              @Nonnull Map<Object, SyntheticRecordType<?>> recordTypeKeyToSyntheticTypeMap,
                              @Nonnull Map<String, Index> indexes,
@@ -152,6 +156,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
         this.unionDescriptor = unionDescriptor;
         this.unionFields = unionFields;
         this.recordTypes = recordTypes;
+        this.plannerTypes = plannerTypes;
         this.syntheticRecordTypes = syntheticRecordTypes;
         this.recordTypeKeyToSyntheticTypeMap = recordTypeKeyToSyntheticTypeMap;
         this.indexes = indexes;
@@ -733,6 +738,51 @@ public class RecordMetaData implements RecordMetaDataProvider {
     @Nonnull
     public Map<String, View> getViewMap() {
         return viewMap;
+    }
+
+    @Nonnull
+    public Type.Record getPlannerType(@Nonnull String recordTypeName) {
+        Type.Record plannerType = plannerTypes.get(recordTypeName);
+        if (plannerType == null) {
+            throw new MetaDataException("type not found").addLogInfo(LogMessageKeys.RECORD_TYPE, recordTypeName);
+        }
+        return plannerType;
+    }
+
+    @Nonnull
+    public Type.Record getPlannerType(@Nonnull Collection<String> recordTypeNames) {
+        if (recordTypeNames.size() == 1) {
+            final String recordTypeName = Iterables.getOnlyElement(recordTypeNames);
+            return getPlannerType(recordTypeName);
+        }
+        LinkedHashMap<String, Type.Record.Field> fieldsByName = recordTypeNames.stream()
+                .map(this::getPlannerType)
+                .flatMap(type -> type.getFields().stream())
+                .collect(Collectors.groupingBy(Type.Record.Field::getFieldName,
+                        LinkedHashMap::new,
+                        Collectors.reducing(null, (Type.Record.Field f1, Type.Record.Field f2) -> {
+                            Verify.verify(f1 != null || f2 != null);
+                            if (f1 == null) {
+                                return Type.Record.Field.of(f2.getFieldType(), f2.getFieldNameOptional());
+                            }
+                            if (f2 == null) {
+                                return Type.Record.Field.of(f1.getFieldType(), f1.getFieldNameOptional());
+                            }
+                            // TODO improve
+                            final Type f1Type = f1.getFieldType();
+                            final Type f2Type = f2.getFieldType();
+                            if (f1Type.equals(f2Type)) {
+                                return Type.Record.Field.of(f1Type, f1.getFieldNameOptional());
+                            } else if (f2Type.isNullable() && f1Type.nullable().equals(f2Type)) {
+                                return Type.Record.Field.of(f2Type, f2.getFieldNameOptional());
+                            } else if (f1Type.isNullable() && f2Type.nullable().equals(f1Type)) {
+                                return Type.Record.Field.of(f1Type, f1.getFieldNameOptional());
+                            }
+
+                            throw new IllegalArgumentException("cannot form union type of complex fields");
+                        })
+                ));
+        return Type.Record.fromFields(false, List.copyOf(fieldsByName.values()));
     }
 
     @Nonnull

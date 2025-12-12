@@ -106,7 +106,7 @@ public class ComposedBitmapIndexQueryPlan extends AbstractRelationalExpressionWi
                 // Composers can return null bitmaps when empty, which is then left out of the result set.
                 .filter(indexEntry -> indexEntry.getValue().get(0) != null)
                 .map(indexPlans.get(0).indexEntryToQueriedRecord(store))
-                .map(QueryResult::fromQueriedRecord);
+                .map(queriedRecord -> QueryResult.fromQueriedRecord(getResultValue().getResultType(), context, queriedRecord));
     }
 
     @Override

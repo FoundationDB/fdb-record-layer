@@ -313,7 +313,7 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
         final IndexScanBounds scanBounds = scanParameters.bind(store, index, context);
         return store.scanIndexRemoteFetch(index, scanBounds, continuation, executeProperties.asScanProperties(isReverse()), IndexOrphanBehavior.ERROR)
                 .map(store::queriedRecord)
-                .map(QueryResult::fromQueriedRecord);
+                .map(queriedRecord -> QueryResult.fromQueriedRecord(resultType, context, queriedRecord));
     }
 
     @Nonnull

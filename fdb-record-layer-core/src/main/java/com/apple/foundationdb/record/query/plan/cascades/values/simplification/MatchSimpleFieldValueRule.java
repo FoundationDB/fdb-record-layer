@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentityMap;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers;
+import com.apple.foundationdb.record.query.plan.cascades.typing.PseudoField;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Verify;
@@ -66,6 +67,9 @@ public class MatchSimpleFieldValueRule extends ValueComputationRule<Value, Map<V
         Verify.verify(matchedValuesMap == null || matchedValuesMap.isEmpty() ||
                 (matchedValuesMap.size() == 1 && matchedValuesMap.containsKey(rootValue)));
         if (!rootValue.isFunctionallyDependentOn(baseValue)) {
+            return;
+        }
+        if (rootValue.getResultType().equals(PseudoField.ROW_VERSION.getType())) {
             return;
         }
 

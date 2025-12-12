@@ -130,7 +130,7 @@ public class RecordQueryFetchFromPartialRecordPlan extends AbstractRelationalExp
                         store,
                         getChild().executePlan(store, context, continuation, executeProperties)
                                 .map(QueryResult::getIndexEntry), executeProperties)
-                .map(QueryResult::fromQueriedRecord);
+                .map(queriedRecord -> QueryResult.fromQueriedRecord(resultType, context, queriedRecord));
     }
 
     @Nonnull

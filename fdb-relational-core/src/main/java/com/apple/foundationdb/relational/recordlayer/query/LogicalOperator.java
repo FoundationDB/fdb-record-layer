@@ -239,7 +239,10 @@ public class LogicalOperator {
                         new Type.AnyRecord(false),
                         new AccessHints(indexAccessHints.toArray(new AccessHint[0])))));
         final var table = semanticAnalyzer.getTable(tableId);
-        final Type.Record type = Assert.castUnchecked(table, RecordLayerTable.class).getType();
+        Type.Record type = Assert.castUnchecked(table, RecordLayerTable.class).getType();
+        if (semanticAnalyzer.getMetadataCatalog().isStoreRowVersions()) {
+            type = type.addPseudoFields();
+        }
         final String storageName = type.getStorageName();
         Assert.thatUnchecked(storageName != null, "storage name for table access must not be null");
         final var typeFilterExpression = new LogicalTypeFilterExpression(ImmutableSet.of(storageName), scanExpression, type);
@@ -397,14 +400,16 @@ public class LogicalOperator {
         });
         final var expandedOutput = output.expanded();
         SelectExpression selectExpression;
+        expandedOutput.underlyingAsColumns().forEach(selectBuilder::addResultColumn);
+        selectExpression = selectBuilder.build().buildSelect();
 
+        /*
         if (canAvoidProjectingIndividualFields(output, logicalOperators)) {
             final var passedThroughResultValue = Iterables.getOnlyElement(output).getUnderlying();
             selectExpression = selectBuilder.build().buildSelectWithResultValue(passedThroughResultValue);
         } else {
-            expandedOutput.underlyingAsColumns().forEach(selectBuilder::addResultColumn);
-            selectExpression = selectBuilder.build().buildSelect();
         }
+         */
 
         final var resultingQuantifier = Quantifier.forEach(Reference.initialOf(selectExpression));
         var resultingExpressions = expandedOutput.rewireQov(resultingQuantifier.getFlowedObjectValue());
