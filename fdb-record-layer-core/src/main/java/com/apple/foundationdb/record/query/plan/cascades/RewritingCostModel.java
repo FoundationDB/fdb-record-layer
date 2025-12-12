@@ -24,19 +24,22 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.properties.PredicateCountByLevelProperty;
 
 import javax.annotation.Nonnull;
 
 import static com.apple.foundationdb.record.query.plan.cascades.properties.ExpressionCountProperty.selectCount;
 import static com.apple.foundationdb.record.query.plan.cascades.properties.ExpressionCountProperty.tableFunctionCount;
 import static com.apple.foundationdb.record.query.plan.cascades.properties.PredicateComplexityProperty.predicateComplexity;
-import static com.apple.foundationdb.record.query.plan.cascades.properties.PredicateHeightProperty.predicateHeight;
+import static com.apple.foundationdb.record.query.plan.cascades.properties.PredicateCountByLevelProperty.predicateCountByLevel;
+import static com.apple.foundationdb.record.query.plan.cascades.properties.PredicateCountProperty.predicateCount;
 
 /**
  * Cost model for {@link PlannerPhase#REWRITING}. TODO To be fleshed out whe we have actual rules.
  */
 @API(API.Status.EXPERIMENTAL)
 @SpotBugsSuppressWarnings("SE_COMPARATOR_SHOULD_BE_SERIALIZABLE")
+@SuppressWarnings("PMD.TooManyStaticImports")
 public class RewritingCostModel implements CascadesCostModel {
     @Nonnull
     private final RecordQueryPlannerConfiguration configuration;
@@ -72,12 +75,24 @@ public class RewritingCostModel implements CascadesCostModel {
         }
 
         //
-        // Pick the expression where predicates have been pushed down as far as they can go
+        // Pick the expression where that has the least number of predicates overall
         //
-        int aPredicateHeight = predicateHeight().evaluate(a);
-        int bPredicateHeight = predicateHeight().evaluate(b);
-        if (aPredicateHeight != bPredicateHeight) {
-            return Integer.compare(aPredicateHeight, bPredicateHeight);
+        int aPredicateCount = predicateCount().evaluate(a);
+        int bPredicateCount = predicateCount().evaluate(b);
+        if (aPredicateCount != bPredicateCount) {
+            return Integer.compare(aPredicateCount, bPredicateCount);
+        }
+
+        //
+        // Pick the expression where it has the higher number of predicates at a deeper level
+        //
+        PredicateCountByLevelProperty.PredicateCountByLevelInfo aPredicateCountByLevel = predicateCountByLevel().evaluate(a);
+        PredicateCountByLevelProperty.PredicateCountByLevelInfo bPredicateCountByLevel = predicateCountByLevel().evaluate(b);
+        final int predicateCountByLevelComparison = PredicateCountByLevelProperty.PredicateCountByLevelInfo.compare(
+                bPredicateCountByLevel, aPredicateCountByLevel);
+        if (predicateCountByLevelComparison != 0) {
+            // The expression that has more predicates at a deeper level wins
+            return predicateCountByLevelComparison;
         }
 
         //
