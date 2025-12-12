@@ -5684,6 +5684,25 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
         /**
          * In the event that a store has been corrupted, and the header has been lost, this method can be used to open
+         * the store, and fill in the missing header; replaced by {@link #repairMissingHeader(int, FormatVersion, boolean)}
+         *
+         * @param userVersion the user version to set in the store header
+         * @param minimumPossibleFormatVersion the minimum {@link FormatVersion} that this store could have possibly
+         * had. Notably, upgrading to {@link FormatVersion#SAVE_VERSION_WITH_RECORD} requires moving data, and upgrading
+         * to {@link FormatVersion#SAVE_UNSPLIT_WITH_SUFFIX} requires storing whether the store should have the unsplit
+         * suffix or not. It is probably possible for {@code repairMissingHeader} to determine what to do based on the
+         * rest of the data in the store, but to keep this simple, upgrading across those versions is not supported.
+         *
+         * @return a boolean indicating whether a repair needed to be done ({@code true}) or not ({@code false}) and
+         * the opened store.
+         */
+        @API(API.Status.DEPRECATED)
+        public CompletableFuture<NonnullPair<Boolean, FDBRecordStore>> repairMissingHeader(final int userVersion, FormatVersion minimumPossibleFormatVersion) {
+            return repairMissingHeader(userVersion, minimumPossibleFormatVersion, false);
+        }
+
+        /**
+         * In the event that a store has been corrupted, and the header has been lost, this method can be used to open
          * the store, and fill in the missing header.
          * <p>
          * If it is possible that multiple different instances have a different idea of any of the versions
@@ -5697,6 +5716,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
          *             Disable all indexes, since we cannot universally determine whether they have been added or
          *             changed since the store was last opened. In theory there are some situations where we could
          *             determine that the index can be marked readable for free, but this is not supported.
+         *             If {@code leavePotentiallyCorruptIndexesReadable} is {@code true} they will not be disabled.
+         *             This can be useful if you want to use the potentially corrupt indexes to discern information
+         *             about the corrupted records.
          *         </li>
          *         <li>
          *             Disable the {@link RecordMetaData#getRecordCountKey()} if there is one on the metadata, because
@@ -5727,12 +5749,16 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
          * to {@link FormatVersion#SAVE_UNSPLIT_WITH_SUFFIX} requires storing whether the store should have the unsplit
          * suffix or not. It is probably possible for {@code repairMissingHeader} to determine what to do based on the
          * rest of the data in the store, but to keep this simple, upgrading across those versions is not supported.
+         * @param leavePotentiallyCorruptIndexesReadable if {@code true}, indexes will not be marked as disabled during
+         * repair, even though they could be corrupt.
          *
          * @return a boolean indicating whether a repair needed to be done ({@code true}) or not ({@code false}) and
          * the opened store.
          */
         @API(API.Status.INTERNAL)
-        public CompletableFuture<NonnullPair<Boolean, FDBRecordStore>> repairMissingHeader(final int userVersion, FormatVersion minimumPossibleFormatVersion) {
+        public CompletableFuture<NonnullPair<Boolean, FDBRecordStore>> repairMissingHeader(
+                final int userVersion, @Nonnull final FormatVersion minimumPossibleFormatVersion,
+                final boolean leavePotentiallyCorruptIndexesReadable) {
             if (!formatVersion.isAtLeast(minimumPossibleFormatVersion)) {
                 throw new RecordCoreArgumentException("minimumPossibleFormatVersion is greater than the target formatVerson")
                         .addLogInfo(LogMessageKeys.FORMAT_VERSION, minimumPossibleFormatVersion)
@@ -5748,12 +5774,13 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                             store.getStoreStateCache().get(store, StoreExistenceCheck.NONE)
                                     .thenCompose(storeStateCacheEntry ->
                                             repairMissingHeader(userVersion, store,
-                                                    storeStateCacheEntry.getRecordStoreState().getStoreHeader())));
+                                                    storeStateCacheEntry.getRecordStoreState().getStoreHeader(), leavePotentiallyCorruptIndexesReadable)));
         }
 
         private CompletableFuture<NonnullPair<Boolean, FDBRecordStore>> repairMissingHeader(final int userVersion,
-                                                                                     @Nonnull final FDBRecordStore store,
-                                                                                     @Nonnull final RecordMetaDataProto.DataStoreInfo existing) {
+                                                                                            @Nonnull final FDBRecordStore store,
+                                                                                            @Nonnull final RecordMetaDataProto.DataStoreInfo existing,
+                                                                                            boolean leavePotentiallyCorruptIndexesReadable) {
             if (!existing.equals(RecordMetaDataProto.DataStoreInfo.getDefaultInstance())) {
                 return store.checkVersion(userVersionChecker, StoreExistenceCheck.ERROR_IF_NOT_EXISTS)
                         .thenApply(checkVersionDidSomething -> NonnullPair.of(false, store));
@@ -5827,11 +5854,17 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             //    or that the store was on a metadata version that didn't have the index, or
             //    had an older version of the index. If it wasn't readable on the current version, then
             //    leaving the index would leave it in a corrupted state.
-            return bumpMetaDataVersionStamp.thenCompose(vignore -> AsyncUtil.whenAll(
+            return bumpMetaDataVersionStamp.thenCompose(vignore -> {
+                if (leavePotentiallyCorruptIndexesReadable) {
+                    // Leave indexes as-is per user request
+                    return AsyncUtil.DONE;
+                } else {
+                    return AsyncUtil.whenAll(
                             recordMetaData.getAllIndexes().stream()
                                     .map(store::markIndexDisabled)
-                                    .collect(Collectors.toList()))
-                    .thenApply(ignored -> NonnullPair.of(true, store)));
+                                    .collect(Collectors.toList()));
+                }
+            }).thenApply(ignored -> NonnullPair.of(true, store));
         }
     }
 
