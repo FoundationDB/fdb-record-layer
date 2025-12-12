@@ -64,6 +64,7 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexScrubbingTools;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.InvalidIndexEntry;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.StandardIndexMaintainer;
 import com.apple.foundationdb.record.query.QueryToKeyMatcher;
+import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.Message;
@@ -125,8 +126,6 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     private boolean serializerErrorLogged = false;
     @Nonnull
     private final LucenePartitioner partitioner;
-    @Nonnull
-    private final LucenePendingWriteQueue pendingWriteQueue;
 
     public LuceneIndexMaintainer(@Nonnull final IndexMaintainerState state, @Nonnull Executor executor) {
         super(state);
@@ -137,7 +136,6 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         String formatString = state.index.getOption(LuceneIndexOptions.PRIMARY_KEY_SERIALIZATION_FORMAT);
         keySerializer = LuceneIndexKeySerializer.fromStringFormat(formatString);
         partitioner = new LucenePartitioner(state);
-        pendingWriteQueue = new LucenePendingWriteQueue(state.context, state.indexSubspace);
     }
 
     public LuceneAnalyzerCombinationProvider getAutoCompleteAnalyzerSelector() {
@@ -267,12 +265,13 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                                OverallOperation overallOperation) throws IOException {
         if (isPartitionLocked(groupingKey, partitionId)) {
             // Partition is locked during merge - enqueue the insert/update operation
+            LucenePendingWriteQueue queue = getPendingWriteQueue(groupingKey, partitionId);
             switch (overallOperation) {
                 case INSERT:
-                    pendingWriteQueue.enqueueInsert(groupingKey, partitionId, primaryKey, fields);
+                    queue.enqueueInsert(primaryKey, fields);
                     break;
                 case UPDATE:
-                    pendingWriteQueue.enqueueUpdate(groupingKey, partitionId, primaryKey, fields);
+                    queue.enqueueUpdate(primaryKey, fields);
                     break;
                 case DELETE:
                 default:
@@ -631,9 +630,10 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
             if (!partitioner.isPartitioningEnabled()) {
                 if (isPartitionLocked(groupingKey, null)) {
                     // Index is locked during merge - enqueue the delete operation
+                    LucenePendingWriteQueue queue = getPendingWriteQueue(groupingKey, null);
                     switch (overallOperation) {
                         case DELETE:
-                            pendingWriteQueue.enqueueDelete(groupingKey, null, record.getPrimaryKey());
+                            queue.enqueueDelete(record.getPrimaryKey());
                             break;
                         case UPDATE:
                         case INSERT:
@@ -660,9 +660,10 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
 
             if (isPartitionLocked(groupingKey, partitionInfo.getId())) {
                 // Partition is locked during merge - enqueue the delete operation
+                LucenePendingWriteQueue queue = getPendingWriteQueue(groupingKey, partitionInfo.getId());
                 switch (overallOperation) {
                     case DELETE:
-                        pendingWriteQueue.enqueueDelete(groupingKey, partitionInfo.getId(), record.getPrimaryKey());
+                        queue.enqueueDelete(record.getPrimaryKey());
                         break;
                     case UPDATE:
                     case INSERT:
@@ -902,6 +903,29 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         return directory.isLocked("write.lock");
     }
 
+    /**
+     * Get a LucenePendingWriteQueue for a specific partition.
+     * TODO: Eventually cache this at the directory?
+     *
+     * @param groupingKey the grouping key for the partition
+     * @param partitionId the partition ID, or null for non-partitioned index
+     * @return a new queue instance scoped to the specific partition
+     */
+    @Nonnull
+    public LucenePendingWriteQueue getPendingWriteQueue(@Nonnull Tuple groupingKey, @Nullable Integer partitionId) {
+        // Construct the queue subspace for this partition
+        // Format: <indexSubspace> / <groupingKey> / <partitionId> / PARTITION_DATA_SUBSPACE(1) / PENDING_WRITE_QUEUE_SUBSPACE(8)
+        Subspace result = state.indexSubspace.subspace(groupingKey);
+        if (partitionId != null) {
+            result = result
+                    .subspace(Tuple.from(partitionId))
+                    .subspace(Tuple.from(LucenePartitioner.PARTITION_DATA_SUBSPACE));
+        }
+        Subspace queueSubspace = result.subspace(Tuple.from(FDBDirectory.PENDING_WRITE_QUEUE_SUBSPACE));
+
+        return new LucenePendingWriteQueue(state.context, queueSubspace);
+    }
+
     @Nullable
     @Override
     public IndexScrubbingTools<?> getIndexScrubbingTools(final IndexScrubbingTools.ScrubbingType type) {
@@ -916,10 +940,5 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
             default:
                 return null;
         }
-    }
-
-    @Nonnull
-    public LucenePendingWriteQueue getPendingWriteQueue() {
-        return pendingWriteQueue;
     }
 }

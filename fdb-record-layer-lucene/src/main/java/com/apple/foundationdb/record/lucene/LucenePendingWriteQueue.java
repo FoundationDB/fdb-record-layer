@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.lucene;
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.Range;
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
@@ -43,11 +42,16 @@ import java.util.concurrent.CompletableFuture;
  * When any partition is locked during a merge, write operations (insert, update, delete)
  * are queued and later drained after the merge completes.
  *
+ * <p>Each instance is scoped to a specific partition (groupingKey + partitionId).</p>
+ *
  * <p>Queue structure in FDB (follows FDBDirectory subspace convention):</p>
  * <pre>
- * &lt;indexSubspace&gt; / &lt;groupingKey&gt; / &lt;partitionId&gt; / PARTITION_DATA_SUBSPACE(1) / PENDING_WRITE_QUEUE_SUBSPACE(8) / &lt;versionstamp&gt;
+ * &lt;queueSubspace&gt; / &lt;versionstamp&gt;
  * </pre>
- * <p>Note: There is one queue per partition within each grouping key.</p>
+ * <p>The queueSubspace parameter should already include the grouping key and partition ID:</p>
+ * <pre>
+ * &lt;indexSubspace&gt; / &lt;groupingKey&gt; / &lt;partitionId&gt; / PARTITION_DATA_SUBSPACE(1) / PENDING_WRITE_QUEUE_SUBSPACE(8)
+ * </pre>
  * <p>Uses FDB versionstamps for automatic ordering without explicit sequence counters.</p>
  */
 @API(API.Status.EXPERIMENTAL)
@@ -55,18 +59,23 @@ public class LucenePendingWriteQueue {
     private static final Logger LOGGER = LoggerFactory.getLogger(LucenePendingWriteQueue.class);
 
     private final FDBRecordContext context;
-    private final Subspace indexSubspace;
+    private final Subspace queueSubspace;
 
-    public LucenePendingWriteQueue(@Nonnull FDBRecordContext context, final Subspace indexSubspace) {
+    /**
+     * Create a pending write queue for a specific partition.
+     *
+     * @param context the FDB record context
+     * @param queueSubspace the subspace for this partition's queue, should be:
+     *                      &lt;indexSubspace&gt; / &lt;groupingKey&gt; / &lt;partitionId&gt; / PARTITION_DATA_SUBSPACE(1) / PENDING_WRITE_QUEUE_SUBSPACE(8)
+     */
+    public LucenePendingWriteQueue(@Nonnull FDBRecordContext context, @Nonnull Subspace queueSubspace) {
         this.context = context;
-        this.indexSubspace = indexSubspace;
+        this.queueSubspace = queueSubspace;
     }
 
     /**
      * Enqueue an INSERT operation.
      *
-     * @param groupingKey the grouping key for the document
-     * @param partitionId the partition ID
      * @param primaryKey the record's primary key
      * @param fields the document fields to index
      *
@@ -74,14 +83,10 @@ public class LucenePendingWriteQueue {
      */
     @Nonnull
     public CompletableFuture<Void> enqueueInsert(
-            @Nonnull Tuple groupingKey,
-            @Nullable Integer partitionId,
             @Nonnull Tuple primaryKey,
             @Nonnull List<LuceneDocumentFromRecord.DocumentField> fields) {
 
         return enqueueOperation(
-                groupingKey,
-                partitionId,
                 LucenePendingWriteQueueProto.QueuedOperation.OperationType.INSERT,
                 primaryKey,
                 fields
@@ -91,8 +96,6 @@ public class LucenePendingWriteQueue {
     /**
      * Enqueue an UPDATE operation.
      *
-     * @param groupingKey the grouping key for the document
-     * @param partitionId the partition ID
      * @param primaryKey the record's primary key
      * @param fields the new document fields to index
      *
@@ -100,14 +103,10 @@ public class LucenePendingWriteQueue {
      */
     @Nonnull
     public CompletableFuture<Void> enqueueUpdate(
-            @Nonnull Tuple groupingKey,
-            @Nullable Integer partitionId,
             @Nonnull Tuple primaryKey,
             @Nonnull List<LuceneDocumentFromRecord.DocumentField> fields) {
 
         return enqueueOperation(
-                groupingKey,
-                partitionId,
                 LucenePendingWriteQueueProto.QueuedOperation.OperationType.UPDATE,
                 primaryKey,
                 fields
@@ -117,21 +116,14 @@ public class LucenePendingWriteQueue {
     /**
      * Enqueue a DELETE operation.
      *
-     * @param groupingKey the grouping key for the document
-     * @param partitionId the partition ID
      * @param primaryKey the record's primary key to delete
      *
      * @return CompletableFuture that completes when operation is enqueued (versionstamp assigned by FDB)
      */
     @Nonnull
-    public CompletableFuture<Void> enqueueDelete(
-            @Nonnull Tuple groupingKey,
-            @Nullable Integer partitionId,
-            @Nonnull Tuple primaryKey) {
+    public CompletableFuture<Void> enqueueDelete(@Nonnull Tuple primaryKey) {
 
         return enqueueOperation(
-                groupingKey,
-                partitionId,
                 LucenePendingWriteQueueProto.QueuedOperation.OperationType.DELETE,
                 primaryKey,
                 null
@@ -142,8 +134,6 @@ public class LucenePendingWriteQueue {
      * Core method to enqueue any operation type using versionstamped keys.
      */
     private CompletableFuture<Void> enqueueOperation(
-            @Nonnull Tuple groupingKey,
-            @Nullable Integer partitionId,
             @Nonnull LucenePendingWriteQueueProto.QueuedOperation.OperationType operationType,
             @Nonnull Tuple primaryKey,
             @Nullable List<LuceneDocumentFromRecord.DocumentField> fields) {
@@ -164,7 +154,6 @@ public class LucenePendingWriteQueue {
 
         // Build key with incomplete versionstamp using Tuple API
         Tuple keyTuple = Tuple.from(Versionstamp.incomplete());
-        Subspace queueSubspace = getQueueSubspace(groupingKey, partitionId);
         byte[] queueKey = queueSubspace.packWithVersionstamp(keyTuple);
         byte[] value = builder.build().toByteArray();
 
@@ -178,27 +167,21 @@ public class LucenePendingWriteQueue {
         context.increment(LuceneEvents.Counts.LUCENE_BUFFER_QUEUE_WRITE);
 
         if (LOGGER.isDebugEnabled()) {
-            LOGGER.debug("Enqueued {} operation for groupingKey {} partition {} (versionstamp pending) in {} subspace",
-                    operationType, groupingKey, partitionId, Tuple.fromBytes(queueSubspace.pack()));
+            LOGGER.debug("Enqueued {} operation (versionstamp pending) in {} subspace",
+                    operationType, Tuple.fromBytes(queueSubspace.pack()));
         }
 
         return CompletableFuture.completedFuture(null);
     }
 
     /**
-     * Get all queued operations for a grouping key and partition.
-     *
-     * @param groupingKey the grouping key
-     * @param partitionId the partition ID
+     * Get all queued operations for this partition.
      *
      * @return CompletableFuture with list of queued operations
      */
     @Nonnull
-    public CompletableFuture<List<QueuedOperationEntry>> getQueuedOperations(
-            @Nonnull Tuple groupingKey,
-            @Nullable Integer partitionId) {
+    public CompletableFuture<List<QueuedOperationEntry>> getQueuedOperations() {
 
-        Subspace queueSubspace = getQueueSubspace(groupingKey, partitionId);
         Range range = queueSubspace.range();
 
         return context.ensureActive()
@@ -206,11 +189,10 @@ public class LucenePendingWriteQueue {
                 .asList()
                 .thenApply(keyValues -> {
                     List<QueuedOperationEntry> entries = new ArrayList<>();
-                    LOGGER.debug("Found {} entries in write pending queue for subspace {}", entries.size(), Tuple.fromBytes(queueSubspace.pack()));
                     for (KeyValue kv : keyValues) {
                         try {
                             LucenePendingWriteQueueProto.QueuedOperation operation = LucenePendingWriteQueueProto.QueuedOperation.parseFrom(kv.getValue());
-                            Versionstamp versionstamp = extractVersionstamp(kv.getKey(), queueSubspace);
+                            Versionstamp versionstamp = extractVersionstamp(kv.getKey());
 
                             entries.add(new QueuedOperationEntry(
                                     kv.getKey(),
@@ -222,6 +204,9 @@ public class LucenePendingWriteQueue {
                             LOGGER.warn("Corrupted queue entry at key {}, skipping",
                                     Tuple.fromBytes(kv.getKey()), e);
                         }
+                    }
+                    if (LOGGER.isDebugEnabled()) {
+                        LOGGER.debug("Found {} entries in write pending queue for subspace {}", entries.size(), Tuple.fromBytes(queueSubspace.pack()));
                     }
                     return entries;
                 });
@@ -237,16 +222,12 @@ public class LucenePendingWriteQueue {
     }
 
     /**
-     * Clear all queued operations for a partition's queue.
-     *
-     * @param groupingKey the grouping key
-     * @param partitionId the partition ID
+     * Clear all queued operations for this partition's queue.
      *
      * @return CompletableFuture that completes when the queue is cleared
      */
     @Nonnull
-    public CompletableFuture<Void> clearQueue(@Nonnull Tuple groupingKey, @Nullable Integer partitionId) {
-        Subspace queueSubspace = getQueueSubspace(groupingKey, partitionId);
+    public CompletableFuture<Void> clearQueue() {
         Range range = queueSubspace.range();
         context.ensureActive().clear(range);
 
@@ -254,38 +235,20 @@ public class LucenePendingWriteQueue {
     }
 
     /**
-     * Get the count of queued operations for a grouping key and partition.
-     *
-     * @param groupingKey the grouping key
-     * @param partitionId the partition ID
+     * Get the count of queued operations for this partition.
      *
      * @return CompletableFuture with the count of queued operations
      */
     @Nonnull
-    public CompletableFuture<Integer> getQueueSize(@Nonnull Tuple groupingKey, @Nullable Integer partitionId) {
-        return getQueuedOperations(groupingKey, partitionId)
+    public CompletableFuture<Integer> getQueueSize() {
+        return getQueuedOperations()
                 .thenApply(List::size);
-    }
-
-    /**
-     * Get the subspace for a partition's queue.
-     * Path: &lt;indexSubspace&gt; / &lt;groupingKey&gt; / &lt;partitionId&gt; / PARTITION_DATA_SUBSPACE(1) / PENDING_WRITE_QUEUE_SUBSPACE(8)
-     */
-    private Subspace getQueueSubspace(Tuple groupingKey, @Nullable Integer partitionId) {
-        // TODO: Handle ungrouped
-        Subspace result = indexSubspace.subspace(groupingKey);
-        if (partitionId != null) {
-            result = result
-                    .subspace(Tuple.from(partitionId))
-                    .subspace(Tuple.from(LucenePartitioner.PARTITION_DATA_SUBSPACE));
-        }
-        return result.subspace(Tuple.from(FDBDirectory.PENDING_WRITE_QUEUE_SUBSPACE));
     }
 
     /**
      * Extract versionstamp from queue entry key.
      */
-    private Versionstamp extractVersionstamp(byte[] queueKey, Subspace queueSubspace) {
+    private Versionstamp extractVersionstamp(byte[] queueKey) {
         // TODO: probably don't need
         // Unpack the key to get the Tuple, which should contain the versionstamp
         Tuple keyTuple = queueSubspace.unpack(queueKey);

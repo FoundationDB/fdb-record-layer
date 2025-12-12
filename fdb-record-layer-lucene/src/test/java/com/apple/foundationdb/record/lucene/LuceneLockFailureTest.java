@@ -93,11 +93,11 @@ class LuceneLockFailureTest extends FDBRecordStoreTestBase {
             openStore(partitioned, context);
             Index index = partitioned ? COMPLEX_PARTITIONED : SIMPLE_INDEX;
             final IndexMaintainer indexMaintainer = recordStore.getIndexMaintainer(index);
-            LucenePendingWriteQueue queue = ((LuceneIndexMaintainer)indexMaintainer).getPendingWriteQueue();
             // The SIMPLE_INDEX is not grouped, and is the one used for non-partitioned
             final Tuple groupingKey = partitioned ? Tuple.from(2) : Tuple.from();
             Integer partitionId = (partitioned) ? 0 : null;
-            final CompletableFuture<List<LucenePendingWriteQueue.QueuedOperationEntry>> queuedOperations = queue.getQueuedOperations(groupingKey, partitionId);
+            LucenePendingWriteQueue queue = ((LuceneIndexMaintainer)indexMaintainer).getPendingWriteQueue(groupingKey, partitionId);
+            final CompletableFuture<List<LucenePendingWriteQueue.QueuedOperationEntry>> queuedOperations = queue.getQueuedOperations();
             final List<LucenePendingWriteQueue.QueuedOperationEntry> ops = queuedOperations.join();
             Assertions.assertEquals(1, ops.size());
             Assertions.assertEquals(LucenePendingWriteQueueProto.QueuedOperation.OperationType.INSERT, ops.get(0).getOperation().getOperationType());
@@ -135,11 +135,11 @@ class LuceneLockFailureTest extends FDBRecordStoreTestBase {
             openStore(partitioned, context);
             Index index = partitioned ? COMPLEX_PARTITIONED : SIMPLE_INDEX;
             final IndexMaintainer indexMaintainer = recordStore.getIndexMaintainer(index);
-            LucenePendingWriteQueue queue = ((LuceneIndexMaintainer)indexMaintainer).getPendingWriteQueue();
             // The SIMPLE_INDEX is not grouped, and is the one used for non-partitioned
             final Tuple groupingKey = partitioned ? Tuple.from(2) : Tuple.from();
             Integer partitionId = partitioned ? 0 : null;
-            final CompletableFuture<List<LucenePendingWriteQueue.QueuedOperationEntry>> queuedOperations = queue.getQueuedOperations(groupingKey, partitionId);
+            LucenePendingWriteQueue queue = ((LuceneIndexMaintainer)indexMaintainer).getPendingWriteQueue(groupingKey, partitionId);
+            final CompletableFuture<List<LucenePendingWriteQueue.QueuedOperationEntry>> queuedOperations = queue.getQueuedOperations();
             final List<LucenePendingWriteQueue.QueuedOperationEntry> ops = queuedOperations.join();
             Assertions.assertEquals(1, ops.size());
             Assertions.assertEquals(LucenePendingWriteQueueProto.QueuedOperation.OperationType.DELETE, ops.get(0).getOperation().getOperationType());
@@ -175,11 +175,11 @@ class LuceneLockFailureTest extends FDBRecordStoreTestBase {
             openStore(partitioned, context);
             Index index = partitioned ? COMPLEX_PARTITIONED : SIMPLE_INDEX;
             final IndexMaintainer indexMaintainer = recordStore.getIndexMaintainer(index);
-            LucenePendingWriteQueue queue = ((LuceneIndexMaintainer)indexMaintainer).getPendingWriteQueue();
             // The SIMPLE_INDEX is not grouped, and is the one used for non-partitioned
             final Tuple groupingKey = partitioned ? Tuple.from(0) : Tuple.from();
             Integer partitionId = partitioned ? 0 : null;
-            final CompletableFuture<List<LucenePendingWriteQueue.QueuedOperationEntry>> queuedOperations = queue.getQueuedOperations(groupingKey, partitionId);
+            LucenePendingWriteQueue queue = ((LuceneIndexMaintainer)indexMaintainer).getPendingWriteQueue(groupingKey, partitionId);
+            final CompletableFuture<List<LucenePendingWriteQueue.QueuedOperationEntry>> queuedOperations = queue.getQueuedOperations();
             final List<LucenePendingWriteQueue.QueuedOperationEntry> ops = queuedOperations.join();
             Assertions.assertEquals(1, ops.size());
             Assertions.assertEquals(LucenePendingWriteQueueProto.QueuedOperation.OperationType.UPDATE, ops.get(0).getOperation().getOperationType());
