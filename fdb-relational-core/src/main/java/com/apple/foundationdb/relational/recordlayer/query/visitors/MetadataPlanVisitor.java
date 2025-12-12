@@ -21,8 +21,9 @@
 package com.apple.foundationdb.relational.recordlayer.query.visitors;
 
 import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.relational.generated.RelationalParser;
+import com.apple.foundationdb.relational.recordlayer.query.CopyPlanFactory;
+import com.apple.foundationdb.relational.recordlayer.query.PreparedParams;
 import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
 import com.apple.foundationdb.relational.recordlayer.query.SemanticAnalyzer;
 
@@ -77,5 +78,25 @@ public final class MetadataPlanVisitor extends DelegatingVisitor<BaseVisitor> {
         final var ddlFactory = getDelegate().getDdlQueryFactory();
         final var schemaTemplateId = visitUid(ctx.uid());
         return QueryPlan.MetadataQueryPlan.of(ddlFactory.getDescribeSchemaTemplateQueryAction(schemaTemplateId.getName()));
+    }
+
+    // TODO should copy go on a different visitor?
+    @Nonnull
+    @Override
+    public QueryPlan visitCopyExportStatement(@Nonnull RelationalParser.CopyExportStatementContext ctx) {
+        final var pathId = visitUid(ctx.path().uid());
+        final PreparedParams preparedParams = PreparedParams.copyOf(getDelegate().getPlanGenerationContext().getPreparedParams());
+        return CopyPlanFactory.getCopyExportAction(pathId.getName(), getDelegate().getPlanGenerationContext(), preparedParams);
+    }
+
+    @Nonnull
+    @Override
+    public QueryPlan visitCopyImportStatement(@Nonnull RelationalParser.CopyImportStatementContext ctx) {
+        final var pathId = visitUid(ctx.path().uid());
+        // Extract parameter information for binding
+        final var paramCtx = ctx.preparedStatementParameter();
+        final String parameterIdentifier = paramCtx.QUESTION() != null ? null : paramCtx.NAMED_PARAMETER().getText().substring(1);
+        final PreparedParams preparedParams = PreparedParams.copyOf(getDelegate().getPlanGenerationContext().getPreparedParams());
+        return CopyPlanFactory.getCopyImportAction(pathId.getName(), getDelegate().getPlanGenerationContext(), preparedParams, parameterIdentifier);
     }
 }
