@@ -311,6 +311,7 @@ class VectorIndexTest extends VectorIndexTestBase {
                             .put(IndexOptions.HNSW_M_MAX, "16")
                             .put(IndexOptions.HNSW_M_MAX_0, "32")
                             .put(IndexOptions.HNSW_EF_CONSTRUCTION, "200")
+                            .put(IndexOptions.HNSW_EF_REPAIR, "64")
                             .put(IndexOptions.HNSW_EXTEND_CANDIDATES, "false")
                             .put(IndexOptions.HNSW_KEEP_PRUNED_CONNECTIONS, "false")
                             .put(IndexOptions.HNSW_USE_RABITQ, "false")
@@ -321,7 +322,8 @@ class VectorIndexTest extends VectorIndexTestBase {
                             .put(IndexOptions.HNSW_MAINTAIN_STATS_PROBABILITY, "0.78")
                             .put(IndexOptions.HNSW_STATS_THRESHOLD, "500")
                             .put(IndexOptions.HNSW_MAX_NUM_CONCURRENT_NODE_FETCHES, "17")
-                            .put(IndexOptions.HNSW_MAX_NUM_CONCURRENT_NEIGHBORHOOD_FETCHES, "9").build());
+                            .put(IndexOptions.HNSW_MAX_NUM_CONCURRENT_NEIGHBORHOOD_FETCHES, "9")
+                            .put(IndexOptions.HNSW_MAX_NUM_CONCURRENT_DELETE_FROM_LAYER, "5").build());
 
             Assertions.assertThatThrownBy(() -> validateIndexEvolution(metaDataValidator, index,
                     ImmutableMap.of(IndexOptions.HNSW_NUM_DIMENSIONS, "128",
@@ -351,6 +353,10 @@ class VectorIndexTest extends VectorIndexTestBase {
             Assertions.assertThatThrownBy(() -> validateIndexEvolution(metaDataValidator, index,
                     ImmutableMap.of(IndexOptions.HNSW_NUM_DIMENSIONS, "128",
                             IndexOptions.HNSW_EF_CONSTRUCTION, "500"))).isInstanceOf(MetaDataException.class);
+
+            Assertions.assertThatThrownBy(() -> validateIndexEvolution(metaDataValidator, index,
+                    ImmutableMap.of(IndexOptions.HNSW_NUM_DIMENSIONS, "128",
+                            IndexOptions.HNSW_EF_REPAIR, "500"))).isInstanceOf(MetaDataException.class);
 
             Assertions.assertThatThrownBy(() -> validateIndexEvolution(metaDataValidator, index,
                     ImmutableMap.of(IndexOptions.HNSW_NUM_DIMENSIONS, "128",

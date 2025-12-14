@@ -94,8 +94,6 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
      *
      * @return a future that will complete with the fetched {@link AbstractNode} or {@code null} if the node cannot
      *         be fetched
-     *
-     * @throws IllegalStateException if the node cannot be found in the database for the given key
      */
     @Nonnull
     @Override

@@ -83,6 +83,12 @@ class DeleteNeighborsChangeSet<N extends NodeReference> implements NeighborsChan
         return parent;
     }
 
+    @Override
+    public boolean hasChanges() {
+        // We can probably do better by testing if the deletion has an effect on the merge.
+        return true;
+    }
+
     /**
      * Merges the neighbors from the parent context, filtering out any neighbors that have been marked as deleted.
      * <p>

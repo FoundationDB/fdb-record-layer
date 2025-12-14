@@ -159,23 +159,6 @@ abstract class AbstractStorageAdapter<N extends NodeReference> implements Storag
         return onReadListener;
     }
 
-    /**
-     * Asynchronously fetches a node from a specific layer of the HNSW.
-     * <p>
-     * The node is identified by its {@code layer} and {@code primaryKey}. The entire fetch operation is
-     * performed within the given {@link ReadTransaction}. After the underlying
-     * fetch operation completes, the retrieved node is validated by the
-     * {@link  #checkNode(Node)} method before the returned future is completed.
-     *
-     * @param readTransaction the non-null transaction to use for the read operation
-     * @param storageTransform an affine vector transformation operator that is used to transform the fetched vector
-     *        into the storage space that is currently being used
-     * @param layer the layer of the tree from which to fetch the node
-     * @param primaryKey the non-null primary key that identifies the node to fetch
-     *
-     * @return a {@link CompletableFuture} that will complete with the fetched {@link AbstractNode}
-     * once it has been read from storage and validated
-     */
     @Nonnull
     @Override
     public CompletableFuture<AbstractNode<N>> fetchNode(@Nonnull final ReadTransaction readTransaction,
@@ -198,7 +181,7 @@ abstract class AbstractStorageAdapter<N extends NodeReference> implements Storag
      * @param primaryKey the primary key that uniquely identifies the node to be fetched; must not be {@code null}
      *
      * @return a {@link CompletableFuture} that will be completed with the fetched {@link AbstractNode}.
-     * The future will complete with {@code null} if no node is found for the given key and layer.
+     *         The future will complete with {@code null} if no node is found for the given key and layer.
      */
     @Nonnull
     protected abstract CompletableFuture<AbstractNode<N>> fetchNodeInternal(@Nonnull ReadTransaction readTransaction,
@@ -214,7 +197,7 @@ abstract class AbstractStorageAdapter<N extends NodeReference> implements Storag
      * @return the node that was passed in
      */
     @Nullable
-    private <T extends Node<N>> T checkNode(@Nullable final T node) {
+    protected <T extends AbstractNode<N>> T checkNode(@Nullable final T node) {
         return node;
     }
 
@@ -245,7 +228,7 @@ abstract class AbstractStorageAdapter<N extends NodeReference> implements Storag
     }
 
     /**
-     * Writes a single node to the data store as part of a larger transaction.
+     * Writes a single node to the given layer of the data store as part of a larger transaction.
      * <p>
      * This is an abstract method that concrete implementations must provide.
      * It is responsible for the low-level persistence of the given {@code node} at a
@@ -271,5 +254,11 @@ abstract class AbstractStorageAdapter<N extends NodeReference> implements Storag
         }
     }
 
+    /**
+     * Deletes a single node from the given layer of the data store as part of a larger transaction.
+     * @param transaction the transaction to use
+     * @param layer the layer
+     * @param primaryKey the primary key of the node
+     */
     protected abstract void deleteNodeInternal(@Nonnull Transaction transaction, int layer, @Nonnull Tuple primaryKey);
 }

@@ -93,13 +93,37 @@ interface StorageAdapter<N extends NodeReference> {
     @Nonnull
     NodeFactory<N> getNodeFactory();
 
+    /**
+     * Method that returns {@code true} iff this {@link StorageAdapter} is inlining neighboring vectors (i.e. it is
+     * an {@link InliningStorageAdapter}).
+     * @return {@code true} iff this {@link StorageAdapter} is inlining neighboring vectors.
+     */
     boolean isInliningStorageAdapter();
 
+    /**
+     * Method that returns {@code this} object as an {@link InliningStorageAdapter} if this {@link StorageAdapter} is
+     * inlining neighboring vectors and is an {@link InliningStorageAdapter}. This method throws an exception if this
+     * storage adapter is any other kind of storage adapter. Callers of this method should ensure prior to calling this
+     * method that the storage adapter actually is of the right kind (by calling{@link #isInliningStorageAdapter()}.
+     * @return {@code this} as an {@link InliningStorageAdapter}
+     */
     @Nonnull
     InliningStorageAdapter asInliningStorageAdapter();
 
+    /**
+     * Method that returns {@code true} iff this {@link StorageAdapter} is a compact storage adapter which means it is
+     * not inlining neighboring vectors (i.e. {@code this} is a {@link CompactStorageAdapter}).
+     * @return {@code true} iff this {@link StorageAdapter} is a {@link CompactStorageAdapter}.
+     */
     boolean isCompactStorageAdapter();
 
+    /**
+     * Method that returns {@code this} object a {@link CompactStorageAdapter} if this {@link StorageAdapter} is
+     * a {@link CompactStorageAdapter}. This method throws an exception if this storage adapter is any other kind of
+     * storage adapter. Callers of this method should ensure prior to calling this method that the storage adapter
+     * actually is of the right kind (by calling{@link #isCompactStorageAdapter()}.
+     * @return {@code this} as a {@link CompactStorageAdapter}
+     */
     @Nonnull
     CompactStorageAdapter asCompactStorageAdapter();
 
@@ -134,6 +158,16 @@ interface StorageAdapter<N extends NodeReference> {
     @Nonnull
     OnReadListener getOnReadListener();
 
+    /**
+     * Method that returns the vector associated with node information passed in. Note that depending on the storage
+     * layout and therefore the used {@link StorageAdapter}, the vector is either part of the reference
+     * (when using {@link InliningStorageAdapter}) or is s part of the {@link AbstractNode} itself (when using
+     * {@link CompactStorageAdapter}). This method hides that detail from the caller and correctly resolves the vector
+     * for bot use cases.
+     * @param nodeReference a node reference
+     * @param node the accompanying node to {@code nodeReference}
+     * @return the associated vector as {@link Transformed} of {@link RealVector}
+     */
     @Nonnull
     Transformed<RealVector> getVector(@Nonnull N nodeReference, @Nonnull AbstractNode<N> node);
 
@@ -175,9 +209,9 @@ interface StorageAdapter<N extends NodeReference> {
                    @Nonnull AbstractNode<N> node, @Nonnull NeighborsChangeSet<N> changeSet);
 
     /**
-     * Deletes a node from the database.
+     * Deletes a node from a particular layer in the database.
      * @param transaction the transaction to use
-     * @param layer the layer the node should be removed from
+     * @param layer the layer the node should be deleted from
      * @param primaryKey the primary key of the node
      */
     void deleteNode(@Nonnull Transaction transaction, int layer, @Nonnull Tuple primaryKey);

@@ -85,6 +85,11 @@ class InsertNeighborsChangeSet<N extends NodeReference> implements NeighborsChan
         return parent;
     }
 
+    @Override
+    public boolean hasChanges() {
+        return true;
+    }
+
     /**
      * Merges the neighbors from this level of the hierarchy with all neighbors from parent levels.
      * <p>

@@ -91,6 +91,9 @@ class InliningStorageAdapter extends AbstractStorageAdapter<NodeReferenceWithVec
      * It then performs an asynchronous range scan to retrieve all key-value pairs associated with that prefix.
      * Finally, it reconstructs the complete {@link AbstractNode} object from the collected raw data using
      * the {@code nodeFromRaw} method.
+     * <p>
+     * Note that when using the inlining storage adapter it is not possible for distinguish between a node that has no
+     * neighbors and a node that is not present in the database (i.e. it was deleted).
      *
      * @param readTransaction the transaction to use for reading from the database
      * @param storageTransform an affine transformation operator that is used to transform the fetched vector into the

@@ -283,6 +283,15 @@ public class IndexOptions {
     public static final String HNSW_EF_CONSTRUCTION = "hnswEfConstruction";
 
     /**
+     * HNSW-only: Maximum number of candidate nodes that are considered when a HNSW layer is locally repaired as part of
+     * a delete operation. A smaller number causes the delete operation to create a smaller set of candidate nodes
+     * which improves repair performance but not decreases repair quality, a higher number results in qualitatively
+     * better repairs at the expense of slower performance.
+     * The default value is set to {@link Config#DEFAULT_EF_REPAIR}. See {@link Config#getEfRepair()}.
+     */
+    public static final String HNSW_EF_REPAIR = "hnswEfRepair";
+
+    /**
      * HNSW-only: Indicator to signal if, during the insertion of a node, the set of nearest neighbors of that node is
      * to be extended by the actual neighbors of those neighbors to form a set of candidates that the new node may be
      * connected to during the insert operation. The default value is set to {@link Config#DEFAULT_EXTEND_CANDIDATES}.
@@ -353,6 +362,13 @@ public class IndexOptions {
      * See {@link Config#getMaxNumConcurrentNeighborhoodFetches()}.
      */
     public static final String HNSW_MAX_NUM_CONCURRENT_NEIGHBORHOOD_FETCHES = "hnswMaxNumConcurrentNeighborhoodFetches";
+
+    /**
+     * HNSW-only: Maximum number of delete operations that can run concurrently in separate layers during the deletion
+     * of a record. The default value is set to {@link Config#DEFAULT_MAX_NUM_CONCURRENT_DELETE_FROM_LAYER}.
+     * See {@link Config#getMaxNumConcurrentDeleteFromLayer()}.
+     */
+    public static final String HNSW_MAX_NUM_CONCURRENT_DELETE_FROM_LAYER = "hnswMaxNumConcurrentDeleteFromLayer";
 
     private IndexOptions() {
     }

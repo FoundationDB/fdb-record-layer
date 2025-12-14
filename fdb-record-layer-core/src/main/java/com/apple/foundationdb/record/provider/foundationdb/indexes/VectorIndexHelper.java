@@ -80,6 +80,10 @@ public final class VectorIndexHelper {
         if (hnswEfConstructionOption != null) {
             builder.setEfConstruction(Integer.parseInt(hnswEfConstructionOption));
         }
+        final String hnswEfRepairOption = index.getOption(IndexOptions.HNSW_EF_REPAIR);
+        if (hnswEfRepairOption != null) {
+            builder.setEfRepair(Integer.parseInt(hnswEfRepairOption));
+        }
         final String hnswExtendCandidatesOption = index.getOption(IndexOptions.HNSW_EXTEND_CANDIDATES);
         if (hnswExtendCandidatesOption != null) {
             builder.setExtendCandidates(Boolean.parseBoolean(hnswExtendCandidatesOption));
@@ -115,6 +119,10 @@ public final class VectorIndexHelper {
         final String hnswMaxNumConcurrentNeighborhoodFetchesOption = index.getOption(IndexOptions.HNSW_MAX_NUM_CONCURRENT_NEIGHBORHOOD_FETCHES);
         if (hnswMaxNumConcurrentNeighborhoodFetchesOption != null) {
             builder.setMaxNumConcurrentNeighborhoodFetches(Integer.parseInt(hnswMaxNumConcurrentNeighborhoodFetchesOption));
+        }
+        final String hnswMaxNumConcurrentDeleteFromLayerOption = index.getOption(IndexOptions.HNSW_MAX_NUM_CONCURRENT_DELETE_FROM_LAYER);
+        if (hnswMaxNumConcurrentDeleteFromLayerOption != null) {
+            builder.setMaxNumConcurrentDeleteFromLayer(Integer.parseInt(hnswMaxNumConcurrentDeleteFromLayerOption));
         }
         return builder.build(numDimensions);
     }

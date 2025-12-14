@@ -462,7 +462,7 @@ public class HNSW {
     /**
      * Searches a single layer of the graph to find the nearest neighbors to a query vector.
      * <p>
-     * This method implements the greedy search algorithm used in HNSW (Hierarchical Navigable Small World)
+     * This method implements the search algorithm used in HNSW (Hierarchical Navigable Small World)
      * graphs for a specific layer. It begins with a set of entry points and iteratively explores the graph,
      * always moving towards nodes that are closer to the {@code queryVector}.
      * <p>
@@ -1260,8 +1260,10 @@ public class HNSW {
                                                     final NodeReferenceAndNode<NodeReferenceWithDistance, N> selectedNeighbor =
                                                             selectedNeighbors.get(i);
                                                     final NeighborsChangeSet<N> changeSet = changeSets.get(i);
-                                                    storageAdapter.writeNode(transaction, quantizer,
-                                                            layer, selectedNeighbor.getNode(), changeSet);
+                                                    if (changeSet.hasChanges()) {
+                                                        storageAdapter.writeNode(transaction, quantizer,
+                                                                layer, selectedNeighbor.getNode(), changeSet);
+                                                    }
                                                 }
                                                 return ImmutableList.copyOf(searchResult);
                                             });
@@ -1620,27 +1622,23 @@ public class HNSW {
                                final int layer,
                                @Nonnull final Map<Tuple, AbstractNode<N>> nodeCache) {
         final Iterable<NodeReference> toBeFetched =
-                resolveNeighborReferences(initialNodeReferenceAndNodes, random, samplingPredicate);
+                findNeighborReferences(initialNodeReferenceAndNodes, random, samplingPredicate);
         return fetchNeighborhoodReferences(storageAdapter, readTransaction, storageTransform, layer, toBeFetched,
                 nodeCache);
     }
 
     /**
-     * Compute the neighbors of an iterable of initial nodes that is passed in. Hop is defined as the
-     * set of all nodes that are neighbors of the initial nodes. Note that the neighbor of an initial node might
-     * be another initial node. If that is the case the node is returned. If that is not desired by the caller, the
-     * caller needs to remove those nodes via a subtraction of the initial set.
+     * Return the union of the nodes passed in and their neighbors.
      *
-     * @param <N> the type of the {@link NodeReference}
-     *        storage space that is currently being used
-     * @param initialNodeReferenceAndNodes an {@link Iterable} of initial candidate nodes, which have already been evaluated
+     * @param <N> the type of the {@link NodeReference} storage space that is currently being used
+     * @param initialNodeReferenceAndNodes an {@link Iterable} of initial candidate nodes
      *
-     * @return a {@link CompletableFuture} which will complete with a set of {@link NodeReferenceWithDistance}
+     * @return a {@link CompletableFuture} which will complete with a set of {@link NodeReference}s
      */
     private <T extends NodeReference, N extends NodeReference> Set<NodeReference>
-            resolveNeighborReferences(@Nonnull final Collection<NodeReferenceAndNode<T, N>> initialNodeReferenceAndNodes,
-                                      @Nullable final SplittableRandom random,
-                                      @Nonnull final CandidatePredicate candidatePredicate) {
+            findNeighborReferences(@Nonnull final Collection<NodeReferenceAndNode<T, N>> initialNodeReferenceAndNodes,
+                                   @Nullable final SplittableRandom random,
+                                   @Nonnull final CandidatePredicate candidatePredicate) {
         final Set<NodeReference> neighborReferences = Sets.newHashSet();
         final ImmutableMap.Builder<Tuple, NodeReferenceAndNode<T, N>> initialNodesMapBuilder = ImmutableMap.builder();
         for (final NodeReferenceAndNode<T, N> nodeReferenceAndNode : initialNodeReferenceAndNodes) {
@@ -1675,7 +1673,7 @@ public class HNSW {
             }
         }
 
-        // sample down the set of neighbors
+        // sample down the set of neighbors by testing the candidate predicate
         final ImmutableSet.Builder<NodeReference> resultBuilder = ImmutableSet.builder();
         for (final NodeReference neighborReference : neighborReferences) {
             if (candidatePredicate.test(random, initialNodesMap.keySet(),
@@ -1749,10 +1747,10 @@ public class HNSW {
     /**
      * Deletes a vector with its associated primary key from the HNSW graph.
      * <p>
-     * The method first determines a random layer for the new node, called the {@code top layer}. It then applies a
-     * deletion algorithm to all layers from {@code 0} to including the {@code top layer} that removes the record from
-     * the index and locally repairs the relationships between nearby other vectors that were affected by the delete
-     * operation.
+     * The method first determines the random layer that is used for the node, called the {@code top layer}. It then
+     * applies a deletion algorithm to all layers from {@code 0} to including the {@code top layer} that removes the
+     * record from the structure and locally repairs the relationships between nearby other vectors that were affected
+     * by the delete operation.
      *
      * @param transaction the {@link Transaction} context for all database operations
      * @param primaryKey the unique {@link Tuple} primary key for the new node being inserted
@@ -1798,13 +1796,14 @@ public class HNSW {
                                                 potentialEntryNodeReferences.get(i);
                                         if (potentialEntyNodeReference != null) {
                                             StorageAdapter.writeAccessInfo(transaction, getSubspace(),
-                                                    accessInfo.withNewEntryNodeReference(potentialEntyNodeReference), getOnWriteListener());
+                                                    accessInfo.withNewEntryNodeReference(potentialEntyNodeReference),
+                                                    getOnWriteListener());
                                             // early out
                                             return AsyncUtil.DONE;
                                         }
                                     }
 
-                                    // officially there is no data in the structure, delete access info to start new
+                                    // there is no data in the structure, delete access info to start new
                                     StorageAdapter.deleteAccessInfo(transaction, getSubspace(), getOnWriteListener());
                                 }
                                 return AsyncUtil.DONE;
@@ -1813,8 +1812,7 @@ public class HNSW {
     }
 
     /**
-     * Deletes a node from the HNSW graph across multiple layers, using a primary key and starting from a given top
-     * layer.
+     * Deletes a node from the HNSW graph across multiple layers, using a primary key and a given top layer.
      *
      * @param transaction the transaction to use for database operations
      * @param storageTransform an affine transformation operator that is used to transform the fetched vector into the
@@ -1833,21 +1831,18 @@ public class HNSW {
                                                                          @Nonnull final SplittableRandom random,
                                                                          @Nonnull final Tuple primaryKey,
                                                                          final int topLayer) {
+        // delete the node from all layers in parallel (inside layer in [0, topLayer])
         return forEach(() -> IntStream.rangeClosed(0, topLayer).iterator(),
-                layer -> {
-                    final StorageAdapter<? extends NodeReference> storageAdapter = getStorageAdapterForLayer(layer);
-                    return deleteFromLayer(storageAdapter, transaction, storageTransform, quantizer, random.split(),
-                            layer, primaryKey);
-                },
-                getConfig().getMaxNumConcurrentNeighborhoodFetches(),
+                layer ->
+                        deleteFromLayer(getStorageAdapterForLayer(layer), transaction, storageTransform, quantizer,
+                                random.split(), layer, primaryKey),
+                getConfig().getMaxNumConcurrentDeleteFromLayer(),
                 executor);
     }
 
     /**
-     * Deletes a node from a specified layer of the HNSW graph.
-     * <p>
-     * This method orchestrates the complete deletion process for a single layer.
-     * </p>
+     * Deletes a node from a specified layer of the HNSW graph. This method orchestrates the complete deletion process
+     * for a single layer.
      *
      * @param <N> the type of the node reference, extending {@link NodeReference}
      * @param storageAdapter the storage adapter for reading from and writing to the graph
@@ -1887,13 +1882,18 @@ public class HNSW {
                             .thenCompose(candidates -> {
                                 initializeCandidateChangeSetMap(toBeDeletedPrimaryKey, toBeDeletedNode, candidates,
                                         candidateChangeSetMap);
+                                // resolve the actually existing direct neighbors
                                 final ImmutableList<N> primaryNeighbors =
                                         primaryNeighbors(toBeDeletedNode, candidateChangeSetMap);
 
+                                //
+                                // Repair each primary neighbor in parallel, there should not be much actual I/O,
+                                // except in edge cases, but we should still parallelize it.
+                                //
                                 return forEach(primaryNeighbors,
                                         neighborReference ->
                                                 repairNeighbor(storageAdapter, transaction,
-                                                        storageTransform, quantizer, layer, neighborReference,
+                                                        storageTransform, estimator, layer, neighborReference,
                                                         candidates, candidateChangeSetMap, nodeCache),
                                         getConfig().getMaxNumConcurrentNeighborhoodFetches(), executor)
                                         .thenApply(ignored -> {
@@ -1912,6 +1912,11 @@ public class HNSW {
                                 final int currentMMax =
                                         layer == 0 ? getConfig().getMMax0() : getConfig().getMMax();
 
+                                //
+                                // If we previously went beyond the mMax/mMax0, we need to prune the neighbors.
+                                // Pruning is independent among different nodes -- we can therefore prune in
+                                // parallel.
+                                //
                                 return forEach(candidateChangeSetMap.entrySet(), // for each modified neighbor set
                                         changeSetEntry -> {
                                             final NodeReferenceWithVector candidateReference =
@@ -1936,13 +1941,20 @@ public class HNSW {
                                         .thenApply(ignored -> candidateReferencesMap);
                             })
                             .thenApply(candidateReferencesMap -> {
+                                //
+                                // Finally delete the node we set out to delete and persist the change sets for all
+                                // repaired nodes.
+                                //
                                 storageAdapter.deleteNode(transaction, layer, toBeDeletedPrimaryKey);
 
                                 for (final Map.Entry<Tuple, NeighborsChangeSet<N>> changeSetEntry : candidateChangeSetMap.entrySet()) {
-                                    final AbstractNode<N> candidateNode =
-                                            nodeFromCache(changeSetEntry.getKey(), nodeCache);
-                                    storageAdapter.writeNode(transaction, quantizer,
-                                            layer, candidateNode, changeSetEntry.getValue());
+                                    final NeighborsChangeSet<N> changeSet = changeSetEntry.getValue();
+                                    if (changeSet.hasChanges()) {
+                                        final AbstractNode<N> candidateNode =
+                                                nodeFromCache(changeSetEntry.getKey(), nodeCache);
+                                        storageAdapter.writeNode(transaction, quantizer,
+                                                layer, candidateNode, changeSet);
+                                    }
                                 }
 
                                 //
@@ -1966,36 +1978,17 @@ public class HNSW {
                 });
     }
 
-    @Nonnull
-    private <N extends NodeReference> ImmutableList<N>
-            primaryNeighbors(@Nonnull final AbstractNode<N> toBeDeletedNode,
-                             @Nonnull final Map<Tuple, NeighborsChangeSet<N>> candidateChangeSetMap) {
-        //
-        // All candidates are definitely existing and the candidates hold all existing primary
-        // candidates.
-        //
-        final ImmutableList.Builder<N> primaryNeighborsBuilder = ImmutableList.builder();
-        for (N potentialPrimaryNeighbor : toBeDeletedNode.getNeighbors()) {
-            if (candidateChangeSetMap.containsKey(potentialPrimaryNeighbor.getPrimaryKey())) {
-                primaryNeighborsBuilder.add(potentialPrimaryNeighbor);
-            }
-        }
-        return primaryNeighborsBuilder.build();
-    }
-
-    private <N extends NodeReference>
-            void initializeCandidateChangeSetMap(@Nonnull final Tuple toBeDeletedPrimaryKey,
-                                                 @Nonnull final AbstractNode<N> toBeDeletedNode,
-                                                 @Nonnull final List<NodeReferenceAndNode<NodeReferenceWithVector, N>> candidates,
-                                                 @Nonnull final Map<Tuple, NeighborsChangeSet<N>> candidateChangeSetMap) {
+    private <N extends NodeReference> void initializeCandidateChangeSetMap(@Nonnull final Tuple toBeDeletedPrimaryKey,
+                                                                           @Nonnull final AbstractNode<N> toBeDeletedNode,
+                                                                           @Nonnull final List<NodeReferenceAndNode<NodeReferenceWithVector, N>> candidates,
+                                                                           @Nonnull final Map<Tuple, NeighborsChangeSet<N>> candidateChangeSetMap) {
         for (final NodeReferenceAndNode<NodeReferenceWithVector, N> candidate : candidates) {
             final AbstractNode<N> candidateNode = candidate.getNode();
             boolean foundToBeDeleted = false;
             for (final N neighborOfCandidate : candidateNode.getNeighbors()) {
                 if (neighborOfCandidate.getPrimaryKey().equals(toBeDeletedPrimaryKey)) {
                     //
-                    // Make sure the neighbor pointing to the node-to-be-deleted is deleted as
-                    // well.
+                    // Make sure a neighbor pointing to the node being deleted is deleted as well.
                     //
                     candidateChangeSetMap.put(candidateNode.getPrimaryKey(),
                             new DeleteNeighborsChangeSet<>(
@@ -2006,6 +1999,7 @@ public class HNSW {
                 }
             }
             if (!foundToBeDeleted) {
+                // if there is no reference back to the node being deleted, just create the base set
                 candidateChangeSetMap.put(candidateNode.getPrimaryKey(),
                         new BaseNeighborsChangeSet<>(candidateNode.getNeighbors()));
             }
@@ -2015,6 +2009,51 @@ public class HNSW {
         }
     }
 
+    /**
+     * Compile a list of node references that definitely exist. The neighbor list of a node may contain node
+     * references to neighbors that don't exist anymore (stale reference). The (non-existing) nodes that these node
+     * references might refer to must not be repaired as that may resurrect a node.
+     * <p>
+     * We know that the candidate change set map only contains keys for nodes that exist AND that the candidate change
+     * set map contains all primary neighbors (if they exist). Therefore, we filter the neighbors list from the node by
+     * cross-referencing the change set map.
+     * @param <N> type parameter extending {@link NodeReference}
+     * @param toBeDeletedNode the node that is being deleted.
+     * @param candidateChangeSetMap the initialized candidate change set map.
+     * @return a list of existing primary neighbors
+     */
+    @Nonnull
+    private <N extends NodeReference> ImmutableList<N>
+            primaryNeighbors(@Nonnull final AbstractNode<N> toBeDeletedNode,
+                             @Nonnull final Map<Tuple, NeighborsChangeSet<N>> candidateChangeSetMap) {
+        //
+        // All entries in the change set map definitely exist and the candidate change set map hold all keys for all
+        // existing primary candidates.
+        //
+        final ImmutableList.Builder<N> primaryNeighborsBuilder = ImmutableList.builder();
+        for (final N potentialPrimaryNeighbor : toBeDeletedNode.getNeighbors()) {
+            if (candidateChangeSetMap.containsKey(potentialPrimaryNeighbor.getPrimaryKey())) {
+                primaryNeighborsBuilder.add(potentialPrimaryNeighbor);
+            }
+        }
+        return primaryNeighborsBuilder.build();
+    }
+
+    /**
+     * Find candidates starting from the node to be deleted. To this end we find all the existing first degree (primary)
+     * and second-degree (secondary) neighbors. As that set is too big to consider for the repair we rely on sampling
+     * to eventually compile a list of roughly {@code efRepair} number of candidates.
+     *
+     * @param <N> type parameter extending {@link NodeReference}
+     * @param storageAdapter the storage adapter for the layer
+     * @param transaction the transaction
+     * @param storageTransform the storage transform
+     * @param random a {@link SplittableRandom} used for sampling the candidate set
+     * @param layer the layer
+     * @param toBeDeletedNodeReferenceAndNode the node that is about to be deleted
+     * @param nodeCache the node cache to avoid repeated fetches
+     * @return a future that if successful completes with {@code null}
+     */
     @Nonnull
     private <N extends NodeReference> CompletableFuture<List<NodeReferenceAndNode<NodeReferenceWithVector, N>>>
             findCandidates(final @Nonnull StorageAdapter<N> storageAdapter,
@@ -2027,13 +2066,13 @@ public class HNSW {
         return neighbors(storageAdapter, transaction, storageTransform, random,
                 ImmutableList.of(toBeDeletedNodeReferenceAndNode),
                 ((r, initialNodeKeys, size, nodeReference) ->
-                         usePrimaryCandidateForRepair(nodeReference,
+                         shouldUsePrimaryCandidateForRepair(nodeReference,
                                  toBeDeletedNodeReferenceAndNode.getNodeReference().getPrimaryKey())), layer, nodeCache)
                 .thenCompose(candidates ->
                         neighbors(storageAdapter, transaction, storageTransform, random,
                                 candidates,
                                 ((r, initialNodeKeys, size, nodeReference) ->
-                                         useSecondaryCandidateForRepair(r, initialNodeKeys, size, nodeReference,
+                                         shouldUseSecondaryCandidateForRepair(r, initialNodeKeys, size, nodeReference,
                                                  toBeDeletedNodeReferenceAndNode.getNodeReference().getPrimaryKey())),
                                 layer, nodeCache))
                 .thenApply(candidates -> {
@@ -2042,33 +2081,51 @@ public class HNSW {
                         for (final NodeReferenceAndNode<NodeReferenceWithVector, N> candidate : candidates) {
                             candidateStringsBuilder.add(candidate.getNode().getPrimaryKey().toString());
                         }
-                        logger.trace("resolved at layer={} num={} candidates={}", layer, candidates.size(),
+                        logger.trace("found at layer={} num={} candidates={}", layer, candidates.size(),
                                 String.join(",", candidateStringsBuilder.build()));
                     }
                     return candidates;
                 });
     }
 
+    /**
+     * Repair a neighbor node of the node that is being deleted using a set of candidates. All candidates contain only
+     * the vector (in addition to identifying information like the primary key). The logic in
+     * computes distances between the neighbor vector and each candidate vector which is required by
+     * {@link #repairInsForNeighborNode}.
+     *
+     * @param <N> type parameter extending {@link NodeReference}
+     * @param storageAdapter the storage adapter for the layer
+     * @param transaction the transaction
+     * @param storageTransform the storage transform
+     * @param estimator an estimator for distances
+     * @param layer the layer
+     * @param neighborReference the reference for which this method repairs incoming references
+     * @param candidates the set of candidates
+     * @param neighborChangeSetMap the change set map which records all changes to all nodes that are being repaired
+     * @param nodeCache the node cache to avoid repeated fetches
+     * @return a future that if successful completes with {@code null}
+     */
     private <N extends NodeReference> @Nonnull CompletableFuture<Void>
             repairNeighbor(@Nonnull final StorageAdapter<N> storageAdapter,
                            @Nonnull final Transaction transaction,
                            @Nonnull final AffineOperator storageTransform,
-                           @Nonnull final Quantizer quantizer,
+                           @Nonnull final Estimator estimator,
                            final int layer,
                            @Nonnull final N neighborReference,
-                           @Nonnull final Collection<NodeReferenceAndNode<NodeReferenceWithVector, N>> sampledCandidates,
+                           @Nonnull final Collection<NodeReferenceAndNode<NodeReferenceWithVector, N>> candidates,
                            @Nonnull final Map<Tuple /* primaryKey */, NeighborsChangeSet<N>> neighborChangeSetMap,
                            @Nonnull final Map<Tuple, AbstractNode<N>> nodeCache) {
-        final Estimator estimator = quantizer.estimator();
 
         return fetchNodeIfNotCached(storageAdapter, transaction,
                 storageTransform, layer, neighborReference, nodeCache)
                 .thenCompose(neighborNode -> {
                     final ImmutableList.Builder<NodeReferenceWithDistance> candidatesReferencesBuilder =
                             ImmutableList.builder();
-                    final Transformed<RealVector> neighborVector = storageAdapter.getVector(neighborReference, neighborNode);
+                    final Transformed<RealVector> neighborVector =
+                            storageAdapter.getVector(neighborReference, neighborNode);
                     // transform the NodeReferencesWithVectors into NodeReferencesWithDistance
-                    for (final NodeReferenceAndNode<NodeReferenceWithVector, N> candidate : sampledCandidates) {
+                    for (final NodeReferenceAndNode<NodeReferenceWithVector, N> candidate : candidates) {
                         // do not add the candidate if that candidate is in fact the neighbor itself
                         if (!candidate.getNodeReference().getPrimaryKey().equals(neighborReference.getPrimaryKey())) {
                             final Transformed<RealVector> candidateVector =
@@ -2085,6 +2142,25 @@ public class HNSW {
                 });
     }
 
+    /**
+     * Repairs the ins of a neighbor node of the node that is being deleted using a set of candidates. Each such
+     * neighbor is part of a set that is referred to as {@code p_out} in literature. In this method we only repair
+     * incoming references to this node. As this method is called once per direct neighbor and all direct neighbors are
+     * in the candidate set, outgoing references from this node to other nodes (in {@code p_out}) are repaired when this
+     * method is called for the respective neighbors.
+     *
+     * @param <N> type parameter extending {@link NodeReference}
+     * @param storageAdapter the storage adapter for the layer
+     * @param transaction the transaction
+     * @param storageTransform the storage transform
+     * @param estimator an estimator for distances
+     * @param layer the layer
+     * @param neighborReference the reference for which this method repairs incoming references
+     * @param candidates the set of candidates
+     * @param neighborChangeSetMap the change set map which records all changes to all nodes that are being repaired
+     * @param nodeCache the node cache to avoid repeated fetches
+     * @return a future that if successful completes with {@code null}
+     */
     private <N extends NodeReference> CompletableFuture<Void>
             repairInsForNeighborNode(@Nonnull final StorageAdapter<N> storageAdapter,
                                      @Nonnull final Transaction transaction,
@@ -2146,12 +2222,10 @@ public class HNSW {
     /**
      * Calculates a layer for a new element to be inserted or for an element to be deleted from.
      * <p>
-     * The layer is selected according to a logarithmic distribution, which ensures that
-     * the probability of choosing a higher layer decreases exponentially. This is
-     * achieved by applying the inverse transform sampling method. The specific formula
-     * is {@code floor(-ln(u) * lambda)}, where {@code u} is a uniform random
-     * number and {@code lambda} is a normalization factor derived from a system
-     * configuration parameter {@code M}.
+     * The layer is selected according to a logarithmic distribution, which ensures that the probability of choosing
+     * a higher layer decreases exponentially. This is achieved by applying the inverse transform sampling method.
+     * The specific formula is {@code floor(-ln(u) * lambda)}, where {@code u} is a uniform random number and
+     * {@code lambda} is a normalization factor derived from a system configuration parameter {@code M}.
      * @param primaryKey the primary key of the record to be inserted/updated/deleted
      * @return a non-negative integer representing the randomly selected layer
      */
@@ -2161,8 +2235,16 @@ public class HNSW {
         return (int) Math.floor(-Math.log(u) * lambda);
     }
 
-    private boolean usePrimaryCandidateForRepair(@Nonnull final NodeReference candidateReference,
-                                                 @Nonnull final Tuple toBeDeletedPrimaryKey) {
+    /**
+     * Predicate to determine if a potential candidate is to be used as a candidate for repairing the HNSW.
+     * The predicate rejects the candidate reference if it is referring to the node that is being deleted, otherwise the
+     * predicate accepts the candidate reference.
+     * @param candidateReference a potential candidate that is either accepted or rejected
+     * @param toBeDeletedPrimaryKey the {@link Tuple} representing the node that is being deleted
+     * @return {@code true} iff {@code candidateReference} is accepted as an actual candidate for repair.
+     */
+    private boolean shouldUsePrimaryCandidateForRepair(@Nonnull final NodeReference candidateReference,
+                                                       @Nonnull final Tuple toBeDeletedPrimaryKey) {
         final Tuple candidatePrimaryKey = candidateReference.getPrimaryKey();
 
         //
@@ -2172,11 +2254,26 @@ public class HNSW {
         return !candidatePrimaryKey.equals(toBeDeletedPrimaryKey);
     }
 
-    private boolean useSecondaryCandidateForRepair(@Nullable final SplittableRandom random,
-                                                   @Nonnull final Set<Tuple> initialNodeKeys,
-                                                   final int numberOfCandidates,
-                                                   @Nonnull final NodeReference candidateReference,
-                                                   @Nonnull final Tuple toBeDeletedPrimaryKey) {
+    /**
+     * Predicate to determine if a potential candidate is to be used ad a candidate for repairing the HNSW.
+     * <ol>
+     *    <li> The predicate rejects the candidate reference if it is referring to the node that is being deleted. </li>
+     *    <li> The predicate always accepts a direct neighbor of the node that is about to be deleted.</li>
+     *    <li> Sample the remaining potential candidates such that eventually the repair algorithm can use
+     *         roughly {@code efRepair} actual candidates.</li>
+     * </ol>
+     * @param random the PRNG to be used (splittable)
+     * @param initialNodeKeys a set of {@link Tuple}s that hold the primary neighbors of the node being deleted.
+     * @param numberOfCandidates the number of potential candidates the repair algorithm compiled
+     * @param candidateReference a potential candidate that is either accepted or rejected
+     * @param toBeDeletedPrimaryKey the {@link Tuple} representing the node that is being deleted
+     * @return {@code true} iff {@code candidateReference} is accepted as an actual candidate for repair.
+     */
+    private boolean shouldUseSecondaryCandidateForRepair(@Nullable final SplittableRandom random,
+                                                         @Nonnull final Set<Tuple> initialNodeKeys,
+                                                         final int numberOfCandidates,
+                                                         @Nonnull final NodeReference candidateReference,
+                                                         @Nonnull final Tuple toBeDeletedPrimaryKey) {
         final Tuple candidatePrimaryKey = candidateReference.getPrimaryKey();
 
         //
@@ -2195,8 +2292,11 @@ public class HNSW {
             return true;
         }
 
-        // sample all the rest
-        final double sampleRate = (double)getConfig().getM() / numberOfCandidates;
+        //
+        // Sample all the rest -- For the sampling rate, subtract the size of initialNodeKeys so that we get roughly
+        // efRepair nodes.
+        //
+        final double sampleRate = (double)(getConfig().getEfRepair() - initialNodeKeys.size()) / numberOfCandidates;
         if (sampleRate >= 1) {
             return true;
         }

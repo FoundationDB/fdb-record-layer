@@ -31,7 +31,9 @@ import java.util.List;
  * This is often used during graph traversal or searching, where a reference to a node (along with its distance from a
  * query point) is first identified, and then the complete node data is fetched. This class holds these two related
  * pieces of information together.
- * @param <N> the type of {@link NodeReference} used within the {@link AbstractNode}
+ * @param <T> the type of {@link NodeReference} referencing the node
+ * @param <N> the type of {@link NodeReference} used within the {@link AbstractNode}, i.e. the type of the neighbor
+ *        references
  */
 class NodeReferenceAndNode<T extends NodeReference, N extends NodeReference> {
     @Nonnull
