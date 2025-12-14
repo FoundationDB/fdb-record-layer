@@ -112,9 +112,11 @@ class LuceneLockFailureTest extends FDBRecordStoreTestBase {
         }
         // perform a search for all docs with
         try (final FDBRecordContext context = openContext()) {
-            rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_INDEX);
-            final List<FDBQueriedRecord<Message>> allRecords = searchAllDocs(SIMPLE_DOC);
-            int x = 5;
+            String type = partitioned ? COMPLEX_DOC : SIMPLE_DOC;
+            Index index = partitioned ? COMPLEX_PARTITIONED : SIMPLE_INDEX;
+            rebuildIndexMetaData(context, type, index);
+            final List<FDBQueriedRecord<Message>> allRecords = searchAllDocs(type);
+            Assertions.assertEquals(1, allRecords.size());
         }
     }
 
@@ -125,7 +127,7 @@ class LuceneLockFailureTest extends FDBRecordStoreTestBase {
                 .setRecordType(recordType)
                 .setFilter(filter)
                 .build();
-        // setDeferFetchAfterUnionAndIntersection(shouldDeferFetch);
+        // setDeferFetchAfterUnionAndIntersection(true);
         RecordQueryPlan plan = planQuery(planner, query);
         List<FDBQueriedRecord<Message>> result;
         try (RecordCursor<FDBQueriedRecord<Message>> fdbQueriedRecordRecordCursor = recordStore.executeQuery(plan)) {

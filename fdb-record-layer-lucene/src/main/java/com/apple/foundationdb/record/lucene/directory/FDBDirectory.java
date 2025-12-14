@@ -64,7 +64,6 @@ import org.apache.lucene.store.ByteBuffersDataOutput;
 import org.apache.lucene.store.ByteBuffersIndexInput;
 import org.apache.lucene.store.ByteBuffersIndexOutput;
 import org.apache.lucene.store.ChecksumIndexInput;
-import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.store.IndexOutput;
@@ -115,7 +114,7 @@ import static org.apache.lucene.codecs.lucene86.Lucene86SegmentInfoFormat.SI_EXT
  */
 @API(API.Status.EXPERIMENTAL)
 @NotThreadSafe
-public class FDBDirectory extends Directory  {
+public class FDBDirectory extends FDBDirectoryBase {
     private static final Logger LOGGER = LoggerFactory.getLogger(FDBDirectory.class);
     public static final int DEFAULT_BLOCK_SIZE = 1_024;
     public static final int DEFAULT_BLOCK_CACHE_MAXIMUM_SIZE = 1024;

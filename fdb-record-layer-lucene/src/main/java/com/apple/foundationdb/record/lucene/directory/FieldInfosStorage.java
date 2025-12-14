@@ -165,7 +165,7 @@ public class FieldInfosStorage {
         try {
             @SuppressWarnings("PMD.CloseResource")
             // we don't need to close this because it is just extracting from the dir
-            final FDBDirectory directory = FDBDirectoryUtils.getFDBDirectoryNotCompound(wrappingDirectory);
+            final FDBDirectoryBase directory = FDBDirectoryUtils.getFDBDirectoryNotCompound(wrappingDirectory);
             final FDBLuceneFileReference fieldInfosReference = directory.getFDBLuceneFileReference(fieldInfosFileName);
             if (fieldInfosReference == null) {
                 throw new RecordCoreException("Reference not found")
