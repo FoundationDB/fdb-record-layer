@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.lucene.LuceneAnalyzerWrapper;
 import com.apple.foundationdb.record.lucene.LuceneEvents;
 import com.apple.foundationdb.record.lucene.LuceneLoggerInfoStream;
+import com.apple.foundationdb.record.lucene.LucenePendingWriteQueue;
 import com.apple.foundationdb.record.lucene.LuceneRecordContextProperties;
 import com.apple.foundationdb.record.lucene.codec.LazyCloseable;
 import com.apple.foundationdb.record.lucene.codec.LuceneOptimizedCodec;
@@ -104,6 +105,13 @@ public class FDBDirectoryWrapper implements AutoCloseable {
      * closure is postponed until this class' {@link #close()} call.
      */
     private Queue<LazyCloseable<DirectoryReader>> readersToClose;
+    /**
+     * The cached read-only {@link IndexWriter} that doesn't acquire locks. This is used for replaying
+     * queued operations while a merge is in progress.
+     */
+    private final LazyCloseable<IndexWriter> readOnlyWriter;
+    private final LazyCloseable<IndexReader> readOnlyReader;
+    private LucenePendingWriteQueue pendingWriteQueue;
 
     FDBDirectoryWrapper(@Nonnull final IndexMaintainerState state,
                         @Nonnull final Tuple key,
@@ -120,8 +128,11 @@ public class FDBDirectoryWrapper implements AutoCloseable {
         this.analyzerWrapper = analyzerWrapper;
         writer = LazyCloseable.supply(() -> createIndexWriter(exceptionAtCreation));
         writerReader = LazyCloseable.supply(() -> DirectoryReader.open(writer.get()));
+        readOnlyWriter = LazyCloseable.supply(() -> createReadOnlyIndexWriter());
+        readOnlyReader = LazyCloseable.supply(() -> DirectoryReader.open(readOnlyWriter.get()));
         readersToClose = new ConcurrentLinkedQueue<>();
         readersToClose.add(writerReader);
+        pendingWriteQueue = createPendingWriteQueue();
     }
 
     @VisibleForTesting
@@ -140,8 +151,11 @@ public class FDBDirectoryWrapper implements AutoCloseable {
         this.analyzerWrapper = analyzerWrapper;
         writer = LazyCloseable.supply(() -> createIndexWriter(exceptionAtCreation));
         writerReader = LazyCloseable.supply(() -> DirectoryReader.open(writer.get()));
+        readOnlyWriter = LazyCloseable.supply(() -> createReadOnlyIndexWriter());
+        readOnlyReader = LazyCloseable.supply(() -> DirectoryReader.open(readOnlyWriter.get()));
         readersToClose = new ConcurrentLinkedQueue<>();
         readersToClose.add(writerReader);
+        pendingWriteQueue = createPendingWriteQueue();
     }
 
     @Nonnull
@@ -163,6 +177,24 @@ public class FDBDirectoryWrapper implements AutoCloseable {
         // Merge is required when creating an index writer (do we have a better indicator for a required merge?)
         mergeControl.setMergeRequiredIndexes(this.state.index);
         return new IndexWriter(this.directory, indexWriterConfig);
+    }
+
+    @Nonnull
+    private IndexWriter createReadOnlyIndexWriter() throws IOException {
+        // Create a no-lock wrapper around the existing directory
+        ReadOnlyFDBDirectory noLockDirectory = new ReadOnlyFDBDirectory(this.directory);
+
+        // Create a minimal IndexWriterConfig for the read-only writer
+        IndexWriterConfig config = new IndexWriterConfig(this.analyzerWrapper.getAnalyzer())
+                .setCodec(CODEC)
+                .setUseCompoundFile(USE_COMPOUND_FILE);
+
+        IndexWriter readOnlyIndexWriter = new IndexWriter(noLockDirectory, config);
+        // Get the queue and apply changes if necessary
+        // TODO: Lucene async to sync here instead of join
+        // TODO: Only create the writer if necessary, otherwise can use the existing reader
+        pendingWriteQueue.replayQueuedOperations(readOnlyIndexWriter).join();  // Block until replay completes
+        return readOnlyIndexWriter;
     }
 
     @Nonnull
@@ -192,6 +224,12 @@ public class FDBDirectoryWrapper implements AutoCloseable {
                                                        final boolean useCompoundFile, final AgilityContext agilityContext,
                                                        final int blockCacheMaximumSize) {
         return new FDBDirectory(subspace, options, sharedCacheManager, sharedCacheKey, useCompoundFile, agilityContext, blockCacheMaximumSize);
+    }
+
+    @Nonnull
+    protected LucenePendingWriteQueue createPendingWriteQueue() {
+        Subspace queueSubspace = directory.getSubspace().get(FDBDirectory.PENDING_WRITE_QUEUE_SUBSPACE);
+        return new LucenePendingWriteQueue(state.context, queueSubspace);
     }
 
     public FDBDirectory getDirectory() {
@@ -380,10 +418,30 @@ public class FDBDirectoryWrapper implements AutoCloseable {
         return writer.get();
     }
 
+    /**
+     * Get a read-only {@link IndexWriter} that doesn't acquire locks. This is used for
+     * replaying queued write operations while a merge is in progress.
+     * The writer should not be used for flush or commit operations.
+     *
+     * @return a read-only IndexWriter that won't conflict with locks
+     * @throws IOException if creating the writer fails
+     */
+    @Nonnull
+    @SuppressWarnings("PMD.CloseResource")
+    public IndexWriter getReadOnlyWriter() throws IOException {
+        return readOnlyWriter.get();
+    }
+
+    @Nonnull
+    @SuppressWarnings("PMD.CloseResource")
+    public IndexReader getReadOnlyReader() throws IOException {
+        return readOnlyReader.get();
+    }
+
     @Override
     @SuppressWarnings("PMD.CloseResource")
     public synchronized void close() throws IOException {
-        IOUtils.close(writer, directory);
+        IOUtils.close(writer, directory, readOnlyReader, readOnlyWriter);
         try {
             CloseableUtils.closeAll(readersToClose.toArray(new LazyCloseable<?>[0]));
         } catch (CloseException e) {

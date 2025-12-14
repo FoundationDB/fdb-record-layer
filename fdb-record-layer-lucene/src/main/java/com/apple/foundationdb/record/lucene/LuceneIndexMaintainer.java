@@ -898,6 +898,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     }
 
     private boolean isPartitionLocked(Tuple groupingKey, Integer partitionId) {
+        // TODO: Need to queue items when queue is not empty as well?
         FDBDirectory directory = directoryManager.getDirectory(groupingKey, partitionId);
         // Check the standard Lucene IndexWriter lock
         return directory.isLocked("write.lock");

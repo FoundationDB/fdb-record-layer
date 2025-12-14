@@ -21,24 +21,30 @@
 package com.apple.foundationdb.record.lucene;
 
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.TestRecordsTextProto;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.provider.common.text.AllSuffixesTextTokenizer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBExceptions;
+import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils;
+import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
+import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
+import com.google.common.collect.Lists;
 import com.google.protobuf.Message;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.store.LockObtainFailedException;
@@ -46,6 +52,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 
+import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.List;
@@ -103,6 +110,34 @@ class LuceneLockFailureTest extends FDBRecordStoreTestBase {
             Assertions.assertEquals(LucenePendingWriteQueueProto.QueuedOperation.OperationType.INSERT, ops.get(0).getOperation().getOperationType());
             Assertions.assertEquals(record.getPrimaryKey(), ops.get(0).getPrimaryKey());
         }
+        // perform a search for all docs with
+        try (final FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_INDEX);
+            final List<FDBQueriedRecord<Message>> allRecords = searchAllDocs(SIMPLE_DOC);
+            int x = 5;
+        }
+    }
+
+    private List<FDBQueriedRecord<Message>> searchAllDocs(String recordType) {
+        final QueryComponent filter = new LuceneQueryComponent("*:*", Lists.newArrayList());
+        // Query for full records
+        RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType(recordType)
+                .setFilter(filter)
+                .build();
+        // setDeferFetchAfterUnionAndIntersection(shouldDeferFetch);
+        RecordQueryPlan plan = planQuery(planner, query);
+        List<FDBQueriedRecord<Message>> result;
+        try (RecordCursor<FDBQueriedRecord<Message>> fdbQueriedRecordRecordCursor = recordStore.executeQuery(plan)) {
+            result = fdbQueriedRecordRecordCursor.asList().join();
+        }
+
+        return result;
+    }
+
+    @Nonnull
+    protected RecordQueryPlan planQuery(@Nonnull final QueryPlanner planner, @Nonnull final RecordQuery query) {
+        return planner.plan(query);
     }
 
     @ParameterizedTest
@@ -292,6 +327,8 @@ class LuceneLockFailureTest extends FDBRecordStoreTestBase {
             // The exception here is the RecordCore wrapper around the Lucene exception
             Exception ex = Assertions.assertThrows(RecordCoreException.class, () ->
                     LuceneIndexTestUtils.rebalancePartitions(recordStore, COMPLEX_PARTITIONED));
+            // TODO: Should we prevent merges from starting? Does this fail because we expect the operation to fail and it now queues the record?
+            // why is it failing with protobuf errors?
             Assertions.assertTrue(ex.getCause() instanceof LockObtainFailedException);
         }
     }

@@ -28,11 +28,17 @@ import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.Versionstamp;
 import com.google.protobuf.InvalidProtocolBufferException;
+import org.apache.lucene.document.Document;
+import org.apache.lucene.document.SortedDocValuesField;
+import org.apache.lucene.document.StoredField;
+import org.apache.lucene.index.IndexWriter;
+import org.apache.lucene.util.BytesRef;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -243,6 +249,181 @@ public class LucenePendingWriteQueue {
     public CompletableFuture<Integer> getQueueSize() {
         return getQueuedOperations()
                 .thenApply(List::size);
+    }
+
+    /**
+     * Replay all queued operations for a partition into the index.
+     * This should be called before executing a query to ensure queued writes are visible.
+     *
+     * @param indexWriter the index writer to write to
+     *
+     * @return CompletableFuture that completes when all operations have been replayed
+     */
+    @Nonnull
+    public CompletableFuture<Void> replayQueuedOperations(final IndexWriter indexWriter) {
+
+        return getQueuedOperations()
+                .thenAccept(entries -> {
+                    if (LOGGER.isDebugEnabled()) {
+                        LOGGER.debug("Replaying {} queued operations",
+                                entries.size());
+                    }
+
+                    // Process all operations
+                    for (QueuedOperationEntry entry : entries) {
+                        replayOperation(entry, indexWriter);
+                    }
+                });
+    }
+
+    /**
+     * Replay a single queued operation directly to the IndexWriter.
+     */
+    private void replayOperation(@Nonnull QueuedOperationEntry entry, @Nonnull IndexWriter indexWriter) {
+        Tuple primaryKey = entry.getPrimaryKey();
+        LucenePendingWriteQueueProto.QueuedOperation.OperationType opType = entry.getOperationType();
+
+        try {
+            switch (opType) {
+                case UPDATE:
+                    // TODO: for update we should try to delete the doc first
+                case INSERT:
+                    // Get IndexWriter and write document directly
+                    Document document = new Document();
+
+                    // Add primary key fields (simplified - using packed bytes)
+                    // todo: this should be reused from the index maintainer
+                    BytesRef ref = new BytesRef(primaryKey.pack());
+                    document.add(new StoredField(LuceneIndexMaintainer.PRIMARY_KEY_FIELD_NAME, ref));
+                    document.add(new SortedDocValuesField(LuceneIndexMaintainer.PRIMARY_KEY_SEARCH_NAME, ref));
+
+                    // Add document fields
+                    List<LuceneDocumentFromRecord.DocumentField> fields = convertFromProtoFields(entry.getFields());
+                    for (LuceneDocumentFromRecord.DocumentField field : fields) {
+                        addFieldToDocument(field, document);
+                    }
+
+                    indexWriter.addDocument(document);
+                    break;
+
+                case DELETE:
+                    // Use SortedDocValuesField query for deletion
+                    // TODO: can we use the segment primary key index to delete the doc directly?
+                    org.apache.lucene.search.Query deleteQuery = org.apache.lucene.document.SortedDocValuesField.newSlowExactQuery(
+                            LuceneIndexMaintainer.PRIMARY_KEY_SEARCH_NAME,
+                            new BytesRef(primaryKey.pack()));
+                    indexWriter.deleteDocuments(deleteQuery);
+                    break;
+
+                default:
+                    LOGGER.warn("Unknown operation type: {}", opType);
+            }
+        } catch (IOException ex) {
+            throw LuceneExceptions.toRecordCoreException("failed to replay message on writer", ex);
+        }
+    }
+
+    /**
+     * Add a field to a Lucene document.
+     * Simplified version of LuceneIndexMaintainer.insertField()
+     */
+    private void addFieldToDocument(LuceneDocumentFromRecord.DocumentField field, org.apache.lucene.document.Document document) {
+        final String fieldName = field.getFieldName();
+        final Object value = field.getValue();
+
+        switch (field.getType()) {
+            case TEXT:
+                // For TEXT fields, use simple tokenized field (simplified - doesn't handle all field configs)
+                document.add(new org.apache.lucene.document.TextField(fieldName, (String)value, org.apache.lucene.document.Field.Store.NO));
+                break;
+            case STRING:
+                document.add(new org.apache.lucene.document.StringField(fieldName, (String)value, org.apache.lucene.document.Field.Store.NO));
+                if (field.isSorted()) {
+                    document.add(new org.apache.lucene.document.SortedDocValuesField(fieldName, new BytesRef((String)value)));
+                }
+                break;
+            case INT:
+                document.add(new org.apache.lucene.document.IntPoint(fieldName, (Integer)value));
+                if (field.isSorted()) {
+                    document.add(new org.apache.lucene.document.NumericDocValuesField(fieldName, (Integer)value));
+                }
+                if (field.isStored()) {
+                    document.add(new org.apache.lucene.document.StoredField(fieldName, (Integer)value));
+                }
+                break;
+            case LONG:
+                document.add(new org.apache.lucene.document.LongPoint(fieldName, (Long)value));
+                if (field.isSorted()) {
+                    document.add(new org.apache.lucene.document.NumericDocValuesField(fieldName, (Long)value));
+                }
+                if (field.isStored()) {
+                    document.add(new org.apache.lucene.document.StoredField(fieldName, (Long)value));
+                }
+                break;
+            case DOUBLE:
+                document.add(new org.apache.lucene.document.DoublePoint(fieldName, (Double)value));
+                if (field.isSorted()) {
+                    document.add(new org.apache.lucene.document.NumericDocValuesField(fieldName, org.apache.lucene.util.NumericUtils.doubleToSortableLong((Double)value)));
+                }
+                if (field.isStored()) {
+                    document.add(new org.apache.lucene.document.StoredField(fieldName, (Double)value));
+                }
+                break;
+            case BOOLEAN:
+                byte[] bytes = Boolean.TRUE.equals(value) ? new byte[] {1} : new byte[] {0};  // Simplified
+                document.add(new org.apache.lucene.document.BinaryPoint(fieldName, bytes));
+                if (field.isSorted()) {
+                    document.add(new org.apache.lucene.document.SortedDocValuesField(fieldName, new BytesRef(bytes)));
+                }
+                if (field.isStored()) {
+                    document.add(new org.apache.lucene.document.StoredField(fieldName, bytes));
+                }
+                break;
+            default:
+                throw new IllegalArgumentException("Unsupported field type: " + field.getType());
+        }
+    }
+
+    /**
+     * Convert protobuf DocumentField list back to LuceneDocumentFromRecord.DocumentField list.
+     */
+    private List<LuceneDocumentFromRecord.DocumentField> convertFromProtoFields(
+            @Nonnull List<LucenePendingWriteQueueProto.DocumentField> protoFields) {
+
+        List<LuceneDocumentFromRecord.DocumentField> fields = new ArrayList<>();
+        for (LucenePendingWriteQueueProto.DocumentField protoField : protoFields) {
+            String fieldName = protoField.getFieldName();
+            Object value;
+            LuceneIndexExpressions.DocumentFieldType fieldType;
+
+            // Determine the value and type based on which field is set
+            if (protoField.hasStringValue()) {
+                value = protoField.getStringValue();
+                // Default to TEXT for string values - the actual type will be determined by index definition
+                fieldType = LuceneIndexExpressions.DocumentFieldType.TEXT;
+            } else if (protoField.hasIntValue()) {
+                value = protoField.getIntValue();
+                fieldType = LuceneIndexExpressions.DocumentFieldType.INT;
+            } else if (protoField.hasLongValue()) {
+                value = protoField.getLongValue();
+                fieldType = LuceneIndexExpressions.DocumentFieldType.LONG;
+            } else if (protoField.hasDoubleValue()) {
+                value = protoField.getDoubleValue();
+                fieldType = LuceneIndexExpressions.DocumentFieldType.DOUBLE;
+            } else if (protoField.hasBooleanValue()) {
+                value = protoField.getBooleanValue();
+                fieldType = LuceneIndexExpressions.DocumentFieldType.BOOLEAN;
+            } else {
+                throw new IllegalStateException("DocumentField has no value set: " + fieldName);
+            }
+
+            // Create DocumentField - using basic constructor, will need to add field configuration if needed
+            LuceneDocumentFromRecord.DocumentField field =
+                    new LuceneDocumentFromRecord.DocumentField(fieldName, value, fieldType, false, false, null);
+            fields.add(field);
+        }
+
+        return fields;
     }
 
     /**

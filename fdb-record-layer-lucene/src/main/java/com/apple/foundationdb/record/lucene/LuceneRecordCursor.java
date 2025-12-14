@@ -447,7 +447,7 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
     }
 
     private synchronized IndexReader getIndexReader() throws IOException {
-        return FDBDirectoryManager.getManager(state).getIndexReader(groupingKey, partitionId);
+        return FDBDirectoryManager.getManager(state).getReadOnlyIndexReader(groupingKey, partitionId);
     }
 
     private void maybePerformScan() throws IOException {
