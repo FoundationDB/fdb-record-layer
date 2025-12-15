@@ -24,6 +24,10 @@ import com.apple.foundationdb.record.query.plan.cascades.PlanContext;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerPhase;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.events.InitiatePhasePlannerEvent;
+import com.apple.foundationdb.record.query.plan.cascades.events.InsertIntoMemoPlannerEvent;
+import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEvent;
+import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEventListeners;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
@@ -75,10 +79,8 @@ class CommandsTest {
     void testBreakCommand() throws IOException {
         outIn.write("break rule somerule BEGIN\nbreak list\ncont\n".getBytes(StandardCharsets.UTF_8));
 
-        StatsDebugger.withDebugger(
-                d -> d.onEvent(new Debugger.InitiatePlannerPhaseEvent(
-                        PlannerPhase.REWRITING, Reference.empty(), new ArrayDeque<>(), Debugger.Location.BEGIN))
-        );
+        PlannerEventListeners.dispatchEvent(new InitiatePhasePlannerEvent(
+                PlannerPhase.REWRITING, Reference.empty(), new ArrayDeque<>(), PlannerEvent.Location.BEGIN));
 
         terminal.writer().flush();
         assertThat(outputStream.toString()).contains(
@@ -93,10 +95,8 @@ class CommandsTest {
     void testCurrentCommand() throws IOException {
         outIn.write("current\ncont\n".getBytes(StandardCharsets.UTF_8));
 
-        StatsDebugger.withDebugger(
-                d -> d.onEvent(new Debugger.InitiatePlannerPhaseEvent(
-                        PlannerPhase.REWRITING, Reference.empty(), new ArrayDeque<>(), Debugger.Location.BEGIN))
-        );
+        PlannerEventListeners.dispatchEvent(new InitiatePhasePlannerEvent(
+                PlannerPhase.REWRITING, Reference.empty(), new ArrayDeque<>(), PlannerEvent.Location.BEGIN));
 
         terminal.writer().flush();
         assertThat(outputStream.toString()).contains(
@@ -111,18 +111,12 @@ class CommandsTest {
         final RelationalExpression exp1 = new SelectExpression(
                 LiteralValue.ofScalar(1), Collections.emptyList(), Collections.emptyList());
 
-        StatsDebugger.withDebugger(
-                d -> d.onEvent(new Debugger.InitiatePlannerPhaseEvent(
-                        PlannerPhase.REWRITING, Reference.empty(), new ArrayDeque<>(), Debugger.Location.BEGIN))
-        );
-        StatsDebugger.withDebugger(
-                d -> d.onEvent(new Debugger.InitiatePlannerPhaseEvent(
-                        PlannerPhase.REWRITING, Reference.empty(), new ArrayDeque<>(), Debugger.Location.END))
-        );
-        StatsDebugger.withDebugger(
-                d -> d.onEvent(Debugger.InsertIntoMemoEvent.newExp(exp1))
-        );
-        
+        PlannerEventListeners.dispatchEvent(new InitiatePhasePlannerEvent(
+                PlannerPhase.REWRITING, Reference.empty(), new ArrayDeque<>(), PlannerEvent.Location.BEGIN));
+        PlannerEventListeners.dispatchEvent(new InitiatePhasePlannerEvent(
+                PlannerPhase.REWRITING, Reference.empty(), new ArrayDeque<>(), PlannerEvent.Location.END));
+        PlannerEventListeners.dispatchEvent(InsertIntoMemoPlannerEvent.newExp(exp1));
+
         terminal.writer().flush();
         assertThat(outputStream.toString()).contains(
                 String.join(
@@ -152,10 +146,8 @@ class CommandsTest {
                 LiteralValue.ofScalar(2), Collections.emptyList(), Collections.emptyList());
         final Reference ref0 = Reference.initialOf(exp0, exp1);
 
-        StatsDebugger.withDebugger(
-                d -> d.onEvent(new Debugger.InitiatePlannerPhaseEvent(
-                        PlannerPhase.REWRITING, ref0, new ArrayDeque<>(), Debugger.Location.BEGIN))
-        );
+        PlannerEventListeners.dispatchEvent(new InitiatePhasePlannerEvent(
+                PlannerPhase.REWRITING, ref0, new ArrayDeque<>(), PlannerEvent.Location.BEGIN));
 
         terminal.writer().flush();
         assertThat(outputStream.toString()).contains(
@@ -172,11 +164,9 @@ class CommandsTest {
         final RelationalExpression exp1 = new SelectExpression(
                 LiteralValue.ofScalar(2), Collections.emptyList(), Collections.emptyList());
         final Reference ref0 = Reference.initialOf(exp0, exp1);
-        
-        StatsDebugger.withDebugger(
-                d -> d.onEvent(new Debugger.InitiatePlannerPhaseEvent(
-                        PlannerPhase.REWRITING, ref0, new ArrayDeque<>(), Debugger.Location.BEGIN))
-        );
+
+        PlannerEventListeners.dispatchEvent(new InitiatePhasePlannerEvent(
+                PlannerPhase.REWRITING, ref0, new ArrayDeque<>(), PlannerEvent.Location.BEGIN));
 
         terminal.writer().flush();
         assertThat(outputStream.toString()).contains(
@@ -193,10 +183,8 @@ class CommandsTest {
         final Reference ref0 = Reference.empty();
         final Quantifier qun = Quantifier.forEach(ref0);
 
-        StatsDebugger.withDebugger(
-                d -> d.onEvent(new Debugger.InitiatePlannerPhaseEvent(
-                        PlannerPhase.REWRITING, ref0, new ArrayDeque<>(), Debugger.Location.BEGIN))
-        );
+        PlannerEventListeners.dispatchEvent(new InitiatePhasePlannerEvent(
+                PlannerPhase.REWRITING, ref0, new ArrayDeque<>(), PlannerEvent.Location.BEGIN));
 
         terminal.writer().flush();
         assertThat(outputStream.toString()).contains(
@@ -208,15 +196,14 @@ class CommandsTest {
     @Test
     void testRestartCommand() throws IOException {
         outIn.write("restart\n".getBytes(StandardCharsets.UTF_8));
-        final EventState eventStateBeforeRestart = debugger.getCurrentState();
-        final SymbolTables symbolStateBeforeRestart = debugger.getCurrentSymbolState();
+        final State initialStateBeforeRestart = debugger.getCurrentState();
 
-        assertThatThrownBy(() -> StatsDebugger.withDebugger(
-                d -> d.onEvent(new Debugger.InitiatePlannerPhaseEvent(
-                        PlannerPhase.REWRITING, Reference.empty(), new ArrayDeque<>(), Debugger.Location.BEGIN)))
+        assertThatThrownBy(
+                () -> PlannerEventListeners.dispatchEvent(
+                        new InitiatePhasePlannerEvent(
+                                PlannerPhase.REWRITING, Reference.empty(), new ArrayDeque<>(), PlannerEvent.Location.BEGIN))
         ).isInstanceOf(RestartException.class);
 
-        assertThat(debugger.getCurrentState()).isNotSameAs(eventStateBeforeRestart);
-        assertThat(debugger.getCurrentSymbolState()).isNotSameAs(symbolStateBeforeRestart);
+        assertThat(debugger.getCurrentState()).isNotSameAs(initialStateBeforeRestart);
     }
 }

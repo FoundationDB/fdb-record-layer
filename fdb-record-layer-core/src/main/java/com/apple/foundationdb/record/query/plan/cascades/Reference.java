@@ -24,9 +24,8 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.HeuristicPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
-import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger.InsertIntoMemoEvent;
-import com.apple.foundationdb.record.query.plan.cascades.debug.StatsDebugger;
-import com.apple.foundationdb.record.query.plan.cascades.debug.SymbolDebugger;
+import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEventListeners;
+import com.apple.foundationdb.record.query.plan.cascades.events.InsertIntoMemoPlannerEvent;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionWithChildren;
@@ -182,7 +181,7 @@ public class Reference implements Correlated<Reference>, Typed {
         finalExpressions.forEach(finalExpression -> propertiesMap.add(finalExpression));
         this.allMembersView = exploratoryMembers.concatExpressions(finalMembers);
         // Call debugger hook for this new reference.
-        SymbolDebugger.registerReference(this);
+        Debugger.registerReference(this);
     }
 
     @Nonnull
@@ -362,7 +361,7 @@ public class Reference implements Correlated<Reference>, Typed {
                                  final boolean isFinal,
                                  @Nullable final Map<ExpressionProperty<?>, ?> precomputedPropertiesMap) {
         // Call debugger hook to potentially register this new expression.
-        SymbolDebugger.registerExpression(newExpression);
+        Debugger.registerExpression(newExpression);
 
         Debugger.sanityCheck(() -> Verify.verify(getTotalMembersSize() == 0 ||
                 getResultType().equals(newExpression.getResultType())));
@@ -632,7 +631,7 @@ public class Reference implements Correlated<Reference>, Typed {
 
     @Override
     public String toString() {
-        return SymbolDebugger.mapDebugger(debugger -> debugger.nameForObject(this) + "[" +
+        return Debugger.mapDebugger(debugger -> debugger.nameForObject(this) + "[" +
                         getAllMemberExpressions().stream()
                                 .map(debugger::nameForObject)
                                 .collect(Collectors.joining(",")) + "]")
@@ -861,8 +860,8 @@ public class Reference implements Correlated<Reference>, Typed {
                                @Nonnull final Collection<? extends RelationalExpression> exploratoryExpressions,
                                @Nonnull final Collection<? extends RelationalExpression> finalExpressions) {
         // Call debugger hook to potentially register this new expression.
-        exploratoryExpressions.forEach(SymbolDebugger::registerExpression);
-        finalExpressions.forEach(SymbolDebugger::registerExpression);
+        exploratoryExpressions.forEach(Debugger::registerExpression);
+        finalExpressions.forEach(Debugger::registerExpression);
 
         return new Reference(plannerStage, new LinkedIdentitySet<>(exploratoryExpressions),
                 new LinkedIdentitySet<>(finalExpressions));

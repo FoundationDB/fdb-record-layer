@@ -23,22 +23,18 @@ package com.apple.foundationdb.record.query.plan.cascades.debug;
 import com.apple.foundationdb.record.query.plan.cascades.PlanContext;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
-import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEvent;
 import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEventListeners;
 import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEventStatsCollector;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.google.common.base.Verify;
-import com.google.common.collect.ImmutableList;
-import com.google.protobuf.Message;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Collection;
-import java.util.Deque;
-import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.IntUnaryOperator;
 
 /**
  * <p>
@@ -46,15 +42,13 @@ import java.util.function.Function;
  * As the planner is currently single-threaded as per planning of a query, we keep an instance of an implementor of
  * this class in the thread-local. (per-thread singleton).
  * The main mean of communication with the debugger is the set of statics defined within this interface.
- * There are two interfaces that extend this interface which provides different debugging functionalities,
- * see {@link StatsDebugger} and {@link SymbolDebugger} for more details.
  * </p>
  * <p>
  * In order to enable debugging capabilities, clients should use {@link #setDebugger} which sets a debugger to be used
  * for the current thread. Once set, the planner starts interacting with the debugger in order to communicate important
  * state changes, like <em>begin of planning</em>, <em>end of planner</em>, etc.
  * </p>
- * <b>Certain debugger implementations should only be enabled in test cases, never in deployments</b>.
+ * <b>Debugging functionality should only be enabled in test cases, never in deployments</b>.
  * <p>
  * Clients using the debugger should never hold on/manage/use an instance of a debugger directly. Instead, clients
  * should use {@link #withDebugger} and {@link #mapDebugger} to invoke methods on the currently installed debugger.
@@ -64,7 +58,7 @@ import java.util.function.Function;
  * </p>
  */
 @SuppressWarnings("java:S1214")
-public interface Debugger {
+public interface Debugger extends PlannerEventListeners.Listener {
     /**
      * The thread local variable. This constructor by itself does not set anything within the thread locals of
      * the loading thread.
@@ -76,7 +70,19 @@ public interface Debugger {
      * @param debugger the new debugger
      */
     static void setDebugger(final Debugger debugger) {
+        if (THREAD_LOCAL.get() != null) {
+            PlannerEventListeners.removeListener(THREAD_LOCAL.get());
+        }
+        if (debugger == null) {
+            THREAD_LOCAL.remove();
+            return;
+        }
+
         THREAD_LOCAL.set(debugger);
+        PlannerEventListeners.addListener(debugger);
+
+        // If the debugger is enabled, event stats collection should also be enabled.
+        PlannerEventStatsCollector.enableDefaultStatsCollector();
     }
 
     @Nullable
@@ -156,12 +162,51 @@ public interface Debugger {
         withDebugger(debugger -> debugger.onShow(ref));
     }
 
+    static Optional<Integer> getIndexOptional(Class<?> clazz) {
+        return mapDebugger(debugger -> debugger.onGetIndex(clazz));
+    }
+
+    @Nonnull
+    @CanIgnoreReturnValue
+    static Optional<Integer> updateIndex(Class<?> clazz, IntUnaryOperator updateFn) {
+        return mapDebugger(debugger -> debugger.onUpdateIndex(clazz, updateFn));
+    }
+
+    static void registerExpression(RelationalExpression expression) {
+        withDebugger(debugger -> debugger.onRegisterExpression(expression));
+    }
+
+    static void registerReference(Reference reference) {
+        withDebugger(debugger -> debugger.onRegisterReference(reference));
+    }
+
+    static void registerQuantifier(Quantifier quantifier) {
+        withDebugger(debugger -> debugger.onRegisterQuantifier(quantifier));
+    }
+
+    static Optional<Integer> getOrRegisterSingleton(Object singleton) {
+        return mapDebugger(debugger -> debugger.onGetOrRegisterSingleton(singleton));
+    }
+
+    @Nullable
+    String nameForObject(@Nonnull Object object);
+
     @Nullable
     PlanContext getPlanContext();
 
     boolean isSane();
 
-    void onDone();
+    int onGetIndex(@Nonnull Class<?> clazz);
+
+    int onUpdateIndex(@Nonnull Class<?> clazz, @Nonnull IntUnaryOperator updateFn);
+
+    void onRegisterExpression(@Nonnull RelationalExpression expression);
+
+    void onRegisterReference(@Nonnull Reference reference);
+
+    void onRegisterQuantifier(@Nonnull Quantifier quantifier);
+
+    int onGetOrRegisterSingleton(@Nonnull Object singleton);
 
     void onInstall();
 

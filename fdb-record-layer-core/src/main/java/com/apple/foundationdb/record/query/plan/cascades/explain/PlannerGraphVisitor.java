@@ -26,7 +26,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.SimpleExpressionVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.Traversal;
 import com.apple.foundationdb.record.query.plan.cascades.debug.BrowserHelper;
-import com.apple.foundationdb.record.query.plan.cascades.debug.SymbolDebugger;
+import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.explain.GraphExporter.Cluster;
 import com.apple.foundationdb.record.query.plan.cascades.explain.GraphExporter.ComponentIdProvider;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph.Edge;
@@ -323,7 +323,7 @@ public class PlannerGraphVisitor implements SimpleExpressionVisitor<PlannerGraph
         return clusterMap.entrySet()
                 .stream()
                 .map(entry -> {
-                    final String label = SymbolDebugger.mapDebugger(debugger -> debugger.nameForObject(entry.getKey().getIdentity()))
+                    final String label = Debugger.mapDebugger(debugger -> debugger.nameForObject(entry.getKey().getIdentity()))
                             .orElse("group");
                     return new GroupCluster(label, entry.getValue());
                 })
@@ -509,7 +509,7 @@ public class PlannerGraphVisitor implements SimpleExpressionVisitor<PlannerGraph
                             .map(childGraph -> {
                                 final Node root = childGraph.getRoot();
                                 final Optional<String> debugNameOptional =
-                                        SymbolDebugger.mapDebugger(debugger -> {
+                                        Debugger.mapDebugger(debugger -> {
                                             if (root instanceof PlannerGraph.WithExpression) {
                                                 final PlannerGraph.WithExpression withExpression = (PlannerGraph.WithExpression)root;
                                                 @Nullable final RelationalExpression expression = withExpression.getExpression();

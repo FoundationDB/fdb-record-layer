@@ -1,5 +1,5 @@
 /*
- * SymbolState.java
+ * State.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -20,26 +20,29 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.debug;
 
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.events.eventprotos.PPlannerEvent;
+import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEvent;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.google.common.base.Verify;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 
-
-
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.IntUnaryOperator;
 
-/**
- * A class used by different implementations of {@link SymbolDebugger} to map different types of objects
- * during planning ({@link RelationalExpression}, {@link Reference}, {@link Quantifier}) to unique indices, which
- * is used to generate debugging-friendly names for these objects.
- */
-public class SymbolTables {
+@SuppressWarnings("PMD.SystemPrintln")
+public class State {
     @Nonnull
     private final Map<Class<?>, Integer> classToIndexMap;
     @Nonnull
@@ -50,7 +53,21 @@ public class SymbolTables {
     @Nonnull private final Cache<Integer, Quantifier> quantifierCache;
     @Nonnull private final Cache<Quantifier, Integer> invertedQuantifierCache;
 
-    public static SymbolTables copyOf(final SymbolTables source) {
+    @Nullable private final List<PlannerEvent> events;
+    @Nullable private final List<PPlannerEvent> eventProtos;
+    @Nullable private final Iterable<PPlannerEvent> prerecordedEventProtoIterable;
+    @Nullable private Iterator<PPlannerEvent> prerecordedEventProtoIterator;
+
+
+    private int currentTick;
+    private final long startTs;
+
+    public static State initial(final boolean isRecordEvents, final boolean isRecordEventProtos,
+                                @Nullable Iterable<PPlannerEvent> prerecordedEventProtoIterable) {
+        return new State(isRecordEvents, isRecordEventProtos, prerecordedEventProtoIterable);
+    }
+
+    public static State copyOf(final State source) {
         final Cache<Integer, RelationalExpression> copyExpressionCache = CacheBuilder.newBuilder().weakValues().build();
         source.getExpressionCache().asMap().forEach(copyExpressionCache::put);
         final Cache<RelationalExpression, Integer> copyInvertedExpressionsCache = CacheBuilder.newBuilder().weakKeys().build();
@@ -64,32 +81,48 @@ public class SymbolTables {
         final Cache<Quantifier, Integer> copyInvertedQuantifierCache = CacheBuilder.newBuilder().weakKeys().build();
         source.getInvertedQuantifierCache().asMap().forEach(copyInvertedQuantifierCache::put);
 
-        return new SymbolTables(source.getClassToIndexMap(),
+        return new State(source.getClassToIndexMap(),
                 copyExpressionCache,
                 copyInvertedExpressionsCache,
                 copyReferenceCache,
                 copyInvertedReferenceCache,
                 copyQuantifierCache,
-                copyInvertedQuantifierCache);
+                copyInvertedQuantifierCache,
+                source.events == null ? null : Lists.newArrayList(source.events),
+                source.eventProtos == null ? null : Lists.newArrayList(source.eventProtos),
+                source.prerecordedEventProtoIterable,
+                source.getCurrentTick(),
+                source.getStartTs());
     }
 
-    public SymbolTables() {
-        classToIndexMap = Maps.newHashMap();
-        expressionCache = CacheBuilder.newBuilder().weakValues().build();
-        invertedExpressionsCache =  CacheBuilder.newBuilder().weakKeys().build();
-        referenceCache = CacheBuilder.newBuilder().weakValues().build();
-        invertedReferenceCache = CacheBuilder.newBuilder().weakKeys().build();
-        quantifierCache = CacheBuilder.newBuilder().weakValues().build();
-        invertedQuantifierCache = CacheBuilder.newBuilder().weakKeys().build();
+    private State(final boolean isRecordEvents, final boolean isRecordEventProtos,
+                  @Nullable final Iterable<PPlannerEvent> prerecordedEventProtoIterable) {
+        this(Maps.newHashMap(),
+                CacheBuilder.newBuilder().weakValues().build(),
+                CacheBuilder.newBuilder().weakKeys().build(),
+                CacheBuilder.newBuilder().weakValues().build(),
+                CacheBuilder.newBuilder().weakKeys().build(),
+                CacheBuilder.newBuilder().weakValues().build(),
+                CacheBuilder.newBuilder().weakKeys().build(),
+                isRecordEventProtos ? Lists.newArrayList() : null,
+                isRecordEvents ? Lists.newArrayList() : null,
+                prerecordedEventProtoIterable,
+                -1,
+                System.nanoTime());
     }
 
-    private SymbolTables(@Nonnull final Map<Class<?>, Integer> classToIndexMap,
-                         @Nonnull final Cache<Integer, RelationalExpression> expressionCache,
-                         @Nonnull final Cache<RelationalExpression, Integer> invertedExpressionsCache,
-                         @Nonnull final Cache<Integer, Reference> referenceCache,
-                         @Nonnull final Cache<Reference, Integer> invertedReferenceCache,
-                         @Nonnull final Cache<Integer, Quantifier> quantifierCache,
-                         @Nonnull final Cache<Quantifier, Integer> invertedQuantifierCache) {
+    private State(@Nonnull final Map<Class<?>, Integer> classToIndexMap,
+                  @Nonnull final Cache<Integer, RelationalExpression> expressionCache,
+                  @Nonnull final Cache<RelationalExpression, Integer> invertedExpressionsCache,
+                  @Nonnull final Cache<Integer, Reference> referenceCache,
+                  @Nonnull final Cache<Reference, Integer> invertedReferenceCache,
+                  @Nonnull final Cache<Integer, Quantifier> quantifierCache,
+                  @Nonnull final Cache<Quantifier, Integer> invertedQuantifierCache,
+                  @Nullable final List<PlannerEvent> events,
+                  @Nullable final List<PPlannerEvent> eventProtos,
+                  @Nullable final Iterable<PPlannerEvent> prerecordedEventProtoIterable,
+                  final int currentTick,
+                  final long startTs) {
         this.classToIndexMap = Maps.newHashMap(classToIndexMap);
         this.expressionCache = expressionCache;
         this.invertedExpressionsCache = invertedExpressionsCache;
@@ -97,6 +130,13 @@ public class SymbolTables {
         this.invertedReferenceCache = invertedReferenceCache;
         this.quantifierCache = quantifierCache;
         this.invertedQuantifierCache = invertedQuantifierCache;
+        this.events = events;
+        this.eventProtos = eventProtos;
+        this.prerecordedEventProtoIterable = prerecordedEventProtoIterable;
+        this.prerecordedEventProtoIterator = prerecordedEventProtoIterable == null
+                                             ? null : prerecordedEventProtoIterable.iterator();
+        this.currentTick = currentTick;
+        this.startTs = startTs;
     }
 
     @Nonnull
@@ -134,6 +174,28 @@ public class SymbolTables {
         return invertedQuantifierCache;
     }
 
+    @Nullable
+    public List<PlannerEvent> getEvents() {
+        return events;
+    }
+
+    @Nullable
+    public List<PPlannerEvent> getEventProtos() {
+        return eventProtos;
+    }
+
+    @Nullable
+    public Iterator<PPlannerEvent> getPrerecordedEventProtoIterator() {
+        return prerecordedEventProtoIterator;
+    }
+
+    public int getCurrentTick() {
+        return currentTick;
+    }
+
+    public long getStartTs() {
+        return startTs;
+    }
 
     public int getIndex(final Class<?> clazz) {
         return classToIndexMap.getOrDefault(clazz, 0);
@@ -171,4 +233,44 @@ public class SymbolTables {
         }
     }
 
+    public void addCurrentEvent(@Nonnull final PlannerEvent event) {
+        if (events != null) {
+            events.add(event);
+        }
+        if (eventProtos != null || prerecordedEventProtoIterator != null) {
+            final var currentEventProto = event.toEventProto();
+            if (prerecordedEventProtoIterator != null) {
+                verifyCurrentEventProto(currentEventProto);
+            }
+            if (eventProtos != null) {
+                eventProtos.add(currentEventProto);
+            }
+        }
+
+        currentTick++;
+    }
+
+    private void verifyCurrentEventProto(final PPlannerEvent currentEventProto) {
+        Objects.requireNonNull(prerecordedEventProtoIterator);
+        Verify.verify(prerecordedEventProtoIterator.hasNext(),
+                "ran out of prerecorded events");
+        final var expectedProto = prerecordedEventProtoIterator.next();
+        if (!currentEventProto.equals(expectedProto)) {
+            System.err.println("Mismatch found between prerecorded event and this event!");
+            System.err.println("The following events prior to this event did match:");
+            if (eventProtos != null) {
+                for (int i = 0; i < eventProtos.size(); i++) {
+                    final var oldEventProto = eventProtos.get(i);
+                    System.err.println(i + ": " + oldEventProto.getDescription() + "; " + oldEventProto.getShorthand());
+                }
+            }
+
+            System.err.println();
+            System.err.println("The following event did not match:");
+            System.err.println("Expected: " + expectedProto);
+            System.err.println("Actual: " + currentEventProto);
+            prerecordedEventProtoIterator = null;
+            throw new RecordCoreException("Planning event does not match prerecorded event");
+        }
+    }
 }

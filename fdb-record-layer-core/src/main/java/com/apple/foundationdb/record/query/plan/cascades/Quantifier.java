@@ -25,7 +25,7 @@ import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.planprotos.PPhysicalQuantifier;
-import com.apple.foundationdb.record.query.plan.cascades.debug.SymbolDebugger;
+import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type.Record.Field;
@@ -619,7 +619,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
         this.flowedColumnsSupplier = Suppliers.memoize(this::computeFlowedColumns);
         this.flowedValuesSupplier = Suppliers.memoize(this::computeFlowedValues);
         // Call debugger hook for this new quantifier.
-        SymbolDebugger.registerQuantifier(this);
+        Debugger.registerQuantifier(this);
     }
 
     @Nonnull

@@ -23,14 +23,14 @@ package com.apple.foundationdb.record.query.plan.cascades.debug;
 import com.apple.foundationdb.record.query.plan.cascades.PlanContext;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerPhase;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
-import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
+import com.apple.foundationdb.record.query.plan.cascades.events.InitiatePhasePlannerEvent;
+import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEvent;
+import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEventListeners;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayDeque;
-import java.util.Collections;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -57,70 +57,26 @@ class DebuggerWithSymbolTablesTest {
 
     @Test
     void testOnQueryResetsState() {
-        final EventState initialEventState = debugger.getCurrentEventState();
-        final SymbolTables initialSymbolTables = debugger.getCurrentSymbolState();
+        final State initialState = debugger.getCurrentState();
 
-        StatsDebugger.withDebugger(d -> d.onQuery("SELECT * from B", PlanContext.EMPTY_CONTEXT));
+        Debugger.withDebugger(d -> d.onQuery("SELECT * from B", PlanContext.EMPTY_CONTEXT));
 
-        assertThat(debugger.getCurrentEventState()).isNotSameAs(initialEventState);
-        assertThat(debugger.getCurrentSymbolState()).isNotSameAs(initialSymbolTables);
-    }
-
-    @Test
-    void testOnEventUpdatesStatsMap() {
-        StatsDebugger.withDebugger(
-                d -> d.onEvent(new Debugger.InitiatePlannerPhaseEvent(
-                        PlannerPhase.REWRITING, Reference.empty(), new ArrayDeque<>(), Debugger.Location.BEGIN))
-        );
-        StatsDebugger.withDebugger(
-                d -> d.onEvent(new Debugger.InitiatePlannerPhaseEvent(
-                        PlannerPhase.REWRITING, Reference.empty(), new ArrayDeque<>(), Debugger.Location.END))
-        );
-        StatsDebugger.withDebugger(
-                d -> d.onEvent(new Debugger.InitiatePlannerPhaseEvent(
-                        PlannerPhase.PLANNING, Reference.empty(), new ArrayDeque<>(), Debugger.Location.BEGIN))
-        );
-        StatsDebugger.withDebugger(
-                d -> d.onEvent(new Debugger.InitiatePlannerPhaseEvent(
-                        PlannerPhase.PLANNING, Reference.empty(), new ArrayDeque<>(), Debugger.Location.END))
-        );
-        StatsDebugger.withDebugger(
-                d -> d.onEvent(Debugger.InsertIntoMemoEvent.newExp(
-                        new SelectExpression(LiteralValue.ofScalar(1), Collections.emptyList(), Collections.emptyList())))
-        );
-
-        assertThat(debugger.getStatsMaps()).isNotEmpty();
-        final StatsMaps statsMaps = debugger.getStatsMaps().get();
-        assertThat(statsMaps.getEventWithStateClassStatsMapByPlannerPhase(PlannerPhase.REWRITING))
-                .hasValueSatisfying(
-                        m -> assertThat(m).hasSize(1)
-                                .containsKey(Debugger.InitiatePlannerPhaseEvent.class)
-                );
-        assertThat(statsMaps.getEventWithStateClassStatsMapByPlannerPhase(PlannerPhase.PLANNING))
-                .hasValueSatisfying(
-                        m -> assertThat(m).hasSize(1)
-                                .containsKey(Debugger.InitiatePlannerPhaseEvent.class)
-                );
-        assertThat(debugger.getStatsMaps().get().getEventWithoutStateClassStatsMap()).hasSize(1)
-                .containsKey(Debugger.InsertIntoMemoEvent.class);
+        assertThat(debugger.getCurrentState()).isNotSameAs(initialState);
     }
 
     @Test
     void testDebuggerWithEventRecording() {
-        debugger = DebuggerWithSymbolTables.withRerecordEvents();
+        debugger = DebuggerWithSymbolTables.withEventRecording();
         setupDebugger();
+        final var beginEvent = new InitiatePhasePlannerEvent(
+                PlannerPhase.REWRITING, Reference.empty(), new ArrayDeque<>(), PlannerEvent.Location.BEGIN);
+        final var endEvent = new InitiatePhasePlannerEvent(
+                PlannerPhase.REWRITING, Reference.empty(), new ArrayDeque<>(), PlannerEvent.Location.END);
 
-        StatsDebugger.withDebugger(
-                d -> d.onEvent(new Debugger.InitiatePlannerPhaseEvent(
-                        PlannerPhase.REWRITING, Reference.empty(), new ArrayDeque<>(), Debugger.Location.BEGIN))
-        );
-        StatsDebugger.withDebugger(
-                d -> d.onEvent(new Debugger.InitiatePlannerPhaseEvent(
-                        PlannerPhase.REWRITING, Reference.empty(), new ArrayDeque<>(), Debugger.Location.END))
-        );
+        PlannerEventListeners.dispatchEvent(beginEvent);
+        PlannerEventListeners.dispatchEvent(endEvent);
 
-        assertThat(debugger.getCurrentEventState().getEvents()).hasSize(2);
-        assertThat(debugger.getCurrentEventState().getEventProtos()).hasSize(2);
+        assertThat(debugger.getCurrentState().getEvents()).hasSize(2).containsExactly(beginEvent, endEvent);
     }
 
     @Test
@@ -133,13 +89,11 @@ class DebuggerWithSymbolTablesTest {
     }
 
     @Test
-    void testOnDoneResetsEventState() {
-        final EventState initialEventState = debugger.getCurrentEventState();
-        final SymbolTables initialSymbolTables = debugger.getCurrentSymbolState();
+    void testOnDoneResetsState() {
+        final State initialState = debugger.getCurrentState();
 
-        StatsDebugger.withDebugger(Debugger::onDone);
+        Debugger.withDebugger(Debugger::onDone);
 
-        assertThat(debugger.getCurrentEventState()).isNotSameAs(initialEventState);
-        assertThat(debugger.getCurrentSymbolState()).isNotSameAs(initialSymbolTables);
+        assertThat(debugger.getCurrentState()).isNotSameAs(initialState);
     }
 }
