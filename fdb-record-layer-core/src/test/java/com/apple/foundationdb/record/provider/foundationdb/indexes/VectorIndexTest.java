@@ -578,7 +578,6 @@ class VectorIndexTest extends VectorIndexTestBase {
                     .setState(ExecuteState.NO_LIMITS)
                     .setReturnedRowLimit(Integer.MAX_VALUE).build().asScanProperties(false);
 
-
             try (final RecordCursor<IndexEntry> cursor =
                          indexMaintainer.scan(vectorIndexScanComparisons.bind(recordStore, index,
                                  EvaluationContext.empty()), null, scanProperties)) {

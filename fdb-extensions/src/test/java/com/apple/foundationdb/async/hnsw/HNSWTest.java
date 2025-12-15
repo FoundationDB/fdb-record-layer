@@ -228,7 +228,7 @@ class HNSWTest {
 
     static Stream<Arguments> randomSeedsWithConfig() {
         return RandomizedTestUtils.randomSeeds(0xdeadc0deL)
-                .flatMap(seed -> Sets.cartesianProduct(ImmutableSet.of(false, true),
+                .flatMap(seed -> Sets.cartesianProduct(ImmutableSet.of(true, false),
                                 ImmutableSet.of(false, true),
                                 ImmutableSet.of(false, true),
                                 ImmutableSet.of(false, true)).stream()
@@ -846,7 +846,7 @@ class HNSWTest {
 
                 final HNSWTest hnswTest = (HNSWTest)context.getRequiredTestInstance();
                 final Config config = (Config)args.get(1);
-                logger.error("dumping contents of HNSW to disk");
+                logger.error("dumping contents of HNSW to {}", hnswTest.tempDir.toString());
                 dumpLayers(hnswTest, config);
             } else {
                 logger.error("test failed with no parameterized arguments (non-parameterized test or older JUnit).");

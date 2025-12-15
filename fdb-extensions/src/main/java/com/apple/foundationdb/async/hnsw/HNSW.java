@@ -26,7 +26,6 @@ import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
-import com.apple.foundationdb.linear.AffineOperator;
 import com.apple.foundationdb.linear.Estimator;
 import com.apple.foundationdb.linear.FhtKacRotator;
 import com.apple.foundationdb.linear.Metric;
@@ -311,7 +310,7 @@ public class HNSW {
     private <N extends NodeReference> CompletableFuture<ImmutableList<ResultEntry>>
             searchFinalLayer(@Nonnull final StorageAdapter<N> storageAdapter,
                              final @Nonnull ReadTransaction readTransaction,
-                             @Nonnull final AffineOperator storageTransform,
+                             @Nonnull final StorageTransform storageTransform,
                              @Nonnull final Estimator estimator,
                              final int k,
                              final int efSearch,
@@ -327,7 +326,7 @@ public class HNSW {
 
     @Nonnull
     private <N extends NodeReference> ImmutableList<ResultEntry>
-            postProcessNearestNeighbors(@Nonnull final AffineOperator storageTransform,  final int k,
+            postProcessNearestNeighbors(@Nonnull final StorageTransform storageTransform,  final int k,
                                         @Nonnull final List<? extends NodeReferenceAndNode<NodeReferenceWithDistance, N>> nearestNeighbors,
                                         final boolean includeVectors) {
         final int lastIndex = Math.max(nearestNeighbors.size() - k, 0);
@@ -398,6 +397,10 @@ public class HNSW {
                                                                                    @Nonnull final NodeReferenceWithDistance nodeReferenceWithDistance,
                                                                                    final int layer,
                                                                                    @Nonnull final Transformed<RealVector> queryVector) {
+        final NodeFactory<NodeReferenceWithVector> nodeFactory = storageAdapter.getNodeFactory();
+        final Map<Tuple, AbstractNode<NodeReferenceWithVector>> nodeCache = Maps.newHashMap();
+        final Map<Tuple, AbstractNode<NodeReferenceWithVector>> updatedNodes = Maps.newHashMap();
+
         final AtomicReference<NodeReferenceWithDistance> nearestNodeReferenceAtomic =
                 new AtomicReference<>(null);
 
@@ -408,55 +411,84 @@ public class HNSW {
                         Comparator.comparing(NodeReferenceWithDistance::getDistance));
         candidates.add(nodeReferenceWithDistance);
 
-        return AsyncUtil.whileTrue(() -> onReadListener.onAsyncRead(
-                        storageAdapter.fetchNode(readTransaction, storageTransform, layer,
-                                Objects.requireNonNull(candidates.peek()).getPrimaryKey()))
-                .thenCompose(node -> {
-                    if (node == null) {
-                        //
-                        // This cannot happen under normal circumstances as the storage adapter returns a node with no
-                        // neighbors if it already has been deleted. Therefore, it is correct to throw here.
-                        //
-                        throw new IllegalStateException("unable to fetch node");
-                    }
-                    final InliningNode candidateNode = node.asInliningNode();
-                    final List<NodeReferenceWithVector> neighbors = candidateNode.getNeighbors();
+        return AsyncUtil.whileTrue(() -> {
+            final NodeReferenceWithDistance candidateReference = Objects.requireNonNull(candidates.poll());
+            return onReadListener.onAsyncRead(
+                            fetchNodeIfNotCached(storageAdapter, readTransaction, storageTransform, layer,
+                                    candidateReference, nodeCache))
+                    .thenCompose(node -> {
+                        if (node == null) {
+                            //
+                            // This cannot happen under normal circumstances as the storage adapter returns a node with no
+                            // neighbors if it already has been deleted. Therefore, it is correct to throw here.
+                            //
+                            throw new IllegalStateException("unable to fetch node");
+                        }
+                        final InliningNode candidateNode = node.asInliningNode();
+                        final List<NodeReferenceWithVector> neighbors = candidateNode.getNeighbors();
 
-                    if (neighbors.isEmpty()) {
-                        // If there are no neighbors, we either really have no neighbor on this level anymore and the
-                        // node does exist (on layer 0), or not.
-                        return exists(readTransaction, node.getPrimaryKey())
-                                .thenApply(nodeExists -> nodeExists ? candidateNode : null);
-                    } else {
-                        return CompletableFuture.completedFuture(candidateNode);
-                    }
-                })
-                .thenApply(candidateNode -> {
-                    final NodeReferenceWithDistance candidateReference = Objects.requireNonNull(candidates.poll());
-                    if (candidateNode != null) {
-                        //
-                        // This node definitely does exist. And it's the nearest one.
-                        //
-                        nearestNodeReferenceAtomic.set(candidateReference);
-                        candidates.clear();
+                        if (!neighbors.isEmpty()) {
+                            return CompletableFuture.completedFuture(candidateNode);
+                        }
 
-                        //
-                        // Find some new candidates.
-                        //
-                        double minDistance = candidateReference.getDistance();
+                        if (updatedNodes.containsKey(candidateReference.getPrimaryKey())) {
+                            return CompletableFuture.completedFuture(updatedNodes.get(candidateReference.getPrimaryKey()));
+                        }
 
-                        for (final NodeReferenceWithVector neighbor : candidateNode.getNeighbors()) {
-                            final double distance =
-                                    estimator.distance(neighbor.getVector(), queryVector);
-                            if (distance < minDistance) {
-                                candidates.add(
-                                        new NodeReferenceWithDistance(neighbor.getPrimaryKey(), neighbor.getVector(),
-                                                distance));
+                        return fetchBaseNode(readTransaction, storageTransform, candidateReference.getPrimaryKey())
+                                .thenApply(baseCompactNode -> {
+                                    if (baseCompactNode == null) {
+                                        // node does not exist on layer 0
+                                        return null;
+                                    }
+
+                                    //
+                                    // Node does still exist or an updated version exists -- create new reference
+                                    // and push it back into the queue
+                                    //
+                                    final Transformed<RealVector> baseVector = baseCompactNode.getVector();
+
+                                    final double distance =
+                                            estimator.distance(baseVector, queryVector);
+
+                                    final NodeReferenceWithDistance updatedNodeReference =
+                                            new NodeReferenceWithDistance(baseCompactNode.getPrimaryKey(),
+                                                    baseVector,
+                                                    distance);
+                                    candidates.add(updatedNodeReference);
+                                    updatedNodes.put(candidateReference.getPrimaryKey(),
+                                            nodeFactory.create(candidateReference.getPrimaryKey(),
+                                                    baseCompactNode.getVector(), candidateNode.getNeighbors()));
+                                    return null;
+                                });
+
+                    })
+                    .thenApply(candidateNode -> {
+                        if (candidateNode != null) {
+                            //
+                            // This node definitely does exist. And it's the nearest one.
+                            //
+                            nearestNodeReferenceAtomic.set(candidateReference);
+                            candidates.clear();
+
+                            //
+                            // Find some new candidates.
+                            //
+                            double minDistance = candidateReference.getDistance();
+
+                            for (final NodeReferenceWithVector neighbor : candidateNode.getNeighbors()) {
+                                final double distance =
+                                        estimator.distance(neighbor.getVector(), queryVector);
+                                if (distance < minDistance) {
+                                    candidates.add(
+                                            new NodeReferenceWithDistance(neighbor.getPrimaryKey(), neighbor.getVector(),
+                                                    distance));
+                                }
                             }
                         }
-                    }
-                    return !candidates.isEmpty();
-                }), executor).thenApply(ignored -> nearestNodeReferenceAtomic.get());
+                        return !candidates.isEmpty();
+                    });
+        }, executor).thenApply(ignored -> nearestNodeReferenceAtomic.get());
     }
 
     /**
@@ -493,7 +525,7 @@ public class HNSW {
     private <N extends NodeReference> CompletableFuture<List<NodeReferenceAndNode<NodeReferenceWithDistance, N>>>
             searchLayer(@Nonnull final StorageAdapter<N> storageAdapter,
                         @Nonnull final ReadTransaction readTransaction,
-                        @Nonnull final AffineOperator storageTransform,
+                        @Nonnull final StorageTransform storageTransform,
                         @Nonnull final Estimator estimator,
                         @Nonnull final Collection<NodeReferenceWithDistance> nodeReferences,
                         final int layer,
@@ -601,8 +633,7 @@ public class HNSW {
      * fetched from the underlying storage using the {@code storageAdapter}. Once fetched, the node
      * is added to the {@code nodeCache} before the future is completed.
      * <p>
-     * This is a convenience method that delegates to
-     * {@link #fetchNodeIfNecessaryAndApply(StorageAdapter, ReadTransaction, AffineOperator, int, NodeReference, Function, BiFunction)}.
+     * This is a convenience method that delegates to {@link #fetchNodeIfNecessaryAndApply}.
      *
      * @param <N> the type of the node reference, which must extend {@link NodeReference}
      * @param storageAdapter the storage adapter used to fetch the node from persistent storage
@@ -619,7 +650,7 @@ public class HNSW {
     private <N extends NodeReference> CompletableFuture<AbstractNode<N>>
             fetchNodeIfNotCached(@Nonnull final StorageAdapter<N> storageAdapter,
                                  @Nonnull final ReadTransaction readTransaction,
-                                 @Nonnull final AffineOperator storageTransform,
+                                 @Nonnull final StorageTransform storageTransform,
                                  final int layer,
                                  @Nonnull final NodeReference nodeReference,
                                  @Nonnull final Map<Tuple, AbstractNode<N>> nodeCache) {
@@ -668,7 +699,7 @@ public class HNSW {
     private <R extends NodeReference, N extends NodeReference, U> CompletableFuture<U>
             fetchNodeIfNecessaryAndApply(@Nonnull final StorageAdapter<N> storageAdapter,
                                          @Nonnull final ReadTransaction readTransaction,
-                                         @Nonnull final AffineOperator storageTransform,
+                                         @Nonnull final StorageTransform storageTransform,
                                          final int layer,
                                          @Nonnull final R nodeReference,
                                          @Nonnull final Function<R, U> fetchBypassFunction,
@@ -710,7 +741,7 @@ public class HNSW {
     private <N extends NodeReference> CompletableFuture<List<NodeReferenceWithVector>>
             fetchNeighborhoodReferences(@Nonnull final StorageAdapter<N> storageAdapter,
                                         @Nonnull final ReadTransaction readTransaction,
-                                        @Nonnull final AffineOperator storageTransform,
+                                        @Nonnull final StorageTransform storageTransform,
                                         final int layer,
                                         @Nonnull final Iterable<? extends NodeReference> neighborReferences,
                                         @Nonnull final Map<Tuple, AbstractNode<N>> nodeCache) {
@@ -769,7 +800,7 @@ public class HNSW {
     private <T extends NodeReferenceWithVector, N extends NodeReference> CompletableFuture<List<NodeReferenceAndNode<T, N>>>
             fetchSomeNodesIfNotCached(@Nonnull final StorageAdapter<N> storageAdapter,
                                       @Nonnull final ReadTransaction readTransaction,
-                                      @Nonnull final AffineOperator storageTransform,
+                                      @Nonnull final StorageTransform storageTransform,
                                       final int layer,
                                       @Nonnull final Iterable<T> nodeReferences,
                                       @Nonnull final Map<Tuple, AbstractNode<N>> nodeCache) {
@@ -821,7 +852,7 @@ public class HNSW {
     private <R extends NodeReference, N extends NodeReference, U> CompletableFuture<List<U>>
             fetchSomeNodesAndApply(@Nonnull final StorageAdapter<N> storageAdapter,
                                    @Nonnull final ReadTransaction readTransaction,
-                                   @Nonnull final AffineOperator storageTransform,
+                                   @Nonnull final StorageTransform storageTransform,
                                    final int layer,
                                    @Nonnull final Iterable<R> nodeReferences,
                                    @Nonnull final Function<R, U> fetchBypassFunction,
@@ -954,19 +985,36 @@ public class HNSW {
     }
 
     @Nonnull
-    private <T extends NodeReferenceWithVector, N extends NodeReference> CompletableFuture<List<NodeReferenceAndNode<T, N>>>
+    private <N extends NodeReference> CompletableFuture<List<NodeReferenceAndNode<NodeReferenceWithVector, N>>>
             filterExisting(@Nonnull final StorageAdapter<N> storageAdapter,
                            @Nonnull final ReadTransaction readTransaction,
-                           @Nonnull final Iterable<NodeReferenceAndNode<T, N>> nodeReferenceAndNodes) {
+                           @Nonnull final StorageTransform storageTransform,
+                           @Nonnull final Iterable<NodeReferenceAndNode<NodeReferenceWithVector, N>> nodeReferenceAndNodes) {
         if (!storageAdapter.isInliningStorageAdapter()) {
             return CompletableFuture.completedFuture(ImmutableList.copyOf(nodeReferenceAndNodes));
         }
 
         return forEach(nodeReferenceAndNodes,
                 nodeReferenceAndNode -> {
-                    if (nodeReferenceAndNode.getNode().getNeighbors().isEmpty()) {
-                        return exists(readTransaction, nodeReferenceAndNode.getNodeReference().getPrimaryKey())
-                                .thenApply(nodeExists -> nodeExists ? nodeReferenceAndNode : null);
+                    final AbstractNode<N> node = nodeReferenceAndNode.getNode();
+                    if (node.getNeighbors().isEmpty()) {
+                        final NodeReferenceWithVector nodeReference = nodeReferenceAndNode.getNodeReference();
+                        return fetchBaseNode(readTransaction, storageTransform, nodeReference.getPrimaryKey())
+                                .thenApply(baseCompactNode -> {
+                                    if (baseCompactNode == null) {
+                                        return null;
+                                    }
+
+                                    //
+                                    // The node does exist on layer 0, the base node is a compact node, and we can
+                                    // use its vector going forward. This may be necessary if this is a dangling
+                                    // reference and the record has been reinserted after deletion.
+                                    //
+                                    final NodeReferenceWithVector updatedNodeReference =
+                                            new NodeReferenceWithVector(baseCompactNode.getPrimaryKey(),
+                                                    baseCompactNode.getVector());
+                                    return new NodeReferenceAndNode<>(updatedNodeReference, node);
+                                });
                     } else {
                         // this node has neighbors -- it must exist
                         return CompletableFuture.completedFuture(nodeReferenceAndNode);
@@ -975,8 +1023,9 @@ public class HNSW {
                 getConfig().getMaxNumConcurrentNodeFetches(),
                 getExecutor())
                 .thenApply(results -> {
-                    final ImmutableList.Builder<NodeReferenceAndNode<T, N>> filteredListBuilder = ImmutableList.builder();
-                    for (final NodeReferenceAndNode<T, N> result : results) {
+                    final ImmutableList.Builder<NodeReferenceAndNode<NodeReferenceWithVector, N>> filteredListBuilder =
+                            ImmutableList.builder();
+                    for (final NodeReferenceAndNode<NodeReferenceWithVector, N> result : results) {
                         if (result != null) {
                             filteredListBuilder.add(result);
                         }
@@ -986,17 +1035,29 @@ public class HNSW {
     }
 
     @Nonnull
-    @VisibleForTesting
-    CompletableFuture<Boolean> exists(@Nonnull final ReadTransaction readTransaction,
-                                      @Nonnull final Tuple primaryKey) {
+    private CompletableFuture<Boolean> exists(@Nonnull final ReadTransaction readTransaction,
+                                              @Nonnull final Tuple primaryKey) {
+        //
+        // Call fetchBaseNode() to check for the node's existence; we are handing in the identity operator,
+        // since we do not care about the vector itself at all.
+        //
+        return fetchBaseNode(readTransaction, StorageTransform.identity(), primaryKey)
+                .thenApply(Objects::nonNull);
+    }
+
+    @Nonnull
+    private CompletableFuture<CompactNode> fetchBaseNode(@Nonnull final ReadTransaction readTransaction,
+                                                         @Nonnull final StorageTransform storageTransform,
+                                                         @Nonnull final Tuple primaryKey) {
         final StorageAdapter<? extends NodeReference> storageAdapter = getStorageAdapterForLayer(0);
 
-        //
-        // Call fetchNode() to check for the node's existence; we are handing in the identity operator, since we don't
-        // care about the vector itself at all.
-        //
-        return storageAdapter.fetchNode(readTransaction, AffineOperator.identity(), 0, primaryKey)
-                .thenApply(Objects::nonNull);
+        return storageAdapter.fetchNode(readTransaction, storageTransform, 0, primaryKey)
+                .thenApply(node -> {
+                    if (node == null) {
+                        return null;
+                    }
+                    return node.asCompactNode();
+                });
     }
 
     /**
@@ -1103,7 +1164,7 @@ public class HNSW {
      * This method implements the second phase of the HNSW insertion algorithm. It begins at a starting layer, which is
      * the minimum of the graph's maximum layer ({@code lMax}) and the new node's randomly assigned
      * {@code layer}. It then iterates downwards to layer 0. In each layer, it invokes
-     * {@link #insertIntoLayer(StorageAdapter, Transaction, AffineOperator, Quantizer, List, int, Tuple, Transformed)}
+     * {@link #insertIntoLayer(StorageAdapter, Transaction, StorageTransform, Quantizer, List, int, Tuple, Transformed)}
      * to perform the search and connect the new node. The set of nearest neighbors found at layer {@code L} serves as
      * the entry points for the search at layer {@code L-1}.
      * </p>
@@ -1125,7 +1186,7 @@ public class HNSW {
      */
     @Nonnull
     private CompletableFuture<Void> insertIntoLayers(@Nonnull final Transaction transaction,
-                                                     @Nonnull final AffineOperator storageTransform,
+                                                     @Nonnull final StorageTransform storageTransform,
                                                      @Nonnull final Quantizer quantizer,
                                                      @Nonnull final Tuple newPrimaryKey,
                                                      @Nonnull final Transformed<RealVector> newVector,
@@ -1186,7 +1247,7 @@ public class HNSW {
     private <N extends NodeReference> CompletableFuture<List<NodeReferenceAndNode<NodeReferenceWithDistance, N>>>
             insertIntoLayer(@Nonnull final StorageAdapter<N> storageAdapter,
                             @Nonnull final Transaction transaction,
-                            @Nonnull final AffineOperator storageTransform,
+                            @Nonnull final StorageTransform storageTransform,
                             @Nonnull final Quantizer quantizer,
                             @Nonnull final List<NodeReferenceWithDistance> nearestNeighbors,
                             final int layer,
@@ -1367,7 +1428,7 @@ public class HNSW {
     private <N extends NodeReference> CompletableFuture<List<NodeReferenceAndNode<NodeReferenceWithDistance, N>>>
             pruneNeighborsIfNecessary(@Nonnull final StorageAdapter<N> storageAdapter,
                                       @Nonnull final Transaction transaction,
-                                      @Nonnull final AffineOperator storageTransform,
+                                      @Nonnull final StorageTransform storageTransform,
                                       @Nonnull final Estimator estimator,
                                       final int layer,
                                       @Nonnull final NodeReferenceWithVector nodeReferenceWithVector,
@@ -1437,7 +1498,7 @@ public class HNSW {
     private <N extends NodeReference> CompletableFuture<List<NodeReferenceAndNode<NodeReferenceWithDistance, N>>>
             selectCandidates(@Nonnull final StorageAdapter<N> storageAdapter,
                              @Nonnull final ReadTransaction readTransaction,
-                             @Nonnull final AffineOperator storageTransform,
+                             @Nonnull final StorageTransform storageTransform,
                              @Nonnull final Estimator estimator,
                              @Nonnull final Iterable<NodeReferenceWithDistance> initialCandidates,
                              final int layer,
@@ -1526,7 +1587,7 @@ public class HNSW {
     private <N extends NodeReference> CompletableFuture<List<NodeReferenceWithDistance>>
             extendCandidatesIfNecessary(@Nonnull final StorageAdapter<N> storageAdapter,
                                         @Nonnull final ReadTransaction readTransaction,
-                                        @Nonnull final AffineOperator storageTransform,
+                                        @Nonnull final StorageTransform storageTransform,
                                         @Nonnull final Estimator estimator,
                                         @Nonnull final Collection<NodeReferenceAndNode<NodeReferenceWithDistance, N>> candidates,
                                         final int layer,
@@ -1578,7 +1639,7 @@ public class HNSW {
     private <T extends NodeReference, N extends NodeReference> CompletableFuture<List<NodeReferenceAndNode<NodeReferenceWithVector, N>>>
             neighbors(@Nonnull final StorageAdapter<N> storageAdapter,
                       @Nonnull final ReadTransaction readTransaction,
-                      @Nonnull final AffineOperator storageTransform,
+                      @Nonnull final StorageTransform storageTransform,
                       @Nonnull final SplittableRandom random,
                       @Nonnull final Collection<NodeReferenceAndNode<T, N>> initialNodeReferenceAndNodes,
                       @Nonnull final CandidatePredicate samplingPredicate,
@@ -1590,7 +1651,7 @@ public class HNSW {
                         fetchSomeNodesIfNotCached(storageAdapter, readTransaction, storageTransform, layer,
                                 neighbors, nodeCache))
                 .thenCompose(neighbors ->
-                        filterExisting(storageAdapter, readTransaction, neighbors));
+                        filterExisting(storageAdapter, readTransaction, storageTransform, neighbors));
     }
 
     /**
@@ -1615,7 +1676,7 @@ public class HNSW {
     private <T extends NodeReference, N extends NodeReference> CompletableFuture<List<NodeReferenceWithVector>>
             neighborReferences(@Nonnull final StorageAdapter<N> storageAdapter,
                                @Nonnull final ReadTransaction readTransaction,
-                               @Nonnull final AffineOperator storageTransform,
+                               @Nonnull final StorageTransform storageTransform,
                                @Nullable final SplittableRandom random,
                                @Nonnull final Collection<NodeReferenceAndNode<T, N>> initialNodeReferenceAndNodes,
                                @Nonnull final CandidatePredicate samplingPredicate,
@@ -1826,7 +1887,7 @@ public class HNSW {
      */
     @Nonnull
     private CompletableFuture<List<EntryNodeReference>> deleteFromLayers(@Nonnull final Transaction transaction,
-                                                                         @Nonnull final AffineOperator storageTransform,
+                                                                         @Nonnull final StorageTransform storageTransform,
                                                                          @Nonnull final Quantizer quantizer,
                                                                          @Nonnull final SplittableRandom random,
                                                                          @Nonnull final Tuple primaryKey,
@@ -1859,7 +1920,7 @@ public class HNSW {
     private <N extends NodeReference> CompletableFuture<EntryNodeReference>
             deleteFromLayer(@Nonnull final StorageAdapter<N> storageAdapter,
                             @Nonnull final Transaction transaction,
-                            @Nonnull final AffineOperator storageTransform,
+                            @Nonnull final StorageTransform storageTransform,
                             @Nonnull final Quantizer quantizer,
                             @Nonnull final SplittableRandom random,
                             final int layer,
@@ -2058,7 +2119,7 @@ public class HNSW {
     private <N extends NodeReference> CompletableFuture<List<NodeReferenceAndNode<NodeReferenceWithVector, N>>>
             findCandidates(final @Nonnull StorageAdapter<N> storageAdapter,
                            final @Nonnull Transaction transaction,
-                           final @Nonnull AffineOperator storageTransform,
+                           final @Nonnull StorageTransform storageTransform,
                            final @Nonnull SplittableRandom random,
                            final int layer,
                            final NodeReferenceAndNode<NodeReference, N> toBeDeletedNodeReferenceAndNode,
@@ -2109,7 +2170,7 @@ public class HNSW {
     private <N extends NodeReference> @Nonnull CompletableFuture<Void>
             repairNeighbor(@Nonnull final StorageAdapter<N> storageAdapter,
                            @Nonnull final Transaction transaction,
-                           @Nonnull final AffineOperator storageTransform,
+                           @Nonnull final StorageTransform storageTransform,
                            @Nonnull final Estimator estimator,
                            final int layer,
                            @Nonnull final N neighborReference,
@@ -2164,7 +2225,7 @@ public class HNSW {
     private <N extends NodeReference> CompletableFuture<Void>
             repairInsForNeighborNode(@Nonnull final StorageAdapter<N> storageAdapter,
                                      @Nonnull final Transaction transaction,
-                                     @Nonnull final AffineOperator storageTransform,
+                                     @Nonnull final StorageTransform storageTransform,
                                      @Nonnull final Estimator estimator,
                                      final int layer,
                                      @Nonnull final N neighborReference,
