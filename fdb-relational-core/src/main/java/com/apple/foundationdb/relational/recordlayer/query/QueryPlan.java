@@ -35,9 +35,12 @@ import com.apple.foundationdb.record.query.plan.QueryPlanResult;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerPhase;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
-import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
-import com.apple.foundationdb.record.query.plan.cascades.debug.Stats;
-import com.apple.foundationdb.record.query.plan.cascades.debug.StatsMaps;
+import com.apple.foundationdb.record.query.plan.cascades.events.ExecutingTaskPlannerEvent;
+import com.apple.foundationdb.record.query.plan.cascades.events.InsertIntoMemoPlannerEvent;
+import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEvent;
+import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEventStats;
+import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEventStatsMaps;
+import com.apple.foundationdb.record.query.plan.cascades.events.TransformRuleCallPlannerEvent;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.CompatibleTypeEvolutionPredicate;
@@ -111,7 +114,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
         private final RecordQueryPlan recordQueryPlan;
 
         @Nullable
-        private final StatsMaps plannerStatsMaps;
+        private final PlannerEventStatsMaps plannerEventStatsMaps;
 
         @Nonnull
         private final PlanHashMode currentPlanHashMode;
@@ -131,7 +134,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
         private final QueryExecutionContext queryExecutionContext;
 
         public PhysicalQueryPlan(@Nonnull final RecordQueryPlan recordQueryPlan,
-                                 @Nullable final StatsMaps plannerStatsMaps,
+                                 @Nullable final PlannerEventStatsMaps plannerEventStatsMaps,
                                  @Nonnull final TypeRepository typeRepository,
                                  @Nonnull final QueryPlanConstraint constraint,
                                  @Nonnull final QueryPlanConstraint continuationConstraint,
@@ -140,7 +143,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                                  @Nonnull final PlanHashMode currentPlanHashMode) {
             super(query);
             this.recordQueryPlan = recordQueryPlan;
-            this.plannerStatsMaps = plannerStatsMaps;
+            this.plannerEventStatsMaps = plannerEventStatsMaps;
             this.typeRepository = typeRepository;
             this.constraint = constraint;
             this.continuationConstraint = continuationConstraint;
@@ -193,7 +196,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
             if (queryExecutionContext == this.queryExecutionContext) {
                 return this;
             }
-            return new PhysicalQueryPlan(recordQueryPlan, plannerStatsMaps, typeRepository, constraint,
+            return new PhysicalQueryPlan(recordQueryPlan, plannerEventStatsMaps, typeRepository, constraint,
                     continuationConstraint, queryExecutionContext, query, queryExecutionContext.getPlanHashMode());
         }
 
@@ -348,39 +351,39 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                     ), RelationalStructMetaData.of(continuationStructType));
 
             final Struct plannerMetrics;
-            if (plannerStatsMaps == null) {
+            if (plannerEventStatsMaps == null) {
                 plannerMetrics = null;
             } else {
-                final var plannerEventClassStatsMap = plannerStatsMaps.getEventClassStatsMap();
+                final var plannerEventClassStatsMap = plannerEventStatsMaps.getEventClassStatsMap();
 
                 final var aggregateExecutingTasksStats =
-                        Optional.ofNullable(plannerEventClassStatsMap.get(Debugger.ExecutingTaskEvent.class));
+                        Optional.ofNullable(plannerEventClassStatsMap.get(ExecutingTaskPlannerEvent.class));
                 final var aggregateTransformRuleCallStats =
-                        Optional.ofNullable(plannerEventClassStatsMap.get(Debugger.TransformRuleCallEvent.class));
+                        Optional.ofNullable(plannerEventClassStatsMap.get(TransformRuleCallPlannerEvent.class));
                 final var aggregateInsertIntoMemoStats =
-                        Optional.ofNullable(plannerEventClassStatsMap.get(Debugger.InsertIntoMemoEvent.class));
+                        Optional.ofNullable(plannerEventClassStatsMap.get(InsertIntoMemoPlannerEvent.class));
 
                 final var executingTasksStatsForRewritingPhase =
-                        plannerStatsMaps.getEventWithStateClassStatsMapByPlannerPhase(PlannerPhase.REWRITING)
-                                .map(m -> m.get(Debugger.ExecutingTaskEvent.class));
+                        plannerEventStatsMaps.getEventWithStateClassStatsMapByPlannerPhase(PlannerPhase.REWRITING)
+                                .map(m -> m.get(ExecutingTaskPlannerEvent.class));
                 final var executingTasksStatsForPlanningPhase =
-                        plannerStatsMaps.getEventWithStateClassStatsMapByPlannerPhase(PlannerPhase.PLANNING)
-                                .map(m -> m.get(Debugger.ExecutingTaskEvent.class));
+                        plannerEventStatsMaps.getEventWithStateClassStatsMapByPlannerPhase(PlannerPhase.PLANNING)
+                                .map(m -> m.get(ExecutingTaskPlannerEvent.class));
 
                 plannerMetrics =
                         new ImmutableRowStruct(new ArrayRow(
-                                aggregateExecutingTasksStats.map(s -> s.getCount(Debugger.Location.BEGIN)).orElse(0L),
-                                aggregateExecutingTasksStats.map(Stats::getTotalTimeInNs).orElse(0L),
-                                aggregateTransformRuleCallStats.map(s -> s.getCount(Debugger.Location.BEGIN)).orElse(0L),
-                                aggregateTransformRuleCallStats.map(Stats::getOwnTimeInNs).orElse(0L),
-                                aggregateTransformRuleCallStats.map(s -> s.getCount(Debugger.Location.YIELD)).orElse(0L),
-                                aggregateInsertIntoMemoStats.map(Stats::getOwnTimeInNs).orElse(0L),
-                                aggregateInsertIntoMemoStats.map(s -> s.getCount(Debugger.Location.NEW)).orElse(0L),
-                                aggregateInsertIntoMemoStats.map(s -> s.getCount(Debugger.Location.REUSED)).orElse(0L),
-                                executingTasksStatsForRewritingPhase.map(s -> s.getCount(Debugger.Location.BEGIN)).orElse(0L),
-                                executingTasksStatsForPlanningPhase.map(s -> s.getCount(Debugger.Location.BEGIN)).orElse(0L),
-                                executingTasksStatsForRewritingPhase.map(Stats::getTotalTimeInNs).orElse(0L),
-                                executingTasksStatsForPlanningPhase.map(Stats::getTotalTimeInNs).orElse(0L)
+                                aggregateExecutingTasksStats.map(s -> s.getCount(PlannerEvent.Location.BEGIN)).orElse(0L),
+                                aggregateExecutingTasksStats.map(PlannerEventStats::getTotalTimeInNs).orElse(0L),
+                                aggregateTransformRuleCallStats.map(s -> s.getCount(PlannerEvent.Location.BEGIN)).orElse(0L),
+                                aggregateTransformRuleCallStats.map(PlannerEventStats::getOwnTimeInNs).orElse(0L),
+                                aggregateTransformRuleCallStats.map(s -> s.getCount(PlannerEvent.Location.YIELD)).orElse(0L),
+                                aggregateInsertIntoMemoStats.map(PlannerEventStats::getOwnTimeInNs).orElse(0L),
+                                aggregateInsertIntoMemoStats.map(s -> s.getCount(PlannerEvent.Location.NEW)).orElse(0L),
+                                aggregateInsertIntoMemoStats.map(s -> s.getCount(PlannerEvent.Location.REUSED)).orElse(0L),
+                                executingTasksStatsForRewritingPhase.map(s -> s.getCount(PlannerEvent.Location.BEGIN)).orElse(0L),
+                                executingTasksStatsForPlanningPhase.map(s -> s.getCount(PlannerEvent.Location.BEGIN)).orElse(0L),
+                                executingTasksStatsForRewritingPhase.map(PlannerEventStats::getTotalTimeInNs).orElse(0L),
+                                executingTasksStatsForPlanningPhase.map(PlannerEventStats::getTotalTimeInNs).orElse(0L)
                         ), RelationalStructMetaData.of(plannerMetricsStructType));
             }
 

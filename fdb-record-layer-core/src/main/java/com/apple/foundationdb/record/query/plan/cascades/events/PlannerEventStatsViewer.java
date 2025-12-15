@@ -18,9 +18,10 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.query.plan.cascades.debug;
+package com.apple.foundationdb.record.query.plan.cascades.events;
 
 import com.apple.foundationdb.record.query.plan.cascades.PlannerPhase;
+import com.apple.foundationdb.record.query.plan.cascades.debug.BrowserHelper;
 import com.apple.foundationdb.record.util.pair.Pair;
 import com.google.common.collect.ImmutableMap;
 
@@ -31,26 +32,26 @@ import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 /**
- * A class that can be used to view {@link Stats} for all {@link Debugger.Event} collected by {@link StatsDebugger}
- * during planning in a browser.
+ * A class that can be used to view {@link PlannerEventStatsMaps} for all {@link PlannerEvent} collected by
+ * {@link PlannerEventStatsCollector} during planning in a browser.
  * <p>
  * To view the stats, evaluate the following expression in a debugging session at a breakpoint before the Cascades planner
  * returns the plan:
  * <pre>
- *     StatsViewer.showStats(StatsDebugger.getDebuggerMaybe().get())
+ *     PlannerEventStatsViewer.showStats(PlannerEventStatsCollector.getCollector())
  * </pre>
  *
  * The stats will be displayed in a new window of the system browser.
  * </p>
  */
 @SuppressWarnings("unused")
-public final class StatsViewer {
-    private StatsViewer() {
+public final class PlannerEventStatsViewer {
+    private PlannerEventStatsViewer() {
 
     }
 
-    public static String showStats(@Nonnull final StatsDebugger statsDebugger) {
-        final var statsMaps = statsDebugger.getStatsMaps();
+    public static String showStats(@Nonnull final PlannerEventStatsCollector plannerEventStatsCollector) {
+        final var statsMaps = plannerEventStatsCollector.getStatsMaps();
 
         if (statsMaps.isEmpty()) {
             return "no stats available";
@@ -73,7 +74,7 @@ public final class StatsViewer {
             tableBuilder.append("<table class=\"table\">");
             tableHeader(tableBuilder, "Event");
 
-            final ImmutableMap<String, Stats> eventStatsMap =
+            final ImmutableMap<String, PlannerEventStats> eventStatsMap =
                     phaseNameToStatsMapEntry.getValue().get().entrySet()
                             .stream()
                             .map(entry -> Pair.of(entry.getKey().getSimpleName(), entry.getValue()))
@@ -89,7 +90,7 @@ public final class StatsViewer {
         tableBuilder = new StringBuilder();
         tableBuilder.append("<table class=\"table\">");
         tableHeader(tableBuilder, "Planner Rule");
-        final ImmutableMap<String, Stats> plannerRuleStatsMap =
+        final ImmutableMap<String, PlannerEventStats> plannerRuleStatsMap =
                 statsMaps.get().getPlannerRuleClassStatsMap().entrySet()
                         .stream()
                         .map(entry -> Pair.of(entry.getKey().getSimpleName(), entry.getValue()))
@@ -119,24 +120,24 @@ public final class StatsViewer {
         stringBuilder.append("</thead>");
     }
 
-    private static void tableBody(@Nonnull final StringBuilder stringBuilder, @Nonnull final Map<String, Stats> statsMap) {
+    private static void tableBody(@Nonnull final StringBuilder stringBuilder, @Nonnull final Map<String, PlannerEventStats> statsMap) {
         stringBuilder.append("<tbody class=\"table-group-divider\">");
-        for (final Map.Entry<String, Stats> entry : statsMap.entrySet()) {
-            final Stats stats = entry.getValue();
+        for (final Map.Entry<String, PlannerEventStats> entry : statsMap.entrySet()) {
+            final PlannerEventStats stats = entry.getValue();
             for (final var locationEntry : stats.getLocationCountMap().entrySet()) {
                 stringBuilder.append("<tr>");
                 stringBuilder.append("<td>").append(entry.getKey()).append("</td>");
-                if (locationEntry.getKey() == Debugger.Location.BEGIN) {
+                if (locationEntry.getKey() == PlannerEvent.Location.BEGIN) {
                     stringBuilder.append("<td></td>");
                 } else {
                     stringBuilder.append("<td>").append(locationEntry.getKey().name()).append("</td>");
                 }
                 stringBuilder.append("<td class=\"text-end\">").append(locationEntry.getValue()).append("</td>");
-                if (locationEntry.getKey() == Debugger.Location.BEGIN) {
+                if (locationEntry.getKey() == PlannerEvent.Location.BEGIN) {
                     stringBuilder.append("<td class=\"text-end\">").append(formatNsInMicros(stats.getTotalTimeInNs())).append("</td>");
-                    stringBuilder.append("<td class=\"text-end\">").append(formatNsInMicros(stats.getTotalTimeInNs() / stats.getCount(Debugger.Location.BEGIN))).append("</td>");
+                    stringBuilder.append("<td class=\"text-end\">").append(formatNsInMicros(stats.getTotalTimeInNs() / stats.getCount(PlannerEvent.Location.BEGIN))).append("</td>");
                     stringBuilder.append("<td class=\"text-end\">").append(formatNsInMicros(stats.getOwnTimeInNs())).append("</td>");
-                    stringBuilder.append("<td class=\"text-end\">").append(formatNsInMicros(stats.getOwnTimeInNs() / stats.getCount(Debugger.Location.BEGIN))).append("</td>");
+                    stringBuilder.append("<td class=\"text-end\">").append(formatNsInMicros(stats.getOwnTimeInNs() / stats.getCount(PlannerEvent.Location.BEGIN))).append("</td>");
                 } else {
                     stringBuilder.append("<td></td>");
                     stringBuilder.append("<td></td>");

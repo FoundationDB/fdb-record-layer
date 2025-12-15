@@ -1,5 +1,5 @@
 /*
- * StatsMaps.java
+ * PlannerEventStatsMaps.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,7 +18,7 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.query.plan.cascades.debug;
+package com.apple.foundationdb.record.query.plan.cascades.events;
 
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerPhase;
@@ -31,27 +31,27 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
 
-public class StatsMaps {
+public class PlannerEventStatsMaps {
     @Nonnull
-    private final Map<Class<? extends Debugger.Event>, ? extends Stats> eventWithoutStateClassStatsMap;
+    private final Map<Class<? extends PlannerEvent>, ? extends PlannerEventStats> eventWithoutStateClassStatsMap;
     @Nonnull
-    private final Map<PlannerPhase, Map<Class<? extends Debugger.EventWithState>, ? extends Stats>> eventWithStateClassStatsByPlannerPhaseMap;
+    private final Map<PlannerPhase, Map<Class<? extends PlannerEventWithState>, ? extends PlannerEventStats>> eventWithStateClassStatsByPlannerPhaseMap;
     @Nonnull
-    private final Map<Class<? extends CascadesRule<?>>, ? extends Stats> plannerRuleClassStatsMap;
+    private final Map<Class<? extends CascadesRule<?>>, ? extends PlannerEventStats> plannerRuleClassStatsMap;
 
     @Nonnull
-    private final Supplier<Map<Class<? extends Debugger.Event>, Stats>> immutableEventClassStatsMapSupplier;
+    private final Supplier<Map<Class<? extends PlannerEvent>, PlannerEventStats>> immutableEventClassStatsMapSupplier;
     @Nonnull
-    private final Supplier<Map<Class<? extends Debugger.Event>, Stats>> immutableEventWithoutStateClassStatsMapSupplier;
+    private final Supplier<Map<Class<? extends PlannerEvent>, PlannerEventStats>> immutableEventWithoutStateClassStatsMapSupplier;
     @Nonnull
-    private final Supplier<Map<PlannerPhase, Map<Class<? extends Debugger.EventWithState>, Stats>>> immutableEventWithStateClassStatsByPlannerPhaseMapSupplier;
+    private final Supplier<Map<PlannerPhase, Map<Class<? extends PlannerEventWithState>, PlannerEventStats>>> immutableEventWithStateClassStatsByPlannerPhaseMapSupplier;
     @Nonnull
-    private final Supplier<Map<Class<? extends CascadesRule<?>>, Stats>> immutablePlannerRuleClassStatsMapSupplier;
+    private final Supplier<Map<Class<? extends CascadesRule<?>>, PlannerEventStats>> immutablePlannerRuleClassStatsMapSupplier;
 
 
-    public StatsMaps(@Nonnull final Map<Class<? extends Debugger.Event>, ? extends Stats> eventWithoutStateClassStatsMap,
-                     @Nonnull final Map<PlannerPhase, Map<Class<? extends Debugger.EventWithState>, ? extends Stats>> eventWithStateClassStatsByPlannerPhaseMap,
-                     @Nonnull final Map<Class<? extends CascadesRule<?>>, ? extends Stats> plannerRuleClassStatsMap) {
+    public PlannerEventStatsMaps(@Nonnull final Map<Class<? extends PlannerEvent>, ? extends PlannerEventStats> eventWithoutStateClassStatsMap,
+                                 @Nonnull final Map<PlannerPhase, Map<Class<? extends PlannerEventWithState>, ? extends PlannerEventStats>> eventWithStateClassStatsByPlannerPhaseMap,
+                                 @Nonnull final Map<Class<? extends CascadesRule<?>>, ? extends PlannerEventStats> plannerRuleClassStatsMap) {
 
         this.eventWithoutStateClassStatsMap = eventWithoutStateClassStatsMap;
         this.eventWithStateClassStatsByPlannerPhaseMap = eventWithStateClassStatsByPlannerPhaseMap;
@@ -64,48 +64,48 @@ public class StatsMaps {
     }
 
     @Nonnull
-    public Map<Class<? extends Debugger.Event>, Stats> getEventClassStatsMap() {
+    public Map<Class<? extends PlannerEvent>, PlannerEventStats> getEventClassStatsMap() {
         return immutableEventClassStatsMapSupplier.get();
     }
 
     @Nonnull
-    public Map<Class<? extends CascadesRule<?>>, Stats> getPlannerRuleClassStatsMap() {
+    public Map<Class<? extends CascadesRule<?>>, PlannerEventStats> getPlannerRuleClassStatsMap() {
         return immutablePlannerRuleClassStatsMapSupplier.get();
     }
 
     @Nonnull
-    public Map<Class<? extends Debugger.Event>, Stats> getEventWithoutStateClassStatsMap() {
+    public Map<Class<? extends PlannerEvent>, PlannerEventStats> getEventWithoutStateClassStatsMap() {
         return immutableEventWithoutStateClassStatsMapSupplier.get();
     }
 
     @Nonnull
-    public Optional<Map<Class<? extends Debugger.EventWithState>, Stats>> getEventWithStateClassStatsMapByPlannerPhase(@Nonnull PlannerPhase plannerPhase) {
+    public Optional<Map<Class<? extends PlannerEventWithState>, PlannerEventStats>> getEventWithStateClassStatsMapByPlannerPhase(@Nonnull PlannerPhase plannerPhase) {
         return Optional.ofNullable(immutableEventWithStateClassStatsByPlannerPhaseMapSupplier.get().get(plannerPhase));
     }
 
-    private Map<Class<? extends Debugger.Event>, Stats> computeImmutableEventWithoutStateClassStatsMap() {
+    private Map<Class<? extends PlannerEvent>, PlannerEventStats> computeImmutableEventWithoutStateClassStatsMap() {
         final var eventWithoutStateClassStatsMapBuilder =
-                ImmutableMap.<Class<? extends Debugger.Event>, Stats>builder();
+                ImmutableMap.<Class<? extends PlannerEvent>, PlannerEventStats>builder();
 
         eventWithoutStateClassStatsMap.forEach(
-                (eventClass, stats) -> eventWithoutStateClassStatsMapBuilder.put(eventClass, stats.toImmutable())
+                (eventClass, plannerEventStats) -> eventWithoutStateClassStatsMapBuilder.put(eventClass, plannerEventStats.toImmutable())
         );
 
         return eventWithoutStateClassStatsMapBuilder.build();
     }
 
     @Nonnull
-    private Map<Class<? extends Debugger.Event>, Stats> computeImmutableEventClassStatsMap() {
+    private Map<Class<? extends PlannerEvent>, PlannerEventStats> computeImmutableEventClassStatsMap() {
         // Add all events not tied to a specific planner phase first
-        Map<Class<? extends Debugger.Event>, Stats> result = new LinkedHashMap<>(this.immutableEventWithoutStateClassStatsMapSupplier.get());
+        Map<Class<? extends PlannerEvent>, PlannerEventStats> result = new LinkedHashMap<>(this.immutableEventWithoutStateClassStatsMapSupplier.get());
 
-        // Merge the stats all events tied to a specific planner phase with other events
+        // Merge the PlannerEventStats all events tied to a specific planner phase with other events
         for (final var eventWithStateClassStats : eventWithStateClassStatsByPlannerPhaseMap.values()) {
             for (final var eventWithStateClassStatsEntry : eventWithStateClassStats.entrySet()) {
                 result.merge(
                         eventWithStateClassStatsEntry.getKey(),
                         eventWithStateClassStatsEntry.getValue().toImmutable(),
-                        (s1, s2) -> Stats.merge(s1, s2).toImmutable());
+                        (s1, s2) -> PlannerEventStats.merge(s1, s2).toImmutable());
             }
         }
 
@@ -113,11 +113,11 @@ public class StatsMaps {
     }
 
     @Nonnull
-    private Map<PlannerPhase, Map<Class<? extends Debugger.EventWithState>, Stats>> computeImmutableEventWithStateClassStatsByPlannerPhaseMap() {
+    private Map<PlannerPhase, Map<Class<? extends PlannerEventWithState>, PlannerEventStats>> computeImmutableEventWithStateClassStatsByPlannerPhaseMap() {
         final var eventClassStatsByPlannerPhaseMapBuilder =
-                ImmutableMap.<PlannerPhase, Map<Class<? extends Debugger.EventWithState>, Stats>>builder();
+                ImmutableMap.<PlannerPhase, Map<Class<? extends PlannerEventWithState>, PlannerEventStats>>builder();
         for (final var eventClassStatsByPlannerPhaseEntry : eventWithStateClassStatsByPlannerPhaseMap.entrySet()) {
-            final Map<Class<? extends Debugger.EventWithState>, Stats> eventClassImmutableStats =
+            final Map<Class<? extends PlannerEventWithState>, PlannerEventStats> eventClassImmutableStats =
                     eventClassStatsByPlannerPhaseEntry.getValue().entrySet().stream().collect(
                             ImmutableMap.toImmutableMap(Map.Entry::getKey, e -> e.getValue().toImmutable())
                     );
@@ -127,9 +127,9 @@ public class StatsMaps {
     }
 
     @Nonnull
-    private Map<Class<? extends CascadesRule<?>>, Stats> computeImmutablePlannerRuleClassStatsMap() {
+    private Map<Class<? extends CascadesRule<?>>, PlannerEventStats> computeImmutablePlannerRuleClassStatsMap() {
         final var plannerRuleClassStatsMapBuilder =
-                ImmutableMap.<Class<? extends CascadesRule<?>>, Stats>builder();
+                ImmutableMap.<Class<? extends CascadesRule<?>>, PlannerEventStats>builder();
         for (final var entry : plannerRuleClassStatsMap.entrySet()) {
             plannerRuleClassStatsMapBuilder.put(entry.getKey(), entry.getValue().toImmutable());
         }

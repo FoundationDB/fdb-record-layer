@@ -1,5 +1,5 @@
 /*
- * Stats.java
+ * PlannerEventStats.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,7 +18,7 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.query.plan.cascades.debug;
+package com.apple.foundationdb.record.query.plan.cascades.events;
 
 import com.google.common.collect.ImmutableMap;
 
@@ -27,27 +27,27 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Stream;
 
-public class Stats {
+public class PlannerEventStats {
     @Nonnull
-    protected final Map<Debugger.Location, Long> locationCountMap;
+    protected final Map<PlannerEvent.Location, Long> locationCountMap;
 
     protected long totalTimeInNs;
     protected long ownTimeInNs;
 
-    protected Stats(@Nonnull final Map<Debugger.Location, Long> locationCountMap,
-                    final long totalTimeInNs,
-                    final long ownTimeInNs) {
+    protected PlannerEventStats(@Nonnull final Map<PlannerEvent.Location, Long> locationCountMap,
+                                final long totalTimeInNs,
+                                final long ownTimeInNs) {
         this.locationCountMap = locationCountMap;
         this.totalTimeInNs = totalTimeInNs;
         this.ownTimeInNs = ownTimeInNs;
     }
 
     @Nonnull
-    public Map<Debugger.Location, Long> getLocationCountMap() {
+    public Map<PlannerEvent.Location, Long> getLocationCountMap() {
         return locationCountMap;
     }
 
-    public long getCount(@Nonnull final Debugger.Location location) {
+    public long getCount(@Nonnull final PlannerEvent.Location location) {
         return locationCountMap.getOrDefault(location, 0L);
     }
 
@@ -60,12 +60,12 @@ public class Stats {
     }
 
     @Nonnull
-    public Stats toImmutable() {
-        return new Stats(ImmutableMap.copyOf(locationCountMap), totalTimeInNs, ownTimeInNs);
+    public PlannerEventStats toImmutable() {
+        return new PlannerEventStats(ImmutableMap.copyOf(locationCountMap), totalTimeInNs, ownTimeInNs);
     }
 
-    public static Stats merge(final Stats first, final Stats second) {
-        return new Stats(
+    public static PlannerEventStats merge(final PlannerEventStats first, final PlannerEventStats second) {
+        return new PlannerEventStats(
                 Stream.of(first.getLocationCountMap(), second.getLocationCountMap())
                         .map(Map::entrySet)
                         .flatMap(Set::stream)

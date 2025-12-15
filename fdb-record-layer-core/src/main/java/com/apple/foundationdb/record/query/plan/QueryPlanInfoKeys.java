@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan;
 
-import com.apple.foundationdb.record.query.plan.cascades.debug.StatsMaps;
+import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEventStatsMaps;
 
 /**
  * Container for {@link QueryPlanInfo.QueryPlanInfoKey} static instances used in the planner.
@@ -32,7 +32,7 @@ public class QueryPlanInfoKeys {
             new QueryPlanInfo.QueryPlanInfoKey<>("maxTaskQueueSize");
     public static final QueryPlanInfo.QueryPlanInfoKey<QueryPlanConstraint> CONSTRAINTS =
             new QueryPlanInfo.QueryPlanInfoKey<>("constraints");
-    public static final QueryPlanInfo.QueryPlanInfoKey<StatsMaps> STATS_MAPS =
+    public static final QueryPlanInfo.QueryPlanInfoKey<PlannerEventStatsMaps> STATS_MAPS =
             new QueryPlanInfo.QueryPlanInfoKey<>("statsMaps");
 
     private QueryPlanInfoKeys() {

@@ -328,23 +328,23 @@ public class Reference implements Correlated<Reference>, Typed {
     private boolean insert(@Nonnull final RelationalExpression newExpression,
                            final boolean isFinal,
                            @Nullable final Map<ExpressionProperty<?>, ?> precomputedPropertiesMap) {
-        StatsDebugger.withDebugger(debugger -> debugger.onEvent(InsertIntoMemoEvent.begin()));
+        PlannerEventListeners.dispatchEvent(InsertIntoMemoPlannerEvent.begin());
         try {
             final boolean containsInMemo = containsInMemo(newExpression, isFinal);
-            StatsDebugger.withDebugger(debugger -> {
-                if (containsInMemo) {
-                    debugger.onEvent(InsertIntoMemoEvent.reusedExpWithReferences(newExpression, ImmutableList.of(this)));
-                } else {
-                    debugger.onEvent(InsertIntoMemoEvent.newExp(newExpression));
-                }
-            });
+
+            if (containsInMemo) {
+                PlannerEventListeners.dispatchEvent(InsertIntoMemoPlannerEvent.reusedExpWithReferences(newExpression, ImmutableList.of(this)));
+            } else {
+                PlannerEventListeners.dispatchEvent(InsertIntoMemoPlannerEvent.newExp(newExpression));
+            }
+
             if (!containsInMemo) {
                 insertUnchecked(newExpression, isFinal, precomputedPropertiesMap);
                 return true;
             }
             return false;
         } finally {
-            StatsDebugger.withDebugger(debugger -> debugger.onEvent(InsertIntoMemoEvent.end()));
+            PlannerEventListeners.dispatchEvent(InsertIntoMemoPlannerEvent.end());
         }
     }
 

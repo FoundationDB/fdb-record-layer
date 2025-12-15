@@ -22,8 +22,9 @@ package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.combinatorics.TopologicalSort;
-import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
-import com.apple.foundationdb.record.query.plan.cascades.debug.StatsDebugger;
+import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEvent;
+import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEventListeners;
+import com.apple.foundationdb.record.query.plan.cascades.events.TranslateCorrelationsPlannerEvent;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionWithChildren;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
@@ -188,15 +189,15 @@ public class References {
                 } else {
                     translatedExpression = expression.translateCorrelations(translationMap, shouldSimplifyValues,
                             translatedQuantifiers);
-                    StatsDebugger.withDebugger(debugger -> debugger.onEvent(
-                            new Debugger.TranslateCorrelationsEvent(translatedExpression, Debugger.Location.COUNT)));
+                    PlannerEventListeners.dispatchEvent(
+                            new TranslateCorrelationsPlannerEvent(translatedExpression, PlannerEvent.Location.COUNT));
                     allMembersSame = false;
                 }
             } else {
                 translatedExpression = expression.translateCorrelations(translationMap, shouldSimplifyValues,
                         translatedQuantifiers);
-                StatsDebugger.withDebugger(debugger -> debugger.onEvent(
-                        new Debugger.TranslateCorrelationsEvent(translatedExpression, Debugger.Location.COUNT)));
+                PlannerEventListeners.dispatchEvent(
+                        new TranslateCorrelationsPlannerEvent(translatedExpression, PlannerEvent.Location.COUNT));
                 allMembersSame = false;
             }
             if (reference.isFinal(expression)) {
