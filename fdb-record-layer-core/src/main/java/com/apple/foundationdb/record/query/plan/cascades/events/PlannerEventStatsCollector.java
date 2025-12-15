@@ -26,6 +26,26 @@ import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
+/**
+ * <p>
+ * An interface that represents an object that listens to {@link PlannerEvent} emitted by the Cascades planner
+ * throughout the planning of a single query, and collects statistics about these emitted events.
+ * </p>
+ * <p>
+ * As the planner is currently single-threaded as per planning of a query, we keep an instance of an implementor of
+ * this interface in the thread-local storage (per-thread singleton), similar to {@link com.apple.foundationdb.record.query.plan.cascades.debug.Debugger}.
+ * </p>
+ * <p>
+ * Clients using implementors of this interface should never hold on/manage/use an instance of a collector directly.
+ * Instead, clients should use {@link #withCollector} and {@link #flatMapCollector} to invoke methods on the currently
+ * installed collector. There is a guarantee that {@link #withCollector} and other methods do not invoke any given action
+ * if there is no collector currently set for this thread.
+ * </p>
+ * <p>
+ * The statistics can be retrieved as a {@link PlannerEventStatsMaps} object via the method
+ * {@link #getStatsMaps()}.
+ * </p>
+ */
 public interface PlannerEventStatsCollector extends PlannerEventListeners.Listener {
     ThreadLocal<PlannerEventStatsCollector> THREAD_LOCAL = new ThreadLocal<>();
 

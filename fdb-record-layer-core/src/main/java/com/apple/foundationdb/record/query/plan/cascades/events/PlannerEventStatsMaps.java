@@ -31,6 +31,11 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
 
+/**
+ * This class stores statistics for {@link PlannerEvent} emitted during the planning of a query, and provides
+ * different ways to access these statistics: by event type, {@link PlannerPhase} and
+ * {@link com.apple.foundationdb.record.query.plan.cascades.PlannerRule}.
+ */
 public class PlannerEventStatsMaps {
     @Nonnull
     private final Map<Class<? extends PlannerEvent>, ? extends PlannerEventStats> eventWithoutStateClassStatsMap;

@@ -27,7 +27,12 @@ import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.List;
 
-public class PlannerEventListeners {
+/**
+ * This class is used to store and manage instances of {@link PlannerEventListeners.Listener}
+ * which are stored in thread-local storage, which receive {@link PlannerEvent} emitted by the
+ * Cascades planner and perform actions.
+ */
+public final class PlannerEventListeners {
     static final ThreadLocal<List<Listener>> THREAD_LOCAL = ThreadLocal.withInitial(ArrayList::new);
 
     public static void addListener(@Nonnull final Listener listener) {
@@ -54,6 +59,15 @@ public class PlannerEventListeners {
         THREAD_LOCAL.get().forEach(Listener::onDone);
     }
 
+    /**
+     * <p>
+     * Classes implementing this interface listen on {@link PlannerEvent} emitted by the Cascades planner and
+     * do some action on them.
+     * </p>
+     * <p>
+     * See {@link com.apple.foundationdb.record.query.plan.cascades.debug.Debugger} and {@link PlannerEventStatsCollector}.
+     * </p>
+     */
     public interface Listener {
         void onQuery(String queryAsString, PlanContext planContext);
 

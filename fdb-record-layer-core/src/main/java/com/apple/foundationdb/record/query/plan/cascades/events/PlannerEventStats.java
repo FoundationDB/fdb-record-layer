@@ -27,6 +27,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Stream;
 
+/**
+ * Aggregated statistics for a {@link PlannerEvent} across the planning of a single query.
+ */
 public class PlannerEventStats {
     @Nonnull
     protected final Map<PlannerEvent.Location, Long> locationCountMap;

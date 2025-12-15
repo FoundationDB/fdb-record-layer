@@ -35,6 +35,10 @@ import java.util.Deque;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+/**
+ * This class carries the state that {@link DefaultPlannerEventStatsCollector} uses to keep
+ * track of planner event statistics.
+ */
 public class PlannerEventStatsCollectorState {
     private static final Logger logger = LoggerFactory.getLogger(PlannerEventStatsCollectorState.class);
 
