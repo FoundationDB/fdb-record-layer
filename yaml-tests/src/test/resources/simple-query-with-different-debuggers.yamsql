@@ -35,12 +35,6 @@ test_block:
     -
       - query: select * from t1 where id > 1
       - explain: "SCAN(<,>) | FILTER _.ID GREATER_THAN promote(@c8 AS LONG)"
-      - debugger: lightweight
-      - result: [{id: 2, col1: 'b'},
-                 {id: 3, col1: 'c'}]
-    -
-      - query: select * from t1 where id > 1
-      - explain: "SCAN(<,>) | FILTER _.ID GREATER_THAN promote(@c8 AS LONG)"
       - debugger: sane
       - result: [{id: 2, col1: 'b'},
                  {id: 3, col1: 'c'}]

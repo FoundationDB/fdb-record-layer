@@ -22,7 +22,6 @@ package com.apple.foundationdb.relational.yamltests.command;
 
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.debug.DebuggerWithSymbolTables;
-import com.apple.foundationdb.record.query.plan.cascades.debug.LightweightDebugger;
 import com.apple.foundationdb.record.query.plan.cascades.debug.PlannerRepl;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import org.jline.terminal.TerminalBuilder;
@@ -32,7 +31,6 @@ import java.io.IOException;
 import java.util.function.Function;
 
 public enum DebuggerImplementation {
-    LIGHTWEIGHT(context -> new LightweightDebugger()),
     INSANE(context -> DebuggerWithSymbolTables.withSanityChecks()),
     SANE(context -> DebuggerWithSymbolTables.withoutSanityChecks()),
     REPL(context -> {
