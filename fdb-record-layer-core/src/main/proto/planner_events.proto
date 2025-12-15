@@ -1,5 +1,5 @@
 /*
- * planner_debugger.proto
+ * planner_events.proto
  *
  * This source file is part of the FoundationDB open source projectsour
  *
@@ -19,28 +19,28 @@
  */
 syntax = "proto2";
 
-package com.apple.foundationdb.record.query.plan.cascades.debug.eventprotos;
+package com.apple.foundationdb.record.query.plan.cascades.events.eventprotos;
 import "google/protobuf/descriptor.proto";
 
-option java_outer_classname = "PlannerDebuggerProto";
+option java_outer_classname = "PlannerEventProto";
 option java_multiple_files = true;
 
-message PEvent {
+message PPlannerEvent {
   optional string description = 1;
   optional string shorthand = 2;
 
   oneof specific_event {
-    POptimizeInputsEvent optimize_inputs_event = 3;
-    PAdjustMatchEvent adjust_match_event = 4;
-    PExploreGroupEvent explore_group_event = 5;
-    POptimizeGroupEvent optimize_group_event = 6;
-    PExploreExpressionEvent explore_expression_event = 7;
-    PTransformEvent transform_event = 8;
-    PTransformRuleCallEvent transform_rule_call_event = 9;
-    PExecutingTaskEvent executing_task_event = 10;
-    PInsertIntoMemoEvent insert_into_memo_event = 11;
-    PTranslateCorrelationsEvent translate_correlations_event = 12;
-    PInitiatePlannerPhaseEvent initiate_planner_phase_event = 13;
+    POptimizeInputsPlannerEvent optimize_inputs_planner_event = 3;
+    PAdjustMatchPlannerEvent adjust_match_planner_event = 4;
+    PExploreGroupPlannerEvent explore_group_planner_event = 5;
+    POptimizeGroupPlannerEvent optimize_group_planner_event = 6;
+    PExploreExpressionPlannerEvent explore_expression_planner_event = 7;
+    PTransformPlannerEvent transform_planner_event = 8;
+    PTransformRuleCallPlannerEvent transform_rule_call_planner_event = 9;
+    PExecutingTaskPlannerEvent executing_task_planner_event = 10;
+    PInsertIntoMemoPlannerEvent insert_into_memo_planner_event = 11;
+    PTranslateCorrelationsPlannerEvent translate_correlations_planner_event = 12;
+    PInitiatePhasePlannerEvent initiate_phase_planner_event = 13;
   }
 }
 
@@ -49,69 +49,69 @@ enum PPlannerPhase {
   PLANNING = 2;
 }
 
-message PAbstractEventWithState {
+message PAbstractPlannerEventWithState {
   optional PRegisteredReference root_reference = 1;
   optional string location = 2;
   optional PPlannerPhase planner_phase = 3;
 }
 
-message POptimizeInputsEvent {
-  optional PAbstractEventWithState super = 1;
+message POptimizeInputsPlannerEvent {
+  optional PAbstractPlannerEventWithState super = 1;
   optional PRegisteredReference current_group_reference = 2;
   optional PRegisteredRelationalExpression expression = 3;
 }
 
-message PAdjustMatchEvent {
-  optional PAbstractEventWithState super = 1;
+message PAdjustMatchPlannerEvent {
+  optional PAbstractPlannerEventWithState super = 1;
   optional PRegisteredReference current_group_reference = 2;
   optional PRegisteredRelationalExpression expression = 3;
 }
 
-message PExploreGroupEvent {
-  optional PAbstractEventWithState super = 1;
+message PExploreGroupPlannerEvent {
+  optional PAbstractPlannerEventWithState super = 1;
   optional PRegisteredReference current_group_reference = 2;
 }
 
-message POptimizeGroupEvent {
-  optional PAbstractEventWithState super = 1;
+message POptimizeGroupPlannerEvent {
+  optional PAbstractPlannerEventWithState super = 1;
   optional PRegisteredReference current_group_reference = 2;
 }
 
-message PExploreExpressionEvent {
-  optional PAbstractEventWithState super = 1;
+message PExploreExpressionPlannerEvent {
+  optional PAbstractPlannerEventWithState super = 1;
   optional PRegisteredReference current_group_reference = 2;
   optional PRegisteredRelationalExpression expression = 3;
 }
 
-message PTransformEvent {
-  optional PAbstractEventWithState super = 1;
+message PTransformPlannerEvent {
+  optional PAbstractPlannerEventWithState super = 1;
   optional PRegisteredReference current_group_reference = 2;
   optional PBindable bindable = 3;
   optional string rule = 4;
 }
 
-message PTransformRuleCallEvent {
-  optional PAbstractEventWithState super = 1;
+message PTransformRuleCallPlannerEvent {
+  optional PAbstractPlannerEventWithState super = 1;
   optional PRegisteredReference current_group_reference = 2;
   optional PBindable bindable = 3;
   optional string rule = 4;
 }
 
-message PExecutingTaskEvent {
-  optional PAbstractEventWithState super = 1;
+message PExecutingTaskPlannerEvent {
+  optional PAbstractPlannerEventWithState super = 1;
 }
 
-message PInitiatePlannerPhaseEvent {
-  optional PAbstractEventWithState super = 1;
+message PInitiatePhasePlannerEvent {
+  optional PAbstractPlannerEventWithState super = 1;
 }
 
-message PInsertIntoMemoEvent {
+message PInsertIntoMemoPlannerEvent {
   optional string location = 1;
   optional PRegisteredRelationalExpression expression = 2;
   repeated PRegisteredReference reusedExpressionReferences = 3;
 }
 
-message PTranslateCorrelationsEvent {
+message PTranslateCorrelationsPlannerEvent {
   optional PRegisteredRelationalExpression expression = 1;
   optional string location = 2;
 }

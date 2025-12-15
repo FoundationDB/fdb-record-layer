@@ -22,7 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
-import com.apple.foundationdb.record.query.plan.cascades.debug.eventprotos.PPlannerPhase;
+import com.apple.foundationdb.record.query.plan.cascades.events.eventprotos.PPlannerPhase;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
