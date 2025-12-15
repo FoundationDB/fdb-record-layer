@@ -48,6 +48,7 @@ import com.apple.foundationdb.record.query.plan.cascades.events.OptimizeGroupPla
 import com.apple.foundationdb.record.query.plan.cascades.events.OptimizeInputsPlannerEvent;
 import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEvent;
 import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEventListeners;
+import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEventStatsCollector;
 import com.apple.foundationdb.record.query.plan.cascades.events.ExecutingTaskPlannerEvent;
 import com.apple.foundationdb.record.query.plan.cascades.events.ExploreExpressionPlannerEvent;
 import com.apple.foundationdb.record.query.plan.cascades.events.TransformPlannerEvent;
@@ -345,7 +346,7 @@ public class CascadesPlanner implements QueryPlanner {
                 .put(QueryPlanInfoKeys.MAX_TASK_QUEUE_SIZE, maxQueueSize)
                 .put(QueryPlanInfoKeys.CONSTRAINTS, constraints)
                 .put(QueryPlanInfoKeys.STATS_MAPS,
-                        StatsDebugger.flatMapDebugger(StatsDebugger::getStatsMaps)
+                        PlannerEventStatsCollector.flatMapCollector(PlannerEventStatsCollector::getStatsMaps)
                                 .orElse(null))
                 .build();
         return new QueryPlanResult(plan, info);
@@ -390,7 +391,7 @@ public class CascadesPlanner implements QueryPlanner {
                     QueryPlanInfo.newBuilder()
                             .put(QueryPlanInfoKeys.CONSTRAINTS, constraints)
                             .put(QueryPlanInfoKeys.STATS_MAPS,
-                                    StatsDebugger.flatMapDebugger(StatsDebugger::getStatsMaps)
+                                    PlannerEventStatsCollector.flatMapCollector(PlannerEventStatsCollector::getStatsMaps)
                                             .orElse(null))
                             .build());
         } finally {

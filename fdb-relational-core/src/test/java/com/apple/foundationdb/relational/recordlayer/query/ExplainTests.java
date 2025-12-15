@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
+import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEventStatsCollector;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
@@ -129,6 +131,56 @@ public class ExplainTests {
                             .hasColumn("PLAN", "ISCAN(RECORD_NAME_IDX <,>)")
                             .hasColumn("PLAN_HASH", -1635569052)
                             .hasColumn("PLAN_CONTINUATION", null);
+                    assertResult.hasNoNextRow();
+                }
+            }
+        }
+    }
+
+    @Test
+    void explainContainsEventStatsWithADebuggerInstalled() throws Exception {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            executeInsert(ddl);
+            try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("EXPLAIN SELECT * FROM RestaurantComplexRecord")) {
+                ps.setMaxRows(2);
+                try (final RelationalResultSet resultSet = ps.executeQuery()) {
+                    final var assertResult = ResultSetAssert.assertThat(resultSet);
+                    assertResult.hasNextRow()
+                            .hasColumn("PLAN", "ISCAN(RECORD_NAME_IDX <,>)")
+                            .hasColumn("PLAN_HASH", -1635569052)
+                            .hasColumn("PLAN_CONTINUATION", null);
+                    final var plannerMetrics = resultSet.getStruct("PLANNER_METRICS");
+                    org.junit.jupiter.api.Assertions.assertNotNull(plannerMetrics);
+                    RelationalStructAssert.assertThat(plannerMetrics)
+                            .hasValue("REWRITING_PHASE_TASK_COUNT", 44L)
+                            .hasValue("PLANNING_PHASE_TASK_COUNT", 204L);
+                    assertResult.hasNoNextRow();
+                }
+            }
+        }
+    }
+
+    @Test
+    void explainContainsEventStatsWithDefaultEventStatsCollectorEnabled() throws Exception {
+        Debugger.setDebugger(null);
+        org.junit.jupiter.api.Assertions.assertNull(Debugger.getDebugger());
+        PlannerEventStatsCollector.enableDefaultStatsCollector();
+
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            executeInsert(ddl);
+            try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("EXPLAIN SELECT * FROM RestaurantComplexRecord")) {
+                ps.setMaxRows(2);
+                try (final RelationalResultSet resultSet = ps.executeQuery()) {
+                    final var assertResult = ResultSetAssert.assertThat(resultSet);
+                    assertResult.hasNextRow()
+                            .hasColumn("PLAN", "ISCAN(RECORD_NAME_IDX <,>)")
+                            .hasColumn("PLAN_HASH", -1635569052)
+                            .hasColumn("PLAN_CONTINUATION", null);
+                    final var plannerMetrics = resultSet.getStruct("PLANNER_METRICS");
+                    org.junit.jupiter.api.Assertions.assertNotNull(plannerMetrics);
+                    RelationalStructAssert.assertThat(plannerMetrics)
+                            .hasValue("REWRITING_PHASE_TASK_COUNT", 44L)
+                            .hasValue("PLANNING_PHASE_TASK_COUNT", 204L);
                     assertResult.hasNoNextRow();
                 }
             }
