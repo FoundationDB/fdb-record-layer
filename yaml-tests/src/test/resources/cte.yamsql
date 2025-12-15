@@ -36,7 +36,7 @@ test_block:
   tests:
     -
       - query: with c1 as (select col1, col2 from t1) select col1, col2 from c1
-      - explain: "COVERING(I1 <,> -> [COL1: KEY[1], COL2: KEY[0], ID: KEY[3]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2)"
+      - explain: "COVERING(I1 <,> -> [COL1: KEY:[1], COL2: KEY:[0], ID: KEY:[3]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2)"
       - unorderedResult: [{COL1: 10, COL2: 1},
                           {COL1: 10, COL2: 2},
                           {COL1: 20, COL2: 6},
@@ -112,13 +112,13 @@ test_block:
       - error: "42703"
     -
       - query: select col1 from t1 where col2 < 3
-      - explain: "COVERING(I1 [[LESS_THAN promote(@c8 AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], ID: KEY[3]]) | MAP (_.COL1 AS COL1)"
+      - explain: "COVERING(I1 [[LESS_THAN promote(@c8 AS LONG)]] -> [COL1: KEY:[1], COL2: KEY:[0], ID: KEY:[3]]) | MAP (_.COL1 AS COL1)"
     -
       - query: select x from (select col1 as x, col2 as y from t1) as sub where y < 3
-      - explain: "COVERING(I1 [[LESS_THAN promote(@c21 AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], ID: KEY[3]]) | MAP (_.COL1 AS X)"
+      - explain: "COVERING(I1 [[LESS_THAN promote(@c21 AS LONG)]] -> [COL1: KEY:[1], COL2: KEY:[0], ID: KEY:[3]]) | MAP (_.COL1 AS X)"
     -
       - query: with c1(x, y) as (select col1, col2 from t1) select x from c1 where y < 3
-      - explain: "COVERING(I1 [[LESS_THAN promote(@c24 AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], ID: KEY[3]]) | MAP (_.COL1 AS X)"
+      - explain: "COVERING(I1 [[LESS_THAN promote(@c24 AS LONG)]] -> [COL1: KEY:[1], COL2: KEY:[0], ID: KEY:[3]]) | MAP (_.COL1 AS X)"
     -
       - query: with c1 as (select col1, col2 from t1) select col1, col2 from c1
       - maxRows: 1

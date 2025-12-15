@@ -154,22 +154,22 @@ test_block:
     -
       # select from nested repeated table
       - query: select t.id from "foo.table$nested.repeated" as t where exists (select * from t."level0.field1" as x where x."level1$field.3" = 20)
-      - explain: "COVERING(foo.table$nested.repeated.idx.field.1.3 [EQUALS promote(@c25 AS LONG)] -> [ID: KEY[2]]) | MAP (_.ID AS ID)"
+      - explain: "COVERING(foo.table$nested.repeated.idx.field.1.3 [EQUALS promote(@c25 AS LONG)] -> [ID: KEY:[2]]) | MAP (_.ID AS ID)"
       - result: [{2}]
     -
       # select a nested field field on a nested repeated struct
       - query: select t.id from "foo.table$nested.repeated" as t where exists (select * from t."level0.field1" as x where x."level1$field.2"."level2$field.1" = 91)
-      - explain: "COVERING(foo.table$nested.repeated.idx.field.1.2.1 [EQUALS promote(@c27 AS LONG)] -> [ID: KEY[2]]) | MAP (_.ID AS ID)"
+      - explain: "COVERING(foo.table$nested.repeated.idx.field.1.2.1 [EQUALS promote(@c27 AS LONG)] -> [ID: KEY:[2]]) | MAP (_.ID AS ID)"
       - result: [{1}]
     -
       # select from deeply nested repeated table
       - query: select t.id from "foo.table$nested.repeated" as t where exists (select * from t."level0.field1" as b, b."level1$field.1" where "level2$array.field.1" = 10)
-      - explain: "COVERING(foo.table$nested.repeated.idx.field.1.1.1 [EQUALS promote(@c27 AS LONG)] -> [ID: KEY[2]]) | MAP (_.ID AS ID)"
+      - explain: "COVERING(foo.table$nested.repeated.idx.field.1.1.1 [EQUALS promote(@c27 AS LONG)] -> [ID: KEY:[2]]) | MAP (_.ID AS ID)"
       - result: [{1}]
     -
       # select from nested table
       - query: select "level0.field1"."level1$field.1"."level2$field.1" from "foo.table$nested" where id = 1
-      - explain: "COVERING(foo.table$nested.idx <,> -> [ID: KEY[2], level0__2field1: [level1__1field__21: [level2__1field__21: KEY[0]]]]) | FILTER _.ID EQUALS promote(@c12 AS LONG) | MAP (_.level0.field1.level1$field.1.level2$field.1 AS level2$field.1)"
+      - explain: "COVERING(foo.table$nested.idx <,> -> [ID: KEY:[2], level0__2field1: [level1__1field__21: [level2__1field__21: KEY:[0]]]]) | FILTER _.ID EQUALS promote(@c12 AS LONG) | MAP (_.level0.field1.level1$field.1.level2$field.1 AS level2$field.1)"
       - result: [{10}]
     -
       # select with predicates on repeated scalar fields
@@ -181,7 +181,7 @@ test_block:
     -
       # select with predicates on repeated scalar fields
       - query: select "foo.table$repeated".id from "foo.table$repeated" where exists (select 1 from "foo.table$repeated"."field.1$array" r where r = 'foo')
-      - explain: "COVERING(foo.table$repeated.2 [EQUALS @c20] -> [ID: KEY[2]]) | MAP (_.ID AS ID)"
+      - explain: "COVERING(foo.table$repeated.2 [EQUALS @c20] -> [ID: KEY:[2]]) | MAP (_.ID AS ID)"
       - result: [{1}, {2}]
     -
       # select repeated scalar fields
@@ -198,17 +198,17 @@ test_block:
     -
       # qualified star
       - query: select "foo.tableA".* from "foo.tableA";
-      - explain: "COVERING(foo.tableA.idx <,> -> [foo__2tableA__2A1: KEY[0], foo__2tableA__2A2: KEY[1], foo__2tableA__2A3: KEY[2]]) | MAP (_.foo.tableA.A1 AS foo.tableA.A1, _.foo.tableA.A2 AS foo.tableA.A2, _.foo.tableA.A3 AS foo.tableA.A3)"
+      - explain: "COVERING(foo.tableA.idx <,> -> [foo__2tableA__2A1: KEY:[0], foo__2tableA__2A2: KEY:[1], foo__2tableA__2A3: KEY:[2]]) | MAP (_.foo.tableA.A1 AS foo.tableA.A1, _.foo.tableA.A2 AS foo.tableA.A2, _.foo.tableA.A3 AS foo.tableA.A3)"
       - result: [{"foo.tableA.A1": 1 , "foo.tableA.A2": 10, "foo.tableA.A3": 1}, {"foo.tableA.A1": 2, "foo.tableA.A2": 10, "foo.tableA.A3": 2}, {"foo.tableA.A1": 3, "foo.tableA.A2": 10, "foo.tableA.A3": 3}]
     -
       # non-qualified star
       - query: select * from "foo.tableA";
-      - explain: "COVERING(foo.tableA.idx <,> -> [foo__2tableA__2A1: KEY[0], foo__2tableA__2A2: KEY[1], foo__2tableA__2A3: KEY[2]]) | MAP (_.foo.tableA.A1 AS foo.tableA.A1, _.foo.tableA.A2 AS foo.tableA.A2, _.foo.tableA.A3 AS foo.tableA.A3)"
+      - explain: "COVERING(foo.tableA.idx <,> -> [foo__2tableA__2A1: KEY:[0], foo__2tableA__2A2: KEY:[1], foo__2tableA__2A3: KEY:[2]]) | MAP (_.foo.tableA.A1 AS foo.tableA.A1, _.foo.tableA.A2 AS foo.tableA.A2, _.foo.tableA.A3 AS foo.tableA.A3)"
       - result: [{"foo.tableA.A1": 1 , 10, 1}, {"foo.tableA.A1": 2, 10, 2}, {"foo.tableA.A1": 3, 10, 3}]
     -
       # aliased star
       - query: select "_$$$".* from "foo.tableA" as "_$$$";
-      - explain: "COVERING(foo.tableA.idx <,> -> [foo__2tableA__2A1: KEY[0], foo__2tableA__2A2: KEY[1], foo__2tableA__2A3: KEY[2]]) | MAP (_.foo.tableA.A1 AS foo.tableA.A1, _.foo.tableA.A2 AS foo.tableA.A2, _.foo.tableA.A3 AS foo.tableA.A3)"
+      - explain: "COVERING(foo.tableA.idx <,> -> [foo__2tableA__2A1: KEY:[0], foo__2tableA__2A2: KEY:[1], foo__2tableA__2A3: KEY:[2]]) | MAP (_.foo.tableA.A1 AS foo.tableA.A1, _.foo.tableA.A2 AS foo.tableA.A2, _.foo.tableA.A3 AS foo.tableA.A3)"
       - result: [{"foo.tableA.A1": 1 , 10, 1}, {"foo.tableA.A1": 2, 10, 2}, {"foo.tableA.A1": 3, 10, 3}]
     -
       # with predicate
@@ -315,23 +315,23 @@ test_block:
       - result: [{"foo$tableC$C2": 20, 10}]
     -
       - query: select "__foo__tableD".* from "__foo__tableD";
-      - explain: "COVERING(__foo__tableD$idx <,> -> [__foo__0tableD__1D1: KEY[0], __foo__0tableD__1D2: KEY[1], __foo__0tableD__1D3: KEY[2]]) | MAP (_.__foo__tableD$D1 AS __foo__tableD$D1, _.__foo__tableD$D2 AS __foo__tableD$D2, _.__foo__tableD$D3 AS __foo__tableD$D3)"
+      - explain: "COVERING(__foo__tableD$idx <,> -> [__foo__0tableD__1D1: KEY:[0], __foo__0tableD__1D2: KEY:[1], __foo__0tableD__1D3: KEY:[2]]) | MAP (_.__foo__tableD$D1 AS __foo__tableD$D1, _.__foo__tableD$D2 AS __foo__tableD$D2, _.__foo__tableD$D3 AS __foo__tableD$D3)"
       - result: [{"__foo__tableD$D1": 1 , "__foo__tableD$D2": 20, "__foo__tableD$D3": 1}, {"__foo__tableD$D1": 2, "__foo__tableD$D2": 20, "__foo__tableD$D3": 2}, {"__foo__tableD$D1": 3, "__foo__tableD$D2": 20, "__foo__tableD$D3": 3}, {"__foo__tableD$D1": 4, "__foo__tableD$D2": 20, "__foo__tableD$D3": 4}]
     -
       - query: select "__foo__tableD".* from "__foo__tableD" where "__foo__tableD$D3" >= 2;
-      - explain: "COVERING(__foo__tableD$idx <,> -> [__foo__0tableD__1D1: KEY[0], __foo__0tableD__1D2: KEY[1], __foo__0tableD__1D3: KEY[2]]) | FILTER _.__foo__tableD$D3 GREATER_THAN_OR_EQUALS promote(@c11 AS LONG) | MAP (_.__foo__tableD$D1 AS __foo__tableD$D1, _.__foo__tableD$D2 AS __foo__tableD$D2, _.__foo__tableD$D3 AS __foo__tableD$D3)"
+      - explain: "COVERING(__foo__tableD$idx <,> -> [__foo__0tableD__1D1: KEY:[0], __foo__0tableD__1D2: KEY:[1], __foo__0tableD__1D3: KEY:[2]]) | FILTER _.__foo__tableD$D3 GREATER_THAN_OR_EQUALS promote(@c11 AS LONG) | MAP (_.__foo__tableD$D1 AS __foo__tableD$D1, _.__foo__tableD$D2 AS __foo__tableD$D2, _.__foo__tableD$D3 AS __foo__tableD$D3)"
       - result: [{"__foo__tableD$D1": 2, "__foo__tableD$D2": 20, "__foo__tableD$D3": 2}, {"__foo__tableD$D1": 3, "__foo__tableD$D2": 20, "__foo__tableD$D3": 3}, {"__foo__tableD$D1": 4, "__foo__tableD$D2": 20, "__foo__tableD$D3": 4}]
     -
       - query: select "__foo__tableD"."__foo__tableD$D1" from "__foo__tableD";
-      - explain: "COVERING(__foo__tableD$idx <,> -> [__foo__0tableD__1D1: KEY[0], __foo__0tableD__1D2: KEY[1], __foo__0tableD__1D3: KEY[2]]) | MAP (_.__foo__tableD$D1 AS __foo__tableD$D1)"
+      - explain: "COVERING(__foo__tableD$idx <,> -> [__foo__0tableD__1D1: KEY:[0], __foo__0tableD__1D2: KEY:[1], __foo__0tableD__1D3: KEY:[2]]) | MAP (_.__foo__tableD$D1 AS __foo__tableD$D1)"
       - result: [{"__foo__tableD$D1": 1}, {"__foo__tableD$D1": 2}, {"__foo__tableD$D1": 3}, {"__foo__tableD$D1": 4}]
     -
       - query: select "__foo__tableD$D1" from "__foo__tableD";
-      - explain: "COVERING(__foo__tableD$idx <,> -> [__foo__0tableD__1D1: KEY[0], __foo__0tableD__1D2: KEY[1], __foo__0tableD__1D3: KEY[2]]) | MAP (_.__foo__tableD$D1 AS __foo__tableD$D1)"
+      - explain: "COVERING(__foo__tableD$idx <,> -> [__foo__0tableD__1D1: KEY:[0], __foo__0tableD__1D2: KEY:[1], __foo__0tableD__1D3: KEY:[2]]) | MAP (_.__foo__tableD$D1 AS __foo__tableD$D1)"
       - result: [{"__foo__tableD$D1": 1}, {"__foo__tableD$D1": 2}, {"__foo__tableD$D1": 3}, {"__foo__tableD$D1": 4}]
     -
       - query: select "__foo__tableD".* from "__foo__tableD" where "__foo__tableD$D3" >= 2 order by "__foo__tableD$D1";
-      - explain: "COVERING(__foo__tableD$idx <,> -> [__foo__0tableD__1D1: KEY[0], __foo__0tableD__1D2: KEY[1], __foo__0tableD__1D3: KEY[2]]) | FILTER _.__foo__tableD$D3 GREATER_THAN_OR_EQUALS promote(@c11 AS LONG) | MAP (_.__foo__tableD$D1 AS __foo__tableD$D1, _.__foo__tableD$D2 AS __foo__tableD$D2, _.__foo__tableD$D3 AS __foo__tableD$D3)"
+      - explain: "COVERING(__foo__tableD$idx <,> -> [__foo__0tableD__1D1: KEY:[0], __foo__0tableD__1D2: KEY:[1], __foo__0tableD__1D3: KEY:[2]]) | FILTER _.__foo__tableD$D3 GREATER_THAN_OR_EQUALS promote(@c11 AS LONG) | MAP (_.__foo__tableD$D1 AS __foo__tableD$D1, _.__foo__tableD$D2 AS __foo__tableD$D2, _.__foo__tableD$D3 AS __foo__tableD$D3)"
       - result: [{"__foo__tableD$D1": 2, "__foo__tableD$D2": 20, "__foo__tableD$D3": 2}, {"__foo__tableD$D1": 3, "__foo__tableD$D2": 20, "__foo__tableD$D3": 3}, {"__foo__tableD$D1": 4, "__foo__tableD$D2": 20, "__foo__tableD$D3": 4}]
     -
       - query: select sum("__foo__tableD$D1") from "__foo__tableD" group by "__foo__tableD$D2";
@@ -390,7 +390,7 @@ test_block:
     -
       # named record construction
       - query: select struct "x$$" ("foo.tableA.A1", "foo.tableA.A2", "foo.tableA.A3") from "foo.tableA"
-      - explain: "COVERING(foo.tableA.idx <,> -> [foo__2tableA__2A1: KEY[0], foo__2tableA__2A2: KEY[1], foo__2tableA__2A3: KEY[2]]) | MAP ((_.foo.tableA.A1 AS foo.tableA.A1, _.foo.tableA.A2 AS foo.tableA.A2, _.foo.tableA.A3 AS foo.tableA.A3) AS _0)"
+      - explain: "COVERING(foo.tableA.idx <,> -> [foo__2tableA__2A1: KEY:[0], foo__2tableA__2A2: KEY:[1], foo__2tableA__2A3: KEY:[2]]) | MAP ((_.foo.tableA.A1 AS foo.tableA.A1, _.foo.tableA.A2 AS foo.tableA.A2, _.foo.tableA.A3 AS foo.tableA.A3) AS _0)"
       - result: [{{"foo.tableA.A1": 1 , "foo.tableA.A2": 10, "foo.tableA.A3": 1}}, {{"foo.tableA.A1": 2, "foo.tableA.A2": 10, "foo.tableA.A3": 2}}, {{"foo.tableA.A1": 3, "foo.tableA.A2": 10, "foo.tableA.A3": 3}}]
     -
       # named record construction with uid star
@@ -479,11 +479,11 @@ test_block:
   tests:
     -
       - query: UPDATE "foo.tableA" SET "foo.tableA.A2" = 100 WHERE "foo.tableA.A1" = 1
-      - explain: "COVERING(foo.tableA.idx [EQUALS promote(@c10 AS LONG)] -> [foo__2tableA__2A1: KEY[0], foo__2tableA__2A2: KEY[1], foo__2tableA__2A3: KEY[2]]) | DISTINCT BY PK | FETCH | UPDATE foo__2tableA"
+      - explain: "COVERING(foo.tableA.idx [EQUALS promote(@c10 AS LONG)] -> [foo__2tableA__2A1: KEY:[0], foo__2tableA__2A2: KEY:[1], foo__2tableA__2A3: KEY:[2]]) | DISTINCT BY PK | FETCH | UPDATE foo__2tableA"
       - count: 1
     -
       - query: UPDATE "foo.tableA" SET "foo.tableA.A2" = 100 WHERE "foo.tableA.A1" > 1 RETURNING "new"."foo.tableA.A1"
-      - explain: "COVERING(foo.tableA.idx [[GREATER_THAN promote(@c10 AS LONG)]] -> [foo__2tableA__2A1: KEY[0], foo__2tableA__2A2: KEY[1], foo__2tableA__2A3: KEY[2]]) | DISTINCT BY PK | FETCH | UPDATE foo__2tableA | MAP (_.new.foo.tableA.A1 AS foo.tableA.A1)"
+      - explain: "COVERING(foo.tableA.idx [[GREATER_THAN promote(@c10 AS LONG)]] -> [foo__2tableA__2A1: KEY:[0], foo__2tableA__2A2: KEY:[1], foo__2tableA__2A3: KEY:[2]]) | DISTINCT BY PK | FETCH | UPDATE foo__2tableA | MAP (_.new.foo.tableA.A1 AS foo.tableA.A1)"
       - result: [{"foo.tableA.A1" : 2}, {"foo.tableA.A1" : 3}]
     -
       - query: DELETE FROM "foo.tableA" WHERE "foo.tableA.A1" = 1 RETURNING "foo.tableA.A1" + "foo.tableA.A2" + "foo.tableA.A3"
@@ -803,7 +803,7 @@ test_block:
         ]
     -
       - query: SELECT ID, "__T6.COL2__VALUE" FROM "___T6.__UNESCAPED" WHERE "__T6.COL2__VALUE" < 10
-      - explain: "COVERING(T6$COL2 [[LESS_THAN promote(@c10 AS LONG)]] -> [ID: KEY[2], __T6__2COL2__VALUE: KEY[0]]) | MAP (_.ID AS ID, _.__T6.COL2__VALUE AS __T6.COL2__VALUE)"
+      - explain: "COVERING(T6$COL2 [[LESS_THAN promote(@c10 AS LONG)]] -> [ID: KEY:[2], __T6__2COL2__VALUE: KEY:[0]]) | MAP (_.ID AS ID, _.__T6.COL2__VALUE AS __T6.COL2__VALUE)"
       - result: [
           {"ID": 38, "__T6.COL2__VALUE" : -1},
           {"ID": 39, "__T6.COL2__VALUE" : -1},

@@ -245,7 +245,7 @@ public class QueryLoggingTest {
                     rs.next();
                 }
                 Assertions.assertThat(logAppender.getLogEvents()).isNotEmpty();
-                Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("plan=\"COVERING(RECORD_TYPE_COVERING <,> -> [NAME: VALUE[0], REST_NO: KEY[0]]) | MAP (_.NAME AS NAME)\"");
+                Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("plan=\"COVERING(RECORD_TYPE_COVERING <,> -> [NAME: VALUE:[0], REST_NO: KEY:[0]]) | MAP (_.NAME AS NAME)\"");
             }
         }
     }
@@ -276,7 +276,7 @@ public class QueryLoggingTest {
                     Assertions.assertThat(logAppender.getLogEvents()).isEmpty();
                 } else {
                     Assertions.assertThat(logAppender.getLogEvents()).isNotEmpty();
-                    Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("plan=\"COVERING(RECORD_TYPE_COVERING <,> -> [NAME: VALUE[0], REST_NO: KEY[0]]) | MAP (_.NAME AS NAME)\"");
+                    Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("plan=\"COVERING(RECORD_TYPE_COVERING <,> -> [NAME: VALUE:[0], REST_NO: KEY:[0]]) | MAP (_.NAME AS NAME)\"");
                 }
             }
         }
