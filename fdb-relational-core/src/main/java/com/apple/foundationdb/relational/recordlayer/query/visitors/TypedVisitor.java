@@ -347,7 +347,7 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
 
     @Nonnull
     @Override
-    Expression visitInnerJoin(@Nonnull RelationalParser.InnerJoinContext ctx);
+    Object visitInnerJoin(@Nonnull RelationalParser.InnerJoinContext ctx);
 
     @Nonnull
     @Override

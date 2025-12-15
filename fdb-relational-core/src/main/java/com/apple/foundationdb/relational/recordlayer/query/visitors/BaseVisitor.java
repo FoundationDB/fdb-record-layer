@@ -745,8 +745,8 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
 
     @Nonnull
     @Override
-    public Expression visitInnerJoin(@Nonnull RelationalParser.InnerJoinContext ctx) {
-        return queryVisitor.visitInnerJoin(ctx);
+    public Object visitInnerJoin(@Nonnull RelationalParser.InnerJoinContext ctx) {
+        return visitChildren(ctx);
     }
 
     @Nonnull

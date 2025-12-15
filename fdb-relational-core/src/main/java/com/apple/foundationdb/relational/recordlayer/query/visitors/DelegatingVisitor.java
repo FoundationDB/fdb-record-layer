@@ -598,7 +598,7 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
 
     @Nonnull
     @Override
-    public Expression visitInnerJoin(@Nonnull RelationalParser.InnerJoinContext ctx) {
+    public Object visitInnerJoin(@Nonnull RelationalParser.InnerJoinContext ctx) {
         return getDelegate().visitInnerJoin(ctx);
     }
 
