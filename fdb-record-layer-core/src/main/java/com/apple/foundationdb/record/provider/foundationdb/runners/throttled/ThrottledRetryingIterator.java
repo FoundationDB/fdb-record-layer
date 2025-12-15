@@ -43,6 +43,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.Executor;
@@ -91,6 +92,7 @@ public class ThrottledRetryingIterator<T> implements AutoCloseable {
     @Nullable
     private final Consumer<QuotaManager> transactionInitNotification;
     private final int numOfRetries;
+    private final boolean commitWhenDone;
 
     private boolean closed = false;
     /** Starting time of the current/most-recent transaction. */
@@ -116,6 +118,7 @@ public class ThrottledRetryingIterator<T> implements AutoCloseable {
         this.transactionInitNotification = builder.transactionInitNotification;
         this.cursorRowsLimit = 0;
         this.numOfRetries = builder.numOfRetries;
+        this.commitWhenDone = builder.commitWhenDone;
         futureManager = new FutureAutoClose();
     }
 
@@ -174,7 +177,7 @@ public class ThrottledRetryingIterator<T> implements AutoCloseable {
                                                                      QuotaManager singleIterationQuotaManager) {
         AtomicReference<RecordCursorResult<T>> cont = new AtomicReference<>();
 
-        return transactionalRunner.runAsync(true, transaction -> {
+        return transactionalRunner.runAsync(true, commitWhenDone, transaction -> {
             // this layer returns last cursor result
             singleIterationQuotaManager.init();
 
@@ -389,14 +392,6 @@ public class ThrottledRetryingIterator<T> implements AutoCloseable {
         }
     }
 
-    public static <T> Builder<T> builder(TransactionalRunner runner,
-                                         Executor executor,
-                                         ScheduledExecutorService scheduledExecutor,
-                                         CursorFactory<T> cursorCreator,
-                                         ItemHandler<T> singleItemHandler) {
-        return new Builder<>(runner, executor, scheduledExecutor, cursorCreator, singleItemHandler);
-    }
-
     public static <T> Builder<T> builder(FDBDatabase database,
                                          CursorFactory<T> cursorCreator,
                                          ItemHandler<T> singleItemHandler) {
@@ -409,9 +404,13 @@ public class ThrottledRetryingIterator<T> implements AutoCloseable {
      * @param <T> the item type being iterated on.
      */
     public static class Builder<T> {
-        private final TransactionalRunner transactionalRunner;
-        private final Executor executor;
-        private final ScheduledExecutorService scheduledExecutor;
+        // Fields constructed during build()
+        private TransactionalRunner transactionalRunner;
+        private Executor executor;
+        private ScheduledExecutorService scheduledExecutor;
+        // Fields initialized by setters/constructor
+        private FDBDatabase database;
+        private FDBRecordContextConfig.Builder contextConfigBuilder;
         private final CursorFactory<T> cursorCreator;
         private final ItemHandler<T> singleItemHandler;
         private Consumer<QuotaManager> transactionSuccessNotification;
@@ -421,18 +420,12 @@ public class ThrottledRetryingIterator<T> implements AutoCloseable {
         private int maxRecordScannedPerSec;
         private int maxRecordDeletesPerSec;
         private int numOfRetries;
+        private boolean commitWhenDone;
 
-        /**
-         * Constructor.
-         * @param runner the FDB runner to use when creating transactions
-         * @param cursorCreator the factory to use when creating the inner cursor
-         * @param singleItemHandler the handler of a single item while iterating
-         */
-        private Builder(TransactionalRunner runner, Executor executor, ScheduledExecutorService scheduledExecutor, CursorFactory<T> cursorCreator, ItemHandler<T> singleItemHandler) {
+        private Builder(FDBDatabase database, FDBRecordContextConfig.Builder contextConfigBuilder, CursorFactory<T> cursorCreator, ItemHandler<T> singleItemHandler) {
             // Mandatory fields are set in the constructor. Everything else is optional.
-            this.transactionalRunner = runner;
-            this.executor = executor;
-            this.scheduledExecutor = scheduledExecutor;
+            this.database = database;
+            this.contextConfigBuilder = contextConfigBuilder;
             this.cursorCreator = cursorCreator;
             this.singleItemHandler = singleItemHandler;
             // set defaults
@@ -441,14 +434,7 @@ public class ThrottledRetryingIterator<T> implements AutoCloseable {
             this.maxRecordScannedPerSec = 0;
             this.maxRecordDeletesPerSec = 0;
             this.numOfRetries = NUMBER_OF_RETRIES;
-        }
-
-        private Builder(FDBDatabase database, FDBRecordContextConfig.Builder contextConfigBuilder, CursorFactory<T> cursorCreator, ItemHandler<T> singleItemHandler) {
-            this(new TransactionalRunner(database, contextConfigBuilder),
-                    database.newContextExecutor(contextConfigBuilder.getMdcContext()),
-                    database.getScheduledExecutor(),
-                    cursorCreator,
-                    singleItemHandler);
+            this.commitWhenDone = false;
         }
 
         /**
@@ -539,10 +525,39 @@ public class ThrottledRetryingIterator<T> implements AutoCloseable {
         }
 
         /**
+         * Set whether to commit the transaction when done.
+         * Setting this to TRUE will commit every transaction created before creating a new one. Setting to FALSE will
+         * roll back the transactions.
+         * Defaults to FALSE.
+         * @param commitWhenDone whether to commit or roll back the transactions created
+         * @return this builder
+         */
+        public Builder<T> withCommitWhenDone(boolean commitWhenDone) {
+            this.commitWhenDone = commitWhenDone;
+            return this;
+        }
+
+        /**
+         * Set the MDC context for the runner/executor.
+         * This MDC context will be carried out into the runner and executor and will allow them to pass that down to
+         * LOGGER calls used by the item handlers.
+         * Defaults to empty context.
+         * @param mdcContext the MDC context to use
+         * @return this builder
+         */
+        public Builder<T> withMdcContext(Map<String, String> mdcContext) {
+            this.contextConfigBuilder.setMdcContext(mdcContext);
+            return this;
+        }
+
+        /**
          * Create the iterator.
          * @return the newly minted iterator
          */
         public ThrottledRetryingIterator<T> build() {
+            this.transactionalRunner = new TransactionalRunner(database, contextConfigBuilder);
+            this.executor = database.newContextExecutor(contextConfigBuilder.getMdcContext());
+            this.scheduledExecutor = database.getScheduledExecutor();
             return new ThrottledRetryingIterator<>(this);
         }
     }

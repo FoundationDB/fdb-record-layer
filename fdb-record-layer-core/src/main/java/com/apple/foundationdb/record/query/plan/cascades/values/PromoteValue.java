@@ -41,6 +41,7 @@ import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.MessageHelpers.CoercionTrieNode;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
+import com.apple.foundationdb.record.util.ProtoUtils;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Suppliers;
@@ -144,9 +145,15 @@ public class PromoteValue extends AbstractValue implements CreatesDynamicTypesVa
 
         @Nonnull
         public static Descriptors.EnumValueDescriptor stringToEnumValue(Descriptors.EnumDescriptor enumDescriptor, String value) {
-            final var maybeValue = enumDescriptor.findValueByName(value);
+            Descriptors.EnumValueDescriptor maybeValue = null;
+            for (Descriptors.EnumValueDescriptor valueDescriptor : enumDescriptor.getValues()) {
+                if (ProtoUtils.toUserIdentifier(valueDescriptor.getName()).equals(value)) {
+                    maybeValue = valueDescriptor;
+                    break;
+                }
+            }
             SemanticException.check(maybeValue != null, SemanticException.ErrorCode.INVALID_ENUM_VALUE, value);
-            return maybeValue;
+            return Objects.requireNonNull(maybeValue);
         }
 
         public static UUID stringToUuidValue(String value) {
@@ -459,6 +466,12 @@ public class PromoteValue extends AbstractValue implements CreatesDynamicTypesVa
                 }
             }
             return promotionNeeded;
+        }
+        if (inType.isVector() && promoteToType.isVector()) {
+            final var inVectorType = (Type.Vector)inType;
+            final var promoteToVectorType = (Type.Vector)promoteToType;
+            SemanticException.check(inVectorType.nullable().equals(promoteToVectorType.nullable()), SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
+            return false;
         }
         SemanticException.check((inType.isPrimitive() || inType.isEnum() || inType.isUuid()) &&
                 (promoteToType.isPrimitive() || promoteToType.isEnum() || promoteToType.isUuid()), SemanticException.ErrorCode.INCOMPATIBLE_TYPE);

@@ -107,7 +107,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         final var semanticAnalyzer = getDelegate().getSemanticAnalyzer();
         final SemanticAnalyzer.ParsedTypeInfo typeInfo;
         if (ctx.customType != null) {
-            final var columnType = Identifier.toProtobufCompliant(visitUid(ctx.customType));
+            final var columnType = visitUid(ctx.customType);
             typeInfo = SemanticAnalyzer.ParsedTypeInfo.ofCustomType(columnType, true, false);
         } else {
             typeInfo = SemanticAnalyzer.ParsedTypeInfo.ofPrimitiveType(ctx.primitiveType(), true, false);
@@ -141,7 +141,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nonnull
     @Override
     public RecordLayerColumn visitColumnDefinition(@Nonnull RelationalParser.ColumnDefinitionContext ctx) {
-        final var columnId = Identifier.toProtobufCompliant(visitUid(ctx.colName));
+        final var columnId = visitUid(ctx.colName);
         final var isRepeated = ctx.ARRAY() != null;
         final var isNullable = ctx.columnConstraint() != null ? (Boolean) ctx.columnConstraint().accept(this) : true;
         // TODO: We currently do not support NOT NULL for any type other than ARRAY. This is because there is no way to
@@ -153,7 +153,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         final var semanticAnalyzer = getDelegate().getSemanticAnalyzer();
         final SemanticAnalyzer.ParsedTypeInfo typeInfo;
         if (ctx.columnType().customType != null) {
-            final var columnType = Identifier.toProtobufCompliant(visitUid(ctx.columnType().customType));
+            final var columnType = visitUid(ctx.columnType().customType);
             typeInfo = SemanticAnalyzer.ParsedTypeInfo.ofCustomType(columnType, isNullable, isRepeated);
         } else {
             typeInfo = SemanticAnalyzer.ParsedTypeInfo.ofPrimitiveType(ctx.columnType().primitiveType(), isNullable, isRepeated);
@@ -165,7 +165,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nonnull
     @Override
     public RecordLayerTable visitTableDefinition(@Nonnull RelationalParser.TableDefinitionContext ctx) {
-        final var tableId = Identifier.toProtobufCompliant(visitUid(ctx.uid()));
+        final var tableId = visitUid(ctx.uid());
         final var columns = ctx.columnDefinition().stream().map(this::visitColumnDefinition).collect(ImmutableList.toImmutableList());
         final var tableBuilder = RecordLayerTable.newBuilder(metadataBuilder.isIntermingleTables())
                 .setName(tableId.getName())
@@ -173,7 +173,6 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         if (ctx.primaryKeyDefinition().fullIdList() != null) {
             visitFullIdList(ctx.primaryKeyDefinition().fullIdList())
                     .stream()
-                    .map(Identifier::toProtobufCompliant)
                     .map(Identifier::fullyQualifiedName)
                     .forEach(tableBuilder::addPrimaryKeyPart);
         }
@@ -183,7 +182,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nonnull
     @Override
     public RecordLayerTable visitStructDefinition(@Nonnull RelationalParser.StructDefinitionContext ctx) {
-        final var structId = Identifier.toProtobufCompliant(visitUid(ctx.uid()));
+        final var structId = visitUid(ctx.uid());
         final var columns = ctx.columnDefinition().stream().map(this::visitColumnDefinition).collect(ImmutableList.toImmutableList());
         final var structBuilder = RecordLayerTable.newBuilder(metadataBuilder.isIntermingleTables())
                 .setName(structId.getName())
@@ -205,9 +204,8 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         final var useLegacyBasedExtremumEver = ctx.indexAttributes() != null && ctx.indexAttributes().indexAttribute().stream().anyMatch(attribute -> attribute.LEGACY_EXTREMUM_EVER() != null);
         final var isUnique = ctx.UNIQUE() != null;
         final var generator = IndexGenerator.from(viewPlan, useLegacyBasedExtremumEver);
-        final var table = metadataBuilder.findTable(generator.getRecordTypeName());
         Assert.thatUnchecked(viewPlan instanceof LogicalSortExpression, ErrorCode.INVALID_COLUMN_REFERENCE, "Cannot create index and order by an expression that is not present in the projection list");
-        return generator.generate(indexId.getName(), isUnique, table.getType(), containsNullableArray);
+        return generator.generate(metadataBuilder, indexId.getName(), isUnique, containsNullableArray);
     }
 
     @Nonnull
@@ -266,7 +264,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         }
         structClauses.build().stream().map(this::visitStructDefinition).map(RecordLayerTable::getDatatype).forEach(metadataBuilder::addAuxiliaryType);
         tableClauses.build().stream().map(this::visitTableDefinition).forEach(metadataBuilder::addTable);
-        final var indexes = indexClauses.build().stream().map(this::visitIndexDefinition).collect(ImmutableList.toImmutableList());
+        final List<RecordLayerIndex> indexes = indexClauses.build().stream().map(this::visitIndexDefinition).collect(ImmutableList.toImmutableList());
         // TODO: this is currently relying on the lexical order of the function to resolve function dependencies which
         //       is limited.
         sqlInvokedFunctionClauses.build().forEach(functionClause -> {
@@ -277,7 +275,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
             final var view = getViewMetadata(viewClause, metadataBuilder.build());
             metadataBuilder.addView(view);
         });
-        for (final var index : indexes) {
+        for (final RecordLayerIndex index : indexes) {
             final var table = metadataBuilder.extractTable(index.getTableName());
             final var tableWithIndex = RecordLayerTable.Builder.from(table).addIndex(index).build();
             metadataBuilder.addTable(tableWithIndex);
@@ -341,7 +339,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         final var isTemporary = functionCtx instanceof RelationalParser.CreateTempFunctionContext;
 
         // 1. get the function name.
-        final var functionName = Identifier.toProtobufCompliant(visitFullId(functionSpecCtx.schemaQualifiedRoutineName)).toString();
+        final var functionName = visitFullId(functionSpecCtx.schemaQualifiedRoutineName).toString();
 
         // 2. get the function SQL definition string.
         final var queryString = getDelegate().getPlanGenerationContext().getQuery();
@@ -379,7 +377,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         getDelegate().replaceSchemaTemplate(ddlCatalog);
 
         // 1. get the view name.
-        final var viewName = Identifier.toProtobufCompliant(visitFullId(viewCtx.viewName)).getName();
+        final var viewName = visitFullId(viewCtx.viewName).toString();
 
         // 2. get the view SQL definition string.
         final var queryString = getDelegate().getPlanGenerationContext().getQuery();
@@ -413,7 +411,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
 
     @Override
     public ProceduralPlan visitDropTempFunction(@Nonnull RelationalParser.DropTempFunctionContext ctx) {
-        final var functionName = Identifier.toProtobufCompliant(visitFullId(ctx.schemaQualifiedRoutineName)).toString();
+        final var functionName = visitFullId(ctx.schemaQualifiedRoutineName).toString();
         var throwIfNotExists = ctx.IF() == null && ctx.EXISTS() == null;
         return ProceduralPlan.of(metadataOperationsFactory.getDropTemporaryFunctionConstantAction(throwIfNotExists, functionName));
     }
@@ -432,7 +430,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
                                                                                                           @Nonnull final RelationalParser.RoutineBodyContext bodyCtx,
                                                                                                           boolean isTemporary) {
         // get the function name.
-        final var functionName = Identifier.toProtobufCompliant(visitFullId(functionSpecCtx.schemaQualifiedRoutineName)).toString();
+        final var functionName = visitFullId(functionSpecCtx.schemaQualifiedRoutineName).toString();
 
         // run implementation-specific validations.
         final var props = functionSpecCtx.routineCharacteristics();
@@ -540,7 +538,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
     @Override
     public Expression visitSqlParameterDeclaration(@Nonnull RelationalParser.SqlParameterDeclarationContext ctx) {
         Assert.thatUnchecked(ctx.sqlParameterName != null, "unnamed parameters not supported");
-        final var parameterName = Identifier.toProtobufCompliant(visitUid(ctx.sqlParameterName));
+        final var parameterName = visitUid(ctx.sqlParameterName);
         final var parameterType = visitFunctionColumnType(ctx.parameterType);
         final var underlyingType = DataTypeUtils.toRecordLayerType(parameterType);
         Assert.thatUnchecked(parameterType.isResolved());

@@ -64,6 +64,7 @@ import java.util.stream.Collectors;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
+import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -163,6 +164,7 @@ public class LuceneIndexTestValidator {
 
     private void validatePartitionedGroup(final Index index, final String universalSearch, final boolean allowDuplicatePrimaryKeys, final Tuple groupingKey, final int partitionLowWatermark, final int partitionHighWatermark, final List<Tuple> records, final Map<Tuple, Map<Tuple, Tuple>> missingDocuments) throws IOException {
         List<LucenePartitionInfoProto.LucenePartitionInfo> partitionInfos = getPartitionMeta(index, groupingKey);
+        assertThat(partitionInfos.size(), greaterThan(0));
         partitionInfos.sort(Comparator.comparing(info -> Tuple.fromBytes(info.getFrom().toByteArray())));
         Set<Integer> usedPartitionIds = new HashSet<>();
         Tuple lastToTuple = null;
@@ -188,13 +190,13 @@ public class LuceneIndexTestValidator {
                         "partitionInfo.count", partitionInfo.getCount()));
                 // if partitionInfo.getCount() is wrong, this can be very confusing, so a different assertion might be
                 // worthwhile
+                assertThat(records, hasSize(greaterThanOrEqualTo(visitedCount + partitionInfo.getCount())));
                 final Set<Tuple> expectedPrimaryKeys = Set.copyOf(records.subList(visitedCount,
                         visitedCount + partitionInfo.getCount()));
                 validateDocsInPartition(recordStore, index, partitionInfo.getId(), groupingKey,
                         expectedPrimaryKeys,
                         universalSearch);
                 visitedCount += partitionInfo.getCount();
-                assertThat(records.size(), greaterThanOrEqualTo(visitedCount));
                 validatePrimaryKeySegmentIndex(recordStore, index, groupingKey, partitionInfo.getId(),
                         expectedPrimaryKeys, allowDuplicatePrimaryKeys);
                 expectedPrimaryKeys.forEach(primaryKey -> missingDocuments.get(groupingKey).remove(primaryKey));
@@ -213,7 +215,7 @@ public class LuceneIndexTestValidator {
                                     final List<LucenePartitionInfoProto.LucenePartitionInfo> partitionInfos, final int partitionIndex,
                                     final Set<Integer> usedPartitionIds, Tuple previousToTuple) {
         final LucenePartitionInfoProto.LucenePartitionInfo partitionInfo = partitionInfos.get(partitionIndex);
-        assertTrue(isParititionCountWithinBounds(partitionInfos, partitionIndex, partitionLowWatermark, partitionHighWatermark),
+        assertTrue(isPartitionCountWithinBounds(partitionInfos, partitionIndex, partitionLowWatermark, partitionHighWatermark),
                 () -> partitionMessage(groupingKey, partitionLowWatermark, partitionHighWatermark, partitionInfos, partitionIndex));
         assertTrue(usedPartitionIds.add(partitionInfo.getId()), () -> "Duplicate id: " + partitionInfo);
         final Tuple fromTuple = Tuple.fromBytes(partitionInfo.getFrom().toByteArray());
@@ -285,10 +287,10 @@ public class LuceneIndexTestValidator {
         }
     }
 
-    boolean isParititionCountWithinBounds(@Nonnull final List<LucenePartitionInfoProto.LucenePartitionInfo> partitionInfos,
-                                          int currentPartitionIndex,
-                                          int lowWatermark,
-                                          int highWatermark) {
+    boolean isPartitionCountWithinBounds(@Nonnull final List<LucenePartitionInfoProto.LucenePartitionInfo> partitionInfos,
+                                         int currentPartitionIndex,
+                                         int lowWatermark,
+                                         int highWatermark) {
         int currentCount = partitionInfos.get(currentPartitionIndex).getCount();
         if (currentCount > highWatermark) {
             return false;
@@ -296,10 +298,19 @@ public class LuceneIndexTestValidator {
         if (currentCount >= lowWatermark) {
             return true;
         }
+        if (currentCount == 0) {
+            if (partitionInfos.size() == 1) {
+                // we have no documents in the index, one partition must remain
+                return true;
+            } else {
+                // We have an empty partition that should have been deleted
+                return false;
+            }
+        }
         // here: count < lowWatermark
         int leftNeighborCapacity = currentPartitionIndex == 0 ? 0 : getPartitionExtraCapacity(partitionInfos.get(currentPartitionIndex - 1).getCount(), highWatermark);
         int rightNeighborCapacity = currentPartitionIndex == (partitionInfos.size() - 1) ? 0 : getPartitionExtraCapacity(partitionInfos.get(currentPartitionIndex + 1).getCount(), highWatermark);
-
+        // Ensure that if we have capacity in left and right neighbors, the records are moved away from currentPartition
         return currentCount > 0 && (leftNeighborCapacity + rightNeighborCapacity) < currentCount;
     }
 

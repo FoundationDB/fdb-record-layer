@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,21 +33,28 @@ option java_outer_classname = "IdentifiersTestProto";
 import "record_metadata_options.proto";
 
 message T1 {
-  int64 ID = 1 [(com.apple.foundationdb.record.field).primary_key = true];
+  int64 ID = 1;
   int64 T1__2COL1 = 2;
   int64 T1__2COL2 = 3;
 }
 
 message T2 {
-  int64 ID = 1 [(com.apple.foundationdb.record.field).primary_key = true];
+  int64 ID = 1;
   int64 T2__1COL1 = 2;
   int64 T2__1COL2 = 3;
 }
 
+enum __T3__2ENUM {
+  T3__2E__2A = 0;
+  T3__2E__2B = 1;
+  T3__2E__2C = 2;
+}
+
 message __T3 {
-  int64 ID = 1 [(com.apple.foundationdb.record.field).primary_key = true];
+  int64 ID = 1;
   int64 __T3__1COL1 = 2;
   int64 __T3__1COL2 = 3;
+  optional __T3__2ENUM __T3__1COL3 = 4;
 }
 
 message internal {
@@ -56,10 +63,31 @@ message internal {
 }
 
 message T4 {
-  int64 ID = 1 [(com.apple.foundationdb.record.field).primary_key = true];
+  int64 ID = 1;
   internal ___hidden = 2;
   int64 T4__2COL1 = 3;
   int64 T4__2COL2 = 4;
+}
+
+message T5__UNESCAPED {
+  int64 ID = 1;
+  int64 T5__COL1 = 2;
+  int64 __T5__COL2 = 3;
+}
+
+enum T6__2__ENUM__0 {
+  A = 0;
+  B__0 = 1;
+  C__ = 2;
+  __D__2__ = 3;
+}
+
+message ___T6__2__UNESCAPED {
+  int64 ID = 1;
+  int64 T6__1__COL1__0 = 2;
+  int64 __T6__2COL2__VALUE = 3;
+  optional T6__2__ENUM__0 T6__1__ENUM_1 = 4;
+  optional T6__2__ENUM__0 T6__1__ENUM_2 = 5;
 }
 
 message RecordTypeUnion {
@@ -67,4 +95,6 @@ message RecordTypeUnion {
   T2 _T2 = 2;
   __T3 ___T3 = 3;
   T4 _T4 = 4;
+  T5__UNESCAPED _T5__UNESCAPED = 5;
+  ___T6__2__UNESCAPED ____T6__2__UNESCAPED = 6;
 }

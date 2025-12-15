@@ -8,6 +8,10 @@ Operators
     Operators/Logical
     Operators/Comparison
     Operators/IS
+    Operators/IS_DISTINCT_FROM
+    Operators/BETWEEN
+    Operators/LIKE
+    Operators/IN
 
 .. list-table::
 
@@ -19,3 +23,11 @@ Operators
       - `<`, `>`, `<=`, `>=`, `=`, `!=`
     * - :ref:`IS Operator <is-operators>`
       - `IS`, `IS NOT`
+    * - :ref:`IS DISTINCT FROM Operator <is-distinct-from>`
+      - `IS DISTINCT FROM`, `IS NOT DISTINCT FROM`
+    * - :ref:`BETWEEN Operator <between>`
+      - `BETWEEN`, `NOT BETWEEN`
+    * - :ref:`LIKE Operator <like>`
+      - `LIKE`, `NOT LIKE`
+    * - :ref:`IN Operator <in>`
+      - `IN`, `NOT IN`

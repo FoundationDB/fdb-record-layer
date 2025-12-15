@@ -41,6 +41,7 @@ plugins {
     alias(libs.plugins.protobuf)
     alias(libs.plugins.versions)
     alias(libs.plugins.spotbugs)
+    alias(libs.plugins.nexus)
     alias(libs.plugins.download)
 }
 
@@ -309,109 +310,13 @@ subprojects {
 // Configure publishing for maven central. This is done in the top-level build.gradle, and then
 // all of the subprojects configure the artifacts they want published by applying
 // ${rootDir}/gradle/publishing.gradle in the project gradle. By default, we publish a library
-// from each package, but this can be configured by adjusting the publishLibrary variable.
-// Each subproject will place its artifacts into the central staging repository,
-// which will then be picked up by the bundle task
-if (Boolean.parseBoolean(publishBuild) && Boolean.parseBoolean(centralPublish)) {
-    var stagingRepo = layout.buildDirectory.dir('staging-repo')
-
-    // Task to create a bundle zip of all published artifacts
-    tasks.register('createMavenCentralBundle', Zip) {
-        description = "Creates a bundle zip of all artifacts for Maven Central upload"
-        group = "publishing"
-
-        dependsOn subprojects.collect { it.tasks.matching { it.name == 'publish' } }
-
-        archiveBaseName = "${rootProject.group}-${rootProject.name}"
-        archiveVersion = project.version
-        archiveClassifier = 'bundle'
-        destinationDirectory = layout.buildDirectory.dir('distributions')
-
-        from(stagingRepo) {
-            include "${rootProject.group.replaceAll('.', '/')}/**/${project.version}/*"
-            exclude '**/maven-metadata*'
-        }
-
-        includeEmptyDirs = false
-    }
-
-    // Task to upload the bundle to Maven Central
-    tasks.register('publishMavenCentralBundle') {
-        description = "Uploads the bundle zip to Maven Central Portal"
-        group = "publishing"
-
-        dependsOn tasks.named('createMavenCentralBundle')
-
-        doLast {
-            def sonatypeUsername = findProperty('sonatypeUsername')
-            def sonatypePassword = findProperty('sonatypePassword')
-
-            if (sonatypeUsername == null || sonatypePassword == null) {
-                throw new GradleException("sonatypeUsername and sonatypePassword properties must be set")
-            }
-
-            // Create base64 encoded credentials
-            def credentials = "${sonatypeUsername}:${sonatypePassword}"
-            def encodedCredentials = Base64.getEncoder().encodeToString(credentials.getBytes('UTF-8'))
-
-            // Get the bundle file
-            def bundleTask = tasks.named('createMavenCentralBundle').get()
-            def bundleFile = bundleTask.archiveFile.get().asFile
-
-            if (!bundleFile.exists()) {
-                throw new GradleException("Bundle file does not exist: ${bundleFile}")
-            }
-
-            logger.lifecycle("Uploading bundle: ${bundleFile.name} (${bundleFile.length() / 1024 / 1024} MB)")
-
-            // Upload using HttpURLConnection for multipart/form-data
-            def url = new URL('https://central.sonatype.com/api/v1/publisher/upload?publishingType=AUTOMATIC')
-            def connection = url.openConnection() as HttpURLConnection
-
-            try {
-                connection.setRequestMethod('POST')
-                connection.setDoOutput(true)
-                connection.setRequestProperty('Authorization', "Bearer ${encodedCredentials}")
-
-                def boundary = "----GradleBoundary${UUID.randomUUID().toString()}"
-                connection.setRequestProperty('Content-Type', "multipart/form-data; boundary=${boundary}")
-
-                // Use a chunked streaming mode to break data up into smaller chunks to avoid needing to load everything into memory
-                connection.setChunkedStreamingMode(8192)
-
-                // Use buffered output stream and write directly to avoid loading entire file into memory
-                connection.outputStream.withStream { output ->
-                    def CRLF = "\r\n"
-
-                    // Write multipart headers
-                    output.write("--${boundary}${CRLF}".getBytes('UTF-8'))
-                    output.write("Content-Disposition: form-data; name=\"bundle\"; filename=\"${bundleFile.name}\"${CRLF}".getBytes('UTF-8'))
-                    output.write("Content-Type: application/octet-stream${CRLF}".getBytes('UTF-8'))
-                    output.write(CRLF.getBytes('UTF-8'))
-
-                    // Next write the bundle data to the stream
-                    bundleFile.withInputStream { InputStream input -> output << input }
-
-                    // Write multipart closing boundary
-                    output.write(CRLF.getBytes('UTF-8'))
-                    output.write("--${boundary}--${CRLF}".getBytes('UTF-8'))
-                    output.flush()
-                }
-
-                def responseCode = connection.responseCode
-                def responseMessage = connection.responseMessage
-
-                if (responseCode >= 200 && responseCode < 300) {
-                    def deploymentId = connection.inputStream.text.trim()
-                    logger.lifecycle("Upload successful!")
-                    logger.lifecycle("Deployment ID: ${deploymentId}")
-                    logger.lifecycle("You can check the status at: https://central.sonatype.com/api/v1/publisher/status?id=${deploymentId}")
-                } else {
-                    def errorResponse = connection.errorStream?.text ?: responseMessage
-                    throw new GradleException("Upload failed with status ${responseCode}: ${errorResponse}")
-                }
-            } finally {
-                connection.disconnect()
+// from each package, but this can be configured by adjusting the publishLibrary variable
+if (Boolean.parseBoolean(centralPublish)) {
+    nexusPublishing {
+        repositories {
+            sonatype {
+                // Update the URL now that the OSSRH service has been sunset: https://central.sonatype.org/news/20250326_ossrh_sunset/
+                nexusUrl.set(uri("https://ossrh-staging-api.central.sonatype.com/service/local/"))
             }
         }
     }

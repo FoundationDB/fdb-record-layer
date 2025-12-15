@@ -52,6 +52,7 @@ import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursor;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
+import com.google.common.annotations.VisibleForTesting;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexWriter;
@@ -293,7 +294,8 @@ public class FDBDirectoryManager implements AutoCloseable {
         }
     }
 
-    private FDBDirectoryWrapper getDirectoryWrapper(@Nullable Tuple groupingKey, @Nullable Integer partitionId) {
+    @VisibleForTesting
+    public FDBDirectoryWrapper getDirectoryWrapper(@Nullable Tuple groupingKey, @Nullable Integer partitionId) {
         return getDirectoryWrapper(groupingKey, partitionId, getAgilityContext(false, false));
     }
 
@@ -367,8 +369,12 @@ public class FDBDirectoryManager implements AutoCloseable {
         return getDirectoryWrapper(groupingKey, partitionId).getWriter();
     }
 
-    public DirectoryReader getWriterReader(@Nullable Tuple groupingKey, @Nullable Integer partititonId) throws IOException {
-        return getDirectoryWrapper(groupingKey, partititonId).getWriterReader();
+    public DirectoryReader getWriterReader(@Nullable Tuple groupingKey, @Nullable Integer partitionId) throws IOException {
+        return getWriterReader(groupingKey, partitionId, false);
+    }
+
+    public DirectoryReader getWriterReader(@Nullable Tuple groupingKey, @Nullable Integer partititonId, boolean refresh) throws IOException {
+        return getDirectoryWrapper(groupingKey, partititonId).getWriterReader(refresh);
     }
 
     @Nonnull

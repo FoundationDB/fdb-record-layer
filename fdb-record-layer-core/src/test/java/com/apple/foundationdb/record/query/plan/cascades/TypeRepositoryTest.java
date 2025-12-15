@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.AbstractArrayCon
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.util.pair.Pair;
+import com.google.common.base.VerifyException;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.DynamicMessage;
 import org.junit.jupiter.api.Assertions;
@@ -163,15 +164,36 @@ class TypeRepositoryTest {
     }
 
     @Test
-    void addPrimitiveTypeIsNotAllowed() {
+    void addUnsupportedTypesIsNotAllowed() {
         TypeRepository.Builder builder = TypeRepository.newBuilder();
-        try {
-            final var type = generateType(0, Type.TypeCode.DOUBLE);
-            builder.addTypeIfNeeded(type);
-            Assertions.assertTrue(builder.getTypeName(type).isEmpty());
-        } catch (Exception e) {
-            Assertions.assertTrue(e instanceof IllegalArgumentException);
-            Assertions.assertTrue(e.getMessage().contains("unexpected type " + Type.TypeCode.DOUBLE));
+
+        // Create combined list of all types to test
+        List<Type> allUnsupportedTypes = new ArrayList<>();
+
+        // Add all primitive types with both nullable and non-nullable variants
+        List<Type.TypeCode> primitiveTypeCodes = List.of(Type.TypeCode.BOOLEAN, Type.TypeCode.BYTES,
+                Type.TypeCode.DOUBLE, Type.TypeCode.FLOAT, Type.TypeCode.INT,
+                Type.TypeCode.LONG, Type.TypeCode.STRING, Type.TypeCode.VERSION);
+
+        for (Type.TypeCode primitiveCode : primitiveTypeCodes) {
+            allUnsupportedTypes.add(Type.primitiveType(primitiveCode, true));   // nullable
+            allUnsupportedTypes.add(Type.primitiveType(primitiveCode, false));  // non-nullable
+        }
+
+        // Add special types that should not be allowed
+        allUnsupportedTypes.addAll(List.of(
+                Type.any(),                           // ANY type
+                Type.nullType(),                      // NULL type
+                Type.NONE,                      // NONE type
+                new Type.Relation(Type.primitiveType(Type.TypeCode.INT))  // RELATION type
+        ));
+
+        // Test all types in the combined list
+        for (Type unsupportedType : allUnsupportedTypes) {
+            builder.addTypeIfNeeded(unsupportedType);
+            Assertions.assertTrue(builder.getTypeName(unsupportedType).isEmpty(),
+                    "Unsupported type " + unsupportedType.getTypeCode() +
+                    " (nullable: " + unsupportedType.isNullable() + ") should not be added to repository");
         }
     }
 
@@ -249,8 +271,217 @@ class TypeRepositoryTest {
     }
 
     @Test
+    void addNullableAndNonNullableVariantsSameProtobufType() {
+        final TypeRepository.Builder builder = TypeRepository.newBuilder();
+
+        // Create a record type (same structural type with different nullability)
+        final Type.Record nullableRecord = Type.Record.fromFields(true, List.of(
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("field1")),
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of("field2"))
+        ));
+        final Type.Record nonNullableRecord = Type.Record.fromFields(false, List.of(
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("field1")),
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of("field2"))
+        ));
+
+        // Add both nullable and non-nullable variants
+        builder.addTypeIfNeeded(nullableRecord);
+        builder.addTypeIfNeeded(nonNullableRecord);
+
+        final TypeRepository repository = builder.build();
+
+        // Both should resolve to the same protobuf type name
+        String nullableTypeName = repository.getProtoTypeName(nullableRecord);
+        String nonNullableTypeName = repository.getProtoTypeName(nonNullableRecord);
+
+        Assertions.assertEquals(nullableTypeName, nonNullableTypeName,
+                "Nullable and non-nullable variants should have the same protobuf type name");
+
+        // Should only create one message type since both variants use the same canonical type
+        Assertions.assertEquals(1, repository.getMessageTypes().size(),
+                "Should only create one message type for nullable and non-nullable variants");
+    }
+
+    @Test
+    void addNullableAndNonNullableVariantsShouldNotCreateMultipleMessageTypes() {
+        final TypeRepository.Builder builder = TypeRepository.newBuilder();
+        final Type.Record baseType = (Type.Record)generateType(0, Type.TypeCode.RECORD);
+
+        // Create nullable and non-nullable variants of the same structural type
+        final Type nullableVariant = baseType.withNullability(true);
+        final Type nonNullableVariant = baseType.withNullability(false);
+
+        // Add both variants multiple times
+        builder.addTypeIfNeeded(nullableVariant);
+        builder.addTypeIfNeeded(nonNullableVariant);
+        builder.addTypeIfNeeded(nullableVariant);  // Add again
+        builder.addTypeIfNeeded(nonNullableVariant);  // Add again
+
+        final TypeRepository actualRepository = builder.build();
+
+        // Should only create message types based on the count of the base type
+        // Both variants should resolve to the same canonical type
+        Assertions.assertEquals(countTypes(baseType), actualRepository.getMessageTypes().size(),
+                "Adding nullable and non-nullable variants should not create duplicate message types");
+
+        // Both should resolve to the same protobuf type name
+        String nullableTypeName = actualRepository.getProtoTypeName(nullableVariant);
+        String nonNullableTypeName = actualRepository.getProtoTypeName(nonNullableVariant);
+        Assertions.assertEquals(nullableTypeName, nonNullableTypeName,
+                "Both variants should resolve to the same protobuf type name");
+    }
+
+    @Test
+    void addNullableAndNonNullableEnumVariantsSameProtobufType() {
+        final TypeRepository.Builder builder = TypeRepository.newBuilder();
+
+        // Create an enum type (same structural type with different nullability)
+        final List<Type.Enum.EnumValue> enumValues = List.of(
+                Type.Enum.EnumValue.from("VALUE1", 0),
+                Type.Enum.EnumValue.from("VALUE2", 1),
+                Type.Enum.EnumValue.from("VALUE3", 2)
+        );
+        final Type.Enum nullableEnum = Type.Enum.fromValues(true, enumValues);
+        final Type.Enum nonNullableEnum = Type.Enum.fromValues(false, enumValues);
+
+        // Add both nullable and non-nullable variants
+        builder.addTypeIfNeeded(nullableEnum);
+        builder.addTypeIfNeeded(nonNullableEnum);
+
+        final TypeRepository repository = builder.build();
+
+        // Both should resolve to the same protobuf type name
+        String nullableTypeName = repository.getProtoTypeName(nullableEnum);
+        String nonNullableTypeName = repository.getProtoTypeName(nonNullableEnum);
+
+        Assertions.assertEquals(nullableTypeName, nonNullableTypeName,
+                "Nullable and non-nullable enum variants should have the same protobuf type name");
+
+        // Should only create one enum type since both variants use the same canonical type
+        Assertions.assertEquals(1, repository.getEnumTypes().size(),
+                "Should only create one enum type for nullable and non-nullable variants");
+    }
+
+    @Test
+    void addNullableAndNonNullableEnumVariantsShouldNotCreateMultipleEnumTypes() {
+        final TypeRepository.Builder builder = TypeRepository.newBuilder();
+
+        // Create an enum type with multiple values
+        final List<Type.Enum.EnumValue> enumValues = List.of(
+                Type.Enum.EnumValue.from("OPTION_A", 0),
+                Type.Enum.EnumValue.from("OPTION_B", 1),
+                Type.Enum.EnumValue.from("OPTION_C", 2),
+                Type.Enum.EnumValue.from("OPTION_D", 3)
+        );
+        final Type.Enum baseEnum = Type.Enum.fromValues(true, enumValues);
+
+        // Create nullable and non-nullable variants of the same structural enum
+        final Type nullableVariant = baseEnum.withNullability(true);
+        final Type nonNullableVariant = baseEnum.withNullability(false);
+
+        // Add both variants multiple times
+        builder.addTypeIfNeeded(nullableVariant);
+        builder.addTypeIfNeeded(nonNullableVariant);
+        builder.addTypeIfNeeded(nullableVariant);  // Add again
+        builder.addTypeIfNeeded(nonNullableVariant);  // Add again
+
+        final TypeRepository actualRepository = builder.build();
+
+        // Should only create one enum type since both variants resolve to the same canonical type
+        Assertions.assertEquals(1, actualRepository.getEnumTypes().size(),
+                "Adding nullable and non-nullable enum variants should not create duplicate enum types");
+
+        // Both should resolve to the same protobuf type name
+        String nullableTypeName = actualRepository.getProtoTypeName(nullableVariant);
+        String nonNullableTypeName = actualRepository.getProtoTypeName(nonNullableVariant);
+        Assertions.assertEquals(nullableTypeName, nonNullableTypeName,
+                "Both enum variants should resolve to the same protobuf type name");
+    }
+
+    @Test
     void attemptToCreateArrayConstructorValueWithDifferentChildrenTypesFails() {
         Assertions.assertThrows(SemanticException.class, () -> new AbstractArrayConstructorValue.ArrayFn().encapsulate(List.of(INT_1, STRING_1 /*invalid*/)));
+    }
+
+    @Test
+    void addSameTypeWithDifferentNamesAndDifferentNullabilityShouldFail() {
+        final TypeRepository.Builder builder = TypeRepository.newBuilder();
+
+        // Create the same structural record type with different nullability
+        final Type.Record nullableRecord = Type.Record.fromFields(true, List.of(
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("field1"))
+        ));
+        final Type.Record nonNullableRecord = Type.Record.fromFields(false, List.of(
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("field1"))
+        ));
+
+        // Register the nullable variant with one name
+        builder.registerTypeToTypeNameMapping(nullableRecord, "TestRecord");
+
+        // Attempt to register the non-nullable variant (same structural type) with a different name
+        // This should fail because both variants canonicalize to the same type but try to use different names
+        Assertions.assertThrows(VerifyException.class, () -> {
+            builder.registerTypeToTypeNameMapping(nonNullableRecord, "DifferentName");
+        });
+    }
+
+    @Test
+    void addDifferentTypesWithSameNameShouldFail() {
+        final TypeRepository.Builder builder = TypeRepository.newBuilder();
+
+        // Create two structurally different record types
+        final Type.Record record1 = Type.Record.fromFields(true, List.of(
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("stringField"))
+        ));
+        final Type.Record record2 = Type.Record.fromFields(false, List.of(
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of("intField"))
+        ));
+
+        // Register the first record with a name
+        builder.registerTypeToTypeNameMapping(record1, "ConflictingName");
+
+        // Attempt to register a structurally different record with the same name
+        // This should fail because the name is already taken by a different structural type
+        Assertions.assertThrows(IllegalArgumentException.class, () -> {
+            builder.registerTypeToTypeNameMapping(record2, "ConflictingName");
+        });
+    }
+
+    @Test
+    void accessTypeWithDifferentNullabilityThanRegistered() {
+        final TypeRepository.Builder builder = TypeRepository.newBuilder();
+
+        // Create a record type and register it with nullable variant
+        final Type.Record baseRecord = Type.Record.fromFields(false, List.of(
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("testField")),
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of("numberField"))
+        ));
+        final Type.Record nullableRecord = baseRecord.withNullability(true);
+        final Type.Record nonNullableRecord = baseRecord.withNullability(false);
+
+        // Add the nullable variant to the builder
+        builder.addTypeIfNeeded(nullableRecord);
+        final TypeRepository repository = builder.build();
+
+        // Test accessing with the same nullability (should work)
+        String nullableTypeName = repository.getProtoTypeName(nullableRecord);
+        DynamicMessage.Builder nullableBuilder = repository.newMessageBuilder(nullableRecord);
+        Assertions.assertNotNull(nullableTypeName, "Should be able to get proto type name for registered nullability");
+        Assertions.assertNotNull(nullableBuilder, "Should be able to get message builder for registered nullability");
+
+        // Test accessing with different nullability
+        // With the canonicalization approach, this should work since both variants resolve to the same canonical type
+        String nonNullableTypeName;
+        DynamicMessage.Builder nonNullableMessageBuilder;
+
+        nonNullableTypeName = repository.getProtoTypeName(nonNullableRecord);
+        nonNullableMessageBuilder = repository.newMessageBuilder(nonNullableRecord);
+
+        // If we get here without exception, verify they resolve to the same type
+        Assertions.assertEquals(nullableTypeName, nonNullableTypeName,
+                "Both nullability variants should resolve to the same protobuf type name");
+        Assertions.assertNotNull(nonNullableMessageBuilder,
+                "Should be able to get message builder for opposite nullability variant");
     }
 
     @Test

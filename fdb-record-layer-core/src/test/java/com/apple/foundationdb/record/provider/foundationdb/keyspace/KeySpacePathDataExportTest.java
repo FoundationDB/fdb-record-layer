@@ -49,7 +49,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -69,7 +68,7 @@ class KeySpacePathDataExportTest {
     final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
 
     @Test
-    void exportAllDataFromSimplePath() throws ExecutionException, InterruptedException {
+    void exportAllDataFromSimplePath() {
         KeySpace root = new KeySpace(
                 new KeySpaceDirectory("root", KeyType.STRING, UUID.randomUUID().toString())
                         .addSubdirectory(new KeySpaceDirectory("level1", KeyType.LONG)));
@@ -83,13 +82,14 @@ class KeySpacePathDataExportTest {
             
             // Add data at different levels
             for (int i = 0; i < 5; i++) {
-                Tuple key = basePath.add("level1", (long) i).toTuple(context);
+                final KeySpacePath path = basePath.add("level1", (long)i);
+                Tuple key = path.toTuple(context);
                 tr.set(key.pack(), Tuple.from("value" + i).pack());
 
                 // Add some sub-data under each key
                 for (int j = 0; j < 3; j++) {
-                    Tuple subKey = key.add("sub" + j);
-                    tr.set(subKey.pack(), Tuple.from("subvalue" + i + "_" + j).pack());
+                    tr.set(path.toSubspace(context).pack(Tuple.from("sub" + j)),
+                            Tuple.from("subvalue" + i + "_" + j).pack());
                 }
             }
             context.commit();
@@ -103,18 +103,21 @@ class KeySpacePathDataExportTest {
             // Should have 5 main entries + 15 sub-entries = 20 total
             assertEquals(20, allData.size());
 
+            assertThat(allData)
+                    .allSatisfy(data ->
+                            assertThat(data.getPath().getDirectoryName()).isEqualTo("level1"));
+
             // Verify the data is sorted by key
-            for (int i = 1; i < allData.size(); i++) {
-                assertTrue(getKey(allData.get(i - 1)).compareTo(getKey(allData.get(i))) < 0);
-            }
+            assertThat(allData.stream().map(data -> getKey(data, context)).collect(Collectors.toList()))
+                    .isSorted();
         }
     }
 
     // `toTuple` does not include the remainder, I'm not sure if that is intentional, or an oversight.
-    private Tuple getKey(final DataInKeySpacePath dataInKeySpacePath) throws ExecutionException, InterruptedException {
-        final ResolvedKeySpacePath resolvedKeySpacePath = dataInKeySpacePath.getResolvedPath().get();
-        if (resolvedKeySpacePath.getRemainder() != null) {
-            return resolvedKeySpacePath.toTuple().addAll(resolvedKeySpacePath.getRemainder());
+    private Tuple getKey(final DataInKeySpacePath dataInKeySpacePath, final FDBRecordContext context) {
+        final ResolvedKeySpacePath resolvedKeySpacePath = dataInKeySpacePath.getPath().toResolvedPathAsync(context).join();
+        if (dataInKeySpacePath.getRemainder() != null) {
+            return resolvedKeySpacePath.toTuple().addAll(dataInKeySpacePath.getRemainder());
         } else {
             return resolvedKeySpacePath.toTuple();
         }
@@ -490,7 +493,7 @@ class KeySpacePathDataExportTest {
 
         // Store test data
         final List<List<Tuple>> expectedBatches;
-        final KeySpacePath pathToExport = root.path("continuation");
+        final KeySpacePath pathToExport = root.path("continuation").add("item", 42L);
         try (FDBRecordContext context = database.openContext()) {
             Transaction tr = context.ensureActive();
             byte[] key;
@@ -524,9 +527,7 @@ class KeySpacePathDataExportTest {
                 final RecordCursor<DataInKeySpacePath> cursor = pathToExport.exportAllData(context, continuation.toBytes(),
                         scanProperties);
                 final AtomicReference<RecordCursorResult<Tuple>> tupleResult = new AtomicReference<>();
-                final List<Tuple> batch = cursor.map(dataInPath -> {
-                    return Tuple.fromBytes(dataInPath.getValue());
-                }).asList(tupleResult).join();
+                final List<Tuple> batch = cursor.map(dataInPath -> Tuple.fromBytes(dataInPath.getValue())).asList(tupleResult).join();
                 actual.add(batch);
                 continuation = tupleResult.get().getContinuation();
             }
@@ -578,7 +579,7 @@ class KeySpacePathDataExportTest {
     }
 
     @Test
-    void exportAllDataThroughKeySpacePathWrapperResolvedPaths() {
+    void exportAllDataThroughKeySpacePathWrapperRemainders() {
         final FDBDatabase database = dbExtension.getDatabase();
         final EnvironmentKeySpace keySpace = EnvironmentKeySpace.setupSampleData(database);
 
@@ -586,21 +587,19 @@ class KeySpacePathDataExportTest {
         try (FDBRecordContext context = database.openContext()) {
             // Test 4: Export from specific data store level
             EnvironmentKeySpace.DataPath dataStore = keySpace.root().userid(100L).application("app1").dataStore();
-            final List<ResolvedKeySpacePath> dataStoreData = dataStore.exportAllData(context, null, ScanProperties.FORWARD_SCAN)
-                    .mapPipelined(DataInKeySpacePath::getResolvedPath, 1).asList().join();
+            final List<DataInKeySpacePath> dataStoreData = dataStore.exportAllData(context, null, ScanProperties.FORWARD_SCAN)
+                    .asList().join();
             // Verify data store records have correct remainder
-            final ArrayList<Tuple> remainders = new ArrayList<>();
-            for (ResolvedKeySpacePath kv : dataStoreData) {
+            for (DataInKeySpacePath data : dataStoreData) {
                 // Path tuple should be the same
-                Tuple dataStoreTuple = dataStore.toTuple(context);
-                assertEquals(dataStoreTuple, kv.toTuple());
-                remainders.add(kv.getRemainder());
+                assertEquals(dataStore, data.getPath());
             }
             assertEquals(List.of(
                     Tuple.from("record1"),
                     Tuple.from("record2", 0),
                     Tuple.from("record2", 1)
-            ), remainders, "remainders should be the same");
+            ), dataStoreData.stream().map(DataInKeySpacePath::getRemainder).collect(Collectors.toList()),
+                    "remainders should be the same");
 
         }
     }
@@ -627,11 +626,10 @@ class KeySpacePathDataExportTest {
                 .asList().join();
 
         // assert that the resolved paths contain the right prefix
-        final List<ResolvedKeySpacePath> resolvedPaths = pathToExport.exportAllData(context, null, ScanProperties.FORWARD_SCAN)
-                .mapPipelined(DataInKeySpacePath::getResolvedPath, 1).asList().join();
-        final ResolvedKeySpacePath rootResolvedPath = pathToExport.toResolvedPath(context);
-        for (ResolvedKeySpacePath resolvedPath : resolvedPaths) {
-            assertStartsWith(rootResolvedPath, resolvedPath);
+        final List<KeySpacePath> dataPaths = pathToExport.exportAllData(context, null, ScanProperties.FORWARD_SCAN)
+                .map(DataInKeySpacePath::getPath).asList().join();
+        for (KeySpacePath dataPath : dataPaths) {
+            assertStartsWith(pathToExport, dataPath);
         }
 
         // assert that the reverse scan is the same as the forward scan, but in reverse
@@ -666,20 +664,22 @@ class KeySpacePathDataExportTest {
                                                        final List<DataInKeySpacePath> actualList) {
         assertThat(actualList).zipSatisfy(expectedList,
                 (actual, other) -> {
-                    assertThat(actual.getResolvedPath().join()).isEqualTo(other.getResolvedPath().join());
+                    assertThat(actual.getPath()).isEqualTo(other.getPath());
+                    // I don't know why intelliJ can't handle this without the explicit type parameter
+                    Assertions.<Object>assertThat(actual.getRemainder()).isEqualTo(other.getRemainder());
                     assertThat(actual.getValue()).isEqualTo(other.getValue());
                 });
     }
 
-    private static void assertStartsWith(final ResolvedKeySpacePath rootResolvedPath, ResolvedKeySpacePath resolvedPath) {
-        ResolvedKeySpacePath searchPath = resolvedPath.withRemainder(null);
+    private static void assertStartsWith(final KeySpacePath rootPath, KeySpacePath childPath) {
+        KeySpacePath searchPath = childPath;
         do {
-            if (searchPath.equals(rootResolvedPath)) {
+            if (searchPath.equals(rootPath)) {
                 return;
             }
             searchPath = searchPath.getParent();
         } while (searchPath != null);
-        Assertions.fail("Expected <" + resolvedPath + "> to start with <" + rootResolvedPath + "> but it didn't");
+        Assertions.fail("Expected <" + childPath + "> to start with <" + rootPath + "> but it didn't");
     }
 
     private static void verifyExtractedData(final List<DataInKeySpacePath> app1User100Data,

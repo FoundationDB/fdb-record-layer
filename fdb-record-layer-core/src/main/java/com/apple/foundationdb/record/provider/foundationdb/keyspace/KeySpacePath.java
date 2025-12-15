@@ -158,25 +158,6 @@ public interface KeySpacePath {
     CompletableFuture<ResolvedKeySpacePath> toResolvedPathAsync(@Nonnull FDBRecordContext context);
 
     /**
-     * Given a tuple from an FDB key, attempts to determine what sub-path through this directory the tuple
-     * represents, returning a <code>ResolvedKeySpacePath</code> representing the leaf-most directory in the path.
-     * <p>
-     *     If entries remained in the tuple beyond the leaf directory, then {@link ResolvedKeySpacePath#getRemainder()}
-     *     can be used to fetch the remaining portion.
-     *     See also {@link KeySpace#resolveFromKeyAsync(FDBRecordContext, Tuple)} if you need to resolve from the root.
-     * </p>
-     * @param context  context used, if needed, for any database operations
-     * @param key a raw key from the database
-     * @return the {@link ResolvedKeySpacePath} corresponding to that key, with a potential remainder.
-     * @throws com.apple.foundationdb.record.RecordCoreArgumentException if the key provided is not part of this path
-     */
-    @API(API.Status.EXPERIMENTAL)
-    @Nonnull
-    default CompletableFuture<ResolvedKeySpacePath> toResolvedPathAsync(@Nonnull FDBRecordContext context, byte[] key) {
-        throw new UnsupportedOperationException("toResolvedPathAsync is not supported");
-    }
-
-    /**
      * Resolves the path into a {@link ResolvedKeySpacePath}, a form the retains all of the information about
      * the path itself along with the value to which each path entry is resolved.
      *
@@ -429,4 +410,35 @@ public interface KeySpacePath {
                                                            @Nonnull ScanProperties scanProperties) {
         throw new UnsupportedOperationException("exportAllData is not supported");
     }
+
+    /**
+     * Imports the provided data exported via {@link #exportAllData} into this {@code KeySpacePath}.
+     * <p>
+     * This will validate that any data provided in {@code dataToImport} has a path that should be in this path
+     * or one of the sub-directories. If not, the future will complete exceptionally with a
+     * {@link RecordCoreIllegalImportDataException}.
+     * If there is any data already existing under this path, the new data will overwrite if the keys are the same.
+     * This will use the logical values in the {@link DataInKeySpacePath#getPath()} and
+     * {@link DataInKeySpacePath#getRemainder()} to determine the key, rather
+     * than the raw key, meaning that this will work even if the data was exported from a different cluster.
+     * Note, this will not correct for any cluster-specific data, other than {@link DirectoryLayerDirectory} data;
+     * for example, if you have versionstamps, that data will not align on the destination.
+     * </p>
+     * @param context the transaction context in which to save the data
+     * @param dataToImport the data to be saved to the database
+     * @return a future to be completed once all data has been important.
+     */
+    @API(API.Status.EXPERIMENTAL)
+    @Nonnull
+    CompletableFuture<Void> importData(@Nonnull FDBRecordContext context,
+                                       @Nonnull Iterable<DataInKeySpacePath> dataToImport);
+
+    /**
+     * Two {@link KeySpacePath}s are equal if they have equal values, the same directory (reference equality) and their
+     * parents are the same.
+     * @param obj another {@link KeySpacePath}
+     * @return {@code true} if this path equals {@code obj}
+     */
+    @Override
+    boolean equals(Object obj);
 }

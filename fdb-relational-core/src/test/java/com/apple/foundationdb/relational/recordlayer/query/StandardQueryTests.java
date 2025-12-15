@@ -385,15 +385,14 @@ public class StandardQueryTests {
                 RelationalStruct l43 = insertRestaurantComplexRecord(statement, 43L, "rest1");
                 RelationalStruct l44 = insertRestaurantComplexRecord(statement, 44L, "rest1");
                 RelationalStruct l45 = insertRestaurantComplexRecord(statement, 45L, "rest2");
-                final String initialQuery = "select * from RestaurantComplexRecord where rest_no > 40";
+                String query = "select * from RestaurantComplexRecord where rest_no > 40";
                 Continuation continuation = ContinuationImpl.BEGIN;
                 final List<RelationalStruct> expected = List.of(l42, l43, l44, l45);
                 int i = 0;
 
                 while (!continuation.atEnd()) {
-                    String query = initialQuery;
                     if (!continuation.atBeginning()) {
-                        query += " WITH CONTINUATION B64'" + Base64.getEncoder().encodeToString(continuation.serialize()) + "'";
+                        query = "EXECUTE CONTINUATION B64'" + Base64.getEncoder().encodeToString(continuation.serialize()) + "'";
                     }
                     try (final RelationalResultSet resultSet = statement.executeQuery(query)) {
                         // assert result matches expected
@@ -424,7 +423,7 @@ public class StandardQueryTests {
                         .hasErrorCode(ErrorCode.SYNTAX_ERROR);
                 final String end = "select * from RestaurantComplexRecord where rest_no > 40 with continuation b64''";
                 RelationalAssertions.assertThrowsSqlException(() -> statement.executeQuery(end))
-                        .hasErrorCode(ErrorCode.INVALID_CONTINUATION);
+                        .hasErrorCode(ErrorCode.SYNTAX_ERROR);
             }
         }
     }
@@ -1220,7 +1219,7 @@ public class StandardQueryTests {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 statement.executeUpdate("insert into t1 values (42, 100, 500, 101)");
                 final var message = Assertions.assertThrows(SQLException.class, () -> statement.execute("select struct asd (a, 42, struct def (b, c), struct def(b, c, a)) as X from t1")).getMessage();
-                Assertions.assertTrue(message.contains("value already present: DEF")); // we could improve this error message.
+                Assertions.assertTrue(message.contains("Name DEF is already registered with a different type")); // we could improve this error message.
             }
         }
     }

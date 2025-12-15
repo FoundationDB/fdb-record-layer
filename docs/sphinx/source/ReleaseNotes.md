@@ -7,6 +7,202 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.8
 
+### 4.8.17.0
+
+<h4> New Features </h4>
+
+* Support nullable and non-nullable types with same name in the same template - [PR #3658](https://github.com/FoundationDB/fdb-record-layer/pull/3658)
+* Add the ability to run header repair as part of record repair - [PR #3780](https://github.com/FoundationDB/fdb-record-layer/pull/3780)
+<h4> Bug Fixes </h4>
+
+* Handle multiple updates to the same record in a transaction - [PR #3722](https://github.com/FoundationDB/fdb-record-layer/pull/3722)
+
+
+**[Full Changelog (4.8.16.0...4.8.17.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.8.16.0...4.8.17.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.8.2.0`, ✅`4.8.3.0`, ✅`4.8.5.0`, ✅`4.8.6.0`, ✅`4.8.11.0`, ✅`4.8.12.0`, ✅`4.8.13.0`, ✅`4.8.14.0`, ✅`4.8.15.0`, ✅`4.8.16.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/20095205503)
+
+
+
+### 4.8.16.0
+
+<h4> New Features </h4>
+
+* Introduce KeySpacePath.importData to import previously exported data - [PR #3578](https://github.com/FoundationDB/fdb-record-layer/pull/3578)
+* Add support for MDC context passing into the throttled iterator - [PR #3740](https://github.com/FoundationDB/fdb-record-layer/pull/3740)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* YAML test framework now uses the packaged dependencies from the meta-data proto if included - [PR #3793](https://github.com/FoundationDB/fdb-record-layer/pull/3793)
+* Add count without alias test - [PR #3790](https://github.com/FoundationDB/fdb-record-layer/pull/3790)
+* Document CREATE FUNCTION (user-defined functions) - [PR #3778](https://github.com/FoundationDB/fdb-record-layer/pull/3778)
+* Add joins documentation - [PR #3775](https://github.com/FoundationDB/fdb-record-layer/pull/3775)
+* Add CASE expression documentation - [PR #3763](https://github.com/FoundationDB/fdb-record-layer/pull/3763)
+* Sort yaml tests alphabetically to mitigate future conflicts - [PR #3783](https://github.com/FoundationDB/fdb-record-layer/pull/3783)
+* Remove confusing single quotes in error message - [PR #3764](https://github.com/FoundationDB/fdb-record-layer/pull/3764)
+* Remove continuations_contain_compiled_statements from JDBC - [PR #3773](https://github.com/FoundationDB/fdb-record-layer/pull/3773)
+* Deprecate SQL type codes in JDBC - [PR #3772](https://github.com/FoundationDB/fdb-record-layer/pull/3772)
+
+</details>
+
+
+**[Full Changelog (4.8.15.0...4.8.16.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.8.15.0...4.8.16.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.8.1.0`, ✅`4.8.2.0`, ✅`4.8.3.0`, ✅`4.8.5.0`, ✅`4.8.6.0`, ✅`4.8.11.0`, ✅`4.8.12.0`, ✅`4.8.13.0`, ✅`4.8.14.0`, ✅`4.8.15.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/19934528132)
+
+
+
+### 4.8.15.0
+
+<h4> Breaking Changes </h4>
+
+* Remove deprecated `WITH CONTINUATION` syntax. - [PR #3765](https://github.com/FoundationDB/fdb-record-layer/pull/3765)
+<h4> New Features </h4>
+
+* vector index maintainer - [PR #3738](https://github.com/FoundationDB/fdb-record-layer/pull/3738)
+<h4> Bug Fixes </h4>
+
+* Reintroduce type renaming with more resilient handling for unexpected protobuf names - [PR #3770](https://github.com/FoundationDB/fdb-record-layer/pull/3770)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Add operator documentation (BETWEEN, LIKE, IN, IS DISTINCT FROM) - [PR #3762](https://github.com/FoundationDB/fdb-record-layer/pull/3762)
+* Rewrite README to emphasize SQL/relational API - [PR #3756](https://github.com/FoundationDB/fdb-record-layer/pull/3756)
+* Add ORDER BY documentation - [PR #3761](https://github.com/FoundationDB/fdb-record-layer/pull/3761)
+
+</details>
+
+
+**[Full Changelog (4.8.14.0...4.8.15.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.8.14.0...4.8.15.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.7.3.0`, ✅`4.8.1.0`, ✅`4.8.2.0`, ✅`4.8.3.0`, ✅`4.8.5.0`, ✅`4.8.6.0`, ✅`4.8.11.0`, ✅`4.8.12.0`, ✅`4.8.13.0`, ✅`4.8.14.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/19739361797)
+
+
+
+### 4.8.14.0
+
+<h4> New Features </h4>
+
+* Add logging for failure to open record store - [PR #3759](https://github.com/FoundationDB/fdb-record-layer/pull/3759)
+<h4> Bug Fixes </h4>
+
+* Revert "Reintroduce translation of identifiers to Protobuf compliant names (#3736)" - [PR #3767](https://github.com/FoundationDB/fdb-record-layer/pull/3767)
+
+
+**[Full Changelog (4.8.13.0...4.8.14.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.8.13.0...4.8.14.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+❌`4.7.2.0`, ✅`4.7.3.0`, ✅`4.8.1.0`, ✅`4.8.2.0`, ✅`4.8.3.0`, ✅`4.8.5.0`, ✅`4.8.6.0`, ✅`4.8.11.0`, ✅`4.8.12.0`, ✅`4.8.13.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/19513136138)
+
+
+
+### 4.8.13.0
+
+<h4> Breaking Changes </h4>
+
+* Change DataInKeySpacePath to contain a KeySpacePath instead of ResolvedKeySpacePath - [PR #3716](https://github.com/FoundationDB/fdb-record-layer/pull/3716)
+<h4> New Features </h4>
+
+* Reintroduce translation of identifiers to Protobuf compliant names - [PR #3736](https://github.com/FoundationDB/fdb-record-layer/pull/3736)
+<h4> Bug Fixes </h4>
+
+* Skip rank index match candidate generation for SQL queries - [PR #3748](https://github.com/FoundationDB/fdb-record-layer/pull/3748)
+* Lucene: index filters support - [PR #3688](https://github.com/FoundationDB/fdb-record-layer/pull/3688)
+* Make Lucene partitioner thread-safe - [PR #3699](https://github.com/FoundationDB/fdb-record-layer/pull/3699)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Create test showcasing bug with enums and index scans - [PR #3735](https://github.com/FoundationDB/fdb-record-layer/pull/3735)
+* Add ResultSet MetaData tests to assert current behavior with underlying struct type names - [PR #3744](https://github.com/FoundationDB/fdb-record-layer/pull/3744)
+
+</details>
+
+
+**[Full Changelog (4.8.12.0...4.8.13.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.8.12.0...4.8.13.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+❌`4.7.1.0`, ❌`4.7.2.0`, ❌`4.7.3.0`, ✅`4.8.1.0`, ✅`4.8.2.0`, ✅`4.8.3.0`, ✅`4.8.5.0`, ✅`4.8.6.0`, ✅`4.8.11.0`, ✅`4.8.12.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/19332292964)
+
+
+
+### 4.8.12.0
+
+<h4> New Features </h4>
+
+* Add vector type support for Direct Access API inserts - [PR #3733](https://github.com/FoundationDB/fdb-record-layer/pull/3733)
+<h4> Bug Fixes </h4>
+
+* Revert Identifier Translation for Protobuf Compliant Names - [PR #3726](https://github.com/FoundationDB/fdb-record-layer/pull/3726)
+* Disallow insertion of vectors of different precision and dimensions. - [PR #3730](https://github.com/FoundationDB/fdb-record-layer/pull/3730)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Revert publishing directly via sonatype API - [PR #3728](https://github.com/FoundationDB/fdb-record-layer/pull/3728)
+* Fix incorrect handling of `!ignore` custom tag in YAML - [PR #3725](https://github.com/FoundationDB/fdb-record-layer/pull/3725)
+
+</details>
+
+
+**[Full Changelog (4.8.11.0...4.8.12.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.8.11.0...4.8.12.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+❌`4.6.5.0`, ❌`4.7.1.0`, ❌`4.7.2.0`, ✅`4.7.3.0`, ✅`4.8.1.0`, ✅`4.8.2.0`, ✅`4.8.3.0`, ✅`4.8.5.0`, ✅`4.8.6.0`, ✅`4.8.11.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/19173304176)
+
+
+
 ### 4.8.11.0
 
 <h4> Breaking Changes </h4>

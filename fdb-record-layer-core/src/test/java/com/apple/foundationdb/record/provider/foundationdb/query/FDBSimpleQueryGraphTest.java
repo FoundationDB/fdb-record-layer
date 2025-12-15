@@ -828,24 +828,24 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
         //
         var childrenMap = fieldAccessesRestaurantRecord.getChildrenMap();
         Assertions.assertNotNull(childrenMap);
-        var childFieldAccesses = childrenMap.get(FieldValue.ResolvedAccessor.of("name", 1));
+        var childFieldAccesses = childrenMap.get(FieldValue.ResolvedAccessor.of(restaurantReviewerType, "name", 1));
         Assertions.assertNotNull(childFieldAccesses);
         var leafType = childFieldAccesses.getValue();
         Assertions.assertNotNull(leafType);
         Assertions.assertEquals(leafType, Type.primitiveType(Type.TypeCode.STRING, true));
 
-        childFieldAccesses = childrenMap.get(FieldValue.ResolvedAccessor.of("reviews", 2));
+        childFieldAccesses = childrenMap.get(FieldValue.ResolvedAccessor.of(restaurantRecordType, "reviews", 2));
         Assertions.assertNotNull(childFieldAccesses);
         childrenMap = fieldAccessesRestaurantRecord.getChildrenMap();
         Assertions.assertNotNull(childrenMap);
-        childFieldAccesses = childrenMap.get(FieldValue.ResolvedAccessor.of("reviewer", 0));
+        childFieldAccesses = childrenMap.get(FieldValue.ResolvedAccessor.of(reviewsType, "reviewer", 0));
         Assertions.assertNotNull(childFieldAccesses);
         leafType = childFieldAccesses.getValue();
         Assertions.assertNotNull(leafType);
         Assertions.assertEquals(leafType, Type.primitiveType(Type.TypeCode.LONG, false));
 
         childrenMap = fieldAccessesRestaurantRecord.getChildrenMap();
-        childFieldAccesses = childrenMap.get(FieldValue.ResolvedAccessor.of("rest_no", 0));
+        childFieldAccesses = childrenMap.get(FieldValue.ResolvedAccessor.of(restaurantRecordType, "rest_no", 0));
         Assertions.assertNotNull(childFieldAccesses);
         leafType = childFieldAccesses.getValue();
         Assertions.assertNotNull(leafType);
@@ -861,13 +861,13 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
         //
         childrenMap = fieldAccessesRestaurantReviewer.getChildrenMap();
         Assertions.assertNotNull(childrenMap);
-        childFieldAccesses = childrenMap.get(FieldValue.ResolvedAccessor.of("name", 1));
+        childFieldAccesses = childrenMap.get(FieldValue.ResolvedAccessor.of(restaurantReviewerType, "name", 1));
         Assertions.assertNotNull(childFieldAccesses);
         leafType = childFieldAccesses.getValue();
         Assertions.assertNotNull(leafType);
         Assertions.assertEquals(leafType, Type.primitiveType(Type.TypeCode.STRING, false));
 
-        childFieldAccesses = childrenMap.get(FieldValue.ResolvedAccessor.of("id", 0));
+        childFieldAccesses = childrenMap.get(FieldValue.ResolvedAccessor.of(restaurantReviewerType, "id", 0));
         Assertions.assertNotNull(childFieldAccesses);
         leafType = childFieldAccesses.getValue();
         Assertions.assertNotNull(leafType);

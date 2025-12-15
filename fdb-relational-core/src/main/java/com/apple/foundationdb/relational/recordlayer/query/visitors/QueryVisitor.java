@@ -31,7 +31,6 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.UpdateExpre
 import com.apple.foundationdb.record.query.plan.cascades.predicates.CompatibleTypeEvolutionPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
@@ -58,7 +57,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
-import com.google.protobuf.ByteString;
 import org.antlr.v4.runtime.ParserRuleContext;
 
 import javax.annotation.Nonnull;
@@ -66,7 +64,6 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import static com.apple.foundationdb.relational.generated.RelationalParser.ALL;
 
@@ -99,12 +96,6 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nonnull
     @Override
     public LogicalOperator visitQuery(@Nonnull RelationalParser.QueryContext ctx) {
-        if (ctx.continuation() != null) {
-            final var continuationExpression = visitContinuation(ctx.continuation());
-            final var continuationValue = Assert.castUnchecked(continuationExpression.getUnderlying(), LiteralValue.class);
-            final var continuationBytes = Assert.castUnchecked(continuationValue.getLiteralValue(), ByteString.class);
-            getDelegate().getPlanGenerationContext().setContinuation(continuationBytes.toByteArray());
-        }
         if (ctx.ctes() != null) {
             final var currentPlanFragment = getDelegate().pushPlanFragment();
             visitCtes(ctx.ctes()).forEach(currentPlanFragment::addOperator);
@@ -146,10 +137,10 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nonnull
     @Override
     public LogicalOperator visitNamedQuery(@Nonnull RelationalParser.NamedQueryContext ctx) {
-        final var queryName = Identifier.toProtobufCompliant(visitFullId(ctx.name));
+        final var queryName = visitFullId(ctx.name);
         var logicalOperator = visitQuery(ctx.query());
         if (ctx.columnAliases != null) {
-            final var columnAliases = visitFullIdList(ctx.columnAliases).stream().map(Identifier::toProtobufCompliant).collect(Collectors.toList());
+            final var columnAliases = visitFullIdList(ctx.columnAliases);
             SemanticAnalyzer.validateCteColumnAliases(logicalOperator, columnAliases);
             final var expressions = logicalOperator.getOutput().expanded();
             final var expressionsWithNewNames = Expressions.of(Streams.zip(expressions.stream(), columnAliases.stream(),
@@ -163,7 +154,7 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nonnull
     public LogicalOperator handleRecursiveNamedQuery(@Nonnull final RelationalParser.NamedQueryContext recursiveQueryContext,
                                                      @Nonnull final RecursiveUnionExpression.TraversalStrategy traversalStrategy) {
-        final var queryName = Identifier.toProtobufCompliant(visitFullId(recursiveQueryContext.name));
+        final var queryName = visitFullId(recursiveQueryContext.name);
         final Optional<Type> recursiveQueryType;
         final var memoized = MemoizedFunction.<ParserRuleContext, LogicalOperators>memoize(
                 parserRuleContext -> {
@@ -176,7 +167,7 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         {
             getDelegate().pushPlanFragment();
             recursiveQueryType = getDelegate().getSemanticAnalyzer().getRecursiveCteType(recursiveQueryContext.query(),
-                    queryName, x -> Identifier.toProtobufCompliant(getDelegate().visitFullId(x)), memoized, this);
+                    queryName, getDelegate()::visitFullId, memoized, this);
             getDelegate().popPlanFragment();
         }
         Assert.thatUnchecked(recursiveQueryType.isPresent(), ErrorCode.INVALID_RECURSION, "recursive CTE does not contain non-recursive term");
@@ -185,7 +176,7 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         final var scanId = Identifier.of(queryName + "forScan");
         currentPlanFragment.addOperator(LogicalOperator.newTemporaryTableScan(queryName, scanId, type));
         final var partitions = getDelegate().getSemanticAnalyzer().partitionRecursiveQuery(recursiveQueryContext.query(),
-                queryName, x -> Identifier.toProtobufCompliant(getDelegate().visitFullId(x)), memoized, this);
+                queryName, getDelegate()::visitFullId, memoized, this);
         final var nonRecursiveBranches = partitions.getLeft();
         final var recursiveBranches = partitions.getRight();
         getDelegate().popPlanFragment();
@@ -203,7 +194,7 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         final var quantifier = Quantifier.forEach(Reference.initialOf(recursiveUnion));
         var logicalOperator = LogicalOperator.newNamedOperator(queryName, Expressions.fromQuantifier(quantifier), quantifier);
         if (recursiveQueryContext.columnAliases != null) {
-            final var columnAliases = visitFullIdList(recursiveQueryContext.columnAliases).stream().map(Identifier::toProtobufCompliant).collect(Collectors.toList());
+            final var columnAliases = visitFullIdList(recursiveQueryContext.columnAliases);
             SemanticAnalyzer.validateCteColumnAliases(logicalOperator, columnAliases);
             final var expressions = logicalOperator.getOutput().expanded();
             final var expressionsWithNewNames = Expressions.of(Streams.zip(expressions.stream(), columnAliases.stream(),
@@ -330,7 +321,8 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
     @Override
     public LogicalOperator visitAtomTableItem(@Nonnull RelationalParser.AtomTableItemContext atomTableItemContext) {
         final var tableIdentifier = Assert.castUnchecked(atomTableItemContext.tableName().accept(this), Identifier.class);
-        final var tableAlias = Optional.of(atomTableItemContext.alias == null ? tableIdentifier : Identifier.toProtobufCompliant(visitUid(atomTableItemContext.alias)));
+        final var tableAlias = Optional.of(atomTableItemContext.alias == null ? visitTableName(atomTableItemContext.tableName())
+                                                                              : visitUid(atomTableItemContext.alias));
         final var requestedIndexes = atomTableItemContext.indexHint()
                 .stream().flatMap(indexHint -> visitIndexHint(indexHint).stream()).collect(ImmutableSet.toImmutableSet());
         return LogicalOperator.generateAccess(tableIdentifier, tableAlias, requestedIndexes, getDelegate().getSemanticAnalyzer(),
@@ -340,7 +332,7 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nonnull
     @Override
     public LogicalOperator visitSubqueryTableItem(@Nonnull RelationalParser.SubqueryTableItemContext subqueryTableItemContext) {
-        final var alias = Identifier.toProtobufCompliant(Assert.castUnchecked(subqueryTableItemContext.alias.accept(this), Identifier.class));
+        final var alias = Assert.castUnchecked(subqueryTableItemContext.alias.accept(this), Identifier.class);
         final var selectOperator = visitQuery(subqueryTableItemContext.query());
         return selectOperator.withName(alias);
     }
@@ -384,7 +376,7 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
     public LogicalOperator visitTableValuedFunction(@Nonnull RelationalParser.TableValuedFunctionContext tableValuedFunctionContext) {
         final var logicalOperator = visitTableFunction(tableValuedFunctionContext.tableFunction());
         final var aliasMaybe = Optional.ofNullable(tableValuedFunctionContext.uid() == null ? null :
-                                                   Identifier.toProtobufCompliant(visitUid(tableValuedFunctionContext.uid())));
+                                                   visitUid(tableValuedFunctionContext.uid()));
         return aliasMaybe.map(logicalOperator::withName).orElse(logicalOperator);
     }
 
@@ -462,11 +454,11 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nonnull
     @Override
     public LogicalOperator visitUpdateStatement(@Nonnull RelationalParser.UpdateStatementContext ctx) {
-        final var tableId = visitTableName(ctx.tableName());
-        final var semanticAnalyzer = getDelegate().getSemanticAnalyzer();
-        final var table = semanticAnalyzer.getTable(tableId);
-        final var tableType = Assert.castUnchecked(table, RecordLayerTable.class).getType();
-        final var tableAccess = getDelegate().getLogicalOperatorCatalog().lookupTableAccess(tableId, semanticAnalyzer);
+        final Identifier tableId = visitFullId(ctx.tableName().fullId());
+        final SemanticAnalyzer semanticAnalyzer = getDelegate().getSemanticAnalyzer();
+        final RecordLayerTable table = Assert.castUnchecked(semanticAnalyzer.getTable(tableId), RecordLayerTable.class);
+        final Type.Record tableType = table.getType();
+        final LogicalOperator tableAccess = getDelegate().getLogicalOperatorCatalog().lookupTableAccess(tableId, semanticAnalyzer);
 
         getDelegate().pushPlanFragment().setOperator(tableAccess);
         final var output = Expressions.ofSingle(semanticAnalyzer.expandStar(Optional.empty(), getDelegate().getLogicalOperators()));
@@ -475,16 +467,16 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         final var updateSource = LogicalOperator.generateSimpleSelect(output, getDelegate().getLogicalOperators(), whereMaybe, Optional.of(tableId), ImmutableSet.of(), false);
 
         getDelegate().getCurrentPlanFragment().setOperator(updateSource);
-        final var transformMapBuilder = ImmutableMap.<FieldValue.FieldPath, Value>builder();
-        for (final var updatedElementCtx : ctx.updatedElement()) {
-            final var targetAndUpdateExpressions = visitUpdatedElement(updatedElementCtx).asList();
-            final var target = Assert.castUnchecked(targetAndUpdateExpressions.get(0).getUnderlying(), FieldValue.class).getFieldPath();
-            final var update = targetAndUpdateExpressions.get(1).getUnderlying();
+        final ImmutableMap.Builder<FieldValue.FieldPath, Value> transformMapBuilder = ImmutableMap.builder();
+        for (final RelationalParser.UpdatedElementContext updatedElementCtx : ctx.updatedElement()) {
+            final List<Expression> targetAndUpdateExpressions = visitUpdatedElement(updatedElementCtx).asList();
+            final FieldValue.FieldPath target = Assert.castUnchecked(targetAndUpdateExpressions.get(0).getUnderlying(), FieldValue.class).getFieldPath();
+            final Value update = targetAndUpdateExpressions.get(1).getUnderlying();
             transformMapBuilder.put(target, update);
         }
 
         final var updateExpression = new UpdateExpression(Assert.castUnchecked(updateSource.getQuantifier(), Quantifier.ForEach.class),
-                table.getName(),
+                Assert.notNullUnchecked(tableType.getStorageName(), "Update target type must have storage type name available"),
                 tableType,
                 transformMapBuilder.build());
         final var updateQuantifier = Quantifier.forEach(Reference.initialOf(updateExpression));
@@ -513,10 +505,10 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
     @Override
     public LogicalOperator visitDeleteStatement(@Nonnull RelationalParser.DeleteStatementContext ctx) {
         Assert.thatUnchecked(ctx.limitClause() == null, "limit is not supported");
-        final var tableId = visitTableName(ctx.tableName());
-        final var semanticAnalyzer = getDelegate().getSemanticAnalyzer();
-        final var table = semanticAnalyzer.getTable(tableId);
-        final var tableAccess = getDelegate().getLogicalOperatorCatalog().lookupTableAccess(tableId, semanticAnalyzer);
+        final Identifier tableId = visitFullId(ctx.tableName().fullId());
+        final SemanticAnalyzer semanticAnalyzer = getDelegate().getSemanticAnalyzer();
+        final RecordLayerTable table = Assert.castUnchecked(semanticAnalyzer.getTable(tableId), RecordLayerTable.class);
+        final LogicalOperator tableAccess = getDelegate().getLogicalOperatorCatalog().lookupTableAccess(tableId, semanticAnalyzer);
 
         getDelegate().pushPlanFragment().setOperator(tableAccess);
         final var output = Expressions.ofSingle(semanticAnalyzer.expandStar(Optional.empty(), getDelegate().getLogicalOperators()));
@@ -524,7 +516,7 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         Optional<Expression> whereMaybe = ctx.whereExpr() == null ? Optional.empty() : Optional.of(visitWhereExpr(ctx.whereExpr()));
         final var deleteSource = LogicalOperator.generateSimpleSelect(output, getDelegate().getLogicalOperators(), whereMaybe, Optional.of(tableId), ImmutableSet.of(), false);
 
-        final var deleteExpression = new DeleteExpression(Assert.castUnchecked(deleteSource.getQuantifier(), Quantifier.ForEach.class), table.getName());
+        final var deleteExpression = new DeleteExpression(Assert.castUnchecked(deleteSource.getQuantifier(), Quantifier.ForEach.class), table.getType().getStorageName());
         final var deleteQuantifier = Quantifier.forEach(Reference.initialOf(deleteExpression));
         final var resultingDelete = LogicalOperator.newUnnamedOperator(Expressions.fromQuantifier(deleteQuantifier), deleteQuantifier);
 
@@ -592,7 +584,7 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         final var semanticAnalyzer = getDelegate().getSemanticAnalyzer();
         for (final var orderByExpression : orderByClauseContext.orderByExpression()) {
             final var isAliasMaybe = isAliasMaybe(orderByExpression);
-            final var matchingExpressionMaybe = isAliasMaybe.flatMap(alias -> semanticAnalyzer.lookupAlias(Identifier.toProtobufCompliant(visitFullId(alias)), validSelectAliases));
+            final var matchingExpressionMaybe = isAliasMaybe.flatMap(alias -> semanticAnalyzer.lookupAlias(visitFullId(alias), validSelectAliases));
             matchingExpressionMaybe.ifPresentOrElse(
                     matchingExpression -> {
                         final var descending = ParseHelpers.isDescending(orderByExpression);

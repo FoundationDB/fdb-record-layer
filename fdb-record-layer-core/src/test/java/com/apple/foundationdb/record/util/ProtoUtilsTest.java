@@ -1,5 +1,5 @@
 /*
- * DataTypeUtilsTest.java
+ * ProtoUtilsTest.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,10 +18,9 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.relational.recordlayer.metadata;
+package com.apple.foundationdb.record.util;
 
-import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
-import org.assertj.core.api.Assertions;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -30,8 +29,14 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.stream.Stream;
 
-public class DataTypeUtilsTest {
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+/**
+ * Unit tests of the {@link ProtoUtils} class.
+ */
+class ProtoUtilsTest {
 
     static Stream<Arguments> protobufCompliantNameTestArguments() {
         return Stream.of(
@@ -71,13 +76,42 @@ public class DataTypeUtilsTest {
     @MethodSource("protobufCompliantNameTestArguments")
     void protobufCompliantNameTest(@Nonnull String userIdentifier, @Nullable String protobufIdentifier) {
         if (protobufIdentifier != null) {
-            final var actual = DataTypeUtils.toProtoBufCompliantName(userIdentifier);
-            Assertions.assertThat(actual).isEqualTo(protobufIdentifier);
-            final var reTranslated = DataTypeUtils.toUserIdentifier(actual);
-            Assertions.assertThat(reTranslated).isEqualTo(userIdentifier);
+            final String actual = ProtoUtils.toProtoBufCompliantName(userIdentifier);
+            assertThat(actual)
+                    .isEqualTo(protobufIdentifier);
+            final String reTranslated = ProtoUtils.toUserIdentifier(actual);
+            assertThat(reTranslated)
+                    .isEqualTo(userIdentifier);
         } else {
-            Assertions.assertThatThrownBy(() -> DataTypeUtils.toProtoBufCompliantName(userIdentifier))
-                    .isInstanceOf(UncheckedRelationalException.class);
+            assertThatThrownBy(() -> ProtoUtils.toProtoBufCompliantName(userIdentifier))
+                    .isInstanceOf(ProtoUtils.InvalidNameException.class);
         }
+    }
+
+    @Test
+    void uniqueTypeName() {
+        final String name1 = ProtoUtils.uniqueTypeName();
+        final String name2 = ProtoUtils.uniqueTypeName();
+        assertThat(name1)
+                .isNotEqualTo(name2);
+        assertThatCode(() -> ProtoUtils.checkValidProtoBufCompliantName(name1))
+                .doesNotThrowAnyException();
+        assertThatCode(() -> ProtoUtils.checkValidProtoBufCompliantName(name2))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    void uniqueOtherName() {
+        final String name1 = ProtoUtils.uniqueName("blah");
+        final String name2 = ProtoUtils.uniqueName("blah");
+        assertThat(name1)
+                .startsWith("blah")
+                .isNotEqualTo(name2);
+        assertThat(name2)
+                .startsWith("blah");
+        assertThatCode(() -> ProtoUtils.checkValidProtoBufCompliantName(name1))
+                .doesNotThrowAnyException();
+        assertThatCode(() -> ProtoUtils.checkValidProtoBufCompliantName(name2))
+                .doesNotThrowAnyException();
     }
 }

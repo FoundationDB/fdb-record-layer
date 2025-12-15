@@ -32,5 +32,6 @@ jobs:
             // Check if the current PR has a label in the required set
             const pr_labels = context.payload.pull_request.labels.map(l => l.name); 
             if (!pr_labels.some(l => requiredLabels.has(l))) {
-              core.setFailed("PR is not labeled with any of the required labels: " + JSON.stringify(Array.from(requiredLabels)));
+              core.setFailed("PR is not labeled with any of the required labels: " + JSON.stringify(Array.from(requiredLabels)) +
+                             " It has: " + JSON.stringify(Array.from(pr_labels)));
             }

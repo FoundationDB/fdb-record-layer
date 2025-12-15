@@ -189,8 +189,6 @@ public class KeySpace {
      * <p>
      *     If entries remained in the tuple beyond the leaf directory, then {@link ResolvedKeySpacePath#getRemainder()} can be
      *     used to fetch the remaining portion.
-     *     See also {@link KeySpacePath#toResolvedPathAsync(FDBRecordContext, byte[])} if you need to resolve and you
-     *     know that it is part of a given path.
      * </p>
      * @param context context used, if needed, for any database operations
      * @param key the tuple to be decoded

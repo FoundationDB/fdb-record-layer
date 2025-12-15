@@ -29,8 +29,6 @@ import com.apple.foundationdb.async.AsyncIterable;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.linear.AffineOperator;
 import com.apple.foundationdb.linear.DoubleRealVector;
-import com.apple.foundationdb.linear.FloatRealVector;
-import com.apple.foundationdb.linear.HalfRealVector;
 import com.apple.foundationdb.linear.Quantizer;
 import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.linear.Transformed;
@@ -59,7 +57,6 @@ import java.util.concurrent.CompletableFuture;
  * @param <N> the type of {@link NodeReference} this storage adapter manages
  */
 interface StorageAdapter<N extends NodeReference> {
-    ImmutableList<VectorType> VECTOR_TYPES = ImmutableList.copyOf(VectorType.values());
 
     /**
      * Subspace for data.
@@ -199,29 +196,24 @@ interface StorageAdapter<N extends NodeReference> {
     /**
      * Creates a {@link RealVector} from a byte array.
      * <p>
-     * This method interprets the input byte array by interpreting the first byte of the array as the precision shift.
-     * The byte array must have the proper size, i.e. the invariant {@code (bytesLength - 1) % precision == 0} must
-     * hold.
+     * This method interprets the input byte array by interpreting the first byte of the array.
+     * It the delegates to {@link RealVector#fromBytes(VectorType, byte[])}.
      * @param config an HNSW config
      * @param vectorBytes the non-null byte array to convert.
      * @return a new {@link RealVector} instance created from the byte array.
-     * @throws com.google.common.base.VerifyException if the length of {@code vectorBytes} does not meet the invariant
-     *         {@code (bytesLength - 1) % precision == 0}
      */
     @Nonnull
     static RealVector vectorFromBytes(@Nonnull final Config config, @Nonnull final byte[] vectorBytes) {
         final byte vectorTypeOrdinal = vectorBytes[0];
-        switch (fromVectorTypeOrdinal(vectorTypeOrdinal)) {
-            case HALF:
-                return HalfRealVector.fromBytes(vectorBytes);
-            case SINGLE:
-                return FloatRealVector.fromBytes(vectorBytes);
-            case DOUBLE:
-                return DoubleRealVector.fromBytes(vectorBytes);
+        switch (RealVector.fromVectorTypeOrdinal(vectorTypeOrdinal)) {
             case RABITQ:
                 Verify.verify(config.isUseRaBitQ());
                 return EncodedRealVector.fromBytes(vectorBytes, config.getNumDimensions(),
                         config.getRaBitQNumExBits());
+            case HALF:
+            case SINGLE:
+            case DOUBLE:
+                return RealVector.fromBytes(vectorBytes);
             default:
                 throw new RuntimeException("unable to serialize vector");
         }
@@ -249,11 +241,6 @@ interface StorageAdapter<N extends NodeReference> {
     @SuppressWarnings("PrimitiveArrayArgumentToVarargsMethod")
     static Tuple tupleFromVector(@Nonnull final RealVector vector) {
         return Tuple.from(vector.getRawData());
-    }
-
-    @Nonnull
-    static VectorType fromVectorTypeOrdinal(final int ordinal) {
-        return VECTOR_TYPES.get(ordinal);
     }
 
     @Nonnull

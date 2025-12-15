@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.CompatibleTypeEvolutionPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.AbstractArrayConstructorValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.CastValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConditionSelectorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ExistsValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
@@ -34,6 +33,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.CastValue;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.metadata.DataType;
@@ -123,12 +123,6 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
 
     @Nonnull
     @Override
-    public Expression visitContinuation(@Nonnull RelationalParser.ContinuationContext ctx) {
-        return visitContinuationAtom(ctx.continuationAtom());
-    }
-
-    @Nonnull
-    @Override
     public Expression visitContinuationAtom(@Nonnull RelationalParser.ContinuationAtomContext ctx) {
         return getDelegate().getPlanGenerationContext().withDisabledLiteralProcessing(() -> {
             final var continuationExpression = parseChild(ctx);
@@ -146,7 +140,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nonnull
     @Override
     public Expression visitSelectQualifierStarElement(@Nonnull RelationalParser.SelectQualifierStarElementContext ctx) {
-        final var identifier = Identifier.toProtobufCompliant(visitUid(ctx.uid()));
+        final var identifier = visitUid(ctx.uid());
         // the semantics of valid correlations are extended to expanding a (correlated) qualified star.
         return getDelegate().getSemanticAnalyzer().expandStar(Optional.of(identifier), getDelegate().getLogicalOperatorsIncludingOuter());
     }
@@ -170,7 +164,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     public Expression visitSelectExpressionElement(@Nonnull RelationalParser.SelectExpressionElementContext selectExpressionElementContext) {
         final var expression = Assert.castUnchecked(selectExpressionElementContext.expression().accept(this), Expression.class);
         if (selectExpressionElementContext.AS() != null) {
-            final var expressionName = Identifier.toProtobufCompliant(visitUid(selectExpressionElementContext.uid()));
+            final var expressionName = visitUid(selectExpressionElementContext.uid());
             return expression.withName(expressionName);
         }
         return expression;
@@ -180,7 +174,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     @Override
     public Expression visitFullColumnName(@Nonnull RelationalParser.FullColumnNameContext fullColumnNameContext) {
         final var id = visitFullId(fullColumnNameContext.fullId());
-        return getDelegate().getSemanticAnalyzer().resolveIdentifier(Identifier.toProtobufCompliant(id), getDelegate().getCurrentPlanFragment());
+        return getDelegate().getSemanticAnalyzer().resolveIdentifier(id, getDelegate().getCurrentPlanFragment());
     }
 
     @Nonnull
@@ -248,7 +242,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         Assert.isNullUnchecked(groupByItemContext.order, ErrorCode.UNSUPPORTED_QUERY, "ordering grouping column is not supported");
         final var expression = Assert.castUnchecked(groupByItemContext.expression().accept(this), Expression.class);
         if (groupByItemContext.uid() != null) {
-            final var name = Identifier.toProtobufCompliant(visitUid(groupByItemContext.uid()));
+            final var name = visitUid(groupByItemContext.uid());
             return expression.withName(name).asEphemeral();
         }
         return expression;
@@ -634,7 +628,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     public Expression visitExpressionWithOptionalName(@Nonnull RelationalParser.ExpressionWithOptionalNameContext ctx) {
         final var expression = Assert.castUnchecked(ctx.expression().accept(this), Expression.class);
         if (ctx.AS() != null) {
-            final var name = Identifier.toProtobufCompliant(visitUid(ctx.uid()));
+            final var name = visitUid(ctx.uid());
             return expression.withName(name);
         }
         return expression;
@@ -754,7 +748,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         final var uidMap = Streams.mapWithIndex(ctx.uidWithNestings().stream(),
                                 (ctxWithNesting, index) -> {
                                     final var uid = visitUid(ctxWithNesting.uid());
-                                    final var accessor = FieldValue.ResolvedAccessor.of(Identifier.toProtobufCompliant(uid).getName(), (int)index, Type.any());
+                                    final var accessor = FieldValue.ResolvedAccessor.of(uid.getName(), (int)index, Type.any());
                                     if (ctxWithNesting.uidListWithNestingsInParens() == null) {
                                         return NonnullPair.of(accessor, CompatibleTypeEvolutionPredicate.FieldAccessTrieNode.of(Type.any(), null));
                                     } else {
@@ -763,7 +757,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
                                 })
                         .collect(ImmutableMap.toImmutableMap(NonnullPair::getLeft, NonnullPair::getRight,
                                 (l, r) -> {
-                                    throw Assert.failUnchecked(ErrorCode.AMBIGUOUS_COLUMN, "duplicate column '" + l + "'");
+                                    throw Assert.failUnchecked(ErrorCode.AMBIGUOUS_COLUMN, "duplicate column " + l);
                                 }));
         return CompatibleTypeEvolutionPredicate.FieldAccessTrieNode.of(Type.any(), uidMap);
     }
@@ -786,7 +780,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     @Override
     public Expression visitRecordConstructor(@Nonnull RelationalParser.RecordConstructorContext ctx) {
         if (ctx.uid() != null) {
-            final var id = Identifier.toProtobufCompliant(visitUid(ctx.uid()));
+            final var id = visitUid(ctx.uid());
             if (ctx.STAR() == null) {
                 final var expression = getDelegate().getSemanticAnalyzer().resolveIdentifier(id, getDelegate().getCurrentPlanFragment());
                 final var resultValue = RecordConstructorValue.ofUnnamed(List.of(expression.getUnderlying()));
@@ -804,7 +798,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         }
         final var expressions = parseRecordFieldsUnderReorderings(ctx.expressionWithOptionalName());
         if (ctx.ofTypeClause() != null) {
-            final var recordId = Identifier.toProtobufCompliant(visitUid(ctx.ofTypeClause().uid()));
+            final var recordId = visitUid(ctx.ofTypeClause().uid());
             final var resultValue = RecordConstructorValue.ofColumnsAndName(expressions.underlyingAsColumns(), recordId.getName());
             return Expression.ofUnnamed(resultValue);
         }
@@ -839,7 +833,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     }
 
     @Nonnull
-    private Expressions parseRecordFields(@Nonnull List<RelationalParser.ExpressionWithOptionalNameContext> parserRuleContexts,
+    private Expressions parseRecordFields(@Nonnull List<? extends ParserRuleContext> parserRuleContexts,
                                           @Nullable List<Type.Record.Field> targetFields) {
         Assert.thatUnchecked(targetFields == null || targetFields.size() == parserRuleContexts.size());
         final var resultsBuilder = ImmutableList.<Expression>builder();
@@ -852,7 +846,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     }
 
     @Nonnull
-    private Expression parseRecordField(@Nonnull RelationalParser.ExpressionWithOptionalNameContext parserRuleContext,
+    private Expression parseRecordField(@Nonnull ParserRuleContext parserRuleContext,
                                         @Nullable Type.Record.Field targetField) {
         final var fieldType = targetField == null ? null : targetField.getFieldType();
         StringTrieNode reorderings = null;
@@ -873,7 +867,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
                 newStateBuilder.withTargetTypeReorderings(targetFieldReorderings);
             }
             getDelegate().getCurrentPlanFragment().setState(newStateBuilder.build());
-            expression = Assert.castUnchecked(visitExpressionWithOptionalName(parserRuleContext), Expression.class);
+            expression = Assert.castUnchecked(parserRuleContext.accept(this), Expression.class);
         } finally {
             getDelegate().getCurrentPlanFragment().setStateMaybe(maybeState);
         }
@@ -920,7 +914,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     }
 
     @Nonnull
-    private Expressions parseRecordFieldsUnderReorderings(@Nonnull final List<RelationalParser.ExpressionWithOptionalNameContext> providedColumnContexts) {
+    private Expressions parseRecordFieldsUnderReorderings(@Nonnull final List<? extends ParserRuleContext> providedColumnContexts) {
         final var maybeState = getStateMaybe();
         if (maybeState.isEmpty() || maybeState.get().getTargetType().isEmpty()) {
             return parseRecordFields(providedColumnContexts, null);

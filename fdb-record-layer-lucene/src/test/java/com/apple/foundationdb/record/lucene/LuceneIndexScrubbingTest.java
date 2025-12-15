@@ -53,7 +53,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class LuceneIndexScrubbingTest extends FDBLuceneTestBase {
 
     private TestingIndexMaintainerRegistry registry;
-    private boolean flipBoolean = false;
 
     @BeforeEach
     public void beforeEach() {

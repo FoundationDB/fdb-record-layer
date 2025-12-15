@@ -175,12 +175,6 @@ public class KeySpacePathWrapper implements KeySpacePath {
         return inner.toResolvedPathAsync(context);
     }
 
-    @Nonnull
-    @Override
-    public CompletableFuture<ResolvedKeySpacePath> toResolvedPathAsync(@Nonnull final FDBRecordContext context, final byte[] key) {
-        return inner.toResolvedPathAsync(context, key);
-    }
-
     @Override
     public boolean equals(Object obj) {
         return inner.equals(obj);
@@ -207,5 +201,12 @@ public class KeySpacePathWrapper implements KeySpacePath {
                                                           @Nullable byte[] continuation,
                                                           @Nonnull ScanProperties scanProperties) {
         return inner.exportAllData(context, continuation, scanProperties);
+    }
+
+    @Nonnull
+    @Override
+    public CompletableFuture<Void> importData(@Nonnull FDBRecordContext context,
+                                              @Nonnull Iterable<DataInKeySpacePath> dataToImport) {
+        return inner.importData(context, dataToImport);
     }
 }

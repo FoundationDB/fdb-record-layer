@@ -182,6 +182,8 @@ public class FDBStoreTimer extends StoreTimer {
         RANGE_SET_CONTAINS("range set contains key"),
         /** The amount of time checking if a {@link com.google.common.collect.RangeSet} is empty. */
         RANGE_SET_IS_EMPTY("range set is empty"),
+        /** The amount of time importing a single KeyValue into a path. */
+        IMPORT_DATA("import KeyValue"),
 
         /** The amount of time spent clearing the space taken by an index that has been removed from the meta-data. */
         REMOVE_FORMER_INDEX("remove former index"),
@@ -761,6 +763,14 @@ public class FDBStoreTimer extends StoreTimer {
         LOCKS_ATTEMPTED("number of attempts to register a lock", false),
         /** Count of the locks released. */
         LOCKS_RELEASED("number of locks released", false),
+        VECTOR_NODE_READS("intermediate nodes read", false),
+        VECTOR_NODE_READ_BYTES("intermediate node bytes read", true),
+        VECTOR_NODE0_READS("intermediate nodes read", false),
+        VECTOR_NODE0_READ_BYTES("intermediate node bytes read", true),
+        VECTOR_NODE_WRITES("intermediate nodes written", false),
+        VECTOR_NODE_WRITE_BYTES("intermediate node bytes written", true),
+        VECTOR_NODE0_WRITES("intermediate nodes written", false),
+        VECTOR_NODE0_WRITE_BYTES("intermediate node bytes written", true),
         ;
 
         private final String title;
