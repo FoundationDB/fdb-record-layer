@@ -121,7 +121,6 @@ public class RecordQueryRecursiveDfsJoinPlan extends AbstractRelationalExpressio
         return childQuantifier;
     }
 
-    @SuppressWarnings("resource")
     @Nonnull
     @Override
     public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
@@ -138,7 +137,7 @@ public class RecordQueryRecursiveDfsJoinPlan extends AbstractRelationalExpressio
                             final EvaluationContext childContext = context.withBinding(Bindings.Internal.CORRELATION.bindingName(priorValueCorrelation.getId()), parentResult);
                             return childQuantifier.getRangesOverPlan().executePlan(store, childContext, innerContinuation, nestedExecuteProperties);
                         },
-                        null,
+                        item -> item == null ? null : item.toProto().toByteArray(),
                         continuation,
                         dfsTraversalStrategy == DfsTraversalStrategy.PREORDER
                 ).skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit())
