@@ -110,13 +110,33 @@ class LuceneLockFailureTest extends FDBRecordStoreTestBase {
             Assertions.assertEquals(LucenePendingWriteQueueProto.QueuedOperation.OperationType.INSERT, ops.get(0).getOperation().getOperationType());
             Assertions.assertEquals(record.getPrimaryKey(), ops.get(0).getPrimaryKey());
         }
-        // perform a search for all docs with
+        // perform a search for all docs - one record shopuld show up
         try (final FDBRecordContext context = openContext()) {
             String type = partitioned ? COMPLEX_DOC : SIMPLE_DOC;
             Index index = partitioned ? COMPLEX_PARTITIONED : SIMPLE_INDEX;
             rebuildIndexMetaData(context, type, index);
             final List<FDBQueriedRecord<Message>> allRecords = searchAllDocs(type);
             Assertions.assertEquals(1, allRecords.size());
+        }
+        // Delete all content from the queue
+        try (final FDBRecordContext context = openContext()) {
+            openStore(partitioned, context);
+            Index index = partitioned ? COMPLEX_PARTITIONED : SIMPLE_INDEX;
+            final IndexMaintainer indexMaintainer = recordStore.getIndexMaintainer(index);
+            // The SIMPLE_INDEX is not grouped, and is the one used for non-partitioned
+            final Tuple groupingKey = partitioned ? Tuple.from(2) : Tuple.from();
+            Integer partitionId = (partitioned) ? 0 : null;
+            LucenePendingWriteQueue queue = ((LuceneIndexMaintainer)indexMaintainer).getPendingWriteQueue(groupingKey, partitionId);
+            queue.clearQueue();
+            commit(context);
+        }
+        // perform a search for all docs - no records since the queue was deleted
+        try (final FDBRecordContext context = openContext()) {
+            String type = partitioned ? COMPLEX_DOC : SIMPLE_DOC;
+            Index index = partitioned ? COMPLEX_PARTITIONED : SIMPLE_INDEX;
+            rebuildIndexMetaData(context, type, index);
+            final List<FDBQueriedRecord<Message>> allRecords = searchAllDocs(type);
+            Assertions.assertEquals(0, allRecords.size());
         }
     }
 

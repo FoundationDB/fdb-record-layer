@@ -187,7 +187,8 @@ public class FDBDirectoryWrapper implements AutoCloseable {
         // Create a minimal IndexWriterConfig for the read-only writer
         IndexWriterConfig config = new IndexWriterConfig(this.analyzerWrapper.getAnalyzer())
                 .setCodec(CODEC)
-                .setUseCompoundFile(USE_COMPOUND_FILE);
+                .setUseCompoundFile(USE_COMPOUND_FILE)
+                .setCommitOnClose(false);
 
         IndexWriter readOnlyIndexWriter = new IndexWriter(noLockDirectory, config);
         // Get the queue and apply changes if necessary

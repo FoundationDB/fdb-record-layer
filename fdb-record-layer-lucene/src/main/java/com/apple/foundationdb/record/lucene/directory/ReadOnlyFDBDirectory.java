@@ -42,20 +42,26 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * A {@link FDBDirectoryBase} wrapper that delegates all operations to an underlying FDB directory
- * but uses {@link NoOpLockFactory} to avoid acquiring locks. This is used for read-only
- * {@link org.apache.lucene.index.IndexWriter} instances that need to write documents
- * without actually committing or flushing, such as when replaying queued operations
+ * A {@link FDBDirectoryBase} wrapper that delegates read operations to an underlying FDB directory
+ * but rejects all write operations and uses {@link NoOpLockFactory} to avoid acquiring locks.
+ * This is used for read-only {@link org.apache.lucene.index.IndexWriter} instances that need to
+ * read the index structure without modifying it, such as when replaying queued operations
  * while a merge is in progress.
  *
- * <p>Since this directory does not acquire locks, it should only be used when:</p>
+ * <p>All write operations throw {@link UnsupportedOperationException}, including:</p>
+ * <ul>
+ *     <li>File operations: createOutput, createTempOutput, deleteFile, rename</li>
+ *     <li>Data operations: writeData, writeStoredFields, deleteStoredFields</li>
+ *     <li>Metadata operations: writeFDBLuceneFileReference, setFieldInfoId</li>
+ *     <li>ID generation: getIncrement, primaryKeySegmentId (when create=true)</li>
+ * </ul>
+ *
+ * <p>This directory should only be used when:</p>
  * <ul>
  *     <li>The writer will not perform any flush or commit operations</li>
  *     <li>Another writer with proper locking is managing the actual index updates</li>
- *     <li>You need to write documents but avoid lock conflicts</li>
+ *     <li>You need to read the index structure without modifying FDB data</li>
  * </ul>
- *
- * TODO: Make this read-only so that we can't commit or flush read-only writers
  */
 @API(API.Status.INTERNAL)
 public class ReadOnlyFDBDirectory extends FDBDirectoryBase {
@@ -96,22 +102,22 @@ public class ReadOnlyFDBDirectory extends FDBDirectoryBase {
 
     @Override
     public IndexOutput createTempOutput(String prefix, String suffix, IOContext context) throws IOException {
-        return delegate.createTempOutput(prefix, suffix, context);
+        throw new UnsupportedOperationException("Cannot create temp output in a read-only directory");
     }
 
     @Override
     public void sync(Collection<String> names) throws IOException {
-        delegate.sync(names);
+        // No-op for read-only directory
     }
 
     @Override
     public void syncMetaData() throws IOException {
-        delegate.syncMetaData();
+        // No-op for read-only directory
     }
 
     @Override
     public void rename(String source, String dest) throws IOException {
-        delegate.rename(source, dest);
+        throw new UnsupportedOperationException("Cannot rename files in a read-only directory");
     }
 
     @Override
@@ -129,11 +135,11 @@ public class ReadOnlyFDBDirectory extends FDBDirectoryBase {
         return delegate.getPendingDeletions();
     }
 
-    // Delegate all FDB-specific methods to the underlying directory
+    // Delegate FDB-specific methods, rejecting write operations
 
     @Override
     public long getIncrement() throws IOException {
-        return delegate.getIncrement();
+        throw new UnsupportedOperationException("Cannot get increment in a read-only directory (writes to FDB)");
     }
 
     @Override
@@ -156,7 +162,7 @@ public class ReadOnlyFDBDirectory extends FDBDirectoryBase {
 
     @Override
     public void setFieldInfoId(final String filename, final long id, final ByteString bitSet) {
-        delegate.setFieldInfoId(filename, id, bitSet);
+        throw new UnsupportedOperationException("Cannot set field info ID in a read-only directory");
     }
 
     @Override
@@ -167,12 +173,12 @@ public class ReadOnlyFDBDirectory extends FDBDirectoryBase {
 
     @Override
     public void writeFDBLuceneFileReference(@Nonnull final String name, @Nonnull final FDBLuceneFileReference reference) {
-        delegate.writeFDBLuceneFileReference(name, reference);
+        throw new UnsupportedOperationException("Cannot write file reference in a read-only directory");
     }
 
     @Override
     public int writeData(final long id, final int block, @Nonnull final byte[] value) {
-        return delegate.writeData(id, block, value);
+        throw new UnsupportedOperationException("Cannot write data in a read-only directory");
     }
 
     @Override
@@ -181,8 +187,8 @@ public class ReadOnlyFDBDirectory extends FDBDirectoryBase {
     }
 
     @Override
-    public void deleteStoredFields(@Nonnull final String segmentName) throws IOException {
-        delegate.deleteStoredFields(segmentName);
+    public void deleteStoredFields(@Nonnull final String segmentName) {
+        throw new UnsupportedOperationException("Cannot delete stored fields in a read-only directory");
     }
 
     @Nonnull
@@ -274,7 +280,10 @@ public class ReadOnlyFDBDirectory extends FDBDirectoryBase {
 
     @Override
     public long primaryKeySegmentId(@Nonnull final String segmentName, final boolean create) throws IOException {
-        return delegate.primaryKeySegmentId(segmentName, create);
+        if (create) {
+            throw new UnsupportedOperationException("Cannot create primary key segment ID in a read-only directory");
+        }
+        return delegate.primaryKeySegmentId(segmentName, false);
     }
 
     @Override
