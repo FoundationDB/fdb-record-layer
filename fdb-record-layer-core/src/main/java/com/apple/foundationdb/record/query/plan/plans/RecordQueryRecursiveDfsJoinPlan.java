@@ -137,7 +137,7 @@ public class RecordQueryRecursiveDfsJoinPlan extends AbstractRelationalExpressio
                             final EvaluationContext childContext = context.withBinding(Bindings.Internal.CORRELATION.bindingName(priorValueCorrelation.getId()), parentResult);
                             return childQuantifier.getRangesOverPlan().executePlan(store, childContext, innerContinuation, nestedExecuteProperties);
                         },
-                        item -> item == null ? null : item.toProto().toByteArray(),
+                        item -> item != null && item.getPrimaryKey() != null ? item.getPrimaryKey().pack() : null,
                         continuation,
                         dfsTraversalStrategy == DfsTraversalStrategy.PREORDER
                 ).skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit())
