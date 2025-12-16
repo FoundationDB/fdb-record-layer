@@ -560,6 +560,34 @@ public class LucenePartitioner {
                 updatedPartition.toByteArray());
     }
 
+    /**
+     * Set the partition info for a specific partition using the provided context.
+     *
+     * @param partitionId the ID of the partition to update
+     * @param groupingKey the grouping key for the partition
+     * @param context the FDB record context to use for the operation (instead of state.context)
+     * @param partitionInfo the new partition info (assumed to be valid)
+     */
+    public void setPartitionInfo(int partitionId,
+                                 @Nonnull Tuple groupingKey,
+                                 @Nonnull FDBRecordContext context,
+                                 @Nonnull LucenePartitionInfoProto.LucenePartitionInfo partitionInfo) {
+
+        Tuple partitionKey = getPartitionKey(partitionInfo);
+        byte[] metadataKey = partitionMetadataKeyFromPartitioningValue(groupingKey, partitionKey);
+
+        // Save the updated partition metadata using the provided context (NOT state.context)
+        context.ensureActive().set(metadataKey, partitionInfo.toByteArray());
+
+        if (LOGGER.isDebugEnabled()) {
+            LOGGER.debug(KeyValueLogMessage.of("Set partition info for partition",
+                    LogMessageKeys.PARTITION_ID, partitionId,
+                    LogMessageKeys.GROUPING_KEY, groupingKey,
+                    LogMessageKeys.PARTITION_MERGING_STATE, partitionInfo.getMergingState(),
+                    LogMessageKeys.GROUPING_KEY, partitionKey));
+        }
+    }
+
     @Nonnull
     CompletableFuture<LucenePartitionInfoProto.LucenePartitionInfo> findPartitionInfo(@Nonnull Tuple groupingKey, @Nonnull Tuple partitioningKey) {
         Range range = new Range(state.indexSubspace.subspace(groupingKey.add(PARTITION_META_SUBSPACE)).pack(),

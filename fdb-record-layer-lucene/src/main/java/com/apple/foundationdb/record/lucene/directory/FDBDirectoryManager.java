@@ -179,10 +179,46 @@ public class FDBDirectoryManager implements AutoCloseable {
                             // partition list end
                             return false;
                         }
-                        agileContext.flush();
-                        mergeIndexNow(groupingKey, partitionId);
+                        mergeIndexNow(partitioner, agileContext, groupingKey, partitionId, lastPartitionInfo.get());
                         return true;
                     }));
+        }
+    }
+
+    private void mergeIndexNow(@Nonnull LucenePartitioner partitioner,
+                               final AgilityContext agileContext,
+                               Tuple groupingKey,
+                               @Nullable final Integer partitionId,
+                               LucenePartitionInfoProto.LucenePartitionInfo lastPartitionInfo) {
+        final AgilityContext agilityContext = getAgilityContext(true, true);
+        try {
+            // Set merging state
+            LucenePartitionInfoProto.LucenePartitionInfo updatedPartitionInfo =
+                    lastPartitionInfo
+                            .toBuilder()
+                            .setMergingState(LucenePartitionInfoProto.LucenePartitionInfo.MergingState.MERGING)
+                            .build();
+
+            agileContext.accept(context ->
+                    partitioner.setPartitionInfo(partitionId, groupingKey, context, updatedPartitionInfo)
+            );
+            agileContext.flush();
+            mergeIndexWithContext(groupingKey, partitionId, agilityContext);
+        } finally {
+            // Clear merging state
+            LucenePartitionInfoProto.LucenePartitionInfo updatedPartition =
+                    lastPartitionInfo
+                            .toBuilder()
+                            .setMergingState(LucenePartitionInfoProto.LucenePartitionInfo.MergingState.NORMAL)
+                            .build();
+            agileContext.accept(context ->
+                    partitioner.setPartitionInfo(partitionId, groupingKey, context, updatedPartition)
+            );
+            // IndexWriter may release the file lock in a finally block in its own code, so if there is an error in its
+            // code, we need to commit. We could optimize this a bit, and have it only flush if it has committed anything
+            // but that should be rare.
+
+            agilityContext.flushAndClose();
         }
     }
 
