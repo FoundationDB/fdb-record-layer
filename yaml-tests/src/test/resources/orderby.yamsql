@@ -300,5 +300,6 @@ test_block:
     -
       # Ordering by a column in table function that has been projected in multiple ways
       - query: select (*) from t2_func_3() order by "ordered2", "ordered1"
+      - supported_version: !current_version
       - result: [ {{{2, 1}, 2, 1}}, {{{4, 1}, 4, 1}}, {{{6, 1}, 6, 1}}, {{{8, 1}, 8, 1}}, {{{1, 2}, 1, 2}}, {{{3, 2}, 3, 2}}, {{{5, 2}, 5, 2}}, {{{7, 2}, 7, 2}} ]
 ...

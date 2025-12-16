@@ -59,7 +59,6 @@ import java.util.function.BiConsumer;
 import java.util.function.BiPredicate;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 
 /**
  * This class captures an ordering property.
@@ -293,29 +292,7 @@ public class Ordering {
     }
 
     public boolean satisfies(@Nonnull RequestedOrdering requestedOrdering) {
-        if (requestedOrdering.isDistinct() && !isDistinct()) {
-            return false;
-        }
-
-        final var eligibleElements = orderingSet.eligibleSet().eligibleElements();
-        var isFirst = true;
-        for (final var requestedOrderingPart : requestedOrdering.getOrderingParts()) {
-            if (!bindingMap.containsKey(requestedOrderingPart.getValue())) {
-                return false;
-            }
-            if (isFirst) {
-                if (!eligibleElements.contains(requestedOrderingPart.getValue())) {
-                    return false;
-                }
-                isFirst = false;
-            }
-            final var bindings = bindingMap.get(requestedOrderingPart.getValue());
-            final var sortOrder = sortOrder(bindings);
-            if (!sortOrder.isCompatibleWithRequestedSortOrder(requestedOrderingPart.getSortOrder())) {
-                return false;
-            }
-        }
-        return satisfiesGroupingValues(requestedOrdering.getOrderingParts().stream().map(OrderingPart::getValue).collect(Collectors.toSet()));
+        return !Iterables.isEmpty(enumerateCompatibleRequestedOrderings(requestedOrdering));
     }
 
     /**
@@ -365,7 +342,7 @@ public class Ordering {
 
         final var satisfyingValuePermutations =
                 TopologicalSort.satisfyingPermutations(
-                        getOrderingSet(),
+                        getOrderingSet().filterElements(t -> requestedOrdering.getOrderingParts().stream().anyMatch(part -> part.getValue().equals(t))),
                         ImmutableList.copyOf(requestedOrderingValuesMap.keySet()),
                         Function.identity(),
                         permutation -> requestedOrdering.getOrderingParts().size());
@@ -391,11 +368,6 @@ public class Ordering {
             return false;
         }
 
-        final var eligibleElements = orderingSet.eligibleSet().eligibleElements();
-        if (requestedGroupingValues.stream().noneMatch(eligibleElements::contains)) {
-            return false;
-        }
-
         if (requestedGroupingValues
                 .stream()
                 .anyMatch(requestedGroupingValue -> {
@@ -408,7 +380,7 @@ public class Ordering {
             return false;
         }
 
-        final var permutations = TopologicalSort.topologicalOrderPermutations(requestedGroupingValues, orderingSet.getTransitiveClosure());
+        final var permutations = TopologicalSort.topologicalOrderPermutations(getOrderingSet().filterElements(requestedGroupingValues::contains));
         for (final var permutation : permutations) {
             final var containsAll =
                     requestedGroupingValues.containsAll(permutation.subList(0, requestedGroupingValues.size()));
