@@ -80,7 +80,6 @@ public final class MetadataPlanVisitor extends DelegatingVisitor<BaseVisitor> {
         return QueryPlan.MetadataQueryPlan.of(ddlFactory.getDescribeSchemaTemplateQueryAction(schemaTemplateId.getName()));
     }
 
-    // TODO should copy go on a different visitor?
     @Nonnull
     @Override
     public QueryPlan visitCopyExportStatement(@Nonnull RelationalParser.CopyExportStatementContext ctx) {
