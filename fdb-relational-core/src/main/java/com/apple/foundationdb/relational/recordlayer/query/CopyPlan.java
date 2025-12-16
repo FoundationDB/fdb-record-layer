@@ -63,7 +63,46 @@ import java.util.List;
 @API(API.Status.EXPERIMENTAL)
 public class CopyPlan extends QueryPlan {
 
-    public enum CopyType {
+    /**
+     * Creates a COPY export plan.
+     *
+     * @param path the KeySpace path to export from (e.g., "/FRL/MY_DATABASE")
+     *
+     * @return a CopyPlan for exporting data
+     */
+    @Nonnull
+    public static CopyPlan getCopyExportAction(@Nonnull String path,
+                                               @Nonnull QueryExecutionContext queryExecutionContext) {
+        // Export returns a single BYTES column (not nullable)
+        Type rowType = Type.Record.fromFields(List.of(
+                Type.Record.Field.of(
+                        Type.primitiveType(Type.TypeCode.BYTES, false),
+                        java.util.Optional.of("DATA"),
+                        java.util.Optional.of(0))));
+        return new CopyPlan(CopyType.EXPORT, path, rowType, queryExecutionContext);
+    }
+
+    /**
+     * Creates a COPY import plan.
+     *
+     * @param path the KeySpace path to import into (e.g., "/FRL/MY_DATABASE")
+     *
+     * @return a CopyPlan for importing data
+     */
+    @Nonnull
+    public static CopyPlan getCopyImportAction(@Nonnull String path,
+                                               @Nonnull QueryExecutionContext queryExecutionContext) {
+        // Import returns a single INT column (not nullable) for count
+        Type rowType = Type.Record.fromFields(List.of(
+                Type.Record.Field.of(
+                        Type.primitiveType(Type.TypeCode.INT, false),
+                        java.util.Optional.of("COUNT"),
+                        java.util.Optional.of(0))));
+
+        return new CopyPlan(CopyType.IMPORT, path, rowType, queryExecutionContext);
+    }
+
+    private enum CopyType {
         EXPORT,
         IMPORT
     }
