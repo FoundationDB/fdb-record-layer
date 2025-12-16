@@ -49,7 +49,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class OrderingTest {
     @Test
@@ -519,7 +519,7 @@ class OrderingTest {
         final var satisfyingOrderingsIterable = mergedOrdering.enumerateCompatibleRequestedOrderings(requestedOrdering);
         final var onlySatisfyingOrdering =
                 Iterables.getOnlyElement(satisfyingOrderingsIterable);
-        assertEquals(requested(a, b, c, d, RequestedSortOrder.ANY), onlySatisfyingOrdering);
+        assertEquals(requested(a, b, c), onlySatisfyingOrdering);
     }
 
     @Test
@@ -628,7 +628,7 @@ class OrderingTest {
                 RequestedOrdering.ofPrimitiveParts(requested(a, b, x),
                         RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS, false);
 
-        assertFalse(mergedOrdering.satisfies(requestedOrdering));
+        assertTrue(mergedOrdering.satisfies(requestedOrdering));
     }
 
     @Nonnull

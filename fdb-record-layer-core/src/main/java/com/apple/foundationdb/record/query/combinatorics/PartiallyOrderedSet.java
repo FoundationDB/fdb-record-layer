@@ -35,6 +35,7 @@ import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -168,25 +169,43 @@ public class PartiallyOrderedSet<T> {
 
     @Nonnull
     public <R> PartiallyOrderedSet<R> mapAll(@Nonnull final Map<T, R> map) {
-        final var mappedElements = Sets.newLinkedHashSet(map.values());
+        final var allRemovedBuilder = ImmutableSet.<T>builder();
+        final var leftToRemove = new HashSet<>(Sets.difference(set, map.keySet()));
 
-        final var resultDependencyMapBuilder = ImmutableSetMultimap.<R, R>builder();
-        for (final var entry : getTransitiveClosure().entries()) {
-            final var key = entry.getKey();
-            final var value = entry.getValue();
+        final var degreeMap = dependencyMap.entries().stream()
+                .collect(Collectors.groupingBy(
+                        Map.Entry::getKey,
+                        HashMap::new,
+                        Collectors.summingInt(e -> 1)));
 
-            if (map.containsKey(key) && map.containsKey(value)) {
-                resultDependencyMapBuilder.put(map.get(key), map.get(value));
-            } else {
-                if (!map.containsKey(value)) {
-                    // if key depends on value that does not exist -- do not insert the dependency and also remove key
-                    final var mappedKey = map.get(key);
-                    if (mappedKey != null) {
-                        mappedElements.remove(mappedKey);
+        while (!leftToRemove.isEmpty()) {
+            final T toRemove = leftToRemove.iterator().next();
+            for (final var entry: dependencyMap.entries()) {
+                final var key = entry.getKey();
+                if (entry.getValue().equals(toRemove) && degreeMap.containsKey(key)) {
+                    final var updatedDegree = degreeMap.get(key) - 1;
+                    if (updatedDegree == 0) {
+                        leftToRemove.add(key);
+                        degreeMap.remove(key);
+                    } else {
+                        degreeMap.put(key, updatedDegree);
                     }
                 }
             }
+            leftToRemove.remove(toRemove);
+            allRemovedBuilder.add(toRemove);
         }
+        final var allRemovedElements = allRemovedBuilder.build();
+
+        final var mappedElements = set.stream()
+                .filter(value -> !allRemovedElements.contains(value))
+                .map(map::get)
+                .collect(Collectors.toSet());
+        final var resultDependencyMapBuilder = ImmutableSetMultimap.<R, R>builder();
+        dependencyMap.entries().stream()
+                .filter(entry -> !allRemovedElements.contains(entry.getKey()) && !allRemovedElements.contains(entry.getValue()))
+                .map(entry -> Map.entry(map.get(entry.getKey()), map.get(entry.getValue())))
+                .forEach(resultDependencyMapBuilder::put);
 
         // this needs the dependency map to be cleansed (which is done in the constructor)
         return PartiallyOrderedSet.of(mappedElements, resultDependencyMapBuilder.build());
@@ -194,25 +213,21 @@ public class PartiallyOrderedSet<T> {
 
     @Nonnull
     public <R> PartiallyOrderedSet<R> mapAll(@Nonnull final Multimap<T, R> map) {
-        final var mappedElements = Sets.newLinkedHashSet(map.values());
+        final var identityMapped = this.filterElements(map::containsKey);
+
+        final var resultSet = identityMapped.getSet().stream()
+                .flatMap(value -> map.get(value).stream())
+                .collect(Collectors.toSet());
 
         final var resultDependencyMapBuilder = ImmutableSetMultimap.<R, R>builder();
-        for (final var entry : getTransitiveClosure().entries()) {
-            final var key = entry.getKey();
-            final var value = entry.getValue();
-
-            if (map.containsKey(key) && map.containsKey(value)) {
-                map.get(key).forEach(mappedKey -> resultDependencyMapBuilder.putAll(mappedKey, map.get(value)));
-            } else {
-                if (!map.containsKey(value)) {
-                    // if key depends on value that does not exist -- do not insert the dependency and also remove key
-                    mappedElements.removeAll(map.get(key));
-                }
-            }
+        for (final var entry: identityMapped.dependencyMap.entries()) {
+            Verify.verify(map.containsKey(entry.getKey()) && map.containsKey(entry.getValue()));
+            map.get(entry.getKey()).forEach(mappedKey -> resultDependencyMapBuilder.putAll(mappedKey, map.get(entry.getValue())));
+            resultSet.addAll(map.get(entry.getKey()));
         }
 
         // this needs the dependency map to be cleansed (which is done in the constructor)
-        return PartiallyOrderedSet.of(mappedElements, resultDependencyMapBuilder.build());
+        return PartiallyOrderedSet.of(resultSet, resultDependencyMapBuilder.build());
     }
 
     /**
