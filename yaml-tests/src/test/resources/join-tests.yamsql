@@ -311,5 +311,5 @@ test_block:
       # inner join with using
       - query: select fname, lname, name from emp inner join dept using (fname);
       - supported_version: !current_version
-      - error: "XX000"
+      - error: "0AF00"
 ...
