@@ -63,6 +63,7 @@ import com.apple.test.RandomizedTestUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 import com.google.common.collect.ObjectArrays;
 import com.google.common.collect.Sets;
 import com.google.common.primitives.Ints;
@@ -82,6 +83,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
@@ -152,6 +154,12 @@ class VectorIndexTest extends VectorIndexTestBase {
         final RecordQueryIndexPlan indexPlan =
                 createIndexPlan(queryVector, k, "UngroupedVectorIndex");
 
+        checkResults(indexPlan, limit, expectedResults);
+    }
+
+    private void checkResults(@Nonnull final RecordQueryIndexPlan indexPlan,
+                              final int limit,
+                              @Nonnull final Set<Long> expectedResults) throws Exception {
         verifyRebase(indexPlan);
         verifySerialization(indexPlan);
 
@@ -188,8 +196,8 @@ class VectorIndexTest extends VectorIndexTestBase {
                     }
                 }
             } while (continuation != null);
-            assertThat(allCounter).isEqualTo(k);
-            assertThat((double)recallCounter / k).isGreaterThan(0.9);
+            assertThat(allCounter).isEqualTo(expectedResults.size());
+            assertThat((double)recallCounter / expectedResults.size()).isGreaterThan(0.9);
         }
     }
 
@@ -208,10 +216,15 @@ class VectorIndexTest extends VectorIndexTestBase {
 
         final RecordQueryIndexPlan indexPlan = createIndexPlan(queryVector, k, "GroupedVectorIndex");
 
+        checkResultsGrouped(indexPlan, limit, expectedResults);
+    }
+
+    private void checkResultsGrouped(@Nonnull final RecordQueryIndexPlan indexPlan, final int limit,
+                                     @Nonnull final Map<Integer, Set<Long>> expectedResults) throws Exception {
         verifyRebase(indexPlan);
         verifySerialization(indexPlan);
 
-        try (FDBRecordContext context = openContext()) {
+        try (final FDBRecordContext context = openContext()) {
             openRecordStore(context, this::addGroupedVectorIndex);
 
             final int[] allCounters = new int[2];
@@ -244,12 +257,24 @@ class VectorIndexTest extends VectorIndexTestBase {
                     }
                 }
             } while (continuation != null);
-            assertThat(Ints.asList(allCounters))
-                    .allSatisfy(allCounter ->
-                            assertThat(allCounter).isEqualTo(k));
-            assertThat(Ints.asList(recallCounters))
-                    .allSatisfy(recallCounter ->
-                            assertThat((double)recallCounter / k).isGreaterThan(0.9));
+
+            IntStream.range(0, allCounters.length)
+                    .forEach(index -> {
+                        assertThat(allCounters[index])
+                                .as("allCounters[%d]", index)
+                                .satisfies(allCountersAtIndex -> {
+                                    assertThat(allCountersAtIndex).isEqualTo(
+                                            expectedResults.getOrDefault(index, ImmutableSet.of()).size());
+                                });
+                        assertThat(recallCounters[index])
+                                .as("recallCounters[%d]", index)
+                                .satisfies(recallCountersAtIndex -> {
+                                    assertThat((double)recallCountersAtIndex /
+                                            expectedResults.getOrDefault(index, ImmutableSet.of()).size())
+                                            .isGreaterThan(0.9);
+                                });
+
+                    });
         }
     }
 
@@ -266,10 +291,6 @@ class VectorIndexTest extends VectorIndexTestBase {
         final var savedRecords = saveRandomRecords(useAsync, this::addGroupedVectorIndex, random, size);
 
         final HalfRealVector queryVector = randomHalfVector(random, 128);
-
-        final RecordQueryIndexPlan indexPlan = createIndexPlan(queryVector, k, "GroupedVectorIndex");
-        verifyRebase(indexPlan);
-        verifySerialization(indexPlan);
 
         //
         // Artificially create a lot of churn. Take the first record and flip its vector with the 999th vector,
@@ -338,46 +359,9 @@ class VectorIndexTest extends VectorIndexTestBase {
         final Map<Integer, List<Long>> groupedFlippedRecords = groupAndSortByDistances(flippedRecords, queryVector);
         final Map<Integer, Set<Long>> expectedResults = trueTopK(groupedFlippedRecords, k);
 
-        try (FDBRecordContext context = openContext()) {
-            openRecordStore(context, this::addGroupedVectorIndex);
+        final RecordQueryIndexPlan indexPlan = createIndexPlan(queryVector, k, "GroupedVectorIndex");
 
-            final int[] allCounters = new int[2];
-            final int[] recallCounters = new int[2];
-            byte[] continuation = null;
-            do {
-                try (final RecordCursorIterator<FDBQueriedRecord<Message>> cursor =
-                             executeQuery(indexPlan, continuation, Bindings.EMPTY_BINDINGS, limit)) {
-                    int numRecords = 0;
-                    while (cursor.hasNext()) {
-                        final FDBQueriedRecord<Message> rec = cursor.next();
-                        final VectorRecord record =
-                                VectorRecord.newBuilder()
-                                        .mergeFrom(Objects.requireNonNull(rec).getRecord())
-                                        .build();
-                        numRecords++;
-                        allCounters[record.getGroupId()]++;
-                        if (expectedResults.get(record.getGroupId()).contains(record.getRecNo())) {
-                            recallCounters[record.getGroupId()]++;
-                        }
-                    }
-                    if (cursor.getNoNextReason() == RecordCursor.NoNextReason.SOURCE_EXHAUSTED) {
-                        continuation = null;
-                    } else {
-                        continuation = cursor.getContinuation();
-                    }
-                    if (logger.isInfoEnabled()) {
-                        logger.info("grouped read after deletes and updates {} records, allCounters={}, recallCounters={}", numRecords, allCounters,
-                                recallCounters);
-                    }
-                }
-            } while (continuation != null);
-            assertThat(Ints.asList(allCounters))
-                    .allSatisfy(allCounter ->
-                            assertThat(allCounter).isEqualTo(k));
-            assertThat(Ints.asList(recallCounters))
-                    .allSatisfy(recallCounter ->
-                            assertThat((double)recallCounter / k).isGreaterThan(0.9));
-        }
+        checkResultsGrouped(indexPlan, limit, expectedResults);
     }
 
     @ParameterizedTest
@@ -390,35 +374,18 @@ class VectorIndexTest extends VectorIndexTestBase {
         final List<FDBStoredRecord<Message>> savedRecords =
                 saveRandomRecords(useAsync, this::addGroupedVectorIndex, random, 200);
         final Map<Integer, List<Long>> randomRecords = groupAndSortByDistances(savedRecords, queryVector);
-        final Map<Integer, Set<Long>> expectedResults = trueTopK(randomRecords, 200);
-
-        final RecordQueryIndexPlan indexPlan = createIndexPlan(queryVector, k, "GroupedVectorIndex");
+        final Map<Integer, Set<Long>> expectedResults =
+                Maps.filterKeys(
+                        trueTopK(randomRecords, 200), key -> Objects.requireNonNull(key) % 2 != 0);
 
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, this::addGroupedVectorIndex);
             recordStore.deleteRecordsWhere(Query.field("group_id").equalsValue(0));
-
-            final int[] allCounters = new int[2];
-            final int[] recallCounters = new int[2];
-            try (final RecordCursorIterator<FDBQueriedRecord<Message>> cursor = executeQuery(indexPlan)) {
-                while (cursor.hasNext()) {
-                    final FDBQueriedRecord<Message> rec = cursor.next();
-                    final VectorRecord record =
-                            VectorRecord.newBuilder()
-                                    .mergeFrom(Objects.requireNonNull(rec).getRecord())
-                                    .build();
-                    allCounters[record.getGroupId()] ++;
-                    if (expectedResults.get(record.getGroupId()).contains(record.getRecNo())) {
-                        recallCounters[record.getGroupId()] ++;
-                    }
-                }
-            }
-            assertThat(allCounters[0]).isEqualTo(0);
-            assertThat(allCounters[1]).isEqualTo(k);
-
-            assertThat((double)recallCounters[0] / k).isEqualTo(0.0);
-            assertThat((double)recallCounters[1] / k).isGreaterThan(0.9);
+            commit(context);
         }
+
+        final RecordQueryIndexPlan indexPlan = createIndexPlan(queryVector, k, "GroupedVectorIndex");
+        checkResultsGrouped(indexPlan, Integer.MAX_VALUE, expectedResults);
     }
 
     @Test

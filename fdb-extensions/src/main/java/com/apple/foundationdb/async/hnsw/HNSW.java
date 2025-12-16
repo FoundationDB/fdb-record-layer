@@ -1006,8 +1006,8 @@ public class HNSW {
                                     }
 
                                     //
-                                    // The node does exist on layer 0, the base node is a compact node, and we can
-                                    // use its vector going forward. This may be necessary if this is a dangling
+                                    // The node does exist on layer 0 meaning the base node is a compact node, and we
+                                    // can use its vector going forward. This may be necessary if this is a dangling
                                     // reference and the record has been reinserted after deletion.
                                     //
                                     final NodeReferenceWithVector updatedNodeReference =
