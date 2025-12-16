@@ -255,6 +255,11 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     protected static final Object RECORD_VERSION_KEY = FDBRecordStoreKeyspace.RECORD_VERSION_SPACE.key();
     protected static final Object INDEX_BUILD_SPACE_KEY = FDBRecordStoreKeyspace.INDEX_BUILD_SPACE.key();
 
+    /**
+     * Name for the commit check that prevents commits when potentially corrupted indexes are left readable.
+     */
+    public static final String POTENTIALLY_CORRUPTED_INDEXES_COMMIT_CHECK = "PotentiallyCorruptedIndexes";
+
     @SuppressWarnings("squid:S2386")
     @SpotBugsSuppressWarnings("MS_MUTABLE_ARRAY")
     public static final byte[] LITTLE_ENDIAN_INT64_ONE = { 1, 0, 0, 0, 0, 0, 0, 0 };
@@ -5856,6 +5861,20 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             //    leaving the index would leave it in a corrupted state.
             return bumpMetaDataVersionStamp.thenCompose(vignore -> {
                 if (leavePotentiallyCorruptIndexesReadable) {
+                    // Add a commit check that will fail if the user tries to commit with potentially corrupted indexes
+                    store.getRecordContext().addCommitCheck(POTENTIALLY_CORRUPTED_INDEXES_COMMIT_CHECK, new FDBRecordContext.CommitCheckAsync() {
+                        @Override
+                        public boolean isReady() {
+                            return true;
+                        }
+
+                        @Override
+                        @Nonnull
+                        public CompletableFuture<Void> checkAsync() {
+                            return CompletableFuture.failedFuture(new RecordCoreException("Commit failed because potentially corrupted indexes were left readable after header repair. " +
+                                    "The indexes should be rebuilt or verified before allowing commits."));
+                        }
+                    });
                     // Leave indexes as-is per user request
                     return AsyncUtil.DONE;
                 } else {
