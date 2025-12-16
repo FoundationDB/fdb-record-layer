@@ -18,6 +18,8 @@
  * limitations under the License.
  */
 
+import org.yaml.snakeyaml.Yaml
+
 plugins {
     id 'application'
     alias(libs.plugins.shadow)
@@ -75,8 +77,19 @@ dependencies {
     antlr(libs.antlr)
 }
 
-def mainCliClass = 'com.apple.foundationdb.relational.cli.sqlline.RelationalSQLLine'
+// We only set FDB_CLUSTER_FILE here, to help ensure that none of the other tests use it, but sqlline doesn't support
+// using a custom cluster file, so it has to come from the environment variable
+def fdbEnvironmentYamlFile = new File("${rootProject.projectDir}/fdb-environment.yaml")
+if (fdbEnvironmentYamlFile.exists()) {
+    def firstClusterFile = new Yaml().loadAll(fdbEnvironmentYamlFile.newInputStream()).first().clusterFiles.first()
+    allprojects {
+        tasks.withType(Test) { task ->
+            task.environment(FDB_CLUSTER_FILE: firstClusterFile)
+        }
+    }
+}
 
+def mainCliClass = 'com.apple.foundationdb.relational.cli.sqlline.RelationalSQLLine'
 jar {
     manifest {
         attributes(

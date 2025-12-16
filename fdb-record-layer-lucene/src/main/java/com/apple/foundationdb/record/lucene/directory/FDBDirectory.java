@@ -92,6 +92,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.zip.CRC32;
 
@@ -229,7 +230,8 @@ public class FDBDirectory extends Directory  {
         this.fileSequenceCounter = new AtomicLong(-1);
         this.serializer = new LuceneSerializer(Objects.requireNonNullElse(agilityContext.getPropertyValue(LuceneRecordContextProperties.LUCENE_INDEX_COMPRESSION_ENABLED), false),
                 Objects.requireNonNullElse(agilityContext.getPropertyValue(LuceneRecordContextProperties.LUCENE_INDEX_ENCRYPTION_ENABLED), false),
-                agilityContext.getPropertyValue(LuceneRecordContextProperties.LUCENE_INDEX_KEY_MANAGER));
+                agilityContext.getPropertyValue(LuceneRecordContextProperties.LUCENE_INDEX_KEY_MANAGER),
+                Objects.requireNonNullElse(agilityContext.getPropertyValue(LuceneRecordContextProperties.LUCENE_FIELD_PROTOBUF_PREFIX_ENABLED), false));
         this.fileReferenceMapSupplier = Suppliers.memoize(this::loadFileReferenceCacheForMemoization);
         this.sharedCacheManager = sharedCacheManager;
         this.sharedCacheKey = sharedCacheKey;
@@ -338,11 +340,12 @@ public class FDBDirectory extends Directory  {
         writeFDBLuceneFileReference(filename, reference);
     }
 
-    void writeFieldInfos(long id, byte[] value) {
+    void writeFieldInfos(long id, byte[] rawBytes) {
         if (id == 0) {
             throw new RecordCoreArgumentException("FieldInfo id should never be 0");
         }
         byte[] key = fieldInfosSubspace.pack(id);
+        byte[] value = serializer.encodeFieldProtobuf(rawBytes);
         agilityContext.recordSize(LuceneEvents.SizeEvents.LUCENE_WRITE, key.length + value.length);
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(getLogMessage("Write lucene stored field infos data",
@@ -357,7 +360,9 @@ public class FDBDirectory extends Directory  {
                 LuceneEvents.Waits.WAIT_LUCENE_READ_FIELD_INFOS,
                 agilityContext.apply(aContext -> aContext.ensureActive().getRange(fieldInfosSubspace.range()).asList()))
                 .stream()
-                .map(keyValue -> NonnullPair.of(fieldInfosSubspace.unpack(keyValue.getKey()).getLong(0), keyValue.getValue()));
+                .map(keyValue -> NonnullPair.of(
+                        fieldInfosSubspace.unpack(keyValue.getKey()).getLong(0),
+                        serializer.decodeFieldProtobuf(keyValue.getValue())));
     }
 
     public CompletableFuture<Integer> getFieldInfosCount() {
@@ -444,10 +449,11 @@ public class FDBDirectory extends Directory  {
      * Write stored fields document to the DB.
      * @param segmentName the segment name writing to
      * @param docID the document ID to write
-     * @param value the bytes value of the stored fields
+     * @param rawBytes the bytes value of the stored fields
      */
-    public void writeStoredFields(@Nonnull String segmentName, int docID, @Nonnull final byte[] value) {
+    public void writeStoredFields(@Nonnull String segmentName, int docID, @Nonnull final byte[] rawBytes) {
         byte[] key = storedFieldsSubspace.pack(Tuple.from(segmentName, docID));
+        byte[] value = serializer.encodeFieldProtobuf(rawBytes);
         agilityContext.recordSize(LuceneEvents.SizeEvents.LUCENE_WRITE_STORED_FIELDS, key.length + value.length);
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(getLogMessage("Write lucene stored fields data",
@@ -542,7 +548,7 @@ public class FDBDirectory extends Directory  {
     }
 
     @Nonnull
-    public byte[] readStoredFields(String segmentName, int docId) throws IOException {
+    public byte[] readStoredFields(String segmentName, int docId) {
         final byte[] key = storedFieldsSubspace.pack(Tuple.from(segmentName, docId));
         final byte[] rawBytes = asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_STORED_FIELDS,
                 agilityContext.instrument(LuceneEvents.Events.LUCENE_READ_STORED_FIELDS,
@@ -553,11 +559,11 @@ public class FDBDirectory extends Directory  {
                     .addLogInfo(LuceneLogMessageKeys.DOC_ID, docId)
                     .addLogInfo(LogMessageKeys.KEY, ByteArrayUtil2.loggable(key));
         }
-        return rawBytes;
+        return Objects.requireNonNull(serializer.decodeFieldProtobuf(rawBytes));
     }
 
     @Nonnull
-    public List<KeyValue> readAllStoredFields(String segmentName) {
+    public List<byte[]> readAllStoredFields(String segmentName) {
         final Range range = storedFieldsSubspace.range(Tuple.from(segmentName));
         final List<KeyValue> list = asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_ALL_STORED_FIELDS,
                 agilityContext.getRange(range.begin, range.end));
@@ -567,7 +573,7 @@ public class FDBDirectory extends Directory  {
                     .addLogInfo(LogMessageKeys.RANGE_START, ByteArrayUtil2.loggable(range.begin))
                     .addLogInfo(LogMessageKeys.RANGE_END, ByteArrayUtil2.loggable(range.end));
         }
-        return list;
+        return list.stream().map(KeyValue::getValue).map(serializer::decodeFieldProtobuf).collect(Collectors.toList());
     }
 
     /**
@@ -1055,7 +1061,8 @@ public class FDBDirectory extends Directory  {
         return KeyValueLogMessage.build(staticMsg, keysAndValues)
                 .addKeyAndValue(LogMessageKeys.SUBSPACE, subspace)
                 .addKeyAndValue(LuceneLogMessageKeys.COMPRESSION_SUPPOSED, serializer.isCompressionEnabled())
-                .addKeyAndValue(LuceneLogMessageKeys.ENCRYPTION_SUPPOSED, serializer.isEncryptionEnabled());
+                .addKeyAndValue(LuceneLogMessageKeys.ENCRYPTION_SUPPOSED, serializer.isEncryptionEnabled())
+                .addKeyAndValue(LuceneLogMessageKeys.FIELD_PROTOBUF_ENCODED, serializer.isFieldProtobufPrefixEnabled());
     }
 
     /**

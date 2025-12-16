@@ -30,6 +30,56 @@ class DocumentationQueriesTests {
     private static final String PREFIX = "documentation-queries";
 
     @TestTemplate
+    void betweenOperatorQueriesTests(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql(PREFIX + "/between-operator-queries.yamsql");
+    }
+
+    @TestTemplate
+    void caseDocumentationQueriesTests(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql(PREFIX + "/case-documentation-queries.yamsql");
+    }
+
+    @TestTemplate
+    void castDocumentationQueriesTests(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql(PREFIX + "/cast-documentation-queries.yamsql");
+    }
+
+    @TestTemplate
+    void inOperatorQueriesTests(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql(PREFIX + "/in-operator-queries.yamsql");
+    }
+
+    @TestTemplate
+    void isDistinctFromOperatorQueriesTests(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql(PREFIX + "/is-distinct-from-operator-queries.yamsql");
+    }
+
+    @TestTemplate
+    void joinsDocumentationQueriesTests(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql(PREFIX + "/joins-documentation-queries.yamsql");
+    }
+
+    @TestTemplate
+    void likeOperatorQueriesTests(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql(PREFIX + "/like-operator-queries.yamsql");
+    }
+
+    @TestTemplate
+    void orderByDocumentationQueriesTests(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql(PREFIX + "/order-by-documentation-queries.yamsql");
+    }
+
+    @TestTemplate
+    void udfDocumentationQueriesTests(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql(PREFIX + "/udf-documentation-queries.yamsql");
+    }
+
+    @TestTemplate
+    void vectorDocumentationQueriesTests(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql(PREFIX + "/vector-documentation-queries.yamsql");
+    }
+
+    @TestTemplate
     void withDocumentationQueriesTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql(PREFIX + "/with-documentation-queries.yamsql");
     }

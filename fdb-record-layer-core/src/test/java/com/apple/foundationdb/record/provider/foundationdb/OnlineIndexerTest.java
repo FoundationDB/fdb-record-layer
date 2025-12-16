@@ -228,8 +228,12 @@ public abstract class OnlineIndexerTest {
     }
 
     protected void populateData(final long numRecords) {
+        populateData(numRecords, 0L);
+    }
+
+    protected void populateData(final long numRecords, final long start) {
         openSimpleMetaData();
-        List<TestRecords1Proto.MySimpleRecord> records = LongStream.range(0, numRecords).mapToObj(val ->
+        List<TestRecords1Proto.MySimpleRecord> records = LongStream.range(start, start + numRecords).mapToObj(val ->
                 TestRecords1Proto.MySimpleRecord.newBuilder()
                         .setRecNo(val)
                         .setNumValue2((int)val * 19)

@@ -235,7 +235,8 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
         return super.addDefaultProps(props)
                 .addProp(LuceneRecordContextProperties.LUCENE_EXECUTOR_SERVICE, (Supplier<ExecutorService>)() -> executorService)
                 .addProp(LuceneRecordContextProperties.LUCENE_INDEX_ENCRYPTION_ENABLED, (Supplier<Boolean>)() -> keyManager != null)
-                .addProp(LuceneRecordContextProperties.LUCENE_INDEX_KEY_MANAGER, (Supplier<SerializationKeyManager>)() -> keyManager);
+                .addProp(LuceneRecordContextProperties.LUCENE_INDEX_KEY_MANAGER, (Supplier<SerializationKeyManager>)() -> keyManager)
+                .addProp(LuceneRecordContextProperties.LUCENE_FIELD_PROTOBUF_PREFIX_ENABLED, (Supplier<Boolean>)() -> keyManager != null);
     }
 
     @SuppressWarnings("SameParameterValue")
@@ -1378,7 +1379,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
         factory.setExecutor(new ForkJoinPool(PARALLELISM,
                 ForkJoinPool.defaultForkJoinWorkerThreadFactory,
                 null, false));
-        factory.getDatabase().setAsyncToSyncTimeout(event -> {
+        fdb.setAsyncToSyncTimeout(event -> {
             // Make AsyncToSync calls timeout after one second, otherwise a deadlock would just result in the test taking forever
             return Duration.ofSeconds(1L);
         });

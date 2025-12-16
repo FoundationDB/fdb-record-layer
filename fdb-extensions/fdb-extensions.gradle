@@ -32,14 +32,48 @@ dependencies {
 
     testImplementation project(':fdb-test-utils')
     testImplementation(libs.bundles.test.impl)
+    testImplementation(libs.snakeyaml)
     testRuntimeOnly(libs.bundles.test.runtime)
     testCompileOnly(libs.bundles.test.compileOnly)
     testAnnotationProcessor(libs.autoService)
 
     testFixturesImplementation(libs.bundles.test.impl)
+    testFixturesImplementation(libs.snakeyaml)
     testFixturesCompileOnly(libs.bundles.test.compileOnly)
     testFixturesImplementation(libs.slf4j.api)
     testFixturesAnnotationProcessor(libs.autoService)
+}
+
+def siftSmallFile = layout.buildDirectory.file('downloads/siftsmall.tar.gz')
+def extractDir = layout.buildDirectory.dir("extracted")
+
+// Task that downloads the CSV exactly once unless it changed
+tasks.register('downloadSiftSmall', de.undercouch.gradle.tasks.download.Download) {
+    src 'https://huggingface.co/datasets/vecdata/siftsmall/resolve/3106e1b83049c44713b1ce06942d0ab474bbdfb6/siftsmall.tar.gz'
+    dest siftSmallFile.get().asFile
+    onlyIfModified true
+    tempAndMove true
+    retries 3
+}
+
+tasks.register('extractSiftSmall', Copy) {
+    dependsOn 'downloadSiftSmall'
+    from(tarTree(resources.gzip(siftSmallFile)))
+    into extractDir
+
+    doLast {
+        println "Extracted files into: ${extractDir.get().asFile}"
+        fileTree(extractDir).visit { details ->
+            if (!details.isDirectory()) {
+                println " - ${details.file}"
+            }
+        }
+    }
+}
+
+test {
+    dependsOn tasks.named('extractSiftSmall')
+    inputs.dir extractDir
 }
 
 publishing {

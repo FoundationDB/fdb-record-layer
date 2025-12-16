@@ -36,6 +36,7 @@ import com.apple.foundationdb.record.test.FakeClusterFileUtil;
 import com.apple.foundationdb.record.test.TestKeySpace;
 import com.apple.foundationdb.record.test.TestKeySpacePathManagerExtension;
 import com.apple.foundationdb.subspace.Subspace;
+import com.apple.foundationdb.test.FDBTestEnvironment;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
@@ -54,6 +55,7 @@ import org.slf4j.MDC;
 
 import javax.annotation.Nonnull;
 import java.io.IOException;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -66,6 +68,7 @@ import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.lessThan;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -240,7 +243,7 @@ class FDBDatabaseTest {
         if (behavior.throwExceptionOnBlocking()) {
             assertThrows(BlockingInAsyncException.class, () -> database.joinNow(new CompletableFuture<>()));
         } else {
-            FDBDatabase database2 = factory.getDatabase();
+            FDBDatabase database2 = factory.getDatabase(database.getClusterFile());
             TestHelpers.assertLogs(FDBDatabase.class, FDBDatabase.BLOCKING_FOR_FUTURE_MESSAGE, () -> {
                 long val = database2.joinNow(MoreAsyncUtil.delayedFuture(100, TimeUnit.MILLISECONDS, database2.getScheduledExecutor())
                         .thenApply(vignore -> 1066L));
@@ -492,6 +495,33 @@ class FDBDatabaseTest {
             }
             assertEquals(initApiVersion, database.getFactory().getAPIVersion());
             assertEquals(initApiVersion, database.getAPIVersion());
+        }
+    }
+
+    @Test
+    void canAccessMultipleClusters() {
+        FDBTestEnvironment.assumeClusterCount(2);
+        final FDBDatabase database0 = dbExtension.getDatabase(0);
+        final FDBDatabase database1 = dbExtension.getDatabase(1);
+        final byte[] key = Tuple.from(UUID.randomUUID()).pack();
+        final byte[] value0 = Tuple.from("cluster0").pack();
+        final byte[] value1 = Tuple.from("cluster1").pack();
+        try (FDBRecordContext context0 = database0.openContext()) {
+            context0.ensureActive().set(key, value0);
+            context0.commit();
+        }
+        try (FDBRecordContext context1 = database1.openContext()) {
+            assertNull(context1.ensureActive().get(key).join());
+            context1.ensureActive().set(key, value1);
+            context1.commit();
+        }
+        try (FDBRecordContext context0 = database0.openContext()) {
+            assertArrayEquals(value0, context0.ensureActive().get(key).join());
+            context0.commit();
+        }
+        try (FDBRecordContext context1 = database1.openContext()) {
+            assertArrayEquals(value1, context1.ensureActive().get(key).join());
+            context1.commit();
         }
     }
 }

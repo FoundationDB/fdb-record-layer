@@ -1,0 +1,60 @@
+struct-type-variants-tests:
+-   query: EXPLAIN SELECT id, name, home_address FROM users WHERE home_address.city
+        = 'Anytown'
+    explain: SCAN(<,>) | TFILTER USERS | FILTER _.HOME_ADDRESS.CITY EQUALS promote(@c14
+        AS STRING) | MAP (_.ID AS ID, _.NAME AS NAME, _.HOME_ADDRESS AS HOME_ADDRESS)
+    task_count: 234
+    task_total_time_ms: 183
+    transform_count: 57
+    transform_time_ms: 131
+    transform_yield_count: 18
+    insert_time_ms: 9
+    insert_new_count: 24
+    insert_reused_count: 1
+-   query: EXPLAIN SELECT id, name, home_address FROM users WHERE home_address.city
+        = 'Somewhere'
+    explain: SCAN(<,>) | TFILTER USERS | FILTER _.HOME_ADDRESS.CITY EQUALS promote(@c14
+        AS STRING) | MAP (_.ID AS ID, _.NAME AS NAME, _.HOME_ADDRESS AS HOME_ADDRESS)
+    task_count: 234
+    task_total_time_ms: 183
+    transform_count: 57
+    transform_time_ms: 131
+    transform_yield_count: 18
+    insert_time_ms: 9
+    insert_new_count: 24
+    insert_reused_count: 1
+-   query: EXPLAIN SELECT id, name, addresses FROM locations WHERE id = 1
+    explain: SCAN(<,>) | TFILTER LOCATIONS | FILTER _.ID EQUALS promote(@c12 AS INT)
+        | MAP (_.ID AS ID, _.NAME AS NAME, _.ADDRESSES AS ADDRESSES)
+    task_count: 234
+    task_total_time_ms: 16
+    transform_count: 57
+    transform_time_ms: 6
+    transform_yield_count: 18
+    insert_time_ms: 1
+    insert_new_count: 24
+    insert_reused_count: 1
+-   query: EXPLAIN SELECT id, name FROM locations WHERE name = 'Office Complex'
+    explain: SCAN(<,>) | TFILTER LOCATIONS | FILTER _.NAME EQUALS promote(@c10 AS
+        STRING) | MAP (_.ID AS ID, _.NAME AS NAME)
+    task_count: 246
+    task_total_time_ms: 176
+    transform_count: 66
+    transform_time_ms: 131
+    transform_yield_count: 17
+    insert_time_ms: 12
+    insert_new_count: 25
+    insert_reused_count: 2
+-   query: EXPLAIN SELECT id, name, headquarters, branch_offices FROM businesses WHERE
+        headquarters.city = 'Silicon Valley'
+    explain: SCAN(<,>) | TFILTER BUSINESSES | FILTER _.HEADQUARTERS.CITY EQUALS promote(@c16
+        AS STRING) | MAP (_.ID AS ID, _.NAME AS NAME, _.HEADQUARTERS AS HEADQUARTERS,
+        _.BRANCH_OFFICES AS BRANCH_OFFICES)
+    task_count: 234
+    task_total_time_ms: 182
+    transform_count: 57
+    transform_time_ms: 131
+    transform_yield_count: 18
+    insert_time_ms: 9
+    insert_new_count: 24
+    insert_reused_count: 1

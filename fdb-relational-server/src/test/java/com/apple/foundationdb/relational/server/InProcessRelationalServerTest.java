@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.server;
 
+import com.apple.foundationdb.test.FDBTestEnvironment;
 import io.grpc.ManagedChannel;
 import io.grpc.inprocess.InProcessChannelBuilder;
 import org.junit.jupiter.api.AfterAll;
@@ -36,7 +37,7 @@ public class InProcessRelationalServerTest {
 
     @BeforeAll
     public static void beforeAll() throws IOException {
-        server = new InProcessRelationalServer().start();
+        server = new InProcessRelationalServer(FDBTestEnvironment.randomClusterFile()).start();
     }
 
     @AfterAll

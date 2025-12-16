@@ -90,7 +90,7 @@ utilityStatement
 
 templateClause
     :
-        CREATE ( structDefinition | tableDefinition | enumDefinition | indexDefinition | sqlInvokedFunction )
+        CREATE ( structDefinition | tableDefinition | enumDefinition | indexDefinition | sqlInvokedFunction | viewDefinition )
     ;
 
 createStatement
@@ -138,7 +138,17 @@ columnType
     : primitiveType | customType=uid;
 
 primitiveType
-    : BOOLEAN | INTEGER | BIGINT | FLOAT | DOUBLE | STRING | BYTES | UUID;
+    : BOOLEAN | INTEGER | BIGINT | FLOAT | DOUBLE | STRING | BYTES | UUID | vectorType;
+
+vectorType
+    : VECTOR '(' dimensions=DECIMAL_LITERAL ',' elementType=vectorElementType ')'
+    ;
+
+vectorElementType
+    : FLOAT
+    | DOUBLE
+    | HALF
+    ;
 
 columnConstraint
     : nullNotnull                                                   #nullColumnConstraint
@@ -177,8 +187,8 @@ dropTempFunction
     : DROP TEMPORARY FUNCTION (IF EXISTS)? schemaQualifiedRoutineName=fullId
     ;
 
-createFunction
-    : CREATE sqlInvokedFunction
+viewDefinition
+    : VIEW viewName=fullId AS viewQuery=query
     ;
 
 tempSqlInvokedFunction
@@ -265,6 +275,7 @@ dispatchClause
 
 routineBody
     : AS queryTerm         #statementBody
+    | AS fullId            #userDefinedScalarFunctionStatementBody
     | sqlReturnStatement   #expressionBody
     // | externalBodyReferences TODO
     ;
@@ -330,7 +341,7 @@ selectStatement
     ;
 
 query
-    : ctes? queryExpressionBody continuation?
+    : ctes? queryExpressionBody
     ;
 
 ctes
@@ -356,10 +367,6 @@ tableFunctionArgs
 
 tableFunctionName
     : fullId
-    ;
-
-continuation
-    : WITH CONTINUATION continuationAtom
     ;
 
 // done
@@ -391,7 +398,6 @@ updateStatement
       SET updatedElement (',' updatedElement)*
       (WHERE whereExpr)?
       (RETURNING selectElements)?
-      (WITH CONTINUATION continuationAtom)?
       queryOptions?
     ;
 
@@ -809,14 +815,7 @@ collectionOptions
     ;
 
 convertedDataType
-    :
-    (
-      typeName=(BINARY| NCHAR) lengthOneDimension?
-      | typeName=CHAR lengthOneDimension? (charSet charsetName)?
-      | typeName=(DATE | DATETIME | TIME | JSON | INT | INTEGER | STRING | DOUBLE | BOOLEAN | FLOAT | BIGINT | BYTES | UUID)
-      | typeName=DECIMAL lengthTwoOptionalDimension?
-      | (SIGNED | UNSIGNED) INTEGER?
-    ) ARRAY?
+    : typeName=primitiveType ARRAY?
     ;
 
 lengthOneDimension
@@ -875,7 +874,7 @@ recordConstructorForInlineTable
     ;
 
 recordConstructor
-    : ofTypeClause? '(' (uid DOT STAR | STAR | expressionWithName /* this can be removed */ | expressionWithOptionalName (',' expressionWithOptionalName)*) ')'
+    : ofTypeClause? '(' (uid DOT STAR | STAR | expressionWithOptionalName (',' expressionWithOptionalName)*) ')'
     ;
 
 ofTypeClause
@@ -909,10 +908,6 @@ expressionOrDefault
     : expression | DEFAULT
     ;
 
-expressionWithName
-    : expression AS uid
-    ;
-
 expressionWithOptionalName
     : expression (AS uid)?
     ;
@@ -930,6 +925,7 @@ functionCall
     : aggregateWindowedFunction                                     #aggregateFunctionCall // done (supported)
     | specificFunction                                              #specificFunctionCall //
     | scalarFunctionName '(' functionArgs? ')'                      #scalarFunctionCall // done (unsupported)
+    | userDefinedScalarFunctionName '(' functionArgs? ')'           #userDefinedScalarFunctionCall
     ;
 
 specificFunction
@@ -1116,6 +1112,11 @@ scalarFunctionName
     | REPLACE | SUBSTR | SUBSTRING | SYSDATE | TRIM
     | UTC_DATE | UTC_TIME | UTC_TIMESTAMP
     | JAVA_CALL
+    ;
+
+userDefinedScalarFunctionName
+    : ID
+    | DOUBLE_QUOTE_ID
     ;
 
 functionArgs

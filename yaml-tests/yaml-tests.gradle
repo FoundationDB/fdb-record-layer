@@ -59,6 +59,7 @@ dependencies {
     implementation(libs.protobuf)
     implementation(libs.protobuf.util)
     implementation(libs.snakeyaml)
+    implementation(project(':fdb-test-utils'))
     implementation(libs.jcommander)
 
     testImplementation(libs.bundles.test.impl)
@@ -68,6 +69,8 @@ dependencies {
     testImplementation project(":fdb-relational-jdbc")
     testImplementation project(path: ":fdb-record-layer-debugger", configuration: 'tests')
     implementation(libs.diffutils)
+    compileOnly(libs.autoService)
+    annotationProcessor(libs.autoService)
 }
 
 // This "method" resolves the latest shadowJar version of the relational-server, and returns the file reference to it

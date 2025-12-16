@@ -31,10 +31,12 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.relational.api.metadata.InvokedRoutine;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.api.metadata.Table;
+import com.apple.foundationdb.relational.api.metadata.View;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerInvokedRoutine;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerView;
 import com.apple.foundationdb.relational.recordlayer.metadata.SkeletonVisitor;
 import com.apple.foundationdb.relational.util.Assert;
 
@@ -64,7 +66,7 @@ public class RecordMetadataSerializer extends SkeletonVisitor {
         Assert.thatUnchecked(table instanceof RecordLayerTable);
         final var recLayerTable = (RecordLayerTable) table;
         final KeyExpression keyExpression = recLayerTable.getPrimaryKey();
-        final RecordTypeBuilder recordType = getBuilder().getRecordType(table.getName());
+        final RecordTypeBuilder recordType = getBuilder().getRecordType(recLayerTable.getType().getStorageName());
         recordType.setRecordTypeKey(recordTypeCounter++);
         recordType.setPrimaryKey(keyExpression);
     }
@@ -77,8 +79,8 @@ public class RecordMetadataSerializer extends SkeletonVisitor {
         // have a version that matches the schema template's version
         // See: TODO (Relational index misses version information)
         Assert.thatUnchecked(index instanceof RecordLayerIndex);
-        final var recLayerIndex = (RecordLayerIndex) index;
-        getBuilder().addIndex(index.getTableName(),
+        final RecordLayerIndex recLayerIndex = (RecordLayerIndex) index;
+        getBuilder().addIndex(recLayerIndex.getTableStorageName(),
                 new Index(index.getName(),
                         recLayerIndex.getKeyExpression(),
                         index.getIndexType(),
@@ -93,7 +95,13 @@ public class RecordMetadataSerializer extends SkeletonVisitor {
             return;
         }
         final var recordLayerInvokedRoutine = Assert.castUnchecked(invokedRoutine, RecordLayerInvokedRoutine.class);
-        getBuilder().addUserDefinedFunction(recordLayerInvokedRoutine.asRawFunction());
+        getBuilder().addUserDefinedFunction(recordLayerInvokedRoutine.asSerializableFunction());
+    }
+
+    @Override
+    public void visit(@Nonnull final View view) {
+        Assert.thatUnchecked(view instanceof RecordLayerView);
+        getBuilder().addView(((RecordLayerView)view).asRawView());
     }
 
     @Override

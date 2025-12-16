@@ -1,0 +1,41 @@
+---
+schema_template:
+    create table products(id bigint, name string, category string, price bigint, stock integer, primary key(id))
+    create index price_idx as select price from products order by price
+    create index category_idx as select category from products order by category
+    create index name_idx as select name from products order by name
+---
+setup:
+  steps:
+    - query: insert into products
+            values (1, 'Widget A', 'Electronics', 100, 50),
+                   (2, 'Widget B', 'Electronics', 150, 30),
+                   (3, 'Gadget X', 'Electronics', 200, 20),
+                   (4, 'Tool A', 'Hardware', 80, 100),
+                   (5, 'Tool B', 'Hardware', 120, 15),
+                   (6, 'Book A', 'Media', 25, 200),
+                   (7, 'Book B', 'Media', 30, 150)
+---
+test_block:
+  name: is-distinct-from-operator-tests
+  preset: single_repetition_ordered
+  tests:
+    # IS DISTINCT FROM - basic comparison
+    -
+      - query: SELECT name, price
+              FROM products
+              WHERE price IS DISTINCT FROM 100
+              ORDER BY name
+      - result: [{name: "Book A", price: 25},
+                 {name: "Book B", price: 30},
+                 {name: "Gadget X", price: 200},
+                 {name: "Tool A", price: 80},
+                 {name: "Tool B", price: 120},
+                 {name: "Widget B", price: 150}]
+
+    # IS NOT DISTINCT FROM - equality check
+    -
+      - query: SELECT name, price
+              FROM products
+              WHERE price IS NOT DISTINCT FROM 100
+      - result: [{name: "Widget A", price: 100}]

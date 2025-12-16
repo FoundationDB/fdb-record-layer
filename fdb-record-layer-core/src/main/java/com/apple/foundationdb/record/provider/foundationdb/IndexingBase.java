@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
-import com.apple.foundationdb.FDBError;
 import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.MutationType;
 import com.apple.foundationdb.annotation.API;
@@ -59,7 +58,6 @@ import javax.annotation.Nullable;
 import java.time.DateTimeException;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -510,6 +508,7 @@ public abstract class IndexingBase {
             StoreTimer metricsDiff = null;
             if (timer != null) {
                 metricsDiff = lastProgressSnapshot == null ? timer : StoreTimer.getDifference(timer, lastProgressSnapshot);
+                // Note: this fdb metrics represents all the fdb activity (including merges, heartbeats, etc.) since the previous log message.
                 lastProgressSnapshot = StoreTimerSnapshot.from(timer);
             }
             LOGGER.info(KeyValueLogMessage.build("Indexer: Built Range",
@@ -1211,22 +1210,6 @@ public abstract class IndexingBase {
             seenSet.add(current);
         }
         return null;
-    }
-
-    protected static boolean shouldLessenWork(@Nullable FDBException ex) {
-        // These error codes represent a list of errors that can occur if there is too much work to be done
-        // in a single transaction.
-        if (ex == null) {
-            return false;
-        }
-        final Set<Integer> lessenWorkCodes = new HashSet<>(Arrays.asList(
-                FDBError.TIMED_OUT.code(),
-                FDBError.TRANSACTION_TOO_OLD.code(),
-                FDBError.NOT_COMMITTED.code(),
-                FDBError.TRANSACTION_TIMED_OUT.code(),
-                FDBError.COMMIT_READ_INCOMPLETE.code(),
-                FDBError.TRANSACTION_TOO_LARGE.code()));
-        return lessenWorkCodes.contains(ex.getCode());
     }
 }
 

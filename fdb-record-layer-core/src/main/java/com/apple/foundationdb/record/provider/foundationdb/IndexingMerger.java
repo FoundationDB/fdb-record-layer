@@ -20,18 +20,26 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.FDBError;
 import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.record.RecordCoreTimeoutException;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.provider.common.StoreTimer;
+import com.apple.foundationdb.record.provider.common.StoreTimerSnapshot;
 import com.apple.foundationdb.record.util.Result;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -52,6 +60,8 @@ public class IndexingMerger {
     private final IndexingCommon common;
     private int repartitionDocumentCount = 0;
     private int repartitionSecondChances = 0;
+    private StoreTimerSnapshot lastProgressSnapshot = null;
+
 
     public IndexingMerger(final Index index,  IndexingCommon common, long initialMergesCountLimit) {
         this.index = index;
@@ -75,6 +85,7 @@ public class IndexingMerger {
                 // Note: this runAsync will retry according to the runner's "maxAttempts" setting
                 common.getRunner().runAsync(context -> openRecordStore(context)
                                 .thenCompose(store -> {
+                                    startFdbMetricsMeasurement(timer);
                                     mergeStartTime.set(System.nanoTime());
                                     final IndexDeferredMaintenanceControl mergeControl = store.getIndexDeferredMaintenanceControl();
                                     mergeControlRef.set(mergeControl);
@@ -84,7 +95,14 @@ public class IndexingMerger {
                                     mergeControl.setLastStep(IndexDeferredMaintenanceControl.LastStep.NONE);
                                     mergeControl.setRepartitionCapped(false);
                                     return store.getIndexMaintainer(index).mergeIndex();
-                                }).thenApply(ignore -> false),
+                                })
+                                .thenApply(ignore -> false)
+                                .whenComplete((value, ex) -> {
+                                    if (ex != null) {
+                                        // failed to open the store
+                                        LOGGER.warn("Failed to open record store", ex);
+                                    }
+                                }),
                         Result::of,
                         common.indexLogMessageKeyValues()
                 ).handle((ignore, e) -> {
@@ -140,11 +158,10 @@ public class IndexingMerger {
         // merges. Not perfect, but as long as it's rare the impact should be minimal.
 
         mergeControl.mergeHadFailed(); // report to adjust stats
-        final FDBException ex = IndexingBase.findException(e, FDBException.class);
-        final IndexDeferredMaintenanceControl.LastStep lastStep = mergeControl.getLastStep();
-        if (!IndexingBase.shouldLessenWork(ex)) {
+        if (shouldAbort(e)) {
             giveUpMerging(mergeControl, e);
         }
+        final IndexDeferredMaintenanceControl.LastStep lastStep = mergeControl.getLastStep();
         switch (lastStep) {
             case REPARTITION:
                 // Here: this exception might be resolved by reducing the number of documents to move during repartitioning
@@ -165,6 +182,22 @@ public class IndexingMerger {
                 break; // "A switch statement does not contain a break", croaks a grumpy pmdMain.
         }
         return AsyncUtil.READY_TRUE; // and retry
+    }
+
+    private boolean shouldAbort(@Nullable Throwable e) {
+        if (e == null) {
+            return true;
+        }
+        final FDBException fdbException = IndexingBase.findException(e, FDBException.class);
+        if (fdbException != null) {
+            // abort for certain fdb codes
+            return fdbException.getCode() == FDBError.BATCH_TRANSACTION_THROTTLED.code() ||
+                    fdbException.getCode() == FDBError.TAG_THROTTLED.code() ||
+                    fdbException.getCode() == FDBError.NO_CLUSTER_FILE_FOUND.code();
+        }
+        // abort of not a timeout error
+        return (IndexingBase.findException(e, RecordCoreTimeoutException.class) == null &&
+                         IndexingBase.findException(e, TimeoutException.class) == null);
     }
 
     private void handleRepartitioningFailure(final IndexDeferredMaintenanceControl mergeControl, Throwable e) {
@@ -229,7 +262,7 @@ public class IndexingMerger {
         throw common.getRunner().getDatabase().mapAsyncToSyncException(e);
     }
 
-    List<Object> mergerKeysAndValues(final IndexDeferredMaintenanceControl mergeControl) {
+    private List<Object> mergerKeysAndValues(final IndexDeferredMaintenanceControl mergeControl) {
         return List.of(
                 LogMessageKeys.INDEX_NAME, index.getName(),
                 LogMessageKeys.INDEX_MERGES_LAST_LIMIT, mergeControl.getMergesLimit(),
@@ -242,9 +275,11 @@ public class IndexingMerger {
         );
     }
 
-    String mergerLogMessage(String ttl, final IndexDeferredMaintenanceControl mergeControl) {
+    private String mergerLogMessage(String ttl, final IndexDeferredMaintenanceControl mergeControl) {
         final KeyValueLogMessage msg = KeyValueLogMessage.build(ttl);
         msg.addKeysAndValues(mergerKeysAndValues(mergeControl));
+        // Note: this fdb metrics represents fdb activity within a single merge operation
+        msg.addKeysAndValues(getFdbMetricsMeasurement(common.getRunner().getTimer()));
         SubspaceProvider subspaceProvider = common.getRecordStoreBuilder().getSubspaceProvider();
         if (subspaceProvider != null) {
             msg.addKeyAndValue(subspaceProvider.logKey(), subspaceProvider);
@@ -252,4 +287,15 @@ public class IndexingMerger {
         return msg.toString();
     }
 
+    private void startFdbMetricsMeasurement(@Nullable FDBStoreTimer timer) {
+        if (timer != null) {
+            lastProgressSnapshot = StoreTimerSnapshot.from(timer);
+        }
+    }
+
+    private Map<String, Number> getFdbMetricsMeasurement(@Nullable FDBStoreTimer timer) {
+        return (timer == null || lastProgressSnapshot == null) ?
+               Collections.emptyMap() :
+               StoreTimer.getDifference(timer, lastProgressSnapshot).getKeysAndValues();
+    }
 }

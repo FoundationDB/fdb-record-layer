@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
+import com.apple.foundationdb.record.util.VectorUtils;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalDriver;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
@@ -267,7 +268,12 @@ public class FRL implements AutoCloseable {
         } else if (oneOfValue.hasBoolean()) {
             relationalPreparedStatement.setBoolean(index, oneOfValue.getBoolean());
         } else if (oneOfValue.hasBinary()) {
-            relationalPreparedStatement.setBytes(index, oneOfValue.getBinary().toByteArray());
+            if (parameter.hasMetadata() && parameter.getMetadata().hasVectorMetadata()) {
+                final var vectorProtoType = parameter.getMetadata().getVectorMetadata();
+                relationalPreparedStatement.setObject(index, VectorUtils.parseVector(oneOfValue.getBinary(), vectorProtoType.getPrecision()));
+            } else {
+                relationalPreparedStatement.setBytes(index, oneOfValue.getBinary().toByteArray());
+            }
         } else if (oneOfValue.hasNullType()) {
             relationalPreparedStatement.setNull(index, oneOfValue.getNullType());
         } else if (oneOfValue.hasUuid()) {

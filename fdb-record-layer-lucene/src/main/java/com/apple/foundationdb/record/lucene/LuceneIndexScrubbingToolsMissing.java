@@ -67,10 +67,13 @@ public class LuceneIndexScrubbingToolsMissing extends ValueIndexScrubbingToolsMi
     private final LucenePartitioner partitioner;
     @Nonnull
     private final FDBDirectoryManager directoryManager;
+    @Nonnull
+    private final LuceneIndexMaintainer indexMaintainer;
 
-    public LuceneIndexScrubbingToolsMissing(@Nonnull LucenePartitioner partitioner, @Nonnull FDBDirectoryManager directoryManager) {
+    public LuceneIndexScrubbingToolsMissing(@Nonnull LucenePartitioner partitioner, @Nonnull FDBDirectoryManager directoryManager, @Nonnull LuceneIndexMaintainer indexMaintainer) {
         this.partitioner = partitioner;
         this.directoryManager = directoryManager;
+        this.indexMaintainer = indexMaintainer;
     }
 
 
@@ -100,7 +103,7 @@ public class LuceneIndexScrubbingToolsMissing extends ValueIndexScrubbingToolsMi
         }
 
         final FDBStoredRecord<Message> rec = result.get();
-        if (rec == null || !recordTypes.contains(rec.getRecordType())) {
+        if (!shouldHandleItem(rec)) {
             return CompletableFuture.completedFuture(null);
         }
 
@@ -119,6 +122,13 @@ public class LuceneIndexScrubbingToolsMissing extends ValueIndexScrubbingToolsMi
                             FDBStoreTimer.Counts.INDEX_SCRUBBER_MISSING_ENTRIES,
                             null);
                 });
+    }
+
+    private boolean shouldHandleItem(FDBStoredRecord<Message> rec) {
+        if (rec == null || !recordTypes.contains(rec.getRecordType())) {
+            return false;
+        }
+        return indexMaintainer.maybeFilterRecord(rec) != null;
     }
 
     @SuppressWarnings("PMD.CloseResource")

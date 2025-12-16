@@ -37,6 +37,7 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerInvoked
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.recordlayer.query.cache.QueryCacheKey;
+import com.apple.foundationdb.relational.recordlayer.query.functions.CompiledSqlFunction;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.annotations.VisibleForTesting;
@@ -270,15 +271,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
             visit(ctx.ctes());
         }
         ctx.queryExpressionBody().accept(this);
-        if (ctx.continuation() != null) {
-            ctx.continuation().accept(this);
-        }
         return null;
-    }
-
-    @Override
-    public Object visitContinuation(@Nonnull RelationalParser.ContinuationContext ctx) {
-        return ctx.continuationAtom().accept(this);
     }
 
     @Override
@@ -628,7 +621,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
             // immediate materialization of temporary function, this is required to collect any auxiliary literals discovered
             // during plan generation of the temporary function. The literals and combined with query literals and provided
             // for the execution of a (cached) physical plan.
-            final var compiledFunction = recordLayerRoutine.getCompilableSqlFunctionSupplier().apply(caseSensitive);
+            final var compiledFunction = (CompiledSqlFunction)recordLayerRoutine.getUserDefinedFunctionProvider().apply(caseSensitive);
             astNormalizer.queryHasherContextBuilder.getLiteralsBuilder().importLiterals(compiledFunction.getAuxiliaryLiterals());
         }
         return new NormalizationResult(

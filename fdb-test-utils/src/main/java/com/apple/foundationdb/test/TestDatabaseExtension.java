@@ -95,7 +95,7 @@ public class TestDatabaseExtension implements BeforeAllCallback, AfterAllCallbac
     @Nonnull
     public Database getDatabase() {
         if (db == null) {
-            db = FDB.instance().open();
+            db = FDB.instance().open(FDBTestEnvironment.randomClusterFile());
         }
         return db;
     }

@@ -20,13 +20,15 @@
 
 package com.apple.foundationdb.relational.server;
 
+import com.apple.foundationdb.record.RecordCoreInterruptedException;
 import com.apple.foundationdb.relational.jdbc.grpc.GrpcConstants;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.JDBCServiceGrpc;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.ResultSet;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.StatementRequest;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.StatementResponse;
 import com.apple.foundationdb.relational.recordlayer.RelationalKeyspaceProvider;
-
+import com.apple.foundationdb.test.FDBTestEnvironment;
+import com.apple.test.Tags;
 import com.google.protobuf.TextFormat;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
@@ -39,16 +41,24 @@ import io.prometheus.client.CollectorRegistry;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nullable;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.PrintStream;
+import java.net.BindException;
+import java.net.ServerSocket;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
@@ -60,6 +70,25 @@ public class RelationalServerTest {
     @BeforeAll
     public static void beforeAll() throws IOException {
         relationalServer = ServerTestUtil.createAndStartRelationalServer(GrpcConstants.DEFAULT_SERVER_PORT);
+    }
+
+    @BeforeEach
+    public void beforeEach() {
+        // Clear the default CollectorRegistry to prevent "Collector already registered" errors
+        // when multiple tests run that create RelationalServer instances
+        // BUT don't clear it for main() method tests since they rely on the default registry
+        if (!Thread.currentThread().getStackTrace()[2].getMethodName().contains("testMain")) {
+            CollectorRegistry.defaultRegistry.clear();
+        }
+    }
+
+    @AfterEach
+    public void afterEach() {
+        // Clear again after each test to ensure clean state
+        // BUT don't clear it for main() method tests since they rely on the default registry
+        if (!Thread.currentThread().getStackTrace()[2].getMethodName().contains("testMain")) {
+            CollectorRegistry.defaultRegistry.clear();
+        }
     }
 
     @AfterAll
@@ -243,4 +272,88 @@ public class RelationalServerTest {
         }
         throw new IllegalArgumentException("Could not find sample family with name: " + metricName);
     }
+
+    /**
+     * Helper method to find an available port, retrying if BindException occurs.
+     * Similar to the logic in ServerTestUtil.createAndStartRelationalServer but for testing purposes.
+     */
+    @SuppressWarnings("PMD.UnusedLocalVariable")
+    static int findAvailablePort(int preferredPort, int maxRetries) throws IOException {
+        for (int port = preferredPort; port <= (preferredPort + maxRetries); port += 2) {
+            try (ServerSocket socket = new ServerSocket(port)) {
+                // Socket creation successful, port is available
+                socket.setReuseAddress(true);
+                return port;
+            } catch (BindException e) {
+                // Port is in use, continue to next port
+                if (port >= (preferredPort + maxRetries)) {
+                    throw new IOException("Could not find available port after " + maxRetries + " attempts starting from " + preferredPort, e);
+                }
+            }
+        }
+        throw new IOException("Unexpected error finding available port");
+    }
+
+    @Test
+    public void testMainWithHelp() throws Exception {
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        PrintStream originalOut = System.out;
+        try {
+            System.setOut(new PrintStream(outputStream));
+            RelationalServer.main(new String[]{"-h"});
+            String output = outputStream.toString();
+            Assertions.assertTrue(output.contains("usage: relational"));
+            Assertions.assertTrue(output.contains("help"));
+        } finally {
+            System.setOut(originalOut);
+        }
+    }
+
+    @Test
+    @Tag(Tags.RequiresFDB)
+    public void testMainRunServer() throws Exception {
+        int grpcPort = findAvailablePort(3333, 100);
+        int httpPort = grpcPort + 1;
+
+        final ArrayList<String> args = new ArrayList<>();
+        args.add("-g");
+        args.add(String.valueOf(grpcPort));
+        args.add("-p");
+        args.add(String.valueOf(httpPort));
+        String clusterFile = FDBTestEnvironment.randomClusterFile();
+        if (clusterFile != null) {
+            args.add("-c");
+            args.add(clusterFile);
+        }
+        Thread serverThread = new Thread(() -> {
+            try {
+                RelationalServer.main(args.toArray(new String[0]));
+            } catch (RecordCoreInterruptedException e) {
+                // Expected after we've tested the port
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        });
+
+        serverThread.setDaemon(true);
+        serverThread.start();
+
+        // Give the server more time to start
+        Thread.sleep(1000);
+
+        // Verify the server is running on the specified port
+        ManagedChannel managedChannel = ManagedChannelBuilder
+                .forTarget("localhost:" + grpcPort)
+                .usePlaintext()
+                .build();
+        try {
+            HealthGrpc.HealthBlockingStub stub = HealthGrpc.newBlockingStub(managedChannel);
+            HealthCheckResponse response = stub.check(HealthCheckRequest.newBuilder().build());
+            Assertions.assertEquals(HealthCheckResponse.ServingStatus.SERVING, response.getStatus());
+        } finally {
+            managedChannel.shutdownNow();
+            serverThread.interrupt();
+        }
+    }
+
 }
