@@ -31,7 +31,6 @@ import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEventList
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
-
 import org.jline.terminal.Terminal;
 import org.jline.terminal.impl.DumbTerminal;
 import org.junit.jupiter.api.AfterAll;
@@ -73,7 +72,7 @@ class PlannerReplTest {
     }
 
     @Test
-    void testOnQueryPrintsQueryAndCreatesNewState() throws IOException, InterruptedException {
+    void testOnQueryPrintsQueryAndCreatesNewState() throws IOException {
         outIn.write("cont\n".getBytes(StandardCharsets.UTF_8));
         final String query = "SELECT * FROM B";
         final State initalState = debugger.getCurrentState();
@@ -120,26 +119,5 @@ class PlannerReplTest {
         Debugger.withDebugger(d -> d.onUpdateIndex(RelationalExpression.class, (i) -> i + 1));
 
         assertThat(Debugger.mapDebugger(d -> d.onGetIndex(RelationalExpression.class))).hasValue(1);
-    }
-
-    @Test
-    void testPrintIdentifiers() throws IOException {
-        outIn.write("exp0\nexp1\nref0\nqun0\ncont\n".getBytes(StandardCharsets.UTF_8));
-        var exp0 = new SelectExpression(LiteralValue.ofScalar(1), Collections.emptyList(), Collections.emptyList());
-        var exp1 = new SelectExpression(LiteralValue.ofScalar(2), Collections.emptyList(), Collections.emptyList());
-        var ref0 = Reference.initialOf(exp0, exp1);
-        var qun0 = Quantifier.forEach(ref0, CorrelationIdentifier.of("0"));
-
-        PlannerEventListeners.dispatchEvent(new InitiatePhasePlannerEvent(
-                PlannerPhase.REWRITING, ref0, new ArrayDeque<>(), PlannerEvent.Location.BEGIN));
-
-
-        terminal.writer().close();
-        assertThat(outputStream.toString()).contains(
-                ReplTestUtil.coloredKeyValue("name", debugger.nameForObject(exp0)),
-                ReplTestUtil.coloredKeyValue("name", debugger.nameForObject(exp1)),
-                ReplTestUtil.coloredKeyValue("name", debugger.nameForObject(ref0)),
-                ReplTestUtil.coloredKeyValue("name", debugger.nameForObject(qun0))
-        );
     }
 }

@@ -928,7 +928,7 @@ public class PlannerRepl implements Debugger {
         public void onList(final PlannerRepl plannerRepl) {
             super.onList(plannerRepl);
             plannerRepl.print("; ");
-            plannerRepl.printKeyValue("shorthand", PlannerEvent.Shorthand.RULECALL + "; ");
+            plannerRepl.printKeyValue("shorthand", PlannerEvent.Shorthand.RULECALL.name().toLowerCase(Locale.ROOT) + "; ");
             plannerRepl.printKeyValue("location", PlannerEvent.Location.END.name().toLowerCase(Locale.ROOT) + "; ");
             plannerRepl.printKeyValue("expression", expressionName);
         }
@@ -981,7 +981,7 @@ public class PlannerRepl implements Debugger {
         public void onList(final PlannerRepl plannerRepl) {
             super.onList(plannerRepl);
             plannerRepl.print("; ");
-            plannerRepl.printKeyValue("shorthand", PlannerEvent.Shorthand.RULECALL + "; ");
+            plannerRepl.printKeyValue("shorthand", PlannerEvent.Shorthand.RULECALL.name().toLowerCase(Locale.ROOT) + "; ");
             plannerRepl.printKeyValue("location", PlannerEvent.Location.END.name().toLowerCase(Locale.ROOT) + "; ");
             plannerRepl.printKeyValue("candidate", candidateName);
         }
