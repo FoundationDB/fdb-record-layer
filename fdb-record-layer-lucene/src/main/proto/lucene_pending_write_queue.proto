@@ -55,10 +55,11 @@ message DocumentField {
     // Type-safe field value (exactly one must be set)
     // Field types match DocumentFieldType: STRING, TEXT, INT, LONG, DOUBLE, BOOLEAN
     oneof value {
-        string string_value = 11;    // STRING or TEXT field (index definition controls tokenization)
-        int32 int_value = 12;        // INT field
-        int64 long_value = 13;       // LONG field
-        double double_value = 14;    // DOUBLE field
-        bool boolean_value = 15;     // BOOLEAN field
+        string string_value = 11;    // STRING field
+        string text_value = 12;      // TEXT field (index definition controls tokenization)
+        int32 int_value = 13;        // INT field
+        int64 long_value = 14;       // LONG field
+        double double_value = 15;    // DOUBLE field
+        bool boolean_value = 16;     // BOOLEAN field
     }
 }

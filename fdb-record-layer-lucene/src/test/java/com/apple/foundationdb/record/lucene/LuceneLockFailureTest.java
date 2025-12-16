@@ -110,13 +110,14 @@ class LuceneLockFailureTest extends FDBRecordStoreTestBase {
             Assertions.assertEquals(LucenePendingWriteQueueProto.QueuedOperation.OperationType.INSERT, ops.get(0).getOperation().getOperationType());
             Assertions.assertEquals(record.getPrimaryKey(), ops.get(0).getPrimaryKey());
         }
-        // perform a search for all docs - one record shopuld show up
+        // perform a search for all docs - one record should show up
         try (final FDBRecordContext context = openContext()) {
             String type = partitioned ? COMPLEX_DOC : SIMPLE_DOC;
             Index index = partitioned ? COMPLEX_PARTITIONED : SIMPLE_INDEX;
             rebuildIndexMetaData(context, type, index);
             final List<FDBQueriedRecord<Message>> allRecords = searchAllDocs(type);
             Assertions.assertEquals(1, allRecords.size());
+            commit(context);
         }
         // Delete all content from the queue
         try (final FDBRecordContext context = openContext()) {

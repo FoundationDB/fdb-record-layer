@@ -996,6 +996,120 @@ public class LucenePartitioner {
     }
 
     /**
+     * Drain the pending write queue for a partition before performing a merge.
+     * This method ensures that all queued operations are replayed into the partition
+     * before the merge begins using lock-free write and delete methods.
+     *
+     * @param groupingKey the grouping key for the partition
+     * @param partitionId the partition ID
+     * @return CompletableFuture that completes when the queue has been drained
+     */
+    @Nonnull
+    private CompletableFuture<Void> drainQueueBeforeMerge(@Nonnull final Tuple groupingKey, final int partitionId) {
+        LuceneIndexMaintainer indexMaintainer = (LuceneIndexMaintainer)state.store.getIndexMaintainer(state.index);
+        LucenePendingWriteQueue queue = indexMaintainer.getPendingWriteQueue(groupingKey, partitionId);
+
+        // Get all queued operations
+        return queue.getQueuedOperations().thenAccept(operations -> {
+            if (operations.isEmpty()) {
+                if (LOGGER.isDebugEnabled()) {
+                    LOGGER.debug("No queued operations to drain for partition {} in group {}",
+                            partitionId, groupingKey);
+                }
+                return;
+            }
+
+            if (LOGGER.isInfoEnabled()) {
+                LOGGER.info("Draining {} queued operations for partition {} in group {} before merge",
+                        operations.size(), partitionId, groupingKey);
+            }
+
+            try {
+                // Replay all queued operations using lock-free methods
+                for (LucenePendingWriteQueue.QueuedOperationEntry entry : operations) {
+                    Tuple primaryKey = entry.getPrimaryKey();
+                    LucenePendingWriteQueueProto.QueuedOperation.OperationType opType = entry.getOperationType();
+
+                    switch (opType) {
+                        case UPDATE:
+                            // TODO: in case of update, need to delete document first
+                        case INSERT:
+                            // Convert proto fields back to DocumentField list
+                            List<LuceneDocumentFromRecord.DocumentField> fields = convertFromProtoFields(entry.getFields());
+                            // Write document without checking locks
+                            indexMaintainer.writeDocumentWithoutLock(fields, groupingKey, partitionId, primaryKey);
+                            break;
+
+                        case DELETE:
+                            // Delete document without checking locks
+                            indexMaintainer.deleteDocumentWithoutLock(groupingKey, partitionId, primaryKey);
+                            break;
+
+                        default:
+                            LOGGER.warn("Unknown operation type: {}", opType);
+                    }
+                }
+
+                // Clear the queue after successful replay
+                queue.clearQueue();
+
+                if (LOGGER.isInfoEnabled()) {
+                    LOGGER.info("Successfully drained and cleared {} operations from queue for partition {} in group {}",
+                            operations.size(), partitionId, groupingKey);
+                }
+            } catch (java.io.IOException e) {
+                throw LuceneExceptions.toRecordCoreException("Failed to drain queue operations", e);
+            }
+        });
+    }
+
+    /**
+     * Convert protobuf DocumentField list back to LuceneDocumentFromRecord.DocumentField list.
+     * This is used when replaying queued operations during merge.
+     */
+    private List<LuceneDocumentFromRecord.DocumentField> convertFromProtoFields(
+            @Nonnull List<LucenePendingWriteQueueProto.DocumentField> protoFields) {
+
+        List<LuceneDocumentFromRecord.DocumentField> fields = new ArrayList<>();
+        for (LucenePendingWriteQueueProto.DocumentField protoField : protoFields) {
+            String fieldName = protoField.getFieldName();
+            Object value;
+            LuceneIndexExpressions.DocumentFieldType fieldType;
+
+            // Determine the value and type based on which field is set
+            if (protoField.hasStringValue()) {
+                value = protoField.getStringValue();
+                fieldType = LuceneIndexExpressions.DocumentFieldType.STRING;
+            } else if (protoField.hasTextValue()) {
+                value = protoField.getTextValue();
+                fieldType = LuceneIndexExpressions.DocumentFieldType.TEXT;
+            } else if (protoField.hasIntValue()) {
+                value = protoField.getIntValue();
+                fieldType = LuceneIndexExpressions.DocumentFieldType.INT;
+            } else if (protoField.hasLongValue()) {
+                value = protoField.getLongValue();
+                fieldType = LuceneIndexExpressions.DocumentFieldType.LONG;
+            } else if (protoField.hasDoubleValue()) {
+                value = protoField.getDoubleValue();
+                fieldType = LuceneIndexExpressions.DocumentFieldType.DOUBLE;
+            } else if (protoField.hasBooleanValue()) {
+                value = protoField.getBooleanValue();
+                fieldType = LuceneIndexExpressions.DocumentFieldType.BOOLEAN;
+            } else {
+                throw new IllegalStateException("DocumentField has no value set: " + fieldName);
+            }
+
+            // Create DocumentField - using basic constructor
+            // TODO: what about the stored/sorted etc?
+            LuceneDocumentFromRecord.DocumentField field =
+                    new LuceneDocumentFromRecord.DocumentField(fieldName, value, fieldType, false, false, null);
+            fields.add(field);
+        }
+
+        return fields;
+    }
+
+    /**
      * Move documents from one Lucene partition to another.
      *
      * @param repartitioningContext context with data required for repartitioning, {@see RepartitionContext}

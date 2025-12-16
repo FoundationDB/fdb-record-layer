@@ -400,6 +400,9 @@ public class LucenePendingWriteQueue {
             if (protoField.hasStringValue()) {
                 value = protoField.getStringValue();
                 // Default to TEXT for string values - the actual type will be determined by index definition
+                fieldType = LuceneIndexExpressions.DocumentFieldType.STRING;
+            } else if (protoField.hasTextValue()) {
+                value = protoField.getTextValue();
                 fieldType = LuceneIndexExpressions.DocumentFieldType.TEXT;
             } else if (protoField.hasIntValue()) {
                 value = protoField.getIntValue();
@@ -450,8 +453,9 @@ public class LucenePendingWriteQueue {
         Object value = field.getValue();
         switch (field.getType()) {
             case TEXT:
+                builder.setTextValue(value.toString());
+                break;
             case STRING:
-                // Both TEXT and STRING map to string_value (index definition controls tokenization)
                 builder.setStringValue(value.toString());
                 break;
             case INT:
