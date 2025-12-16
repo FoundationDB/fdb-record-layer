@@ -27,6 +27,7 @@ schema_template:
     create table t2(p bigint, q st_1, primary key(p))
     create function t2_func() as select q as "nesting", q.a as "ordered" from t2
     create function t2_func_2() as select q as "nesting", q.a as "ordered", q.b as "ordered" from t2
+    create function t2_func_3() as select q as "nesting", q.a as "ordered1", q.b as "ordered2" from t2
     create index i4 as select q.b, q.a from t2 order by q.a
     create index i5 as select q.b, q.a from t2 order by q.b, q.a
     create table t3(a bigint, b bigint, c bigint, d bigint, p bigint, primary key(p))
@@ -296,4 +297,8 @@ test_block:
       - query: select (q as "nested", q.a as "ordered") as "st" from t2 order by "st"."ordered"
       - supported_version: !current_version
       - error: "42703"
+    -
+      # Ordering by a column in table function that has been projected in multiple ways
+      - query: select (*) from t2_func_3() order by "ordered2", "ordered1"
+      - result: [ {{{2, 1}, 2, 1}}, {{{4, 1}, 4, 1}}, {{{6, 1}, 6, 1}}, {{{8, 1}, 8, 1}}, {{{1, 2}, 1, 2}}, {{{3, 2}, 3, 2}}, {{{5, 2}, 5, 2}}, {{{7, 2}, 7, 2}} ]
 ...
