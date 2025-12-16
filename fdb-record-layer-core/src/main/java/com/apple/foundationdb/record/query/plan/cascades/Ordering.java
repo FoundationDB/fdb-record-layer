@@ -59,6 +59,7 @@ import java.util.function.BiConsumer;
 import java.util.function.BiPredicate;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 /**
  * This class captures an ordering property.
@@ -292,7 +293,29 @@ public class Ordering {
     }
 
     public boolean satisfies(@Nonnull RequestedOrdering requestedOrdering) {
-        return !Iterables.isEmpty(enumerateCompatibleRequestedOrderings(requestedOrdering));
+        if (requestedOrdering.isDistinct() && !isDistinct()) {
+            return false;
+        }
+
+        final var eligibleElements = orderingSet.eligibleSet().eligibleElements();
+        var isFirst = true;
+        for (final var requestedOrderingPart : requestedOrdering.getOrderingParts()) {
+            if (!bindingMap.containsKey(requestedOrderingPart.getValue())) {
+                return false;
+            }
+            if (isFirst) {
+                if (!eligibleElements.contains(requestedOrderingPart.getValue())) {
+                    return false;
+                }
+                isFirst = false;
+            }
+            final var bindings = bindingMap.get(requestedOrderingPart.getValue());
+            final var sortOrder = sortOrder(bindings);
+            if (!sortOrder.isCompatibleWithRequestedSortOrder(requestedOrderingPart.getSortOrder())) {
+                return false;
+            }
+        }
+        return satisfiesGroupingValues(requestedOrdering.getOrderingParts().stream().map(OrderingPart::getValue).collect(Collectors.toSet()));
     }
 
     /**
@@ -326,7 +349,6 @@ public class Ordering {
             return ImmutableList.of();
         }
 
-        final var requestedOrderingValuesBuilder = ImmutableList.<Value>builder();
         final var requestedOrderingValuesMapBuilder = ImmutableMap.<Value, RequestedOrderingPart>builder();
         for (final var requestedOrderingPart : requestedOrdering.getOrderingParts()) {
             if (!bindingMap.containsKey(requestedOrderingPart.getValue())) {
@@ -337,8 +359,6 @@ public class Ordering {
             if (!sortOrder.isCompatibleWithRequestedSortOrder(requestedOrderingPart.getSortOrder())) {
                 return ImmutableList.of();
             }
-
-            requestedOrderingValuesBuilder.add(requestedOrderingPart.getValue());
             requestedOrderingValuesMapBuilder.put(requestedOrderingPart.getValue(), requestedOrderingPart);
         }
         final var requestedOrderingValuesMap = requestedOrderingValuesMapBuilder.build();
@@ -371,6 +391,11 @@ public class Ordering {
             return false;
         }
 
+        final var eligibleElements = orderingSet.eligibleSet().eligibleElements();
+        if (requestedGroupingValues.stream().noneMatch(eligibleElements::contains)) {
+            return false;
+        }
+
         if (requestedGroupingValues
                 .stream()
                 .anyMatch(requestedGroupingValue -> {
@@ -383,7 +408,7 @@ public class Ordering {
             return false;
         }
 
-        final var permutations = TopologicalSort.topologicalOrderPermutations(orderingSet);
+        final var permutations = TopologicalSort.topologicalOrderPermutations(requestedGroupingValues, orderingSet.getTransitiveClosure());
         for (final var permutation : permutations) {
             final var containsAll =
                     requestedGroupingValues.containsAll(permutation.subList(0, requestedGroupingValues.size()));
