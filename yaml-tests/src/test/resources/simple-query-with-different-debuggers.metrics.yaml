@@ -1,31 +1,34 @@
 simple-query-with-different-debuggers:
--   query: EXPLAIN select * from t1 where id > 1
-    explain: SCAN(<,>) | FILTER _.ID GREATER_THAN promote(@c8 AS LONG)
-    task_count: 163
-    task_total_time_ms: 85
-    transform_count: 46
-    transform_time_ms: 71
-    transform_yield_count: 14
-    insert_time_ms: 1
-    insert_new_count: 14
+-   query: EXPLAIN select id, col1 from t1 where id > 1
+    explain: SCAN(<,>) | FILTER _.ID GREATER_THAN promote(@c10 AS LONG) | MAP (_.ID
+        AS ID, _.COL1 AS COL1)
+    task_count: 206
+    task_total_time_ms: 102
+    transform_count: 59
+    transform_time_ms: 81
+    transform_yield_count: 15
+    insert_time_ms: 3
+    insert_new_count: 18
     insert_reused_count: 2
--   query: EXPLAIN select * from t1 where id > 1
-    explain: SCAN(<,>) | FILTER _.ID GREATER_THAN promote(@c8 AS LONG)
-    task_count: 163
-    task_total_time_ms: 85
-    transform_count: 46
-    transform_time_ms: 71
-    transform_yield_count: 14
+-   query: EXPLAIN select id, col2 from t1 where id > 1
+    explain: SCAN(<,>) | FILTER _.ID GREATER_THAN promote(@c10 AS LONG) | MAP (_.ID
+        AS ID, _.COL2 AS COL2)
+    task_count: 206
+    task_total_time_ms: 17
+    transform_count: 59
+    transform_time_ms: 8
+    transform_yield_count: 15
     insert_time_ms: 1
-    insert_new_count: 14
+    insert_new_count: 18
     insert_reused_count: 2
--   query: EXPLAIN select * from t1 where id > 1
-    explain: SCAN(<,>) | FILTER _.ID GREATER_THAN promote(@c8 AS LONG)
-    task_count: 163
-    task_total_time_ms: 85
-    transform_count: 46
-    transform_time_ms: 71
-    transform_yield_count: 14
-    insert_time_ms: 1
-    insert_new_count: 14
+-   query: EXPLAIN select id, col3 from t1 where id > 1
+    explain: SCAN(<,>) | FILTER _.ID GREATER_THAN promote(@c10 AS LONG) | MAP (_.ID
+        AS ID, _.COL3 AS COL3)
+    task_count: 206
+    task_total_time_ms: 58
+    transform_count: 59
+    transform_time_ms: 8
+    transform_yield_count: 15
+    insert_time_ms: 2
+    insert_new_count: 18
     insert_reused_count: 2
