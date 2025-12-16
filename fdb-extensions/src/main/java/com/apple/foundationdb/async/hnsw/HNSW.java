@@ -1806,17 +1806,46 @@ public class HNSW {
     }
 
     /**
-     * Deletes a vector with its associated primary key from the HNSW graph.
+     * Deletes a record using its associated primary key from the HNSW graph.
      * <p>
-     * The method first determines the random layer that is used for the node, called the {@code top layer}. It then
-     * applies a deletion algorithm to all layers from {@code 0} to including the {@code top layer} that removes the
-     * record from the structure and locally repairs the relationships between nearby other vectors that were affected
-     * by the delete operation.
+     * This method implements a multi-layer deletion algorithm that maintains the structural integrity of the HNSW
+     * graph. The deletion process consists of several key phases:
+     * <ul>
+     *     <li><b>Layer Determination:</b> First determines the top layer for the node using the same deterministic
+     *         algorithm used during insertion, ensuring consistent layer assignment across operations.
+     *     </li>
+     *     <li><b>Existence Verification:</b> Checks whether the node actually exists in the graph before attempting
+     *          deletion. If the node doesn't exist, the operation completes immediately without error.
+     *     </li>
+     *     <li><b>Multi-Layer Deletion:</b> Removes the node from all layers spanning from layer 0 (base layer
+     *         containing all nodes) up to and including the node's top layer. The deletion is performed in parallel
+     *         across all layers for optimal performance.
+     *     </li>
+     *     <li><b>Graph Repair:</b> For each layer where the node is deleted, the algorithm repairs the local graph
+     *         structure by identifying the deleted node's neighbors and reconnecting them appropriately. This process:
+     *         <ul>
+     *             <li>Finds candidate replacement connections among the neighbors of neighbors</li>
+     *             <li>Selects optimal new connections using the HNSW distance heuristics</li>
+     *             <li>Updates neighbor lists to maintain graph connectivity and search performance</li>
+     *             <li>Applies connection limits (M, MMax) and prunes excess connections if necessary</li>
+     *         </ul>
+     *     </li>
+     *     <li><b>Entry Point Management:</b> If the deleted node was serving as the graph's entry point (the starting
+     *         node for search operations), the method automatically selects a new entry point from the remaining nodes
+     *         at the highest available layer. If no nodes remain after deletion, the access information is cleared,
+     *         effectively resetting the graph to an empty state.
+     *     </li>
+     * </ul>
+     * All operations are performed transactionally and asynchronously, ensuring consistency and enabling
+     * non-blocking execution in concurrent environments.
      *
-     * @param transaction the {@link Transaction} context for all database operations
-     * @param primaryKey the unique {@link Tuple} primary key for the new node being inserted
+     * @param transaction the {@link Transaction} context for all database operations, ensuring atomicity
+     *        and consistency of the deletion and repair operations
+     * @param primaryKey the unique {@link Tuple} primary key identifying the node to be deleted from the graph
      *
-     * @return a {@link CompletableFuture} that completes when the insertion operation is finished
+     * @return a {@link CompletableFuture} that completes when the deletion operation is fully finished,
+     *         including all graph repairs and entry point updates. The future completes with {@code null}
+     *         on successful deletion.
      */
     @Nonnull
     public CompletableFuture<Void> delete(@Nonnull final Transaction transaction, @Nonnull final Tuple primaryKey) {
