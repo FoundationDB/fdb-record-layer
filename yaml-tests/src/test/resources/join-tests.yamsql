@@ -306,4 +306,10 @@ test_block:
       # Join with IN on non-existent values (should return empty)
       - query: select emp.id from emp, dept where emp.dept_id = dept.id and dept.id = 1 and emp.id in (10, 20, 30)
       - result: []
+
+    -
+      # inner join with using
+      - query: select fname, lname, name from emp inner join dept using (fname);
+      - supported_version: !current_version
+      - error: "XX000"
 ...

@@ -338,6 +338,8 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
     @Override
     public Expression visitInnerJoin(@Nonnull RelationalParser.InnerJoinContext ctx) {
         getDelegate().getCurrentPlanFragment().addOperator(Assert.castUnchecked(ctx.tableSourceItem().accept(this), LogicalOperator.class));
+        Assert.isNullUnchecked(ctx.uidList(), "using is not yet supported for inner join");
+        Assert.notNullUnchecked(ctx.expression(), "expression is expected for inner join");
         return Assert.castUnchecked(ctx.expression().accept(this), Expression.class);
     }
 
