@@ -85,17 +85,15 @@ public final class MetadataPlanVisitor extends DelegatingVisitor<BaseVisitor> {
     public QueryPlan visitCopyExportStatement(@Nonnull RelationalParser.CopyExportStatementContext ctx) {
         final var pathId = visitUid(ctx.path().uid());
         final PreparedParams preparedParams = PreparedParams.copyOf(getDelegate().getPlanGenerationContext().getPreparedParams());
-        return CopyPlanFactory.getCopyExportAction(pathId.getName(), getDelegate().getPlanGenerationContext(), preparedParams);
+        return CopyPlanFactory.getCopyExportAction(pathId.getName(), getDelegate().getPlanGenerationContext());
     }
 
     @Nonnull
     @Override
     public QueryPlan visitCopyImportStatement(@Nonnull RelationalParser.CopyImportStatementContext ctx) {
         final var pathId = visitUid(ctx.path().uid());
-        // Extract parameter information for binding
-        final var paramCtx = ctx.preparedStatementParameter();
-        final String parameterIdentifier = paramCtx.QUESTION() != null ? null : paramCtx.NAMED_PARAMETER().getText().substring(1);
-        final PreparedParams preparedParams = PreparedParams.copyOf(getDelegate().getPlanGenerationContext().getPreparedParams());
-        return CopyPlanFactory.getCopyImportAction(pathId.getName(), getDelegate().getPlanGenerationContext(), preparedParams, parameterIdentifier);
+        // We must visit the parameter to ensure that it ends up in the Literals in the query execution context
+        visitPreparedStatementParameter(ctx.preparedStatementParameter());
+        return CopyPlanFactory.getCopyImportAction(pathId.getName(), getDelegate().getPlanGenerationContext());
     }
 }

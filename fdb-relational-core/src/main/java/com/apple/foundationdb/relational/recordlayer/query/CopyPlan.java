@@ -52,7 +52,6 @@ import com.google.common.collect.Iterators;
 import com.google.protobuf.ByteString;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.net.URI;
 import java.util.Collections;
 import java.util.Iterator;
@@ -80,24 +79,16 @@ public class CopyPlan extends QueryPlan {
 
     @Nonnull
     private final QueryExecutionContext queryExecutionContext;
-    @Nonnull
-    private final PreparedParams preparedParams;
-    @Nullable
-    private final String parameterIdentifier;
 
     CopyPlan(@Nonnull CopyType copyType,
              @Nonnull String path,
              @Nonnull Type rowType,
-             @Nonnull QueryExecutionContext queryExecutionContext,
-             @Nonnull PreparedParams preparedParams,
-             @Nullable String parameterIdentifier) {
+             @Nonnull QueryExecutionContext queryExecutionContext) {
         super("COPY " + copyType.name() + " " + path);
         this.copyType = copyType;
         this.path = path;
         this.rowType = rowType;
         this.queryExecutionContext = queryExecutionContext;
-        this.preparedParams = preparedParams;
-        this.parameterIdentifier = parameterIdentifier;
     }
 
     @Override
@@ -192,12 +183,13 @@ public class CopyPlan extends QueryPlan {
             final KeySpacePath keySpacePath = getPath();
 
             final FDBRecordContext fdbContext = getRecordContext(context);
-            Object parameterValue;
-            if (parameterIdentifier == null) {
-                parameterValue = preparedParams.nextUnnamedParamValue();
-            } else {
-                parameterValue = preparedParams.namedParamValue(parameterIdentifier);
+            final List<OrderedLiteral> orderedLiterals = queryExecutionContext.getLiterals().getOrderedLiterals();
+            if (orderedLiterals.isEmpty()) {
+                throw new RelationalException(
+                        "Parameter is not found",
+                        ErrorCode.INVALID_PARAMETER);
             }
+            Object parameterValue = orderedLiterals.get(0).getLiteralObject();
 
             if (parameterValue == null) {
                 throw new RelationalException(
@@ -280,7 +272,7 @@ public class CopyPlan extends QueryPlan {
         if (queryExecutionContext == this.queryExecutionContext) {
             return this;
         }
-        return new CopyPlan(copyType, path, rowType, queryExecutionContext, preparedParams, parameterIdentifier);
+        return new CopyPlan(copyType, path, rowType, queryExecutionContext);
     }
 
     @Nonnull
