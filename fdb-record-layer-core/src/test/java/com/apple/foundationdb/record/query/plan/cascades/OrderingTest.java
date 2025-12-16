@@ -47,8 +47,10 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class OrderingTest {
@@ -362,9 +364,142 @@ class OrderingTest {
                         PartiallyOrderedSet.of(ImmutableSet.of(ap1, ap2, bp1, bp2), ImmutableSetMultimap.of(bp2, ap1, bp2, ap2, bp1, ap1, bp1, ap2)),
                         false);
 
-        assertEquals(
-                expectedOrdering,
-                pulledUpOrdering);
+        assertEquals(expectedOrdering, pulledUpOrdering);
+    }
+
+    @Test
+    void testSatisfies() {
+        final var qov = ValueTestHelpers.qov();
+        final var a = ValueTestHelpers.field(qov, "a");
+        final var b = ValueTestHelpers.field(qov, "b");
+        final var c = ValueTestHelpers.field(qov, "c");
+        final var d = ValueTestHelpers.field(qov, "d");
+        final var e = ValueTestHelpers.field(qov, "e");
+        final var x = ValueTestHelpers.field(qov, "x");
+
+        // a < c, b < c, c < d, d < e, d < x
+        final var ordering = Ordering.ofOrderingSet(bindingMap(a, ProvidedSortOrder.ASCENDING,
+                        b, ProvidedSortOrder.ASCENDING,
+                        c, ProvidedSortOrder.ASCENDING,
+                        d, ProvidedSortOrder.ASCENDING,
+                        e, ProvidedSortOrder.ASCENDING,
+                        x, ProvidedSortOrder.ASCENDING),
+                        PartiallyOrderedSet.of(ImmutableSet.of(a, b, c, d, e, x), ImmutableSetMultimap.of(c, a, c, b, d, c, e, d, x, d)),
+                        false);
+
+        assertTrue(ordering.satisfiesGroupingValues(ImmutableSet.of(a)));
+        assertTrue(ordering.satisfiesGroupingValues(ImmutableSet.of(b)));
+        assertTrue(ordering.satisfiesGroupingValues(ImmutableSet.of(a, c)));
+        assertTrue(ordering.satisfiesGroupingValues(ImmutableSet.of(a, b)));
+        assertTrue(ordering.satisfiesGroupingValues(ImmutableSet.of(b, c)));
+        assertTrue(ordering.satisfiesGroupingValues(ImmutableSet.of(a, b, c)));
+        assertTrue(ordering.satisfiesGroupingValues(ImmutableSet.of(a, c, d)));
+        assertTrue(ordering.satisfiesGroupingValues(ImmutableSet.of(a, c, d, e)));
+        assertTrue(ordering.satisfiesGroupingValues(ImmutableSet.of(b, c, d, x)));
+
+        assertFalse(ordering.satisfiesGroupingValues(ImmutableSet.of(c)));
+        assertFalse(ordering.satisfiesGroupingValues(ImmutableSet.of(d)));
+        assertFalse(ordering.satisfiesGroupingValues(ImmutableSet.of(e)));
+        assertFalse(ordering.satisfiesGroupingValues(ImmutableSet.of(x)));
+        assertFalse(ordering.satisfiesGroupingValues(ImmutableSet.of(a, d, x)));
+        assertFalse(ordering.satisfiesGroupingValues(ImmutableSet.of(c, d, x)));
+        assertFalse(ordering.satisfiesGroupingValues(ImmutableSet.of(e, d, x)));
+    }
+
+    @Test
+    void testSatisfies2() {
+        final var qov = ValueTestHelpers.qov();
+        final var a = ValueTestHelpers.field(qov, "a");
+        final var b = ValueTestHelpers.field(qov, "b");
+        final var c = ValueTestHelpers.field(qov, "c");
+        final var d = ValueTestHelpers.field(qov, "d");
+        final var e = ValueTestHelpers.field(qov, "e");
+        final var x = ValueTestHelpers.field(qov, "x");
+
+        // a < c, b < c, c < d, e < d, x < d
+        final var ordering = Ordering.ofOrderingSet(bindingMap(a, ProvidedSortOrder.ASCENDING,
+                        b, ProvidedSortOrder.ASCENDING,
+                        c, ProvidedSortOrder.ASCENDING,
+                        d, ProvidedSortOrder.ASCENDING,
+                        e, ProvidedSortOrder.ASCENDING,
+                        x, ProvidedSortOrder.ASCENDING),
+                PartiallyOrderedSet.of(ImmutableSet.of(a, b, c, d, e, x), ImmutableSetMultimap.of(c, a, c, b, d, c, d, e, d, x)),
+                false);
+
+        assertTrue(ordering.satisfiesGroupingValues(ImmutableSet.of(a)));
+        assertTrue(ordering.satisfiesGroupingValues(ImmutableSet.of(b)));
+        assertTrue(ordering.satisfiesGroupingValues(ImmutableSet.of(e)));
+        assertTrue(ordering.satisfiesGroupingValues(ImmutableSet.of(x)));
+        assertTrue(ordering.satisfiesGroupingValues(ImmutableSet.of(a, c)));
+        assertTrue(ordering.satisfiesGroupingValues(ImmutableSet.of(a, b)));
+        assertTrue(ordering.satisfiesGroupingValues(ImmutableSet.of(b, c)));
+        assertTrue(ordering.satisfiesGroupingValues(ImmutableSet.of(a, b, c)));
+        assertTrue(ordering.satisfiesGroupingValues(ImmutableSet.of(a, c, d)));
+        assertTrue(ordering.satisfiesGroupingValues(ImmutableSet.of(a, d, x)));
+        assertTrue(ordering.satisfiesGroupingValues(ImmutableSet.of(e, d, x)));
+        assertTrue(ordering.satisfiesGroupingValues(ImmutableSet.of(a, c, d, e)));
+        assertTrue(ordering.satisfiesGroupingValues(ImmutableSet.of(b, c, d, x)));
+
+        assertFalse(ordering.satisfiesGroupingValues(ImmutableSet.of(c)));
+        assertFalse(ordering.satisfiesGroupingValues(ImmutableSet.of(c, d)));
+        assertFalse(ordering.satisfiesGroupingValues(ImmutableSet.of(d)));
+        assertFalse(ordering.satisfiesGroupingValues(ImmutableSet.of(c, d, x)));
+    }
+
+    @Test
+    void testEnumeration() {
+        final var qov = ValueTestHelpers.qov();
+        final var a = ValueTestHelpers.field(qov, "a");
+        final var b = ValueTestHelpers.field(qov, "b");
+        final var c = ValueTestHelpers.field(qov, "c");
+        final var d = ValueTestHelpers.field(qov, "d");
+        final var e = ValueTestHelpers.field(qov, "e");
+        final var x = ValueTestHelpers.field(qov, "x");
+
+        // a < c, b < c, c < d, e < d, x < d
+        final var ordering = Ordering.ofOrderingSet(bindingMap(a, ProvidedSortOrder.ASCENDING,
+                        b, ProvidedSortOrder.ASCENDING,
+                        c, ProvidedSortOrder.ASCENDING,
+                        d, ProvidedSortOrder.ASCENDING,
+                        e, ProvidedSortOrder.ASCENDING,
+                        x, ProvidedSortOrder.ASCENDING),
+                PartiallyOrderedSet.of(ImmutableSet.of(a, b, c, d, e, x), ImmutableSetMultimap.of(c, a, c, b, d, c, d, e, d, x)),
+                false);
+
+        final var expectedSet1 = Stream.of(
+                List.of(a, c, e, d),
+                List.of(a, e, c, d),
+                List.of(a, e, d, c),
+                List.of(e, a, c, d),
+                List.of(e, a, d, c),
+                List.of(e, d, a, c))
+                .map(permutation -> requested(permutation.toArray()))
+                .collect(Collectors.toSet());
+        var actual1 = ordering.enumerateCompatibleRequestedOrderings(RequestedOrdering.ofParts(requested(a, c, e, d), RequestedOrdering.Distinctness.NOT_DISTINCT, false, Set.of()));
+        actual1.forEach(actualPermutation -> assertTrue(expectedSet1.contains(actualPermutation)));
+
+        final var expectedSet2 = Stream.of(
+                List.of(b, x, d),
+                List.of(x, b, d),
+                List.of(x, d, b))
+                .map(permutation -> requested(permutation.toArray()))
+                .collect(Collectors.toSet());
+        final var actual2 = ordering.enumerateCompatibleRequestedOrderings(RequestedOrdering.ofParts(requested(b, x, d), RequestedOrdering.Distinctness.NOT_DISTINCT, false, Set.of()));
+        actual2.forEach(actualPermutation -> assertTrue(expectedSet2.contains(actualPermutation)));
+
+        final var expectedSet3 = Stream.of(
+                        List.of())
+                .map(permutation -> requested(permutation.toArray()))
+                .collect(Collectors.toSet());
+        final var actual3 = ordering.enumerateCompatibleRequestedOrderings(RequestedOrdering.ofParts(requested(c, d), RequestedOrdering.Distinctness.NOT_DISTINCT, false, Set.of()));
+        actual3.forEach(actualPermutation -> assertTrue(expectedSet3.contains(actualPermutation)));
+
+        final var expectedSet4 = Stream.of(
+                        List.of(a, c, d))
+                .map(permutation -> requested(permutation.toArray()))
+                .collect(Collectors.toSet());
+        final var actual4 = ordering.enumerateCompatibleRequestedOrderings(RequestedOrdering.ofParts(requested(a, c, d), RequestedOrdering.Distinctness.NOT_DISTINCT, false, Set.of()));
+        actual4.forEach(actualPermutation -> assertTrue(expectedSet4.contains(actualPermutation)));
     }
 
     @Test

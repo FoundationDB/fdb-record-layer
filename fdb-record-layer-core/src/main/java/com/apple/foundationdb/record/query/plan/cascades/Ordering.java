@@ -382,7 +382,7 @@ public class Ordering {
 
         final var permutations = TopologicalSort.topologicalOrderPermutations(getOrderingSet().filterElements(requestedGroupingValues::contains));
         for (final var permutation : permutations) {
-            final var containsAll =
+            final var containsAll = permutation.size() >= requestedGroupingValues.size() &&
                     requestedGroupingValues.containsAll(permutation.subList(0, requestedGroupingValues.size()));
             if (containsAll) {
                 return true;
