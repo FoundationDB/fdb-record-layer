@@ -178,7 +178,7 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreTestBase {
                     .setUserVersionChecker(new AssertMatchingMetaDataVersion(metadata2)));
             commit(context);
         }
-        validateRepaired(1, metadata2, new AssertMatchingMetaDataVersion(metadata2), originalRecords);
+        validateRepaired(1, metadata2, new AssertMatchingMetaDataVersion(metadata2), originalRecords, false);
 
     }
 
@@ -607,7 +607,6 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreTestBase {
         }
     }
 
-
     private void commitRepair(final boolean leavePotentiallyCorruptIndexesReadable, final FDBRecordContext context, final List<FDBStoredRecord<Message>> originalRecords) {
         if (leavePotentiallyCorruptIndexesReadable) {
             // Verify the commit check exists but don't attempt to commit
@@ -616,12 +615,6 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreTestBase {
         } else {
             commit(context);
         }
-    }
-
-    private void validateRepaired(final int userVersion, final RecordMetaData recordMetaData,
-                                  final FDBRecordStoreBase.UserVersionChecker userVersionChecker,
-                                  final List<FDBStoredRecord<Message>> originalRecords) {
-        validateRepaired(userVersion, recordMetaData, userVersionChecker, originalRecords, false);
     }
 
     private void validateRepaired(final int userVersion, final RecordMetaData recordMetaData,
@@ -639,15 +632,10 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreTestBase {
                         .open();
                 assertEquals(userVersion, recordStore.getUserVersion());
                 validateRecords(originalRecords);
-                validateIndexes(recordMetaData, leavePotentiallyCorruptIndexesReadable);
+                validateIndexesAreDisabled(recordMetaData);
                 commit(context);
             }
         }
-    }
-
-    private void validateRepaired(final FormatVersion newFormatVersion, final RecordMetaData recordMetaData,
-                                  final List<FDBStoredRecord<Message>> originalRecords) {
-        validateRepaired(newFormatVersion, recordMetaData, originalRecords, false);
     }
 
     private void validateRepaired(final FormatVersion newFormatVersion, final RecordMetaData recordMetaData,
@@ -662,7 +650,7 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreTestBase {
                         .setFormatVersion(newFormatVersion)
                         .open();
                 validateRecords(originalRecords);
-                validateIndexes(recordMetaData, leavePotentiallyCorruptIndexesReadable);
+                validateIndexesAreDisabled(recordMetaData);
                 commit(context);
             }
         }
@@ -684,15 +672,9 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreTestBase {
      * If leavePotentiallyCorruptIndexesReadable is false, all indexes should be disabled.
      * If leavePotentiallyCorruptIndexesReadable is true, indexes should remain in their previous state.
      */
-    private void validateIndexes(final RecordMetaData recordMetaData, boolean leavePotentiallyCorruptIndexesReadable) {
+    private void validateIndexesAreDisabled(final RecordMetaData recordMetaData) {
         for (final Index index : recordMetaData.getAllIndexes()) {
-            if (leavePotentiallyCorruptIndexesReadable) {
-                // When leavePotentiallyCorruptIndexesReadable is true, indexes should remain in their previous state
-                assertEquals(IndexState.READABLE, recordStore.getIndexState(index));
-            } else {
-                // When false (default behavior), all indexes should be disabled
-                assertEquals(IndexState.DISABLED, recordStore.getIndexState(index));
-            }
+            assertEquals(IndexState.DISABLED, recordStore.getIndexState(index));
         }
     }
 

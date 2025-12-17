@@ -5689,7 +5689,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
         /**
          * In the event that a store has been corrupted, and the header has been lost, this method can be used to open
-         * the store, and fill in the missing header; replaced by {@link #repairMissingHeader(int, FormatVersion, boolean)}
+         * the store, and fill in the missing header; replaced by {@link #repairMissingHeader(int, FormatVersion, boolean)}.
          *
          * @param userVersion the user version to set in the store header
          * @param minimumPossibleFormatVersion the minimum {@link FormatVersion} that this store could have possibly
