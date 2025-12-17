@@ -417,7 +417,7 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
                 reverseScanOrder,
                 false,
                 partialMatch.getMatchCandidate(),
-                (Type.Record) baseType,
+                baseType.narrowRecordMaybe().orElseThrow(() -> new RecordCoreException("type is of wrong implementor")),
                 QueryPlanConstraint.noConstraint());
 
         var plan = new RecordQueryAggregateIndexPlan(aggregateIndexScan,
