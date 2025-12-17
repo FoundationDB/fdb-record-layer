@@ -236,13 +236,8 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreTestBase {
             commit(context);
         }
 
-        try (FDBRecordContext context = openContext()) {
-            recordStore = getStoreBuilder(context, recordMetaData, path)
-                    .setFormatVersion(FormatVersion.getMaximumSupportedVersion())
-                    .open();
-            assertEquals(value, recordStore.getHeaderUserField(key));
-            commit(context);
-        }
+        withStore(FormatVersion.getMaximumSupportedVersion(), recordMetaData,
+                () -> assertEquals(value, recordStore.getHeaderUserField(key)));
     }
 
     @ParameterizedTest
@@ -266,19 +261,16 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreTestBase {
             commit(context);
         }
         TestRecords1Proto.MySimpleRecord record = TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(200).setNumValue2(2100).build();
-        try (FDBRecordContext context = openContext()) {
-            recordStore = getStoreBuilder(context, recordMetaData, path)
-                    .setFormatVersion(FormatVersion.getMaximumSupportedVersion())
-                    .open();
-            if (doLock) {
-                // assert update record failure, then release
-                assertThrows(StoreIsLockedForRecordUpdates.class, () -> recordStore.saveRecord(record));
-                recordStore.clearStoreLockStateAsync().join();
-            }
-            // Successfully update a records after either not setting or releasing the records updates lock
-            recordStore.saveRecord(record);
-            commit(context);
-        }
+        withStore(FormatVersion.getMaximumSupportedVersion(), recordMetaData,
+                () -> {
+                    if (doLock) {
+                        // assert update record failure, then release
+                        assertThrows(StoreIsLockedForRecordUpdates.class, () -> recordStore.saveRecord(record));
+                        recordStore.clearStoreLockStateAsync().join();
+                    }
+                    // Successfully update a records after either not setting or releasing the records updates lock
+                    recordStore.saveRecord(record);
+                });
     }
 
     @Test
@@ -424,12 +416,8 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreTestBase {
                 }
             } else {
                 validateRepaired(formatVersion, recordMetaData, originalRecords, leavePotentiallyCorruptIndexesReadable);
-                try (FDBRecordContext context = openContext()) {
-                    recordStore = getStoreBuilder(context, recordMetaData, path)
-                            .setFormatVersion(formatVersion)
-                            .open();
-                    assertThat(recordStore.getRecordStoreState().getStoreHeader().hasRecordCountKey()).isFalse();
-                }
+                withStore(formatVersion, recordMetaData,
+                        () -> assertThat(recordStore.getRecordStoreState().getStoreHeader().hasRecordCountKey()).isFalse());
             }
         } else {
             validateCannotOpen(recordMetaData);
@@ -437,16 +425,12 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreTestBase {
     }
 
     private void validateRecordCountKeyIsDisabled(final FormatVersion formatVersion, final RecordMetaData recordMetaData) {
-        try (FDBRecordContext context = openContext()) {
-            recordStore = getStoreBuilder(context, recordMetaData, path)
-                    .setFormatVersion(formatVersion)
-                    .open();
-
+        withStore(formatVersion, recordMetaData, () -> {
             assertThat(recordStore.getRecordStoreState().getStoreHeader().getRecordCountState())
                     .isEqualTo(RecordMetaDataProto.DataStoreInfo.RecordCountState.DISABLED);
             assertThat(recordStore.getRecordStoreState().getStoreHeader().getRecordCountKey())
                     .isEqualTo(recordMetaData.getRecordCountKey().toKeyExpression());
-        }
+        });
     }
 
     @ParameterizedTest
@@ -647,14 +631,11 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreTestBase {
             // if we left the indexes readable, we won't be able to commit the repair
             validateCannotOpen(recordMetaData);
         } else {
-            try (FDBRecordContext context = openContext()) {
-                recordStore = getStoreBuilder(context, recordMetaData, path)
-                        .setFormatVersion(newFormatVersion)
-                        .open();
-                validateRecords(originalRecords);
-                validateIndexesAreDisabled(recordMetaData);
-                commit(context);
-            }
+            withStore(newFormatVersion, recordMetaData,
+                    () -> {
+                        validateRecords(originalRecords);
+                        validateIndexesAreDisabled(recordMetaData);
+                    });
         }
     }
 
@@ -717,6 +698,18 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreTestBase {
 
     private RecordMetaData getRecordMetaData(final boolean supportSplitRecords) {
         return simpleMetaData(metadata -> metadata.setSplitLongRecords(supportSplitRecords));
+    }
+
+    private void withStore(final FormatVersion formatVersion,
+                           final RecordMetaData recordMetaData,
+                           final Runnable useStore) {
+        try (FDBRecordContext context = openContext()) {
+            recordStore = getStoreBuilder(context, recordMetaData, path)
+                    .setFormatVersion(formatVersion)
+                    .open();
+            useStore.run();
+            commit(context);
+        }
     }
 
     private void validateCannotOpen(final RecordMetaDataProvider metaData) {
