@@ -141,7 +141,7 @@ public final class FDBDirectoryLockFactory extends LockFactory {
         }
     }
 
-    protected static class FDBDirectoryLock extends Lock {
+    public static class FDBDirectoryLock extends Lock {
 
         private static final Logger LOGGER = LoggerFactory.getLogger(FDBDirectoryLock.class);
         private final AgilityContext agilityContext;
@@ -193,6 +193,9 @@ public final class FDBDirectoryLockFactory extends LockFactory {
             }
         }
 
+        public byte[] getFileLockKey() {
+            return fileLockKey;
+        }
 
         private byte[] fileLockValue() {
             return Tuple.from(selfStampUuid, timeStampMillis).pack();

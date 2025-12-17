@@ -64,7 +64,6 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexScrubbingTools;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.InvalidIndexEntry;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.StandardIndexMaintainer;
 import com.apple.foundationdb.record.query.QueryToKeyMatcher;
-import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.Message;
@@ -199,7 +198,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
      * Insert a field into the document and add a suggestion into the suggester if needed.
      */
     @SuppressWarnings("java:S3776")
-    private void insertField(LuceneDocumentFromRecord.DocumentField field, final Document document) {
+    public static void insertField(LuceneDocumentFromRecord.DocumentField field, final Document document) {
         final String fieldName = field.getFieldName();
         final Object value = field.getValue();
         final Field luceneField;
@@ -524,11 +523,20 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
 
     @Override
     public CompletableFuture<Void> mergeIndex() {
-        return rebalancePartitions()
+        return drainAllQueues()
+                .thenCompose(ignore -> rebalancePartitions())
                 .thenCompose(ignored -> {
                     state.store.getIndexDeferredMaintenanceControl().setLastStep(IndexDeferredMaintenanceControl.LastStep.MERGE);
                     return directoryManager.mergeIndex(partitioner);
                 });
+    }
+
+    private CompletableFuture<Void> drainAllQueues() {
+        final FDBRecordStore.Builder storeBuilder = state.store.asBuilder();
+        FDBDatabaseRunner runner = state.context.newRunner();
+        runner.setMaxAttempts(1); // retries (and throttling) are performed by the caller
+        return directoryManager.drainAllQueues(runner, storeBuilder)
+                .whenComplete((result, error) -> runner.close());
     }
 
     @VisibleForTesting
@@ -807,7 +815,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         });
     }
 
-    private FieldType getTextFieldType(LuceneDocumentFromRecord.DocumentField field) {
+    private static FieldType getTextFieldType(LuceneDocumentFromRecord.DocumentField field) {
         FieldType ft = new FieldType();
 
         try {
@@ -1022,7 +1030,6 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
 
     /**
      * Get a LucenePendingWriteQueue for a specific partition.
-     * TODO: Eventually cache this at the directory?
      *
      * @param groupingKey the grouping key for the partition
      * @param partitionId the partition ID, or null for non-partitioned index
@@ -1030,17 +1037,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
      */
     @Nonnull
     public LucenePendingWriteQueue getPendingWriteQueue(@Nonnull Tuple groupingKey, @Nullable Integer partitionId) {
-        // Construct the queue subspace for this partition
-        // Format: <indexSubspace> / <groupingKey> / <partitionId> / PARTITION_DATA_SUBSPACE(1) / PENDING_WRITE_QUEUE_SUBSPACE(8)
-        Subspace result = state.indexSubspace.subspace(groupingKey);
-        if (partitionId != null) {
-            result = result
-                    .subspace(Tuple.from(partitionId))
-                    .subspace(Tuple.from(LucenePartitioner.PARTITION_DATA_SUBSPACE));
-        }
-        Subspace queueSubspace = result.subspace(Tuple.from(FDBDirectory.PENDING_WRITE_QUEUE_SUBSPACE));
-
-        return new LucenePendingWriteQueue(state.context, queueSubspace);
+        return directoryManager.getDirectoryWrapper(groupingKey, partitionId).getPendingWriteQueue();
     }
 
     @Nullable

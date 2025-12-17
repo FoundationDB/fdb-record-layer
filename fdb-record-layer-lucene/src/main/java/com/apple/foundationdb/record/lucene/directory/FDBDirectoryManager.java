@@ -34,8 +34,10 @@ import com.apple.foundationdb.record.lucene.LuceneAnalyzerCombinationProvider;
 import com.apple.foundationdb.record.lucene.LuceneAnalyzerRegistryImpl;
 import com.apple.foundationdb.record.lucene.LuceneAnalyzerType;
 import com.apple.foundationdb.record.lucene.LuceneAnalyzerWrapper;
+import com.apple.foundationdb.record.lucene.LuceneEvents;
 import com.apple.foundationdb.record.lucene.LuceneExceptions;
 import com.apple.foundationdb.record.lucene.LuceneIndexExpressions;
+import com.apple.foundationdb.record.lucene.LuceneIndexMaintainer;
 import com.apple.foundationdb.record.lucene.LuceneIndexTypes;
 import com.apple.foundationdb.record.lucene.LuceneLogMessageKeys;
 import com.apple.foundationdb.record.lucene.LucenePartitionInfoProto;
@@ -43,8 +45,10 @@ import com.apple.foundationdb.record.lucene.LucenePartitioner;
 import com.apple.foundationdb.record.lucene.LuceneRecordContextProperties;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseRunner;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContextConfig;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBTransactionPriority;
 import com.apple.foundationdb.record.provider.foundationdb.IndexDeferredMaintenanceControl;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
@@ -161,6 +165,54 @@ public class FDBDirectoryManager implements AutoCloseable {
                 .whenComplete((ignore, ex) -> closeOrAbortAgilityContext(agilityContext, ex));
     }
 
+    @SuppressWarnings("PMD.CloseResource")
+    public CompletableFuture<Void> drainAllQueues(final FDBDatabaseRunner runner,
+                                                  final FDBRecordStore.Builder storeBuilder) {
+
+        return runner.runAsync(context -> context.instrument(LuceneEvents.Events.LUCENE_DRAIN_PENDING_WRITES,
+                storeBuilder.setContext(context).openAsync().thenCompose(store -> {
+                    return drainAllQueues(store);
+                })));
+    }
+
+    private CompletableFuture<Void> drainAllQueues(FDBRecordStore store) {
+        final LuceneIndexMaintainer indexMaintainer = (LuceneIndexMaintainer)store.getIndexMaintainer(state.index);
+        final LucenePartitioner partitioner = indexMaintainer.getPartitioner();
+
+        // This function will iterate the grouping keys
+        final KeyExpression rootExpression = state.index.getRootExpression();
+
+        if (!(rootExpression instanceof GroupingKeyExpression)) {
+            return drainAllQueues(store.getContext(), indexMaintainer, Tuple.from(), partitioner);
+        }
+
+        GroupingKeyExpression expression = (GroupingKeyExpression)rootExpression;
+        final int groupingCount = expression.getGroupingCount();
+
+        final ScanProperties scanProperties = ScanProperties.FORWARD_SCAN.with(
+                props -> props.clearState().setReturnedRowLimit(1));
+
+        final Range range = state.indexSubspace.range();
+        final KeyRange keyRange = new KeyRange(range.begin, range.end);
+        final Subspace subspace = state.indexSubspace;
+        RecordCursor<Tuple> cursor = new ChainedCursor<>(
+                store.getContext(),
+                lastKey -> nextTuple(store.getContext(), subspace, keyRange, lastKey, scanProperties, groupingCount),
+                Tuple::pack,
+                Tuple::fromBytes,
+                null,
+                ScanProperties.FORWARD_SCAN);
+
+        return cursor
+                .map(tuple -> Tuple.fromItems(tuple.getItems().subList(0, groupingCount)))
+                // Use a pipeline size of 1. We don't want to be merging multiple different groups at a time
+                // It may make sense in the future to make these concurrent, but there is enough complexity that it is
+                // better to avoid the concurrent merges.
+                // This also reduces the amount of load that a single store can cause on a system.
+                .forEachAsync(groupingKey -> drainAllQueues(store.getContext(), indexMaintainer, groupingKey, partitioner), 1)
+                .whenComplete((ignore, ex) -> cursor.close());
+    }
+
     private CompletableFuture<Void> mergeIndex(Tuple groupingKey,
                                                @Nonnull LucenePartitioner partitioner, final AgilityContext agileContext) {
         // Note: We always flush before calls to `mergeIndexNow` because we won't come back to get the next partition
@@ -184,6 +236,40 @@ public class FDBDirectoryManager implements AutoCloseable {
                         return true;
                     }));
         }
+    }
+
+    private CompletableFuture<Void> drainAllQueues(FDBRecordContext context,
+                                                   final LuceneIndexMaintainer indexMaintainer,
+                                                   Tuple groupingKey,
+                                                   @Nonnull LucenePartitioner partitioner) {
+        if (!partitioner.isPartitioningEnabled()) {
+            return drainQueue(indexMaintainer, groupingKey, null);
+        } else {
+            // Here: iterate the partition ids and merge each
+            AtomicReference<LucenePartitionInfoProto.LucenePartitionInfo> lastPartitionInfo = new AtomicReference<>();
+            return AsyncUtil.whileTrue(() -> {
+                Tuple previousKey = lastPartitionInfo.get() == null ? null : LucenePartitioner.getPartitionKey(lastPartitionInfo.get());
+                return LucenePartitioner.getNextOlderPartitionInfo(context, groupingKey, previousKey, state.indexSubspace)
+                        .thenCompose(partitionInfo -> {
+                            if (partitionInfo == null) {
+                                // partition list end
+                                return AsyncUtil.READY_FALSE;
+                            } else {
+                                lastPartitionInfo.set(partitionInfo);
+                                return drainQueue(indexMaintainer, groupingKey, partitionInfo.getId())
+                                        .thenApply(ignore -> true);
+                            }
+                        });
+            });
+        }
+    }
+
+    private CompletableFuture<Void> drainQueue(final LuceneIndexMaintainer indexMaintainer, final Tuple groupingKey, final Integer partitionId) {
+        // using the given index maintainer ensures we are using the right context (and not some cached one)
+        return indexMaintainer.getDirectoryManager()
+                .getDirectoryWrapper(groupingKey, partitionId)
+                .getPendingWriteQueue()
+                .drainQueueIntoIndex(indexMaintainer, groupingKey, partitionId);
     }
 
     private void mergeIndexNow(Tuple groupingKey, @Nullable final Integer partitionId) {

@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.TestRecordsTextProto;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
+import com.apple.foundationdb.record.lucene.directory.FDBDirectoryLockFactory;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.provider.common.text.AllSuffixesTextTokenizer;
@@ -47,6 +48,7 @@ import com.apple.test.BooleanSource;
 import com.google.common.collect.Lists;
 import com.google.protobuf.Message;
 import org.apache.lucene.index.IndexWriter;
+import org.apache.lucene.store.Lock;
 import org.apache.lucene.store.LockObtainFailedException;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -138,6 +140,59 @@ class LuceneLockFailureTest extends FDBRecordStoreTestBase {
             rebuildIndexMetaData(context, type, index);
             final List<FDBQueriedRecord<Message>> allRecords = searchAllDocs(type);
             Assertions.assertEquals(0, allRecords.size());
+        }
+    }
+
+    @ParameterizedTest
+    @BooleanSource
+    void testAddDocumentAndMerge(boolean partitioned) throws IOException {
+        // grab lock
+        byte[] lockKey;
+        try (final FDBRecordContext context = openContext()) {
+            openStore(partitioned, context);
+            final FDBDirectoryLockFactory.FDBDirectoryLock lock = (FDBDirectoryLockFactory.FDBDirectoryLock)grabLockExternally(partitioned, context, 2, 0);
+            lockKey = lock.getFileLockKey();
+            context.commit();
+        }
+        // save a document while locked - document should be queued
+        try (final FDBRecordContext context = openContext()) {
+            openStore(partitioned, context);
+            recordStore.saveRecord(createDocument(partitioned, 1623L, ENGINEER_JOKE, 2));
+            context.commit();
+        }
+        // release lock
+        try (final FDBRecordContext context = openContext()) {
+            openStore(partitioned, context);
+            context.clear(lockKey);
+            context.commit();
+        }
+        // merge all partitions
+        try (final FDBRecordContext context = openContext()) {
+            openStore(partitioned, context);
+            mergeSegments(partitioned);
+            commit(context);
+        }
+        // verify the queue is empty
+        try (final FDBRecordContext context = openContext()) {
+            openStore(partitioned, context);
+            Index index = partitioned ? COMPLEX_PARTITIONED : SIMPLE_INDEX;
+            final IndexMaintainer indexMaintainer = recordStore.getIndexMaintainer(index);
+            // The SIMPLE_INDEX is not grouped, and is the one used for non-partitioned
+            final Tuple groupingKey = partitioned ? Tuple.from(2) : Tuple.from();
+            Integer partitionId = (partitioned) ? 0 : null;
+            LucenePendingWriteQueue queue = ((LuceneIndexMaintainer)indexMaintainer).getPendingWriteQueue(groupingKey, partitionId);
+            final CompletableFuture<List<LucenePendingWriteQueue.QueuedOperationEntry>> queuedOperations = queue.getQueuedOperations();
+            final List<LucenePendingWriteQueue.QueuedOperationEntry> ops = queuedOperations.join();
+            Assertions.assertEquals(0, ops.size());
+        }
+        // perform a search for all docs - one record should show up
+        try (final FDBRecordContext context = openContext()) {
+            String type = partitioned ? COMPLEX_DOC : SIMPLE_DOC;
+            Index index = partitioned ? COMPLEX_PARTITIONED : SIMPLE_INDEX;
+            rebuildIndexMetaData(context, type, index);
+            final List<FDBQueriedRecord<Message>> allRecords = searchAllDocs(type);
+            Assertions.assertEquals(1, allRecords.size());
+            commit(context);
         }
     }
 
@@ -397,7 +452,7 @@ class LuceneLockFailureTest extends FDBRecordStoreTestBase {
         }
     }
 
-    private Subspace grabLockExternally(boolean partitioned, FDBRecordContext context, int group, int partition) throws IOException {
+    private Lock grabLockExternally(boolean partitioned, FDBRecordContext context, int group, int partition) throws IOException {
         if (partitioned) {
             return grabLockExternallyForPartition(COMPLEX_PARTITIONED, context, group, partition);
         } else {
@@ -405,21 +460,18 @@ class LuceneLockFailureTest extends FDBRecordStoreTestBase {
         }
     }
 
-    private Subspace grabLockExternally(final Index index, final FDBRecordContext context) throws IOException {
+    private Lock grabLockExternally(final Index index, final FDBRecordContext context) throws IOException {
         final Subspace subspace = recordStore.indexSubspace(index);
         final FDBDirectory directory = new FDBDirectory(subspace, context, index.getOptions());
-        directory.obtainLock(IndexWriter.WRITE_LOCK_NAME);
-        return subspace;
+        return directory.obtainLock(IndexWriter.WRITE_LOCK_NAME);
     }
 
-    private Subspace grabLockExternallyForPartition(final Index index, final FDBRecordContext context, int group, int partition) throws IOException {
+    private Lock grabLockExternallyForPartition(final Index index, final FDBRecordContext context, int group, int partition) throws IOException {
         // Path includes index path followed by group; partition metadata (1); partition number
         final Subspace subspace = recordStore.indexSubspace(index);
         final Subspace partitionSubspace = subspace.subspace(Tuple.from(group, LucenePartitioner.PARTITION_DATA_SUBSPACE).add(partition));
         final FDBDirectory directory = new FDBDirectory(partitionSubspace, context, index.getOptions());
-        directory.obtainLock(IndexWriter.WRITE_LOCK_NAME);
-
-        return subspace;
+        return directory.obtainLock(IndexWriter.WRITE_LOCK_NAME);
     }
 
     private void mergeSegments(boolean partitioned) {

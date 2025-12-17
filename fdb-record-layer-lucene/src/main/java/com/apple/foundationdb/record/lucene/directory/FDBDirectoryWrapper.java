@@ -237,6 +237,10 @@ public class FDBDirectoryWrapper implements AutoCloseable {
         return directory;
     }
 
+    public LucenePendingWriteQueue getPendingWriteQueue() {
+        return pendingWriteQueue;
+    }
+
     /**
      * An {@link IndexReader} for searching this directory. This will wrap {@link #getWriter()} if the writer has
      * already been instantiated, but otherwise, will just create a reader against this directory.

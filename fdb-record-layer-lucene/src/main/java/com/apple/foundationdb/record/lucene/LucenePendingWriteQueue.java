@@ -21,17 +21,20 @@
 package com.apple.foundationdb.record.lucene;
 
 import com.apple.foundationdb.KeyValue;
+import com.apple.foundationdb.MutationType;
 import com.apple.foundationdb.Range;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.Versionstamp;
+import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.SortedDocValuesField;
 import org.apache.lucene.document.StoredField;
 import org.apache.lucene.index.IndexWriter;
+import org.apache.lucene.search.Query;
 import org.apache.lucene.util.BytesRef;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,7 +43,9 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -148,7 +153,7 @@ public class LucenePendingWriteQueue {
         LucenePendingWriteQueueProto.QueuedOperation.Builder builder =
                 LucenePendingWriteQueueProto.QueuedOperation.newBuilder()
                         .setOperationType(operationType)
-                        .setPrimaryKey(com.google.protobuf.ByteString.copyFrom(primaryKey.pack()))
+                        .setPrimaryKey(ByteString.copyFrom(primaryKey.pack()))
                         .setEnqueueTimestamp(System.currentTimeMillis());
 
         // Add fields for INSERT and UPDATE operations
@@ -165,7 +170,7 @@ public class LucenePendingWriteQueue {
 
         // Use addVersionMutation to let FDB assign the versionstamp
         context.addVersionMutation(
-                com.apple.foundationdb.MutationType.SET_VERSIONSTAMPED_KEY,
+                MutationType.SET_VERSIONSTAMPED_KEY,
                 queueKey,
                 value);
 
@@ -219,36 +224,14 @@ public class LucenePendingWriteQueue {
     }
 
     /**
-     * Delete a specific queued operation.
-     *
-     * @param queueKey the FDB key of the queue entry
-     */
-    public void deleteQueuedOperation(@Nonnull byte[] queueKey) {
-        context.ensureActive().clear(queueKey);
-    }
-
-    /**
      * Clear all queued operations for this partition's queue.
      *
      * @return CompletableFuture that completes when the queue is cleared
      */
     @Nonnull
-    public CompletableFuture<Void> clearQueue() {
+    public void clearQueue() {
         Range range = queueSubspace.range();
         context.ensureActive().clear(range);
-
-        return CompletableFuture.completedFuture(null);
-    }
-
-    /**
-     * Get the count of queued operations for this partition.
-     *
-     * @return CompletableFuture with the count of queued operations
-     */
-    @Nonnull
-    public CompletableFuture<Integer> getQueueSize() {
-        return getQueuedOperations()
-                .thenApply(List::size);
     }
 
     /**
@@ -265,8 +248,7 @@ public class LucenePendingWriteQueue {
         return getQueuedOperations()
                 .thenAccept(entries -> {
                     if (LOGGER.isDebugEnabled()) {
-                        LOGGER.debug("Replaying {} queued operations",
-                                entries.size());
+                        LOGGER.debug("Replaying {} queued operations", entries.size());
                     }
 
                     // Process all operations
@@ -274,6 +256,46 @@ public class LucenePendingWriteQueue {
                         replayOperation(entry, indexWriter);
                     }
                 });
+    }
+
+    /**
+     * Drain the queue: Move all operations into the index and empty the queue.
+     * This would be done prior to rebalancing and merging (under lock) so that by the time the transaction commits, the
+     * index will be back in consistent state (no pending queue operations).
+     *
+     * @param indexMaintainer the index maintainer to apply the ops to
+     * @param groupingKey grouping key for the
+     * @param partitionId
+     * @return future that will be completed once the operation is done
+     *
+     * TODO: should the groupingKey and partitionId be part of the queue fields?
+     */
+    public CompletableFuture<Void> drainQueueIntoIndex(LuceneIndexMaintainer indexMaintainer, final Tuple groupingKey, final Integer partitionId) {
+        return getQueuedOperations().thenAccept(queueOps -> {
+            if (LOGGER.isDebugEnabled()) {
+                LOGGER.debug("Draining {} queued operations", queueOps.size());
+            }
+            queueOps.forEach(op -> {
+                try {
+                    switch (op.getOperationType()) {
+                        case UPDATE:
+                            // need to delete the doc first
+                        case INSERT:
+                            final List<LuceneDocumentFromRecord.DocumentField> documentFields = convertFromProtoFields(op.getFields());
+                            indexMaintainer.writeDocumentWithoutLock(documentFields, groupingKey, partitionId, op.getPrimaryKey());
+                            break;
+                        case DELETE:
+                            indexMaintainer.deleteDocumentWithoutLock(groupingKey, partitionId, op.getPrimaryKey());
+                            break;
+                        default:
+                            throw new IllegalStateException("Unexpected value: " + op.getOperationType());
+                    }
+                } catch (IOException e) {
+                    throw LuceneExceptions.toRecordCoreException("Failed to apply queue operation", e);
+                }
+            });
+            clearQueue();
+        });
     }
 
     /**
@@ -300,7 +322,7 @@ public class LucenePendingWriteQueue {
                     // Add document fields
                     List<LuceneDocumentFromRecord.DocumentField> fields = convertFromProtoFields(entry.getFields());
                     for (LuceneDocumentFromRecord.DocumentField field : fields) {
-                        addFieldToDocument(field, document);
+                        LuceneIndexMaintainer.insertField(field, document);
                     }
 
                     indexWriter.addDocument(document);
@@ -309,7 +331,7 @@ public class LucenePendingWriteQueue {
                 case DELETE:
                     // Use SortedDocValuesField query for deletion
                     // TODO: can we use the segment primary key index to delete the doc directly?
-                    org.apache.lucene.search.Query deleteQuery = org.apache.lucene.document.SortedDocValuesField.newSlowExactQuery(
+                    Query deleteQuery = SortedDocValuesField.newSlowExactQuery(
                             LuceneIndexMaintainer.PRIMARY_KEY_SEARCH_NAME,
                             new BytesRef(primaryKey.pack()));
                     indexWriter.deleteDocuments(deleteQuery);
@@ -324,67 +346,6 @@ public class LucenePendingWriteQueue {
     }
 
     /**
-     * Add a field to a Lucene document.
-     * Simplified version of LuceneIndexMaintainer.insertField()
-     */
-    private void addFieldToDocument(LuceneDocumentFromRecord.DocumentField field, org.apache.lucene.document.Document document) {
-        final String fieldName = field.getFieldName();
-        final Object value = field.getValue();
-
-        switch (field.getType()) {
-            case TEXT:
-                // For TEXT fields, use simple tokenized field (simplified - doesn't handle all field configs)
-                document.add(new org.apache.lucene.document.TextField(fieldName, (String)value, org.apache.lucene.document.Field.Store.NO));
-                break;
-            case STRING:
-                document.add(new org.apache.lucene.document.StringField(fieldName, (String)value, org.apache.lucene.document.Field.Store.NO));
-                if (field.isSorted()) {
-                    document.add(new org.apache.lucene.document.SortedDocValuesField(fieldName, new BytesRef((String)value)));
-                }
-                break;
-            case INT:
-                document.add(new org.apache.lucene.document.IntPoint(fieldName, (Integer)value));
-                if (field.isSorted()) {
-                    document.add(new org.apache.lucene.document.NumericDocValuesField(fieldName, (Integer)value));
-                }
-                if (field.isStored()) {
-                    document.add(new org.apache.lucene.document.StoredField(fieldName, (Integer)value));
-                }
-                break;
-            case LONG:
-                document.add(new org.apache.lucene.document.LongPoint(fieldName, (Long)value));
-                if (field.isSorted()) {
-                    document.add(new org.apache.lucene.document.NumericDocValuesField(fieldName, (Long)value));
-                }
-                if (field.isStored()) {
-                    document.add(new org.apache.lucene.document.StoredField(fieldName, (Long)value));
-                }
-                break;
-            case DOUBLE:
-                document.add(new org.apache.lucene.document.DoublePoint(fieldName, (Double)value));
-                if (field.isSorted()) {
-                    document.add(new org.apache.lucene.document.NumericDocValuesField(fieldName, org.apache.lucene.util.NumericUtils.doubleToSortableLong((Double)value)));
-                }
-                if (field.isStored()) {
-                    document.add(new org.apache.lucene.document.StoredField(fieldName, (Double)value));
-                }
-                break;
-            case BOOLEAN:
-                byte[] bytes = Boolean.TRUE.equals(value) ? new byte[] {1} : new byte[] {0};  // Simplified
-                document.add(new org.apache.lucene.document.BinaryPoint(fieldName, bytes));
-                if (field.isSorted()) {
-                    document.add(new org.apache.lucene.document.SortedDocValuesField(fieldName, new BytesRef(bytes)));
-                }
-                if (field.isStored()) {
-                    document.add(new org.apache.lucene.document.StoredField(fieldName, bytes));
-                }
-                break;
-            default:
-                throw new IllegalArgumentException("Unsupported field type: " + field.getType());
-        }
-    }
-
-    /**
      * Convert protobuf DocumentField list back to LuceneDocumentFromRecord.DocumentField list.
      */
     private List<LuceneDocumentFromRecord.DocumentField> convertFromProtoFields(
@@ -393,13 +354,14 @@ public class LucenePendingWriteQueue {
         List<LuceneDocumentFromRecord.DocumentField> fields = new ArrayList<>();
         for (LucenePendingWriteQueueProto.DocumentField protoField : protoFields) {
             String fieldName = protoField.getFieldName();
+            boolean stored = protoField.getStored();
+            boolean sorted = protoField.getSorted();
             Object value;
             LuceneIndexExpressions.DocumentFieldType fieldType;
 
             // Determine the value and type based on which field is set
             if (protoField.hasStringValue()) {
                 value = protoField.getStringValue();
-                // Default to TEXT for string values - the actual type will be determined by index definition
                 fieldType = LuceneIndexExpressions.DocumentFieldType.STRING;
             } else if (protoField.hasTextValue()) {
                 value = protoField.getTextValue();
@@ -420,9 +382,17 @@ public class LucenePendingWriteQueue {
                 throw new IllegalStateException("DocumentField has no value set: " + fieldName);
             }
 
-            // Create DocumentField - using basic constructor, will need to add field configuration if needed
+            // Convert field_configs from proto map to Map<String, Object>
+            Map<String, Object> fieldConfigs = new HashMap<>();
+            if (protoField.getFieldConfigsCount() > 0) {
+                for (Map.Entry<String, String> entry : protoField.getFieldConfigsMap().entrySet()) {
+                    fieldConfigs.put(entry.getKey(), entry.getValue());
+                }
+            }
+
+            // Create DocumentField with stored, sorted, and field_configs from proto
             LuceneDocumentFromRecord.DocumentField field =
-                    new LuceneDocumentFromRecord.DocumentField(fieldName, value, fieldType, false, false, null);
+                    new LuceneDocumentFromRecord.DocumentField(fieldName, value, fieldType, stored, sorted, fieldConfigs);
             fields.add(field);
         }
 
@@ -447,7 +417,16 @@ public class LucenePendingWriteQueue {
 
         LucenePendingWriteQueueProto.DocumentField.Builder builder =
                 LucenePendingWriteQueueProto.DocumentField.newBuilder()
-                        .setFieldName(field.getFieldName());
+                        .setFieldName(field.getFieldName())
+                        .setStored(field.isStored())
+                        .setSorted(field.isSorted());
+
+        // Add field_configs map
+        if (field.getFieldConfigs() != null && !field.getFieldConfigs().isEmpty()) {
+            for (Map.Entry<String, Object> entry : field.getFieldConfigs().entrySet()) {
+                builder.putFieldConfigs(entry.getKey(), entry.getValue().toString());
+            }
+        }
 
         // Set the appropriate value type based on field type
         Object value = field.getValue();

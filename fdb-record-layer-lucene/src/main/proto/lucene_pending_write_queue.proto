@@ -51,6 +51,12 @@ message QueuedOperation {
  */
 message DocumentField {
     required string field_name = 1;
+    optional bool stored = 2 [default = false];
+    optional bool sorted = 3 [default = false];
+
+    // Field configuration map (key-value pairs for field-specific settings)
+    // Examples: tokenizer settings, analyzer config, etc.
+    map<string, string> field_configs = 4;
 
     // Type-safe field value (exactly one must be set)
     // Field types match DocumentFieldType: STRING, TEXT, INT, LONG, DOUBLE, BOOLEAN
