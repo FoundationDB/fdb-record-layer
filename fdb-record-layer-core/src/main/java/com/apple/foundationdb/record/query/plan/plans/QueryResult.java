@@ -241,20 +241,17 @@ public class QueryResult implements ProtoSerializable {
     }
 
     /**
-     * Create a new queriedRecord with the given element.
+     * Create a new queriedRecord with the given element. This will make a copy in order to extract data from the
+     * {@link FDBQueriedRecord} that is not in the underlying protobuf message. More details about that information
+     * in the {@link PseudoField} enum.
+     *
+     * @param resultType type of final value to construct
+     * @param evaluationContext context to use (mainly for the type repository)
      * @param queriedRecord the given queriedRecord
      * @return the newly created query queriedRecord
+     * @see PseudoField for information on the fields that are copied out of the queried record but are not in the
+     *    main definition
      */
-    @Nonnull
-    public static QueryResult fromQueriedRecord(@Nullable final FDBQueriedRecord<?> queriedRecord) {
-        if (queriedRecord == null) {
-            return new QueryResult(null, null, null);
-        }
-        return new QueryResult(queriedRecord.getRecord(),
-                queriedRecord,
-                queriedRecord.getPrimaryKey());
-    }
-
     @Nonnull
     public static QueryResult fromQueriedRecord(@Nonnull Type resultType, @Nonnull EvaluationContext evaluationContext, @Nullable final FDBQueriedRecord<?> queriedRecord) {
         if (queriedRecord == null) {

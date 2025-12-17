@@ -519,6 +519,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
     private static Descriptors.GenericDescriptor getTypeSpecificDescriptor(@Nonnull final Descriptors.FieldDescriptor fieldDescriptor) {
         switch (fieldDescriptor.getType()) {
             case MESSAGE:
+            case GROUP:
                 return fieldDescriptor.getMessageType();
             case ENUM:
                 return fieldDescriptor.getEnumType();
@@ -884,9 +885,9 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
                     return TypeCode.BOOLEAN;
                 case STRING:
                     return TypeCode.STRING;
-                case GROUP:
                 case ENUM:
                     return TypeCode.ENUM;
+                case GROUP:
                 case MESSAGE:
                     return TypeCode.RECORD;
                 case BYTES:

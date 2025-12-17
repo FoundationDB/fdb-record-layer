@@ -44,7 +44,6 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactor
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerRegistry;
 import com.apple.foundationdb.record.provider.foundationdb.MetaDataProtoEditor;
 import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
@@ -1453,11 +1452,10 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
     @Nonnull
     public RecordMetaData build(boolean validate) {
         Map<String, RecordType> builtRecordTypes = Maps.newHashMapWithExpectedSize(recordTypes.size());
-        Map<String, Type.Record> builtPlannerTypes = Maps.newHashMapWithExpectedSize(recordTypes.size());
         Map<String, SyntheticRecordType<?>> builtSyntheticRecordTypes = Maps.newHashMapWithExpectedSize(syntheticRecordTypes.size());
         Map<Object, SyntheticRecordType<?>> recordTypeKeyToSyntheticRecordTypeMap = Maps.newHashMapWithExpectedSize(syntheticRecordTypes.size());
         RecordMetaData metaData = new RecordMetaData(recordsDescriptor, getUnionDescriptor(), unionFields,
-                builtRecordTypes, builtPlannerTypes, builtSyntheticRecordTypes, recordTypeKeyToSyntheticRecordTypeMap,
+                builtRecordTypes, builtSyntheticRecordTypes, recordTypeKeyToSyntheticRecordTypeMap,
                 indexes, universalIndexes, formerIndexes, userDefinedFunctionMap, viewMap,
                 splitLongRecords, storeRecordVersions, version, subspaceKeyCounter, usesSubspaceKeyCounter, recordCountKey, localFileDescriptor != null);
         for (RecordTypeBuilder recordTypeBuilder : recordTypes.values()) {
@@ -1468,7 +1466,6 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
                 for (Index index : recordTypeBuilder.getIndexes()) {
                     index.setPrimaryKeyComponentPositions(buildPrimaryKeyComponentPositions(index.getRootExpression(), primaryKey));
                 }
-                builtPlannerTypes.put(recordType.getName(), plannerTypeFor(recordType));
             } else {
                 throw new MetaDataException("Record type " +
                                             recordTypeBuilder.getName() +
@@ -1500,15 +1497,6 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
             validator.validate();
         }
         return metaData;
-    }
-
-    @Nonnull
-    private Type.Record plannerTypeFor(@Nonnull RecordType recordType) {
-        Type.Record plannerType = Type.Record.fromDescriptor(recordType.getDescriptor());
-        if (storeRecordVersions) {
-            plannerType = plannerType.addPseudoFields();
-        }
-        return plannerType;
     }
 
     // Note that there is no harm in this returning null for very complex overlaps; that just results in some duplication.
