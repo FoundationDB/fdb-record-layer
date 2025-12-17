@@ -515,6 +515,7 @@ public class LucenePartitioner {
                         }
                         savePartitionMetadata(groupingKey, builder);
                         if (assignedPartition.hasMergingState() && !assignedPartition.getMergingState().equals(LucenePartitionInfoProto.LucenePartitionInfo.MergingState.NORMAL)) {
+                            // Note that the partition info also contains the buffer partition, and should not be changed during draining
                             return getBufferPartitionId(assignedPartition.getId());
                         }
                         return assignedPartition.getId();
@@ -526,6 +527,127 @@ public class LucenePartitioner {
         // TODO: better distinct id for buffer partitions
         return partitionId | 0xf00000;
     }
+
+    /**
+     * Drain buffer partition - move all the documents from the buffer to the actual partition.
+     * The merging state should be handled by the caller.
+     *
+     * @param partitionId the ID of the destination partition
+     * @param groupingKey the grouping key for both partitions
+     * @param partitionInfo preset partition info
+     * @param context the FDB record context to use for the operation
+     * @return CompletableFuture containing the number of documents moved
+     * @throws RecordCoreException if the operation fails
+     */
+    public CompletableFuture<Integer> drainBufferPartitionAsync(
+            int partitionId,
+            @Nonnull Tuple groupingKey,
+            @Nonnull LucenePartitionInfoProto.LucenePartitionInfo partitionInfo,
+            @Nonnull FDBRecordContext context) {
+        final long startTime = System.nanoTime();
+        int bufferPartitionId = getBufferPartitionId(partitionId);
+
+        return state.store.asBuilder().setContext(context).openAsync()
+                .thenCompose(store -> {
+                    // Create cursor to get all documents from source partition
+                    final var fieldInfos = LuceneIndexExpressions.getDocumentFieldDerivations(state.index, state.store.getRecordMetaData());
+                    ScanComparisons comparisons = groupingKey.isEmpty() ?
+                                                  ScanComparisons.EMPTY :
+                                                  Objects.requireNonNull(ScanComparisons.from(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, groupingKey.get(0))));
+                    LuceneScanParameters scan = new LuceneScanQueryParameters(
+                            comparisons,
+                            new LuceneQuerySearchClause(LuceneQueryType.QUERY, "*:*", false),
+                            new Sort(new SortField(partitionFieldNameInLucene, SortField.Type.LONG),
+                                    new SortField(LuceneIndexMaintainer.PRIMARY_KEY_SEARCH_NAME, SortField.Type.STRING)),
+                            null,
+                            null,
+                            null);
+                    ScanProperties scanProperties = ExecuteProperties.newBuilder().build().asScanProperties(false);
+                    LuceneScanQuery scanQuery = (LuceneScanQuery)scan.bind(state.store, state.index, EvaluationContext.EMPTY);
+                    // we create the cursor here explicitly (vs. e.g. calling state.store.scanIndex(...)) because we want the search
+                    // to be performed specifically in the provided partition.
+                    // alternatively we can include a partitionInfo in the lucene scan parameters--tbd
+                    final LuceneRecordCursor cursor = new LuceneRecordCursor(
+                            state.context.getExecutor(),
+                            state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_EXECUTOR_SERVICE),
+                            this,
+                            Objects.requireNonNull(state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_INDEX_CURSOR_PAGE_SIZE)),
+                            scanProperties, state, scanQuery.getQuery(), scanQuery.getSort(), null,
+                            scanQuery.getGroupKey(), partitionInfo, scanQuery.getLuceneQueryHighlightParameters(), scanQuery.getTermMap(),
+                            scanQuery.getStoredFields(), scanQuery.getStoredFieldTypes(),
+                            LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerCombinationProvider(state.index, LuceneAnalyzerType.FULL_TEXT, fieldInfos),
+                            LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerCombinationProvider(state.index, LuceneAnalyzerType.AUTO_COMPLETE, fieldInfos));
+
+                    Collection<RecordType> recordTypes = store.getRecordMetaData().recordTypesForIndex(state.index);
+                    if (recordTypes.stream().map(RecordType::isSynthetic).distinct().count() > 1) {
+                        // don't support mix of synthetic/regular
+                        throw new RecordCoreException("mix of synthetic and non-synthetic record types in index is not supported");
+                    }
+
+                    // Determine record types for proper loading
+                    if (recordTypes.stream().map(RecordType::isSynthetic).distinct().count() > 1) {
+                        throw new RecordCoreException("mix of synthetic and non-synthetic record types in index is not supported");
+                    }
+
+                    // Fetch all records from source partition
+                    CompletableFuture<? extends List<? extends FDBIndexableRecord<Message>>> fetchedRecordsFuture;
+                    if (recordTypes.iterator().next().isSynthetic()) {
+                        fetchedRecordsFuture = cursor.mapPipelined(
+                                indexEntry -> store.loadSyntheticRecord(indexEntry.getPrimaryKey()),
+                                store.getPipelineSize(PipelineOperation.INDEX_TO_RECORD)
+                        ).asList();
+                    } else {
+                        fetchedRecordsFuture = store
+                                .fetchIndexRecords(cursor, IndexOrphanBehavior.SKIP)
+                                .map(FDBIndexedRecord::getStoredRecord)
+                                .asList();
+                    }
+
+                    // Ensure cursor is closed
+                    fetchedRecordsFuture = fetchedRecordsFuture.whenComplete((ignored, throwable) -> cursor.close());
+
+                    return fetchedRecordsFuture.thenApply(records -> {
+                        if (records.isEmpty()) {
+                            if (LOGGER.isDebugEnabled()) {
+                                LOGGER.debug(KeyValueLogMessage.of("No records found in buffer partition",
+                                        LogMessageKeys.PARTITION_ID, bufferPartitionId));
+                            }
+                            return 0;
+                        }
+
+                        try {
+                            // Get LuceneIndexMaintainer for document operations
+                            LuceneIndexMaintainer indexMaintainer = (LuceneIndexMaintainer)state.store.getIndexMaintainer(state.index);
+
+                            // Delete all documents from buffer partition and add to partition
+                            for (FDBIndexableRecord<Message> rec : records) {
+                                indexMaintainer.deleteDocument(groupingKey, bufferPartitionId, rec.getPrimaryKey());
+                                LuceneDocumentFromRecord.getRecordFields(state.index.getRootExpression(), rec)
+                                        .entrySet().forEach(entry -> {
+                                            indexMaintainer.writeDocument(rec, entry, partitionId);
+                                        });
+                            }
+
+                            if (LOGGER.isDebugEnabled()) {
+                                LOGGER.debug(KeyValueLogMessage.of("Moved documents from buffer partition to partition",
+                                        LogMessageKeys.PARTITION_ID, partitionId,
+                                        LogMessageKeys.GROUPING_KEY, groupingKey,
+                                        LogMessageKeys.INDEX_REPARTITION_DOCUMENT_COUNT, records.size(),
+                                        LogMessageKeys.DURATION_MILLIS, TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime)));
+                            }
+
+                            return records.size();
+
+                        } catch (Exception e) {
+                            throw new RecordCoreException("Failed to move documents between partitions", e)
+                                    .addLogInfo("sourcePartitionId", bufferPartitionId)
+                                    .addLogInfo("destinationPartitionId", partitionId)
+                                    .addLogInfo("groupingKey", groupingKey);
+                        }
+                    });
+                });
+    }
+
 
     /**
      * create a partition metadata key.

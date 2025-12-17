@@ -45,6 +45,7 @@ import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContextConfig;
+import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBTransactionPriority;
 import com.apple.foundationdb.record.provider.foundationdb.IndexDeferredMaintenanceControl;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
@@ -188,7 +189,7 @@ public class FDBDirectoryManager implements AutoCloseable {
     private void mergeIndexNow(@Nonnull LucenePartitioner partitioner,
                                final AgilityContext agileContext,
                                Tuple groupingKey,
-                               @Nullable final Integer partitionId,
+                               int partitionId,
                                LucenePartitionInfoProto.LucenePartitionInfo lastPartitionInfo) {
         final AgilityContext agilityContext = getAgilityContext(true, true);
         try {
@@ -205,14 +206,33 @@ public class FDBDirectoryManager implements AutoCloseable {
             agileContext.flush();
             mergeIndexWithContext(groupingKey, partitionId, agilityContext);
         } finally {
+            // Drain buffer index
+            LucenePartitionInfoProto.LucenePartitionInfo drainPartitionInfo =
+                    lastPartitionInfo
+                            .toBuilder()
+                            .setMergingState(LucenePartitionInfoProto.LucenePartitionInfo.MergingState.DRAINING)
+                            .build();
+            agileContext.accept(context -> {
+                    // je: Todo: apply deletes queue with the same transaction
+                    partitioner.setPartitionInfo(partitionId, groupingKey, context, drainPartitionInfo);
+                    }
+            );
+            agileContext.flush();
+
+            // here: drain the buffer partition
+            // je: Todo: handle future and make use of agility context for (possibly) long operations
+            agilityContext.asyncToSync(FDBStoreTimer.Waits.WAIT_ONLINE_MERGE_INDEX,
+                    agileContext.apply(context ->
+                            partitioner.drainBufferPartitionAsync(partitionId, groupingKey, lastPartitionInfo, context)));
+
             // Clear merging state
-            LucenePartitionInfoProto.LucenePartitionInfo updatedPartition =
+            LucenePartitionInfoProto.LucenePartitionInfo normalPartitionInfo =
                     lastPartitionInfo
                             .toBuilder()
                             .setMergingState(LucenePartitionInfoProto.LucenePartitionInfo.MergingState.NORMAL)
                             .build();
             agileContext.accept(context ->
-                    partitioner.setPartitionInfo(partitionId, groupingKey, context, updatedPartition)
+                    partitioner.setPartitionInfo(partitionId, groupingKey, context, normalPartitionInfo)
             );
             // IndexWriter may release the file lock in a finally block in its own code, so if there is an error in its
             // code, we need to commit. We could optimize this a bit, and have it only flush if it has committed anything
