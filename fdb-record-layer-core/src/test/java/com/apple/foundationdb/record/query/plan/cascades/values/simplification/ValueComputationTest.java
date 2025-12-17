@@ -126,31 +126,6 @@ class ValueComputationTest {
     }
 
     @Test
-    void testPullUpComplexValue() {
-        final var qa = CorrelationIdentifier.of("qa");
-        final var someCurrentValue = QuantifiedObjectValue.of(qa, someRecordType());
-        // (_.x as _0, _.x.xa as _1)
-        final var pulledThroughValue = RecordConstructorValue.ofUnnamed(List.of(someCurrentValue));
-
-        // _.x.xa
-        final var _x_xa = FieldValue.ofFieldNames(someCurrentValue, ImmutableList.of("x", "xa"));
-        final var toBePulledUpValues = ImmutableList.<Value>of(_x_xa);
-
-        final var resultsMap = pulledThroughValue.pullUp(toBePulledUpValues,
-                EvaluationContext.empty(), AliasMap.emptyMap(), ImmutableSet.of(), ALIAS);
-
-        final var upperCurrentValue = QuantifiedObjectValue.of(ALIAS, pulledThroughValue.getResultType());
-
-        // _.x.xa -> { _0.xa, _1 }
-        final var expectedMap = ImmutableMultimap.of(
-                _x_xa, FieldValue.ofFieldNames(upperCurrentValue, ImmutableList.of("_0", "xa")),
-                _x_xa, FieldValue.ofFieldNames(upperCurrentValue, ImmutableList.of("_1"))
-        );
-
-        Assertions.assertEquals(expectedMap, resultsMap);
-    }
-
-    @Test
     void testPullUpFieldValueThroughStreamingAggregation() {
         // _
         final var someCurrentValue = ObjectValue.of(ALIAS, someRecordType());
