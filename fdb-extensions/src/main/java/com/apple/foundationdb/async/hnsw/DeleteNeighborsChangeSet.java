@@ -85,7 +85,11 @@ class DeleteNeighborsChangeSet<N extends NodeReference> implements NeighborsChan
 
     @Override
     public boolean hasChanges() {
-        // We can probably do better by testing if the deletion has an effect on the merge.
+        //
+        // We can probably do better by testing if the deletion has an effect on the merge, i.e. if the neighbors that
+        // are being deleted by this set are in fact part of the underlying set. That case is currently impossible so
+        // we just return true for now.
+        //
         return true;
     }
 
