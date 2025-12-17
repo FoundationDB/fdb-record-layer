@@ -94,7 +94,7 @@ test_block:
         ]
     -
       - query: select * from T1 where COL1 >= 10 OR COL1 <= 20
-      - explain: "COVERING(I1 [[GREATER_THAN_OR_EQUALS promote(@c9 AS LONG)]] -> [COL1: KEY:[0], ID: KEY:[2]]) ⊎ COVERING(I1 [[LESS_THAN_OR_EQUALS promote(@c14 AS LONG)]] -> [COL1: KEY:[0], ID: KEY:[2]]) | DISTINCT BY PK | FETCH"
+      - explain: "COVERING(I1 [[GREATER_THAN_OR_EQUALS promote(@c9 AS LONG)]] -> [COL1: KEY:[0], ID: KEY:[2]]) ⊎ COVERING(I1 [[LESS_THAN_OR_EQUALS promote(@c14 AS LONG)]] -> [COL1: KEY:[0], ID: KEY:[2]]) | DISTINCT BY PK | FETCH | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)"
       - maxRows: 0 # Force continuations mode fails here. This is because we get duplicate results when we resume from a continuation
       - unorderedResult: [
                {ID:  1, COL1: 10, COL2:  1},
@@ -113,7 +113,9 @@ test_block:
         ]
     -
       - query: select * from T1 where COL1 >= 10 OR COL1 <= 20 ORDER BY COL1
-      - explain: "ISCAN(I1 [[GREATER_THAN_OR_EQUALS promote(@c9 AS LONG)]]) ∪ ISCAN(I1 [[LESS_THAN_OR_EQUALS promote(@c14 AS LONG)]]) COMPARE BY (_.COL1, recordType(_), _.ID)"
+      # RecordType value is not cross-version compatible with versions before !current_version
+      - supported_version: !current_version
+      - explain: "ISCAN(I1 [[GREATER_THAN_OR_EQUALS promote(@c9 AS LONG)]]) ∪ ISCAN(I1 [[LESS_THAN_OR_EQUALS promote(@c14 AS LONG)]]) COMPARE BY (_.COL1, recordType([_]), _.ID) | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)"
       - result: [
                {ID:  1, COL1: 10, COL2:  1},
                {ID:  2, COL1: 10, COL2:  2},
@@ -206,7 +208,7 @@ test_block:
         ]
     -
       - query: select * from T1 where (COL1 = 20 OR COL1 = 10) AND (COL1 = 20 OR COL1 = 10)
-      - explain: "COVERING(I1 [EQUALS promote(@c9 AS LONG)] -> [COL1: KEY:[0], ID: KEY:[2]]) ⊎ COVERING(I1 [EQUALS promote(@c13 AS LONG)] -> [COL1: KEY:[0], ID: KEY:[2]]) | DISTINCT BY PK | FETCH"
+      - explain: "COVERING(I1 [EQUALS promote(@c9 AS LONG)] -> [COL1: KEY:[0], ID: KEY:[2]]) ⊎ COVERING(I1 [EQUALS promote(@c13 AS LONG)] -> [COL1: KEY:[0], ID: KEY:[2]]) | DISTINCT BY PK | FETCH | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)"
       - initialVersionLessThan: 4.3.6.0
       # Prior to 4.3.6.0, there was an error that would result in this query failing due to an illegal argument exception
       # The error is currently not propagated as a SQLException, so we can't even assert on the error code
@@ -228,11 +230,9 @@ test_block:
         ]
     -
       - query: select * from T1 where (COL1 = 20 OR COL1 = 10) AND (COL1 = 20 OR COL1 = 10) ORDER BY COL1
-      - explain: "ISCAN(I1 [EQUALS promote(@c9 AS LONG)]) ∪ ISCAN(I1 [EQUALS promote(@c13 AS LONG)]) COMPARE BY (_.COL1, recordType(_), _.ID)"
-      - initialVersionLessThan: 4.3.6.0
-      # Prior to 4.3.6.0, there was an error that would result in this query failing due to an illegal argument exception
-      # The error is currently not propagated as a SQLException, so we can't even assert on the error code
-      - initialVersionAtLeast: 4.3.6.0
+      # Record type evaluation is incompatible with versions prior to !current_version
+      - supported_version: !current_version
+      - explain: "ISCAN(I1 [EQUALS promote(@c9 AS LONG)]) ∪ ISCAN(I1 [EQUALS promote(@c13 AS LONG)]) COMPARE BY (_.COL1, recordType([_]), _.ID) | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)"
       - result: [
                {ID:  1, COL1: 10, COL2:  1},
                {ID:  2, COL1: 10, COL2:  2},

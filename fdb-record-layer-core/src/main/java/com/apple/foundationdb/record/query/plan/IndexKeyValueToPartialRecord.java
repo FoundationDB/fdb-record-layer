@@ -715,7 +715,9 @@ public class IndexKeyValueToPartialRecord implements PlanHashable, PlanSerializa
                                 @Nonnull final AvailableFields.CopyIfPredicate copyIfPredicate,
                                 @Nonnull final ImmutableIntArray ordinalPath,
                                 @Nullable final String invertibleFunction) {
-            validateField(field);
+            if (!validateField(field)) {
+                return this;
+            }
             FieldCopier copier = new FieldCopier(field, source, copyIfPredicate, ordinalPath, invertibleFunction);
             if (fields.put(field, copier) != null) {
                 throw new RecordCoreException("setting field more than once: " + field);
@@ -725,7 +727,9 @@ public class IndexKeyValueToPartialRecord implements PlanHashable, PlanSerializa
 
         public Builder addField(@Nonnull final String field,
                                 @Nonnull final Value extractFromIndexEntryValue) {
-            validateField(field);
+            if (!validateField(field)) {
+                return this;
+            }
             final Copier copier =
                     new FieldWithValueCopier(Quantifier.current(),
                             ConstantPredicate.TRUE,
@@ -737,15 +741,18 @@ public class IndexKeyValueToPartialRecord implements PlanHashable, PlanSerializa
             return this;
         }
 
-        private void validateField(final @Nonnull String field) {
+        private boolean validateField(final @Nonnull String field) {
             final Descriptors.FieldDescriptor fieldDescriptor = recordDescriptor.findFieldByName(field);
             if (fieldDescriptor == null) {
-                throw new MetaDataException("field not found: " + field);
+                // Field not in record descriptor. This can happen when the PseudoFields are in the index
+                // definition. Just skip over it
+                return false;
             }
             if (fieldDescriptor.getType() == Descriptors.FieldDescriptor.Type.MESSAGE &&
                     !TupleFieldsHelper.isTupleField(fieldDescriptor.getMessageType())) {
                 throw new RecordCoreException("must set nested message field-by-field: " + field);
             }
+            return true;
         }
 
         public Builder getFieldBuilder(@Nonnull String field) {

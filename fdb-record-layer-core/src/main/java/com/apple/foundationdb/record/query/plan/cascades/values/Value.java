@@ -122,8 +122,9 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
     @Nonnull
     default Set<Type> getDynamicTypes() {
         return fold(p -> {
-            if (p instanceof CreatesDynamicTypesValue) {
-                return ImmutableSet.of(p.getResultType());
+            final Type resultType = p.getResultType();
+            if (!resultType.isPrimitive() && !resultType.isUuid()) {
+                return ImmutableSet.of(resultType);
             }
             return ImmutableSet.<Type>of();
         }, (thisTypes, childTypeSets) -> {

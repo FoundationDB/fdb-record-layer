@@ -40,102 +40,108 @@ unnamed-1:
     insert_new_count: 33
     insert_reused_count: 4
 -   query: EXPLAIN select * from t1 union all select * from t1;
-    explain: SCAN(<,>) | TFILTER T1 ⊎ SCAN(<,>) | TFILTER T1
-    task_count: 323
-    task_total_time_ms: 13
-    transform_count: 81
-    transform_time_ms: 3
-    transform_yield_count: 25
+    explain: SCAN(<,>) | TFILTER T1 | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)
+        ⊎ SCAN(<,>) | TFILTER T1 | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)
+    task_count: 379
+    task_total_time_ms: 9
+    transform_count: 91
+    transform_time_ms: 2
+    transform_yield_count: 29
     insert_time_ms: 0
-    insert_new_count: 29
-    insert_reused_count: 4
+    insert_new_count: 37
+    insert_reused_count: 2
 -   query: EXPLAIN select * from t1 union all select id, col1, col2 from t1;
-    explain: SCAN(<,>) | TFILTER T1 ⊎ SCAN(<,>) | TFILTER T1 | MAP (_.ID AS ID, _.COL1
-        AS COL1, _.COL2 AS COL2)
-    task_count: 351
-    task_total_time_ms: 15
-    transform_count: 86
-    transform_time_ms: 3
-    transform_yield_count: 27
+    explain: SCAN(<,>) | TFILTER T1 | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)
+        ⊎ SCAN(<,>) | TFILTER T1 | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)
+    task_count: 379
+    task_total_time_ms: 21
+    transform_count: 91
+    transform_time_ms: 7
+    transform_yield_count: 29
     insert_time_ms: 0
-    insert_new_count: 33
-    insert_reused_count: 3
+    insert_new_count: 37
+    insert_reused_count: 2
 -   query: EXPLAIN select id, col1, col2 from t1 union all select * from t1;
     explain: SCAN(<,>) | TFILTER T1 | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)
-        ⊎ SCAN(<,>) | TFILTER T1
-    task_count: 351
-    task_total_time_ms: 17
-    transform_count: 86
-    transform_time_ms: 6
-    transform_yield_count: 27
+        ⊎ SCAN(<,>) | TFILTER T1 | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)
+    task_count: 379
+    task_total_time_ms: 5
+    transform_count: 91
+    transform_time_ms: 2
+    transform_yield_count: 29
     insert_time_ms: 0
-    insert_new_count: 33
-    insert_reused_count: 3
+    insert_new_count: 37
+    insert_reused_count: 2
 -   query: EXPLAIN select id as W, col1 as X, col2 as Y from t1 union all select *
         from t1;
     explain: SCAN(<,>) | TFILTER T1 | MAP (_.ID AS W, _.COL1 AS X, _.COL2 AS Y) |
         MAP (_.W AS W, _.X AS X, _.Y AS Y) ⊎ SCAN(<,>) | TFILTER T1 | MAP (_.ID AS
-        ID, _.COL1 AS COL1, _.COL2 AS COL2)
-    task_count: 447
-    task_total_time_ms: 16
-    transform_count: 113
-    transform_time_ms: 2
-    transform_yield_count: 29
+        ID, _.COL1 AS COL1, _.COL2 AS COL2) | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2
+        AS COL2)
+    task_count: 491
+    task_total_time_ms: 12
+    transform_count: 120
+    transform_time_ms: 3
+    transform_yield_count: 32
     insert_time_ms: 0
-    insert_new_count: 39
-    insert_reused_count: 4
+    insert_new_count: 45
+    insert_reused_count: 3
 -   query: EXPLAIN (select id as W, col1 as X, col2 as Y from t1) union all select
         * from t1;
     explain: SCAN(<,>) | TFILTER T1 | MAP (_.ID AS W, _.COL1 AS X, _.COL2 AS Y) |
         MAP (_.W AS W, _.X AS X, _.Y AS Y) ⊎ SCAN(<,>) | TFILTER T1 | MAP (_.ID AS
-        ID, _.COL1 AS COL1, _.COL2 AS COL2)
-    task_count: 447
-    task_total_time_ms: 12
-    transform_count: 113
-    transform_time_ms: 2
-    transform_yield_count: 29
+        ID, _.COL1 AS COL1, _.COL2 AS COL2) | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2
+        AS COL2)
+    task_count: 491
+    task_total_time_ms: 7
+    transform_count: 120
+    transform_time_ms: 1
+    transform_yield_count: 32
     insert_time_ms: 0
-    insert_new_count: 39
-    insert_reused_count: 4
+    insert_new_count: 45
+    insert_reused_count: 3
 -   query: EXPLAIN select id as W, col1 as X, col2 as Y from t1 union all (select
         * from t1);
     explain: SCAN(<,>) | TFILTER T1 | MAP (_.ID AS W, _.COL1 AS X, _.COL2 AS Y) |
         MAP (_.W AS W, _.X AS X, _.Y AS Y) ⊎ SCAN(<,>) | TFILTER T1 | MAP (_.ID AS
-        ID, _.COL1 AS COL1, _.COL2 AS COL2)
-    task_count: 447
-    task_total_time_ms: 17
-    transform_count: 113
-    transform_time_ms: 2
-    transform_yield_count: 29
+        ID, _.COL1 AS COL1, _.COL2 AS COL2) | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2
+        AS COL2)
+    task_count: 491
+    task_total_time_ms: 23
+    transform_count: 120
+    transform_time_ms: 6
+    transform_yield_count: 32
     insert_time_ms: 0
-    insert_new_count: 39
-    insert_reused_count: 4
+    insert_new_count: 45
+    insert_reused_count: 3
 -   query: EXPLAIN (select id as W, col1 as X, col2 as Y from t1 union all (select
         * from t1));
     explain: SCAN(<,>) | TFILTER T1 | MAP (_.ID AS W, _.COL1 AS X, _.COL2 AS Y) |
         MAP (_.W AS W, _.X AS X, _.Y AS Y) ⊎ SCAN(<,>) | TFILTER T1 | MAP (_.ID AS
-        ID, _.COL1 AS COL1, _.COL2 AS COL2)
-    task_count: 447
-    task_total_time_ms: 5
-    transform_count: 113
-    transform_time_ms: 1
-    transform_yield_count: 29
+        ID, _.COL1 AS COL1, _.COL2 AS COL2) | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2
+        AS COL2)
+    task_count: 491
+    task_total_time_ms: 22
+    transform_count: 120
+    transform_time_ms: 4
+    transform_yield_count: 32
     insert_time_ms: 0
-    insert_new_count: 39
-    insert_reused_count: 4
+    insert_new_count: 45
+    insert_reused_count: 3
 -   query: EXPLAIN ((select id as W, col1 as X, col2 as Y from t1) union all select
         * from t1);
     explain: SCAN(<,>) | TFILTER T1 | MAP (_.ID AS W, _.COL1 AS X, _.COL2 AS Y) |
         MAP (_.W AS W, _.X AS X, _.Y AS Y) ⊎ SCAN(<,>) | TFILTER T1 | MAP (_.ID AS
-        ID, _.COL1 AS COL1, _.COL2 AS COL2)
-    task_count: 447
-    task_total_time_ms: 16
-    transform_count: 113
-    transform_time_ms: 2
-    transform_yield_count: 29
+        ID, _.COL1 AS COL1, _.COL2 AS COL2) | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2
+        AS COL2)
+    task_count: 491
+    task_total_time_ms: 21
+    transform_count: 120
+    transform_time_ms: 3
+    transform_yield_count: 32
     insert_time_ms: 0
-    insert_new_count: 39
-    insert_reused_count: 4
+    insert_new_count: 45
+    insert_reused_count: 3
 -   query: EXPLAIN select a, b from t3 union all select a, b from t4
     explain: SCAN(<,>) | TFILTER T3 | MAP (_.A AS A, _.B AS B) | MAP (_.A AS A, promote(_.B
         AS DOUBLE) AS B) ⊎ SCAN(<,>) | TFILTER T4 | MAP (_.A AS A, _.B AS B) | MAP

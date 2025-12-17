@@ -1,25 +1,26 @@
 –
 Y
 	unnamed-3LEXPLAIN select * from B where b3 = 4 and b2 = 'b' and (? is null or b1 < 20)¸
-ÇŠø P ¤…( 0ð¬8#@4ISCAN(I1 [EQUALS promote(@c8 AS LONG), EQUALS @c12])ädigraph G {
+†íåÞY ý´Ù(#0‰8*@4ISCAN(I1 [EQUALS promote(@c8 AS LONG), EQUALS @c12])ädigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c8 AS LONG), EQUALS @c12]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS B1, STRING AS B2, LONG AS B3)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS B1, STRING AS B2, LONG AS B3)" ];
   2 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}‹
+}Ž
 e
-agg-index-tests-countLEXPLAIN select * from B where b3 = 4 and b2 = 'b' and (? is null or b1 < 20)¡
-’å”òŠ ¨˜è	(T0½ƒu8¯@·COVERING(I1 [EQUALS promote(@c8 AS LONG), EQUALS promote(@c12 AS STRING)] -> [B1: KEY[3], B2: KEY[1], B3: KEY[0]]) | FILTER @c15 IS_NULL OR _.B1 LESS_THAN promote(@c21 AS INT) | FETCHÇdigraph G {
+agg-index-tests-countLEXPLAIN select * from B where b3 = 4 and b2 = 'b' and (? is null or b1 < 20)¤
+Ðè“ý¬ ƒ§É
+(]0µ‚{8Æ@ºCOVERING(I1 [EQUALS promote(@c8 AS LONG), EQUALS promote(@c12 AS STRING)] -> [B1: KEY:[3], B2: KEY:[1], B3: KEY:[0]]) | FILTER @c15 IS_NULL OR _.B1 LESS_THAN promote(@c21 AS INT) | FETCHÇdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Fetch Records</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(INT AS B1, STRING AS B2, LONG AS B3)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE @c15 IS_NULL OR q193.B1 LESS_THAN promote(@c21 AS INT)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS B1, STRING AS B2, LONG AS B3)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE @c15 IS_NULL OR q212.B1 LESS_THAN promote(@c21 AS INT)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS B1, STRING AS B2, LONG AS B3)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c8 AS LONG), EQUALS promote(@c12 AS STRING)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS B1, STRING AS B2, LONG AS B3)" ];
   4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS B1, STRING AS B2, LONG AS B3)" ];
-  3 -> 2 [ label=<&nbsp;q193> label="q193" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  3 -> 2 [ label=<&nbsp;q212> label="q212" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q195> label="q195" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q214> label="q214" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
 }

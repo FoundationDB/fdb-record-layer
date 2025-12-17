@@ -1,7 +1,7 @@
 î
 @
 	unnamed-33EXPLAIN select * from B where 6L = coalesce(5L, 6L)©
-£Áç’. ¯Ô¯(0Å£8@6SCAN(<,>) | FILTER coalesce_long(@c10, @c6) EQUALS @c6Ó
+Âöˆç2 şñÙ(0Íç8@6SCAN(<,>) | FILTER coalesce_long(@c10, @c6) EQUALS @c6Ó
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -14,7 +14,7 @@ digraph G {
 }é
 =
 	unnamed-30EXPLAIN select * from B where 6 = coalesce(5, 6)§
-£Æ§Î. ú©‚(0ÿÉ8@5SCAN(<,>) | FILTER coalesce_int(@c10, @c6) EQUALS @c6Ò
+Â«ê…2 Åé(0±È8@5SCAN(<,>) | FILTER coalesce_int(@c10, @c6) EQUALS @c6Ò
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -27,7 +27,7 @@ digraph G {
 }î
 @
 	unnamed-43EXPLAIN select * from B where 6L = coalesce(5L, 6L)©
-£Áç’. ¯Ô¯(0Å£8@6SCAN(<,>) | FILTER coalesce_long(@c10, @c6) EQUALS @c6Ó
+Âöˆç2 şñÙ(0Íç8@6SCAN(<,>) | FILTER coalesce_long(@c10, @c6) EQUALS @c6Ó
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -40,8 +40,7 @@ digraph G {
 }
 @
 	unnamed-43EXPLAIN select * from B where 6L = coalesce(5I, 6I)Ë
-£æÆù. Ñ’Š(0Òß
-8@GSCAN(<,>) | FILTER promote(coalesce_int(@c10, @c12) AS LONG) EQUALS @c6ä
+ÂğúÍ2 ²È¥(0Œ©8@GSCAN(<,>) | FILTER promote(coalesce_int(@c10, @c12) AS LONG) EQUALS @c6ä
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -54,7 +53,7 @@ digraph G {
 }
 >
 	unnamed-41EXPLAIN select * from B where 6L = coalesce(5, 6)Ë
-£úä·. ÏÉ¯(0œ 8@GSCAN(<,>) | FILTER promote(coalesce_int(@c10, @c12) AS LONG) EQUALS @c6ä
+ÂÓ–Û2 ƒğ(0‹¢8@GSCAN(<,>) | FILTER promote(coalesce_int(@c10, @c12) AS LONG) EQUALS @c6ä
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -67,7 +66,7 @@ digraph G {
 }°
 >
 	unnamed-41EXPLAIN select * from B where 6 = coalesce(5L, 6)í
-£‚®². àÙÖ(0Úÿ8@XSCAN(<,>) | FILTER coalesce_long(@c10, promote(@c6 AS LONG)) EQUALS promote(@c6 AS LONG)õ
+ÂÛ2 àÊª(0ĞÁ8@XSCAN(<,>) | FILTER coalesce_long(@c10, promote(@c6 AS LONG)) EQUALS promote(@c6 AS LONG)õ
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -80,7 +79,8 @@ digraph G {
 }²
 @
 	unnamed-43EXPLAIN select * from B where 6I = coalesce(5L, 6I)í
-£‡‰. ¸‹(0Ú‡8@XSCAN(<,>) | FILTER coalesce_long(@c10, promote(@c6 AS LONG)) EQUALS promote(@c6 AS LONG)õ
+Â°íÃ2 ¼İõ(0«û
+8@XSCAN(<,>) | FILTER coalesce_long(@c10, promote(@c6 AS LONG)) EQUALS promote(@c6 AS LONG)õ
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -93,7 +93,7 @@ digraph G {
 }²
 @
 	unnamed-43EXPLAIN select * from B where 6i = coalesce(5l, 6i)í
-£†¦Â. Ø¤•(0ı€8@XSCAN(<,>) | FILTER coalesce_long(@c10, promote(@c6 AS LONG)) EQUALS promote(@c6 AS LONG)õ
+ÂÑìÂ2 Œ½…(0ºæ8@XSCAN(<,>) | FILTER coalesce_long(@c10, promote(@c6 AS LONG)) EQUALS promote(@c6 AS LONG)õ
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -106,7 +106,7 @@ digraph G {
 }é
 =
 	unnamed-40EXPLAIN select * from B where 6 = coalesce(5, 6)§
-£Æ§Î. ú©‚(0ÿÉ8@5SCAN(<,>) | FILTER coalesce_int(@c10, @c6) EQUALS @c6Ò
+Â«ê…2 Åé(0±È8@5SCAN(<,>) | FILTER coalesce_int(@c10, @c6) EQUALS @c6Ò
 digraph G {
   fontname=courier;
   rankdir=BT;

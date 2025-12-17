@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
@@ -232,8 +231,8 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
                                             final boolean reverseScanOrder) {
         final var matchInfo = partialMatch.getRegularMatchInfo();
 
-        final var baseRecordType =
-                Type.Record.fromFieldDescriptorsMap(RecordMetaData.getFieldDescriptorMapFromTypes(queriedRecordTypes));
+        final Type.Record baseRecordType = baseType.narrowRecordMaybe().orElseThrow(() -> new RecordCoreException("type is of wrong implementor"));
+
         return tryFetchCoveringIndexScan(partialMatch, planContext, memoizer, comparisonRanges, reverseScanOrder, baseRecordType)
                 .orElseGet(() ->
                         new RecordQueryIndexPlan(index.getName(),

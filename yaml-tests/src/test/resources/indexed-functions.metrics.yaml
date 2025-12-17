@@ -1,14 +1,14 @@
 unnamed-2:
 -   query: EXPLAIN select * from t where b + c > 7;
     explain: ISCAN(BPLUSC [[GREATER_THAN promote(@c10 AS LONG)]])
-    task_count: 608
-    task_total_time_ms: 56
-    transform_count: 149
-    transform_time_ms: 21
-    transform_yield_count: 67
-    insert_time_ms: 2
-    insert_new_count: 72
-    insert_reused_count: 10
+    task_count: 713
+    task_total_time_ms: 62
+    transform_count: 161
+    transform_time_ms: 22
+    transform_yield_count: 72
+    insert_time_ms: 1
+    insert_new_count: 82
+    insert_reused_count: 6
 -   query: EXPLAIN select a, b + c AS sum from t where e = 'alpha' order by b + c;
     explain: ISCAN(BPLUSCBYE [EQUALS promote(@c14 AS STRING)]) | MAP (_.A AS A, _.B
         + _.C AS SUM)
@@ -22,21 +22,21 @@ unnamed-2:
     insert_reused_count: 2
 -   query: EXPLAIN select * from t where d & 1 = 0;
     explain: ISCAN(DMASK1 [EQUALS promote(@c10 AS LONG)])
-    task_count: 608
-    task_total_time_ms: 55
-    transform_count: 150
+    task_count: 713
+    task_total_time_ms: 65
+    transform_count: 161
     transform_time_ms: 21
-    transform_yield_count: 67
-    insert_time_ms: 2
-    insert_new_count: 72
-    insert_reused_count: 10
+    transform_yield_count: 72
+    insert_time_ms: 1
+    insert_new_count: 82
+    insert_reused_count: 6
 -   query: EXPLAIN select * from t where d & 2 = 0;
     explain: ISCAN(DMASK2 [EQUALS promote(@c10 AS LONG)])
-    task_count: 608
-    task_total_time_ms: 55
-    transform_count: 150
-    transform_time_ms: 20
-    transform_yield_count: 67
-    insert_time_ms: 2
-    insert_new_count: 72
-    insert_reused_count: 10
+    task_count: 713
+    task_total_time_ms: 66
+    transform_count: 161
+    transform_time_ms: 30
+    transform_yield_count: 72
+    insert_time_ms: 1
+    insert_new_count: 82
+    insert_reused_count: 6

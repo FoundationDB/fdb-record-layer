@@ -2,25 +2,25 @@ unnamed-3:
 -   query: EXPLAIN select * from B where b3 = 4 and b2 = 'b' and (? is null or b1
         < 20)
     explain: ISCAN(I1 [EQUALS promote(@c8 AS LONG), EQUALS @c12])
-    task_count: 327
-    task_total_time_ms: 17
-    transform_count: 80
-    transform_time_ms: 6
-    transform_yield_count: 32
+    task_count: 390
+    task_total_time_ms: 26
+    transform_count: 89
+    transform_time_ms: 7
+    transform_yield_count: 35
     insert_time_ms: 0
-    insert_new_count: 35
+    insert_new_count: 42
     insert_reused_count: 4
 agg-index-tests-count:
 -   query: EXPLAIN select * from B where b3 = 4 and b2 = 'b' and (? is null or b1
         < 20)
     explain: 'COVERING(I1 [EQUALS promote(@c8 AS LONG), EQUALS promote(@c12 AS STRING)]
-        -> [B1: KEY[3], B2: KEY[1], B3: KEY[0]]) | FILTER @c15 IS_NULL OR _.B1 LESS_THAN
-        promote(@c21 AS INT) | FETCH'
-    task_count: 1426
-    task_total_time_ms: 45
-    transform_count: 266
-    transform_time_ms: 20
-    transform_yield_count: 84
-    insert_time_ms: 1
-    insert_new_count: 175
+        -> [B1: KEY:[3], B2: KEY:[1], B3: KEY:[0]]) | FILTER @c15 IS_NULL OR _.B1
+        LESS_THAN promote(@c21 AS INT) | FETCH'
+    task_count: 1616
+    task_total_time_ms: 60
+    transform_count: 300
+    transform_time_ms: 22
+    transform_yield_count: 93
+    insert_time_ms: 2
+    insert_new_count: 198
     insert_reused_count: 18
