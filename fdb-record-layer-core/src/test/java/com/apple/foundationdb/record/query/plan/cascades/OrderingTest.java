@@ -475,6 +475,11 @@ class OrderingTest {
                 List.of(e, d, a, c))
                 .map(permutation -> requested(permutation.toArray()))
                 .collect(Collectors.toSet());
+
+
+        var actual0 = ordering.enumerateCompatibleRequestedOrderings(RequestedOrdering.ofParts(requested(), RequestedOrdering.Distinctness.NOT_DISTINCT, false, Set.of()));
+
+
         var actual1 = ordering.enumerateCompatibleRequestedOrderings(RequestedOrdering.ofParts(requested(a, c, e, d), RequestedOrdering.Distinctness.NOT_DISTINCT, false, Set.of()));
         actual1.forEach(actualPermutation -> assertTrue(expectedSet1.contains(actualPermutation)));
 
