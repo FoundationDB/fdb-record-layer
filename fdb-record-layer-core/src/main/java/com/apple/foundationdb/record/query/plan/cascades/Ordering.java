@@ -59,6 +59,7 @@ import java.util.function.BiConsumer;
 import java.util.function.BiPredicate;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 /**
  * This class captures an ordering property.
@@ -291,15 +292,67 @@ public class Ordering {
                 .collect(ImmutableSet.toImmutableSet());
     }
 
+    /**
+     * Method to verify that a given {@link RequestedOrdering} can be used to construct an ordering sequence that is
+     * supported by the current ordering from the list of {@link Value}s that composes the {@link RequestedOrdering}.
+     * This method is similar to {@link Ordering#satisfiesGroupingValues(Set)} in the sense that then both check for
+     * existence of a sequence given a bunch of {@link Value}. They differ on the satisfiability criteria such that
+     * current method requires the candidate sequence's prefix to match the ordering of {@link Value} in the
+     * {@link RequestedOrdering}.
+     * Example 1:
+     * <pre>
+     *     {@code
+     *     requested ordering:  a↑, e↑, c↑
+     *     this ordering:
+     *         partially ordered set:
+     *             members: a, b, x, c, d, e
+     *             dependencies: a ← c, b ← c, c ← d, e ← d, x ← d
+     *         bindings a↑, b↑, x↑, c↑, d↑, e↑
+     *
+     *     It should be possible to satisfy the requested ordering from the induced sub-poset of the original partially
+     *     ordered set over elements {a, e, c}:
+     *     induced sub-poset:
+     *         members: a, c, e
+     *         dependencies: a ← c
+     *
+     *     enumerated orderings (exhaustive) of the induced sub-poset:
+     *         a↑, c↑, e↑
+     *         a↑, e↑, c↑
+     *         e↑, a↑, c↑
+     *     }
+     * </pre>
+     * @param requestedOrdering the set of values which needs to match a prefix of a valid sequence
+     * @return the result of satisfiability of set of values in the ordering
+     */
     public boolean satisfies(@Nonnull RequestedOrdering requestedOrdering) {
-        return !Iterables.isEmpty(enumerateCompatibleRequestedOrderings(requestedOrdering));
+        if (requestedOrdering.isDistinct() && !isDistinct()) {
+            return false;
+        }
+
+        for (final var requestedOrderingPart : requestedOrdering.getOrderingParts()) {
+            if (!bindingMap.containsKey(requestedOrderingPart.getValue())) {
+                return false;
+            }
+            final var bindings = bindingMap.get(requestedOrderingPart.getValue());
+            final var sortOrder = sortOrder(bindings);
+            if (!sortOrder.isCompatibleWithRequestedSortOrder(requestedOrderingPart.getSortOrder())) {
+                return false;
+            }
+        }
+        final var requestedValuesSet = ImmutableSet.copyOf(requestedOrdering.getOrderingParts().stream().map(OrderingPart::getValue).iterator());
+        return !Iterables.isEmpty(
+                TopologicalSort.satisfyingPermutations(
+                        getOrderingSet().filterElements(requestedValuesSet::contains),
+                        requestedOrdering.getOrderingParts().stream().map(OrderingPart::getValue).collect(Collectors.toList()),
+                        Function.identity(),
+                        permutation -> requestedOrdering.getOrderingParts().size()));
     }
 
     /**
      * Method to, given a constraining {@link RequestedOrdering}, enumerates all ordering sequences supported by this
-     * ordering that are compatible with the given {@link RequestedOrdering}. This functionality is needed when a
-     * provided order is used to again drive requested orderings for another quantifier participating in e.g. a set
-     * operation or similar.
+     * ordering that are compatible with the given {@link RequestedOrdering} having all the elements of the partially
+     * ordered set. This functionality is needed when a provided order is used to again drive requested orderings for
+     * another quantifier participating in e.g. a set operation or similar.
      * Example:
      * <pre>
      *     {@code
@@ -311,14 +364,16 @@ public class Ordering {
      *         bindings a↑, b=, x=, c↑, d↑, e↑
      *
      *     enumerated requested orderings (among others):
-     *         a↑, b↓, c↑
-     *         a↑, x↕, b↓, c↑
      *         a↑, x↕, b↓, c↑, d↕, e↕
      *         a↑, x↕, b↓, c↑, e↕, d↕
+     *
+     *     however, the following won't be in the enumerated sequences:
+     *         a↑, b↓, c↑
+     *         a↑, x↕, b↓, c↑
      *     }
      * </pre>
      * @param requestedOrdering the {@link RequestedOrdering} this ordering needs to be compatible with
-     * @return an iterable of all compatible {@link RequestedOrdering}s
+     * @return boolean result of the compatibility check.
      */
     @Nonnull
     public Iterable<List<RequestedOrderingPart>> enumerateCompatibleRequestedOrderings(@Nonnull final RequestedOrdering requestedOrdering) {
@@ -342,7 +397,7 @@ public class Ordering {
 
         final var satisfyingValuePermutations =
                 TopologicalSort.satisfyingPermutations(
-                        getOrderingSet().filterElements(t -> requestedOrdering.getOrderingParts().stream().anyMatch(part -> part.getValue().equals(t))),
+                        getOrderingSet(),
                         ImmutableList.copyOf(requestedOrderingValuesMap.keySet()),
                         Function.identity(),
                         permutation -> requestedOrdering.getOrderingParts().size());
@@ -358,6 +413,25 @@ public class Ordering {
                         .collect(ImmutableList.toImmutableList()));
     }
 
+    /**
+     * Method to verify that a given set of grouping values forms a valid prefix of an enumerated sequence that is
+     * supported by this ordering.
+     * Example:
+     * <pre>
+     *     {@code
+     *     requested grouping values set:  {a, e, c}
+     *     this ordering:
+     *         partially ordered set:
+     *             members: a, b, x, c, d, e
+     *             dependencies: a ← c, b ← c, c ← d, e ← d, x ← d
+     *         bindings a↑, b↑, x↑, c↑, d↑, e↑
+     *
+     *     It should be possible to satisfy {a, c, e} as a and e are independent and c depends on a.
+     *     }
+     * </pre>
+     * @param requestedGroupingValues the set of values which needs to match a prefix of a valid sequence
+     * @return the result of satisfiability of set of values in the ordering
+     */
     public boolean satisfiesGroupingValues(@Nonnull final Set<Value> requestedGroupingValues) {
         // no ordering left worth further considerations
         if (requestedGroupingValues.isEmpty()) {
@@ -379,12 +453,11 @@ public class Ordering {
                 })) {
             return false;
         }
-
         final var permutations = TopologicalSort.topologicalOrderPermutations(getOrderingSet().filterElements(requestedGroupingValues::contains));
         for (final var permutation : permutations) {
-            final var containsAll = permutation.size() >= requestedGroupingValues.size() &&
+            final var satisfies = permutation.size() >= requestedGroupingValues.size() &&
                     requestedGroupingValues.containsAll(permutation.subList(0, requestedGroupingValues.size()));
-            if (containsAll) {
+            if (satisfies) {
                 return true;
             }
         }
