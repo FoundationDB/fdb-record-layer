@@ -50,7 +50,7 @@ public final class Config {
     public static final int DEFAULT_RABITQ_NUM_EX_BITS = 4;
     // concurrency
     public static final int DEFAULT_MAX_NUM_CONCURRENT_NODE_FETCHES = 16;
-    public static final int DEFAULT_MAX_NUM_CONCURRENT_NEIGHBOR_FETCHES = 16;
+    public static final int DEFAULT_MAX_NUM_CONCURRENT_NEIGHBOR_FETCHES = 10;
     public static final int DEFAULT_MAX_NUM_CONCURRENT_DELETE_FROM_LAYER = 2;
 
     @Nonnull
@@ -102,11 +102,11 @@ public final class Config {
         Preconditions.checkArgument(maxNumConcurrentNodeFetches > 0 && maxNumConcurrentNodeFetches <= 64,
                 "maxNumConcurrentNodeFetches must be (0, 64]");
         Preconditions.checkArgument(maxNumConcurrentNeighborhoodFetches > 0 &&
-                maxNumConcurrentNeighborhoodFetches <= 64,
-                "maxNumConcurrentNeighborhoodFetches must be (0, 64]");
+                maxNumConcurrentNeighborhoodFetches <= 20,
+                "maxNumConcurrentNeighborhoodFetches must be (0, 20]");
         Preconditions.checkArgument(maxNumConcurrentDeleteFromLayer > 0 &&
-                        maxNumConcurrentDeleteFromLayer <= 64,
-                "maxNumConcurrentDeleteFromLayer must be (0, 64]");
+                        maxNumConcurrentDeleteFromLayer <= 10,
+                "maxNumConcurrentDeleteFromLayer must be (0, 10]");
 
         this.metric = metric;
         this.numDimensions = numDimensions;
@@ -220,7 +220,7 @@ public final class Config {
     /**
      * Maximum number of candidate nodes that are considered when a HNSW layer is locally repaired as part of a
      * delete operation. A smaller number causes the delete operation to create a smaller set of candidate nodes
-     * which improves repair performance but not decreases repair quality, a higher number results in qualitatively
+     * which improves repair performance but decreases repair quality; a higher number results in qualitatively
      * better repairs at the expense of slower performance.
      */
     public int getEfRepair() {
@@ -353,7 +353,7 @@ public final class Config {
     @Override
     @Nonnull
     public String toString() {
-        return "Config[" + "metric=" + getMetric() + ", numDimensions=" + getNumDimensions() +
+        return "Config[metric=" + getMetric() + ", numDimensions=" + getNumDimensions() +
                 ", isUseInlining=" + isUseInlining() + ", M=" + getM() + ", MMax=" + getMMax() +
                 ", MMax0=" + getMMax0() + ", efConstruction=" + getEfConstruction() +
                 ", efRepair=" + getEfRepair() + ", isExtendCandidates=" + isExtendCandidates() +

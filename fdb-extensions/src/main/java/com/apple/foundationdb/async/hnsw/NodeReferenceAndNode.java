@@ -74,7 +74,7 @@ class NodeReferenceAndNode<T extends NodeReference, N extends NodeReference> {
 
     @Override
     public String toString() {
-        return "NB[" + nodeReference + "," + node + ']';
+        return "NRaN[" + nodeReference + "," + node + ']';
     }
 
     /**

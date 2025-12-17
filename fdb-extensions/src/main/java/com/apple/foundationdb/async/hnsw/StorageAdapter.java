@@ -163,7 +163,7 @@ interface StorageAdapter<N extends NodeReference> {
      * layout and therefore the used {@link StorageAdapter}, the vector is either part of the reference
      * (when using {@link InliningStorageAdapter}) or is s part of the {@link AbstractNode} itself (when using
      * {@link CompactStorageAdapter}). This method hides that detail from the caller and correctly resolves the vector
-     * for bot use cases.
+     * for both use cases.
      * @param nodeReference a node reference
      * @param node the accompanying node to {@code nodeReference}
      * @return the associated vector as {@link Transformed} of {@link RealVector}

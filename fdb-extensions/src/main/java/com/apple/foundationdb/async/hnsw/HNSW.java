@@ -425,21 +425,16 @@ public class HNSW {
                             throw new IllegalStateException("unable to fetch node");
                         }
                         final InliningNode candidateNode = node.asInliningNode();
-                        final List<NodeReferenceWithVector> neighbors = candidateNode.getNeighbors();
-
-                        if (!neighbors.isEmpty()) {
-                            return CompletableFuture.completedFuture(candidateNode);
-                        }
 
                         if (updatedNodes.containsKey(candidateReference.getPrimaryKey())) {
                             return CompletableFuture.completedFuture(updatedNodes.get(candidateReference.getPrimaryKey()));
                         }
 
                         return fetchBaseNode(readTransaction, storageTransform, candidateReference.getPrimaryKey())
-                                .thenApply(baseCompactNode -> {
+                                .thenAccept(baseCompactNode -> {
                                     if (baseCompactNode == null) {
                                         // node does not exist on layer 0
-                                        return null;
+                                        return;
                                     }
 
                                     //
@@ -459,8 +454,8 @@ public class HNSW {
                                     updatedNodes.put(candidateReference.getPrimaryKey(),
                                             nodeFactory.create(candidateReference.getPrimaryKey(),
                                                     baseCompactNode.getVector(), candidateNode.getNeighbors()));
-                                    return null;
-                                });
+                                })
+                                .thenApply(ignored -> null);
 
                     })
                     .thenApply(candidateNode -> {
@@ -997,28 +992,23 @@ public class HNSW {
         return forEach(nodeReferenceAndNodes,
                 nodeReferenceAndNode -> {
                     final AbstractNode<N> node = nodeReferenceAndNode.getNode();
-                    if (node.getNeighbors().isEmpty()) {
-                        final NodeReferenceWithVector nodeReference = nodeReferenceAndNode.getNodeReference();
-                        return fetchBaseNode(readTransaction, storageTransform, nodeReference.getPrimaryKey())
-                                .thenApply(baseCompactNode -> {
-                                    if (baseCompactNode == null) {
-                                        return null;
-                                    }
+                    final NodeReferenceWithVector nodeReference = nodeReferenceAndNode.getNodeReference();
+                    return fetchBaseNode(readTransaction, storageTransform, nodeReference.getPrimaryKey())
+                            .thenApply(baseCompactNode -> {
+                                if (baseCompactNode == null) {
+                                    return null;
+                                }
 
-                                    //
-                                    // The node does exist on layer 0 meaning the base node is a compact node, and we
-                                    // can use its vector going forward. This may be necessary if this is a dangling
-                                    // reference and the record has been reinserted after deletion.
-                                    //
-                                    final NodeReferenceWithVector updatedNodeReference =
-                                            new NodeReferenceWithVector(baseCompactNode.getPrimaryKey(),
-                                                    baseCompactNode.getVector());
-                                    return new NodeReferenceAndNode<>(updatedNodeReference, node);
-                                });
-                    } else {
-                        // this node has neighbors -- it must exist
-                        return CompletableFuture.completedFuture(nodeReferenceAndNode);
-                    }
+                                //
+                                // The node does exist on layer 0 meaning the base node is a compact node, and we
+                                // can use its vector going forward. This may be necessary if this is a dangling
+                                // reference and the record has been reinserted after deletion.
+                                //
+                                final NodeReferenceWithVector updatedNodeReference =
+                                        new NodeReferenceWithVector(baseCompactNode.getPrimaryKey(),
+                                                baseCompactNode.getVector());
+                                return new NodeReferenceAndNode<>(updatedNodeReference, node);
+                            });
                 },
                 getConfig().getMaxNumConcurrentNodeFetches(),
                 getExecutor())
@@ -1700,7 +1690,7 @@ public class HNSW {
             findNeighborReferences(@Nonnull final Collection<NodeReferenceAndNode<T, N>> initialNodeReferenceAndNodes,
                                    @Nullable final SplittableRandom random,
                                    @Nonnull final CandidatePredicate candidatePredicate) {
-        final Set<NodeReference> neighborReferences = Sets.newHashSet();
+        final Set<NodeReference> neighborReferences = Sets.newLinkedHashSet();
         final ImmutableMap.Builder<Tuple, NodeReferenceAndNode<T, N>> initialNodesMapBuilder = ImmutableMap.builder();
         for (final NodeReferenceAndNode<T, N> nodeReferenceAndNode : initialNodeReferenceAndNodes) {
             initialNodesMapBuilder.put(nodeReferenceAndNode.getNode().getPrimaryKey(), nodeReferenceAndNode);
@@ -1967,7 +1957,7 @@ public class HNSW {
                     final NodeReferenceAndNode<NodeReference, N> toBeDeletedNodeReferenceAndNode =
                             new NodeReferenceAndNode<>(new NodeReference(toBeDeletedPrimaryKey), toBeDeletedNode);
 
-                    return findCandidates(storageAdapter, transaction, storageTransform, random, layer,
+                    return findDeletionRepairCandidates(storageAdapter, transaction, storageTransform, random, layer,
                             toBeDeletedNodeReferenceAndNode, nodeCache)
                             .thenCompose(candidates -> {
                                 initializeCandidateChangeSetMap(toBeDeletedPrimaryKey, toBeDeletedNode, candidates,
@@ -2146,13 +2136,13 @@ public class HNSW {
      */
     @Nonnull
     private <N extends NodeReference> CompletableFuture<List<NodeReferenceAndNode<NodeReferenceWithVector, N>>>
-            findCandidates(final @Nonnull StorageAdapter<N> storageAdapter,
-                           final @Nonnull Transaction transaction,
-                           final @Nonnull StorageTransform storageTransform,
-                           final @Nonnull SplittableRandom random,
-                           final int layer,
-                           final NodeReferenceAndNode<NodeReference, N> toBeDeletedNodeReferenceAndNode,
-                           final Map<Tuple, AbstractNode<N>> nodeCache) {
+             findDeletionRepairCandidates(final @Nonnull StorageAdapter<N> storageAdapter,
+                                          final @Nonnull Transaction transaction,
+                                          final @Nonnull StorageTransform storageTransform,
+                                          final @Nonnull SplittableRandom random,
+                                          final int layer,
+                                          final NodeReferenceAndNode<NodeReference, N> toBeDeletedNodeReferenceAndNode,
+                                          final Map<Tuple, AbstractNode<N>> nodeCache) {
         return neighbors(storageAdapter, transaction, storageTransform, random,
                 ImmutableList.of(toBeDeletedNodeReferenceAndNode),
                 ((r, initialNodeKeys, size, nodeReference) ->

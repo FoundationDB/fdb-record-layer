@@ -54,7 +54,7 @@ import java.util.Set;
  * {@link ScanComparisons} for use in a multidimensional index scan.
  */
 @API(API.Status.UNSTABLE)
-public class VectorIndexScanComparisons implements IndexScanParameters {
+public final class VectorIndexScanComparisons implements IndexScanParameters {
     @Nonnull
     private final ScanComparisons prefixScanComparisons;
     @Nonnull
@@ -261,9 +261,9 @@ public class VectorIndexScanComparisons implements IndexScanParameters {
     }
 
     @Nonnull
-    protected VectorIndexScanComparisons withComparisonsAndOptions(@Nonnull final ScanComparisons prefixScanComparisons,
-                                                                   @Nonnull final DistanceRankValueComparison distanceRankValueComparison,
-                                                                   @Nonnull final VectorIndexScanOptions vectorIndexScanOptions) {
+    VectorIndexScanComparisons withComparisonsAndOptions(@Nonnull final ScanComparisons prefixScanComparisons,
+                                                         @Nonnull final DistanceRankValueComparison distanceRankValueComparison,
+                                                         @Nonnull final VectorIndexScanOptions vectorIndexScanOptions) {
         return new VectorIndexScanComparisons(prefixScanComparisons, distanceRankValueComparison,
                 vectorIndexScanOptions);
     }
