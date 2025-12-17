@@ -24,15 +24,14 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.properties.NormalizedResidualPredicateProperty;
 import com.apple.foundationdb.record.query.plan.cascades.properties.PredicateCountByLevelProperty;
 
 import javax.annotation.Nonnull;
 
 import static com.apple.foundationdb.record.query.plan.cascades.properties.ExpressionCountProperty.selectCount;
 import static com.apple.foundationdb.record.query.plan.cascades.properties.ExpressionCountProperty.tableFunctionCount;
-import static com.apple.foundationdb.record.query.plan.cascades.properties.PredicateComplexityProperty.predicateComplexity;
 import static com.apple.foundationdb.record.query.plan.cascades.properties.PredicateCountByLevelProperty.predicateCountByLevel;
-import static com.apple.foundationdb.record.query.plan.cascades.properties.PredicateCountProperty.predicateCount;
 
 /**
  * Cost model for {@link PlannerPhase#REWRITING}. TODO To be fleshed out whe we have actual rules.
@@ -75,16 +74,17 @@ public class RewritingCostModel implements CascadesCostModel {
         }
 
         //
-        // Pick the expression where that has the least number of predicates overall
+        // Pick the expression which has the least number of conjuncts in the normalized form of
+        // its combined query predicates.
         //
-        int aPredicateCount = predicateCount().evaluate(a);
-        int bPredicateCount = predicateCount().evaluate(b);
-        if (aPredicateCount != bPredicateCount) {
-            return Integer.compare(aPredicateCount, bPredicateCount);
+        final long aNormalizedConjuncts = NormalizedResidualPredicateProperty.countNormalizedConjuncts(a);
+        final long bNormalizedConjuncts = NormalizedResidualPredicateProperty.countNormalizedConjuncts(b);
+        if (aNormalizedConjuncts != bNormalizedConjuncts) {
+            return Long.compare(aNormalizedConjuncts, bNormalizedConjuncts);
         }
 
         //
-        // Pick the expression where it has the higher number of predicates at a deeper level
+        // Pick the expression where it has the higher number of query predicates at a deeper level
         //
         PredicateCountByLevelProperty.PredicateCountByLevelInfo aPredicateCountByLevel = predicateCountByLevel().evaluate(a);
         PredicateCountByLevelProperty.PredicateCountByLevelInfo bPredicateCountByLevel = predicateCountByLevel().evaluate(b);
@@ -93,15 +93,6 @@ public class RewritingCostModel implements CascadesCostModel {
         if (predicateCountByLevelComparison != 0) {
             // The expression that has more predicates at a deeper level wins
             return predicateCountByLevelComparison;
-        }
-
-        //
-        // Choose the expression with the simplest predicate.
-        //
-        int aPredicateComplexity = predicateComplexity().evaluate(a);
-        int bPredicateComplexity = predicateComplexity().evaluate(b);
-        if (aPredicateComplexity != bPredicateComplexity) {
-            return Integer.compare(aPredicateComplexity, bPredicateComplexity);
         }
 
         //

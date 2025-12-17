@@ -24,7 +24,6 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.cascades.properties.ExpressionCountProperty;
 import com.apple.foundationdb.record.query.plan.cascades.properties.PredicateComplexityProperty;
 import com.apple.foundationdb.record.query.plan.cascades.properties.PredicateCountByLevelProperty;
-import com.apple.foundationdb.record.query.plan.cascades.properties.PredicateCountProperty;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -291,7 +290,6 @@ public class ExpressionPropertiesMap<E extends RelationalExpression> {
                         ExpressionCountProperty.selectCount(),
                         ExpressionCountProperty.tableFunctionCount(),
                         PredicateComplexityProperty.predicateComplexity(),
-                        PredicateCountProperty.predicateCount(),
                         PredicateCountByLevelProperty.predicateCountByLevel()
                 ),
                 ImmutableList.of());
