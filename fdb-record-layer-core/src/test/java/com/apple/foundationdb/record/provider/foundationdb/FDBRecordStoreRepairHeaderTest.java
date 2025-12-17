@@ -418,16 +418,7 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreTestBase {
             if (hasRecordCountKey) {
                 if (formatVersion.isAtLeast(FormatVersion.RECORD_COUNT_STATE)) {
                     validateRepaired(formatVersion, recordMetaData, originalRecords, leavePotentiallyCorruptIndexesReadable);
-                    try (FDBRecordContext context = openContext()) {
-                        recordStore = getStoreBuilder(context, recordMetaData, path)
-                                .setFormatVersion(formatVersion)
-                                .open();
-
-                        assertThat(recordStore.getRecordStoreState().getStoreHeader().getRecordCountState())
-                                .isEqualTo(RecordMetaDataProto.DataStoreInfo.RecordCountState.DISABLED);
-                        assertThat(recordStore.getRecordStoreState().getStoreHeader().getRecordCountKey())
-                                .isEqualTo(recordMetaData.getRecordCountKey().toKeyExpression());
-                    }
+                    validateRecordCountKeyIsDisabled(formatVersion, recordMetaData);
                 } else {
                     validateCannotOpen(recordMetaData);
                 }
@@ -437,13 +428,24 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreTestBase {
                     recordStore = getStoreBuilder(context, recordMetaData, path)
                             .setFormatVersion(formatVersion)
                             .open();
-
-                    assertThat(recordStore.getRecordStoreState().getStoreHeader().hasRecordCountKey())
-                            .isFalse();
+                    assertThat(recordStore.getRecordStoreState().getStoreHeader().hasRecordCountKey()).isFalse();
                 }
             }
         } else {
             validateCannotOpen(recordMetaData);
+        }
+    }
+
+    private void validateRecordCountKeyIsDisabled(final FormatVersion formatVersion, final RecordMetaData recordMetaData) {
+        try (FDBRecordContext context = openContext()) {
+            recordStore = getStoreBuilder(context, recordMetaData, path)
+                    .setFormatVersion(formatVersion)
+                    .open();
+
+            assertThat(recordStore.getRecordStoreState().getStoreHeader().getRecordCountState())
+                    .isEqualTo(RecordMetaDataProto.DataStoreInfo.RecordCountState.DISABLED);
+            assertThat(recordStore.getRecordStoreState().getStoreHeader().getRecordCountKey())
+                    .isEqualTo(recordMetaData.getRecordCountKey().toKeyExpression());
         }
     }
 
