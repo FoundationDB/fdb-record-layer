@@ -210,7 +210,7 @@ public class AutoCommitTests {
         }
         setAutoCommit(conn, transactionType);
         try (final var statement = conn.createStatement()) {
-            final var hasResultSet = statement.execute("UPDATE RESTAURANT SET NAME = 'aa' WHERE REST_NO = 1 RETURNING \"new\".* ");
+            final var hasResultSet = statement.execute("UPDATE RESTAURANT SET NAME = 'aa' WHERE REST_NO = 1 RETURNING NEW.* ");
             Assertions.assertTrue(hasResultSet);
             try (final var resultSet = statement.getResultSet()) {
                 ResultSetAssert.assertThat(resultSet)
@@ -244,7 +244,7 @@ public class AutoCommitTests {
         }
         setAutoCommit(conn, transactionType);
         try (final var statement = conn.createStatement()) {
-            final var hasResultSet = statement.execute("UPDATE RESTAURANT SET NAME = 'aa' WHERE REST_NO < 3 RETURNING \"new\".* ");
+            final var hasResultSet = statement.execute("UPDATE RESTAURANT SET NAME = 'aa' WHERE REST_NO < 3 RETURNING NEW.* ");
             Assertions.assertTrue(hasResultSet);
             // resultSet not retrieved, hence it is still owned by the statement and will be closed.
         }
@@ -530,7 +530,7 @@ public class AutoCommitTests {
         Assertions.assertFalse(conn.inActiveTransaction());
         Assertions.assertTrue(conn.getAutoCommit());
         try (final var statement = conn.createStatement()) {
-            try (final var rs = statement.executeQuery("UPDATE RESTAURANT SET name = 'aa' WHERE REST_NO < 3 RETURNING \"new\".* ")) {
+            try (final var rs = statement.executeQuery("UPDATE RESTAURANT SET name = 'aa' WHERE REST_NO < 3 RETURNING NEW.* ")) {
                 Assertions.assertTrue(conn.inActiveTransaction());
                 ResultSetAssert.assertThat(rs)
                         .hasNextRow()
@@ -571,7 +571,7 @@ public class AutoCommitTests {
         conn.setAutoCommit(false);
         Assertions.assertFalse(conn.getAutoCommit());
         try (final var statement = conn.createStatement()) {
-            try (final var rs = statement.executeQuery("UPDATE RESTAURANT SET name = 'aa' WHERE REST_NO < 3 RETURNING \"new\".* ")) {
+            try (final var rs = statement.executeQuery("UPDATE RESTAURANT SET name = 'aa' WHERE REST_NO < 3 RETURNING NEW.* ")) {
                 Assertions.assertTrue(conn.inActiveTransaction());
                 ResultSetAssert.assertThat(rs)
                         .hasNextRow()
@@ -613,7 +613,7 @@ public class AutoCommitTests {
 
         RelationalResultSet rs;
         try (final var statement = conn.createStatement()) {
-            rs = statement.executeQuery("UPDATE RESTAURANT SET name = 'aa' WHERE REST_NO < 3 RETURNING \"new\".* ");
+            rs = statement.executeQuery("UPDATE RESTAURANT SET name = 'aa' WHERE REST_NO < 3 RETURNING NEW.* ");
             Assertions.assertTrue(conn.inActiveTransaction());
             ResultSetAssert.assertThat(rs).hasNextRow();
 
