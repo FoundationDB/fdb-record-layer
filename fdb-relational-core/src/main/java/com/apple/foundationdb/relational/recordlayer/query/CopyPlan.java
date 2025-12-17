@@ -49,7 +49,6 @@ import com.apple.foundationdb.relational.recordlayer.RecordLayerIterator;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerResultSet;
 import com.apple.foundationdb.relational.recordlayer.RelationalKeyspaceProvider;
 import com.google.common.collect.Iterators;
-import com.google.protobuf.ByteString;
 
 import javax.annotation.Nonnull;
 import java.net.URI;
@@ -222,62 +221,15 @@ public class CopyPlan extends QueryPlan {
             final KeySpacePath keySpacePath = getPath();
 
             final FDBRecordContext fdbContext = getRecordContext(context);
-            final List<OrderedLiteral> orderedLiterals = queryExecutionContext.getLiterals().getOrderedLiterals();
-            if (orderedLiterals.isEmpty()) {
-                throw new RelationalException(
-                        "Parameter is not found",
-                        ErrorCode.INVALID_PARAMETER);
-            }
-            Object parameterValue = orderedLiterals.get(0).getLiteralObject();
-
-            if (parameterValue == null) {
-                throw new RelationalException(
-                        "Parameter is null or not found",
-                        ErrorCode.INVALID_PARAMETER);
-            }
-
-            // Validate it's an array
-            if (!(parameterValue instanceof List)) {
-                throw new RelationalException(
-                        "Parameter must be an ARRAY, got: " + parameterValue.getClass().getName(),
-                        ErrorCode.INVALID_PARAMETER);
-            }
-
-            @SuppressWarnings("unchecked")
-            List<Object> dataArray = (List<Object>) parameterValue;
-
-            // Create KeySpacePathSerializer for deserialization
+            final List<Object> dataArray = getDataForImport();
             KeySpacePathSerializer serializer = new KeySpacePathSerializer(keySpacePath);
 
             // Import each element
             int importCount = 0;
             for (Object element : dataArray) {
-                if (!(element instanceof byte[])) {
-                    throw new RelationalException(
-                            "Array elements must be BYTES, got: " + element.getClass().getName(),
-                            ErrorCode.INVALID_PARAMETER);
-                }
-
-                byte[] bytes = (byte[]) element;
-                ByteString byteString = ByteString.copyFrom(bytes);
-
-                // Deserialize the data
-                DataInKeySpacePath dataInKeySpacePath;
-                try {
-                    dataInKeySpacePath = serializer.deserialize(KeySpaceProto.DataInKeySpacePath.parseFrom(byteString));
-                } catch (Exception e) {
-                    throw new RelationalException("Failed to deserialize data",
-                            ErrorCode.COPY_SERIALIZATION_ERROR, e);
-                }
-
-                // Import the data
-                try {
-                    keySpacePath.importData(fdbContext, Collections.singleton(dataInKeySpacePath)).join();
-                    importCount++;
-                } catch (Exception e) {
-                    throw new RelationalException("Failed to import data",
-                            ErrorCode.COPY_IMPORT_VALIDATION_ERROR, e);
-                }
+                final byte[] rawBytes = convertToBytes(element);
+                final DataInKeySpacePath dataInKeySpacePath = deserializeData(serializer, rawBytes);
+                importCount = importData(keySpacePath, fdbContext, dataInKeySpacePath, importCount);
             }
 
             // Build result with count
@@ -296,6 +248,68 @@ public class CopyPlan extends QueryPlan {
             throw new RelationalException("Failed to execute COPY import",
                     ErrorCode.INTERNAL_ERROR, e);
         }
+    }
+
+    @Nonnull
+    private List<Object> getDataForImport() throws RelationalException {
+        final List<OrderedLiteral> orderedLiterals = queryExecutionContext.getLiterals().getOrderedLiterals();
+        if (orderedLiterals.isEmpty()) {
+            throw new RelationalException(
+                    "Parameter is not found",
+                    ErrorCode.INVALID_PARAMETER);
+        }
+        Object parameterValue = orderedLiterals.get(0).getLiteralObject();
+
+        if (parameterValue == null) {
+            throw new RelationalException(
+                    "Parameter is null or not found",
+                    ErrorCode.INVALID_PARAMETER);
+        }
+
+        // Validate it's an array
+        if (!(parameterValue instanceof List)) {
+            throw new RelationalException(
+                    "Parameter must be an ARRAY, got: " + parameterValue.getClass().getName(),
+                    ErrorCode.INVALID_PARAMETER);
+        }
+
+        @SuppressWarnings("unchecked")
+        List<Object> dataArray = (List<Object>) parameterValue;
+        return dataArray;
+    }
+
+    @Nonnull
+    private static byte[] convertToBytes(final Object element) throws RelationalException {
+        if (!(element instanceof byte[])) {
+            throw new RelationalException(
+                    "Array elements must be BYTES, got: " + element.getClass().getName(),
+                    ErrorCode.INVALID_PARAMETER);
+        }
+
+        return (byte[])element;
+    }
+
+    @Nonnull
+    private static DataInKeySpacePath deserializeData(final KeySpacePathSerializer serializer, final byte[] byteString) throws RelationalException {
+        DataInKeySpacePath dataInKeySpacePath;
+        try {
+            dataInKeySpacePath = serializer.deserialize(KeySpaceProto.DataInKeySpacePath.parseFrom(byteString));
+        } catch (Exception e) {
+            throw new RelationalException("Failed to deserialize data",
+                    ErrorCode.COPY_SERIALIZATION_ERROR, e);
+        }
+        return dataInKeySpacePath;
+    }
+
+    private static int importData(final KeySpacePath keySpacePath, final FDBRecordContext fdbContext, final DataInKeySpacePath dataInKeySpacePath, int importCount) throws RelationalException {
+        try {
+            keySpacePath.importData(fdbContext, Collections.singleton(dataInKeySpacePath)).join();
+            importCount++;
+        } catch (Exception e) {
+            throw new RelationalException("Failed to import data",
+                    ErrorCode.COPY_IMPORT_VALIDATION_ERROR, e);
+        }
+        return importCount;
     }
 
     @Nonnull
