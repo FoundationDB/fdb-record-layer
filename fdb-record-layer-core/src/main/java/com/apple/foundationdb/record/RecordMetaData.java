@@ -761,12 +761,10 @@ public class RecordMetaData implements RecordMetaDataProvider {
                             // TODO improve
                             final Type f1Type = f1.getFieldType();
                             final Type f2Type = f2.getFieldType();
-                            if (f1Type.equals(f2Type)) {
+                            if (f1Type.equals(f2Type) || f1Type.isNullable() && f2Type.nullable().equals(f1Type)) {
                                 return Type.Record.Field.of(f1Type, f1.getFieldNameOptional());
                             } else if (f2Type.isNullable() && f1Type.nullable().equals(f2Type)) {
                                 return Type.Record.Field.of(f2Type, f2.getFieldNameOptional());
-                            } else if (f1Type.isNullable() && f2Type.nullable().equals(f1Type)) {
-                                return Type.Record.Field.of(f1Type, f1.getFieldNameOptional());
                             }
 
                             throw new IllegalArgumentException("cannot form union type of complex fields");
