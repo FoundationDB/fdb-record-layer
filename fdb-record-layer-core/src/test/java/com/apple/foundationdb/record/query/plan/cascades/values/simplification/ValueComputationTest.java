@@ -44,6 +44,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -105,6 +106,31 @@ class ValueComputationTest {
                 Column.unnamedOf(FieldValue.ofFieldNames(someCurrentValue, ImmutableList.of("x"))),
                 Column.unnamedOf(FieldValue.ofFieldNames(someCurrentValue, ImmutableList.of("x", "xa")))
         ));
+
+        // _.x.xa
+        final var _x_xa = FieldValue.ofFieldNames(someCurrentValue, ImmutableList.of("x", "xa"));
+        final var toBePulledUpValues = ImmutableList.<Value>of(_x_xa);
+
+        final var resultsMap = pulledThroughValue.pullUp(toBePulledUpValues,
+                EvaluationContext.empty(), AliasMap.emptyMap(), ImmutableSet.of(), ALIAS);
+
+        final var upperCurrentValue = QuantifiedObjectValue.of(ALIAS, pulledThroughValue.getResultType());
+
+        // _.x.xa -> { _0.xa, _1 }
+        final var expectedMap = ImmutableMultimap.of(
+                _x_xa, FieldValue.ofFieldNames(upperCurrentValue, ImmutableList.of("_0", "xa")),
+                _x_xa, FieldValue.ofFieldNames(upperCurrentValue, ImmutableList.of("_1"))
+        );
+
+        Assertions.assertEquals(expectedMap, resultsMap);
+    }
+
+    @Test
+    void testPullUpComplexValue() {
+        final var qa = CorrelationIdentifier.of("qa");
+        final var someCurrentValue = QuantifiedObjectValue.of(qa, someRecordType());
+        // (_.x as _0, _.x.xa as _1)
+        final var pulledThroughValue = RecordConstructorValue.ofUnnamed(List.of(someCurrentValue));
 
         // _.x.xa
         final var _x_xa = FieldValue.ofFieldNames(someCurrentValue, ImmutableList.of("x", "xa"));
@@ -208,6 +234,34 @@ class ValueComputationTest {
 
         final var expectedMap = ImmutableMultimap.of(
                 record_type, new RecordTypeValue(FieldValue.ofFieldName(upperCurrentValue, "_1")),
+                _a_ab__plus__x_xb, (Value)new ArithmeticValue.AddFn().encapsulate(ImmutableList.of(new_a_b, new_x_b)));
+        Assertions.assertEquals(expectedMap, resultsMap);
+    }
+
+    @Test
+    void testPullUpValue3() {
+        final var alias1 = CorrelationIdentifier.of("blah1");
+        final var qov1 = QuantifiedObjectValue.of(alias1, someRecordType());
+        final var alias2 = CorrelationIdentifier.of("blah2");
+        final var qov2 = QuantifiedObjectValue.of(alias2, Type.Record.fromFields(List.of(
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("r2_a")))));
+
+        final var pulledThroughValue = RecordConstructorValue.ofUnnamed(ImmutableList.of(qov1, qov2));
+
+        final var _a_b = FieldValue.ofFieldNames(qov1, ImmutableList.of("a", "ab"));
+        final var _x_b = FieldValue.ofFieldNames(qov1, ImmutableList.of("x", "xb"));
+        // _.a.ab + _.x.xb
+        final var _a_ab__plus__x_xb = (Value)new ArithmeticValue.AddFn().encapsulate(ImmutableList.of(_a_b, _x_b));
+        final var toBePulledUpValues = ImmutableList.of(_a_ab__plus__x_xb);
+
+        final var resultsMap = pulledThroughValue.pullUp(toBePulledUpValues,
+                EvaluationContext.empty(), AliasMap.emptyMap(), ImmutableSet.of(), ALIAS);
+        final var upperCurrentValue = QuantifiedObjectValue.of(ALIAS, pulledThroughValue.getResultType());
+
+        final var new_a_b = FieldValue.ofFieldNames(upperCurrentValue, ImmutableList.of("_0", "a", "ab"));
+        final var new_x_b = FieldValue.ofFieldNames(upperCurrentValue, ImmutableList.of("_0", "x", "xb"));
+
+        final var expectedMap = ImmutableMultimap.of(
                 _a_ab__plus__x_xb, (Value)new ArithmeticValue.AddFn().encapsulate(ImmutableList.of(new_a_b, new_x_b)));
         Assertions.assertEquals(expectedMap, resultsMap);
     }

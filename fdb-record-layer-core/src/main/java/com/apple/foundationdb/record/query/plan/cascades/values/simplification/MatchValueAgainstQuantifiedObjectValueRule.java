@@ -84,6 +84,10 @@ public class MatchValueAgainstQuantifiedObjectValueRule extends ValueComputation
 
             final var alias = Iterables.getOnlyElement(correlatedTo);
 
+            if (!alias.equals(quantifiedObjectValue.getAlias())) {
+                continue;
+            }
+
             newMatchedValuesMap.put(toBePulledUpValue, ImmutableList.of(
                     ((value) -> {
                         final var translationMapBuilder = TranslationMap.regularBuilder();
