@@ -403,47 +403,10 @@ public class LogicalOperator {
         expandedOutput.underlyingAsColumns().forEach(selectBuilder::addResultColumn);
         selectExpression = selectBuilder.build().buildSelect();
 
-        /*
-        if (canAvoidProjectingIndividualFields(output, logicalOperators)) {
-            final var passedThroughResultValue = Iterables.getOnlyElement(output).getUnderlying();
-            selectExpression = selectBuilder.build().buildSelectWithResultValue(passedThroughResultValue);
-        } else {
-        }
-         */
-
         final var resultingQuantifier = Quantifier.forEach(Reference.initialOf(selectExpression));
         var resultingExpressions = expandedOutput.rewireQov(resultingQuantifier.getFlowedObjectValue());
         resultingExpressions = alias.map(resultingExpressions::withQualifier).orElseGet(resultingExpressions::clearQualifier);
         return LogicalOperator.newOperator(alias, resultingExpressions, resultingQuantifier);
-    }
-
-    /**
-     * Determine whether it is possible to skip projection of individual columns of the underlying quantifier. This is
-     * to avoid unnecessary "breaking" a record constructor value unnecessarily when the user issues a query as simple
-     * as {@code SELECT * FROM T}.
-     * <br/>
-     * It can be thought of as a premature optimization considering and should be done by the optimizer during an initial
-     * plan canonicalization phase.
-     *
-     * @param output the {@link LogicalOperator}'s output.
-     * @param logicalOperators The underlying logical operators.
-     * @return {@code true} if projecting individual columns of the underlying quantifier can be avoided, otherwise
-     * {@code false}.
-     */
-    private static boolean canAvoidProjectingIndividualFields(@Nonnull Expressions output,
-                                                              @Nonnull LogicalOperators logicalOperators) {
-        return // no joins
-                Iterables.size(logicalOperators.forEachOnly()) == 1 &&
-                        // must be a Star expression
-                        Iterables.size(output) == 1 &&
-                        Iterables.getOnlyElement(output) instanceof Star &&
-                        // special case for CTEs where it is possible that a Star is referencing aliased columns of a named query
-                        // if these columns are aliased differently from the underlying query fragment, then we can only avoid
-                        // projecting individual columns (and lose their aliases) if and only if their names pairwise match the
-                        // underlying query fragment columns.
-                        output.expanded().stream().allMatch(expression -> expression.getName().isEmpty() ||
-                                (expression.getUnderlying() instanceof FieldValue &&
-                                        ((FieldValue) expression.getUnderlying()).getLastFieldName().equals(expression.getName().map(Identifier::getName))));
     }
 
     @Nonnull

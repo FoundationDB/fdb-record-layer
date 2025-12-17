@@ -254,6 +254,7 @@ public class MessageHelpers {
         return builder.build();
     }
 
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public static void deepCopyMessage(@Nonnull final Message.Builder builder, @Nonnull final Message message) {
         for (final var entry : message.getAllFields().entrySet()) {
             final Descriptors.FieldDescriptor field = entry.getKey();
