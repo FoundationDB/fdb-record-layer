@@ -163,11 +163,11 @@ test_block:
        # the min/max). That index should be usable for normal queries just like a value index. Note that the scan is
        # NOT by group
        - query: select col2 from T1 where col1 = 10;
-       - explain: "COVERING(MV8 [EQUALS promote(@c8 AS LONG)] -> [COL1: KEY[0], COL2: KEY[1], ID: KEY[3]]) | MAP (_.COL2 AS COL2)"
+       - explain: "COVERING(MV8 [EQUALS promote(@c8 AS LONG)] -> [COL1: KEY:[0], COL2: KEY:[1], ID: KEY:[3]]) | MAP (_.COL2 AS COL2)"
        - result: [{!l 1}, {!l 2}, {!l 3}, {!l 4}, {!l 5}]
     -
        - query: select col2 from T1 where col1 = 10 order by col2 desc;
-       - explain: "COVERING(MV8 [EQUALS promote(@c8 AS LONG)] REVERSE -> [COL1: KEY[0], COL2: KEY[1], ID: KEY[3]]) | MAP (_.COL2 AS COL2)"
+       - explain: "COVERING(MV8 [EQUALS promote(@c8 AS LONG)] REVERSE -> [COL1: KEY:[0], COL2: KEY:[1], ID: KEY:[3]]) | MAP (_.COL2 AS COL2)"
        - result: [{!l 5}, {!l 4}, {!l 3}, {!l 2}, {!l 1}]
     -
       - query: select min(col3) from T2 group by col1, col2;
@@ -223,11 +223,11 @@ test_block:
     -
       # Permuted max index can be used as a value index on the underlying columns
       - query: select col3, col2 from t2 where col1 = 1 order by col3 asc;
-      - explain: "COVERING(MV9 [EQUALS promote(@c10 AS LONG)] -> [COL1: KEY[0], COL2: KEY[2], COL3: KEY[1], ID: KEY[4]]) | MAP (_.COL3 AS COL3, _.COL2 AS COL2)"
+      - explain: "COVERING(MV9 [EQUALS promote(@c10 AS LONG)] -> [COL1: KEY:[0], COL2: KEY:[2], COL3: KEY:[1], ID: KEY:[4]]) | MAP (_.COL3 AS COL3, _.COL2 AS COL2)"
       - result: [{COL3: 1, COL2: 1}, {COL3: 2, COL2: 2}, {COL3: 100, COL2: 1}, {COL3: 200, COL2: 2}]
     -
       - query: select col3, col2 from t2 where col1 = 1 order by col3 desc;
-      - explain: "COVERING(MV9 [EQUALS promote(@c10 AS LONG)] REVERSE -> [COL1: KEY[0], COL2: KEY[2], COL3: KEY[1], ID: KEY[4]]) | MAP (_.COL3 AS COL3, _.COL2 AS COL2)"
+      - explain: "COVERING(MV9 [EQUALS promote(@c10 AS LONG)] REVERSE -> [COL1: KEY:[0], COL2: KEY:[2], COL3: KEY:[1], ID: KEY:[4]]) | MAP (_.COL3 AS COL3, _.COL2 AS COL2)"
       - result: [{COL3: 200, COL2: 2}, {COL3: 100, COL2: 1}, {COL3: 2, COL2: 2}, {COL3: 1, COL2: 1}]
     -
       # Permuted max index can also be used to evaluate other aggregate functions via aggregation and roll-up

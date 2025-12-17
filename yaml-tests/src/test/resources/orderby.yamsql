@@ -242,24 +242,24 @@ test_block:
     -
       # Ordering by a non projected column
       - query: select c from t1 order by b
-      - explain: "COVERING(I1 <,> -> [A: KEY[2], B: KEY[0], C: VALUE[0]]) | MAP (_.C AS C, _.B AS B) | MAP (_.C AS C)"
+      - explain: "COVERING(I1 <,> -> [A: KEY:[2], B: KEY:[0], C: VALUE:[0]]) | MAP (_.C AS C, _.B AS B) | MAP (_.C AS C)"
       - result: [ {0}, {0}, {1}, {1}, {8}, {8}, {8}, {5}, {5}, {5} ]
     -
       - query: select b from t1 order by c
-      - explain: "COVERING(I2 <,> -> [A: KEY[2], B: VALUE[0], C: KEY[0]]) | MAP (_.B AS B, _.C AS C) | MAP (_.B AS B)"
+      - explain: "COVERING(I2 <,> -> [A: KEY:[2], B: VALUE:[0], C: KEY:[0]]) | MAP (_.B AS B, _.C AS C) | MAP (_.B AS B)"
       - result: [ {2}, {1}, {4}, {3}, {10}, {9}, {8}, {7}, {6}, {5} ]
     -
       # Ordering by a non projected column desc
       - query: select c from t1 order by b desc
-      - explain: "COVERING(I1 <,> REVERSE -> [A: KEY[2], B: KEY[0], C: VALUE[0]]) | MAP (_.C AS C, _.B AS B) | MAP (_.C AS C)"
+      - explain: "COVERING(I1 <,> REVERSE -> [A: KEY:[2], B: KEY:[0], C: VALUE:[0]]) | MAP (_.C AS C, _.B AS B) | MAP (_.C AS C)"
       - result: [ {5}, {5}, {5}, {8}, {8}, {8}, {1}, {1}, {0}, {0} ]
     -
       - query: select b from t1 order by c desc
-      - explain: "COVERING(I2 <,> REVERSE -> [A: KEY[2], B: VALUE[0], C: KEY[0]]) | MAP (_.B AS B, _.C AS C) | MAP (_.B AS B)"
+      - explain: "COVERING(I2 <,> REVERSE -> [A: KEY:[2], B: VALUE:[0], C: KEY:[0]]) | MAP (_.B AS B, _.C AS C) | MAP (_.B AS B)"
       - result: [ {5}, {6}, {7}, {8}, {9}, {10}, {3}, {4}, {1}, {2} ]
     -
       # Simple ordering on 2 variable, mixed ordering
       - query: select c, b from t5 order by c, b desc;
-      - explain: "COVERING(I8 <,> -> [A: KEY[3], B: from_ordered_bytes(KEY:[1], DESC_NULLS_LAST), C: KEY[0]]) | MAP (_.C AS C, _.B AS B)"
+      - explain: "COVERING(I8 <,> -> [A: KEY:[3], B: from_ordered_bytes(KEY:[1], DESC_NULLS_LAST), C: KEY:[0]]) | MAP (_.C AS C, _.B AS B)"
       - result: [{0, 2}, {0, 1}, {1, 4}, {1, 3}, {5, 10}, {5, 9}, {5, 8}, {8, 7}, {8, 6}, {8, 5}]
 ...

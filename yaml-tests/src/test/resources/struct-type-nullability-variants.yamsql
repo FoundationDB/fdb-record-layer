@@ -23,7 +23,7 @@
 # - Non-nullable form (for array elements)
 ---
 options:
-    supported_version: !current_version
+    supported_version: 4.8.17.0
 ---
 schema_template:
     create type as struct Address(street string, city string, zipcode integer)

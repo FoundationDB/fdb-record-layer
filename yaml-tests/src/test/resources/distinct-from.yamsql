@@ -47,27 +47,27 @@ test_block:
   tests:
     -
       - query: select * from t1 WHERE col2 is   distinct    from null
-      - explain: "COVERING(I2 <,> -> [COL2: KEY[0], ID: KEY[2]]) | FILTER _.COL2 IS_DISTINCT_FROM NULL | FETCH"
+      - explain: "COVERING(I2 <,> -> [COL2: KEY:[0], ID: KEY:[2]]) | FILTER _.COL2 IS_DISTINCT_FROM NULL | FETCH"
       - result: [{ID: 1, 10, 1}, {ID: 3, 10, 3}, {ID: 5, 10, 5}, {ID: 9, 20, 9}, {ID: 10, 20, 10}]
     -
       - query: select * from t1 WHERE col1 is DISTINCT from 10
-      - explain: "COVERING(I1 <,> -> [COL1: KEY[0], ID: KEY[2]]) | FILTER _.COL1 IS_DISTINCT_FROM promote(@c10 AS INT) | FETCH"
+      - explain: "COVERING(I1 <,> -> [COL1: KEY:[0], ID: KEY:[2]]) | FILTER _.COL1 IS_DISTINCT_FROM promote(@c10 AS INT) | FETCH"
       - result: [{ID: 6, 20, !null }, {ID: 7, 20, !null }, {ID: 8, 20, !null }, {ID: 9, 20, 9}, {ID: 10, 20, 10}]
     -
       - query: select * from t1 WHERE null is distinct from col2
-      - explain: "COVERING(I2 <,> -> [COL2: KEY[0], ID: KEY[2]]) | FILTER _.COL2 IS_DISTINCT_FROM NULL | FETCH"
+      - explain: "COVERING(I2 <,> -> [COL2: KEY:[0], ID: KEY:[2]]) | FILTER _.COL2 IS_DISTINCT_FROM NULL | FETCH"
       - result: [{ID: 1, 10, 1}, {ID: 3, 10, 3}, {ID: 5, 10, 5}, {ID: 9, 20, 9}, {ID: 10, 20, 10}]
     -
       - query: select * from t1 WHERE 10 is distinct from col1
-      - explain: "COVERING(I1 <,> -> [COL1: KEY[0], ID: KEY[2]]) | FILTER _.COL1 IS_DISTINCT_FROM promote(@c6 AS INT) | FETCH"
+      - explain: "COVERING(I1 <,> -> [COL1: KEY:[0], ID: KEY:[2]]) | FILTER _.COL1 IS_DISTINCT_FROM promote(@c6 AS INT) | FETCH"
       - result: [{ID: 6, 20, !null }, {ID: 7, 20, !null }, {ID: 8, 20, !null }, {ID: 9, 20, 9}, {ID: 10, 20, 10}]
     -
       - query: select * from t1 WHERE null is distinct from null
-      - explain: "COVERING(I1 <,> -> [COL1: KEY[0], ID: KEY[2]]) | FILTER NULL IS_DISTINCT_FROM NULL | FETCH"
+      - explain: "COVERING(I1 <,> -> [COL1: KEY:[0], ID: KEY:[2]]) | FILTER NULL IS_DISTINCT_FROM NULL | FETCH"
       - result: []
     -
       - query: select * from t1 WHERE 10 is distinct from 10
-      - explain: "COVERING(I1 <,> -> [COL1: KEY[0], ID: KEY[2]]) | FILTER @c6 IS_DISTINCT_FROM @c6 | FETCH"
+      - explain: "COVERING(I1 <,> -> [COL1: KEY:[0], ID: KEY:[2]]) | FILTER @c6 IS_DISTINCT_FROM @c6 | FETCH"
       - result: []
 
 ---
@@ -76,19 +76,19 @@ test_block:
   tests:
     -
       - query: select * from t1 WHERE col2 is      not distinct from null
-      - explain: "COVERING(I2 <,> -> [COL2: KEY[0], ID: KEY[2]]) | FILTER _.COL2 NOT_DISTINCT_FROM NULL | FETCH"
+      - explain: "COVERING(I2 <,> -> [COL2: KEY:[0], ID: KEY:[2]]) | FILTER _.COL2 NOT_DISTINCT_FROM NULL | FETCH"
       - result: [{ID: 2, 10, !null }, {ID: 4, 10, !null }, {ID: 6, 20, !null }, {ID: 7, 20, !null }, {ID: 8, 20, !null }]
     -
       - query: select * from t1 WHERE col1 is not distinct from 20
-      - explain: "COVERING(I1 <,> -> [COL1: KEY[0], ID: KEY[2]]) | FILTER _.COL1 NOT_DISTINCT_FROM promote(@c11 AS INT) | FETCH"
+      - explain: "COVERING(I1 <,> -> [COL1: KEY:[0], ID: KEY:[2]]) | FILTER _.COL1 NOT_DISTINCT_FROM promote(@c11 AS INT) | FETCH"
       - result: [{ID: 6, 20, !null }, {ID: 7, 20, !null }, {ID: 8, 20, !null }, {ID: 9, 20, 9}, {ID: 10, 20, 10}]
     -
       - query: select * from t1 WHERE null is not distinct from col2
-      - explain: "COVERING(I2 <,> -> [COL2: KEY[0], ID: KEY[2]]) | FILTER _.COL2 NOT_DISTINCT_FROM NULL | FETCH"
+      - explain: "COVERING(I2 <,> -> [COL2: KEY:[0], ID: KEY:[2]]) | FILTER _.COL2 NOT_DISTINCT_FROM NULL | FETCH"
       - result: [{ID: 2, 10, !null }, {ID: 4, 10, !null }, {ID: 6, 20, !null }, {ID: 7, 20, !null }, {ID: 8, 20, !null }]
     -
       - query: select * from t1 WHERE 20 is not distinct from col1
-      - explain: "COVERING(I1 <,> -> [COL1: KEY[0], ID: KEY[2]]) | FILTER _.COL1 NOT_DISTINCT_FROM promote(@c6 AS INT) | FETCH"
+      - explain: "COVERING(I1 <,> -> [COL1: KEY:[0], ID: KEY:[2]]) | FILTER _.COL1 NOT_DISTINCT_FROM promote(@c6 AS INT) | FETCH"
       - result: [{ID: 6, 20, !null }, {ID: 7, 20, !null }, {ID: 8, 20, !null }, {ID: 9, 20, 9}, {ID: 10, 20, 10}]
     -
       - query: select count(*) from t1 WHERE null is not distinct from null

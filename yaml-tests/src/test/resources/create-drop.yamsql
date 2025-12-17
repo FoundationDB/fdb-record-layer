@@ -163,7 +163,7 @@ test_block:
   tests:
     -
       - query: select count(*) from "SCHEMAS" where database_id = '/FRL/DB'
-      - explain: "COVERING(TEMPLATES_VALUE_INDEX <,> -> [DATABASE_ID: KEY[2], SCHEMA_NAME: KEY[3], TEMPLATE_NAME: KEY[0], TEMPLATE_VERSION: KEY[1]]) | FILTER _.DATABASE_ID EQUALS promote(@c11 AS STRING) | FETCH | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
+      - explain: "COVERING(TEMPLATES_VALUE_INDEX <,> -> [DATABASE_ID: KEY:[2], SCHEMA_NAME: KEY:[3], TEMPLATE_NAME: KEY:[0], TEMPLATE_VERSION: KEY:[1]]) | FILTER _.DATABASE_ID EQUALS promote(@c11 AS STRING) | FETCH | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
       - result: [{1}]
 ---
 setup:
