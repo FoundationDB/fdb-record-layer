@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades.values.simplification;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentityMap;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
@@ -84,7 +85,7 @@ public class MatchValueAgainstQuantifiedObjectValueRule extends ValueComputation
 
             final var alias = Iterables.getOnlyElement(correlatedTo);
 
-            if (!alias.equals(quantifiedObjectValue.getAlias())) {
+            if (!alias.equals(Quantifier.current()) && !alias.equals(quantifiedObjectValue.getAlias())) {
                 continue;
             }
 
