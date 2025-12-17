@@ -434,6 +434,19 @@ test_block:
          {"enum_type.id": 11, "enum_type.enum__1": "B$C",   "enum_type.enum__2": !null _},
         ]
     -
+      - query: select * from "foo.enum.type" where "enum_type.enum__1" = 'B$C';
+      # Same as above, but with force continuations enabled.
+      # This can be combined with the previous query once we no longer care about backwards compatibility with versions older than !current_version
+      - supported_version: !current_version
+      - result: [
+         {"enum_type.id":  2, "enum_type.enum__1": "B$C",   "enum_type.enum__2": "B$C"},
+         {"enum_type.id":  6, "enum_type.enum__1": "B$C",   "enum_type.enum__2": "A"},
+         {"enum_type.id":  7, "enum_type.enum__1": "B$C",   "enum_type.enum__2": "C.D"},
+         {"enum_type.id":  8, "enum_type.enum__1": "B$C",   "enum_type.enum__2": "E__F"},
+         {"enum_type.id":  9, "enum_type.enum__1": "B$C",   "enum_type.enum__2": "__G$H"},
+         {"enum_type.id": 11, "enum_type.enum__1": "B$C",   "enum_type.enum__2": !null _},
+        ]
+    -
       - query: select * from "foo.enum.type" where "enum_type.enum__1" = 'C.D';
       - explain: "ISCAN(foo.enum.type$enum__1 [EQUALS promote(@c8 AS ENUM<A(0), B$C(1), C.D(2), E__F(3), __G$H(4)>)])"
       # Disable force_continuations on this plan until we resolve: https://github.com/FoundationDB/fdb-record-layer/issues/3734
@@ -442,10 +455,26 @@ test_block:
          {"enum_type.id": 3, "enum_type.enum__1": "C.D",   "enum_type.enum__2": "B$C"},
         ]
     -
+      - query: select * from "foo.enum.type" where "enum_type.enum__1" = 'C.D';
+      # Same as above, but with force continuations enabled.
+      # This can be combined with the previous query once we no longer care about backwards compatibility with versions older than !current_version
+      - supported_version: !current_version
+      - result: [
+         {"enum_type.id": 3, "enum_type.enum__1": "C.D",   "enum_type.enum__2": "B$C"},
+        ]
+    -
       - query: select * from "foo.enum.type" where "enum_type.enum__1" = 'A';
       - explain: "ISCAN(foo.enum.type$enum__1 [EQUALS promote(@c8 AS ENUM<A(0), B$C(1), C.D(2), E__F(3), __G$H(4)>)])"
       # Disable force_continuations on this plan until we resolve: https://github.com/FoundationDB/fdb-record-layer/issues/3734
       - maxRows: 0
+      - result: [
+         {"enum_type.id": 1, "enum_type.enum__1": "A",     "enum_type.enum__2": "B$C"},
+        ]
+    -
+      - query: select * from "foo.enum.type" where "enum_type.enum__1" = 'A';
+      # Same as above, but with force continuations enabled.
+      # This can be combined with the previous query once we no longer care about backwards compatibility with versions older than !current_version
+      - supported_version: !current_version
       - result: [
          {"enum_type.id": 1, "enum_type.enum__1": "A",     "enum_type.enum__2": "B$C"},
         ]
@@ -833,10 +862,28 @@ test_block:
           {"ID": 39, "T6$__COL1__": -1, "__T6.COL2__VALUE" : -1, "T6$__ENUM_1": 'A',      "T6$__ENUM_2": '__D.__' },
         ]
     -
+      - query: SELECT * FROM "___T6.__UNESCAPED" WHERE "T6$__ENUM_2" = '__D.__'
+      # Same as above, but with force continuations enabled.
+      # This can be combined with the previous query once we no longer care about backwards compatibility with versions older than !current_version
+      - supported_version: !current_version
+      - result: [
+          {"ID": 35, "T6$__COL1__": 10, "__T6.COL2__VALUE" : 19, "T6$__ENUM_1": '__D.__', "T6$__ENUM_2": '__D.__' },
+          {"ID": 39, "T6$__COL1__": -1, "__T6.COL2__VALUE" : -1, "T6$__ENUM_1": 'A',      "T6$__ENUM_2": '__D.__' },
+        ]
+    -
       - query: SELECT ID, "T6$__ENUM_1" FROM "___T6.__UNESCAPED" WHERE "T6$__ENUM_2" = '__D.__'
       - explain: "ISCAN(T6$ENUM2 [EQUALS promote(@c10 AS ENUM<A(0), B__(1), C__(2), __D.__(3)>)]) | MAP (_.ID AS ID, _.T6$__ENUM_1 AS T6$__ENUM_1)"
       # Disable force_continuations on this plan until we resolve: https://github.com/FoundationDB/fdb-record-layer/issues/3734
       - maxRows: 0
+      - result: [
+          {"ID": 35, "T6$__ENUM_1": '__D.__' },
+          {"ID": 39, "T6$__ENUM_1": 'A' },
+        ]
+    -
+      - query: SELECT ID, "T6$__ENUM_1" FROM "___T6.__UNESCAPED" WHERE "T6$__ENUM_2" = '__D.__'
+      # Same as above, but with force continuations enabled.
+      # This can be combined with the previous query once we no longer care about backwards compatibility with versions older than !current_version
+      - supported_version: !current_version
       - result: [
           {"ID": 35, "T6$__ENUM_1": '__D.__' },
           {"ID": 39, "T6$__ENUM_1": 'A' },

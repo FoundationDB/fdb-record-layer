@@ -160,10 +160,28 @@ test_block:
       - unorderedResult: [{2, 'bar', 'CONFUSED'},
                           {11, 'plugh', 'CONFUSED'}]
     -
+      - query: SELECT * From TABLE_B where "mood" = 'CONFUSED'
+      # Same as above, but with force continuations enabled.
+      # This can be combined with the previous query once we no longer care about backwards compatibility with versions older than !current_version
+      - supported_version: !current_version
+      - unorderedResult: [{2, 'bar', 'CONFUSED'},
+                          {11, 'plugh', 'CONFUSED'}]
+    -
       - query: SELECT * From TABLE_B where "mood" > 'INDIFFERENT'
       - explain: "ISCAN(B$MOOD [[GREATER_THAN promote(@c8 AS ENUM<JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)>)]])"
       # Disable force_continuations on this plan until we resolve: https://github.com/FoundationDB/fdb-record-layer/issues/3734
       - maxRows: 0
+      - unorderedResult: [{2, 'bar', 'CONFUSED'},
+                          {4, 'qux', 'ANGRY'},
+                          {7, 'grault', 'ANXIOUS'},
+                          {8, 'garply', 'SAD'},
+                          {11, 'plugh', 'CONFUSED'},
+                          {13, 'thud', 'SAD'}]
+    -
+      - query: SELECT * From TABLE_B where "mood" > 'INDIFFERENT'
+      # Same as above, but with force continuations enabled.
+      # This can be combined with the previous query once we no longer care about backwards compatibility with versions older than !current_version
+      - supported_version: !current_version
       - unorderedResult: [{2, 'bar', 'CONFUSED'},
                           {4, 'qux', 'ANGRY'},
                           {7, 'grault', 'ANXIOUS'},

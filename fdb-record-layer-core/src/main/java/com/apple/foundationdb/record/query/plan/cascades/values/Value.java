@@ -127,12 +127,6 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
                 return ImmutableSet.of(resultType);
             }
             return ImmutableSet.<Type>of();
-            /*
-            if (p instanceof CreatesDynamicTypesValue) {
-                return ImmutableSet.of(p.getResultType());
-            }
-            return ImmutableSet.<Type>of();
-             */
         }, (thisTypes, childTypeSets) -> {
             final ImmutableSet.Builder<Type> nestedBuilder = ImmutableSet.builder();
             for (final Set<Type> childTypes : childTypeSets) {
