@@ -384,7 +384,7 @@ test_block:
            from t2, t3
            where t2.col2 = 'b' and t3.col1 = 'b'
       # This plan is incorrect! The filter is seemingly including two predicates on the same version!!!
-      - explain: "ISCAN(T3_VERSION_WITH_COL1 <,>) | FLATMAP q0 -> { COVERING(T1_COL2 [EQUALS promote(@c22 AS STRING)] -> [COL2: KEY[0], ID: KEY[2]]) | FILTER q0.COL1 EQUALS promote(@c22 AS STRING) | FETCH AS q1 RETURN ((q1.ID AS ID, q1.COL1 AS COL1, q1.COL2 AS COL2) AS _0, (q0.ID AS ID, q0.COL1 AS COL1, q0.COL2 AS COL2) AS _1) }"
+      - explain: "ISCAN(T3_VERSION_WITH_COL1 <,>) | FLATMAP q0 -> { COVERING(T1_COL2 [EQUALS promote(@c22 AS STRING)] -> [COL2: KEY:[0], ID: KEY:[2]]) | FILTER q0.COL1 EQUALS promote(@c22 AS STRING) | FETCH AS q1 RETURN ((q1.ID AS ID, q1.COL1 AS COL1, q1.COL2 AS COL2) AS _0, (q0.ID AS ID, q0.COL1 AS COL1, q0.COL2 AS COL2) AS _1) }"
       - result: [
           { { ID:  3, COL1: 1, COL2: 'b' }, { ID:  3, COL1: 'b', COL2: 1 } },
           { { ID:  4, COL1: 2, COL2: 'b' }, { ID:  3, COL1: 'b', COL2: 1 } },
