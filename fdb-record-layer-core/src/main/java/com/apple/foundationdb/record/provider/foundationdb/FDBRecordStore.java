@@ -5862,19 +5862,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             return bumpMetaDataVersionStamp.thenCompose(vignore -> {
                 if (leavePotentiallyCorruptIndexesReadable) {
                     // Add a commit check that will fail if the user tries to commit with potentially corrupted indexes
-                    store.getRecordContext().addCommitCheck(POTENTIALLY_CORRUPTED_INDEXES_COMMIT_CHECK, new FDBRecordContext.CommitCheckAsync() {
-                        @Override
-                        public boolean isReady() {
-                            return true;
-                        }
-
-                        @Override
-                        @Nonnull
-                        public CompletableFuture<Void> checkAsync() {
-                            return CompletableFuture.failedFuture(new RecordCoreException("Commit failed because potentially corrupted indexes were left readable after header repair. " +
-                                    "The indexes should be rebuilt or verified before allowing commits."));
-                        }
-                    });
+                    store.getRecordContext().addCommitCheck(POTENTIALLY_CORRUPTED_INDEXES_COMMIT_CHECK,
+                            new PreventCommitCheck(() -> new RecordCoreException(
+                                    "Commit failed because potentially corrupted indexes were left readable after header repair. " +
+                                            "The indexes should be rebuilt or verified before allowing commits.")));
                     // Leave indexes as-is per user request
                     return AsyncUtil.DONE;
                 } else {
@@ -5885,6 +5876,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 }
             }).thenApply(ignored -> NonnullPair.of(true, store));
         }
+
     }
 
 }
