@@ -211,32 +211,6 @@ public class PartiallyOrderedSet<T> {
         return PartiallyOrderedSet.of(mappedElements, resultDependencyMapBuilder.build());
     }
 
-//    @Nonnull
-//    public <R> PartiallyOrderedSet<R> mapAll(@Nonnull final Map<T, R> map) {
-//        final var mappedElements = Sets.newLinkedHashSet(map.values());
-//
-//        final var resultDependencyMapBuilder = ImmutableSetMultimap.<R, R>builder();
-//        for (final var entry : getTransitiveClosure().entries()) {
-//            final var key = entry.getKey();
-//            final var value = entry.getValue();
-//
-//            if (map.containsKey(key) && map.containsKey(value)) {
-//                resultDependencyMapBuilder.put(map.get(key), map.get(value));
-//            } else {
-//                if (!map.containsKey(value)) {
-//                    // if key depends on value that does not exist -- do not insert the dependency and also remove key
-//                    final var mappedKey = map.get(key);
-//                    if (mappedKey != null) {
-//                        mappedElements.remove(mappedKey);
-//                    }
-//                }
-//            }
-//        }
-//
-//        // this needs the dependency map to be cleansed (which is done in the constructor)
-//        return PartiallyOrderedSet.of(mappedElements, resultDependencyMapBuilder.build());
-//    }
-
     @Nonnull
     public <R> PartiallyOrderedSet<R> mapAll(@Nonnull final Multimap<T, R> map) {
         final var identityMapped = this.filterElements(map::containsKey);
