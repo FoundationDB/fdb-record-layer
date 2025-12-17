@@ -395,7 +395,7 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
                                             @Nonnull final Memoizer memoizer,
                                             @Nonnull final List<ComparisonRange> comparisonRanges,
                                             final boolean reverseScanOrder) {
-        final var baseRecordType = (Type.Record) baseType;
+        final Type.Record baseRecordType = baseType.narrowRecordMaybe().orElseThrow(() -> new RecordCoreException("type is of wrong implementor"));
         return tryFetchCoveringIndexScan(partialMatch, planContext, memoizer, comparisonRanges, reverseScanOrder, baseRecordType)
                 .orElseGet(() ->
                         new RecordQueryIndexPlan(index.getName(),

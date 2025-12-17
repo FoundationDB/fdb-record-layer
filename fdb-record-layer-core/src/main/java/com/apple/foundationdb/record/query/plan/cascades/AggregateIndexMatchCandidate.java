@@ -398,8 +398,6 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
                                             @Nonnull final Memoizer memoizer,
                                             @Nonnull final List<ComparisonRange> comparisonRanges,
                                             final boolean reverseScanOrder) {
-        // final var baseRecordType = Type.Record.fromFieldDescriptorsMap(RecordMetaData.getFieldDescriptorMapFromTypes(recordTypes));
-
         final var selectHavingResultValue = selectHavingExpression.getResultValue();
         final var resultType = (Type.Record)selectHavingResultValue.getResultType();
         final var messageDescriptor =

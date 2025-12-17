@@ -231,7 +231,7 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
                                             final boolean reverseScanOrder) {
         final var matchInfo = partialMatch.getRegularMatchInfo();
 
-        final Type.Record baseRecordType = (Type.Record) baseType;
+        final Type.Record baseRecordType = baseType.narrowRecordMaybe().orElseThrow(() -> new RecordCoreException("type is of wrong implementor"));
 
         return tryFetchCoveringIndexScan(partialMatch, planContext, memoizer, comparisonRanges, reverseScanOrder, baseRecordType)
                 .orElseGet(() ->

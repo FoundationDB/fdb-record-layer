@@ -1461,8 +1461,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         for (RecordTypeBuilder recordTypeBuilder : recordTypes.values()) {
             KeyExpression primaryKey = recordTypeBuilder.getPrimaryKey();
             if (primaryKey != null) {
-                final RecordType recordType = recordTypeBuilder.build(metaData);
-                builtRecordTypes.put(recordType.getName(), recordType);
+                builtRecordTypes.put(recordTypeBuilder.getName(), recordTypeBuilder.build(metaData));
                 for (Index index : recordTypeBuilder.getIndexes()) {
                     index.setPrimaryKeyComponentPositions(buildPrimaryKeyComponentPositions(index.getRootExpression(), primaryKey));
                 }

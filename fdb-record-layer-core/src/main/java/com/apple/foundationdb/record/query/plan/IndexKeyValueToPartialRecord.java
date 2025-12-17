@@ -744,8 +744,9 @@ public class IndexKeyValueToPartialRecord implements PlanHashable, PlanSerializa
         private boolean validateField(final @Nonnull String field) {
             final Descriptors.FieldDescriptor fieldDescriptor = recordDescriptor.findFieldByName(field);
             if (fieldDescriptor == null) {
+                // Field not in record descriptor. This can happen when the PseudoFields are in the index
+                // definition. Just skip over it
                 return false;
-                // throw new MetaDataException("field not found: " + field);
             }
             if (fieldDescriptor.getType() == Descriptors.FieldDescriptor.Type.MESSAGE &&
                     !TupleFieldsHelper.isTupleField(fieldDescriptor.getMessageType())) {
