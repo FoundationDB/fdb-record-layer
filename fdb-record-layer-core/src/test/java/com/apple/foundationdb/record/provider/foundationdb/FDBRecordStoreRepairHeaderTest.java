@@ -92,8 +92,8 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreTestBase {
     static Stream<Arguments> repairUpgradeFormatVersion() {
         return formatVersions()
                 .flatMap(oldVersion -> formatVersions().filter(newVersion -> newVersion.isAtLeast(oldVersion))
-                        .flatMap(newVersion -> Stream.of(true, false)
-                                .flatMap(supportSplitRecords -> Stream.of(true, false)
+                         .flatMap(newVersion -> ParameterizedTestUtils.booleans("supportSplitRecords")
+                                .flatMap(supportSplitRecords -> ParameterizedTestUtils.booleans("leaveIndexes")
                                         .map(leavePotentiallyCorruptIndexesReadable ->
                                                 Arguments.of(oldVersion, newVersion, supportSplitRecords, leavePotentiallyCorruptIndexesReadable)))));
     }
@@ -130,7 +130,7 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreTestBase {
     static Stream<Arguments> repairUserVersion() {
         return ParameterizedTestUtils.cartesianProduct(
                 Stream.of(1, 3),
-                Stream.of(true, false));
+                ParameterizedTestUtils.booleans("leaveIndexes"));
     }
 
     @ParameterizedTest
@@ -241,7 +241,7 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreTestBase {
     }
 
     @ParameterizedTest
-    @BooleanSource
+    @BooleanSource("doLock")
     void repairWithRecordsAndSetRecordUpdateLock(boolean doLock) {
         final RecordMetaData recordMetaData = getRecordMetaData(true);
         final List<Tuple> primaryKeys = createInitialStore(FormatVersion.getMaximumSupportedVersion(), recordMetaData);
@@ -330,7 +330,7 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreTestBase {
     }
 
     @ParameterizedTest
-    @BooleanSource
+    @BooleanSource("cached")
     void noRepairIfHeaderExists(boolean cached) {
         // We don't allow repair if it is in the database, or if it is cached.
         // In theory, we could use the cached value to inform what we fabricate, but the chance that you will discover
