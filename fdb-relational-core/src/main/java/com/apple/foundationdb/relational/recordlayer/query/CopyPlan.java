@@ -42,18 +42,17 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.recordlayer.ArrayRow;
-import com.apple.foundationdb.relational.recordlayer.IteratorResultSet;
+import com.apple.foundationdb.relational.recordlayer.CommittingIteratorResultSet;
+import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
 import com.apple.foundationdb.relational.recordlayer.KeySpaceUtils;
 import com.apple.foundationdb.relational.recordlayer.RecordContextTransaction;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerIterator;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerResultSet;
 import com.apple.foundationdb.relational.recordlayer.RelationalKeyspaceProvider;
-import com.google.common.collect.Iterators;
 
 import javax.annotation.Nonnull;
 import java.net.URI;
 import java.util.Collections;
-import java.util.Iterator;
 import java.util.List;
 
 /**
@@ -131,7 +130,8 @@ public class CopyPlan extends QueryPlan {
 
     @Override
     public boolean isUpdatePlan() {
-        return copyType == CopyType.IMPORT;
+        // we don't return `true`, even for IMPORT, because we have a ResultSet to return, and not just an update count.
+        return false;
     }
 
     @Override
@@ -232,16 +232,12 @@ public class CopyPlan extends QueryPlan {
                 importCount = importData(keySpacePath, fdbContext, dataInKeySpacePath, importCount);
             }
 
-            // Build result with count
-            DataType.StructType structType = DataType.StructType.from("COPY_IMPORT", List.of(), false);
-            RelationalStructMetaData structMetaData = RelationalStructMetaData.of(structType);
-
             // Return result set with single row containing count
-            // TODO this feels wrong, should it only import as you advance the result set?
-            //      I don't think it matters if coming straight from AbstractEmbeddedStatement since that always just
-            //      consumes the whole thing, but still seems like its not fitting in the abstraction
-            final Iterator<ArrayRow> results = Iterators.transform(dataArray.iterator(), data -> new ArrayRow());
-            return new IteratorResultSet(structMetaData, results, importCount);
+            // We won't commit until the result set is closed
+            return new CommittingIteratorResultSet(getImportResultSetMetaData(),
+                    List.of(new ArrayRow(importCount)).iterator(),
+                    0,
+                    context.connection.unwrap(EmbeddedRelationalConnection.class));
         } catch (RelationalException | UncheckedRelationalException e) {
             throw e;
         } catch (Exception e) {
@@ -358,5 +354,11 @@ public class CopyPlan extends QueryPlan {
 
     private static FDBRecordContext getRecordContext(final @Nonnull ExecutionContext context) throws InternalErrorException {
         return context.transaction.unwrap(RecordContextTransaction.class).getContext();
+    }
+
+    @Nonnull
+    private static RelationalStructMetaData getImportResultSetMetaData() {
+        return RelationalStructMetaData.of(DataType.StructType.from("COPY_IMPORT",
+                List.of(DataType.StructType.Field.from("COUNT", DataType.IntegerType.notNullable(), 0)), false));
     }
 }

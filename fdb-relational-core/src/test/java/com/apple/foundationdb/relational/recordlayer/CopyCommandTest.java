@@ -53,6 +53,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Tests for COPY command (export and import).
@@ -87,8 +88,8 @@ public class CopyCommandTest {
     }
 
     @ParameterizedTest
-    @BooleanSource("namedAndQuoted")
-    void basicImportWithinCluster(boolean namedAndQuoted) throws Exception {
+    @BooleanSource({"namedAndQuoted", "autoCommit"})
+    void basicImportWithinCluster(boolean namedAndQuoted, boolean autoCommit) throws Exception {
         // Test basic COPY import functionality with quoted paths (allows hyphens)
         final String sourcePath = "/TEST/" + uuidForPath(namedAndQuoted);
         final String destPath = "/TEST/" + uuidForPath(namedAndQuoted);
@@ -113,6 +114,7 @@ public class CopyCommandTest {
         // Import to destination (using quoted path)
         try (RelationalConnection conn = DriverManager.getConnection("jdbc:embed:/__SYS").unwrap(RelationalConnection.class)) {
             conn.setSchema("CATALOG");
+            conn.setAutoCommit(autoCommit);
             try (RelationalPreparedStatement stmt = conn.prepareStatement("COPY " + maybeQuote(destPath, namedAndQuoted) + " FROM " + (namedAndQuoted ? "?data" : "?"))) {
                 if (namedAndQuoted) {
                     stmt.setObject("data", exportedData);
@@ -120,7 +122,20 @@ public class CopyCommandTest {
                     stmt.setObject(1, exportedData);
                 }
 
-                assertEquals(2, stmt.executeUpdate(), "Should have imported 2 records");
+                // I can either:
+                // 1. Have CopyPlan be an update, in which case you have to use `executeUpdate`, and the result set
+                //    will be entirely consumed their, and the number of that results is what will be returned
+                // 2. Have CopyPlan not be an update and return a single result with the count, in which case it won't
+                //    auto-commit at all
+                // 3. Make broader changes to the "hack" in AbstractEmbeddedStatement.countUpdates
+                final RelationalResultSet relationalResultSet = stmt.executeQuery();
+                assertTrue(relationalResultSet.next());
+                assertEquals(2, relationalResultSet.getInt("COUNT"));
+                assertEquals(2, relationalResultSet.getInt(1));
+                assertFalse(relationalResultSet.next());
+            }
+            if (!autoCommit) {
+                conn.commit();
             }
         }
 
