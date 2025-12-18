@@ -84,7 +84,8 @@ public class RewritingCostModel implements CascadesCostModel {
         }
 
         //
-        // Pick the expression where it has the higher number of query predicates at a deeper level
+        // Pick the expression that has a higher number of query predicates at a deeper level of
+        // the expression tree.
         //
         PredicateCountByLevelProperty.PredicateCountByLevelInfo aPredicateCountByLevel = predicateCountByLevel().evaluate(a);
         PredicateCountByLevelProperty.PredicateCountByLevelInfo bPredicateCountByLevel = predicateCountByLevel().evaluate(b);
