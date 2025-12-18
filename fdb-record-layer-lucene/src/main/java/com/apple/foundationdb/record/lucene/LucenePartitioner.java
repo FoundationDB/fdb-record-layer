@@ -524,10 +524,11 @@ public class LucenePartitioner {
                 });
     }
 
-    private static int getBufferPartitionId(int partitionId) {
+    public static int getBufferPartitionId(int partitionId) {
         // TODO: better distinct id for buffer partitions
         return partitionId | 0xf00000;
     }
+
 
     /**
      * Drain buffer partition - move all the documents from the buffer to the actual partition.
@@ -865,9 +866,10 @@ public class LucenePartitioner {
      * @param groupingKey grouping key
      * @param amount amount to subtract from the doc count
      * @param partitionId the id of the partition to decrement
+     * @param primaryKeyToDeleteList a primary key to add to the delete list (should be during merging)
      */
     CompletableFuture<Void> decrementCountAndSave(@Nonnull Tuple groupingKey,
-                                                  int amount, final int partitionId) {
+                                                  int amount, final int partitionId, final ByteString primaryKeyToDeleteList) {
         return state.context.doWithWriteLock(new LockIdentifier(partitionMetadataSubspace(groupingKey)),
                 () -> getPartitionMetaInfoById(partitionId, groupingKey).thenAccept(serialized -> {
                     if (serialized == null) {
@@ -884,6 +886,9 @@ public class LucenePartitioner {
                         // should never happen
                         throw new RecordCoreInternalException("Issue updating Lucene partition metadata (resulting count < 0)",
                                 LogMessageKeys.PARTITION_ID, partitionId);
+                    }
+                    if (primaryKeyToDeleteList != null) {
+                        builder.addDeleteKeys(primaryKeyToDeleteList);
                     }
                     savePartitionMetadata(groupingKey, builder);
                 }));
