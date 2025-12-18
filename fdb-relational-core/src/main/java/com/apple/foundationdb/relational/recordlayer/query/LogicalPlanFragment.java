@@ -30,6 +30,7 @@ import com.google.common.collect.ImmutableSet;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -66,8 +67,9 @@ public final class LogicalPlanFragment {
         this.innerJoinExpressions.add(joinExpression);
     }
 
-    public List<Expression> getJoinExpressions() {
-        return innerJoinExpressions;
+    @Nonnull
+    public List<Expression> getInnerJoinExpressions() {
+        return Collections.unmodifiableList(innerJoinExpressions);
     }
 
     @Nonnull

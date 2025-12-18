@@ -223,7 +223,7 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
                 null :
                 visitWhereExpr(simpleTableContext.fromClause().whereExpr()));
 
-        for (final var expression : getDelegate().getCurrentPlanFragment().getJoinExpressions()) {
+        for (final var expression : getDelegate().getCurrentPlanFragment().getInnerJoinExpressions()) {
             where = where.map(e -> getDelegate().resolveFunction("and", e, expression)).or(() -> Optional.of(expression));
         }
 
