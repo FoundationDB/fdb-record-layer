@@ -332,20 +332,25 @@ public final class PlanGenerator {
         final var continuationPlanConstraint =
                 QueryPlanConstraint.fromProto(serializationContext, compiledStatement.getPlanConstraint());
 
-        final Type resultType = recordQueryPlan.getResultType().getInnerType();
         final DataType.StructType semanticStructType;
-        if (resultType instanceof Type.Record) {
-            final Type.Record recordType = (Type.Record) resultType;
-            final List<DataType.StructType.Field> fields = recordType.getFields().stream()
-                    .map(field -> DataType.StructType.Field.from(
-                            field.getFieldName(),
-                            DataTypeUtils.toRelationalType(field.getFieldType()),
-                            field.getFieldIndex()))
-                    .collect(java.util.stream.Collectors.toList());
-            semanticStructType = DataType.StructType.from("QUERY_RESULT", fields, true);
+        if (compiledStatement.hasQueryMetadata()) {
+            semanticStructType = Assert.castUnchecked(DataTypeUtils.toRelationalType(Type.fromTypeProto(serializationContext, compiledStatement.getQueryMetadata())),
+                    DataType.StructType.class);
         } else {
-            // Fallback for non-record types (shouldn't happen for SELECT results)
-            semanticStructType = DataType.StructType.from("QUERY_RESULT", ImmutableList.of(), true);
+            final Type resultType = recordQueryPlan.getResultType().getInnerType();
+            if (resultType instanceof Type.Record) {
+                final Type.Record recordType = (Type.Record)resultType;
+                final List<DataType.StructType.Field> fields = recordType.getFields().stream()
+                        .map(field -> DataType.StructType.Field.from(
+                                field.getFieldName(),
+                                DataTypeUtils.toRelationalType(field.getFieldType()),
+                                field.getFieldIndex()))
+                        .collect(java.util.stream.Collectors.toList());
+                semanticStructType = DataType.StructType.from("QUERY_RESULT", fields, true);
+            } else {
+                // Fallback for non-record types (shouldn't happen for SELECT results)
+                semanticStructType = DataType.StructType.from("QUERY_RESULT", ImmutableList.of(), true);
+            }
         }
 
         return new QueryPlan.ContinuedPhysicalQueryPlan(recordQueryPlan, typeRepository,

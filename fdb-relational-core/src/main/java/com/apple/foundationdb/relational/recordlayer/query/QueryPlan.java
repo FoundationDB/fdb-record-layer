@@ -73,7 +73,7 @@ import com.apple.foundationdb.relational.recordlayer.RecordLayerIterator;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerResultSet;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerSchema;
 import com.apple.foundationdb.relational.recordlayer.ResumableIterator;
-import com.apple.foundationdb.relational.recordlayer.metadata.TypeMetadataEnricher;
+import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.base.Suppliers;
@@ -415,12 +415,9 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                             executeProperties));
             final var currentPlanHashMode = OptionsUtils.getCurrentPlanHashMode(options);
 
-            // Enrich nested structs with proper names from RecordMetaData descriptors
-            final DataType.StructType resultDataType = TypeMetadataEnricher.enrichNestedStructs(semanticStructType, fdbRecordStore.getRecordMetaData());
-
             return executionContext.metricCollector.clock(RelationalMetric.RelationalEvent.CREATE_RESULT_SET_ITERATOR, () -> {
                 final ResumableIterator<Row> iterator = RecordLayerIterator.create(cursor, messageFDBQueriedRecord -> new MessageTuple(messageFDBQueriedRecord.getMessage()));
-                return new RecordLayerResultSet(RelationalStructMetaData.of(resultDataType), iterator, connection,
+                return new RecordLayerResultSet(RelationalStructMetaData.of(semanticStructType), iterator, connection,
                         (continuation, reason) -> enrichContinuation(continuation,
                                 currentPlanHashMode, reason));
             });
@@ -463,8 +460,8 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                     i++;
                 }
 
-                compiledStatementBuilder.setPlanConstraint(getContinuationConstraint().toProto(serializationContext));
-
+                compiledStatementBuilder.setPlanConstraint(getContinuationConstraint().toProto(serializationContext))
+                        .setQueryMetadata(DataTypeUtils.toRecordLayerType(semanticStructType).toTypeProto(serializationContext));
                 continuationBuilder.withCompiledStatement(compiledStatementBuilder.build());
             }
             return continuationBuilder.build();
