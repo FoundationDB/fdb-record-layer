@@ -355,17 +355,15 @@ all-tests:
     insert_new_count: 54
     insert_reused_count: 3
 -   query: EXPLAIN select struct "x$$" ("foo.tableA".*) from "foo.tableA"
-    explain: 'COVERING(foo.tableA.idx <,> -> [foo__2tableA__2A1: KEY:[0], foo__2tableA__2A2:
-        KEY:[1], foo__2tableA__2A3: KEY:[2]]) | MAP ((_.foo.tableA.A1 AS foo.tableA.A1,
-        _.foo.tableA.A2 AS foo.tableA.A2, _.foo.tableA.A3 AS foo.tableA.A3) AS _0)'
-    task_count: 523
-    task_total_time_ms: 50
-    transform_count: 138
-    transform_time_ms: 25
-    transform_yield_count: 50
+    explain: ISCAN(foo.tableA.idx3 <,>) | MAP (_ AS _0)
+    task_count: 301
+    task_total_time_ms: 18
+    transform_count: 75
+    transform_time_ms: 9
+    transform_yield_count: 37
     insert_time_ms: 1
-    insert_new_count: 54
-    insert_reused_count: 3
+    insert_new_count: 35
+    insert_reused_count: 6
 -   query: EXPLAIN select struct "x$$" ("foo.tableA.A2" + "foo.tableA.A1" as "__$$__")
         from "foo.tableA"
     explain: ISCAN(foo.tableA.idx3 <,>) | MAP ((_.foo.tableA.A2 + _.foo.tableA.A1

@@ -220,14 +220,14 @@ k
   3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}°.
+}˜,
 y
-pseudo-field-clash-queries[EXPLAIN SELECT (t1.*), (t2.*), (t3.*) FROM t1, t2, t3 WHERE t2.id = t1.id AND t3.id = t1.id²-
-ÑýÆ§êô àÉÔF(Û0’»‚8»@'¦ISCAN(T3_VERSION <,>) | FLATMAP q0 -> { ISCAN(T2_VERSION <,>) | FLATMAP q1 -> { SCAN(<,>) | TFILTER T1 | FILTER q1.ID EQUALS _.ID AND q0.ID EQUALS _.ID AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN ((q3._0.ID AS ID, q3._0.COL1 AS COL1, q3._0.__ROW_VERSION AS __ROW_VERSION) AS _0, (q3._1.ID AS ID, q3._1.COL1 AS COL1, q3._1.__ROW_VERSION AS __ROW_VERSION) AS _1, (q0.ID AS ID, q0.COL1 AS COL1, q0.COL2 AS COL2) AS _2) }æ)digraph G {
+pseudo-field-clash-queries[EXPLAIN SELECT (t1.*), (t2.*), (t3.*) FROM t1, t2, t3 WHERE t2.id = t1.id AND t3.id = t1.idš+
+Ñùýæ‰õ Ïïú0(Û0£¿À	8»@'œISCAN(T3_VERSION <,>) | FLATMAP q0 -> { ISCAN(T2_VERSION <,>) | FLATMAP q1 -> { SCAN(<,>) | TFILTER T1 | FILTER q1.ID EQUALS _.ID AND q0.ID EQUALS _.ID AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN (q3._0 AS _0, q3._1 AS _1, (q0.ID AS ID, q0.COL1 AS COL1, q0.COL2 AS COL2) AS _2) }Ø(digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP ((q99._0.ID AS ID, q99._0.COL1 AS COL1, q99._0.__ROW_VERSION AS __ROW_VERSION) AS _0, (q99._1.ID AS ID, q99._1.COL1 AS COL1, q99._1.__ROW_VERSION AS __ROW_VERSION) AS _1, (q10.ID AS ID, q10.COL1 AS COL1, q10.COL2 AS COL2) AS _2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS COL1, BYTES AS __ROW_VERSION AS _0, LONG AS ID, LONG AS COL1, STRING AS __ROW_VERSION AS _1, LONG AS ID, LONG AS COL1, STRING AS COL2 AS _2)" ];
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q99._0 AS _0, q99._1 AS _1, (q10.ID AS ID, q10.COL1 AS COL1, q10.COL2 AS COL2) AS _2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS COL1, BYTES AS __ROW_VERSION AS _0, LONG AS ID, LONG AS COL1, STRING AS __ROW_VERSION AS _1, LONG AS ID, LONG AS COL1, STRING AS COL2 AS _2)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-âˆž, âˆž&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1, STRING AS COL2, VERSION AS __ROW_VERSION)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T3_VERSION</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1, STRING AS COL2, VERSION AS __ROW_VERSION)" ];
   4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q2 AS _0, q6 AS _1)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS COL1, BYTES AS __ROW_VERSION AS _0, LONG AS ID, LONG AS COL1, STRING AS __ROW_VERSION AS _1)" ];
@@ -249,11 +249,11 @@ y
   {
     rank=same;
     rankDir=LR;
-    5 -> 6 [ color="red" style="invis" ];
+    2 -> 4 [ color="red" style="invis" ];
   }
   {
     rank=same;
     rankDir=LR;
-    2 -> 4 [ color="red" style="invis" ];
+    5 -> 6 [ color="red" style="invis" ];
   }
 }

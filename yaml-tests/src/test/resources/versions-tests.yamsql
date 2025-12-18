@@ -129,10 +129,37 @@ test_block:
       - explain: "ISCAN(I1 [EQUALS promote(@c14 AS LONG)]) | MAP (version([_]) AS VERSION, _.COL2 AS COL2)"
       - result: [{VERSION: !not_null _, COL2: 1}, {VERSION: !not_null _, COL2: 2}, {VERSION: !not_null _, COL2: 3}, {VERSION: !not_null _, COL2: 4}, {VERSION: !not_null _, COL2: 5}]
     -
-      # Do not include __ROW_VERSION (as a pseudo-column) in *
+      # Do not include __ROW_VERSION (as a pseudo-column) with labeled *
       - query: select t1.* from t1 where col1 = 10;
       - explain: "ISCAN(I1 [EQUALS promote(@c10 AS LONG)]) | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)"
       - result: [{ID: 1, COL1: 10, COL2: 1}, {ID: 2, COL1: 10,  COL2: 2}, {ID: 3, COL1: 10, COL2: 3}, {ID: 4, COL1: 10, COL2: 4}, {ID: 5, COL1: 10, COL2: 5}]
+    -
+      # Do not include __ROW_VERSION (as a pseudo-column) with anonymous *
+      - query: select * from t1 where col1 = 10;
+      - explain: "ISCAN(I1 [EQUALS promote(@c8 AS LONG)]) | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)"
+      - result: [{ID: 1, COL1: 10, COL2: 1}, {ID: 2, COL1: 10,  COL2: 2}, {ID: 3, COL1: 10, COL2: 3}, {ID: 4, COL1: 10, COL2: 4}, {ID: 5, COL1: 10, COL2: 5}]
+    -
+      # Do not include __ROW_VERSION (as a pseudo-column) in nested (*) with identifier
+      - query: select (t1.*) from t1 where col1 = 10;
+      - explain: "ISCAN(I1 [EQUALS promote(@c12 AS LONG)]) | MAP ((_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2) AS _0)"
+      - result: [
+           { {ID: 1, COL1: 10, COL2: 1} },
+           { {ID: 2, COL1: 10, COL2: 2} },
+           { {ID: 3, COL1: 10, COL2: 3} },
+           { {ID: 4, COL1: 10, COL2: 4} },
+           { {ID: 5, COL1: 10, COL2: 5} },
+        ]
+    -
+      # Do not include __ROW_VERSION (as a pseudo-column) in nested (*) without identifier
+      - query: select (*) from t1 where col1 = 10;
+      - explain: "ISCAN(I1 [EQUALS promote(@c10 AS LONG)]) | MAP ((_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2) AS _0)"
+      - result: [
+           { {ID: 1, COL1: 10, COL2: 1} },
+           { {ID: 2, COL1: 10, COL2: 2} },
+           { {ID: 3, COL1: 10, COL2: 3} },
+           { {ID: 4, COL1: 10, COL2: 4} },
+           { {ID: 5, COL1: 10, COL2: 5} },
+        ]
     -
       # Do include __ROW_VERSION (as a real column) when querying the table function
       - query: select t1_v.* from t1_v(10);

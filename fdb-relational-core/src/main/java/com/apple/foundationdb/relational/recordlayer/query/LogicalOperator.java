@@ -242,6 +242,9 @@ public class LogicalOperator {
         final var table = semanticAnalyzer.getTable(tableId);
         Type.Record type = Assert.castUnchecked(table, RecordLayerTable.class).getType();
         if (semanticAnalyzer.getMetadataCatalog().isStoreRowVersions()) {
+            // Ideally, the RecordLayerTable would have the full type with all the pseudo-fields,
+            // but we need star expansion to skip over these fields. That would be made easier
+            // if we fully supported invisible columns (see: https://github.com/FoundationDB/fdb-record-layer/pull/3787)
             type = type.addPseudoFields();
         }
         final String storageName = type.getStorageName();
