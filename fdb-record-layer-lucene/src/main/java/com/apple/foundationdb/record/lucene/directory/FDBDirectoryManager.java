@@ -211,12 +211,18 @@ public class FDBDirectoryManager implements AutoCloseable {
                     lastPartitionInfo
                             .toBuilder()
                             .setMergingState(LucenePartitionInfoProto.LucenePartitionInfo.MergingState.DRAINING)
+                            .clearDeleteKeys() // clear all delete keys
                             .build();
-            agileContext.accept(context -> {
-                    // je: Todo: apply deletes queue with the same transaction
-                    partitioner.setPartitionInfo(partitionId, groupingKey, context, drainPartitionInfo);
-                    }
-            );
+
+            // je: Todo: handle as future
+            agilityContext.asyncToSync(FDBStoreTimer.Waits.WAIT_ONLINE_MERGE_INDEX,
+                    agileContext.apply(context ->
+                            // process deletes queue and set state to DRAINING in one transaction
+                            partitioner.processPartitionDeleteKeys(partitionId, groupingKey, context)
+                                    .thenApply(ignore -> {
+                                        partitioner.setPartitionInfo(partitionId, groupingKey, context, drainPartitionInfo);
+                                        return null;
+                                    })));
             agileContext.flush();
 
             // here: drain the buffer partition

@@ -56,6 +56,7 @@ import com.apple.foundationdb.record.provider.common.StoreTimerSnapshot;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexableRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOrphanBehavior;
@@ -648,6 +649,100 @@ public class LucenePartitioner {
                 });
     }
 
+
+    /**
+     * Process all delete keys in a partition's delete list.
+     *
+     * @param partitionId the ID of the partition to process delete keys for
+     * @param groupingKey the grouping key for the partition
+     * @param context the FDB record context to use for operations
+     * @return CompletableFuture containing the count of documents successfully deleted
+     */
+    public CompletableFuture<Integer> processPartitionDeleteKeys(
+            int partitionId,
+            @Nonnull Tuple groupingKey,
+            @Nonnull FDBRecordContext context) {
+
+        // Reload the partition info
+        return getPartitionMetaInfoByIdWithContext(partitionId, groupingKey, context)
+                .thenCompose(partitionInfo -> {
+                    if (partitionInfo == null) {
+                        throw new RecordCoreException("Partition not found")
+                                .addLogInfo(LogMessageKeys.PARTITION_ID, partitionId)
+                                .addLogInfo(LogMessageKeys.GROUPING_KEY, groupingKey);
+                    }
+
+                    final List<ByteString> deleteKeysList = partitionInfo.getDeleteKeysList();
+
+                    if (deleteKeysList.isEmpty()) {
+                        if (LOGGER.isDebugEnabled()) {
+                            LOGGER.debug(KeyValueLogMessage.of("No delete keys to process",
+                                    LogMessageKeys.PARTITION_ID, partitionId));
+                        }
+                        return CompletableFuture.completedFuture(0);
+                    }
+
+                    return CompletableFuture.supplyAsync(() -> {
+                        try {
+                            FDBRecordStore storeWithContext = state.store.asBuilder().setContext(context).open();
+                            LuceneIndexMaintainer indexMaintainer = (LuceneIndexMaintainer) storeWithContext.getIndexMaintainer(state.index);
+                            int deleteCount = 0;
+                            int totalDeleteKeys = deleteKeysList.size();
+
+                            // Process each delete key
+                            for (ByteString deleteKeyBytes: deleteKeysList) {
+                                Tuple primaryKey = Tuple.fromBytes(deleteKeyBytes.toByteArray());
+                                int deletedDocs = indexMaintainer.deleteDocument(groupingKey, partitionId, primaryKey);
+                                deleteCount += deletedDocs;
+                            }
+
+                            if (LOGGER.isDebugEnabled()) {
+                                LOGGER.debug(KeyValueLogMessage.of("successfully processed deleted list",
+                                        LogMessageKeys.PARTITION_ID, partitionId,
+                                        LogMessageKeys.KEY_COUNT, totalDeleteKeys,
+                                        LogMessageKeys.DELETED_DOCUMENTS_COUNT, deleteCount));
+                            }
+
+                            return deleteCount;
+
+                        } catch (Exception e) {
+                            throw new RecordCoreException("Failed to process delete keys from partition", e)
+                                    .addLogInfo(LogMessageKeys.PARTITION_ID, partitionId)
+                                    .addLogInfo(LogMessageKeys.GROUPING_KEY, groupingKey)
+                                    .addLogInfo(LogMessageKeys.KEY_COUNT, deleteKeysList.size());
+                        }
+                    }, context.getExecutor());
+                });
+    }
+
+    /**
+     * Get partition metadata by ID using the provided context.
+     */
+    private CompletableFuture<LucenePartitionInfoProto.LucenePartitionInfo> getPartitionMetaInfoByIdWithContext(
+            int partitionId,
+            @Nonnull Tuple groupingKey,
+            @Nonnull FDBRecordContext context) {
+
+        Range range = state.indexSubspace.subspace(groupingKey.add(PARTITION_META_SUBSPACE)).range();
+
+        return context.ensureActive()
+                .getRange(range, Integer.MAX_VALUE, true, StreamingMode.WANT_ALL)
+                .asList()
+                .thenApply(keyValues -> {
+                    for (KeyValue kv : keyValues) {
+                        try {
+                            LucenePartitionInfoProto.LucenePartitionInfo partition =
+                                    LucenePartitionInfoProto.LucenePartitionInfo.parseFrom(kv.getValue());
+                            if (partition.getId() == partitionId) {
+                                return partition;
+                            }
+                        } catch (InvalidProtocolBufferException e) {
+                            // Skip malformed entries
+                        }
+                    }
+                    return null; // Not found
+                });
+    }
 
     /**
      * create a partition metadata key.
