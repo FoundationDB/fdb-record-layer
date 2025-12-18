@@ -1,289 +1,273 @@
 uuid-as-a-field-tests:
 -   query: EXPLAIN select * from ta
-    explain: SCAN(<,>) | TFILTER TA | MAP (_.A AS A, _.B AS B)
-    task_count: 187
-    task_total_time_ms: 2
-    transform_count: 46
-    transform_time_ms: 0
-    transform_yield_count: 15
+    explain: SCAN(<,>) | TFILTER TA
+    task_count: 159
+    task_total_time_ms: 5
+    transform_count: 41
+    transform_time_ms: 1
+    transform_yield_count: 13
     insert_time_ms: 0
-    insert_new_count: 16
-    insert_reused_count: 1
+    insert_new_count: 13
+    insert_reused_count: 2
 -   query: EXPLAIN select * from ta where b > '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6'
     explain: SCAN(<,>) | TFILTER TA | FILTER _.B GREATER_THAN promote(@c8 AS UUID)
-        | MAP (_.A AS A, _.B AS B)
-    task_count: 218
-    task_total_time_ms: 11
-    transform_count: 52
-    transform_time_ms: 4
-    transform_yield_count: 16
+    task_count: 187
+    task_total_time_ms: 7
+    transform_count: 48
+    transform_time_ms: 2
+    transform_yield_count: 14
     insert_time_ms: 0
-    insert_new_count: 20
-    insert_reused_count: 1
+    insert_new_count: 17
+    insert_reused_count: 2
 -   query: EXPLAIN select * from ta where b > ?
     explain: SCAN(<,>) | TFILTER TA | FILTER _.B GREATER_THAN promote(@c8 AS UUID)
-        | MAP (_.A AS A, _.B AS B)
-    task_count: 234
-    task_total_time_ms: 12
-    transform_count: 57
+    task_count: 203
+    task_total_time_ms: 8
+    transform_count: 53
     transform_time_ms: 2
-    transform_yield_count: 18
-    insert_time_ms: 0
-    insert_new_count: 24
-    insert_reused_count: 1
--   query: EXPLAIN select * from ta where b < '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6'
-    explain: SCAN(<,>) | TFILTER TA | FILTER _.B LESS_THAN promote(@c8 AS UUID) |
-        MAP (_.A AS A, _.B AS B)
-    task_count: 218
-    task_total_time_ms: 11
-    transform_count: 52
-    transform_time_ms: 5
     transform_yield_count: 16
     insert_time_ms: 0
-    insert_new_count: 20
-    insert_reused_count: 1
--   query: EXPLAIN select * from ta where b < ?
-    explain: SCAN(<,>) | TFILTER TA | FILTER _.B LESS_THAN promote(@c8 AS UUID) |
-        MAP (_.A AS A, _.B AS B)
-    task_count: 234
-    task_total_time_ms: 3
-    transform_count: 57
-    transform_time_ms: 1
-    transform_yield_count: 18
+    insert_new_count: 21
+    insert_reused_count: 2
+-   query: EXPLAIN select * from ta where b < '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6'
+    explain: SCAN(<,>) | TFILTER TA | FILTER _.B LESS_THAN promote(@c8 AS UUID)
+    task_count: 187
+    task_total_time_ms: 1
+    transform_count: 48
+    transform_time_ms: 0
+    transform_yield_count: 14
     insert_time_ms: 0
-    insert_new_count: 24
-    insert_reused_count: 1
+    insert_new_count: 17
+    insert_reused_count: 2
+-   query: EXPLAIN select * from ta where b < ?
+    explain: SCAN(<,>) | TFILTER TA | FILTER _.B LESS_THAN promote(@c8 AS UUID)
+    task_count: 203
+    task_total_time_ms: 2
+    transform_count: 53
+    transform_time_ms: 1
+    transform_yield_count: 16
+    insert_time_ms: 0
+    insert_new_count: 21
+    insert_reused_count: 2
 -   query: EXPLAIN select * from ta where b >= '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6'
     explain: SCAN(<,>) | TFILTER TA | FILTER _.B GREATER_THAN_OR_EQUALS promote(@c9
-        AS UUID) | MAP (_.A AS A, _.B AS B)
-    task_count: 218
-    task_total_time_ms: 11
-    transform_count: 52
+        AS UUID)
+    task_count: 187
+    task_total_time_ms: 7
+    transform_count: 48
     transform_time_ms: 2
-    transform_yield_count: 16
+    transform_yield_count: 14
     insert_time_ms: 0
-    insert_new_count: 20
-    insert_reused_count: 1
+    insert_new_count: 17
+    insert_reused_count: 2
 -   query: EXPLAIN select * from ta where b >= ?
     explain: SCAN(<,>) | TFILTER TA | FILTER _.B GREATER_THAN_OR_EQUALS promote(@c9
-        AS UUID) | MAP (_.A AS A, _.B AS B)
-    task_count: 234
-    task_total_time_ms: 2
-    transform_count: 57
+        AS UUID)
+    task_count: 203
+    task_total_time_ms: 5
+    transform_count: 53
     transform_time_ms: 1
-    transform_yield_count: 18
+    transform_yield_count: 16
     insert_time_ms: 0
-    insert_new_count: 24
-    insert_reused_count: 1
+    insert_new_count: 21
+    insert_reused_count: 2
 -   query: EXPLAIN select * from ta where b <= '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6'
     explain: SCAN(<,>) | TFILTER TA | FILTER _.B LESS_THAN_OR_EQUALS promote(@c9 AS
-        UUID) | MAP (_.A AS A, _.B AS B)
-    task_count: 218
-    task_total_time_ms: 2
-    transform_count: 52
-    transform_time_ms: 0
-    transform_yield_count: 16
+        UUID)
+    task_count: 187
+    task_total_time_ms: 7
+    transform_count: 48
+    transform_time_ms: 2
+    transform_yield_count: 14
     insert_time_ms: 0
-    insert_new_count: 20
-    insert_reused_count: 1
+    insert_new_count: 17
+    insert_reused_count: 2
 -   query: EXPLAIN select * from ta where b <= ?
     explain: SCAN(<,>) | TFILTER TA | FILTER _.B LESS_THAN_OR_EQUALS promote(@c9 AS
-        UUID) | MAP (_.A AS A, _.B AS B)
-    task_count: 234
-    task_total_time_ms: 2
-    transform_count: 57
+        UUID)
+    task_count: 203
+    task_total_time_ms: 5
+    transform_count: 53
     transform_time_ms: 1
-    transform_yield_count: 18
+    transform_yield_count: 16
     insert_time_ms: 0
-    insert_new_count: 24
-    insert_reused_count: 1
+    insert_new_count: 21
+    insert_reused_count: 2
 -   query: EXPLAIN select * from ta where b = '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6'
-    explain: SCAN(<,>) | TFILTER TA | FILTER _.B EQUALS promote(@c8 AS UUID) | MAP
-        (_.A AS A, _.B AS B)
-    task_count: 218
-    task_total_time_ms: 2
-    transform_count: 52
-    transform_time_ms: 0
-    transform_yield_count: 16
+    explain: SCAN(<,>) | TFILTER TA | FILTER _.B EQUALS promote(@c8 AS UUID)
+    task_count: 187
+    task_total_time_ms: 4
+    transform_count: 48
+    transform_time_ms: 1
+    transform_yield_count: 14
     insert_time_ms: 0
-    insert_new_count: 20
-    insert_reused_count: 1
+    insert_new_count: 17
+    insert_reused_count: 2
 -   query: EXPLAIN select * from ta where b = ?
-    explain: SCAN(<,>) | TFILTER TA | FILTER _.B EQUALS promote(@c8 AS UUID) | MAP
-        (_.A AS A, _.B AS B)
-    task_count: 234
-    task_total_time_ms: 3
-    transform_count: 57
-    transform_time_ms: 1
-    transform_yield_count: 18
+    explain: SCAN(<,>) | TFILTER TA | FILTER _.B EQUALS promote(@c8 AS UUID)
+    task_count: 203
+    task_total_time_ms: 7
+    transform_count: 53
+    transform_time_ms: 2
+    transform_yield_count: 16
     insert_time_ms: 0
-    insert_new_count: 24
-    insert_reused_count: 1
+    insert_new_count: 21
+    insert_reused_count: 2
 -   query: EXPLAIN select * from ta where b != '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6'
-    explain: SCAN(<,>) | TFILTER TA | FILTER _.B NOT_EQUALS promote(@c9 AS UUID) |
-        MAP (_.A AS A, _.B AS B)
-    task_count: 218
-    task_total_time_ms: 11
-    transform_count: 52
-    transform_time_ms: 2
-    transform_yield_count: 16
-    insert_time_ms: 0
-    insert_new_count: 20
-    insert_reused_count: 1
--   query: EXPLAIN select * from ta where b != ?
-    explain: SCAN(<,>) | TFILTER TA | FILTER _.B NOT_EQUALS promote(@c9 AS UUID) |
-        MAP (_.A AS A, _.B AS B)
-    task_count: 234
-    task_total_time_ms: 3
-    transform_count: 57
+    explain: SCAN(<,>) | TFILTER TA | FILTER _.B NOT_EQUALS promote(@c9 AS UUID)
+    task_count: 187
+    task_total_time_ms: 5
+    transform_count: 48
     transform_time_ms: 1
-    transform_yield_count: 18
+    transform_yield_count: 14
     insert_time_ms: 0
-    insert_new_count: 24
-    insert_reused_count: 1
--   query: EXPLAIN select * from ta where b is null
-    explain: SCAN(<,>) | TFILTER TA | FILTER _.B IS_NULL | MAP (_.A AS A, _.B AS B)
-    task_count: 218
-    task_total_time_ms: 11
-    transform_count: 52
-    transform_time_ms: 2
+    insert_new_count: 17
+    insert_reused_count: 2
+-   query: EXPLAIN select * from ta where b != ?
+    explain: SCAN(<,>) | TFILTER TA | FILTER _.B NOT_EQUALS promote(@c9 AS UUID)
+    task_count: 203
+    task_total_time_ms: 5
+    transform_count: 53
+    transform_time_ms: 1
     transform_yield_count: 16
     insert_time_ms: 0
-    insert_new_count: 20
-    insert_reused_count: 1
+    insert_new_count: 21
+    insert_reused_count: 2
+-   query: EXPLAIN select * from ta where b is null
+    explain: SCAN(<,>) | TFILTER TA | FILTER _.B IS_NULL
+    task_count: 187
+    task_total_time_ms: 2
+    transform_count: 48
+    transform_time_ms: 0
+    transform_yield_count: 14
+    insert_time_ms: 0
+    insert_new_count: 17
+    insert_reused_count: 2
 uuid-as-a-field-tests_uuid_parameter_as_string:
 -   query: EXPLAIN select * from ta where b > '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6'
     explain: SCAN(<,>) | TFILTER TA | FILTER _.B GREATER_THAN promote(@c8 AS UUID)
-        | MAP (_.A AS A, _.B AS B)
-    task_count: 218
-    task_total_time_ms: 11
-    transform_count: 52
-    transform_time_ms: 4
-    transform_yield_count: 16
+    task_count: 187
+    task_total_time_ms: 7
+    transform_count: 48
+    transform_time_ms: 2
+    transform_yield_count: 14
     insert_time_ms: 0
-    insert_new_count: 20
-    insert_reused_count: 1
+    insert_new_count: 17
+    insert_reused_count: 2
 -   query: EXPLAIN select * from ta where b > ?
     explain: SCAN(<,>) | TFILTER TA | FILTER _.B GREATER_THAN promote(@c8 AS UUID)
-        | MAP (_.A AS A, _.B AS B)
-    task_count: 234
-    task_total_time_ms: 12
-    transform_count: 57
+    task_count: 203
+    task_total_time_ms: 8
+    transform_count: 53
     transform_time_ms: 2
-    transform_yield_count: 18
-    insert_time_ms: 0
-    insert_new_count: 24
-    insert_reused_count: 1
--   query: EXPLAIN select * from ta where b < '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6'
-    explain: SCAN(<,>) | TFILTER TA | FILTER _.B LESS_THAN promote(@c8 AS UUID) |
-        MAP (_.A AS A, _.B AS B)
-    task_count: 218
-    task_total_time_ms: 11
-    transform_count: 52
-    transform_time_ms: 5
     transform_yield_count: 16
     insert_time_ms: 0
-    insert_new_count: 20
-    insert_reused_count: 1
--   query: EXPLAIN select * from ta where b < ?
-    explain: SCAN(<,>) | TFILTER TA | FILTER _.B LESS_THAN promote(@c8 AS UUID) |
-        MAP (_.A AS A, _.B AS B)
-    task_count: 234
-    task_total_time_ms: 3
-    transform_count: 57
-    transform_time_ms: 1
-    transform_yield_count: 18
+    insert_new_count: 21
+    insert_reused_count: 2
+-   query: EXPLAIN select * from ta where b < '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6'
+    explain: SCAN(<,>) | TFILTER TA | FILTER _.B LESS_THAN promote(@c8 AS UUID)
+    task_count: 187
+    task_total_time_ms: 1
+    transform_count: 48
+    transform_time_ms: 0
+    transform_yield_count: 14
     insert_time_ms: 0
-    insert_new_count: 24
-    insert_reused_count: 1
+    insert_new_count: 17
+    insert_reused_count: 2
+-   query: EXPLAIN select * from ta where b < ?
+    explain: SCAN(<,>) | TFILTER TA | FILTER _.B LESS_THAN promote(@c8 AS UUID)
+    task_count: 203
+    task_total_time_ms: 2
+    transform_count: 53
+    transform_time_ms: 1
+    transform_yield_count: 16
+    insert_time_ms: 0
+    insert_new_count: 21
+    insert_reused_count: 2
 -   query: EXPLAIN select * from ta where b >= '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6'
     explain: SCAN(<,>) | TFILTER TA | FILTER _.B GREATER_THAN_OR_EQUALS promote(@c9
-        AS UUID) | MAP (_.A AS A, _.B AS B)
-    task_count: 218
-    task_total_time_ms: 11
-    transform_count: 52
+        AS UUID)
+    task_count: 187
+    task_total_time_ms: 7
+    transform_count: 48
     transform_time_ms: 2
-    transform_yield_count: 16
+    transform_yield_count: 14
     insert_time_ms: 0
-    insert_new_count: 20
-    insert_reused_count: 1
+    insert_new_count: 17
+    insert_reused_count: 2
 -   query: EXPLAIN select * from ta where b >= ?
     explain: SCAN(<,>) | TFILTER TA | FILTER _.B GREATER_THAN_OR_EQUALS promote(@c9
-        AS UUID) | MAP (_.A AS A, _.B AS B)
-    task_count: 234
-    task_total_time_ms: 2
-    transform_count: 57
+        AS UUID)
+    task_count: 203
+    task_total_time_ms: 5
+    transform_count: 53
     transform_time_ms: 1
-    transform_yield_count: 18
+    transform_yield_count: 16
     insert_time_ms: 0
-    insert_new_count: 24
-    insert_reused_count: 1
+    insert_new_count: 21
+    insert_reused_count: 2
 -   query: EXPLAIN select * from ta where b <= '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6'
     explain: SCAN(<,>) | TFILTER TA | FILTER _.B LESS_THAN_OR_EQUALS promote(@c9 AS
-        UUID) | MAP (_.A AS A, _.B AS B)
-    task_count: 218
-    task_total_time_ms: 2
-    transform_count: 52
-    transform_time_ms: 0
-    transform_yield_count: 16
+        UUID)
+    task_count: 187
+    task_total_time_ms: 7
+    transform_count: 48
+    transform_time_ms: 2
+    transform_yield_count: 14
     insert_time_ms: 0
-    insert_new_count: 20
-    insert_reused_count: 1
+    insert_new_count: 17
+    insert_reused_count: 2
 -   query: EXPLAIN select * from ta where b <= ?
     explain: SCAN(<,>) | TFILTER TA | FILTER _.B LESS_THAN_OR_EQUALS promote(@c9 AS
-        UUID) | MAP (_.A AS A, _.B AS B)
-    task_count: 234
-    task_total_time_ms: 2
-    transform_count: 57
+        UUID)
+    task_count: 203
+    task_total_time_ms: 5
+    transform_count: 53
     transform_time_ms: 1
-    transform_yield_count: 18
-    insert_time_ms: 0
-    insert_new_count: 24
-    insert_reused_count: 1
--   query: EXPLAIN select * from ta where b = '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6'
-    explain: SCAN(<,>) | TFILTER TA | FILTER _.B EQUALS promote(@c8 AS UUID) | MAP
-        (_.A AS A, _.B AS B)
-    task_count: 218
-    task_total_time_ms: 2
-    transform_count: 52
-    transform_time_ms: 0
     transform_yield_count: 16
     insert_time_ms: 0
-    insert_new_count: 20
-    insert_reused_count: 1
--   query: EXPLAIN select * from ta where b = ?
-    explain: SCAN(<,>) | TFILTER TA | FILTER _.B EQUALS promote(@c8 AS UUID) | MAP
-        (_.A AS A, _.B AS B)
-    task_count: 234
-    task_total_time_ms: 3
-    transform_count: 57
+    insert_new_count: 21
+    insert_reused_count: 2
+-   query: EXPLAIN select * from ta where b = '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6'
+    explain: SCAN(<,>) | TFILTER TA | FILTER _.B EQUALS promote(@c8 AS UUID)
+    task_count: 187
+    task_total_time_ms: 4
+    transform_count: 48
     transform_time_ms: 1
-    transform_yield_count: 18
+    transform_yield_count: 14
     insert_time_ms: 0
-    insert_new_count: 24
-    insert_reused_count: 1
--   query: EXPLAIN select * from ta where b != '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6'
-    explain: SCAN(<,>) | TFILTER TA | FILTER _.B NOT_EQUALS promote(@c9 AS UUID) |
-        MAP (_.A AS A, _.B AS B)
-    task_count: 218
-    task_total_time_ms: 11
-    transform_count: 52
+    insert_new_count: 17
+    insert_reused_count: 2
+-   query: EXPLAIN select * from ta where b = ?
+    explain: SCAN(<,>) | TFILTER TA | FILTER _.B EQUALS promote(@c8 AS UUID)
+    task_count: 203
+    task_total_time_ms: 7
+    transform_count: 53
     transform_time_ms: 2
     transform_yield_count: 16
     insert_time_ms: 0
-    insert_new_count: 20
-    insert_reused_count: 1
--   query: EXPLAIN select * from ta where b != ?
-    explain: SCAN(<,>) | TFILTER TA | FILTER _.B NOT_EQUALS promote(@c9 AS UUID) |
-        MAP (_.A AS A, _.B AS B)
-    task_count: 234
-    task_total_time_ms: 3
-    transform_count: 57
+    insert_new_count: 21
+    insert_reused_count: 2
+-   query: EXPLAIN select * from ta where b != '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6'
+    explain: SCAN(<,>) | TFILTER TA | FILTER _.B NOT_EQUALS promote(@c9 AS UUID)
+    task_count: 187
+    task_total_time_ms: 5
+    transform_count: 48
     transform_time_ms: 1
-    transform_yield_count: 18
+    transform_yield_count: 14
     insert_time_ms: 0
-    insert_new_count: 24
-    insert_reused_count: 1
+    insert_new_count: 17
+    insert_reused_count: 2
+-   query: EXPLAIN select * from ta where b != ?
+    explain: SCAN(<,>) | TFILTER TA | FILTER _.B NOT_EQUALS promote(@c9 AS UUID)
+    task_count: 203
+    task_total_time_ms: 5
+    transform_count: 53
+    transform_time_ms: 1
+    transform_yield_count: 16
+    insert_time_ms: 0
+    insert_new_count: 21
+    insert_reused_count: 2
 uuid-as-a-primary-key:
 -   query: EXPLAIN select B, A from TB
     explain: SCAN(<,>) | TFILTER TB | MAP (_.B AS B, _.A AS A)
@@ -451,48 +435,47 @@ uuid-in-index-definition:
     insert_new_count: 33
     insert_reused_count: 4
 -   query: EXPLAIN select * from tc order by b
-    explain: 'COVERING(TC1 <,> -> [A: KEY:[2], B: KEY:[0], C: VALUE:[0]]) | MAP (_.A
-        AS A, _.B AS B, _.C AS C)'
-    task_count: 389
-    task_total_time_ms: 23
-    transform_count: 94
-    transform_time_ms: 6
-    transform_yield_count: 42
+    explain: ISCAN(TC1 <,>)
+    task_count: 277
+    task_total_time_ms: 13
+    transform_count: 74
+    transform_time_ms: 5
+    transform_yield_count: 34
     insert_time_ms: 0
-    insert_new_count: 39
-    insert_reused_count: 4
+    insert_new_count: 25
+    insert_reused_count: 8
 -   query: EXPLAIN select * from tc where b > 'a8708750-d70f-4800-8c3b-13700d5b369f'
         order by b
     explain: ISCAN(TC1 [[GREATER_THAN promote(@c8 AS UUID)]])
-    task_count: 475
-    task_total_time_ms: 25
-    transform_count: 107
-    transform_time_ms: 7
-    transform_yield_count: 44
+    task_count: 411
+    task_total_time_ms: 21
+    transform_count: 95
+    transform_time_ms: 6
+    transform_yield_count: 42
     insert_time_ms: 0
-    insert_new_count: 49
-    insert_reused_count: 6
+    insert_new_count: 41
+    insert_reused_count: 4
 -   query: EXPLAIN select * from tc where b < 'a8708750-d70f-4800-8c3b-13700d5b369f'
         order by b desc
     explain: ISCAN(TC1 [[LESS_THAN promote(@c8 AS UUID)]] REVERSE)
-    task_count: 475
-    task_total_time_ms: 25
-    transform_count: 107
+    task_count: 411
+    task_total_time_ms: 20
+    transform_count: 95
     transform_time_ms: 7
-    transform_yield_count: 44
+    transform_yield_count: 42
     insert_time_ms: 0
-    insert_new_count: 49
-    insert_reused_count: 6
+    insert_new_count: 41
+    insert_reused_count: 4
 -   query: EXPLAIN select * from tc where b < 'a8708750-d70f-4800-8c3b-13700d5b369f'
         and c > 4 order by b desc
-    explain: 'COVERING(TC1 [[LESS_THAN promote(@c8 AS UUID)]] REVERSE -> [A: KEY:[2],
-        B: KEY:[0], C: VALUE:[0]]) | FILTER _.C GREATER_THAN promote(@c12 AS LONG)
-        | FETCH'
-    task_count: 579
-    task_total_time_ms: 27
-    transform_count: 121
+    explain: 'COVERING(TC1 [[LESS_THAN promote(@c8 AS UUID)]] REVERSE -> [A: KEY[2],
+        B: KEY[0], C: VALUE[0]]) | FILTER _.C GREATER_THAN promote(@c12 AS LONG) |
+        FETCH'
+    task_count: 515
+    task_total_time_ms: 22
+    transform_count: 109
     transform_time_ms: 8
-    transform_yield_count: 48
+    transform_yield_count: 46
     insert_time_ms: 0
-    insert_new_count: 63
-    insert_reused_count: 4
+    insert_new_count: 55
+    insert_reused_count: 2

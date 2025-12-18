@@ -64,6 +64,7 @@ import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
@@ -400,13 +401,80 @@ public class LogicalOperator {
         });
         final var expandedOutput = output.expanded();
         SelectExpression selectExpression;
-        expandedOutput.underlyingAsColumns().forEach(selectBuilder::addResultColumn);
-        selectExpression = selectBuilder.build().buildSelect();
+
+        if (canAvoidProjectingIndividualFields(output, logicalOperators)) {
+            final var passedThroughResultValue = Iterables.getOnlyElement(output).getUnderlying();
+            selectExpression = selectBuilder.build().buildSelectWithResultValue(passedThroughResultValue);
+        } else {
+            expandedOutput.underlyingAsColumns().forEach(selectBuilder::addResultColumn);
+            selectExpression = selectBuilder.build().buildSelect();
+        }
 
         final var resultingQuantifier = Quantifier.forEach(Reference.initialOf(selectExpression));
         var resultingExpressions = expandedOutput.rewireQov(resultingQuantifier.getFlowedObjectValue());
         resultingExpressions = alias.map(resultingExpressions::withQualifier).orElseGet(resultingExpressions::clearQualifier);
         return LogicalOperator.newOperator(alias, resultingExpressions, resultingQuantifier);
+    }
+
+    /**
+     * Determine whether it is possible to skip projection of individual columns of the underlying quantifier. This is
+     * to avoid unnecessary "breaking" a record constructor value unnecessarily when the user issues a query as simple
+     * as {@code SELECT * FROM T}.
+     * <br/>
+     * It can be thought of as a premature optimization considering and should be done by the optimizer during an initial
+     * plan canonicalization phase.
+     *
+     * @param output the {@link LogicalOperator}'s output.
+     * @param logicalOperators The underlying logical operators.
+     * @return {@code true} if projecting individual columns of the underlying quantifier can be avoided, otherwise
+     * {@code false}.
+     */
+    private static boolean canAvoidProjectingIndividualFields(@Nonnull Expressions output,
+                                                              @Nonnull LogicalOperators logicalOperators) {
+        // No joins
+        if (Iterables.size(logicalOperators.forEachOnly()) != 1 || Iterables.size(output) != 1) {
+            return false;
+        }
+        // Must be a star expression
+        final Expression outputExpression = Iterables.getOnlyElement(output);
+        if (!(outputExpression instanceof Star)) {
+            return false;
+        }
+        // Get the set of fields coming from the underlying value
+        final Type underlyingType = outputExpression.getUnderlying().getResultType();
+        if (!(underlyingType instanceof Type.Record)) {
+            return false;
+        }
+        final List<Type.Record.Field> underlyingFields = ((Type.Record)underlyingType).getFields();
+
+        // Compare the set of fields coming from the expansion. We can only skip the expansion
+        // if the result fields match exactly. That is, we have the same set of fields coming
+        // from the expansion as are in the underlying result value, and they all have the same
+        // names. We have to make this test for two reasons:
+        //   1. There may be pseudo-fields coming from the underlying expression that are then
+        //      missing from the expansion. That will show up here as extra columns in the
+        //      underlying type that are missing from the expansion iterator.
+        //   2. CTEs can reference aliased columns of a named query. We need to validate
+        //      that these columns are not aliased differently in the underlying query
+        //      fragment, so we need to pairwise match them to the result type below
+        final Expressions expanded = output.expanded();
+        if (expanded.size() != underlyingFields.size()) {
+            return false;
+        }
+        final Iterator<Expression> expansionIterator = expanded.iterator();
+        final Iterator<Type.Record.Field> fieldIterator = underlyingFields.iterator();
+        while (expansionIterator.hasNext() && fieldIterator.hasNext()) {
+            final Expression expandedExpression = expansionIterator.next();
+            final Type.Record.Field underlyingField = fieldIterator.next();
+            if (expandedExpression.getName().isEmpty()) {
+                continue;
+            }
+            if (!(expandedExpression.getUnderlying() instanceof FieldValue)
+                    || !expandedExpression.getName().map(Identifier::getName).equals(underlyingField.getFieldNameOptional())) {
+                return false;
+            }
+        }
+        return true;
     }
 
     @Nonnull

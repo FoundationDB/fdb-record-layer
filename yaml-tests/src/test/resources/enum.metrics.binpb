@@ -1,78 +1,70 @@
-Û
+Œ
 E
 
-enum-tests7EXPLAIN SELECT * From TABLE_A where "mood" = 'CONFUSED'©
-⁄è≈˛4 —ºÎ(0¨£'8@÷SCAN(<,>) | TFILTER TABLE_A | FILTER _.mood EQUALS promote(@c8 AS ENUM<JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)>) | MAP (_.id AS id, _.name AS name, _.mood AS mood)≤digraph G {
+enum-tests7EXPLAIN SELECT * From TABLE_A where "mood" = 'CONFUSED'Ñ
+ª∫˜ò0 ÜÆ±(0ìº88@£SCAN(<,>) | TFILTER TABLE_A | FILTER _.mood EQUALS promote(@c8 AS ENUM<JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)>)¿digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q26.id AS id, q26.name AS name, q26.mood AS mood)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, STRING AS name, ENUM&lt;JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)&gt; AS mood)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.mood EQUALS promote(@c8 AS ENUM&lt;JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)&gt;)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, STRING AS name, ENUM&lt;JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)&gt; AS mood)" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Type Filter</td></tr><tr><td align="left">WHERE record IS [TABLE_A]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, STRING AS name, ENUM&lt;JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)&gt; AS mood)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [TABLE_A, TABLE_B]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
-  3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  4 -> 3 [ label=<&nbsp;q19> label="q19" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q26> label="q26" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Ç
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.mood EQUALS promote(@c8 AS ENUM&lt;JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)&gt;)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, STRING AS name, ENUM&lt;JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)&gt; AS mood)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Type Filter</td></tr><tr><td align="left">WHERE record IS [TABLE_A]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, STRING AS name, ENUM&lt;JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)&gt; AS mood)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [TABLE_A, TABLE_B]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
+  3 -> 2 [ label=<&nbsp;q19> label="q19" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}›
 H
 
-enum-tests:EXPLAIN SELECT * From TABLE_A where "mood" > 'INDIFFERENT'µ
-⁄Ó¡ƒ4 ãöò(0€Ï*8@‹SCAN(<,>) | TFILTER TABLE_A | FILTER _.mood GREATER_THAN promote(@c8 AS ENUM<JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)>) | MAP (_.id AS id, _.name AS name, _.mood AS mood)∏digraph G {
+enum-tests:EXPLAIN SELECT * From TABLE_A where "mood" > 'INDIFFERENT'ê
+ª“®ˇ0 ©ŒÙ(0¥‘8@©SCAN(<,>) | TFILTER TABLE_A | FILTER _.mood GREATER_THAN promote(@c8 AS ENUM<JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)>)∆digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q26.id AS id, q26.name AS name, q26.mood AS mood)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, STRING AS name, ENUM&lt;JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)&gt; AS mood)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.mood GREATER_THAN promote(@c8 AS ENUM&lt;JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)&gt;)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, STRING AS name, ENUM&lt;JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)&gt; AS mood)" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Type Filter</td></tr><tr><td align="left">WHERE record IS [TABLE_A]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, STRING AS name, ENUM&lt;JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)&gt; AS mood)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [TABLE_A, TABLE_B]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
-  3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  4 -> 3 [ label=<&nbsp;q19> label="q19" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q26> label="q26" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}ó
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.mood GREATER_THAN promote(@c8 AS ENUM&lt;JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)&gt;)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, STRING AS name, ENUM&lt;JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)&gt; AS mood)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Type Filter</td></tr><tr><td align="left">WHERE record IS [TABLE_A]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, STRING AS name, ENUM&lt;JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)&gt; AS mood)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [TABLE_A, TABLE_B]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
+  3 -> 2 [ label=<&nbsp;q19> label="q19" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}Û
 I
 
-enum-tests;EXPLAIN SELECT * From TABLE_A where "mood" >= 'INDIFFERENT'…
-⁄Ê™Ø4 £˘™(0ãœF8@ÊSCAN(<,>) | TFILTER TABLE_A | FILTER _.mood GREATER_THAN_OR_EQUALS promote(@c9 AS ENUM<JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)>) | MAP (_.id AS id, _.name AS name, _.mood AS mood)¬digraph G {
+enum-tests;EXPLAIN SELECT * From TABLE_A where "mood" >= 'INDIFFERENT'•
+ªΩÎí90 “ÈÊ,(0”‡µ8@≥SCAN(<,>) | TFILTER TABLE_A | FILTER _.mood GREATER_THAN_OR_EQUALS promote(@c9 AS ENUM<JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)>)–digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q26.id AS id, q26.name AS name, q26.mood AS mood)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, STRING AS name, ENUM&lt;JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)&gt; AS mood)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.mood GREATER_THAN_OR_EQUALS promote(@c9 AS ENUM&lt;JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)&gt;)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, STRING AS name, ENUM&lt;JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)&gt; AS mood)" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Type Filter</td></tr><tr><td align="left">WHERE record IS [TABLE_A]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, STRING AS name, ENUM&lt;JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)&gt; AS mood)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [TABLE_A, TABLE_B]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
-  3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  4 -> 3 [ label=<&nbsp;q19> label="q19" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q26> label="q26" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}õ
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.mood GREATER_THAN_OR_EQUALS promote(@c9 AS ENUM&lt;JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)&gt;)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, STRING AS name, ENUM&lt;JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)&gt; AS mood)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Type Filter</td></tr><tr><td align="left">WHERE record IS [TABLE_A]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, STRING AS name, ENUM&lt;JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)&gt; AS mood)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [TABLE_A, TABLE_B]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
+  3 -> 2 [ label=<&nbsp;q19> label="q19" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}˜
 A
 
-enum-tests3EXPLAIN SELECT * From TABLE_A where "mood" < "mood"’
-⁄Ä§µ4 œΩ⁄(0ùœ8@oSCAN(<,>) | TFILTER TABLE_A | FILTER _.mood LESS_THAN _.mood | MAP (_.id AS id, _.name AS name, _.mood AS mood)∆digraph G {
+enum-tests3EXPLAIN SELECT * From TABLE_A where "mood" < "mood"±
+ªó’è90 Ä¨˙,(0“»Ø8@<SCAN(<,>) | TFILTER TABLE_A | FILTER _.mood LESS_THAN _.mood‘digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q26.id AS id, q26.name AS name, q26.mood AS mood)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, STRING AS name, ENUM&lt;JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)&gt; AS mood)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.mood LESS_THAN q2.mood</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, STRING AS name, ENUM&lt;JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)&gt; AS mood)" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Type Filter</td></tr><tr><td align="left">WHERE record IS [TABLE_A]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, STRING AS name, ENUM&lt;JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)&gt; AS mood)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [TABLE_A, TABLE_B]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
-  3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  4 -> 3 [ label=<&nbsp;q19> label="q19" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q26> label="q26" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}˝
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.mood LESS_THAN q2.mood</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, STRING AS name, ENUM&lt;JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)&gt; AS mood)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Type Filter</td></tr><tr><td align="left">WHERE record IS [TABLE_A]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, STRING AS name, ENUM&lt;JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)&gt; AS mood)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [TABLE_A, TABLE_B]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
+  3 -> 2 [ label=<&nbsp;q19> label="q19" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}˛
 
 E
 
-enum-tests7EXPLAIN SELECT * From TABLE_B where "mood" = 'CONFUSED'≥
+enum-tests7EXPLAIN SELECT * From TABLE_B where "mood" = 'CONFUSED'¥
 
-Ô¡ùæS ‡Áˇ(0£´O8%@áISCAN(B$MOOD [EQUALS promote(@c8 AS ENUM<JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)>)])ã	digraph G {
+œ÷§©FM ÕïÅ7(0ü¡©8"@áISCAN(B$MOOD [EQUALS promote(@c8 AS ENUM<JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)>)])ã	digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -84,28 +76,26 @@ H
 
 enum-tests:EXPLAIN SELECT * From TABLE_B where "mood" > 'INDIFFERENT'√
 
-ÔÓıπU ÃπΩ(0Èß`8%@èISCAN(B$MOOD [[GREATER_THAN promote(@c8 AS ENUM<JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)>)]])ì	digraph G {
+œÜŸ≤N õπí(0£¯Q8"@èISCAN(B$MOOD [[GREATER_THAN promote(@c8 AS ENUM<JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)>)]])ì	digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [[GREATER_THAN promote(@c8 AS ENUM&lt;JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)&gt;)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, STRING AS name, ENUM&lt;JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)&gt; AS mood)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">B$MOOD</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, STRING AS name, ENUM&lt;JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)&gt; AS mood)" ];
   2 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}ˇ
+}€
 I
 
-enum-tests;EXPLAIN SELECT * From TABLE_A where "mood" != 'INDIFFERENT'±
-⁄ûó«4 †ÁŒ(0¡Ω8@⁄SCAN(<,>) | TFILTER TABLE_A | FILTER _.mood NOT_EQUALS promote(@c9 AS ENUM<JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)>) | MAP (_.id AS id, _.name AS name, _.mood AS mood)∂digraph G {
+enum-tests;EXPLAIN SELECT * From TABLE_A where "mood" != 'INDIFFERENT'ç
+ª¨˛à>0 Ì÷ñ2(0ÿÃª8@ßSCAN(<,>) | TFILTER TABLE_A | FILTER _.mood NOT_EQUALS promote(@c9 AS ENUM<JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)>)ƒdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q26.id AS id, q26.name AS name, q26.mood AS mood)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, STRING AS name, ENUM&lt;JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)&gt; AS mood)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.mood NOT_EQUALS promote(@c9 AS ENUM&lt;JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)&gt;)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, STRING AS name, ENUM&lt;JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)&gt; AS mood)" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Type Filter</td></tr><tr><td align="left">WHERE record IS [TABLE_A]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, STRING AS name, ENUM&lt;JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)&gt; AS mood)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [TABLE_A, TABLE_B]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
-  3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  4 -> 3 [ label=<&nbsp;q19> label="q19" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q26> label="q26" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.mood NOT_EQUALS promote(@c9 AS ENUM&lt;JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)&gt;)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, STRING AS name, ENUM&lt;JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)&gt; AS mood)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Type Filter</td></tr><tr><td align="left">WHERE record IS [TABLE_A]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, STRING AS name, ENUM&lt;JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)&gt; AS mood)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [TABLE_A, TABLE_B]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
+  3 -> 2 [ label=<&nbsp;q19> label="q19" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
 }

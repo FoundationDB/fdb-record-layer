@@ -1,29 +1,28 @@
-ˆ
+â
 6
-pseudo-field-clash-queriesEXPLAIN SELECT * FROM t1ª
-ªÙ≤∑. §‹◊(0ﬁô8@[SCAN(<,>) | TFILTER T1 | MAP (_.ID AS ID, _.COL1 AS COL1, _.__ROW_VERSION AS __ROW_VERSION)¿digraph G {
+pseudo-field-clash-queriesEXPLAIN SELECT * FROM t1Œ
+
+ü«ﬁÙ) ≤Ÿg(0îﬂ8@SCAN(<,>) | TFILTER T1ô
+digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q2.ID AS ID, q2.COL1 AS COL1, q2.__ROW_VERSION AS __ROW_VERSION)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS COL1, BYTES AS __ROW_VERSION)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Type Filter</td></tr><tr><td align="left">WHERE record IS [T1]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS COL1, BYTES AS __ROW_VERSION)" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T1, T2, T3]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
-  3 -> 2 [ label=<&nbsp;q19> label="q19" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}ò
-6
-pseudo-field-clash-queriesEXPLAIN SELECT * FROM t2›
-±óÕË=f ÿÑÙ*(-0°Ûo8-@öCOVERING(T2_COL1_VERSION <,> -> [COL1: KEY:[0], ID: KEY:[3], __ROW_VERSION: KEY:[1]]) | MAP (_.ID AS ID, _.COL1 AS COL1, _.__ROW_VERSION AS __ROW_VERSION)¢digraph G {
-  fontname=courier;
-  rankdir=BT;
-  splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q56.ID AS ID, q56.COL1 AS COL1, q56.__ROW_VERSION AS __ROW_VERSION)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1, STRING AS __ROW_VERSION)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1, STRING AS __ROW_VERSION)" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T2_COL1_VERSION</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1, STRING AS __ROW_VERSION)" ];
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Type Filter</td></tr><tr><td align="left">WHERE record IS [T1]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS COL1, BYTES AS __ROW_VERSION)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T1, T2, T3]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q56> label="q56" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q19> label="q19" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}Ÿ
+6
+pseudo-field-clash-queriesEXPLAIN SELECT * FROM t2û
+¡É…°Q ëÛó(%0Ÿ©8@
+ISCAN(T2_VERSION <,>)Èdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1, STRING AS __ROW_VERSION)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T2_VERSION</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1, STRING AS __ROW_VERSION)" ];
+  2 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
 }∫
 6
 pseudo-field-clash-queriesEXPLAIN SELECT * FROM t3ˇ
@@ -78,8 +77,7 @@ H
 }±
 T
 pseudo-field-clash-queries6EXPLAIN SELECT * FROM t2 ORDER BY "__ROW_VERSION" DESCÿ
-Ï¬ı∂
-@ ®œà(0∆î8@ISCAN(T2_VERSION <,> REVERSE)õdigraph G {
+–ﬂÃñ: ¡´“(0“â8@ISCAN(T2_VERSION <,> REVERSE)õdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -126,26 +124,24 @@ T
   3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Û
+}Ä
 V
-pseudo-field-clash-queries8EXPLAIN SELECT * FROM t1 WHERE "__ROW_VERSION" > x'0010'ò
-ÍÏÕ©19 ¬ôÁ$(0›ƒÉ8@óSCAN(<,>) | TFILTER T1 | FILTER _.__ROW_VERSION GREATER_THAN promote(@c8 AS BYTES) | MAP (_.ID AS ID, _.COL1 AS COL1, _.__ROW_VERSION AS __ROW_VERSION)ﬂdigraph G {
+pseudo-field-clash-queries8EXPLAIN SELECT * FROM t1 WHERE "__ROW_VERSION" > x'0010'•
+À›¡Å5 ﬁåù(0ÿ8@RSCAN(<,>) | TFILTER T1 | FILTER _.__ROW_VERSION GREATER_THAN promote(@c8 AS BYTES)≥digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q27.ID AS ID, q27.COL1 AS COL1, q27.__ROW_VERSION AS __ROW_VERSION)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS COL1, BYTES AS __ROW_VERSION)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.__ROW_VERSION GREATER_THAN promote(@c8 AS BYTES)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS COL1, BYTES AS __ROW_VERSION)" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Type Filter</td></tr><tr><td align="left">WHERE record IS [T1]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS COL1, BYTES AS __ROW_VERSION)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T1, T2, T3]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
-  3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  4 -> 3 [ label=<&nbsp;q20> label="q20" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q27> label="q27" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}∏
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.__ROW_VERSION GREATER_THAN promote(@c8 AS BYTES)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS COL1, BYTES AS __ROW_VERSION)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Type Filter</td></tr><tr><td align="left">WHERE record IS [T1]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS COL1, BYTES AS __ROW_VERSION)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T1, T2, T3]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
+  3 -> 2 [ label=<&nbsp;q20> label="q20" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}∂
 S
-pseudo-field-clash-queries5EXPLAIN SELECT * FROM t2 WHERE "__ROW_VERSION" > 'ab'‡
-Á±é√=Ö ⁄Èª&(40Òá‰8E@9ISCAN(T2_VERSION [[GREATER_THAN promote(@c8 AS STRING)]])Ödigraph G {
+pseudo-field-clash-queries5EXPLAIN SELECT * FROM t2 WHERE "__ROW_VERSION" > 'ab'ﬁ
+ˆ¯‡¢r É‹ˆ(/0ﬂ58;@9ISCAN(T2_VERSION [[GREATER_THAN promote(@c8 AS STRING)]])Ödigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -155,7 +151,7 @@ S
 }ü
 F
 pseudo-field-clash-queries(EXPLAIN SELECT * FROM t2 WHERE col1 = 20‘
-ì∂¢¥s †õà(/0Ü˜g8:@4ISCAN(T2_COL1_VERSION [EQUALS promote(@c8 AS LONG)])Ädigraph G {
+øê‰ﬁg Òµö(+0ô¶81@4ISCAN(T2_COL1_VERSION [EQUALS promote(@c8 AS LONG)])Ädigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -177,7 +173,7 @@ F
 }˜
 d
 pseudo-field-clash-queriesFEXPLAIN SELECT * FROM t2 WHERE col1 = 20 ORDER BY "__ROW_VERSION" DESCé
-Æ¿©µN ÉØ¨("0æÈ8@<ISCAN(T2_COL1_VERSION [EQUALS promote(@c8 AS LONG)] REVERSE)≤digraph G {
+ôÁä‡K ä√œ(!0±Ó	8@<ISCAN(T2_COL1_VERSION [EQUALS promote(@c8 AS LONG)] REVERSE)≤digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;

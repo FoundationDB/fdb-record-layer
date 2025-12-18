@@ -58,7 +58,7 @@ test_block:
       - result: [{ID: !l 5, COL1: !l 10, COL31: !l 5, COL32: !null _, COL2: !l 5}]
     -
       - query: select count(*) from (select * from (select * from (select * from "MyTable"  where ID = 5) as x) as y) as z;
-      - explain: "SCAN([EQUALS promote(@c23 AS LONG)]) | MAP ((_.ID AS ID, _.COL1 AS COL1, _.COL31 AS COL31, _.COL32 AS COL32, _.COL2 AS COL2) AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
+      - explain: "SCAN([EQUALS promote(@c23 AS LONG)]) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
       - result: [{!l 1}]
     -
       - query: select COL31, COL32 from (select * from (select * from "MyTable") as x) as y where ID = 5;

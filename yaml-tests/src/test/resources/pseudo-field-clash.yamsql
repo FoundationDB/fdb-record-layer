@@ -66,7 +66,7 @@ test_block:
   tests:
     -
       - query: SELECT * FROM t1
-      - explain: "SCAN(<,>) | TFILTER T1 | MAP (_.ID AS ID, _.COL1 AS COL1, _.__ROW_VERSION AS __ROW_VERSION)"
+      - explain: "SCAN(<,>) | TFILTER T1"
       - unorderedResult: [
           { ID: 1, COL1: "a", '__ROW_VERSION': x'0000' },
           { ID: 2, COL1: "b", '__ROW_VERSION': x'0001' },
@@ -77,7 +77,7 @@ test_block:
         ]
     -
       - query: SELECT * FROM t2
-      - explain: "COVERING(T2_COL1_VERSION <,> -> [COL1: KEY:[0], ID: KEY:[3], __ROW_VERSION: KEY:[1]]) | MAP (_.ID AS ID, _.COL1 AS COL1, _.__ROW_VERSION AS __ROW_VERSION)"
+      - explain: "ISCAN(T2_VERSION <,>)"
       - unorderedResult: [
           { ID: 1, COL1: 10, '__ROW_VERSION': "aa" },
           { ID: 2, COL1: 20, '__ROW_VERSION': "ab" },
@@ -176,7 +176,7 @@ test_block:
         ]
     -
       - query: SELECT * FROM t1 WHERE "__ROW_VERSION" > x'0010'
-      - explain: "SCAN(<,>) | TFILTER T1 | FILTER _.__ROW_VERSION GREATER_THAN promote(@c8 AS BYTES) | MAP (_.ID AS ID, _.COL1 AS COL1, _.__ROW_VERSION AS __ROW_VERSION)"
+      - explain: "SCAN(<,>) | TFILTER T1 | FILTER _.__ROW_VERSION GREATER_THAN promote(@c8 AS BYTES)"
       - unorderedResult: [
           { ID: 4, COL1: "a", '__ROW_VERSION': x'0011' },
           { ID: 5, COL1: "b", '__ROW_VERSION': x'0100' },

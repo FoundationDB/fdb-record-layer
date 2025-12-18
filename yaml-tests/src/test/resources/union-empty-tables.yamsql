@@ -42,35 +42,35 @@ test_block:
       - unorderedResult: []
     -
       - query: select * from t1 union all select * from t1;
-      - explain: "SCAN(<,>) | TFILTER T1 | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2) ⊎ SCAN(<,>) | TFILTER T1 | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)"
+      - explain: "SCAN(<,>) | TFILTER T1 ⊎ SCAN(<,>) | TFILTER T1"
       - unorderedResult: []
     -
       - query: select * from t1 union all select id, col1, col2 from t1;
-      - explain: "SCAN(<,>) | TFILTER T1 | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2) ⊎ SCAN(<,>) | TFILTER T1 | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)"
+      - explain: "SCAN(<,>) | TFILTER T1 ⊎ SCAN(<,>) | TFILTER T1 | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)"
       - unorderedResult: []
     -
       - query: select id, col1, col2 from t1 union all select * from t1;
-      - explain: "SCAN(<,>) | TFILTER T1 | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2) ⊎ SCAN(<,>) | TFILTER T1 | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)"
+      - explain: "SCAN(<,>) | TFILTER T1 | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2) ⊎ SCAN(<,>) | TFILTER T1"
       - unorderedResult: []
     -
       - query: select id as W, col1 as X, col2 as Y from t1 union all select * from t1;
-      - explain: "SCAN(<,>) | TFILTER T1 | MAP (_.ID AS W, _.COL1 AS X, _.COL2 AS Y) | MAP (_.W AS W, _.X AS X, _.Y AS Y) ⊎ SCAN(<,>) | TFILTER T1 | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2) | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)"
+      - explain: "SCAN(<,>) | TFILTER T1 | MAP (_.ID AS W, _.COL1 AS X, _.COL2 AS Y) | MAP (_.W AS W, _.X AS X, _.Y AS Y) ⊎ SCAN(<,>) | TFILTER T1 | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)"
       - unorderedResult: []
     -
       - query: (select id as W, col1 as X, col2 as Y from t1) union all select * from t1;
-      - explain: "SCAN(<,>) | TFILTER T1 | MAP (_.ID AS W, _.COL1 AS X, _.COL2 AS Y) | MAP (_.W AS W, _.X AS X, _.Y AS Y) ⊎ SCAN(<,>) | TFILTER T1 | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2) | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)"
+      - explain: "SCAN(<,>) | TFILTER T1 | MAP (_.ID AS W, _.COL1 AS X, _.COL2 AS Y) | MAP (_.W AS W, _.X AS X, _.Y AS Y) ⊎ SCAN(<,>) | TFILTER T1 | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)"
       - unorderedResult: []
     -
       - query: select id as W, col1 as X, col2 as Y from t1 union all (select * from t1);
-      - explain: "SCAN(<,>) | TFILTER T1 | MAP (_.ID AS W, _.COL1 AS X, _.COL2 AS Y) | MAP (_.W AS W, _.X AS X, _.Y AS Y) ⊎ SCAN(<,>) | TFILTER T1 | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2) | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)"
+      - explain: "SCAN(<,>) | TFILTER T1 | MAP (_.ID AS W, _.COL1 AS X, _.COL2 AS Y) | MAP (_.W AS W, _.X AS X, _.Y AS Y) ⊎ SCAN(<,>) | TFILTER T1 | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)"
       - unorderedResult: []
     -
       - query: (select id as W, col1 as X, col2 as Y from t1 union all (select * from t1));
-      - explain: "SCAN(<,>) | TFILTER T1 | MAP (_.ID AS W, _.COL1 AS X, _.COL2 AS Y) | MAP (_.W AS W, _.X AS X, _.Y AS Y) ⊎ SCAN(<,>) | TFILTER T1 | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2) | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)"
+      - explain: "SCAN(<,>) | TFILTER T1 | MAP (_.ID AS W, _.COL1 AS X, _.COL2 AS Y) | MAP (_.W AS W, _.X AS X, _.Y AS Y) ⊎ SCAN(<,>) | TFILTER T1 | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)"
       - unorderedResult: []
     -
       - query: ((select id as W, col1 as X, col2 as Y from t1) union all select * from t1);
-      - explain: "SCAN(<,>) | TFILTER T1 | MAP (_.ID AS W, _.COL1 AS X, _.COL2 AS Y) | MAP (_.W AS W, _.X AS X, _.Y AS Y) ⊎ SCAN(<,>) | TFILTER T1 | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2) | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)"
+      - explain: "SCAN(<,>) | TFILTER T1 | MAP (_.ID AS W, _.COL1 AS X, _.COL2 AS Y) | MAP (_.W AS W, _.X AS X, _.Y AS Y) ⊎ SCAN(<,>) | TFILTER T1 | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)"
       - unorderedResult: []
     -
       - query: select a, b from t3 union all select a, b from t4

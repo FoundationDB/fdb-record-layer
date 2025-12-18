@@ -108,11 +108,11 @@ test_block:
       - result: [{101, 'b'}, {102, 'b'}]
     -
       - query: select * from t2 where exists (select * from f2(t2.z))
-      - explain: "ISCAN(T2_IDX1 <,>) | FLATMAP q0 -> { ISCAN(T1_IDX1 <,>) | FILTER promote(_.COL3 AS LONG) EQUALS q0.Z | DEFAULT NULL | FILTER _ NOT_NULL AS q1 RETURN (q0.X AS X, q0.Y AS Y, q0.Z AS Z) }"
+      - explain: "ISCAN(T2_IDX1 <,>) | FLATMAP q0 -> { ISCAN(T1_IDX1 <,>) | FILTER promote(_.COL3 AS LONG) EQUALS q0.Z | DEFAULT NULL | FILTER _ NOT_NULL AS q1 RETURN q0 }"
       - result: [{10, 14, 1}, {11, 16, 1}]
     -
       - query: select * from t2 where exists (select * from f2(k => t2.z))
-      - explain: "ISCAN(T2_IDX1 <,>) | FLATMAP q0 -> { ISCAN(T1_IDX1 <,>) | FILTER promote(_.COL3 AS LONG) EQUALS q0.Z | DEFAULT NULL | FILTER _ NOT_NULL AS q1 RETURN (q0.X AS X, q0.Y AS Y, q0.Z AS Z) }"
+      - explain: "ISCAN(T2_IDX1 <,>) | FLATMAP q0 -> { ISCAN(T1_IDX1 <,>) | FILTER promote(_.COL3 AS LONG) EQUALS q0.Z | DEFAULT NULL | FILTER _ NOT_NULL AS q1 RETURN q0 }"
       - result: [{10, 14, 1}, {11, 16, 1}]
     -
       - query: select * from f3(103, 'b', 4)
