@@ -146,15 +146,15 @@ public class PredicatePushDownRuleTest {
         Quantifier baseQun = baseT();
 
         Quantifier lowerQun = forEach(selectWithPredicates(
-                baseQun, List.of("a", "b")
+                baseQun, ImmutableList.of("a", "b")
         ));
         Quantifier existentialQun = exists(selectWithPredicates(
-                baseTau(), List.of("alpha")
+                baseTau(), ImmutableList.of("alpha")
         ));
 
         GraphExpansion.Builder builder = GraphExpansion.builder().addQuantifier(lowerQun).addQuantifier(existentialQun);
         builder.addResultColumn(column(lowerQun, "b", "b"));
-        builder.addAllPredicates(List.of(
+        builder.addAllPredicates(ImmutableList.of(
                 fieldPredicate(lowerQun, "a", EQUALS_42),
                 new ExistsPredicate(existentialQun.getAlias())
         ));
@@ -162,13 +162,13 @@ public class PredicatePushDownRuleTest {
 
 
         Quantifier newLowerQun = forEach(selectWithPredicates(
-                baseQun, List.of("a", "b"),
+                baseQun, ImmutableList.of("a", "b"),
                 fieldPredicate(baseQun, "a", EQUALS_42)
         ));
 
         GraphExpansion.Builder newBuilder = GraphExpansion.builder().addQuantifier(newLowerQun).addQuantifier(existentialQun);
         newBuilder.addResultColumn(column(newLowerQun, "b", "b"));
-        newBuilder.addAllPredicates(List.of(
+        newBuilder.addAllPredicates(ImmutableList.of(
                 new ExistsPredicate(existentialQun.getAlias())
         ));
         SelectExpression newHigher = newBuilder.build().buildSelect();

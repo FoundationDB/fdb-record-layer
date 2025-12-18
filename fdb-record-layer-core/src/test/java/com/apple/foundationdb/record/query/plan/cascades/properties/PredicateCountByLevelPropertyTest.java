@@ -23,9 +23,10 @@ package com.apple.foundationdb.record.query.plan.cascades.properties;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import org.junit.jupiter.api.Test;
 
-import java.util.List;
 import java.util.Map;
 
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.column;
@@ -52,12 +53,12 @@ class PredicateCountByLevelPropertyTest {
         final Quantifier baseQuantifier = baseT();
         final GraphExpansion.Builder graphBuilder = GraphExpansion.builder().addQuantifier(baseQuantifier);
         graphBuilder.addResultColumn(column(baseQuantifier, "a", "a"));
-        graphBuilder.addAllPredicates(List.of(fieldPredicate(baseQuantifier, "a", EQUALS_42)));
+        graphBuilder.addAllPredicates(ImmutableList.of(fieldPredicate(baseQuantifier, "a", EQUALS_42)));
         final SelectExpression expression = graphBuilder.build().buildSelect();
 
         final var info = predicateCountByLevel().evaluate(expression);
 
-        assertThat(info.getHighestLevel()).isEqualTo(3);
+        assertThat(info.getLevelToPredicateCount().lastKey()).isEqualTo(3);
         assertThat(info.getLevelToPredicateCount()).containsExactly(
                 Map.entry(1, 0), // corresponds to the level with the FullUnorderedScanExpression
                 Map.entry(2, 0), // corresponds to the level with the LogicalTypeFilterExpression
@@ -85,23 +86,23 @@ class PredicateCountByLevelPropertyTest {
     void predicatesAtMultipleLevelsAreCountedCorrectly() {
         final Quantifier baseQuantifier = baseT();
         final Quantifier isqQuantifier = forEach(selectWithPredicates(
-                baseQuantifier, List.of("a", "b"),
+                baseQuantifier, ImmutableList.of("a", "b"),
                 fieldPredicate(baseQuantifier, "a", EQUALS_42)
         ));
         final Quantifier sqQuantifier = forEach(selectWithPredicates(
-                isqQuantifier, List.of("a", "b"),
+                isqQuantifier, ImmutableList.of("a", "b"),
                 fieldPredicate(baseQuantifier, "a", EQUALS_42),
                 fieldPredicate(baseQuantifier, "b", EQUALS_42)
         ));
         final GraphExpansion.Builder graphBuilder = GraphExpansion.builder().addQuantifier(sqQuantifier);
         graphBuilder.addResultColumn(column(sqQuantifier, "a", "a"));
-        graphBuilder.addAllPredicates(List.of(fieldPredicate(sqQuantifier, "b", EQUALS_42)));
+        graphBuilder.addAllPredicates(ImmutableList.of(fieldPredicate(sqQuantifier, "b", EQUALS_42)));
         final SelectExpression expression = graphBuilder.build().buildSelect();
 
         final var info = predicateCountByLevel().evaluate(expression);
 
         // Should have 2 predicates total (1 at each level)
-        assertThat(info.getHighestLevel()).isEqualTo(5);
+        assertThat(info.getLevelToPredicateCount().lastKey()).isEqualTo(5);
         assertThat(info.getLevelToPredicateCount()).containsExactly(
                 Map.entry(1, 0), // corresponds to the level with the FullUnorderedScanExpression
                 Map.entry(2, 0), // corresponds to the level with the LogicalTypeFilterExpression
@@ -130,23 +131,23 @@ class PredicateCountByLevelPropertyTest {
         final Quantifier sq1BaseQuantifier = baseT();
         final Quantifier sq2BaseQuantifier = baseTau();
         final Quantifier sq1Quantifier = forEach(selectWithPredicates(
-                sq1BaseQuantifier, List.of("a", "b"),
+                sq1BaseQuantifier, ImmutableList.of("a", "b"),
                 fieldPredicate(sq1BaseQuantifier, "a", EQUALS_42),
                 fieldPredicate(sq1BaseQuantifier, "b", EQUALS_42)
         ));
         final Quantifier sq2Quantifier = forEach(selectWithPredicates(
-                sq2BaseQuantifier, List.of("alpha"),
+                sq2BaseQuantifier, ImmutableList.of("alpha"),
                 fieldPredicate(sq2BaseQuantifier, "alpha", EQUALS_42)
         ));
 
         final GraphExpansion.Builder graphBuilder = GraphExpansion.builder().addQuantifier(sq1Quantifier).addQuantifier(sq2Quantifier);
         graphBuilder.addResultColumn(column(sq1Quantifier, "a", "a"));
-        graphBuilder.addAllPredicates(List.of(fieldPredicate(sq1Quantifier, "b", EQUALS_42)));
+        graphBuilder.addAllPredicates(ImmutableList.of(fieldPredicate(sq1Quantifier, "b", EQUALS_42)));
         final SelectExpression expression = graphBuilder.build().buildSelect();
 
         final var info = predicateCountByLevel().evaluate(expression);
 
-        assertThat(info.getHighestLevel()).isEqualTo(4);
+        assertThat(info.getLevelToPredicateCount().lastKey()).isEqualTo(4);
         assertThat(info.getLevelToPredicateCount()).containsExactly(
                 Map.entry(1, 0), // corresponds to the level with the FullUnorderedScanExpression
                 Map.entry(2, 0), // corresponds to the level with the LogicalTypeFilterExpression
@@ -158,15 +159,16 @@ class PredicateCountByLevelPropertyTest {
     @Test
     void predicateCountByLevelInfoInstancesAreCombinedCorrectly() {
         final var aInfo = new PredicateCountByLevelProperty.PredicateCountByLevelInfo(
-                Map.of(1, 1, 2, 1, 3, 2), 3
+                ImmutableMap.of(1, 1, 2, 1, 3, 2)
         );
         final var bInfo = new PredicateCountByLevelProperty.PredicateCountByLevelInfo(
-                Map.of(1, 0, 2, 1, 3, 1, 4, 4), 4
+                ImmutableMap.of(1, 0, 2, 1, 3, 1, 4, 4)
         );
 
-        final var combinedInfo = PredicateCountByLevelProperty.PredicateCountByLevelInfo.combine(List.of(aInfo, bInfo));
+        final var combinedInfo =
+                PredicateCountByLevelProperty.PredicateCountByLevelInfo.combine(ImmutableList.of(aInfo, bInfo));
 
-        assertThat(combinedInfo.getHighestLevel()).isEqualTo(4);
+        assertThat(combinedInfo.getLevelToPredicateCount().lastKey()).isEqualTo(4);
         assertThat(combinedInfo.getLevelToPredicateCount()).containsExactly(
                 Map.entry(1, 1),
                 Map.entry(2, 2),
@@ -177,30 +179,30 @@ class PredicateCountByLevelPropertyTest {
 
     @Test
     void compareReturnsComparisonBetweenFirstNonEqualLevel() {
-        final PredicateCountByLevelProperty.PredicateCountByLevelInfo aInfo = new PredicateCountByLevelProperty.PredicateCountByLevelInfo(
-                Map.of(1, 1, 2, 3, 3, 1), 3);
-        final PredicateCountByLevelProperty.PredicateCountByLevelInfo bInfo = new PredicateCountByLevelProperty.PredicateCountByLevelInfo(
-                Map.of(1, 1, 2, 2, 3, 1), 3);
+        final PredicateCountByLevelProperty.PredicateCountByLevelInfo aInfo =
+                new PredicateCountByLevelProperty.PredicateCountByLevelInfo(ImmutableMap.of(1, 1, 2, 3, 3, 1));
+        final PredicateCountByLevelProperty.PredicateCountByLevelInfo bInfo =
+                new PredicateCountByLevelProperty.PredicateCountByLevelInfo(ImmutableMap.of(1, 1, 2, 2, 3, 1));
 
         assertThat(PredicateCountByLevelProperty.PredicateCountByLevelInfo.compare(aInfo, bInfo)).isPositive();
     }
 
     @Test
     void compareReturnsInfoWithMoreLevelsInCaseOfEquality() {
-        final PredicateCountByLevelProperty.PredicateCountByLevelInfo aInfo = new PredicateCountByLevelProperty.PredicateCountByLevelInfo(
-                Map.of(1, 1, 2, 3, 3, 1), 3);
-        final PredicateCountByLevelProperty.PredicateCountByLevelInfo bInfo = new PredicateCountByLevelProperty.PredicateCountByLevelInfo(
-                Map.of(1, 1, 2, 3, 3, 1, 4, 1), 4);
+        final PredicateCountByLevelProperty.PredicateCountByLevelInfo aInfo =
+                new PredicateCountByLevelProperty.PredicateCountByLevelInfo(ImmutableMap.of(1, 1, 2, 3, 3, 1));
+        final PredicateCountByLevelProperty.PredicateCountByLevelInfo bInfo =
+                new PredicateCountByLevelProperty.PredicateCountByLevelInfo(ImmutableMap.of(1, 1, 2, 3, 3, 1, 4, 1));
 
         assertThat(PredicateCountByLevelProperty.PredicateCountByLevelInfo.compare(aInfo, bInfo)).isNegative();
     }
 
     @Test
     void compareReturnsZeroForEqualPredicateCounts() {
-        final PredicateCountByLevelProperty.PredicateCountByLevelInfo aInfo = new PredicateCountByLevelProperty.PredicateCountByLevelInfo(
-                Map.of(1, 1, 2, 3, 3, 1, 4, 1), 4);
-        final PredicateCountByLevelProperty.PredicateCountByLevelInfo bInfo = new PredicateCountByLevelProperty.PredicateCountByLevelInfo(
-                Map.of(1, 1, 2, 3, 3, 1, 4, 1), 4);
+        final PredicateCountByLevelProperty.PredicateCountByLevelInfo aInfo =
+                new PredicateCountByLevelProperty.PredicateCountByLevelInfo(ImmutableMap.of(1, 1, 2, 3, 3, 1, 4, 1));
+        final PredicateCountByLevelProperty.PredicateCountByLevelInfo bInfo =
+                new PredicateCountByLevelProperty.PredicateCountByLevelInfo(ImmutableMap.of(1, 1, 2, 3, 3, 1, 4, 1));
 
         assertThat(PredicateCountByLevelProperty.PredicateCountByLevelInfo.compare(aInfo, bInfo)).isZero();
     }
