@@ -225,10 +225,7 @@ public class LucenePendingWriteQueue {
 
     /**
      * Clear all queued operations for this partition's queue.
-     *
-     * @return CompletableFuture that completes when the queue is cleared
      */
-    @Nonnull
     public void clearQueue() {
         Range range = queueSubspace.range();
         context.ensureActive().clear(range);
@@ -265,7 +262,7 @@ public class LucenePendingWriteQueue {
      *
      * @param indexMaintainer the index maintainer to apply the ops to
      * @param groupingKey grouping key for the
-     * @param partitionId
+     * @param partitionId the partition id to use
      * @return future that will be completed once the operation is done
      *
      * TODO: should the groupingKey and partitionId be part of the queue fields?
@@ -385,8 +382,24 @@ public class LucenePendingWriteQueue {
             // Convert field_configs from proto map to Map<String, Object>
             Map<String, Object> fieldConfigs = new HashMap<>();
             if (protoField.getFieldConfigsCount() > 0) {
-                for (Map.Entry<String, String> entry : protoField.getFieldConfigsMap().entrySet()) {
-                    fieldConfigs.put(entry.getKey(), entry.getValue());
+                for (Map.Entry<String, LucenePendingWriteQueueProto.FieldConfigValue> entry : protoField.getFieldConfigsMap().entrySet()) {
+                    Object configValue;
+                    LucenePendingWriteQueueProto.FieldConfigValue protoConfigValue = entry.getValue();
+                    switch (protoConfigValue.getValueCase()) {
+                        case STRING_VALUE:
+                            configValue = protoConfigValue.getStringValue();
+                            break;
+                        case BOOLEAN_VALUE:
+                            configValue = protoConfigValue.getBooleanValue();
+                            break;
+                        case INT_VALUE:
+                            configValue = protoConfigValue.getIntValue();
+                            break;
+                        case VALUE_NOT_SET:
+                        default:
+                            throw new IllegalStateException("FieldConfigValue has no value set for key: " + entry.getKey());
+                    }
+                    fieldConfigs.put(entry.getKey(), configValue);
                 }
             }
 
@@ -424,7 +437,21 @@ public class LucenePendingWriteQueue {
         // Add field_configs map
         if (field.getFieldConfigs() != null && !field.getFieldConfigs().isEmpty()) {
             for (Map.Entry<String, Object> entry : field.getFieldConfigs().entrySet()) {
-                builder.putFieldConfigs(entry.getKey(), entry.getValue().toString());
+                LucenePendingWriteQueueProto.FieldConfigValue.Builder configBuilder =
+                        LucenePendingWriteQueueProto.FieldConfigValue.newBuilder();
+
+                Object configValue = entry.getValue();
+                if (configValue instanceof String) {
+                    configBuilder.setStringValue((String) configValue);
+                } else if (configValue instanceof Boolean) {
+                    configBuilder.setBooleanValue((Boolean) configValue);
+                } else if (configValue instanceof Integer) {
+                    configBuilder.setIntValue((Integer) configValue);
+                } else {
+                    throw new IllegalStateException("Unsupported field config type: " + configValue.getClass().getSimpleName()  + " for field " + entry.getKey());
+                }
+
+                builder.putFieldConfigs(entry.getKey(), configBuilder.build());
             }
         }
 

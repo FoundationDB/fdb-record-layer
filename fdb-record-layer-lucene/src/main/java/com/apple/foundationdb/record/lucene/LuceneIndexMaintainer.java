@@ -783,6 +783,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
 
             // TODO: convert to future.thenApply
             if (isPartitionLocked(groupingKey, partitionInfo.getId())) {
+                // TODO: This seems to be locked when building the index. Need to check
                 // Partition is locked during merge - enqueue the delete operation
                 LucenePendingWriteQueue queue = getPendingWriteQueue(groupingKey, partitionInfo.getId());
                 switch (overallOperation) {

@@ -56,7 +56,8 @@ message DocumentField {
 
     // Field configuration map (key-value pairs for field-specific settings)
     // Examples: tokenizer settings, analyzer config, etc.
-    map<string, string> field_configs = 4;
+    // Values can be string, boolean, or integer
+    map<string, FieldConfigValue> field_configs = 4;
 
     // Type-safe field value (exactly one must be set)
     // Field types match DocumentFieldType: STRING, TEXT, INT, LONG, DOUBLE, BOOLEAN
@@ -67,5 +68,16 @@ message DocumentField {
         int64 long_value = 14;       // LONG field
         double double_value = 15;    // DOUBLE field
         bool boolean_value = 16;     // BOOLEAN field
+    }
+}
+
+/**
+ * Wrapper for field configuration values that supports multiple types.
+ */
+message FieldConfigValue {
+    oneof value {
+        string string_value = 1;
+        bool boolean_value = 2;
+        int32 int_value = 3;
     }
 }
