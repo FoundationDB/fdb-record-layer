@@ -133,51 +133,35 @@ public class PredicateCountByLevelProperty implements ExpressionProperty<Predica
         }
     }
 
-    private static final class PredicateCountByLevelVisitor implements RelationalExpressionVisitorWithDefaults<PredicateCountByLevelInfo> {
+    private static final class PredicateCountByLevelVisitor implements SimpleExpressionVisitor<PredicateCountByLevelInfo> {
         @Nonnull
-        private static final PredicateCountByLevelVisitor VISITOR = new PredicateCountByLevelVisitor(predicateCountByLevel());
+        private static final PredicateCountByLevelVisitor VISITOR = new PredicateCountByLevelVisitor();
 
-        @Nonnull
-        private final PredicateCountByLevelProperty property;
-
-        private PredicateCountByLevelVisitor(@Nonnull final PredicateCountByLevelProperty property) {
+        private PredicateCountByLevelVisitor() {
             // prevent outside instantiation
-            this.property = property;
         }
 
         @Nonnull
         @Override
-        public PredicateCountByLevelInfo visitDefault(@Nonnull final RelationalExpression expression) {
-            final var childResults = fromChildren(expression);
-            final var deeperLevels = PredicateCountByLevelInfo.combine(childResults);
-            final var currentLevel = childResults.stream().mapToInt(PredicateCountByLevelInfo::getHighestLevel).max().orElse(0) + 1;
+        public PredicateCountByLevelInfo evaluateAtExpression(@Nonnull final RelationalExpression expression,
+                                                              @Nonnull final List<PredicateCountByLevelInfo> childResults) {
+            final var newLevelToPredicateCountMap = ImmutableMap.<Integer, Integer>builder()
+                    .putAll(PredicateCountByLevelInfo.combine(childResults).getLevelToPredicateCount());
+            final var currentLevel = childResults
+                    .stream().mapToInt(PredicateCountByLevelInfo::getHighestLevel).max().orElse(0) + 1;
             final int currentLevelPredicates;
             if (expression instanceof RelationalExpressionWithPredicates) {
                 currentLevelPredicates = ((RelationalExpressionWithPredicates)expression).getPredicates().size();
             } else {
                 currentLevelPredicates = 0;
             }
-            return new PredicateCountByLevelInfo(
-                    ImmutableMap.<Integer, Integer>builder()
-                            .putAll(deeperLevels.getLevelToPredicateCount())
-                            .put(currentLevel, currentLevelPredicates)
-                            .build(),
-                    currentLevel
-            );
+            return new PredicateCountByLevelInfo(newLevelToPredicateCountMap.put(currentLevel, currentLevelPredicates).build());
         }
 
         @Nonnull
-        private List<PredicateCountByLevelInfo> fromChildren(@Nonnull final RelationalExpression expression) {
-            return expression.getQuantifiers()
-                    .stream()
-                    .map(quantifier -> forReference(quantifier.getRangesOver()))
-                    .collect(ImmutableList.toImmutableList());
-        }
-
-        private PredicateCountByLevelInfo forReference(@Nonnull final Reference reference) {
-            final var finalExpressions = reference.getFinalExpressions();
-            Verify.verify(finalExpressions.size() == 1);
-            final var memberResults = reference.getPropertyForExpressions(property).values();
+        @Override
+        public PredicateCountByLevelInfo evaluateAtRef(@Nonnull final Reference reference, @Nonnull final List<PredicateCountByLevelInfo> memberResults) {
+            Verify.verify(memberResults.size() == 1);
             return Iterables.getOnlyElement(memberResults);
         }
     }
