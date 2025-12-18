@@ -70,6 +70,13 @@ public class MatchSimpleFieldValueRule extends ValueComputationRule<Value, Map<V
             return;
         }
         if (rootValue.getResultType().equals(PseudoField.ROW_VERSION.getType())) {
+            // We cannot currently copy out versions, at least when this is used to construct
+            // the IndexKeyValueToPartialRecord based on an index scan. The reason for this is that
+            // we'd need to be able to (if the version is the record's version) copy the version
+            // not into a field on the base record but into FDBQueriedRecord's "version" field.
+            // If we ever replace the IndexKeyValueToPartialRecord on a covering index plan
+            // with an RCV that constructs the record directly from the index entry, we could
+            // start to loosen this
             return;
         }
 
