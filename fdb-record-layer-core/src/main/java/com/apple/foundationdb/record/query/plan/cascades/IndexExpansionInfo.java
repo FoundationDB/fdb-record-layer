@@ -53,21 +53,21 @@ public final class IndexExpansionInfo {
     @Nonnull
     private final Set<String> indexedRecordTypeNames;
     @Nonnull
-    private final Type.Record plannerBaseType;
+    private final Type.Record baseType;
 
     private IndexExpansionInfo(@Nonnull RecordMetaData metaData,
                                @Nonnull Index index,
                                boolean reverse,
                                @Nonnull Collection<RecordType> indexedRecordTypes,
                                @Nonnull Set<String> indexedRecordTypeNames,
-                               @Nonnull Type.Record plannerBaseType,
+                               @Nonnull Type.Record baseType,
                                @Nullable KeyExpression commonPrimaryKeyForTypes) {
         this.metaData = metaData;
         this.index = index;
         this.reverse = reverse;
         this.indexedRecordTypes = indexedRecordTypes;
         this.indexedRecordTypeNames = indexedRecordTypeNames;
-        this.plannerBaseType = plannerBaseType;
+        this.baseType = baseType;
         this.commonPrimaryKeyForTypes = commonPrimaryKeyForTypes;
     }
 
@@ -111,8 +111,8 @@ public final class IndexExpansionInfo {
     }
 
     @Nonnull
-    public Type.Record getPlannerBaseType() {
-        return plannerBaseType;
+    public Type.Record getBaseType() {
+        return baseType;
     }
 
     /**
@@ -137,11 +137,11 @@ public final class IndexExpansionInfo {
                 .map(RecordType::getName)
                 .collect(ImmutableSet.toImmutableSet());
         @Nonnull
-        final Type.Record plannerBaseType = metaData.getPlannerType(indexedRecordTypeNames);
+        final Type.Record baseType = metaData.getPlannerType(indexedRecordTypeNames);
         @Nullable
         final KeyExpression commonPrimaryKeyForTypes = RecordMetaData.commonPrimaryKey(indexedRecordTypes);
 
-        return new IndexExpansionInfo(metaData, index, reverse, indexedRecordTypes, indexedRecordTypeNames, plannerBaseType, commonPrimaryKeyForTypes);
+        return new IndexExpansionInfo(metaData, index, reverse, indexedRecordTypes, indexedRecordTypeNames, baseType, commonPrimaryKeyForTypes);
     }
 
 }

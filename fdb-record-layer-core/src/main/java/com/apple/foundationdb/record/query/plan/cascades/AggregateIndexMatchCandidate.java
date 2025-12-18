@@ -91,7 +91,7 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
     private final List<RecordType> recordTypes;
 
     @Nonnull
-    private final Type baseType;
+    private final Type.Record baseType;
 
     @Nonnull
     private final Value groupByResultValue;
@@ -114,7 +114,7 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
                                         @Nonnull final Traversal traversal,
                                         @Nonnull final List<CorrelationIdentifier> sargableAndOrderAliases,
                                         @Nonnull final Collection<RecordType> recordTypes,
-                                        @Nonnull final Type baseType,
+                                        @Nonnull final Type.Record baseType,
                                         @Nonnull final Value groupByResultValue,
                                         @Nonnull final SelectExpression selectHavingExpression) {
         Preconditions.checkArgument(!recordTypes.isEmpty());
@@ -635,7 +635,7 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
 
     @Nonnull
     @Override
-    public Type getBaseType() {
+    public Type.Record getBaseType() {
         return baseType;
     }
 }

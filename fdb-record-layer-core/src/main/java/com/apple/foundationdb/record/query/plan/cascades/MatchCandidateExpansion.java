@@ -138,7 +138,7 @@ public final class MatchCandidateExpansion {
     @Nonnull
     private static Reference createBaseRef(@Nonnull IndexExpansionInfo info,
                                           @Nonnull AccessHint accessHint) {
-        return createBaseRef(info.getAvailableRecordTypeNames(), info.getIndexedRecordTypeNames(), info.getPlannerBaseType(), accessHint);
+        return createBaseRef(info.getAvailableRecordTypeNames(), info.getIndexedRecordTypeNames(), info.getBaseType(), accessHint);
     }
 
     @Nonnull

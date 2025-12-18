@@ -76,7 +76,7 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
      * Base type.
      */
     @Nonnull
-    private final Type baseType;
+    private final Type.Record baseType;
 
     /**
      * Base alias.
@@ -135,7 +135,7 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
     public WindowedIndexScanMatchCandidate(@Nonnull Index index,
                                            @Nonnull Collection<RecordType> queriedRecordTypes,
                                            @Nonnull final Traversal traversal,
-                                           @Nonnull final Type baseType,
+                                           @Nonnull final Type.Record baseType,
                                            @Nonnull final CorrelationIdentifier baseAlias,
                                            @Nonnull final List<CorrelationIdentifier> groupingAliases,
                                            @Nonnull final CorrelationIdentifier scoreAlias,
@@ -204,7 +204,7 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
 
     @Nonnull
     @Override
-    public Type getBaseType() {
+    public Type.Record getBaseType() {
         return baseType;
     }
 
@@ -395,8 +395,7 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
                                             @Nonnull final Memoizer memoizer,
                                             @Nonnull final List<ComparisonRange> comparisonRanges,
                                             final boolean reverseScanOrder) {
-        final Type.Record baseRecordType = baseType.narrowRecordMaybe().orElseThrow(() -> new RecordCoreException("type is of wrong implementor"));
-        return tryFetchCoveringIndexScan(partialMatch, planContext, memoizer, comparisonRanges, reverseScanOrder, baseRecordType)
+        return tryFetchCoveringIndexScan(partialMatch, planContext, memoizer, comparisonRanges, reverseScanOrder, baseType)
                 .orElseGet(() ->
                         new RecordQueryIndexPlan(index.getName(),
                                 primaryKey,
@@ -406,7 +405,7 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
                                 reverseScanOrder,
                                 false,
                                 partialMatch.getMatchCandidate(),
-                                baseRecordType,
+                                baseType,
                                 QueryPlanConstraint.noConstraint()));
     }
 
