@@ -108,12 +108,21 @@ message MultiDocument {
     repeated string text = 2;
 }
 
+message FlaggedDocument {
+    optional int64 doc_id = 1 [(field).primary_key = true];
+    optional string text = 2 [(field).index = { type: "text" }];
+    optional int64 group = 3;
+    optional bool is_seen = 4;
+    optional bool is_urgent = 5;
+}
+
 message RecordTypeUnion {
     optional SimpleDocument _SimpleDocument = 1;
     optional ComplexDocument _ComplexDocument = 2;
     optional MapDocument _MapDocument = 3;
     optional MultiDocument _MultiDocument = 4;
     optional ManyFieldsDocument _ManyFieldsDocument = 5;
+    optional FlaggedDocument _FlaggedDocument = 6;
 }
 
 message NestedMapDocument {
