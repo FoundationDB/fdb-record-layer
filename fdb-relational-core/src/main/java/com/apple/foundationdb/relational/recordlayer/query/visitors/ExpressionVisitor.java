@@ -787,13 +787,13 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
                 return expression.withUnderlying(resultValue);
             } else {
                 final var star = getDelegate().getSemanticAnalyzer().expandStar(Optional.of(id), getDelegate().getLogicalOperators());
-                final var resultValue = star.getUnderlying();
+                final var resultValue = RecordConstructorValue.ofColumns(Expressions.of(star.getExpansion()).underlyingAsColumns());
                 return Expression.ofUnnamed(resultValue);
             }
         }
         if (ctx.STAR() != null) {
             final var star = getDelegate().getSemanticAnalyzer().expandStar(Optional.empty(), getDelegate().getLogicalOperators());
-            final var resultValue = star.getUnderlying();
+            final var resultValue = RecordConstructorValue.ofColumns(Expressions.of(star.getExpansion()).underlyingAsColumns());
             return Expression.ofUnnamed(resultValue);
         }
         final var expressions = parseRecordFieldsUnderReorderings(ctx.expressionWithOptionalName());

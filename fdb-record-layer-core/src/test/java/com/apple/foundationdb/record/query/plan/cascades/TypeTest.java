@@ -27,8 +27,10 @@ import com.apple.foundationdb.record.TestRecords3Proto;
 import com.apple.foundationdb.record.TestRecords4Proto;
 import com.apple.foundationdb.record.TestRecords4WrapperProto;
 import com.apple.foundationdb.record.TestRecordsUuidProto;
+import com.apple.foundationdb.record.TestRecordsWithHeaderProto;
 import com.apple.foundationdb.record.TupleFieldsProto;
 import com.apple.foundationdb.record.TypeTestProto;
+import com.apple.foundationdb.record.evolution.TestHeaderAsGroupProto;
 import com.apple.foundationdb.record.planprotos.PType;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
@@ -562,6 +564,28 @@ class TypeTest {
         final Type.Enum fromProto = Type.Enum.fromDescriptor(enumType.isNullable(), enumDescriptor);
         assertThat(fromProto)
                 .isEqualTo(enumType);
+    }
+
+    @Test
+    void translatesGroupTypeAsRecord() {
+        final Type.Record fromGroup = Type.Record.fromDescriptor(TestHeaderAsGroupProto.MyRecord.getDescriptor());
+        final Type.Record fromNested = Type.Record.fromDescriptor(TestRecordsWithHeaderProto.MyRecord.getDescriptor());
+
+        assertThat(fromGroup)
+                .isEqualTo(fromNested)
+                .hasSameHashCodeAs(fromNested);
+
+        final Type.Record headerType = Type.Record.fromFields(false, ImmutableList.of(
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG, false), Optional.of("rec_no")),
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING, false), Optional.of("path")),
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT, true), Optional.of("num"))
+        ));
+
+        assertThat(fromGroup.getFieldNameFieldMap())
+                .hasEntrySatisfying("header", field ->
+                        assertThat(field.getFieldType())
+                                .isEqualTo(headerType)
+                                .hasSameHashCodeAs(headerType));
     }
 
     @ParameterizedTest(name = "enumEqualsIgnoresName[{0}]")

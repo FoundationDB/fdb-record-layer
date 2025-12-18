@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.query.plan.cascades;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
@@ -399,8 +398,6 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
                                             @Nonnull final Memoizer memoizer,
                                             @Nonnull final List<ComparisonRange> comparisonRanges,
                                             final boolean reverseScanOrder) {
-        final var baseRecordType = Type.Record.fromFieldDescriptorsMap(RecordMetaData.getFieldDescriptorMapFromTypes(recordTypes));
-
         final var selectHavingResultValue = selectHavingExpression.getResultValue();
         final var resultType = (Type.Record)selectHavingResultValue.getResultType();
         final var messageDescriptor =
@@ -420,7 +417,7 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
                 reverseScanOrder,
                 false,
                 partialMatch.getMatchCandidate(),
-                baseRecordType,
+                baseType.narrowRecordMaybe().orElseThrow(() -> new RecordCoreException("type is of wrong implementor")),
                 QueryPlanConstraint.noConstraint());
 
         var plan = new RecordQueryAggregateIndexPlan(aggregateIndexScan,

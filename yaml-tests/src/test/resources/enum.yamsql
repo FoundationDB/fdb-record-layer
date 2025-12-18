@@ -70,12 +70,12 @@ test_block:
   tests:
     -
       - query: SELECT * From TABLE_A where "mood" = 'CONFUSED'
-      - explain: "SCAN(<,>) | TFILTER TABLE_A | FILTER _.mood EQUALS promote(@c8 AS ENUM<JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)>)"
+      - explain: "SCAN(<,>) | TFILTER TABLE_A | FILTER _.mood EQUALS promote(@c8 AS ENUM<JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)>) | MAP (_.id AS id, _.name AS name, _.mood AS mood)"
       - unorderedResult: [{2, 'bar', 'CONFUSED'},
                           {11, 'plugh', 'CONFUSED'}]
     -
       - query: SELECT * From TABLE_A where "mood" > 'INDIFFERENT'
-      - explain: "SCAN(<,>) | TFILTER TABLE_A | FILTER _.mood GREATER_THAN promote(@c8 AS ENUM<JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)>)"
+      - explain: "SCAN(<,>) | TFILTER TABLE_A | FILTER _.mood GREATER_THAN promote(@c8 AS ENUM<JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)>) | MAP (_.id AS id, _.name AS name, _.mood AS mood)"
       - unorderedResult: [{2, 'bar', 'CONFUSED'},
                           {4, 'qux', 'ANGRY'},
                           {7, 'grault', 'ANXIOUS'},
@@ -84,7 +84,7 @@ test_block:
                           {13, 'thud', 'SAD'}]
     -
       - query: SELECT * From TABLE_A where "mood" >= 'INDIFFERENT'
-      - explain: "SCAN(<,>) | TFILTER TABLE_A | FILTER _.mood GREATER_THAN_OR_EQUALS promote(@c9 AS ENUM<JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)>)"
+      - explain: "SCAN(<,>) | TFILTER TABLE_A | FILTER _.mood GREATER_THAN_OR_EQUALS promote(@c9 AS ENUM<JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)>) | MAP (_.id AS id, _.name AS name, _.mood AS mood)"
       - unorderedResult: [{2, 'bar', 'CONFUSED'},
                           {4, 'qux', 'ANGRY'},
                           {7, 'grault', 'ANXIOUS'},
@@ -127,7 +127,7 @@ test_block:
       - unorderedResult: []
     -
       - query: SELECT * From TABLE_A where "mood" < "mood"
-      - explain: "SCAN(<,>) | TFILTER TABLE_A | FILTER _.mood LESS_THAN _.mood"
+      - explain: "SCAN(<,>) | TFILTER TABLE_A | FILTER _.mood LESS_THAN _.mood | MAP (_.id AS id, _.name AS name, _.mood AS mood)"
       - unorderedResult: []
     -
       - query: SELECT * From TABLE_A where "mood" IS NOT NULL AND "id" < 5
@@ -160,6 +160,13 @@ test_block:
       - unorderedResult: [{2, 'bar', 'CONFUSED'},
                           {11, 'plugh', 'CONFUSED'}]
     -
+      - query: SELECT * From TABLE_B where "mood" = 'CONFUSED'
+      # Same as above, but with force continuations enabled.
+      # This can be combined with the previous query once we no longer care about backwards compatibility with versions older than !current_version
+      - supported_version: !current_version
+      - unorderedResult: [{2, 'bar', 'CONFUSED'},
+                          {11, 'plugh', 'CONFUSED'}]
+    -
       - query: SELECT * From TABLE_B where "mood" > 'INDIFFERENT'
       - explain: "ISCAN(B$MOOD [[GREATER_THAN promote(@c8 AS ENUM<JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)>)]])"
       # Disable force_continuations on this plan until we resolve: https://github.com/FoundationDB/fdb-record-layer/issues/3734
@@ -171,8 +178,19 @@ test_block:
                           {11, 'plugh', 'CONFUSED'},
                           {13, 'thud', 'SAD'}]
     -
+      - query: SELECT * From TABLE_B where "mood" > 'INDIFFERENT'
+      # Same as above, but with force continuations enabled.
+      # This can be combined with the previous query once we no longer care about backwards compatibility with versions older than !current_version
+      - supported_version: !current_version
+      - unorderedResult: [{2, 'bar', 'CONFUSED'},
+                          {4, 'qux', 'ANGRY'},
+                          {7, 'grault', 'ANXIOUS'},
+                          {8, 'garply', 'SAD'},
+                          {11, 'plugh', 'CONFUSED'},
+                          {13, 'thud', 'SAD'}]
+    -
       - query: SELECT * From TABLE_A where "mood" != 'INDIFFERENT'
-      - explain: "SCAN(<,>) | TFILTER TABLE_A | FILTER _.mood NOT_EQUALS promote(@c9 AS ENUM<JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)>)"
+      - explain: "SCAN(<,>) | TFILTER TABLE_A | FILTER _.mood NOT_EQUALS promote(@c9 AS ENUM<JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)>) | MAP (_.id AS id, _.name AS name, _.mood AS mood)"
       - unorderedResult: [{1, 'foo', 'HAPPY'},
                           {2, 'bar', 'CONFUSED'},
                           {3, 'baz', 'JOYFUL'},

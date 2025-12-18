@@ -39,7 +39,7 @@ test_block:
       - result: [{42}]
     -
       - query: select * from values (1, 2.0, (3, 4, 'foo')), (10, 90.2, (5, 6.0, 'bar')) as A(B, C, W(X, Y, Z))
-      - explain: "EXPLODE array((@c6 AS B, @c8 AS C, (@c11 AS X, promote(@c13 AS DOUBLE) AS Y, @c15 AS Z) AS W), (@c20 AS B, @c22 AS C, (@c25 AS X, @c27 AS Y, @c29 AS Z) AS W))"
+      - explain: "EXPLODE array((@c6 AS B, @c8 AS C, (@c11 AS X, promote(@c13 AS DOUBLE) AS Y, @c15 AS Z) AS W), (@c20 AS B, @c22 AS C, (@c25 AS X, @c27 AS Y, @c29 AS Z) AS W)) | MAP (_.B AS B, _.C AS C, _.W AS W)"
       - result: [{B: 1, C: 2.0, W: {X: 3, Y: 4.0, Z: 'foo'}},
                  {B: 10, C: 90.2, W: {X: 5, Y: 6.0, Z: 'bar'}}]
     -
@@ -94,11 +94,11 @@ test_block:
       - result: [{ID: 0}, {ID: 5}, {ID: 10}]
     -
       - query: select * from range(0, 11, 5)
-      - explain: "TF range(promote(@c6 AS LONG), promote(@c8 AS LONG), STEP promote(@c10 AS LONG))"
+      - explain: "TF range(promote(@c6 AS LONG), promote(@c8 AS LONG), STEP promote(@c10 AS LONG)) | MAP (_.ID AS ID)"
       - result: [{ID: 0}, {ID: 5}, {ID: 10}]
     -
       - query: select * from range(6 - 6, 14 + 6 + 1, 20 - 10)
-      - explain: "TF range(promote(@c6 - @c6 AS LONG), promote(@c10 + @c6 + @c14 AS LONG), STEP promote(@c16 - @c18 AS LONG))"
+      - explain: "TF range(promote(@c6 - @c6 AS LONG), promote(@c10 + @c6 + @c14 AS LONG), STEP promote(@c16 - @c18 AS LONG)) | MAP (_.ID AS ID)"
       - result: [{ID: 0}, {ID: 10}, {ID: 20}]
     -
       - query: select ID as X from range(3) as Y

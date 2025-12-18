@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.TestRecords6Proto;
 import com.apple.foundationdb.record.TestRecordsWithHeaderProto;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression.FanType;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
@@ -589,7 +590,7 @@ class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
             final var typeRepository = TypeRepository.newBuilder().addAllTypes(usedTypes).build();
             List<Message> byQuery =
                     recordStore.executeQuery(plan, null, EvaluationContext.forBindingsAndTypeRepository(Bindings.EMPTY_BINDINGS, typeRepository), ExecuteProperties.SERIAL_EXECUTE)
-                            .map(QueryResult::<Message>getMessage).asList().get();
+                            .map(QueryResult::getQueriedRecord).map(FDBRecord::getRecord).asList().get();
             assertEquals(1, byQuery.size());
             assertDiscardedNone(context);
             TestRecords1Proto.MySimpleRecord simpleByQuery = builder.clear().mergeFrom(byQuery.get(0)).build();

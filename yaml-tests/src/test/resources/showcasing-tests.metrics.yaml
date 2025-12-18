@@ -1,11 +1,12 @@
 showcasing-tests:
 -   query: EXPLAIN select * from t1 where id > 15;
     explain: SCAN(<,>) | TFILTER T1 | FILTER _.ID GREATER_THAN promote(@c8 AS LONG)
-    task_count: 187
+        | MAP (_.ID AS ID, _.COL1 AS COL1)
+    task_count: 218
     task_total_time_ms: 2
-    transform_count: 48
+    transform_count: 52
     transform_time_ms: 1
-    transform_yield_count: 14
+    transform_yield_count: 16
     insert_time_ms: 0
-    insert_new_count: 17
-    insert_reused_count: 2
+    insert_new_count: 20
+    insert_reused_count: 1

@@ -1,127 +1,127 @@
-Ñ
+›
 6
-	unnamed-3)EXPLAIN select * from C WHERE C2 LIKE '%'…
-“ñﬂO ¬„€(0ôó8&@YCOVERING(C2 <,> -> [C1: KEY[2], C2: KEY[0]]) | FILTER _.C2 LIKE @c8 ESCAPE 'null' | FETCH–digraph G {
+	unnamed-3)EXPLAIN select * from C WHERE C2 LIKE '%'¢
+¬„à⁄_ ˘∆ﬁ(#0ê√80@pCOVERING(C2 <,> -> [C1: KEY[2], C2: KEY[0]]) | FILTER _.C2 LIKE @c8 ESCAPE 'null' | MAP (_.C1 AS C1, _.C2 AS C2)ídigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Fetch Records</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(INT AS C1, STRING AS C2)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q41.C2 LIKE @c8 ESCAPE &#39;null&#39;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS C1, STRING AS C2)" ];
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q49.C1 AS C1, q49.C2 AS C2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS C1, STRING AS C2)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q45.C2 LIKE @c8 ESCAPE &#39;null&#39;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS C1, STRING AS C2)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS C1, STRING AS C2)" ];
   4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">C2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS C1, STRING AS C2)" ];
-  3 -> 2 [ label=<&nbsp;q41> label="q41" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  3 -> 2 [ label=<&nbsp;q45> label="q45" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q43> label="q43" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Ö
+  2 -> 1 [ label=<&nbsp;q49> label="q49" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}ﬁ
 7
-	unnamed-3*EXPLAIN select * from C WHERE C2 LIKE 'a%'…
-“ÉûŸO ¨√√(0‚Ÿ8&@YCOVERING(C2 <,> -> [C1: KEY[2], C2: KEY[0]]) | FILTER _.C2 LIKE @c8 ESCAPE 'null' | FETCH–digraph G {
+	unnamed-3*EXPLAIN select * from C WHERE C2 LIKE 'a%'¢
+¬∏æô	_ ù≠≠(#0ù‰!80@pCOVERING(C2 <,> -> [C1: KEY[2], C2: KEY[0]]) | FILTER _.C2 LIKE @c8 ESCAPE 'null' | MAP (_.C1 AS C1, _.C2 AS C2)ídigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Fetch Records</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(INT AS C1, STRING AS C2)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q41.C2 LIKE @c8 ESCAPE &#39;null&#39;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS C1, STRING AS C2)" ];
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q49.C1 AS C1, q49.C2 AS C2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS C1, STRING AS C2)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q45.C2 LIKE @c8 ESCAPE &#39;null&#39;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS C1, STRING AS C2)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS C1, STRING AS C2)" ];
   4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">C2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS C1, STRING AS C2)" ];
-  3 -> 2 [ label=<&nbsp;q41> label="q41" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  3 -> 2 [ label=<&nbsp;q45> label="q45" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q43> label="q43" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Ü
+  2 -> 1 [ label=<&nbsp;q49> label="q49" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}ﬂ
 8
-	unnamed-3+EXPLAIN select * from C WHERE C2 LIKE 'ap%'…
-“ˆΩßO €ó√(0î–8&@YCOVERING(C2 <,> -> [C1: KEY[2], C2: KEY[0]]) | FILTER _.C2 LIKE @c8 ESCAPE 'null' | FETCH–digraph G {
+	unnamed-3+EXPLAIN select * from C WHERE C2 LIKE 'ap%'¢
+¬íßÉ_ «‡ú(#0«å80@pCOVERING(C2 <,> -> [C1: KEY[2], C2: KEY[0]]) | FILTER _.C2 LIKE @c8 ESCAPE 'null' | MAP (_.C1 AS C1, _.C2 AS C2)ídigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Fetch Records</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(INT AS C1, STRING AS C2)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q41.C2 LIKE @c8 ESCAPE &#39;null&#39;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS C1, STRING AS C2)" ];
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q49.C1 AS C1, q49.C2 AS C2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS C1, STRING AS C2)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q45.C2 LIKE @c8 ESCAPE &#39;null&#39;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS C1, STRING AS C2)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS C1, STRING AS C2)" ];
   4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">C2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS C1, STRING AS C2)" ];
-  3 -> 2 [ label=<&nbsp;q41> label="q41" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  3 -> 2 [ label=<&nbsp;q45> label="q45" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q43> label="q43" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}á
+  2 -> 1 [ label=<&nbsp;q49> label="q49" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}‡
 9
-	unnamed-3,EXPLAIN select * from C WHERE C2 LIKE 'a%l%'…
-“…åÂO è´◊(0“ø8&@YCOVERING(C2 <,> -> [C1: KEY[2], C2: KEY[0]]) | FILTER _.C2 LIKE @c8 ESCAPE 'null' | FETCH–digraph G {
+	unnamed-3,EXPLAIN select * from C WHERE C2 LIKE 'a%l%'¢
+¬œêä	_ ‚ƒ´(#0à˜"80@pCOVERING(C2 <,> -> [C1: KEY[2], C2: KEY[0]]) | FILTER _.C2 LIKE @c8 ESCAPE 'null' | MAP (_.C1 AS C1, _.C2 AS C2)ídigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Fetch Records</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(INT AS C1, STRING AS C2)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q41.C2 LIKE @c8 ESCAPE &#39;null&#39;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS C1, STRING AS C2)" ];
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q49.C1 AS C1, q49.C2 AS C2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS C1, STRING AS C2)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q45.C2 LIKE @c8 ESCAPE &#39;null&#39;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS C1, STRING AS C2)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS C1, STRING AS C2)" ];
   4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">C2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS C1, STRING AS C2)" ];
-  3 -> 2 [ label=<&nbsp;q41> label="q41" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  3 -> 2 [ label=<&nbsp;q45> label="q45" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q43> label="q43" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Ü
+  2 -> 1 [ label=<&nbsp;q49> label="q49" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}ﬂ
 8
-	unnamed-3+EXPLAIN select * from C WHERE C2 LIKE 'ca%'…
-“´∏öO Ë∂”(0’˜8&@YCOVERING(C2 <,> -> [C1: KEY[2], C2: KEY[0]]) | FILTER _.C2 LIKE @c8 ESCAPE 'null' | FETCH–digraph G {
+	unnamed-3+EXPLAIN select * from C WHERE C2 LIKE 'ca%'¢
+¬Ôµï_ œ ô(#0Ìç80@pCOVERING(C2 <,> -> [C1: KEY[2], C2: KEY[0]]) | FILTER _.C2 LIKE @c8 ESCAPE 'null' | MAP (_.C1 AS C1, _.C2 AS C2)ídigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Fetch Records</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(INT AS C1, STRING AS C2)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q41.C2 LIKE @c8 ESCAPE &#39;null&#39;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS C1, STRING AS C2)" ];
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q49.C1 AS C1, q49.C2 AS C2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS C1, STRING AS C2)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q45.C2 LIKE @c8 ESCAPE &#39;null&#39;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS C1, STRING AS C2)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS C1, STRING AS C2)" ];
   4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">C2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS C1, STRING AS C2)" ];
-  3 -> 2 [ label=<&nbsp;q41> label="q41" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  3 -> 2 [ label=<&nbsp;q45> label="q45" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q43> label="q43" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}à
+  2 -> 1 [ label=<&nbsp;q49> label="q49" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}·
 :
-	unnamed-3-EXPLAIN select * from C WHERE C2 LIKE 'ca_al'…
-“ã¶ÒO Ù“◊(0íÛ8&@YCOVERING(C2 <,> -> [C1: KEY[2], C2: KEY[0]]) | FILTER _.C2 LIKE @c8 ESCAPE 'null' | FETCH–digraph G {
+	unnamed-3-EXPLAIN select * from C WHERE C2 LIKE 'ca_al'¢
+¬≈Œ∫_ ﬂ’›(#0˜§80@pCOVERING(C2 <,> -> [C1: KEY[2], C2: KEY[0]]) | FILTER _.C2 LIKE @c8 ESCAPE 'null' | MAP (_.C1 AS C1, _.C2 AS C2)ídigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Fetch Records</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(INT AS C1, STRING AS C2)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q41.C2 LIKE @c8 ESCAPE &#39;null&#39;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS C1, STRING AS C2)" ];
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q49.C1 AS C1, q49.C2 AS C2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS C1, STRING AS C2)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q45.C2 LIKE @c8 ESCAPE &#39;null&#39;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS C1, STRING AS C2)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS C1, STRING AS C2)" ];
   4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">C2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS C1, STRING AS C2)" ];
-  3 -> 2 [ label=<&nbsp;q41> label="q41" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  3 -> 2 [ label=<&nbsp;q45> label="q45" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q43> label="q43" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}à
+  2 -> 1 [ label=<&nbsp;q49> label="q49" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}·
 :
-	unnamed-3-EXPLAIN select * from C WHERE C2 LIKE 'ca%al'…
-“ààÚO ˛ìœ(0◊ì8&@YCOVERING(C2 <,> -> [C1: KEY[2], C2: KEY[0]]) | FILTER _.C2 LIKE @c8 ESCAPE 'null' | FETCH–digraph G {
+	unnamed-3-EXPLAIN select * from C WHERE C2 LIKE 'ca%al'¢
+¬á˘”_ ◊ßﬂ(#0≠ü80@pCOVERING(C2 <,> -> [C1: KEY[2], C2: KEY[0]]) | FILTER _.C2 LIKE @c8 ESCAPE 'null' | MAP (_.C1 AS C1, _.C2 AS C2)ídigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Fetch Records</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(INT AS C1, STRING AS C2)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q41.C2 LIKE @c8 ESCAPE &#39;null&#39;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS C1, STRING AS C2)" ];
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q49.C1 AS C1, q49.C2 AS C2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS C1, STRING AS C2)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q45.C2 LIKE @c8 ESCAPE &#39;null&#39;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS C1, STRING AS C2)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS C1, STRING AS C2)" ];
   4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">C2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS C1, STRING AS C2)" ];
-  3 -> 2 [ label=<&nbsp;q41> label="q41" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  3 -> 2 [ label=<&nbsp;q45> label="q45" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q43> label="q43" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}â
+  2 -> 1 [ label=<&nbsp;q49> label="q49" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}‚
 ;
-	unnamed-3.EXPLAIN select * from C WHERE C2 LIKE 'ca_al%'…
-“ÎúéO –îœ(0∏À8&@YCOVERING(C2 <,> -> [C1: KEY[2], C2: KEY[0]]) | FILTER _.C2 LIKE @c8 ESCAPE 'null' | FETCH–digraph G {
+	unnamed-3.EXPLAIN select * from C WHERE C2 LIKE 'ca_al%'¢
+¬†√õ_ Á»ï(#0á…80@pCOVERING(C2 <,> -> [C1: KEY[2], C2: KEY[0]]) | FILTER _.C2 LIKE @c8 ESCAPE 'null' | MAP (_.C1 AS C1, _.C2 AS C2)ídigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Fetch Records</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(INT AS C1, STRING AS C2)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q41.C2 LIKE @c8 ESCAPE &#39;null&#39;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS C1, STRING AS C2)" ];
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q49.C1 AS C1, q49.C2 AS C2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS C1, STRING AS C2)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q45.C2 LIKE @c8 ESCAPE &#39;null&#39;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS C1, STRING AS C2)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS C1, STRING AS C2)" ];
   4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">C2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS C1, STRING AS C2)" ];
-  3 -> 2 [ label=<&nbsp;q41> label="q41" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  3 -> 2 [ label=<&nbsp;q45> label="q45" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q43> label="q43" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}â
+  2 -> 1 [ label=<&nbsp;q49> label="q49" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}‚
 ;
-	unnamed-3.EXPLAIN select * from C WHERE C2 LIKE 'ca%al%'…
-“ç±ôO Á é(0Õ¸!8&@YCOVERING(C2 <,> -> [C1: KEY[2], C2: KEY[0]]) | FILTER _.C2 LIKE @c8 ESCAPE 'null' | FETCH–digraph G {
+	unnamed-3.EXPLAIN select * from C WHERE C2 LIKE 'ca%al%'¢
+¬∏—Î_ ËÏ˝(#0øª80@pCOVERING(C2 <,> -> [C1: KEY[2], C2: KEY[0]]) | FILTER _.C2 LIKE @c8 ESCAPE 'null' | MAP (_.C1 AS C1, _.C2 AS C2)ídigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Fetch Records</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(INT AS C1, STRING AS C2)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q41.C2 LIKE @c8 ESCAPE &#39;null&#39;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS C1, STRING AS C2)" ];
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q49.C1 AS C1, q49.C2 AS C2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS C1, STRING AS C2)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q45.C2 LIKE @c8 ESCAPE &#39;null&#39;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS C1, STRING AS C2)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS C1, STRING AS C2)" ];
   4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">C2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS C1, STRING AS C2)" ];
-  3 -> 2 [ label=<&nbsp;q41> label="q41" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  3 -> 2 [ label=<&nbsp;q45> label="q45" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q43> label="q43" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q49> label="q49" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
 }

@@ -55,23 +55,23 @@ test_block:
 # subsequent runs of the same query will reuse the cached plan since the equality constraint
 # is satisfied when both arguments are `null`.
       - query: select * from B where !! !n null !! = 42 and !! !n null !! = 43
-      - explainContains: "COVERING(I1 <,> -> [B1: KEY:[3], B2: KEY:[1], B3: KEY:[0]])"
+      - explainContains: "SCAN(<,>)"
       - result: []
     -
       - query: select * from B where !! !n null !! = 42 and !! 50 !! = 43
-      - explainContains: "COVERING(I1 <,> -> [B1: KEY:[3], B2: KEY:[1], B3: KEY:[0]])"
+      - explainContains: "SCAN(<,>)"
       - result: []
     -
       - query: select * from B where !! 41 !! = 42 and !! !n null !! = 43
-      - explainContains: "COVERING(I1 <,> -> [B1: KEY:[3], B2: KEY:[1], B3: KEY:[0]])"
+      - explainContains: "SCAN(<,>)"
       - result: []
     -
       - query: select * from B where !! 46 !! = 42 and !! 47 !! = 43
-      - explainContains: "COVERING(I1 <,> -> [B1: KEY:[3], B2: KEY:[1], B3: KEY:[0]])"
+      - explainContains: "SCAN(<,>)"
       - result: []
     -
       - query: select * from B where !! 42 !! = 42 and !! 43 !! = 43 and !! 45 !! = 45
-      - explainContains: "COVERING(I1 <,> -> [B1: KEY:[3], B2: KEY:[1], B3: KEY:[0]])"
+      - explainContains: "SCAN(<,>)"
       - result: [{1, 'a', 2}, {3, 'b', 4}, {5, 'c', 6}]
 ---
 test_block:
@@ -88,22 +88,22 @@ test_block:
       - result: [{3, 'b', 4}]
     -
       - query: select * from B where !! !n null !! = 42 and !! !n null !! = 43
-      - explainContains: "COVERING(I1 <,> -> [B1: KEY:[3], B2: KEY:[1], B3: KEY:[0]])"
+      - explainContains: "SCAN(<,>)"
       - result: []
     -
       - query: select * from B where !! !n null !! = 42 and !! 50 !! = 43
-      - explainContains: "COVERING(I1 <,> -> [B1: KEY:[3], B2: KEY:[1], B3: KEY:[0]])"
+      - explainContains: "SCAN(<,>)"
       - result: []
     -
       - query: select * from B where !! 41 !! = 42 and !! !n null !! = 43
-      - explainContains: "COVERING(I1 <,> -> [B1: KEY:[3], B2: KEY:[1], B3: KEY:[0]])"
+      - explainContains: "SCAN(<,>)"
       - result: []
     -
       - query: select * from B where !! 46 !! = 42 and !! 47 !! = 43
-      - explainContains: "COVERING(I1 <,> -> [B1: KEY:[3], B2: KEY:[1], B3: KEY:[0]])"
+      - explainContains: "SCAN(<,>)"
       - result: []
     -
       - query: select * from B where !! 42 !! = 42 and !! 43 !! = 43 and !! 45 !! = 45
-      - explainContains: "COVERING(I1 <,> -> [B1: KEY:[3], B2: KEY:[1], B3: KEY:[0]])"
+      - explainContains: "SCAN(<,>)"
       - result: [{1, 'a', 2}, {3, 'b', 4}, {5, 'c', 6}]
 ...
