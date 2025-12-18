@@ -36,7 +36,6 @@ import java.util.Iterator;
  */
 @API(API.Status.INTERNAL)
 public class CommittingIteratorResultSet extends IteratorResultSet {
-    private boolean closed;
     private final EmbeddedRelationalConnection connection;
 
     public CommittingIteratorResultSet(@Nonnull final StructMetaData metaData,

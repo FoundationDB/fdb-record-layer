@@ -23,7 +23,6 @@ package com.apple.foundationdb.relational.recordlayer.query.visitors;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.recordlayer.query.CopyPlan;
-import com.apple.foundationdb.relational.recordlayer.query.PreparedParams;
 import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
 import com.apple.foundationdb.relational.recordlayer.query.SemanticAnalyzer;
 
@@ -84,7 +83,6 @@ public final class MetadataPlanVisitor extends DelegatingVisitor<BaseVisitor> {
     @Override
     public QueryPlan visitCopyExportStatement(@Nonnull RelationalParser.CopyExportStatementContext ctx) {
         final var pathId = visitUid(ctx.path().uid());
-        final PreparedParams preparedParams = PreparedParams.copyOf(getDelegate().getPlanGenerationContext().getPreparedParams());
         return CopyPlan.getCopyExportAction(pathId.getName(), getDelegate().getPlanGenerationContext());
     }
 

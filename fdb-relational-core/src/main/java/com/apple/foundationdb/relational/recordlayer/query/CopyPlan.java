@@ -60,6 +60,22 @@ import java.util.List;
  */
 @API(API.Status.EXPERIMENTAL)
 public class CopyPlan extends QueryPlan {
+    private enum CopyType {
+        EXPORT,
+        IMPORT
+    }
+
+    @Nonnull
+    private final CopyType copyType;
+
+    @Nonnull
+    private final String path;
+
+    @Nonnull
+    private final Type rowType;
+
+    @Nonnull
+    private final QueryExecutionContext queryExecutionContext;
 
     /**
      * Creates a COPY export plan.
@@ -100,27 +116,10 @@ public class CopyPlan extends QueryPlan {
         return new CopyPlan(CopyType.IMPORT, path, rowType, queryExecutionContext);
     }
 
-    private enum CopyType {
-        EXPORT,
-        IMPORT
-    }
-
-    @Nonnull
-    private final CopyType copyType;
-
-    @Nonnull
-    private final String path;
-
-    @Nonnull
-    private final Type rowType;
-
-    @Nonnull
-    private final QueryExecutionContext queryExecutionContext;
-
-    CopyPlan(@Nonnull CopyType copyType,
-             @Nonnull String path,
-             @Nonnull Type rowType,
-             @Nonnull QueryExecutionContext queryExecutionContext) {
+    private CopyPlan(@Nonnull CopyType copyType,
+                     @Nonnull String path,
+                     @Nonnull Type rowType,
+                     @Nonnull QueryExecutionContext queryExecutionContext) {
         super("COPY " + copyType.name() + " " + path);
         this.copyType = copyType;
         this.path = path;
