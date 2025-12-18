@@ -154,7 +154,7 @@ test_block:
           {'\\||%'}]
     -
       - query: select * from C WHERE C2 LIKE '%'
-      - explain: "COVERING(C2 <,> -> [C1: KEY[2], C2: KEY[0]]) | FILTER _.C2 LIKE @c8 ESCAPE 'null' | FETCH"
+      - explain: "COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c8 ESCAPE 'null' | FETCH"
       - result: [
           { C1:  1, C2: alphabet},
           { C1:  2, C2: anticipation},
@@ -178,7 +178,7 @@ test_block:
         ]
     -
       - query: select * from C WHERE C2 LIKE 'a%'
-      - explain: "COVERING(C2 <,> -> [C1: KEY[2], C2: KEY[0]]) | FILTER _.C2 LIKE @c8 ESCAPE 'null' | FETCH"
+      - explain: "COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c8 ESCAPE 'null' | FETCH"
       - result: [
           { C1:  1, C2: alphabet},
           { C1:  2, C2: anticipation},
@@ -190,7 +190,7 @@ test_block:
         ]
     -
       - query: select * from C WHERE C2 LIKE 'ap%'
-      - explain: "COVERING(C2 <,> -> [C1: KEY[2], C2: KEY[0]]) | FILTER _.C2 LIKE @c8 ESCAPE 'null' | FETCH"
+      - explain: "COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c8 ESCAPE 'null' | FETCH"
       - result: [
           { C1:  3, C2: aplomb},
           { C1:  4, C2: apple},
@@ -199,7 +199,7 @@ test_block:
         ]
     -
       - query: select * from C WHERE C2 LIKE 'a%l%'
-      - explain: "COVERING(C2 <,> -> [C1: KEY[2], C2: KEY[0]]) | FILTER _.C2 LIKE @c8 ESCAPE 'null' | FETCH"
+      - explain: "COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c8 ESCAPE 'null' | FETCH"
       - result: [
           { C1:  1, C2: alphabet},
           { C1:  3, C2: aplomb},
@@ -277,7 +277,7 @@ test_block:
     -
       - query: select * from C WHERE C2 LIKE 'ca%'
       # In theory, this could be executed optimally with prefix string scan with the prefix "ca"
-      - explain: "COVERING(C2 <,> -> [C1: KEY[2], C2: KEY[0]]) | FILTER _.C2 LIKE @c8 ESCAPE 'null' | FETCH"
+      - explain: "COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c8 ESCAPE 'null' | FETCH"
       - result: [
           { C1: 13, C2: cabal},
           { C1: 14, C2: camel},
@@ -290,7 +290,7 @@ test_block:
       - query: select * from C WHERE C2 LIKE 'ca_al'
       # In theory, this could be optimized with prefix string scan with the prefix "ca" followed by compensation
       # to handle filtering out based on the tail
-      - explain: "COVERING(C2 <,> -> [C1: KEY[2], C2: KEY[0]]) | FILTER _.C2 LIKE @c8 ESCAPE 'null' | FETCH"
+      - explain: "COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c8 ESCAPE 'null' | FETCH"
       - result: [
           { C1: 13, C2: cabal},
           { C1: 15, C2: canal},
@@ -299,7 +299,7 @@ test_block:
       - query: select * from C WHERE C2 LIKE 'ca%al'
       # In theory, this could be optimized with prefix string scan with the prefix "ca" followed by compensation
       # to handle matching the tail
-      - explain: "COVERING(C2 <,> -> [C1: KEY[2], C2: KEY[0]]) | FILTER _.C2 LIKE @c8 ESCAPE 'null' | FETCH"
+      - explain: "COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c8 ESCAPE 'null' | FETCH"
       - result: [
           { C1: 13, C2: cabal},
           { C1: 15, C2: canal},
@@ -307,7 +307,7 @@ test_block:
         ]
     -
       - query: select * from C WHERE C2 LIKE 'ca_al%'
-      - explain: "COVERING(C2 <,> -> [C1: KEY[2], C2: KEY[0]]) | FILTER _.C2 LIKE @c8 ESCAPE 'null' | FETCH"
+      - explain: "COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c8 ESCAPE 'null' | FETCH"
       - result: [
           { C1: 13, C2: cabal},
           { C1: 15, C2: canal},
@@ -315,7 +315,7 @@ test_block:
         ]
     -
       - query: select * from C WHERE C2 LIKE 'ca%al%'
-      - explain: "COVERING(C2 <,> -> [C1: KEY[2], C2: KEY[0]]) | FILTER _.C2 LIKE @c8 ESCAPE 'null' | FETCH"
+      - explain: "COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c8 ESCAPE 'null' | FETCH"
       - result: [
           { C1: 13, C2: cabal},
           { C1: 15, C2: canal},

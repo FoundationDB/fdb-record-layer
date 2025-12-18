@@ -293,6 +293,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void structTypeNullabilityVariants(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("struct-type-nullability-variants.yamsql");
+    }
+
+    @TestTemplate
     public void subqueryTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("subquery-tests.yamsql");
     }

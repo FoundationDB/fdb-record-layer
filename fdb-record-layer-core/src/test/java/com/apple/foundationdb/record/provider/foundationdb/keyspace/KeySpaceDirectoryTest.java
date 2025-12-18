@@ -40,13 +40,17 @@ import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 import com.apple.test.BooleanSource;
+import com.apple.test.ParameterizedTestUtils;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -67,6 +71,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.TestHelpers.assertThrows;
 import static com.apple.foundationdb.record.TestHelpers.eventually;
@@ -81,6 +86,7 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -430,7 +436,7 @@ public class KeySpaceDirectoryTest {
         }
     }
 
-    public KeyTypeValue pickDifferentType(KeyType keyType) {
+    private KeyTypeValue pickDifferentType(KeyType keyType) {
         while (true) {
             KeyTypeValue kv = valueOfEveryType.get(random.nextInt(valueOfEveryType.size()));
             if (kv.keyType != keyType) {
@@ -1558,6 +1564,162 @@ public class KeySpaceDirectoryTest {
         return AsyncUtil.getAll(futures).join();
     }
 
+    private static final Map<KeySpaceDirectory.KeyType, KeyPathValues> VALUES = Map.of(
+            KeySpaceDirectory.KeyType.NULL, new KeyPathValues(() -> null,
+                    List.of(), List.of("not_null", 42, true)),
+            KeySpaceDirectory.KeyType.STRING, new KeyPathValues(() -> "foo",
+                    List.of("bar", ""), List.of(3, "foo".getBytes(), true, 3.14)),
+            KeySpaceDirectory.KeyType.LONG, new KeyPathValues(() -> 42L,
+                    List.of(100L, 0L, -5L, 123, ((long)Integer.MAX_VALUE) + 3), List.of("not_long", 3.14, true, new byte[] {1})),
+            KeySpaceDirectory.KeyType.FLOAT, new KeyPathValues(() -> 3.14f,
+                    List.of(0.0f, -2.5f, 1.5f), List.of("not_float", 42, true, new byte[] {1}, Double.MAX_VALUE)),
+            KeySpaceDirectory.KeyType.DOUBLE, new KeyPathValues(() -> 2.71828,
+                    List.of(0.0, -1.5, 3.14159), List.of("not_double", 42, true, new byte[] {1}, 1.5f)),
+            KeySpaceDirectory.KeyType.BOOLEAN, new KeyPathValues(() -> true,
+                    List.of(false),
+                    List.of("true", 1, 0, new byte[] {1})),
+            KeySpaceDirectory.KeyType.BYTES, new KeyPathValues(() -> new byte[] {1, 2, 3},
+                    List.of(new byte[] {4, 5}, new byte[] {(byte)0xFF}, new byte[0]),
+                    List.of("not_bytes", 42, true, 3.14)),
+            KeySpaceDirectory.KeyType.UUID, new KeyPathValues(() -> UUID.fromString("12345678-1234-1234-1234-123456789abc"),
+                    List.of(UUID.fromString("00000000-0000-0000-0000-000000000000")),
+                    List.of("not_uuid", 42, true, new byte[] {1}))
+    );
+
+    @Test
+    void testAllKeyTypesAreCovered() {
+        // Ensure that all KeyTypes have test data defined
+        for (KeySpaceDirectory.KeyType keyType : KeySpaceDirectory.KeyType.values()) {
+            assertNotNull(VALUES.get(keyType), "KeyType " + keyType + " is not covered in VALUES map");
+        }
+    }
+
+    static Stream<Arguments> testValidateConstant() {
+        return VALUES.entrySet().stream()
+                .flatMap(entry -> Stream.concat(
+                        Stream.concat(entry.getValue().otherValidValues.stream(), entry.getValue().invalidValues.stream())
+                                .map(valueToAdd -> Arguments.of(entry.getKey(), entry.getValue().value.get(), valueToAdd, false)),
+                        Stream.of(Arguments.of(entry.getKey(), entry.getValue().value.get(), entry.getValue().value.get(), true))));
+    }
+
+    @ParameterizedTest
+    @MethodSource
+    void testValidateConstant(KeySpaceDirectory.KeyType keyType, Object constantValue, Object valueToAdd, boolean isValid) {
+        final KeySpaceDirectory directory = new KeySpaceDirectory("test_dir", keyType, constantValue);
+        if (isValid) {
+            // Should succeed - value matches constant
+            directory.validateValue(valueToAdd);
+        } else {
+            // Should fail - value doesn't match constant or is invalid type
+            Assertions.assertThrows(RecordCoreArgumentException.class, () -> directory.validateValue(valueToAdd));
+        }
+    }
+
+    static Stream<Arguments> testValidationValidValues() {
+        return VALUES.entrySet().stream().flatMap(entry ->
+                Stream.concat(
+                                Stream.of(entry.getValue().value.get()),
+                                entry.getValue().otherValidValues.stream())
+                        .map(value -> Arguments.of(entry.getKey(), value)));
+    }
+
+    @ParameterizedTest
+    @MethodSource
+    void testValidationValidValues(KeySpaceDirectory.KeyType keyType, Object value) {
+        // should succeed
+        new KeySpaceDirectory("test_dir", keyType).validateValue(value);
+    }
+
+    static Stream<Arguments> testValidationInvalidValues() {
+        return VALUES.entrySet().stream().flatMap(entry ->
+                entry.getValue().invalidValues.stream()
+                        .map(value -> Arguments.of(entry.getKey(), value)));
+    }
+
+    @ParameterizedTest
+    @MethodSource
+    void testValidationInvalidValues(KeySpaceDirectory.KeyType keyType, Object value) {
+        final KeySpaceDirectory directory = new KeySpaceDirectory("test_dir", keyType);
+
+        Assertions.assertThrows(RecordCoreArgumentException.class, () -> directory.validateValue(value),
+                "value doesn't match the key type");
+    }
+
+    static Stream<KeySpaceDirectory.KeyType> testValidationNullToNonNullType() {
+        return Stream.of(KeySpaceDirectory.KeyType.values())
+                .filter(type -> type != KeySpaceDirectory.KeyType.NULL);
+    }
+
+    @ParameterizedTest
+    @MethodSource
+    void testValidationNullToNonNullType(KeySpaceDirectory.KeyType keyType) {
+        final KeySpaceDirectory directory = new KeySpaceDirectory("test_dir", keyType);
+
+        Assertions.assertThrows(RecordCoreArgumentException.class, () -> directory.validateValue(null),
+                "null not allowed for non-NULL types");
+    }
+
+    static Stream<Arguments> testDirectoryLayerDirectoryValidateValueValidStrings() {
+        return Stream.of(
+                // ANY_VALUE directory - accepts any string
+                Arguments.of(false, "foo", true),
+                Arguments.of(false, "bar", true),
+                Arguments.of(false, "", true),
+                Arguments.of(false, "any_string_value", true),
+
+                // Constant directory - only accepts matching constant
+                Arguments.of(true, "production", true),
+                Arguments.of(true, "staging", false),
+                Arguments.of(true, "", false),
+                Arguments.of(true, "other", false)
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource
+    void testDirectoryLayerDirectoryValidateValueValidStrings(boolean isConstant, String value, boolean shouldSucceed) {
+        DirectoryLayerDirectory directory = isConstant
+                                            ? new DirectoryLayerDirectory("test_dir", "production")
+                                            : new DirectoryLayerDirectory("test_dir");
+
+        if (shouldSucceed) {
+            directory.validateValue(value);
+        } else {
+            Assertions.assertThrows(RecordCoreArgumentException.class, () -> directory.validateValue(value),
+                    "value doesn't match constant");
+        }
+    }
+
+    static Stream<Arguments> testDirectoryLayerDirectoryValidateValueInvalidTypes() {
+        return ParameterizedTestUtils.cartesianProduct(
+                ParameterizedTestUtils.booleans("isConstant"),
+                Stream.of(42L, 123, 3.14f, 2.718, true, new byte[]{1, 2, 3}, UUID.randomUUID(), null)
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource
+    void testDirectoryLayerDirectoryValidateValueInvalidTypes(boolean isConstant, Object value) {
+        DirectoryLayerDirectory directory = isConstant
+                                            ? new DirectoryLayerDirectory("test_dir", "production")
+                                            : new DirectoryLayerDirectory("test_dir");
+
+        Assertions.assertThrows(RecordCoreArgumentException.class, () -> directory.validateValue(value),
+                "DirectoryLayerDirectory only accepts Strings");
+    }
+
+    static final class KeyPathValues {
+        private final Supplier<Object> value;
+        private final List<Object> otherValidValues;
+        private final List<Object> invalidValues;
+
+        KeyPathValues(final Supplier<Object> value, final List<Object> otherValidValues, final List<Object> invalidValues) {
+            this.value = value;
+            this.otherValidValues = otherValidValues;
+            this.invalidValues = invalidValues;
+        }
+    }
+
     /** Used to validate wrapping of path names. */
     public static class PathA extends KeySpacePathWrapper {
         public PathA(KeySpacePath parent) {
@@ -1592,6 +1754,13 @@ public class KeySpaceDirectoryTest {
         @Override
         protected CompletableFuture<PathValue> toTupleValueAsyncImpl(@Nonnull FDBRecordContext context, Object value) {
             return CompletableFuture.completedFuture(new PathValue(resolver.apply(value)));
+        }
+
+        @Override
+        public boolean isValueValid(@Nullable Object value) {
+            // ConstantResolvingKeySpaceDirectory accepts any value and transforms it via the resolver
+            // The resolved value must match the expected key type
+            return true;
         }
     }
 
