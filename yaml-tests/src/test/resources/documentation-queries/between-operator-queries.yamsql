@@ -36,8 +36,6 @@ test_block:
               FROM products
               WHERE price NOT BETWEEN 100 AND 150
               ORDER BY price
-      # Uses record type key for key comparison which has compatibility problems with versions older than !current_version
-      - supported_version: !current_version
       - result: [{name: "Book A", price: 25},
                  {name: "Book B", price: 30},
                  {name: "Tool A", price: 80},

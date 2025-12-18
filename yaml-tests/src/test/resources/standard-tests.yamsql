@@ -113,8 +113,6 @@ test_block:
         ]
     -
       - query: select * from T1 where COL1 >= 10 OR COL1 <= 20 ORDER BY COL1
-      # RecordType value is not cross-version compatible with versions before !current_version
-      - supported_version: !current_version
       - explain: "ISCAN(I1 [[GREATER_THAN_OR_EQUALS promote(@c9 AS LONG)]]) ∪ ISCAN(I1 [[LESS_THAN_OR_EQUALS promote(@c14 AS LONG)]]) COMPARE BY (_.COL1, recordType([_]), _.ID)"
       - result: [
                {ID:  1, COL1: 10, COL2:  1},
@@ -230,8 +228,6 @@ test_block:
         ]
     -
       - query: select * from T1 where (COL1 = 20 OR COL1 = 10) AND (COL1 = 20 OR COL1 = 10) ORDER BY COL1
-      # Record type evaluation is incompatible with versions prior to !current_version
-      - supported_version: !current_version
       - explain: "ISCAN(I1 [EQUALS promote(@c9 AS LONG)]) ∪ ISCAN(I1 [EQUALS promote(@c13 AS LONG)]) COMPARE BY (_.COL1, recordType([_]), _.ID)"
       - result: [
                {ID:  1, COL1: 10, COL2:  1},
