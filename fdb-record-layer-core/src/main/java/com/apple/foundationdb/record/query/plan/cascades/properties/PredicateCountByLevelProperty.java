@@ -22,23 +22,37 @@ package com.apple.foundationdb.record.query.plan.cascades.properties;
 
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.SimpleExpressionVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionVisitor;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionVisitorWithDefaults;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionWithPredicates;
 import com.google.common.base.Verify;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.SortedMap;
 import java.util.stream.Collectors;
 
+/**
+ * <p>
+ * This property traverses a {@link RelationalExpression} to find the total number of
+ * {@link com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate}s associated with
+ * {@link RelationalExpressionWithPredicates} implementations at each level of the expression tree.
+ * </p>
+ * <p>
+ * Information about the number of predicates at each level of the tree is encoded in instances of
+ * {@link PredicateCountByLevelInfo}, which can be compared using the method {@link PredicateCountByLevelInfo#compare}
+ * to determine which expression trees contain more predicates at a deeper level.
+ * </p>
+ * <p>
+ * See also {@link com.apple.foundationdb.record.query.plan.cascades.rules.PredicatePushDownRule}.
+ * </p>
+ */
 public class PredicateCountByLevelProperty implements ExpressionProperty<PredicateCountByLevelProperty.PredicateCountByLevelInfo> {
     @Nonnull
     private static final PredicateCountByLevelProperty PREDICATE_COUNT_BY_LEVEL = new PredicateCountByLevelProperty();
@@ -47,89 +61,135 @@ public class PredicateCountByLevelProperty implements ExpressionProperty<Predica
         // prevent outside instantiation
     }
 
-    @Nonnull
-    @Override
-    public RelationalExpressionVisitor<PredicateCountByLevelInfo> createVisitor() {
-        return PredicateCountByLevelVisitor.VISITOR;
-    }
-
-    public PredicateCountByLevelInfo evaluate(RelationalExpression expression) {
-        return Objects.requireNonNull(createVisitor().visit(expression));
-    }
-
+    /**
+     * Returns the singleton instance of {@link PredicateCountByLevelProperty}.
+     *
+     * @return the singleton instance of {@link PredicateCountByLevelProperty}
+     */
     @Nonnull
     public static PredicateCountByLevelProperty predicateCountByLevel() {
         return PREDICATE_COUNT_BY_LEVEL;
     }
 
-    public static final class PredicateCountByLevelInfo {
-        private final Map<Integer, Integer> levelToPredicateCount;
-        private final int highestLevel;
+    /**
+     * Creates a {@link SimpleExpressionVisitor} that can traverse a {@link RelationalExpression}
+     * to find the total number of {@link com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate}
+     * associated with {@link RelationalExpressionWithPredicates} implementations at each level of the expression tree.
+     *
+     * @return a {@link SimpleExpressionVisitor} that produces {@link PredicateCountByLevelInfo} results.
+     */
+    @Nonnull
+    @Override
+    public SimpleExpressionVisitor<PredicateCountByLevelInfo> createVisitor() {
+        return PredicateCountByLevelVisitor.VISITOR;
+    }
 
-        public PredicateCountByLevelInfo(Map<Integer, Integer> levelToPredicateCount, int highestLevel) {
-            this.levelToPredicateCount = Collections.unmodifiableMap(levelToPredicateCount);
-            this.highestLevel = highestLevel;
+    /**
+     * Evaluate this property for over the given {@link RelationalExpression}.
+     *
+     * @param expression The root of the expression tree to traverse.
+     * @return a {@link PredicateCountByLevelInfo} containing the predicate count at each level
+     *         of the expression tree.
+     */
+    @Nonnull
+    public PredicateCountByLevelInfo evaluate(RelationalExpression expression) {
+        return Objects.requireNonNull(expression.acceptVisitor(createVisitor()));
+    }
+
+    /**
+     * <p>
+     * An object that contains information about the number of query predicates at each level
+     * of a {@link RelationalExpression} tree. Level numbers in instances of this class
+     * start from 1 for leaf nodes and increase towards the root, with the root node having the highest
+     * level number, which can be retrieved via {@link #getHighestLevel()}.
+     * </p>
+     * <p>
+     * Instances of this class are can be created for a {@link RelationalExpression} using the method
+     * {@link PredicateCountByLevelProperty#evaluate(RelationalExpression)}.
+     * </p>
+     */
+    public static final class PredicateCountByLevelInfo {
+        private final ImmutableSortedMap<Integer, Integer> levelToPredicateCount;
+
+        public PredicateCountByLevelInfo(Map<Integer, Integer> levelToPredicateCount) {
+            this.levelToPredicateCount = ImmutableSortedMap.copyOf(levelToPredicateCount);
         }
 
         /**
-         * Combine a list of PredicateCountByLevelInfo instances by adding the number of predicates at the same level
-         * across all instances.
+         * Combine a list of {@link PredicateCountByLevelInfo} instances by summing the number of query predicates
+         * at the same level across all instances.
          *
-         * @param heightInfos a collection of {@code PredicateCountByLevelInfo} instances
-         * @return an instance of {@code PredicateCountByLevelInfo} with predicate counts added at each level.
+         * @param heightInfos a collection of {@link PredicateCountByLevelInfo} instances.
+         * @return a new instance of {@link PredicateCountByLevelInfo} with the combined count.
          */
+        @Nonnull
         public static PredicateCountByLevelInfo combine(Collection<PredicateCountByLevelInfo> heightInfos) {
-            final int highestLevel = heightInfos.stream().map(PredicateCountByLevelInfo::getHighestLevel).max(Integer::compare).orElse(0);
-            final var newLevelToComplexityMap = heightInfos
+            return new PredicateCountByLevelInfo(heightInfos
                     .stream()
                     .flatMap(heightInfo -> heightInfo.getLevelToPredicateCount().entrySet().stream())
-                    .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, Integer::sum));
-            return new PredicateCountByLevelInfo(newLevelToComplexityMap, highestLevel);
+                    .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, Integer::sum)));
         }
 
         /**
-         * Get a view of the predicate count at each level as a map.
+         * <p>
+         * Get a view of the query predicate count at each level as a {@link SortedMap}.
+         * </p>
+         * <p>
+         * Level heights, which are the keys of the returned {@link SortedMap}, start from 1 for leaf nodes in the
+         * {@link RelationalExpression} used to create this instance, and increase towards the root, with the root node
+         * having the highest level number.
+         * </p>
          *
-         * @return a map of level heights to the count of predicates at that level.
+         * @return a {@link SortedMap} of level heights to the count of query predicates at that level.
          */
-        public Map<Integer, Integer> getLevelToPredicateCount() {
-            return Collections.unmodifiableMap(levelToPredicateCount);
+        @Nonnull
+        public SortedMap<Integer, Integer> getLevelToPredicateCount() {
+            return levelToPredicateCount;
         }
 
         /**
-         * Retrieves the highest level (i.e. height of root node) in this instance
+         * Retrieves the highest level height in the {@link RelationalExpression} tree used to create
+         * used to create this instance, which corresponds to the level of the root node of the expression tree.
          *
-         * @return integer representing the highest level.
+         * @return an integer the height of the highest level number in the tree, or 0 if no levels have been recorded.
          */
         public int getHighestLevel() {
-            return highestLevel;
+            return levelToPredicateCount.isEmpty() ? 0 : levelToPredicateCount.lastKey();
         }
 
         /**
-         * Compares two {@code PredicateCountByLevelInfo} instances level by level.
-         * This comparison is done by comparing the number of predicates at each level recorded within the two
-         * {@code PredicateCountByLevelInfo} instances, starting from the deepest level to the highest level,
-         * and returns the integer comparison between the first non-equal predicate counts.
+         * <p>
+         * Compares two {@link PredicateCountByLevelInfo} instances level by level.
+         * </p>
+         * <p>
+         * This comparison is done by comparing the number of
+         * {@link com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate}s at each level recorded
+         * within the provided {@link PredicateCountByLevelInfo} instances, starting from the deepest level (representing
+         * the leaf nodes of the {@link RelationalExpression} tree used to create those instances) to the highest level
+         * (representing the root node) and returns the integer comparison between the first non-equal query predicate
+         * counts. If the number of query predicates is equal at each level, the integer comparison between the highest
+         * level in each {@link PredicateCountByLevelInfo} instance is returned instead.
+         * </p>
+         * @param a the first {@link PredicateCountByLevelInfo} to compare
+         * @param b the second {@link PredicateCountByLevelInfo} to compare
          *
-         * @param  a the first {@code PredicateCountByLevelInfo} to compare
-         * @param  b the second {@code PredicateCountByLevelInfo} to compare
          * @return the value {@code 0} if {@code a} have the same number of predicates at each level as {@code b};
-         *         a value less than {@code 0} if a {@code a} has fewer predicates than {@code b} at a
-         *         deeper level or if {@code a} has a lower number of levels with predicates; and
+         *         a value less than {@code 0} if {@code a} has fewer predicates than {@code b} at a
+         *         deeper level or if {@code a} has fewer levels than {@code b}; and
          *         a value greater than {@code 0} if {@code a} has more predicates than {@code b} at a
-         *         deeper level or if {@code a} has a higher number of levels with predicates.
+         *         deeper level or if {@code a} has more levels than {@code b}.
          */
         public static int compare(final PredicateCountByLevelInfo a, final PredicateCountByLevelInfo b) {
-            final int highestLevel = Integer.max(a.getHighestLevel(), b.getHighestLevel());
-            for (int currentLevel = 0; currentLevel <= highestLevel; currentLevel++) {
-                final int aLevelPredicateCount = a.getLevelToPredicateCount().getOrDefault(currentLevel, 0);
-                final int bLevelPredicateCount = b.getLevelToPredicateCount().getOrDefault(currentLevel, 0);
-                int countAtLevelComparison = Integer.compare(aLevelPredicateCount, bLevelPredicateCount);
-                if (countAtLevelComparison != 0) {
-                    return countAtLevelComparison;
+            final SortedMap<Integer, Integer> aLevelToPredicateCount = a.getLevelToPredicateCount();
+            final SortedMap<Integer, Integer> bLevelToPredicateCount = b.getLevelToPredicateCount();
+            for (final var entry : aLevelToPredicateCount.entrySet()) {
+                final int aPredicateCountAtLevel = entry.getValue();
+                final int bPredicateCountAtLevel = bLevelToPredicateCount.getOrDefault(entry.getKey(), 0);
+                if (aPredicateCountAtLevel != bPredicateCountAtLevel) {
+                    return Integer.compare(aPredicateCountAtLevel, bPredicateCountAtLevel);
                 }
             }
-            return 0;
+            return Integer.compare(a.getHighestLevel(), b.getHighestLevel());
         }
     }
 
