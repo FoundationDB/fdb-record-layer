@@ -325,21 +325,20 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nullable
     @Override
     public Void visitTableSourceBase(@Nonnull RelationalParser.TableSourceBaseContext ctx) {
-        final ImmutableList.Builder<Expression> expressionListBuilder = ImmutableList.builder();
         getDelegate().getCurrentPlanFragment().addOperator(Assert.castUnchecked(ctx.tableSourceItem().accept(this), LogicalOperator.class));
         for (final var joinPart : ctx.joinPart()) {
-            expressionListBuilder.add(Assert.castUnchecked(joinPart.accept(this), Expression.class));
+            joinPart.accept(this);
         }
-        getDelegate().getCurrentPlanFragment().setJoinExpressions(expressionListBuilder.build());
         return null;
     }
 
-    @Nonnull
+    @Nullable
     @Override
-    public Expression visitInnerJoin(@Nonnull RelationalParser.InnerJoinContext ctx) {
-        getDelegate().getCurrentPlanFragment().addOperator(Assert.castUnchecked(ctx.tableSourceItem().accept(this), LogicalOperator.class));
+    public Void visitInnerJoin(@Nonnull RelationalParser.InnerJoinContext ctx) {
         Assert.isNullUnchecked(ctx.uidList(), ErrorCode.UNSUPPORTED_QUERY, "using is not yet supported for inner join");
-        return Assert.castUnchecked(ctx.expression().accept(this), Expression.class);
+        getDelegate().getCurrentPlanFragment().addOperator(Assert.castUnchecked(ctx.tableSourceItem().accept(this), LogicalOperator.class));
+        getDelegate().getCurrentPlanFragment().addInnerJoinExpression(Assert.castUnchecked(ctx.expression().accept(this), Expression.class));
+        return null;
     }
 
     @Nonnull

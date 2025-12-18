@@ -21,16 +21,15 @@
 package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.relational.util.Assert;
-
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -51,7 +50,8 @@ public final class LogicalPlanFragment {
     @Nonnull
     private Optional<State> state;
 
-    private List<Expression> joinExpressions;
+    @Nonnull
+    private final List<Expression> innerJoinExpressions;
 
     private LogicalPlanFragment(@Nonnull Optional<LogicalPlanFragment> parent,
                                 @Nonnull LogicalOperators operators,
@@ -59,15 +59,15 @@ public final class LogicalPlanFragment {
         this.parent = parent;
         this.operators = operators;
         this.state = state;
-        this.joinExpressions = List.of();
+        this.innerJoinExpressions = new ArrayList<>();
     }
 
-    public void setJoinExpressions(@Nonnull List<Expression> joinExpressions) {
-        this.joinExpressions = joinExpressions;
+    public void addInnerJoinExpression(@Nonnull Expression joinExpression) {
+        this.innerJoinExpressions.add(joinExpression);
     }
 
     public List<Expression> getJoinExpressions() {
-        return joinExpressions;
+        return innerJoinExpressions;
     }
 
     @Nonnull

@@ -345,7 +345,7 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
     @Override
     NonnullPair<String, CompatibleTypeEvolutionPredicate.FieldAccessTrieNode> visitInlineTableDefinition(RelationalParser.InlineTableDefinitionContext ctx);
 
-    @Nonnull
+    @Nullable
     @Override
     Object visitInnerJoin(@Nonnull RelationalParser.InnerJoinContext ctx);
 

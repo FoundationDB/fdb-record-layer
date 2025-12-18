@@ -743,7 +743,7 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
         return expressionVisitor.visitInlineTableDefinition(ctx);
     }
 
-    @Nonnull
+    @Nullable
     @Override
     public Object visitInnerJoin(@Nonnull RelationalParser.InnerJoinContext ctx) {
         return visitChildren(ctx);
