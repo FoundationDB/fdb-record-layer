@@ -123,6 +123,29 @@ setup:
         (22, 'a', 3,  0, [ 1, 3, 5 ])
 ---
 test_block:
+  name: versions-dml
+  preset: single_repetition_ordered
+  tests:
+    # Update all of the "a" values in t3. This will result in those values having higher ROW_VERSION values
+    -
+      - query: UPDATE t3
+           SET col2 = col2 + 1
+           WHERE col1 = 'a'
+           RETURNING "new".*
+      - explain: "COVERING(T3_VERSION_WITH_COL1 <,> -> [COL1: VALUE:[0], ID: KEY:[2]]) | FILTER _.COL1 EQUALS promote(@c12 AS STRING) | FETCH | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2) | DISTINCT BY PK | UPDATE T3 | MAP _.new"
+      - unorderedResult: [
+          { ID:  1, COL1: "a", COL2: 2},
+          { ID:  5, COL1: "a", COL2: 2},
+          { ID:  9, COL1: "a", COL2: 4},
+          { ID: 13, COL1: "a", COL2: 4},
+          { ID:  2, COL1: "a", COL2: 3},
+          { ID:  6, COL1: "a", COL2: 3},
+          { ID: 10, COL1: "a", COL2: 5},
+          { ID: 14, COL1: "a", COL2: 5},
+        ]
+---
+test_block:
+  name: versions-queries
   tests:
     -
       - query: select "__ROW_VERSION" as version, t1.col2 from t1 where col1 = 10;
@@ -466,24 +489,11 @@ test_block:
            where A.col2 = B.col1
       - explain: "ISCAN(T3_VERSION_WITH_COL1 <,>) | FLATMAP q0 -> { ISCAN(T1_COL2 [EQUALS q0.COL1]) | FILTER _.COL1 EQUALS promote(@c16 AS LONG) AND q0.COL2 EQUALS promote(@c16 AS LONG) AS q1 RETURN ((version([q1]) AS __ROW_VERSION, q1.ID AS ID, q1.COL1 AS COL1, q1.COL2 AS COL2) AS _0, (version([q0]) AS __ROW_VERSION, q0.ID AS ID, q0.COL1 AS COL1, q0.COL2 AS COL2) AS _1) }"
       - result: [
-          { { '__ROW_VERSION': !not_null _, ID: 2, COL1: 2, COL2: 'a' }, { '__ROW_VERSION': !not_null _, ID: 2, COL1: 'a', COL2: 2 } },
-          { { '__ROW_VERSION': !not_null _, ID: 6, COL1: 2, COL2: 'a' }, { '__ROW_VERSION': !not_null _, ID: 2, COL1: 'a', COL2: 2 } },
           { { '__ROW_VERSION': !not_null _, ID: 4, COL1: 2, COL2: 'b' }, { '__ROW_VERSION': !not_null _, ID: 4, COL1: 'b', COL2: 2 } },
-          { { '__ROW_VERSION': !not_null _, ID: 2, COL1: 2, COL2: 'a' }, { '__ROW_VERSION': !not_null _, ID: 6, COL1: 'a', COL2: 2 } },
-          { { '__ROW_VERSION': !not_null _, ID: 6, COL1: 2, COL2: 'a' }, { '__ROW_VERSION': !not_null _, ID: 6, COL1: 'a', COL2: 2 } },
-        ]
-    -
-      # Join two TVFs with row versions projected through
-      - query: select (A.*), (B.*)
-           from t2_v(2) as A, t3_v(2) as B
-           where A.col2 = B.col1
-      - explain: "ISCAN(T3_VERSION_WITH_COL1 <,>) | FLATMAP q0 -> { ISCAN(T1_COL2 [EQUALS q0.COL1]) | FILTER _.COL1 EQUALS promote(@c16 AS LONG) AND q0.COL2 EQUALS promote(@c16 AS LONG) AS q1 RETURN ((version([q1]) AS __ROW_VERSION, q1.ID AS ID, q1.COL1 AS COL1, q1.COL2 AS COL2) AS _0, (version([q0]) AS __ROW_VERSION, q0.ID AS ID, q0.COL1 AS COL1, q0.COL2 AS COL2) AS _1) }"
-      - result: [
-          { { '__ROW_VERSION': !not_null _, ID: 2, COL1: 2, COL2: 'a' }, { '__ROW_VERSION': !not_null _, ID: 2, COL1: 'a', COL2: 2 } },
-          { { '__ROW_VERSION': !not_null _, ID: 6, COL1: 2, COL2: 'a' }, { '__ROW_VERSION': !not_null _, ID: 2, COL1: 'a', COL2: 2 } },
-          { { '__ROW_VERSION': !not_null _, ID: 4, COL1: 2, COL2: 'b' }, { '__ROW_VERSION': !not_null _, ID: 4, COL1: 'b', COL2: 2 } },
-          { { '__ROW_VERSION': !not_null _, ID: 2, COL1: 2, COL2: 'a' }, { '__ROW_VERSION': !not_null _, ID: 6, COL1: 'a', COL2: 2 } },
-          { { '__ROW_VERSION': !not_null _, ID: 6, COL1: 2, COL2: 'a' }, { '__ROW_VERSION': !not_null _, ID: 6, COL1: 'a', COL2: 2 } },
+          { { '__ROW_VERSION': !not_null _, ID: 2, COL1: 2, COL2: 'a' }, { '__ROW_VERSION': !not_null _, ID: 1, COL1: 'a', COL2: 2 } },
+          { { '__ROW_VERSION': !not_null _, ID: 6, COL1: 2, COL2: 'a' }, { '__ROW_VERSION': !not_null _, ID: 1, COL1: 'a', COL2: 2 } },
+          { { '__ROW_VERSION': !not_null _, ID: 2, COL1: 2, COL2: 'a' }, { '__ROW_VERSION': !not_null _, ID: 5, COL1: 'a', COL2: 2 } },
+          { { '__ROW_VERSION': !not_null _, ID: 6, COL1: 2, COL2: 'a' }, { '__ROW_VERSION': !not_null _, ID: 5, COL1: 'a', COL2: 2 } },
         ]
     -
       # Join three TVFs with row versions projected through
