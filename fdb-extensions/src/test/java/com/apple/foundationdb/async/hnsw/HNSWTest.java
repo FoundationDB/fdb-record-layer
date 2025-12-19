@@ -334,7 +334,6 @@ class HNSWTest {
         assertThat(readIds.size()).isBetween(10, 100);
     }
 
-    @ExtendWith(HNSWTest.DumpLayersIfFailure.class)
     @ParameterizedTest
     @MethodSource("randomSeedsWithConfig")
     void testBasicInsertDelete(final long seed, final Config config) {
@@ -399,7 +398,6 @@ class HNSWTest {
                                 .limit(k)
                                 .map(PrimaryKeyVectorAndDistance::getPrimaryKey)
                                 .collect(ImmutableSet.toImmutableSet());
-
                 onReadListener.reset();
 
                 final long beginTsQuery = System.nanoTime();
@@ -721,6 +719,15 @@ class HNSWTest {
         HNSW.scanLayer(config, rtSubspace.getSubspace(), db, layer, batchSize, nodeConsumer);
     }
 
+    private int getEntryLayer(@Nonnull final Config config) {
+        @Nullable final AccessInfo accessInfo = db.run(readTransaction ->
+                StorageAdapter.fetchAccessInfo(config, readTransaction, rtSubspace.getSubspace(),
+                        OnReadListener.NOOP).join());
+        return accessInfo == null
+               ? -1
+               : accessInfo.getEntryNodeReference().getLayer();
+    }
+
     private long dumpLayer(@Nonnull final Config config,
                            @Nonnull final String prefix, final int layer) throws IOException {
         final Path verticesFile = tempDir.resolve("vertices-" + prefix + "-" + layer + ".csv");
@@ -854,12 +861,15 @@ class HNSWTest {
         }
 
         private void dumpLayers(@Nonnull final HNSWTest hnswTest, @Nonnull final Config config) {
-            int layer = 0;
-            while (true) {
+            final int entryLayer = hnswTest.getEntryLayer(config);
+
+            if (entryLayer < 0) {
+                return;
+            }
+
+            for (int layer = 0; layer < entryLayer; layer ++) {
                 try {
-                    if (hnswTest.dumpLayer(config, "debug", layer++) == 0) {
-                        break;
-                    }
+                    Verify.verify(hnswTest.dumpLayer(config, "debug", layer) > 0);
                 } catch (IOException e) {
                     throw new RuntimeException(e);
                 }
