@@ -297,7 +297,7 @@ class CommandsTest {
 
     @Test
     void testCountingTautologyBreakPoint() throws IOException {
-        outIn.write("step 2\ncont\n".getBytes(StandardCharsets.UTF_8));
+        outIn.write("step 2\ncurrent\ncont\n".getBytes(StandardCharsets.UTF_8));
 
         PlannerEventListeners.dispatchEvent(new InitiatePhasePlannerEvent(
                 PlannerPhase.REWRITING, Reference.empty(), new ArrayDeque<>(), PlannerEvent.Location.BEGIN));
@@ -323,7 +323,7 @@ class CommandsTest {
 
     @Test
     void testOnEventTypeBreakPoint() throws IOException {
-        outIn.write("break initphase end\nbreak list\ncont\ncont\n".getBytes(StandardCharsets.UTF_8));
+        outIn.write("break initphase end\nbreak list\ncont\ncurrent\ncont\n".getBytes(StandardCharsets.UTF_8));
 
         PlannerEventListeners.dispatchEvent(new InitiatePhasePlannerEvent(
                 PlannerPhase.REWRITING, Reference.empty(), new ArrayDeque<>(), PlannerEvent.Location.BEGIN));
@@ -355,7 +355,7 @@ class CommandsTest {
 
     @Test
     void testOnPhaseBreakPoint() throws IOException {
-        outIn.write("phase planning\ncont\ncont\n".getBytes(StandardCharsets.UTF_8));
+        outIn.write("phase planning\ncont\ncurrent\ncont\n".getBytes(StandardCharsets.UTF_8));
 
         PlannerEventListeners.dispatchEvent(new InitiatePhasePlannerEvent(
                 PlannerPhase.REWRITING, Reference.empty(), new ArrayDeque<>(), PlannerEvent.Location.BEGIN));
@@ -378,7 +378,7 @@ class CommandsTest {
 
     @Test
     void testOnRuleBreakPoint() throws IOException {
-        outIn.write("break rule ImplementSimpleSelectRule begin\nbreak list\ncont\ncont\n".getBytes(StandardCharsets.UTF_8));
+        outIn.write("break rule ImplementSimpleSelectRule begin\nbreak list\ncont\ncurrent\ncont\n".getBytes(StandardCharsets.UTF_8));
 
         final var exp = new SelectExpression(LiteralValue.ofScalar(1), Collections.emptyList(), Collections.emptyList());
         final var ref = Reference.initialOf(exp);
@@ -433,7 +433,7 @@ class CommandsTest {
 
     @Test
     void testOnRuleCallBreakPoint() throws IOException {
-        outIn.write("break rulecall ImplementSimpleSelectRule begin\nbreak list\ncont\ncont\n".getBytes(StandardCharsets.UTF_8));
+        outIn.write("break rulecall ImplementSimpleSelectRule begin\nbreak list\ncont\ncurrent\ncont\n".getBytes(StandardCharsets.UTF_8));
 
         final var exp = new SelectExpression(LiteralValue.ofScalar(1), Collections.emptyList(), Collections.emptyList());
         final var ref = Reference.initialOf(exp);
@@ -491,7 +491,7 @@ class CommandsTest {
 
     @Test
     void testOnYieldExpressionBreakPoint() throws IOException {
-        outIn.write(("break yield exp exp1\nbreak list\ncont\ncont\n").getBytes(StandardCharsets.UTF_8));
+        outIn.write(("break yield exp exp1\nbreak list\ncont\ncurrent\ncont\n").getBytes(StandardCharsets.UTF_8));
 
         final var exp = new SelectExpression(LiteralValue.ofScalar(1), Collections.emptyList(), Collections.emptyList());
         final var ref = Reference.initialOf(exp);
@@ -533,7 +533,7 @@ class CommandsTest {
 
     @Test
     void testOnYieldMatchBreakPoint() throws IOException {
-        outIn.write(("break yield match idx1\nbreak list\ncont\ncont\n").getBytes(StandardCharsets.UTF_8));
+        outIn.write(("break yield match idx1\nbreak list\ncont\ncurrent\ncont\n").getBytes(StandardCharsets.UTF_8));
 
         final var matchCandidate = new ValueIndexScanMatchCandidate(
                 new Index("idx1", EmptyKeyExpression.EMPTY),
