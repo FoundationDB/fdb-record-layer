@@ -8,12 +8,12 @@ Advanced JDBC Features
 This guide covers FoundationDB Record Layer-specific JDBC features for working with complex data types like STRUCTs and ARRAYs.
 
 .. note::
-   **Driver-Specific Classes**: When creating STRUCT and ARRAY values, use the appropriate builder for your JDBC driver:
+   **Unified API with Driver-Specific Entry Points**: The Record Layer provides a unified API for creating STRUCT and ARRAY values through common interfaces (``RelationalStruct``, ``RelationalArray``, ``RelationalStructBuilder``, ``RelationalArrayBuilder``). However, you must use the appropriate factory method for your JDBC driver:
 
-   - **Embedded Driver**: ``EmbeddedRelationalStruct`` and ``EmbeddedRelationalArray`` (from ``com.apple.foundationdb.relational.api``)
-   - **Server Driver**: ``JDBCRelationalStruct`` and ``JDBCRelationalArray`` (from ``com.apple.foundationdb.relational.jdbc``)
+   - **Embedded Driver**: ``EmbeddedRelationalStruct.newBuilder()`` and ``EmbeddedRelationalArray.newBuilder()``
+   - **Server Driver**: ``JDBCRelationalStruct.newBuilder()`` and ``JDBCRelationalArray.newBuilder()``
 
-   Both provide identical APIs, so the code examples in this guide work with either by changing the import and class name.
+   Both factory methods return the same builder interfaces, so once you obtain a builder, all subsequent code is identical regardless of the driver. This design allows the API to abstract over different implementation backends (in-memory objects vs. gRPC serialization) while providing a consistent developer experience.
 
 Working with STRUCT Types
 ==========================
@@ -170,7 +170,7 @@ When reading arrays that contain STRUCT elements, unwrap the array's ``ResultSet
    :language: java
    :start-after: // tag::query-struct[]
    :end-before: // end::query-struct[]
-   :dedent: 4
+   :dedent: 24
    :lines: 28-47
 
 STRUCTs Containing Arrays

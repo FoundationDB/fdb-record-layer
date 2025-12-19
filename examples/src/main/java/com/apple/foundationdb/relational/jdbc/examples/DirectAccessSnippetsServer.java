@@ -20,10 +20,7 @@
 
 package com.apple.foundationdb.relational.jdbc.examples;
 
-import com.apple.foundationdb.relational.api.Continuation;
-import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.jdbc.JDBCRelationalStruct;
@@ -34,165 +31,11 @@ import java.util.List;
 
 /**
  * Code snippets for JDBC Key-Based Data Access documentation using the server driver.
- * This class is not meant to be run, but contains tagged sections referenced by the documentation.
+ * This class contains only the methods that differ from DirectAccessSnippets (insertion methods that use JDBCRelationalStruct).
+ * All other methods are identical and are included in DirectAccessSnippets.
  */
 public class DirectAccessSnippetsServer {
     private static final String url = "jdbc:relational://localhost:7243/FRL/shop?schema=SHOP";
-
-    public static void unwrapStatement() throws SQLException {
-        // tag::unwrap-statement[]
-        try (Connection conn = DriverManager.getConnection(url)) {
-            try (Statement stmt = conn.createStatement()) {
-                // Unwrap to RelationalStatement to access direct access methods
-                RelationalStatement relStmt = stmt.unwrap(RelationalStatement.class);
-
-                // Now you can use executeScan, executeGet, executeInsert, executeDelete
-            }
-        }
-        // end::unwrap-statement[]
-    }
-
-    public static void scanBasic() throws SQLException {
-        // tag::scan-basic[]
-        try (Connection conn = DriverManager.getConnection(url)) {
-            try (Statement stmt = conn.createStatement()) {
-                RelationalStatement relStmt = stmt.unwrap(RelationalStatement.class);
-
-                // Scan all records in the products table
-                KeySet emptyKey = new KeySet();
-                try (RelationalResultSet rs = relStmt.executeScan("products", emptyKey, Options.NONE)) {
-                    while (rs.next()) {
-                        long id = rs.getLong("id");
-                        String name = rs.getString("name");
-                        System.out.println("Product: " + id + " - " + name);
-                    }
-                }
-            }
-        }
-        // end::scan-basic[]
-    }
-
-    public static void scanWithPrefix() throws SQLException {
-        // tag::scan-prefix[]
-        try (Connection conn = DriverManager.getConnection(url)) {
-            try (Statement stmt = conn.createStatement()) {
-                RelationalStatement relStmt = stmt.unwrap(RelationalStatement.class);
-
-                // Scan products with a specific category (assuming category is part of the key)
-                KeySet keyPrefix = new KeySet()
-                    .setKeyColumn("category", "Electronics");
-
-                try (RelationalResultSet rs = relStmt.executeScan("products", keyPrefix, Options.NONE)) {
-                    while (rs.next()) {
-                        String name = rs.getString("name");
-                        long price = rs.getLong("price");
-                        System.out.println(name + ": $" + price);
-                    }
-                }
-            }
-        }
-        // end::scan-prefix[]
-    }
-
-    public static void scanWithContinuation() throws SQLException {
-        // tag::scan-continuation[]
-        try (Connection conn = DriverManager.getConnection(url)) {
-            try (Statement stmt = conn.createStatement()) {
-                RelationalStatement relStmt = stmt.unwrap(RelationalStatement.class);
-
-                KeySet keyPrefix = new KeySet();
-                int batchSize = 10;
-                Continuation continuation = null;
-
-                // Initial scan without continuation
-                Options options = Options.builder()
-                    .withOption(Options.Name.MAX_ROWS, batchSize)
-                    .build();
-
-                int totalRecords = 0;
-                try (RelationalResultSet rs = relStmt.executeScan("products", keyPrefix, options)) {
-                    while (rs.next()) {
-                        // Process first batch
-                        System.out.println("Product: " + rs.getString("name"));
-                        totalRecords++;
-                    }
-                    continuation = rs.getContinuation();
-                }
-
-                // Continue scanning with continuation
-                while (!continuation.atEnd()) {
-                    Options contOptions = Options.builder()
-                        .withOption(Options.Name.CONTINUATION, continuation)
-                        .withOption(Options.Name.MAX_ROWS, batchSize)
-                        .build();
-
-                    int rowCount = 0;
-                    try (RelationalResultSet rs = relStmt.executeScan("products", keyPrefix, contOptions)) {
-                        while (rs.next()) {
-                            // Process record
-                            System.out.println("Product: " + rs.getString("name"));
-                            rowCount++;
-                        }
-
-                        // Get continuation for next batch
-                        continuation = rs.getContinuation();
-                    }
-
-                    totalRecords += rowCount;
-                    System.out.println("Processed " + rowCount + " records in this batch");
-                }
-
-                System.out.println("Total records processed: " + totalRecords);
-            }
-        }
-        // end::scan-continuation[]
-    }
-
-    public static void getByKey() throws SQLException {
-        // tag::get-basic[]
-        try (Connection conn = DriverManager.getConnection(url)) {
-            try (Statement stmt = conn.createStatement()) {
-                RelationalStatement relStmt = stmt.unwrap(RelationalStatement.class);
-
-                // Get a single record by primary key
-                KeySet primaryKey = new KeySet()
-                    .setKeyColumn("id", 1L);
-
-                try (RelationalResultSet rs = relStmt.executeGet("products", primaryKey, Options.NONE)) {
-                    if (rs.next()) {
-                        String name = rs.getString("name");
-                        long price = rs.getLong("price");
-                        System.out.println("Found: " + name + " - $" + price);
-                    } else {
-                        System.out.println("Product not found");
-                    }
-                }
-            }
-        }
-        // end::get-basic[]
-    }
-
-    public static void getCompositeKey() throws SQLException {
-        // tag::get-composite[]
-        try (Connection conn = DriverManager.getConnection(url)) {
-            try (Statement stmt = conn.createStatement()) {
-                RelationalStatement relStmt = stmt.unwrap(RelationalStatement.class);
-
-                // Get with composite primary key
-                KeySet primaryKey = new KeySet()
-                    .setKeyColumn("store_id", 100L)
-                    .setKeyColumn("product_id", 1L);
-
-                try (RelationalResultSet rs = relStmt.executeGet("inventory", primaryKey, Options.NONE)) {
-                    if (rs.next()) {
-                        int stock = rs.getInt("quantity");
-                        System.out.println("Stock level: " + stock);
-                    }
-                }
-            }
-        }
-        // end::get-composite[]
-    }
 
     public static void insertSingle() throws SQLException {
         // tag::insert-single[]
@@ -212,12 +55,9 @@ public class DirectAccessSnippetsServer {
                     .build();
 
                 int rowsInserted = relStmt.executeInsert("products", product);
-                System.out.println("Inserted " + rowsInserted + " row(s)");
+                System.out.println("Inserted " + rowsInserted + " rows");
 
                 conn.commit();
-            } catch (SQLException e) {
-                conn.rollback();
-                throw e;
             }
         }
         // end::insert-single[]
@@ -231,32 +71,27 @@ public class DirectAccessSnippetsServer {
             try (Statement stmt = conn.createStatement()) {
                 RelationalStatement relStmt = stmt.unwrap(RelationalStatement.class);
 
-                // Build multiple records
                 List<RelationalStruct> products = new ArrayList<>();
-
                 products.add(JDBCRelationalStruct.newBuilder()
                     .addLong("id", 101L)
-                    .addString("name", "Widget A")
+                    .addString("name", "Laptop")
                     .addString("category", "Electronics")
-                    .addLong("price", 199L)
+                    .addLong("price", 999L)
                     .addInt("stock", 25)
                     .build());
 
                 products.add(JDBCRelationalStruct.newBuilder()
                     .addLong("id", 102L)
-                    .addString("name", "Widget B")
+                    .addString("name", "Mouse")
                     .addString("category", "Electronics")
-                    .addLong("price", 249L)
-                    .addInt("stock", 30)
+                    .addLong("price", 29L)
+                    .addInt("stock", 100)
                     .build());
 
                 int rowsInserted = relStmt.executeInsert("products", products);
-                System.out.println("Inserted " + rowsInserted + " row(s)");
+                System.out.println("Batch inserted " + rowsInserted + " rows");
 
                 conn.commit();
-            } catch (SQLException e) {
-                conn.rollback();
-                throw e;
             }
         }
         // end::insert-batch[]
@@ -271,127 +106,23 @@ public class DirectAccessSnippetsServer {
                 RelationalStatement relStmt = stmt.unwrap(RelationalStatement.class);
 
                 RelationalStruct product = JDBCRelationalStruct.newBuilder()
-                    .addLong("id", 1L)
+                    .addLong("id", 100L) // This might conflict with existing record
                     .addString("name", "Updated Widget")
                     .addString("category", "Electronics")
-                    .addLong("price", 199L)
-                    .addInt("stock", 100)
+                    .addLong("price", 349L)
+                    .addInt("stock", 75)
                     .build();
 
-                // Replace if the primary key already exists
                 Options options = Options.builder()
                     .withOption(Options.Name.REPLACE_ON_DUPLICATE_PK, true)
                     .build();
 
                 int rowsInserted = relStmt.executeInsert("products", product, options);
-                System.out.println("Inserted/replaced " + rowsInserted + " row(s)");
+                System.out.println("Inserted/updated " + rowsInserted + " rows");
 
                 conn.commit();
-            } catch (SQLException e) {
-                conn.rollback();
-                throw e;
             }
         }
         // end::insert-replace[]
-    }
-
-    public static void deleteSingle() throws SQLException {
-        // tag::delete-single[]
-        try (Connection conn = DriverManager.getConnection(url)) {
-            conn.setAutoCommit(false);
-
-            try (Statement stmt = conn.createStatement()) {
-                RelationalStatement relStmt = stmt.unwrap(RelationalStatement.class);
-
-                // Delete by primary key
-                KeySet primaryKey = new KeySet()
-                    .setKeyColumn("id", 100L);
-
-                List<KeySet> keysToDelete = List.of(primaryKey);
-                int rowsDeleted = relStmt.executeDelete("products", keysToDelete);
-                System.out.println("Deleted " + rowsDeleted + " row(s)");
-
-                conn.commit();
-            } catch (SQLException e) {
-                conn.rollback();
-                throw e;
-            }
-        }
-        // end::delete-single[]
-    }
-
-    public static void deleteBatch() throws SQLException {
-        // tag::delete-batch[]
-        try (Connection conn = DriverManager.getConnection(url)) {
-            conn.setAutoCommit(false);
-
-            try (Statement stmt = conn.createStatement()) {
-                RelationalStatement relStmt = stmt.unwrap(RelationalStatement.class);
-
-                // Delete multiple records by their keys
-                List<KeySet> keysToDelete = List.of(
-                    new KeySet().setKeyColumn("id", 101L),
-                    new KeySet().setKeyColumn("id", 102L),
-                    new KeySet().setKeyColumn("id", 103L)
-                );
-
-                int rowsDeleted = relStmt.executeDelete("products", keysToDelete);
-                System.out.println("Deleted " + rowsDeleted + " row(s)");
-
-                conn.commit();
-            } catch (SQLException e) {
-                conn.rollback();
-                throw e;
-            }
-        }
-        // end::delete-batch[]
-    }
-
-    public static void deleteRange() throws SQLException {
-        // tag::delete-range[]
-        try (Connection conn = DriverManager.getConnection(url)) {
-            conn.setAutoCommit(false);
-
-            try (Statement stmt = conn.createStatement()) {
-                RelationalStatement relStmt = stmt.unwrap(RelationalStatement.class);
-
-                // Delete all products in a specific category (assuming category is part of key)
-                KeySet keyPrefix = new KeySet()
-                    .setKeyColumn("category", "Discontinued");
-
-                relStmt.executeDeleteRange("products", keyPrefix, Options.NONE);
-                System.out.println("Deleted all discontinued products");
-
-                conn.commit();
-            } catch (SQLException e) {
-                conn.rollback();
-                throw e;
-            }
-        }
-        // end::delete-range[]
-    }
-
-    public static void withIndexHint() throws SQLException {
-        // tag::index-hint[]
-        try (Connection conn = DriverManager.getConnection(url)) {
-            try (Statement stmt = conn.createStatement()) {
-                RelationalStatement relStmt = stmt.unwrap(RelationalStatement.class);
-
-                // Use a specific index for the scan
-                Options options = Options.builder()
-                    .withOption(Options.Name.INDEX_HINT, "products_by_category")
-                    .build();
-
-                KeySet keyPrefix = new KeySet()
-                    .setKeyColumn("category", "Electronics");
-
-                try (RelationalResultSet rs = relStmt.executeScan("products", keyPrefix, options)) {
-                    while (rs.next()) {
-                        System.out.println("Product: " + rs.getString("name"));
-                    }
-                }
-            }
-        }
-        // end::index-hint[]
     }
 }
