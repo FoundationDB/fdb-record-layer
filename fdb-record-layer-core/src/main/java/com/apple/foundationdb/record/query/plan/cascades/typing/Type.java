@@ -2588,7 +2588,6 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
             // If any field info is missing, the type that is about to be constructed comes from a constructing
             // code path. We should be able to just set these field names and indexes as we wish.
             //
-            Set<String> fieldNamesSeen = Sets.newHashSet();
             final ImmutableList.Builder<Field> resultFieldsBuilder = ImmutableList.builder();
             for (int i = 0; i < fields.size(); i++) {
                 final var field = fields.get(i);
