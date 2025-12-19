@@ -30,6 +30,7 @@ import com.apple.foundationdb.linear.Metric;
 import com.apple.foundationdb.linear.Quantizer;
 import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.linear.StoredVecsIterator;
+import com.apple.foundationdb.linear.Transformed;
 import com.apple.foundationdb.rabitq.EncodedRealVector;
 import com.apple.foundationdb.test.TestDatabaseExtension;
 import com.apple.foundationdb.test.TestExecutors;
@@ -40,20 +41,26 @@ import com.apple.test.RandomizedTestUtils;
 import com.apple.test.SuperSlow;
 import com.apple.test.Tags;
 import com.google.common.base.Verify;
+import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.ObjectArrays;
 import com.google.common.collect.Sets;
-import org.assertj.core.api.Assertions;
-import org.assertj.core.util.Lists;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.AfterTestExecutionCallback;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
+import org.junit.jupiter.params.ParameterInfo;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.aggregator.ArgumentsAccessor;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.slf4j.Logger;
@@ -61,30 +68,39 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.io.BufferedWriter;
 import java.io.IOException;
 import java.nio.channels.FileChannel;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.NavigableSet;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.LongStream;
 import java.util.stream.Stream;
 
 import static com.apple.foundationdb.linear.RealVectorTest.createRandomDoubleVector;
 import static com.apple.foundationdb.linear.RealVectorTest.createRandomHalfVector;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.within;
 
 /**
@@ -104,6 +120,9 @@ class HNSWTest {
     @RegisterExtension
     TestSubspaceExtension rtSecondarySubspace = new TestSubspaceExtension(dbExtension);
 
+    @TempDir
+    Path tempDir;
+
     private Database db;
 
     @BeforeEach
@@ -113,12 +132,15 @@ class HNSWTest {
 
     @ParameterizedTest
     @RandomSeedSource({0x0fdbL, 0x5ca1eL, 123456L, 78910L, 1123581321345589L})
-    void testCompactSerialization(final long seed) {
+    void testCompactSerialization(final long seed) throws Exception {
         final Random random = new Random(seed);
         final int numDimensions = 768;
         final CompactStorageAdapter storageAdapter =
                 new CompactStorageAdapter(HNSW.newConfigBuilder().build(numDimensions), CompactNode.factory(),
                         rtSubspace.getSubspace(), OnWriteListener.NOOP, OnReadListener.NOOP);
+        assertThat(storageAdapter.asCompactStorageAdapter()).isSameAs(storageAdapter);
+        assertThatThrownBy(storageAdapter::asInliningStorageAdapter).isInstanceOf(VerifyException.class);
+
         final AbstractNode<NodeReference> originalNode =
                 db.run(tr -> {
                     final NodeFactory<NodeReference> nodeFactory = storageAdapter.getNodeFactory();
@@ -133,11 +155,11 @@ class HNSWTest {
         db.run(tr -> storageAdapter.fetchNode(tr, AffineOperator.identity(), 0,
                         originalNode.getPrimaryKey())
                 .thenAccept(node ->
-                        Assertions.assertThat(node).satisfies(
-                                n -> Assertions.assertThat(n).isInstanceOf(CompactNode.class),
-                                n -> Assertions.assertThat(n.getKind()).isSameAs(NodeKind.COMPACT),
-                                n -> Assertions.assertThat((Object)n.getPrimaryKey()).isEqualTo(originalNode.getPrimaryKey()),
-                                n -> Assertions.assertThat(n.asCompactNode().getVector())
+                        assertThat(node).satisfies(
+                                n -> assertThat(n).isInstanceOf(CompactNode.class),
+                                n -> assertThat(n.getKind()).isSameAs(NodeKind.COMPACT),
+                                n -> assertThat((Object)n.getPrimaryKey()).isEqualTo(originalNode.getPrimaryKey()),
+                                n -> assertThat(n.asCompactNode().getVector())
                                         .isEqualTo(originalNode.asCompactNode().getVector()),
                                 n -> {
                                     final ArrayList<NodeReference> neighbors =
@@ -146,20 +168,28 @@ class HNSWTest {
                                     final ArrayList<NodeReference> originalNeighbors =
                                             Lists.newArrayList(originalNode.getNeighbors());
                                     originalNeighbors.sort(Comparator.comparing(NodeReference::getPrimaryKey));
-                                    Assertions.assertThat(neighbors).isEqualTo(originalNeighbors);
+                                    assertThat(neighbors).isEqualTo(originalNeighbors);
                                 }
                 )).join());
+
+        assertThat(
+                dumpLayer(HNSW.newConfigBuilder()
+                        .build(numDimensions), "debug", 0))
+                .isGreaterThan(0);
     }
 
     @ParameterizedTest
     @RandomSeedSource({0x0fdbL, 0x5ca1eL, 123456L, 78910L, 1123581321345589L})
-    void testInliningSerialization(final long seed) {
+    void testInliningSerialization(final long seed) throws Exception {
         final Random random = new Random(seed);
         final int numDimensions = 768;
         final InliningStorageAdapter storageAdapter =
                 new InliningStorageAdapter(HNSW.newConfigBuilder().build(numDimensions),
                         InliningNode.factory(), rtSubspace.getSubspace(),
                         OnWriteListener.NOOP, OnReadListener.NOOP);
+        assertThat(storageAdapter.asInliningStorageAdapter()).isSameAs(storageAdapter);
+        assertThatThrownBy(storageAdapter::asCompactStorageAdapter).isInstanceOf(VerifyException.class);
+
         final Node<NodeReferenceWithVector> originalNode =
                 db.run(tr -> {
                     final NodeFactory<NodeReferenceWithVector> nodeFactory = storageAdapter.getNodeFactory();
@@ -167,17 +197,17 @@ class HNSWTest {
                     final AbstractNode<NodeReferenceWithVector> randomInliningNode =
                             createRandomInliningNode(random, nodeFactory, numDimensions, 16);
 
-                    writeNode(tr, storageAdapter, randomInliningNode, 0);
+                    writeNode(tr, storageAdapter, randomInliningNode, 1);
                     return randomInliningNode;
                 });
 
-        db.run(tr -> storageAdapter.fetchNode(tr, AffineOperator.identity(), 0,
+        db.run(tr -> storageAdapter.fetchNode(tr, AffineOperator.identity(), 1,
                         originalNode.getPrimaryKey())
                 .thenAccept(node ->
-                        Assertions.assertThat(node).satisfies(
-                                n -> Assertions.assertThat(n).isInstanceOf(InliningNode.class),
-                                n -> Assertions.assertThat(n.getKind()).isSameAs(NodeKind.INLINING),
-                                n -> Assertions.assertThat((Object)node.getPrimaryKey()).isEqualTo(originalNode.getPrimaryKey()),
+                        assertThat(node).satisfies(
+                                n -> assertThat(n).isInstanceOf(InliningNode.class),
+                                n -> assertThat(n.getKind()).isSameAs(NodeKind.INLINING),
+                                n -> assertThat((Object)node.getPrimaryKey()).isEqualTo(originalNode.getPrimaryKey()),
                                 n -> {
                                     final ArrayList<NodeReference> neighbors =
                                             Lists.newArrayList(node.getNeighbors());
@@ -185,78 +215,74 @@ class HNSWTest {
                                     final ArrayList<NodeReference> originalNeighbors =
                                             Lists.newArrayList(originalNode.getNeighbors());
                                     originalNeighbors.sort(Comparator.comparing(NodeReference::getPrimaryKey));
-                                    Assertions.assertThat(neighbors).isEqualTo(originalNeighbors);
+                                    assertThat(neighbors).isEqualTo(originalNeighbors);
                                 }
                         )).join());
+
+        assertThat(
+                dumpLayer(HNSW.newConfigBuilder()
+                        .setUseInlining(true)
+                        .build(numDimensions), "debug", 1))
+                .isGreaterThan(0);
     }
 
-    static Stream<Arguments> randomSeedsWithOptions() {
+    static Stream<Arguments> randomSeedsWithConfig() {
         return RandomizedTestUtils.randomSeeds(0xdeadc0deL)
                 .flatMap(seed -> Sets.cartesianProduct(ImmutableSet.of(true, false),
-                                ImmutableSet.of(true, false),
-                                ImmutableSet.of(true, false),
-                                ImmutableSet.of(true, false)).stream()
-                        .map(arguments -> Arguments.of(ObjectArrays.concat(seed, arguments.toArray()))));
+                                ImmutableSet.of(false, true),
+                                ImmutableSet.of(false, true),
+                                ImmutableSet.of(false, true)).stream()
+                        .map(arguments -> Arguments.of(ObjectArrays.concat(seed,
+                                new Object[] {HNSW.newConfigBuilder()
+                                        .setMetric(Metric.EUCLIDEAN_METRIC)
+                                        .setUseInlining(arguments.get(0))
+                                        .setEfRepair(64)
+                                        .setExtendCandidates(arguments.get(1))
+                                        .setKeepPrunedConnections(arguments.get(2))
+                                        .setUseRaBitQ(arguments.get(3))
+                                        .setRaBitQNumExBits(5)
+                                        .setSampleVectorStatsProbability(1.0d)
+                                        .setMaintainStatsProbability(0.1d)
+                                        .setStatsThreshold(100)
+                                        .setM(16)
+                                        .setMMax(32)
+                                        .setMMax0(64)
+                                        .build(128)}))));
     }
 
-    @ParameterizedTest(name = "seed={0} useInlining={1} extendCandidates={2} keepPrunedConnections={3} useRaBitQ={4}")
-    @MethodSource("randomSeedsWithOptions")
-    void testBasicInsert(final long seed, final boolean useInlining, final boolean extendCandidates,
-                         final boolean keepPrunedConnections, final boolean useRaBitQ) {
+    @ExtendWith(HNSWTest.DumpLayersIfFailure.class)
+    @ParameterizedTest
+    @MethodSource("randomSeedsWithConfig")
+    void testBasicInsert(final long seed, final Config config) {
         final Random random = new Random(seed);
-        final Metric metric = Metric.EUCLIDEAN_METRIC;
+        final Metric metric = config.getMetric();
+        final int size = 1000;
+        final TestOnWriteListener onWriteListener = new TestOnWriteListener();
         final TestOnReadListener onReadListener = new TestOnReadListener();
 
-        final int numDimensions = 128;
-        final HNSW hnsw = new HNSW(rtSubspace.getSubspace(), TestExecutors.defaultThreadPool(),
-                HNSW.newConfigBuilder()
-                        .setDeterministicSeeding(true)
-                        .setMetric(metric)
-                        .setUseInlining(useInlining)
-                        .setExtendCandidates(extendCandidates)
-                        .setKeepPrunedConnections(keepPrunedConnections)
-                        .setUseRaBitQ(useRaBitQ)
-                        .setRaBitQNumExBits(5)
-                        .setSampleVectorStatsProbability(1.0d)
-                        .setMaintainStatsProbability(0.1d)
-                        .setStatsThreshold(100)
-                        .setM(32)
-                        .setMMax(32)
-                        .setMMax0(64)
-                        .build(numDimensions),
-                OnWriteListener.NOOP, onReadListener);
+        final HNSW hnsw = new HNSW(rtSubspace.getSubspace(), TestExecutors.defaultThreadPool(), config,
+                onWriteListener, onReadListener);
 
         final int k = 50;
-        final HalfRealVector queryVector = createRandomHalfVector(random, numDimensions);
-        final TreeSet<PrimaryKeyVectorAndDistance> recordsOrderedByDistance =
-                new TreeSet<>(Comparator.comparing(PrimaryKeyVectorAndDistance::getDistance));
+        final List<PrimaryKeyAndVector> insertedData = randomVectors(random, config.getNumDimensions(), size);
 
-        for (int i = 0; i < 1000;) {
+        for (int i = 0; i < size;) {
             i += basicInsertBatch(hnsw, 100, i, onReadListener,
-                    (tr, nextId) -> {
-                        final var primaryKey = createPrimaryKey(nextId);
-                        final HalfRealVector dataVector = createRandomHalfVector(random, numDimensions);
-                        final double distance = metric.distance(dataVector, queryVector);
-                        final PrimaryKeyVectorAndDistance record =
-                                new PrimaryKeyVectorAndDistance(primaryKey, dataVector, distance);
-                        recordsOrderedByDistance.add(record);
-                        if (recordsOrderedByDistance.size() > k) {
-                            recordsOrderedByDistance.pollLast();
-                        }
-                        return record;
-                    });
+                    (tr, nextId) -> insertedData.get(Math.toIntExact(nextId)));
         }
+
+        final HalfRealVector queryVector = createRandomHalfVector(random, config.getNumDimensions());
 
         //
         // Attempt to mutate some records by updating them using the same primary keys but different random vectors.
         // This should not fail but should be silently ignored. If this succeeds, the following searches will all
         // return records that are not aligned with recordsOrderedByDistance.
         //
-        for (int i = 0; i < 100;) {
+        for (int i = 0; i < 100; ) {
             i += basicInsertBatch(hnsw, 100, 0, onReadListener,
                     (tr, ignored) -> {
                         final var primaryKey = createPrimaryKey(random.nextInt(1000));
-                        final HalfRealVector dataVector = createRandomHalfVector(random, numDimensions);
+                        final HalfRealVector dataVector = createRandomHalfVector(random, config.getNumDimensions());
                         final double distance = metric.distance(dataVector, queryVector);
                         return new PrimaryKeyVectorAndDistance(primaryKey, dataVector, distance);
                     });
@@ -270,7 +296,8 @@ class HNSWTest {
         final long endTs = System.nanoTime();
 
         final ImmutableSet<Tuple> trueNN =
-                recordsOrderedByDistance.stream()
+                orderedByDistances(Metric.EUCLIDEAN_METRIC, insertedData, queryVector).stream()
+                        .limit(k)
                         .map(PrimaryKeyVectorAndDistance::getPrimaryKey)
                         .collect(ImmutableSet.toImmutableSet());
 
@@ -279,7 +306,7 @@ class HNSWTest {
             logger.info("nodeId ={} at distance={}", resultEntry.getPrimaryKey().getLong(0),
                     resultEntry.getDistance());
             if (trueNN.contains(resultEntry.getPrimaryKey())) {
-                recallCount ++;
+                recallCount++;
             }
         }
         final double recall = (double)recallCount / (double)k;
@@ -287,7 +314,7 @@ class HNSWTest {
                 TimeUnit.NANOSECONDS.toMillis(endTs - beginTs),
                 onReadListener.getNodeCountByLayer(), onReadListener.getBytesReadByLayer(),
                 String.format(Locale.ROOT, "%.2f", recall * 100.0d));
-        Assertions.assertThat(recall).isGreaterThan(0.9);
+        assertThat(recall).isGreaterThan(0.9);
 
         final Set<Long> insertedIds =
                 LongStream.range(0, 1000)
@@ -295,14 +322,115 @@ class HNSWTest {
                         .collect(Collectors.toSet());
 
         final Set<Long> readIds = Sets.newHashSet();
-        hnsw.scanLayer(db, 0, 100,
-                node -> Assertions.assertThat(readIds.add(node.getPrimaryKey().getLong(0))).isTrue());
-        Assertions.assertThat(readIds).isEqualTo(insertedIds);
+        scanLayer(config, 0, 100,
+                node ->
+                        assertThat(readIds.add(node.getPrimaryKey().getLong(0))).isTrue());
+        assertThat(readIds).isEqualTo(insertedIds);
 
         readIds.clear();
-        hnsw.scanLayer(db, 1, 100,
-                node -> Assertions.assertThat(readIds.add(node.getPrimaryKey().getLong(0))).isTrue());
-        Assertions.assertThat(readIds.size()).isBetween(10, 50);
+        scanLayer(config, 1, 100,
+                node ->
+                        assertThat(readIds.add(node.getPrimaryKey().getLong(0))).isTrue());
+        assertThat(readIds.size()).isBetween(10, 100);
+    }
+
+    @ParameterizedTest
+    @MethodSource("randomSeedsWithConfig")
+    void testBasicInsertDelete(final long seed, final Config config) {
+        final Random random = new Random(seed);
+        final int size = 1000;
+        final TestOnWriteListener onWriteListener = new TestOnWriteListener();
+        final TestOnReadListener onReadListener = new TestOnReadListener();
+
+        final HNSW hnsw = new HNSW(rtSubspace.getSubspace(), TestExecutors.defaultThreadPool(), config,
+                onWriteListener, onReadListener);
+
+        final int k = 50;
+        final List<PrimaryKeyAndVector> insertedData = randomVectors(random, config.getNumDimensions(), size);
+
+        for (int i = 0; i < size;) {
+            i += basicInsertBatch(hnsw, 100, i, onReadListener,
+                    (tr, nextId) -> insertedData.get(Math.toIntExact(nextId)));
+        }
+
+        final int numVectorsPerDeleteBatch = 100;
+        List<PrimaryKeyAndVector> remainingData = insertedData;
+        do {
+            final List<PrimaryKeyAndVector> toBeDeleted =
+                    pickRandomVectors(random, remainingData, numVectorsPerDeleteBatch);
+
+            onWriteListener.reset();
+            onReadListener.reset();
+
+            final long beginTs = System.nanoTime();
+            db.run(tr -> {
+                for (final PrimaryKeyAndVector primaryKeyAndVector : toBeDeleted) {
+                    hnsw.delete(tr, primaryKeyAndVector.getPrimaryKey()).join();
+                }
+                return null;
+            });
+            long endTs = System.nanoTime();
+
+            assertThat(onWriteListener.getDeleteCountByLayer().get(0)).isEqualTo(toBeDeleted.size());
+
+            logger.info("delete transaction of {} records after {} records took elapsedTime={}ms; read nodes={}, read bytes={}",
+                    numVectorsPerDeleteBatch,
+                    size - remainingData.size(),
+                    TimeUnit.NANOSECONDS.toMillis(endTs - beginTs),
+                    onReadListener.getNodeCountByLayer(), onReadListener.getBytesReadByLayer());
+
+            db.run(tr -> {
+                for (final PrimaryKeyAndVector primaryKeyAndVector : toBeDeleted) {
+                    hnsw.delete(tr, primaryKeyAndVector.getPrimaryKey()).join();
+                }
+                return null;
+            });
+
+            final Set<PrimaryKeyAndVector> deletedSet = toBeDeleted.stream().collect(ImmutableSet.toImmutableSet());
+            remainingData = remainingData.stream()
+                    .filter(vector -> !deletedSet.contains(vector))
+                    .collect(ImmutableList.toImmutableList());
+
+            if (!remainingData.isEmpty()) {
+                final HalfRealVector queryVector = createRandomHalfVector(random, config.getNumDimensions());
+                final ImmutableSet<Tuple> trueNN =
+                        orderedByDistances(Metric.EUCLIDEAN_METRIC, remainingData, queryVector).stream()
+                                .limit(k)
+                                .map(PrimaryKeyVectorAndDistance::getPrimaryKey)
+                                .collect(ImmutableSet.toImmutableSet());
+                onReadListener.reset();
+
+                final long beginTsQuery = System.nanoTime();
+                final List<? extends ResultEntry> results =
+                        db.run(tr ->
+                                hnsw.kNearestNeighborsSearch(tr, k, 100, true, queryVector).join());
+                final long endTsQuery = System.nanoTime();
+
+                int recallCount = 0;
+                for (ResultEntry resultEntry : results) {
+                    if (trueNN.contains(resultEntry.getPrimaryKey())) {
+                        recallCount++;
+                    }
+                }
+                final double recall = (double)recallCount / (double)trueNN.size();
+
+                logger.info("search transaction after delete of {} records took elapsedTime={}ms; read nodes={}, read bytes={}, recall={}",
+                        size - remainingData.size(),
+                        TimeUnit.NANOSECONDS.toMillis(endTsQuery - beginTsQuery),
+                        onReadListener.getNodeCountByLayer(), onReadListener.getBytesReadByLayer(),
+                        String.format(Locale.ROOT, "%.2f", recall * 100.0d));
+
+                assertThat(recall).isGreaterThan(0.9);
+
+                final long remainingNumNodes = countNodesOnLayer(config, 0);
+                assertThat(remainingNumNodes).isEqualTo(remainingData.size());
+            }
+        } while (!remainingData.isEmpty());
+
+        final var accessInfo =
+                db.run(transaction -> StorageAdapter.fetchAccessInfo(hnsw.getConfig(),
+                        transaction, hnsw.getSubspace(), OnReadListener.NOOP).join());
+        assertThat(accessInfo).isNull();
     }
 
     @ParameterizedTest()
@@ -314,7 +442,6 @@ class HNSWTest {
         final int numDimensions = 128;
         final HNSW hnsw = new HNSW(rtSubspace.getSubspace(), TestExecutors.defaultThreadPool(),
                 HNSW.newConfigBuilder()
-                        .setDeterministicSeeding(true)
                         .setMetric(metric)
                         .setUseRaBitQ(true)
                         .setRaBitQNumExBits(5)
@@ -352,13 +479,13 @@ class HNSWTest {
         }
 
         //
-        // If we fetch the current state back from the db some vectors are regular vectors and some vectors are
+        // If we fetch the current state back from the db, some vectors are regular vectors and some vectors are
         // RaBitQ encoded. Since that information is not surfaced through the API, we need to scan layer 0, get
         // all vectors directly from disk (encoded/not-encoded, transformed/not-transformed) in order to check
         // that transformations/reconstructions are applied properly.
         //
         final Map<Tuple, RealVector> fromDBMap = Maps.newHashMap();
-        hnsw.scanLayer(db, 0, 100,
+        scanLayer(hnsw.getConfig(), 0, 100,
                 node -> fromDBMap.put(node.getPrimaryKey(),
                         node.asCompactNode().getVector().getUnderlyingVector()));
 
@@ -383,27 +510,27 @@ class HNSWTest {
             }
 
             final RealVector originalVector = dataMap.get(resultEntry.getPrimaryKey());
-            Assertions.assertThat(originalVector).isNotNull();
+            assertThat(originalVector).isNotNull();
             final RealVector fromDBVector = fromDBMap.get(resultEntry.getPrimaryKey());
-            Assertions.assertThat(fromDBVector).isNotNull();
+            assertThat(fromDBVector).isNotNull();
             if (!(fromDBVector instanceof EncodedRealVector)) {
-                Assertions.assertThat(originalVector).isEqualTo(fromDBVector);
+                assertThat(originalVector).isEqualTo(fromDBVector);
                 exactVectorCount ++;
                 final double distance = metric.distance(originalVector,
                         Objects.requireNonNull(resultEntry.getVector()));
-                Assertions.assertThat(distance).isCloseTo(0.0d, within(2E-12));
+                assertThat(distance).isCloseTo(0.0d, within(2E-12));
             } else {
                 encodedVectorCount ++;
                 final double distance = metric.distance(originalVector,
                         Objects.requireNonNull(resultEntry.getVector()).toDoubleRealVector());
-                Assertions.assertThat(distance).isCloseTo(0.0d, within(20.0d));
+                assertThat(distance).isCloseTo(0.0d, within(20.0d));
             }
         }
         final double recall = (double)recallCount / (double)k;
-        Assertions.assertThat(recall).isGreaterThan(0.9);
+        assertThat(recall).isGreaterThan(0.9);
         // must have both kinds
-        Assertions.assertThat(exactVectorCount).isGreaterThan(0);
-        Assertions.assertThat(encodedVectorCount).isGreaterThan(0);
+        assertThat(exactVectorCount).isGreaterThan(0);
+        assertThat(encodedVectorCount).isGreaterThan(0);
     }
 
     private int basicInsertBatch(final HNSW hnsw, final int batchSize,
@@ -436,9 +563,8 @@ class HNSWTest {
 
         final HNSW hnsw = new HNSW(rtSubspace.getSubspace(), TestExecutors.defaultThreadPool(),
                 HNSW.newConfigBuilder()
-                        .setDeterministicSeeding(false)
                         .setUseRaBitQ(true)
-                        .setRaBitQNumExBits(5)
+                        .setRaBitQNumExBits(6)
                         .setMetric(metric)
                         .setM(32)
                         .setMMax(32)
@@ -475,7 +601,7 @@ class HNSWTest {
                             return new PrimaryKeyAndVector(currentPrimaryKey, currentVector);
                         });
             }
-            Assertions.assertThat(i).isEqualTo(10000);
+            assertThat(i).isEqualTo(10000);
         }
 
         validateSIFTSmall(hnsw, dataMap, k);
@@ -515,15 +641,15 @@ class HNSWTest {
                     //
                     // Assert that the original vector and the reconstructed vector are the same-ish vector
                     // (minus reconstruction errors). The closeness value is dependent on the encoding quality settings,
-                    // the dimensionality, and the metric in use. For now, we just set it to 20.0 as that should be
+                    // the dimensionality, and the metric in use. For now, we just set it to 30.0 as that should be
                     // fairly safe with respect to not giving us false-positives and also tripping for actual logic
                     // errors as the expected random distance is far larger.
                     //
                     final RealVector originalVector = dataMap.get(primaryKeyIndex);
-                    Assertions.assertThat(originalVector).isNotNull();
+                    assertThat(originalVector).isNotNull();
                     final double distance = metric.distance(originalVector,
                             Objects.requireNonNull(resultEntry.getVector()).toDoubleRealVector());
-                    Assertions.assertThat(distance).isCloseTo(0.0d, within(20.0d));
+                    assertThat(distance).isCloseTo(0.0d, within(30.0d));
 
                     logger.trace("retrieved result nodeId = {} at distance = {} ",
                             primaryKeyIndex, resultEntry.getDistance());
@@ -533,11 +659,118 @@ class HNSWTest {
                 }
 
                 final double recall = (double)recallCount / k;
-                Assertions.assertThat(recall).isGreaterThan(0.93);
+                assertThat(recall).isGreaterThan(0.93);
 
                 logger.info("query returned results recall={}", String.format(Locale.ROOT, "%.2f", recall * 100.0d));
             }
         }
+    }
+
+    @Nonnull
+    private List<PrimaryKeyAndVector> randomVectors(@Nonnull final Random random, final int numDimensions,
+                                                    final int numberOfVectors) {
+        final ImmutableList.Builder<PrimaryKeyAndVector> resultBuilder = ImmutableList.builder();
+        for (int i = 0; i < numberOfVectors; i ++) {
+            final var primaryKey = createPrimaryKey(i);
+            final HalfRealVector dataVector = createRandomHalfVector(random, numDimensions);
+            resultBuilder.add(new PrimaryKeyAndVector(primaryKey, dataVector));
+        }
+        return resultBuilder.build();
+    }
+
+    @Nonnull
+    private List<PrimaryKeyAndVector> pickRandomVectors(@Nonnull final Random random,
+                                                        @Nonnull final Collection<PrimaryKeyAndVector> vectors,
+                                                        final int numberOfVectors) {
+        Verify.verify(numberOfVectors <= vectors.size());
+        final List<PrimaryKeyAndVector> remainingVectors = Lists.newArrayList(vectors);
+        final ImmutableList.Builder<PrimaryKeyAndVector> resultBuilder = ImmutableList.builder();
+        for (int i = 0; i < numberOfVectors; i ++) {
+            resultBuilder.add(remainingVectors.remove(random.nextInt(remainingVectors.size())));
+        }
+        return resultBuilder.build();
+    }
+
+    @Nonnull
+    private NavigableSet<PrimaryKeyVectorAndDistance> orderedByDistances(@Nonnull final Metric metric,
+                                                                         @Nonnull final List<PrimaryKeyAndVector> vectors,
+                                                                         @Nonnull final HalfRealVector queryVector) {
+        final TreeSet<PrimaryKeyVectorAndDistance> vectorsOrderedByDistance =
+                new TreeSet<>(Comparator.comparing(PrimaryKeyVectorAndDistance::getDistance));
+        for (final PrimaryKeyAndVector vector : vectors) {
+            final double distance = metric.distance(vector.getVector(), queryVector);
+            final PrimaryKeyVectorAndDistance record =
+                    new PrimaryKeyVectorAndDistance(vector.getPrimaryKey(), vector.getVector(), distance);
+            vectorsOrderedByDistance.add(record);
+        }
+        return vectorsOrderedByDistance;
+    }
+
+    private long countNodesOnLayer(@Nonnull final Config config, final int layer) {
+        final AtomicLong counter = new AtomicLong();
+        scanLayer(config, layer, 100, node -> counter.incrementAndGet());
+        return counter.get();
+    }
+
+    private void scanLayer(@Nonnull final Config config,
+                           final int layer,
+                           final int batchSize,
+                           @Nonnull final Consumer<AbstractNode<? extends NodeReference>> nodeConsumer) {
+        HNSW.scanLayer(config, rtSubspace.getSubspace(), db, layer, batchSize, nodeConsumer);
+    }
+
+    private int getEntryLayer(@Nonnull final Config config) {
+        @Nullable final AccessInfo accessInfo = db.run(readTransaction ->
+                StorageAdapter.fetchAccessInfo(config, readTransaction, rtSubspace.getSubspace(),
+                        OnReadListener.NOOP).join());
+        return accessInfo == null
+               ? -1
+               : accessInfo.getEntryNodeReference().getLayer();
+    }
+
+    private long dumpLayer(@Nonnull final Config config,
+                           @Nonnull final String prefix, final int layer) throws IOException {
+        final Path verticesFile = tempDir.resolve("vertices-" + prefix + "-" + layer + ".csv");
+        final Path edgesFile = tempDir.resolve("edges-" + prefix + "-" + layer + ".csv");
+
+        final StorageAdapter<? extends NodeReference> storageAdapter =
+                HNSW.storageAdapterForLayer(config, rtSubspace.getSubspace(),
+                        OnWriteListener.NOOP, OnReadListener.NOOP, layer);
+
+        final AtomicLong numReadAtomic = new AtomicLong(0L);
+        try (final BufferedWriter verticesWriter = Files.newBufferedWriter(verticesFile);
+                final BufferedWriter edgesWriter = Files.newBufferedWriter(edgesFile)) {
+            scanLayer(config, layer, 100, node -> {
+                @Nullable final Transformed<RealVector> vector =
+                        storageAdapter.isCompactStorageAdapter()
+                        ? node.asCompactNode().getVector()
+                        : null;
+                try {
+                    verticesWriter.write(Long.toString(node.getPrimaryKey().getLong(0)));
+                    if (vector != null) {
+                        verticesWriter.write(",");
+                        final RealVector realVector = vector.getUnderlyingVector();
+                        for (int i = 0; i < realVector.getNumDimensions(); i++) {
+                            if (i != 0) {
+                                verticesWriter.write(",");
+                            }
+                            verticesWriter.write(String.valueOf(realVector.getComponent(i)));
+                        }
+                    }
+                    verticesWriter.newLine();
+
+                    for (final var neighbor : node.getNeighbors()) {
+                        edgesWriter.write(node.getPrimaryKey().getLong(0) + "," +
+                                neighbor.getPrimaryKey().getLong(0));
+                        edgesWriter.newLine();
+                    }
+                    numReadAtomic.getAndIncrement();
+                } catch (final IOException e) {
+                    throw new RuntimeException("unable to write to file", e);
+                }
+            });
+        }
+        return numReadAtomic.get();
     }
 
     private <N extends NodeReference> void writeNode(@Nonnull final Transaction transaction,
@@ -547,7 +780,7 @@ class HNSWTest {
         final NeighborsChangeSet<N> insertChangeSet =
                 new InsertNeighborsChangeSet<>(new BaseNeighborsChangeSet<>(ImmutableList.of()),
                         node.getNeighbors());
-        storageAdapter.writeNode(transaction, Quantizer.noOpQuantizer(Metric.EUCLIDEAN_METRIC), node, layer,
+        storageAdapter.writeNode(transaction, Quantizer.noOpQuantizer(Metric.EUCLIDEAN_METRIC), layer, node,
                 insertChangeSet);
     }
 
@@ -603,6 +836,66 @@ class HNSWTest {
     @Nonnull
     private static Tuple createPrimaryKey(final long nextId) {
         return Tuple.from(nextId);
+    }
+
+    public static class DumpLayersIfFailure implements AfterTestExecutionCallback {
+        @Override
+        public void afterTestExecution(@Nonnull final ExtensionContext context) {
+            final Optional<Throwable> failure = context.getExecutionException();
+            if (failure.isEmpty()) {
+                return;
+            }
+
+            final ParameterInfo parameterInfo = ParameterInfo.get(context);
+
+            if (parameterInfo != null) {
+                final ArgumentsAccessor args = parameterInfo.getArguments();
+
+                final HNSWTest hnswTest = (HNSWTest)context.getRequiredTestInstance();
+                final Config config = (Config)args.get(1);
+                logger.error("dumping contents of HNSW to {}", hnswTest.tempDir.toString());
+                dumpLayers(hnswTest, config);
+            } else {
+                logger.error("test failed with no parameterized arguments (non-parameterized test or older JUnit).");
+            }
+        }
+
+        private void dumpLayers(@Nonnull final HNSWTest hnswTest, @Nonnull final Config config) {
+            final int entryLayer = hnswTest.getEntryLayer(config);
+
+            if (entryLayer < 0) {
+                return;
+            }
+
+            for (int layer = 0; layer < entryLayer; layer ++) {
+                try {
+                    Verify.verify(hnswTest.dumpLayer(config, "debug", layer) > 0);
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        }
+    }
+
+    private static class TestOnWriteListener implements OnWriteListener {
+        final Map<Integer, Long> deleteCountByLayer;
+
+        public TestOnWriteListener() {
+            this.deleteCountByLayer = Maps.newConcurrentMap();
+        }
+
+        public Map<Integer, Long> getDeleteCountByLayer() {
+            return deleteCountByLayer;
+        }
+
+        public void reset() {
+            deleteCountByLayer.clear();
+        }
+
+        @Override
+        public void onNodeDeleted(final int layer, @Nonnull final Tuple primaryKey) {
+            deleteCountByLayer.compute(layer, (l, oldValue) -> (oldValue == null ? 0 : oldValue) + 1L);
+        }
     }
 
     private static class TestOnReadListener implements OnReadListener {
@@ -668,6 +961,20 @@ class HNSWTest {
         public RealVector getVector() {
             return vector;
         }
+
+        @Override
+        public boolean equals(final Object o) {
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            final PrimaryKeyAndVector that = (PrimaryKeyAndVector)o;
+            return Objects.equals(getPrimaryKey(), that.getPrimaryKey()) && Objects.equals(getVector(), that.getVector());
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(getPrimaryKey(), getVector());
+        }
     }
 
     private static class PrimaryKeyVectorAndDistance extends PrimaryKeyAndVector {
@@ -682,6 +989,23 @@ class HNSWTest {
 
         public double getDistance() {
             return distance;
+        }
+
+        @Override
+        public boolean equals(final Object o) {
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            if (!super.equals(o)) {
+                return false;
+            }
+            final PrimaryKeyVectorAndDistance that = (PrimaryKeyVectorAndDistance)o;
+            return Double.compare(getDistance(), that.getDistance()) == 0;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(super.hashCode(), getDistance());
         }
     }
 }

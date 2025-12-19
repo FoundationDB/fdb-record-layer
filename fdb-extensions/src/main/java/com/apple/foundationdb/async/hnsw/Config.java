@@ -32,13 +32,13 @@ import java.util.Objects;
  */
 @SuppressWarnings("checkstyle:MemberName")
 public final class Config {
-    public static final boolean DEFAULT_DETERMINISTIC_SEEDING = false;
     @Nonnull public static final Metric DEFAULT_METRIC = Metric.EUCLIDEAN_METRIC;
     public static final boolean DEFAULT_USE_INLINING = false;
     public static final int DEFAULT_M = 16;
     public static final int DEFAULT_M_MAX_0 = 2 * DEFAULT_M;
     public static final int DEFAULT_M_MAX = DEFAULT_M;
     public static final int DEFAULT_EF_CONSTRUCTION = 200;
+    public static final int DEFAULT_EF_REPAIR = 64;
     public static final boolean DEFAULT_EXTEND_CANDIDATES = false;
     public static final boolean DEFAULT_KEEP_PRUNED_CONNECTIONS = false;
     // stats
@@ -48,12 +48,11 @@ public final class Config {
     // RaBitQ
     public static final boolean DEFAULT_USE_RABITQ = false;
     public static final int DEFAULT_RABITQ_NUM_EX_BITS = 4;
-
     // concurrency
     public static final int DEFAULT_MAX_NUM_CONCURRENT_NODE_FETCHES = 16;
-    public static final int DEFAULT_MAX_NUM_CONCURRENT_NEIGHBOR_FETCHES = 16;
+    public static final int DEFAULT_MAX_NUM_CONCURRENT_NEIGHBOR_FETCHES = 10;
+    public static final int DEFAULT_MAX_NUM_CONCURRENT_DELETE_FROM_LAYER = 2;
 
-    private final boolean deterministicSeeding;
     @Nonnull
     private final Metric metric;
     private final int numDimensions;
@@ -62,6 +61,7 @@ public final class Config {
     private final int mMax;
     private final int mMax0;
     private final int efConstruction;
+    private final int efRepair;
     private final boolean extendCandidates;
     private final boolean keepPrunedConnections;
     private final double sampleVectorStatsProbability;
@@ -71,13 +71,15 @@ public final class Config {
     private final int raBitQNumExBits;
     private final int maxNumConcurrentNodeFetches;
     private final int maxNumConcurrentNeighborhoodFetches;
+    private final int maxNumConcurrentDeleteFromLayer;
 
-    private Config(final boolean deterministicSeeding, @Nonnull final Metric metric, final int numDimensions,
-                   final boolean useInlining, final int m, final int mMax, final int mMax0,
-                   final int efConstruction, final boolean extendCandidates, final boolean keepPrunedConnections,
+    private Config(@Nonnull final Metric metric, final int numDimensions, final boolean useInlining, final int m,
+                   final int mMax, final int mMax0, final int efConstruction, final int efRepair,
+                   final boolean extendCandidates, final boolean keepPrunedConnections,
                    final double sampleVectorStatsProbability, final double maintainStatsProbability,
                    final int statsThreshold, final boolean useRaBitQ, final int raBitQNumExBits,
-                   final int maxNumConcurrentNodeFetches, final int maxNumConcurrentNeighborhoodFetches) {
+                   final int maxNumConcurrentNodeFetches, final int maxNumConcurrentNeighborhoodFetches,
+                   final int maxNumConcurrentDeleteFromLayer) {
         Preconditions.checkArgument(numDimensions >= 1, "numDimensions must be (1, MAX_INT]");
         Preconditions.checkArgument(m >= 4 && m <= 200, "m must be [4, 200]");
         Preconditions.checkArgument(mMax >= 4 && mMax <= 200, "mMax must be [4, 200]");
@@ -86,6 +88,8 @@ public final class Config {
         Preconditions.checkArgument(mMax <= mMax0, "mMax must be less than or equal to mMax0");
         Preconditions.checkArgument(efConstruction >= 100 && efConstruction <= 400,
                 "efConstruction must be [100, 400]");
+        Preconditions.checkArgument(efRepair >= m && efRepair <= 400,
+                "efRepair must be [m, 400]");
         Preconditions.checkArgument(!useRaBitQ ||
                 (sampleVectorStatsProbability > 0.0d && sampleVectorStatsProbability <= 1.0d),
                 "sampleVectorStatsProbability out of range");
@@ -98,10 +102,12 @@ public final class Config {
         Preconditions.checkArgument(maxNumConcurrentNodeFetches > 0 && maxNumConcurrentNodeFetches <= 64,
                 "maxNumConcurrentNodeFetches must be (0, 64]");
         Preconditions.checkArgument(maxNumConcurrentNeighborhoodFetches > 0 &&
-                maxNumConcurrentNeighborhoodFetches <= 64,
-                "maxNumConcurrentNeighborhoodFetches must be (0, 64]");
+                maxNumConcurrentNeighborhoodFetches <= 20,
+                "maxNumConcurrentNeighborhoodFetches must be (0, 20]");
+        Preconditions.checkArgument(maxNumConcurrentDeleteFromLayer > 0 &&
+                        maxNumConcurrentDeleteFromLayer <= 10,
+                "maxNumConcurrentDeleteFromLayer must be (0, 10]");
 
-        this.deterministicSeeding = deterministicSeeding;
         this.metric = metric;
         this.numDimensions = numDimensions;
         this.useInlining = useInlining;
@@ -109,6 +115,7 @@ public final class Config {
         this.mMax = mMax;
         this.mMax0 = mMax0;
         this.efConstruction = efConstruction;
+        this.efRepair = efRepair;
         this.extendCandidates = extendCandidates;
         this.keepPrunedConnections = keepPrunedConnections;
         this.sampleVectorStatsProbability = sampleVectorStatsProbability;
@@ -118,15 +125,7 @@ public final class Config {
         this.raBitQNumExBits = raBitQNumExBits;
         this.maxNumConcurrentNodeFetches = maxNumConcurrentNodeFetches;
         this.maxNumConcurrentNeighborhoodFetches = maxNumConcurrentNeighborhoodFetches;
-    }
-
-    /**
-     * Indicator that if {@code true} causes the insert logic of the HNSW to be seeded using a hash of the primary key
-     * of the record that is inserted. That can be useful for testing. If {@code isDeterministicSeeding} is
-     * {@code false}, we use {@link System#nanoTime()} for seeding.
-     */
-    public boolean isDeterministicSeeding() {
-        return deterministicSeeding;
+        this.maxNumConcurrentDeleteFromLayer = maxNumConcurrentDeleteFromLayer;
     }
 
     /**
@@ -210,12 +209,22 @@ public final class Config {
 
     /**
      * Maximum size of the search queues (one independent queue per layer) that are used during the insertion of a new
-     * node. If {@code efConstruction} is set to {@code 1}, the search naturally follows a greedy approach
-     * (monotonous descent), whereas a high number for {@code efConstruction} allows for a more nuanced search that can
-     * tolerate (false) local minima.
+     * node. If {@code efConstruction} is set to a smaller number, the search naturally follows a more greedy approach
+     * (monotonous descent), whereas a higher number for {@code efConstruction} allows for a more nuanced search that
+     * can tolerate (false) local minima.
      */
     public int getEfConstruction() {
         return efConstruction;
+    }
+
+    /**
+     * Maximum number of candidate nodes that are considered when a HNSW layer is locally repaired as part of a
+     * delete operation. A smaller number causes the delete operation to create a smaller set of candidate nodes
+     * which improves repair performance but decreases repair quality; a higher number results in qualitatively
+     * better repairs at the expense of slower performance.
+     */
+    public int getEfRepair() {
+        return efRepair;
     }
 
     /**
@@ -295,13 +304,20 @@ public final class Config {
         return maxNumConcurrentNeighborhoodFetches;
     }
 
+    /**
+     * Maximum number of delete operations that can run concurrently during a delete operation.
+     */
+    public int getMaxNumConcurrentDeleteFromLayer() {
+        return maxNumConcurrentDeleteFromLayer;
+    }
+
     @Nonnull
     public ConfigBuilder toBuilder() {
-        return new ConfigBuilder(isDeterministicSeeding(), getMetric(), isUseInlining(), getM(), getMMax(), getMMax0(),
-                getEfConstruction(), isExtendCandidates(), isKeepPrunedConnections(),
+        return new ConfigBuilder(getMetric(), isUseInlining(), getM(), getMMax(), getMMax0(),
+                getEfConstruction(), getEfRepair(), isExtendCandidates(), isKeepPrunedConnections(),
                 getSampleVectorStatsProbability(), getMaintainStatsProbability(), getStatsThreshold(),
                 isUseRaBitQ(), getRaBitQNumExBits(), getMaxNumConcurrentNodeFetches(),
-                getMaxNumConcurrentNeighborhoodFetches());
+                getMaxNumConcurrentNeighborhoodFetches(), getMaxNumConcurrentDeleteFromLayer());
     }
 
     @Override
@@ -313,38 +329,41 @@ public final class Config {
             return false;
         }
         final Config config = (Config)o;
-        return deterministicSeeding == config.deterministicSeeding && numDimensions == config.numDimensions &&
-                useInlining == config.useInlining && m == config.m && mMax == config.mMax && mMax0 == config.mMax0 &&
-                efConstruction == config.efConstruction && extendCandidates == config.extendCandidates &&
+        return numDimensions == config.numDimensions && useInlining == config.useInlining && m == config.m &&
+                mMax == config.mMax && mMax0 == config.mMax0 && efConstruction == config.efConstruction &&
+                efRepair == config.efRepair && extendCandidates == config.extendCandidates &&
                 keepPrunedConnections == config.keepPrunedConnections &&
                 Double.compare(sampleVectorStatsProbability, config.sampleVectorStatsProbability) == 0 &&
                 Double.compare(maintainStatsProbability, config.maintainStatsProbability) == 0 &&
                 statsThreshold == config.statsThreshold && useRaBitQ == config.useRaBitQ &&
                 raBitQNumExBits == config.raBitQNumExBits && metric == config.metric &&
                 maxNumConcurrentNodeFetches == config.maxNumConcurrentNodeFetches &&
-                maxNumConcurrentNeighborhoodFetches == config.maxNumConcurrentNeighborhoodFetches;
+                maxNumConcurrentNeighborhoodFetches == config.maxNumConcurrentNeighborhoodFetches &&
+                maxNumConcurrentDeleteFromLayer == config.maxNumConcurrentDeleteFromLayer;
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(deterministicSeeding, metric, numDimensions, useInlining, m, mMax, mMax0, efConstruction,
+        return Objects.hash(metric, numDimensions, useInlining, m, mMax, mMax0, efConstruction, efRepair,
                 extendCandidates, keepPrunedConnections, sampleVectorStatsProbability, maintainStatsProbability,
-                statsThreshold, useRaBitQ, raBitQNumExBits, maxNumConcurrentNodeFetches, maxNumConcurrentNeighborhoodFetches);
+                statsThreshold, useRaBitQ, raBitQNumExBits, maxNumConcurrentNodeFetches,
+                maxNumConcurrentNeighborhoodFetches, maxNumConcurrentDeleteFromLayer);
     }
 
     @Override
     @Nonnull
     public String toString() {
-        return "Config[deterministicSeeding=" + isDeterministicSeeding() + ", metric=" + getMetric() +
-                ", numDimensions=" + getNumDimensions() + ", isUseInlining=" + isUseInlining() + ", M=" + getM() +
-                ", MMax=" + getMMax() + ", MMax0=" + getMMax0() + ", efConstruction=" + getEfConstruction() +
-                ", isExtendCandidates=" + isExtendCandidates() +
+        return "Config[metric=" + getMetric() + ", numDimensions=" + getNumDimensions() +
+                ", isUseInlining=" + isUseInlining() + ", M=" + getM() + ", MMax=" + getMMax() +
+                ", MMax0=" + getMMax0() + ", efConstruction=" + getEfConstruction() +
+                ", efRepair=" + getEfRepair() + ", isExtendCandidates=" + isExtendCandidates() +
                 ", isKeepPrunedConnections=" + isKeepPrunedConnections() +
                 ", sampleVectorStatsProbability=" + getSampleVectorStatsProbability() +
                 ", mainStatsProbability=" + getMaintainStatsProbability() + ", statsThreshold=" + getStatsThreshold() +
                 ", useRaBitQ=" + isUseRaBitQ() + ", raBitQNumExBits=" + getRaBitQNumExBits() +
                 ", maxNumConcurrentNodeFetches=" + getMaxNumConcurrentNodeFetches() +
                 ", maxNumConcurrentNeighborhoodFetches=" + getMaxNumConcurrentNeighborhoodFetches() +
+                ", maxNumConcurrentDeleteFromLayer=" + getMaxNumConcurrentDeleteFromLayer() +
                 "]";
     }
 
@@ -356,7 +375,6 @@ public final class Config {
     @CanIgnoreReturnValue
     @SuppressWarnings("checkstyle:MemberName")
     public static class ConfigBuilder {
-        private boolean deterministicSeeding = DEFAULT_DETERMINISTIC_SEEDING;
         @Nonnull
         private Metric metric = DEFAULT_METRIC;
         private boolean useInlining = DEFAULT_USE_INLINING;
@@ -364,6 +382,7 @@ public final class Config {
         private int mMax = DEFAULT_M_MAX;
         private int mMax0 = DEFAULT_M_MAX_0;
         private int efConstruction = DEFAULT_EF_CONSTRUCTION;
+        private int efRepair = DEFAULT_EF_REPAIR;
         private boolean extendCandidates = DEFAULT_EXTEND_CANDIDATES;
         private boolean keepPrunedConnections = DEFAULT_KEEP_PRUNED_CONNECTIONS;
 
@@ -376,23 +395,25 @@ public final class Config {
 
         private int maxNumConcurrentNodeFetches = DEFAULT_MAX_NUM_CONCURRENT_NODE_FETCHES;
         private int maxNumConcurrentNeighborhoodFetches = DEFAULT_MAX_NUM_CONCURRENT_NEIGHBOR_FETCHES;
+        private int maxNumConcurrentDeleteFromLayer = DEFAULT_MAX_NUM_CONCURRENT_DELETE_FROM_LAYER;
 
         public ConfigBuilder() {
         }
 
-        public ConfigBuilder(final boolean deterministicSeeding, @Nonnull final Metric metric, final boolean useInlining,
-                             final int m, final int mMax, final int mMax0, final int efConstruction,
+        public ConfigBuilder(@Nonnull final Metric metric, final boolean useInlining, final int m, final int mMax,
+                             final int mMax0, final int efConstruction, final int efRepair,
                              final boolean extendCandidates, final boolean keepPrunedConnections,
                              final double sampleVectorStatsProbability, final double maintainStatsProbability,
                              final int statsThreshold, final boolean useRaBitQ, final int raBitQNumExBits,
-                             final int maxNumConcurrentNodeFetches, final int maxNumConcurrentNeighborhoodFetches) {
-            this.deterministicSeeding = deterministicSeeding;
+                             final int maxNumConcurrentNodeFetches, final int maxNumConcurrentNeighborhoodFetches,
+                             final int maxNumConcurrentDeleteFromLayer) {
             this.metric = metric;
             this.useInlining = useInlining;
             this.m = m;
             this.mMax = mMax;
             this.mMax0 = mMax0;
             this.efConstruction = efConstruction;
+            this.efRepair = efRepair;
             this.extendCandidates = extendCandidates;
             this.keepPrunedConnections = keepPrunedConnections;
             this.sampleVectorStatsProbability = sampleVectorStatsProbability;
@@ -402,16 +423,7 @@ public final class Config {
             this.raBitQNumExBits = raBitQNumExBits;
             this.maxNumConcurrentNodeFetches = maxNumConcurrentNodeFetches;
             this.maxNumConcurrentNeighborhoodFetches = maxNumConcurrentNeighborhoodFetches;
-        }
-
-        public boolean isDeterministicSeeding() {
-            return deterministicSeeding;
-        }
-
-        @Nonnull
-        public ConfigBuilder setDeterministicSeeding(final boolean deterministicSeeding) {
-            this.deterministicSeeding = deterministicSeeding;
-            return this;
+            this.maxNumConcurrentDeleteFromLayer = maxNumConcurrentDeleteFromLayer;
         }
 
         @Nonnull
@@ -472,6 +484,16 @@ public final class Config {
         @Nonnull
         public ConfigBuilder setEfConstruction(final int efConstruction) {
             this.efConstruction = efConstruction;
+            return this;
+        }
+
+        public int getEfRepair() {
+            return efRepair;
+        }
+
+        @Nonnull
+        public ConfigBuilder setEfRepair(final int efRepair) {
+            this.efRepair = efRepair;
             return this;
         }
 
@@ -563,12 +585,21 @@ public final class Config {
             return this;
         }
 
+        public int getMaxNumConcurrentDeleteFromLayer() {
+            return maxNumConcurrentDeleteFromLayer;
+        }
+
+        public ConfigBuilder setMaxNumConcurrentDeleteFromLayer(final int maxNumConcurrentDeleteFromLayer) {
+            this.maxNumConcurrentDeleteFromLayer = maxNumConcurrentDeleteFromLayer;
+            return this;
+        }
+
         public Config build(final int numDimensions) {
-            return new Config(isDeterministicSeeding(), getMetric(), numDimensions, isUseInlining(), getM(), getMMax(),
-                    getMMax0(), getEfConstruction(), isExtendCandidates(), isKeepPrunedConnections(),
+            return new Config(getMetric(), numDimensions, isUseInlining(), getM(), getMMax(),
+                    getMMax0(), getEfConstruction(), getEfRepair(), isExtendCandidates(), isKeepPrunedConnections(),
                     getSampleVectorStatsProbability(), getMaintainStatsProbability(), getStatsThreshold(),
                     isUseRaBitQ(), getRaBitQNumExBits(), getMaxNumConcurrentNodeFetches(),
-                    getMaxNumConcurrentNeighborhoodFetches());
+                    getMaxNumConcurrentNeighborhoodFetches(), getMaxNumConcurrentDeleteFromLayer());
         }
     }
 }

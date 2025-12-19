@@ -30,9 +30,11 @@ import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestRecordsTextProto;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
+import com.apple.foundationdb.record.lucene.codec.LazyCloseable;
 import com.apple.foundationdb.record.lucene.directory.AgilityContext;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectoryLockFactory;
+import com.apple.foundationdb.record.lucene.directory.FDBDirectoryManager;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectoryWrapper;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.provider.common.FixedZeroKeyManager;
@@ -60,6 +62,9 @@ import com.apple.test.RandomizedTestUtils;
 import com.apple.test.SuperSlow;
 import com.apple.test.Tags;
 import com.apple.test.TestConfigurationUtils;
+import com.google.common.collect.Streams;
+import org.apache.lucene.index.DirectoryReader;
+import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.store.Lock;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assertions;
@@ -78,6 +83,7 @@ import javax.crypto.SecretKey;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -85,11 +91,13 @@ import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Queue;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ForkJoinPool;
@@ -123,6 +131,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Tests of the consistency of the Lucene Index.
@@ -411,6 +420,10 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
 
     /**
      * Test that the index is in a good state if the merge operation has errors.
+     * The test will validate that if Lucene merge fails randomly in the middle it will still be usable, and
+     * not corrupted. Having retries in the IndexingMerger means that it could heal, but we want to make
+     * sure that requests coming in while the merge is ongoing don't get a corrupted view.
+     *
      * @param isGrouped whether the index has a grouping key
      * @param isSynthetic whether the index is on a synthetic type
      * @param primaryKeySegmentIndexEnabled whether to enable the primaryKeySegmentIndex
@@ -469,14 +482,19 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                     return oldAsyncToSyncTimeout == null ? Duration.ofDays(1L) : oldAsyncToSyncTimeout.apply(wait);
                 }
             };
-            for (int i = 0; i < 100; i++) {
+            for (int i = 0; i < 20; i++) {
                 fdb.setAsyncToSyncTimeout(asyncToSyncTimeout);
                 waitCounts.set(i);
                 boolean success = false;
                 try {
                     LOGGER.info(KeyValueLogMessage.of("Merge started",
                             "iteration", i));
-                    explicitMergeIndex(dataModel.index, contextProps, dataModel.schemaSetup);
+                    // To avoid merge retries, use the low level merge from the index maintainer
+                    try (FDBRecordContext context = openContext(contextProps)) {
+                        FDBRecordStore recordStore = Objects.requireNonNull(dataModel.schemaSetup.apply(context));
+                        final CompletableFuture<Void> future = recordStore.getIndexMaintainer(Objects.requireNonNull(dataModel.index)).mergeIndex();
+                        fdb.asyncToSync(timer, FDBStoreTimer.Waits.WAIT_ONLINE_MERGE_INDEX, future);
+                    }
                     LOGGER.info(KeyValueLogMessage.of("Merge completed",
                             "iteration", i));
                     assertFalse(requireFailure && i < 15, i + " merge should have failed");
@@ -1099,6 +1117,121 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                     assertThat(partitionCounts, contains(0)));
     }
 
+    static Stream<Arguments> multiUpdate() {
+        Stream<Long> seeds = Streams.concat(
+                Stream.of(5365L),
+                TestConfigurationUtils.onlyNightly(RandomizedTestUtils.randomSeeds(6664, 76778)));
+        return ParameterizedTestUtils.cartesianProduct(
+                ParameterizedTestUtils.booleans("isSynthetic"),
+                ParameterizedTestUtils.booleans("isGrouped"),
+                Stream.of(0, 10),
+                Stream.of(0, 1, 4),
+                seeds);
+    }
+
+    @ParameterizedTest
+    @MethodSource("multiUpdate")
+    void multipleUpdatesInTransaction(boolean isSynthetic, boolean isGrouped, int highWatermark, int updateCount, long seed) throws IOException {
+        final LuceneIndexTestDataModel dataModel = new LuceneIndexTestDataModel.Builder(seed, this::getStoreBuilder, pathManager)
+                .setIsGrouped(isGrouped)
+                .setIsSynthetic(isSynthetic)
+                .setPrimaryKeySegmentIndexEnabled(true)
+                .setPartitionHighWatermark(highWatermark)
+                .build();
+
+        final int documentCount = 10 + dataModel.getRandom().nextInt(10);
+
+        final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_REPARTITION_DOCUMENT_COUNT, 2)
+                .addProp(LuceneRecordContextProperties.LUCENE_MERGE_SEGMENTS_PER_TIER, (double)dataModel.nextInt(10) + 2) // it must be at least 2.0
+                .build();
+
+        // save records
+        try (FDBRecordContext context = openContext(contextProps)) {
+            dataModel.saveRecordsToAllGroups(documentCount, context);
+            commit(context);
+        }
+
+        try (FDBRecordContext context = openContext(contextProps)) {
+            final FDBRecordStore store = dataModel.createOrOpenRecordStore(context);
+            dataModel.sampleRecordsUnderTest().forEach(rec -> {
+                for (int i = 0; i < updateCount; i++) {
+                    // update some documents multiple times
+                    rec.updateOtherValue(store).join();
+                }
+            });
+            commit(context);
+        }
+        explicitMergeIndex(dataModel.index, contextProps, dataModel.schemaSetup);
+
+        if (highWatermark > 0) {
+            // ensure each partition has all records
+            dataModel.getPartitionCounts(() -> openContext(contextProps)).forEach((groupingKey, partitionCounts) ->
+                    assertThat(partitionCounts.stream().mapToInt(i -> i).sum(), Matchers.equalTo(documentCount)));
+        }
+
+        explicitMergeIndex(dataModel.index, contextProps, dataModel.schemaSetup);
+        dataModel.validate(() -> openContext(contextProps));
+    }
+
+    /**
+     * Test that the DirectoryWrapper accounts for all the created WriterReaders.
+     * Create multiple ReaderWriters in concurrent threads and ensure they are all closed.
+     */
+    @Test
+    void testCreateReadersConcurrently() throws IOException {
+        final LuceneIndexTestDataModel dataModel = new LuceneIndexTestDataModel.Builder(1, this::getStoreBuilder, pathManager)
+                .setIsGrouped(true)
+                .setIsSynthetic(true)
+                .setPrimaryKeySegmentIndexEnabled(true)
+                .setPartitionHighWatermark(0) // no partitioning, so we only have one partition to work with
+                .build();
+        final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_REPARTITION_DOCUMENT_COUNT, 2)
+                .addProp(LuceneRecordContextProperties.LUCENE_MERGE_SEGMENTS_PER_TIER, (double)dataModel.nextInt(10) + 2) // it must be at least 2.0
+                .build();
+
+        Queue<IndexReader> createdReaders = new ConcurrentLinkedQueue<>();
+        Set<DirectoryReader> actualReaders;
+        Tuple groupingKey = Tuple.from(1);
+        Integer partitionId = null;
+        int threads = 10;
+        int loops = 20;
+        try (FDBRecordContext context = openContext(contextProps)) {
+            final FDBRecordStore store = dataModel.createOrOpenRecordStore(context);
+            final LuceneIndexMaintainer indexMaintainer = getIndexMaintainer(store, dataModel.index);
+            final FDBDirectoryManager directoryManager = indexMaintainer.getDirectoryManager();
+
+            List<CompletableFuture<Void>> futures = new ArrayList<>(threads);
+            for (int i = 0; i < threads; i++) {
+                futures.add(CompletableFuture.runAsync(() -> {
+                    try {
+                        for (int j = 0; j < loops; j++) {
+                            // Cause the reader to become stale
+                            dataModel.saveRecord(store, 1);
+                            // Refresh the reader - this should create a new one
+                            DirectoryReader writerReader = directoryManager.getWriterReader(groupingKey, partitionId, true);
+                            // Store the created reader for later
+                            createdReaders.add(writerReader);
+                        }
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                }, context.getExecutor()));
+            }
+            AsyncUtil.getAll(futures).join();
+            Stream<DirectoryReader> stream = directoryManager.getDirectoryWrapper(groupingKey, partitionId)
+                    .getReadersToClose()
+                    .stream().map(LazyCloseable::getUnchecked);
+            actualReaders = stream.collect(Collectors.toSet());
+            commit(context);
+        }
+
+        // assert that each captured reader is included in the directory wrapper's list
+        createdReaders.forEach(createdReader ->
+                assertTrue(actualReaders.contains(createdReader)));
+    }
+
     static Stream<Arguments> changingEncryptionKey() {
         return Stream.concat(Stream.of(Arguments.of(true, true, 288513),
                 Arguments.of(false, false, 792025)),
@@ -1583,5 +1716,10 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
 
     private <T> Consumer<T> noopConsumer() {
         return ignored -> { };
+    }
+
+    @Nonnull
+    protected LuceneIndexMaintainer getIndexMaintainer(FDBRecordStore store, Index index) {
+        return (LuceneIndexMaintainer)store.getIndexMaintainer(index);
     }
 }

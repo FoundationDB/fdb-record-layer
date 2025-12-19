@@ -73,6 +73,12 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
         super(config, nodeFactory, subspace, onWriteListener, onReadListener);
     }
 
+    @Nonnull
+    @Override
+    public Transformed<RealVector> getVector(@Nonnull final NodeReference nodeReference, @Nonnull final AbstractNode<NodeReference> node) {
+        return node.asCompactNode().getVector();
+    }
+
     /**
      * Asynchronously fetches a node from the database for a given layer and primary key.
      * <p>
@@ -88,8 +94,6 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
      *
      * @return a future that will complete with the fetched {@link AbstractNode} or {@code null} if the node cannot
      *         be fetched
-     *
-     * @throws IllegalStateException if the node cannot be found in the database for the given key
      */
     @Nonnull
     @Override
@@ -97,8 +101,7 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
                                                                                @Nonnull final AffineOperator storageTransform,
                                                                                final int layer,
                                                                                @Nonnull final Tuple primaryKey) {
-        final byte[] keyBytes = getDataSubspace().pack(Tuple.from(layer, primaryKey));
-
+        final byte[] keyBytes = getNodeKey(layer, primaryKey);
         return readTransaction.get(keyBytes)
                 .thenApply(valueBytes -> {
                     if (valueBytes == null) {
@@ -216,16 +219,16 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
      *
      * @param transaction the {@link Transaction} to use for the write operation.
      * @param quantizer the quantizer to use
-     * @param node the {@link AbstractNode} to be serialized and written; it is processed as a {@link CompactNode}.
      * @param layer the graph layer index for the node, used to construct the storage key.
+     * @param node the {@link AbstractNode} to be serialized and written; it is processed as a {@link CompactNode}.
      * @param neighborsChangeSet a {@link NeighborsChangeSet} containing the additions and removals, which are
      * merged to determine the final set of neighbors to be written.
      */
     @Override
     public void writeNodeInternal(@Nonnull final Transaction transaction, @Nonnull final Quantizer quantizer,
-                                  @Nonnull final AbstractNode<NodeReference> node, final int layer,
+                                  final int layer, @Nonnull final AbstractNode<NodeReference> node,
                                   @Nonnull final NeighborsChangeSet<NodeReference> neighborsChangeSet) {
-        final byte[] key = getDataSubspace().pack(Tuple.from(layer, node.getPrimaryKey()));
+        final byte[] key = getNodeKey(layer, node.getPrimaryKey());
 
         final List<Object> nodeItems = Lists.newArrayListWithExpectedSize(3);
         nodeItems.add(NodeKind.COMPACT.getSerialized());
@@ -252,6 +255,33 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
             logger.trace("written neighbors of primaryKey={}, oldSize={}, newSize={}", node.getPrimaryKey(),
                     node.getNeighbors().size(), neighborItems.size());
         }
+    }
+
+    @Override
+    protected void deleteNodeInternal(@Nonnull final Transaction transaction, final int layer,
+                                      @Nonnull final Tuple primaryKey) {
+        final byte[] key = getNodeKey(layer, primaryKey);
+        transaction.clear(key);
+        getOnWriteListener().onNodeDeleted(layer, primaryKey);
+        getOnWriteListener().onKeyDeleted(layer, key);
+    }
+
+    /**
+     * Constructs the raw database key for a node based on its layer and primary key.
+     * <p>
+     * This key is created by packing a tuple containing the specified {@code layer} and the node's {@code primaryKey}
+     * within the data subspace. The resulting byte array is suitable for use in direct database lookups and preserves
+     * the sort order of the components.
+     *
+     * @param layer the layer index where the node resides
+     * @param primaryKey the primary key that uniquely identifies the node within its layer,
+     * encapsulated in a {@link Tuple}
+     *
+     * @return a byte array representing the packed key for the specified node
+     */
+    @Nonnull
+    private byte[] getNodeKey(final int layer, @Nonnull final Tuple primaryKey) {
+        return getDataSubspace().pack(Tuple.from(layer, primaryKey));
     }
 
     /**

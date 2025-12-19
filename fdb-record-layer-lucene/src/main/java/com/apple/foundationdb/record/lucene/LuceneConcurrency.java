@@ -22,7 +22,7 @@ package com.apple.foundationdb.record.lucene;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.MoreAsyncUtil;
-import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordCoreTimeoutException;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
@@ -119,7 +119,7 @@ public class LuceneConcurrency {
     /**
      * An exception that is thrown when the async to sync operation times out.
      */
-    public static class AsyncToSyncTimeoutException extends RecordCoreException {
+    public static class AsyncToSyncTimeoutException extends RecordCoreTimeoutException {
         private static final long serialVersionUID = -1L;
 
         public AsyncToSyncTimeoutException(final String message, final Throwable cause) {

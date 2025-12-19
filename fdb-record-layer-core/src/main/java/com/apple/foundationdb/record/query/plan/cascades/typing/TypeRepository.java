@@ -50,7 +50,6 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
@@ -85,6 +84,11 @@ public class TypeRepository {
     @Nonnull
     private final Map<String, EnumDescriptor> enumDescriptorMapShort = new LinkedHashMap<>();
 
+    /**
+     * Map storing types and their protobuf names.
+     * For non-nullable types, their nullable variants are stored here.
+     * Because Type.None and Type.Relation must be non-nullable, they are stored as non-nullable.
+     */
     @Nonnull
     private final Map<Type, String> typeToNameMap;
 
@@ -150,8 +154,7 @@ public class TypeRepository {
      */
     @Nullable
     public DynamicMessage.Builder newMessageBuilder(@Nonnull final Type type) {
-        final String msgTypeName = Preconditions.checkNotNull(typeToNameMap.get(type));
-        Objects.requireNonNull(msgTypeName);
+        final String msgTypeName = getProtoTypeName(type);
         return newMessageBuilder(msgTypeName);
     }
 
@@ -162,8 +165,9 @@ public class TypeRepository {
      */
     @Nonnull
     public String getProtoTypeName(@Nonnull final Type type) {
-        final String typeName = Preconditions.checkNotNull(typeToNameMap.get(type));
-        return Objects.requireNonNull(typeName);
+        final Type canonicalType = canonicalizeNullability(type);
+        final String typeName = typeToNameMap.get(canonicalType);
+        return Preconditions.checkNotNull(typeName, "Type not found in repository: %s", type);
     }
 
     /**
@@ -270,6 +274,23 @@ public class TypeRepository {
     @Nonnull
     public Set<String> getEnumTypes() {
         return new TreeSet<>(enumDescriptorMapFull.keySet());
+    }
+
+    /**
+     * Canonicalizes the nullability of a type according to these rules.
+     * - Relation and None types: return non-nullable variant
+     * - Everything else: return nullable variant
+     *
+     * @param type the type to canonicalize
+     * @return the canonicalized type with appropriate nullability
+     */
+    @Nonnull
+    private static Type canonicalizeNullability(@Nonnull final Type type) {
+        if (type.getTypeCode() == Type.TypeCode.RELATION || type.getTypeCode() == Type.TypeCode.NONE) {
+            return type.notNullable();
+        } else {
+            return type.nullable();
+        }
     }
 
     /**
@@ -471,7 +492,8 @@ public class TypeRepository {
 
         @Nonnull
         public Builder addTypeIfNeeded(@Nonnull final Type type) {
-            if (!typeToNameMap.containsKey(type)) {
+            final Type canonicalType = canonicalizeNullability(type);
+            if (!typeToNameMap.containsKey(canonicalType)) {
                 type.defineProtoType(this);
             }
             return this;
@@ -479,12 +501,8 @@ public class TypeRepository {
 
         @Nonnull
         public Optional<String> getTypeName(@Nonnull final Type type) {
-            return Optional.ofNullable(typeToNameMap.get(type));
-        }
-
-        @Nonnull
-        public Optional<Type> getTypeByName(@Nonnull final String name) {
-            return Optional.ofNullable(typeToNameMap.inverse().get(name));
+            final Type canonicalType = canonicalizeNullability(type);
+            return Optional.ofNullable(typeToNameMap.get(canonicalType));
         }
 
         @Nonnull
@@ -501,8 +519,26 @@ public class TypeRepository {
 
         @Nonnull
         public Builder registerTypeToTypeNameMapping(@Nonnull final Type type, @Nonnull final String protoTypeName) {
-            Verify.verify(!typeToNameMap.containsKey(type));
-            typeToNameMap.put(type, protoTypeName);
+            final Type canonicalType = canonicalizeNullability(type);
+            final String existingTypeName = typeToNameMap.get(canonicalType);
+
+            if (existingTypeName != null) {
+                // Type already registered, verify same protobuf name
+                Verify.verify(existingTypeName.equals(protoTypeName),
+                        "Type %s is already registered with name %s, cannot register with different name %s",
+                        type, existingTypeName, protoTypeName);
+                return this;
+            }
+
+            // Check if this protobuf name is already used by a different type
+            final Type existingTypeForName = typeToNameMap.inverse().get(protoTypeName);
+            if (existingTypeForName != null && !existingTypeForName.equals(canonicalType)) {
+                throw new IllegalArgumentException(String.format(
+                        "Name %s is already registered with a different type %s, cannot register with type %s",
+                        protoTypeName, existingTypeForName, type));
+            }
+
+            typeToNameMap.put(canonicalType, protoTypeName);
             return this;
         }
 
@@ -515,7 +551,7 @@ public class TypeRepository {
         @Nonnull
         public Optional<String> defineAndResolveType(@Nonnull final Type type) {
             addTypeIfNeeded(type);
-            return Optional.ofNullable(typeToNameMap.get(type));
+            return getTypeName(type);
         }
 
         @Nonnull
