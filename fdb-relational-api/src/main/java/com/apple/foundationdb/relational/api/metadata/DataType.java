@@ -1307,16 +1307,24 @@ public abstract class DataType {
 
             private final int index;
 
-            private Field(@Nonnull final String name, @Nonnull final DataType type, int index) {
+            private final boolean invisible;
+
+            private Field(@Nonnull final String name, @Nonnull final DataType type, int index, boolean invisible) {
                 Assert.thatUnchecked(index >= 0);
                 this.name = name;
                 this.type = type;
                 this.index = index;
+                this.invisible = invisible;
             }
 
             @Nonnull
             public static Field from(@Nonnull final String name, @Nonnull final DataType type, int index) {
-                return new Field(name, type, index);
+                return new Field(name, type, index, false);
+            }
+
+            @Nonnull
+            public static Field from(@Nonnull final String name, @Nonnull final DataType type, int index, boolean invisible) {
+                return new Field(name, type, index, invisible);
             }
 
             @Nonnull
@@ -1333,8 +1341,12 @@ public abstract class DataType {
                 return index;
             }
 
+            public boolean isInvisible() {
+                return invisible;
+            }
+
             private int computeHashCode() {
-                return Objects.hash(name, index, type);
+                return Objects.hash(name, index, type, invisible);
             }
 
             @Override
@@ -1354,6 +1366,7 @@ public abstract class DataType {
                 final var otherField = (Field) other;
                 return name.equals(otherField.name) &&
                         index == otherField.index &&
+                        invisible == otherField.invisible &&
                         type.equals(otherField.type);
             }
 

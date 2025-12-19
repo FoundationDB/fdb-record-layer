@@ -71,7 +71,7 @@ public final class Expressions implements Iterable<Expression> {
     public Expressions expanded() {
         return Expressions.of(underlying.stream()
                 .flatMap(item -> item instanceof Star ?
-                        ((Star) item).getExpansion().stream() :
+                        ((Star) item).getExpansion().nonInvisible().stream() :
                         Stream.of(item)).collect(ImmutableList.toImmutableList()));
     }
 
@@ -157,6 +157,36 @@ public final class Expressions implements Iterable<Expression> {
     }
 
     @Nonnull
+    public Expressions nonInvisible() {
+        return Expressions.of(stream().filter(e -> !e.isInvisible()).collect(ImmutableList.toImmutableList()));
+    }
+
+    /**
+     * Returns a new {@code Expressions} with all expressions marked as visible.
+     * <p>
+     * This is used when columns are explicitly selected in a query to ensure they are visible
+     * in outer queries. For example:
+     * <pre>
+     * SELECT id, secret FROM t    -- Both columns explicitly selected, marked visible
+     * SELECT * FROM (...)         -- Outer SELECT * includes both columns
+     * </pre>
+     * <p>
+     * Without this, explicitly selected invisible columns would remain invisible and be filtered
+     * by outer {@code SELECT *} queries, which would be incorrect semantics.
+     *
+     * @return a new {@code Expressions} with all expressions marked as visible, or {@code this}
+     *         if no expressions are invisible (optimization to avoid unnecessary allocation)
+     */
+    @Nonnull
+    public Expressions makeVisible() {
+        // Optimization: if no expressions are invisible, avoid creating a new list
+        if (stream().noneMatch(Expression::isInvisible)) {
+            return this;
+        }
+        return Expressions.of(stream().map(e -> e.withInvisible(false)).collect(Collectors.toUnmodifiableList()));
+    }
+
+    @Nonnull
     public Expression getSingleItem() {
         Assert.thatUnchecked(size() == 1, "invalid attempt to get single item");
         return asList().get(0);
@@ -174,6 +204,12 @@ public final class Expressions implements Iterable<Expression> {
     @Nonnull
     public Expressions replaceQualifier(@Nonnull Function<Collection<String>, Collection<String>> replaceFunc) {
         return Expressions.of(underlying.stream().map(expression -> expression.replaceQualifier(replaceFunc))
+                .collect(ImmutableList.toImmutableList()));
+    }
+
+    @Nonnull
+    public Expressions withQualifier(@Nonnull final Collection<String> qualifier) {
+        return Expressions.of(underlying.stream().map(expression -> expression.withQualifier(qualifier))
                 .collect(ImmutableList.toImmutableList()));
     }
 
