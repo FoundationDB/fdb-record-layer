@@ -22,7 +22,6 @@ package com.apple.foundationdb.async.hnsw;
 
 import com.apple.foundationdb.Database;
 import com.apple.foundationdb.Transaction;
-import com.apple.foundationdb.async.rtree.RTree;
 import com.apple.foundationdb.linear.AffineOperator;
 import com.apple.foundationdb.linear.DoubleRealVector;
 import com.apple.foundationdb.linear.HalfRealVector;
@@ -104,7 +103,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.within;
 
 /**
- * Tests testing insert/update/deletes of data into/in/from {@link RTree}s.
+ * Tests testing insert/update/deletes of data into/in/from {@link HNSW}s.
  */
 @Execution(ExecutionMode.CONCURRENT)
 @SuppressWarnings("checkstyle:AbbreviationAsWordInName")
@@ -267,7 +266,7 @@ class HNSWTest {
         final List<PrimaryKeyAndVector> insertedData = randomVectors(random, config.getNumDimensions(), size);
 
         for (int i = 0; i < size;) {
-            i += basicInsertBatch(hnsw, 100, i, onReadListener,
+            i += basicInsertBatch(hnsw, 100, i,
                     (tr, nextId) -> insertedData.get(Math.toIntExact(nextId)));
         }
 
@@ -279,7 +278,7 @@ class HNSWTest {
         // return records that are not aligned with recordsOrderedByDistance.
         //
         for (int i = 0; i < 100; ) {
-            i += basicInsertBatch(hnsw, 100, 0, onReadListener,
+            i += basicInsertBatch(hnsw, 100, 0,
                     (tr, ignored) -> {
                         final var primaryKey = createPrimaryKey(random.nextInt(1000));
                         final HalfRealVector dataVector = createRandomHalfVector(random, config.getNumDimensions());
@@ -349,21 +348,21 @@ class HNSWTest {
         final List<PrimaryKeyAndVector> insertedData = randomVectors(random, config.getNumDimensions(), size);
 
         for (int i = 0; i < size;) {
-            i += basicInsertBatch(hnsw, 100, i, onReadListener,
+            i += basicInsertBatch(hnsw, 100, i,
                     (tr, nextId) -> insertedData.get(Math.toIntExact(nextId)));
         }
 
-        final int numVectorsPerDeleteBatch = 100;
+        final int numVectorsPerDeleteBatch = 50;
         List<PrimaryKeyAndVector> remainingData = insertedData;
         do {
             final List<PrimaryKeyAndVector> toBeDeleted =
                     pickRandomVectors(random, remainingData, numVectorsPerDeleteBatch);
 
-            onWriteListener.reset();
-            onReadListener.reset();
-
             final long beginTs = System.nanoTime();
             db.run(tr -> {
+                onWriteListener.reset();
+                onReadListener.reset();
+
                 for (final PrimaryKeyAndVector primaryKeyAndVector : toBeDeleted) {
                     hnsw.delete(tr, primaryKeyAndVector.getPrimaryKey()).join();
                 }
@@ -378,13 +377,6 @@ class HNSWTest {
                     size - remainingData.size(),
                     TimeUnit.NANOSECONDS.toMillis(endTs - beginTs),
                     onReadListener.getNodeCountByLayer(), onReadListener.getBytesReadByLayer());
-
-            db.run(tr -> {
-                for (final PrimaryKeyAndVector primaryKeyAndVector : toBeDeleted) {
-                    hnsw.delete(tr, primaryKeyAndVector.getPrimaryKey()).join();
-                }
-                return null;
-            });
 
             final Set<PrimaryKeyAndVector> deletedSet = toBeDeleted.stream().collect(ImmutableSet.toImmutableSet());
             remainingData = remainingData.stream()
@@ -452,7 +444,7 @@ class HNSWTest {
                         .setMMax(32)
                         .setMMax0(64)
                         .build(numDimensions),
-                OnWriteListener.NOOP, OnReadListener.NOOP);
+                new TestOnWriteListener(), new TestOnReadListener());
 
         final int k = 499;
         final DoubleRealVector queryVector = createRandomDoubleVector(random, numDimensions);
@@ -461,7 +453,7 @@ class HNSWTest {
                 new TreeSet<>(Comparator.comparing(PrimaryKeyVectorAndDistance::getDistance));
 
         for (int i = 0; i < 1000;) {
-            i += basicInsertBatch(hnsw, 100, i, new TestOnReadListener(),
+            i += basicInsertBatch(hnsw, 100, i,
                     (tr, nextId) -> {
                         final var primaryKey = createPrimaryKey(nextId);
                         final DoubleRealVector dataVector = createRandomDoubleVector(random, numDimensions);
@@ -533,11 +525,14 @@ class HNSWTest {
         assertThat(encodedVectorCount).isGreaterThan(0);
     }
 
-    private int basicInsertBatch(final HNSW hnsw, final int batchSize,
-                                 final long firstId, @Nonnull final TestOnReadListener onReadListener,
+    private int basicInsertBatch(final HNSW hnsw, final int batchSize, final long firstId,
                                  @Nonnull final BiFunction<Transaction, Long, PrimaryKeyAndVector> insertFunction) {
         return db.run(tr -> {
+            final TestOnWriteListener onWriteListener = (TestOnWriteListener)hnsw.getOnWriteListener();
+            onWriteListener.reset();
+            final TestOnReadListener onReadListener = (TestOnReadListener)hnsw.getOnReadListener();
             onReadListener.reset();
+
             final long beginTs = System.nanoTime();
             for (int i = 0; i < batchSize; i ++) {
                 final var record = insertFunction.apply(tr, firstId + i);
@@ -582,7 +577,7 @@ class HNSWTest {
             int i = 0;
             final AtomicReference<RealVector> sumReference = new AtomicReference<>(null);
             while (vectorIterator.hasNext()) {
-                i += basicInsertBatch(hnsw, 100, i, onReadListener,
+                i += basicInsertBatch(hnsw, 100, i,
                         (tr, nextId) -> {
                             if (!vectorIterator.hasNext()) {
                                 return null;
@@ -728,6 +723,22 @@ class HNSWTest {
                : accessInfo.getEntryNodeReference().getLayer();
     }
 
+    private void dumpLayers(@Nonnull final Config config) {
+        final int entryLayer = getEntryLayer(config);
+
+        if (entryLayer < 0) {
+            return;
+        }
+
+        for (int layer = 0; layer < entryLayer; layer ++) {
+            try {
+                Verify.verify(dumpLayer(config, "debug", layer) > 0);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
+    }
+
     private long dumpLayer(@Nonnull final Config config,
                            @Nonnull final String prefix, final int layer) throws IOException {
         final Path verticesFile = tempDir.resolve("vertices-" + prefix + "-" + layer + ".csv");
@@ -854,25 +865,9 @@ class HNSWTest {
                 final HNSWTest hnswTest = (HNSWTest)context.getRequiredTestInstance();
                 final Config config = (Config)args.get(1);
                 logger.error("dumping contents of HNSW to {}", hnswTest.tempDir.toString());
-                dumpLayers(hnswTest, config);
+                hnswTest.dumpLayers(config);
             } else {
                 logger.error("test failed with no parameterized arguments (non-parameterized test or older JUnit).");
-            }
-        }
-
-        private void dumpLayers(@Nonnull final HNSWTest hnswTest, @Nonnull final Config config) {
-            final int entryLayer = hnswTest.getEntryLayer(config);
-
-            if (entryLayer < 0) {
-                return;
-            }
-
-            for (int layer = 0; layer < entryLayer; layer ++) {
-                try {
-                    Verify.verify(hnswTest.dumpLayer(config, "debug", layer) > 0);
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
             }
         }
     }
