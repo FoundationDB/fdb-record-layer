@@ -163,7 +163,7 @@ public class SortCursorTests extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void memorySort() throws Exception {
+    public void basicSortPlan() throws Exception {
         List<Integer> resultNums;
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
@@ -176,13 +176,61 @@ public class SortCursorTests extends FDBRecordStoreTestBase {
     }
 
     @Test
+    public void basicDamPlan() throws Exception {
+        List<Integer> resultNums;
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            final RecordQueryDamPlan sortPlan = new RecordQueryDamPlan(new RecordQueryScanPlan(ScanComparisons.EMPTY, false), new RecordQuerySortKey(Key.Expressions.field("num_value_2"), false));
+            try (RecordCursor<FDBQueriedRecord<Message>> cursor = sortPlan.execute(recordStore, EvaluationContext.EMPTY, null, ExecuteProperties.SERIAL_EXECUTE.setReturnedRowLimit(20))) {
+                resultNums = cursor.map(r -> TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(r.getRecord()).getNumValue2()).asList().get();
+            }
+        }
+        assertEquals(insertedNums.subList(0, 20), resultNums);
+    }
+
+    @Test
+    public void memorySort() throws Exception {
+        final Function<byte[], RecordCursor<FDBQueriedRecord<Message>>> scanRecords =
+                continuation -> recordStore.scanRecords(null, null, EndpointType.TREE_START, EndpointType.TREE_END, continuation, ScanProperties.FORWARD_SCAN).map(FDBQueriedRecord::stored);
+        final MemoryAdapterBase adapter = new MemoryAdapterBase() {
+            @Override
+            public int getMaxRecordCountInMemory() {
+                return 20;
+            }
+        };
+
+        List<Integer> resultNums;
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            try (RecordCursor<FDBQueriedRecord<Message>> cursor = MemorySortCursor.createSort(adapter, scanRecords, timer, null)) {
+                resultNums = cursor.map(r -> TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(r.getRecord()).getNumValue2()).asList().get();
+            }
+        }
+        assertEquals(sortedNums.subList(0, 20), resultNums);
+    }
+
+    @Test
     public void memoryDam() throws Exception {
         List<Integer> resultNums;
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
 
-            final RecordQueryDamPlan damPlan = new RecordQueryDamPlan(new RecordQueryScanPlan(ScanComparisons.EMPTY, false), new RecordQuerySortKey(Key.Expressions.field("num_value_2"), false));
-            try (RecordCursor<FDBQueriedRecord<Message>> cursor = damPlan.execute(recordStore, EvaluationContext.EMPTY, null, ExecuteProperties.SERIAL_EXECUTE.setReturnedRowLimit(20))) {
+            final Function<byte[], RecordCursor<FDBQueriedRecord<Message>>> scanRecords =
+                    continuation -> recordStore.scanRecords(null, null, EndpointType.TREE_START, EndpointType.TREE_END, continuation, ScanProperties.FORWARD_SCAN).map(FDBQueriedRecord::stored);
+            final MemoryAdapterBase adapter = new MemoryAdapterBase() {
+                @Override
+                public int getMaxRecordCountInMemory() {
+                    return 20;
+                }
+
+                @Nonnull
+                @Override
+                public MemorySortComparator<Tuple> getComparator(@Nullable final Tuple minimumKey) {
+                    return new InsertionOrderComparator<>(this, minimumKey);
+                }
+            };
+
+            try (RecordCursor<FDBQueriedRecord<Message>> cursor = MemorySortCursor.createDam(adapter, scanRecords, timer, null)) {
                 resultNums = cursor.map(r -> TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(r.getRecord()).getNumValue2()).asList().get();
             }
         }
