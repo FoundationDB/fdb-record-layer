@@ -21,19 +21,26 @@
 package com.apple.foundationdb.record.query.plan.cascades.events;
 
 import com.apple.foundationdb.record.query.plan.cascades.PlanContext;
+import com.google.common.annotations.VisibleForTesting;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Objects;
 import java.util.Optional;
 
+/**
+ * <p>
+ * A default implementation of {@link PlannerEventStatsCollector} which can be used to listen to {@link PlannerEvent}
+ * emitted by the {@link com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner}
+ * throughout the planning of a single query, and collects statistics about these emitted events.
+ * </p>
+ * <p>
+ * An instance of this class can be set as the {@link PlannerEventStatsCollector} for the current thread using the
+ * method {@link PlannerEventStatsCollector#enableDefaultStatsCollector()}.
+ * </p>
+ */
 public class DefaultPlannerEventStatsCollector implements PlannerEventStatsCollector {
     @Nullable private PlannerEventStatsCollectorState currentPlannerEventStatsCollectorState;
-
-    @Nonnull
-    PlannerEventStatsCollectorState getCurrentState() {
-        return Objects.requireNonNull(currentPlannerEventStatsCollectorState);
-    }
 
     @Override
     public void onQuery(String queryAsString, PlanContext planContext) {
@@ -62,6 +69,19 @@ public class DefaultPlannerEventStatsCollector implements PlannerEventStatsColle
         return Optional.empty();
     }
 
+    /**
+     * Get the current state of this collector.
+     * @return an instance of {@link PlannerEventStatsCollectorState}
+     */
+    @Nonnull
+    @VisibleForTesting
+    PlannerEventStatsCollectorState getCurrentState() {
+        return Objects.requireNonNull(currentPlannerEventStatsCollectorState);
+    }
+
+    /**
+     * Reset the current state of this collector.
+     */
     private void reset() {
         this.currentPlannerEventStatsCollectorState = new PlannerEventStatsCollectorState();
     }

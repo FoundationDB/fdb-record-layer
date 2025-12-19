@@ -23,11 +23,20 @@ package com.apple.foundationdb.record.query.plan.cascades.debug;
 import org.jline.utils.AttributedStringBuilder;
 import org.jline.utils.AttributedStyle;
 
+/**
+ * Static test utilities for testing {@link PlannerRepl} functionality.
+ */
 final class ReplTestUtil {
     private ReplTestUtil() {
-
+        // prevent instantiation
     }
 
+    /**
+     * Return a key and a value colored using the same colors used in {@link PlannerRepl} as a {@link String}.
+     * @param key key to include in return string
+     * @param value value to include in return string
+     * @return a {@link String} with {@code key} and {@code value} concatenated with the expected colors.
+     */
     static String coloredKeyValue(final String key, final String value) {
         return new AttributedStringBuilder()
                 .style(AttributedStyle.DEFAULT.foreground(AttributedStyle.YELLOW + AttributedStyle.BRIGHT).bold())

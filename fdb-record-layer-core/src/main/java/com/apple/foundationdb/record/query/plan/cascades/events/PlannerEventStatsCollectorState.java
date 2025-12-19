@@ -39,7 +39,7 @@ import java.util.Map;
  * This class carries the state that {@link DefaultPlannerEventStatsCollector} uses to keep
  * track of planner event statistics.
  */
-public class PlannerEventStatsCollectorState {
+class PlannerEventStatsCollectorState {
     private static final Logger logger = LoggerFactory.getLogger(PlannerEventStatsCollectorState.class);
 
     private final Map<Class<? extends PlannerEvent>, MutableStats> eventWithoutStateClassStatsMap;
@@ -47,7 +47,7 @@ public class PlannerEventStatsCollectorState {
     private final Map<Class<? extends CascadesRule<?>>, MutableStats> plannerRuleClassStatsMap;
     private final Deque<Pair<Class<? extends PlannerEvent>, EventDurations>> eventProfilingStack;
 
-    public PlannerEventStatsCollectorState() {
+    PlannerEventStatsCollectorState() {
         this.eventWithoutStateClassStatsMap = Maps.newLinkedHashMap();
         this.eventWithStateClassStatsMapByPlannerPhase = Maps.newEnumMap(PlannerPhase.class);
         this.plannerRuleClassStatsMap = Maps.newLinkedHashMap();
@@ -55,7 +55,7 @@ public class PlannerEventStatsCollectorState {
     }
 
     @SuppressWarnings("unchecked")
-    public void addCurrentEvent(@Nonnull final PlannerEvent plannerEvent) {
+    void addCurrentEvent(@Nonnull final PlannerEvent plannerEvent) {
         final long currentTsInNs = System.nanoTime();
 
         final Class<? extends PlannerEvent> currentEventClass = plannerEvent.getClass();
@@ -147,31 +147,31 @@ public class PlannerEventStatsCollectorState {
 
 
     private static class MutableStats extends PlannerEventStats {
-        public MutableStats() {
+        MutableStats() {
             super(Maps.newLinkedHashMap(), 0L, 0L);
         }
 
-        public void setCount(@Nonnull PlannerEvent.Location location, final long count) {
+        void setCount(@Nonnull PlannerEvent.Location location, final long count) {
             locationCountMap.put(location, count);
         }
 
-        public void increaseCount(@Nonnull PlannerEvent.Location location, final long increase) {
+        void increaseCount(@Nonnull PlannerEvent.Location location, final long increase) {
             setCount(location, getCount(location) + increase);
         }
 
-        public void setTotalTimeInNs(final long totalTimeInNs) {
+        void setTotalTimeInNs(final long totalTimeInNs) {
             this.totalTimeInNs = totalTimeInNs;
         }
 
-        public void increaseTotalTimeInNs(final long increaseInNs) {
+        void increaseTotalTimeInNs(final long increaseInNs) {
             setTotalTimeInNs(getTotalTimeInNs() + increaseInNs);
         }
 
-        public void setOwnTimeInNs(final long ownTimeInNs) {
+        void setOwnTimeInNs(final long ownTimeInNs) {
             this.ownTimeInNs = ownTimeInNs;
         }
 
-        public void increaseOwnTimeInNs(final long increaseInNs) {
+        void increaseOwnTimeInNs(final long increaseInNs) {
             setOwnTimeInNs(getOwnTimeInNs() + increaseInNs);
         }
     }
@@ -180,23 +180,23 @@ public class PlannerEventStatsCollectorState {
         private final long startTsInNs;
         private long adjustmentForOwnTimeInNs;
 
-        public EventDurations(final long startTsInNs) {
+        EventDurations(final long startTsInNs) {
             this.startTsInNs = startTsInNs;
         }
 
-        public long getStartTsInNs() {
+        long getStartTsInNs() {
             return startTsInNs;
         }
 
-        public long getAdjustmentForOwnTimeInNs() {
+        long getAdjustmentForOwnTimeInNs() {
             return adjustmentForOwnTimeInNs;
         }
 
-        public void setAdjustmentForOwnTimeInNs(final long adjustmentForOwnTimeInNs) {
+        void setAdjustmentForOwnTimeInNs(final long adjustmentForOwnTimeInNs) {
             this.adjustmentForOwnTimeInNs = adjustmentForOwnTimeInNs;
         }
 
-        public void increaseAdjustmentForOwnTimeInNs(final long increaseInNs) {
+        void increaseAdjustmentForOwnTimeInNs(final long increaseInNs) {
             setAdjustmentForOwnTimeInNs(getAdjustmentForOwnTimeInNs() + increaseInNs);
         }
     }

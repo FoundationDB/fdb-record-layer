@@ -45,9 +45,9 @@ import java.util.concurrent.TimeUnit;
  * </p>
  */
 @SuppressWarnings("unused")
-public final class PlannerEventStatsViewer {
+final class PlannerEventStatsViewer {
     private PlannerEventStatsViewer() {
-
+        // prevent outside instantiation
     }
 
     public static String showStats(@Nonnull final PlannerEventStatsCollector plannerEventStatsCollector) {
