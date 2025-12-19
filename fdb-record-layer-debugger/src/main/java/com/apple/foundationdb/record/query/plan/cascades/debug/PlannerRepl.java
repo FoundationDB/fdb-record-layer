@@ -24,6 +24,11 @@ import com.apple.foundationdb.record.query.plan.cascades.PlanContext;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerPhase;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.events.InitiatePhasePlannerEvent;
+import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEvent;
+import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEventWithCurrentGroupReference;
+import com.apple.foundationdb.record.query.plan.cascades.events.TransformPlannerEvent;
+import com.apple.foundationdb.record.query.plan.cascades.events.TransformRuleCallPlannerEvent;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.util.ServiceLoaderProvider;
@@ -84,8 +89,8 @@ public class PlannerRepl implements Debugger {
 
     private static final String prompt = "$ ";
 
-    private static final SetMultimap<Class<? extends Event>, Processors.Processor<? extends Event>> processorsMap;
-    private static final ImmutableMap<String, Commands.Command<Event>> commandsMap;
+    private static final SetMultimap<Class<? extends PlannerEvent>, Processors.Processor<? extends PlannerEvent>> processorsMap;
+    private static final ImmutableMap<String, Commands.Command<PlannerEvent>> commandsMap;
 
     static {
         commandsMap = loadCommands();
@@ -248,7 +253,7 @@ public class PlannerRepl implements Debugger {
     }
 
     @Override
-    public void onEvent(final Event event) {
+    public void onEvent(final PlannerEvent plannerEvent) {
         if (lineReader == null) {
             return;
         }
@@ -257,16 +262,16 @@ public class PlannerRepl implements Debugger {
 
         final State state = getCurrentState();
 
-        state.addCurrentEvent(event);
+        state.addCurrentEvent(plannerEvent);
 
-        final Set<BreakPoint> satisfiedBreakPoints = computeSatisfiedBreakPoints(event);
+        final Set<BreakPoint> satisfiedBreakPoints = computeSatisfiedBreakPoints(plannerEvent);
         satisfiedBreakPoints.forEach(breakPoint -> breakPoint.onBreak(this));
 
         final boolean stop = !satisfiedBreakPoints.isEmpty();
         if (stop) {
             printKeyValue("paused in", Thread.currentThread().getName() + " at ");
             printlnKeyValue("tick", String.valueOf(state.getCurrentTick()));
-            withProcessors(event, processor -> processor.onCallback(this, event));
+            withProcessors(plannerEvent, processor -> processor.onCallback(this, plannerEvent));
             println();
 
             boolean isContinue = false;
@@ -293,13 +298,13 @@ public class PlannerRepl implements Debugger {
                                 this::printlnReference,
                                 this::printlnQuantifier);
                 if (!processed) {
-                    final Optional<Commands.Command<Event>> commandOptional = resolveCommand(PlannerRepl.commandsMap, parsedLine, 0);
+                    final Optional<Commands.Command<PlannerEvent>> commandOptional = resolveCommand(PlannerRepl.commandsMap, parsedLine, 0);
                     if (commandOptional.isPresent()) {
-                        final Commands.Command<Event> command = commandOptional.get();
-                        final Optional<Boolean> isContinueOptional = getSilently("run command", () -> command.executeCommand(this, event, parsedLine));
+                        final Commands.Command<PlannerEvent> command = commandOptional.get();
+                        final Optional<Boolean> isContinueOptional = getSilently("run command", () -> command.executeCommand(this, plannerEvent, parsedLine));
                         isContinue = isContinueOptional.orElse(false);
                     } else {
-                        withProcessors(event, processor -> processor.onCommand(this, event, parsedLine));
+                        withProcessors(plannerEvent, processor -> processor.onCommand(this, plannerEvent, parsedLine));
                     }
                 }
             } while (!isContinue);
@@ -309,10 +314,10 @@ public class PlannerRepl implements Debugger {
         }
     }
 
-    private Set<BreakPoint> computeSatisfiedBreakPoints(final Event event) {
+    private Set<BreakPoint> computeSatisfiedBreakPoints(final PlannerEvent plannerEvent) {
         return breakPoints.values()
                 .stream()
-                .filter(breakPoint -> breakPoint.onCallback(this, event))
+                .filter(breakPoint -> breakPoint.onCallback(this, plannerEvent))
                 .collect(ImmutableSet.toImmutableSet());
     }
 
@@ -415,14 +420,14 @@ public class PlannerRepl implements Debugger {
     }
 
     @SuppressWarnings("unchecked")
-    <E extends Event> void withProcessors(final E event, final Consumer<Processors.Processor<E>> consumer) {
-        final LinkedList<Class<? extends Event>> resolutionQueue = Lists.newLinkedList();
-        final Set<Processors.Processor<? extends Event>> resolvedProcessors = Sets.newHashSet();
-        final Class<? extends Event> eventClass = event.getClass();
+    <E extends PlannerEvent> void withProcessors(final E event, final Consumer<Processors.Processor<E>> consumer) {
+        final LinkedList<Class<? extends PlannerEvent>> resolutionQueue = Lists.newLinkedList();
+        final Set<Processors.Processor<? extends PlannerEvent>> resolvedProcessors = Sets.newHashSet();
+        final Class<? extends PlannerEvent> eventClass = event.getClass();
         resolutionQueue.push(eventClass);
         do {
-            final Class<? extends Event> currentEventClass = resolutionQueue.pop();
-            final Set<Processors.Processor<? extends Event>> processors = processorsMap.get(currentEventClass);
+            final Class<? extends PlannerEvent> currentEventClass = resolutionQueue.pop();
+            final Set<Processors.Processor<? extends PlannerEvent>> processors = processorsMap.get(currentEventClass);
             if (!processors.isEmpty()) {
                 processors.stream()
                         .filter(processor -> !resolvedProcessors.contains(processor))
@@ -433,14 +438,14 @@ public class PlannerRepl implements Debugger {
             } else {
                 final Class<?> superClass = currentEventClass.getSuperclass();
                 if (superClass != null) {
-                    if (Event.class.isAssignableFrom(superClass)) {
-                        resolutionQueue.push((Class<? extends Event>)superClass);
+                    if (PlannerEvent.class.isAssignableFrom(superClass)) {
+                        resolutionQueue.push((Class<? extends PlannerEvent>)superClass);
                     }
                 }
                 final Class<?>[] interfaces = currentEventClass.getInterfaces();
                 for (final Class<?> anInterface : interfaces) {
-                    if (Event.class.isAssignableFrom(anInterface)) {
-                        resolutionQueue.push((Class<? extends Event>)anInterface);
+                    if (PlannerEvent.class.isAssignableFrom(anInterface)) {
+                        resolutionQueue.push((Class<? extends PlannerEvent>)anInterface);
                     }
                 }
             }
@@ -451,25 +456,6 @@ public class PlannerRepl implements Debugger {
     @Override
     public void onDone() {
         reset();
-    }
-
-    @Override
-    public String showStats() {
-        State currentState = stateStack.peek();
-        if (currentState != null) {
-            return currentState.showStats();
-        }
-        return "no stats";
-    }
-
-    @Nonnull
-    @Override
-    public Optional<StatsMaps> getStatsMaps() {
-        State currentState = stateStack.peek();
-        if (currentState != null) {
-            return Optional.of(currentState.getStatsMaps());
-        }
-        return Optional.empty();
     }
 
     private void reset() {
@@ -619,8 +605,8 @@ public class PlannerRepl implements Debugger {
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
-    private static ImmutableMap<String, Commands.Command<Event>> loadCommands() {
-        final ImmutableMap.Builder<String, Commands.Command<Event>> commandsMapBuilder = ImmutableMap.builder();
+    private static ImmutableMap<String, Commands.Command<PlannerEvent>> loadCommands() {
+        final ImmutableMap.Builder<String, Commands.Command<PlannerEvent>> commandsMapBuilder = ImmutableMap.builder();
         final Iterable<Commands.Command> loader =
                 ServiceLoaderProvider.load(Commands.Command.class);
 
@@ -635,14 +621,14 @@ public class PlannerRepl implements Debugger {
     }
 
     @Nonnull
-    static Set<Commands.Command<Event>> getCommands() {
+    static Set<Commands.Command<PlannerEvent>> getCommands() {
         return ImmutableSet.copyOf(commandsMap.values());
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
     @Nonnull
-    private static SetMultimap<Class<? extends Event>, Processors.Processor<? extends Event>> loadProcessors() {
-        SetMultimap<Class<? extends Event>, Processors.Processor<? extends Event>> processorsMap = HashMultimap.create();
+    private static SetMultimap<Class<? extends PlannerEvent>, Processors.Processor<? extends PlannerEvent>> loadProcessors() {
+        SetMultimap<Class<? extends PlannerEvent>, Processors.Processor<? extends PlannerEvent>> processorsMap = HashMultimap.create();
         final Iterable<Processors.Processor> loader
                 = ServiceLoaderProvider.load(Processors.Processor.class);
 
@@ -657,9 +643,9 @@ public class PlannerRepl implements Debugger {
     }
 
     @Nonnull
-    private static <E extends Event> Optional<Commands.Command<E>> resolveCommand(@Nonnull final ImmutableMap<String, Commands.Command<E>> commandsMap,
-                                                                                  @Nonnull final ParsedLine parsedLine,
-                                                                                  final int wordIndex) {
+    private static <E extends PlannerEvent> Optional<Commands.Command<E>> resolveCommand(@Nonnull final ImmutableMap<String, Commands.Command<E>> commandsMap,
+                                                                                         @Nonnull final ParsedLine parsedLine,
+                                                                                         final int wordIndex) {
         final List<String> words = parsedLine.words();
         if (words.size() <= wordIndex) {
             return Optional.empty();
@@ -691,25 +677,25 @@ public class PlannerRepl implements Debugger {
      * TBD.
      */
     public abstract static class BreakPoint {
-        protected final Predicate<Event> predicate;
+        protected final Predicate<PlannerEvent> predicate;
         protected boolean isEnabled;
         protected int countDown;
 
-        public BreakPoint(final Predicate<Event> predicate) {
+        public BreakPoint(final Predicate<PlannerEvent> predicate) {
             this(predicate, -1);
         }
 
-        public BreakPoint(final Predicate<Event> predicate, final int countDown) {
+        public BreakPoint(final Predicate<PlannerEvent> predicate, final int countDown) {
             this.predicate = predicate;
             this.isEnabled = true;
             this.countDown = countDown;
         }
 
-        public boolean onCallback(final PlannerRepl plannerRepl, final Event event) {
+        public boolean onCallback(final PlannerRepl plannerRepl, final PlannerEvent plannerEvent) {
             if (!isEnabled) {
                 return false;
             }
-            if (predicate.test(event)) {
+            if (predicate.test(plannerEvent)) {
                 if (countDown < 0) {
                     return true;
                 }
@@ -764,28 +750,28 @@ public class PlannerRepl implements Debugger {
      */
     public static class OnEventTypeBreakPoint extends BreakPoint {
         @Nonnull
-        private final Debugger.Shorthand shorthand;
+        private final PlannerEvent.Shorthand shorthand;
         @Nullable
         private final String referenceName;
         @Nonnull
-        private final Debugger.Location location;
+        private final PlannerEvent.Location location;
 
-        public OnEventTypeBreakPoint(@Nonnull final Shorthand shorthand,
-                                     @Nonnull final Location location) {
+        public OnEventTypeBreakPoint(@Nonnull final PlannerEvent.Shorthand shorthand,
+                                     @Nonnull final PlannerEvent.Location location) {
             this(shorthand, null, location);
         }
 
-        public OnEventTypeBreakPoint(@Nonnull final Shorthand shorthand,
+        public OnEventTypeBreakPoint(@Nonnull final PlannerEvent.Shorthand shorthand,
                                      @Nullable final String referenceName,
-                                     @Nonnull final Location location) {
-            super(event -> event.getShorthand() == shorthand && (location == Location.ANY || event.getLocation() == location));
+                                     @Nonnull final PlannerEvent.Location location) {
+            super(event -> event.getShorthand() == shorthand && (location == PlannerEvent.Location.ANY || event.getLocation() == location));
             this.shorthand = shorthand;
             this.referenceName = referenceName == null ? null : referenceName.toLowerCase(Locale.ROOT);
             this.location = location;
         }
 
         @Nonnull
-        public Shorthand getShorthand() {
+        public PlannerEvent.Shorthand getShorthand() {
             return shorthand;
         }
 
@@ -795,18 +781,18 @@ public class PlannerRepl implements Debugger {
         }
 
         @Nonnull
-        public Location getLocation() {
+        public PlannerEvent.Location getLocation() {
             return location;
         }
 
         @Override
-        public boolean onCallback(final PlannerRepl plannerRepl, final Event event) {
-            if (super.onCallback(plannerRepl, event)) {
+        public boolean onCallback(final PlannerRepl plannerRepl, final PlannerEvent plannerEvent) {
+            if (super.onCallback(plannerRepl, plannerEvent)) {
                 if (referenceName == null) {
                     return true;
                 }
-                if (event instanceof EventWithCurrentGroupReference) {
-                    final EventWithCurrentGroupReference eventWithCurrentGroupReference = (EventWithCurrentGroupReference)event;
+                if (plannerEvent instanceof PlannerEventWithCurrentGroupReference) {
+                    final PlannerEventWithCurrentGroupReference eventWithCurrentGroupReference = (PlannerEventWithCurrentGroupReference)plannerEvent;
                     return referenceName.equals(plannerRepl.nameForObject(eventWithCurrentGroupReference.getCurrentReference()));
                 }
             }
@@ -845,32 +831,32 @@ public class PlannerRepl implements Debugger {
     }
 
     /**
-     * Breakpoint that breaks on reaching an {@link Shorthand#INITPHASE} event. The breakpoint can be configured
+     * Breakpoint that breaks on reaching an {@link PlannerEvent.Shorthand#INITPHASE} event. The breakpoint can be configured
      * to break on any such event or on an event initiating a particular new {@link PlannerPhase}.
      */
     public static class OnPhaseBreakPoint extends BreakPoint {
         @Nonnull
-        private final Debugger.Location location;
+        private final PlannerEvent.Location location;
         @Nullable
         private final PlannerPhase plannerPhase;
 
-        public OnPhaseBreakPoint(@Nonnull final Location location,
+        public OnPhaseBreakPoint(@Nonnull final PlannerEvent.Location location,
                                  @Nullable final PlannerPhase plannerPhase) {
-            super(event -> (event instanceof InitiatePlannerPhaseEvent) &&
-                    event.getShorthand() == Shorthand.INITPHASE &&
-                    (location == Location.ANY || event.getLocation() == location) &&
-                    (plannerPhase == null || ((InitiatePlannerPhaseEvent)event).getPlannerPhase() == plannerPhase), 1);
+            super(event -> (event instanceof InitiatePhasePlannerEvent) &&
+                    event.getShorthand() == PlannerEvent.Shorthand.INITPHASE &&
+                    (location == PlannerEvent.Location.ANY || event.getLocation() == location) &&
+                    (plannerPhase == null || ((InitiatePhasePlannerEvent)event).getPlannerPhase() == plannerPhase), 1);
             this.location = location;
             this.plannerPhase = plannerPhase;
         }
 
         @Nonnull
-        public Shorthand getShorthand() {
-            return Shorthand.INITPHASE;
+        public PlannerEvent.Shorthand getShorthand() {
+            return PlannerEvent.Shorthand.INITPHASE;
         }
 
         @Nonnull
-        public Location getLocation() {
+        public PlannerEvent.Location getLocation() {
             return location;
         }
 
@@ -918,16 +904,16 @@ public class PlannerRepl implements Debugger {
         private final String expressionName;
 
         public OnYieldExpressionBreakPoint(@Nonnull final String expressionName) {
-            super(event -> event.getShorthand() == Shorthand.RULECALL &&
-                           event.getLocation() == Location.END &&
-                           event instanceof TransformRuleCallEvent);
+            super(event -> event.getShorthand() == PlannerEvent.Shorthand.RULECALL &&
+                           event.getLocation() == PlannerEvent.Location.END &&
+                           event instanceof TransformRuleCallPlannerEvent);
             this.expressionName = expressionName;
         }
 
         @Override
-        public boolean onCallback(final PlannerRepl plannerRepl, final Event event) {
-            if (super.onCallback(plannerRepl, event)) {
-                final TransformRuleCallEvent transformRuleCallEvent = (TransformRuleCallEvent)event;
+        public boolean onCallback(final PlannerRepl plannerRepl, final PlannerEvent plannerEvent) {
+            if (super.onCallback(plannerRepl, plannerEvent)) {
+                final TransformRuleCallPlannerEvent transformRuleCallEvent = (TransformRuleCallPlannerEvent)plannerEvent;
                 final var ruleCall = transformRuleCallEvent.getRuleCall();
                 final var newExpressions = Iterables.concat(ruleCall.getNewFinalExpressions(),
                         ruleCall.getNewExploratoryExpressions());
@@ -942,8 +928,8 @@ public class PlannerRepl implements Debugger {
         public void onList(final PlannerRepl plannerRepl) {
             super.onList(plannerRepl);
             plannerRepl.print("; ");
-            plannerRepl.printKeyValue("shorthand", Shorthand.RULECALL + "; ");
-            plannerRepl.printKeyValue("location", Location.END.name().toLowerCase(Locale.ROOT) + "; ");
+            plannerRepl.printKeyValue("shorthand", PlannerEvent.Shorthand.RULECALL.name().toLowerCase(Locale.ROOT) + "; ");
+            plannerRepl.printKeyValue("location", PlannerEvent.Location.END.name().toLowerCase(Locale.ROOT) + "; ");
             plannerRepl.printKeyValue("expression", expressionName);
         }
 
@@ -973,16 +959,16 @@ public class PlannerRepl implements Debugger {
         private final String candidateName;
 
         public OnYieldMatchBreakPoint(@Nonnull final String candidateName) {
-            super(event -> event.getShorthand() == Shorthand.RULECALL &&
-                           event.getLocation() == Location.END &&
-                           event instanceof TransformRuleCallEvent);
+            super(event -> event.getShorthand() == PlannerEvent.Shorthand.RULECALL &&
+                           event.getLocation() == PlannerEvent.Location.END &&
+                           event instanceof TransformRuleCallPlannerEvent);
             this.candidateName = candidateName;
         }
 
         @Override
-        public boolean onCallback(final PlannerRepl plannerRepl, final Event event) {
-            if (super.onCallback(plannerRepl, event)) {
-                final TransformRuleCallEvent transformRuleCallEvent = (TransformRuleCallEvent)event;
+        public boolean onCallback(final PlannerRepl plannerRepl, final PlannerEvent plannerEvent) {
+            if (super.onCallback(plannerRepl, plannerEvent)) {
+                final TransformRuleCallPlannerEvent transformRuleCallEvent = (TransformRuleCallPlannerEvent)plannerEvent;
                 return transformRuleCallEvent.getRuleCall()
                         .getNewPartialMatches()
                         .stream()
@@ -995,8 +981,8 @@ public class PlannerRepl implements Debugger {
         public void onList(final PlannerRepl plannerRepl) {
             super.onList(plannerRepl);
             plannerRepl.print("; ");
-            plannerRepl.printKeyValue("shorthand", Shorthand.RULECALL + "; ");
-            plannerRepl.printKeyValue("location", Location.END.name().toLowerCase(Locale.ROOT) + "; ");
+            plannerRepl.printKeyValue("shorthand", PlannerEvent.Shorthand.RULECALL.name().toLowerCase(Locale.ROOT) + "; ");
+            plannerRepl.printKeyValue("location", PlannerEvent.Location.END.name().toLowerCase(Locale.ROOT) + "; ");
             plannerRepl.printKeyValue("candidate", candidateName);
         }
 
@@ -1027,22 +1013,22 @@ public class PlannerRepl implements Debugger {
         private final String ruleNamePrefix;
 
         @Nonnull
-        private final Location location;
+        private final PlannerEvent.Location location;
 
-        public OnRuleBreakPoint(@Nonnull final String ruleNamePrefix, @Nonnull final Location location) {
-            super(event -> event.getShorthand() == Shorthand.TRANSFORM &&
+        public OnRuleBreakPoint(@Nonnull final String ruleNamePrefix, @Nonnull final PlannerEvent.Location location) {
+            super(event -> event.getShorthand() == PlannerEvent.Shorthand.TRANSFORM &&
                            event.getLocation() == location &&
-                           event instanceof TransformEvent);
+                           event instanceof TransformPlannerEvent);
             this.ruleNamePrefix = ruleNamePrefix;
             this.location = location;
         }
 
         @Override
-        public boolean onCallback(final PlannerRepl plannerRepl, final Event event) {
-            if (super.onCallback(plannerRepl, event)) {
-                final TransformEvent transformEvent =
-                        (TransformEvent)event;
-                return (Location.ANY == location || event.getLocation() == location) &&
+        public boolean onCallback(final PlannerRepl plannerRepl, final PlannerEvent plannerEvent) {
+            if (super.onCallback(plannerRepl, plannerEvent)) {
+                final TransformPlannerEvent transformEvent =
+                        (TransformPlannerEvent)plannerEvent;
+                return (PlannerEvent.Location.ANY == location || plannerEvent.getLocation() == location) &&
                        transformEvent
                                .getRule()
                                .getClass()
@@ -1088,22 +1074,22 @@ public class PlannerRepl implements Debugger {
         private final String ruleNamePrefix;
 
         @Nonnull
-        private final Location location;
+        private final PlannerEvent.Location location;
 
-        public OnRuleCallBreakPoint(@Nonnull final String ruleNamePrefix, @Nonnull final Location location) {
-            super(event -> event.getShorthand() == Shorthand.RULECALL &&
+        public OnRuleCallBreakPoint(@Nonnull final String ruleNamePrefix, @Nonnull final PlannerEvent.Location location) {
+            super(event -> event.getShorthand() == PlannerEvent.Shorthand.RULECALL &&
                            event.getLocation() == location &&
-                           event instanceof TransformRuleCallEvent);
+                           event instanceof TransformRuleCallPlannerEvent);
             this.ruleNamePrefix = ruleNamePrefix;
             this.location = location;
         }
 
         @Override
-        public boolean onCallback(final PlannerRepl plannerRepl, final Event event) {
-            if (super.onCallback(plannerRepl, event)) {
-                final TransformRuleCallEvent transformRuleCallEvent =
-                        (TransformRuleCallEvent)event;
-                return (Location.ANY == location || event.getLocation() == location) &&
+        public boolean onCallback(final PlannerRepl plannerRepl, final PlannerEvent plannerEvent) {
+            if (super.onCallback(plannerRepl, plannerEvent)) {
+                final TransformRuleCallPlannerEvent transformRuleCallEvent =
+                        (TransformRuleCallPlannerEvent)plannerEvent;
+                return (PlannerEvent.Location.ANY == location || plannerEvent.getLocation() == location) &&
                        transformRuleCallEvent
                                .getRule()
                                .getClass()
