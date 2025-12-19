@@ -58,11 +58,11 @@ class PredicateCountByLevelPropertyTest {
 
         final var info = predicateCountByLevel().evaluate(expression);
 
-        assertThat(info.getLevelToPredicateCount().lastKey()).isEqualTo(3);
+        assertThat(info.getLevelToPredicateCount().lastKey()).isEqualTo(2);
         assertThat(info.getLevelToPredicateCount()).containsExactly(
-                Map.entry(1, 0), // corresponds to the level with the FullUnorderedScanExpression
-                Map.entry(2, 0), // corresponds to the level with the LogicalTypeFilterExpression
-                Map.entry(3, 1)
+                Map.entry(0, 0), // corresponds to the level with the FullUnorderedScanExpression
+                Map.entry(1, 0), // corresponds to the level with the LogicalTypeFilterExpression
+                Map.entry(2, 1)
         );
     }
 
@@ -102,13 +102,13 @@ class PredicateCountByLevelPropertyTest {
         final var info = predicateCountByLevel().evaluate(expression);
 
         // Should have 2 predicates total (1 at each level)
-        assertThat(info.getLevelToPredicateCount().lastKey()).isEqualTo(5);
+        assertThat(info.getLevelToPredicateCount().lastKey()).isEqualTo(4);
         assertThat(info.getLevelToPredicateCount()).containsExactly(
-                Map.entry(1, 0), // corresponds to the level with the FullUnorderedScanExpression
-                Map.entry(2, 0), // corresponds to the level with the LogicalTypeFilterExpression
-                Map.entry(3, 1),
-                Map.entry(4, 2),
-                Map.entry(5, 1)
+                Map.entry(0, 0), // corresponds to the level with the FullUnorderedScanExpression
+                Map.entry(1, 0), // corresponds to the level with the LogicalTypeFilterExpression
+                Map.entry(2, 1),
+                Map.entry(3, 2),
+                Map.entry(4, 1)
         );
     }
 
@@ -147,42 +147,44 @@ class PredicateCountByLevelPropertyTest {
 
         final var info = predicateCountByLevel().evaluate(expression);
 
-        assertThat(info.getLevelToPredicateCount().lastKey()).isEqualTo(4);
+        assertThat(info.getLevelToPredicateCount().lastKey()).isEqualTo(3);
         assertThat(info.getLevelToPredicateCount()).containsExactly(
-                Map.entry(1, 0), // corresponds to the level with the FullUnorderedScanExpression
-                Map.entry(2, 0), // corresponds to the level with the LogicalTypeFilterExpression
-                Map.entry(3, 3),
-                Map.entry(4, 1)
+                Map.entry(0, 0), // corresponds to the level with the FullUnorderedScanExpression
+                Map.entry(1, 0), // corresponds to the level with the LogicalTypeFilterExpression
+                Map.entry(2, 3),
+                Map.entry(3, 1)
         );
     }
 
     @Test
     void predicateCountByLevelInfoInstancesAreCombinedCorrectly() {
         final var aInfo = new PredicateCountByLevelProperty.PredicateCountByLevelInfo(
-                ImmutableMap.of(1, 1, 2, 1, 3, 2)
+                ImmutableMap.of(0, 1, 1, 1, 2, 2)
         );
         final var bInfo = new PredicateCountByLevelProperty.PredicateCountByLevelInfo(
-                ImmutableMap.of(1, 0, 2, 1, 3, 1, 4, 4)
+                ImmutableMap.of(0, 0, 1, 1, 2, 1, 3, 4)
         );
 
         final var combinedInfo =
                 PredicateCountByLevelProperty.PredicateCountByLevelInfo.combine(ImmutableList.of(aInfo, bInfo));
 
-        assertThat(combinedInfo.getLevelToPredicateCount().lastKey()).isEqualTo(4);
+        assertThat(combinedInfo.getLevelToPredicateCount().lastKey()).isEqualTo(3);
         assertThat(combinedInfo.getLevelToPredicateCount()).containsExactly(
-                Map.entry(1, 1),
-                Map.entry(2, 2),
-                Map.entry(3, 3),
-                Map.entry(4, 4)
+                Map.entry(0, 1),
+                Map.entry(1, 2),
+                Map.entry(2, 3),
+                Map.entry(3, 4)
         );
     }
 
     @Test
     void compareReturnsComparisonBetweenFirstNonEqualLevel() {
         final PredicateCountByLevelProperty.PredicateCountByLevelInfo aInfo =
-                new PredicateCountByLevelProperty.PredicateCountByLevelInfo(ImmutableMap.of(1, 1, 2, 3, 3, 1));
+                new PredicateCountByLevelProperty.PredicateCountByLevelInfo(
+                        ImmutableMap.of(0, 1, 1, 3, 2, 1));
         final PredicateCountByLevelProperty.PredicateCountByLevelInfo bInfo =
-                new PredicateCountByLevelProperty.PredicateCountByLevelInfo(ImmutableMap.of(1, 1, 2, 2, 3, 1));
+                new PredicateCountByLevelProperty.PredicateCountByLevelInfo(
+                        ImmutableMap.of(0, 1, 1, 2, 2, 1));
 
         assertThat(PredicateCountByLevelProperty.PredicateCountByLevelInfo.compare(aInfo, bInfo)).isPositive();
     }
@@ -190,9 +192,11 @@ class PredicateCountByLevelPropertyTest {
     @Test
     void compareReturnsInfoWithMoreLevelsInCaseOfEquality() {
         final PredicateCountByLevelProperty.PredicateCountByLevelInfo aInfo =
-                new PredicateCountByLevelProperty.PredicateCountByLevelInfo(ImmutableMap.of(1, 1, 2, 3, 3, 1));
+                new PredicateCountByLevelProperty.PredicateCountByLevelInfo(
+                        ImmutableMap.of(0, 1, 1, 3, 2, 1));
         final PredicateCountByLevelProperty.PredicateCountByLevelInfo bInfo =
-                new PredicateCountByLevelProperty.PredicateCountByLevelInfo(ImmutableMap.of(1, 1, 2, 3, 3, 1, 4, 1));
+                new PredicateCountByLevelProperty.PredicateCountByLevelInfo(
+                        ImmutableMap.of(0, 1, 1, 3, 2, 1, 3, 1));
 
         assertThat(PredicateCountByLevelProperty.PredicateCountByLevelInfo.compare(aInfo, bInfo)).isNegative();
     }
@@ -200,10 +204,20 @@ class PredicateCountByLevelPropertyTest {
     @Test
     void compareReturnsZeroForEqualPredicateCounts() {
         final PredicateCountByLevelProperty.PredicateCountByLevelInfo aInfo =
-                new PredicateCountByLevelProperty.PredicateCountByLevelInfo(ImmutableMap.of(1, 1, 2, 3, 3, 1, 4, 1));
+                new PredicateCountByLevelProperty.PredicateCountByLevelInfo(
+                        ImmutableMap.of(0, 1, 1, 3, 2, 1, 3, 1));
         final PredicateCountByLevelProperty.PredicateCountByLevelInfo bInfo =
-                new PredicateCountByLevelProperty.PredicateCountByLevelInfo(ImmutableMap.of(1, 1, 2, 3, 3, 1, 4, 1));
+                new PredicateCountByLevelProperty.PredicateCountByLevelInfo(
+                        ImmutableMap.of(0, 1, 1, 3, 2, 1, 3, 1));
 
         assertThat(PredicateCountByLevelProperty.PredicateCountByLevelInfo.compare(aInfo, bInfo)).isZero();
+    }
+
+    @Test
+    void getHighestLevelReturnsNegativeOneForEmptyInstances() {
+        final PredicateCountByLevelProperty.PredicateCountByLevelInfo info =
+                new PredicateCountByLevelProperty.PredicateCountByLevelInfo(ImmutableMap.of());
+
+        assertThat(info.getHighestLevel()).isEqualTo(-1);
     }
 }

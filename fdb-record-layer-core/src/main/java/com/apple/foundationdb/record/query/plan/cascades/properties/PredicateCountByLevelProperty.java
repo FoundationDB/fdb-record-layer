@@ -100,7 +100,7 @@ public class PredicateCountByLevelProperty implements ExpressionProperty<Predica
      * <p>
      * An object that contains information about the number of query predicates at each level
      * of a {@link RelationalExpression} tree. Level numbers in instances of this class
-     * start from 1 for leaf nodes and increase towards the root, with the root node having the highest
+     * start from 0 for leaf nodes and increase towards the root, with the root node having the highest
      * level number, which can be retrieved via {@link #getHighestLevel()}.
      * </p>
      * <p>
@@ -135,7 +135,7 @@ public class PredicateCountByLevelProperty implements ExpressionProperty<Predica
          * Get a view of the query predicate count at each level as a {@link SortedMap}.
          * </p>
          * <p>
-         * Level heights, which are the keys of the returned {@link SortedMap}, start from 1 for leaf nodes in the
+         * Level heights, which are the keys of the returned {@link SortedMap}, start from 0 for leaf nodes in the
          * {@link RelationalExpression} used to create this instance, and increase towards the root, with the root node
          * having the highest level number.
          * </p>
@@ -151,10 +151,10 @@ public class PredicateCountByLevelProperty implements ExpressionProperty<Predica
          * Retrieves the highest level height in the {@link RelationalExpression} tree used to create
          * used to create this instance, which corresponds to the level of the root node of the expression tree.
          *
-         * @return an integer the height of the highest level number in the tree, or 0 if no levels have been recorded.
+         * @return an integer the height of the highest level number in the tree, or -1 if no levels have been recorded.
          */
         public int getHighestLevel() {
-            return levelToPredicateCount.isEmpty() ? 0 : levelToPredicateCount.lastKey();
+            return levelToPredicateCount.isEmpty() ? -1 : levelToPredicateCount.lastKey();
         }
 
         /**
@@ -208,7 +208,7 @@ public class PredicateCountByLevelProperty implements ExpressionProperty<Predica
             final var newLevelToPredicateCountMap = ImmutableMap.<Integer, Integer>builder()
                     .putAll(PredicateCountByLevelInfo.combine(childResults).getLevelToPredicateCount());
             final var currentLevel = childResults
-                    .stream().mapToInt(PredicateCountByLevelInfo::getHighestLevel).max().orElse(0) + 1;
+                    .stream().mapToInt(PredicateCountByLevelInfo::getHighestLevel).max().orElse(-1) + 1;
             final int currentLevelPredicates;
             if (expression instanceof RelationalExpressionWithPredicates) {
                 currentLevelPredicates = ((RelationalExpressionWithPredicates)expression).getPredicates().size();
