@@ -50,22 +50,20 @@ public interface PlannerEventStatsCollector extends PlannerEventListeners.Listen
     ThreadLocal<PlannerEventStatsCollector> THREAD_LOCAL = new ThreadLocal<>();
 
     static void setCollector(final PlannerEventStatsCollector collector) {
-        if (THREAD_LOCAL.get() != null) {
-            PlannerEventListeners.removeListener(THREAD_LOCAL.get());
-        }
-
         if (collector == null) {
-            THREAD_LOCAL.remove();
+            PlannerEventListeners.removeListener(PlannerEventStatsCollector.class);
             return;
         }
-
-        THREAD_LOCAL.set(collector);
-        PlannerEventListeners.addListener(collector);
+        PlannerEventListeners.addListener(PlannerEventStatsCollector.class, collector);
     }
 
     @Nullable
     static PlannerEventStatsCollector getCollector() {
-        return THREAD_LOCAL.get();
+        final var listener = PlannerEventListeners.getListener(PlannerEventStatsCollector.class);
+        if (listener instanceof PlannerEventStatsCollector) {
+            return (PlannerEventStatsCollector)listener;
+        }
+        return null;
     }
 
     @Nonnull
@@ -86,7 +84,7 @@ public interface PlannerEventStatsCollector extends PlannerEventListeners.Listen
      * Set the stats collector to a new instance of DefaultPlannerEventStatsCollector if no collector is already set.
      */
     static void enableDefaultStatsCollector() {
-        if (THREAD_LOCAL.get() == null) {
+        if (getCollector() == null) {
             setCollector(new DefaultPlannerEventStatsCollector());
         }
     }

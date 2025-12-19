@@ -49,12 +49,13 @@ class PlannerEventListenersTest {
         final var listener = new DummyEventListener();
         final var plannerEvent = new InitiatePhasePlannerEvent(
                 PlannerPhase.PLANNING, Reference.empty(), new ArrayDeque<>(), PlannerEvent.Location.BEGIN);
-        PlannerEventListeners.addListener(listener);
+        PlannerEventListeners.addListener(DummyEventListener.class, listener);
 
         PlannerEventListeners.dispatchOnQuery("SELECT * from A", PlanContext.EMPTY_CONTEXT);
         PlannerEventListeners.dispatchEvent(plannerEvent);
         PlannerEventListeners.dispatchOnDone();
 
+        assertThat(PlannerEventListeners.getListener(DummyEventListener.class)).isSameAs(listener);
         assertThat(listener.onQueryCalled).isTrue();
         assertThat(listener.onEventCalled).isTrue();
         assertThat(listener.onDoneCalled).isTrue();
@@ -63,16 +64,17 @@ class PlannerEventListenersTest {
 
     @Test
     void addMultipleListeners() {
-        final var listeners = List.of(new DummyEventListener(), new DummyEventListener());
+        final var listeners = List.of(new DummyEventListener(), new SecondDummyEventListener());
         final var plannerEvent = new InitiatePhasePlannerEvent(
                 PlannerPhase.PLANNING, Reference.empty(), new ArrayDeque<>(), PlannerEvent.Location.BEGIN);
-        listeners.forEach(PlannerEventListeners::addListener);
+        listeners.forEach((l) -> PlannerEventListeners.addListener(l.getClass(), l));
 
         PlannerEventListeners.dispatchOnQuery("SELECT * from A", PlanContext.EMPTY_CONTEXT);
         PlannerEventListeners.dispatchEvent(plannerEvent);
         PlannerEventListeners.dispatchOnDone();
 
         listeners.forEach(l -> {
+            assertThat(PlannerEventListeners.getListener(l.getClass())).isSameAs(l);
             assertThat(l.onQueryCalled).isTrue();
             assertThat(l.onEventCalled).isTrue();
             assertThat(l.onDoneCalled).isTrue();
@@ -83,22 +85,24 @@ class PlannerEventListenersTest {
     @Test
     void removeListener() {
         final var listener = new DummyEventListener();
-        final var removedListener = new DummyEventListener();
+        final var removedListener = new SecondDummyEventListener();
         final var plannerEvent = new InitiatePhasePlannerEvent(
                 PlannerPhase.PLANNING, Reference.empty(), new ArrayDeque<>(), PlannerEvent.Location.BEGIN);
 
-        PlannerEventListeners.addListener(listener);
-        PlannerEventListeners.addListener(removedListener);
-        PlannerEventListeners.removeListener(removedListener);
+        PlannerEventListeners.addListener(DummyEventListener.class, listener);
+        PlannerEventListeners.addListener(SecondDummyEventListener.class, removedListener);
+        PlannerEventListeners.removeListener(removedListener.getClass());
         PlannerEventListeners.dispatchOnQuery("SELECT * from A", PlanContext.EMPTY_CONTEXT);
         PlannerEventListeners.dispatchEvent(plannerEvent);
         PlannerEventListeners.dispatchOnDone();
 
+        assertThat(PlannerEventListeners.getListener(DummyEventListener.class)).isSameAs(listener);
         assertThat(listener.onQueryCalled).isTrue();
         assertThat(listener.onEventCalled).isTrue();
         assertThat(listener.onDoneCalled).isTrue();
         assertThat(listener.receivedEvent).isSameAs(plannerEvent);
 
+        assertThat(PlannerEventListeners.getListener(SecondDummyEventListener.class)).isNull();
         assertThat(removedListener.onQueryCalled).isFalse();
         assertThat(removedListener.onEventCalled).isFalse();
         assertThat(removedListener.onDoneCalled).isFalse();
@@ -106,11 +110,11 @@ class PlannerEventListenersTest {
     }
 
     private static class DummyEventListener implements PlannerEventListeners.Listener {
-        private boolean onQueryCalled = false;
-        private boolean onEventCalled = false;
-        private boolean onDoneCalled = false;
+        protected boolean onQueryCalled = false;
+        protected boolean onEventCalled = false;
+        protected boolean onDoneCalled = false;
 
-        @Nullable private PlannerEvent receivedEvent = null;
+        @Nullable protected PlannerEvent receivedEvent = null;
 
         @Override
         public void onQuery(final String queryAsString, final PlanContext planContext) {
@@ -127,5 +131,8 @@ class PlannerEventListenersTest {
         public void onDone() {
             onDoneCalled = true;
         }
+    }
+
+    private static class SecondDummyEventListener extends DummyEventListener {
     }
 }

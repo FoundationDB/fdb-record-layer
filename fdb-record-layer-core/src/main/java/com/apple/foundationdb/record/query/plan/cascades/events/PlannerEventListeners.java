@@ -24,8 +24,9 @@ package com.apple.foundationdb.record.query.plan.cascades.events;
 import com.apple.foundationdb.record.query.plan.cascades.PlanContext;
 
 import javax.annotation.Nonnull;
-import java.util.ArrayList;
-import java.util.List;
+import javax.annotation.Nullable;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * This class is used to store and manage instances of {@link PlannerEventListeners.Listener}
@@ -33,30 +34,37 @@ import java.util.List;
  * Cascades planner and perform actions.
  */
 public final class PlannerEventListeners {
-    static final ThreadLocal<List<Listener>> THREAD_LOCAL = ThreadLocal.withInitial(ArrayList::new);
+    static final ThreadLocal<Map<Class<? extends Listener>, Listener>> THREAD_LOCAL =
+            ThreadLocal.withInitial(HashMap::new);
 
-    public static void addListener(@Nonnull final Listener listener) {
-        THREAD_LOCAL.get().add(listener);
+    public static void addListener(@Nonnull final Class<? extends Listener> listenerClass,
+                                   @Nonnull final Listener listener) {
+        THREAD_LOCAL.get().put(listenerClass, listener);
     }
 
-    public static void removeListener(@Nonnull final Listener listener) {
-        THREAD_LOCAL.get().remove(listener);
+    public static void removeListener(@Nonnull final Class<? extends Listener> listenerClass) {
+        THREAD_LOCAL.get().remove(listenerClass);
     }
 
     public static void clearListeners() {
         THREAD_LOCAL.get().clear();
     }
 
+    @Nullable
+    public static Listener getListener(@Nonnull final Class<? extends Listener> listenerClass) {
+        return THREAD_LOCAL.get().getOrDefault(listenerClass, null);
+    }
+
     public static void dispatchEvent(PlannerEvent plannerEvent) {
-        THREAD_LOCAL.get().forEach(l -> l.onEvent(plannerEvent));
+        THREAD_LOCAL.get().values().forEach(l -> l.onEvent(plannerEvent));
     }
 
     public static void dispatchOnQuery(String queryAsString, PlanContext planContext) {
-        THREAD_LOCAL.get().forEach(l -> l.onQuery(queryAsString, planContext));
+        THREAD_LOCAL.get().values().forEach(l -> l.onQuery(queryAsString, planContext));
     }
 
     public static void dispatchOnDone() {
-        THREAD_LOCAL.get().forEach(Listener::onDone);
+        THREAD_LOCAL.get().values().forEach(Listener::onDone);
     }
 
     /**

@@ -40,7 +40,7 @@ import java.util.function.IntUnaryOperator;
  * <p>
  * This interface functions as a stub providing hooks which can be called from the planner logic during planning.
  * As the planner is currently single-threaded as per planning of a query, we keep an instance of an implementor of
- * this class in the thread-local. (per-thread singleton).
+ * this class in the thread-local. (per-thread singleton) via {@link PlannerEventListeners}.
  * The main mean of communication with the debugger is the set of statics defined within this interface.
  * </p>
  * <p>
@@ -60,26 +60,16 @@ import java.util.function.IntUnaryOperator;
 @SuppressWarnings("java:S1214")
 public interface Debugger extends PlannerEventListeners.Listener {
     /**
-     * The thread local variable. This constructor by itself does not set anything within the thread locals of
-     * the loading thread.
-     */
-    ThreadLocal<Debugger> THREAD_LOCAL = new ThreadLocal<>();
-
-    /**
      * Set the debugger. Override the currently set debugger if necessary.
-     * @param debugger the new debugger
+     * @param debugger the new debugger. If {@code debugger} is {@code null}, the current debugger
+     *        will be removed.
      */
     static void setDebugger(final Debugger debugger) {
-        if (THREAD_LOCAL.get() != null) {
-            PlannerEventListeners.removeListener(THREAD_LOCAL.get());
-        }
         if (debugger == null) {
-            THREAD_LOCAL.remove();
+            PlannerEventListeners.removeListener(Debugger.class);
             return;
         }
-
-        THREAD_LOCAL.set(debugger);
-        PlannerEventListeners.addListener(debugger);
+        PlannerEventListeners.addListener(Debugger.class, debugger);
 
         // If the debugger is enabled, event stats collection should also be enabled.
         PlannerEventStatsCollector.enableDefaultStatsCollector();
@@ -87,7 +77,11 @@ public interface Debugger extends PlannerEventListeners.Listener {
 
     @Nullable
     static Debugger getDebugger() {
-        return THREAD_LOCAL.get();
+        final var listener = PlannerEventListeners.getListener(Debugger.class);
+        if (listener instanceof Debugger) {
+            return (Debugger)listener;
+        }
+        return null;
     }
 
     @Nonnull
