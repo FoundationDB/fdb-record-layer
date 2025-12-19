@@ -198,7 +198,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
      * Insert a field into the document and add a suggestion into the suggester if needed.
      */
     @SuppressWarnings("java:S3776")
-    private void insertField(LuceneDocumentFromRecord.DocumentField field, final Document document) {
+    public static void insertField(LuceneDocumentFromRecord.DocumentField field, final Document document) {
         final String fieldName = field.getFieldName();
         final Object value = field.getValue();
         final Field luceneField;
@@ -248,9 +248,9 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         }
     }
 
-    <M extends Message> void writeDocument(final FDBIndexableRecord<M> newRecord, final Map.Entry<Tuple, List<LuceneDocumentFromRecord.DocumentField>> entry, final Integer partitionId) {
+    <M extends Message> void writeDocument(final FDBIndexableRecord<M> newRecord, final Map.Entry<Tuple, List<LuceneDocumentFromRecord.DocumentField>> entry, final Integer partitionId, OverallOperation overallOperation) {
         try {
-            writeDocument(entry.getValue(), entry.getKey(), partitionId, newRecord.getPrimaryKey());
+            writeDocument(entry.getValue(), entry.getKey(), partitionId, newRecord.getPrimaryKey(), overallOperation);
         } catch (IOException e) {
             throw LuceneExceptions.toRecordCoreException("Issue updating new index keys", e, "newRecord", newRecord.getPrimaryKey());
         }
@@ -260,7 +260,28 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     private void writeDocument(@Nonnull List<LuceneDocumentFromRecord.DocumentField> fields,
                                Tuple groupingKey,
                                Integer partitionId,
-                               Tuple primaryKey) throws IOException {
+                               Tuple primaryKey,
+                               OverallOperation overallOperation) throws IOException {
+        if (isPartitionLocked(groupingKey, partitionId)) {
+            // Partition is locked during merge - enqueue the insert/update operation
+            LucenePendingWriteQueue queue = getPendingWriteQueue(groupingKey, partitionId);
+            switch (overallOperation) {
+                case INSERT:
+                    queue.enqueueInsert(primaryKey, fields);
+                    break;
+                case UPDATE:
+                    queue.enqueueUpdate(primaryKey, fields);
+                    break;
+                case DELETE:
+                default:
+                    // do nothing - this will be taken care of elsewhere
+            }
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Enqueued insert/update for {} in partition {} (locked during merge)",
+                        primaryKey, partitionId);
+            }
+            return;
+        }
         final long startTime = System.nanoTime();
         Document document = new Document();
         final IndexWriter newWriter = directoryManager.getIndexWriter(groupingKey, partitionId);
@@ -361,6 +382,120 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     }
 
     /**
+     * Write a document to the index without checking partition locks.
+     * This method is intended for use during queue draining when replaying queued operations
+     * during a merge operation. It bypasses the normal lock checking mechanism.
+     *
+     * @param fields the document fields to write
+     * @param groupingKey the grouping key
+     * @param partitionId the partition ID (may be null for non-partitioned indexes)
+     * @param primaryKey the primary key of the record
+     * @throws IOException if there's an error writing to the index
+     */
+    @SuppressWarnings("PMD.CloseResource")
+    void writeDocumentWithoutLock(@Nonnull List<LuceneDocumentFromRecord.DocumentField> fields,
+                                   Tuple groupingKey,
+                                   Integer partitionId,
+                                   Tuple primaryKey) throws IOException {
+        final long startTime = System.nanoTime();
+        Document document = new Document();
+        final IndexWriter newWriter = directoryManager.getIndexWriter(groupingKey, partitionId);
+
+        BytesRef ref = new BytesRef(keySerializer.asPackedByteArray(primaryKey));
+        // use packed Tuple for the Stored and Sorted fields
+        document.add(new StoredField(PRIMARY_KEY_FIELD_NAME, ref));
+        document.add(new SortedDocValuesField(PRIMARY_KEY_SEARCH_NAME, ref));
+        if (keySerializer.hasFormat()) {
+            try {
+                // Use BinaryPoint for fast lookup of ID when enabled
+                document.add(new BinaryPoint(PRIMARY_KEY_BINARY_POINT_NAME, keySerializer.asFormattedBinaryPoint(primaryKey)));
+            } catch (RecordCoreFormatException ex) {
+                // this can happen on format mismatch or encoding error
+                // just don't write the field, but allow the document to continue
+                logSerializationError("Failed to write using BinaryPoint encoded ID: {}", ex.getMessage());
+            }
+        }
+
+        Map<IndexOptions, List<LuceneDocumentFromRecord.DocumentField>> indexOptionsToFieldsMap = getIndexOptionsToFieldsMap(fields);
+        for (Map.Entry<IndexOptions, List<LuceneDocumentFromRecord.DocumentField>> entry : indexOptionsToFieldsMap.entrySet()) {
+            for (LuceneDocumentFromRecord.DocumentField field : entry.getValue()) {
+                insertField(field, document);
+            }
+        }
+        newWriter.addDocument(document);
+        state.context.record(LuceneEvents.Events.LUCENE_ADD_DOCUMENT, System.nanoTime() - startTime);
+    }
+
+    /**
+     * Delete a document from the index without checking partition locks.
+     * This method is intended for use during queue draining when replaying queued operations
+     * during a merge operation. It bypasses the normal lock checking mechanism.
+     *
+     * @param groupingKey the grouping key
+     * @param partitionId the partition ID (may be null for non-partitioned indexes)
+     * @param primaryKey the primary key of the record to delete
+     * @return the count of deleted documents (1 if deleted via segment index, 0 if deleted via query)
+     * @throws IOException if there's an error deleting from the index
+     */
+    @SuppressWarnings({"PMD.CloseResource", "java:S2095"})
+    int deleteDocumentWithoutLock(Tuple groupingKey, Integer partitionId, Tuple primaryKey) throws IOException {
+        final long startTime = System.nanoTime();
+        final IndexWriter indexWriter = directoryManager.getIndexWriter(groupingKey, partitionId);
+        @Nullable final LucenePrimaryKeySegmentIndex segmentIndex = directoryManager.getDirectory(groupingKey, partitionId).getPrimaryKeySegmentIndex();
+
+        if (segmentIndex != null) {
+            final LucenePrimaryKeySegmentIndex.DocumentIndexEntry documentIndexEntry = getDocumentIndexEntryWithRetry(segmentIndex, groupingKey, partitionId, primaryKey);
+            if (documentIndexEntry != null) {
+                state.context.ensureActive().clear(documentIndexEntry.entryKey);
+                long valid = indexWriter.tryDeleteDocument(documentIndexEntry.indexReader, documentIndexEntry.docId);
+                if (valid > 0) {
+                    state.context.record(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_PRIMARY_KEY, System.nanoTime() - startTime);
+                    return 1;
+                } else if (LOG.isDebugEnabled()) {
+                    LOG.debug(KeyValueLogMessage.of("try delete document failed",
+                            LuceneLogMessageKeys.GROUP, groupingKey,
+                            LuceneLogMessageKeys.INDEX_PARTITION, partitionId,
+                            LuceneLogMessageKeys.SEGMENT, documentIndexEntry.segmentName,
+                            LuceneLogMessageKeys.DOC_ID, documentIndexEntry.docId,
+                            LuceneLogMessageKeys.PRIMARY_KEY, primaryKey));
+                }
+            } else if (LOG.isDebugEnabled()) {
+                LOG.debug(KeyValueLogMessage.of("primary key segment index entry not found",
+                        LuceneLogMessageKeys.GROUP, groupingKey,
+                        LuceneLogMessageKeys.INDEX_PARTITION, partitionId,
+                        LuceneLogMessageKeys.PRIMARY_KEY, primaryKey,
+                        LuceneLogMessageKeys.SEGMENTS, segmentIndex.findSegments(primaryKey)));
+            }
+        }
+        Query query;
+        // null format means don't use BinaryPoint for the index primary key
+        if (keySerializer.hasFormat()) {
+            try {
+                byte[][] binaryPoint = keySerializer.asFormattedBinaryPoint(primaryKey);
+                query = BinaryPoint.newRangeQuery(PRIMARY_KEY_BINARY_POINT_NAME, binaryPoint, binaryPoint);
+            } catch (RecordCoreFormatException ex) {
+                // this can happen on format mismatch or encoding error
+                // fallback to the old way (less efficient)
+                query = SortedDocValuesField.newSlowExactQuery(PRIMARY_KEY_SEARCH_NAME, new BytesRef(keySerializer.asPackedByteArray(primaryKey)));
+                logSerializationError("Failed to delete using BinaryPoint encoded ID: {}", ex.getMessage());
+            }
+        } else {
+            // fallback to the old way (less efficient)
+            query = SortedDocValuesField.newSlowExactQuery(PRIMARY_KEY_SEARCH_NAME, new BytesRef(keySerializer.asPackedByteArray(primaryKey)));
+        }
+
+        indexWriter.deleteDocuments(query);
+        LuceneEvents.Events event = state.store.isIndexWriteOnly(state.index) ?
+                                    LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_QUERY_IN_WRITE_ONLY_MODE :
+                                    LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_QUERY;
+        state.context.record(event, System.nanoTime() - startTime);
+
+        // if we delete by query, we aren't certain whether the document was actually deleted (if, for instance, it wasn't in Lucene
+        // to begin with)
+        return 0;
+    }
+
+    /**
      * Try to find the document for the given record in the segment index.
      * This method would first try to find the document using the existing reader. If it can't, it will refresh the reader
      * and try again. The incentive for this is when the documents have been updated in memory (e.g. in the same transaction), the
@@ -388,11 +523,20 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
 
     @Override
     public CompletableFuture<Void> mergeIndex() {
-        return rebalancePartitions()
+        return drainAllQueues()
+                .thenCompose(ignore -> rebalancePartitions())
                 .thenCompose(ignored -> {
                     state.store.getIndexDeferredMaintenanceControl().setLastStep(IndexDeferredMaintenanceControl.LastStep.MERGE);
                     return directoryManager.mergeIndex(partitioner);
                 });
+    }
+
+    private CompletableFuture<Void> drainAllQueues() {
+        final FDBRecordStore.Builder storeBuilder = state.store.asBuilder();
+        FDBDatabaseRunner runner = state.context.newRunner();
+        runner.setMaxAttempts(1); // retries (and throttling) are performed by the caller
+        return directoryManager.drainAllQueues(runner, storeBuilder)
+                .whenComplete((result, error) -> runner.close());
     }
 
     @VisibleForTesting
@@ -483,6 +627,8 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         return update(oldRecord, newRecord, null);
     }
 
+    private enum OverallOperation { INSERT, UPDATE, DELETE }
+
     @Nonnull
     <M extends Message> CompletableFuture<Void> update(@Nullable FDBIndexableRecord<M> oldRecordUnfiltered,
                                                        @Nullable FDBIndexableRecord<M> newRecordUnfiltered,
@@ -496,6 +642,21 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         final KeyExpression root = state.index.getRootExpression();
         final Map<Tuple, List<LuceneDocumentFromRecord.DocumentField>> oldRecordFields = LuceneDocumentFromRecord.getRecordFields(root, oldRecord);
         final Map<Tuple, List<LuceneDocumentFromRecord.DocumentField>> newRecordFields = LuceneDocumentFromRecord.getRecordFields(root, newRecord);
+
+        OverallOperation overallOperation;
+        if (oldRecord != null) {
+            if (newRecord != null) {
+                overallOperation = OverallOperation.UPDATE;
+            } else {
+                overallOperation = OverallOperation.DELETE;
+            }
+        } else {
+            if (newRecord != null) {
+                overallOperation = OverallOperation.INSERT;
+            } else {
+                overallOperation = null; // illegal
+            }
+        }
 
         final Set<Tuple> unchanged = new HashSet<>();
         for (Map.Entry<Tuple, List<LuceneDocumentFromRecord.DocumentField>> entry : oldRecordFields.entrySet()) {
@@ -512,17 +673,18 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
 
         return AsyncUtil.whenAll(oldRecordFields.keySet().stream()
                     // delete old
-                    .map(groupingKey -> tryDelete(Objects.requireNonNull(oldRecord), groupingKey))
+                    .map(groupingKey -> tryDelete(Objects.requireNonNull(oldRecord), groupingKey, overallOperation))
                     .collect(Collectors.toList()))
                 .thenCompose(ignored ->
                     // update new
                     AsyncUtil.whenAll(newRecordFields.entrySet().stream()
-                        .map(entry -> updateRecord(newRecord, destinationPartitionIdHint, entry))
+                        .map(entry -> updateRecord(newRecord, destinationPartitionIdHint, entry, overallOperation))
                         .collect(Collectors.toList())));
     }
 
     /**
      * Internal utility to update a single record.
+     *
      * @param newRecord the new record to save
      * @param destinationPartitionIdHint partition ID
      * @param entry entry from the grouping key to the document fields
@@ -530,10 +692,11 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     private <M extends Message> CompletableFuture<Void> updateRecord(
             final FDBIndexableRecord<M> newRecord,
             final Integer destinationPartitionIdHint,
-            final Map.Entry<Tuple, List<LuceneDocumentFromRecord.DocumentField>> entry) {
+            final Map.Entry<Tuple, List<LuceneDocumentFromRecord.DocumentField>> entry,
+            final OverallOperation overallOperation) {
         return tryDeleteInWriteOnlyMode(Objects.requireNonNull(newRecord), entry.getKey()).thenCompose(countDeleted ->
                 partitioner.addToAndSavePartitionMetadata(newRecord, entry.getKey(), destinationPartitionIdHint)
-                        .thenAccept(partitionId -> writeDocument(newRecord, entry, partitionId)));
+                        .thenAccept(partitionId -> writeDocument(newRecord, entry, partitionId, overallOperation)));
     }
 
     @Nullable
@@ -550,7 +713,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     }
 
     /**
-     * convenience wrapper that calls {@link #tryDelete(FDBIndexableRecord, Tuple)} only if the index is in
+     * convenience wrapper that calls {@link #tryDelete(FDBIndexableRecord, Tuple, OverallOperation)} only if the index is in
      * {@code WriteOnly} mode.
      * This is usually needed when a record is inserted during an index build, but that
      * record had already been added due to an explicit update earlier.
@@ -566,25 +729,47 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
             // no op
             return CompletableFuture.completedFuture(0);
         }
-        return tryDelete(record, groupingKey);
+        return tryDelete(record, groupingKey, null);
     }
 
     /**
      * Delete a given record if it is indexed.
-     * The record may not necessarily exist in the index, or it may need to be deleted by query ({@link #deleteDocument(Tuple, Integer, Tuple)}).
+     * The record may not necessarily exist in the index, or it may need to be deleted by query
+     * ({@link #deleteDocument(Tuple, Integer, Tuple)}).
      *
+     * @param <M> record message
      * @param record record to be deleted
      * @param groupingKey grouping key
-     * @param <M> record message
-     * @return count of deleted docs: 1 indicates that the record has been deleted, 0 means that either no record was deleted or it was deleted by
+     *
+     * @return count of deleted docs: 1 indicates that the record has been deleted, 0 means that either no record was
+     * deleted or it was deleted by
      * query.
      */
     private <M extends Message> CompletableFuture<Integer> tryDelete(@Nonnull FDBIndexableRecord<M> record,
-                                                                     @Nonnull Tuple groupingKey) {
+                                                                     @Nonnull Tuple groupingKey, final OverallOperation overallOperation) {
         try {
             // non-partitioned
             if (!partitioner.isPartitioningEnabled()) {
-                return CompletableFuture.completedFuture(deleteDocument(groupingKey, null, record.getPrimaryKey()));
+                // TODO: Convert ot future.thenApply
+                if (isPartitionLocked(groupingKey, null)) {
+                    // Index is locked during merge - enqueue the delete operation
+                    LucenePendingWriteQueue queue = getPendingWriteQueue(groupingKey, null);
+                    switch (overallOperation) {
+                        case DELETE:
+                            queue.enqueueDelete(record.getPrimaryKey());
+                            break;
+                        case UPDATE:
+                        case INSERT:
+                        default:
+                            // do nothing - this will be taken care of elsewhere
+                    }
+                    if (LOG.isDebugEnabled()) {
+                        LOG.debug("Enqueued delete for {} in partition {} (locked during merge)", record.getPrimaryKey(), null);
+                    }
+                    return CompletableFuture.completedFuture(0);  // When the actual delete will take place, return a real delete count and handle partition's counter.
+                } else {
+                    return CompletableFuture.completedFuture(deleteDocument(groupingKey, null, record.getPrimaryKey()));
+                }
             }
         } catch (IOException e) {
             throw LuceneExceptions.toRecordCoreException("Issue deleting", e, "record", Objects.requireNonNull(record).getPrimaryKey());
@@ -595,6 +780,27 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
             if (partitionInfo == null) {
                 return CompletableFuture.completedFuture(0);
             }
+
+            // TODO: convert to future.thenApply
+            if (isPartitionLocked(groupingKey, partitionInfo.getId())) {
+                // TODO: This seems to be locked when building the index. Need to check
+                // Partition is locked during merge - enqueue the delete operation
+                LucenePendingWriteQueue queue = getPendingWriteQueue(groupingKey, partitionInfo.getId());
+                switch (overallOperation) {
+                    case DELETE:
+                        queue.enqueueDelete(record.getPrimaryKey());
+                        break;
+                    case UPDATE:
+                    case INSERT:
+                    default:
+                        // do nothing - this will be taken care of elsewhere
+                }
+                if (LOG.isDebugEnabled()) {
+                    LOG.debug("Enqueued delete for {} in partition {} (locked during merge)", record.getPrimaryKey(), partitionInfo.getId());
+                }
+                return CompletableFuture.completedFuture(0);  // When the actual delete will take place, return a real delete count and handle partition's counter.
+            }
+
             try {
                 int countDeleted = deleteDocument(groupingKey, partitionInfo.getId(), record.getPrimaryKey());
                 // this might be 0 when in writeOnly mode, but otherwise should not happen.
@@ -610,7 +816,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         });
     }
 
-    private FieldType getTextFieldType(LuceneDocumentFromRecord.DocumentField field) {
+    private static FieldType getTextFieldType(LuceneDocumentFromRecord.DocumentField field) {
         FieldType ft = new FieldType();
 
         try {
@@ -814,6 +1020,25 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                 serializerErrorLogged = true;
             }
         }
+    }
+
+    private boolean isPartitionLocked(Tuple groupingKey, Integer partitionId) {
+        // TODO: Need to queue items when queue is not empty as well?
+        FDBDirectory directory = directoryManager.getDirectory(groupingKey, partitionId);
+        // Check the standard Lucene IndexWriter lock
+        return directory.isLocked("write.lock");
+    }
+
+    /**
+     * Get a LucenePendingWriteQueue for a specific partition.
+     *
+     * @param groupingKey the grouping key for the partition
+     * @param partitionId the partition ID, or null for non-partitioned index
+     * @return a new queue instance scoped to the specific partition
+     */
+    @Nonnull
+    public LucenePendingWriteQueue getPendingWriteQueue(@Nonnull Tuple groupingKey, @Nullable Integer partitionId) {
+        return directoryManager.getDirectoryWrapper(groupingKey, partitionId).getPendingWriteQueue();
     }
 
     @Nullable
