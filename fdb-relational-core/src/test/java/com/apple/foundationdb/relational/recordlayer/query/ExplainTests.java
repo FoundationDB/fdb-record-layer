@@ -86,6 +86,8 @@ public class ExplainTests {
                 "INSERT_TIME_NS",
                 "INSERT_NEW_COUNT",
                 "INSERT_REUSED_COUNT",
+                "TRANSFORM_DISCARDED_INTERSECTION_COMBINATIONS_COUNT",
+                "TRANSFORM_ALL_INTERSECTION_COMBINATIONS_COUNT",
                 "REWRITING_PHASE_TASK_COUNT",
                 "PLANNING_PHASE_TASK_COUNT",
                 "REWRITING_PHASE_TASKS_TOTAL_TIME_NS",

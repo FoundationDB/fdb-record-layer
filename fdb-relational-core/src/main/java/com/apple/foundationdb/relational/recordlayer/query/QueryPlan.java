@@ -326,10 +326,12 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                             DataType.StructType.Field.from("INSERT_TIME_NS", DataType.Primitives.LONG.type(), 5),
                             DataType.StructType.Field.from("INSERT_NEW_COUNT", DataType.Primitives.LONG.type(), 6),
                             DataType.StructType.Field.from("INSERT_REUSED_COUNT", DataType.Primitives.LONG.type(), 7),
-                            DataType.StructType.Field.from("REWRITING_PHASE_TASK_COUNT", DataType.Primitives.LONG.type(), 8),
-                            DataType.StructType.Field.from("PLANNING_PHASE_TASK_COUNT", DataType.Primitives.LONG.type(), 9),
-                            DataType.StructType.Field.from("REWRITING_PHASE_TASKS_TOTAL_TIME_NS", DataType.Primitives.LONG.type(), 10),
-                            DataType.StructType.Field.from("PLANNING_PHASE_TASKS_TOTAL_TIME_NS", DataType.Primitives.LONG.type(), 11)),
+                            DataType.StructType.Field.from("TRANSFORM_DISCARDED_INTERSECTION_COMBINATIONS_COUNT", DataType.Primitives.LONG.type(), 8),
+                            DataType.StructType.Field.from("TRANSFORM_ALL_INTERSECTION_COMBINATIONS_COUNT", DataType.Primitives.LONG.type(), 9),
+                            DataType.StructType.Field.from("REWRITING_PHASE_TASK_COUNT", DataType.Primitives.LONG.type(), 10),
+                            DataType.StructType.Field.from("PLANNING_PHASE_TASK_COUNT", DataType.Primitives.LONG.type(), 11),
+                            DataType.StructType.Field.from("REWRITING_PHASE_TASKS_TOTAL_TIME_NS", DataType.Primitives.LONG.type(), 12),
+                            DataType.StructType.Field.from("PLANNING_PHASE_TASKS_TOTAL_TIME_NS", DataType.Primitives.LONG.type(), 13)),
                     true);
             final var explainStructType = DataType.StructType.from(
                     "EXPLAIN", List.of(
@@ -380,6 +382,10 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                                 aggregateInsertIntoMemoStats.map(PlannerEventStats::getOwnTimeInNs).orElse(0L),
                                 aggregateInsertIntoMemoStats.map(s -> s.getCount(PlannerEvent.Location.NEW)).orElse(0L),
                                 aggregateInsertIntoMemoStats.map(s -> s.getCount(PlannerEvent.Location.REUSED)).orElse(0L),
+                                aggregateTransformRuleCallStats.map(s -> s.getCount(
+                                        PlannerEvent.Location.DISCARDED_INTERSECTION_COMBINATIONS)).orElse(0L),
+                                aggregateTransformRuleCallStats.map(s -> s.getCount(
+                                        PlannerEvent.Location.ALL_INTERSECTION_COMBINATIONS)).orElse(0L),
                                 executingTasksStatsForRewritingPhase.map(s -> s.getCount(PlannerEvent.Location.BEGIN)).orElse(0L),
                                 executingTasksStatsForPlanningPhase.map(s -> s.getCount(PlannerEvent.Location.BEGIN)).orElse(0L),
                                 executingTasksStatsForRewritingPhase.map(PlannerEventStats::getTotalTimeInNs).orElse(0L),
