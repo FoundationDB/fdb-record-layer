@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.provider.foundationdb.cursors;
 
 import com.apple.foundationdb.record.EndpointType;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
@@ -34,6 +35,11 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.SortedRecordSerializer;
+import com.apple.foundationdb.record.query.plan.ScanComparisons;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
+import com.apple.foundationdb.record.query.plan.sorting.RecordQueryDamPlan;
+import com.apple.foundationdb.record.query.plan.sorting.RecordQuerySortKey;
+import com.apple.foundationdb.record.query.plan.sorting.RecordQuerySortPlan;
 import com.apple.foundationdb.record.sorting.FileSortAdapter;
 import com.apple.foundationdb.record.sorting.FileSortCursor;
 import com.apple.foundationdb.record.sorting.MemorySortAdapter;
@@ -158,19 +164,11 @@ public class SortCursorTests extends FDBRecordStoreTestBase {
 
     @Test
     public void memorySort() throws Exception {
-        final Function<byte[], RecordCursor<FDBQueriedRecord<Message>>> scanRecords =
-                continuation -> recordStore.scanRecords(null, null, EndpointType.TREE_START, EndpointType.TREE_END, continuation, ScanProperties.FORWARD_SCAN).map(FDBQueriedRecord::stored);
-        final MemoryAdapterBase adapter = new MemoryAdapterBase() {
-            @Override
-            public int getMaxRecordCountInMemory() {
-                return 20;
-            }
-        };
-
         List<Integer> resultNums;
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
-            try (RecordCursor<FDBQueriedRecord<Message>> cursor = MemorySortCursor.createSort(adapter, scanRecords, timer, null)) {
+            final RecordQuerySortPlan sortPlan = new RecordQuerySortPlan(new RecordQueryScanPlan(ScanComparisons.EMPTY, false), new RecordQuerySortKey(Key.Expressions.field("num_value_2"), false));
+            try (RecordCursor<FDBQueriedRecord<Message>> cursor = sortPlan.execute(recordStore, EvaluationContext.EMPTY, null, ExecuteProperties.SERIAL_EXECUTE.setReturnedRowLimit(20))) {
                 resultNums = cursor.map(r -> TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(r.getRecord()).getNumValue2()).asList().get();
             }
         }
@@ -183,22 +181,8 @@ public class SortCursorTests extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
 
-            final Function<byte[], RecordCursor<FDBQueriedRecord<Message>>> scanRecords =
-                    continuation -> recordStore.scanRecords(null, null, EndpointType.TREE_START, EndpointType.TREE_END, continuation, ScanProperties.FORWARD_SCAN).map(FDBQueriedRecord::stored);
-            final MemoryAdapterBase adapter = new MemoryAdapterBase() {
-                @Override
-                public int getMaxRecordCountInMemory() {
-                    return 20;
-                }
-
-                @Nonnull
-                @Override
-                public MemorySortComparator<Tuple> getComparator(@Nullable final Tuple minimumKey) {
-                    return new InsertionOrderComparator<>(this, minimumKey);
-                }
-            };
-
-            try (RecordCursor<FDBQueriedRecord<Message>> cursor = MemorySortCursor.createDam(adapter, scanRecords, timer, null)) {
+            final RecordQueryDamPlan damPlan = new RecordQueryDamPlan(new RecordQueryScanPlan(ScanComparisons.EMPTY, false), new RecordQuerySortKey(Key.Expressions.field("num_value_2"), false));
+            try (RecordCursor<FDBQueriedRecord<Message>> cursor = damPlan.execute(recordStore, EvaluationContext.EMPTY, null, ExecuteProperties.SERIAL_EXECUTE.setReturnedRowLimit(20))) {
                 resultNums = cursor.map(r -> TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(r.getRecord()).getNumValue2()).asList().get();
             }
         }
