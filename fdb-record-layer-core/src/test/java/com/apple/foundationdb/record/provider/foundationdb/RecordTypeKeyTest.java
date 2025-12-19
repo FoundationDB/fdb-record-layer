@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.RecordTypeBuilder;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.provider.foundationdb.query.DualPlannerTest;
 import com.apple.foundationdb.record.provider.foundationdb.query.FDBRecordStoreQueryTestBase;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
@@ -70,14 +71,17 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.empty;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.recordType;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.bounds;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.filter;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.hasTupleString;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexName;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexScan;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.scan;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.typeFilter;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.unbounded;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.anyOf;
+import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -188,7 +192,7 @@ public class RecordTypeKeyTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
-    @Test
+    @DualPlannerTest
     public void testScan() throws Exception {
         List<FDBStoredRecord<Message>> recs = saveSomeRecords(BASIC_HOOK);
 
@@ -206,7 +210,7 @@ public class RecordTypeKeyTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
-    @Test
+    @DualPlannerTest
     public void testIndexScan() throws Exception {
         // This means that some record types do not have a record type key, so an index scan will be better.
         RecordMetaDataHook hook = metaData -> {
@@ -265,7 +269,7 @@ public class RecordTypeKeyTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
-    @Test
+    @DualPlannerTest
     public void testSinglyBoundedScan() throws Exception {
         List<FDBStoredRecord<Message>> recs = saveSomeRecords(BASIC_HOOK);
 
@@ -284,7 +288,7 @@ public class RecordTypeKeyTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
-    @Test
+    @DualPlannerTest
     public void testDoublyBoundedScan() throws Exception {
         List<FDBStoredRecord<Message>> recs = saveSomeRecords(BASIC_HOOK);
 
@@ -304,6 +308,46 @@ public class RecordTypeKeyTest extends FDBRecordStoreQueryTestBase {
             assertThat(plan, scan(bounds(anyOf(
                     hasTupleString("[IS MySimpleRecord, [GREATER_THAN 200 && LESS_THAN 500]]"),
                     hasTupleString("[IS MySimpleRecord, [LESS_THAN 500 && GREATER_THAN 200]]")))));
+        }
+    }
+
+    /**
+     * Test for what happens if there is an explicit type filter component in a query.
+     * This generally shouldn't be done, as it's not very useful. The query component
+     * only exists so that it can be used during delete-where operations. However,
+     * if the user were to create such a comparison, this is what would happen.
+     *
+     * @throws Exception from underlying execution
+     */
+    @DualPlannerTest
+    public void testWithExplicitRecordTypeKeyComparison() throws Exception {
+        List<FDBStoredRecord<Message>> recs = saveSomeRecords(BASIC_HOOK);
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, BASIC_HOOK);
+
+            RecordQuery query = RecordQuery.newBuilder()
+                    .setRecordType("MySimpleRecord")
+                    .setFilter(new RecordTypeKeyComparison("MySimpleRecord"))
+                    .build();
+            if (useCascadesPlanner) {
+                // This is currently busted. The issue is that we are currently not threading through
+                // the meta-data through to the RecordTypeKeyComparison, which means that we aren't
+                // able to turn the comparison into something useful.
+                // See: https://github.com/FoundationDB/fdb-record-layer/issues/3813
+                assertThrows(Comparisons.EvaluationContextRequiredException.class, () -> planQuery(query));
+            } else {
+                RecordQueryPlan plan = planQuery(query);
+                final List<FDBStoredRecord<Message>> storedSimpleRecords = recs.stream()
+                        .filter(rec -> rec.getRecordType().getName().equals("MySimpleRecord"))
+                        .collect(Collectors.toList());
+
+                assertEquals(storedSimpleRecords, recordStore.executeQuery(query)
+                        .map(FDBQueriedRecord::getStoredRecord).asList().join());
+                assertThat(plan, filter(new RecordTypeKeyComparison("MySimpleRecord"),
+                        typeFilter(equalTo(Collections.singleton("MySimpleRecord")),
+                                scan(unbounded()))));
+            }
         }
     }
 
