@@ -38,6 +38,7 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Plan
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementSimpleSelectRule;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.google.common.collect.ImmutableList;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -70,6 +71,11 @@ class PlannerEventSerializationTests {
         rootReference = Reference.initialOf(rootExpression);
         taskStack = new ArrayDeque<>();
         testRule = new ImplementSimpleSelectRule();
+    }
+
+    @AfterAll
+    static void tearDown() {
+        Debugger.setDebugger(null);
     }
 
     @Test

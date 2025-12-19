@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.cascades.events;
 import com.apple.foundationdb.record.query.plan.cascades.PlanContext;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerPhase;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -35,6 +36,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 class PlannerEventListenersTest {
     @BeforeEach
     void setUp() {
+        PlannerEventListeners.clearListeners();
+    }
+
+    @AfterAll
+    static void tearDown() {
         PlannerEventListeners.clearListeners();
     }
 
