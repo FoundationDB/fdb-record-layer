@@ -2612,9 +2612,6 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
                                     Optional.of(fieldStorageName));
                 }
 
-                if (!(fieldNamesSeen.add(fieldToBeAdded.getFieldName()))) {
-                    throw new RecordCoreException("fields contain duplicate field names");
-                }
                 resultFieldsBuilder.add(fieldToBeAdded);
             }
 

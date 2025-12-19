@@ -96,6 +96,22 @@ test_block:
                           {"Sales", "Feedback"},
                           {"Marketing", "SEO"}]
     -
+      # ambiguous sub select is fine if the top-level query does not specify column names
+      - query: select * from (select dept.name, project.name from emp, dept, project where emp.dept_id = dept.id and project.emp_id = emp.id) X;
+      - unorderedResult: [{"Engineering", "OLAP"},
+                          {"Sales", "Feedback"},
+                          {"Marketing", "SEO"}]
+    -
+      # ambiguous sub select is fine if the top-level query does not specify column names
+      - query: select (*) from (select dept.name, project.name from emp, dept, project where emp.dept_id = dept.id and project.emp_id = emp.id) X;
+      - unorderedResult: [{{"Engineering", "OLAP"}},
+                          {{"Sales", "Feedback"}},
+                          {{"Marketing", "SEO"}}]
+    -
+      # ambiguous sub select fails if top-level select refers to one of the columns
+      - query: select name from (select dept.name, project.name from emp, dept, project where emp.dept_id = dept.id and project.emp_id = emp.id) X;
+      - error: "42702"
+    -
       # Join with NOT IN - get employees in Engineering excluding specific employee ids
       - query: select emp.id, fname, lname from emp, dept where emp.dept_id = dept.id and dept.name = 'Engineering' and emp.id not in (1, 3)
       - unorderedResult: [{ID: 2, FNAME: "Thomas", LNAME: "Johnson"},
