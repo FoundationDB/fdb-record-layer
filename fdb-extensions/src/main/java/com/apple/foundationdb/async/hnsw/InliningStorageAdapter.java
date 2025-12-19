@@ -34,6 +34,7 @@ import com.apple.foundationdb.linear.Transformed;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
@@ -75,6 +76,14 @@ class InliningStorageAdapter extends AbstractStorageAdapter<NodeReferenceWithVec
         super(config, nodeFactory, subspace, onWriteListener, onReadListener);
     }
 
+    @Nonnull
+    @Override
+    public Transformed<RealVector> getVector(@Nonnull final NodeReferenceWithVector nodeReference,
+                                             @Nonnull final AbstractNode<NodeReferenceWithVector> node) {
+        Verify.verify(nodeReference.isNodeReferenceWithVector());
+        return nodeReference.asNodeReferenceWithVector().getVector();
+    }
+
     /**
      * Asynchronously fetches a single node from a given layer by its primary key.
      * <p>
@@ -82,6 +91,9 @@ class InliningStorageAdapter extends AbstractStorageAdapter<NodeReferenceWithVec
      * It then performs an asynchronous range scan to retrieve all key-value pairs associated with that prefix.
      * Finally, it reconstructs the complete {@link AbstractNode} object from the collected raw data using
      * the {@code nodeFromRaw} method.
+     * <p>
+     * Note that when using the inlining storage adapter it is not possible for distinguish between a node that has no
+     * neighbors and a node that is not present in the database (i.e. it was deleted).
      *
      * @param readTransaction the transaction to use for reading from the database
      * @param storageTransform an affine transformation operator that is used to transform the fetched vector into the
@@ -208,20 +220,30 @@ class InliningStorageAdapter extends AbstractStorageAdapter<NodeReferenceWithVec
      *
      * @param transaction the transaction context for the write operation; must not be null
      * @param quantizer the quantizer to use
+     * @param layer the layer index where the node and its neighbor changes should be written
      * @param node the node to be written, which is expected to be an
      * {@code InliningNode}; must not be null
-     * @param layer the layer index where the node and its neighbor changes should be written
      * @param neighborsChangeSet the set of changes to the node's neighbors to be
      * persisted; must not be null
      */
     @Override
     public void writeNodeInternal(@Nonnull final Transaction transaction, @Nonnull final Quantizer quantizer,
-                                  @Nonnull final AbstractNode<NodeReferenceWithVector> node, final int layer,
+                                  final int layer, @Nonnull final AbstractNode<NodeReferenceWithVector> node,
                                   @Nonnull final NeighborsChangeSet<NodeReferenceWithVector> neighborsChangeSet) {
         final InliningNode inliningNode = node.asInliningNode();
 
         neighborsChangeSet.writeDelta(this, transaction, quantizer, layer, inliningNode, t -> true);
         getOnWriteListener().onNodeWritten(layer, node);
+    }
+
+    @Override
+    protected void deleteNodeInternal(@Nonnull final Transaction transaction, final int layer,
+                                      @Nonnull final Tuple primaryKey) {
+        final byte[] key = getNodeKey(layer, primaryKey);
+        final Range range = Range.startsWith(key);
+        transaction.clear(range);
+        getOnWriteListener().onNodeDeleted(layer, primaryKey);
+        getOnWriteListener().onRangeDeleted(layer, range);
     }
 
     /**

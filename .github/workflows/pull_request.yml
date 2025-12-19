@@ -20,6 +20,7 @@ jobs:
       checks: write
       contents: read
       pull-requests: write
+    timeout-minutes: 30
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4.2.2
@@ -36,6 +37,7 @@ jobs:
       checks: write
       contents: read
       pull-requests: write
+    timeout-minutes: 40
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4.2.2
@@ -71,6 +73,7 @@ jobs:
       checks: write
       contents: read
       pull-requests: write
+    timeout-minutes: 40
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4.2.2
@@ -106,6 +109,7 @@ jobs:
       checks: write
       contents: read
       pull-requests: write
+    timeout-minutes: 60
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4.2.2
@@ -160,6 +164,7 @@ jobs:
     permissions:
       checks: read
       contents: read
+    timeout-minutes: 10
     steps:
       - name: Checkout HEAD sources
         uses: actions/checkout@v4.2.2

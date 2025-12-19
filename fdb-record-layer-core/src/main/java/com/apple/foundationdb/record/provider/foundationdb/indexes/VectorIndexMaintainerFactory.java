@@ -137,8 +137,6 @@ public class VectorIndexMaintainerFactory implements IndexMaintainerFactory {
                 final Config newOptions = VectorIndexHelper.getConfig(index);
 
                 // do not allow changing any of the following
-                disallowChange(changedOptions, IndexOptions.HNSW_DETERMINISTIC_SEEDING,
-                        oldOptions, newOptions, Config::isDeterministicSeeding);
                 disallowChange(changedOptions, IndexOptions.HNSW_METRIC,
                         oldOptions, newOptions, Config::getMetric);
                 disallowChange(changedOptions, IndexOptions.HNSW_NUM_DIMENSIONS,
@@ -153,6 +151,8 @@ public class VectorIndexMaintainerFactory implements IndexMaintainerFactory {
                         oldOptions, newOptions, Config::getMMax0);
                 disallowChange(changedOptions, IndexOptions.HNSW_EF_CONSTRUCTION,
                         oldOptions, newOptions, Config::getEfConstruction);
+                disallowChange(changedOptions, IndexOptions.HNSW_EF_REPAIR,
+                        oldOptions, newOptions, Config::getEfRepair);
                 disallowChange(changedOptions, IndexOptions.HNSW_EXTEND_CANDIDATES,
                         oldOptions, newOptions, Config::isExtendCandidates);
                 disallowChange(changedOptions, IndexOptions.HNSW_KEEP_PRUNED_CONNECTIONS,
@@ -168,6 +168,7 @@ public class VectorIndexMaintainerFactory implements IndexMaintainerFactory {
                 changedOptions.remove(IndexOptions.HNSW_STATS_THRESHOLD);
                 changedOptions.remove(IndexOptions.HNSW_MAX_NUM_CONCURRENT_NODE_FETCHES);
                 changedOptions.remove(IndexOptions.HNSW_MAX_NUM_CONCURRENT_NEIGHBORHOOD_FETCHES);
+                changedOptions.remove(IndexOptions.HNSW_MAX_NUM_CONCURRENT_DELETE_FROM_LAYER);
             }
             super.validateChangedOptions(oldIndex, changedOptions);
         }
