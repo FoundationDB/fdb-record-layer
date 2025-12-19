@@ -477,6 +477,9 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         final LogicalOperator tableAccess = getDelegate().getLogicalOperatorCatalog().lookupTableAccess(tableId, semanticAnalyzer);
 
         getDelegate().pushPlanFragment().setOperator(tableAccess);
+        // Note: doing an expansion here means that we don't have access to the pseudo-columns during the update
+        // (and wouldn't have access to the invisible columns, see: https://github.com/FoundationDB/fdb-record-layer/pull/3787)
+        // That also means that the target type of the update expression needs to match
         final var output = Expressions.ofSingle(semanticAnalyzer.expandStar(Optional.empty(), getDelegate().getLogicalOperators()));
 
         Optional<Expression> whereMaybe = ctx.whereExpr() == null ? Optional.empty() : Optional.of(visitWhereExpr(ctx.whereExpr()));
@@ -493,7 +496,7 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
 
         final var updateExpression = new UpdateExpression(Assert.castUnchecked(updateSource.getQuantifier(), Quantifier.ForEach.class),
                 Assert.notNullUnchecked(tableType.getStorageName(), "Update target type must have storage type name available"),
-                tableType,
+                Type.Record.fromFields(tableType.getFields()), // Remove the type name from the update target type to avoid clashes with the table type in the update source
                 transformMapBuilder.build());
         final var updateQuantifier = Quantifier.forEach(Reference.initialOf(updateExpression));
         final var resultingUpdate = LogicalOperator.newUnnamedOperator(Expressions.fromQuantifier(updateQuantifier), updateQuantifier);

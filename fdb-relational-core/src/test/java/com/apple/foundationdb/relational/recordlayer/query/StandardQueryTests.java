@@ -57,8 +57,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import java.util.stream.Stream;
-
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.net.URI;
@@ -73,6 +71,7 @@ import java.util.Base64;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.fail;
@@ -1245,19 +1244,17 @@ public class StandardQueryTests {
     }
 
     @Test
-    void testNamingStructWithNameOfTableIsPermitted() throws Exception {
+    void testNamingStructWithNameOfTableIsNotPermitted() throws Exception {
         final String schemaTemplate = "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))";
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 statement.executeUpdate("insert into t1 values (42, 100, 500, 101)");
-                Assertions.assertTrue(statement.execute("select a, 42, struct T1 (b, c) as X from t1"));
-                try (final RelationalResultSet resultSet = statement.getResultSet()) {
-                    Assertions.assertTrue(resultSet.next());
-                    final var col3 = resultSet.getStruct(3);
-                    Assertions.assertEquals("T1", col3.getMetaData().getTypeName());
-                    Assertions.assertEquals("X", resultSet.getMetaData().getColumnLabel(3));
-                    Assertions.assertFalse(resultSet.next());
-                }
+                ContextualSQLException err = Assertions.assertThrows(ContextualSQLException.class, () -> statement.execute("select a, 42, struct T1 (b, c) as X from t1"));
+                assertThat((Exception) err)
+                        .hasMessageContaining("Name T1 is already registered with a different type");
+                assertThat(err.getSQLState())
+                        // Perhaps this should be a better error code
+                        .isEqualTo(ErrorCode.UNKNOWN.getErrorCode());
             }
         }
     }

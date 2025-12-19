@@ -188,7 +188,7 @@ public class RecordQueryScanPlan extends AbstractRelationalExpressionWithoutChil
                 range.getLow(), range.getHigh(), range.getLowEndpoint(), range.getHighEndpoint(), continuation,
                 executeProperties.asScanProperties(reverse))
                 .map(store::queriedRecord)
-                .map(QueryResult::fromQueriedRecord);
+                .map(queriedRecord -> QueryResult.fromQueriedRecord(getResultType(), context, queriedRecord));
     }
 
     @Nullable

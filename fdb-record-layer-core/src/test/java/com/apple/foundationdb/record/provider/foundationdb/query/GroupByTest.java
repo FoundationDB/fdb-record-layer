@@ -284,7 +284,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
         qun = Quantifier.forEach(Reference.initialOf(
                 new LogicalTypeFilterExpression(ImmutableSet.of("MySimpleRecord"),
                         qun,
-                        Type.Record.fromDescriptor(TestRecords1Proto.MySimpleRecord.getDescriptor()))));
+                        recordStore.getRecordMetaData().getPlannerType("MySimpleRecord"))));
 
         final var num2Value = FieldValue.ofFieldName(qun.getFlowedObjectValue(), "num_value_2");
         final var strValueIndexed = FieldValue.ofFieldName(qun.getFlowedObjectValue(), "str_value_indexed");
@@ -556,7 +556,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
         qun = Quantifier.forEach(Reference.initialOf(
                 new LogicalTypeFilterExpression(ImmutableSet.of("MySimpleRecord"),
                         qun,
-                        Type.Record.fromDescriptor(TestRecords1Proto.MySimpleRecord.getDescriptor()))));
+                        recordStore.getRecordMetaData().getPlannerType(allRecordTypes))));
 
         final var scanAlias = qun.getAlias();
         final LiteralValue<Integer> bucketSizeValue = new LiteralValue<>(Type.primitiveType(Type.TypeCode.INT), bucketSize);

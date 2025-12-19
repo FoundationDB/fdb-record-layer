@@ -104,7 +104,7 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
         } else {
             result = store.saveRecordAsync(message, FDBRecordStoreBase.RecordExistenceCheck.ERROR_IF_NOT_EXISTS_OR_RECORD_TYPE_CHANGED);
         }
-        return result.thenApply(fdbStoredRecord -> QueryResult.fromQueriedRecord(FDBQueriedRecord.stored(fdbStoredRecord)));
+        return result.thenApply(fdbStoredRecord -> QueryResult.fromQueriedRecord(getTargetType(), context, FDBQueriedRecord.stored(fdbStoredRecord)));
     }
 
     @Nonnull

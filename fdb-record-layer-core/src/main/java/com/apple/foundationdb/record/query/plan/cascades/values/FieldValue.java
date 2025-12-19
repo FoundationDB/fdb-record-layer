@@ -29,6 +29,8 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.TupleFieldsProto;
+import com.apple.foundationdb.record.metadata.expressions.TupleFieldsHelper;
 import com.apple.foundationdb.record.planprotos.PFieldPath;
 import com.apple.foundationdb.record.planprotos.PFieldPath.PResolvedAccessor;
 import com.apple.foundationdb.record.planprotos.PFieldValue;
@@ -50,6 +52,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
+import com.google.common.base.VerifyException;
 import com.google.common.collect.Comparators;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -188,8 +191,14 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
         } else if (type.getTypeCode() == Type.TypeCode.VERSION) {
             return FDBRecordVersion.fromBytes(((ByteString)fieldValue).toByteArray(), false);
         } else if (type.isUuid()) {
-            Verify.verify(fieldValue instanceof UUID);
-            return fieldValue;
+            if (fieldValue instanceof UUID) {
+                return fieldValue;
+            } else if (fieldValue instanceof Message) {
+                Message fieldMessage = (Message) fieldValue;
+                Verify.verify(fieldMessage.getDescriptorForType().equals(TupleFieldsProto.UUID.getDescriptor()));
+                return TupleFieldsHelper.fromProto(fieldMessage, TupleFieldsProto.UUID.getDescriptor());
+            }
+            throw new VerifyException("Unable to unwrap UUID type " + fieldValue.getClass());
         } else if (type.isVector()) {
             Verify.verify(fieldValue instanceof ByteString);
             final var byteString = (ByteString) fieldValue;

@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
@@ -51,18 +52,22 @@ public final class IndexExpansionInfo {
     private final Collection<RecordType> indexedRecordTypes;
     @Nonnull
     private final Set<String> indexedRecordTypeNames;
+    @Nonnull
+    private final Type.Record baseType;
 
     private IndexExpansionInfo(@Nonnull RecordMetaData metaData,
                                @Nonnull Index index,
                                boolean reverse,
                                @Nonnull Collection<RecordType> indexedRecordTypes,
                                @Nonnull Set<String> indexedRecordTypeNames,
+                               @Nonnull Type.Record baseType,
                                @Nullable KeyExpression commonPrimaryKeyForTypes) {
         this.metaData = metaData;
         this.index = index;
         this.reverse = reverse;
         this.indexedRecordTypes = indexedRecordTypes;
         this.indexedRecordTypeNames = indexedRecordTypeNames;
+        this.baseType = baseType;
         this.commonPrimaryKeyForTypes = commonPrimaryKeyForTypes;
     }
 
@@ -105,6 +110,11 @@ public final class IndexExpansionInfo {
         return metaData.getRecordTypes().keySet();
     }
 
+    @Nonnull
+    public Type.Record getBaseType() {
+        return baseType;
+    }
+
     /**
      * Create an {@link IndexExpansionInfo} for a given index.
      * This wraps the given parameters into a single object, as well
@@ -126,10 +136,12 @@ public final class IndexExpansionInfo {
         final Set<String> indexedRecordTypeNames = indexedRecordTypes.stream()
                 .map(RecordType::getName)
                 .collect(ImmutableSet.toImmutableSet());
+        @Nonnull
+        final Type.Record baseType = metaData.getPlannerType(indexedRecordTypeNames);
         @Nullable
         final KeyExpression commonPrimaryKeyForTypes = RecordMetaData.commonPrimaryKey(indexedRecordTypes);
 
-        return new IndexExpansionInfo(metaData, index, reverse, indexedRecordTypes, indexedRecordTypeNames, commonPrimaryKeyForTypes);
+        return new IndexExpansionInfo(metaData, index, reverse, indexedRecordTypes, indexedRecordTypeNames, baseType, commonPrimaryKeyForTypes);
     }
 
 }
