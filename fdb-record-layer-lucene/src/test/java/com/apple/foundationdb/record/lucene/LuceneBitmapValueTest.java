@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyStorage;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
@@ -49,6 +50,7 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.function;
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils.COMPLEX_DOC;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @Tag(Tags.RequiresFDB)
 public class LuceneBitmapValueTest extends FDBLuceneTestBase {
@@ -135,12 +137,12 @@ public class LuceneBitmapValueTest extends FDBLuceneTestBase {
             openRecordStore(context);
 
             plan = planner.plan(recordQuery);
-            //assertTrue(plan instanceof LuceneIndexQueryPlan, "just using Lucene");
+            assertTrue(plan instanceof LuceneIndexQueryPlan, "just using Lucene");
 
             final List<Long> results = getRecordPrimaryKeys(plan);
             assertEquals(List.of(101L), results);
         }
-        //assertEquals(0, timer.getCount(FDBStoreTimer.Counts.QUERY_DISCARDED), "no records filtered after Lucene");
+        assertEquals(0, timer.getCount(FDBStoreTimer.Counts.QUERY_DISCARDED), "no records filtered after Lucene");
 
         timer.reset();
         try (FDBRecordContext context = openContext()) {
