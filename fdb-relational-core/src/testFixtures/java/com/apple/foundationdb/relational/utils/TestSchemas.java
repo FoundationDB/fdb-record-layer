@@ -65,7 +65,7 @@ public final class TestSchemas {
                     "CREATE TABLE Card (id bigint, suit suit, rank bigint, PRIMARY KEY(id))" +
                     "CREATE TABLE Card_Nested (id bigint, info SuitAndRank, PRIMARY KEY(id))" +
                     "CREATE TABLE Card_Array (id bigint, collection SuitAndRank array, PRIMARY KEY(id))" +
-                    "CREATE INDEX suit_idx AS SELECT suit FROM Card ORDER BY suit";
+                    "CREATE INDEX suit_idx ON Card(suit)";
 
     @Nonnull
     public static String playingCard() {

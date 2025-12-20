@@ -24,6 +24,7 @@ import com.apple.foundationdb.relational.api.EmbeddedRelationalArray;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalStruct;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 
 import org.junit.jupiter.api.Assertions;
@@ -86,6 +87,7 @@ public class UniqueIndexTests {
             final var count = statement.executeInsert(tableName, toInsert);
             Assertions.assertEquals(count, toInsert.size());
         } catch (SQLException e) {
+            Assertions.assertEquals(e.getSQLState(), ErrorCode.UNIQUE_CONSTRAINT_VIOLATION.getErrorCode());
             Assertions.assertTrue(e.getMessage().contains("Duplicate entry for unique index"));
             foundError = true;
         } catch (Exception e) {
