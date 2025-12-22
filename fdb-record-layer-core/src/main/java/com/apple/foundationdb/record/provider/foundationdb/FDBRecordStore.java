@@ -5755,12 +5755,14 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
          * suffix or not. It is probably possible for {@code repairMissingHeader} to determine what to do based on the
          * rest of the data in the store, but to keep this simple, upgrading across those versions is not supported.
          * @param leavePotentiallyCorruptIndexesReadable if {@code true}, indexes will not be marked as disabled during
-         * repair, even though they could be corrupt.
+         * repair, even though they could be corrupt. If this is false, commits will be prevented with a
+         * {@link com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext.CommitCheck} named
+         * {@link #POTENTIALLY_CORRUPTED_INDEXES_COMMIT_CHECK}.
          *
          * @return a boolean indicating whether a repair needed to be done ({@code true}) or not ({@code false}) and
          * the opened store.
          */
-        @API(API.Status.INTERNAL)
+        @API(API.Status.EXPERIMENTAL)
         public CompletableFuture<NonnullPair<Boolean, FDBRecordStore>> repairMissingHeader(
                 final int userVersion, @Nonnull final FormatVersion minimumPossibleFormatVersion,
                 final boolean leavePotentiallyCorruptIndexesReadable) {
