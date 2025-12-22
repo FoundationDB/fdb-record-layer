@@ -30,6 +30,8 @@ import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.exceptions.ContextualSQLException;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.utils.ConnectionUtils;
+import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
@@ -49,6 +51,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -73,18 +76,12 @@ public class CopyCommandTest {
         final KeySpace keySpace = RelationalKeyspaceProvider.instance().getKeySpace();
         final KeySpacePath testPath = KeySpaceUtils.toKeySpacePath(URI.create(pathId + "/1"), keySpace);
 
-        // Export the data using COPY command
-        try (RelationalConnection conn = DriverManager.getConnection("jdbc:embed:/__SYS").unwrap(RelationalConnection.class)) {
-            conn.setSchema("CATALOG");
+        // Write some test data using the connection's FDB context
+        writeTestData(testPath, Map.of("key1", "value1", "key2", "value2"));
 
-            // Write some test data using the connection's FDB context
-            writeTestData(conn, testPath, Map.of("key1", "value1", "key2", "value2"));
-
-            // sanity check that the data was written and committed
-            verifyTestData(conn, testPath, Map.of("key1", "value1", "key2", "value2"));
-
-            assertEquals(2, exportData(pathId, quoted).size());
-        }
+        // sanity check that the data was written and committed
+        verifyTestData(testPath, Map.of("key1", "value1", "key2", "value2"));
+        assertEquals(2, exportData(pathId, quoted).size());
     }
 
     @ParameterizedTest
@@ -97,54 +94,15 @@ public class CopyCommandTest {
         final KeySpacePath sourceTestPath = KeySpaceUtils.toKeySpacePath(URI.create(sourcePath + "/1"), keySpace);
         final KeySpacePath destTestPath = KeySpaceUtils.toKeySpacePath(URI.create(destPath + "/1"), keySpace);
 
-        // Export from source (using quoted path)
-        List<byte[]> exportedData;
-        try (RelationalConnection conn = DriverManager.getConnection("jdbc:embed:/__SYS").unwrap(RelationalConnection.class)) {
-            conn.setSchema("CATALOG");
-
-            // Write test data to source
-            writeTestData(conn, sourceTestPath, Map.of("key1", "value1", "key2", "value2"));
-
-            exportedData = exportData(sourcePath, namedAndQuoted);
-
-            // Clear the source data to ensure import is working correctly
-            clearTestData(conn, sourceTestPath);
-        }
+        writeTestData(sourceTestPath, Map.of("key1", "value1", "key2", "value2"));
+        List<byte[]> exportedData = exportData(sourcePath, namedAndQuoted);
+        // Clear the source data to ensure import is working correctly
+        clearTestData(sourceTestPath);
 
         // Import to destination (using quoted path)
-        try (RelationalConnection conn = DriverManager.getConnection("jdbc:embed:/__SYS").unwrap(RelationalConnection.class)) {
-            conn.setSchema("CATALOG");
-            conn.setAutoCommit(autoCommit);
-            try (RelationalPreparedStatement stmt = conn.prepareStatement("COPY " + maybeQuote(destPath, namedAndQuoted) + " FROM " + (namedAndQuoted ? "?data" : "?"))) {
-                if (namedAndQuoted) {
-                    stmt.setObject("data", exportedData);
-                } else {
-                    stmt.setObject(1, exportedData);
-                }
+        importData(namedAndQuoted, autoCommit, destPath, exportedData);
 
-                // I can either:
-                // 1. Have CopyPlan be an update, in which case you have to use `executeUpdate`, and the result set
-                //    will be entirely consumed their, and the number of that results is what will be returned
-                // 2. Have CopyPlan not be an update and return a single result with the count, in which case it won't
-                //    auto-commit at all
-                // 3. Make broader changes to the "hack" in AbstractEmbeddedStatement.countUpdates
-                final RelationalResultSet relationalResultSet = stmt.executeQuery();
-                assertTrue(relationalResultSet.next());
-                assertEquals(2, relationalResultSet.getInt("COUNT"));
-                assertEquals(2, relationalResultSet.getInt(1));
-                assertFalse(relationalResultSet.next());
-            }
-            if (!autoCommit) {
-                conn.commit();
-            }
-        }
-
-        // Verify the data was imported
-        try (RelationalConnection conn = DriverManager.getConnection("jdbc:embed:/__SYS").unwrap(RelationalConnection.class)) {
-            conn.setSchema("CATALOG");
-
-            verifyTestData(conn, destTestPath, Map.of("key1", "value1", "key2", "value2"));
-        }
+        verifyTestData(destTestPath, Map.of("key1", "value1", "key2", "value2"));
     }
 
     @ParameterizedTest
@@ -156,8 +114,7 @@ public class CopyCommandTest {
         List<byte[]> exportedData = exportData(sourcePath, true);
 
         // Import to destination (using quoted path)
-        try (RelationalConnection conn = DriverManager.getConnection("jdbc:embed:/__SYS").unwrap(RelationalConnection.class)) {
-            conn.setSchema("CATALOG");
+        ConnectionUtils.runAgainstCatalog(conn -> {
             try (RelationalPreparedStatement stmt = conn.prepareStatement("COPY \"" + destPath + "\" FROM " + (namedParameter ? "?data" : "?"))) {
                 // set the wrong one
                 if (namedParameter) {
@@ -169,7 +126,7 @@ public class CopyCommandTest {
                 final ContextualSQLException exception = assertThrows(ContextualSQLException.class, stmt::executeUpdate);
                 assertEquals(ErrorCode.UNDEFINED_PARAMETER, ((RelationalException)exception.getCause()).getErrorCode());
             }
-        }
+        });
     }
 
     @Test
@@ -210,16 +167,13 @@ public class CopyCommandTest {
         final KeySpacePath testPath = KeySpaceUtils.toKeySpacePath(URI.create(pathId + "/1"), keySpace);
 
         // Export with max rows limit
-        try (RelationalConnection conn = DriverManager.getConnection("jdbc:embed:/__SYS").unwrap(RelationalConnection.class)) {
-            conn.setSchema("CATALOG");
-
-            // Write 10 records
-            Map<String, String> data = new LinkedHashMap<>();
-            for (int i = 0; i < 10; i++) {
-                data.put("key" + i, "value" + i);
-            }
-            writeTestData(conn, testPath, data);
-
+        // Write 10 records
+        Map<String, String> data = new LinkedHashMap<>();
+        for (int i = 0; i < 10; i++) {
+            data.put("key" + i, "value" + i);
+        }
+        writeTestData(testPath, data);
+        ConnectionUtils.runAgainstCatalog(conn -> {
             try (RelationalStatement stmt = conn.createStatement()) {
                 stmt.setMaxRows(5);
                 try (RelationalResultSet rs = stmt.executeQuery("COPY " + pathId)) {
@@ -230,7 +184,45 @@ public class CopyCommandTest {
                     assertEquals(5, count, "Should only return 5 rows due to setMaxRows");
                 }
             }
-        }
+        });
+    }
+
+    @Test
+    void useCopyToRestoreDatabase() throws Exception {
+        // Test restoring relational data using COPY
+        final String uuidName = uuidForPath(false);
+        final String databaseName = "/TEST/DB_" + uuidName;
+        final String schemaName = "1";
+        final String schemaPath = databaseName + "/" + schemaName;
+        String templateName = "TEMPLATE_" + uuidName;
+
+        // Export from source (using quoted path)
+        // create a schema
+        ConnectionUtils.runCatalogStatement(stmt -> {
+            stmt.executeUpdate("CREATE SCHEMA TEMPLATE " + templateName +
+                    " CREATE TABLE my_table (id bigint, col1 string, PRIMARY KEY(id))");
+            stmt.executeUpdate("CREATE DATABASE " + databaseName);
+            stmt.executeUpdate("CREATE SCHEMA " + databaseName + "/" + schemaName + " WITH TEMPLATE " + templateName);
+        });
+
+        ConnectionUtils.runStatementUpdate(databaseName, "1", "INSERT INTO my_table VALUES (1, 'a'), (2, 'b')");
+
+        List<byte[]> exportedData = exportData(schemaPath, false);
+
+        ConnectionUtils.runStatement(databaseName, schemaName, stmt -> {
+            stmt.executeUpdate("DELETE FROM my_table");
+            assertFalse(stmt.executeQuery("SELECT * FROM my_table").next(), "There should be no data in the table");
+        });
+
+        final int importCount = importData(false, true, schemaPath, exportedData);
+        assertThat(importCount).isGreaterThan(2); // we will import at least the rows saved, but also other internal data
+
+        ConnectionUtils.runStatement(databaseName, schemaName, stmt ->
+                ResultSetAssert.assertThat(stmt.executeQuery("SELECT * FROM my_table"))
+                        .containsRowsExactly(List.of(
+                                List.of(1, "a"),
+                                List.of(2, "b")
+                        )));
     }
 
     @Nonnull
@@ -250,33 +242,39 @@ public class CopyCommandTest {
         }
     }
 
-    private void writeTestData(@Nonnull RelationalConnection conn, @Nonnull KeySpacePath path, @Nonnull Map<String, String> data) throws Exception {
-        conn.setAutoCommit(false);
-        final FDBRecordContext context = getRecordContext(conn);
-        data.forEach((remainder, value) -> {
-            byte[] key = path.toSubspace(context).pack(Tuple.from(remainder));
-            context.ensureActive().set(key, Tuple.from(value).pack());
+    private void writeTestData(@Nonnull KeySpacePath path, @Nonnull Map<String, String> data) throws SQLException, RelationalException {
+        ConnectionUtils.runAgainstCatalog(conn -> {
+            conn.setAutoCommit(false);
+            final FDBRecordContext context = getRecordContext(conn);
+            data.forEach((remainder, value) -> {
+                byte[] key = path.toSubspace(context).pack(Tuple.from(remainder));
+                context.ensureActive().set(key, Tuple.from(value).pack());
+            });
+
+            conn.commit();
         });
-
-        conn.commit();
     }
 
-    private void clearTestData(@Nonnull RelationalConnection conn, @Nonnull KeySpacePath path) throws Exception {
-        conn.setAutoCommit(false);
-        final FDBRecordContext context = getRecordContext(conn);
-        context.ensureActive().clear(path.toSubspace(context).range());
-        conn.commit();
+    private void clearTestData(@Nonnull KeySpacePath path) throws SQLException, RelationalException {
+        ConnectionUtils.runAgainstCatalog(conn -> {
+            conn.setAutoCommit(false);
+            final FDBRecordContext context = getRecordContext(conn);
+            context.ensureActive().clear(path.toSubspace(context).range());
+            conn.commit();
+        });
     }
 
-    private void verifyTestData(@Nonnull RelationalConnection conn, @Nonnull KeySpacePath path, @Nonnull Map<String, String> expectedData) throws Exception {
-        conn.setAutoCommit(false);
-        final FDBRecordContext context = getRecordContext(conn);
-        expectedData.forEach((remainder, expectedValue) -> {
-            byte[] key = path.toSubspace(context).pack(Tuple.from(remainder));
-            byte[] actualBytes = context.ensureActive().get(key).join();
-            assertNotNull(actualBytes, "Key should exist: " + remainder);
-            Tuple actualValue = Tuple.fromBytes(actualBytes);
-            assertEquals(Tuple.from(expectedValue), actualValue);
+    private void verifyTestData(@Nonnull KeySpacePath path, @Nonnull Map<String, String> expectedData) throws SQLException, RelationalException {
+        ConnectionUtils.runAgainstCatalog(conn -> {
+            conn.setAutoCommit(false);
+            final FDBRecordContext context = getRecordContext(conn);
+            expectedData.forEach((remainder, expectedValue) -> {
+                byte[] key = path.toSubspace(context).pack(Tuple.from(remainder));
+                byte[] actualBytes = context.ensureActive().get(key).join();
+                assertNotNull(actualBytes, "Key should exist: " + remainder);
+                Tuple actualValue = Tuple.fromBytes(actualBytes);
+                assertEquals(Tuple.from(expectedValue), actualValue);
+            });
         });
     }
 
@@ -286,17 +284,47 @@ public class CopyCommandTest {
         return embeddedConn.getTransaction().unwrap(RecordContextTransaction.class).getContext();
     }
 
-    private List<byte[]> exportData(String path, boolean quoted) throws SQLException {
-        List<byte[]> exportedData = new ArrayList<>();
-        try (RelationalConnection conn = DriverManager.getConnection("jdbc:embed:/__SYS").unwrap(RelationalConnection.class)) {
-            conn.setSchema("CATALOG");
+    private List<byte[]> exportData(String path, boolean quoted) throws SQLException, RelationalException {
+        return ConnectionUtils.getFromCatalog(conn -> {
             try (RelationalStatement stmt = conn.createStatement();
                      RelationalResultSet rs = stmt.executeQuery("COPY " + maybeQuote(path, quoted))) {
+                List<byte[]> exportedData = new ArrayList<>();
                 while (rs.next()) {
                     exportedData.add(rs.getBytes(1));
                 }
+                return exportedData;
             }
-        }
-        return exportedData;
+        });
+    }
+
+    private int importData(final boolean namedAndQuoted, final boolean autoCommit, final String destPath,
+                           final List<byte[]> exportedData) throws SQLException, RelationalException {
+        return ConnectionUtils.getFromCatalog(conn -> {
+            conn.setAutoCommit(autoCommit);
+            int resultingCount;
+            try (RelationalPreparedStatement stmt = conn.prepareStatement("COPY " + maybeQuote(destPath, namedAndQuoted) + " FROM " + (namedAndQuoted ? "?data" : "?"))) {
+                if (namedAndQuoted) {
+                    stmt.setObject("data", exportedData);
+                } else {
+                    stmt.setObject(1, exportedData);
+                }
+
+                // I can either:
+                // 1. Have CopyPlan be an update, in which case you have to use `executeUpdate`, and the result set
+                //    will be entirely consumed their, and the number of that results is what will be returned
+                // 2. Have CopyPlan not be an update and return a single result with the count, in which case it won't
+                //    auto-commit at all
+                // 3. Make broader changes to the "hack" in AbstractEmbeddedStatement.countUpdates
+                final RelationalResultSet relationalResultSet = stmt.executeQuery();
+                assertTrue(relationalResultSet.next());
+                resultingCount = relationalResultSet.getInt("COUNT");
+                assertEquals(resultingCount, relationalResultSet.getInt(1));
+                assertFalse(relationalResultSet.next());
+            }
+            if (!autoCommit) {
+                conn.commit();
+            }
+            return resultingCount;
+        });
     }
 }
