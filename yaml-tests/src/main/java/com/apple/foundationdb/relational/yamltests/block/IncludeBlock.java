@@ -47,6 +47,7 @@ import java.util.stream.StreamSupport;
 /**
  * A block that is used to import other yamsql file.
  */
+@SuppressWarnings({"PMD.GuardLogStatement", "PMD.AvoidCatchingThrowable"})
 public class IncludeBlock extends SupportBlock {
 
     public static final String INCLUDE = "include";

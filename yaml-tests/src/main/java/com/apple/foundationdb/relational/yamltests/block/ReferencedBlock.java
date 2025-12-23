@@ -36,6 +36,7 @@ public abstract class ReferencedBlock implements Block {
         this.blockReference = blockReference;
     }
 
+    @Override
     @Nonnull
     public Reference getReference() {
         return blockReference;

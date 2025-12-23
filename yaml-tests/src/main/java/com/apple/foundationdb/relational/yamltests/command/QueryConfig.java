@@ -395,7 +395,7 @@ public abstract class QueryConfig {
             }
         }
 
-        validateConfigs(configs, commandReference, executionContext);
+        validateConfigs(configs, commandReference);
         return configs;
     }
 
@@ -460,7 +460,7 @@ public abstract class QueryConfig {
         }
     }
 
-    private static void validateConfigs(List<QueryConfig> configs, @Nonnull final Reference reference, YamlExecutionContext executionContext) {
+    private static void validateConfigs(List<QueryConfig> configs, @Nonnull final Reference reference) {
         Assert.thatUnchecked(configs.stream().skip(1)
                         .noneMatch(config -> QueryConfig.QUERY_CONFIG_SUPPORTED_VERSION.equals(config.getConfigName())),
                 "supported_version must be the first config in a query (after the query itself)");
