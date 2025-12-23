@@ -141,6 +141,11 @@ public final class KeySpaceUtils {
                 } else if (directory.isConstant() && !Objects.equals(dirVal, pathElem)) {
                     return null;
                 }
+                if (directory.getParent().getSubdirectories().stream()
+                        .anyMatch(sibling -> sibling instanceof DirectoryLayerDirectory &&
+                                (!directory.isConstant() || !sibling.isConstant() || pathElem.equals(sibling.getValue())))) {
+                    return null;
+                }
                 // now we need to make sure this isn't ambiguous with any potential longs
                 // check if the first character is a letter (most likely) before doing the more expensive work below
                 if (!Character.isLetter(pathElem.charAt(0))) {
@@ -166,6 +171,12 @@ public final class KeySpaceUtils {
                     }
                     pathValue = pathElem;
                     if (directory.isConstant() && !pathElem.equals(directory.getValue())) {
+                        return null;
+                    }
+                    // ensure that this cannot be ambiguous with any string siblings
+                    if (directory.getParent().getSubdirectories().stream()
+                            .anyMatch(sibling -> sibling.getKeyType() == KeySpaceDirectory.KeyType.STRING &&
+                                    (!directory.isConstant() || !sibling.isConstant() || pathElem.equals(sibling.getValue())))) {
                         return null;
                     }
                 } else {
