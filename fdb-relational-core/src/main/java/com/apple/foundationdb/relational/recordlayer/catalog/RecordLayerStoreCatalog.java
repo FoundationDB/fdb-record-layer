@@ -368,6 +368,12 @@ class RecordLayerStoreCatalog implements StoreCatalog {
         return true;
     }
 
+    @Nonnull
+    @Override
+    public KeySpace getKeySpace() throws RelationalException {
+        return RelationalKeyspaceProvider.instance().getKeySpace();
+    }
+
     // delete schemas for the matching dbUri.
     // returns true if the operation completes, false when the operation cannot complete because of txn timeout
     // throws exception otherwise.

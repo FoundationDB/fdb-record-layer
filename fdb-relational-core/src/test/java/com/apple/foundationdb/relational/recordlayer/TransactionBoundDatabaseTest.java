@@ -22,27 +22,39 @@ package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
+import com.apple.foundationdb.record.provider.foundationdb.keyspace.DirectoryLayerDirectory;
+import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
+import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory;
+import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalDriver;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalEngine;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalConnection;
+import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.transactionbound.TransactionBoundEmbeddedRelationalEngine;
+import com.apple.foundationdb.relational.utils.ConnectionUtils;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
+import com.apple.foundationdb.tuple.Tuple;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import javax.annotation.Nonnull;
+import java.net.URI;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+import java.util.stream.Collectors;
 
 public class TransactionBoundDatabaseTest {
     @RegisterExtension
@@ -245,6 +257,100 @@ public class TransactionBoundDatabaseTest {
                             .anyMatch(routine -> routine.getName().equals("REST_FUNC"));
                     transaction.unsetBoundSchemaTemplate();
                     Assertions.assertThat(transaction.getBoundSchemaTemplateMaybe()).isEmpty();
+                }
+            }
+        }
+    }
+
+    static final KeySpace keySpace = new KeySpace(
+            new DirectoryLayerDirectory("root", "transaction-bound-test")
+                    .addSubdirectory(new KeySpaceDirectory("test", KeySpaceDirectory.KeyType.STRING)
+                            .addSubdirectory(new KeySpaceDirectory("db", KeySpaceDirectory.KeyType.LONG)
+                                    .addSubdirectory(new KeySpaceDirectory("schema1", KeySpaceDirectory.KeyType.NULL, null))
+                                    .addSubdirectory(new KeySpaceDirectory("schema2", KeySpaceDirectory.KeyType.LONG, 1L)))));
+
+    @Test
+    void copyOtherPath() throws RelationalException, SQLException {
+        final EmbeddedRelationalConnection embeddedConnection = connRule.getUnderlyingEmbeddedConnection();
+        final KeySpacePath sourcePath = keySpace.path("root")
+                .add("test", UUID.randomUUID().toString())
+                .add("db", 17L);
+        final URI sourceUri = KeySpaceUtils.pathToUri(sourcePath);
+        final KeySpacePath destPath = keySpace.path("root")
+                .add("test", UUID.randomUUID().toString())
+                .add("db", 23L);
+        final URI destUri = KeySpaceUtils.pathToUri(destPath);
+
+        final Tuple value1 = Tuple.from("First");
+        final Tuple value2 = Tuple.from("Second");
+        try (FDBRecordContext context = createNewContext(embeddedConnection)) {
+            context.ensureActive().set(
+                    sourcePath.add("schema1").toSubspace(context).pack(Tuple.from(1)),
+                    value1.pack());
+            context.ensureActive().set(
+                    sourcePath.add("schema2").toSubspace(context).pack(Tuple.from(3)),
+                    value2.pack());
+            context.commit();
+        }
+
+        Assertions.assertThat(getDataInPath(embeddedConnection, sourcePath))
+                .isEqualTo(List.of(value1, value2));
+
+        // export the data
+        List<byte[]> data = new ArrayList<>();
+        withTransactionBoundConnection(embeddedConnection, conn -> {
+            try (RelationalStatement statement = conn.createStatement()) {
+                final RelationalResultSet resultSet = statement.executeQuery("COPY \"" + sourceUri + "\"");
+                while (resultSet.next()) {
+                    data.add(resultSet.getBytes(1));
+                }
+            }
+            // sanity check that the destination is already empty
+            try (RelationalStatement statement = conn.createStatement()) {
+                final RelationalResultSet resultSet = statement.executeQuery("COPY \"" + destUri + "\"");
+                Assertions.assertThat(resultSet.next()).isFalse();
+            }
+        });
+        Assertions.assertThat(data).hasSizeGreaterThanOrEqualTo(2);
+
+        withTransactionBoundConnection(embeddedConnection, conn -> {
+            try (RelationalPreparedStatement stmt = conn.prepareStatement("COPY \"" + destUri + "\" FROM ?")) {
+                stmt.setObject(1, data);
+                final RelationalResultSet relationalResultSet = stmt.executeQuery();
+                Assertions.assertThat(relationalResultSet.next()).isTrue();
+                Assertions.assertThat(relationalResultSet.getInt(1)).isEqualTo(data.size());
+                Assertions.assertThat(relationalResultSet.next()).isFalse();
+            }
+        });
+
+        Assertions.assertThat(getDataInPath(embeddedConnection, destPath))
+                .isEqualTo(List.of(value1, value2));
+    }
+
+    private static List<Tuple> getDataInPath(final EmbeddedRelationalConnection embeddedConnection,
+                                             final KeySpacePath sourcePath) throws RelationalException {
+        try (FDBRecordContext context = createNewContext(embeddedConnection)) {
+            return context.ensureActive().getRange(sourcePath.toSubspace(context).range()).asList().join()
+                    .stream().map(keyValue -> Tuple.fromBytes(keyValue.getValue())).collect(Collectors.toList());
+        }
+    }
+
+    private void withTransactionBoundConnection(final EmbeddedRelationalConnection embeddedConnection,
+                                                ConnectionUtils.SQLConsumer<RelationalConnection> action)
+            throws RelationalException, SQLException {
+        final FDBRecordStore store = getStore(embeddedConnection);
+        final SchemaTemplate schemaTemplate = getSchemaTemplate(embeddedConnection);
+        try (FDBRecordContext context = createNewContext(embeddedConnection)) {
+            final FDBRecordStore newStore = store.asBuilder().setContext(context).open();
+            try (Transaction transaction = new RecordStoreAndRecordContextTransaction(newStore, context, schemaTemplate)) {
+                EmbeddedRelationalEngine engine = new TransactionBoundEmbeddedRelationalEngine(Options.NONE, keySpace);
+                EmbeddedRelationalDriver driver = new EmbeddedRelationalDriver(engine);
+                try (RelationalConnection conn = driver.connect(dbRule.getConnectionUri(), transaction, Options.NONE)) {
+                    conn.setSchema("TEST_SCHEMA");
+                    action.accept(conn);
+                    // Closing the connection will close the underlying transaction. This seems at odds with the spirit
+                    // of RecordStoreAndRecordContextTransaction
+                    context.commit();
                 }
             }
         }
