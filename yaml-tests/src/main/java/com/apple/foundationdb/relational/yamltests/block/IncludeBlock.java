@@ -83,17 +83,21 @@ public class IncludeBlock extends SupportBlock {
             throws Exception {
         try {
             final var allBlocks = ImmutableList.<Block>builder();
-
+            final var finalizingBlocks = ImmutableList.<Block>builder();
             int blockNumber = 0;
             try (var inputStream = getInputStream(resource)) {
                 final var docs = StreamSupport.stream(YAML_ENGINE.loadAll(inputStream).spliterator(), false).collect(Collectors.toList());
                 for (var doc : docs) {
                     final var blocks = Block.parse(resource, doc, blockNumber, executionContext, resource.isTopLevel());
                     allBlocks.addAll(blocks);
+                    for (final var block: blocks) {
+                        finalizingBlocks.addAll(block.getFinalizingBlocks());
+                    }
                     blockNumber++;
                 }
             }
             executionContext.registerResource(resource);
+            allBlocks.addAll(finalizingBlocks.build());
             return allBlocks.build();
         } catch (RelationalException | IOException e) {
             logger.error("‼️ running test file '{}' was not successful", resource.getPath(), e);

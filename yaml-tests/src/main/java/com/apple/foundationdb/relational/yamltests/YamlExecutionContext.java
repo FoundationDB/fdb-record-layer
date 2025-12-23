@@ -25,7 +25,6 @@ import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.util.Assert;
-import com.apple.foundationdb.relational.yamltests.block.Block;
 import com.apple.foundationdb.relational.yamltests.block.IncludeBlock;
 import com.apple.foundationdb.relational.yamltests.generated.stats.PlannerMetricsProto;
 import com.google.common.base.Verify;
@@ -104,8 +103,6 @@ public final class YamlExecutionContext {
     private final Map<Reference.Resource, Boolean> isDirtyMetrics = new HashMap<>();
     @Nonnull
     private final YamlConnectionFactory connectionFactory;
-    @Nonnull
-    private final List<Block> finalizeBlocks = new ArrayList<>();
     @SuppressWarnings("AbbreviationAsWordInName")
     private final List<String> connectionURIs = new ArrayList<>();
     // Additional options that can be set by the runners to impact test execution
@@ -261,10 +258,6 @@ public final class YamlExecutionContext {
         }
     }
 
-    public void registerFinalizeBlock(@Nonnull Block block) {
-        this.finalizeBlocks.add(block);
-    }
-
     public void registerConnectionURI(@Nonnull String stringURI) {
         this.connectionURIs.add(stringURI);
     }
@@ -314,11 +307,6 @@ public final class YamlExecutionContext {
         return Matchers.notNull(
                 transactionSetups.get(Matchers.string(name, "setup reference")),
                 "transaction setup " + name + " is not defined");
-    }
-
-    @Nonnull
-    public List<Block> getFinalizeBlocks() {
-        return finalizeBlocks;
     }
 
     /**

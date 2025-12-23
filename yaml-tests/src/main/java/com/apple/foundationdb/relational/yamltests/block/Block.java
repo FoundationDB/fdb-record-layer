@@ -85,6 +85,12 @@ public interface Block {
         }
     }
 
+    /**
+     * Returns the {@link Reference} attached with the block. This is usually represented by the first line of the
+     * block in YAMSQL file and the name of that file. However, the more important bit that is there in it, is the call
+     * stack that has led to the execution of this block.
+     * @return the {@link Reference} of the current block.
+     */
     @Nonnull
     Reference getReference();
 
@@ -92,4 +98,15 @@ public interface Block {
      * Executes the executables from the parsed block in a single connection.
      */
     void execute();
+
+    /**
+     * Returns the list of {@link Block}s that needs to be called to clean up resources that the current block has
+     * created. The time at which these blocks should be called depends on the caller of this function that will
+     * decide the lifecycle of the resources.
+     * @return the list of {@link Block}
+     */
+    @Nonnull
+    default ImmutableList<Block> getFinalizingBlocks() {
+        return ImmutableList.of();
+    }
 }

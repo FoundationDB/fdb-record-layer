@@ -130,6 +130,9 @@ public class SetupBlock extends ConnectedBlock {
         static final String DOMAIN = "/FRL";
         public static final String SCHEMA_TEMPLATE_BLOCK = "schema_template";
 
+        @Nonnull
+        private final ImmutableList<Block> finalizingBlocks;
+
         public static ImmutableList<Block> parse(@Nonnull final Reference reference, @Nonnull Object document, @Nonnull YamlExecutionContext executionContext) {
             try {
                 final var identifier = "YAML_" + UUID.randomUUID().toString().toUpperCase(Locale.ROOT).replace("-", "").substring(0, 16);
@@ -147,17 +150,24 @@ public class SetupBlock extends ConnectedBlock {
                     final var resolvedCommand = QueryCommand.withQueryString(reference, step, executionContext);
                     executables.add(resolvedCommand::execute);
                 }
-                executionContext.registerFinalizeBlock(
-                        DestructTemplateBlock.withDatabaseAndSchema(reference, executionContext, schemaTemplateName, databasePath));
                 executionContext.registerConnectionURI("jdbc:embed:" + databasePath + "?schema=" + schemaName);
-                return ImmutableList.of(new SchemaTemplateBlock(reference, executables, executionContext));
+                return ImmutableList.of(new SchemaTemplateBlock(reference, schemaTemplateName, databasePath, executables, executionContext));
             } catch (Exception e) {
                 throw YamlExecutionContext.wrapContext(e, () -> "‼️ Error parsing the schema_template block at " + reference, SCHEMA_TEMPLATE_BLOCK, reference);
             }
         }
 
-        private SchemaTemplateBlock(@Nonnull final Reference reference, @Nonnull List<Consumer<YamlConnection>> executables, @Nonnull YamlExecutionContext executionContext) {
+        private SchemaTemplateBlock(@Nonnull final Reference reference, @Nonnull final String schemaTemplateName,
+                                    @Nonnull final String databaseName, @Nonnull List<Consumer<YamlConnection>> executables,
+                                    @Nonnull YamlExecutionContext executionContext) {
             super(reference, executables, executionContext.inferConnectionURI(0), executionContext);
+            this.finalizingBlocks = ImmutableList.of(DestructTemplateBlock.withDatabaseAndSchema(reference, executionContext, schemaTemplateName, databaseName));
+        }
+
+        @Override
+        @Nonnull
+        public ImmutableList<Block> getFinalizingBlocks() {
+            return this.finalizingBlocks;
         }
     }
 
