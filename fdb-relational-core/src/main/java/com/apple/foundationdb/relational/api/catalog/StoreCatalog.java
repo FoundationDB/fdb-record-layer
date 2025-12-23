@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.api.catalog;
 
+import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
@@ -141,4 +142,7 @@ public interface StoreCatalog {
      * @throws RelationalException if something goes wrong, with a specific ErrorCode saying what.
      */
     boolean deleteDatabase(@Nonnull Transaction txn, @Nonnull URI dbUrl, boolean throwIfDoesNotExist) throws RelationalException;
+
+    @Nonnull
+    KeySpace getKeySpace() throws RelationalException;
 }
