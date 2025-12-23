@@ -79,7 +79,7 @@ public class KeySpacePathSerializer {
         if (data.getRemainder() != null) {
             builder.setRemainder(ByteString.copyFrom(data.getRemainder().pack()));
         }
-        builder.setValue(ByteString.copyFrom(data.getValue()));
+        builder.setValue(data.getValue());
         return builder.build();
     }
 
