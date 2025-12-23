@@ -48,7 +48,7 @@ public class IncludeBlockTest {
 
     private static final SemanticVersion VERSION = SemanticVersion.parse("4.4.8.0");
     private static final YamlTestConfig config = new EmbeddedConfig(FDBTestEnvironment.randomClusterFile());
-    private static final boolean CORRECT_METRICS = false;
+    private static final boolean CORRECT_METRICS = true;
     private static final String CLUSTER_FILE = FDBTestEnvironment.randomClusterFile();
 
     @BeforeAll
@@ -85,9 +85,22 @@ public class IncludeBlockTest {
         };
     }
 
+    static Stream<String> includesShouldFail() {
+        return Stream.of(
+                "include-1",
+                "include-2"
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("includesShouldFail")
+    void includesShouldFail(String filename) {
+        assertThrows(YamlExecutionContext.YamlExecutionError.class, () ->
+                doRun("include-block/includes/" + filename + ".yamsql"));
+    }
+
     static Stream<String> shouldFail() {
         return Stream.of(
-
         );
     }
 
@@ -98,10 +111,11 @@ public class IncludeBlockTest {
                 doRun("include-block/shouldFail/" + filename + ".yamsql"));
     }
 
-
     static Stream<String> shouldPass() {
         return Stream.of(
-                "single-connection"
+                "single-connection",
+                "multiple-includes",
+                "multiple-same-includes"
         );
     }
 

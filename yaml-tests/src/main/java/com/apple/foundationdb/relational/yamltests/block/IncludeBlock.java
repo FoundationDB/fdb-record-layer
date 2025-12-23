@@ -1,5 +1,5 @@
 /*
- * PreambleBlock.java
+ * IncludeBlock.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -41,6 +41,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
 /**
  * A block that is used to import other yamsql file.
@@ -83,7 +85,8 @@ public class IncludeBlock extends SupportBlock {
 
             int blockNumber = 0;
             try (var inputStream = getInputStream(resource)) {
-                for (var doc : YAML_ENGINE.loadAll(inputStream)) {
+                final var docs = StreamSupport.stream(YAML_ENGINE.loadAll(inputStream).spliterator(), false).collect(Collectors.toList());
+                for (var doc : docs) {
                     final var blocks = Block.parse(resource, doc, blockNumber, executionContext, resource.isTopLevel());
                     allBlocks.addAll(blocks);
                     blockNumber++;

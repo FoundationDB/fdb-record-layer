@@ -17,11 +17,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This test should pass
+# This test should fail in itself due to the lack of proper setup.
 ---
-schema_template:
-    create table t1(id bigint, col1 bigint, primary key(id))
----
-include:
-    include-block/includes/include-1.yamsql
+test_block:
+  name: transactions-tests
+  tests:
+    -
+      - query: select * from t1 where id < 50
+      - result: [
+        {id: 10, col1: 20},
+        {id: 30, col1: 40}]
 ...

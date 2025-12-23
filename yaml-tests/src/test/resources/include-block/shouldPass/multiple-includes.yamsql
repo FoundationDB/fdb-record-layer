@@ -1,5 +1,5 @@
 #
-# single-connection.yamsql
+# multiple-includes.yamsql
 #
 # This source file is part of the FoundationDB open source project
 #
@@ -24,4 +24,7 @@ schema_template:
 ---
 include:
     include-block/includes/include-1.yamsql
+---
+include:
+    include-block/includes/include-2.yamsql
 ...
