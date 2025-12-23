@@ -20,6 +20,9 @@
 
 package com.apple.foundationdb.relational.yamltests;
 
+import com.apple.foundationdb.record.util.pair.NonnullPair;
+import com.google.common.collect.ImmutableList;
+
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Objects;
@@ -48,14 +51,42 @@ public class Reference {
         return lineNumber;
     }
 
+    /**
+     * Returns the call stack of this {@link Reference}.
+     * @return a list of locations in the call stack of this {@link Reference}. However, the list is inverted, that is,
+     * the first caller is the last element in this list. Each element of the list is a pair of a YAMSQL file and the
+     * line number
+     */
+    public ImmutableList<NonnullPair<String, Integer>> getCallStack() {
+        final var builder = ImmutableList.<NonnullPair<String, Integer>>builder();
+        var current = this;
+        while (current != null) {
+            builder.add(NonnullPair.of(getFileName(current.getResource().getPath()), current.getLineNumber()));
+            current = current.getResource().parentRef;
+        }
+        return builder.build();
+    }
+
     public Resource newResource(@Nonnull String path) {
         return Resource.with(this, path);
     }
 
+    private static String getFileName(@Nonnull String path) {
+        String fileName;
+        if (path.contains("/")) {
+            final String[] split = path.split("/");
+            fileName = split[split.length - 1];
+        } else {
+            fileName = path;
+        }
+        return fileName;
+    }
+
+
     @Override
     @Nonnull
     public String toString() {
-        return (getResource().parentRef == null ? "" : getResource().parentRef + " > ") + getResource().getPath() + ":" + getLineNumber();
+        return (getResource().parentRef == null ? "" : getResource().parentRef + " > ") + getFileName(getResource().getPath()) + ":" + getLineNumber();
     }
 
     @Override
@@ -77,7 +108,8 @@ public class Reference {
 
     /**
      * A resource represents path to a YAMSQL file. However, this class also serves the purpose of maintaining the
-     * parent {@link Reference}s that provides information about how the following file is included in the execution.
+     * parent {@link Reference}s that (recursively) provides information about the calling stack that has lead to
+     * this file being executed.
      */
     public static class Resource {
 

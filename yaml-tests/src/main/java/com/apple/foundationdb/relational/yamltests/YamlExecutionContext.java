@@ -26,6 +26,7 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.yamltests.block.Block;
+import com.apple.foundationdb.relational.yamltests.block.IncludeBlock;
 import com.apple.foundationdb.relational.yamltests.generated.stats.PlannerMetricsProto;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableMap;
@@ -343,30 +344,35 @@ public final class YamlExecutionContext {
     @Nonnull
     public static RuntimeException wrapContext(@Nonnull Throwable throwable, @Nonnull Supplier<String> msg,
                                                @Nonnull String identifier, @Nonnull final Reference reference) {
-        String fileName;
-        final var path = reference.getResource().getPath();
-        if (path.contains("/")) {
-            final String[] split = path.split("/");
-            fileName = split[split.length - 1];
-        } else {
-            fileName = path;
-        }
-
         if (throwable instanceof TestAbortedException) {
             return (TestAbortedException)throwable;
         } else if (throwable instanceof YamlExecutionError) {
             final var oldStackTrace = throwable.getStackTrace();
-            final var newStackTrace = new StackTraceElement[oldStackTrace.length + 1];
-            System.arraycopy(oldStackTrace, 0, newStackTrace, 0, oldStackTrace.length);
-            newStackTrace[oldStackTrace.length] = new StackTraceElement("YAML_FILE", identifier, fileName, reference.getLineNumber());
+            final var newContext = composeStackTrace(reference, identifier);
+            final var newStackTrace = new StackTraceElement[newContext.length + 1];
+            newStackTrace[0] = oldStackTrace[0];
+            System.arraycopy(newContext, 0, newStackTrace, 1, newContext.length);
             throwable.setStackTrace(newStackTrace);
             return (YamlExecutionError)throwable;
         } else {
             // wrap
             final var wrapper = new YamlExecutionError(msg.get(), throwable);
-            wrapper.setStackTrace(new StackTraceElement[]{new StackTraceElement("YAML_FILE", identifier, fileName, reference.getLineNumber())});
+            wrapper.setStackTrace(composeStackTrace(reference, identifier));
             return wrapper;
         }
+    }
+
+    private static StackTraceElement[] composeStackTrace(@Nonnull Reference reference, @Nonnull String identifier) {
+        final var refList = reference.getCallStack();
+        final var newStackTrace = new StackTraceElement[refList.size()];
+        for (int i = 0; i < refList.size(); i++) {
+            if (i == 0) {
+                newStackTrace[i] = new StackTraceElement("YAML_FILE", identifier, refList.get(i).getLeft(), refList.get(i).getRight());
+            } else {
+                newStackTrace[i] = new StackTraceElement("YAML_FILE", IncludeBlock.INCLUDE, refList.get(i).getLeft(), refList.get(i).getRight());
+            }
+        }
+        return newStackTrace;
     }
 
     /**
