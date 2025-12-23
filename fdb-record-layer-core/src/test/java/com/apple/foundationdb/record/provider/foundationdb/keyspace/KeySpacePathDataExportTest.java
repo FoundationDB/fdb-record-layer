@@ -41,6 +41,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -404,7 +405,7 @@ class KeySpacePathDataExportTest {
             
             for (int i = 0; i < binaryKeys.length; i++) {
                 Tuple key = basePath.add("blob", binaryKeys[i]).toTuple(context);
-                byte[] value = ("binary_data_" + i).getBytes();
+                byte[] value = ("binary_data_" + i).getBytes(StandardCharsets.UTF_8);
                 tr.set(key.pack(), value);
             }
             context.commit();
@@ -419,7 +420,7 @@ class KeySpacePathDataExportTest {
 
             // Verify binary data integrity
             for (DataInKeySpacePath data : allData) {
-                String valueStr = new String(data.getValue().toByteArray());
+                String valueStr = new String(data.getValue().toByteArray(), StandardCharsets.UTF_8);
                 assertTrue(valueStr.startsWith("binary_data_"));
             }
         }
