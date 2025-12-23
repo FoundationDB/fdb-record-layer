@@ -142,8 +142,7 @@ public final class YamlExecutionContext {
         if (registeredResources.contains(resource)) {
             throw new RuntimeException();
         }
-        final var yamlResource = additionalOptions.getOrDefault(OPTION_CORRECT_EXPLAIN, false)
-                                 ? loadYamlResource(resource) : null;
+        final var yamlResource = shouldCorrectExplains() ? loadYamlResource(resource) : null;
         if (yamlResource != null) {
             this.editedFileStream.put(resource, yamlResource);
         }
@@ -164,9 +163,7 @@ public final class YamlExecutionContext {
     }
 
     public boolean shouldCorrectExplains() {
-        final var shouldCorrectExplains = additionalOptions.getOrDefault(OPTION_CORRECT_EXPLAIN, false);
-        Verify.verify(!shouldCorrectExplains || editedFileStream != null);
-        return shouldCorrectExplains;
+        return additionalOptions.getOrDefault(OPTION_CORRECT_EXPLAIN, false);
     }
 
     public boolean shouldCorrectMetrics() {
