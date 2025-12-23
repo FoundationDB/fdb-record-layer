@@ -21,7 +21,6 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.DirectoryLayerDirectory;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory;
@@ -30,7 +29,6 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.NoSuchDirect
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.OperationUnsupportedException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-
 import com.google.common.annotations.VisibleForTesting;
 
 import javax.annotation.Nonnull;
@@ -125,37 +123,69 @@ public final class KeySpaceUtils {
                 if (!pathElem.isEmpty()) {
                     return null;
                 }
+                if (directory.getParent().getSubdirectories().stream()
+                        .anyMatch(sibling ->
+                                (sibling.getKeyType() == KeySpaceDirectory.KeyType.STRING || sibling instanceof DirectoryLayerDirectory) &&
+                                (!sibling.isConstant() || "".equals(sibling.getValue())))) {
+                    // ambigous path
+                    return null;
+                }
                 break;
             case STRING:
                 pathValue = pathElem;
-                // empty string in URI represents NULL value, and empty value is invalid for directory with String KeyType
+                // empty string in URI represents NULL value, this is ambiguous, but we always forbid it even if there
+                // aren't NULL siblings
+                // Note: KeySpaceDirectory would allow "" here
                 if (pathElem.isEmpty()) {
                     return null;
-                } else if (Objects.equals(dirVal, KeySpaceDirectory.ANY_VALUE)) {
-                    break;
-                } else if (!Objects.equals(dirVal, pathElem)) {
+                } else if (directory.isConstant() && !Objects.equals(dirVal, pathElem)) {
                     return null;
+                }
+                // now we need to make sure this isn't ambiguous with any potential longs
+                // check if the first character is a letter (most likely) before doing the more expensive work below
+                if (!Character.isLetter(pathElem.charAt(0))) {
+                    if (directory.getParent().getSubdirectories().stream()
+                            .anyMatch(sibling -> sibling.getKeyType() == KeySpaceDirectory.KeyType.LONG &&
+                                    !(sibling instanceof DirectoryLayerDirectory))) {
+                        try {
+                            Long.parseLong(pathElem);
+                            return null;
+                        } catch (NumberFormatException e) {
+                            // ok, this is definitely not a long
+                        }
+                    }
                 }
                 break;
             case LONG:
                 if (directory instanceof DirectoryLayerDirectory) {
+                    // empty string in URI represents NULL value, this is ambiguous, but we always forbid it even if there
+                    // aren't NULL siblings
+                    // Note: KeySpaceDirectory would allow "" here
+                    if (pathElem.isEmpty()) {
+                        return null;
+                    }
                     pathValue = pathElem;
+                    if (directory.isConstant() && !pathElem.equals(directory.getValue())) {
+                        return null;
+                    }
                 } else {
                     try {
                         long l = Long.parseLong(pathElem);
                         pathValue = l;
-                        if (Objects.equals(dirVal, KeySpaceDirectory.ANY_VALUE)) {
-                            break;
-                        } else if (!Objects.equals(dirVal, l)) {
+                        if (directory.isConstant()) {
+                            if (!(dirVal instanceof Number) || ((Number)dirVal).longValue() != l) {
+                                return null;
+                            }
+                        }
+                        if (directory.getParent().getSubdirectories().stream()
+                                .anyMatch(sibling -> sibling.getKeyType() == KeySpaceDirectory.KeyType.STRING &&
+                                        !sibling.isConstant() || pathElem.equals(sibling.getValue()))) {
                             return null;
                         }
                     } catch (NumberFormatException nfe) {
                         //the field isn't a long, so can't match this directory
                         return null;
                     }
-                }
-                if (!Objects.equals(dirVal, KeySpaceDirectory.ANY_VALUE) && !Objects.equals(dirVal, pathValue)) {
-                    return null;
                 }
                 break;
             default:
