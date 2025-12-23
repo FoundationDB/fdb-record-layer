@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.transactionbound.catalog;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.Transaction;
@@ -32,6 +33,7 @@ import com.apple.foundationdb.relational.api.metadata.Schema;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.net.URI;
 
 @API(API.Status.EXPERIMENTAL)
@@ -39,9 +41,12 @@ public class HollowStoreCatalog implements StoreCatalog {
 
     @Nonnull
     public final SchemaTemplate schemaTemplate;
+    @Nullable
+    private final KeySpace keySpace;
 
-    public HollowStoreCatalog(@Nonnull final SchemaTemplate schemaTemplate) {
+    public HollowStoreCatalog(@Nonnull final SchemaTemplate schemaTemplate, @Nullable final KeySpace keySpace) {
         this.schemaTemplate = schemaTemplate;
+        this.keySpace = keySpace;
     }
 
     @Override
@@ -105,5 +110,15 @@ public class HollowStoreCatalog implements StoreCatalog {
     @Override
     public boolean deleteDatabase(@Nonnull Transaction txn, @Nonnull URI dbUrl, boolean throwIfDoesNotExist) throws RelationalException {
         throw new OperationUnsupportedException("This store catalog is hollow and does not support calls.");
+    }
+
+    @Nonnull
+    @Override
+    public KeySpace getKeySpace() throws RelationalException {
+        if (keySpace == null) {
+            throw new OperationUnsupportedException("This store catalog is hollow and does not support calls.");
+        } else {
+            return keySpace;
+        }
     }
 }

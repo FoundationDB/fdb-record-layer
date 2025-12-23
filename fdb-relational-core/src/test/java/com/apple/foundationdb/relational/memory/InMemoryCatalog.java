@@ -22,12 +22,14 @@ package com.apple.foundationdb.relational.memory;
 
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.RecordType;
+import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.relational.api.Continuation;
-import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
+import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplateCatalog;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.api.exceptions.OperationUnsupportedException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.Schema;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
@@ -135,6 +137,13 @@ public class InMemoryCatalog implements StoreCatalog {
             throw new RelationalException("Cannot delete unknown database " + dbUrl, ErrorCode.UNKNOWN_DATABASE);
         }
         return true;
+    }
+
+    @Nonnull
+    @Override
+    public KeySpace getKeySpace() throws RelationalException {
+        // TODO probably the tests can support this
+        throw new OperationUnsupportedException("This store is in memory and does not have a keySpace.");
     }
 
     public InMemoryTable loadTable(URI database, String schemaName, String tableName) throws RelationalException {
