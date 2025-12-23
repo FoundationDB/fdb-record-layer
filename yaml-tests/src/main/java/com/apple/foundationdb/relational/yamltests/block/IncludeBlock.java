@@ -68,7 +68,7 @@ public class IncludeBlock extends SupportBlock {
     public static ImmutableList<Block> parse(@Nonnull final Reference reference, @Nonnull final Object document,
                                       @Nonnull final YamlExecutionContext executionContext) {
         try {
-            final var resourceName = Matchers.string(document, "schema template description");
+            final var resourceName = Matchers.string(document, "resource name");
             return parse(reference.newResource(Objects.requireNonNull(resourceName)), executionContext);
         } catch (Throwable e) {
             throw YamlExecutionContext.wrapContext(e, () -> "Error parsing block at line " + reference, INCLUDE, reference);

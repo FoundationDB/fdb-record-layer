@@ -73,9 +73,9 @@ public interface Block {
                 case SetupBlock.SchemaTemplateBlock.SCHEMA_TEMPLATE_BLOCK:
                     return SetupBlock.SchemaTemplateBlock.parse(reference, entry.getValue(), executionContext);
                 case PreambleBlock.OPTIONS:
+                    Assert.that(isTopLevel && blockNumber == 0, "File-wide options must be the first block, but found one at " + reference);
                     return PreambleBlock.parse(entry.getValue(), executionContext);
                 case IncludeBlock.INCLUDE:
-                    Assert.that(isTopLevel && blockNumber == 0, "File-wide options must be the first block, but found one at " + reference);
                     return IncludeBlock.parse(reference, entry.getValue(), executionContext);
                 default:
                     throw new RuntimeException("Cannot recognize the type of block");
