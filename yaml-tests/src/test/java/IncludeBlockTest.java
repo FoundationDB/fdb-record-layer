@@ -88,7 +88,9 @@ public class IncludeBlockTest {
     static Stream<String> includesShouldFail() {
         return Stream.of(
                 "include-1",
-                "include-2"
+                "include-2",
+                "include-3",
+                "include-4"
         );
     }
 
@@ -101,6 +103,7 @@ public class IncludeBlockTest {
 
     static Stream<String> shouldFail() {
         return Stream.of(
+                "options-in-included"
         );
     }
 
@@ -115,7 +118,8 @@ public class IncludeBlockTest {
         return Stream.of(
                 "single-connection",
                 "multiple-includes",
-                "multiple-same-includes"
+                "multiple-same-includes",
+                "nested-includes"
         );
     }
 
