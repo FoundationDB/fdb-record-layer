@@ -461,7 +461,24 @@ public class DotExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
                                                      : (attribute.getReference() instanceof Collection)
                                                        ? escapeCollection((Collection<Attribute>)attribute.getReference())
                                                        : escaper.escape(attribute.getReference().toString())))
-                        .map(detail -> "<tr><td align=\"left\">" + detail + "</td></tr>")
+                        .map(detail -> {
+                            final String[] detailLines = detail.split("\n");
+                            final String nestedDetail;
+                            if (detailLines.length > 1) {
+                                final StringBuilder stringBuilder = new StringBuilder();
+                                stringBuilder.append("<table border=\"0\" cellborder=\"0\" cellspacing=\"0\" cellpadding=\"0\">");
+                                for (final String detailLine : detailLines) {
+                                    stringBuilder.append("<tr><td align=\"left\">");
+                                    stringBuilder.append(detailLine);
+                                    stringBuilder.append("</td></tr>");
+                                }
+                                stringBuilder.append("</table>");
+                                nestedDetail = stringBuilder.toString();
+                            } else {
+                                nestedDetail = detail;
+                            }
+                            return "<tr><td align=\"left\">" + nestedDetail + "</td></tr>";
+                        })
                         .collect(Collectors.joining());
 
         return "<<table border=\"0\" cellborder=\"1\" cellspacing=\"0\" cellpadding=\"8\"><tr><td align=\"left\">" +

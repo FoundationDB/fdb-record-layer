@@ -77,7 +77,6 @@ import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.IdentityHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -617,17 +616,36 @@ public class SelectExpression extends AbstractRelationalExpressionWithChildren i
     @Nonnull
     @Override
     public PlannerGraph rewriteInternalPlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
-        final var predicateString = "WHERE " + getPredicates().stream()
-                .map(Object::toString)
-                .collect(Collectors.joining(" AND "));
+        final var predicatesAsStrings =
+                getPredicates().stream()
+                        .map(Object::toString)
+                        .collect(ImmutableList.toImmutableList());
+        final int predicatesLength = predicatesAsStrings.stream().mapToInt(String::length).sum();
 
-        final var abbreviatedPredicateString = predicateString.length() > 30 ? String.format(Locale.ROOT, "%02x", predicateString.hashCode()) : predicateString;
+        final String predicateString;
+        if (predicatesLength > 50) {
+            final StringBuilder predicateStringBuilder = new StringBuilder("WHERE ");
+            for (int i = 0; i < predicatesAsStrings.size(); i++) {
+                predicateStringBuilder.append(predicatesAsStrings.get(i));
+
+                if (i + 1 < predicatesAsStrings.size()) {
+                    predicateStringBuilder.append(" AND\n       ");
+                }
+            }
+            predicateString = predicateStringBuilder.toString();
+        } else {
+            predicateString = "WHERE " +
+                    getPredicates().stream()
+                            .map(Object::toString)
+                            .collect(Collectors.joining(" AND "));
+        }
+
         return PlannerGraph.fromNodeAndChildGraphs(
                 new PlannerGraph.LogicalOperatorNode(this,
                         "SELECT " + resultValue,
                         getPredicates().isEmpty()
                         ? ImmutableList.of()
-                        : ImmutableList.of(abbreviatedPredicateString),
+                        : ImmutableList.of(predicateString),
                         ImmutableMap.of()),
                 childGraphs);
     }
