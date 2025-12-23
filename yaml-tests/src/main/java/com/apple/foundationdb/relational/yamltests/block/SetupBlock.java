@@ -24,10 +24,12 @@ import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.yamltests.CustomYamlConstructor;
 import com.apple.foundationdb.relational.yamltests.Matchers;
+import com.apple.foundationdb.relational.yamltests.Reference;
 import com.apple.foundationdb.relational.yamltests.YamlConnection;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import com.apple.foundationdb.relational.yamltests.command.Command;
 import com.apple.foundationdb.relational.yamltests.command.QueryCommand;
+import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
 import java.net.URI;
@@ -55,9 +57,9 @@ public class SetupBlock extends ConnectedBlock {
 
     public static final String SETUP_BLOCK = "setup";
 
-    protected SetupBlock(int lineNumber, @Nonnull List<Consumer<YamlConnection>> executables, @Nonnull URI connectionURI,
+    protected SetupBlock(@Nonnull Reference reference, @Nonnull List<Consumer<YamlConnection>> executables, @Nonnull URI connectionURI,
                          @Nonnull YamlExecutionContext executionContext) {
-        super(lineNumber, executables, connectionURI, executionContext);
+        super(reference, executables, connectionURI, executionContext);
     }
 
     @Override
@@ -65,9 +67,9 @@ public class SetupBlock extends ConnectedBlock {
         try {
             executeExecutables(executables);
         } catch (Throwable e) {
-            throw executionContext.wrapContext(e,
-                    () -> "‼️ Failed to execute all the setup steps in Setup block at " + getLineNumber(),
-                    SETUP_BLOCK, getLineNumber());
+            throw YamlExecutionContext.wrapContext(e,
+                    () -> "‼️ Failed to execute all the setup steps in Setup block at " + getReference(),
+                    SETUP_BLOCK, getReference());
         }
     }
 
@@ -77,7 +79,7 @@ public class SetupBlock extends ConnectedBlock {
         public static final String OPTIONS = "options";
         public static final String CONNECTION_OPTIONS = "connection_options";
 
-        public static SetupBlock parse(int lineNumber, @Nonnull Object document, @Nonnull YamlExecutionContext executionContext) {
+        public static ImmutableList<Block> parse(@Nonnull Reference reference, @Nonnull Object document, @Nonnull YamlExecutionContext executionContext) {
             try {
                 Options connectionOptions = Options.none();
                 final var setupMap = CustomYamlConstructor.LinedObject.unlineKeys(Matchers.map(document, "setup"));
@@ -95,19 +97,19 @@ public class SetupBlock extends ConnectedBlock {
                 final var executables = new ArrayList<Consumer<YamlConnection>>();
                 for (final var step : Matchers.arrayList(stepsObject, "setup steps")) {
                     Assert.thatUnchecked(Matchers.map(step, "setup step").size() == 1, "Illegal Format: A setup step should be a single command");
-                    final var resolvedCommand = Objects.requireNonNull(Command.parse(List.of(step), "unnamed-setup-block", executionContext));
+                    final var resolvedCommand = Objects.requireNonNull(Command.parse(reference.getResource(), List.of(step), "unnamed-setup-block", executionContext));
                     executables.add(createSetupExecutable(resolvedCommand, connectionOptions));
                 }
-                return new ManualSetupBlock(lineNumber, executables, executionContext.inferConnectionURI(setupMap.getOrDefault(BLOCK_CONNECT, null)),
-                        executionContext);
+                return ImmutableList.of(new ManualSetupBlock(reference, executables, executionContext.inferConnectionURI(setupMap.getOrDefault(BLOCK_CONNECT, null)),
+                        executionContext));
             } catch (Throwable e) {
-                throw executionContext.wrapContext(e, () -> "‼️ Error parsing the setup block at " + lineNumber, SETUP_BLOCK, lineNumber);
+                throw YamlExecutionContext.wrapContext(e, () -> "‼️ Error parsing the setup block at " + reference, SETUP_BLOCK, reference);
             }
         }
 
-        private ManualSetupBlock(int lineNumber, @Nonnull List<Consumer<YamlConnection>> executables, @Nonnull URI connectionURI,
+        private ManualSetupBlock(@Nonnull Reference reference, @Nonnull List<Consumer<YamlConnection>> executables, @Nonnull URI connectionURI,
                                  @Nonnull YamlExecutionContext executionContext) {
-            super(lineNumber, executables, connectionURI, executionContext);
+            super(reference, executables, connectionURI, executionContext);
         }
 
         @Nonnull
@@ -128,7 +130,7 @@ public class SetupBlock extends ConnectedBlock {
         static final String DOMAIN = "/FRL";
         public static final String SCHEMA_TEMPLATE_BLOCK = "schema_template";
 
-        public static SetupBlock parse(int lineNumber, @Nonnull Object document, @Nonnull YamlExecutionContext executionContext) {
+        public static ImmutableList<Block> parse(@Nonnull final Reference reference, @Nonnull Object document, @Nonnull YamlExecutionContext executionContext) {
             try {
                 final var identifier = "YAML_" + UUID.randomUUID().toString().toUpperCase(Locale.ROOT).replace("-", "").substring(0, 16);
                 final var schemaTemplateName = identifier + "_TEMPLATE";
@@ -142,26 +144,26 @@ public class SetupBlock extends ConnectedBlock {
                 steps.add("CREATE SCHEMA " + databasePath + "/" + schemaName + " WITH TEMPLATE " + schemaTemplateName);
                 final var executables = new ArrayList<Consumer<YamlConnection>>();
                 for (final var step : steps) {
-                    final var resolvedCommand = QueryCommand.withQueryString(lineNumber, step, executionContext);
+                    final var resolvedCommand = QueryCommand.withQueryString(reference, step, executionContext);
                     executables.add(resolvedCommand::execute);
                 }
                 executionContext.registerFinalizeBlock(
-                        DestructTemplateBlock.withDatabaseAndSchema(lineNumber, executionContext, schemaTemplateName, databasePath));
+                        DestructTemplateBlock.withDatabaseAndSchema(reference, executionContext, schemaTemplateName, databasePath));
                 executionContext.registerConnectionURI("jdbc:embed:" + databasePath + "?schema=" + schemaName);
-                return new SchemaTemplateBlock(lineNumber, executables, executionContext);
+                return ImmutableList.of(new SchemaTemplateBlock(reference, executables, executionContext));
             } catch (Exception e) {
-                throw executionContext.wrapContext(e, () -> "‼️ Error parsing the schema_template block at " + lineNumber, SCHEMA_TEMPLATE_BLOCK, lineNumber);
+                throw YamlExecutionContext.wrapContext(e, () -> "‼️ Error parsing the schema_template block at " + reference, SCHEMA_TEMPLATE_BLOCK, reference);
             }
         }
 
-        private SchemaTemplateBlock(int lineNumber, @Nonnull List<Consumer<YamlConnection>> executables, @Nonnull YamlExecutionContext executionContext) {
-            super(lineNumber, executables, executionContext.inferConnectionURI(0), executionContext);
+        private SchemaTemplateBlock(@Nonnull final Reference reference, @Nonnull List<Consumer<YamlConnection>> executables, @Nonnull YamlExecutionContext executionContext) {
+            super(reference, executables, executionContext.inferConnectionURI(0), executionContext);
         }
     }
 
     private static final class DestructTemplateBlock extends SetupBlock {
 
-        public static DestructTemplateBlock withDatabaseAndSchema(int lineNumber, @Nonnull YamlExecutionContext executionContext,
+        public static DestructTemplateBlock withDatabaseAndSchema(@Nonnull final Reference reference, @Nonnull YamlExecutionContext executionContext,
                                                                   @Nonnull String schemaTemplateName, @Nonnull String databasePath) {
             try {
                 final var steps = new ArrayList<String>();
@@ -169,17 +171,17 @@ public class SetupBlock extends ConnectedBlock {
                 steps.add("DROP SCHEMA TEMPLATE " + schemaTemplateName);
                 final var executables = new ArrayList<Consumer<YamlConnection>>();
                 for (final var step : steps) {
-                    final var resolvedCommand = QueryCommand.withQueryString(lineNumber, step, executionContext);
+                    final var resolvedCommand = QueryCommand.withQueryString(reference, step, executionContext);
                     executables.add(resolvedCommand::execute);
                 }
-                return new DestructTemplateBlock(lineNumber, executables, executionContext);
+                return new DestructTemplateBlock(reference, executables, executionContext);
             } catch (Exception e) {
-                throw executionContext.wrapContext(e, () -> "‼️ Error creating the destruct_template block for schema_template block at " + lineNumber, SchemaTemplateBlock.SCHEMA_TEMPLATE_BLOCK, lineNumber);
+                throw YamlExecutionContext.wrapContext(e, () -> "‼️ Error creating the destruct_template block for schema_template block at " + reference, SchemaTemplateBlock.SCHEMA_TEMPLATE_BLOCK, reference);
             }
         }
 
-        private DestructTemplateBlock(int lineNumber, @Nonnull List<Consumer<YamlConnection>> executables, @Nonnull YamlExecutionContext executionContext) {
-            super(lineNumber, executables, executionContext.inferConnectionURI(0), executionContext);
+        private DestructTemplateBlock(@Nonnull final Reference reference, @Nonnull List<Consumer<YamlConnection>> executables, @Nonnull YamlExecutionContext executionContext) {
+            super(reference, executables, executionContext.inferConnectionURI(0), executionContext);
         }
     }
 }

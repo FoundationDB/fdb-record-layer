@@ -1,9 +1,9 @@
 /*
- * SkipBlock.java
+ * Block.java
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,26 +21,23 @@
 package com.apple.foundationdb.relational.yamltests.block;
 
 import com.apple.foundationdb.relational.yamltests.Reference;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 
 import javax.annotation.Nonnull;
 
 /**
- * A block that does nothing.
+ * A {@link Block} with a {@link Reference}.
  */
-class SkipBlock extends ReferencedBlock implements Block {
-    private static final Logger logger = LogManager.getLogger(SkipBlock.class);
-    @Nonnull
-    private final String message;
+public abstract class ReferencedBlock implements Block {
 
-    SkipBlock(@Nonnull final Reference reference, @Nonnull String message) {
-        super(reference);
-        this.message = message;
+    @Nonnull
+    private final Reference blockReference;
+
+    ReferencedBlock(@Nonnull final Reference blockReference) {
+        this.blockReference = blockReference;
     }
 
-    @Override
-    public void execute() {
-        logger.info(message);
+    @Nonnull
+    public Reference getReference() {
+        return blockReference;
     }
 }

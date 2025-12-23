@@ -241,6 +241,20 @@ public class Matchers {
         return null;
     }
 
+    @SpotBugsSuppressWarnings(value = "NP_NONNULL_RETURN_VIOLATION", justification = "should never happen, fail throws")
+    @Nonnull
+    public static Map.Entry<?, ?> onlyEntry(@Nonnull final Object obj, @Nonnull final String desc) {
+        if (obj instanceof Map) {
+            final var map = ((Map<?, ?>) obj);
+            if (map.size() != 1) {
+                fail(String.format(Locale.ROOT, "Expecting map %s to have a single element, however it has %s elements.", desc, map.size()));
+            }
+            return ((Map<?, ?>) obj).entrySet().iterator().next();
+        }
+        fail(String.format(Locale.ROOT, "Expecting %s to be of type %s, however it is of type %s.", desc, Map.class.getSimpleName(), obj.getClass().getSimpleName()));
+        return null;
+    }
+
     @Nonnull
     public static Object valueElseKey(@Nonnull final Map.Entry<?, ?> entry) {
         if (isNull(entry.getKey()) && isNull(entry.getValue())) {
