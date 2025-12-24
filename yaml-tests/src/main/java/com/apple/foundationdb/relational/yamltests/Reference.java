@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.yamltests;
 
 import com.apple.foundationdb.record.util.pair.NonnullPair;
+import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
@@ -171,7 +172,16 @@ public class Reference {
         }
 
         public static Resource with(@Nonnull final Reference parentRef, @Nonnull final String path) {
+            checkIfNotCyclic(parentRef, path);
             return new Resource(parentRef, path);
+        }
+
+        private static void checkIfNotCyclic(@Nonnull final Reference parentRef, @Nonnull final String path) {
+            var currentRef = parentRef;
+            while (currentRef != null) {
+                Assert.thatUnchecked(!currentRef.getResource().getPath().equals(path), "Cyclic path detected with: " + path);
+                currentRef = currentRef.getResource().parentRef;
+            }
         }
     }
 }

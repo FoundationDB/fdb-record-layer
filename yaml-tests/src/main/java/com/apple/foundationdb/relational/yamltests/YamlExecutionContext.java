@@ -65,7 +65,9 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 @SuppressWarnings({"PMD.GuardLogStatement"}) // It already is, but PMD is confused and reporting error in unrelated locations.
 public final class YamlExecutionContext {
@@ -136,13 +138,11 @@ public final class YamlExecutionContext {
     }
 
     public void registerResource(@Nonnull final Reference.Resource resource) throws RelationalException {
-        // We imagine a tree of Resources, hence, a resource cannot be
         if (registeredResources.contains(resource)) {
             throw new RuntimeException();
         }
-        final var yamlResource = shouldCorrectExplains() ? loadYamlResource(resource) : null;
-        if (yamlResource != null) {
-            this.editedFileStream.put(resource, yamlResource);
+        if (shouldCorrectExplains()) {
+            this.editedFileStream.put(resource, loadYamlResource(resource));
         }
         this.expectedMetricsMap.put(resource, loadMetricsResource(resource));
         this.actualMetricsMap.put(resource, new TreeMap<>(Comparator.comparing(QueryAndLocation::getLineNumber)
@@ -229,32 +229,40 @@ public final class YamlExecutionContext {
         return Runtime.getRuntime().availableProcessors() / 2;
     }
 
-    public void replaceTestFileIfRequired() {
+    public void replaceFilesIfRequired() {
+        final var filePathsWithResourceCount = registeredResources.stream()
+                .map(Reference.Resource::getPath)
+                .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
         for (final var resource: registeredResources) {
-            if (!editedFileStream.containsKey(resource) || !isDirty.getOrDefault(resource, false)) {
+            if (!isDirty.getOrDefault(resource, false)) {
                 continue;
             }
-            try {
-                try (var writer = new PrintWriter(new FileWriter(Path.of(System.getProperty("user.dir")).resolve(Path.of("src", "test", "resources", resource.getPath())).toAbsolutePath().toString(), StandardCharsets.UTF_8))) {
-                    for (var line : editedFileStream.get(resource)) {
-                        writer.println(line);
-                    }
-                }
-                logger.info("🟢 Source file {} replaced.", resource.getPath());
-            } catch (IOException e) {
-                logger.error("⚠️ Source file {} could not be replaced with corrected file.", resource.getPath());
-                Assertions.fail(e);
+            // There could arise a common scenario where a YAMSQL file is "opened" as 2 separate resource, coming from
+            // different call stacks. If this file has an EXPLAIN, and warrants correction, that will be a problem if,
+            // for the 2 resources pointing to same file, there is some disagreement on the values. Ideally this should
+            // not happen however, I believe it's still a possibility, mainly with metrics, to be highly sensitive to
+            // the environment in which the query is running. Because of this reason, just fail if we found resources
+            // that are marked as dirty and pointing to the same file as any other (dirty or non-dirty) resource.
+            if (filePathsWithResourceCount.getOrDefault(resource.getPath(), 0L) > 1) {
+                Assertions.fail("Found duplicate entries to write to file: " + resource.getPath());
             }
+            saveYamlFile(resource);
+            saveMetricsAsBinaryProto(resource);
+            saveMetricsAsYaml(resource);
         }
     }
 
-    public void replaceMetricsFileIfRequired() throws RelationalException {
-        for (final var resource: registeredResources) {
-            if (!isDirtyMetrics.getOrDefault(resource, false)) {
-                continue;
+    private void saveYamlFile(@Nonnull final Reference.Resource resource) {
+        try {
+            try (var writer = new PrintWriter(new FileWriter(Path.of(System.getProperty("user.dir")).resolve(Path.of("src", "test", "resources", resource.getPath())).toAbsolutePath().toString(), StandardCharsets.UTF_8))) {
+                for (var line : editedFileStream.get(resource)) {
+                    writer.println(line);
+                }
             }
-            saveMetricsAsBinaryProto(resource);
-            saveMetricsAsYaml(resource);
+            logger.info("🟢 Source file {} replaced.", resource.getPath());
+        } catch (IOException e) {
+            logger.error("⚠️ Source file {} could not be replaced with corrected file.", resource.getPath());
+            Assertions.fail(e);
         }
     }
 

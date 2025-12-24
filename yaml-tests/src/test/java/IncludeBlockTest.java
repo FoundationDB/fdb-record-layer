@@ -90,7 +90,9 @@ public class IncludeBlockTest {
                 "include-1",
                 "include-2",
                 "include-3",
-                "include-4"
+                "include-4",
+                "include-5",
+                "include-recursion"
         );
     }
 
@@ -103,7 +105,8 @@ public class IncludeBlockTest {
 
     static Stream<String> shouldFail() {
         return Stream.of(
-                "options-in-included"
+                "options-in-included",
+                "cycle-in-include"
         );
     }
 

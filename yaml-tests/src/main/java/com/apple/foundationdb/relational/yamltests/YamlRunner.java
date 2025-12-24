@@ -62,16 +62,11 @@ public final class YamlRunner {
                 }
             }
             for (final var block: allBlocks) {
-                logger.debug("⚪️ Executing block at {}", block.getReference());
-                block.execute();
-            }
-            for (var block : executionContext.getFinalizeBlocks()) {
-                logger.debug("⚪️ Executing finalizing block for block at {} ", block.getReference());
+                logger.debug("⚪️ Executing {} at {}", block.getClass().getSimpleName(), block.getReference());
                 block.execute();
             }
             evaluateTestBlockResults(testBlocks);
-            executionContext.replaceTestFileIfRequired();
-            executionContext.replaceMetricsFileIfRequired();
+            executionContext.replaceFilesIfRequired();
         } catch (RelationalException e) {
             logger.error("‼️ running test file '{}' was not successful", baseResource.getPath(), e);
             throw e;
