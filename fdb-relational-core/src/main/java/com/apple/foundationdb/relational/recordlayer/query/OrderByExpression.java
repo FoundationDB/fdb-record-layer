@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.relational.util.Assert;
+import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
 import java.util.List;
@@ -91,8 +92,8 @@ public final class OrderByExpression {
                                 final var pulledUpExpressionMap =
                                         simplifiedValue.pullUp(List.of(subExpression), EvaluationContext.empty(),
                                                 aliasMap, constantAliases, correlationIdentifier);
-                                if (pulledUpExpressionMap.containsKey(subExpression)) {
-                                    return pulledUpExpressionMap.get(subExpression);
+                                if (pulledUpExpressionMap.containsKey(subExpression) && !pulledUpExpressionMap.get(subExpression).isEmpty()) {
+                                    return Iterables.getFirst(pulledUpExpressionMap.get(subExpression), null);
                                 }
                                 return subExpression;
                             }
