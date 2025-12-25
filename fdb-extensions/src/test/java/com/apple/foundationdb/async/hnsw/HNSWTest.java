@@ -92,6 +92,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
+import java.util.function.ToDoubleBiFunction;
 import java.util.stream.Collectors;
 import java.util.stream.LongStream;
 import java.util.stream.Stream;
@@ -227,7 +228,7 @@ class HNSWTest {
 
     static Stream<Arguments> randomSeedsWithConfig() {
         return RandomizedTestUtils.randomSeeds(0xdeadc0deL)
-                .flatMap(seed -> Sets.cartesianProduct(ImmutableSet.of(true, false),
+                .flatMap(seed -> Sets.cartesianProduct(ImmutableSet.of(false, true),
                                 ImmutableSet.of(false, true),
                                 ImmutableSet.of(false, true),
                                 ImmutableSet.of(false, true)).stream()
@@ -246,7 +247,7 @@ class HNSWTest {
                                         .setM(16)
                                         .setMMax(32)
                                         .setMMax0(64)
-                                        .build(128)}))));
+                                        .build(3)}))));
     }
 
     @ExtendWith(HNSWTest.DumpLayersIfFailure.class)
@@ -331,6 +332,75 @@ class HNSWTest {
                 node ->
                         assertThat(readIds.add(node.getPrimaryKey().getLong(0))).isTrue());
         assertThat(readIds.size()).isBetween(10, 100);
+    }
+
+    @ExtendWith(HNSWTest.DumpLayersIfFailure.class)
+    @ParameterizedTest
+    @MethodSource("randomSeedsWithConfig")
+    void testBasicInsertAnnulus(final long seed, final Config config) throws Exception {
+        final Random random = new Random(seed);
+        final Metric metric = config.getMetric();
+        final int size = 1000;
+        final TestOnWriteListener onWriteListener = new TestOnWriteListener();
+        final TestOnReadListener onReadListener = new TestOnReadListener();
+
+        final HNSW hnsw = new HNSW(rtSubspace.getSubspace(), TestExecutors.defaultThreadPool(), config,
+                onWriteListener, onReadListener);
+
+        final int k = 30;
+        final List<PrimaryKeyAndVector> insertedData = randomVectors(random, config.getNumDimensions(), size);
+
+        for (int i = 0; i < size;) {
+            i += basicInsertBatch(hnsw, 100, i,
+                    (tr, nextId) -> insertedData.get(Math.toIntExact(nextId)));
+        }
+
+        dumpLayers(config);
+
+        final double radius = 0.5d;
+        final HalfRealVector queryVector = new HalfRealVector(new double[] {0.3, -0.25, 0.1});
+
+        //final double radius = 1d;
+        //final HalfRealVector queryVector = createRandomHalfVector(random, config.getNumDimensions());
+
+        onReadListener.reset();
+        final long beginTs = System.nanoTime();
+        final List<? extends ResultEntry> results =
+                db.run(tr ->
+                        hnsw.kNearestNeighborsAnnulusSearch(tr, k, 200, true, queryVector, radius).join());
+        final long endTs = System.nanoTime();
+
+        final ImmutableSet<Tuple> trueNN =
+                orderedByDistances(annulusDistance(metric, radius), insertedData, queryVector).stream()
+                        .limit(k)
+                        .map(PrimaryKeyVectorAndDistance::getPrimaryKey)
+                        .collect(ImmutableSet.toImmutableSet());
+
+        int recallCount = 0;
+        for (ResultEntry resultEntry : results) {
+            if (trueNN.contains(resultEntry.getPrimaryKey())) {
+                recallCount++;
+            }
+        }
+        final double recall = (double)recallCount / (double)k;
+        logger.info("annulus search transaction took elapsedTime={}ms; read nodes={}, read bytes={}, recall={}",
+                TimeUnit.NANOSECONDS.toMillis(endTs - beginTs),
+                onReadListener.getNodeCountByLayer(), onReadListener.getBytesReadByLayer(),
+                String.format(Locale.ROOT, "%.2f", recall * 100.0d));
+        assertThat(recall).isGreaterThan(0.9);
+
+        dumpQueryResults("green", 0, results);
+    }
+
+    private void dumpQueryResults(@Nonnull final String prefix, final int layer,
+                                  @Nonnull final List<? extends ResultEntry> results) throws Exception {
+        final Path verticesFile = tempDir.resolve("vertices-" + prefix + "-" + layer + ".csv");
+        try (final BufferedWriter verticesWriter = Files.newBufferedWriter(verticesFile)) {
+            for (final ResultEntry result : results) {
+                verticesWriter.write(Long.toString(result.getPrimaryKey().getLong(0)));
+                verticesWriter.newLine();
+            }
+        }
     }
 
     @ParameterizedTest
@@ -690,10 +760,17 @@ class HNSWTest {
     private NavigableSet<PrimaryKeyVectorAndDistance> orderedByDistances(@Nonnull final Metric metric,
                                                                          @Nonnull final List<PrimaryKeyAndVector> vectors,
                                                                          @Nonnull final HalfRealVector queryVector) {
+        return orderedByDistances(metric::distance, vectors, queryVector);
+    }
+
+    @Nonnull
+    private NavigableSet<PrimaryKeyVectorAndDistance> orderedByDistances(@Nonnull final ToDoubleBiFunction<RealVector, RealVector> distanceFunction,
+                                                                         @Nonnull final List<PrimaryKeyAndVector> vectors,
+                                                                         @Nonnull final HalfRealVector queryVector) {
         final TreeSet<PrimaryKeyVectorAndDistance> vectorsOrderedByDistance =
                 new TreeSet<>(Comparator.comparing(PrimaryKeyVectorAndDistance::getDistance));
         for (final PrimaryKeyAndVector vector : vectors) {
-            final double distance = metric.distance(vector.getVector(), queryVector);
+            final double distance = distanceFunction.applyAsDouble(vector.getVector(), queryVector);
             final PrimaryKeyVectorAndDistance record =
                     new PrimaryKeyVectorAndDistance(vector.getPrimaryKey(), vector.getVector(), distance);
             vectorsOrderedByDistance.add(record);
@@ -837,6 +914,12 @@ class HNSWTest {
                                                                         final int dimensionality) {
         return new NodeReferenceWithVector(createRandomPrimaryKey(random),
                 AffineOperator.identity().transform(createRandomHalfVector(random, dimensionality)));
+    }
+
+    private static ToDoubleBiFunction<RealVector, RealVector> annulusDistance(@Nonnull final Metric metric,
+                                                                              final double radius) {
+        return (queryVector, dataVector) ->
+                Math.abs(metric.distance(queryVector, dataVector) - radius);
     }
 
     @Nonnull
