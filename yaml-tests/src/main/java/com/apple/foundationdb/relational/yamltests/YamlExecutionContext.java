@@ -28,6 +28,7 @@ import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.yamltests.block.IncludeBlock;
 import com.apple.foundationdb.relational.yamltests.generated.stats.PlannerMetricsProto;
 import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.LinkedListMultimap;
 import org.apache.logging.log4j.LogManager;
@@ -91,6 +92,8 @@ public final class YamlExecutionContext {
     public static final ContextOption<Boolean> OPTION_CORRECT_METRICS = new ContextOption<>("optionCorrectMetrics");
     public static final ContextOption<Boolean> OPTION_SHOW_PLAN_ON_DIFF = new ContextOption<>("optionShowPlanOnDiff");
 
+    private static final URI SYSTEM_CATALOG_ADDRESS = URI.create("jdbc:embed:/__SYS?schema=CATALOG");
+
     @Nonnull
     private final Set<Reference.Resource> registeredResources = new HashSet<>();
     @Nonnull
@@ -106,7 +109,7 @@ public final class YamlExecutionContext {
     @Nonnull
     private final YamlConnectionFactory connectionFactory;
     @SuppressWarnings("AbbreviationAsWordInName")
-    private final List<String> connectionURIs = new ArrayList<>();
+    private final Map<Reference.Resource, List<String>> connectionURIs = new HashMap<>();
     // Additional options that can be set by the runners to impact test execution
     private final ContextOptions additionalOptions;
     private final Map<String, String> transactionSetups = new HashMap<>();
@@ -244,9 +247,19 @@ public final class YamlExecutionContext {
             // the environment in which the query is running. Because of this reason, just fail if we found resources
             // that are marked as dirty and pointing to the same file as any other (dirty or non-dirty) resource.
             if (filePathsWithResourceCount.getOrDefault(resource.getPath(), 0L) > 1) {
-                Assertions.fail("Found duplicate entries to write to file: " + resource.getPath());
+                Assertions.fail("Found duplicate entries for writing to file: " + resource.getPath());
             }
             saveYamlFile(resource);
+            saveMetricsAsBinaryProto(resource);
+            saveMetricsAsYaml(resource);
+        }
+        for (final var resource: registeredResources) {
+            if (!isDirtyMetrics.getOrDefault(resource, false)) {
+                continue;
+            }
+            if (filePathsWithResourceCount.getOrDefault(resource.getPath(), 0L) > 1) {
+                Assertions.fail("Found duplicate entries for writing metrics for file: " + resource.getPath());
+            }
             saveMetricsAsBinaryProto(resource);
             saveMetricsAsYaml(resource);
         }
@@ -266,41 +279,73 @@ public final class YamlExecutionContext {
         }
     }
 
-    public void registerConnectionURI(@Nonnull String stringURI) {
-        this.connectionURIs.add(stringURI);
+    public void registerConnectionURI(@Nonnull Reference.Resource resource, @Nonnull String stringURI) {
+        Assert.thatUnchecked(registeredResources.contains(resource), "A Resource should be registered before registering available connection URIs");
+        connectionURIs.computeIfAbsent(resource, ignore -> new ArrayList<>()).add(stringURI);
     }
 
     /**
      * Infers the URI of the database to which a block should connect to.
      * <br>
-     * A block can define the connection in multiple ways:
-     * 1. no explicit definition: connect to the only registered connection URI.
+     * A block can declare a connection in multiple ways:
+     * 1. no explicit declaration: Try to connect to the only registered connection URI in the local {@link com.apple.foundationdb.relational.yamltests.Reference.Resource}.
+     *    If not, try to connect to the only connection across all parent resources.
      *    A URI can be registered by defining a "schema_template" block before that, which sets up the database and schema for a provided schema template.
      * 2. Parameter 0: connects to the system tables (catalog).
-     * 3. Parameter One-based Number: connects to the registered connection URI, number denotes the sequence of definition.
+     * 3. Parameter One-based Number: connects to the registered connection URI, number denotes the sequence of definitions in the local Resource.
+     *    To access parent connection URIs, this number should be prepended by `(global)` tag.
      * 4. Parameter String: connects to the defined String
      *
      * @param connectObject can be {@code null}, an {@link Integer} value or a {@link String}.
      *
      * @return a valid connection URI
      */
-    public URI inferConnectionURI(@Nullable Object connectObject) {
+    public URI inferConnectionURI(@Nonnull final Reference.Resource resource, @Nullable Object connectObject) {
+        Assert.thatUnchecked(registeredResources.contains(resource), "A Resource should be registered before registering available connection URIs");
         if (connectObject == null) {
-            Assert.thatUnchecked(!connectionURIs.isEmpty(), ErrorCode.INTERNAL_ERROR, () -> "Requested a default connection URI, but none present");
-            Assert.thatUnchecked(connectionURIs.size() == 1, ErrorCode.INTERNAL_ERROR,
-                    () -> "Requested a default connection URI, but multiple available to choose from: " + String.join(", ", connectionURIs));
-            return URI.create(connectionURIs.get(0));
+            return getConnectionFromConnectionURIList(resource, true, -1, true);
         } else if (connectObject instanceof Integer) {
-            final int idx = (Integer) (connectObject);
-            if (idx == 0) {
-                return URI.create("jdbc:embed:/__SYS?schema=CATALOG");
-            }
-            Assert.thatUnchecked(idx <= connectionURIs.size(), ErrorCode.INTERNAL_ERROR,
-                    () -> String.format(Locale.ROOT, "Requested connection URI at index %d, but only have %d available connection URIs.", idx, connectionURIs.size()));
-            return URI.create(connectionURIs.get(idx - 1));
+            return getConnectionFromConnectionURIList(resource, false, (Integer) connectObject, false);
         } else {
-            return URI.create(Matchers.string(connectObject));
+            final var stringURI = Matchers.string(connectObject);
+            if (stringURI.startsWith("(global)")) {
+                return getConnectionFromConnectionURIList(resource, false, Integer.parseInt(stringURI.substring(8).trim()), true);
+            }
+            return URI.create(stringURI);
         }
+    }
+
+    private URI getConnectionFromConnectionURIList(@Nonnull Reference.Resource resource, boolean defaultValue, int idx, boolean isGlobal) {
+        if (defaultValue) {
+            final var localList = connectionURIs.getOrDefault(resource, List.of());
+            if (localList.size() == 1) {
+                return URI.create(localList.get(0));
+            }
+            final var globalList = getGlobalConnectionURIList(resource);
+            Assert.thatUnchecked(!globalList.isEmpty(), ErrorCode.INTERNAL_ERROR, () -> "Requested a default connection URI, but none present");
+            Assert.thatUnchecked(globalList.size() == 1, ErrorCode.INTERNAL_ERROR,
+                    () -> "Requested a default connection URI, but multiple available to choose from: " + String.join(", ", globalList));
+            return URI.create(globalList.get(0));
+        }
+        final var list = !isGlobal ? connectionURIs.getOrDefault(resource, List.of()) : getGlobalConnectionURIList(resource);
+        if (idx == 0) {
+            return SYSTEM_CATALOG_ADDRESS;
+        }
+        Assert.thatUnchecked(idx <= list.size(), ErrorCode.INTERNAL_ERROR,
+                () -> String.format(Locale.ROOT, "Requested connection URI at index %d, but only have %d available connection URIs.", idx, list.size()));
+        return URI.create(list.get(idx - 1));
+    }
+
+    private List<String> getGlobalConnectionURIList(@Nonnull Reference.Resource resource) {
+        final var parentRef = resource.getParentRef();
+        final var resourcesBuilder = ImmutableList.<Reference.Resource>builder();
+        if (parentRef != null) {
+            resourcesBuilder.addAll(parentRef.getCallStack().stream().map(Reference::getResource).iterator());
+        }
+        resourcesBuilder.add(resource);
+        return resourcesBuilder.build().stream()
+                .flatMap(r -> connectionURIs.getOrDefault(r, List.of()).stream())
+                .collect(Collectors.toList());
     }
 
     public void registerTransactionSetup(final String name, final String command) {
@@ -361,13 +406,12 @@ public final class YamlExecutionContext {
     private static StackTraceElement[] composeStackTrace(@Nonnull Reference reference, @Nonnull String identifier) {
         final var refList = reference.getCallStack();
         final var newStackTrace = new StackTraceElement[refList.size()];
-        for (int i = 0; i < refList.size(); i++) {
-            if (i == 0) {
-                newStackTrace[i] = new StackTraceElement("YAML_FILE", identifier, refList.get(i).getLeft(), refList.get(i).getRight());
-            } else {
-                newStackTrace[i] = new StackTraceElement("YAML_FILE", IncludeBlock.INCLUDE, refList.get(i).getLeft(), refList.get(i).getRight());
-            }
+        for (int i = refList.size() - 2; i >= 0; i--) {
+            final var ref = refList.get(i);
+            newStackTrace[refList.size() - i - 1] = new StackTraceElement("YAML_FILE", IncludeBlock.INCLUDE, ref.getResource().getPath(), ref.getLineNumber());
         }
+        final var lastRef = refList.get(refList.size() - 1);
+        newStackTrace[0] = new StackTraceElement("YAML_FILE", identifier, lastRef.getResource().getPath(), lastRef.getLineNumber());
         return newStackTrace;
     }
 

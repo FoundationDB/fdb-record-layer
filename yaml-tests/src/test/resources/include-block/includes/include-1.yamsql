@@ -21,7 +21,7 @@
 # these queries should run and pass.
 ---
 setup:
-  connect: 1
+  connect: (global) 1
   steps:
     - query: INSERT INTO t1 VALUES (10, 20), (30, 40), (50, 60), (70, 80)
 ---

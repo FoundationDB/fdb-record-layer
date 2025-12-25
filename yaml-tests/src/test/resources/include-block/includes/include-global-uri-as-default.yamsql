@@ -19,11 +19,7 @@
 
 # This test should fail in itself due to the lack of proper setup.
 ---
-schema_template:
-    create table t2(id bigint, col1 bigint, primary key(id))
----
 setup:
-  connect: 1
   steps:
     - query: INSERT INTO t1 VALUES (10, 20), (30, 40), (50, 60), (70, 80)
 ---
@@ -45,7 +41,4 @@ test_block:
       - setup: create temporary function t2() on commit drop function AS
           SELECT * FROM t1 where id < 50;
       - explain: "SCAN(<,>) | FILTER _.ID LESS_THAN promote(@cT218 AS LONG)"
----
-include:
-    include-block/includes/include-recursion.yamsql
 ...

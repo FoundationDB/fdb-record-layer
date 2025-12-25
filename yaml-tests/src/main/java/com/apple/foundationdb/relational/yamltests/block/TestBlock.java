@@ -400,7 +400,7 @@ public final class TestBlock extends ConnectedBlock {
 
             Assert.thatUnchecked(!executables.isEmpty(), "‼️ Test block at line " + reference + " have no tests to execute");
             return ImmutableList.of(new TestBlock(reference, blockName, queryCommands, executables, executableTestsWithCacheCheck,
-                    executionContext.inferConnectionURI(testsMap.getOrDefault(BLOCK_CONNECT, null)), options, executionContext));
+                    executionContext.inferConnectionURI(reference.getResource(), testsMap.getOrDefault(BLOCK_CONNECT, null)), options, executionContext));
         } catch (Throwable e) {
             throw executionContext.wrapContext(e, () -> "‼️ Error parsing the test block at " + reference, TEST_BLOCK, reference);
         }

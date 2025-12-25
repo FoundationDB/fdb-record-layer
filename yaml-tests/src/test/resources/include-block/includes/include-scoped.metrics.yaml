@@ -1,0 +1,27 @@
+transactions-tests:
+-   query: EXPLAIN select * from t2_func
+    setup:
+    - create temporary function t2_func() on commit drop function AS SELECT * FROM
+        t2;
+    explain: SCAN(<,>)
+    task_count: 166
+    task_total_time_ms: 148
+    transform_count: 46
+    transform_time_ms: 112
+    transform_yield_count: 15
+    insert_time_ms: 8
+    insert_new_count: 14
+    insert_reused_count: 2
+-   query: EXPLAIN select * from t2_func
+    setup:
+    - create temporary function t2_func() on commit drop function AS SELECT * FROM
+        t2 where id < 50;
+    explain: SCAN(<,>) | FILTER _.ID LESS_THAN promote(@cT2_FUNC18 AS LONG)
+    task_count: 189
+    task_total_time_ms: 154
+    transform_count: 50
+    transform_time_ms: 122
+    transform_yield_count: 16
+    insert_time_ms: 4
+    insert_new_count: 18
+    insert_reused_count: 2

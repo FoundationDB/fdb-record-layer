@@ -17,7 +17,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This test should pass
+# This test should fail as the included file tries to define options, which is only allowed to be present as the
+# first block of the top-level file.
 ---
 schema_template:
     create table t1(id bigint, col1 bigint, primary key(id))

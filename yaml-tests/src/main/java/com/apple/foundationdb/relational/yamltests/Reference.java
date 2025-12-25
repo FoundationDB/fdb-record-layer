@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.relational.yamltests;
 
-import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.collect.ImmutableList;
 
@@ -54,18 +53,16 @@ public class Reference {
 
     /**
      * Returns the call stack of this {@link Reference}.
-     * @return a list of locations in the call stack of this {@link Reference}. However, the list is inverted, that is,
-     * the first caller is the last element in this list. Each element of the list is a pair of a YAMSQL file and the
-     * line number
+     * @return a list of locations in the call stack of this {@link Reference}.
      */
-    public ImmutableList<NonnullPair<String, Integer>> getCallStack() {
-        final var builder = ImmutableList.<NonnullPair<String, Integer>>builder();
+    public ImmutableList<Reference> getCallStack() {
+        final var builder = ImmutableList.<Reference>builder();
         var current = this;
         while (current != null) {
-            builder.add(NonnullPair.of(getFileName(current.getResource().getPath()), current.getLineNumber()));
+            builder.add(current);
             current = current.getResource().parentRef;
         }
-        return builder.build();
+        return builder.build().reverse();
     }
 
     public Resource newResource(@Nonnull String path) {
@@ -131,6 +128,11 @@ public class Reference {
 
         public boolean isTopLevel() {
             return parentRef == null;
+        }
+
+        @Nullable
+        public Reference getParentRef() {
+            return parentRef;
         }
 
         @Nonnull

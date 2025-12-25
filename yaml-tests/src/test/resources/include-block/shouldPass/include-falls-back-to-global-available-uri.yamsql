@@ -1,5 +1,5 @@
 #
-# single-connection.yamsql
+# include-falls-back-to-global-available-uri.yamsql
 #
 # This source file is part of the FoundationDB open source project
 #
@@ -23,5 +23,5 @@ schema_template:
     create table t1(id bigint, col1 bigint, primary key(id))
 ---
 include:
-    include-block/includes/include-5.yamsql
+    include-block/includes/include-global-uri-as-default.yamsql
 ...

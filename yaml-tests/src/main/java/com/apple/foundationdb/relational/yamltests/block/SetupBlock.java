@@ -100,7 +100,7 @@ public class SetupBlock extends ConnectedBlock {
                     final var resolvedCommand = Objects.requireNonNull(Command.parse(reference.getResource(), List.of(step), "unnamed-setup-block", executionContext));
                     executables.add(createSetupExecutable(resolvedCommand, connectionOptions));
                 }
-                return ImmutableList.of(new ManualSetupBlock(reference, executables, executionContext.inferConnectionURI(setupMap.getOrDefault(BLOCK_CONNECT, null)),
+                return ImmutableList.of(new ManualSetupBlock(reference, executables, executionContext.inferConnectionURI(reference.getResource(), setupMap.getOrDefault(BLOCK_CONNECT, null)),
                         executionContext));
             } catch (Throwable e) {
                 throw YamlExecutionContext.wrapContext(e, () -> "‼️ Error parsing the setup block at " + reference, SETUP_BLOCK, reference);
@@ -131,7 +131,7 @@ public class SetupBlock extends ConnectedBlock {
         public static final String SCHEMA_TEMPLATE_BLOCK = "schema_template";
 
         @Nonnull
-        private final ImmutableList<Block> finalizingBlocks;
+        private ImmutableList<Block> finalizingBlocks;
 
         public static ImmutableList<Block> parse(@Nonnull final Reference reference, @Nonnull Object document, @Nonnull YamlExecutionContext executionContext) {
             try {
@@ -150,7 +150,7 @@ public class SetupBlock extends ConnectedBlock {
                     final var resolvedCommand = QueryCommand.withQueryString(reference, step, executionContext);
                     executables.add(resolvedCommand::execute);
                 }
-                executionContext.registerConnectionURI("jdbc:embed:" + databasePath + "?schema=" + schemaName);
+                executionContext.registerConnectionURI(reference.getResource(), "jdbc:embed:" + databasePath + "?schema=" + schemaName);
                 return ImmutableList.of(new SchemaTemplateBlock(reference, schemaTemplateName, databasePath, executables, executionContext));
             } catch (Exception e) {
                 throw YamlExecutionContext.wrapContext(e, () -> "‼️ Error parsing the schema_template block at " + reference, SCHEMA_TEMPLATE_BLOCK, reference);
@@ -160,14 +160,16 @@ public class SetupBlock extends ConnectedBlock {
         private SchemaTemplateBlock(@Nonnull final Reference reference, @Nonnull final String schemaTemplateName,
                                     @Nonnull final String databaseName, @Nonnull List<Consumer<YamlConnection>> executables,
                                     @Nonnull YamlExecutionContext executionContext) {
-            super(reference, executables, executionContext.inferConnectionURI(0), executionContext);
+            super(reference, executables, executionContext.inferConnectionURI(reference.getResource(), 0), executionContext);
             this.finalizingBlocks = ImmutableList.of(DestructTemplateBlock.withDatabaseAndSchema(reference, executionContext, schemaTemplateName, databaseName));
         }
 
         @Override
         @Nonnull
-        public ImmutableList<Block> getFinalizingBlocks() {
-            return this.finalizingBlocks;
+        public ImmutableList<Block> getAndClearFinalizingBlocks() {
+            final var toReturn = ImmutableList.copyOf(finalizingBlocks);
+            finalizingBlocks = ImmutableList.of();
+            return toReturn;
         }
     }
 
@@ -191,7 +193,7 @@ public class SetupBlock extends ConnectedBlock {
         }
 
         private DestructTemplateBlock(@Nonnull final Reference reference, @Nonnull List<Consumer<YamlConnection>> executables, @Nonnull YamlExecutionContext executionContext) {
-            super(reference, executables, executionContext.inferConnectionURI(0), executionContext);
+            super(reference, executables, executionContext.inferConnectionURI(reference.getResource(), 0), executionContext);
         }
     }
 }

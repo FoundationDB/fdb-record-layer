@@ -106,7 +106,7 @@ public interface Block {
      * @return the list of {@link Block}
      */
     @Nonnull
-    default ImmutableList<Block> getFinalizingBlocks() {
+    default ImmutableList<Block> getAndClearFinalizingBlocks() {
         return ImmutableList.of();
     }
 }

@@ -91,8 +91,14 @@ public class IncludeBlockTest {
                 "include-2",
                 "include-3",
                 "include-4",
-                "include-5",
-                "include-recursion"
+                "include-recursion",
+                "include-global-uri-as-default"
+        );
+    }
+
+    static Stream<String> includesShouldPass() {
+        return Stream.of(
+                "include-scoped"
         );
     }
 
@@ -103,10 +109,17 @@ public class IncludeBlockTest {
                 doRun("include-block/includes/" + filename + ".yamsql"));
     }
 
+    @ParameterizedTest
+    @MethodSource("includesShouldPass")
+    void includesShouldPass(String filename) throws Exception {
+        doRun("include-block/includes/" + filename + ".yamsql");
+    }
+
     static Stream<String> shouldFail() {
         return Stream.of(
                 "options-in-included",
-                "cycle-in-include"
+                "cycle-in-include",
+                "include-scope-not-visible-outside"
         );
     }
 
@@ -122,7 +135,9 @@ public class IncludeBlockTest {
                 "single-connection",
                 "multiple-includes",
                 "multiple-same-includes",
-                "nested-includes"
+                "nested-includes",
+                "include-prioritize-local-uri",
+                "include-falls-back-to-global-available-uri"
         );
     }
 

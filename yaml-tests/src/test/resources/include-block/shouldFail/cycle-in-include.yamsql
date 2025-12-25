@@ -17,7 +17,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This test should pass
+# This test should fail as this file includes the file `include-recursion` that tries r-including it thereby forming
+# a cycle.
 ---
 schema_template:
     create table t1(id bigint, col1 bigint, primary key(id))

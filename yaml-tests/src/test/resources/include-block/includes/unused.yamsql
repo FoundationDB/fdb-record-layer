@@ -47,5 +47,5 @@ test_block:
       - explain: "SCAN(<,>) | FILTER _.ID LESS_THAN promote(@cT218 AS LONG)"
 ---
 include:
-    include-block/includes/include-recursion.yamsql
+    include-block/includes/include-2.yamsql
 ...
