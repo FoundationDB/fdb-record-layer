@@ -337,27 +337,47 @@ public class HNSW {
                     final ToDoubleFunction<Transformed<RealVector>> objectiveFunction =
                             objectiveFunctionCreator.create(estimator, transformedQueryVector);
 
-                    final NodeReferenceWithDistance entryState =
-                            new NodeReferenceWithDistance(entryNodeReference.getPrimaryKey(),
+                    final List<NodeReferenceWithDistance> entryState =
+                            ImmutableList.of(new NodeReferenceWithDistance(entryNodeReference.getPrimaryKey(),
                                     entryNodeReference.getVector(),
-                                    objectiveFunction.applyAsDouble(entryNodeReference.getVector()));
+                                    objectiveFunction.applyAsDouble(entryNodeReference.getVector())));
 
                     final int topLayer = entryNodeReference.getLayer();
                     return forLoop(topLayer, entryState,
                             layer -> layer > 0,
                             layer -> layer - 1,
                             (layer, previousNodeReference) -> {
-                                final var storageAdapter = getStorageAdapterForLayer(layer);
-                                return greedySearchLayer(storageAdapter, readTransaction, storageTransform,
-                                        previousNodeReference, layer, objectiveFunction);
+                                final StorageAdapter<?> storageAdapter = getStorageAdapterForLayer(layer);
+                                return searchLayer(storageAdapter, readTransaction, storageTransform,
+                                        previousNodeReference, layer, 1, objectiveFunction);
                             }, executor)
                             .thenCompose(nodeReference -> {
-                                final var storageAdapter = getStorageAdapterForLayer(0);
-
+                                final StorageAdapter<?> storageAdapter = getStorageAdapterForLayer(0);
                                 return searchFinalLayer(storageAdapter, readTransaction, storageTransform,
                                         k, efSearch, nodeReference, includeVectors, objectiveFunction);
                             });
                 });
+    }
+
+    @Nonnull
+    private <N extends NodeReference> CompletableFuture<List<NodeReferenceWithDistance>>
+            searchLayer(@Nonnull final StorageAdapter<N> storageAdapter,
+                        @Nonnull final ReadTransaction readTransaction,
+                        @Nonnull final StorageTransform storageTransform,
+                        @Nonnull final List<NodeReferenceWithDistance> nodeReferenceWithDistances,
+                        final int layer,
+                        final int efSearch,
+                        @Nonnull final ToDoubleFunction<Transformed<RealVector>> objectiveFunction) {
+        if (efSearch == 1 && nodeReferenceWithDistances.size() == 1) {
+            return greedySearchLayer(storageAdapter, readTransaction, storageTransform,
+                    Iterables.getOnlyElement(nodeReferenceWithDistances),
+                    layer, objectiveFunction).thenApply(ImmutableList::of);
+        } else {
+            return beamSearchLayer(storageAdapter, readTransaction, storageTransform,
+                    nodeReferenceWithDistances, layer, efSearch, objectiveFunction,
+                    Maps.newConcurrentMap())
+                    .thenApply(NodeReferenceAndNode::getReferences);
+        }
     }
 
     /**
@@ -372,7 +392,7 @@ public class HNSW {
      *        system
      * @param k the number of nearest neighbors the wants us to find
      * @param efSearch the search queue capacity
-     * @param nodeReference the entry node reference
+     * @param nodeReferenceWithDistances a list of entry node reference
      * @param includeVectors indicator if the caller would like the search to also include vectors in the result set
      * @param objectiveFunction the objective function that is to be minimized
      *
@@ -386,11 +406,11 @@ public class HNSW {
                              @Nonnull final StorageTransform storageTransform,
                              final int k,
                              final int efSearch,
-                             @Nonnull final NodeReferenceWithDistance nodeReference,
+                             @Nonnull final List<NodeReferenceWithDistance> nodeReferenceWithDistances,
                              final boolean includeVectors,
                              @Nonnull final ToDoubleFunction<Transformed<RealVector>> objectiveFunction) {
-        return searchLayer(storageAdapter, readTransaction, storageTransform,
-                ImmutableList.of(nodeReference), 0, efSearch, objectiveFunction, Maps.newConcurrentMap())
+        return beamSearchLayer(storageAdapter, readTransaction, storageTransform,
+                nodeReferenceWithDistances, 0, efSearch, objectiveFunction, Maps.newConcurrentMap())
                 .thenApply(searchResult ->
                         postProcessSearchResults(storageTransform, k, searchResult, includeVectors));
     }
@@ -451,7 +471,7 @@ public class HNSW {
             return greedySearchInliningLayer(storageAdapter.asInliningStorageAdapter(), readTransaction,
                     storageTransform, nodeReferenceWithDistance, layer, objectiveFunction);
         } else {
-            return searchLayer(storageAdapter, readTransaction, storageTransform,
+            return beamSearchLayer(storageAdapter, readTransaction, storageTransform,
                     ImmutableList.of(nodeReferenceWithDistance), layer, 1, objectiveFunction,
                     Maps.newConcurrentMap())
                     .thenApply(searchResult ->
@@ -600,14 +620,14 @@ public class HNSW {
      */
     @Nonnull
     private <N extends NodeReference> CompletableFuture<List<NodeReferenceAndNode<NodeReferenceWithDistance, N>>>
-            searchLayer(@Nonnull final StorageAdapter<N> storageAdapter,
-                        @Nonnull final ReadTransaction readTransaction,
-                        @Nonnull final StorageTransform storageTransform,
-                        @Nonnull final Collection<NodeReferenceWithDistance> nodeReferences,
-                        final int layer,
-                        final int efSearch,
-                        @Nonnull final ToDoubleFunction<Transformed<RealVector>> objectiveFunction,
-                        @Nonnull final Map<Tuple, AbstractNode<N>> nodeCache) {
+            beamSearchLayer(@Nonnull final StorageAdapter<N> storageAdapter,
+                            @Nonnull final ReadTransaction readTransaction,
+                            @Nonnull final StorageTransform storageTransform,
+                            @Nonnull final Collection<NodeReferenceWithDistance> nodeReferences,
+                            final int layer,
+                            final int efSearch,
+                            @Nonnull final ToDoubleFunction<Transformed<RealVector>> objectiveFunction,
+                            @Nonnull final Map<Tuple, AbstractNode<N>> nodeCache) {
         final Set<Tuple> visited = Sets.newConcurrentHashSet(NodeReference.primaryKeys(nodeReferences));
         final Queue<NodeReferenceWithDistance> candidates =
                 // This initial capacity is somewhat arbitrary as m is not necessarily a limit,
@@ -1333,7 +1353,7 @@ public class HNSW {
         final Map<Tuple, AbstractNode<N>> nodeCache = Maps.newConcurrentMap();
         final Estimator estimator = quantizer.estimator();
 
-        return searchLayer(storageAdapter, transaction, storageTransform,
+        return beamSearchLayer(storageAdapter, transaction, storageTransform,
                 nearestNeighbors, layer, config.getEfConstruction(),
                 distanceToTargetVector(estimator, newVector), nodeCache)
                 .thenCompose(searchResult ->
