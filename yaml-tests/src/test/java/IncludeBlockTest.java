@@ -1,5 +1,5 @@
 /*
- * SupportedVersionTest.java
+ * IncludeBlockTest.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -48,7 +48,7 @@ public class IncludeBlockTest {
 
     private static final SemanticVersion VERSION = SemanticVersion.parse("4.4.8.0");
     private static final YamlTestConfig config = new EmbeddedConfig(FDBTestEnvironment.randomClusterFile());
-    private static final boolean CORRECT_METRICS = true;
+    private static final boolean CORRECT_METRICS = false;
     private static final String CLUSTER_FILE = FDBTestEnvironment.randomClusterFile();
 
     @BeforeAll

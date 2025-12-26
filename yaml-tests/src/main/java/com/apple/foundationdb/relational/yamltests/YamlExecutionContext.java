@@ -408,10 +408,10 @@ public final class YamlExecutionContext {
         final var newStackTrace = new StackTraceElement[refList.size()];
         for (int i = refList.size() - 2; i >= 0; i--) {
             final var ref = refList.get(i);
-            newStackTrace[refList.size() - i - 1] = new StackTraceElement("YAML_FILE", IncludeBlock.INCLUDE, ref.getResource().getPath(), ref.getLineNumber());
+            newStackTrace[refList.size() - i - 1] = new StackTraceElement("YAML_FILE", IncludeBlock.INCLUDE, ref.getResource().getFileName(), ref.getLineNumber());
         }
         final var lastRef = refList.get(refList.size() - 1);
-        newStackTrace[0] = new StackTraceElement("YAML_FILE", identifier, lastRef.getResource().getPath(), lastRef.getLineNumber());
+        newStackTrace[0] = new StackTraceElement("YAML_FILE", identifier, lastRef.getResource().getFileName(), lastRef.getLineNumber());
         return newStackTrace;
     }
 

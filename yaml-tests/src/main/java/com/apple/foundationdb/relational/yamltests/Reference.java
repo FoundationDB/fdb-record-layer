@@ -69,22 +69,10 @@ public class Reference {
         return Resource.with(this, path);
     }
 
-    private static String getFileName(@Nonnull String path) {
-        String fileName;
-        if (path.contains("/")) {
-            final String[] split = path.split("/");
-            fileName = split[split.length - 1];
-        } else {
-            fileName = path;
-        }
-        return fileName;
-    }
-
-
     @Override
     @Nonnull
     public String toString() {
-        return (getResource().parentRef == null ? "" : getResource().parentRef + " > ") + getFileName(getResource().getPath()) + ":" + getLineNumber();
+        return (getResource().parentRef == null ? "" : getResource().parentRef + " > ") + getResource().getFileName() + ":" + getLineNumber();
     }
 
     @Override
@@ -174,16 +162,24 @@ public class Reference {
         }
 
         public static Resource with(@Nonnull final Reference parentRef, @Nonnull final String path) {
-            checkIfNotCyclic(parentRef, path);
+            assertNotCyclic(parentRef, path);
             return new Resource(parentRef, path);
         }
 
-        private static void checkIfNotCyclic(@Nonnull final Reference parentRef, @Nonnull final String path) {
-            var currentRef = parentRef;
-            while (currentRef != null) {
-                Assert.thatUnchecked(!currentRef.getResource().getPath().equals(path), "Cyclic path detected with: " + path);
-                currentRef = currentRef.getResource().parentRef;
+        public String getFileName() {
+            String fileName;
+            if (path.contains("/")) {
+                final String[] split = path.split("/");
+                fileName = split[split.length - 1];
+            } else {
+                fileName = path;
             }
+            return fileName;
+        }
+
+        private static void assertNotCyclic(@Nonnull final Reference parentRef, @Nonnull final String path) {
+            final var callStack = parentRef.getCallStack();
+            Assert.thatUnchecked(callStack.stream().map(r -> r.getResource().getPath()).noneMatch(path::equals), "Cyclic path detected at: " + parentRef);
         }
     }
 }
