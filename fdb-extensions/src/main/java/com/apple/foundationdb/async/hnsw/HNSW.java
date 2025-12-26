@@ -36,6 +36,7 @@ import com.apple.foundationdb.rabitq.RaBitQuantizer;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -64,6 +65,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.IntUnaryOperator;
 import java.util.function.ToDoubleFunction;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -223,16 +225,7 @@ public class HNSW {
     //
 
     /**
-     * Performs a k-nearest neighbors (k-NN) search for a given query vector.
-     * <p>
-     * This method implements the search algorithm for an HNSW graph. The search begins at an entry point in the
-     * highest layer and greedily traverses down through the layers. In each layer, it finds the node closest to the
-     * {@code queryVector}. This node then serves as the entry point for the search in the layer below.
-     * <p>
-     * Once the search reaches the base layer (layer 0), it performs a more exhaustive search starting from the
-     * determined entry point. It explores the graph, maintaining a dynamic list of the best candidates found so far.
-     * The size of this candidate list is controlled by the {@code efSearch} parameter. Finally, the method selects
-     * the top {@code k} nodes from the search results, sorted by their distance to the query vector.
+     * Performs a search for the k-nearest neighbors for a given query vector.
      *
      * @param readTransaction the transaction to use for reading from the database
      * @param k the number of nearest neighbors to return
@@ -252,21 +245,16 @@ public class HNSW {
                                     final int efSearch,
                                     final boolean includeVectors,
                                     @Nonnull final RealVector queryVector) {
-        return kNearestNeighborsSearch(readTransaction, k, efSearch, includeVectors, queryVector,
-                this::distanceToTargetVector);
+        return search(readTransaction, efSearch, queryVector,
+                layer -> layer > 0 ? 1 : efSearch,
+                this::distanceToTargetVector)
+                .thenApply(searchResult ->
+                        postProcessSearchResult(searchResult.getStorageTransform(), k,
+                                searchResult.getNearestReferences(), includeVectors));
     }
 
     /**
-     * Performs a k-nearest neighbors (k-NN) search for a given query vector.
-     * <p>
-     * This method implements the search algorithm for an HNSW graph. The search begins at an entry point in the
-     * highest layer and greedily traverses down through the layers. In each layer, it finds the node closest to the
-     * {@code queryVector}. This node then serves as the entry point for the search in the layer below.
-     * <p>
-     * Once the search reaches the base layer (layer 0), it performs a more exhaustive search starting from the
-     * determined entry point. It explores the graph, maintaining a dynamic list of the best candidates found so far.
-     * The size of this candidate list is controlled by the {@code efSearch} parameter. Finally, the method selects
-     * the top {@code k} nodes from the search results, sorted by their distance to the query vector.
+     * Performs a search for the k-nearest neighbors of a ring around a given query vector at a given radius.
      *
      * @param readTransaction the transaction to use for reading from the database
      * @param k the number of nearest neighbors to return
@@ -281,15 +269,22 @@ public class HNSW {
     @SuppressWarnings("checkstyle:MethodName") // method name introduced by paper
     @Nonnull
     public CompletableFuture<? extends List<? extends ResultEntry>>
-            kNearestNeighborsAnnulusSearch(@Nonnull final ReadTransaction readTransaction,
-                                           final int k,
-                                           final int efSearch,
-                                           final boolean includeVectors,
-                                           @Nonnull final RealVector queryVector,
-                                           final double radius) {
-        return kNearestNeighborsSearch(readTransaction, k, efSearch, includeVectors, queryVector,
+            kNearestNeighborsRingSearch(@Nonnull final ReadTransaction readTransaction,
+                                        final int k,
+                                        final int efSearch,
+                                        final boolean includeVectors,
+                                        @Nonnull final RealVector queryVector,
+                                        final double radius) {
+        return search(readTransaction, efSearch, queryVector,
+                layer ->
+                        layer > 0
+                        ? clamp((int)Math.floor(Math.sqrt(efSearch)), 8, 32)
+                        : efSearch,
                 (estimator, targetVector) ->
-                        distanceToSphericalSurface(estimator, targetVector, radius));
+                        distanceToSphericalSurface(estimator, targetVector, radius))
+                .thenApply(searchResult ->
+                        postProcessSearchResult(searchResult.getStorageTransform(), k,
+                                searchResult.getNearestReferences(), includeVectors));
     }
 
     /**
@@ -305,28 +300,29 @@ public class HNSW {
      * the top {@code k} nodes from the search results, sorted by their distance to the query vector.
      *
      * @param readTransaction the transaction to use for reading from the database
-     * @param k the number of nearest neighbors to return
      * @param efSearch the size of the dynamic candidate list for the search. A larger value increases accuracy
      *        at the cost of performance.
-     * @param includeVectors indicator if the caller would like the search to also include vectors in the result set
      * @param queryVector the vector to find the nearest neighbors for
+     * @param efSearchFunction a function that returns the exploration factor for a layer that is passed in
+     * @param objectiveFunctionCreator a functional that creates the objective function for this search
      *
      * @return a {@link CompletableFuture} that will complete with a list of the {@code k} nearest neighbors,
      *         sorted by distance in ascending order.
      */
     @SuppressWarnings("checkstyle:MethodName") // method name introduced by paper
     @Nonnull
-    private CompletableFuture<? extends List<? extends ResultEntry>>
-            kNearestNeighborsSearch(@Nonnull final ReadTransaction readTransaction,
-                                    final int k,
-                                    final int efSearch,
-                                    final boolean includeVectors,
-                                    @Nonnull final RealVector queryVector,
-                                    @Nonnull final ObjectiveFunctionCreator objectiveFunctionCreator) {
+    private CompletableFuture<SearchResult>
+            search(@Nonnull final ReadTransaction readTransaction,
+                   final int efSearch,
+                   @Nonnull final RealVector queryVector,
+                   @Nonnull final IntUnaryOperator efSearchFunction,
+                   @Nonnull final ObjectiveFunctionCreator objectiveFunctionCreator) {
         return StorageAdapter.fetchAccessInfo(getConfig(), readTransaction, getSubspace(), getOnReadListener())
                 .thenCompose(accessInfo -> {
                     if (accessInfo == null) {
-                        return CompletableFuture.completedFuture(ImmutableList.of()); // not a single node in the index
+                        // not a single node in the index
+                        return CompletableFuture.completedFuture(new SearchResult(null,
+                                StorageTransform.identity(), ImmutableList.of()));
                     }
                     final EntryNodeReference entryNodeReference = accessInfo.getEntryNodeReference();
 
@@ -344,18 +340,16 @@ public class HNSW {
 
                     final int topLayer = entryNodeReference.getLayer();
                     return forLoop(topLayer, entryState,
-                            layer -> layer > 0,
+                            layer -> layer >= 0,
                             layer -> layer - 1,
                             (layer, previousNodeReference) -> {
+                                final int efSearchForLayer = efSearchFunction.applyAsInt(layer);
                                 final StorageAdapter<?> storageAdapter = getStorageAdapterForLayer(layer);
                                 return searchLayer(storageAdapter, readTransaction, storageTransform,
-                                        previousNodeReference, layer, 1, objectiveFunction);
+                                        previousNodeReference, layer, efSearchForLayer, objectiveFunction);
                             }, executor)
-                            .thenCompose(nodeReference -> {
-                                final StorageAdapter<?> storageAdapter = getStorageAdapterForLayer(0);
-                                return searchFinalLayer(storageAdapter, readTransaction, storageTransform,
-                                        k, efSearch, nodeReference, includeVectors, objectiveFunction);
-                            });
+                            .thenApply(nearestReferences ->
+                                    new SearchResult(accessInfo, storageTransform, nearestReferences));
                 });
     }
 
@@ -380,63 +374,25 @@ public class HNSW {
         }
     }
 
-    /**
-     * Method to search layer {@code 0} starting at a {@code nodeReference} for the {@code k} nearest neighbors of
-     * {@code transformedQueryVector}. The vectors that are part of the result of this search are transformed into the
-     * client coordinate system.
-     *
-     * @param <N> type parameter for the type of node reference to use
-     * @param storageAdapter the storage adapter
-     * @param readTransaction the transaction to use
-     * @param storageTransform the storage transform needed to transform vector data back into the client coordinate
-     *        system
-     * @param k the number of nearest neighbors the wants us to find
-     * @param efSearch the search queue capacity
-     * @param nodeReferenceWithDistances a list of entry node reference
-     * @param includeVectors indicator if the caller would like the search to also include vectors in the result set
-     * @param objectiveFunction the objective function that is to be minimized
-     *
-     * @return a list of {@link NodeReferenceAndNode} representing the {@code k} nearest neighbors of
-     *         {@code transformedQueryVector}
-     */
     @Nonnull
-    private <N extends NodeReference> CompletableFuture<ImmutableList<ResultEntry>>
-            searchFinalLayer(@Nonnull final StorageAdapter<N> storageAdapter,
-                             final @Nonnull ReadTransaction readTransaction,
-                             @Nonnull final StorageTransform storageTransform,
-                             final int k,
-                             final int efSearch,
-                             @Nonnull final List<NodeReferenceWithDistance> nodeReferenceWithDistances,
-                             final boolean includeVectors,
-                             @Nonnull final ToDoubleFunction<Transformed<RealVector>> objectiveFunction) {
-        return beamSearchLayer(storageAdapter, readTransaction, storageTransform,
-                nodeReferenceWithDistances, 0, efSearch, objectiveFunction, Maps.newConcurrentMap())
-                .thenApply(searchResult ->
-                        postProcessSearchResults(storageTransform, k, searchResult, includeVectors));
-    }
-
-    @Nonnull
-    private <N extends NodeReference> ImmutableList<ResultEntry>
-            postProcessSearchResults(@Nonnull final StorageTransform storageTransform, final int k,
-                                     @Nonnull final List<? extends NodeReferenceAndNode<NodeReferenceWithDistance, N>> nearestNeighbors,
-                                     final boolean includeVectors) {
-        final int lastIndex = Math.max(nearestNeighbors.size() - k, 0);
+    private ImmutableList<ResultEntry> postProcessSearchResult(@Nonnull final StorageTransform storageTransform,
+                                                               final int k,
+                                                               @Nonnull final List<NodeReferenceWithDistance> nearestReferences,
+                                                               final boolean includeVectors) {
+        final int lastIndex = Math.max(nearestReferences.size() - k, 0);
 
         final ImmutableList.Builder<ResultEntry> resultBuilder =
                 ImmutableList.builder();
 
-        for (int i = nearestNeighbors.size() - 1; i >= lastIndex; i --) {
-            final var nodeReferenceAndNode = nearestNeighbors.get(i);
-            final var nodeReference =
-                    Objects.requireNonNull(nodeReferenceAndNode).getNodeReference();
-            final AbstractNode<N> node = nodeReferenceAndNode.getNode();
+        for (int i = nearestReferences.size() - 1; i >= lastIndex; i --) {
+            final var nodeReference = nearestReferences.get(i);
             @Nullable final RealVector reconstructedVector =
-                    includeVectors ? storageTransform.untransform(node.asCompactNode().getVector()) : null;
+                    includeVectors ? storageTransform.untransform(nodeReference.getVector()) : null;
 
             resultBuilder.add(
-                    new ResultEntry(node.getPrimaryKey(),
+                    new ResultEntry(nodeReference.getPrimaryKey(),
                             reconstructedVector, nodeReference.getDistance(),
-                            nearestNeighbors.size() - i - 1));
+                            nearestReferences.size() - i - 1));
         }
         return resultBuilder.build();
     }
@@ -2609,6 +2565,43 @@ public class HNSW {
             resultBuilder.add(queue.poll());
         }
         return resultBuilder.build();
+    }
+
+    private static int clamp(final int x, final int low, final int high) {
+        Verify.verify(low <= high);
+        return Math.max(low, Math.min(x, high));
+    }
+
+    private static class SearchResult {
+        @Nullable
+        private final AccessInfo accessInfo;
+        @Nonnull
+        private final StorageTransform storageTransform;
+        @Nonnull
+        private final List<NodeReferenceWithDistance> nearestReferences;
+
+        public SearchResult(@Nullable final AccessInfo accessInfo,
+                            @Nonnull final StorageTransform storageTransform,
+                            @Nonnull final List<NodeReferenceWithDistance> nearestReferences) {
+            this.accessInfo = accessInfo;
+            this.storageTransform = storageTransform;
+            this.nearestReferences = nearestReferences;
+        }
+
+        @Nullable
+        public AccessInfo getAccessInfo() {
+            return accessInfo;
+        }
+
+        @Nonnull
+        public StorageTransform getStorageTransform() {
+            return storageTransform;
+        }
+
+        @Nonnull
+        public List<NodeReferenceWithDistance> getNearestReferences() {
+            return nearestReferences;
+        }
     }
 
     @FunctionalInterface

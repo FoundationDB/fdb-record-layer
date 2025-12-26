@@ -247,7 +247,7 @@ class HNSWTest {
                                         .setM(16)
                                         .setMMax(32)
                                         .setMMax0(64)
-                                        .build(3)}))));
+                                        .build(128)}))));
     }
 
     @ExtendWith(HNSWTest.DumpLayersIfFailure.class)
@@ -337,7 +337,7 @@ class HNSWTest {
     @ExtendWith(HNSWTest.DumpLayersIfFailure.class)
     @ParameterizedTest
     @MethodSource("randomSeedsWithConfig")
-    void testBasicInsertAnnulus(final long seed, final Config config) throws Exception {
+    void testBasicInsertRingSearch(final long seed, final Config config) throws Exception {
         final Random random = new Random(seed);
         final Metric metric = config.getMetric();
         final int size = 1000;
@@ -355,23 +355,20 @@ class HNSWTest {
                     (tr, nextId) -> insertedData.get(Math.toIntExact(nextId)));
         }
 
-        dumpLayers(config);
+        // dumpLayers(config);
 
-        final double radius = 0.5d;
-        final HalfRealVector queryVector = new HalfRealVector(new double[] {0.3, -0.25, 0.1});
-
-        //final double radius = 1d;
-        //final HalfRealVector queryVector = createRandomHalfVector(random, config.getNumDimensions());
+        final double radius = 1d;
+        final HalfRealVector queryVector = createRandomHalfVector(random, config.getNumDimensions());
 
         onReadListener.reset();
         final long beginTs = System.nanoTime();
         final List<? extends ResultEntry> results =
                 db.run(tr ->
-                        hnsw.kNearestNeighborsAnnulusSearch(tr, k, 200, true, queryVector, radius).join());
+                        hnsw.kNearestNeighborsRingSearch(tr, k, 100, true, queryVector, radius).join());
         final long endTs = System.nanoTime();
 
         final ImmutableSet<Tuple> trueNN =
-                orderedByDistances(annulusDistance(metric, radius), insertedData, queryVector).stream()
+                orderedByDistances(ringDistance(metric, radius), insertedData, queryVector).stream()
                         .limit(k)
                         .map(PrimaryKeyVectorAndDistance::getPrimaryKey)
                         .collect(ImmutableSet.toImmutableSet());
@@ -383,13 +380,13 @@ class HNSWTest {
             }
         }
         final double recall = (double)recallCount / (double)k;
-        logger.info("annulus search transaction took elapsedTime={}ms; read nodes={}, read bytes={}, recall={}",
+        logger.info("ring search transaction took elapsedTime={}ms; read nodes={}, read bytes={}, recall={}",
                 TimeUnit.NANOSECONDS.toMillis(endTs - beginTs),
                 onReadListener.getNodeCountByLayer(), onReadListener.getBytesReadByLayer(),
                 String.format(Locale.ROOT, "%.2f", recall * 100.0d));
         assertThat(recall).isGreaterThan(0.9);
 
-        dumpQueryResults("green", 0, results);
+        //dumpQueryResults("green", 0, results);
     }
 
     private void dumpQueryResults(@Nonnull final String prefix, final int layer,
@@ -916,8 +913,8 @@ class HNSWTest {
                 AffineOperator.identity().transform(createRandomHalfVector(random, dimensionality)));
     }
 
-    private static ToDoubleBiFunction<RealVector, RealVector> annulusDistance(@Nonnull final Metric metric,
-                                                                              final double radius) {
+    private static ToDoubleBiFunction<RealVector, RealVector> ringDistance(@Nonnull final Metric metric,
+                                                                           final double radius) {
         return (queryVector, dataVector) ->
                 Math.abs(metric.distance(queryVector, dataVector) - radius);
     }
