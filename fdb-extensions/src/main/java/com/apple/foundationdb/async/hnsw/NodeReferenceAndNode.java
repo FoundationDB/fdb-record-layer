@@ -26,29 +26,31 @@ import javax.annotation.Nonnull;
 import java.util.List;
 
 /**
- * A container class that pairs a {@link NodeReferenceWithDistance} with its corresponding {@link AbstractNode} object.
+ * A container class that pairs a {@link NodeReference} with its corresponding {@link AbstractNode} object.
  * <p>
  * This is often used during graph traversal or searching, where a reference to a node (along with its distance from a
  * query point) is first identified, and then the complete node data is fetched. This class holds these two related
  * pieces of information together.
- * @param <N> the type of {@link NodeReference} used within the {@link AbstractNode}
+ * @param <T> the type of {@link NodeReference} referencing the node
+ * @param <N> the type of {@link NodeReference} used within the {@link AbstractNode}, i.e. the type of the neighbor
+ *        references
  */
-class NodeReferenceAndNode<N extends NodeReference> {
+class NodeReferenceAndNode<T extends NodeReference, N extends NodeReference> {
     @Nonnull
-    private final NodeReferenceWithDistance nodeReferenceWithDistance;
+    private final T nodeReference;
     @Nonnull
     private final AbstractNode<N> node;
 
     /**
      * Constructs a new instance that pairs a node reference (with distance) with its
      * corresponding {@link AbstractNode} object.
-     * @param nodeReferenceWithDistance the reference to a node, which also includes distance information. Must not be
+     * @param nodeReference the reference to a node, which also includes distance information. Must not be
      *        {@code null}.
      * @param node the actual {@link AbstractNode} object that the reference points to. Must not be {@code null}.
      */
-    public NodeReferenceAndNode(@Nonnull final NodeReferenceWithDistance nodeReferenceWithDistance,
+    public NodeReferenceAndNode(@Nonnull final T nodeReference,
                                 @Nonnull final AbstractNode<N> node) {
-        this.nodeReferenceWithDistance = nodeReferenceWithDistance;
+        this.nodeReference = nodeReference;
         this.node = node;
     }
 
@@ -57,8 +59,8 @@ class NodeReferenceAndNode<N extends NodeReference> {
      * @return the non-null {@link NodeReferenceWithDistance} object.
      */
     @Nonnull
-    public NodeReferenceWithDistance getNodeReferenceWithDistance() {
-        return nodeReferenceWithDistance;
+    public T getNodeReference() {
+        return nodeReference;
     }
 
     /**
@@ -70,6 +72,11 @@ class NodeReferenceAndNode<N extends NodeReference> {
         return node;
     }
 
+    @Override
+    public String toString() {
+        return "NRaN[" + nodeReference + "," + node + ']';
+    }
+
     /**
      * Helper to extract the references from a given collection of objects of this container class.
      * @param referencesAndNodes an iterable of {@link NodeReferenceAndNode} objects from which to extract the
@@ -77,10 +84,10 @@ class NodeReferenceAndNode<N extends NodeReference> {
      * @return a {@link List} of {@link NodeReferenceAndNode}s
      */
     @Nonnull
-    public static List<NodeReferenceWithDistance> getReferences(@Nonnull List<? extends NodeReferenceAndNode<?>> referencesAndNodes) {
-        final ImmutableList.Builder<NodeReferenceWithDistance> referencesBuilder = ImmutableList.builder();
-        for (final NodeReferenceAndNode<?> referenceWithNode : referencesAndNodes) {
-            referencesBuilder.add(referenceWithNode.getNodeReferenceWithDistance());
+    public static <T extends NodeReferenceWithVector> List<T> getReferences(@Nonnull List<? extends NodeReferenceAndNode<T, ?>> referencesAndNodes) {
+        final ImmutableList.Builder<T> referencesBuilder = ImmutableList.builder();
+        for (final NodeReferenceAndNode<T, ?> referenceWithNode : referencesAndNodes) {
+            referencesBuilder.add(referenceWithNode.getNodeReference());
         }
         return referencesBuilder.build();
     }

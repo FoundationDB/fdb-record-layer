@@ -20,12 +20,12 @@
 
 package com.apple.foundationdb.relational.autotest.engine;
 
-import com.apple.foundationdb.relational.api.Row;
-import com.apple.foundationdb.relational.api.StructMetaData;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.RelationalStruct;
+import com.apple.foundationdb.relational.api.Row;
+import com.apple.foundationdb.relational.api.StructMetaData;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.autotest.Connector;
@@ -40,7 +40,6 @@ import com.apple.foundationdb.relational.recordlayer.IteratorResultSet;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.utils.ReservoirSample;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
-
 import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.extension.TestExecutionExceptionHandler;
@@ -82,17 +81,13 @@ class WorkloadTestDescriptor extends NestedClassTestDescriptor {
 
     public WorkloadTestDescriptor(UniqueId uniqueId,
                                   Class<?> testClass,
+                                  TestDescriptor parent,
                                   JupiterConfiguration configuration,
                                   AutoWorkload workload,
                                   QuerySet queries) {
-        super(uniqueId, testClass, configuration);
+        super(uniqueId, testClass, () -> NestedClassTestDescriptor.getEnclosingTestClasses(parent), configuration);
         this.workload = workload;
         this.querySet = queries;
-    }
-
-    @Override
-    public Type getType() {
-        return Type.CONTAINER;
     }
 
     @Override

@@ -68,6 +68,15 @@ class BaseNeighborsChangeSet<N extends NodeReference> implements NeighborsChange
     }
 
     /**
+     * Returns {@code false} as this change set is a base change set. It does not represent any changes.
+     * @return {@code false} as this change set does not have any changes.
+     */
+    @Override
+    public boolean hasChanges() {
+        return false;
+    }
+
+    /**
      * Retrieves the list of neighbors associated with this object.
      * <p>
      * This implementation fulfills the {@code merge} contract by simply returning the

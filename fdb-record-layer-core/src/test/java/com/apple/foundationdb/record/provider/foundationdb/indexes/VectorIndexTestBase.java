@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.async.hnsw.NodeReference;
 import com.apple.foundationdb.async.hnsw.NodeReferenceWithDistance;
 import com.apple.foundationdb.half.Half;
 import com.apple.foundationdb.linear.AffineOperator;
@@ -42,6 +43,7 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
@@ -54,9 +56,12 @@ import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
@@ -133,24 +138,24 @@ public class VectorIndexTestBase extends FDBRecordStoreQueryTestBase {
         return new HalfRealVector(componentData);
     }
 
-    protected List<FDBStoredRecord<Message>> saveRecords(final boolean useAsync,
-                                                         @Nonnull final RecordMetaDataHook hook,
-                                                         @Nonnull final Random random,
-                                                         final int numSamples) throws Exception {
-        return saveRecords(useAsync, hook, random, numSamples, 0.0d);
+    protected List<FDBStoredRecord<Message>> saveRandomRecords(final boolean useAsync,
+                                                               @Nonnull final RecordMetaDataHook hook,
+                                                               @Nonnull final Random random,
+                                                               final int numRecords) throws Exception {
+        return saveRandomRecords(useAsync, hook, random, numRecords, 0.0d);
     }
 
-    protected List<FDBStoredRecord<Message>> saveRecords(final boolean useAsync,
-                                                         @Nonnull final RecordMetaDataHook hook,
-                                                         @Nonnull final Random random,
-                                                         final int numSamples,
-                                                         final double nullProbability) throws Exception {
+    protected List<FDBStoredRecord<Message>> saveRandomRecords(final boolean useAsync,
+                                                               @Nonnull final RecordMetaDataHook hook,
+                                                               @Nonnull final Random random,
+                                                               final int numRecords,
+                                                               final double nullProbability) throws Exception {
         final var recordGenerator = getRecordGenerator(random, nullProbability);
         if (useAsync) {
-            return asyncBatch(hook, numSamples, 100,
+            return asyncBatch(hook, numRecords, 100,
                     recNo -> recordStore.saveRecordAsync(recordGenerator.apply(recNo)));
         } else {
-            return batch(hook, numSamples, 100,
+            return batch(hook, numRecords, 100,
                     recNo -> recordStore.saveRecord(recordGenerator.apply(recNo)));
         }
     }
@@ -200,6 +205,30 @@ public class VectorIndexTestBase extends FDBRecordStoreQueryTestBase {
         return records;
     }
 
+    @Nonnull
+    protected static Map<Integer, Set<Long>> trueTopK(@Nonnull final Map<Integer, List<Long>> sortedByDistances,
+                                                      final int k) {
+        return sortedByDistances.entrySet()
+                .stream()
+                .collect(Collectors.toMap(Map.Entry::getKey,
+                        entry ->
+                                entry.getValue()
+                                        .stream()
+                                        .limit(k)
+                                        .collect(ImmutableSet.toImmutableSet())));
+    }
+
+    @Nonnull
+    protected static Map<Integer, List<Long>> groupAndSortByDistances(@Nonnull final List<FDBStoredRecord<Message>> savedRecords,
+                                                                      @Nonnull final HalfRealVector queryVector) {
+        return sortByDistances(savedRecords, queryVector, Metric.EUCLIDEAN_METRIC)
+                .stream()
+                .map(NodeReference::getPrimaryKey)
+                .map(primaryKey -> primaryKey.getLong(0))
+                .collect(Collectors.groupingBy(nodeId -> Math.toIntExact(nodeId) % 2, Collectors.toList()));
+    }
+
+    @Nonnull
     protected static <M extends Message> List<NodeReferenceWithDistance>
               sortByDistances(@Nonnull final List<FDBStoredRecord<M>> storedRecords,
                               @Nonnull final RealVector queryVector,
