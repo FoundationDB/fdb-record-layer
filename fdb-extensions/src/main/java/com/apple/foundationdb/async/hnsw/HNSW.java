@@ -60,6 +60,7 @@ import java.util.Queue;
 import java.util.Set;
 import java.util.SplittableRandom;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
@@ -245,12 +246,13 @@ public class HNSW {
                                     final int efSearch,
                                     final boolean includeVectors,
                                     @Nonnull final RealVector queryVector) {
-        return search(readTransaction, efSearch, queryVector,
+        return search(readTransaction, queryVector,
                 layer -> layer > 0 ? 1 : efSearch,
                 this::distanceToTargetVector)
                 .thenApply(searchResult ->
                         postProcessSearchResult(searchResult.getStorageTransform(), k,
-                                searchResult.getNearestReferences(), includeVectors));
+                                NodeReferenceAndNode.getReferences(searchResult.getNearestReferenceAndNodes()),
+                                includeVectors));
     }
 
     /**
@@ -275,7 +277,7 @@ public class HNSW {
                                         final boolean includeVectors,
                                         @Nonnull final RealVector queryVector,
                                         final double radius) {
-        return search(readTransaction, efSearch, queryVector,
+        return search(readTransaction, queryVector,
                 layer ->
                         layer > 0
                         ? clamp((int)Math.floor(Math.sqrt(efSearch)), 8, 32)
@@ -284,7 +286,8 @@ public class HNSW {
                         distanceToSphericalSurface(estimator, targetVector, radius))
                 .thenApply(searchResult ->
                         postProcessSearchResult(searchResult.getStorageTransform(), k,
-                                searchResult.getNearestReferences(), includeVectors));
+                                NodeReferenceAndNode.getReferences(searchResult.getNearestReferenceAndNodes()),
+                                includeVectors));
     }
 
     /**
@@ -300,8 +303,6 @@ public class HNSW {
      * the top {@code k} nodes from the search results, sorted by their distance to the query vector.
      *
      * @param readTransaction the transaction to use for reading from the database
-     * @param efSearch the size of the dynamic candidate list for the search. A larger value increases accuracy
-     *        at the cost of performance.
      * @param queryVector the vector to find the nearest neighbors for
      * @param efSearchFunction a function that returns the exploration factor for a layer that is passed in
      * @param objectiveFunctionCreator a functional that creates the objective function for this search
@@ -313,7 +314,6 @@ public class HNSW {
     @Nonnull
     private CompletableFuture<SearchResult>
             search(@Nonnull final ReadTransaction readTransaction,
-                   final int efSearch,
                    @Nonnull final RealVector queryVector,
                    @Nonnull final IntUnaryOperator efSearchFunction,
                    @Nonnull final ObjectiveFunctionCreator objectiveFunctionCreator) {
@@ -322,7 +322,7 @@ public class HNSW {
                     if (accessInfo == null) {
                         // not a single node in the index
                         return CompletableFuture.completedFuture(new SearchResult(null,
-                                StorageTransform.identity(), ImmutableList.of()));
+                                StorageTransform.identity(), ImmutableList.of(), Maps.newConcurrentMap()));
                     }
                     final EntryNodeReference entryNodeReference = accessInfo.getEntryNodeReference();
 
@@ -340,16 +340,25 @@ public class HNSW {
 
                     final int topLayer = entryNodeReference.getLayer();
                     return forLoop(topLayer, entryState,
-                            layer -> layer >= 0,
+                            layer -> layer > 0,
                             layer -> layer - 1,
-                            (layer, previousNodeReference) -> {
+                            (layer, previousNodeReferences) -> {
                                 final int efSearchForLayer = efSearchFunction.applyAsInt(layer);
                                 final StorageAdapter<?> storageAdapter = getStorageAdapterForLayer(layer);
                                 return searchLayer(storageAdapter, readTransaction, storageTransform,
-                                        previousNodeReference, layer, efSearchForLayer, objectiveFunction);
+                                        previousNodeReferences, layer, efSearchForLayer, objectiveFunction);
                             }, executor)
-                            .thenApply(nearestReferences ->
-                                    new SearchResult(accessInfo, storageTransform, nearestReferences));
+                            .thenCompose(previousNodeReferences -> {
+                                final int efSearchForLayer = efSearchFunction.applyAsInt(0);
+                                final CompactStorageAdapter storageAdapter =
+                                        getStorageAdapterForLayer(0).asCompactStorageAdapter();
+                                final ConcurrentMap<Tuple, AbstractNode<NodeReference>> nodeCache = Maps.newConcurrentMap();
+                                return beamSearchLayer(storageAdapter, readTransaction, storageTransform,
+                                        previousNodeReferences, 0, efSearchForLayer, objectiveFunction, nodeCache)
+                                        .thenApply(nearestNodeReferenceAndNodes ->
+                                                new SearchResult(accessInfo, storageTransform,
+                                                        nearestNodeReferenceAndNodes, nodeCache));
+                            });
                 });
     }
 
@@ -2567,6 +2576,7 @@ public class HNSW {
         return resultBuilder.build();
     }
 
+    @SuppressWarnings("SameParameterValue")
     private static int clamp(final int x, final int low, final int high) {
         Verify.verify(low <= high);
         return Math.max(low, Math.min(x, high));
@@ -2578,14 +2588,18 @@ public class HNSW {
         @Nonnull
         private final StorageTransform storageTransform;
         @Nonnull
-        private final List<NodeReferenceWithDistance> nearestReferences;
+        private final List<NodeReferenceAndNode<NodeReferenceWithDistance, NodeReference>> nearestReferenceAndNodes;
+        @Nonnull
+        private final Map<Tuple, AbstractNode<NodeReference>> nodeCache;
 
         public SearchResult(@Nullable final AccessInfo accessInfo,
                             @Nonnull final StorageTransform storageTransform,
-                            @Nonnull final List<NodeReferenceWithDistance> nearestReferences) {
+                            @Nonnull final List<NodeReferenceAndNode<NodeReferenceWithDistance, NodeReference>> nearestReferenceWithNodes,
+                            @Nonnull final Map<Tuple, AbstractNode<NodeReference>> nodeCache) {
             this.accessInfo = accessInfo;
             this.storageTransform = storageTransform;
-            this.nearestReferences = nearestReferences;
+            this.nearestReferenceAndNodes = nearestReferenceWithNodes;
+            this.nodeCache = nodeCache;
         }
 
         @Nullable
@@ -2599,8 +2613,13 @@ public class HNSW {
         }
 
         @Nonnull
-        public List<NodeReferenceWithDistance> getNearestReferences() {
-            return nearestReferences;
+        public List<NodeReferenceAndNode<NodeReferenceWithDistance, NodeReference>> getNearestReferenceAndNodes() {
+            return nearestReferenceAndNodes;
+        }
+
+        @Nonnull
+        public Map<Tuple, AbstractNode<NodeReference>> getNodeCache() {
+            return nodeCache;
         }
     }
 
