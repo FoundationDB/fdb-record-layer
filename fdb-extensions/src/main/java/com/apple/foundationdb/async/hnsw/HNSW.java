@@ -24,8 +24,12 @@ import com.apple.foundationdb.Database;
 import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
+import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
+import com.apple.foundationdb.async.rtree.LeafNode;
+import com.apple.foundationdb.async.rtree.RTree;
 import com.apple.foundationdb.linear.Estimator;
 import com.apple.foundationdb.linear.FhtKacRotator;
 import com.apple.foundationdb.linear.Metric;
@@ -54,6 +58,7 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.PriorityQueue;
 import java.util.Queue;
@@ -2656,6 +2661,66 @@ public class HNSW {
 
         public boolean isNodeExists() {
             return nodeExists;
+        }
+    }
+
+    private class OutwardTraversalIterator implements AsyncIterator<NodeReferenceAndNode<NodeReferenceWithDistance, NodeReference>> {
+        @Nonnull
+        private final ReadTransaction readTransaction;
+        @Nonnull
+        private final CompletableFuture<SearchResult> zoomInResultsFuture;
+        private final double radius;
+
+        @Nullable
+        private RTree.TraversalState currentState;
+        @Nullable
+        private CompletableFuture<RTree.TraversalState> nextStateFuture;
+
+        @SpotBugsSuppressWarnings("EI_EXPOSE_REP2")
+        public OutwardTraversalIterator(@Nonnull final ReadTransaction readTransaction,
+                                        @Nonnull final CompletableFuture<SearchResult> zoomInResultsFuture,
+                                        final double radius) {
+            this.readTransaction = readTransaction;
+            this.zoomInResultsFuture = zoomInResultsFuture;
+            this.currentState = null;
+            this.nextStateFuture = null;
+        }
+
+        @Override
+        public CompletableFuture<Boolean> onHasNext() {
+            if (nextStateFuture == null) {
+                if (currentState == null) {
+                    nextStateFuture = fetchLeftmostPathToLeaf(readTransaction, rootId, lastHilbertValue, lastKey,
+                            mbrPredicate, suffixKeyPredicate);
+                } else {
+                    nextStateFuture = fetchNextPathToLeaf(readTransaction, currentState, lastHilbertValue, lastKey,
+                            mbrPredicate, suffixKeyPredicate);
+                }
+            }
+            return nextStateFuture.thenApply(traversalState -> !traversalState.isEnd());
+        }
+
+        @Override
+        public boolean hasNext() {
+            return onHasNext().join();
+        }
+
+        @Override
+        public NodeReferenceAndNode<NodeReferenceWithDistance, NodeReference> next() {
+            if (hasNext()) {
+                // underlying has already completed
+                currentState = Objects.requireNonNull(nextStateFuture).join();
+                nextStateFuture = null;
+                return currentState.getCurrentLeafNode();
+            }
+            throw new NoSuchElementException("called next() on exhausted iterator");
+        }
+
+        @Override
+        public void cancel() {
+            if (nextStateFuture != null) {
+                nextStateFuture.cancel(false);
+            }
         }
     }
 }
