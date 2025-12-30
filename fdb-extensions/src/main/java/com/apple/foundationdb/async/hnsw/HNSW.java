@@ -28,8 +28,6 @@ import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
-import com.apple.foundationdb.async.rtree.LeafNode;
-import com.apple.foundationdb.async.rtree.RTree;
 import com.apple.foundationdb.linear.Estimator;
 import com.apple.foundationdb.linear.FhtKacRotator;
 import com.apple.foundationdb.linear.Metric;
@@ -40,6 +38,7 @@ import com.apple.foundationdb.rabitq.RaBitQuantizer;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Equivalence;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -49,6 +48,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -64,6 +64,7 @@ import java.util.PriorityQueue;
 import java.util.Queue;
 import java.util.Set;
 import java.util.SplittableRandom;
+import java.util.TreeSet;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
@@ -245,7 +246,7 @@ public class HNSW {
      */
     @SuppressWarnings("checkstyle:MethodName") // method name introduced by paper
     @Nonnull
-    public CompletableFuture<? extends List<? extends ResultEntry>>
+    public CompletableFuture<List<? extends ResultEntry>>
             kNearestNeighborsSearch(@Nonnull final ReadTransaction readTransaction,
                                     final int k,
                                     final int efSearch,
@@ -253,10 +254,10 @@ public class HNSW {
                                     @Nonnull final RealVector queryVector) {
         return search(readTransaction, queryVector,
                 layer -> layer > 0 ? 1 : efSearch,
-                this::distanceToTargetVector)
+                HNSW::distanceToTargetVector)
                 .thenApply(searchResult ->
                         postProcessSearchResult(searchResult.getStorageTransform(), k,
-                                NodeReferenceAndNode.getReferences(searchResult.getNearestReferenceAndNodes()),
+                                NodeReferenceAndNode.references(searchResult.getNearestReferenceAndNodes()),
                                 includeVectors));
     }
 
@@ -275,7 +276,7 @@ public class HNSW {
      */
     @SuppressWarnings("checkstyle:MethodName") // method name introduced by paper
     @Nonnull
-    public CompletableFuture<? extends List<? extends ResultEntry>>
+    public CompletableFuture<List<? extends ResultEntry>>
             kNearestNeighborsRingSearch(@Nonnull final ReadTransaction readTransaction,
                                         final int k,
                                         final int efSearch,
@@ -291,7 +292,7 @@ public class HNSW {
                         distanceToSphericalSurface(estimator, targetVector, radius))
                 .thenApply(searchResult ->
                         postProcessSearchResult(searchResult.getStorageTransform(), k,
-                                NodeReferenceAndNode.getReferences(searchResult.getNearestReferenceAndNodes()),
+                                NodeReferenceAndNode.references(searchResult.getNearestReferenceAndNodes()),
                                 includeVectors));
     }
 
@@ -349,14 +350,14 @@ public class HNSW {
                             layer -> layer - 1,
                             (layer, previousNodeReferences) -> {
                                 final int efSearchForLayer = efSearchFunction.applyAsInt(layer);
-                                final StorageAdapter<?> storageAdapter = getStorageAdapterForLayer(layer);
+                                final StorageAdapter<?> storageAdapter = storageAdapterForLayer(layer);
                                 return searchLayer(storageAdapter, readTransaction, storageTransform,
                                         previousNodeReferences, layer, efSearchForLayer, objectiveFunction);
                             }, executor)
                             .thenCompose(previousNodeReferences -> {
                                 final int efSearchForLayer = efSearchFunction.applyAsInt(0);
                                 final CompactStorageAdapter storageAdapter =
-                                        getStorageAdapterForLayer(0).asCompactStorageAdapter();
+                                        storageAdapterForLayer(0).asCompactStorageAdapter();
                                 final ConcurrentMap<Tuple, AbstractNode<NodeReference>> nodeCache = Maps.newConcurrentMap();
                                 return beamSearchLayer(storageAdapter, readTransaction, storageTransform,
                                         previousNodeReferences, 0, efSearchForLayer, objectiveFunction, nodeCache)
@@ -384,7 +385,7 @@ public class HNSW {
             return beamSearchLayer(storageAdapter, readTransaction, storageTransform,
                     nodeReferenceWithDistances, layer, efSearch, objectiveFunction,
                     Maps.newConcurrentMap())
-                    .thenApply(NodeReferenceAndNode::getReferences);
+                    .thenApply(NodeReferenceAndNode::references);
         }
     }
 
@@ -482,8 +483,7 @@ public class HNSW {
         final Queue<NodeReferenceWithDistance> candidates =
                 // This initial capacity is somewhat arbitrary as m is not necessarily a limit,
                 // but it gives us a number that is better than the default.
-                new PriorityQueue<>(config.getM(),
-                        Comparator.comparing(NodeReferenceWithDistance::getDistance));
+                new PriorityQueue<>(config.getM(), NodeReferenceWithDistance.comparator());
         candidates.add(nodeReferenceWithDistance);
 
         return AsyncUtil.whileTrue(() -> {
@@ -598,17 +598,15 @@ public class HNSW {
                             final int efSearch,
                             @Nonnull final ToDoubleFunction<Transformed<RealVector>> objectiveFunction,
                             @Nonnull final Map<Tuple, AbstractNode<N>> nodeCache) {
-        final Set<Tuple> visited = Sets.newConcurrentHashSet(NodeReference.primaryKeys(nodeReferences));
         final Queue<NodeReferenceWithDistance> candidates =
                 // This initial capacity is somewhat arbitrary as m is not necessarily a limit,
                 // but it gives us a number that is better than the default.
-                new PriorityQueue<>(config.getM(),
-                        Comparator.comparing(NodeReferenceWithDistance::getDistance));
+                new PriorityQueue<>(config.getM(), NodeReferenceWithDistance.comparator());
         candidates.addAll(nodeReferences);
+        final Set<Tuple> visited = Sets.newConcurrentHashSet(NodeReference.primaryKeys(nodeReferences));
         final Queue<NodeReferenceWithDistance> nearestNeighbors =
                 new PriorityQueue<>(efSearch + 1, // prevent reallocation further down
-                        Comparator.comparing(NodeReferenceWithDistance::getDistance)
-                                .thenComparing(NodeReferenceWithDistance::getPrimaryKey).reversed());
+                        NodeReferenceWithDistance.reversedComparator());
         nearestNeighbors.addAll(nodeReferences);
 
         return AsyncUtil.whileTrue(() -> {
@@ -1041,7 +1039,7 @@ public class HNSW {
                             layer -> layer > insertionLayer,
                             layer -> layer - 1,
                             (layer, previousNodeReference) -> {
-                                final StorageAdapter<? extends NodeReference> storageAdapter = getStorageAdapterForLayer(layer);
+                                final StorageAdapter<? extends NodeReference> storageAdapter = storageAdapterForLayer(layer);
                                 return greedySearchLayer(storageAdapter, transaction, storageTransform,
                                         previousNodeReference, layer, objectiveFunction);
                             }, executor)
@@ -1113,7 +1111,7 @@ public class HNSW {
     private CompletableFuture<CompactNode> fetchBaseNode(@Nonnull final ReadTransaction readTransaction,
                                                          @Nonnull final StorageTransform storageTransform,
                                                          @Nonnull final Tuple primaryKey) {
-        final StorageAdapter<? extends NodeReference> storageAdapter = getStorageAdapterForLayer(0);
+        final StorageAdapter<? extends NodeReference> storageAdapter = storageAdapterForLayer(0);
 
         return storageAdapter.fetchNode(readTransaction, storageTransform, 0, primaryKey)
                 .thenApply(node -> {
@@ -1264,10 +1262,10 @@ public class HNSW {
                 layer -> layer >= 0,
                 layer -> layer - 1,
                 (layer, previousNodeReferences) -> {
-                    final StorageAdapter<? extends NodeReference> storageAdapter = getStorageAdapterForLayer(layer);
+                    final StorageAdapter<? extends NodeReference> storageAdapter = storageAdapterForLayer(layer);
                     return insertIntoLayer(storageAdapter, transaction, storageTransform, quantizer,
                             previousNodeReferences, layer, newPrimaryKey, newVector)
-                            .thenApply(NodeReferenceAndNode::getReferences);
+                            .thenApply(NodeReferenceAndNode::references);
                 }, executor).thenCompose(ignored -> AsyncUtil.DONE);
     }
 
@@ -1337,7 +1335,7 @@ public class HNSW {
 
                                     final AbstractNode<N> newNode =
                                             nodeFactory.create(newPrimaryKey, newVector,
-                                                    NodeReferenceAndNode.getReferences(selectedNeighbors));
+                                                    NodeReferenceAndNode.references(selectedNeighbors));
 
                                     final NeighborsChangeSet<N> newNodeChangeSet =
                                             new InsertNeighborsChangeSet<>(
@@ -1573,14 +1571,11 @@ public class HNSW {
 
         final List<NodeReferenceWithDistance> selected = Lists.newArrayListWithExpectedSize(m);
         final Queue<NodeReferenceWithDistance> candidates =
-                new PriorityQueue<>(getConfig().getM(),
-                        Comparator.comparing(NodeReferenceWithDistance::getDistance));
+                new PriorityQueue<>(getConfig().getM(), NodeReferenceWithDistance.comparator());
         initialCandidates.forEach(candidates::add);
         final Queue<NodeReferenceWithDistance> discardedCandidates =
                 getConfig().isKeepPrunedConnections()
-                ? new PriorityQueue<>(config.getM(),
-                        Comparator.comparing(NodeReferenceWithDistance::getDistance))
-                : null;
+                ? new PriorityQueue<>(config.getM(), NodeReferenceWithDistance.comparator()) : null;
 
         while (!candidates.isEmpty() && selected.size() < m) {
             final NodeReferenceWithDistance nearestCandidate = candidates.poll();
@@ -1834,7 +1829,7 @@ public class HNSW {
                                   final int highestLayerInclusive,
                                   final int lowestLayerExclusive) {
         for (int layer = highestLayerInclusive; layer > lowestLayerExclusive; layer --) {
-            final StorageAdapter<?> storageAdapter = getStorageAdapterForLayer(layer);
+            final StorageAdapter<?> storageAdapter = storageAdapterForLayer(layer);
             writeLonelyNodeOnLayer(quantizer, storageAdapter, transaction, layer, primaryKey, vector);
         }
     }
@@ -1989,7 +1984,7 @@ public class HNSW {
         // delete the node from all layers in parallel (inside layer in [0, topLayer])
         return forEach(() -> IntStream.rangeClosed(0, topLayer).iterator(),
                 layer ->
-                        deleteFromLayer(getStorageAdapterForLayer(layer), transaction, storageTransform, quantizer,
+                        deleteFromLayer(storageAdapterForLayer(layer), transaction, storageTransform, quantizer,
                                 random.split(), layer, primaryKey),
                 getConfig().getMaxNumConcurrentDeleteFromLayer(),
                 executor);
@@ -2365,7 +2360,7 @@ public class HNSW {
      * @return a non-null {@link StorageAdapter} instance
      */
     @Nonnull
-    private StorageAdapter<? extends NodeReference> getStorageAdapterForLayer(final int layer) {
+    private StorageAdapter<? extends NodeReference> storageAdapterForLayer(final int layer) {
         return storageAdapterForLayer(getConfig(), getSubspace(), getOnWriteListener(), getOnReadListener(), layer);
     }
 
@@ -2466,6 +2461,398 @@ public class HNSW {
         return random.nextDouble() < getConfig().getMaintainStatsProbability();
     }
 
+    AsyncIterator<NodeReferenceAndNode<NodeReferenceWithDistance, NodeReference>>
+            orderedByDistance(@Nonnull final ReadTransaction readTransaction,
+                              final int efRingSearch,
+                              final int efOutwardSearch,
+                              final boolean includeVectors,
+                              @Nonnull final RealVector centerVector,
+                              final double minimumRadius) {
+        final CompletableFuture<SearchResult> zoomInResultFuture =
+                search(readTransaction, centerVector,
+                        layer ->
+                                layer > 0
+                                ? clamp((int)Math.floor(Math.sqrt(efRingSearch)), 8, 32)
+                                : efRingSearch,
+                        (estimator, targetVector) ->
+                                distanceToSphericalSurface(estimator, targetVector, minimumRadius));
+        final CompactStorageAdapter storageAdapter = storageAdapterForLayer(0).asCompactStorageAdapter();
+        return new OutwardTraversalIterator(storageAdapter, readTransaction, zoomInResultFuture, centerVector,
+                null, efOutwardSearch);
+    }
+
+    private class OutwardTraversalIterator implements AsyncIterator<NodeReferenceAndNode<NodeReferenceWithDistance, NodeReference>> {
+        @Nonnull
+        private final StorageAdapter<NodeReference> storageAdapter;
+        @Nonnull
+        private final ReadTransaction readTransaction;
+        @Nonnull
+        private final CompletableFuture<SearchResult> zoomInResultFuture;
+        @Nonnull
+        private final RealVector centerVector;
+        @Nullable
+        private final NodeReferenceWithDistance minimumReferenceWithDistance;
+        private final int efOutwardSearch;
+
+        @Nullable
+        private OutwardTraversalState traversalState;
+
+        @Nullable
+        private CompletableFuture<NodeReferenceAndNode<NodeReferenceWithDistance, NodeReference>> nextFuture;
+
+        @SpotBugsSuppressWarnings("EI_EXPOSE_REP2")
+        public OutwardTraversalIterator(@Nonnull final StorageAdapter<NodeReference> storageAdapter,
+                                        @Nonnull final ReadTransaction readTransaction,
+                                        @Nonnull final CompletableFuture<SearchResult> zoomInResultFuture,
+                                        @Nonnull final RealVector centerVector,
+                                        @Nullable final NodeReferenceWithDistance minimumReferenceWithDistance,
+                                        final int efOutwardSearch) {
+            this.storageAdapter = storageAdapter;
+            this.readTransaction = readTransaction;
+            this.zoomInResultFuture = zoomInResultFuture;
+            this.centerVector = centerVector;
+            this.minimumReferenceWithDistance = minimumReferenceWithDistance;
+            this.efOutwardSearch = efOutwardSearch;
+
+            this.traversalState = null;
+            this.nextFuture = null;
+        }
+
+        @Override
+        public CompletableFuture<Boolean> onHasNext() {
+            if (nextFuture == null) {
+                if (traversalState == null) {
+                    nextFuture =
+                            zoomInResultFuture
+                                    .thenAccept(zoomInResult ->
+                                            this.traversalState = initialTravelState(zoomInResult))
+                                    .thenCompose(ignored -> computeNextRecord());
+                } else {
+                    nextFuture = computeNextRecord();
+                }
+            }
+            return nextFuture.thenApply(Objects::nonNull);
+        }
+
+        @Nonnull
+        private OutwardTraversalState initialTravelState(@Nonnull final SearchResult zoomInResult) {
+            final StorageTransform storageTransform = zoomInResult.getStorageTransform();
+            final Transformed<RealVector> transformedCenterVector = storageTransform.transform(centerVector);
+            final PriorityQueue<NodeReferenceWithDistance> candidates =
+                    // This initial capacity is somewhat arbitrary as m is not necessarily
+                    // a limit, but it gives us a number that is better than the default.
+                    new PriorityQueue<>(getConfig().getM(), NodeReferenceWithDistance.comparator());
+            final BoundedVisitedSet visited = new BoundedVisitedSet(100, minimumReferenceWithDistance);
+
+            final PriorityQueue<NodeReferenceWithDistance> out =
+                    new PriorityQueue<>(efOutwardSearch + 1, // prevent reallocation further down
+                            NodeReferenceWithDistance.comparator());
+
+            final Estimator estimator = quantizer(zoomInResult.getAccessInfo()).estimator();
+
+            // rekey the distances to distance around the center
+            for (final NodeReferenceAndNode<NodeReferenceWithDistance, NodeReference> referenceAndNode : zoomInResult.getNearestReferenceAndNodes()) {
+                final Transformed<RealVector> vector = referenceAndNode.getNodeReference().getVector();
+                final double distance = estimator.distance(transformedCenterVector, vector);
+                final Tuple primaryKey = referenceAndNode.getNode().getPrimaryKey();
+
+                final NodeReferenceWithDistance nodeReferenceWithDistance =
+                        new NodeReferenceWithDistance(primaryKey, vector, distance);
+                candidates.add(nodeReferenceWithDistance);
+                visited.add(nodeReferenceWithDistance);
+                // do not add to out if the distance is less than
+                if (isGreaterThanLast(nodeReferenceWithDistance)) {
+                    out.add(nodeReferenceWithDistance);
+                }
+            }
+
+            return new OutwardTraversalState(storageTransform, estimator,
+                    transformedCenterVector, candidates, visited, out, zoomInResult.getNodeCache());
+        }
+
+        private boolean isGreaterThanLast(@Nonnull final NodeReferenceWithDistance nodeReferenceWithDistance) {
+            return compareAgainstLast(nodeReferenceWithDistance) < 0;
+        }
+
+        /**
+         * Compare the given {@link NodeReferenceWithDistance} against the last {@link NodeReferenceWithDistance} that
+         * was emitted by the iterator.
+         *
+         * @param nodeReferenceWithDistance the {@link NodeReferenceWithDistance} against which to compare
+         *
+         * @return a negative integer, zero, or a positive integer when {@code lastEmitted} is
+         *         less than, equal, or greater than the parameter {@code t}.
+         */
+        private int compareAgainstLast(@Nonnull final NodeReferenceWithDistance nodeReferenceWithDistance) {
+            if (minimumReferenceWithDistance == null) {
+                return -1;
+            }
+            return NodeReferenceWithDistance.comparator().compare(minimumReferenceWithDistance, nodeReferenceWithDistance);
+        }
+
+        @Nonnull
+        private CompletableFuture<NodeReferenceAndNode<NodeReferenceWithDistance, NodeReference>> computeNextRecord() {
+            final OutwardTraversalState localTraversalState = Objects.requireNonNull(traversalState);
+            final StorageTransform storageTransform = localTraversalState.getStorageTransform();
+            final Estimator estimator = localTraversalState.getEstimator();
+            final Transformed<RealVector> transformedCenterVector = localTraversalState.getTransformedCenterVector();
+            final Queue<NodeReferenceWithDistance> candidates = localTraversalState.getCandidates();
+            final BoundedVisitedSet visited = localTraversalState.getVisited();
+            final Queue<NodeReferenceWithDistance> out = localTraversalState.getOut();
+            final Map<Tuple, AbstractNode<NodeReference>> nodeCache = localTraversalState.getNodeCache();
+
+            return AsyncUtil.whileTrue(() -> {
+                if (candidates.isEmpty() || out.size() >= efOutwardSearch) {
+                    // break the refill loop
+                    return AsyncUtil.READY_FALSE;
+                }
+
+                final NodeReferenceWithDistance candidate = candidates.poll();
+
+                return fetchNodeIfNotCached(storageAdapter, readTransaction, storageTransform, 0, candidate, nodeCache)
+                        .thenApply(AbstractNode::getNeighbors)
+                        .thenCompose(neighborReferences -> fetchNeighborhoodReferences(storageAdapter, readTransaction,
+                                storageTransform, 0, neighborReferences, nodeCache))
+                        .thenApply(neighborReferences -> {
+                            for (final NodeReferenceWithVector current : neighborReferences) {
+                                final Tuple primaryKey = current.getPrimaryKey();
+                                final double distance =
+                                        estimator.distance(transformedCenterVector, current.getVector());
+                                final NodeReferenceWithDistance nodeReferenceWithDistance =
+                                        new NodeReferenceWithDistance(primaryKey, current.getVector(), distance);
+
+                                if (!visited.contains(nodeReferenceWithDistance)) {
+                                    visited.add(nodeReferenceWithDistance);
+                                    candidates.add(nodeReferenceWithDistance);
+
+                                    //
+                                    // We could also add the current neighbor unconditionally to out here and accept
+                                    // occasional inversions.
+                                    //
+                                    if (isGreaterThanLast(nodeReferenceWithDistance)) {
+                                        out.add(nodeReferenceWithDistance);
+                                    }
+                                }
+                            }
+                            return true;
+                        });
+            }).thenCompose(ignored -> {
+                if (out.isEmpty()) {
+                    Verify.verify(candidates.isEmpty());
+                    return CompletableFuture.completedFuture(null);
+                }
+                final NodeReferenceWithDistance nodeReference = out.poll();
+                visited.bumpCurrentRadiusReference(nodeReference);
+                return fetchNodeIfNotCached(storageAdapter, readTransaction, storageTransform, 0, nodeReference, nodeCache)
+                        .thenApply(node -> new NodeReferenceAndNode<>(nodeReference, node));
+            }).thenApply(nextNodeReferenceAndNode -> {
+                if (logger.isTraceEnabled()) {
+                    logger.trace("iterating for efOutwardSearch={} with result=={}", efOutwardSearch,
+                            nextNodeReferenceAndNode.getNodeReference().getPrimaryKey());
+                }
+                return nextNodeReferenceAndNode;
+            });
+        }
+
+        @Override
+        public boolean hasNext() {
+            return onHasNext().join();
+        }
+
+        @Override
+        public NodeReferenceAndNode<NodeReferenceWithDistance, NodeReference> next() {
+            if (hasNext()) {
+                // underlying has already completed
+                final NodeReferenceAndNode<NodeReferenceWithDistance, NodeReference> nextNodeReferenceAndNode =
+                        Objects.requireNonNull(nextFuture).join();
+                nextFuture = null;
+                return nextNodeReferenceAndNode;
+            }
+            throw new NoSuchElementException("called next() on exhausted iterator");
+        }
+
+        @Override
+        public void cancel() {
+            if (nextFuture != null) {
+                nextFuture.cancel(false);
+            }
+        }
+    }
+
+    private static class OutwardTraversalState {
+        @Nonnull
+        private final StorageTransform storageTransform;
+        @Nonnull
+        private final Estimator estimator;
+        @Nonnull
+        private final Transformed<RealVector> transformedCenterVector;
+        @Nonnull
+        private final Queue<NodeReferenceWithDistance> candidates;
+        @Nonnull
+        private final BoundedVisitedSet visited;
+        @Nonnull
+        private final Queue<NodeReferenceWithDistance> out;
+        @Nonnull
+        private final Map<Tuple, AbstractNode<NodeReference>> nodeCache;
+
+        public OutwardTraversalState(@Nonnull final StorageTransform storageTransform,
+                                     @Nonnull final Estimator estimator,
+                                     @Nonnull final Transformed<RealVector> transformedCenterVector,
+                                     @Nonnull final Queue<NodeReferenceWithDistance> candidates,
+                                     @Nonnull final BoundedVisitedSet visited,
+                                     @Nonnull final Queue<NodeReferenceWithDistance> out,
+                                     @Nonnull final Map<Tuple, AbstractNode<NodeReference>> nodeCache) {
+            this.storageTransform = storageTransform;
+            this.estimator = estimator;
+            this.transformedCenterVector = transformedCenterVector;
+            this.candidates = candidates;
+            this.visited = visited;
+            this.out = out;
+            this.nodeCache = nodeCache;
+        }
+
+        @Nonnull
+        public StorageTransform getStorageTransform() {
+            return storageTransform;
+        }
+
+        @Nonnull
+        public Estimator getEstimator() {
+            return estimator;
+        }
+
+        @Nonnull
+        public Transformed<RealVector> getTransformedCenterVector() {
+            return transformedCenterVector;
+        }
+
+        @Nonnull
+        public Queue<NodeReferenceWithDistance> getCandidates() {
+            return candidates;
+        }
+
+        @Nonnull
+        public BoundedVisitedSet getVisited() {
+            return visited;
+        }
+
+        @Nonnull
+        public Queue<NodeReferenceWithDistance> getOut() {
+            return out;
+        }
+
+        @Nonnull
+        public Map<Tuple, AbstractNode<NodeReference>> getNodeCache() {
+            return nodeCache;
+        }
+    }
+
+    private static class BoundedVisitedSet {
+        private static final Comparator<Equivalence.Wrapper<NodeReferenceWithDistance>> COMPARATOR =
+                Comparator.comparing(Equivalence.Wrapper::get,
+                        Comparator.nullsFirst(
+                                Comparator.comparing(NodeReferenceWithDistance::getDistance)
+                                        .thenComparing(NodeReference::getPrimaryKey)));
+
+        private static final PrimaryKeyEquivalence PRIMARY_KEY_EQUIVALENCE = new PrimaryKeyEquivalence();
+
+        private final int insideLimit;
+        private Equivalence.Wrapper<NodeReferenceWithDistance> currentRadiusReferenceWrapped;
+
+        @Nonnull
+        private final TreeSet<Equivalence.Wrapper<NodeReferenceWithDistance>> insideRadius; // inclusive
+        @Nonnull
+        private final TreeSet<Equivalence.Wrapper<NodeReferenceWithDistance>> outsideRadius; // exclusive
+
+        public BoundedVisitedSet(final int insideLimit,
+                                 @Nullable final NodeReferenceWithDistance currentRadiusReference) {
+            this.insideLimit = insideLimit;
+            this.currentRadiusReferenceWrapped = PRIMARY_KEY_EQUIVALENCE.wrap(currentRadiusReference);
+            this.insideRadius = new TreeSet<>(COMPARATOR);
+            this.outsideRadius = new TreeSet<>(COMPARATOR);
+        }
+
+        public boolean contains(@Nonnull final NodeReferenceWithDistance nodeReferenceWithDistance) {
+            final Equivalence.Wrapper<NodeReferenceWithDistance> wrapped =
+                    PRIMARY_KEY_EQUIVALENCE.wrap(nodeReferenceWithDistance);
+            if (insideRadius.size() >= insideLimit) {
+                final Equivalence.Wrapper<NodeReferenceWithDistance> least = insideRadius.first();
+                if (COMPARATOR.compare(wrapped, least) <= 0) {
+                    return true;
+                }
+            }
+
+            if (COMPARATOR.compare(wrapped, currentRadiusReferenceWrapped) > 0) {
+                return outsideRadius.contains(wrapped);
+            }
+
+            return insideRadius.contains(wrapped);
+        }
+
+        @CanIgnoreReturnValue
+        public boolean add(@Nonnull final NodeReferenceWithDistance nodeReferenceWithDistance) {
+            final Equivalence.Wrapper<NodeReferenceWithDistance> wrapped =
+                    PRIMARY_KEY_EQUIVALENCE.wrap(nodeReferenceWithDistance);
+
+            if (COMPARATOR.compare(wrapped, currentRadiusReferenceWrapped) > 0) {
+                return outsideRadius.add(wrapped);
+            }
+
+            if (insideRadius.size() < insideLimit) {
+                return insideRadius.add(wrapped);
+            }
+
+            Verify.verify(insideRadius.size() == insideLimit);
+
+            final Equivalence.Wrapper<NodeReferenceWithDistance> least = insideRadius.first();
+            if (COMPARATOR.compare(wrapped, least) <= 0) {
+                return true;
+            }
+
+            final boolean exists = insideRadius.add(wrapped);
+            insideRadius.pollFirst();
+            return exists;
+        }
+
+        public void bumpCurrentRadiusReference(@Nonnull final NodeReferenceWithDistance newRadiusReference) {
+            final Equivalence.Wrapper<NodeReferenceWithDistance> newWrapped =
+                    PRIMARY_KEY_EQUIVALENCE.wrap(newRadiusReference);
+
+            if (COMPARATOR.compare(newWrapped, currentRadiusReferenceWrapped) < 0) {
+                return;
+            }
+
+            while (!outsideRadius.isEmpty()) {
+                final Equivalence.Wrapper<NodeReferenceWithDistance> leastOutside = outsideRadius.first();
+                if (COMPARATOR.compare(newWrapped, leastOutside) >= 0) {
+                    insideRadius.add(outsideRadius.pollFirst());
+
+                    if (insideRadius.size() > insideLimit) {
+                        insideRadius.pollFirst();
+                        Verify.verify(insideRadius.size() == insideLimit);
+                    }
+                } else {
+                    break;
+                }
+            }
+
+            this.currentRadiusReferenceWrapped = newWrapped;
+        }
+    }
+
+    private static class PrimaryKeyEquivalence extends Equivalence<NodeReferenceWithDistance> {
+        @Override
+        protected boolean doEquivalent(@Nonnull final NodeReferenceWithDistance a,
+                                       @Nonnull final NodeReferenceWithDistance b) {
+            return a.getPrimaryKey().equals(b.getPrimaryKey());
+        }
+
+        @Override
+        protected int doHash(@Nonnull final NodeReferenceWithDistance nodeReferenceWithDistance) {
+            return nodeReferenceWithDistance.hashCode();
+        }
+    }
+
     /**
      * Scans all nodes within a given layer of the database.
      * <p>
@@ -2505,15 +2892,15 @@ public class HNSW {
     }
 
     @Nonnull
-    private ToDoubleFunction<Transformed<RealVector>> distanceToTargetVector(@Nonnull final Estimator estimator,
-                                                                             @Nonnull final Transformed<RealVector> targetVector) {
+    private static ToDoubleFunction<Transformed<RealVector>> distanceToTargetVector(@Nonnull final Estimator estimator,
+                                                                                    @Nonnull final Transformed<RealVector> targetVector) {
         return vector -> estimator.distance(targetVector, vector);
     }
 
     @Nonnull
-    private ToDoubleFunction<Transformed<RealVector>> distanceToSphericalSurface(@Nonnull final Estimator estimator,
-                                                                                 @Nonnull final Transformed<RealVector> targetVector,
-                                                                                 final double radius) {
+    private static ToDoubleFunction<Transformed<RealVector>> distanceToSphericalSurface(@Nonnull final Estimator estimator,
+                                                                                        @Nonnull final Transformed<RealVector> targetVector,
+                                                                                        final double radius) {
         return vector -> Math.abs(estimator.distance(targetVector, vector) - radius);
     }
 
@@ -2661,66 +3048,6 @@ public class HNSW {
 
         public boolean isNodeExists() {
             return nodeExists;
-        }
-    }
-
-    private class OutwardTraversalIterator implements AsyncIterator<NodeReferenceAndNode<NodeReferenceWithDistance, NodeReference>> {
-        @Nonnull
-        private final ReadTransaction readTransaction;
-        @Nonnull
-        private final CompletableFuture<SearchResult> zoomInResultsFuture;
-        private final double radius;
-
-        @Nullable
-        private RTree.TraversalState currentState;
-        @Nullable
-        private CompletableFuture<RTree.TraversalState> nextStateFuture;
-
-        @SpotBugsSuppressWarnings("EI_EXPOSE_REP2")
-        public OutwardTraversalIterator(@Nonnull final ReadTransaction readTransaction,
-                                        @Nonnull final CompletableFuture<SearchResult> zoomInResultsFuture,
-                                        final double radius) {
-            this.readTransaction = readTransaction;
-            this.zoomInResultsFuture = zoomInResultsFuture;
-            this.currentState = null;
-            this.nextStateFuture = null;
-        }
-
-        @Override
-        public CompletableFuture<Boolean> onHasNext() {
-            if (nextStateFuture == null) {
-                if (currentState == null) {
-                    nextStateFuture = fetchLeftmostPathToLeaf(readTransaction, rootId, lastHilbertValue, lastKey,
-                            mbrPredicate, suffixKeyPredicate);
-                } else {
-                    nextStateFuture = fetchNextPathToLeaf(readTransaction, currentState, lastHilbertValue, lastKey,
-                            mbrPredicate, suffixKeyPredicate);
-                }
-            }
-            return nextStateFuture.thenApply(traversalState -> !traversalState.isEnd());
-        }
-
-        @Override
-        public boolean hasNext() {
-            return onHasNext().join();
-        }
-
-        @Override
-        public NodeReferenceAndNode<NodeReferenceWithDistance, NodeReference> next() {
-            if (hasNext()) {
-                // underlying has already completed
-                currentState = Objects.requireNonNull(nextStateFuture).join();
-                nextStateFuture = null;
-                return currentState.getCurrentLeafNode();
-            }
-            throw new NoSuchElementException("called next() on exhausted iterator");
-        }
-
-        @Override
-        public void cancel() {
-            if (nextStateFuture != null) {
-                nextStateFuture.cancel(false);
-            }
         }
     }
 }

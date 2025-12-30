@@ -22,6 +22,8 @@ package com.apple.foundationdb.async.hnsw;
 
 import com.apple.foundationdb.Database;
 import com.apple.foundationdb.Transaction;
+import com.apple.foundationdb.async.AsyncIterator;
+import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.linear.AffineOperator;
 import com.apple.foundationdb.linear.DoubleRealVector;
 import com.apple.foundationdb.linear.HalfRealVector;
@@ -88,6 +90,7 @@ import java.util.Random;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
@@ -398,6 +401,48 @@ class HNSWTest {
                 verticesWriter.newLine();
             }
         }
+    }
+
+    @ParameterizedTest
+    @MethodSource("randomSeedsWithConfig")
+    void testStreamByDistance(final long seed, final Config config) {
+        final Random random = new Random(seed);
+        final Metric metric = config.getMetric();
+        final int size = 1000;
+        final TestOnWriteListener onWriteListener = new TestOnWriteListener();
+        final TestOnReadListener onReadListener = new TestOnReadListener();
+
+        final HNSW hnsw = new HNSW(rtSubspace.getSubspace(), TestExecutors.defaultThreadPool(), config,
+                onWriteListener, onReadListener);
+
+        final int k = 30;
+        final List<PrimaryKeyAndVector> insertedData = randomVectors(random, config.getNumDimensions(), size);
+
+        for (int i = 0; i < size;) {
+            i += basicInsertBatch(hnsw, 100, i,
+                    (tr, nextId) -> insertedData.get(Math.toIntExact(nextId)));
+        }
+
+        // dumpLayers(config);
+
+        final double radius = 1d;
+        final HalfRealVector queryVector = createRandomHalfVector(random, config.getNumDimensions());
+
+        onReadListener.reset();
+
+        final AtomicInteger numRecords = new AtomicInteger(0);
+        db.run(tr -> {
+            final AsyncIterator<NodeReferenceAndNode<NodeReferenceWithDistance, NodeReference>> it =
+                    hnsw.orderedByDistance(tr, 100, 200, false, queryVector, 0.0d);
+            AsyncUtil.forEachRemaining(it,
+                    nodeReferenceAndNode -> {
+                        System.out.println("distance: " + nodeReferenceAndNode.getNodeReference().getDistance() +
+                                "; primaryKey: " + nodeReferenceAndNode.getNode().getPrimaryKey());
+                        numRecords.incrementAndGet();
+                    }).join();
+            return null;
+        });
+        System.out.println(numRecords.get());
     }
 
     @ParameterizedTest
