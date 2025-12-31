@@ -45,10 +45,12 @@ import com.google.common.base.Verify;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.ObjectArrays;
 import com.google.common.collect.Sets;
+import com.google.common.util.concurrent.AtomicDouble;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -407,8 +409,7 @@ class HNSWTest {
     @MethodSource("randomSeedsWithConfig")
     void testStreamByDistance(final long seed, final Config config) {
         final Random random = new Random(seed);
-        final Metric metric = config.getMetric();
-        final int size = 1000;
+        final int size = 10000;
         final TestOnWriteListener onWriteListener = new TestOnWriteListener();
         final TestOnReadListener onReadListener = new TestOnReadListener();
 
@@ -423,26 +424,38 @@ class HNSWTest {
                     (tr, nextId) -> insertedData.get(Math.toIntExact(nextId)));
         }
 
-        // dumpLayers(config);
-
-        final double radius = 1d;
         final HalfRealVector queryVector = createRandomHalfVector(random, config.getNumDimensions());
+
+        final NavigableSet<PrimaryKeyVectorAndDistance> orderedByDistances =
+                orderedByDistances(Metric.EUCLIDEAN_METRIC, insertedData, queryVector);
+        final PrimaryKeyVectorAndDistance discriminator = Iterables.get(orderedByDistances, 999);
+        System.out.println("discriminator distance:" + discriminator.getDistance() + "; primaryKey: " + discriminator.getPrimaryKey());
 
         onReadListener.reset();
 
         final AtomicInteger numRecords = new AtomicInteger(0);
+        final AtomicDouble lastDistance = new AtomicDouble(discriminator.getDistance());
+        final AtomicInteger numInversions = new AtomicInteger(0);
         db.run(tr -> {
             final AsyncIterator<NodeReferenceAndNode<NodeReferenceWithDistance, NodeReference>> it =
-                    hnsw.orderedByDistance(tr, 100, 200, false, queryVector, 0.0d);
+                    hnsw.orderedByDistance(tr, 100, 1000, false, queryVector,
+                            discriminator.getDistance(), discriminator.getPrimaryKey());
             AsyncUtil.forEachRemaining(it,
                     nodeReferenceAndNode -> {
-                        System.out.println("distance: " + nodeReferenceAndNode.getNodeReference().getDistance() +
+                        final double currentDistance = nodeReferenceAndNode.getNodeReference().getDistance();
+                        System.out.println("distance: " + currentDistance +
                                 "; primaryKey: " + nodeReferenceAndNode.getNode().getPrimaryKey());
                         numRecords.incrementAndGet();
+                        if (currentDistance < lastDistance.get()) {
+                            numInversions.incrementAndGet();
+                            System.err.println("inversion! current: " + currentDistance + "; last:" + lastDistance.get());
+                        }
+                        lastDistance.set(currentDistance);
                     }).join();
             return null;
         });
-        System.out.println(numRecords.get());
+        System.out.println(numRecords.get() + " record(s).");
+        System.out.println(numInversions.get() + " inverted record(s).");
     }
 
     @ParameterizedTest
