@@ -554,7 +554,6 @@ class HNSWTest {
     void testSIFTInsertSmall() throws Exception {
         final Metric metric = Metric.EUCLIDEAN_METRIC;
         final int k = 100;
-        final TestOnReadListener onReadListener = new TestOnReadListener();
 
         final HNSW hnsw = new HNSW(rtSubspace.getSubspace(), TestExecutors.defaultThreadPool(),
                 HNSW.newConfigBuilder()
@@ -565,7 +564,7 @@ class HNSWTest {
                         .setMMax(32)
                         .setMMax0(64)
                         .build(128),
-                OnWriteListener.NOOP, onReadListener);
+                new TestOnWriteListener(), new TestOnReadListener());
 
         final Path siftSmallPath = Paths.get(".out/extracted/siftsmall/siftsmall_base.fvecs");
 
