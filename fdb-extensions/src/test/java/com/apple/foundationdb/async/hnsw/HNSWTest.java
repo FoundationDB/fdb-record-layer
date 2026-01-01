@@ -438,17 +438,17 @@ class HNSWTest {
         final AtomicInteger numInversions = new AtomicInteger(0);
         db.run(tr -> {
             final AsyncIterator<NodeReferenceAndNode<NodeReferenceWithDistance, NodeReference>> it =
-                    hnsw.orderedByDistance(tr, 100, 1000, false, queryVector,
+                    hnsw.orderedByDistance(tr, 100, 100, false, queryVector,
                             discriminator.getDistance(), discriminator.getPrimaryKey());
             AsyncUtil.forEachRemaining(it,
                     nodeReferenceAndNode -> {
                         final double currentDistance = nodeReferenceAndNode.getNodeReference().getDistance();
-                        System.out.println("distance: " + currentDistance +
-                                "; primaryKey: " + nodeReferenceAndNode.getNode().getPrimaryKey());
+//                        System.out.println("distance: " + currentDistance +
+//                                "; primaryKey: " + nodeReferenceAndNode.getNode().getPrimaryKey());
                         numRecords.incrementAndGet();
                         if (currentDistance < lastDistance.get()) {
                             numInversions.incrementAndGet();
-                            System.err.println("inversion! current: " + currentDistance + "; last:" + lastDistance.get());
+                            //System.err.println("inversion! current: " + currentDistance + "; last:" + lastDistance.get());
                         }
                         lastDistance.set(currentDistance);
                     }).join();

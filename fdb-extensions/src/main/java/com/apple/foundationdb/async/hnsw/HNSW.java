@@ -2546,7 +2546,7 @@ public class HNSW {
                     // This initial capacity is somewhat arbitrary as m is not necessarily
                     // a limit, but it gives us a number that is better than the default.
                     new PriorityQueue<>(getConfig().getM(), NodeReferenceWithDistance.comparator());
-            final BoundedVisitedSet visited = new BoundedVisitedSet(400, minimumRadius, minimumPrimaryKey);
+            final BoundedVisitedSet visited = new BoundedVisitedSet(1, minimumRadius, minimumPrimaryKey);
 
             final PriorityQueue<NodeReferenceWithDistance> out =
                     new PriorityQueue<>(efOutwardSearch + 1, // prevent reallocation further down
@@ -2562,11 +2562,12 @@ public class HNSW {
 
                 final NodeReferenceWithDistance nodeReferenceWithDistance =
                         new NodeReferenceWithDistance(primaryKey, vector, distance);
-                candidates.add(nodeReferenceWithDistance);
+                //candidates.add(nodeReferenceWithDistance);
                 visited.add(nodeReferenceWithDistance);
-                // do not add to out if the distance is less than
+                // do not add to out if the distance is less than the minimum
                 if (isGreaterThanMinimum(nodeReferenceWithDistance)) {
-                    out.add(nodeReferenceWithDistance);
+                    candidates.add(nodeReferenceWithDistance);
+                    //out.add(nodeReferenceWithDistance);
                 }
             }
 
@@ -2617,6 +2618,9 @@ public class HNSW {
                 }
 
                 final NodeReferenceWithDistance candidate = candidates.poll();
+                if (isGreaterThanMinimum(candidate)) {
+                    out.add(candidate);
+                }
 
                 return fetchNodeIfNotCached(storageAdapter, readTransaction, storageTransform, 0, candidate, nodeCache)
                         .thenApply(AbstractNode::getNeighbors)
@@ -2631,16 +2635,16 @@ public class HNSW {
                                         new NodeReferenceWithDistance(primaryKey, current.getVector(), distance);
 
                                 if (!visited.contains(nodeReferenceWithDistance)) {
+                                    final double candidateMinDistance = candidates.peek() == null ? 11.0d : candidates.peek().getDistance();
+                                    final double outMinDistance = out.peek() == null ? 11.0d : out.peek().getDistance();
+                                    System.out.println(candidateMinDistance + "," + outMinDistance);
+
                                     visited.add(nodeReferenceWithDistance);
                                     candidates.add(nodeReferenceWithDistance);
 
-                                    //
-                                    // We could also add the current neighbor unconditionally to out here and accept
-                                    // occasional inversions.
-                                    //
-                                    if (isGreaterThanMinimum(nodeReferenceWithDistance)) {
-                                        out.add(nodeReferenceWithDistance);
-                                    }
+//                                    if (isGreaterThanMinimum(nodeReferenceWithDistance)) {
+//                                        out.add(nodeReferenceWithDistance);
+//                                    }
                                 }
                             }
                             return true;
@@ -2651,6 +2655,11 @@ public class HNSW {
                     return CompletableFuture.completedFuture(null);
                 }
                 final NodeReferenceWithDistance nodeReference = out.poll();
+
+                final double candidateMinDistance = candidates.peek() == null ? 11.0d : candidates.peek().getDistance();
+                final double outMinDistance = out.peek() == null ? 11.0d : out.peek().getDistance();
+                System.out.println(candidateMinDistance + "," + outMinDistance);
+
                 //visited.bumpCurrentRadiusReference(nodeReference);
                 return fetchNodeIfNotCached(storageAdapter, readTransaction, storageTransform, 0, nodeReference, nodeCache)
                         .thenApply(node -> new NodeReferenceAndNode<>(nodeReference, node));
