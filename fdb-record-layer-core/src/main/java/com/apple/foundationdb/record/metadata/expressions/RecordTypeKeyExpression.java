@@ -29,7 +29,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.KeyExpressionVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedRecordValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordTypeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.protobuf.Descriptors;
@@ -125,7 +125,7 @@ public class RecordTypeKeyExpression extends BaseKeyExpression implements AtomKe
     @Nonnull
     @Override
     public Value toValue(@Nonnull final CorrelationIdentifier baseAlias, @Nonnull final Type baseType) {
-        return new RecordTypeValue(QuantifiedObjectValue.of(baseAlias, new Type.AnyRecord(true)));
+        return new RecordTypeValue(QuantifiedRecordValue.of(baseAlias, new Type.AnyRecord(true)));
     }
 
     @Override

@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentityMap;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers;
+import com.apple.foundationdb.record.query.plan.cascades.typing.PseudoField;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Verify;
@@ -66,6 +67,16 @@ public class MatchSimpleFieldValueRule extends ValueComputationRule<Value, Map<V
         Verify.verify(matchedValuesMap == null || matchedValuesMap.isEmpty() ||
                 (matchedValuesMap.size() == 1 && matchedValuesMap.containsKey(rootValue)));
         if (!rootValue.isFunctionallyDependentOn(baseValue)) {
+            return;
+        }
+        if (rootValue.getResultType().equals(PseudoField.ROW_VERSION.getType())) {
+            // We cannot currently copy out versions, at least when this is used to construct
+            // the IndexKeyValueToPartialRecord based on an index scan. The reason for this is that
+            // we'd need to be able to (if the version is the record's version) copy the version
+            // not into a field on the base record but into FDBQueriedRecord's "version" field.
+            // If we ever replace the IndexKeyValueToPartialRecord on a covering index plan
+            // with an RCV that constructs the record directly from the index entry, we could
+            // start to loosen this
             return;
         }
 

@@ -250,11 +250,17 @@ public class MessageHelpers {
         }
 
         final var builder = DynamicMessage.newBuilder(targetDescriptor);
+        deepCopyMessage(builder, message);
+        return builder.build();
+    }
+
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
+    public static void deepCopyMessage(@Nonnull final Message.Builder builder, @Nonnull final Message message) {
         for (final var entry : message.getAllFields().entrySet()) {
             final Descriptors.FieldDescriptor field = entry.getKey();
 
             // find the field on the target side
-            final var targetField = targetDescriptor.findFieldByNumber(field.getNumber());
+            final var targetField = builder.getDescriptorForType().findFieldByNumber(field.getNumber());
 
             if (field.isRepeated()) {
                 for (final var element : (List<?>)entry.getValue()) {
@@ -287,8 +293,6 @@ public class MessageHelpers {
             }
         }
         builder.mergeUnknownFields(message.getUnknownFields());
-
-        return builder.build();
     }
 
     @Nonnull

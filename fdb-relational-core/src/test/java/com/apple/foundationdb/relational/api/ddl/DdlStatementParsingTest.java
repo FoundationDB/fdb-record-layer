@@ -318,6 +318,17 @@ public class DdlStatementParsingTest {
         }
     }
 
+    @Test
+    void versionColumnTypeNotSupported() throws Exception {
+        // The Relational Type hierarchy supports fields with type "version", and it's the type associated with the
+        // built-in pseudo-field "__ROW_VERSION" if store_row_versions is enabled. This test validates that we can't
+        // create a column with this version type. If we did, we'd have to worry a little bit about the user creating
+        // a column that is called "__ROW_VERSION" and has type version, which would be indistinguishable from the
+        // pseudo-field.
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE bar (id bigint, foo_field version, PRIMARY KEY(id))";
+        shouldFailWith(stmt, ErrorCode.UNKNOWN_TYPE);
+    }
 
     @Test
     void failsToParseEmptyTemplateStatements() throws Exception {
@@ -564,6 +575,35 @@ public class DdlStatementParsingTest {
                 return txn -> {
                     try {
                         final DdlTestUtil.ParsedType type = schema.getType("foo");
+                        assertColumnsMatch(type, columns);
+                    } catch (Exception ve) {
+                        throw ExceptionUtil.toRelationalException(ve);
+                    }
+                };
+            }
+        });
+    }
+
+    @ParameterizedTest
+    @MethodSource("columnTypePermutations")
+    void createSchemaTemplatesWithRowVersions(List<String> columns) throws Exception {
+        final String columnStatement = "CREATE SCHEMA TEMPLATE test_template " +
+                " CREATE TYPE AS STRUCT foo " + makeColumnDefinition(columns, false) +
+                " CREATE TABLE bar (col0 bigint, col1 foo, PRIMARY KEY(col0)) " +
+                " WITH OPTIONS(store_row_versions=true) ";
+        shouldWorkWithInjectedFactory(columnStatement, new AbstractMetadataOperationsFactory() {
+            @Nonnull
+            @Override
+            public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
+                                                                      @Nonnull Options templateProperties) {
+                Assertions.assertEquals("test_template", template.getName(), "incorrect template name!");
+                DdlTestUtil.ParsedSchema schema = new DdlTestUtil.ParsedSchema(getProtoDescriptor(template));
+                Assertions.assertEquals(1, schema.getTables().size(), "Incorrect number of tables");
+                Assertions.assertTrue(template.isStoreRowVersions(), "Schema template should store row versions");
+                return txn -> {
+                    try {
+                        final DdlTestUtil.ParsedType type = schema.getType("foo");
+                        Assertions.assertFalse(type.getColumnStrings().contains("__ROW_VERSION"), "__ROW_VERSION column should not be in table definition");
                         assertColumnsMatch(type, columns);
                     } catch (Exception ve) {
                         throw ExceptionUtil.toRelationalException(ve);

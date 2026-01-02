@@ -121,9 +121,9 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
     static RelationalExpression fromRecordQuery(@Nonnull RecordMetaData recordMetaData,
                                                 @Nonnull RecordQuery query) {
         query.validate(recordMetaData);
-        final var allRecordTypes = recordMetaData.getRecordTypes().keySet();
-        final var recordTypesFromQuery = query.getRecordTypes();
-        final var queriedRecordTypes = recordTypesFromQuery.isEmpty() ? allRecordTypes : recordTypesFromQuery;
+        final Set<String> allRecordTypes = recordMetaData.getRecordTypes().keySet();
+        final Collection<String> recordTypesFromQuery = query.getRecordTypes();
+        final Collection<String> queriedRecordTypes = recordTypesFromQuery.isEmpty() ? allRecordTypes : recordTypesFromQuery;
 
         final Reference baseRef;
         Quantifier.ForEach quantifier;
@@ -140,7 +140,7 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
                     new LogicalTypeFilterExpression(
                             new HashSet<>(queriedRecordTypes),
                             Quantifier.forEach(fuseRef),
-                            Type.Record.fromFieldDescriptorsMap(recordMetaData.getFieldDescriptorMapFromNames(queriedRecordTypes))));
+                            recordMetaData.getPlannerType(queriedRecordTypes)));
             quantifier = Quantifier.forEach(baseRef);
         }
 
