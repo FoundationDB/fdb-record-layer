@@ -147,17 +147,14 @@ public final class KeySpaceUtils {
                     return null;
                 }
                 // now we need to make sure this isn't ambiguous with any potential longs
-                // check if the first character is a letter (most likely) before doing the more expensive work below
-                if (!Character.isLetter(pathElem.charAt(0))) {
-                    if (directory.getParent().getSubdirectories().stream()
-                            .anyMatch(sibling -> sibling.getKeyType() == KeySpaceDirectory.KeyType.LONG &&
-                                    !(sibling instanceof DirectoryLayerDirectory))) {
-                        try {
-                            Long.parseLong(pathElem);
-                            return null;
-                        } catch (NumberFormatException e) {
-                            // ok, this is definitely not a long
-                        }
+                if (directory.getParent().getSubdirectories().stream()
+                        .anyMatch(sibling -> sibling.getKeyType() == KeySpaceDirectory.KeyType.LONG &&
+                                !(sibling instanceof DirectoryLayerDirectory))) {
+                    try {
+                        Long.parseLong(pathElem);
+                        return null;
+                    } catch (NumberFormatException e) {
+                        // ok, this is definitely not a long
                     }
                 }
                 break;
