@@ -43,6 +43,8 @@ import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalExcep
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.recordlayer.ArrayRow;
 import com.apple.foundationdb.relational.recordlayer.CommittingIteratorResultSet;
+import com.apple.foundationdb.relational.recordlayer.ContinuationBuilder;
+import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
 import com.apple.foundationdb.relational.recordlayer.KeySpaceUtils;
 import com.apple.foundationdb.relational.recordlayer.RecordContextTransaction;
@@ -51,18 +53,35 @@ import com.apple.foundationdb.relational.recordlayer.RecordLayerResultSet;
 import com.apple.foundationdb.relational.recordlayer.RelationalKeyspaceProvider;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.net.URI;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Query plan for COPY command operations (export and import).
  */
 @API(API.Status.EXPERIMENTAL)
 public class CopyPlan extends QueryPlan {
+
     private enum CopyType {
-        EXPORT,
-        IMPORT
+        EXPORT(Type.Record.fromFields(List.of(
+                Type.Record.Field.of(
+                        Type.primitiveType(Type.TypeCode.BYTES, false),
+                        Optional.of("DATA"),
+                        Optional.of(0))))),
+        IMPORT(Type.Record.fromFields(List.of(
+                Type.Record.Field.of(
+                        Type.primitiveType(Type.TypeCode.INT, false),
+                        Optional.of("COUNT"),
+                        Optional.of(0)))));
+
+        private final Type.Record resultType;
+
+        CopyType(final Type.Record resultType) {
+            this.resultType = resultType;
+        }
     }
 
     @Nonnull
@@ -72,10 +91,9 @@ public class CopyPlan extends QueryPlan {
     private final String path;
 
     @Nonnull
-    private final Type rowType;
-
-    @Nonnull
     private final QueryExecutionContext queryExecutionContext;
+    @Nullable
+    private final byte[] continuation;
 
     /**
      * Creates a COPY export plan.
@@ -87,13 +105,7 @@ public class CopyPlan extends QueryPlan {
     @Nonnull
     public static CopyPlan getCopyExportAction(@Nonnull String path,
                                                @Nonnull QueryExecutionContext queryExecutionContext) {
-        // Export returns a single BYTES column (not nullable)
-        Type rowType = Type.Record.fromFields(List.of(
-                Type.Record.Field.of(
-                        Type.primitiveType(Type.TypeCode.BYTES, false),
-                        java.util.Optional.of("DATA"),
-                        java.util.Optional.of(0))));
-        return new CopyPlan(CopyType.EXPORT, path, rowType, queryExecutionContext);
+        return new CopyPlan(CopyType.EXPORT, path, queryExecutionContext, null);
     }
 
     /**
@@ -106,25 +118,27 @@ public class CopyPlan extends QueryPlan {
     @Nonnull
     public static CopyPlan getCopyImportAction(@Nonnull String path,
                                                @Nonnull QueryExecutionContext queryExecutionContext) {
-        // Import returns a single INT column (not nullable) for count
-        Type rowType = Type.Record.fromFields(List.of(
-                Type.Record.Field.of(
-                        Type.primitiveType(Type.TypeCode.INT, false),
-                        java.util.Optional.of("COUNT"),
-                        java.util.Optional.of(0))));
+        return new CopyPlan(CopyType.IMPORT, path, queryExecutionContext, null);
+    }
 
-        return new CopyPlan(CopyType.IMPORT, path, rowType, queryExecutionContext);
+    public static CopyPlan fromContinuation(@Nonnull final com.apple.foundationdb.relational.continuation.CopyPlan protobuf,
+                                            @Nullable final byte[] continuation,
+                                            @Nonnull final MutablePlanGenerationContext planGenerationContext) {
+        return new CopyPlan(CopyType.EXPORT,
+                protobuf.getPath(),
+                planGenerationContext,
+                continuation);
     }
 
     private CopyPlan(@Nonnull CopyType copyType,
                      @Nonnull String path,
-                     @Nonnull Type rowType,
-                     @Nonnull QueryExecutionContext queryExecutionContext) {
+                     @Nonnull QueryExecutionContext queryExecutionContext,
+                     @Nullable byte[] continuation) {
         super("COPY " + copyType.name() + " " + path);
         this.copyType = copyType;
         this.path = path;
-        this.rowType = rowType;
         this.queryExecutionContext = queryExecutionContext;
+        this.continuation = continuation;
     }
 
     @Override
@@ -172,10 +186,10 @@ public class CopyPlan extends QueryPlan {
             }
             // Export all data from the path (up to the requested limit)
             RecordCursor<DataInKeySpacePath> cursor =
-                    keySpacePath.exportAllData(fdbContext, null, scanProperties);
+                    keySpacePath.exportAllData(fdbContext, continuation, scanProperties);
 
             // Transform DataInKeySpacePath to Row with serialized bytes
-            var iterator = RecordLayerIterator.create(cursor, data -> {
+            RecordLayerIterator<DataInKeySpacePath> iterator = RecordLayerIterator.create(cursor, data -> {
                 if (data == null) {
                     return null;
                 }
@@ -197,7 +211,19 @@ public class CopyPlan extends QueryPlan {
             // Return RecordLayerResultSet with continuation support
             // Row limiting via Statement.setMaxRows() is handled at higher level
             return new RecordLayerResultSet(structMetaData, iterator,
-                    null /* caller is responsible for managing tx state */);
+                    null /* caller is responsible for managing tx state */,
+                    (continuation, reason) -> {
+                        final ContinuationBuilder builder = ContinuationImpl.copyOf(continuation).asBuilder()
+                                .withBindingHash(queryExecutionContext.getParameterHash())
+                                .withPlanHash(queryExecutionContext.getParameterHash())
+                                .withReason(reason);
+                        if (!continuation.atEnd()) {
+                            builder.withCopyPlan(com.apple.foundationdb.relational.continuation.CopyPlan.newBuilder()
+                                    .setPath(path)
+                                    .build());
+                        }
+                        return builder.build();
+                    });
         } catch (RelationalException e) {
             throw e;
         } catch (Exception e) {
@@ -320,7 +346,7 @@ public class CopyPlan extends QueryPlan {
         if (queryExecutionContext == this.queryExecutionContext) {
             return this;
         }
-        return new CopyPlan(copyType, path, rowType, queryExecutionContext);
+        return new CopyPlan(copyType, path, queryExecutionContext, continuation);
     }
 
     @Nonnull
@@ -332,7 +358,7 @@ public class CopyPlan extends QueryPlan {
     @Nonnull
     @Override
     public Type getResultType() {
-        return rowType;
+        return copyType.resultType;
     }
 
     @Nonnull

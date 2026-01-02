@@ -253,9 +253,9 @@ public final class PlanGenerator {
     }
 
     @Nonnull
-    private QueryPlan.PhysicalQueryPlan generatePhysicalPlanForExecuteContinuation(@Nonnull AstNormalizer.NormalizationResult ast,
-                                                                                   @Nonnull Set<PlanHashable.PlanHashMode> validPlanHashModes,
-                                                                                   @Nonnull PlanHashable.PlanHashMode currentPlanHashMode)
+    private Plan<?> generatePhysicalPlanForExecuteContinuation(@Nonnull AstNormalizer.NormalizationResult ast,
+                                                               @Nonnull Set<PlanHashable.PlanHashMode> validPlanHashModes,
+                                                               @Nonnull PlanHashable.PlanHashMode currentPlanHashMode)
             throws RelationalException {
         final var queryHasherContext = ast.getQueryExecutionContext();
         final var continuationProto = queryHasherContext.getContinuation();
@@ -266,7 +266,27 @@ public final class PlanGenerator {
             throw new RelationalException("unable to parse continuation",
                     ErrorCode.INTERNAL_ERROR, e);
         }
+        if (continuation.hasCompiledStatement()) {
+            return generatePhysicalPlanForCompiledStatement(ast, validPlanHashModes, currentPlanHashMode, continuation, continuationProto);
+        } else if (continuation.hasCopyPlan()) {
+            final var planGenerationContext = new MutablePlanGenerationContext(PreparedParams.empty(),
+                    currentPlanHashMode,
+                    ast.getQuery(),
+                    ast.getQueryCacheKey().getCanonicalQueryString(), Objects.requireNonNull(continuation.getBindingHash()));
+            return CopyPlan.fromContinuation(continuation.getCopyPlan(), continuation.getExecutionState(), planGenerationContext);
+        } else {
+            throw new RelationalException("Continuation does not have statement to continue",
+                    ErrorCode.INTERNAL_ERROR);
+        }
+    }
 
+    @Nonnull
+    private static QueryPlan.ContinuedPhysicalQueryPlan generatePhysicalPlanForCompiledStatement(
+            final @Nonnull AstNormalizer.NormalizationResult ast,
+            final @Nonnull Set<PlanHashable.PlanHashMode> validPlanHashModes,
+            final @Nonnull PlanHashable.PlanHashMode currentPlanHashMode,
+            final ContinuationImpl continuation,
+            final byte[] continuationProto) throws RelationalException {
         final var compiledStatement = Assert.notNullUnchecked(continuation.getCompiledStatement());
         final var serializedPlanHashMode =
                 PlanValidator.validateSerializedPlanSerializationMode(compiledStatement, validPlanHashModes);

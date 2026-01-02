@@ -23,6 +23,7 @@ package com.apple.foundationdb.relational.recordlayer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
+import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
@@ -39,6 +40,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import javax.annotation.Nonnull;
 import java.net.URI;
@@ -159,8 +161,9 @@ public class CopyCommandTest {
         }
     }
 
-    @Test
-    void exportWithRowLimit() throws Exception {
+    @ParameterizedTest
+    @ValueSource(ints = {1, 3, 5, 8})
+    void exportWithLimitAndContinuation(int limit) throws Exception {
         // Test COPY export with Statement.setMaxRows() limiting (unquoted path)
         final String pathId = "/TEST/" + UUID.randomUUID().toString().replace("-", "_").toUpperCase(Locale.ROOT);
         final KeySpace keySpace = RelationalKeyspaceProvider.instance().getKeySpace();
@@ -175,16 +178,48 @@ public class CopyCommandTest {
         writeTestData(testPath, data);
         ConnectionUtils.runAgainstCatalog(conn -> {
             try (RelationalStatement stmt = conn.createStatement()) {
-                stmt.setMaxRows(5);
+                stmt.setMaxRows(limit);
                 try (RelationalResultSet rs = stmt.executeQuery("COPY " + pathId)) {
-                    int count = 0;
+                    final ArrayList<byte[]> results = new ArrayList<>();
                     while (rs.next()) {
-                        count++;
+                        results.add(rs.getBytes(1));
                     }
-                    assertEquals(5, count, "Should only return 5 rows due to setMaxRows");
+                    assertEquals(limit, results.size(), "Should only return 5 rows due to setMaxRows");
+                    Continuation continuation = rs.getContinuation();
+                    assertFalse(continuation.atEnd());
+                    assertFalse(continuation.atBeginning());
+                    while (!continuation.atEnd()) {
+                        continuation = continueExport(limit, conn, continuation, results);
+                    }
+                    assertEquals(10, results.size());
                 }
             }
         });
+    }
+
+    @Nonnull
+    private static Continuation continueExport(final int limit,
+                                               final RelationalConnection connection,
+                                               Continuation continuation,
+                                               final ArrayList<byte[]> results) throws SQLException {
+        try (final var preparedStatement = connection.prepareStatement("EXECUTE CONTINUATION ?param")) {
+            preparedStatement.setBytes("param", continuation.serialize());
+            preparedStatement.setMaxRows(limit);
+            try (final RelationalResultSet resultSet = preparedStatement.executeQuery()) {
+                int count = 0;
+                while (resultSet.next()) {
+                    results.add(resultSet.getBytes(1));
+                    count++;
+                }
+                continuation = resultSet.getContinuation();
+                if (continuation.atEnd()) {
+                    assertThat(count).isLessThan(limit);
+                } else {
+                    assertEquals(limit, count, "Should only return 5 rows due to setMaxRows" + continuation);
+                }
+            }
+        }
+        return continuation;
     }
 
     @Test
