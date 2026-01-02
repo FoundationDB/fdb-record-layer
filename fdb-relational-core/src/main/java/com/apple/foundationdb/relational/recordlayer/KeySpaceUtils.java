@@ -216,7 +216,11 @@ public final class KeySpaceUtils {
         }
 
         if (directory.isLeaf()) {
-            return parentPath; //we found the path!
+            if (position == pathElems.length - 1) {
+                return parentPath; //we found the path!
+            } else {
+                return null;
+            }
         }
 
         for (KeySpaceDirectory dir : directory.getSubdirectories()) {

@@ -280,29 +280,55 @@ public class KeySpacePathParsingTest {
         final KeySpaceDirectory root = new KeySpaceDirectory("testRoot", KeySpaceDirectory.KeyType.STRING)
                 .addSubdirectory(createStringLikeDirectory("STRING", directory, constant, ""));
         KeySpace keySpace = new KeySpace(root);
-        final URI uri = URI.create("/root//");
+        final URI uri = URI.create("/root/");
         RelationalAssertions.assertThrows(
                         () -> KeySpaceUtils.toKeySpacePath(uri, keySpace))
                 .hasErrorCode(ErrorCode.INVALID_PATH);
     }
 
-    // TODO test with a URI that is longer than the path
+    @ParameterizedTest
+    @BooleanSource({"constant", "directory"})
+    void emptyStringMiddle(boolean constant, boolean directory) {
+        // we don't allow empty strings
+        final KeySpaceDirectory root = new KeySpaceDirectory("testRoot", KeySpaceDirectory.KeyType.STRING)
+                .addSubdirectory(createStringLikeDirectory("STRING", directory, constant, "")
+                        .addSubdirectory(createStringLikeDirectory("STRING2", directory, constant, "Y")));
+        KeySpace keySpace = new KeySpace(root);
+        final URI uri = URI.create("/root//Y");
+        RelationalAssertions.assertThrows(
+                        () -> KeySpaceUtils.toKeySpacePath(uri, keySpace))
+                .hasErrorCode(ErrorCode.INVALID_PATH);
+    }
 
+    @Test
+    void longerUri() throws RelationalException {
+        // we don't allow empty strings
+        final KeySpaceDirectory root = new KeySpaceDirectory("testRoot", KeySpaceDirectory.KeyType.STRING)
+                .addSubdirectory(createStringLikeDirectory("STRING", false, false, ""));
+        KeySpace keySpace = new KeySpace(root);
+        final URI okUri = URI.create("/root/x");
+        Assertions.assertEquals(keySpace.path("testRoot", "root").add("STRING", "x"),
+                KeySpaceUtils.toKeySpacePath(okUri, keySpace));
+        final URI longerUri = URI.create("/root/x/y");
+        RelationalAssertions.assertThrows(
+                        () -> KeySpaceUtils.toKeySpacePath(longerUri, keySpace))
+                .hasErrorCode(ErrorCode.INVALID_PATH);
+    }
     // TODO test with NULL as one of the roots
 
     static Stream<Arguments> ambiguousScenarios() {
         return ParameterizedTestUtils.cartesianProduct(
                 Stream.of(
-                        new AmbiguousScenario("/banana/",
+                        new AmbiguousScenario("/banana",
                                 directoryAmbiguousHalf("banana"),
                                 ambiguousHalf(KeySpaceDirectory.KeyType.STRING, "banana")),
-                        new AmbiguousScenario("/12345/",
+                        new AmbiguousScenario("/12345",
                                 ambiguousHalf(KeySpaceDirectory.KeyType.STRING, "12345"),
                                 ambiguousHalf(KeySpaceDirectory.KeyType.LONG, 12345)),
-                        new AmbiguousScenario("//",
+                        new AmbiguousScenario("/",
                                 ambiguousHalf(KeySpaceDirectory.KeyType.STRING, ""),
                                 ambiguousHalf(KeySpaceDirectory.KeyType.NULL, null)),
-                        new AmbiguousScenario("//",
+                        new AmbiguousScenario("/",
                                 directoryAmbiguousHalf(""),
                                 ambiguousHalf(KeySpaceDirectory.KeyType.NULL, null))
 
