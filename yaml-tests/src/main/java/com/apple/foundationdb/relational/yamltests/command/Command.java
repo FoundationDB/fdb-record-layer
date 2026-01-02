@@ -38,6 +38,7 @@ import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerMetadataOper
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.yamltests.CustomYamlConstructor;
 import com.apple.foundationdb.relational.yamltests.Matchers;
+import com.apple.foundationdb.relational.yamltests.Reference;
 import com.apple.foundationdb.relational.yamltests.YamlConnection;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import com.apple.foundationdb.relational.yamltests.generated.schemainstance.SchemaInstanceOuterClass;
@@ -60,40 +61,42 @@ public abstract class Command {
 
     private static final Logger logger = LogManager.getLogger(Command.class);
 
-    private final int lineNumber;
+    @Nonnull
+    private final Reference reference;
     @Nonnull
     final YamlExecutionContext executionContext;
 
-    Command(int lineNumber, @Nonnull YamlExecutionContext executionContext) {
-        this.lineNumber = lineNumber;
+    Command(@Nonnull final Reference reference, @Nonnull YamlExecutionContext executionContext) {
+        this.reference = reference;
         this.executionContext = executionContext;
     }
 
-    public int getLineNumber() {
-        return lineNumber;
+    @Nonnull
+    public Reference getReference() {
+        return reference;
     }
 
     @Nonnull
-    public static Command parse(@Nonnull Object object, @Nonnull final String blockName, @Nonnull final YamlExecutionContext executionContext) {
+    public static Command parse(@Nonnull final Reference.Resource resource, @Nonnull Object object, @Nonnull final String blockName, @Nonnull final YamlExecutionContext executionContext) {
         final var command = Matchers.notNull(Matchers.firstEntry(Matchers.arrayList(object, "command").get(0), "command"), "command");
         final var linedObject = CustomYamlConstructor.LinedObject.cast(command.getKey(), () -> "Invalid command key-value pair: " + command);
-        final var lineNumber = linedObject.getLineNumber();
+        final var reference = resource.withLineNumber(linedObject.getLineNumber());
         try {
             final var key = Matchers.notNull(Matchers.string(linedObject.getObject(), "command"), "command");
             final var value = Matchers.notNull(command, "query configuration").getValue();
             switch (key) {
                 case COMMAND_LOAD_SCHEMA_TEMPLATE:
-                    return getLoadSchemaTemplateCommand(lineNumber, executionContext, (String) value);
+                    return getLoadSchemaTemplateCommand(reference, executionContext, (String) value);
                 case COMMAND_SET_SCHEMA_STATE:
-                    return getSetSchemaStateCommand(lineNumber, executionContext, (String) value);
+                    return getSetSchemaStateCommand(reference, executionContext, (String) value);
                 case COMMAND_QUERY:
-                    return QueryCommand.parse(object, blockName, executionContext);
+                    return QueryCommand.parse(resource, object, blockName, executionContext);
                 default:
                     Assert.failUnchecked(String.format(Locale.ROOT, "Could not find command '%s'", key));
                     return null;
             }
         } catch (Exception e) {
-            throw executionContext.wrapContext(e, () -> "‼️ Error parsing command at line " + lineNumber, "command", lineNumber);
+            throw executionContext.wrapContext(e, () -> "‼️ Error parsing command at " + reference, "command", reference);
         }
     }
 
@@ -102,8 +105,8 @@ public abstract class Command {
             executeInternal(connection);
         } catch (Throwable e) {
             throw executionContext.wrapContext(e,
-                    () -> "‼️ Error executing command at line " + getLineNumber() + " against connection for versions " + connection.getVersions(),
-                    "command", getLineNumber());
+                    () -> "‼️ Error executing command at " + getReference() + " against connection for versions " + connection.getVersions(),
+                    "command", getReference());
         }
     }
 
@@ -149,8 +152,8 @@ public abstract class Command {
     }
 
     @SuppressWarnings({"PMD.CloseResource"}) // We "borrow" from the connection via tryGetEmbedded, but the connection will close it
-    private static Command getLoadSchemaTemplateCommand(int lineNumber, @Nonnull final YamlExecutionContext executionContext, @Nonnull String value) {
-        return new Command(lineNumber, executionContext) {
+    private static Command getLoadSchemaTemplateCommand(@Nonnull final Reference reference, @Nonnull final YamlExecutionContext executionContext, @Nonnull String value) {
+        return new Command(reference, executionContext) {
             @Override
             public void executeInternal(@Nonnull YamlConnection connection) throws SQLException, RelationalException {
                 logger.debug("⏳ Loading template '{}'", value);
@@ -172,8 +175,8 @@ public abstract class Command {
     }
 
     @SuppressWarnings({"PMD.CloseResource"}) // We "borrow" from the connection via tryGetEmbedded, but the connection will close it
-    private static Command getSetSchemaStateCommand(int lineNumber, @Nonnull final YamlExecutionContext executionContext, @Nonnull String value) {
-        return new Command(lineNumber, executionContext) {
+    private static Command getSetSchemaStateCommand(@Nonnull final Reference reference, @Nonnull final YamlExecutionContext executionContext, @Nonnull String value) {
+        return new Command(reference, executionContext) {
             @Override
             public void executeInternal(@Nonnull YamlConnection connection) throws SQLException, RelationalException {
                 logger.debug("⏳ Setting schema state '{}'", value);

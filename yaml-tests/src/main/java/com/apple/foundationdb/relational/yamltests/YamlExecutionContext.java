@@ -25,9 +25,10 @@ import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.util.Assert;
-import com.apple.foundationdb.relational.yamltests.block.Block;
+import com.apple.foundationdb.relational.yamltests.block.IncludeBlock;
 import com.apple.foundationdb.relational.yamltests.generated.stats.PlannerMetricsProto;
 import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.LinkedListMultimap;
 import org.apache.logging.log4j.LogManager;
@@ -44,6 +45,7 @@ import java.io.BufferedInputStream;
 import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
@@ -54,15 +56,19 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 @SuppressWarnings({"PMD.GuardLogStatement"}) // It already is, but PMD is confused and reporting error in unrelated locations.
 public final class YamlExecutionContext {
@@ -86,26 +92,29 @@ public final class YamlExecutionContext {
     public static final ContextOption<Boolean> OPTION_CORRECT_METRICS = new ContextOption<>("optionCorrectMetrics");
     public static final ContextOption<Boolean> OPTION_SHOW_PLAN_ON_DIFF = new ContextOption<>("optionShowPlanOnDiff");
 
-    @Nonnull final String resourcePath;
-    @Nullable
-    private final List<String> editedFileStream;
-    private boolean isDirty;
+    private static final URI SYSTEM_CATALOG_ADDRESS = URI.create("jdbc:embed:/__SYS?schema=CATALOG");
+
     @Nonnull
-    private final ImmutableMap<PlannerMetricsProto.Identifier, PlannerMetricsProto.Info> expectedMetricsMap;
+    private final Set<Reference.Resource> registeredResources = new HashSet<>();
     @Nonnull
-    private final Map<QueryAndLocation, PlannerMetricsProto.Info> actualMetricsMap;
-    private boolean isDirtyMetrics;
+    private final Map<Reference.Resource, List<String>> editedFileStream = new HashMap<>();
+    @Nonnull
+    private final Map<Reference.Resource, Boolean> isDirty = new HashMap<>();
+    @Nonnull
+    private final Map<Reference.Resource, ImmutableMap<PlannerMetricsProto.Identifier, PlannerMetricsProto.Info>> expectedMetricsMap = new HashMap<>();
+    @Nonnull
+    private final Map<Reference.Resource, Map<QueryAndLocation, PlannerMetricsProto.Info>> actualMetricsMap = new HashMap<>();
+    @Nonnull
+    private final Map<Reference.Resource, Boolean> isDirtyMetrics = new HashMap<>();
     @Nonnull
     private final YamlConnectionFactory connectionFactory;
-    @Nonnull
-    private final List<Block> finalizeBlocks = new ArrayList<>();
     @SuppressWarnings("AbbreviationAsWordInName")
-    private final List<String> connectionURIs = new ArrayList<>();
+    private final Map<Reference.Resource, List<String>> connectionURIs = new HashMap<>();
     // Additional options that can be set by the runners to impact test execution
     private final ContextOptions additionalOptions;
     private final Map<String, String> transactionSetups = new HashMap<>();
     @Nonnull
-    private Options connectionOptions;
+    private Options connectionOptions = Options.NONE;
 
     public static class YamlExecutionError extends RuntimeException {
 
@@ -116,18 +125,9 @@ public final class YamlExecutionContext {
         }
     }
 
-    YamlExecutionContext(@Nonnull String resourcePath, @Nonnull YamlConnectionFactory factory,
-                         @Nonnull final ContextOptions additionalOptions) throws RelationalException {
+    YamlExecutionContext(@Nonnull YamlConnectionFactory factory, @Nonnull final ContextOptions additionalOptions) {
         this.connectionFactory = factory;
-        this.resourcePath = resourcePath;
-        this.editedFileStream = additionalOptions.getOrDefault(OPTION_CORRECT_EXPLAIN, false)
-                                ? loadYamlResource(resourcePath) : null;
         this.additionalOptions = additionalOptions;
-        this.connectionOptions = Options.none();
-        this.expectedMetricsMap = loadMetricsResource(resourcePath);
-        this.actualMetricsMap = new TreeMap<>(Comparator.comparing(QueryAndLocation::getLineNumber)
-                .thenComparing(QueryAndLocation::getBlockName)
-                .thenComparing(QueryAndLocation::getQuery));
         if (isNightly()) {
             logger.info("ℹ️ Running in the NIGHTLY context.");
             if (shouldCorrectExplains() || shouldCorrectMetrics()) {
@@ -140,18 +140,22 @@ public final class YamlExecutionContext {
         }
     }
 
-    @Nonnull
-    public Options getConnectionOptions() {
-        return connectionOptions;
+    public void registerResource(@Nonnull final Reference.Resource resource) throws RelationalException {
+        if (registeredResources.contains(resource)) {
+            throw new RuntimeException();
+        }
+        if (shouldCorrectExplains()) {
+            this.editedFileStream.put(resource, loadYamlResource(resource));
+        }
+        this.expectedMetricsMap.put(resource, loadMetricsResource(resource));
+        this.actualMetricsMap.put(resource, new TreeMap<>(Comparator.comparing(QueryAndLocation::getLineNumber)
+                .thenComparing(QueryAndLocation::getBlockName)
+                .thenComparing(QueryAndLocation::getQuery)));
+        registeredResources.add(resource);
     }
 
     public void setConnectionOptions(@Nonnull final Options connectionOptions) {
         this.connectionOptions = connectionOptions;
-    }
-
-    @Nonnull
-    public String getResourcePath() {
-        return resourcePath;
     }
 
     @Nonnull
@@ -160,9 +164,7 @@ public final class YamlExecutionContext {
     }
 
     public boolean shouldCorrectExplains() {
-        final var shouldCorrectExplains = additionalOptions.getOrDefault(OPTION_CORRECT_EXPLAIN, false);
-        Verify.verify(!shouldCorrectExplains || editedFileStream != null);
-        return shouldCorrectExplains;
+        return additionalOptions.getOrDefault(OPTION_CORRECT_EXPLAIN, false);
     }
 
     public boolean shouldCorrectMetrics() {
@@ -173,13 +175,13 @@ public final class YamlExecutionContext {
         return additionalOptions.getOrDefault(OPTION_SHOW_PLAN_ON_DIFF, false);
     }
 
-    public boolean correctExplain(int lineNumber, @Nonnull String actual) {
+    public boolean correctExplain(@Nonnull final Reference reference, @Nonnull String actual) {
         if (!shouldCorrectExplains()) {
             return false;
         }
         try {
-            editedFileStream.set(lineNumber, "      - explain: \"" + actual + "\"");
-            isDirty = true;
+            editedFileStream.get(reference.getResource()).set(reference.getLineNumber() - 1, "      - explain: \"" + actual + "\"");
+            isDirty.put(reference.getResource(), true);
             return true;
         } catch (Exception e) {
             return false;
@@ -187,23 +189,23 @@ public final class YamlExecutionContext {
     }
 
     @Nonnull
-    public ImmutableMap<PlannerMetricsProto.Identifier, PlannerMetricsProto.Info> getMetricsMap() {
-        return expectedMetricsMap;
+    public ImmutableMap<PlannerMetricsProto.Identifier, PlannerMetricsProto.Info> getMetricsMap(@Nonnull final Reference.Resource resource) {
+        return expectedMetricsMap.get(resource);
     }
 
     @Nullable
     @SuppressWarnings("UnusedReturnValue")
     public synchronized PlannerMetricsProto.Info putMetrics(@Nonnull final String blockName,
                                                             @Nonnull final String query,
-                                                            final int lineNumber,
+                                                            @Nonnull final Reference reference,
                                                             @Nonnull final PlannerMetricsProto.Info info,
                                                             @Nonnull final List<String> setups) {
-        return actualMetricsMap.put(new QueryAndLocation(blockName, query, lineNumber, setups), info);
+        return actualMetricsMap.get(reference.getResource()).put(new QueryAndLocation(blockName, query, reference.getLineNumber(), setups), info);
     }
 
     @SuppressWarnings("UnusedReturnValue")
-    public synchronized void markDirty() {
-        this.isDirtyMetrics = true;
+    public synchronized void markDirty(@Nonnull final Reference.Resource resource) {
+        this.isDirtyMetrics.put(resource, true);
     }
 
     public boolean isNightly() {
@@ -230,58 +232,120 @@ public final class YamlExecutionContext {
         return Runtime.getRuntime().availableProcessors() / 2;
     }
 
-    boolean isDirty() {
-        return isDirty;
+    public void replaceFilesIfRequired() {
+        final var filePathsWithResourceCount = registeredResources.stream()
+                .map(Reference.Resource::getPath)
+                .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
+        for (final var resource: registeredResources) {
+            if (!isDirty.getOrDefault(resource, false)) {
+                continue;
+            }
+            // There could arise a common scenario where a YAMSQL file is "opened" as 2 separate resource, coming from
+            // different call stacks. If this file has an EXPLAIN, and warrants correction, that will be a problem if,
+            // for the 2 resources pointing to same file, there is some disagreement on the values. Ideally this should
+            // not happen however, I believe it's still a possibility, mainly with metrics, to be highly sensitive to
+            // the environment in which the query is running. Because of this reason, just fail if we found resources
+            // that are marked as dirty and pointing to the same file as any other (dirty or non-dirty) resource.
+            if (filePathsWithResourceCount.getOrDefault(resource.getPath(), 0L) > 1) {
+                Assertions.fail("Found duplicate entries for writing to file: " + resource.getPath());
+            }
+            saveYamlFile(resource);
+            saveMetricsAsBinaryProto(resource);
+            saveMetricsAsYaml(resource);
+        }
+        for (final var resource: registeredResources) {
+            if (!isDirtyMetrics.getOrDefault(resource, false)) {
+                continue;
+            }
+            if (filePathsWithResourceCount.getOrDefault(resource.getPath(), 0L) > 1) {
+                Assertions.fail("Found duplicate entries for writing metrics for file: " + resource.getPath());
+            }
+            saveMetricsAsBinaryProto(resource);
+            saveMetricsAsYaml(resource);
+        }
     }
 
-    boolean isDirtyMetrics() {
-        return isDirtyMetrics;
+    private void saveYamlFile(@Nonnull final Reference.Resource resource) {
+        try {
+            try (var writer = new PrintWriter(new FileWriter(Path.of(System.getProperty("user.dir")).resolve(Path.of("src", "test", "resources", resource.getPath())).toAbsolutePath().toString(), StandardCharsets.UTF_8))) {
+                for (var line : editedFileStream.get(resource)) {
+                    writer.println(line);
+                }
+            }
+            logger.info("🟢 Source file {} replaced.", resource.getPath());
+        } catch (IOException e) {
+            logger.error("⚠️ Source file {} could not be replaced with corrected file.", resource.getPath());
+            Assertions.fail(e);
+        }
     }
 
-    @Nullable
-    List<String> getEditedFileStream() {
-        return editedFileStream;
-    }
-
-    public void registerFinalizeBlock(@Nonnull Block block) {
-        this.finalizeBlocks.add(block);
-    }
-
-    public void registerConnectionURI(@Nonnull String stringURI) {
-        this.connectionURIs.add(stringURI);
+    public void registerConnectionURI(@Nonnull Reference.Resource resource, @Nonnull String stringURI) {
+        Assert.thatUnchecked(registeredResources.contains(resource), "A Resource should be registered before registering available connection URIs");
+        connectionURIs.computeIfAbsent(resource, ignore -> new ArrayList<>()).add(stringURI);
     }
 
     /**
      * Infers the URI of the database to which a block should connect to.
      * <br>
-     * A block can define the connection in multiple ways:
-     * 1. no explicit definition: connect to the only registered connection URI.
+     * A block can declare a connection in multiple ways:
+     * 1. no explicit declaration: Try to connect to the only registered connection URI in the local {@link com.apple.foundationdb.relational.yamltests.Reference.Resource}.
+     *    If not, try to connect to the only connection across all parent resources.
      *    A URI can be registered by defining a "schema_template" block before that, which sets up the database and schema for a provided schema template.
      * 2. Parameter 0: connects to the system tables (catalog).
-     * 3. Parameter One-based Number: connects to the registered connection URI, number denotes the sequence of definition.
+     * 3. Parameter One-based Number: connects to the registered connection URI, number denotes the sequence of definitions in the local Resource.
+     *    To access parent connection URIs, this number should be prepended by `(global)` tag.
      * 4. Parameter String: connects to the defined String
      *
      * @param connectObject can be {@code null}, an {@link Integer} value or a {@link String}.
      *
      * @return a valid connection URI
      */
-    public URI inferConnectionURI(@Nullable Object connectObject) {
+    public URI inferConnectionURI(@Nonnull final Reference.Resource resource, @Nullable Object connectObject) {
+        Assert.thatUnchecked(registeredResources.contains(resource), "A Resource should be registered before registering available connection URIs");
         if (connectObject == null) {
-            Assert.thatUnchecked(!connectionURIs.isEmpty(), ErrorCode.INTERNAL_ERROR, () -> "Requested a default connection URI, but none present");
-            Assert.thatUnchecked(connectionURIs.size() == 1, ErrorCode.INTERNAL_ERROR,
-                    () -> "Requested a default connection URI, but multiple available to choose from: " + String.join(", ", connectionURIs));
-            return URI.create(connectionURIs.get(0));
+            return getConnectionFromConnectionURIList(resource, true, -1, true);
         } else if (connectObject instanceof Integer) {
-            final int idx = (Integer) (connectObject);
-            if (idx == 0) {
-                return URI.create("jdbc:embed:/__SYS?schema=CATALOG");
-            }
-            Assert.thatUnchecked(idx <= connectionURIs.size(), ErrorCode.INTERNAL_ERROR,
-                    () -> String.format(Locale.ROOT, "Requested connection URI at index %d, but only have %d available connection URIs.", idx, connectionURIs.size()));
-            return URI.create(connectionURIs.get(idx - 1));
+            return getConnectionFromConnectionURIList(resource, false, (Integer) connectObject, false);
         } else {
-            return URI.create(Matchers.string(connectObject));
+            final var stringURI = Matchers.string(connectObject);
+            if (stringURI.startsWith("(global)")) {
+                return getConnectionFromConnectionURIList(resource, false, Integer.parseInt(stringURI.substring(8).trim()), true);
+            }
+            return URI.create(stringURI);
         }
+    }
+
+    private URI getConnectionFromConnectionURIList(@Nonnull Reference.Resource resource, boolean defaultValue, int idx, boolean isGlobal) {
+        if (defaultValue) {
+            final var localList = connectionURIs.getOrDefault(resource, List.of());
+            if (localList.size() == 1) {
+                return URI.create(localList.get(0));
+            }
+            final var globalList = getGlobalConnectionURIList(resource);
+            Assert.thatUnchecked(!globalList.isEmpty(), ErrorCode.INTERNAL_ERROR, () -> "Requested a default connection URI, but none present");
+            Assert.thatUnchecked(globalList.size() == 1, ErrorCode.INTERNAL_ERROR,
+                    () -> "Requested a default connection URI, but multiple available to choose from: " + String.join(", ", globalList));
+            return URI.create(globalList.get(0));
+        }
+        final var list = !isGlobal ? connectionURIs.getOrDefault(resource, List.of()) : getGlobalConnectionURIList(resource);
+        if (idx == 0) {
+            return SYSTEM_CATALOG_ADDRESS;
+        }
+        Assert.thatUnchecked(idx <= list.size(), ErrorCode.INTERNAL_ERROR,
+                () -> String.format(Locale.ROOT, "Requested connection URI at index %d, but only have %d available connection URIs.", idx, list.size()));
+        return URI.create(list.get(idx - 1));
+    }
+
+    private List<String> getGlobalConnectionURIList(@Nonnull Reference.Resource resource) {
+        final var parentRef = resource.getParentRef();
+        final var resourcesBuilder = ImmutableList.<Reference.Resource>builder();
+        if (parentRef != null) {
+            resourcesBuilder.addAll(parentRef.getCallStack().stream().map(Reference::getResource).iterator());
+        }
+        resourcesBuilder.add(resource);
+        return resourcesBuilder.build().stream()
+                .flatMap(r -> connectionURIs.getOrDefault(r, List.of()).stream())
+                .collect(Collectors.toList());
     }
 
     public void registerTransactionSetup(final String name, final String command) {
@@ -298,11 +362,6 @@ public final class YamlExecutionContext {
                 "transaction setup " + name + " is not defined");
     }
 
-    @Nonnull
-    public List<Block> getFinalizeBlocks() {
-        return finalizeBlocks;
-    }
-
     /**
      * Wraps exceptions/errors with more context. This is used to hierarchically add more context to an exception. In case
      * the {@link Throwable} is a {@link YamlExecutionError}, this method adds additional context to its StackTrace in
@@ -319,61 +378,41 @@ public final class YamlExecutionContext {
      * @param throwable the throwable that needs to be wrapped
      * @param msg additional context
      * @param identifier The name of the element type to which the context is associated to.
-     * @param lineNumber the line number in the YAMSQL file to which the context is associated to.
+     * @param reference the {@link Reference} of the YAMSQL file to which the context is associated to.
      *
      * @return wrapped {@link YamlExecutionError}
      */
     @Nonnull
-    public RuntimeException wrapContext(@Nonnull Throwable throwable, @Nonnull Supplier<String> msg, @Nonnull String identifier, int lineNumber) {
-        return wrapContext(resourcePath, throwable, msg, identifier, lineNumber);
-    }
-
-    /**
-     * Wraps exceptions/errors with more context. This is used to hierarchically add more context to an exception. In case
-     * the {@link Throwable} is a {@link YamlExecutionError}, this method adds additional context to its StackTrace in
-     * the form of a new {@link StackTraceElement}, else it just wraps the throwable.
-     * <br>
-     * The general flow of execution of a test in any file is: file to test_block to test_run to query_config. If an
-     * exception/failure occurs in testing for a particular query_config, the following is the context that can be added
-     * incrementally at appropriate places in code:
-     * <br>
-     * query_config: lineNumber of the expected result
-     * test_run: lineNumber of query, query run as a simple statement or as prepared statement, parameters (if any)
-     * test_block: lineNumber of test_block, seed used for randomization, execution properties
-     *
-     * @param throwable the throwable that needs to be wrapped
-     * @param msg additional context
-     * @param identifier The name of the element type to which the context is associated to.
-     * @param lineNumber the line number in the YAMSQL file to which the context is associated to.
-     *
-     * @return wrapped {@link YamlExecutionError}
-     */
-    @Nonnull
-    public static RuntimeException wrapContext(@Nonnull final String resourcePath, @Nonnull Throwable throwable,
-                                        @Nonnull Supplier<String> msg, @Nonnull String identifier, int lineNumber) {
-        String fileName;
-        if (resourcePath.contains("/")) {
-            final String[] split = resourcePath.split("/");
-            fileName = split[split.length - 1];
-        } else {
-            fileName = resourcePath;
-        }
-
+    public static RuntimeException wrapContext(@Nonnull Throwable throwable, @Nonnull Supplier<String> msg,
+                                               @Nonnull String identifier, @Nonnull final Reference reference) {
         if (throwable instanceof TestAbortedException) {
             return (TestAbortedException)throwable;
         } else if (throwable instanceof YamlExecutionError) {
             final var oldStackTrace = throwable.getStackTrace();
-            final var newStackTrace = new StackTraceElement[oldStackTrace.length + 1];
-            System.arraycopy(oldStackTrace, 0, newStackTrace, 0, oldStackTrace.length);
-            newStackTrace[oldStackTrace.length] = new StackTraceElement("YAML_FILE", identifier, fileName, lineNumber);
+            final var newContext = composeStackTrace(reference, identifier);
+            final var newStackTrace = new StackTraceElement[newContext.length + 1];
+            newStackTrace[0] = oldStackTrace[0];
+            System.arraycopy(newContext, 0, newStackTrace, 1, newContext.length);
             throwable.setStackTrace(newStackTrace);
             return (YamlExecutionError)throwable;
         } else {
             // wrap
             final var wrapper = new YamlExecutionError(msg.get(), throwable);
-            wrapper.setStackTrace(new StackTraceElement[]{new StackTraceElement("YAML_FILE", identifier, fileName, lineNumber)});
+            wrapper.setStackTrace(composeStackTrace(reference, identifier));
             return wrapper;
         }
+    }
+
+    private static StackTraceElement[] composeStackTrace(@Nonnull Reference reference, @Nonnull String identifier) {
+        final var refList = reference.getCallStack();
+        final var newStackTrace = new StackTraceElement[refList.size()];
+        for (int i = refList.size() - 2; i >= 0; i--) {
+            final var ref = refList.get(i);
+            newStackTrace[refList.size() - i - 1] = new StackTraceElement("YAML_FILE", IncludeBlock.INCLUDE, ref.getResource().getFileName(), ref.getLineNumber());
+        }
+        final var lastRef = refList.get(refList.size() - 1);
+        newStackTrace[0] = new StackTraceElement("YAML_FILE", identifier, lastRef.getResource().getFileName(), lastRef.getLineNumber());
+        return newStackTrace;
     }
 
     /**
@@ -388,9 +427,9 @@ public final class YamlExecutionContext {
         return additionalOptions.getOrDefault(option, defaultValue);
     }
 
-    public void saveMetricsAsBinaryProto() {
+    private void saveMetricsAsBinaryProto(@Nonnull Reference.Resource resource) {
         final var fileName = Path.of(System.getProperty("user.dir"))
-                .resolve(Path.of("src", "test", "resources", metricsBinaryProtoFileName(resourcePath)))
+                .resolve(Path.of("src", "test", "resources", metricsBinaryProtoFileName(resource.getPath())))
                 .toAbsolutePath().toString();
 
         //
@@ -403,7 +442,7 @@ public final class YamlExecutionContext {
         // but continue.
         //
         final var condensedMetricsMap = new LinkedHashMap<PlannerMetricsProto.Identifier, PlannerMetricsProto.Info>();
-        for (final var entry : actualMetricsMap.entrySet()) {
+        for (final var entry : actualMetricsMap.get(resource).entrySet()) {
             final var queryAndLocation = entry.getKey();
             final var identifier = queryAndLocation.getIdentifier();
             if (condensedMetricsMap.containsKey(identifier)) {
@@ -430,13 +469,13 @@ public final class YamlExecutionContext {
         }
     }
 
-    public void saveMetricsAsYaml() {
+    private void saveMetricsAsYaml(@Nonnull final Reference.Resource resource) {
         final var fileName = Path.of(System.getProperty("user.dir"))
-                .resolve(Path.of("src", "test", "resources", metricsYamlFileName(resourcePath)))
+                .resolve(Path.of("src", "test", "resources", metricsYamlFileName(resource.getPath())))
                 .toAbsolutePath().toString();
 
         final var mmap = LinkedListMultimap.<String, Map<String, Object>>create();
-        for (final var entry : actualMetricsMap.entrySet()) {
+        for (final var entry : actualMetricsMap.get(resource).entrySet()) {
             final var identifier = entry.getKey().getIdentifier();
             final var info = entry.getValue();
             final var countersAndTimers = info.getCountersAndTimers();
@@ -474,12 +513,12 @@ public final class YamlExecutionContext {
     }
 
     @Nonnull
-    private static List<String> loadYamlResource(@Nonnull final String resourcePath) throws RelationalException {
+    private static List<String> loadYamlResource(@Nonnull final Reference.Resource resource) throws RelationalException {
         final ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
         final List<String> inMemoryFile = new ArrayList<>();
         try (BufferedReader bufferedReader =
                      new BufferedReader(
-                             new InputStreamReader(Objects.requireNonNull(classLoader.getResourceAsStream(resourcePath)),
+                             new InputStreamReader(Objects.requireNonNull(classLoader.getResourceAsStream(resource.getPath())),
                                      StandardCharsets.UTF_8))) {
             for (String line = bufferedReader.readLine(); line != null; line = bufferedReader.readLine()) {
                 inMemoryFile.add(line);
@@ -491,9 +530,9 @@ public final class YamlExecutionContext {
     }
 
     @Nonnull
-    private static ImmutableMap<PlannerMetricsProto.Identifier, PlannerMetricsProto.Info> loadMetricsResource(@Nonnull final String resourcePath) throws RelationalException {
+    private static ImmutableMap<PlannerMetricsProto.Identifier, PlannerMetricsProto.Info> loadMetricsResource(@Nonnull final Reference.Resource resource) throws RelationalException {
         final ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
-        final var fis = classLoader.getResourceAsStream(metricsBinaryProtoFileName(resourcePath));
+        final var fis = classLoader.getResourceAsStream(metricsBinaryProtoFileName(resource.getPath()));
         final var resultMapBuilder =
                 ImmutableMap.<PlannerMetricsProto.Identifier, PlannerMetricsProto.Info>builder();
         if (fis == null) {
