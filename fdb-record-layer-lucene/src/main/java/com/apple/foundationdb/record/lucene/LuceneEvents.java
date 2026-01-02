@@ -79,7 +79,9 @@ public class LuceneEvents {
          */
         LUCENE_REBALANCE_PARTITION("Lucene rebalance partition"),
         /** The duration of which the file lock was taken, in nanoseconds. */
-        LUCENE_FILE_LOCK_DURATION("Lucene lock duration")
+        LUCENE_FILE_LOCK_DURATION("Lucene lock duration"),
+        /** drain the pending writes queue. */
+        LUCENE_DRAIN_PENDING_WRITES("Lucene drain opending writes queue")
         ;
 
         private final String title;
@@ -240,7 +242,9 @@ public class LuceneEvents {
         /** Count of times a rebalance was called. */
         LUCENE_REPARTITION_CALLS("Count of Lucene repartition calls", false),
         /** Count of the number of times a block was removed from the block cache. */
-        LUCENE_BLOCK_CACHE_REMOVE("Count of blocks removed from cache", false);
+        LUCENE_BLOCK_CACHE_REMOVE("Count of blocks removed from cache", false),
+        /** Count of the items written to Lucene's buffered writes queue */
+        LUCENE_BUFFER_QUEUE_WRITE("Count of items written to queue", false);
 
         private final String title;
         private final boolean isSize;

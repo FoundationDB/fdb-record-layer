@@ -38,13 +38,13 @@ public class FDBDirectoryUtils {
 
     @SuppressWarnings("PMD.CloseResource")
     @Nonnull
-    public static FDBDirectory getFDBDirectory(@Nonnull Directory directory) {
+    public static FDBDirectoryBase getFDBDirectory(@Nonnull Directory directory) {
         final Directory unwrapped = FilterDirectory.unwrap(directory);
-        if (unwrapped instanceof FDBDirectory) {
-            return ((FDBDirectory)unwrapped);
+        if (unwrapped instanceof FDBDirectoryBase) {
+            return ((FDBDirectoryBase)unwrapped);
         }
         if (unwrapped instanceof LuceneOptimizedCompoundReader) {
-            return ((FDBDirectory)FilterDirectory.unwrap(((LuceneOptimizedCompoundReader)unwrapped).getDirectory()));
+            return ((FDBDirectoryBase)FilterDirectory.unwrap(((LuceneOptimizedCompoundReader)unwrapped).getDirectory()));
         }
         throw new RecordCoreException("Unexpected type of directory " + unwrapped.getClass().getSimpleName())
                 .addLogInfo(LuceneLogMessageKeys.NAME, unwrapped.getClass().getSimpleName());
@@ -52,10 +52,10 @@ public class FDBDirectoryUtils {
 
     @SuppressWarnings("PMD.CloseResource")
     @Nonnull
-    public static FDBDirectory getFDBDirectoryNotCompound(@Nonnull Directory directory) {
+    public static FDBDirectoryBase getFDBDirectoryNotCompound(@Nonnull Directory directory) {
         final Directory unwrapped = FilterDirectory.unwrap(directory);
-        if (unwrapped instanceof FDBDirectory) {
-            return ((FDBDirectory)unwrapped);
+        if (unwrapped instanceof FDBDirectoryBase) {
+            return ((FDBDirectoryBase)unwrapped);
         }
         if (unwrapped instanceof LuceneOptimizedCompoundReader) {
             throw new RecordCoreException("CompoundReader given as directory");
