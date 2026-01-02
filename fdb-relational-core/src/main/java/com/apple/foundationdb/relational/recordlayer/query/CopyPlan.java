@@ -51,13 +51,16 @@ import com.apple.foundationdb.relational.recordlayer.RecordContextTransaction;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerIterator;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerResultSet;
 import com.apple.foundationdb.relational.recordlayer.RelationalKeyspaceProvider;
+import com.google.common.base.Suppliers;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.net.URI;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 /**
  * Query plan for COPY command operations (export and import).
@@ -94,6 +97,8 @@ public class CopyPlan extends QueryPlan {
     private final QueryExecutionContext queryExecutionContext;
     @Nullable
     private final byte[] continuation;
+    @Nonnull
+    private final Supplier<Integer> planHashSupplier;
 
     /**
      * Creates a COPY export plan.
@@ -123,7 +128,7 @@ public class CopyPlan extends QueryPlan {
 
     public static CopyPlan fromContinuation(@Nonnull final com.apple.foundationdb.relational.continuation.CopyPlan protobuf,
                                             @Nullable final byte[] continuation,
-                                            @Nonnull final MutablePlanGenerationContext planGenerationContext) {
+                                            final Integer planHash, @Nonnull final MutablePlanGenerationContext planGenerationContext) {
         return new CopyPlan(CopyType.EXPORT,
                 protobuf.getPath(),
                 planGenerationContext,
@@ -139,6 +144,7 @@ public class CopyPlan extends QueryPlan {
         this.path = path;
         this.queryExecutionContext = queryExecutionContext;
         this.continuation = continuation;
+        this.planHashSupplier = Suppliers.memoize(() -> Objects.hash(copyType, path))::get;
     }
 
     @Override
@@ -215,7 +221,7 @@ public class CopyPlan extends QueryPlan {
                     (continuation, reason) -> {
                         final ContinuationBuilder builder = ContinuationImpl.copyOf(continuation).asBuilder()
                                 .withBindingHash(queryExecutionContext.getParameterHash())
-                                .withPlanHash(queryExecutionContext.getParameterHash())
+                                .withPlanHash(planHashSupplier.get())
                                 .withReason(reason);
                         if (!continuation.atEnd()) {
                             builder.withCopyPlan(com.apple.foundationdb.relational.continuation.CopyPlan.newBuilder()
@@ -359,6 +365,11 @@ public class CopyPlan extends QueryPlan {
     @Override
     public Type getResultType() {
         return copyType.resultType;
+    }
+
+    @Nonnull
+    public Integer getPlanHash() {
+        return planHashSupplier.get();
     }
 
     @Nonnull
