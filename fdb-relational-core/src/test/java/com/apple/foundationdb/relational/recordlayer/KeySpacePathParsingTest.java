@@ -314,7 +314,6 @@ public class KeySpacePathParsingTest {
                         () -> KeySpaceUtils.toKeySpacePath(longerUri, keySpace))
                 .hasErrorCode(ErrorCode.INVALID_PATH);
     }
-    // TODO test with NULL as one of the roots
 
     static Stream<Arguments> ambiguousScenarios() {
         return ParameterizedTestUtils.cartesianProduct(
