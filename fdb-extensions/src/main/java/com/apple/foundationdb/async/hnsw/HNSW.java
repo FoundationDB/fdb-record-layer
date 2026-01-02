@@ -2468,7 +2468,7 @@ public class HNSW {
                               final boolean includeVectors,
                               @Nonnull final RealVector centerVector,
                               final double minimumRadius,
-                              @Nonnull final Tuple minimumPrimaryKey) {
+                              @Nullable final Tuple minimumPrimaryKey) {
         final CompletableFuture<SearchResult> zoomInResultFuture =
                 search(readTransaction, centerVector,
                         layer ->

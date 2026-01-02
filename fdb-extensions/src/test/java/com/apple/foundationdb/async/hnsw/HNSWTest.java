@@ -438,8 +438,9 @@ class HNSWTest {
         final AtomicInteger numInversions = new AtomicInteger(0);
         db.run(tr -> {
             final AsyncIterator<NodeReferenceAndNode<NodeReferenceWithDistance, NodeReference>> it =
-                    hnsw.orderedByDistance(tr, 100, 100, false, queryVector,
-                            discriminator.getDistance(), discriminator.getPrimaryKey());
+                    hnsw.orderedByDistance(tr, 100, 1000, false, queryVector,
+                            //discriminator.getDistance(), discriminator.getPrimaryKey());
+                            0.0d, null);
             AsyncUtil.forEachRemaining(it,
                     nodeReferenceAndNode -> {
                         final double currentDistance = nodeReferenceAndNode.getNodeReference().getDistance();
