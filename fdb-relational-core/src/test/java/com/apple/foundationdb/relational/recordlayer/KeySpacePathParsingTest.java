@@ -28,7 +28,6 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.DirectoryLay
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
-import com.apple.foundationdb.record.util.TriFunction;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
@@ -259,8 +258,7 @@ public class KeySpacePathParsingTest {
     static Stream<Arguments> unsupportedType() {
         return Arrays.stream(KeySpaceDirectory.KeyType.values())
                 .filter(type -> !PARSEABLE_KEY_TYPES.contains(type))
-                .flatMap(type -> VALUES_FOR_TYPE.get(type).stream()
-                        .map(pathEntry -> Arguments.of(type, pathEntry)));
+                .map(type -> Arguments.of(type, VALUES_FOR_TYPE.get(type).get(0)));
     }
 
     @ParameterizedTest
@@ -271,6 +269,23 @@ public class KeySpacePathParsingTest {
         RelationalAssertions.assertThrows(
                 () -> KeySpaceUtils.toKeySpacePath(URI.create("/" + entry.uriEntry), keySpace))
                 .hasErrorCode(ErrorCode.UNSUPPORTED_OPERATION);
+    }
+
+    static Stream<Arguments> supportedType() {
+        return Arrays.stream(KeySpaceDirectory.KeyType.values())
+                .filter(PARSEABLE_KEY_TYPES::contains)
+                .flatMap(type -> ParameterizedTestUtils.booleans("constant")
+                        .flatMap(constant -> VALUES_FOR_TYPE.get(type).stream()
+                                .map(pathEntry -> Arguments.of(type, constant, pathEntry))));
+    }
+
+    @ParameterizedTest
+    @MethodSource
+    void supportedType(KeySpaceDirectory.KeyType type, boolean constant, PathEntry entry) throws RelationalException {
+        KeySpace keySpace = new KeySpace(
+                createDirectory(type.name(), type, constant, entry.pathEntry));
+        Assertions.assertEquals(keySpace.path(type.name(), entry.pathEntry),
+                KeySpaceUtils.toKeySpacePath(URI.create("/" + entry.uriEntry), keySpace));
     }
 
     @ParameterizedTest
@@ -469,14 +484,6 @@ public class KeySpacePathParsingTest {
         final String name = "DirectoryLayer";
         return new AmbiguousHalf(name,
                 isConstant -> createDirectoryLayerDirectory(name, isConstant, value),
-                keySpace -> keySpace.path(name, value),
-                path -> path.add(name, value));
-    }
-
-    static AmbiguousHalf ambiguousHalf(final String name, final String value,
-                                       final TriFunction<String, Object, Boolean, KeySpaceDirectory> createDirectory) {
-        return new AmbiguousHalf(name,
-                isConstant -> createDirectory.apply(name, value, isConstant),
                 keySpace -> keySpace.path(name, value),
                 path -> path.add(name, value));
     }
