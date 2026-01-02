@@ -67,7 +67,7 @@ public class LucenePartitionerTest extends FDBRecordStoreConcurrentTestBase {
             final LucenePartitioner partitioner = indexMaintainer.getPartitioner();
             dataModel.groupingKeyToPrimaryKeyToPartitionKey.keySet().forEach(groupingKey -> {
                 final LucenePartitionInfoProto.LucenePartitionInfo firstPartition = partitioner.getAllPartitionMetaInfo(groupingKey).join().stream().findFirst().get();
-                Assertions.assertThatThrownBy(() -> partitioner.decrementCountAndSave(groupingKey, 5000, firstPartition.getId()).join())
+                Assertions.assertThatThrownBy(() -> partitioner.decrementCountAndSave(groupingKey, 5000, firstPartition.getId(), null).join())
                         .hasCauseInstanceOf(RecordCoreInternalException.class);
             });
             // Commit here to ensure that the data is not corrupt as a result
@@ -191,7 +191,7 @@ public class LucenePartitionerTest extends FDBRecordStoreConcurrentTestBase {
                 // Get the first partition (which has documents in the actual Lucene index)
                 final LucenePartitionInfoProto.LucenePartitionInfo partition = partitions.get(0);
                 // zero out the partition's count
-                partitioner.decrementCountAndSave(groupingKey, partition.getCount(), partition.getId());
+                partitioner.decrementCountAndSave(groupingKey, partition.getCount(), partition.getId(), null);
                 partitionsWithZeroCount.put(groupingKey, partition.getId());
             });
 
