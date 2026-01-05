@@ -59,6 +59,7 @@ import com.google.common.base.Suppliers;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.net.URI;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
@@ -146,7 +147,7 @@ public final class CopyPlan extends QueryPlan {
         this.copyType = copyType;
         this.path = path;
         this.queryExecutionContext = queryExecutionContext;
-        this.continuation = continuation;
+        this.continuation = continuation == null ? continuation : Arrays.copyOf(continuation, continuation.length);
         this.planHashSupplier = Suppliers.memoize(() -> Objects.hash(copyType, path))::get;
     }
 
