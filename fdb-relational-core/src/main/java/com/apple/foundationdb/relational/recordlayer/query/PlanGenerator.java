@@ -286,7 +286,7 @@ public final class PlanGenerator {
                 ast.getQuery(),
                 ast.getQueryCacheKey().getCanonicalQueryString(), Objects.requireNonNull(continuation.getBindingHash()));
         final CopyPlan copyPlan = CopyPlan.fromContinuation(continuation.getCopyPlan(), continuation.getExecutionState(),
-                continuation.getPlanHash(), planGenerationContext);
+                planGenerationContext);
         if (!Objects.requireNonNull(continuation.getPlanHash()).equals(copyPlan.getPlanHash())) {
             throw new PlanValidator.PlanValidationException("cannot continue query due to mismatch between serialized and actual plan hash");
         }

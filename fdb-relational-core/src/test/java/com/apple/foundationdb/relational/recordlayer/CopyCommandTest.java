@@ -379,12 +379,6 @@ public class CopyCommandTest {
                     stmt.setObject(1, exportedData);
                 }
 
-                // I can either:
-                // 1. Have CopyPlan be an update, in which case you have to use `executeUpdate`, and the result set
-                //    will be entirely consumed their, and the number of that results is what will be returned
-                // 2. Have CopyPlan not be an update and return a single result with the count, in which case it won't
-                //    auto-commit at all
-                // 3. Make broader changes to the "hack" in AbstractEmbeddedStatement.countUpdates
                 final RelationalResultSet relationalResultSet = stmt.executeQuery();
                 assertTrue(relationalResultSet.next());
                 resultingCount = relationalResultSet.getInt("COUNT");

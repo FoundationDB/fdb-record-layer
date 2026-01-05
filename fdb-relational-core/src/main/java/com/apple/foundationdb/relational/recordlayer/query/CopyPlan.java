@@ -69,7 +69,7 @@ import java.util.function.Supplier;
  * Query plan for COPY command operations (export and import).
  */
 @API(API.Status.EXPERIMENTAL)
-public class CopyPlan extends QueryPlan {
+public final class CopyPlan extends QueryPlan {
 
     private enum CopyType {
         EXPORT(Type.Record.fromFields(List.of(
@@ -131,7 +131,7 @@ public class CopyPlan extends QueryPlan {
 
     public static CopyPlan fromContinuation(@Nonnull final com.apple.foundationdb.relational.continuation.CopyPlan protobuf,
                                             @Nullable final byte[] continuation,
-                                            final Integer planHash, @Nonnull final MutablePlanGenerationContext planGenerationContext) {
+                                            @Nonnull final MutablePlanGenerationContext planGenerationContext) {
         return new CopyPlan(CopyType.EXPORT,
                 protobuf.getPath(),
                 planGenerationContext,
