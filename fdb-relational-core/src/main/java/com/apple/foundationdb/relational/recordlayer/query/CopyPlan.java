@@ -26,10 +26,13 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.DataInKeySpacePath;
+import com.apple.foundationdb.record.provider.foundationdb.keyspace.DataNotAtLeafException;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePathSerializer;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceProto;
+import com.apple.foundationdb.record.provider.foundationdb.keyspace.NoSuchDirectoryException;
+import com.apple.foundationdb.record.provider.foundationdb.keyspace.RecordCoreIllegalImportDataException;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -199,14 +202,8 @@ public class CopyPlan extends QueryPlan {
                 if (data == null) {
                     return null;
                 }
-                try {
-                    byte[] bytes = serializer.serialize(data).toByteArray();
-                    return new ArrayRow(new Object[] { bytes });
-                } catch (Exception e) {
-                    throw new UncheckedRelationalException(
-                            new RelationalException("Failed to serialize data",
-                                    ErrorCode.COPY_SERIALIZATION_ERROR, e));
-                }
+                byte[] bytes = serializer.serialize(data).toByteArray();
+                return new ArrayRow(new Object[] { bytes });
             });
 
             // Build metadata for single BYTES column
@@ -321,6 +318,9 @@ public class CopyPlan extends QueryPlan {
         DataInKeySpacePath dataInKeySpacePath;
         try {
             dataInKeySpacePath = serializer.deserialize(KeySpaceProto.DataInKeySpacePath.parseFrom(byteString));
+        } catch (NoSuchDirectoryException | DataNotAtLeafException e) {
+            throw new RelationalException("Path does not align",
+                    ErrorCode.COPY_IMPORT_VALIDATION_ERROR, e);
         } catch (Exception e) {
             throw new RelationalException("Failed to deserialize data",
                     ErrorCode.COPY_SERIALIZATION_ERROR, e);
@@ -332,7 +332,7 @@ public class CopyPlan extends QueryPlan {
         try {
             keySpacePath.importData(fdbContext, Collections.singleton(dataInKeySpacePath)).join();
             importCount++;
-        } catch (Exception e) {
+        } catch (RecordCoreIllegalImportDataException e) {
             throw new RelationalException("Failed to import data",
                     ErrorCode.COPY_IMPORT_VALIDATION_ERROR, e);
         }
@@ -383,7 +383,7 @@ public class CopyPlan extends QueryPlan {
             keySpacePath = KeySpaceUtils.toKeySpacePath(URI.create(path), keySpace);
         } catch (Exception e) {
             throw new RelationalException("Invalid COPY path: " + path,
-                    ErrorCode.INVALID_COPY_PATH, e);
+                    ErrorCode.INVALID_PATH, e);
         }
         return keySpacePath;
     }

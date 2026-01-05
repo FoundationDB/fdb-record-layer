@@ -86,6 +86,10 @@ public enum ErrorCode {
     INVALID_BINARY_REPRESENTATION("22F03"),
     INVALID_ARGUMENT_FOR_FUNCTION("22F00"),
     INVALID_CAST("22F3H"),
+    /** Data cannot be serialized/deserialized as part of COPY import/export. */
+    COPY_SERIALIZATION_ERROR("22F04"),
+    /** COPY import data doesn't belong to target path. */
+    COPY_IMPORT_VALIDATION_ERROR("22F08"),
 
     // Class 23 - Integrity Constraint Violation
     NOT_NULL_VIOLATION("23502"),
@@ -146,12 +150,6 @@ public enum ErrorCode {
     UNION_INCORRECT_COLUMN_COUNT("42F64"),
     UNION_INCOMPATIBLE_COLUMNS("42F65"),
     INVALID_DATABASE("42F66"),
-    /** Attempt to copy import/export a path that is not valid. */
-    INVALID_COPY_PATH("42F67"), // TODO: figure out good code
-    /** Data cannot be serialized/deserialized as part of COPY import/export. */
-    COPY_SERIALIZATION_ERROR("42F68"),  // TODO: figure out good code
-    /** COPY import data doesn't belong to target path. */
-    COPY_IMPORT_VALIDATION_ERROR("42F69"),  // TODO: figure out good code
     // Class 53 - Insufficient Resources
     TRANSACTION_TIMEOUT("53F00"),
     // Class 54 Program Limit Exceeded

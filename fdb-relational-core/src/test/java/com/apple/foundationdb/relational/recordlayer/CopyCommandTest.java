@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
@@ -156,9 +157,43 @@ public class CopyCommandTest {
             try (RelationalStatement stmt = conn.createStatement()) {
                 ContextualSQLException exception = assertThrows(ContextualSQLException.class,
                         () -> stmt.executeQuery("COPY /INVALID/PATH/STRUCTURE"));
-                assertEquals(ErrorCode.INVALID_COPY_PATH, ((RelationalException)exception.getCause()).getErrorCode());
+                assertEquals(ErrorCode.INVALID_PATH, ((RelationalException)exception.getCause()).getErrorCode());
             }
         }
+    }
+
+    @ParameterizedTest
+    @BooleanSource("sourceIsLonger")
+    void importInvalidPath(boolean sourceIsLonger) throws RelationalException, SQLException {
+        final List<String> source = List.of("TEST", uuidForPath(false), "1");
+        final List<String> dest = List.of("TEST", uuidForPath(false), "1");
+        final int sourceLength = sourceIsLonger ? 2 : 3;
+        final int destLength = sourceIsLonger ? 3 : 2;
+
+        final KeySpace keySpace = RelationalKeyspaceProvider.instance().getKeySpace();
+        final KeySpacePath sourceTestPath = KeySpaceUtils.toKeySpacePath(URI.create(String.join("/", source)), keySpace);
+        final KeySpacePath destTestPath = KeySpaceUtils.toKeySpacePath(URI.create(String.join("/", dest.subList(0, 2))), keySpace);
+
+        writeTestData(sourceTestPath, Map.of("key1", "value1", "key2", "value2"));
+        List<byte[]> exportedData = exportData(String.join("/", source.subList(0, sourceLength)), false);
+        // Clear the source data to ensure import is working correctly
+        clearTestData(sourceTestPath);
+
+        // Import to destination (using quoted path)
+        ConnectionUtils.runAgainstCatalog(conn -> {
+            try (RelationalPreparedStatement stmt = conn.prepareStatement("COPY " + maybeQuote(String.join("/", dest.subList(0, destLength)), false) + " FROM ?")) {
+                stmt.setObject(1, exportedData);
+                ContextualSQLException exception = assertThrows(ContextualSQLException.class, stmt::executeQuery);
+                assertEquals(ErrorCode.COPY_IMPORT_VALIDATION_ERROR, ((RelationalException)exception.getCause()).getErrorCode());
+            }
+        });
+
+        ConnectionUtils.runAgainstCatalog(conn -> {
+            conn.setAutoCommit(false);
+            final FDBRecordContext context = getRecordContext(conn);
+            final List<KeyValue> destData = context.ensureActive().getRange(destTestPath.toSubspace(context).range()).asList().join();
+            assertEquals(List.of(), destData);
+        });
     }
 
     @ParameterizedTest
