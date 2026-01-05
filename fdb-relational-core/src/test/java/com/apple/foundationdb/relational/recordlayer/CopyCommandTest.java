@@ -21,16 +21,22 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.KeyValue;
+import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.relational.api.Continuation;
+import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.recordlayer.query.CopyPlan;
+import com.apple.foundationdb.relational.recordlayer.query.MutablePlanGenerationContext;
+import com.apple.foundationdb.relational.recordlayer.query.Plan;
+import com.apple.foundationdb.relational.recordlayer.query.PreparedParams;
 import com.apple.foundationdb.relational.utils.ConnectionUtils;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
@@ -53,11 +59,11 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -105,6 +111,69 @@ public class CopyCommandTest {
         importData(namedAndQuoted, autoCommit, destPath, exportedData);
 
         verifyTestData(destTestPath, Map.of("key1", "value1", "key2", "value2"));
+    }
+
+    @ParameterizedTest
+    @BooleanSource("withExecutionContext")
+    void withExecutionContext(boolean withExecutionContext) throws RelationalException, SQLException {
+        // Test basic COPY import functionality with quoted paths (allows hyphens)
+        final String sourcePath = "/TEST/" + uuidForPath(false);
+        final String destPath = "/TEST/" + uuidForPath(false);
+        final KeySpace keySpace = RelationalKeyspaceProvider.instance().getKeySpace();
+        final KeySpacePath sourceTestPath = KeySpaceUtils.toKeySpacePath(URI.create(sourcePath + "/1"), keySpace);
+        final KeySpacePath destTestPath = KeySpaceUtils.toKeySpacePath(URI.create(destPath + "/1"), keySpace);
+
+        writeTestData(sourceTestPath, Map.of("key1", "value1", "key2", "value2"));
+        List<byte[]> exportedData1 = exportData(sourcePath, false);
+        writeTestData(sourceTestPath, Map.of("key1", "newValueX", "key3", "value3"));
+        List<byte[]> exportedData2 = exportData(sourcePath, false);
+        // Clear the source data to ensure import is working correctly
+        clearTestData(sourceTestPath);
+
+        // Import to destination (using quoted path)
+        int importedCount = ConnectionUtils.getFromCatalog(conn -> {
+            final EmbeddedRelationalConnection embeddedConnection = (EmbeddedRelationalConnection)conn;
+            embeddedConnection.createNewTransaction();
+            int count;
+
+            final String sql = "COPY " + maybeQuote(destPath, false) + " FROM ?";
+            MutablePlanGenerationContext context = getMutablePlanGenerationContext(sql, exportedData1);
+            context.processUnnamedPreparedParam(1);
+            CopyPlan copyImportAction = CopyPlan.getCopyImportAction(destPath, context);
+
+            if (withExecutionContext) {
+                context = getMutablePlanGenerationContext(sql, exportedData2);
+                context.processUnnamedPreparedParam(1);
+                copyImportAction = copyImportAction.withExecutionContext(context);
+            }
+            final Plan.ExecutionContext executionContext = Plan.ExecutionContext.of(
+                    embeddedConnection.getTransaction(),
+                    Options.NONE, conn, embeddedConnection.getMetricCollector());
+            try (final RelationalResultSet relationalResultSet = copyImportAction.execute(executionContext)) {
+                assertTrue(relationalResultSet.next());
+                count = relationalResultSet.getInt("COUNT");
+                assertEquals(count, relationalResultSet.getInt(1));
+                assertFalse(relationalResultSet.next());
+            }
+
+            return count;
+        });
+        assertEquals(withExecutionContext ? 3 : 2, importedCount);
+
+        if (withExecutionContext) {
+            verifyTestData(destTestPath, Map.of("key1", "newValueX", "key2", "value2",
+                    "key3", "value3"));
+        } else {
+            verifyTestData(destTestPath, Map.of("key1", "value1", "key2", "value2"));
+        }
+    }
+
+    @Nonnull
+    private static MutablePlanGenerationContext getMutablePlanGenerationContext(final String sql, final List<byte[]> exportedData1) {
+        final PreparedParams preparedParams = PreparedParams.of(Map.of(1, exportedData1), Map.of());
+        final MutablePlanGenerationContext context = new MutablePlanGenerationContext(preparedParams,
+                PlanHashable.PlanHashMode.VC1, sql, sql, 0);
+        return context;
     }
 
     @ParameterizedTest
@@ -188,12 +257,7 @@ public class CopyCommandTest {
             }
         });
 
-        ConnectionUtils.runAgainstCatalog(conn -> {
-            conn.setAutoCommit(false);
-            final FDBRecordContext context = getRecordContext(conn);
-            final List<KeyValue> destData = context.ensureActive().getRange(destTestPath.toSubspace(context).range()).asList().join();
-            assertEquals(List.of(), destData);
-        });
+        verifyTestData(destTestPath, Map.of());
     }
 
     @ParameterizedTest
@@ -376,15 +440,16 @@ public class CopyCommandTest {
         ConnectionUtils.runAgainstCatalog(conn -> {
             conn.setAutoCommit(false);
             final FDBRecordContext context = getRecordContext(conn);
-            expectedData.forEach((remainder, expectedValue) -> {
-                byte[] key = path.toSubspace(context).pack(Tuple.from(remainder));
-                byte[] actualBytes = context.ensureActive().get(key).join();
-                assertNotNull(actualBytes, "Key should exist: " + remainder);
-                Tuple actualValue = Tuple.fromBytes(actualBytes);
-                assertEquals(Tuple.from(expectedValue), actualValue);
-            });
+            final List<KeyValue> destData = context.ensureActive().getRange(path.toSubspace(context).range()).asList().join();
+            final Map<Tuple, Tuple> actualData = destData.stream().collect(Collectors.toMap(keyValue -> Tuple.fromBytes(keyValue.getKey()),
+                    keyValue -> Tuple.fromBytes(keyValue.getValue())));
+            final Map<Tuple, Tuple> expectedKeyValues = expectedData.entrySet().stream().collect(Collectors.toMap(
+                    entry -> path.toTuple(context).add(entry.getKey()),
+                    entry -> Tuple.from(entry.getValue())));
+            assertEquals(expectedKeyValues, actualData);
         });
     }
+
 
     private static FDBRecordContext getRecordContext(final @Nonnull RelationalConnection conn) throws SQLException, RelationalException {
         EmbeddedRelationalConnection embeddedConn = conn.unwrap(EmbeddedRelationalConnection.class);

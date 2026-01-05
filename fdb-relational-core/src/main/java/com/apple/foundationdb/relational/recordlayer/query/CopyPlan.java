@@ -349,7 +349,7 @@ public final class CopyPlan extends QueryPlan {
     @SuppressWarnings("PMD.CompareObjectsWithEquals") // we don't want to create a new instance if the queryExecutionContext is the *same*
     @Nonnull
     @Override
-    public Plan<RelationalResultSet> withExecutionContext(@Nonnull QueryExecutionContext queryExecutionContext) {
+    public CopyPlan withExecutionContext(@Nonnull QueryExecutionContext queryExecutionContext) {
         if (queryExecutionContext == this.queryExecutionContext) {
             return this;
         }
