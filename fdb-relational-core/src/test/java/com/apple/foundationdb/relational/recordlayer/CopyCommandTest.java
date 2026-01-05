@@ -29,10 +29,10 @@ import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
-import com.apple.foundationdb.relational.api.exceptions.ContextualSQLException;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.utils.ConnectionUtils;
+import com.apple.foundationdb.relational.utils.RelationalAssertions;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
@@ -58,7 +58,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -126,8 +125,8 @@ public class CopyCommandTest {
                     stmt.setObject("data", exportedData);
                 }
 
-                final ContextualSQLException exception = assertThrows(ContextualSQLException.class, stmt::executeUpdate);
-                assertEquals(ErrorCode.UNDEFINED_PARAMETER, ((RelationalException)exception.getCause()).getErrorCode());
+                RelationalAssertions.assertThrowsSqlException(stmt::executeUpdate)
+                        .hasErrorCode(ErrorCode.UNDEFINED_PARAMETER);
             }
         });
     }
@@ -155,9 +154,9 @@ public class CopyCommandTest {
         try (RelationalConnection conn = DriverManager.getConnection("jdbc:embed:/__SYS").unwrap(RelationalConnection.class)) {
             conn.setSchema("CATALOG");
             try (RelationalStatement stmt = conn.createStatement()) {
-                ContextualSQLException exception = assertThrows(ContextualSQLException.class,
-                        () -> stmt.executeQuery("COPY /INVALID/PATH/STRUCTURE"));
-                assertEquals(ErrorCode.INVALID_PATH, ((RelationalException)exception.getCause()).getErrorCode());
+                RelationalAssertions.assertThrowsSqlException(
+                                () -> stmt.executeQuery("COPY /INVALID/PATH/STRUCTURE"))
+                        .hasErrorCode(ErrorCode.INVALID_PATH);
             }
         }
     }
@@ -183,8 +182,8 @@ public class CopyCommandTest {
         ConnectionUtils.runAgainstCatalog(conn -> {
             try (RelationalPreparedStatement stmt = conn.prepareStatement("COPY " + maybeQuote(String.join("/", dest.subList(0, destLength)), false) + " FROM ?")) {
                 stmt.setObject(1, exportedData);
-                ContextualSQLException exception = assertThrows(ContextualSQLException.class, stmt::executeQuery);
-                assertEquals(ErrorCode.COPY_IMPORT_VALIDATION_ERROR, ((RelationalException)exception.getCause()).getErrorCode());
+                RelationalAssertions.assertThrowsSqlException(stmt::executeQuery)
+                        .hasErrorCode(ErrorCode.COPY_IMPORT_VALIDATION_ERROR);
             }
         });
 
@@ -219,7 +218,7 @@ public class CopyCommandTest {
                     while (rs.next()) {
                         results.add(rs.getBytes(1));
                     }
-                    assertEquals(limit, results.size(), "Should only return 5 rows due to setMaxRows");
+                    assertEquals(limit, results.size(), "Should only return " + limit + " rows due to setMaxRows");
                     Continuation continuation = rs.getContinuation();
                     assertFalse(continuation.atEnd());
                     assertFalse(continuation.atBeginning());
@@ -227,6 +226,44 @@ public class CopyCommandTest {
                         continuation = continueExport(limit, conn, continuation, results);
                     }
                     assertEquals(10, results.size());
+                }
+            }
+        });
+    }
+
+    @Test
+    void invalidContinuationPlanHash() throws RelationalException, SQLException {
+        final String pathId = "/TEST/" + UUID.randomUUID().toString().replace("-", "_").toUpperCase(Locale.ROOT);
+        final KeySpace keySpace = RelationalKeyspaceProvider.instance().getKeySpace();
+        final KeySpacePath testPath = KeySpaceUtils.toKeySpacePath(URI.create(pathId + "/1"), keySpace);
+
+        // Export with max rows limit
+        // Write 10 records
+        Map<String, String> data = new LinkedHashMap<>();
+        for (int i = 0; i < 10; i++) {
+            data.put("key" + i, "value" + i);
+        }
+        writeTestData(testPath, data);
+        ConnectionUtils.runAgainstCatalog(conn -> {
+            try (RelationalStatement stmt = conn.createStatement()) {
+                final int limit = 3;
+                stmt.setMaxRows(limit);
+                try (RelationalResultSet rs = stmt.executeQuery("COPY " + pathId)) {
+                    final ArrayList<byte[]> results = new ArrayList<>();
+                    while (rs.next()) {
+                        results.add(rs.getBytes(1));
+                    }
+                    assertEquals(limit, results.size(), "Should only return 3 rows due to setMaxRows");
+                    Continuation continuation = rs.getContinuation();
+                    assertFalse(continuation.atEnd());
+                    assertFalse(continuation.atBeginning());
+                    final ContinuationImpl continuationImpl = (ContinuationImpl)rs.getContinuation();
+                    final Continuation corruptedContinuation = continuationImpl.asBuilder()
+                            .withPlanHash(continuationImpl.getPlanHash() + 3)
+                            .build();
+                    RelationalAssertions.assertThrowsSqlException(
+                                    () -> continueExport(limit, conn, corruptedContinuation, results))
+                            .hasErrorCode(ErrorCode.INVALID_CONTINUATION);
                 }
             }
         });
