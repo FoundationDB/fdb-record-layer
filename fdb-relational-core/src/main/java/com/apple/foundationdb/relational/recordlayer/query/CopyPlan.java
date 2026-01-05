@@ -147,7 +147,7 @@ public final class CopyPlan extends QueryPlan {
         this.copyType = copyType;
         this.path = path;
         this.queryExecutionContext = queryExecutionContext;
-        this.continuation = continuation == null ? continuation : Arrays.copyOf(continuation, continuation.length);
+        this.continuation = continuation == null ? null : Arrays.copyOf(continuation, continuation.length);
         this.planHashSupplier = Suppliers.memoize(() -> Objects.hash(copyType, path))::get;
     }
 
