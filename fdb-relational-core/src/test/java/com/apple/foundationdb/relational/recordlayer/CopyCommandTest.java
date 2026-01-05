@@ -180,7 +180,8 @@ public class CopyCommandTest {
 
         // Import to destination (using quoted path)
         ConnectionUtils.runAgainstCatalog(conn -> {
-            try (RelationalPreparedStatement stmt = conn.prepareStatement("COPY " + maybeQuote(String.join("/", dest.subList(0, destLength)), false) + " FROM ?")) {
+            final String destUri = maybeQuote(String.join("/", dest.subList(0, destLength)), false);
+            try (RelationalPreparedStatement stmt = conn.prepareStatement("COPY " + destUri + " FROM ?")) {
                 stmt.setObject(1, exportedData);
                 RelationalAssertions.assertThrowsSqlException(stmt::executeQuery)
                         .hasErrorCode(ErrorCode.COPY_IMPORT_VALIDATION_ERROR);
