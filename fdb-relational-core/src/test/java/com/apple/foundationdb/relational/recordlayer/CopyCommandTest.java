@@ -121,7 +121,6 @@ public class CopyCommandTest {
         final String destPath = "/TEST/" + uuidForPath(false);
         final KeySpace keySpace = RelationalKeyspaceProvider.instance().getKeySpace();
         final KeySpacePath sourceTestPath = KeySpaceUtils.toKeySpacePath(URI.create(sourcePath + "/1"), keySpace);
-        final KeySpacePath destTestPath = KeySpaceUtils.toKeySpacePath(URI.create(destPath + "/1"), keySpace);
 
         writeTestData(sourceTestPath, Map.of("key1", "value1", "key2", "value2"));
         List<byte[]> exportedData1 = exportData(sourcePath, false);
@@ -160,6 +159,7 @@ public class CopyCommandTest {
         });
         assertEquals(withExecutionContext ? 3 : 2, importedCount);
 
+        final KeySpacePath destTestPath = KeySpaceUtils.toKeySpacePath(URI.create(destPath + "/1"), keySpace);
         if (withExecutionContext) {
             verifyTestData(destTestPath, Map.of("key1", "newValueX", "key2", "value2",
                     "key3", "value3"));
