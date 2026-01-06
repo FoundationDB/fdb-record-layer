@@ -382,7 +382,7 @@ public final class CopyPlan extends QueryPlan {
         KeySpacePath keySpacePath;
         try {
             keySpacePath = KeySpaceUtils.toKeySpacePath(URI.create(path), keySpace);
-        } catch (Exception e) {
+        } catch (RelationalException e) {
             throw new RelationalException("Invalid COPY path: " + path,
                     ErrorCode.INVALID_PATH, e);
         }
