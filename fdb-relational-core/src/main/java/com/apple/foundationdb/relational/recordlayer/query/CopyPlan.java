@@ -30,7 +30,6 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.DataNotAtLea
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePathSerializer;
-import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceProto;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.NoSuchDirectoryException;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.RecordCoreIllegalImportDataException;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
@@ -44,6 +43,7 @@ import com.apple.foundationdb.relational.api.exceptions.InternalErrorException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.metadata.DataType;
+import com.apple.foundationdb.relational.copy.CopyData;
 import com.apple.foundationdb.relational.recordlayer.ArrayRow;
 import com.apple.foundationdb.relational.recordlayer.CommittingIteratorResultSet;
 import com.apple.foundationdb.relational.recordlayer.ContinuationBuilder;
@@ -203,7 +203,7 @@ public final class CopyPlan extends QueryPlan {
                 if (data == null) {
                     return null;
                 }
-                byte[] bytes = serializer.serialize(data).toByteArray();
+                byte[] bytes = CopyData.newBuilder().setData(serializer.serialize(data)).build().toByteArray();
                 return new ArrayRow(new Object[] { bytes });
             });
 
@@ -319,7 +319,12 @@ public final class CopyPlan extends QueryPlan {
                                                       @Nonnull final byte[] byteString) throws RelationalException {
         DataInKeySpacePath dataInKeySpacePath;
         try {
-            dataInKeySpacePath = serializer.deserialize(KeySpaceProto.DataInKeySpacePath.parseFrom(byteString));
+            final CopyData proto = CopyData.parseFrom(byteString);
+            if (!proto.hasData()) {
+                throw new RelationalException("Copy bytes have no data",
+                        ErrorCode.COPY_SERIALIZATION_ERROR);
+            }
+            dataInKeySpacePath = serializer.deserialize(proto.getData());
         } catch (NoSuchDirectoryException | DataNotAtLeafException e) {
             throw new RelationalException("Path does not align",
                     ErrorCode.COPY_IMPORT_VALIDATION_ERROR, e);
