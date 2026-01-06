@@ -15,6 +15,8 @@ Of particular note is: `COPY command should export and restore necessary catalog
 **Warning**: There are no protections preventing concurrent access. If exporting/importing takes more than one
 transaction it is your responsibility to ensure that there are no interactions with the database during this time.
 
+**Note**: Like other update commands, if autoCommit is enabled, import will commit when the resultSet is closed.
+
 Syntax
 ======
 
