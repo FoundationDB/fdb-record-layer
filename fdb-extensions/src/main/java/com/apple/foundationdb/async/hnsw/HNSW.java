@@ -2461,14 +2461,37 @@ public class HNSW {
         return random.nextDouble() < getConfig().getMaintainStatsProbability();
     }
 
-    AsyncIterator<NodeReferenceAndNode<NodeReferenceWithDistance, NodeReference>>
-            orderedByDistance(@Nonnull final ReadTransaction readTransaction,
-                              final int efRingSearch,
-                              final int efOutwardSearch,
-                              final boolean includeVectors,
-                              @Nonnull final RealVector centerVector,
-                              final double minimumRadius,
-                              @Nullable final Tuple minimumPrimaryKey) {
+    public AsyncIterator<ResultEntry>
+            orderByDistance(@Nonnull final ReadTransaction readTransaction,
+                            final int efRingSearch,
+                            final int efOutwardSearch,
+                            final boolean includeVectors,
+                            @Nonnull final RealVector centerVector,
+                            final double minimumRadius,
+                            @Nullable final Tuple minimumPrimaryKey) {
+        final OutwardTraversalIterator it =
+                searchAndIterateOutward(readTransaction, efRingSearch, efOutwardSearch, includeVectors, centerVector,
+                        minimumRadius, minimumPrimaryKey);
+        return AsyncUtil.mapIterator(it,
+                nodeReferenceAndNode -> {
+                    final StorageTransform storageTransform = it.getTraversalState().getStorageTransform();
+                    final var nodeReference = nodeReferenceAndNode.getNodeReference();
+                    @Nullable final RealVector reconstructedVector =
+                            includeVectors ? storageTransform.untransform(nodeReference.getVector()) : null;
+
+                    return new ResultEntry(nodeReference.getPrimaryKey(),
+                            reconstructedVector, nodeReference.getDistance(), -1);
+                });
+    }
+
+    @Nonnull
+    private OutwardTraversalIterator searchAndIterateOutward(@Nonnull final ReadTransaction readTransaction,
+                                                             final int efRingSearch,
+                                                             final int efOutwardSearch,
+                                                             final boolean includeVectors,
+                                                             @Nonnull final RealVector centerVector,
+                                                             final double minimumRadius,
+                                                             @Nullable final Tuple minimumPrimaryKey) {
         final CompletableFuture<SearchResult> zoomInResultFuture =
                 search(readTransaction, centerVector,
                         layer ->
@@ -2522,6 +2545,11 @@ public class HNSW {
             this.nextFuture = null;
         }
 
+        @Nonnull
+        public OutwardTraversalState getTraversalState() {
+            return Objects.requireNonNull(traversalState);
+        }
+
         @Override
         public CompletableFuture<Boolean> onHasNext() {
             if (nextFuture == null) {
@@ -2562,12 +2590,10 @@ public class HNSW {
 
                 final NodeReferenceWithDistance nodeReferenceWithDistance =
                         new NodeReferenceWithDistance(primaryKey, vector, distance);
-                //candidates.add(nodeReferenceWithDistance);
                 visited.add(nodeReferenceWithDistance);
                 // do not add to out if the distance is less than the minimum
                 if (isGreaterThanMinimum(nodeReferenceWithDistance)) {
                     candidates.add(nodeReferenceWithDistance);
-                    //out.add(nodeReferenceWithDistance);
                 }
             }
 
@@ -2602,7 +2628,7 @@ public class HNSW {
 
         @Nonnull
         private CompletableFuture<NodeReferenceAndNode<NodeReferenceWithDistance, NodeReference>> computeNextRecord() {
-            final OutwardTraversalState localTraversalState = Objects.requireNonNull(traversalState);
+            final OutwardTraversalState localTraversalState = getTraversalState();
             final StorageTransform storageTransform = localTraversalState.getStorageTransform();
             final Estimator estimator = localTraversalState.getEstimator();
             final Transformed<RealVector> transformedCenterVector = localTraversalState.getTransformedCenterVector();
@@ -2635,16 +2661,12 @@ public class HNSW {
                                         new NodeReferenceWithDistance(primaryKey, current.getVector(), distance);
 
                                 if (!visited.contains(nodeReferenceWithDistance)) {
-                                    final double candidateMinDistance = candidates.peek() == null ? 11.0d : candidates.peek().getDistance();
-                                    final double outMinDistance = out.peek() == null ? 11.0d : out.peek().getDistance();
-                                    System.out.println(candidateMinDistance + "," + outMinDistance);
+//                                    final double candidateMinDistance = candidates.peek() == null ? 11.0d : candidates.peek().getDistance();
+//                                    final double outMinDistance = out.peek() == null ? 11.0d : out.peek().getDistance();
+//                                    System.out.println(candidateMinDistance + "," + outMinDistance);
 
                                     visited.add(nodeReferenceWithDistance);
                                     candidates.add(nodeReferenceWithDistance);
-
-//                                    if (isGreaterThanMinimum(nodeReferenceWithDistance)) {
-//                                        out.add(nodeReferenceWithDistance);
-//                                    }
                                 }
                             }
                             return true;
@@ -2656,11 +2678,10 @@ public class HNSW {
                 }
                 final NodeReferenceWithDistance nodeReference = out.poll();
 
-                final double candidateMinDistance = candidates.peek() == null ? 11.0d : candidates.peek().getDistance();
-                final double outMinDistance = out.peek() == null ? 11.0d : out.peek().getDistance();
-                System.out.println(candidateMinDistance + "," + outMinDistance);
+//                final double candidateMinDistance = candidates.peek() == null ? 11.0d : candidates.peek().getDistance();
+//                final double outMinDistance = out.peek() == null ? 11.0d : out.peek().getDistance();
+//                System.out.println(candidateMinDistance + "," + outMinDistance);
 
-                //visited.bumpCurrentRadiusReference(nodeReference);
                 return fetchNodeIfNotCached(storageAdapter, readTransaction, storageTransform, 0, nodeReference, nodeCache)
                         .thenApply(node -> new NodeReferenceAndNode<>(nodeReference, node));
             }).thenApply(nextNodeReferenceAndNode -> {
@@ -2857,31 +2878,6 @@ public class HNSW {
             insideRadius.pollFirst();
             return exists;
         }
-
-//        public void bumpCurrentRadiusReference(@Nonnull final NodeReferenceWithDistance newRadiusReference) {
-//            final Equivalence.Wrapper<NodeReferenceWithDistance> newWrapped =
-//                    PRIMARY_KEY_EQUIVALENCE.wrap(newRadiusReference);
-//
-//            if (COMPARATOR.compare(newWrapped, currentRadiusReferenceWrapped) < 0) {
-//                return;
-//            }
-//
-//            while (!outsideRadius.isEmpty()) {
-//                final Equivalence.Wrapper<NodeReferenceWithDistance> leastOutside = outsideRadius.first();
-//                if (COMPARATOR.compare(newWrapped, leastOutside) >= 0) {
-//                    insideRadius.add(outsideRadius.pollFirst());
-//
-//                    if (insideRadius.size() > insideLimit) {
-//                        insideRadius.pollFirst();
-//                        Verify.verify(insideRadius.size() == insideLimit);
-//                    }
-//                } else {
-//                    break;
-//                }
-//            }
-//
-//            this.currentRadiusReferenceWrapped = newWrapped;
-//        }
     }
 
     private static class PrimaryKeyEquivalence extends Equivalence<NodeReferenceWithDistance> {
