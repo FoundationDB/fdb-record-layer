@@ -179,7 +179,7 @@ public class CopyCommandTest {
 
     @ParameterizedTest
     @BooleanSource("namedParameter")
-    void wrongParameter(boolean namedParameter) throws Exception {
+    void validateWhetherIndexOrNamedParameter(boolean namedParameter) throws Exception {
         // Test if the wrong parameter is set
         final String sourcePath = "/TEST/" + UUID.randomUUID();
         final String destPath = "/TEST/" + UUID.randomUUID();
