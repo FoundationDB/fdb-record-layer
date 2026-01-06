@@ -73,6 +73,7 @@ public class ContinuationBuilder {
         return this;
     }
 
+    @Nonnull
     public ContinuationBuilder withCopyPlan(@Nonnull final CopyPlan copyPlan) {
         proto.setCopyPlan(copyPlan);
         return this;

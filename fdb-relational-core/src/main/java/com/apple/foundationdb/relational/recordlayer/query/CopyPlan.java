@@ -304,10 +304,10 @@ public final class CopyPlan extends QueryPlan {
     }
 
     @Nonnull
-    private static byte[] convertToBytes(final Object element) throws RelationalException {
+    private static byte[] convertToBytes(@Nullable final Object element) throws RelationalException {
         if (!(element instanceof byte[])) {
             throw new RelationalException(
-                    "Array elements must be BYTES, got: " + element.getClass().getName(),
+                    "Array elements must be BYTES, got: " + (element == null ? null : element.getClass().getName()),
                     ErrorCode.INVALID_PARAMETER);
         }
 
@@ -315,7 +315,8 @@ public final class CopyPlan extends QueryPlan {
     }
 
     @Nonnull
-    private static DataInKeySpacePath deserializeData(final KeySpacePathSerializer serializer, final byte[] byteString) throws RelationalException {
+    private static DataInKeySpacePath deserializeData(@Nonnull final KeySpacePathSerializer serializer,
+                                                      @Nonnull final byte[] byteString) throws RelationalException {
         DataInKeySpacePath dataInKeySpacePath;
         try {
             dataInKeySpacePath = serializer.deserialize(KeySpaceProto.DataInKeySpacePath.parseFrom(byteString));
@@ -329,7 +330,10 @@ public final class CopyPlan extends QueryPlan {
         return dataInKeySpacePath;
     }
 
-    private static int importData(final KeySpacePath keySpacePath, final FDBRecordContext fdbContext, final DataInKeySpacePath dataInKeySpacePath, int importCount) throws RelationalException {
+    private static int importData(@Nonnull final KeySpacePath keySpacePath,
+                                  @Nonnull final FDBRecordContext fdbContext,
+                                  @Nonnull final DataInKeySpacePath dataInKeySpacePath,
+                                  int importCount) throws RelationalException {
         try {
             keySpacePath.importData(fdbContext, Collections.singleton(dataInKeySpacePath)).join();
             importCount++;
@@ -389,7 +393,7 @@ public final class CopyPlan extends QueryPlan {
         return keySpacePath;
     }
 
-    private static FDBRecordContext getRecordContext(final @Nonnull ExecutionContext context) throws InternalErrorException {
+    private static FDBRecordContext getRecordContext(@Nonnull final ExecutionContext context) throws InternalErrorException {
         return context.transaction.unwrap(RecordContextTransaction.class).getContext();
     }
 
