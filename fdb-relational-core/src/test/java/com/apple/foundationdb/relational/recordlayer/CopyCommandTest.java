@@ -64,6 +64,7 @@ import java.util.stream.Collectors;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -487,6 +488,8 @@ public class CopyCommandTest {
                 resultingCount = relationalResultSet.getInt("COUNT");
                 assertEquals(resultingCount, relationalResultSet.getInt(1));
                 assertFalse(relationalResultSet.next());
+                assertNotNull(relationalResultSet.getContinuation());
+                assertTrue(relationalResultSet.getContinuation().atEnd());
             }
             if (!autoCommit) {
                 conn.commit();
