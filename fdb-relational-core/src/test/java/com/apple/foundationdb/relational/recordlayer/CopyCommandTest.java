@@ -369,33 +369,41 @@ public class CopyCommandTest {
         final String schemaPath = databaseName + "/" + schemaName;
         String templateName = "TEMPLATE_" + uuidName;
 
-        // Export from source (using quoted path)
-        // create a schema
-        ConnectionUtils.runCatalogStatement(stmt -> {
-            stmt.executeUpdate("CREATE SCHEMA TEMPLATE " + templateName +
-                    " CREATE TABLE my_table (id bigint, col1 string, PRIMARY KEY(id))");
-            stmt.executeUpdate("CREATE DATABASE " + databaseName);
-            stmt.executeUpdate("CREATE SCHEMA " + databaseName + "/" + schemaName + " WITH TEMPLATE " + templateName);
-        });
+        try {
+            // Export from source (using quoted path)
+            // create a schema
+            ConnectionUtils.runCatalogStatement(stmt -> {
+                stmt.executeUpdate("CREATE SCHEMA TEMPLATE " + templateName +
+                        " CREATE TABLE my_table (id bigint, col1 string, PRIMARY KEY(id))");
+                stmt.executeUpdate("CREATE DATABASE " + databaseName);
+                stmt.executeUpdate("CREATE SCHEMA " + databaseName + "/" + schemaName + " WITH TEMPLATE " + templateName);
+            });
 
-        ConnectionUtils.runStatementUpdate(databaseName, "1", "INSERT INTO my_table VALUES (1, 'a'), (2, 'b')");
+            ConnectionUtils.runStatementUpdate(databaseName, "1", "INSERT INTO my_table VALUES (1, 'a'), (2, 'b')");
 
-        List<byte[]> exportedData = exportData(schemaPath, false);
+            List<byte[]> exportedData = exportData(schemaPath, false);
 
-        ConnectionUtils.runStatement(databaseName, schemaName, stmt -> {
-            stmt.executeUpdate("DELETE FROM my_table");
-            assertFalse(stmt.executeQuery("SELECT * FROM my_table").next(), "There should be no data in the table");
-        });
+            ConnectionUtils.runStatement(databaseName, schemaName, stmt -> {
+                stmt.executeUpdate("DELETE FROM my_table");
+                assertFalse(stmt.executeQuery("SELECT * FROM my_table").next(), "There should be no data in the table");
+            });
 
-        final int importCount = importData(false, true, schemaPath, exportedData);
-        assertThat(importCount).isGreaterThan(2); // we will import at least the rows saved, but also other internal data
+            final int importCount = importData(false, true, schemaPath, exportedData);
+            assertThat(importCount).isGreaterThan(2); // we will import at least the rows saved, but also other internal data
 
-        ConnectionUtils.runStatement(databaseName, schemaName, stmt ->
-                ResultSetAssert.assertThat(stmt.executeQuery("SELECT * FROM my_table"))
-                        .containsRowsExactly(List.of(
-                                List.of(1, "a"),
-                                List.of(2, "b")
-                        )));
+            ConnectionUtils.runStatement(databaseName, schemaName, stmt ->
+                    ResultSetAssert.assertThat(stmt.executeQuery("SELECT * FROM my_table"))
+                            .containsRowsExactly(List.of(
+                                    List.of(1, "a"),
+                                    List.of(2, "b")
+                            )));
+        } finally {
+
+            ConnectionUtils.runCatalogStatement(stmt -> {
+                stmt.executeUpdate("DROP SCHEMA TEMPLATE " + templateName);
+                stmt.executeUpdate("DROP DATABASE " + databaseName);
+            });
+        }
     }
 
     @Nonnull
