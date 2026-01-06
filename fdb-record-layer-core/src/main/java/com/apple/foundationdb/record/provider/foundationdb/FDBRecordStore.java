@@ -141,6 +141,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
+import java.util.function.IntFunction;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.function.UnaryOperator;
@@ -3396,6 +3397,51 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                     .addLogInfo(LogMessageKeys.FORMAT_VERSION, getFormatVersionEnum());
         }
         return updateStoreHeaderAsync(RecordMetaDataProto.DataStoreInfo.Builder::clearStoreLockState);
+    }
+
+    /**
+     * Get the current incarnation of the store.
+     * The incarnation is intended to be incremented when moving data from one cluster to another.
+     * By combining the incarnation with version information in indexes, you can maintain proper ordering
+     * of modifications even when data is moved between clusters with different version stamps.
+     * @return the current incarnation value, or 0 if not set
+     */
+    public int getIncarnation() {
+        if (!getFormatVersionEnum().isAtLeast(FormatVersion.INCARNATION)) {
+            throw new RecordCoreException("Store does not support incarnation")
+                    .addLogInfo(LogMessageKeys.FORMAT_VERSION, getFormatVersionEnum());
+        }
+        final RecordStoreState localStoreState = recordStoreStateRef.get();
+        if (localStoreState == null) {
+            throw uninitializedStoreException("cannot get incarnation from an uninitialized store");
+        }
+        final RecordMetaDataProto.DataStoreInfo storeHeader = localStoreState.getStoreHeader();
+        return storeHeader.hasIncarnation() ? storeHeader.getIncarnation() : 0;
+    }
+
+    /**
+     * Update the incarnation of the store.
+     * The incarnation is intended to be incremented when moving data from one cluster to another.
+     * This should typically be called before moving data to ensure proper version ordering across clusters.
+     * @param updater a function that takes the current incarnation value and returns the new value (must be non-negative)
+     * @return a future that updates this incarnation
+     * @throws RecordCoreException if the updated incarnation is negative or the format version is too low
+     */
+    public CompletableFuture<Void> updateIncarnation(@Nonnull IntFunction<Integer> updater) {
+        if (!getFormatVersionEnum().isAtLeast(FormatVersion.INCARNATION)) {
+            throw new RecordCoreException("Store does not support incarnation")
+                    .addLogInfo(LogMessageKeys.FORMAT_VERSION, getFormatVersionEnum());
+        }
+        return updateStoreHeaderAsync(builder -> {
+            int currentIncarnation = builder.hasIncarnation() ? builder.getIncarnation() : 0;
+            int newIncarnation = updater.apply(currentIncarnation);
+            if (newIncarnation < 0) {
+                throw new RecordCoreException("Incarnation must be non-negative")
+                        .addLogInfo(LogMessageKeys.VALUE, newIncarnation);
+            }
+            builder.setIncarnation(newIncarnation);
+            return builder;
+        });
     }
 
     // Actually (1) writes the index state to the database and (2) updates the cached state with the new state
