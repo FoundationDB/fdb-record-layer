@@ -287,7 +287,7 @@ public final class CopyPlan extends QueryPlan {
 
         if (parameterValue == null) {
             throw new RelationalException(
-                    "Parameter is null or not found",
+                    "Parameter must be an ARRAY, got: NULL",
                     ErrorCode.INVALID_PARAMETER);
         }
 
