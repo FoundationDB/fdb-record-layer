@@ -2461,6 +2461,29 @@ public class HNSW {
         return random.nextDouble() < getConfig().getMaintainStatsProbability();
     }
 
+    /**
+     * Returns an async iterator that returns results ordered by their distance from a given center vector.
+     * <p>
+     * This method initiates an outward traversal from the {@code centerVector}, effectively performing a k-NN
+     * (k-Nearest Neighbor) or beam search. The results are returned as an {@link AsyncIterator}, with items
+     * yielded in increasing order of their distance from the center. The search can be started or resumed from a
+     * specific point defined by {@code minimumRadius} and {@code minimumPrimaryKey}, allowing for pagination.
+     *
+     * @param readTransaction the transaction to use for reading data
+     * @param efRingSearch the exploration factor for the initial ring search phase of the HNSW algorithm
+     * @param efOutwardSearch the exploration factor for the main outward search phase, determining the size of the
+     * candidate queue
+     * @param includeVectors a boolean flag indicating whether the full vectors should be reconstructed and included in
+     *        the results. If {@code false}, the vector in each {@link ResultEntry} will be {@code null}.
+     * @param centerVector the vector to search around. Results will be ordered by their distance to this vector
+     * @param minimumRadius the minimum distance from the {@code centerVector}. Only results with a distance greater
+     *        than will be returned.
+     * @param minimumPrimaryKey the primary key of the last item from a previous scan, used for pagination. If provided
+     *        along with {@code minimumRadius}, the scan will resume after the item with this key at that radius. Can be
+     *        {@code null} to start from the beginning.
+     * @return an {@link AsyncIterator} of {@link ResultEntry} objects, ordered by increasing distance from the
+     *         {@code centerVector}
+     */
     public AsyncIterator<ResultEntry>
             orderByDistance(@Nonnull final ReadTransaction readTransaction,
                             final int efRingSearch,
@@ -2509,7 +2532,8 @@ public class HNSW {
     }
 
     /**
-     * Async iterator to iterate outwards starting from a given {@code (distance, primaryKey)} (exclusive).
+     * Async iterator to iterate outwards starting from a given {@code (minimumRadius, minimumPrimaryKey)} (exclusive)
+     * where {@code minimumRadius} is measured as the distance of a vector to the given {@code centerVector}.
      */
     private class OutwardTraversalIterator implements AsyncIterator<NodeReferenceAndNode<NodeReferenceWithDistance, NodeReference>> {
         @Nonnull
@@ -2580,7 +2604,7 @@ public class HNSW {
                     // This initial capacity is somewhat arbitrary as m is not necessarily
                     // a limit, but it gives us a number that is better than the default.
                     new PriorityQueue<>(getConfig().getM(), NodeReferenceWithDistance.comparator());
-            final BoundedVisitedSet visited = new BoundedVisitedSet(1, minimumRadius, minimumPrimaryKey);
+            final SpatialRestrictions visited = new SpatialRestrictions(1, minimumRadius, minimumPrimaryKey);
 
             final PriorityQueue<NodeReferenceWithDistance> out =
                     new PriorityQueue<>(efOutwardSearch + 1, // prevent reallocation further down
@@ -2607,31 +2631,6 @@ public class HNSW {
                     transformedCenterVector, candidates, visited, out, zoomInResult.getNodeCache());
         }
 
-        private boolean isGreaterThanMinimum(@Nonnull final NodeReferenceWithDistance nodeReferenceWithDistance) {
-            return compareAgainstMinimum(nodeReferenceWithDistance) < 0;
-        }
-
-        /**
-         * Compare the given {@link NodeReferenceWithDistance} against the
-         * {@code (minimumRadius, minimumPrimaryKey)} that was used to initialize the iterator.
-         *
-         * @param nodeReferenceWithDistance the {@link NodeReferenceWithDistance} against which to compare
-         *
-         * @return a negative integer, zero, or a positive integer when {@code lastEmitted} is
-         *         less than, equal, or greater than the parameter {@code t}.
-         */
-        private int compareAgainstMinimum(@Nonnull final NodeReferenceWithDistance nodeReferenceWithDistance) {
-            if (minimumRadius == 0.0d || minimumPrimaryKey == null) {
-                return -1;
-            }
-
-            final int compare = Double.compare(minimumRadius, nodeReferenceWithDistance.getDistance());
-            if (compare != 0) {
-                return compare;
-            }
-            return minimumPrimaryKey.compareTo(nodeReferenceWithDistance.getPrimaryKey());
-        }
-
         @Nonnull
         private CompletableFuture<NodeReferenceAndNode<NodeReferenceWithDistance, NodeReference>> computeNextRecord() {
             final OutwardTraversalState localTraversalState = getTraversalState();
@@ -2639,7 +2638,7 @@ public class HNSW {
             final Estimator estimator = localTraversalState.getEstimator();
             final Transformed<RealVector> transformedCenterVector = localTraversalState.getTransformedCenterVector();
             final Queue<NodeReferenceWithDistance> candidates = localTraversalState.getCandidates();
-            final BoundedVisitedSet visited = localTraversalState.getVisited();
+            final SpatialRestrictions spatialRestrictions = localTraversalState.getSpatialRestrictions();
             final Queue<NodeReferenceWithDistance> out = localTraversalState.getOut();
             final Map<Tuple, AbstractNode<NodeReference>> nodeCache = localTraversalState.getNodeCache();
 
@@ -2650,7 +2649,7 @@ public class HNSW {
                 }
 
                 final NodeReferenceWithDistance candidate = candidates.poll();
-                if (isGreaterThanMinimum(candidate)) {
+                if (spatialRestrictions.isGreaterThanMinimum(candidate)) {
                     out.add(candidate);
                 }
 
@@ -2666,8 +2665,8 @@ public class HNSW {
                                 final NodeReferenceWithDistance nodeReferenceWithDistance =
                                         new NodeReferenceWithDistance(primaryKey, current.getVector(), distance);
 
-                                if (!visited.contains(nodeReferenceWithDistance)) {
-                                    visited.add(nodeReferenceWithDistance);
+                                if (spatialRestrictions.shouldBeAdded(nodeReferenceWithDistance)) {
+                                    spatialRestrictions.add(nodeReferenceWithDistance);
                                     candidates.add(nodeReferenceWithDistance);
                                 }
                             }
@@ -2725,7 +2724,7 @@ public class HNSW {
         @Nonnull
         private final Queue<NodeReferenceWithDistance> candidates;
         @Nonnull
-        private final BoundedVisitedSet visited;
+        private final SpatialRestrictions spatialRestrictions;
         @Nonnull
         private final Queue<NodeReferenceWithDistance> out;
         @Nonnull
@@ -2735,14 +2734,14 @@ public class HNSW {
                                      @Nonnull final Estimator estimator,
                                      @Nonnull final Transformed<RealVector> transformedCenterVector,
                                      @Nonnull final Queue<NodeReferenceWithDistance> candidates,
-                                     @Nonnull final BoundedVisitedSet visited,
+                                     @Nonnull final SpatialRestrictions spatialRestrictions,
                                      @Nonnull final Queue<NodeReferenceWithDistance> out,
                                      @Nonnull final Map<Tuple, AbstractNode<NodeReference>> nodeCache) {
             this.storageTransform = storageTransform;
             this.estimator = estimator;
             this.transformedCenterVector = transformedCenterVector;
             this.candidates = candidates;
-            this.visited = visited;
+            this.spatialRestrictions = spatialRestrictions;
             this.out = out;
             this.nodeCache = nodeCache;
         }
@@ -2768,8 +2767,8 @@ public class HNSW {
         }
 
         @Nonnull
-        public BoundedVisitedSet getVisited() {
-            return visited;
+        public SpatialRestrictions getSpatialRestrictions() {
+            return spatialRestrictions;
         }
 
         @Nonnull
@@ -2783,7 +2782,7 @@ public class HNSW {
         }
     }
 
-    private static class BoundedVisitedSet {
+    private static class SpatialRestrictions {
         private static final Comparator<Equivalence.Wrapper<NodeReferenceWithDistance>> COMPARATOR =
                 Comparator.comparing(Equivalence.Wrapper::get,
                         Comparator.nullsFirst(
@@ -2802,14 +2801,22 @@ public class HNSW {
         @Nonnull
         private final TreeSet<Equivalence.Wrapper<NodeReferenceWithDistance>> outsideRadius; // exclusive
 
-        public BoundedVisitedSet(final int insideLimit,
-                                 final double minimumRadius,
-                                 @Nullable final Tuple minimumPrimaryKey) {
+        public SpatialRestrictions(final int insideLimit,
+                                   final double minimumRadius,
+                                   @Nullable final Tuple minimumPrimaryKey) {
             this.insideLimit = insideLimit;
             this.minimumRadius = minimumRadius;
             this.minimumPrimaryKey = minimumPrimaryKey;
             this.insideRadius = new TreeSet<>(COMPARATOR);
             this.outsideRadius = new TreeSet<>(COMPARATOR);
+        }
+
+        private boolean isGreaterThanMinimum(@Nonnull final NodeReferenceWithDistance nodeReferenceWithDistance) {
+            return compareAgainstMinimum(nodeReferenceWithDistance) < 0;
+        }
+
+        private boolean isGreaterThanOrEqualMinimum(@Nonnull final NodeReferenceWithDistance nodeReferenceWithDistance) {
+            return compareAgainstMinimum(nodeReferenceWithDistance) <= 0;
         }
 
         /**
@@ -2833,22 +2840,22 @@ public class HNSW {
             return minimumPrimaryKey.compareTo(nodeReferenceWithDistance.getPrimaryKey());
         }
 
-        public boolean contains(@Nonnull final NodeReferenceWithDistance nodeReferenceWithDistance) {
+        public boolean shouldBeAdded(@Nonnull final NodeReferenceWithDistance nodeReferenceWithDistance) {
             final Equivalence.Wrapper<NodeReferenceWithDistance> wrapped =
                     PRIMARY_KEY_EQUIVALENCE.wrap(nodeReferenceWithDistance);
             if (insideRadius.size() >= insideLimit) {
                 final Equivalence.Wrapper<NodeReferenceWithDistance> least = insideRadius.first();
                 if (COMPARATOR.compare(wrapped, least) <= 0) {
-                    return true;
+                    return false;
                 }
             }
 
-            if (compareAgainstMinimum(wrapped.get()) <= 0) {
+            if (isGreaterThanOrEqualMinimum(wrapped.get())) {
                 // wrapped greater than minimum
-                return outsideRadius.contains(wrapped);
+                return !outsideRadius.contains(wrapped);
             }
 
-            return insideRadius.contains(wrapped);
+            return !insideRadius.contains(wrapped);
         }
 
         @CanIgnoreReturnValue
@@ -2856,7 +2863,7 @@ public class HNSW {
             final Equivalence.Wrapper<NodeReferenceWithDistance> wrapped =
                     PRIMARY_KEY_EQUIVALENCE.wrap(nodeReferenceWithDistance);
 
-            if (compareAgainstMinimum(wrapped.get()) <= 0) {
+            if (isGreaterThanOrEqualMinimum(wrapped.get())) {
                 return outsideRadius.add(wrapped);
             }
 
