@@ -2470,14 +2470,18 @@ public class HNSW {
                             final double minimumRadius,
                             @Nullable final Tuple minimumPrimaryKey) {
         final OutwardTraversalIterator it =
-                searchAndIterateOutward(readTransaction, efRingSearch, efOutwardSearch, includeVectors, centerVector,
+                searchAndIterateOutward(readTransaction, efRingSearch, efOutwardSearch, centerVector,
                         minimumRadius, minimumPrimaryKey);
         return AsyncUtil.mapIterator(it,
                 nodeReferenceAndNode -> {
-                    final StorageTransform storageTransform = it.getTraversalState().getStorageTransform();
                     final var nodeReference = nodeReferenceAndNode.getNodeReference();
-                    @Nullable final RealVector reconstructedVector =
-                            includeVectors ? storageTransform.untransform(nodeReference.getVector()) : null;
+                    @Nullable final RealVector reconstructedVector;
+                    if (includeVectors) {
+                        final StorageTransform storageTransform = it.getTraversalState().getStorageTransform();
+                        reconstructedVector = storageTransform.untransform(nodeReference.getVector());
+                    } else {
+                        reconstructedVector = null;
+                    }
 
                     return new ResultEntry(nodeReference.getPrimaryKey(),
                             reconstructedVector, nodeReference.getDistance(), -1);
@@ -2488,7 +2492,6 @@ public class HNSW {
     private OutwardTraversalIterator searchAndIterateOutward(@Nonnull final ReadTransaction readTransaction,
                                                              final int efRingSearch,
                                                              final int efOutwardSearch,
-                                                             final boolean includeVectors,
                                                              @Nonnull final RealVector centerVector,
                                                              final double minimumRadius,
                                                              @Nullable final Tuple minimumPrimaryKey) {
@@ -2505,6 +2508,9 @@ public class HNSW {
                 minimumRadius, minimumPrimaryKey, efOutwardSearch);
     }
 
+    /**
+     * Async iterator to iterate outwards starting from a given {@code (distance, primaryKey)} (exclusive).
+     */
     private class OutwardTraversalIterator implements AsyncIterator<NodeReferenceAndNode<NodeReferenceWithDistance, NodeReference>> {
         @Nonnull
         private final StorageAdapter<NodeReference> storageAdapter;
@@ -2592,9 +2598,9 @@ public class HNSW {
                         new NodeReferenceWithDistance(primaryKey, vector, distance);
                 visited.add(nodeReferenceWithDistance);
                 // do not add to out if the distance is less than the minimum
-                if (isGreaterThanMinimum(nodeReferenceWithDistance)) {
-                    candidates.add(nodeReferenceWithDistance);
-                }
+                //if (isGreaterThanMinimum(nodeReferenceWithDistance)) {
+                candidates.add(nodeReferenceWithDistance);
+                //}
             }
 
             return new OutwardTraversalState(storageTransform, estimator,
@@ -2661,10 +2667,6 @@ public class HNSW {
                                         new NodeReferenceWithDistance(primaryKey, current.getVector(), distance);
 
                                 if (!visited.contains(nodeReferenceWithDistance)) {
-//                                    final double candidateMinDistance = candidates.peek() == null ? 11.0d : candidates.peek().getDistance();
-//                                    final double outMinDistance = out.peek() == null ? 11.0d : out.peek().getDistance();
-//                                    System.out.println(candidateMinDistance + "," + outMinDistance);
-
                                     visited.add(nodeReferenceWithDistance);
                                     candidates.add(nodeReferenceWithDistance);
                                 }
@@ -2677,11 +2679,6 @@ public class HNSW {
                     return CompletableFuture.completedFuture(null);
                 }
                 final NodeReferenceWithDistance nodeReference = out.poll();
-
-//                final double candidateMinDistance = candidates.peek() == null ? 11.0d : candidates.peek().getDistance();
-//                final double outMinDistance = out.peek() == null ? 11.0d : out.peek().getDistance();
-//                System.out.println(candidateMinDistance + "," + outMinDistance);
-
                 return fetchNodeIfNotCached(storageAdapter, readTransaction, storageTransform, 0, nodeReference, nodeCache)
                         .thenApply(node -> new NodeReferenceAndNode<>(nodeReference, node));
             }).thenApply(nextNodeReferenceAndNode -> {

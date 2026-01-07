@@ -262,7 +262,7 @@ class SiftTest implements BaseTest {
 
         final Set<Tuple> commonIds = Sets.intersection(groundTruthExpected, resultIds);
         final int recallCount = commonIds.size();
-        final double recall = (double)recallCount / groundTruth.size();
+        final double recall = (double)recallCount / groundTruthExpected.size();
 
         if (logger.isInfoEnabled()) {
             logger.info("ground truth size={}; result records size={}; recallCount={}; recall={}",
