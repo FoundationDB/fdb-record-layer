@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory.KeyType;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.ParameterizedTestUtils;
+import com.google.protobuf.ByteString;
 import org.junit.jupiter.api.Named;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -92,7 +93,7 @@ class KeySpacePathSerializerTest {
         assertEquals(fullPath.getDirectoryName(), deserialized.getPath().getDirectoryName());
         assertEquals("tenant1", deserialized.getPath().getValue());
         assertNull(deserialized.getRemainder());
-        assertArrayEquals(value, deserialized.getValue());
+        assertEquals(ByteString.copyFrom(value), deserialized.getValue());
     }
 
     @Test
@@ -112,7 +113,7 @@ class KeySpacePathSerializerTest {
         assertEquals("store1", deserialized.getPath().getValue());
         assertNotNull(deserialized.getRemainder());
         assertEquals(remainder, deserialized.getRemainder());
-        assertArrayEquals(value, deserialized.getValue());
+        assertEquals(ByteString.copyFrom(value), deserialized.getValue());
     }
 
     @Test
@@ -134,7 +135,7 @@ class KeySpacePathSerializerTest {
         DataInKeySpacePath deserialized = serializeAndDeserialize(rootPath, data);
 
         assertEquals("l3value", deserialized.getPath().getValue());
-        assertArrayEquals(value, deserialized.getValue());
+        assertEquals(ByteString.copyFrom(value), deserialized.getValue());
     }
 
     static Stream<Arguments> testSerializeDeserializeAllKeyTypes() {
@@ -166,7 +167,7 @@ class KeySpacePathSerializerTest {
         } else {
             assertEquals(value, deserialized.getPath().getValue());
         }
-        assertArrayEquals(dataValue, deserialized.getValue());
+        assertEquals(ByteString.copyFrom(dataValue), deserialized.getValue());
     }
 
     @Test
@@ -199,7 +200,7 @@ class KeySpacePathSerializerTest {
         final DataInKeySpacePath deserialized = serializeAndDeserialize(rootPath, data);
 
         assertEquals("rootval", deserialized.getPath().getValue());
-        assertArrayEquals(value, deserialized.getValue());
+        assertEquals(ByteString.copyFrom(value), deserialized.getValue());
     }
 
     @Test
@@ -232,8 +233,8 @@ class KeySpacePathSerializerTest {
         DataInKeySpacePath data = new DataInKeySpacePath(rootPath, null, value);
         final DataInKeySpacePath deserialized = serializeAndDeserialize(rootPath, data);
 
-        assertArrayEquals(value, deserialized.getValue());
-        assertEquals(0, deserialized.getValue().length);
+        assertEquals(ByteString.copyFrom(value), deserialized.getValue());
+        assertEquals(0, deserialized.getValue().size());
     }
 
     @Test
@@ -263,7 +264,7 @@ class KeySpacePathSerializerTest {
         final DataInKeySpacePath deserialized = serializeAndDeserialize(rootPath, data);
 
         assertEquals(remainder, deserialized.getRemainder());
-        assertArrayEquals(value, deserialized.getValue());
+        assertEquals(ByteString.copyFrom(value), deserialized.getValue());
     }
 
     @Test
@@ -346,7 +347,7 @@ class KeySpacePathSerializerTest {
             assertEquals("dest_app", deserializedData.getPath().getParent().getParent().getDirectoryName());
             assertEquals("tenant1", deserializedData.getPath().getParent().getValue());
             assertEquals(42L, deserializedData.getPath().getValue());
-            assertArrayEquals(new byte[] {10, 20, 30}, deserializedData.getValue());
+            assertEquals(ByteString.copyFrom(new byte[] {10, 20, 30}), deserializedData.getValue());
         } else {
             assertThrows(errorType, () -> destSerializer.deserialize(serialized));
         }
@@ -388,7 +389,7 @@ class KeySpacePathSerializerTest {
         assertEquals("db1", deserializedData.getPath().getParent().getValue());
         assertEquals("users", deserializedData.getPath().getValue());
         assertEquals(remainder, deserializedData.getRemainder());
-        assertArrayEquals(value, deserializedData.getValue());
+        assertEquals(ByteString.copyFrom(value), deserializedData.getValue());
     }
 
     @Test
@@ -411,7 +412,7 @@ class KeySpacePathSerializerTest {
         // Verify the String value was preserved
         assertEquals("my_tenant", deserialized.getPath().getParent().getValue());
         assertEquals("mydata", deserialized.getPath().getValue());
-        assertArrayEquals(value, deserialized.getValue());
+        assertEquals(ByteString.copyFrom(value), deserialized.getValue());
     }
 
     @Test
@@ -432,7 +433,7 @@ class KeySpacePathSerializerTest {
         // Verify the constant String value was preserved
         assertEquals("my_tenant", deserialized.getPath().getParent().getValue());
         assertEquals("mydata", deserialized.getPath().getValue());
-        assertArrayEquals(value, deserialized.getValue());
+        assertEquals(ByteString.copyFrom(value), deserialized.getValue());
     }
 
     @Test
@@ -458,7 +459,7 @@ class KeySpacePathSerializerTest {
         assertEquals("my_app", deserialized.getPath().getParent().getParent().getValue());
         assertEquals("my_tenant", deserialized.getPath().getParent().getValue());
         assertEquals(12345L, deserialized.getPath().getValue());
-        assertArrayEquals(value, deserialized.getValue());
+        assertEquals(ByteString.copyFrom(value), deserialized.getValue());
     }
 
     @Test
@@ -491,7 +492,7 @@ class KeySpacePathSerializerTest {
         assertEquals("dest_app", deserializedData.getPath().getParent().getParent().getDirectoryName());
         assertEquals("tenant1", deserializedData.getPath().getParent().getValue());
         assertEquals(123L, deserializedData.getPath().getValue());
-        assertArrayEquals(value, deserializedData.getValue());
+        assertEquals(ByteString.copyFrom(value), deserializedData.getValue());
     }
 
     @Nonnull
