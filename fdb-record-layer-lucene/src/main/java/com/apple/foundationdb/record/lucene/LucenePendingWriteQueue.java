@@ -169,6 +169,7 @@ public class LucenePendingWriteQueue {
         byte[] value = builder.build().toByteArray();
 
         // Use addVersionMutation to let FDB assign the versionstamp
+        // TODO: check if there was a value before, fail if does
         context.addVersionMutation(
                 MutationType.SET_VERSIONSTAMPED_KEY,
                 queueKey,
@@ -181,12 +182,13 @@ public class LucenePendingWriteQueue {
             LOGGER.debug("Enqueued {} operation (versionstamp pending) in {} subspace",
                     operationType, Tuple.fromBytes(queueSubspace.pack()));
         }
-
+        // TODO: This method can be synchronized
         return CompletableFuture.completedFuture(null);
     }
 
     /**
      * Get all queued operations for this partition.
+     * TODO: This should be using a cursor and continuation
      *
      * @return CompletableFuture with list of queued operations
      */
