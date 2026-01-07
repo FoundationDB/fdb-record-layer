@@ -2550,6 +2550,10 @@ public class HNSW {
         private final Tuple minimumPrimaryKey;
         private final int efOutwardSearch;
 
+        /**
+         * State of the iteration. All structures within the state are mutable (and in fact updates frequently)
+         * as part of {@link  #computeNextRecord()}.
+         */
         @Nullable
         private OutwardTraversalState traversalState;
 

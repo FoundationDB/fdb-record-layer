@@ -21,11 +21,13 @@
 package com.apple.foundationdb.async.hnsw;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.Verify;
+import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 import org.junit.jupiter.api.Test;
 
+import javax.annotation.Nonnull;
 import java.util.Arrays;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -34,7 +36,7 @@ import java.util.Set;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-@SuppressWarnings("checkstyle:MemberName")
+@SuppressWarnings({"checkstyle:MemberName", "NewClassNamingConvention"})
 public final class OrderQuality {
 
     private OrderQuality() {
@@ -174,39 +176,21 @@ public final class OrderQuality {
      * @param wOutlier weight of outlier component in composite
      * @param wContig weight of contiguity component in composite
      */
-    public static <T> Result score(List<T> s,
-                                   List<T> u,
-                                   int x,
-                                   int okWindow,
-                                   int outlierThreshold,
-                                   double wLocal,
-                                   double wOrder,
-                                   double wOutlier,
-                                   double wContig) {
-        Objects.requireNonNull(s, "s");
-        Objects.requireNonNull(u, "u");
-        Preconditions.checkArgument(!s.isEmpty());
-        Preconditions.checkArgument(okWindow > 0);
-        Preconditions.checkArgument(outlierThreshold > okWindow);
-        Preconditions.checkArgument(wLocal >= 0 && wOrder >= 0 && wOutlier >= 0 && wContig >= 0);
+    @Nonnull
+    public static <T> Result score(@Nonnull final List<T> s, @Nonnull final List<T> u, final int x, final int okWindow,
+                                   final int outlierThreshold, final double wLocal, final double wOrder,
+                                   final double wOutlier, final double wContig) {
+        validateArguments(s, u, x, okWindow, outlierThreshold, wLocal, wOrder, wOutlier, wContig);
 
         final int m = s.size();
         final int n = u.size();
-        Preconditions.checkArgument(x >= 0 && x < n);
 
         // Build pos map for u and validate uniqueness.
-        Map<T, Integer> posInU = new HashMap<>(Math.max(16, (int) (n / 0.75f) + 1));
-        for (int j = 0; j < n; j++) {
-            T id = u.get(j);
-            Integer prev = posInU.put(id, j);
-            if (prev != null) {
-                throw new IllegalArgumentException("u contains duplicate element: " + id);
-            }
-        }
+        final var posInU = posInU(n, u);
 
         // Build p and validate s uniqueness + presence in u.
-        int[] p = new int[m];
-        Set<T> seenS = new HashSet<>(Math.max(16, (int) (m / 0.75f) + 1));
+        final int[] p = new int[m];
+        final Set<T> seenS = Sets.newHashSet();
         int minPos = Integer.MAX_VALUE;
         int maxPos = Integer.MIN_VALUE;
 
@@ -215,7 +199,7 @@ public final class OrderQuality {
             if (!seenS.add(id)) {
                 throw new IllegalArgumentException("s contains duplicate element: " + id);
             }
-            Integer pos = posInU.get(id);
+            final Integer pos = posInU.get(id);
             if (pos == null) {
                 throw new IllegalArgumentException("s element not found in u: " + id);
             }
@@ -285,23 +269,21 @@ public final class OrderQuality {
         final int p90AbsResidual = percentile(absResidual, 0.90);
 
         // Order via inversion count
-        long inversions = countInversions(p);
-        long maxInv = (m <= 1) ? 0L : ((long) m * (m - 1)) / 2L;
-        double orderScore = (maxInv == 0L) ? 1.0 : 1.0 - inversions / (double) maxInv;
-        orderScore = clamp01(orderScore);
+        final long inversions = countInversions(p);
+        final long maxInv = (m <= 1) ? 0L : ((long) m * (m - 1)) / 2L;
+        final double orderScore = clamp01((maxInv == 0L) ? 1.0 : 1.0 - inversions / (double) maxInv);
+
 
         // Component scores
-        double p90Component = clamp01(1.0 - (p90AbsResidual / (double) okWindow));
-        double localScore = clamp01(0.7 * pctWithinWindowAfterShift + 0.3 * p90Component);
-        double outlierScore = clamp01(1.0 - outlierRate);
+        final double p90Component = clamp01(1.0 - (p90AbsResidual / (double) okWindow));
+        final double localScore = clamp01(0.7 * pctWithinWindowAfterShift + 0.3 * p90Component);
+        final double outlierScore = clamp01(1.0 - outlierRate);
 
         // Composite quality
-        double wSum = wLocal + wOrder + wOutlier + wContig;
-        if (wSum <= 0) {
-            wSum = 1.0;
-        }
-        double quality = (wLocal * localScore + wOrder * orderScore + wOutlier * outlierScore + wContig * contigScore) / wSum;
-        quality = clamp01(quality);
+        final double wSum = wLocal + wOrder + wOutlier + wContig;
+        Verify.verify(wSum > 0);
+
+        final double quality = clamp01((wLocal * localScore + wOrder * orderScore + wOutlier * outlierScore + wContig * contigScore) / wSum);
 
         return new Result(m, n, x,
                 minPos, maxPos, blockLen, extrasBetween, contigScore,
@@ -314,6 +296,28 @@ public final class OrderQuality {
                 localScore, outlierScore,
                 quality
         );
+    }
+
+    private static <T> void validateArguments(final List<T> s, final List<T> u, final int x, final int okWindow, final int outlierThreshold, final double wLocal, final double wOrder, final double wOutlier, final double wContig) {
+        Objects.requireNonNull(s, "s");
+        Objects.requireNonNull(u, "u");
+        Preconditions.checkArgument(!s.isEmpty());
+        Preconditions.checkArgument(okWindow > 0);
+        Preconditions.checkArgument(outlierThreshold > okWindow);
+        Preconditions.checkArgument(wLocal >= 0 && wOrder >= 0 && wOutlier >= 0 && wContig >= 0);
+        Preconditions.checkArgument(x >= 0 && x < u.size());
+    }
+
+    private static <T> @Nonnull Map<T, Integer> posInU(final int n, final List<T> u) {
+        Map<T, Integer> posInU = Maps.newHashMapWithExpectedSize(n);
+        for (int j = 0; j < u.size(); j++) {
+            T id = u.get(j);
+            Integer prev = posInU.put(id, j);
+            if (prev != null) {
+                throw new IllegalArgumentException("u contains duplicate element: " + id);
+            }
+        }
+        return posInU;
     }
 
     /**
