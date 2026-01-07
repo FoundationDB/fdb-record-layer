@@ -20,8 +20,12 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.record.RecordMetaData;
+import com.apple.foundationdb.record.RecordMetaDataBuilder;
+import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
+import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.DirectoryLayerDirectory;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory;
@@ -42,7 +46,12 @@ import com.apple.foundationdb.relational.transactionbound.TransactionBoundEmbedd
 import com.apple.foundationdb.relational.utils.ConnectionUtils;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
+import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
+import com.google.protobuf.DescriptorProtos;
+import com.google.protobuf.Descriptors;
+import com.google.protobuf.DynamicMessage;
+import com.google.protobuf.Message;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
@@ -53,13 +62,17 @@ import java.net.URI;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 public class TransactionBoundDatabaseTest {
     @RegisterExtension
     @Order(0)
     public static final RelationalExtension relational = new EmbeddedRelationalExtension();
+    private static final String SIMPLE_TYPE = "myType";
+    private static final String SIMPLE_FIELD = "field";
 
     @RegisterExtension
     @Order(1)
@@ -281,22 +294,169 @@ public class TransactionBoundDatabaseTest {
                 .add("db", 23L);
         final URI destUri = KeySpaceUtils.pathToUri(destPath);
 
-        final Tuple value1 = Tuple.from("First");
-        final Tuple value2 = Tuple.from("Second");
-        try (FDBRecordContext context = createNewContext(embeddedConnection)) {
-            context.ensureActive().set(
-                    sourcePath.add("schema1").toSubspace(context).pack(Tuple.from(1)),
-                    value1.pack());
-            context.ensureActive().set(
-                    sourcePath.add("schema2").toSubspace(context).pack(Tuple.from(3)),
-                    value2.pack());
-            context.commit();
-        }
+        Map<Tuple, Tuple> schema1Data = Map.of(
+                Tuple.from(1), Tuple.from("First"),
+                Tuple.from(2), Tuple.from("Second")
+        );
+        Map<Tuple, Tuple> schema2Data = Map.of(
+                Tuple.from(3), Tuple.from("Alpha"),
+                Tuple.from("X"), Tuple.from("Beta")
+        );
+        final KeySpacePath sourcePath1 = sourcePath.add("schema1");
+        writeDataToPath(embeddedConnection, sourcePath1, schema1Data);
+        final KeySpacePath sourcePath2 = sourcePath.add("schema2");
+        writeDataToPath(embeddedConnection, sourcePath2, schema2Data);
 
-        Assertions.assertThat(getDataInPath(embeddedConnection, sourcePath))
-                .isEqualTo(List.of(value1, value2));
+        Assertions.assertThat(getDataInPath(embeddedConnection, sourcePath1)).isEqualTo(schema1Data);
+        Assertions.assertThat(getDataInPath(embeddedConnection, sourcePath2)).isEqualTo(schema2Data);
 
         // export the data
+        final List<byte[]> data = exportDataWithCopy(embeddedConnection, sourceUri, destUri);
+        Assertions.assertThat(data).hasSizeGreaterThanOrEqualTo(2);
+
+        importDataWithCopy(embeddedConnection, destUri, data);
+
+        Assertions.assertThat(getDataInPath(embeddedConnection, destPath.add("schema1"))).isEqualTo(schema1Data);
+        Assertions.assertThat(getDataInPath(embeddedConnection, destPath.add("schema2"))).isEqualTo(schema2Data);
+    }
+
+
+    @Test
+    void copyOtherPathWithStore() throws RelationalException, SQLException, Descriptors.DescriptorValidationException {
+        final EmbeddedRelationalConnection embeddedConnection = connRule.getUnderlyingEmbeddedConnection();
+        final KeySpacePath sourcePath = keySpace.path("root")
+                .add("test", UUID.randomUUID().toString())
+                .add("db", 17L);
+        final URI sourceUri = KeySpaceUtils.pathToUri(sourcePath);
+        final KeySpacePath destPath = keySpace.path("root")
+                .add("test", UUID.randomUUID().toString())
+                .add("db", 23L);
+        final URI destUri = KeySpaceUtils.pathToUri(destPath);
+
+        Map<Tuple, Tuple> schema1Data = Map.of(
+                Tuple.from(1), Tuple.from("First"),
+                Tuple.from(2), Tuple.from("Second")
+        );
+        Map<Tuple, Tuple> schema2Data = Map.of(
+                Tuple.from(3), Tuple.from("Alpha"),
+                Tuple.from("X"), Tuple.from("Beta")
+        );
+        final KeySpacePath sourcePath1 = sourcePath.add("schema1");
+        final RecordMetaData metadata = simpleMetaData();
+        withStore(embeddedConnection, sourcePath1, metadata,
+                store -> {
+                    saveSimpleRecord(store, "First");
+                    saveSimpleRecord(store, "Second");
+                });
+        final KeySpacePath sourcePath2 = sourcePath.add("schema2");
+        withStore(embeddedConnection, sourcePath2, metadata, store1 -> {
+            saveSimpleRecord(store1, "Alpha");
+            saveSimpleRecord(store1, "Beta");
+        });
+        // export the data
+        final List<byte[]> data = exportDataWithCopy(embeddedConnection, sourceUri, destUri);
+        Assertions.assertThat(data).hasSizeGreaterThanOrEqualTo(2);
+
+        importDataWithCopy(embeddedConnection, destUri, data);
+
+        withStore(embeddedConnection, destPath.add("schema1"), metadata,
+                store -> {
+                    assertSimpleRecordExists(store, "First");
+                    assertSimpleRecordExists(store, "Second");
+                });
+
+        withStore(embeddedConnection, destPath.add("schema2"), metadata,
+                store -> {
+                    assertSimpleRecordExists(store, "Alpha");
+                    assertSimpleRecordExists(store, "Beta");
+                });
+    }
+
+    private static void withStore(final EmbeddedRelationalConnection embeddedConnection,
+                                  final KeySpacePath path,
+                                  final RecordMetaData metadata,
+                                  final Consumer<FDBRecordStore> action) throws RelationalException {
+        try (FDBRecordContext context = createNewContext(embeddedConnection)) {
+            final FDBRecordStore store = FDBRecordStore.newBuilder()
+                    .setKeySpacePath(path)
+                    .setMetaDataProvider(() -> metadata)
+                    .setContext(context)
+                    .build();
+            action.accept(store);
+            context.commit();
+        }
+    }
+
+
+    private void assertSimpleRecordExists(final FDBRecordStore store, final String field) {
+        final FDBStoredRecord<Message> record = store.loadRecord(Tuple.from(field));
+        Assertions.assertThat(record).isNotNull();
+        final Message message = record.getRecord();
+        final Descriptors.Descriptor type = getSimpleType(store);
+        Assertions.assertThat(message.getField(getSimpleField(type))).isEqualTo(field);
+    }
+
+    private static Descriptors.FieldDescriptor getSimpleField(final Descriptors.Descriptor type) {
+        return type.findFieldByName(SIMPLE_FIELD);
+    }
+
+    private static Descriptors.Descriptor getSimpleType(final FDBRecordStore store) {
+        return store.getRecordMetaData().getRecordsDescriptor().findMessageTypeByName(SIMPLE_TYPE);
+    }
+
+    private static void saveSimpleRecord(final FDBRecordStore store, final String value) {
+        final Descriptors.Descriptor type = getSimpleType(store);
+        store.saveRecord(DynamicMessage.newBuilder(type)
+                .setField(getSimpleField(type), value).build());
+    }
+
+    @Nonnull
+    private static RecordMetaData simpleMetaData() throws Descriptors.DescriptorValidationException {
+        final DescriptorProtos.FileDescriptorProto.Builder protoBuilder = DescriptorProtos.FileDescriptorProto.newBuilder();
+        protoBuilder.addMessageTypeBuilder()
+                .setName(SIMPLE_TYPE)
+                .addField(protoField(DescriptorProtos.FieldDescriptorProto.Type.TYPE_STRING, SIMPLE_FIELD, 1));
+        protoBuilder.addMessageTypeBuilder()
+                .setName("RecordTypeUnion")
+                .addField(protoField(SIMPLE_TYPE, "_myType", 1));
+        final Descriptors.FileDescriptor fileDescriptor = Descriptors.FileDescriptor.buildFrom(protoBuilder.build(), new Descriptors.FileDescriptor[0]);
+        final RecordMetaDataBuilder recordMetaDataBuilder = RecordMetaData.newBuilder().setRecords(fileDescriptor);
+        recordMetaDataBuilder.getRecordType(SIMPLE_TYPE)
+                .setPrimaryKey(Key.Expressions.field(SIMPLE_FIELD));
+        return recordMetaDataBuilder.build();
+    }
+
+    private static DescriptorProtos.FieldDescriptorProto protoField(DescriptorProtos.FieldDescriptorProto.Type type, String name, int number) {
+        return DescriptorProtos.FieldDescriptorProto.newBuilder()
+                .setNumber(number)
+                .setName(name)
+                .setType(type)
+                .build();
+    }
+
+    private static DescriptorProtos.FieldDescriptorProto protoField(String typeName, String name, int number) {
+        return DescriptorProtos.FieldDescriptorProto.newBuilder()
+                .setNumber(number)
+                .setName(name)
+                .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_MESSAGE)
+                .setTypeName(typeName)
+                .build();
+    }
+
+    private void importDataWithCopy(final EmbeddedRelationalConnection embeddedConnection, final URI destUri, final List<byte[]> data) throws RelationalException, SQLException {
+        withTransactionBoundConnection(embeddedConnection, conn -> {
+            try (RelationalPreparedStatement stmt = conn.prepareStatement("COPY \"" + destUri + "\" FROM ?")) {
+                stmt.setObject(1, data);
+                final RelationalResultSet relationalResultSet = stmt.executeQuery();
+                Assertions.assertThat(relationalResultSet.next()).isTrue();
+                Assertions.assertThat(relationalResultSet.getInt(1)).isEqualTo(data.size());
+                Assertions.assertThat(relationalResultSet.next()).isFalse();
+            }
+        });
+    }
+
+    @Nonnull
+    private List<byte[]> exportDataWithCopy(final EmbeddedRelationalConnection embeddedConnection, final URI sourceUri, final URI destUri) throws RelationalException, SQLException {
         List<byte[]> data = new ArrayList<>();
         withTransactionBoundConnection(embeddedConnection, conn -> {
             try (RelationalStatement statement = conn.createStatement()) {
@@ -311,27 +471,28 @@ public class TransactionBoundDatabaseTest {
                 Assertions.assertThat(resultSet.next()).isFalse();
             }
         });
-        Assertions.assertThat(data).hasSizeGreaterThanOrEqualTo(2);
-
-        withTransactionBoundConnection(embeddedConnection, conn -> {
-            try (RelationalPreparedStatement stmt = conn.prepareStatement("COPY \"" + destUri + "\" FROM ?")) {
-                stmt.setObject(1, data);
-                final RelationalResultSet relationalResultSet = stmt.executeQuery();
-                Assertions.assertThat(relationalResultSet.next()).isTrue();
-                Assertions.assertThat(relationalResultSet.getInt(1)).isEqualTo(data.size());
-                Assertions.assertThat(relationalResultSet.next()).isFalse();
-            }
-        });
-
-        Assertions.assertThat(getDataInPath(embeddedConnection, destPath))
-                .isEqualTo(List.of(value1, value2));
+        return data;
     }
 
-    private static List<Tuple> getDataInPath(final EmbeddedRelationalConnection embeddedConnection,
-                                             final KeySpacePath sourcePath) throws RelationalException {
+    private void writeDataToPath(final EmbeddedRelationalConnection embeddedConnection,
+                                 final KeySpacePath path,
+                                 final Map<Tuple, Tuple> data) throws RelationalException {
+        try (FDBRecordContext context = createNewContext(embeddedConnection)) {
+            final Subspace subspace = path.toSubspace(context);
+            data.forEach((key, value) -> {
+                context.ensureActive().set(subspace.pack(key), value.pack());
+            });
+            context.commit();
+        }
+    }
+
+    private static Map<Tuple, Tuple> getDataInPath(final EmbeddedRelationalConnection embeddedConnection,
+                                                   final KeySpacePath sourcePath) throws RelationalException {
         try (FDBRecordContext context = createNewContext(embeddedConnection)) {
             return context.ensureActive().getRange(sourcePath.toSubspace(context).range()).asList().join()
-                    .stream().map(keyValue -> Tuple.fromBytes(keyValue.getValue())).collect(Collectors.toList());
+                    .stream().collect(Collectors.toMap(
+                            keyValue -> sourcePath.toSubspace(context).unpack(keyValue.getKey()),
+                            keyValue -> Tuple.fromBytes(keyValue.getValue())));
         }
     }
 
