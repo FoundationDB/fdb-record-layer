@@ -58,6 +58,7 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.NavigableSet;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.PriorityQueue;
@@ -2797,9 +2798,9 @@ public class HNSW {
         private final Tuple minimumPrimaryKey;
 
         @Nonnull
-        private final TreeSet<Equivalence.Wrapper<NodeReferenceWithDistance>> insideRadius; // inclusive
+        private final NavigableSet<Equivalence.Wrapper<NodeReferenceWithDistance>> insideRadius; // inclusive
         @Nonnull
-        private final TreeSet<Equivalence.Wrapper<NodeReferenceWithDistance>> outsideRadius; // exclusive
+        private final NavigableSet<Equivalence.Wrapper<NodeReferenceWithDistance>> outsideRadius; // exclusive
 
         public SpatialRestrictions(final int insideLimit,
                                    final double minimumRadius,
