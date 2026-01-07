@@ -5764,6 +5764,12 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
          *             Any Store Lock State (see {@link #setStoreLockStateAsync(RecordMetaDataProto.DataStoreInfo.StoreLockState.State, String)}).<br/>
          *             Unless restored by the user, any previous store lock state will be cleared.
          *         </li>
+         *         <li>
+         *             The {@link #getIncarnation()} will be reset to the initial value. If you are using this, and it
+         *             may have been updated, the recommended solution is to lock the store to prevent writes, and then
+         *             either look at relevant indexes or records to determine the max value that it could have been
+         *             and then update it to at least that value. Once that is complete the store can be unlocked.
+         *         </li>
          *     </ul>
          * </p>
          *
