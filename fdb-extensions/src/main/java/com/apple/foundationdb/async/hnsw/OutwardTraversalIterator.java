@@ -110,11 +110,7 @@ class OutwardTraversalIterator implements AsyncIterator<NodeReferenceAndNode<Nod
     private Primitives primitives() {
         return locator.primitives();
     }
-
-    private Searcher searcher() {
-        return locator.searcher();
-    }
-
+    
     @Override
     public CompletableFuture<Boolean> onHasNext() {
         if (nextFuture == null) {
