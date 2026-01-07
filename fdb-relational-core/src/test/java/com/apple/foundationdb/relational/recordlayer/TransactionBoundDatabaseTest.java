@@ -40,14 +40,17 @@ import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.Transaction;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.transactionbound.TransactionBoundEmbeddedRelationalEngine;
 import com.apple.foundationdb.relational.utils.ConnectionUtils;
+import com.apple.foundationdb.relational.utils.RelationalAssertions;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.test.BooleanSource;
 import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
@@ -56,8 +59,10 @@ import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.params.ParameterizedTest;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.net.URI;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -275,7 +280,7 @@ public class TransactionBoundDatabaseTest {
         }
     }
 
-    static final KeySpace keySpace = new KeySpace(
+    static final KeySpace KEY_SPACE = new KeySpace(
             new DirectoryLayerDirectory("root", "transaction-bound-test")
                     .addSubdirectory(new KeySpaceDirectory("test", KeySpaceDirectory.KeyType.STRING)
                             .addSubdirectory(new KeySpaceDirectory("db", KeySpaceDirectory.KeyType.LONG)
@@ -285,11 +290,11 @@ public class TransactionBoundDatabaseTest {
     @Test
     void copyOtherPath() throws RelationalException, SQLException {
         final EmbeddedRelationalConnection embeddedConnection = connRule.getUnderlyingEmbeddedConnection();
-        final KeySpacePath sourcePath = keySpace.path("root")
+        final KeySpacePath sourcePath = KEY_SPACE.path("root")
                 .add("test", UUID.randomUUID().toString())
                 .add("db", 17L);
         final URI sourceUri = KeySpaceUtils.pathToUri(sourcePath);
-        final KeySpacePath destPath = keySpace.path("root")
+        final KeySpacePath destPath = KEY_SPACE.path("root")
                 .add("test", UUID.randomUUID().toString())
                 .add("db", 23L);
         final URI destUri = KeySpaceUtils.pathToUri(destPath);
@@ -314,21 +319,53 @@ public class TransactionBoundDatabaseTest {
         final List<byte[]> data = exportDataWithCopy(embeddedConnection, sourceUri, destUri);
         Assertions.assertThat(data).hasSizeGreaterThanOrEqualTo(2);
 
-        importDataWithCopy(embeddedConnection, destUri, data);
+        importDataWithCopy(embeddedConnection, destUri, data, KEY_SPACE);
 
         Assertions.assertThat(getDataInPath(embeddedConnection, destPath.add("schema1"))).isEqualTo(schema1Data);
         Assertions.assertThat(getDataInPath(embeddedConnection, destPath.add("schema2"))).isEqualTo(schema2Data);
     }
 
+    @ParameterizedTest
+    @BooleanSource("onExport")
+    void copyWithNullKeySpace(boolean onExport) throws SQLException, RelationalException {
+        final KeySpacePath sourcePath = KEY_SPACE.path("root")
+                .add("test", UUID.randomUUID().toString())
+                .add("db", 17L);
+        final URI sourceUri = KeySpaceUtils.pathToUri(sourcePath);
+        final KeySpacePath destPath = KEY_SPACE.path("root")
+                .add("test", UUID.randomUUID().toString())
+                .add("db", 23L);
+        final URI destUri = KeySpaceUtils.pathToUri(destPath);
+
+        final EmbeddedRelationalConnection embeddedConnection = connRule.getUnderlyingEmbeddedConnection();
+        List<byte[]> data = new ArrayList<>();
+        withTransactionBoundConnection(embeddedConnection, onExport ? null : KEY_SPACE, conn -> {
+            try (RelationalStatement statement = conn.createStatement()) {
+                final ConnectionUtils.SQLFunction<RelationalStatement, RelationalResultSet> export =
+                        stmt -> stmt.executeQuery("COPY \"" + sourceUri + "\"");
+                if (onExport) {
+                    RelationalAssertions.assertThrowsSqlException(() -> export.apply(statement))
+                            .hasErrorCode(ErrorCode.UNSUPPORTED_OPERATION);
+                } else {
+                    data.addAll(getExportedData(export.apply(statement)));
+                }
+            }
+        });
+        if (!onExport) {
+            RelationalAssertions.assertThrowsSqlException(
+                    () -> importDataWithCopy(embeddedConnection, destUri, data, null))
+                    .hasErrorCode(ErrorCode.UNSUPPORTED_OPERATION);
+        }
+    }
 
     @Test
     void copyOtherPathWithStore() throws RelationalException, SQLException, Descriptors.DescriptorValidationException {
         final EmbeddedRelationalConnection embeddedConnection = connRule.getUnderlyingEmbeddedConnection();
-        final KeySpacePath sourcePath = keySpace.path("root")
+        final KeySpacePath sourcePath = KEY_SPACE.path("root")
                 .add("test", UUID.randomUUID().toString())
                 .add("db", 17L);
         final URI sourceUri = KeySpaceUtils.pathToUri(sourcePath);
-        final KeySpacePath destPath = keySpace.path("root")
+        final KeySpacePath destPath = KEY_SPACE.path("root")
                 .add("test", UUID.randomUUID().toString())
                 .add("db", 23L);
         final URI destUri = KeySpaceUtils.pathToUri(destPath);
@@ -357,7 +394,7 @@ public class TransactionBoundDatabaseTest {
         final List<byte[]> data = exportDataWithCopy(embeddedConnection, sourceUri, destUri);
         Assertions.assertThat(data).hasSizeGreaterThanOrEqualTo(2);
 
-        importDataWithCopy(embeddedConnection, destUri, data);
+        importDataWithCopy(embeddedConnection, destUri, data, KEY_SPACE);
 
         withStore(embeddedConnection, destPath.add("schema1"), metadata,
                 store -> {
@@ -443,8 +480,11 @@ public class TransactionBoundDatabaseTest {
                 .build();
     }
 
-    private void importDataWithCopy(final EmbeddedRelationalConnection embeddedConnection, final URI destUri, final List<byte[]> data) throws RelationalException, SQLException {
-        withTransactionBoundConnection(embeddedConnection, conn -> {
+    private void importDataWithCopy(final EmbeddedRelationalConnection embeddedConnection,
+                                    final URI destUri,
+                                    final List<byte[]> data,
+                                    @Nullable final KeySpace keySpace) throws RelationalException, SQLException {
+        withTransactionBoundConnection(embeddedConnection, keySpace, conn -> {
             try (RelationalPreparedStatement stmt = conn.prepareStatement("COPY \"" + destUri + "\" FROM ?")) {
                 stmt.setObject(1, data);
                 final RelationalResultSet relationalResultSet = stmt.executeQuery();
@@ -458,12 +498,10 @@ public class TransactionBoundDatabaseTest {
     @Nonnull
     private List<byte[]> exportDataWithCopy(final EmbeddedRelationalConnection embeddedConnection, final URI sourceUri, final URI destUri) throws RelationalException, SQLException {
         List<byte[]> data = new ArrayList<>();
-        withTransactionBoundConnection(embeddedConnection, conn -> {
+        withTransactionBoundConnection(embeddedConnection, KEY_SPACE, conn -> {
             try (RelationalStatement statement = conn.createStatement()) {
                 final RelationalResultSet resultSet = statement.executeQuery("COPY \"" + sourceUri + "\"");
-                while (resultSet.next()) {
-                    data.add(resultSet.getBytes(1));
-                }
+                data.addAll(getExportedData(resultSet));
             }
             // sanity check that the destination is already empty
             try (RelationalStatement statement = conn.createStatement()) {
@@ -471,6 +509,15 @@ public class TransactionBoundDatabaseTest {
                 Assertions.assertThat(resultSet.next()).isFalse();
             }
         });
+        return data;
+    }
+
+    @Nonnull
+    private static List<byte[]> getExportedData(final RelationalResultSet resultSet) throws SQLException {
+        List<byte[]> data = new ArrayList<>();
+        while (resultSet.next()) {
+            data.add(resultSet.getBytes(1));
+        }
         return data;
     }
 
@@ -496,8 +543,8 @@ public class TransactionBoundDatabaseTest {
         }
     }
 
-    private void withTransactionBoundConnection(final EmbeddedRelationalConnection embeddedConnection,
-                                                ConnectionUtils.SQLConsumer<RelationalConnection> action)
+    private void withTransactionBoundConnection(@Nonnull final EmbeddedRelationalConnection embeddedConnection,
+                                                @Nullable final KeySpace keySpace, @Nonnull final ConnectionUtils.SQLConsumer<RelationalConnection> action)
             throws RelationalException, SQLException {
         final FDBRecordStore store = getStore(embeddedConnection);
         final SchemaTemplate schemaTemplate = getSchemaTemplate(embeddedConnection);
