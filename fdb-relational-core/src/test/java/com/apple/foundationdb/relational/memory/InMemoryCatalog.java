@@ -56,7 +56,7 @@ public class InMemoryCatalog implements StoreCatalog {
     private final KeySpace keySpace;
 
     /**
-     * Create a new catalog, with an optional {@link KeySpace}
+     * Create a new catalog, with an optional {@link KeySpace}.
      * @param keySpace An optional keyspace. At the time of writing this is only used by
      * {@link com.apple.foundationdb.relational.recordlayer.query.CopyPlan}, and trying to access it will throw a clear
      * error if it is not provided here.
