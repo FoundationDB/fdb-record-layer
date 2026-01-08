@@ -56,7 +56,7 @@ class OutwardTraversalIterator implements AsyncIterator<NodeReferenceAndNode<Nod
     @Nonnull
     private final ReadTransaction readTransaction;
     @Nonnull
-    private final CompletableFuture<Searcher.SearchResult> zoomInResultFuture;
+    private final CompletableFuture<Search.SearchResult> zoomInResultFuture;
     @Nonnull
     private final RealVector centerVector;
     private final double minimumRadius;
@@ -78,7 +78,7 @@ class OutwardTraversalIterator implements AsyncIterator<NodeReferenceAndNode<Nod
     public OutwardTraversalIterator(@Nonnull final Locator locator,
                                     @Nonnull final StorageAdapter<NodeReference> storageAdapter,
                                     @Nonnull final ReadTransaction readTransaction,
-                                    @Nonnull final CompletableFuture<Searcher.SearchResult> zoomInResultFuture,
+                                    @Nonnull final CompletableFuture<Search.SearchResult> zoomInResultFuture,
                                     @Nonnull final RealVector centerVector,
                                     final double minimumRadius,
                                     @Nullable final Tuple minimumPrimaryKey,
@@ -110,7 +110,7 @@ class OutwardTraversalIterator implements AsyncIterator<NodeReferenceAndNode<Nod
     private Primitives primitives() {
         return locator.primitives();
     }
-    
+
     @Override
     public CompletableFuture<Boolean> onHasNext() {
         if (nextFuture == null) {
@@ -128,7 +128,7 @@ class OutwardTraversalIterator implements AsyncIterator<NodeReferenceAndNode<Nod
     }
 
     @Nonnull
-    private OutwardTraversalState initialTravelState(@Nonnull final Searcher.SearchResult zoomInResult) {
+    private OutwardTraversalState initialTravelState(@Nonnull final Search.SearchResult zoomInResult) {
         final StorageTransform storageTransform = zoomInResult.getStorageTransform();
         final Transformed<RealVector> transformedCenterVector = storageTransform.transform(centerVector);
         final PriorityQueue<NodeReferenceWithDistance> candidates =

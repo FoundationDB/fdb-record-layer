@@ -48,11 +48,11 @@ public class Locator {
     @Nonnull
     private final Supplier<Primitives> primitivesSupplier;
     @Nonnull
-    private final Supplier<Searcher> searcherSupplier;
+    private final Supplier<Search> searchSupplier;
     @Nonnull
-    private final Supplier<Inserter> inserterSupplier;
+    private final Supplier<Insert> insertSupplier;
     @Nonnull
-    private final Supplier<Deleter> deleterSupplier;
+    private final Supplier<Delete> deleteSupplier;
 
     /**
      * Constructs a new HNSW graph instance.
@@ -79,9 +79,9 @@ public class Locator {
         this.onWriteListener = onWriteListener;
         this.onReadListener = onReadListener;
         this.primitivesSupplier = Suppliers.memoize(() -> new Primitives(this));
-        this.searcherSupplier = Suppliers.memoize(() -> new Searcher(this));
-        this.inserterSupplier = Suppliers.memoize(() -> new Inserter(this));
-        this.deleterSupplier = Suppliers.memoize(() -> new Deleter(this));
+        this.searchSupplier = Suppliers.memoize(() -> new Search(this));
+        this.insertSupplier = Suppliers.memoize(() -> new Insert(this));
+        this.deleteSupplier = Suppliers.memoize(() -> new Delete(this));
     }
 
     /**
@@ -131,22 +131,22 @@ public class Locator {
     }
 
     @Nonnull
-    public Primitives primitives() {
+    Primitives primitives() {
         return primitivesSupplier.get();
     }
 
     @Nonnull
-    public Searcher searcher() {
-        return searcherSupplier.get();
+    Search search() {
+        return searchSupplier.get();
     }
 
     @Nonnull
-    public Inserter inserter() {
-        return inserterSupplier.get();
+    Insert insert() {
+        return insertSupplier.get();
     }
 
     @Nonnull
-    public Deleter deleter() {
-        return deleterSupplier.get();
+    Delete delete() {
+        return deleteSupplier.get();
     }
 }

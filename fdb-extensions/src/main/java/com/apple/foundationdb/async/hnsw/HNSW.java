@@ -49,7 +49,9 @@ import java.util.function.Consumer;
  * This class provides methods for building the graph ({@link #insert(Transaction, Tuple, RealVector)})
  * and performing k-NN searches ({@link #kNearestNeighborsSearch(ReadTransaction, int, int, boolean, RealVector)}).
  * It is designed to be used with a transactional storage backend, managed via a {@link Subspace}.
- *
+ * <p>
+ * This class functions as the entry point for any interactions with the HNSW data structure. It delegates to
+ * the respective operations classes which implement the actual algorithms to maintain and to search the structure.
  * @see <a href="https://arxiv.org/abs/1603.09320">Efficient and robust approximate nearest neighbor search using Hierarchical Navigable Small World graphs</a>
  */
 @API(API.Status.EXPERIMENTAL)
@@ -152,18 +154,18 @@ public class HNSW {
     }
 
     @Nonnull
-    private Searcher searcher() {
-        return getLocator().searcher();
+    private Search search() {
+        return getLocator().search();
     }
 
     @Nonnull
-    private Inserter inserter() {
-        return getLocator().inserter();
+    private Insert insert() {
+        return getLocator().insert();
     }
 
     @Nonnull
-    private Deleter deleter() {
-        return getLocator().deleter();
+    private Delete delete() {
+        return getLocator().delete();
     }
 
     /**
@@ -187,7 +189,7 @@ public class HNSW {
                                     final int efSearch,
                                     final boolean includeVectors,
                                     @Nonnull final RealVector queryVector) {
-        return searcher().kNearestNeighborsSearch(readTransaction, k, efSearch, includeVectors, queryVector);
+        return search().kNearestNeighborsSearch(readTransaction, k, efSearch, includeVectors, queryVector);
     }
 
     /**
@@ -212,7 +214,7 @@ public class HNSW {
                                         final boolean includeVectors,
                                         @Nonnull final RealVector queryVector,
                                         final double radius) {
-        return searcher().kNearestNeighborsRingSearch(readTransaction, k, efSearch, includeVectors, queryVector,
+        return search().kNearestNeighborsRingSearch(readTransaction, k, efSearch, includeVectors, queryVector,
                 radius);
     }
 
@@ -238,7 +240,7 @@ public class HNSW {
     @Nonnull
     public CompletableFuture<Void> insert(@Nonnull final Transaction transaction, @Nonnull final Tuple newPrimaryKey,
                                           @Nonnull final RealVector newVector) {
-        return inserter().insert(transaction, newPrimaryKey, newVector);
+        return insert().insert(transaction, newPrimaryKey, newVector);
     }
 
     /**
@@ -285,7 +287,7 @@ public class HNSW {
      */
     @Nonnull
     public CompletableFuture<Void> delete(@Nonnull final Transaction transaction, @Nonnull final Tuple primaryKey) {
-        return deleter().delete(transaction, primaryKey);
+        return delete().delete(transaction, primaryKey);
     }
 
     /**
@@ -311,6 +313,7 @@ public class HNSW {
      * @return an {@link AsyncIterator} of {@link ResultEntry} objects, ordered by increasing distance from the
      *         {@code centerVector}
      */
+    @Nonnull
     public AsyncIterator<ResultEntry>
             orderByDistance(@Nonnull final ReadTransaction readTransaction,
                             final int efRingSearch,
@@ -319,7 +322,7 @@ public class HNSW {
                             @Nonnull final RealVector centerVector,
                             final double minimumRadius,
                             @Nullable final Tuple minimumPrimaryKey) {
-        return searcher().orderByDistance(readTransaction, efRingSearch, efOutwardSearch, includeVectors, centerVector,
+        return search().orderByDistance(readTransaction, efRingSearch, efOutwardSearch, includeVectors, centerVector,
                 minimumRadius, minimumPrimaryKey);
     }
 

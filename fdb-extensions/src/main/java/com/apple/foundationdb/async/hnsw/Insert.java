@@ -1,5 +1,5 @@
 /*
- * Inserter.java
+ * Insert.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -50,33 +50,32 @@ import static com.apple.foundationdb.async.MoreAsyncUtil.forEach;
 import static com.apple.foundationdb.async.MoreAsyncUtil.forLoop;
 
 /**
- * An implementation of insert path of the Hierarchical Navigable Small World (HNSW) algorithm for
- * efficient approximate nearest neighbor (ANN) search.
+ * An implementation of the insert operations of the Hierarchical Navigable Small World (HNSW) algorithm for efficient
+ * approximate nearest neighbor (ANN) search.
  * <p>
- * HNSW constructs a multi-layer graph, where each layer is a subset of the one below it.
- * The top layers serve as fast entry points to navigate the graph, while the bottom layer
- * contains all the data points. This structure allows for logarithmic-time complexity
- * for search operations, making it suitable for large-scale, high-dimensional datasets.
+ * HNSW constructs a multi-layer graph, where each layer is a subset of the one below it. The top layers serve as fast
+ * entry points to navigate the graph, while the bottom layer contains all the data points. This structure allows for
+ * logarithmic-time complexity for search operations, making it suitable for large-scale, high-dimensional datasets.
+ * <p>
+ * The entry point for any interactions with the HNSW data structure is implemented in {@link HNSW}. Do not instantiate
+ * this class directly.
  */
 @API(API.Status.EXPERIMENTAL)
-@SuppressWarnings("checkstyle:AbbreviationAsWordInName")
-public class Inserter {
+public class Insert {
     @Nonnull
-    private static final Logger logger = LoggerFactory.getLogger(Inserter.class);
+    private static final Logger logger = LoggerFactory.getLogger(Insert.class);
 
     @Nonnull
     private final Locator locator;
 
     /**
-     * Constructs a new HNSW graph instance.
-     * <p>
-     * This constructor initializes the HNSW graph with the necessary components for storage,
+     * This constructor initializes a new insert operations object with the necessary components for storage,
      * execution, configuration, and event handling.
      *
      * @param locator the {@link Locator} where the graph data is stored, which config to use, which executor to use,
      *        etc.
      */
-    public Inserter(@Nonnull final Locator locator) {
+    public Insert(@Nonnull final Locator locator) {
         this.locator = locator;
     }
 
@@ -137,8 +136,8 @@ public class Inserter {
     }
 
     @Nonnull
-    private Searcher searcher() {
-        return getLocator().searcher();
+    private Search searcher() {
+        return getLocator().search();
     }
 
     /**
@@ -234,12 +233,12 @@ public class Inserter {
                     }
 
                     final ToDoubleFunction<Transformed<RealVector>> objectiveFunction =
-                            Searcher.distanceToTargetVector(estimator, transformedNewVector);
+                            Search.distanceToTargetVector(estimator, transformedNewVector);
                     final NodeReferenceWithDistance initialNodeReference =
                             new NodeReferenceWithDistance(entryNodeReference.getPrimaryKey(),
                                     entryNodeReference.getVector(),
                                     objectiveFunction.applyAsDouble(entryNodeReference.getVector()));
-                    final Searcher searcher = searcher();
+                    final Search search = searcher();
 
                     return forLoop(lMax, initialNodeReference,
                             layer -> layer > insertionLayer,
@@ -247,7 +246,7 @@ public class Inserter {
                             (layer, previousNodeReference) -> {
                                 final StorageAdapter<? extends NodeReference> storageAdapter =
                                         primitives.storageAdapterForLayer(layer);
-                                return searcher.greedySearchLayer(storageAdapter, transaction, storageTransform,
+                                return search.greedySearchLayer(storageAdapter, transaction, storageTransform,
                                         previousNodeReference, layer, objectiveFunction);
                             }, getExecutor())
                             .thenCompose(nodeReference ->
@@ -461,7 +460,7 @@ public class Inserter {
 
         return searcher().beamSearchLayer(storageAdapter, transaction, storageTransform,
                 nearestNeighbors, layer, getConfig().getEfConstruction(),
-                Searcher.distanceToTargetVector(estimator, newVector), nodeCache)
+                Search.distanceToTargetVector(estimator, newVector), nodeCache)
                 .thenCompose(searchResult ->
                         primitives.extendCandidatesIfNecessary(storageAdapter, transaction, storageTransform, estimator,
                                 searchResult, layer, getConfig().isExtendCandidates(), nodeCache, newVector)

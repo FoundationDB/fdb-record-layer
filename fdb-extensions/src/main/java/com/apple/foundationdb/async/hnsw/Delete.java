@@ -1,5 +1,5 @@
 /*
- * Deleter.java
+ * Delete.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -51,33 +51,33 @@ import java.util.stream.IntStream;
 import static com.apple.foundationdb.async.MoreAsyncUtil.forEach;
 
 /**
- * An implementation of the delete path of the Hierarchical Navigable Small World (HNSW) algorithm for
+ * An implementation of the delete/repair operations of the Hierarchical Navigable Small World (HNSW) algorithm for
  * efficient approximate nearest neighbor (ANN) search.
  * <p>
- * HNSW constructs a multi-layer graph, where each layer is a subset of the one below it.
- * The top layers serve as fast entry points to navigate the graph, while the bottom layer
- * contains all the data points. This structure allows for logarithmic-time complexity
- * for search operations, making it suitable for large-scale, high-dimensional datasets.
+ * HNSW constructs a multi-layer graph, where each layer is a subset of the one below it. The top layers serve as fast
+ * entry points to navigate the graph, while the bottom layer contains all the data points. This structure allows for
+ * logarithmic-time complexity for search operations, making it suitable for large-scale, high-dimensional datasets.
+ * <p>
+ * The entry point for any interactions with the HNSW data structure is implemented in {@link HNSW}. Do not instantiate
+ * this class directly.
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("checkstyle:AbbreviationAsWordInName")
-public class Deleter {
+class Delete {
     @Nonnull
-    private static final Logger logger = LoggerFactory.getLogger(Deleter.class);
+    private static final Logger logger = LoggerFactory.getLogger(Delete.class);
 
     @Nonnull
     private final Locator locator;
 
     /**
-     * Constructs a new HNSW graph instance.
-     * <p>
-     * This constructor initializes the HNSW graph with the necessary components for storage,
+     * This constructor initializes a new delete operations object with the necessary components for storage,
      * execution, configuration, and event handling. All parameters are mandatory and must not be null.
      *
      * @param locator the {@link Locator} where the graph data is stored, which config to use, which executor to use,
      *        etc.
      */
-    public Deleter(@Nonnull final Locator locator) {
+    public Delete(@Nonnull final Locator locator) {
         this.locator = locator;
     }
 

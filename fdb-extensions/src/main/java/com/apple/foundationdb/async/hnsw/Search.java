@@ -1,5 +1,5 @@
 /*
- * Searcher.java
+ * Search.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -57,28 +57,26 @@ import java.util.stream.Collectors;
 import static com.apple.foundationdb.async.MoreAsyncUtil.forLoop;
 
 /**
- * An implementation of the read path of the hierarchical Navigable Small World (HNSW) algorithm for
- * efficient approximate nearest neighbor (ANN) search.
+ * An implementation of the search operations of the hierarchical Navigable Small World (HNSW) algorithm for efficient
+ * approximate nearest neighbor (ANN) search.
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("checkstyle:AbbreviationAsWordInName")
-public class Searcher {
+public class Search {
     @Nonnull
-    private static final Logger logger = LoggerFactory.getLogger(Searcher.class);
+    private static final Logger logger = LoggerFactory.getLogger(Search.class);
 
     @Nonnull
     private final Locator locator;
 
     /**
-     * Constructs a new HNSW primitives instance.
-     * <p>
-     * This constructor initializes the HNSW graph with the necessary components for storage,
+     * This constructor initializes a new search operations object with the necessary components for storage,
      * execution, configuration, and event handling. All parameters are mandatory and must not be null.
      *
      * @param locator the {@link Locator} where the graph data is stored, which config to use, which executor to use,
      *        etc.
      */
-    public Searcher(@Nonnull final Locator locator) {
+    public Search(@Nonnull final Locator locator) {
         this.locator = locator;
     }
 
@@ -152,7 +150,7 @@ public class Searcher {
                                     @Nonnull final RealVector queryVector) {
         return search(readTransaction, queryVector,
                 layer -> layer > 0 ? 1 : efSearch,
-                Searcher::distanceToTargetVector)
+                Search::distanceToTargetVector)
                 .thenApply(searchResult ->
                         postProcessSearchResult(searchResult.getStorageTransform(), k,
                                 NodeReferenceAndNode.references(searchResult.getNearestReferenceAndNodes()),
