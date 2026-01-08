@@ -406,6 +406,56 @@ public class CopyCommandTest {
         }
     }
 
+    @ParameterizedTest
+    @BooleanSource("quoted")
+    void copyCatalog(boolean quoted) throws RelationalException, SQLException {
+        // TODO test with indexes
+        // TODO test with multiple clusters
+        // TODO test with more than one schema in the DB
+        final String uuidName = uuidForPath(false);
+        final String sourceDatabaseName = "/TEST/SOURCE_DB_" + uuidName;
+        final String destDatabaseName = "/TEST/DEST_DB_" + uuidName;
+        final String schemaName = "1";
+        final String sourceSchemaPath = sourceDatabaseName + "/" + schemaName;
+        final String destSchemaPath = destDatabaseName + "/" + schemaName;
+        String templateName = "TEMPLATE_" + uuidName;
+
+        try {
+            // Create a schema template and source database
+            ConnectionUtils.runCatalogStatement(stmt -> {
+                stmt.executeUpdate("CREATE SCHEMA TEMPLATE " + templateName +
+                        " CREATE TABLE my_table (id bigint, col1 string, PRIMARY KEY(id))");
+                stmt.executeUpdate("CREATE DATABASE " + sourceDatabaseName);
+                stmt.executeUpdate("CREATE SCHEMA " + sourceDatabaseName + "/" + schemaName + " WITH TEMPLATE " + templateName);
+            });
+
+            // Insert some records in the source database using SQL
+            ConnectionUtils.runStatementUpdate(sourceDatabaseName, schemaName, "INSERT INTO my_table VALUES (1, 'a'), (2, 'b'), (3, 'c')");
+
+            // Export data from source database
+            List<byte[]> exportedData = exportData(sourceSchemaPath, quoted);
+
+            // Import to destination database path
+            final int importCount = importData(quoted, true, destSchemaPath, exportedData);
+            assertThat(importCount).isGreaterThan(3); // we will import at least the rows saved, but also other internal data
+
+            // Try to verify that the records exist in the destination
+            // This is expected to fail because COPY does not copy catalog information
+            ConnectionUtils.runStatement(destDatabaseName, schemaName, stmt ->
+                    ResultSetAssert.assertThat(stmt.executeQuery("SELECT * FROM my_table"))
+                            .containsRowsExactly(List.of(
+                                    List.of(1, "a"),
+                                    List.of(2, "b"),
+                                    List.of(3, "c")
+                            )));
+        } finally {
+            ConnectionUtils.runCatalogStatement(stmt -> {
+                stmt.executeUpdate("DROP SCHEMA TEMPLATE " + templateName);
+                stmt.executeUpdate("DROP DATABASE " + sourceDatabaseName);
+            });
+        }
+    }
+
     @Nonnull
     private static String uuidForPath(final boolean quoted) {
         if (quoted) {
