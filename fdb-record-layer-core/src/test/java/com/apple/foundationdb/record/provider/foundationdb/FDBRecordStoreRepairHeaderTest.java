@@ -235,7 +235,7 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreTestBase {
     @Test
     void repairIncarnation() {
         final RecordMetaData recordMetaData = getRecordMetaData(true);
-        final List<Tuple> primaryKeys = createInitialStore(FormatVersion.getMaximumSupportedVersion(), recordMetaData);
+        createInitialStore(FormatVersion.getMaximumSupportedVersion(), recordMetaData);
 
         try (FDBRecordContext context = openContext()) {
             recordStore = getStoreBuilder(context, recordMetaData, path).open();
@@ -247,8 +247,6 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreTestBase {
         validateCannotOpen(recordMetaData);
 
         final int userVersion = 2;
-        final String key = "someState";
-        final ByteString value = ByteString.copyFromUtf8("My value");
         try (FDBRecordContext context = openContext()) {
             repairHeader(context, userVersion,
                     getStoreBuilder(context, recordMetaData)
