@@ -110,3 +110,15 @@ agg-empty-table-tests:
     insert_time_ms: 0
     insert_new_count: 33
     insert_reused_count: 4
+-   query: EXPLAIN select col1 as "a", col1 as "b", sum(col2) as "a1", sum(col2) as
+        "b1" from T2 group by col1;
+    explain: 'AISCAN(T2_I6 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0
+        AS a, _._0 AS b, _._1 AS a1, _._1 AS b1)'
+    task_count: 372
+    task_total_time_ms: 13
+    transform_count: 123
+    transform_time_ms: 9
+    transform_yield_count: 52
+    insert_time_ms: 0
+    insert_new_count: 24
+    insert_reused_count: 1
