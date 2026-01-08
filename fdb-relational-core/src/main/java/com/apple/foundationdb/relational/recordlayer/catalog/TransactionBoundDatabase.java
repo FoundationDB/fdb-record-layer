@@ -84,10 +84,6 @@ public class TransactionBoundDatabase extends AbstractDatabase {
         }
     };
 
-    public TransactionBoundDatabase(@Nonnull URI uri, @Nonnull Options options, @Nullable RelationalPlanCache planCache) {
-        this(uri, options, planCache, null);
-    }
-
     public TransactionBoundDatabase(@Nonnull URI uri, @Nonnull Options options, @Nullable RelationalPlanCache planCache,
                                     @Nullable KeySpace keySpace) {
         super(onlyTemporaryFunctionOperationsFactory, NoOpQueryFactory.INSTANCE, planCache, options);
