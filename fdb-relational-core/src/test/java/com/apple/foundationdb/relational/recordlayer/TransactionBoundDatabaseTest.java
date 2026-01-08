@@ -370,14 +370,6 @@ public class TransactionBoundDatabaseTest {
                 .add("db", 23L);
         final URI destUri = KeySpaceUtils.pathToUri(destPath);
 
-        Map<Tuple, Tuple> schema1Data = Map.of(
-                Tuple.from(1), Tuple.from("First"),
-                Tuple.from(2), Tuple.from("Second")
-        );
-        Map<Tuple, Tuple> schema2Data = Map.of(
-                Tuple.from(3), Tuple.from("Alpha"),
-                Tuple.from("X"), Tuple.from("Beta")
-        );
         final KeySpacePath sourcePath1 = sourcePath.add("schema1");
         final RecordMetaData metadata = simpleMetaData();
         withStore(embeddedConnection, sourcePath1, metadata,
@@ -426,9 +418,9 @@ public class TransactionBoundDatabaseTest {
 
 
     private void assertSimpleRecordExists(final FDBRecordStore store, final String field) {
-        final FDBStoredRecord<Message> record = store.loadRecord(Tuple.from(field));
-        Assertions.assertThat(record).isNotNull();
-        final Message message = record.getRecord();
+        final FDBStoredRecord<Message> rec = store.loadRecord(Tuple.from(field));
+        Assertions.assertThat(rec).isNotNull();
+        final Message message = rec.getRecord();
         final Descriptors.Descriptor type = getSimpleType(store);
         Assertions.assertThat(message.getField(getSimpleField(type))).isEqualTo(field);
     }
