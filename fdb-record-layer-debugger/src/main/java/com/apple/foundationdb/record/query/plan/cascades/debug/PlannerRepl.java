@@ -252,8 +252,8 @@ public class PlannerRepl implements Debugger {
         if (lineReader == null) {
             return;
         }
-        Objects.requireNonNull(queryAsString);
-        Objects.requireNonNull(planContext);
+//        Objects.requireNonNull(queryAsString);
+//        Objects.requireNonNull(planContext);
 
         final State state = getCurrentState();
 
