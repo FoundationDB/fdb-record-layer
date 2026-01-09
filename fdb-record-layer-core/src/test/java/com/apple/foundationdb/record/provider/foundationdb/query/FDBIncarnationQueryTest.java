@@ -21,7 +21,9 @@
 package com.apple.foundationdb.record.provider.foundationdb.query;
 
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.TestRecords1Proto.MySimpleRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
@@ -30,6 +32,8 @@ import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.IncarnationValue;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
@@ -37,8 +41,13 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.test.Tags;
 import org.junit.jupiter.api.Tag;
 
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.executeCascades;
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.fullTypeScan;
@@ -47,10 +56,13 @@ import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQuery
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.sortExpression;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.coveringIndexPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.mapPlan;
+import static com.apple.foundationdb.record.query.plan.cascades.properties.UsedTypesProperty.usedTypes;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Tests of queries involving the {@code GET_VERSIONSTAMP_INCARNATION()} function.
@@ -61,9 +73,7 @@ public class FDBIncarnationQueryTest extends FDBRecordStoreQueryTestBase {
     private void openStore(FDBRecordContext context) {
         openSimpleRecordStore(context, null);
     }
-
-    // TODO Test with continuations
-    // TODO test an update with setting a value to the incarnation
+    // TODO test with an update query that sets a value to the incarnation
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
     void basicIncarnationQuery() {
@@ -74,31 +84,9 @@ public class FDBIncarnationQueryTest extends FDBRecordStoreQueryTestBase {
             recordStore.updateIncarnation(current -> 42).join();
 
             // Save a simple record
-            recordStore.saveRecord(MySimpleRecord.newBuilder()
-                    .setRecNo(1L)
-                    .setNumValue2(100)
-                    .build());
+            saveSimpleRecord(1L, 100);
 
-            // Plan a query approximating:
-            //    SELECT GET_VERSIONSTAMP_INCARNATION() AS incarnation, MySimpleRecord.rec_no AS number FROM MySimpleRecord
-            RecordQueryPlan plan = ((CascadesPlanner)planner).planGraph(() -> {
-                var qun = fullTypeScan(recordStore.getRecordMetaData(), "MySimpleRecord");
-
-                final var graphExpansionBuilder = GraphExpansion.builder();
-                graphExpansionBuilder.addQuantifier(qun);
-
-                var recNoValue = FieldValue.ofFieldName(qun.getFlowedObjectValue(), "rec_no");
-                var incarnationValue = new IncarnationValue();
-
-                graphExpansionBuilder.addResultColumn(resultColumn(incarnationValue, "incarnation"));
-                graphExpansionBuilder.addResultColumn(resultColumn(recNoValue, "number"));
-
-                var select = Quantifier.forEach(Reference.initialOf(graphExpansionBuilder.build().buildSelect()));
-
-                return Reference.initialOf(sortExpression(java.util.List.of(), false, select));
-            }, Optional.empty(), IndexQueryabilityFilter.DEFAULT, EvaluationContext.empty()).getPlan();
-
-            assertMatchesExactly(plan, mapPlan(coveringIndexPlan()));
+            final RecordQueryPlan plan = getRecordQueryPlan();
 
             // Execute and verify
             try (RecordCursor<QueryResult> cursor = executeCascades(recordStore, plan)) {
@@ -106,59 +94,158 @@ public class FDBIncarnationQueryTest extends FDBRecordStoreQueryTestBase {
                 assertThat(result.hasNext(), equalTo(true));
 
                 QueryResult queryResult = Objects.requireNonNull(result.get());
-                Integer incarnation = getField(queryResult, Integer.class, "incarnation");
-                assertNotNull(incarnation);
-                assertEquals(42, incarnation.intValue());
-
-                Long number = getField(queryResult, Long.class, "number");
-                assertNotNull(number);
-                assertEquals(1L, number.longValue());
+                assertEquals(42, getIncarnation(queryResult));
+                assertRecNoValue(queryResult, 1L);
             }
         }
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
-    void incarnationQueryAfterUpdate() {
+    void incarnationQueryWithContinuations() {
         try (FDBRecordContext context = openContext()) {
             openStore(context);
 
             // Set initial incarnation
-            recordStore.updateIncarnation(current -> 10).join();
+            recordStore.updateIncarnation(current -> 100).join();
 
-            // Save a record
-            recordStore.saveRecord(MySimpleRecord.newBuilder()
-                    .setRecNo(2L)
-                    .setNumValue2(200)
-                    .build());
-
-            // Update incarnation
-            recordStore.updateIncarnation(current -> current + 5).join();
-
-            // Plan a query to get the incarnation
-            RecordQueryPlan plan = ((CascadesPlanner)planner).planGraph(() -> {
-                var qun = fullTypeScan(recordStore.getRecordMetaData(), "MySimpleRecord");
-
-                final var graphExpansionBuilder = GraphExpansion.builder();
-                graphExpansionBuilder.addQuantifier(qun);
-
-                var incarnationValue = new IncarnationValue();
-                graphExpansionBuilder.addResultColumn(resultColumn(incarnationValue, "incarnation"));
-
-                var select = Quantifier.forEach(Reference.initialOf(graphExpansionBuilder.build().buildSelect()));
-
-                return Reference.initialOf(sortExpression(java.util.List.of(), false, select));
-            }, Optional.empty(), IndexQueryabilityFilter.DEFAULT, EvaluationContext.empty()).getPlan();
-
-            // Execute and verify the incarnation value is 15 (10 + 5)
-            try (RecordCursor<QueryResult> cursor = executeCascades(recordStore, plan)) {
-                RecordCursorResult<QueryResult> result = cursor.getNext();
-                assertThat(result.hasNext(), equalTo(true));
-
-                QueryResult queryResult = Objects.requireNonNull(result.get());
-                Integer incarnation = getField(queryResult, Integer.class, "incarnation");
-                assertNotNull(incarnation);
-                assertEquals(15, incarnation.intValue());
+            // Save multiple records
+            for (int i = 0; i < 10; i++) {
+                saveSimpleRecord(i, i * 10);
             }
+
+            // Plan a query that returns incarnation with each record
+            final RecordQueryPlan plan = getRecordQueryPlan();
+
+            // Build type repository for plan execution
+            Set<Type> usedTypes = usedTypes().evaluate(plan);
+            TypeRepository typeRepository = TypeRepository.newBuilder()
+                    .addAllTypes(usedTypes)
+                    .build();
+            EvaluationContext evalContext = EvaluationContext.forTypeRepository(typeRepository);
+
+            // First batch: fetch 3 records with incarnation = 100
+            RecordCursorContinuation continuation = getIncarnations(plan, evalContext, null, List.of(100, 100, 100));
+            assertFalse(continuation.isEnd());
+
+            // Change incarnation before second batch
+            recordStore.updateIncarnation(current -> 200).join();
+
+            continuation = getIncarnations(plan, evalContext, continuation, List.of(200, 200, 200));
+            assertFalse(continuation.isEnd());
+
+            continuation = getIncarnations(plan, evalContext, continuation, List.of(200, 200, 200));
+            assertFalse(continuation.isEnd());
+
+            recordStore.updateIncarnation(current -> 300).join();
+
+            continuation = getIncarnations(plan, evalContext, continuation, List.of(300));
+            assertTrue(continuation.isEnd());
         }
+    }
+
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    void incarnationQueryWithMultipleRows() {
+        try (FDBRecordContext context = openContext()) {
+            openStore(context);
+
+            // Set initial incarnation
+            recordStore.updateIncarnation(current -> 50).join();
+
+            // Save multiple records
+            for (int i = 0; i < 5; i++) {
+                saveSimpleRecord(i, i * 5);
+            }
+
+            // Plan a query that returns incarnation with each record
+            final RecordQueryPlan plan = getRecordQueryPlan();
+
+            List<Integer> incarnationsSeen = new ArrayList<>();
+
+            // Execute query, changing incarnation between each row fetch
+            try (RecordCursor<QueryResult> cursor = executeCascades(recordStore, plan)) {
+                int expectedIncarnation = 50;
+                RecordCursorResult<QueryResult> result = cursor.getNext();
+
+                while (result.hasNext()) {
+                    QueryResult queryResult = Objects.requireNonNull(result.get());
+                    final Integer incarnation = getIncarnation(queryResult);
+                    incarnationsSeen.add(incarnation);
+
+                    // Verify current incarnation matches expected
+                    assertEquals(expectedIncarnation, incarnation.intValue());
+
+                    // Update incarnation for next row
+                    expectedIncarnation += 10;
+                    recordStore.updateIncarnation(current -> current + 10).join();
+
+                    // Fetch next row
+                    result = cursor.getNext();
+                }
+            }
+
+            assertEquals(List.of(50, 60, 70, 80, 90), incarnationsSeen);
+        }
+    }
+
+    private void saveSimpleRecord(final long recNo, final int numValue2) {
+        recordStore.saveRecord(MySimpleRecord.newBuilder()
+                .setRecNo(recNo)
+                .setNumValue2(numValue2)
+                .build());
+    }
+
+    @Nonnull
+    private RecordQueryPlan getRecordQueryPlan() {
+        // Plan a query approximating:
+        //    SELECT GET_VERSIONSTAMP_INCARNATION() AS incarnation, MySimpleRecord.rec_no FROM MySimpleRecord
+        RecordQueryPlan plan = ((CascadesPlanner)planner).planGraph(() -> {
+            Quantifier quantifier = fullTypeScan(recordStore.getRecordMetaData(), "MySimpleRecord");
+
+            final GraphExpansion.Builder graphExpansionBuilder = GraphExpansion.builder();
+            graphExpansionBuilder.addQuantifier(quantifier);
+
+            FieldValue recNoValue = FieldValue.ofFieldName(quantifier.getFlowedObjectValue(), "rec_no");
+            IncarnationValue incarnationValue = new IncarnationValue();
+
+            graphExpansionBuilder.addResultColumn(resultColumn(incarnationValue, "incarnation"));
+            graphExpansionBuilder.addResultColumn(resultColumn(recNoValue, "rec_no"));
+
+            Quantifier.ForEach select = Quantifier.forEach(Reference.initialOf(graphExpansionBuilder.build().buildSelect()));
+
+            return Reference.initialOf(sortExpression(List.of(), false, select));
+        }, Optional.empty(), IndexQueryabilityFilter.DEFAULT, EvaluationContext.empty()).getPlan();
+        assertMatchesExactly(plan, mapPlan(coveringIndexPlan()));
+        return plan;
+    }
+
+    private static int getIncarnation(final QueryResult queryResult) {
+        Integer incarnation = getField(queryResult, Integer.class, "incarnation");
+        assertNotNull(incarnation);
+        return incarnation.intValue();
+    }
+
+    @Nonnull
+    private RecordCursorContinuation getIncarnations(final RecordQueryPlan plan,
+                                                     final EvaluationContext evalContext,
+                                                     @Nullable final RecordCursorContinuation continuation,
+                                                     List<Integer> expectedIncarnations) {
+        try (RecordCursor<QueryResult> cursor = plan.executePlan(recordStore, evalContext,
+                continuation == null ? null : continuation.toBytes(),
+                ExecuteProperties.newBuilder().setReturnedRowLimit(3).build())) {
+            final List<Integer> incarnationsSeen = new ArrayList<>();
+            RecordCursorResult<QueryResult> result = cursor.getNext();
+            while (result.hasNext()) {
+                incarnationsSeen.add(getIncarnation(Objects.requireNonNull(result.get())));
+                result = cursor.getNext();
+            }
+            assertEquals(expectedIncarnations, incarnationsSeen);
+            return result.getContinuation();
+        }
+    }
+
+    private static void assertRecNoValue(final QueryResult queryResult, long expected) {
+        Long number = getField(queryResult, Long.class, "rec_no");
+        assertNotNull(number);
+        assertEquals(expected, number.longValue());
     }
 }
