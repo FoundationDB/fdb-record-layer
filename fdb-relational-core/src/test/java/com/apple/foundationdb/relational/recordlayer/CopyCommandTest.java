@@ -438,13 +438,15 @@ public class CopyCommandTest {
             // Export data from source database
             List<byte[]> exportedData = exportData(sourceSchemaPath, quoted);
 
-            assertThat(exportedData.stream().map(raw -> {
+            final List<CopyData> parsedData = exportedData.stream().map(raw -> {
                 try {
                     return CopyData.parseFrom(raw);
                 } catch (InvalidProtocolBufferException e) {
                     return Assertions.fail("Export should be parseable");
                 }
-            }).collect(Collectors.toList())).anySatisfy(copyData -> assertThat(copyData.hasSchemaTemplate()).isTrue());
+            }).collect(Collectors.toList());
+            // we should have exactly one entry with a schema template, we don't want to be sending it for every record
+            assertThat(parsedData).filteredOn(CopyData::hasSchemaTemplate).hasSize(1);
 
             // Import to destination database path
             final int importCount = importData(quoted, true, destSchemaPath, exportedData);
