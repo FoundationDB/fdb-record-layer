@@ -45,7 +45,7 @@ import java.util.stream.Collectors;
  * against the <code>null</code> record.
  */
 @API(API.Status.UNSTABLE)
-public class ThenKeyExpression extends BaseKeyExpression implements KeyExpressionWithChildren {
+public class ThenKeyExpression extends BaseKeyExpression implements KeyExpressionWithChildren, GroupableKeyExpression {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Then-Key-Expression");
 
     @Nonnull
@@ -146,16 +146,14 @@ public class ThenKeyExpression extends BaseKeyExpression implements KeyExpressio
         return columnSize;
     }
 
-    /**
-     * Get this entire concatenation as a group without any grouping keys.
-     * @return this concatenation without any grouping keys
-     */
     @Nonnull
+    @Override
     public GroupingKeyExpression ungrouped() {
         return new GroupingKeyExpression(this, getColumnSize());
     }
 
     @Nonnull
+    @Override
     public GroupingKeyExpression groupBy(@Nonnull KeyExpression groupByFirst, @Nonnull KeyExpression... groupByRest) {
         return GroupingKeyExpression.of(this, groupByFirst, groupByRest);
     }

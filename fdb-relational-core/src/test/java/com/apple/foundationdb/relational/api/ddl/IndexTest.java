@@ -379,6 +379,32 @@ public class IndexTest {
     }
 
     @Test
+    void createAggregateIndexWithComplexGroupingExpressionCase2() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT A(x BIGINT)" +
+                "CREATE TYPE AS STRUCT B(y A)" +
+                "CREATE TYPE AS STRUCT C(z B)" +
+                "CREATE TABLE T1(p1 bigint, a bigint, b bigint, c C, primary key(p1)) " +
+                "CREATE INDEX mv1 AS SELECT a & 2, b + 3, MAX(c.z.y.x) FROM T1 GROUP BY a & 2, b + 3";
+        indexIs(stmt, field("C").nest(field("Z").nest(field("Y").nest(field("X")))).groupBy(concat(function("bitand", concat(field("A"), value(2))),
+                function("add", concat(field("B"), value(3))))), IndexTypes.PERMUTED_MAX);
+    }
+
+    @Test
+    void createAggregateIndexWithComplexGroupingExpressionCase3() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT A(x BIGINT)" +
+                "CREATE TYPE AS STRUCT B(y A)" +
+                "CREATE TYPE AS STRUCT C(z B)" +
+                "CREATE TABLE T1(p1 bigint, a bigint, b bigint, c C, primary key(p1)) " +
+                "CREATE INDEX mv1 AS SELECT a & 2, b + 3, c.z.y.x, MAX(b) FROM T1 GROUP BY a & 2, b + 3, c.z.y.x";
+        indexIs(stmt, field("B").groupBy(concat(
+                function("bitand", concat(field("A"), value(2))),
+                function("add", concat(field("B"), value(3))),
+                field("C").nest(field("Z").nest(field("Y").nest(field("X")))))), IndexTypes.PERMUTED_MAX);
+    }
+
+    @Test
     void createSimpleValueIndex() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TABLE T1(p1 bigint, a1 bigint, primary key(p1)) " +
@@ -854,6 +880,19 @@ public class IndexTest {
     }
 
     @Test
+    void createMaxEvenNestedNonrepeatedField() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT S(x bigint) " +
+                "CREATE TYPE AS STRUCT Q(y bigint)" +
+                "CREATE TABLE T1(col1 bigint, col2 S, col3 Q, primary key(col1)) " +
+                "CREATE INDEX mv1 AS SELECT MAX_EVER(col3.y) FROM T1 group by col2.x";
+        indexIs(stmt,
+                field("COL3").nest("Y").groupBy(field("COL2").nest("X")),
+                IndexTypes.MAX_EVER_TUPLE
+        );
+    }
+
+    @Test
     void createMaxEverTupleIncorrectType() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TABLE T1(col1 bigint, col2 string, primary key(col1)) " +
@@ -871,6 +910,19 @@ public class IndexTest {
                 "CREATE INDEX mv1 AS SELECT MIN_EVER(col2) FROM T1 group by col1";
         indexIs(stmt,
                 field("COL2").groupBy(field("COL1")),
+                IndexTypes.MIN_EVER_TUPLE
+        );
+    }
+
+    @Test
+    void createMinEvenNestedNonrepeatedField() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT S(x bigint) " +
+                "CREATE TYPE AS STRUCT Q(y bigint)" +
+                "CREATE TABLE T1(col1 bigint, col2 S, col3 Q, primary key(col1)) " +
+                "CREATE INDEX mv1 AS SELECT MIN_EVER(col3.y) FROM T1 group by col2.x";
+        indexIs(stmt,
+                field("COL3").nest("Y").groupBy(field("COL2").nest("X")),
                 IndexTypes.MIN_EVER_TUPLE
         );
     }
