@@ -243,6 +243,11 @@ public class LuceneDocumentFromRecord {
             return sorted;
         }
 
+        @Nonnull
+        public Map<String, Object> getFieldConfigs() {
+            return fieldConfigs;
+        }
+
         @Nullable
         public Object getConfig(@Nonnull String key) {
             return fieldConfigs.get(key);
