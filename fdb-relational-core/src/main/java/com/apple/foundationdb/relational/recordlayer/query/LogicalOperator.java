@@ -186,7 +186,7 @@ public class LogicalOperator {
         } else if (semanticAnalyzer.viewExists(identifier)) {
             return semanticAnalyzer.resolveView(identifier);
         } else if (semanticAnalyzer.functionExists(identifier)) {
-            return semanticAnalyzer.resolveTableFunction(identifier, Expressions.empty(), false);
+            return semanticAnalyzer.resolveTableFunction(identifier, alias, Expressions.empty(), false);
         } else {
             final var correlatedField = semanticAnalyzer.resolveCorrelatedIdentifier(identifier, currentPlanFragment.getLogicalOperatorsIncludingOuter());
             Assert.thatUnchecked(requestedIndexes.isEmpty(), ErrorCode.UNSUPPORTED_QUERY, () -> String.format(Locale.ROOT, "Can not hint indexes with correlated field access %s", identifier));
