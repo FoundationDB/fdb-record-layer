@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordMetaData;
+import com.apple.foundationdb.record.RecordMetaDataProto.MetaData;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.DataInKeySpacePath;
@@ -36,6 +37,7 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.RecordCoreIl
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStructMetaData;
@@ -50,7 +52,7 @@ import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.api.metadata.Schema;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.copy.CopyData;
-import com.apple.foundationdb.relational.copy.SchemaTemplateInfo;
+import com.apple.foundationdb.relational.copy.CatalogInfo;
 import com.apple.foundationdb.relational.recordlayer.ArrayRow;
 import com.apple.foundationdb.relational.recordlayer.ContinuationBuilder;
 import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
@@ -211,7 +213,7 @@ public final class CopyPlan extends QueryPlan {
 
             // Track which paths we've already checked for schemas
             // Maps path -> SchemaTemplateInfo (or null if path has no schema)
-            final Map<KeySpacePath, SchemaTemplateInfo> pathSchemaCache = new HashMap<>();
+            final Map<KeySpacePath, CatalogInfo> pathSchemaCache = new HashMap<>();
             final StoreCatalog storeCatalog = getEmbeddedRelationalConnection(context).getBackingCatalog();
 
             // Transform DataInKeySpacePath to Row with serialized bytes
@@ -225,8 +227,8 @@ public final class CopyPlan extends QueryPlan {
 
                 // Try to extract schema information from the path
                 try {
-                    final SchemaTemplateInfo schemaTemplateInfo =
-                            exportSchemaTemplate(data.getPath(), pathSchemaCache, storeCatalog, context.transaction);
+                    final CatalogInfo schemaTemplateInfo =
+                            exportCatalogInfo(data.getPath(), pathSchemaCache, storeCatalog, context.transaction);
                     if (schemaTemplateInfo != null) {
                         copyDataBuilder.setSchemaTemplate(schemaTemplateInfo);
                     }
@@ -272,85 +274,6 @@ public final class CopyPlan extends QueryPlan {
         return context.connection.unwrap(EmbeddedRelationalConnection.class);
     }
 
-    /**
-     * Extracts schema template information from a KeySpacePath if it represents a schema.
-     * Uses a cache to avoid re-checking paths that have already been processed.
-     *
-     * @param dataPath the path from which to extract schema information
-     * @param pathSchemaCache cache mapping paths to their schema info (null if no schema)
-     * @param storeCatalog the catalog to load schemas from
-     * @param transaction the transaction to use for loading
-     * @return SchemaTemplateInfo if this is a new schema, null otherwise
-     */
-    @Nullable
-    private static SchemaTemplateInfo exportSchemaTemplate(@Nonnull KeySpacePath dataPath,
-                                                           @Nonnull Map<KeySpacePath, SchemaTemplateInfo> pathSchemaCache,
-                                                           @Nonnull StoreCatalog storeCatalog,
-                                                           @Nonnull Transaction transaction) throws RelationalException {
-        // Check if we've already processed this path
-        if (pathSchemaCache.containsKey(dataPath)) {
-            return null;
-        }
-
-        // Try to identify if this path is part of a schema
-        KeySpacePath currentPath = dataPath;
-
-        // Walk up the path to find a RelationalSchemaPath
-        while (currentPath != null) {
-            if (currentPath instanceof RelationalKeyspaceProvider.RelationalSchemaPath) {
-                final RelationalKeyspaceProvider.RelationalSchemaPath schemaPath =
-                        (RelationalKeyspaceProvider.RelationalSchemaPath) currentPath;
-                final String schemaName = schemaPath.getSchemaName();
-
-                // Get the database path (parent of schema path)
-                final KeySpacePath parentPath = schemaPath.getParent();
-                if (!(parentPath instanceof RelationalKeyspaceProvider.RelationalDatabasePath)) {
-                    // Cache negative result and return null
-                    pathSchemaCache.put(dataPath, null);
-                    return null;
-                }
-
-                final RelationalKeyspaceProvider.RelationalDatabasePath databasePath =
-                        (RelationalKeyspaceProvider.RelationalDatabasePath) parentPath;
-                final URI databaseUri = databasePath.toUri();
-                final String databaseId = databaseUri.toString();
-
-                // Load the schema from the catalog
-                try {
-                    final Schema schema = storeCatalog.loadSchema(transaction, databaseUri, schemaName);
-                    final SchemaTemplate schemaTemplate = schema.getSchemaTemplate();
-
-                    // Serialize the schema template
-                    final RecordLayerSchemaTemplate recordLayerSchemaTemplate =
-                            schemaTemplate.unwrap(RecordLayerSchemaTemplate.class);
-                    final RecordMetaData recordMetaData = recordLayerSchemaTemplate.toRecordMetadata();
-
-                    final SchemaTemplateInfo schemaTemplateInfo = SchemaTemplateInfo.newBuilder()
-                            .setDatabaseId(databaseId)
-                            .setSchemaName(schemaName)
-                            .setTemplateName(schemaTemplate.getName())
-                            .setTemplateVersion(schemaTemplate.getVersion())
-                            .setTemplateMetadata(recordMetaData.toProto().toByteString())
-                            .build();
-
-                    // Cache the result and return
-                    pathSchemaCache.put(dataPath, schemaTemplateInfo);
-                    return schemaTemplateInfo;
-                } catch (Exception e) {
-                    // If we can't load the schema, cache negative result and return null
-                    pathSchemaCache.put(dataPath, null);
-                    return null;
-                }
-            }
-
-            currentPath = currentPath.getParent();
-        }
-
-        // No schema found, cache negative result
-        pathSchemaCache.put(dataPath, null);
-        return null;
-    }
-
     @SuppressWarnings("PMD.CloseResource") // Connection not owned by this method
     private RelationalResultSet executeImport(@Nonnull ExecutionContext context) throws RelationalException {
         try {
@@ -376,14 +299,16 @@ public final class CopyPlan extends QueryPlan {
                 final byte[] rawBytes = convertToBytes(element);
                 final CopyData proto = CopyData.parseFrom(rawBytes);
 
-                // Handle schema template if present
-                if (proto.hasSchemaTemplate()) {
-                    importSchemaTemplate(proto.getSchemaTemplate(), storeCatalog, context.transaction, keySpacePath);
-                }
-
                 // Deserialize and import the data
                 final DataInKeySpacePath dataInKeySpacePath = deserializeData(serializer, proto);
                 importCount = importData(keySpacePath, fdbContext, dataInKeySpacePath, importCount);
+
+                // Handle schema template if present
+                if (proto.hasSchemaTemplate()) {
+                    importCatalogInfo(proto.getSchemaTemplate(), storeCatalog, context.transaction,
+                            dataInKeySpacePath.getPath());
+                }
+
             }
 
             // Return result set with single row containing count
@@ -399,47 +324,74 @@ public final class CopyPlan extends QueryPlan {
         }
     }
 
+
+
     /**
-     * Handles schema template during import.
+     * Extracts schema template information from a KeySpacePath if it represents a schema.
+     * Uses a cache to avoid re-checking paths that have already been processed.
+     *
+     * @param dataPath the path from which to extract schema information
+     * @param pathSchemaCache cache mapping paths to their schema info (null if no schema)
+     * @param storeCatalog the catalog to load schemas from
+     * @param transaction the transaction to use for loading
+     * @return CatalogInfo if this is a new schema, null otherwise
+     */
+    @Nullable
+    private static CatalogInfo exportCatalogInfo(@Nonnull KeySpacePath dataPath,
+                                                 @Nonnull Map<KeySpacePath, CatalogInfo> pathSchemaCache,
+                                                 @Nonnull StoreCatalog storeCatalog,
+                                                 @Nonnull Transaction transaction) throws RelationalException {
+        // Check if we've already processed this path
+        if (pathSchemaCache.containsKey(dataPath)) {
+            return null;
+        }
+
+        final NonnullPair<URI, String> databaseAndSchema = getDatabaseAndSchema(dataPath);
+
+        // Load the schema from the catalog
+        if (!storeCatalog.doesSchemaExist(transaction, databaseAndSchema.getLeft(), databaseAndSchema.getRight())) {
+            pathSchemaCache.put(dataPath, null);
+            return null;
+        }
+        final Schema schema = storeCatalog.loadSchema(transaction, databaseAndSchema.getLeft(), databaseAndSchema.getRight());
+        final SchemaTemplate schemaTemplate = schema.getSchemaTemplate();
+
+        // Serialize the schema template
+        final RecordLayerSchemaTemplate recordLayerSchemaTemplate =
+                schemaTemplate.unwrap(RecordLayerSchemaTemplate.class);
+        final RecordMetaData recordMetaData = recordLayerSchemaTemplate.toRecordMetadata();
+
+        final CatalogInfo schemaTemplateInfo = CatalogInfo.newBuilder()
+                .setTemplateName(schemaTemplate.getName())
+                .setTemplateVersion(schemaTemplate.getVersion())
+                .setTemplateMetadata(recordMetaData.toProto().toByteString())
+                .build();
+
+        // Cache the result and return
+        pathSchemaCache.put(dataPath, schemaTemplateInfo);
+        return schemaTemplateInfo;
+    }
+
+    /**
+     * Handles importing information that needs to be added to the catalog.
      * Creates database and schema if they don't exist, or verifies they match if they do.
      *
-     * @param schemaTemplateInfo the schema template information from export
+     * @param catalogInfo the catalog information from export
      * @param storeCatalog the catalog to use for database/schema operations
      * @param transaction the transaction to use
-     * @param destinationPath the destination path for the import (determines where to create the database/schema)
+     * @param dataPath the path for entry being imported
      */
-    private static void importSchemaTemplate(@Nonnull SchemaTemplateInfo schemaTemplateInfo,
-                                             @Nonnull StoreCatalog storeCatalog,
-                                             @Nonnull Transaction transaction,
-                                             @Nonnull KeySpacePath destinationPath) throws RelationalException {
+    private static void importCatalogInfo(@Nonnull CatalogInfo catalogInfo,
+                                          @Nonnull StoreCatalog storeCatalog,
+                                          @Nonnull Transaction transaction,
+                                          @Nonnull KeySpacePath dataPath) throws RelationalException {
         // Extract destination database and schema from the import path
-        final String templateName = schemaTemplateInfo.getTemplateName();
-        final int templateVersion = schemaTemplateInfo.getTemplateVersion();
+        final String templateName = catalogInfo.getTemplateName();
+        final int templateVersion = catalogInfo.getTemplateVersion();
 
-        // Walk up the destination path to find the database and schema
-        KeySpacePath currentPath = destinationPath;
-        RelationalKeyspaceProvider.RelationalSchemaPath destSchemaPath = null;
-        RelationalKeyspaceProvider.RelationalDatabasePath destDatabasePath = null;
-
-        while (currentPath != null) {
-            if (currentPath instanceof RelationalKeyspaceProvider.RelationalSchemaPath && destSchemaPath == null) {
-                destSchemaPath = (RelationalKeyspaceProvider.RelationalSchemaPath) currentPath;
-            }
-            if (currentPath instanceof RelationalKeyspaceProvider.RelationalDatabasePath && destDatabasePath == null) {
-                destDatabasePath = (RelationalKeyspaceProvider.RelationalDatabasePath) currentPath;
-            }
-            currentPath = currentPath.getParent();
-        }
-
-        if (destDatabasePath == null || destSchemaPath == null) {
-            // If we can't determine the destination database/schema, just return
-            // This allows COPY to work for paths that aren't schemas
-            return;
-        }
-
-        final URI databaseUri = destDatabasePath.toUri();
-        final String databaseId = databaseUri.toString();
-        final String schemaName = destSchemaPath.getSchemaName();
+        final NonnullPair<URI, String> databaseAndSchema = getDatabaseAndSchema(dataPath);
+        final URI databaseUri = databaseAndSchema.getLeft();
+        final String schemaName = databaseAndSchema.getRight();
 
         try {
             // Check if database exists
@@ -459,7 +411,7 @@ public final class CopyPlan extends QueryPlan {
 
                 if (!existingTemplate.getName().equals(templateName)) {
                     throw new RelationalException(
-                            "Schema " + databaseId + "/" + schemaName +
+                            "Schema " + databaseUri.getPath() + "/" + schemaName +
                             " exists but uses different template: expected " + templateName +
                             ", found " + existingTemplate.getName(),
                             ErrorCode.INVALID_SCHEMA_TEMPLATE);
@@ -467,7 +419,7 @@ public final class CopyPlan extends QueryPlan {
 
                 if (existingTemplate.getVersion() != templateVersion) {
                     throw new RelationalException(
-                            "Schema " + databaseId + "/" + schemaName +
+                            "Schema " + databaseUri.getPath() + "/" + schemaName +
                             " exists but uses different template version: expected " + templateVersion +
                             ", found " + existingTemplate.getVersion(),
                             ErrorCode.INVALID_SCHEMA_TEMPLATE);
@@ -477,8 +429,7 @@ public final class CopyPlan extends QueryPlan {
                 if (!templateCatalog.doesSchemaTemplateExist(transaction, templateName, templateVersion)) {
                     // Deserialize and create the template
                     final RecordMetaData recordMetaData = RecordMetaData.newBuilder()
-                            .setRecords(com.apple.foundationdb.record.RecordMetaDataProto.MetaData.parseFrom(
-                                    schemaTemplateInfo.getTemplateMetadata().toByteArray()))
+                            .setRecords(MetaData.parseFrom(catalogInfo.getTemplateMetadata()))
                             .getRecordMetaData();
                     final SchemaTemplate newTemplate = RecordLayerSchemaTemplate.fromRecordMetadata(
                             recordMetaData, templateName, templateVersion);
@@ -487,7 +438,7 @@ public final class CopyPlan extends QueryPlan {
 
                 // Load the template and create a schema from it
                 final SchemaTemplate template = templateCatalog.loadSchemaTemplate(transaction, templateName, templateVersion);
-                final Schema newSchema = template.generateSchema(databaseId, schemaName);
+                final Schema newSchema = template.generateSchema(databaseUri.getPath(), schemaName);
                 storeCatalog.saveSchema(transaction, newSchema, false);
             }
         } catch (Exception e) {
@@ -603,6 +554,22 @@ public final class CopyPlan extends QueryPlan {
     @Nonnull
     public Integer getPlanHash() {
         return planHashSupplier.get();
+    }
+
+    private static NonnullPair<URI, String> getDatabaseAndSchema(@Nonnull final KeySpacePath dataPath) throws RelationalException {
+        // toPathString doesn't add the '/' at the beginning unless the root is null, but SemanticAnalyzer expects
+        // a / at the beginning
+        String pathString = KeySpaceUtils.toPathString(dataPath);
+        if (!pathString.startsWith("/")) {
+            pathString = "/" + pathString;
+        }
+        final NonnullPair<Optional<URI>, String> uri = SemanticAnalyzer.parseSchemaURI(pathString);
+        final Optional<URI> database = uri.getLeft();
+        if (database.isEmpty()) {
+            throw new RelationalException("Invalid COPY path: " + pathString, ErrorCode.INVALID_PATH);
+        }
+
+        return NonnullPair.of(database.get(), uri.getRight());
     }
 
     @Nonnull
