@@ -22,9 +22,9 @@ package com.apple.foundationdb.async.hnsw;
 
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.linear.AffineOperator;
-import com.apple.foundationdb.linear.FhtKacRotator;
 import com.apple.foundationdb.linear.LinearOperator;
 import com.apple.foundationdb.linear.RealVector;
+import com.apple.foundationdb.linear.VectorOperator;
 import com.apple.foundationdb.rabitq.EncodedRealVector;
 
 import javax.annotation.Nonnull;
@@ -36,17 +36,24 @@ import javax.annotation.Nullable;
  * system of the client and the coordinate system that is currently employed in the HNSW.
  */
 @SpotBugsSuppressWarnings(value = "SING_SINGLETON_HAS_NONPRIVATE_CONSTRUCTOR", justification = "Singleton designation is a false positive")
-class StorageTransform extends AffineOperator {
-    private static final StorageTransform IDENTITY_STORAGE_TRANSFORM = new StorageTransform(null, null);
+class StorageTransform implements VectorOperator {
+    private static final StorageTransform IDENTITY_STORAGE_TRANSFORM =
+            new StorageTransform(null, null, false);
 
-    public StorageTransform(final long seed, final int numDimensions,
-                            @Nonnull final RealVector translationVector) {
-        this(new FhtKacRotator(seed, numDimensions, 10), translationVector);
-    }
+    @Nonnull
+    private final AffineOperator affineOperator;
+    private final boolean normalizeVectors;
 
     public StorageTransform(@Nullable final LinearOperator linearOperator,
-                            @Nullable final RealVector translationVector) {
-        super(linearOperator, translationVector);
+                            @Nullable final RealVector translationVector,
+                            final boolean normalizeVectors) {
+        this.affineOperator = new AffineOperator(linearOperator, translationVector);
+        this.normalizeVectors = normalizeVectors;
+    }
+
+    @Override
+    public int getNumDimensions() {
+        return affineOperator.getNumDimensions();
     }
 
     @Nonnull
@@ -63,13 +70,13 @@ class StorageTransform extends AffineOperator {
         if (vector instanceof EncodedRealVector) {
             return vector;
         }
-        return super.apply(vector);
+        return affineOperator.apply(normalizeVectors ? vector.normalize() : vector);
     }
 
     @Nonnull
     @Override
     public RealVector invertedApply(@Nonnull final RealVector vector) {
-        return super.invertedApply(vector);
+        return affineOperator.invertedApply(vector);
     }
 
     @Nonnull

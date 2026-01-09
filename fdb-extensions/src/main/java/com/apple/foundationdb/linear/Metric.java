@@ -120,6 +120,12 @@ public enum Metric implements MetricDefinition {
     }
 
     @Override
+    public boolean satisfiesPreservedUnderTranslation() {
+        return metricDefinition.satisfiesPreservedUnderTranslation();
+    }
+
+
+    @Override
     public double distance(@Nonnull final double[] vectorData1, @Nonnull final double[] vectorData2) {
         return metricDefinition.distance(vectorData1, vectorData2);
     }

@@ -101,6 +101,25 @@ public class RaBitQuantizerTest {
         Assertions.assertThat(estimatedDistance).isCloseTo(0.0d, Offset.offset(0.01));
     }
 
+    /**
+     * Create a random vector {@code v}, encode it into {@code encodedV} and estimate the distance between {@code v} and
+     * {@code encodedV} which should be very close to {@code 0}.
+     * @param seed a seed
+     * @param numDimensions the number of dimensions
+     * @param numExBits the number of bits per dimension used for encoding
+     */
+    @ParameterizedTest
+    @MethodSource("randomSeedsWithNumDimensionsAndNumExBits")
+    void basicEncodeWithEstimationCosineMetricTest(final long seed, final int numDimensions, final int numExBits) {
+        final Random random = new Random(seed);
+        final RealVector v = createRandomDoubleVector(random, numDimensions);
+        final RaBitQuantizer quantizer = new RaBitQuantizer(Metric.COSINE_METRIC, numExBits);
+        final EncodedRealVector encodedV = quantizer.encode(v);
+        final RaBitEstimator estimator = quantizer.estimator();
+        final double estimatedDistance = estimator.distance(v, encodedV);
+        Assertions.assertThat(estimatedDistance).isCloseTo(0.0d, Offset.offset(0.01));
+    }
+
     @Nonnull
     private static Stream<Arguments> estimationArgs() {
         return Stream.of(
@@ -214,6 +233,69 @@ public class RaBitQuantizerTest {
         logger.info("estimator within bounds = {}%", String.format(Locale.ROOT, "%.2f", (double)numEstimationWithinBounds * 100.0d / numRounds));
         logger.info("estimator better than reconstructed distance = {}%", String.format(Locale.ROOT, "%.2f", (double)numEstimationBetter * 100.0d / numRounds));
         logger.info("relative error = {}%", String.format(Locale.ROOT, "%.2f", sumRelativeError * 100.0d / numRounds));
+
+        Assertions.assertThat((double)numEstimationWithinBounds / numRounds).isGreaterThan(0.8);
+        Assertions.assertThat((double)numEstimationBetter / numRounds).isBetween(0.3, 0.7);
+        Assertions.assertThat(sumRelativeError / numRounds).isLessThan(0.1d);
+    }
+
+    @ParameterizedTest
+    @MethodSource("randomSeedsWithNumDimensionsAndNumExBits")
+    void encodeManyWithEstimationsCosineMetricTest(final long seed, final int numDimensions, final int numExBits) {
+        final Random random = new Random(seed);
+        final FhtKacRotator rotator = new FhtKacRotator(seed, numDimensions, 10);
+        final int numRounds = 500;
+        int numEstimationWithinBounds = 0;
+        int numEstimationBetter = 0;
+        double sumRelativeError = 0.0d;
+        for (int round = 0; round < numRounds; round ++) {
+            RealVector v = RealVectorTest.createRandomDoubleVector(random, numDimensions);
+            RealVector q = RealVectorTest.createRandomDoubleVector(random, numDimensions);
+            v = v.normalize();
+            q = q.normalize();
+
+            logger.info("q = {}", q);
+            logger.info("v = {}", v);
+
+            final AffineOperator operator = new AffineOperator(rotator, null);
+            final Transformed<RealVector> qRot = operator.transform(q);
+            final Transformed<RealVector> vRot = operator.transform(v);
+
+            logger.info("qRot = {}", qRot);
+            logger.info("vRot = {}", vRot);
+
+            final RaBitQuantizer quantizer = new RaBitQuantizer(Metric.COSINE_METRIC, numExBits);
+            final Transformed<RealVector> encodedV = quantizer.encode(vRot);
+            final Transformed<RealVector> encodedQ = quantizer.encode(qRot);
+            final RaBitEstimator estimator = quantizer.estimator();
+            final RealVector reconstructedQ = operator.untransform(encodedQ);
+            final RealVector reconstructedV = operator.untransform(encodedV);
+            final RaBitEstimator.Result estimatedDistance =
+                    estimator.estimateDistanceAndErrorBound(qRot.getUnderlyingVector(),
+                            (EncodedRealVector)encodedV.getUnderlyingVector());
+            logger.info("estimated 1 - cos(qRot, vRot) = {}", estimatedDistance);
+            final double trueDistance =
+                    Metric.COSINE_METRIC.distance(vRot.getUnderlyingVector(),
+                            qRot.getUnderlyingVector());
+            logger.info("true 1 - cos(qRot, vRot) = {}", trueDistance);
+            if (trueDistance >= estimatedDistance.getDistance() - estimatedDistance.getErr() &&
+                    trueDistance < estimatedDistance.getDistance() + estimatedDistance.getErr()) {
+                numEstimationWithinBounds++;
+            }
+            logger.info("reconstructed q = {}", reconstructedQ);
+            logger.info("reconstructed v = {}", reconstructedV);
+            logger.info("true 1 - cos(qDec, vDec) = {}", Metric.COSINE_METRIC.distance(reconstructedV, reconstructedQ));
+            final double reconstructedDistance = Metric.COSINE_METRIC.distance(reconstructedV, q);
+            logger.info("true 1 - cos(q, vDec) = {}", reconstructedDistance);
+            double error = Math.abs(estimatedDistance.getDistance() - trueDistance);
+            if (error < Math.abs(reconstructedDistance - trueDistance)) {
+                numEstimationBetter ++;
+            }
+            sumRelativeError += error / trueDistance;
+        }
+        logger.info("(cosine metric) estimator within bounds = {}%", String.format(Locale.ROOT, "%.2f", (double)numEstimationWithinBounds * 100.0d / numRounds));
+        logger.info("(cosine metric) estimator better than reconstructed distance = {}%", String.format(Locale.ROOT, "%.2f", (double)numEstimationBetter * 100.0d / numRounds));
+        logger.info("(cosine metric) relative error = {}%", String.format(Locale.ROOT, "%.2f", sumRelativeError * 100.0d / numRounds));
 
         Assertions.assertThat((double)numEstimationWithinBounds / numRounds).isGreaterThan(0.8);
         Assertions.assertThat((double)numEstimationBetter / numRounds).isBetween(0.3, 0.7);
