@@ -36,6 +36,7 @@ import com.apple.foundationdb.test.TestDatabaseExtension;
 import com.apple.foundationdb.test.TestExecutors;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.RandomSeedSource;
+import com.apple.test.SuperSlow;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -68,13 +69,15 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 /**
  * Tests testing insert/update/deletes of data into/in/from {@link HNSW}s.
  */
 @Execution(ExecutionMode.SAME_THREAD)
 @SuppressWarnings("checkstyle:AbbreviationAsWordInName")
 @Tag(Tags.RequiresFDB)
-@Tag(Tags.Slow)
+@SuperSlow
 class SiftTest implements BaseTest {
     private static final Logger logger = LoggerFactory.getLogger(SiftTest.class);
 
@@ -121,7 +124,7 @@ class SiftTest implements BaseTest {
         final Metric metric = Metric.EUCLIDEAN_METRIC;
         final Config config =
                 HNSW.newConfigBuilder()
-                        .setUseRaBitQ(true)
+                        .setUseRaBitQ(false)
                         .setRaBitQNumExBits(6)
                         .setMetric(metric)
                         .setM(32)
@@ -270,9 +273,12 @@ class SiftTest implements BaseTest {
                     String.format(Locale.ROOT, "%.2f", recall * 100.0d));
         }
 
-        OrderQuality.Result r =
-                OrderQuality.score(ImmutableList.copyOf(resultIds),
-                        groundTruth, minIndex, 300);
-        System.out.println(r);
+        assertThat(recall).isGreaterThan(0.9d);
+
+        assertThat(OrderQuality.score(ImmutableList.copyOf(resultIds),
+                groundTruth, minIndex, 100))
+                .satisfies(
+                        quality -> assertThat(quality.getQuality()).isGreaterThan(0.9),
+                        quality -> assertThat(quality.getContigScore()).isGreaterThan(0.9));
     }
 }
