@@ -198,6 +198,8 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
     @Nonnull
     IndexMaintainer getIndexMaintainer(@Nonnull Index index);
 
+    int getIncarnation();
+
     /**
      * Hook for checking if store state for client changes.
      */
