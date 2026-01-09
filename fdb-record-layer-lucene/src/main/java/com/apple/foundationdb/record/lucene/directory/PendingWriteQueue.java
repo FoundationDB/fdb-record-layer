@@ -64,7 +64,7 @@ import java.util.Map;
  * &lt;indexSubspace&gt; / &lt;groupingKey&gt; / &lt;partitionId&gt; / PARTITION_DATA_SUBSPACE(1) / PENDING_WRITE_QUEUE_SUBSPACE(8)
  * </pre>
  * <p>Although, non-grouped or non-partitioned indexes would not include all of these components.</p>
- * <p>The key of each K/V queue entry will be a versionStamp, to ensure uniqueness and ordering of the queue entries, which
+ * <p>The key of each K/V queue entry will be a versionStamp to ensure uniqueness and ordering of the queue entries, which
  * should allow for conflict free insertion and removal of items. The value of the K/V will be an instance of PendingWriteItem proto.</p>
  */
 public class PendingWriteQueue {
@@ -147,7 +147,7 @@ public class PendingWriteQueue {
      * @return a record cursor that iterates through the elements of the queue, in order
      */
     @SuppressWarnings("PMD.CloseResource")
-    public RecordCursor<QueueEntry> iterateQueue(
+    public RecordCursor<QueueEntry> getQueueCursor(
             @Nonnull FDBRecordContext context,
             @Nonnull ScanProperties scanProperties,
             @Nullable byte[] continuation) {
@@ -162,7 +162,7 @@ public class PendingWriteQueue {
 
     /**
      * Remove an entry from the queue.
-     * The {@link QueueEntry} given to this method (likely returned from the {@link #iterateQueue(FDBRecordContext, ScanProperties, byte[])}
+     * The {@link QueueEntry} given to this method (likely returned from the {@link #getQueueCursor(FDBRecordContext, ScanProperties, byte[])}
      * cursor) will be removed from the queue. Note that the entry has to have a <pre>Complete</pre> versionStamp
      * (that means, it has to have been committed to the DB) before it can be removed.
      *

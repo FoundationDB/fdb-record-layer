@@ -64,7 +64,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 public class PendingWriteQueueTest extends FDBRecordStoreTestBase {
     @ParameterizedTest
     @EnumSource
-    public void testEnqueueAndIterate(LucenePendingWriteQueueProto.PendingWriteItem.OperationType operationType) {
+    void testEnqueueAndIterate(LucenePendingWriteQueueProto.PendingWriteItem.OperationType operationType) {
         List<TestDocument> docs = createTestDocuments();
         PendingWriteQueue queue = new PendingWriteQueue(new Subspace(Tuple.from(UUID.randomUUID().toString())));
 
@@ -91,7 +91,7 @@ public class PendingWriteQueueTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void testEnqueueMultipleTransactions() {
+    void testEnqueueMultipleTransactions() {
         List<TestDocument> docs = createTestDocuments();
         List<TestDocument> moreDocs = createTestDocuments();
         PendingWriteQueue queue = new PendingWriteQueue(new Subspace(Tuple.from(UUID.randomUUID().toString())));
@@ -114,7 +114,7 @@ public class PendingWriteQueueTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void testEnqueueAndDelete() {
+    void testEnqueueAndDelete() {
         List<TestDocument> docs = createTestDocuments();
         PendingWriteQueue queue = new PendingWriteQueue(new Subspace(Tuple.from(UUID.randomUUID().toString())));
 
@@ -128,7 +128,7 @@ public class PendingWriteQueueTest extends FDBRecordStoreTestBase {
 
         List<PendingWriteQueue.QueueEntry> entries;
         try (FDBRecordContext context = openContext()) {
-            entries = queue.iterateQueue(context, ScanProperties.FORWARD_SCAN, null)
+            entries = queue.getQueueCursor(context, ScanProperties.FORWARD_SCAN, null)
                     .asList().join();
         }
 
@@ -145,7 +145,7 @@ public class PendingWriteQueueTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void testDeleteAll() {
+    void testDeleteAll() {
         List<TestDocument> docs = createTestDocuments();
         PendingWriteQueue queue = new PendingWriteQueue(new Subspace(Tuple.from(UUID.randomUUID().toString())));
 
@@ -158,7 +158,7 @@ public class PendingWriteQueueTest extends FDBRecordStoreTestBase {
 
         List<PendingWriteQueue.QueueEntry> entries;
         try (FDBRecordContext context = openContext()) {
-            entries = queue.iterateQueue(context, ScanProperties.FORWARD_SCAN, null)
+            entries = queue.getQueueCursor(context, ScanProperties.FORWARD_SCAN, null)
                     .asList().join();
         }
 
@@ -172,13 +172,13 @@ public class PendingWriteQueueTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void testIterateEmptyQueue() {
+    void testIterateEmptyQueue() {
         PendingWriteQueue queue = new PendingWriteQueue(new Subspace(Tuple.from(UUID.randomUUID().toString())));
         assertQueueEntries(queue, Collections.emptyList(), LucenePendingWriteQueueProto.PendingWriteItem.OperationType.INSERT);
     }
 
     @Test
-    public void testWrongValueType() {
+    void testWrongValueType() {
         PendingWriteQueue queue = new PendingWriteQueue(new Subspace(Tuple.from(UUID.randomUUID().toString())));
         final LuceneDocumentFromRecord.DocumentField fieldWithWrongType =
                 createField("f", 5, LuceneIndexExpressions.DocumentFieldType.STRING, true, true);
@@ -190,7 +190,7 @@ public class PendingWriteQueueTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void testUnsupportedFieldConfigType() {
+    void testUnsupportedFieldConfigType() {
         PendingWriteQueue queue = new PendingWriteQueue(new Subspace(Tuple.from(UUID.randomUUID().toString())));
         final LuceneDocumentFromRecord.DocumentField fieldWithWrongConfig =
                 createField("f", 5, LuceneIndexExpressions.DocumentFieldType.INT, true, true, Map.of("Double", 5.42D));
@@ -202,7 +202,7 @@ public class PendingWriteQueueTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void testIterateWithContinuations() {
+    void testIterateWithContinuations() {
         List<TestDocument> docs = createTestDocuments();
         List<TestDocument> moreDocs = createTestDocuments();
         PendingWriteQueue queue = new PendingWriteQueue(new Subspace(Tuple.from(UUID.randomUUID().toString())));
@@ -228,7 +228,7 @@ public class PendingWriteQueueTest extends FDBRecordStoreTestBase {
 
         // First iteration - 3 elements
         try (FDBRecordContext context = openContext()) {
-            final RecordCursor<PendingWriteQueue.QueueEntry> cursor = queue.iterateQueue(context, scanProperties, null);
+            final RecordCursor<PendingWriteQueue.QueueEntry> cursor = queue.getQueueCursor(context, scanProperties, null);
             final RecordCursorResult<PendingWriteQueue.QueueEntry> lastResult = cursor.forEachResult(result -> {
                 allResults.add(result.get());
             }).join();
@@ -238,7 +238,7 @@ public class PendingWriteQueueTest extends FDBRecordStoreTestBase {
 
         // Second iteration - 3 elements
         try (FDBRecordContext context = openContext()) {
-            final RecordCursor<PendingWriteQueue.QueueEntry> cursor = queue.iterateQueue(context, scanProperties, continuation.toBytes());
+            final RecordCursor<PendingWriteQueue.QueueEntry> cursor = queue.getQueueCursor(context, scanProperties, continuation.toBytes());
             final RecordCursorResult<PendingWriteQueue.QueueEntry> lastResult = cursor.forEachResult(result -> {
                 allResults.add(result.get());
             }).join();
@@ -248,7 +248,7 @@ public class PendingWriteQueueTest extends FDBRecordStoreTestBase {
 
         // Third iteration - 2 elements
         try (FDBRecordContext context = openContext()) {
-            final RecordCursor<PendingWriteQueue.QueueEntry> cursor = queue.iterateQueue(context, scanProperties, continuation.toBytes());
+            final RecordCursor<PendingWriteQueue.QueueEntry> cursor = queue.getQueueCursor(context, scanProperties, continuation.toBytes());
             final RecordCursorResult<PendingWriteQueue.QueueEntry> lastResult = cursor.forEachResult(result -> {
                 allResults.add(result.get());
             }).join();
@@ -264,7 +264,7 @@ public class PendingWriteQueueTest extends FDBRecordStoreTestBase {
     private void assertQueueEntries(final PendingWriteQueue queue, final List<TestDocument> docs, LucenePendingWriteQueueProto.PendingWriteItem.OperationType operationType) {
         List<PendingWriteQueue.QueueEntry> entries;
         try (FDBRecordContext context = openContext()) {
-            entries = queue.iterateQueue(context, ScanProperties.FORWARD_SCAN, null)
+            entries = queue.getQueueCursor(context, ScanProperties.FORWARD_SCAN, null)
                     .asList().join();
         }
 
