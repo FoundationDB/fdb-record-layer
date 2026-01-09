@@ -3406,6 +3406,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * of modifications even when data is moved between clusters with different version stamps.
      * @return the current incarnation value, or 0 if not set
      */
+    @Override
     public int getIncarnation() {
         if (!getFormatVersionEnum().isAtLeast(FormatVersion.INCARNATION)) {
             throw new RecordCoreException("Store does not support incarnation")
