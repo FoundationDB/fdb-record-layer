@@ -55,6 +55,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
+import java.io.IOException;
 import java.nio.channels.FileChannel;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -155,17 +156,7 @@ class SiftTest implements BaseTest {
 
         // pick the query
         final int queryIndex = random.nextInt(100);
-
-        final RealVector queryVector;
-        final Path siftSmallQueryPath = Paths.get(".out/extracted/siftsmall/siftsmall_query.fvecs");
-        try (final var queryChannel = FileChannel.open(siftSmallQueryPath, StandardOpenOption.READ)) {
-            final Iterator<DoubleRealVector> queryIterator = new StoredVecsIterator.StoredFVecsIterator(queryChannel);
-
-            for (int queryCounter = 0; queryCounter < queryIndex; queryCounter ++) {
-                queryIterator.next();
-            }
-            queryVector = queryIterator.next();
-        }
+        final var queryVector = readQuery(queryIndex);
 
         final NavigableSet<PrimaryKeyVectorAndDistance> orderedByDistances =
                 TestHelpers.orderedByDistances(Metric.EUCLIDEAN_METRIC, insertedData, queryVector);
@@ -180,7 +171,6 @@ class SiftTest implements BaseTest {
             length = insertedData.size() - minIndex;
         }
 
-        //length = Math.min(insertedData.size() - minIndex, 100);
         int afterMaxIndex = minIndex + length;
 
         final PrimaryKeyVectorAndDistance minVectorAndDistance = Iterables.get(orderedByDistances, minIndex);
@@ -280,5 +270,20 @@ class SiftTest implements BaseTest {
                 .satisfies(
                         quality -> assertThat(quality.getQuality()).isGreaterThan(0.9),
                         quality -> assertThat(quality.getContigScore()).isGreaterThan(0.9));
+    }
+
+    @Nonnull
+    private static RealVector readQuery(final int queryIndex) throws IOException {
+        final RealVector queryVector;
+        final Path siftSmallQueryPath = Paths.get(".out/extracted/siftsmall/siftsmall_query.fvecs");
+        try (final var queryChannel = FileChannel.open(siftSmallQueryPath, StandardOpenOption.READ)) {
+            final Iterator<DoubleRealVector> queryIterator = new StoredVecsIterator.StoredFVecsIterator(queryChannel);
+
+            for (int queryCounter = 0; queryCounter < queryIndex; queryCounter ++) {
+                queryIterator.next();
+            }
+            queryVector = queryIterator.next();
+        }
+        return queryVector;
     }
 }
