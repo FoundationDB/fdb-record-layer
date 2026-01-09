@@ -156,6 +156,12 @@ public enum FormatVersion implements Comparable<FormatVersion> {
      * This FormatVersion supports setting a store lock state.
      */
     STORE_LOCK_STATE(12),
+    /**
+     * This FormatVersion supports setting an incarnation for the store.
+     * The incarnation is intended to be incremented when moving data from one cluster to another.
+     * @see RecordMetaDataProto.DataStoreInfo#getIncarnation()
+     */
+    INCARNATION(13),
     ;
 
     private final int value;
