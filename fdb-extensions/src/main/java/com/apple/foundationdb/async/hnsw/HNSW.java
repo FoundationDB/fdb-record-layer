@@ -314,14 +314,13 @@ public class HNSW {
      *         {@code centerVector}
      */
     @Nonnull
-    public AsyncIterator<ResultEntry>
-            orderByDistance(@Nonnull final ReadTransaction readTransaction,
-                            final int efRingSearch,
-                            final int efOutwardSearch,
-                            final boolean includeVectors,
-                            @Nonnull final RealVector centerVector,
-                            final double minimumRadius,
-                            @Nullable final Tuple minimumPrimaryKey) {
+    public AsyncIterator<ResultEntry> orderByDistance(@Nonnull final ReadTransaction readTransaction,
+                                                      final int efRingSearch,
+                                                      final int efOutwardSearch,
+                                                      final boolean includeVectors,
+                                                      @Nonnull final RealVector centerVector,
+                                                      final double minimumRadius,
+                                                      @Nullable final Tuple minimumPrimaryKey) {
         return search().orderByDistance(readTransaction, efRingSearch, efOutwardSearch, includeVectors, centerVector,
                 minimumRadius, minimumPrimaryKey);
     }

@@ -221,7 +221,7 @@ class SiftTest implements BaseTest {
                         logger.info("streamed results; durationMs={}; nodeCountByLayer={}", durationsMs,
                                 onReadListener.getNodeCountByLayer());
                     }
-
+                    it.cancel();
                     return resultsBuilder.build();
                 });
 

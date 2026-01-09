@@ -21,7 +21,6 @@
 package com.apple.foundationdb.async.hnsw;
 
 import com.apple.foundationdb.tuple.Tuple;
-import com.google.common.base.Equivalence;
 import com.google.common.base.Verify;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 
@@ -32,13 +31,10 @@ import java.util.NavigableSet;
 import java.util.TreeSet;
 
 class SpatialRestrictions {
-    private static final Comparator<Equivalence.Wrapper<NodeReferenceWithDistance>> COMPARATOR =
-            Comparator.comparing(Equivalence.Wrapper::get,
-                    Comparator.nullsFirst(
-                            Comparator.comparing(NodeReferenceWithDistance::getDistance)
-                                    .thenComparing(NodeReference::getPrimaryKey)));
-
-    private static final PrimaryKeyEquivalence PRIMARY_KEY_EQUIVALENCE = new PrimaryKeyEquivalence();
+    private static final Comparator<NodeReferenceWithDistance> COMPARATOR =
+            Comparator.nullsFirst(
+                    Comparator.comparing(NodeReferenceWithDistance::getDistance)
+                            .thenComparing(NodeReference::getPrimaryKey));
 
     private final int insideLimit;
     private final double minimumRadius;
@@ -46,9 +42,9 @@ class SpatialRestrictions {
     private final Tuple minimumPrimaryKey;
 
     @Nonnull
-    private final NavigableSet<Equivalence.Wrapper<NodeReferenceWithDistance>> insideRadius; // inclusive
+    private final NavigableSet<NodeReferenceWithDistance> insideRadius; // inclusive
     @Nonnull
-    private final NavigableSet<Equivalence.Wrapper<NodeReferenceWithDistance>> outsideRadius; // exclusive
+    private final NavigableSet<NodeReferenceWithDistance> outsideRadius; // exclusive
 
     public SpatialRestrictions(final int insideLimit,
                                final double minimumRadius,
@@ -90,58 +86,40 @@ class SpatialRestrictions {
     }
 
     boolean shouldBeAdded(@Nonnull final NodeReferenceWithDistance nodeReferenceWithDistance) {
-        final Equivalence.Wrapper<NodeReferenceWithDistance> wrapped =
-                PRIMARY_KEY_EQUIVALENCE.wrap(nodeReferenceWithDistance);
         if (insideRadius.size() >= insideLimit) {
-            final Equivalence.Wrapper<NodeReferenceWithDistance> least = insideRadius.first();
-            if (COMPARATOR.compare(wrapped, least) <= 0) {
+            final NodeReferenceWithDistance least = insideRadius.first();
+            if (COMPARATOR.compare(nodeReferenceWithDistance, least) <= 0) {
                 return false;
             }
         }
 
-        if (isGreaterThanOrEqualMinimum(wrapped.get())) {
+        if (isGreaterThanOrEqualMinimum(nodeReferenceWithDistance)) {
             // wrapped greater than minimum
-            return !outsideRadius.contains(wrapped);
+            return !outsideRadius.contains(nodeReferenceWithDistance);
         }
 
-        return !insideRadius.contains(wrapped);
+        return !insideRadius.contains(nodeReferenceWithDistance);
     }
 
     @CanIgnoreReturnValue
     boolean add(@Nonnull final NodeReferenceWithDistance nodeReferenceWithDistance) {
-        final Equivalence.Wrapper<NodeReferenceWithDistance> wrapped =
-                PRIMARY_KEY_EQUIVALENCE.wrap(nodeReferenceWithDistance);
-
-        if (isGreaterThanOrEqualMinimum(wrapped.get())) {
-            return outsideRadius.add(wrapped);
+        if (isGreaterThanOrEqualMinimum(nodeReferenceWithDistance)) {
+            return outsideRadius.add(nodeReferenceWithDistance);
         }
 
         if (insideRadius.size() < insideLimit) {
-            return insideRadius.add(wrapped);
+            return insideRadius.add(nodeReferenceWithDistance);
         }
 
         Verify.verify(insideRadius.size() == insideLimit);
 
-        final Equivalence.Wrapper<NodeReferenceWithDistance> least = insideRadius.first();
-        if (COMPARATOR.compare(wrapped, least) <= 0) {
+        final NodeReferenceWithDistance least = insideRadius.first();
+        if (COMPARATOR.compare(nodeReferenceWithDistance, least) <= 0) {
             return true;
         }
 
-        final boolean exists = insideRadius.add(wrapped);
+        final boolean exists = insideRadius.add(nodeReferenceWithDistance);
         insideRadius.pollFirst();
         return exists;
-    }
-
-    private static class PrimaryKeyEquivalence extends Equivalence<NodeReferenceWithDistance> {
-        @Override
-        protected boolean doEquivalent(@Nonnull final NodeReferenceWithDistance a,
-                                       @Nonnull final NodeReferenceWithDistance b) {
-            return a.getPrimaryKey().equals(b.getPrimaryKey());
-        }
-
-        @Override
-        protected int doHash(@Nonnull final NodeReferenceWithDistance nodeReferenceWithDistance) {
-            return nodeReferenceWithDistance.hashCode();
-        }
     }
 }

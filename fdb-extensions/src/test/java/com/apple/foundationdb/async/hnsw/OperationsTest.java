@@ -499,7 +499,7 @@ class OperationsTest implements BaseTest {
 
         final var accessInfo =
                 db.run(transaction -> StorageAdapter.fetchAccessInfo(hnsw.getConfig(),
-                        transaction, hnsw.getSubspace(), OnReadListener.NOOP).join());
+                        transaction, hnsw.getSubspace(), OnReadListener.NOOP).join(), hnsw.getExecutor());
         assertThat(accessInfo).isNull();
     }
 
@@ -627,6 +627,7 @@ class OperationsTest implements BaseTest {
                     while (it.hasNext()) {
                         resultsBuilder.add(it.next());
                     }
+                    it.cancel();
                     return resultsBuilder.build();
                 });
 
