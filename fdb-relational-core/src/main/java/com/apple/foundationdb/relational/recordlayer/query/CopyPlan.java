@@ -289,7 +289,7 @@ public final class CopyPlan extends QueryPlan {
                                                            @Nonnull Transaction transaction) throws RelationalException {
         // Check if we've already processed this path
         if (pathSchemaCache.containsKey(dataPath)) {
-            return pathSchemaCache.get(dataPath);
+            return null;
         }
 
         // Try to identify if this path is part of a schema
