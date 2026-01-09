@@ -32,12 +32,16 @@ import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.UpdateExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.IncarnationValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import org.junit.jupiter.api.Tag;
 
@@ -45,6 +49,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -73,7 +78,6 @@ public class FDBIncarnationQueryTest extends FDBRecordStoreQueryTestBase {
     private void openStore(FDBRecordContext context) {
         openSimpleRecordStore(context, null);
     }
-    // TODO test with an update query that sets a value to the incarnation
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
     void basicIncarnationQuery() {
@@ -117,11 +121,7 @@ public class FDBIncarnationQueryTest extends FDBRecordStoreQueryTestBase {
             final RecordQueryPlan plan = getRecordQueryPlan();
 
             // Build type repository for plan execution
-            Set<Type> usedTypes = usedTypes().evaluate(plan);
-            TypeRepository typeRepository = TypeRepository.newBuilder()
-                    .addAllTypes(usedTypes)
-                    .build();
-            EvaluationContext evalContext = EvaluationContext.forTypeRepository(typeRepository);
+            final EvaluationContext evalContext = getEvaluationContext(plan);
 
             // First batch: fetch 3 records with incarnation = 100
             RecordCursorContinuation continuation = getIncarnations(plan, evalContext, null, List.of(100, 100, 100));
@@ -187,11 +187,88 @@ public class FDBIncarnationQueryTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    void updateWithIncarnation() {
+        try (FDBRecordContext context = openContext()) {
+            openStore(context);
+
+            // Set initial incarnation
+            recordStore.updateIncarnation(current -> 42).join();
+
+            // Save records with different numValue2 values
+            for (int i = 0; i < 3; i++) {
+                saveSimpleRecord(i, i * 10);
+            }
+
+            // Create an update plan that sets numValue2 to the incarnation value
+            // UPDATE MySimpleRecord SET num_value_2 = GET_VERSIONSTAMP_INCARNATION()
+            RecordQueryPlan updatePlan = ((CascadesPlanner)planner).planGraph(() -> {
+                final Type.Record recordType = Type.Record.fromDescriptor(MySimpleRecord.getDescriptor());
+                Quantifier quantifier = fullTypeScan(recordStore.getRecordMetaData(), "MySimpleRecord");
+
+                final GraphExpansion.Builder graphExpansionBuilder = GraphExpansion.builder();
+                graphExpansionBuilder.addQuantifier(quantifier);
+                Quantifier.ForEach selectQuantifier = Quantifier.forEach(Reference.initialOf(
+                        graphExpansionBuilder.build().buildSelectWithResultValue(QuantifiedObjectValue.of(quantifier))));
+
+                // Resolve the field path for num_value_2
+                final FieldValue.FieldPath updatePath = FieldValue.resolveFieldPath(selectQuantifier.getFlowedObjectType(),
+                        List.of(new FieldValue.Accessor("num_value_2", -1)));
+
+                // Create the update value: incarnation value
+
+                Quantifier.ForEach updateQun = Quantifier.forEach(Reference.initialOf(new UpdateExpression(selectQuantifier,
+                        "MySimpleRecord",
+                        recordType,
+                        Map.of(updatePath, new IncarnationValue()))));
+
+                return Reference.initialOf(LogicalSortExpression.unsorted(updateQun));
+            }, Optional.empty(), IndexQueryabilityFilter.DEFAULT, EvaluationContext.empty()).getPlan();
+
+            // Build type repository for plan execution
+            final EvaluationContext evalContext = getEvaluationContext(updatePlan);
+
+            // Execute the update plan
+            try (RecordCursor<QueryResult> cursor = updatePlan.executePlan(recordStore, evalContext,
+                    null, ExecuteProperties.SERIAL_EXECUTE)) {
+                assertEquals(3, cursor.asList().join().size());
+            }
+
+            // Verify all records now have numValue2 = 42
+            for (int i = 0; i < 3; i++) {
+                assertNumValue2(42, i);
+            }
+
+            // Change incarnation and update again
+            recordStore.updateIncarnation(current -> 100).join();
+
+            // Execute update plan again
+            try (RecordCursor<QueryResult> cursor = updatePlan.executePlan(recordStore, evalContext,
+                    null, ExecuteProperties.SERIAL_EXECUTE)) {
+                assertEquals(3, cursor.asList().join().size());
+            }
+
+            // Verify all records now have numValue2 = 100
+            for (int i = 0; i < 3; i++) {
+                assertNumValue2(100, i);
+            }
+        }
+    }
+
     private void saveSimpleRecord(final long recNo, final int numValue2) {
         recordStore.saveRecord(MySimpleRecord.newBuilder()
                 .setRecNo(recNo)
                 .setNumValue2(numValue2)
                 .build());
+    }
+
+    @Nonnull
+    private static EvaluationContext getEvaluationContext(final RecordQueryPlan updatePlan) {
+        Set<Type> usedTypes = usedTypes().evaluate(updatePlan);
+        TypeRepository typeRepository = TypeRepository.newBuilder()
+                .addAllTypes(usedTypes)
+                .build();
+        return EvaluationContext.forTypeRepository(typeRepository);
     }
 
     @Nonnull
@@ -247,5 +324,12 @@ public class FDBIncarnationQueryTest extends FDBRecordStoreQueryTestBase {
         Long number = getField(queryResult, Long.class, "rec_no");
         assertNotNull(number);
         assertEquals(expected, number.longValue());
+    }
+
+    private void assertNumValue2(final int expected, final int recNo) {
+        final MySimpleRecord record = MySimpleRecord.newBuilder()
+                .mergeFrom(recordStore.loadRecord(Tuple.from(recNo)).getRecord())
+                .build();
+        assertEquals(expected, record.getNumValue2());
     }
 }
