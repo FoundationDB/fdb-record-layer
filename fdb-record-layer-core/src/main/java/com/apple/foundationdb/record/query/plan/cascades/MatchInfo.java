@@ -500,6 +500,7 @@ public interface MatchInfo {
             final var unmatchedAggregateMapBuilder = ImmutableBiMap.<CorrelationIdentifier, Value>builder();
             for (final var unmatchedAggregateMapEntry : groupByMappings.getUnmatchedAggregatesMap().entrySet()) {
                 final var queryAggregateValue = unmatchedAggregateMapEntry.getValue();
+                // https://github.com/FoundationDB/fdb-record-layer/issues/3830
                 final var pullUpMap =
                         resultValue.pullUp(ImmutableList.of(queryAggregateValue), EvaluationContext.empty(),
                                 AliasMap.emptyMap(),
@@ -509,6 +510,11 @@ public interface MatchInfo {
                 if (pulledUpQueryAggregateValue.isEmpty()) {
                     return GroupByMappings.empty();
                 }
+                // Here, we make a careless assumption that the query and the candidate values cannot be ambiguous.
+                // This is not entirely true as the respected result value could have aliasing, and hence this would
+                // not work as expected. The bigger issue is that ambiguity is not well represented in the
+                // `GroupByMappings` to which this builder pours to.
+                // See: https://github.com/FoundationDB/fdb-record-layer/issues/3830
                 unmatchedAggregateMapBuilder.put(unmatchedAggregateMapEntry.getKey(), Iterables.getOnlyElement(pulledUpQueryAggregateValue));
             }
 
@@ -547,6 +553,11 @@ public interface MatchInfo {
                 if (pulledUpCandidateAggregateValue.isEmpty()) {
                     continue;
                 }
+                // Here, we make a careless assumption that the query and the candidate values cannot be ambiguous.
+                // This is not entirely true as the respected result value could have aliasing, and hence this would
+                // not work as expected. The bigger issue is that ambiguity is not well represented in the
+                // `GroupByMappings` to which this builder pours to.
+                // See: https://github.com/FoundationDB/fdb-record-layer/issues/3830
                 matchedAggregatesMapBuilder.put(Iterables.getOnlyElement(pulledUpQueryValue), Iterables.getOnlyElement(pulledUpCandidateAggregateValue));
             }
             return matchedAggregatesMapBuilder.build();
