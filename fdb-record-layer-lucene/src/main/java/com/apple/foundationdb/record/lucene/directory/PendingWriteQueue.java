@@ -146,6 +146,7 @@ public class PendingWriteQueue {
      *
      * @return a record cursor that iterates through the elements of the queue, in order
      */
+    @SuppressWarnings("PMD.CloseResource")
     public RecordCursor<QueueEntry> iterateQueue(
             @Nonnull FDBRecordContext context,
             @Nonnull ScanProperties scanProperties,
