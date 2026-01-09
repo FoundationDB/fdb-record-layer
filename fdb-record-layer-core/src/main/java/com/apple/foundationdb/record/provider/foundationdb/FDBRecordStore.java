@@ -3435,8 +3435,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         return updateStoreHeaderAsync(builder -> {
             int currentIncarnation = builder.hasIncarnation() ? builder.getIncarnation() : 0;
             int newIncarnation = updater.apply(currentIncarnation);
-            if (newIncarnation < 0) {
-                throw new RecordCoreException("Incarnation must be non-negative")
+            if (newIncarnation < currentIncarnation) {
+                throw new RecordCoreException("Incarnation must always increase")
+                        .addLogInfo(LogMessageKeys.OLD, currentIncarnation)
                         .addLogInfo(LogMessageKeys.VALUE, newIncarnation);
             }
             builder.setIncarnation(newIncarnation);

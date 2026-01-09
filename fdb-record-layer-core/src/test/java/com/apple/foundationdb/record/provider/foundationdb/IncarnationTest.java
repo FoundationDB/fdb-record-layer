@@ -92,11 +92,6 @@ class IncarnationTest extends OnlineIndexerTest {
         openSimpleMetaData();
 
         try (FDBRecordContext context = openContext()) {
-            recordStore.updateIncarnation(current -> 100).join();
-            context.commit();
-        }
-
-        try (FDBRecordContext context = openContext()) {
             recordStore.updateIncarnation(current -> 0).join();
             context.commit();
         }
@@ -108,12 +103,42 @@ class IncarnationTest extends OnlineIndexerTest {
     }
 
     @Test
-    void testUpdateIncarnationNegativeValue() {
+    void testNoChanges() {
+        openSimpleMetaData();
+        try (FDBRecordContext context = openContext()) {
+            recordStore.updateIncarnation(current -> current).join();
+            context.commit();
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            assertEquals(0, recordStore.getIncarnation(), "Incarnation should be 0");
+            context.commit();
+        }
+
+
+        try (FDBRecordContext context = openContext()) {
+            recordStore.updateIncarnation(current -> 10).join();
+            context.commit();
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            recordStore.updateIncarnation(current -> current).join();
+            context.commit();
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            assertEquals(10, recordStore.getIncarnation(), "Incarnation should be 0");
+            context.commit();
+        }
+    }
+
+    @Test
+    void testDecreaseIncarnation() {
         // Test that setting incarnation to a negative value throws an exception
         openSimpleMetaData();
 
         try (FDBRecordContext context = openContext()) {
-            assertThrows(RecordCoreException.class, () -> recordStore.updateIncarnation(current -> -5).join(),
+            assertThrows(RecordCoreException.class, () -> recordStore.updateIncarnation(current -> current - 5).join(),
                     "updateIncarnation should throw when given a negative value");
             context.commit();
         }
