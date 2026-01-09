@@ -33,6 +33,7 @@ import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.copy.CopyData;
 import com.apple.foundationdb.relational.recordlayer.query.CopyPlan;
 import com.apple.foundationdb.relational.recordlayer.query.MutablePlanGenerationContext;
 import com.apple.foundationdb.relational.recordlayer.query.Plan;
@@ -43,6 +44,8 @@ import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
+import com.google.protobuf.InvalidProtocolBufferException;
+import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -434,6 +437,14 @@ public class CopyCommandTest {
 
             // Export data from source database
             List<byte[]> exportedData = exportData(sourceSchemaPath, quoted);
+
+            assertThat(exportedData.stream().map(raw -> {
+                try {
+                    return CopyData.parseFrom(raw);
+                } catch (InvalidProtocolBufferException e) {
+                    return Assertions.fail("Export should be parseable");
+                }
+            }).collect(Collectors.toList())).anySatisfy(copyData -> assertThat(copyData.hasSchemaTemplate()).isTrue());
 
             // Import to destination database path
             final int importCount = importData(quoted, true, destSchemaPath, exportedData);
