@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.record.provider.foundationdb.APIVersion;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
+import com.apple.foundationdb.record.provider.foundationdb.FormatVersion;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalDriver;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalEngine;
@@ -32,7 +33,6 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.catalog.StoreCatalogProvider;
 import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerMetadataOperationsFactory;
 import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanCache;
-
 import com.apple.foundationdb.test.FDBTestEnvironment;
 import com.codahale.metrics.MetricRegistry;
 import org.junit.jupiter.api.extension.AfterEachCallback;
@@ -103,7 +103,9 @@ public class EmbeddedRelationalExtension implements RelationalExtension, BeforeE
             txn.commit();
         }
 
-        final var config = RecordLayerConfig.getDefault();
+        final var config = new RecordLayerConfig.RecordLayerConfigBuilder()
+                .setFormatVersion(FormatVersion.getMaximumSupportedVersion())
+                .build();
         final var ddlFactory = RecordLayerMetadataOperationsFactory.defaultFactory()
                 .setBaseKeySpace(keySpace)
                 .setRlConfig(config)
