@@ -22,7 +22,11 @@ package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.TestRecords1Proto;
+import com.apple.foundationdb.tuple.Tuple;
+import com.google.protobuf.Message;
 import org.junit.jupiter.api.Test;
+
+import java.util.function.IntFunction;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -31,125 +35,62 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 /**
  * Tests for the incarnation field in the StoreHeader.
  */
-class IncarnationTest extends OnlineIndexerTest {
+class IncarnationTest extends FDBRecordStoreTestBase {
 
     @Test
-    void testGetIncarnationDefault() {
-        // Test that getIncarnation returns 0 when not set
-        openSimpleMetaData();
-
-        try (FDBRecordContext context = openContext()) {
-            assertEquals(0, recordStore.getIncarnation(), "Default incarnation should be 0");
-            context.commit();
-        }
+    void testGetIncarnationDefault() throws Exception {
+        assertIncarnation(0, "Default incarnation should be 0");
     }
 
     @Test
-    void testIncrementIncarnation() {
-        // Test incrementing the incarnation value
-        openSimpleMetaData();
-
-        // Set initial value
-        try (FDBRecordContext context = openContext()) {
-            recordStore.updateIncarnation(current -> 10).join();
-            context.commit();
-        }
-
-        // Increment using updateIncarnation
-        try (FDBRecordContext context = openContext()) {
-            recordStore.updateIncarnation(current -> current + 1).join();
-            context.commit();
-        }
-
-        // Verify the increment
-        try (FDBRecordContext context = openContext()) {
-            assertEquals(11, recordStore.getIncarnation(), "Incarnation should be 11 after increment");
-            context.commit();
-        }
+    void testIncrementIncarnation() throws Exception {
+        updateIncarnation(current -> 10);
+        updateIncarnation(current -> current + 1);
+        assertIncarnation(11, "Incarnation should be 11 after increment");
     }
 
     @Test
-    void testUpdateIncarnationMultipleTimes() {
-        // Test updating the incarnation multiple times
-        openSimpleMetaData();
-
+    void testUpdateIncarnationMultipleTimes() throws Exception {
         try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
             for (int i = 0; i < 10; i++) {
                 recordStore.updateIncarnation(current -> current + 1).join();
             }
             context.commit();
         }
 
-        try (FDBRecordContext context = openContext()) {
-            assertEquals(10, recordStore.getIncarnation(), "Incarnation should be 3 after multiple updates");
-            context.commit();
-        }
+        assertIncarnation(10, "Incarnation should be 3 after multiple updates");
     }
 
     @Test
-    void testUpdateIncarnationToZero() {
-        // Test setting incarnation to zero explicitly
-        openSimpleMetaData();
-
-        try (FDBRecordContext context = openContext()) {
-            recordStore.updateIncarnation(current -> 0).join();
-            context.commit();
-        }
-
-        try (FDBRecordContext context = openContext()) {
-            assertEquals(0, recordStore.getIncarnation(), "Incarnation should be 0");
-            context.commit();
-        }
+    void testUpdateIncarnationToZero() throws Exception {
+        updateIncarnation(current -> 0);
+        assertIncarnation(0, "Incarnation should be 0");
     }
 
     @Test
-    void testNoChanges() {
-        openSimpleMetaData();
-        try (FDBRecordContext context = openContext()) {
-            recordStore.updateIncarnation(current -> current).join();
-            context.commit();
-        }
-
-        try (FDBRecordContext context = openContext()) {
-            assertEquals(0, recordStore.getIncarnation(), "Incarnation should be 0");
-            context.commit();
-        }
-
-
-        try (FDBRecordContext context = openContext()) {
-            recordStore.updateIncarnation(current -> 10).join();
-            context.commit();
-        }
-
-        try (FDBRecordContext context = openContext()) {
-            recordStore.updateIncarnation(current -> current).join();
-            context.commit();
-        }
-
-        try (FDBRecordContext context = openContext()) {
-            assertEquals(10, recordStore.getIncarnation(), "Incarnation should be 0");
-            context.commit();
-        }
+    void testNoChanges() throws Exception {
+        updateIncarnation(current -> current);
+        assertIncarnation(0, "Incarnation should be 0");
+        updateIncarnation(current -> 10);
+        updateIncarnation(current -> current);
+        assertIncarnation(10, "Incarnation should be 0");
     }
 
     @Test
-    void testDecreaseIncarnation() {
-        // Test that setting incarnation to a negative value throws an exception
-        openSimpleMetaData();
-
+    void testDecreaseIncarnation() throws Exception {
         try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
             assertThrows(RecordCoreException.class, () -> recordStore.updateIncarnation(current -> current - 5).join(),
-                    "updateIncarnation should throw when given a negative value");
+                    "updateIncarnation should throw when attempting to decrease");
             context.commit();
         }
     }
 
     @Test
-    void testIncarnationWithRecordOperations() {
-        // Test that incarnation persists alongside normal record operations
-        openSimpleMetaData();
-
+    void testIncarnationWithRecordOperations() throws Exception {
         try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
             recordStore.updateIncarnation(current -> 42).join();
 
             // Add some records
@@ -163,12 +104,11 @@ class IncarnationTest extends OnlineIndexerTest {
         }
 
         try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
             assertEquals(42, recordStore.getIncarnation(), "Incarnation should persist with record operations");
 
             // Verify the record exists
-            FDBStoredRecord<com.google.protobuf.Message> storedRecord = recordStore.loadRecord(
-                    com.apple.foundationdb.tuple.Tuple.from(1L)
-            );
+            FDBStoredRecord<Message> storedRecord = recordStore.loadRecord(Tuple.from(1L));
             assertNotNull(storedRecord, "Record should exist");
             TestRecords1Proto.MySimpleRecord.Builder builder = TestRecords1Proto.MySimpleRecord.newBuilder();
             builder.mergeFrom(storedRecord.getRecord());
@@ -180,15 +120,30 @@ class IncarnationTest extends OnlineIndexerTest {
 
     @Test
     void testIncarnationRequiresCorrectFormatVersion() {
-        // Test that incarnation methods throw an exception when format version is too low
-        this.formatVersion = FormatVersionTestUtils.previous(FormatVersion.INCARNATION);
-        openSimpleMetaData();
-
         try (FDBRecordContext context = openContext()) {
+            recordStore = getStoreBuilder(context, simpleMetaData(NO_HOOK), path,
+                    FormatVersionTestUtils.previous(FormatVersion.INCARNATION))
+                    .createOrOpen();
             assertThrows(RecordCoreException.class, () -> recordStore.getIncarnation(),
                     "getIncarnation should throw when format version is too low");
             assertThrows(RecordCoreException.class, () -> recordStore.updateIncarnation(current -> current + 1).join(),
                     "updateIncarnation should throw when format version is too low");
+            context.commit();
+        }
+    }
+
+    private void assertIncarnation(final int expected, final String message) throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            assertEquals(expected, recordStore.getIncarnation(), message);
+            context.commit();
+        }
+    }
+
+    private void updateIncarnation(IntFunction<Integer> update) throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            recordStore.updateIncarnation(update).join();
             context.commit();
         }
     }
