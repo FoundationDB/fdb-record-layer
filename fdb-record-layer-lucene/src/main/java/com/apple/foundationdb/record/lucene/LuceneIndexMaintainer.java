@@ -66,6 +66,7 @@ import com.apple.foundationdb.record.provider.foundationdb.indexes.StandardIndex
 import com.apple.foundationdb.record.query.QueryToKeyMatcher;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
 import org.apache.lucene.document.BinaryPoint;
 import org.apache.lucene.document.Document;
@@ -596,11 +597,19 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                 return CompletableFuture.completedFuture(0);
             }
             try {
-                int countDeleted = deleteDocument(groupingKey, partitionInfo.getId(), record.getPrimaryKey());
+                final int partitionId = partitionInfo.getId();
+                int countDeleted = deleteDocument(groupingKey, partitionId, record.getPrimaryKey());
                 // this might be 0 when in writeOnly mode, but otherwise should not happen.
+                ByteString primaryKeyToDeleteList = null;
+                if (partitionInfo.getMergingState() != LucenePartitionInfoProto.LucenePartitionInfo.MergingState.NORMAL) {
+                    // je: todo: this may be off until the final merge transaction and the delete-list processing will be done in a single transaction
+                    countDeleted += deleteDocument(groupingKey, LucenePartitioner.getBufferPartitionId(partitionId), record.getPrimaryKey());
+                    primaryKeyToDeleteList = ByteString.copyFrom(record.getPrimaryKey().pack());
+                }
+                final int finalCountDeleted = countDeleted;
                 if (countDeleted > 0) {
-                    return partitioner.decrementCountAndSave(groupingKey, countDeleted, partitionInfo.getId())
-                            .thenApply(vignore -> countDeleted);
+                    return partitioner.decrementCountAndSave(groupingKey, finalCountDeleted, partitionId, primaryKeyToDeleteList)
+                            .thenApply(vignore -> finalCountDeleted);
                 } else {
                     return CompletableFuture.completedFuture(countDeleted);
                 }

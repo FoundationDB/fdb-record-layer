@@ -339,6 +339,8 @@ public enum LogMessageKeys {
     // Lucene
     PARTITION_ID,
     PARTITIONING_KEY,
+    PARTITION_MERGING_STATE,
+    DELETED_DOCUMENTS_COUNT,
 
     // Record context properties
     PROPERTY_NAME,

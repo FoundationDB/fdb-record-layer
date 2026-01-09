@@ -45,6 +45,7 @@ import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContextConfig;
+import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBTransactionPriority;
 import com.apple.foundationdb.record.provider.foundationdb.IndexDeferredMaintenanceControl;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
@@ -179,10 +180,71 @@ public class FDBDirectoryManager implements AutoCloseable {
                             // partition list end
                             return false;
                         }
-                        agileContext.flush();
-                        mergeIndexNow(groupingKey, partitionId);
+                        mergeIndexNow(partitioner, agileContext, groupingKey, partitionId, lastPartitionInfo.get());
                         return true;
                     }));
+        }
+    }
+
+    private void mergeIndexNow(@Nonnull LucenePartitioner partitioner,
+                               final AgilityContext agileContext,
+                               Tuple groupingKey,
+                               int partitionId,
+                               LucenePartitionInfoProto.LucenePartitionInfo lastPartitionInfo) {
+        final AgilityContext agilityContext = getAgilityContext(true, true);
+        try {
+            // Set merging state
+            LucenePartitionInfoProto.LucenePartitionInfo updatedPartitionInfo =
+                    lastPartitionInfo
+                            .toBuilder()
+                            .setMergingState(LucenePartitionInfoProto.LucenePartitionInfo.MergingState.MERGING)
+                            .build();
+
+            agileContext.accept(context ->
+                    partitioner.setPartitionInfo(partitionId, groupingKey, context, updatedPartitionInfo)
+            );
+            agileContext.flush();
+            mergeIndexWithContext(groupingKey, partitionId, agilityContext);
+        } finally {
+            // Drain buffer index
+            LucenePartitionInfoProto.LucenePartitionInfo drainPartitionInfo =
+                    lastPartitionInfo
+                            .toBuilder()
+                            .setMergingState(LucenePartitionInfoProto.LucenePartitionInfo.MergingState.DRAINING)
+                            .clearDeleteKeys() // clear all delete keys
+                            .build();
+
+            // je: Todo: handle as future
+            agilityContext.asyncToSync(FDBStoreTimer.Waits.WAIT_ONLINE_MERGE_INDEX,
+                    agileContext.apply(context ->
+                            // process deletes queue and set state to DRAINING in one transaction
+                            partitioner.processPartitionDeleteKeys(partitionId, groupingKey, context)
+                                    .thenApply(ignore -> {
+                                        partitioner.setPartitionInfo(partitionId, groupingKey, context, drainPartitionInfo);
+                                        return null;
+                                    })));
+            agileContext.flush();
+
+            // here: drain the buffer partition
+            // je: Todo: handle future and make use of agility context for (possibly) long operations
+            agilityContext.asyncToSync(FDBStoreTimer.Waits.WAIT_ONLINE_MERGE_INDEX,
+                    agileContext.apply(context ->
+                            partitioner.drainBufferPartitionAsync(partitionId, groupingKey, lastPartitionInfo, context)));
+
+            // Clear merging state
+            LucenePartitionInfoProto.LucenePartitionInfo normalPartitionInfo =
+                    lastPartitionInfo
+                            .toBuilder()
+                            .setMergingState(LucenePartitionInfoProto.LucenePartitionInfo.MergingState.NORMAL)
+                            .build();
+            agileContext.accept(context ->
+                    partitioner.setPartitionInfo(partitionId, groupingKey, context, normalPartitionInfo)
+            );
+            // IndexWriter may release the file lock in a finally block in its own code, so if there is an error in its
+            // code, we need to commit. We could optimize this a bit, and have it only flush if it has committed anything
+            // but that should be rare.
+
+            agilityContext.flushAndClose();
         }
     }
 
