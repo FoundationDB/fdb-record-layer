@@ -192,9 +192,6 @@ public class FDBIncarnationQueryTest extends FDBRecordStoreQueryTestBase {
         try (FDBRecordContext context = openContext()) {
             openStore(context);
 
-            // Set initial incarnation
-            recordStore.updateIncarnation(current -> 42).join();
-
             // Save records with different numValue2 values
             for (int i = 0; i < 3; i++) {
                 saveSimpleRecord(i, i * 10);
@@ -228,29 +225,18 @@ public class FDBIncarnationQueryTest extends FDBRecordStoreQueryTestBase {
             // Build type repository for plan execution
             final EvaluationContext evalContext = getEvaluationContext(updatePlan);
 
-            // Execute the update plan
-            try (RecordCursor<QueryResult> cursor = updatePlan.executePlan(recordStore, evalContext,
-                    null, ExecuteProperties.SERIAL_EXECUTE)) {
-                assertEquals(3, cursor.asList().join().size());
-            }
-
-            // Verify all records now have numValue2 = 42
-            for (int i = 0; i < 3; i++) {
-                assertNumValue2(42, i);
-            }
-
-            // Change incarnation and update again
-            recordStore.updateIncarnation(current -> 100).join();
-
-            // Execute update plan again
-            try (RecordCursor<QueryResult> cursor = updatePlan.executePlan(recordStore, evalContext,
-                    null, ExecuteProperties.SERIAL_EXECUTE)) {
-                assertEquals(3, cursor.asList().join().size());
-            }
-
-            // Verify all records now have numValue2 = 100
-            for (int i = 0; i < 3; i++) {
-                assertNumValue2(100, i);
+            for (final Integer incarnation : List.of(42, 100)) {
+                recordStore.updateIncarnation(current -> incarnation).join();
+                try (RecordCursor<QueryResult> cursor = updatePlan.executePlan(recordStore, evalContext,
+                        null, ExecuteProperties.SERIAL_EXECUTE)) {
+                    assertEquals(3, cursor.asList().join().size());
+                }
+                for (int i = 0; i < 3; i++) {
+                    final MySimpleRecord record = MySimpleRecord.newBuilder()
+                            .mergeFrom(recordStore.loadRecord(Tuple.from(i)).getRecord())
+                            .build();
+                    assertEquals((int)incarnation, record.getNumValue2());
+                }
             }
         }
     }
@@ -326,10 +312,4 @@ public class FDBIncarnationQueryTest extends FDBRecordStoreQueryTestBase {
         assertEquals(expected, number.longValue());
     }
 
-    private void assertNumValue2(final int expected, final int recNo) {
-        final MySimpleRecord record = MySimpleRecord.newBuilder()
-                .mergeFrom(recordStore.loadRecord(Tuple.from(recNo)).getRecord())
-                .build();
-        assertEquals(expected, record.getNumValue2());
-    }
 }
