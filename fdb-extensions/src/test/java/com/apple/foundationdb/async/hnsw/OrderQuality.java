@@ -138,6 +138,90 @@ public final class OrderQuality {
             this.quality = quality;
         }
 
+        public int getM() {
+            return m;
+        }
+
+        public int getN() {
+            return n;
+        }
+
+        public int getX() {
+            return x;
+        }
+
+        public int getMinPosInU() {
+            return minPosInU;
+        }
+
+        public int getMaxPosInU() {
+            return maxPosInU;
+        }
+
+        public int getBlockLen() {
+            return blockLen;
+        }
+
+        public int getExtrasBetween() {
+            return extrasBetween;
+        }
+
+        public double getContigScore() {
+            return contigScore;
+        }
+
+        public int getMedianShift() {
+            return medianShift;
+        }
+
+        public double getPctWithinWindow() {
+            return pctWithinWindow;
+        }
+
+        public double getPctWithinWindowAfterShift() {
+            return pctWithinWindowAfterShift;
+        }
+
+        public int getP90AbsErr() {
+            return p90AbsErr;
+        }
+
+        public int getP90AbsResidual() {
+            return p90AbsResidual;
+        }
+
+        public int getMaxAbsErr() {
+            return maxAbsErr;
+        }
+
+        public int getMaxAbsResidual() {
+            return maxAbsResidual;
+        }
+
+        public double getOutlierRate() {
+            return outlierRate;
+        }
+
+        public long getInversions() {
+            return inversions;
+        }
+
+        public double getOrderScore() {
+            return orderScore;
+        }
+
+        public double getLocalScore() {
+            return localScore;
+        }
+
+        public double getOutlierScore() {
+            return outlierScore;
+        }
+
+        public double getQuality() {
+            return quality;
+        }
+
         @Override
         public String toString() {
             return "Result{" +

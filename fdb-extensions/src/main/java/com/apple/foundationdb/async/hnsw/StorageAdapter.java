@@ -186,7 +186,7 @@ interface StorageAdapter<N extends NodeReference> {
      */
     @Nonnull
     CompletableFuture<AbstractNode<N>> fetchNode(@Nonnull ReadTransaction readTransaction,
-                                                 @Nonnull AffineOperator storageTransform,
+                                                 @Nonnull StorageTransform storageTransform,
                                                  int layer,
                                                  @Nonnull Tuple primaryKey);
 

@@ -22,12 +22,10 @@ package com.apple.foundationdb.async.hnsw;
 
 import com.apple.foundationdb.Database;
 import com.apple.foundationdb.async.AsyncIterator;
-import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.hnsw.TestHelpers.PrimaryKeyAndVector;
 import com.apple.foundationdb.async.hnsw.TestHelpers.PrimaryKeyVectorAndDistance;
 import com.apple.foundationdb.async.hnsw.TestHelpers.TestOnReadListener;
 import com.apple.foundationdb.async.hnsw.TestHelpers.TestOnWriteListener;
-import com.apple.foundationdb.linear.AffineOperator;
 import com.apple.foundationdb.linear.DoubleRealVector;
 import com.apple.foundationdb.linear.HalfRealVector;
 import com.apple.foundationdb.linear.Metric;
@@ -49,7 +47,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.ObjectArrays;
 import com.google.common.collect.Sets;
-import com.google.common.util.concurrent.AtomicDouble;
+import com.google.common.collect.Streams;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -75,7 +73,6 @@ import java.util.Objects;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.LongStream;
 import java.util.stream.Stream;
@@ -155,7 +152,7 @@ class OperationsTest implements BaseTest {
                     return randomCompactNode;
                 });
 
-        db.run(tr -> storageAdapter.fetchNode(tr, AffineOperator.identity(), 0,
+        db.run(tr -> storageAdapter.fetchNode(tr, StorageTransform.identity(), 0,
                         originalNode.getPrimaryKey())
                 .thenAccept(node ->
                         assertThat(node).satisfies(
@@ -204,7 +201,7 @@ class OperationsTest implements BaseTest {
                     return randomInliningNode;
                 });
 
-        db.run(tr -> storageAdapter.fetchNode(tr, AffineOperator.identity(), 1,
+        db.run(tr -> storageAdapter.fetchNode(tr, StorageTransform.identity(), 1,
                         originalNode.getPrimaryKey())
                 .thenAccept(node ->
                         assertThat(node).satisfies(
@@ -229,12 +226,18 @@ class OperationsTest implements BaseTest {
                 .isGreaterThan(0);
     }
 
-    static Stream<Arguments> randomSeedsWithConfig() {
+    @Nonnull
+    private static Stream<Arguments> differentConfigsAndMetrics() {
+        return Streams.concat(differentConfigs(), differentMetrics());
+    }
+
+    @Nonnull
+    private static Stream<Arguments> differentConfigs() {
         return RandomizedTestUtils.randomSeeds(0xdeadc0deL)
                 .flatMap(seed -> Sets.cartesianProduct(ImmutableSet.of(false, true),
                                 ImmutableSet.of(false, true),
                                 ImmutableSet.of(false, true),
-                                ImmutableSet.of(false, true)).stream()
+                                ImmutableSet.of(true, false)).stream()
                         .map(arguments -> Arguments.of(ObjectArrays.concat(seed,
                                 new Object[] {HNSW.newConfigBuilder()
                                         .setMetric(Metric.EUCLIDEAN_METRIC)
@@ -253,9 +256,32 @@ class OperationsTest implements BaseTest {
                                         .build(128)}))));
     }
 
+    @Nonnull
+    private static Stream<Arguments> differentMetrics() {
+        return RandomizedTestUtils.randomSeeds(0xdeadc0deL)
+                .flatMap(seed -> Sets.cartesianProduct(ImmutableSet.of(Metric.COSINE_METRIC,
+                                Metric.EUCLIDEAN_METRIC, Metric.EUCLIDEAN_SQUARE_METRIC)).stream()
+                        .map(arguments -> Arguments.of(ObjectArrays.concat(seed,
+                                new Object[] {HNSW.newConfigBuilder()
+                                        .setMetric(arguments.get(0))
+                                        .setUseInlining(false)
+                                        .setEfRepair(64)
+                                        .setExtendCandidates(false)
+                                        .setKeepPrunedConnections(false)
+                                        .setUseRaBitQ(true)
+                                        .setRaBitQNumExBits(5)
+                                        .setSampleVectorStatsProbability(1.0d)
+                                        .setMaintainStatsProbability(0.1d)
+                                        .setStatsThreshold(100)
+                                        .setM(16)
+                                        .setMMax(32)
+                                        .setMMax0(64)
+                                        .build(128)}))));
+    }
+
     @ExtendWith(TestHelpers.DumpLayersIfFailure.class)
     @ParameterizedTest
-    @MethodSource("randomSeedsWithConfig")
+    @MethodSource("differentConfigsAndMetrics")
     void testBasicInsert(final long seed, final Config config) {
         final Random random = new Random(seed);
         final int size = 1000;
@@ -297,7 +323,7 @@ class OperationsTest implements BaseTest {
         final long endTs = System.nanoTime();
 
         final ImmutableSet<Tuple> trueNN =
-                orderedByDistances(Metric.EUCLIDEAN_METRIC, insertedData, queryVector).stream()
+                orderedByDistances(config.getMetric(), insertedData, queryVector).stream()
                         .limit(k)
                         .map(PrimaryKeyVectorAndDistance::getPrimaryKey)
                         .collect(ImmutableSet.toImmutableSet());
@@ -336,7 +362,7 @@ class OperationsTest implements BaseTest {
 
     @ExtendWith(TestHelpers.DumpLayersIfFailure.class)
     @ParameterizedTest
-    @MethodSource("randomSeedsWithConfig")
+    @MethodSource("differentMetrics")
     void testBasicInsertRingSearch(final long seed, final Config config) {
         final Random random = new Random(seed);
         final Metric metric = config.getMetric();
@@ -386,7 +412,7 @@ class OperationsTest implements BaseTest {
     }
 
     @ParameterizedTest
-    @MethodSource("randomSeedsWithConfig")
+    @MethodSource("differentConfigsAndMetrics")
     void testBasicInsertDelete(final long seed, final Config config) {
         final Random random = new Random(seed);
         final int size = 1000;
@@ -438,7 +464,7 @@ class OperationsTest implements BaseTest {
             if (!remainingData.isEmpty()) {
                 final HalfRealVector queryVector = createRandomHalfVector(random, config.getNumDimensions());
                 final ImmutableSet<Tuple> trueNN =
-                        orderedByDistances(Metric.EUCLIDEAN_METRIC, remainingData, queryVector).stream()
+                        orderedByDistances(config.getMetric(), remainingData, queryVector).stream()
                                 .limit(k)
                                 .map(PrimaryKeyVectorAndDistance::getPrimaryKey)
                                 .collect(ImmutableSet.toImmutableSet());
@@ -566,7 +592,7 @@ class OperationsTest implements BaseTest {
     }
 
     @ParameterizedTest
-    @MethodSource("randomSeedsWithConfig")
+    @MethodSource("differentMetrics")
     void testOrderByDistance(final long seed, final Config config) {
         final Random random = new Random(seed);
         final int size = 1000;
@@ -583,34 +609,67 @@ class OperationsTest implements BaseTest {
                     (tr, nextId) -> insertedData.get(Math.toIntExact(nextId))).size();
         }
 
+        final int skip = 100;
         final HalfRealVector queryVector = createRandomHalfVector(random, config.getNumDimensions());
 
         final NavigableSet<PrimaryKeyVectorAndDistance> orderedByDistances =
-                TestHelpers.orderedByDistances(Metric.EUCLIDEAN_METRIC, insertedData, queryVector);
-        final PrimaryKeyVectorAndDistance discriminator = Iterables.get(orderedByDistances, 99);
-        System.out.println("discriminator distance:" + discriminator.getDistance() + "; primaryKey: " + discriminator.getPrimaryKey());
+                TestHelpers.orderedByDistances(config.getMetric(), insertedData, queryVector);
+        final PrimaryKeyVectorAndDistance discriminator = Iterables.get(orderedByDistances, skip - 1);
 
         onReadListener.reset();
 
-        final AtomicInteger numRecords = new AtomicInteger(0);
-        final AtomicDouble lastDistance = new AtomicDouble(discriminator.getDistance());
-        final AtomicInteger numInversions = new AtomicInteger(0);
-        db.run(tr -> {
-            final AsyncIterator<ResultEntry> it =
-                    hnsw.orderByDistance(tr, 100, 1000, false, queryVector,
-                            discriminator.getDistance(), discriminator.getPrimaryKey());
-            AsyncUtil.forEachRemaining(it,
-                    resultEntry -> {
-                        final double currentDistance = resultEntry.getDistance();
-                        numRecords.incrementAndGet();
-                        if (currentDistance < lastDistance.get()) {
-                            numInversions.incrementAndGet();
-                        }
-                        lastDistance.set(currentDistance);
-                    }).join();
-            return null;
-        });
-        System.out.println(numRecords.get() + " record(s).");
-        System.out.println(numInversions.get() + " inverted record(s).");
+        final List<ResultEntry> results =
+                db.run(tr -> {
+                    final AsyncIterator<ResultEntry> it =
+                            hnsw.orderByDistance(tr, 100, 1000, false,
+                                    queryVector, discriminator.getDistance(), discriminator.getPrimaryKey());
+                    final ImmutableList.Builder<ResultEntry> resultsBuilder = ImmutableList.builder();
+                    while (it.hasNext()) {
+                        resultsBuilder.add(it.next());
+                    }
+                    return resultsBuilder.build();
+                });
+
+        int numInversions = 0;
+        for (int i = 1; i < results.size(); i++) {
+            final ResultEntry previous = results.get(i - 1);
+            final ResultEntry current = results.get(i);
+
+            if (previous.getDistance() > current.getDistance()) {
+                numInversions++;
+            }
+        }
+
+        if (logger.isInfoEnabled()) {
+            logger.info("total={}; inverted={}", results.size(), numInversions);
+            assertThat(results).hasSizeBetween(size - skip - 5, size - skip);
+            assertThat(numInversions).isLessThan(10);
+        }
+
+        final List<Tuple> groundTruth =
+                orderedByDistances.stream()
+                        .map(PrimaryKeyAndVector::getPrimaryKey)
+                        .collect(ImmutableList.toImmutableList());
+
+        final ImmutableSet<Tuple> groundTruthExpected =
+                groundTruth.stream()
+                        .skip(100)
+                        .collect(ImmutableSet.toImmutableSet());
+
+        final ImmutableSet<Tuple> resultIds =
+                results.stream()
+                        .map(ResultEntry::getPrimaryKey)
+                        .collect(ImmutableSet.toImmutableSet());
+
+        final Set<Tuple> commonIds = Sets.intersection(groundTruthExpected, resultIds);
+        final int recallCount = commonIds.size();
+        final double recall = (double)recallCount / groundTruthExpected.size();
+        assertThat(recall).isGreaterThan(0.9d);
+
+        assertThat(OrderQuality.score(ImmutableList.copyOf(resultIds),
+                groundTruth, skip, 50))
+                .satisfies(
+                        quality -> assertThat(quality.getQuality()).isGreaterThan(0.9),
+                        quality -> assertThat(quality.getContigScore()).isGreaterThan(0.9));
     }
 }
