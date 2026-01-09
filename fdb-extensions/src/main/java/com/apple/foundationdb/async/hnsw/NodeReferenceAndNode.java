@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.async.hnsw;
 
+import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
@@ -84,10 +85,25 @@ class NodeReferenceAndNode<T extends NodeReference, N extends NodeReference> {
      * @return a {@link List} of {@link NodeReferenceAndNode}s
      */
     @Nonnull
-    public static <T extends NodeReferenceWithVector> List<T> getReferences(@Nonnull List<? extends NodeReferenceAndNode<T, ?>> referencesAndNodes) {
+    public static <T extends NodeReferenceWithVector> List<T> references(@Nonnull List<? extends NodeReferenceAndNode<T, ?>> referencesAndNodes) {
         final ImmutableList.Builder<T> referencesBuilder = ImmutableList.builder();
         for (final NodeReferenceAndNode<T, ?> referenceWithNode : referencesAndNodes) {
             referencesBuilder.add(referenceWithNode.getNodeReference());
+        }
+        return referencesBuilder.build();
+    }
+
+    /**
+     * Helper to extract the references from a given collection of objects of this container class.
+     * @param referencesAndNodes an iterable of {@link NodeReferenceAndNode} objects from which to extract the
+     *        primary keys.
+     * @return a {@link List} of {@link Tuple}s
+     */
+    @Nonnull
+    public static List<Tuple> primaryKeys(@Nonnull List<? extends NodeReferenceAndNode<?, ?>> referencesAndNodes) {
+        final ImmutableList.Builder<Tuple> referencesBuilder = ImmutableList.builder();
+        for (final NodeReferenceAndNode<?, ?> referenceWithNode : referencesAndNodes) {
+            referencesBuilder.add(referenceWithNode.getNodeReference().getPrimaryKey());
         }
         return referencesBuilder.build();
     }
