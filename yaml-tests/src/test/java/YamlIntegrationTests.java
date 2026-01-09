@@ -308,6 +308,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void temporaryFunctionsTest(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("temporary-functions.yamsql");
+    }
+
+    @TestTemplate
     public void transactionalCallsTest(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("transactions-tests.yamsql");
     }

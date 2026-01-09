@@ -226,7 +226,7 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
 
     @Nonnull
     public LogicalOperator resolveTableValuedFunction(@Nonnull Identifier functionName, @Nonnull Expressions arguments) {
-        return getSemanticAnalyzer().resolveTableFunction(functionName, arguments, true);
+        return getSemanticAnalyzer().resolveTableFunction(functionName, Optional.empty(), arguments, true);
     }
 
     @Override
