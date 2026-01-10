@@ -21,12 +21,13 @@
 package com.apple.foundationdb.record.query.plan.cascades.debug;
 
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
-import com.apple.foundationdb.record.query.combinatorics.TopologicalSort;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.PlanContext;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
-import com.apple.foundationdb.record.query.plan.cascades.debug.eventprotos.PEvent;
+import com.apple.foundationdb.record.query.plan.cascades.events.eventprotos.PPlannerEvent;
+import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEvent;
+import com.apple.foundationdb.record.query.plan.cascades.events.TransformRuleCallPlannerEvent;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.google.common.base.Verify;
 import com.google.common.cache.Cache;
@@ -53,15 +54,15 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Consumer;
 import java.util.function.IntUnaryOperator;
 import java.util.stream.Collectors;
 
-import static com.apple.foundationdb.record.query.plan.cascades.properties.ReferencesAndDependenciesProperty.referencesAndDependencies;
-
 /**
+ * <p>
  * Implementation of a debugger that maintains symbol tables for easier human consumption e.g. in test cases and/or
  * while debugging.
+ * </p>
+ * <b>Instances of this debugger should only be enabled in test cases, never in deployments</b>.
  */
 @SuppressWarnings("PMD.SystemPrintln")
 public class DebuggerWithSymbolTables implements Debugger {
@@ -69,8 +70,9 @@ public class DebuggerWithSymbolTables implements Debugger {
 
     private final boolean isSane;
     private final boolean isRecordEvents;
-    private final Iterable<PEvent> prerecordedEventProtoIterable;
+    private final Iterable<PPlannerEvent> prerecordedEventProtoIterable;
     private final Deque<State> stateStack;
+
     @Nullable
     private String queryAsString;
     @Nullable
@@ -164,21 +166,16 @@ public class DebuggerWithSymbolTables implements Debugger {
         logQuery();
     }
 
-    void restartState() {
-        stateStack.pop();
-        stateStack.push(State.copyOf(getCurrentState()));
-    }
-
     @Override
     @SuppressWarnings("PMD.GuardLogStatement") // false positive
-    public void onEvent(final Event event) {
+    public void onEvent(final PlannerEvent plannerEvent) {
         if ((queryAsString == null) || (planContext == null) || stateStack.isEmpty()) {
             return;
         }
-        getCurrentState().addCurrentEvent(event);
+        getCurrentState().addCurrentEvent(plannerEvent);
         if (logger.isTraceEnabled()) {
-            if (event.getLocation() == Location.END && event instanceof TransformRuleCallEvent) {
-                final TransformRuleCallEvent transformRuleCallEvent = (TransformRuleCallEvent)event;
+            if (plannerEvent.getLocation() == PlannerEvent.Location.END && plannerEvent instanceof TransformRuleCallPlannerEvent) {
+                final TransformRuleCallPlannerEvent transformRuleCallEvent = (TransformRuleCallPlannerEvent)plannerEvent;
                 final CascadesRuleCall ruleCall = transformRuleCallEvent.getRuleCall();
                 final var newExpressions =
                         Iterables.concat(ruleCall.getNewFinalExpressions(), ruleCall.getNewExploratoryExpressions());
@@ -277,7 +274,7 @@ public class DebuggerWithSymbolTables implements Debugger {
         reset();
     }
 
-    private static void writeEventsDelimitedToFile(final List<PEvent> eventProtos) {
+    private static void writeEventsDelimitedToFile(final List<PPlannerEvent> eventProtos) {
         try {
             final var tempFile = File.createTempFile("events-", ".bin");
             try (var fos = new FileOutputStream(tempFile)) {
@@ -291,13 +288,13 @@ public class DebuggerWithSymbolTables implements Debugger {
     }
 
     @Nonnull
-    private static Iterable<PEvent> eventProtosFromFile(@Nonnull final String fileName) {
+    private static Iterable<PPlannerEvent> eventProtosFromFile(@Nonnull final String fileName) {
         return () -> readEventsDelimitedFromFile(fileName);
     }
 
     @SuppressWarnings({"resource", "PMD.CloseResource"})
     @Nonnull
-    private static Iterator<PEvent> readEventsDelimitedFromFile(@Nonnull final String fileName) {
+    private static Iterator<PPlannerEvent> readEventsDelimitedFromFile(@Nonnull final String fileName) {
         final var file = new File(fileName);
         final FileInputStream fis;
         try {
@@ -308,9 +305,9 @@ public class DebuggerWithSymbolTables implements Debugger {
         return new AbstractIterator<>() {
             @Nullable
             @Override
-            protected PEvent computeNext() {
+            protected PPlannerEvent computeNext() {
                 try {
-                    final var event = PEvent.parseDelimitedFrom(fis);
+                    final var event = PPlannerEvent.parseDelimitedFrom(fis);
                     if (event == null) {
                         fis.close();
                         return endOfData();
@@ -323,28 +320,10 @@ public class DebuggerWithSymbolTables implements Debugger {
         };
     }
 
-    @Override
-    public String showStats() {
-        State currentState = stateStack.peek();
-        if (currentState != null) {
-            return currentState.showStats();
-        }
-        return "no stats";
-    }
-
-    @Nonnull
-    @Override
-    public Optional<StatsMaps> getStatsMaps() {
-        State currentState = stateStack.peek();
-        if (currentState != null) {
-            return Optional.of(currentState.getStatsMaps());
-        }
-        return Optional.empty();
-    }
-
     private void reset() {
         this.stateStack.clear();
         this.stateStack.push(State.initial(isRecordEvents, isRecordEvents, prerecordedEventProtoIterable));
+
         this.planContext = null;
         this.queryAsString = null;
     }
@@ -383,35 +362,12 @@ public class DebuggerWithSymbolTables implements Debugger {
 
     @Nonnull
     public static DebuggerWithSymbolTables withEventRecording() {
-        return new DebuggerWithSymbolTables(true, false, null);
-    }
-
-    @Nonnull
-    public static DebuggerWithSymbolTables withRerecordEvents() {
         return new DebuggerWithSymbolTables(true, true, null);
     }
 
     @Nonnull
     public static DebuggerWithSymbolTables withPrerecordedEvents(@Nonnull final String fileName) {
         return new DebuggerWithSymbolTables(true, true, fileName);
-    }
-
-    public static void printForEachExpression(@Nonnull final Reference root) {
-        forEachExpression(root, expression -> {
-            System.out.println("expression: " +
-                    Debugger.mapDebugger(debugger -> debugger.nameForObject(expression)).orElseThrow() + "; " +
-                    "hashCodeWithoutChildren: " + expression.hashCodeWithoutChildren() + "explain: " + expression);
-        });
-    }
-
-    public static void forEachExpression(@Nonnull final Reference root, @Nonnull final Consumer<RelationalExpression> consumer) {
-        final var references = referencesAndDependencies().evaluate(root);
-        final var referenceList = TopologicalSort.anyTopologicalOrderPermutation(references).orElseThrow();
-        for (final var reference : referenceList) {
-            for (final var member : reference.getAllMemberExpressions()) {
-                consumer.accept(member);
-            }
-        }
     }
 
     @FunctionalInterface

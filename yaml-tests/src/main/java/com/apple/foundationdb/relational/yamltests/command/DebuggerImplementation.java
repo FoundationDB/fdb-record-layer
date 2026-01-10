@@ -33,6 +33,7 @@ import java.util.function.Function;
 public enum DebuggerImplementation {
     INSANE(context -> DebuggerWithSymbolTables.withSanityChecks()),
     SANE(context -> DebuggerWithSymbolTables.withoutSanityChecks()),
+    RECORDING(context -> DebuggerWithSymbolTables.withEventRecording()),
     REPL(context -> {
         if (context.isNightly()) {
             throw new UnsupportedOperationException("somebody checked in a test with a debugger option");
