@@ -26,6 +26,7 @@ import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.continuation.CompiledStatement;
 import com.apple.foundationdb.relational.continuation.ContinuationProto;
 
+import com.apple.foundationdb.relational.continuation.CopyPlan;
 import com.google.protobuf.ByteString;
 
 import javax.annotation.Nonnull;
@@ -69,6 +70,12 @@ public class ContinuationBuilder {
     @Nonnull
     public ContinuationBuilder withCompiledStatement(@Nonnull final CompiledStatement compiledStatementProto) {
         proto.setCompiledStatement(compiledStatementProto);
+        return this;
+    }
+
+    @Nonnull
+    public ContinuationBuilder withCopyPlan(@Nonnull final CopyPlan copyPlan) {
+        proto.setCopyPlan(copyPlan);
         return this;
     }
 
