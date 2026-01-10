@@ -27,8 +27,10 @@ import com.apple.foundationdb.record.TestRecords3Proto;
 import com.apple.foundationdb.record.TestRecords4Proto;
 import com.apple.foundationdb.record.TestRecords4WrapperProto;
 import com.apple.foundationdb.record.TestRecordsUuidProto;
+import com.apple.foundationdb.record.TestRecordsWithHeaderProto;
 import com.apple.foundationdb.record.TupleFieldsProto;
 import com.apple.foundationdb.record.TypeTestProto;
+import com.apple.foundationdb.record.evolution.TestHeaderAsGroupProto;
 import com.apple.foundationdb.record.planprotos.PType;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
@@ -316,6 +318,105 @@ class TypeTest {
         Assertions.assertEquals(expectedType, typeFromObject);
     }
 
+    @Test
+    void normalizeFieldRetainsNumbersIfSet() {
+        final List<Type.Record.Field> originalFields = List.of(
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("a")), // 1
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("b")), // 2
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("c"), Optional.of(100)),
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("d")), // 4
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("e"), Optional.of(6)),
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("f")), // would be 6, but taken, so given 7
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("g"), Optional.of(8)),
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("h")), // 9
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("i")), // would be, but 10 and 11 are both taken (ahead), so given 12
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("j"), Optional.of(10)),
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("k"), Optional.of(11))
+        );
+
+        final List<Type.Record.Field> numberedFields = List.of(
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("a"), Optional.of(1)),
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("b"), Optional.of(2)),
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("c"), Optional.of(100)),
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("d"), Optional.of(4)),
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("e"), Optional.of(6)),
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("f"), Optional.of(7)),
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("g"), Optional.of(8)),
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("h"), Optional.of(9)),
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("i"), Optional.of(12)),
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("j"), Optional.of(10)),
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("k"), Optional.of(11))
+        );
+
+        // Double check that the numbered fields all have the same number as the original (if set)
+        for (int i = 0; i < originalFields.size(); i++) {
+            final Optional<Integer> originalIndex = originalFields.get(i).getFieldIndexOptional();
+            if (originalIndex.isPresent()) {
+                assertThat(numberedFields.get(i).getFieldIndexOptional())
+                        .isEqualTo(originalIndex);
+            }
+        }
+
+        assertNormalizedFieldsHaveNumbers(originalFields, numberedFields);
+    }
+
+    @Test
+    void normalizeRemovesDuplicateFieldIndexes() {
+        final List<Type.Record.Field> originalFields = List.of(
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("a")), // 1
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("b")), // 2
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("c"), Optional.of(10)),
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("d")), // 4
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("e"), Optional.of(6)),
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("f")), // would be 6, but taken, so would be given 7
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("g"), Optional.of(6)) // dupe!
+        );
+        final List<Type.Record.Field> numberedFields = List.of(
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("a"), Optional.of(1)),
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("b"), Optional.of(2)),
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("c"), Optional.of(3)),
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("d"), Optional.of(4)),
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("e"), Optional.of(5)),
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("f"), Optional.of(6)),
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("g"), Optional.of(7))
+        );
+
+        assertNormalizedFieldsHaveNumbers(originalFields, numberedFields);
+    }
+
+    private void assertNormalizedFieldsHaveNumbers(@Nonnull List<Type.Record.Field> originalFields, @Nonnull List<Type.Record.Field> numberedFields) {
+        try (AutoCloseableSoftAssertions softly = new AutoCloseableSoftAssertions()) {
+            final Type.Record fromOriginal = Type.Record.fromFields(originalFields);
+            final Type.Record fromNumbered = Type.Record.fromFields(numberedFields);
+            softly.assertThat(fromOriginal)
+                    .isEqualTo(fromNumbered)
+                    .hasSameHashCodeAs(fromNumbered);
+
+            final Type.Record withPseudoFields = fromOriginal.addPseudoFields();
+            softly.assertThat(fromOriginal)
+                    .isNotEqualTo(withPseudoFields)
+                    .doesNotHaveSameHashCodeAs(withPseudoFields);
+
+            // All the field indexes should match the indexes in the numbered list.
+            for (int i = 0; i < fromOriginal.getFields().size(); i++) {
+                final Type.Record.Field fromOriginalField = fromOriginal.getField(i);
+                final Optional<Integer> expectedIndex = numberedFields.get(i).getFieldIndexOptional();
+                softly.assertThat(fromOriginalField.getFieldIndexOptional())
+                        .isEqualTo(expectedIndex)
+                        .isEqualTo(fromNumbered.getField(i).getFieldIndexOptional())
+                        .isEqualTo(withPseudoFields.getField(i).getFieldIndexOptional());
+            }
+
+            // Double check that there are not duplicate indexes assigned to different fields
+            softly.assertThat(fromOriginal.getFields().stream().map(Type.Record.Field::getFieldIndex).collect(Collectors.toList()))
+                    .doesNotHaveDuplicates();
+            softly.assertThat(fromNumbered.getFields().stream().map(Type.Record.Field::getFieldIndex).collect(Collectors.toList()))
+                    .doesNotHaveDuplicates();
+            softly.assertThat(withPseudoFields.getFields().stream().map(Type.Record.Field::getFieldIndex).collect(Collectors.toList()))
+                    .doesNotHaveDuplicates();
+        }
+    }
+
     @Nonnull
     static Stream<Type.Enum> enumTypes() {
         return Stream.of(
@@ -562,6 +663,28 @@ class TypeTest {
         final Type.Enum fromProto = Type.Enum.fromDescriptor(enumType.isNullable(), enumDescriptor);
         assertThat(fromProto)
                 .isEqualTo(enumType);
+    }
+
+    @Test
+    void translatesGroupTypeAsRecord() {
+        final Type.Record fromGroup = Type.Record.fromDescriptor(TestHeaderAsGroupProto.MyRecord.getDescriptor());
+        final Type.Record fromNested = Type.Record.fromDescriptor(TestRecordsWithHeaderProto.MyRecord.getDescriptor());
+
+        assertThat(fromGroup)
+                .isEqualTo(fromNested)
+                .hasSameHashCodeAs(fromNested);
+
+        final Type.Record headerType = Type.Record.fromFields(false, ImmutableList.of(
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG, false), Optional.of("rec_no")),
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING, false), Optional.of("path")),
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT, true), Optional.of("num"))
+        ));
+
+        assertThat(fromGroup.getFieldNameFieldMap())
+                .hasEntrySatisfying("header", field ->
+                        assertThat(field.getFieldType())
+                                .isEqualTo(headerType)
+                                .hasSameHashCodeAs(headerType));
     }
 
     @ParameterizedTest(name = "enumEqualsIgnoresName[{0}]")

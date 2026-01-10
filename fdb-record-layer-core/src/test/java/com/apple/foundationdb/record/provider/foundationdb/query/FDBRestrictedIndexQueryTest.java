@@ -605,7 +605,7 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
         // TODO: Issue https://github.com/FoundationDB/fdb-record-layer/issues/1074
         // assertEquals(-1366919407, plan1.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         } else {
-            assertEquals(1167696604, plan1.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(1167696666, plan1.planHash(PlanHashable.CURRENT_LEGACY));
         }
 
         RecordQuery query2 = RecordQuery.newBuilder()

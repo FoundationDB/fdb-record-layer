@@ -1,27 +1,27 @@
 €
 ô
 	all-testsãEXPLAIN select t.id from "foo.table$nested.repeated" as t where exists (select * from t."level0.field1" as x where x."level1$field.3" = 20)º
-õ√ˇ®bÀ Ü¥÷K(50Æ“©8E@sCOVERING(foo.table$nested.repeated.idx.field.1.3 [EQUALS promote(@c25 AS LONG)] -> [ID: KEY[2]]) | MAP (_.ID AS ID)ßdigraph G {
+ê’ÆÈ  áŒÙ	(50Ã›M8D@tCOVERING(foo.table$nested.repeated.idx.field.1.3 [EQUALS promote(@c25 AS LONG)] -> [ID: KEY:[2]]) | MAP (_.ID AS ID)ßdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q110.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q108.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c25 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, ARRAY(ARRAY(LONG AS level2$array.field.1, LONG AS level2$field.2) AS level1$field.1, LONG AS level2$field.1, LONG AS level2$field.2 AS level1$field.2, LONG AS level1$field.3) AS level0.field1)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">foo.table$nested.repeated.idx.field.1.3</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, ARRAY(ARRAY(LONG AS level2$array.field.1, LONG AS level2$field.2) AS level1$field.1, LONG AS level2$field.1, LONG AS level2$field.2 AS level1$field.2, LONG AS level1$field.3) AS level0.field1)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q110> label="q110" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q108> label="q108" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
 }
 ™
 	all-testsúEXPLAIN select t.id from "foo.table$nested.repeated" as t where exists (select * from t."level0.field1" as x where x."level1$field.2"."level2$field.1" = 91)¿
-õ»Î´À Üã∞	(50¬÷É8E@uCOVERING(foo.table$nested.repeated.idx.field.1.2.1 [EQUALS promote(@c27 AS LONG)] -> [ID: KEY[2]]) | MAP (_.ID AS ID)©digraph G {
+êçîü  ≠Ÿˇ(50Ï¡|8D@vCOVERING(foo.table$nested.repeated.idx.field.1.2.1 [EQUALS promote(@c27 AS LONG)] -> [ID: KEY:[2]]) | MAP (_.ID AS ID)©digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q110.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q108.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c27 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, ARRAY(ARRAY(LONG AS level2$array.field.1, LONG AS level2$field.2) AS level1$field.1, LONG AS level2$field.1, LONG AS level2$field.2 AS level1$field.2, LONG AS level1$field.3) AS level0.field1)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">foo.table$nested.repeated.idx.field.1.2.1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, ARRAY(ARRAY(LONG AS level2$array.field.1, LONG AS level2$field.2) AS level1$field.1, LONG AS level2$field.1, LONG AS level2$field.2 AS level1$field.2, LONG AS level1$field.3) AS level0.field1)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q110> label="q110" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q108> label="q108" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
 }˜
 ±
 	all-tests£EXPLAIN select t.id from "foo.table$nested.repeated" as t where exists (select * from t."level0.field1" as b, b."level1$field.1" where "level2$array.field.1" = 10)¿
@@ -105,43 +105,40 @@ i
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">foo.table$repeated.1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, ARRAY(LONG) AS field.0$array, ARRAY(STRING) AS field.1$array)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}¿
+}è
 =
-	all-tests0EXPLAIN select "foo.tableA".* from "foo.tableA";˛
-πﬂÔµ
-j äæ°(10˜;8-@ﬁCOVERING(foo.tableA.idx <,> -> [foo__2tableA__2A1: KEY[0], foo__2tableA__2A2: KEY[1], foo__2tableA__2A3: KEY[2]]) | MAP (_.foo.tableA.A1 AS foo.tableA.A1, _.foo.tableA.A2 AS foo.tableA.A2, _.foo.tableA.A3 AS foo.tableA.A3)ˇdigraph G {
+	all-tests0EXPLAIN select "foo.tableA".* from "foo.tableA";Õ
+…ïÜı+U ÂÉƒ#()0◊±à8@
+ISCAN(foo.tableA.idx3 <,>)ídigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q66.foo.tableA.A1 AS foo.tableA.A1, q66.foo.tableA.A2 AS foo.tableA.A2, q66.foo.tableA.A3 AS foo.tableA.A3)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS foo.tableA.A1, LONG AS foo.tableA.A2, LONG AS foo.tableA.A3)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS foo.tableA.A1, LONG AS foo.tableA.A2, LONG AS foo.tableA.A3)" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">foo.tableA.idx</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS foo.tableA.A1, LONG AS foo.tableA.A2, LONG AS foo.tableA.A3)" ];
-  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q66> label="q66" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}≥
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS foo.tableA.A1, LONG AS foo.tableA.A2, LONG AS foo.tableA.A3)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">foo.tableA.idx3</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS foo.tableA.A1, LONG AS foo.tableA.A2, LONG AS foo.tableA.A3)" ];
+  2 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}Å
 0
-	all-tests#EXPLAIN select * from "foo.tableA";˛
-π…√Ï	j …¸ˆ(10Ëß@8-@ﬁCOVERING(foo.tableA.idx <,> -> [foo__2tableA__2A1: KEY[0], foo__2tableA__2A2: KEY[1], foo__2tableA__2A3: KEY[2]]) | MAP (_.foo.tableA.A1 AS foo.tableA.A1, _.foo.tableA.A2 AS foo.tableA.A2, _.foo.tableA.A3 AS foo.tableA.A3)ˇdigraph G {
+	all-tests#EXPLAIN select * from "foo.tableA";Ã
+…ùÁ¢
+U ·Ù“()0–ñh8@
+ISCAN(foo.tableA.idx3 <,>)ídigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q66.foo.tableA.A1 AS foo.tableA.A1, q66.foo.tableA.A2 AS foo.tableA.A2, q66.foo.tableA.A3 AS foo.tableA.A3)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS foo.tableA.A1, LONG AS foo.tableA.A2, LONG AS foo.tableA.A3)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS foo.tableA.A1, LONG AS foo.tableA.A2, LONG AS foo.tableA.A3)" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">foo.tableA.idx</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS foo.tableA.A1, LONG AS foo.tableA.A2, LONG AS foo.tableA.A3)" ];
-  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q66> label="q66" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}ƒ
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS foo.tableA.A1, LONG AS foo.tableA.A2, LONG AS foo.tableA.A3)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">foo.tableA.idx3</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS foo.tableA.A1, LONG AS foo.tableA.A2, LONG AS foo.tableA.A3)" ];
+  2 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}í
 A
-	all-tests4EXPLAIN select "_$$$".* from "foo.tableA" as "_$$$";˛
-πàùÉj ôƒ¸(10à‡28-@ﬁCOVERING(foo.tableA.idx <,> -> [foo__2tableA__2A1: KEY[0], foo__2tableA__2A2: KEY[1], foo__2tableA__2A3: KEY[2]]) | MAP (_.foo.tableA.A1 AS foo.tableA.A1, _.foo.tableA.A2 AS foo.tableA.A2, _.foo.tableA.A3 AS foo.tableA.A3)ˇdigraph G {
+	all-tests4EXPLAIN select "_$$$".* from "foo.tableA" as "_$$$";Ã
+…ãı€U ù˝Ø()0„¡ 8@
+ISCAN(foo.tableA.idx3 <,>)ídigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q66.foo.tableA.A1 AS foo.tableA.A1, q66.foo.tableA.A2 AS foo.tableA.A2, q66.foo.tableA.A3 AS foo.tableA.A3)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS foo.tableA.A1, LONG AS foo.tableA.A2, LONG AS foo.tableA.A3)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS foo.tableA.A1, LONG AS foo.tableA.A2, LONG AS foo.tableA.A3)" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">foo.tableA.idx</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS foo.tableA.A1, LONG AS foo.tableA.A2, LONG AS foo.tableA.A3)" ];
-  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q66> label="q66" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS foo.tableA.A1, LONG AS foo.tableA.A2, LONG AS foo.tableA.A3)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">foo.tableA.idx3</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS foo.tableA.A1, LONG AS foo.tableA.A2, LONG AS foo.tableA.A3)" ];
+  2 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
 }ë
 m
 	all-tests`EXPLAIN select "foo.tableA.A2", sum("foo.tableA.A1") from "foo.tableA" group by "foo.tableA.A2";ü
@@ -189,32 +186,30 @@ m
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">foo$tableC$idx2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS foo$tableC$C1, LONG AS foo$tableC$C2, LONG AS foo$tableC$C3)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}ë
+}™
 C
-	all-tests6EXPLAIN select "__foo__tableD".* from "__foo__tableD";…
-Ã‘ß¡P …⁄œ(#0ûÏ8 @˘COVERING(__foo__tableD$idx <,> -> [__foo__0tableD__1D1: KEY[0], __foo__0tableD__1D2: KEY[1], __foo__0tableD__1D3: KEY[2]]) | MAP (_.__foo__tableD$D1 AS __foo__tableD$D1, _.__foo__tableD$D2 AS __foo__tableD$D2, _.__foo__tableD$D3 AS __foo__tableD$D3)Ødigraph G {
+	all-tests6EXPLAIN select "__foo__tableD".* from "__foo__tableD";‚
+¯ﬁ‹øA ∞ñﬁ(0Ö≈)8@ISCAN(__foo__tableD$idx <,>)¶digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q51.__foo__tableD$D1 AS __foo__tableD$D1, q51.__foo__tableD$D2 AS __foo__tableD$D2, q51.__foo__tableD$D3 AS __foo__tableD$D3)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS __foo__tableD$D1, LONG AS __foo__tableD$D2, LONG AS __foo__tableD$D3)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS __foo__tableD$D1, LONG AS __foo__tableD$D2, LONG AS __foo__tableD$D3)" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">__foo__tableD$idx</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS __foo__tableD$D1, LONG AS __foo__tableD$D2, LONG AS __foo__tableD$D3)" ];
-  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q51> label="q51" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}º
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS __foo__tableD$D1, LONG AS __foo__tableD$D2, LONG AS __foo__tableD$D3)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">__foo__tableD$idx</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS __foo__tableD$D1, LONG AS __foo__tableD$D2, LONG AS __foo__tableD$D3)" ];
+  2 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}§
 a
-	all-testsTEXPLAIN select "__foo__tableD".* from "__foo__tableD" where "__foo__tableD$D3" >= 2;÷
- ó£œc Úºë('0óø80@¬COVERING(__foo__tableD$idx <,> -> [__foo__0tableD__1D1: KEY[0], __foo__0tableD__1D2: KEY[1], __foo__0tableD__1D3: KEY[2]]) | FILTER _.__foo__tableD$D3 GREATER_THAN_OR_EQUALS promote(@c11 AS LONG) | MAP (_.__foo__tableD$D1 AS __foo__tableD$D1, _.__foo__tableD$D2 AS __foo__tableD$D2, _.__foo__tableD$D3 AS __foo__tableD$D3)Ûdigraph G {
+	all-testsTEXPLAIN select "__foo__tableD".* from "__foo__tableD" where "__foo__tableD$D3" >= 2;æ
+⁄óÚ‡S ñÜﬁ(!0ï∑>8&@ŒCOVERING(__foo__tableD$idx <,> -> [__foo__0tableD__1D1: KEY:[0], __foo__0tableD__1D2: KEY:[1], __foo__0tableD__1D3: KEY:[2]]) | FILTER _.__foo__tableD$D3 GREATER_THAN_OR_EQUALS promote(@c11 AS LONG) | FETCHœdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q59.__foo__tableD$D1 AS __foo__tableD$D1, q59.__foo__tableD$D2 AS __foo__tableD$D2, q59.__foo__tableD$D3 AS __foo__tableD$D3)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS __foo__tableD$D1, LONG AS __foo__tableD$D2, LONG AS __foo__tableD$D3)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q55.__foo__tableD$D3 GREATER_THAN_OR_EQUALS promote(@c11 AS LONG)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS __foo__tableD$D1, LONG AS __foo__tableD$D2, LONG AS __foo__tableD$D3)" ];
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Fetch Records</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS __foo__tableD$D1, LONG AS __foo__tableD$D2, LONG AS __foo__tableD$D3)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q51.__foo__tableD$D3 GREATER_THAN_OR_EQUALS promote(@c11 AS LONG)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS __foo__tableD$D1, LONG AS __foo__tableD$D2, LONG AS __foo__tableD$D3)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS __foo__tableD$D1, LONG AS __foo__tableD$D2, LONG AS __foo__tableD$D3)" ];
   4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">__foo__tableD$idx</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS __foo__tableD$D1, LONG AS __foo__tableD$D2, LONG AS __foo__tableD$D3)" ];
-  3 -> 2 [ label=<&nbsp;q55> label="q55" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  3 -> 2 [ label=<&nbsp;q51> label="q51" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q59> label="q59" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q53> label="q53" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
 } 
 T
 	all-testsGEXPLAIN select "__foo__tableD"."__foo__tableD$D1" from "__foo__tableD";Ò
@@ -239,20 +234,20 @@ D
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">__foo__tableD$idx</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS __foo__tableD$D1, LONG AS __foo__tableD$D2, LONG AS __foo__tableD$D3)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q51> label="q51" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}ÿ
+}¿
 }
-	all-testspEXPLAIN select "__foo__tableD".* from "__foo__tableD" where "__foo__tableD$D3" >= 2 order by "__foo__tableD$D1";÷
-„∑¡´R ∞˘⁄(!0Òè8#@¬COVERING(__foo__tableD$idx <,> -> [__foo__0tableD__1D1: KEY[0], __foo__0tableD__1D2: KEY[1], __foo__0tableD__1D3: KEY[2]]) | FILTER _.__foo__tableD$D3 GREATER_THAN_OR_EQUALS promote(@c11 AS LONG) | MAP (_.__foo__tableD$D1 AS __foo__tableD$D1, _.__foo__tableD$D2 AS __foo__tableD$D2, _.__foo__tableD$D3 AS __foo__tableD$D3)Ûdigraph G {
+	all-testspEXPLAIN select "__foo__tableD".* from "__foo__tableD" where "__foo__tableD$D3" >= 2 order by "__foo__tableD$D1";æ
+í‹ñ‘F ËÈ“(0©ﬂ!8@ŒCOVERING(__foo__tableD$idx <,> -> [__foo__0tableD__1D1: KEY:[0], __foo__0tableD__1D2: KEY:[1], __foo__0tableD__1D3: KEY:[2]]) | FILTER _.__foo__tableD$D3 GREATER_THAN_OR_EQUALS promote(@c11 AS LONG) | FETCHœdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q48.__foo__tableD$D1 AS __foo__tableD$D1, q48.__foo__tableD$D2 AS __foo__tableD$D2, q48.__foo__tableD$D3 AS __foo__tableD$D3)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS __foo__tableD$D1, LONG AS __foo__tableD$D2, LONG AS __foo__tableD$D3)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q44.__foo__tableD$D3 GREATER_THAN_OR_EQUALS promote(@c11 AS LONG)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS __foo__tableD$D1, LONG AS __foo__tableD$D2, LONG AS __foo__tableD$D3)" ];
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Fetch Records</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS __foo__tableD$D1, LONG AS __foo__tableD$D2, LONG AS __foo__tableD$D3)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q42.__foo__tableD$D3 GREATER_THAN_OR_EQUALS promote(@c11 AS LONG)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS __foo__tableD$D1, LONG AS __foo__tableD$D2, LONG AS __foo__tableD$D3)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS __foo__tableD$D1, LONG AS __foo__tableD$D2, LONG AS __foo__tableD$D3)" ];
   4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">__foo__tableD$idx</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS __foo__tableD$D1, LONG AS __foo__tableD$D2, LONG AS __foo__tableD$D3)" ];
-  3 -> 2 [ label=<&nbsp;q44> label="q44" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  3 -> 2 [ label=<&nbsp;q42> label="q42" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q48> label="q48" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q44> label="q44" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
 } 
 ó
 	all-testsâEXPLAIN select "Œ≤ŒÆœÑŒ±__f"("f__e"."foo.tableE.E3") AS "___h.1" from "foo.tableE" as "f__e" where "alpha__f"("f__e"."foo.tableE.E3") = 5≠
@@ -363,70 +358,62 @@ D
   4 -> 3 [ label=<&nbsp;q47> label="q47" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q54> label="q54" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}ß
+}Ã
 0
-	all-tests#EXPLAIN select * from "$yay__view";Ú
-¬éñ¿R ·≈ù(0√á8@ÇSCAN(<,>) | TFILTER foo__2tableE | FILTER _.foo.tableE.E3.S1 EQUALS 4 | MAP (_.foo.tableE.E1 AS _$x.id) | MAP (_._$x.id AS _$x.id)œdigraph G {
+	all-tests#EXPLAIN select * from "$yay__view";ó
+¬ÿÑ˚R ⁄◊(0Í÷98@gSCAN(<,>) | TFILTER foo__2tableE | FILTER _.foo.tableE.E3.S1 EQUALS 4 | MAP (_.foo.tableE.E1 AS _$x.id)êdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._$x.id AS _$x.id)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _$x.id)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q32.foo.tableE.E1 AS _$x.id)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _$x.id)" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.foo.tableE.E3.S1 EQUALS 4</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS foo.tableE.E1, ARRAY(LONG) AS foo.tableE.E2, LONG AS S1, LONG AS S2 AS foo.tableE.E3)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Type Filter</td></tr><tr><td align="left">WHERE record IS [foo__2tableE]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS foo.tableE.E1, ARRAY(LONG) AS foo.tableE.E2, LONG AS S1, LONG AS S2 AS foo.tableE.E3)" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
-  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [foo__2tableA, foo__1tableC, foo__2table__1nested, foo__2table__1nested__2repeated, my__1adjacency__1list, foo__2enum__2type, foo__2tableB, __foo__0tableD, foo__2tableE]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
-  3 -> 2 [ label=<&nbsp;q32> label="q32" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  4 -> 3 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  5 -> 4 [ label=<&nbsp;q25> label="q25" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  6 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}®
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q32.foo.tableE.E1 AS _$x.id)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _$x.id)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.foo.tableE.E3.S1 EQUALS 4</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS foo.tableE.E1, ARRAY(LONG) AS foo.tableE.E2, LONG AS S1, LONG AS S2 AS foo.tableE.E3)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Type Filter</td></tr><tr><td align="left">WHERE record IS [foo__2tableE]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS foo.tableE.E1, ARRAY(LONG) AS foo.tableE.E2, LONG AS S1, LONG AS S2 AS foo.tableE.E3)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [foo__2tableA, foo__1tableC, foo__2table__1nested, foo__2table__1repeated, foo__2table__1nested__2repeated, my__1adjacency__1list, foo__2enum__2type, foo__2tableB, __foo__0tableD, foo__2tableE]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
+  3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ label=<&nbsp;q25> label="q25" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q32> label="q32" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}Œ
 2
-	all-tests%EXPLAIN select * from "__2yay__view";Ò
-¬ô¢ïR Ôª}(0—˛8@ÇSCAN(<,>) | TFILTER foo__2tableE | FILTER _.foo.tableE.E3.S1 EQUALS 5 | MAP (_.foo.tableE.E1 AS _$y.id) | MAP (_._$y.id AS _$y.id)œdigraph G {
+	all-tests%EXPLAIN select * from "__2yay__view";ó
+¬˛á√R Å˚Ò(0·Œ8@gSCAN(<,>) | TFILTER foo__2tableE | FILTER _.foo.tableE.E3.S1 EQUALS 5 | MAP (_.foo.tableE.E1 AS _$y.id)êdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._$y.id AS _$y.id)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _$y.id)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q32.foo.tableE.E1 AS _$y.id)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _$y.id)" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.foo.tableE.E3.S1 EQUALS 5</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS foo.tableE.E1, ARRAY(LONG) AS foo.tableE.E2, LONG AS S1, LONG AS S2 AS foo.tableE.E3)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Type Filter</td></tr><tr><td align="left">WHERE record IS [foo__2tableE]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS foo.tableE.E1, ARRAY(LONG) AS foo.tableE.E2, LONG AS S1, LONG AS S2 AS foo.tableE.E3)" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
-  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [foo__2tableA, foo__1tableC, foo__2table__1nested, foo__2table__1nested__2repeated, my__1adjacency__1list, foo__2enum__2type, foo__2tableB, __foo__0tableD, foo__2tableE]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
-  3 -> 2 [ label=<&nbsp;q32> label="q32" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  4 -> 3 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  5 -> 4 [ label=<&nbsp;q25> label="q25" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  6 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}≤
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q32.foo.tableE.E1 AS _$y.id)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _$y.id)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.foo.tableE.E3.S1 EQUALS 5</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS foo.tableE.E1, ARRAY(LONG) AS foo.tableE.E2, LONG AS S1, LONG AS S2 AS foo.tableE.E3)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Type Filter</td></tr><tr><td align="left">WHERE record IS [foo__2tableE]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS foo.tableE.E1, ARRAY(LONG) AS foo.tableE.E2, LONG AS S1, LONG AS S2 AS foo.tableE.E3)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [foo__2tableA, foo__1tableC, foo__2table__1nested, foo__2table__1repeated, foo__2table__1nested__2repeated, my__1adjacency__1list, foo__2enum__2type, foo__2tableB, __foo__0tableD, foo__2tableE]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
+  3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ label=<&nbsp;q25> label="q25" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q32> label="q32" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}◊
 ;
-	all-tests.EXPLAIN select * from "‡Æµ‡Æ£‡Æï‡Øç‡Æï‡ÆÆ‡Øç";Ú
-¬øÚºR ΩŸê(0Øª8@ÇSCAN(<,>) | TFILTER foo__2tableE | FILTER _.foo.tableE.E3.S1 EQUALS 6 | MAP (_.foo.tableE.E1 AS _$z.id) | MAP (_._$z.id AS _$z.id)œdigraph G {
+	all-tests.EXPLAIN select * from "‡Æµ‡Æ£‡Æï‡Øç‡Æï‡ÆÆ‡Øç";ó
+¬∏π™R Õ≈˝(0ËŸ/8@gSCAN(<,>) | TFILTER foo__2tableE | FILTER _.foo.tableE.E3.S1 EQUALS 6 | MAP (_.foo.tableE.E1 AS _$z.id)êdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._$z.id AS _$z.id)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _$z.id)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q32.foo.tableE.E1 AS _$z.id)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _$z.id)" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.foo.tableE.E3.S1 EQUALS 6</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS foo.tableE.E1, ARRAY(LONG) AS foo.tableE.E2, LONG AS S1, LONG AS S2 AS foo.tableE.E3)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Type Filter</td></tr><tr><td align="left">WHERE record IS [foo__2tableE]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS foo.tableE.E1, ARRAY(LONG) AS foo.tableE.E2, LONG AS S1, LONG AS S2 AS foo.tableE.E3)" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
-  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [foo__2tableA, foo__1tableC, foo__2table__1nested, foo__2table__1nested__2repeated, my__1adjacency__1list, foo__2enum__2type, foo__2tableB, __foo__0tableD, foo__2tableE]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
-  3 -> 2 [ label=<&nbsp;q32> label="q32" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  4 -> 3 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  5 -> 4 [ label=<&nbsp;q25> label="q25" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  6 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Ô	
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q32.foo.tableE.E1 AS _$z.id)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _$z.id)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.foo.tableE.E3.S1 EQUALS 6</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS foo.tableE.E1, ARRAY(LONG) AS foo.tableE.E2, LONG AS S1, LONG AS S2 AS foo.tableE.E3)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Type Filter</td></tr><tr><td align="left">WHERE record IS [foo__2tableE]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS foo.tableE.E1, ARRAY(LONG) AS foo.tableE.E2, LONG AS S1, LONG AS S2 AS foo.tableE.E3)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [foo__2tableA, foo__1tableC, foo__2table__1nested, foo__2table__1repeated, foo__2table__1nested__2repeated, my__1adjacency__1list, foo__2enum__2type, foo__2tableB, __foo__0tableD, foo__2tableE]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
+  3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ label=<&nbsp;q25> label="q25" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q32> label="q32" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}ª
 ^
-	all-testsQEXPLAIN select * from values (1, 2, 3), (4, 5, 6) as "_$$$$"("_$$$", "_$$", "_$")å	
-t´ÀD ﬁö(0µ˜8	@ éEXPLODE array((@c6 AS _$$$, @c8 AS _$$, @c10 AS _$), (@c14 AS _$$$, @c16 AS _$$, @c18 AS _$)) | MAP (_._$$$ AS _$$$, _._$$ AS _$$, _._$ AS _$)‡digraph G {
+	all-testsQEXPLAIN select * from values (1, 2, 3), (4, 5, 6) as "_$$$$"("_$$$", "_$$", "_$")ÿ
+nì‰É ≤¯(0∑∆8@ ]EXPLODE array((@c6 AS _$$$, @c8 AS _$$, @c10 AS _$), (@c14 AS _$$$, @c16 AS _$$, @c18 AS _$))›digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q0._$$$ AS _$$$, q0._$$ AS _$$, q0._$ AS _$)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS _$$$, INT AS _$$, INT AS _$)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE array((@c6 AS _$$$, @c8 AS _$$, @c10 AS _$), (@c14 AS _$$$, @c16 AS _$$, @c18 AS _$))</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS _$$$, INT AS _$$, INT AS _$)" ];
-  2 -> 1 [ label=<&nbsp;q0> label="q0" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE array((@c6 AS _$$$, @c8 AS _$$, @c10 AS _$), (@c14 AS _$$$, @c16 AS _$$, @c18 AS _$))</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS _$$$, INT AS _$$, INT AS _$)" ];
 }à
 n
 	all-testsaEXPLAIN select struct "x$$" ("foo.tableA.A1", "foo.tableA.A2", "foo.tableA.A3") from "foo.tableA"ï
@@ -442,7 +429,7 @@ n
 }≥
 K
 	all-tests>EXPLAIN select struct "x$$" ("foo.tableA".*) from "foo.tableA"„
-≠®ë≈K €Ÿì(%0ôﬂ8#@*ISCAN(foo.tableA.idx3 <,>) | MAP (_ AS _0)ôdigraph G {
+≠¶‹É	K „ƒ´(%0ÉìH8#@*ISCAN(foo.tableA.idx3 <,>) | MAP (_ AS _0)ôdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -466,7 +453,7 @@ j
 }⁄	
 3
 	all-tests&EXPLAIN select * from "foo.enum.type";¢	
-®£¡ÊH Ÿ¬û(0É∂8@ ISCAN(foo.enum.type$enum__1 <,>)‚digraph G {
+æ÷©,= ‹∆∆#(0œÖR8@ ISCAN(foo.enum.type$enum__1 <,>)‚digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -477,7 +464,7 @@ j
 U
 	all-testsHEXPLAIN select * from "foo.enum.type" where "enum_type.enum__1" = 'B$C';¶
 
-Ô˙ˇ«S ùÖø(0ìÀ8%@cISCAN(foo.enum.type$enum__1 [EQUALS promote(@c8 AS ENUM<A(0), B$C(1), C.D(2), E__F(3), __G$H(4)>)])£	digraph G {
+œÃß£M ﬂñ≈(0Ÿ»I8"@cISCAN(foo.enum.type$enum__1 [EQUALS promote(@c8 AS ENUM<A(0), B$C(1), C.D(2), E__F(3), __G$H(4)>)])£	digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -488,7 +475,7 @@ U
 U
 	all-testsHEXPLAIN select * from "foo.enum.type" where "enum_type.enum__1" = 'C.D';¶
 
-Ô˙ˇ«S ùÖø(0ìÀ8%@cISCAN(foo.enum.type$enum__1 [EQUALS promote(@c8 AS ENUM<A(0), B$C(1), C.D(2), E__F(3), __G$H(4)>)])£	digraph G {
+œÃß£M ﬂñ≈(0Ÿ»I8"@cISCAN(foo.enum.type$enum__1 [EQUALS promote(@c8 AS ENUM<A(0), B$C(1), C.D(2), E__F(3), __G$H(4)>)])£	digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -500,7 +487,7 @@ U
 S
 	all-testsFEXPLAIN select * from "foo.enum.type" where "enum_type.enum__1" = 'A';¶
 
-Ô˙ˇ«S ùÖø(0ìÀ8%@cISCAN(foo.enum.type$enum__1 [EQUALS promote(@c8 AS ENUM<A(0), B$C(1), C.D(2), E__F(3), __G$H(4)>)])£	digraph G {
+œÃß£M ﬂñ≈(0Ÿ»I8"@cISCAN(foo.enum.type$enum__1 [EQUALS promote(@c8 AS ENUM<A(0), B$C(1), C.D(2), E__F(3), __G$H(4)>)])£	digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -510,7 +497,7 @@ S
 }õ
 U
 	all-testsHEXPLAIN select * from "foo.enum.type" where "enum_type.enum__2" = 'B$C';¡
-ﬂÄ…ÒQ ∑Û≤(0¨¸8%@ÇISCAN(foo.enum.type$enum__1 <,>) | FILTER _.enum_type.enum__2 EQUALS promote(@c8 AS ENUM<A(0), B$C(1), C.D(2), E__F(3), __G$H(4)>)ûdigraph G {
+´˚ÔÍ0J Ì√†&(0ª‘m8 @ÇISCAN(foo.enum.type$enum__1 <,>) | FILTER _.enum_type.enum__2 EQUALS promote(@c8 AS ENUM<A(0), B$C(1), C.D(2), E__F(3), __G$H(4)>)ûdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -522,7 +509,7 @@ U
 }õ
 U
 	all-testsHEXPLAIN select * from "foo.enum.type" where "enum_type.enum__2" = 'C.D';¡
-ﬂÄ…ÒQ ∑Û≤(0¨¸8%@ÇISCAN(foo.enum.type$enum__1 <,>) | FILTER _.enum_type.enum__2 EQUALS promote(@c8 AS ENUM<A(0), B$C(1), C.D(2), E__F(3), __G$H(4)>)ûdigraph G {
+´˚ÔÍ0J Ì√†&(0ª‘m8 @ÇISCAN(foo.enum.type$enum__1 <,>) | FILTER _.enum_type.enum__2 EQUALS promote(@c8 AS ENUM<A(0), B$C(1), C.D(2), E__F(3), __G$H(4)>)ûdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -534,7 +521,7 @@ U
 }ô
 S
 	all-testsFEXPLAIN select * from "foo.enum.type" where "enum_type.enum__2" = 'A';¡
-ﬂÄ…ÒQ ∑Û≤(0¨¸8%@ÇISCAN(foo.enum.type$enum__1 <,>) | FILTER _.enum_type.enum__2 EQUALS promote(@c8 AS ENUM<A(0), B$C(1), C.D(2), E__F(3), __G$H(4)>)ûdigraph G {
+´˚ÔÍ0J Ì√†&(0ª‘m8 @ÇISCAN(foo.enum.type$enum__1 <,>) | FILTER _.enum_type.enum__2 EQUALS promote(@c8 AS ENUM<A(0), B$C(1), C.D(2), E__F(3), __G$H(4)>)ûdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -543,10 +530,10 @@ S
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">foo.enum.type$enum__1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS enum_type.id, ENUM&lt;A(0), B$C(1), C.D(2), E__F(3), __G$H(4)&gt; AS enum_type.enum__1, ENUM&lt;A(0), B$C(1), C.D(2), E__F(3), __G$H(4)&gt; AS enum_type.enum__2)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Ú
+}ı
 k
-update-delete-statementsOEXPLAIN UPDATE "foo.tableA" SET "foo.tableA.A2" = 100 WHERE "foo.tableA.A1" = 1Ç
-—ó©»ü ÃÌß(?0®õJ8`@ªCOVERING(foo.tableA.idx [EQUALS promote(@c10 AS LONG)] -> [foo__2tableA__2A1: KEY[0], foo__2tableA__2A2: KEY[1], foo__2tableA__2A3: KEY[2]]) | DISTINCT BY PK | FETCH | UPDATE foo__2tableA•digraph G {
+update-delete-statementsOEXPLAIN UPDATE "foo.tableA" SET "foo.tableA.A2" = 100 WHERE "foo.tableA.A1" = 1Ö
+Á˝ã⁄í ≈“Ï(90ÂÓw8W@æCOVERING(foo.tableA.idx [EQUALS promote(@c10 AS LONG)] -> [foo__2tableA__2A1: KEY:[0], foo__2tableA__2A2: KEY:[1], foo__2tableA__2A3: KEY:[2]]) | DISTINCT BY PK | FETCH | UPDATE foo__2tableA•digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -556,8 +543,8 @@ k
   4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c10 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS foo.tableA.A1, LONG AS foo.tableA.A2, LONG AS foo.tableA.A3)" ];
   5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">foo.tableA.idx</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS foo.tableA.A1, LONG AS foo.tableA.A2, LONG AS foo.tableA.A3)" ];
   6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">foo__2tableA</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS foo.tableA.A1, LONG AS foo.tableA.A2, LONG AS foo.tableA.A3 AS old, LONG AS foo.tableA.A1, LONG AS foo.tableA.A2, LONG AS foo.tableA.A3 AS new)" ];
-  3 -> 2 [ label=<&nbsp;q142> label="q142" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  4 -> 3 [ label=<&nbsp;q140> label="q140" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  3 -> 2 [ label=<&nbsp;q112> label="q112" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ label=<&nbsp;q110> label="q110" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   6 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="none" arrowtail="normal" dir="both" ];
@@ -566,11 +553,10 @@ k
     rankDir=LR;
     2 -> 6 [ color="red" style="invis" ];
   }
-}¿
+}√
 ã
-update-delete-statementsoEXPLAIN UPDATE "foo.tableA" SET "foo.tableA.A2" = 100 WHERE "foo.tableA.A1" > 1 RETURNING "new"."foo.tableA.A1"Ø
-Å”ˆÖ
-™ Ωò¿(<0ä‰:8d@COVERING(foo.tableA.idx [[GREATER_THAN promote(@c10 AS LONG)]] -> [foo__2tableA__2A1: KEY[0], foo__2tableA__2A2: KEY[1], foo__2tableA__2A3: KEY[2]]) | DISTINCT BY PK | FETCH | UPDATE foo__2tableA | MAP (_.new.foo.tableA.A1 AS foo.tableA.A1)ùdigraph G {
+update-delete-statementsoEXPLAIN UPDATE "foo.tableA" SET "foo.tableA.A2" = 100 WHERE "foo.tableA.A1" > 1 RETURNING "new"."foo.tableA.A1"≤
+†Ø◊ß† ”–Ô(90äÍ<8[@ÛCOVERING(foo.tableA.idx [[GREATER_THAN promote(@c10 AS LONG)]] -> [foo__2tableA__2A1: KEY:[0], foo__2tableA__2A2: KEY:[1], foo__2tableA__2A3: KEY:[2]]) | DISTINCT BY PK | FETCH | UPDATE foo__2tableA | MAP (_.new.foo.tableA.A1 AS foo.tableA.A1)ùdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -583,8 +569,8 @@ k
   7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">foo.tableA.idx</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS foo.tableA.A1, LONG AS foo.tableA.A2, LONG AS foo.tableA.A3)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="none" arrowtail="normal" dir="both" ];
-  5 -> 3 [ label=<&nbsp;q145> label="q145" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  6 -> 5 [ label=<&nbsp;q143> label="q143" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 3 [ label=<&nbsp;q115> label="q115" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 5 [ label=<&nbsp;q113> label="q113" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   7 -> 6 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   {
@@ -595,28 +581,28 @@ k
 }≈
 î
 update-delete-statementsxEXPLAIN DELETE FROM "foo.tableA" WHERE "foo.tableA.A1" = 1 RETURNING "foo.tableA.A1" + "foo.tableA.A2" + "foo.tableA.A3"´
-¿ƒç…§ ŸÊ≥(A0Áˆ*8_@~ISCAN(foo.tableA.idx [EQUALS promote(@c7 AS LONG)]) | DELETE | MAP (_.foo.tableA.A1 + _.foo.tableA.A2 + _.foo.tableA.A3 AS _0)ådigraph G {
+÷Â«•Ü ∑¥ö(50‚é(8H@~ISCAN(foo.tableA.idx [EQUALS promote(@c7 AS LONG)]) | DELETE | MAP (_.foo.tableA.A1 + _.foo.tableA.A2 + _.foo.tableA.A3 AS _0)ådigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6.foo.tableA.A1 + q6.foo.tableA.A2 + q6.foo.tableA.A3 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Modification</td></tr><tr><td align="left">DELETE</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightcoral" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS foo.tableA.A1, LONG AS foo.tableA.A2, LONG AS foo.tableA.A3)" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c7 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS foo.tableA.A1, LONG AS foo.tableA.A2, LONG AS foo.tableA.A3)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS foo.tableA.A1, LONG AS foo.tableA.A2, LONG AS foo.tableA.A3)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS foo.tableA.A1, LONG AS foo.tableA.A2, LONG AS foo.tableA.A3)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c7 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS foo.tableA.A1, LONG AS foo.tableA.A2, LONG AS foo.tableA.A3)" ];
   5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">foo.tableA.idx</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS foo.tableA.A1, LONG AS foo.tableA.A2, LONG AS foo.tableA.A3)" ];
-  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  4 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="none" arrowtail="normal" dir="both" ];
-  5 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="none" arrowtail="normal" dir="both" ];
+  4 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   {
     rank=same;
     rankDir=LR;
-    3 -> 4 [ color="red" style="invis" ];
+    4 -> 3 [ color="red" style="invis" ];
   }
-}Ã
+}À
 X
-update-delete-statements<EXPLAIN DELETE FROM "foo.tableA" WHERE "foo.tableA.A2" = 100Ô
-¸≠¢¥Ü ÆïØ(60¸é 8L@=ISCAN(foo.tableA.idx3 [EQUALS promote(@c7 AS LONG)]) | DELETEëdigraph G {
+update-delete-statements<EXPLAIN DELETE FROM "foo.tableA" WHERE "foo.tableA.A2" = 100Ó
+„∑…úp ú‡Ö(/0√Ö%8>@=ISCAN(foo.tableA.idx3 [EQUALS promote(@c7 AS LONG)]) | DELETEëdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -632,38 +618,36 @@ X
     rankDir=LR;
     2 -> 4 [ color="red" style="invis" ];
   }
-}¯
+}ù
 &
 
-unnamed-12EXPLAIN SELECT * FROM T1Õ
-ªïﬁÉ. ËÕÜ(0“	8@USCAN(<,>) | TFILTER T1 | MAP (_.ID AS ID, _.T1.COL1 AS T1.COL1, _.T1.COL2 AS T1.COL2)ÿdigraph G {
+unnamed-12EXPLAIN SELECT * FROM T1Ú
+
+üˇ˝è) ﬂ∏H(0ô∫8@SCAN(<,>) | TFILTER T1Ω
+digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q2.ID AS ID, q2.T1.COL1 AS T1.COL1, q2.T1.COL2 AS T1.COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T1.COL1, LONG AS T1.COL2)" ];
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Type Filter</td></tr><tr><td align="left">WHERE record IS [T1]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T1.COL1, LONG AS T1.COL2)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T4, T5__UNESCAPED, __T3, T1, T2, ___T6__2__UNESCAPED]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q19> label="q19" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}Ù
+:
+
+unnamed-12,EXPLAIN SELECT * FROM T1 WHERE "T1.COL2" > 3µ
+ªÛ®Ú0 πÆÕ(0üü8@KSCAN(<,>) | TFILTER T1 | FILTER _.T1.COL2 GREATER_THAN promote(@c8 AS LONG) digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.T1.COL2 GREATER_THAN promote(@c8 AS LONG)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T1.COL1, LONG AS T1.COL2)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Type Filter</td></tr><tr><td align="left">WHERE record IS [T1]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T1.COL1, LONG AS T1.COL2)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
   4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T4, T5__UNESCAPED, __T3, T1, T2, ___T6__2__UNESCAPED]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
   3 -> 2 [ label=<&nbsp;q19> label="q19" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}‘
-:
-
-unnamed-12,EXPLAIN SELECT * FROM T1 WHERE "T1.COL2" > 3ï
-⁄⁄∆¬4 ¸˝(0Ø¯8@äSCAN(<,>) | TFILTER T1 | FILTER _.T1.COL2 GREATER_THAN promote(@c8 AS LONG) | MAP (_.ID AS ID, _.T1.COL1 AS T1.COL1, _.T1.COL2 AS T1.COL2)Ídigraph G {
-  fontname=courier;
-  rankdir=BT;
-  splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q26.ID AS ID, q26.T1.COL1 AS T1.COL1, q26.T1.COL2 AS T1.COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T1.COL1, LONG AS T1.COL2)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.T1.COL2 GREATER_THAN promote(@c8 AS LONG)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T1.COL1, LONG AS T1.COL2)" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Type Filter</td></tr><tr><td align="left">WHERE record IS [T1]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T1.COL1, LONG AS T1.COL2)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T4, T5__UNESCAPED, __T3, T1, T2, ___T6__2__UNESCAPED]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
-  3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  4 -> 3 [ label=<&nbsp;q19> label="q19" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q26> label="q26" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
 }ˆ
 B
 
@@ -685,7 +669,7 @@ unnamed-124EXPLAIN SELECT "T1.COL2" FROM T1 WHERE "T1.COL2" > 3Ø
 &
 
 unnamed-12EXPLAIN SELECT * FROM T2î
-®à¨ÂH æ£à(0∞Å8@ISCAN(T2$T2.COL1 <,>)ﬂdigraph G {
+ƒ—Å= ’·â(0§í8@ISCAN(T2$T2.COL1 <,>)ﬂdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -696,7 +680,7 @@ unnamed-12EXPLAIN SELECT * FROM T2î
 :
 
 unnamed-12,EXPLAIN SELECT * FROM T2 WHERE "T2$COL2" > 8÷
-ﬂ ÉòQ ¿„Î(0ˆÛ 8%@JISCAN(T2$T2.COL1 <,>) | FILTER _.T2$COL2 GREATER_THAN promote(@c8 AS LONG)Ï
+´ÆÙ…J Åä˚(0‘˙8 @JISCAN(T2$T2.COL1 <,>) | FILTER _.T2$COL2 GREATER_THAN promote(@c8 AS LONG)Ï
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -722,38 +706,35 @@ unnamed-124EXPLAIN SELECT "T2$COL2" FROM T2 WHERE "T2$COL2" > 8–
   3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q43> label="q43" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}¿
+}„
 *
 
-unnamed-12EXPLAIN SELECT * FROM "__T3"ë
-ªΩ≠¿. ¡¯`(0ÕÜ8@ySCAN(<,>) | TFILTER __T3 | MAP (_.ID AS ID, _.__T3$COL1 AS __T3$COL1, _.__T3$COL2 AS __T3$COL2, _.__T3$COL3 AS __T3$COL3)˘digraph G {
+unnamed-12EXPLAIN SELECT * FROM "__T3"¥
+ü‘⁄¬)  ﬂu(0àÚ8@SCAN(<,>) | TFILTER __T3˝
+digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q2.ID AS ID, q2.__T3$COL1 AS __T3$COL1, q2.__T3$COL2 AS __T3$COL2, q2.__T3$COL3 AS __T3$COL3)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS __T3$COL1, LONG AS __T3$COL2, ENUM&lt;T3.E.A(0), T3.E.B(1), T3.E.C(2)&gt; AS __T3$COL3)" ];
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Type Filter</td></tr><tr><td align="left">WHERE record IS [__T3]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS __T3$COL1, LONG AS __T3$COL2, ENUM&lt;T3.E.A(0), T3.E.B(1), T3.E.C(2)&gt; AS __T3$COL3)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T4, T5__UNESCAPED, __T3, T1, T2, ___T6__2__UNESCAPED]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q19> label="q19" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}˛
+A
+
+unnamed-123EXPLAIN SELECT * FROM "__T3" WHERE "__T3$COL2" > 13∏
+ªÆæÍ0 ∞Á_(0êü8@OSCAN(<,>) | TFILTER __T3 | FILTER _.__T3$COL2 GREATER_THAN promote(@c8 AS LONG) digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.__T3$COL2 GREATER_THAN promote(@c8 AS LONG)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS __T3$COL1, LONG AS __T3$COL2, ENUM&lt;T3.E.A(0), T3.E.B(1), T3.E.C(2)&gt; AS __T3$COL3)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Type Filter</td></tr><tr><td align="left">WHERE record IS [__T3]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS __T3$COL1, LONG AS __T3$COL2, ENUM&lt;T3.E.A(0), T3.E.B(1), T3.E.C(2)&gt; AS __T3$COL3)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
   4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T4, T5__UNESCAPED, __T3, T1, T2, ___T6__2__UNESCAPED]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
   3 -> 2 [ label=<&nbsp;q19> label="q19" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}‚
-A
-
-unnamed-123EXPLAIN SELECT * FROM "__T3" WHERE "__T3$COL2" > 13ú
-⁄∫’‹4 …πk(0ß†8@∞SCAN(<,>) | TFILTER __T3 | FILTER _.__T3$COL2 GREATER_THAN promote(@c8 AS LONG) | MAP (_.ID AS ID, _.__T3$COL1 AS __T3$COL1, _.__T3$COL2 AS __T3$COL2, _.__T3$COL3 AS __T3$COL3)Ãdigraph G {
-  fontname=courier;
-  rankdir=BT;
-  splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q26.ID AS ID, q26.__T3$COL1 AS __T3$COL1, q26.__T3$COL2 AS __T3$COL2, q26.__T3$COL3 AS __T3$COL3)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS __T3$COL1, LONG AS __T3$COL2, ENUM&lt;T3.E.A(0), T3.E.B(1), T3.E.C(2)&gt; AS __T3$COL3)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.__T3$COL2 GREATER_THAN promote(@c8 AS LONG)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS __T3$COL1, LONG AS __T3$COL2, ENUM&lt;T3.E.A(0), T3.E.B(1), T3.E.C(2)&gt; AS __T3$COL3)" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Type Filter</td></tr><tr><td align="left">WHERE record IS [__T3]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS __T3$COL1, LONG AS __T3$COL2, ENUM&lt;T3.E.A(0), T3.E.B(1), T3.E.C(2)&gt; AS __T3$COL3)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T4, T5__UNESCAPED, __T3, T1, T2, ___T6__2__UNESCAPED]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
-  3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  4 -> 3 [ label=<&nbsp;q19> label="q19" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q26> label="q26" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
 }ç
 K
 
@@ -788,39 +769,35 @@ unnamed-12+EXPLAIN SELECT * FROM "__func__T3$col2"(13)Ä
   4 -> 3 [ label=<&nbsp;q47> label="q47" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q54> label="q54" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Û
+}¿
 &
 
-unnamed-12EXPLAIN SELECT * FROM T4»
-ª√˝·. ≥ıÉ(0çÓ8@oSCAN(<,>) | TFILTER T4 | MAP (_.ID AS ID, _.___hidden AS ___hidden, _.T4.COL1 AS T4.COL1, _.T4.COL2 AS T4.COL2)πdigraph G {
+unnamed-12EXPLAIN SELECT * FROM T4ï
+ü—˙…) ò€E(0‡û8@SCAN(<,>) | TFILTER T4‡
+digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q2.ID AS ID, q2.___hidden AS ___hidden, q2.T4.COL1 AS T4.COL1, q2.T4.COL2 AS T4.COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS a, LONG AS b AS ___hidden, LONG AS T4.COL1, LONG AS T4.COL2)" ];
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Type Filter</td></tr><tr><td align="left">WHERE record IS [T4]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS a, LONG AS b AS ___hidden, LONG AS T4.COL1, LONG AS T4.COL2)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T4, T5__UNESCAPED, __T3, T1, T2, ___T6__2__UNESCAPED]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q19> label="q19" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}ª
+;
+
+unnamed-12-EXPLAIN SELECT * FROM T4 WHERE "T4.COL2" > 18˚
+ª‘¿Ã0 …˙¿(0≈‘8@KSCAN(<,>) | TFILTER T4 | FILTER _.T4.COL2 GREATER_THAN promote(@c8 AS LONG)êdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.T4.COL2 GREATER_THAN promote(@c8 AS LONG)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS a, LONG AS b AS ___hidden, LONG AS T4.COL1, LONG AS T4.COL2)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Type Filter</td></tr><tr><td align="left">WHERE record IS [T4]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS a, LONG AS b AS ___hidden, LONG AS T4.COL1, LONG AS T4.COL2)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
   4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T4, T5__UNESCAPED, __T3, T1, T2, ___T6__2__UNESCAPED]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
   3 -> 2 [ label=<&nbsp;q19> label="q19" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Û
-;
-
-unnamed-12-EXPLAIN SELECT * FROM T4 WHERE "T4.COL2" > 18≥
-⁄‘≤õ4 ßêw(0Äå
-8@§SCAN(<,>) | TFILTER T4 | FILTER _.T4.COL2 GREATER_THAN promote(@c8 AS LONG) | MAP (_.ID AS ID, _.___hidden AS ___hidden, _.T4.COL1 AS T4.COL1, _.T4.COL2 AS T4.COL2)Ôdigraph G {
-  fontname=courier;
-  rankdir=BT;
-  splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q26.ID AS ID, q26.___hidden AS ___hidden, q26.T4.COL1 AS T4.COL1, q26.T4.COL2 AS T4.COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS a, LONG AS b AS ___hidden, LONG AS T4.COL1, LONG AS T4.COL2)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.T4.COL2 GREATER_THAN promote(@c8 AS LONG)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS a, LONG AS b AS ___hidden, LONG AS T4.COL1, LONG AS T4.COL2)" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Type Filter</td></tr><tr><td align="left">WHERE record IS [T4]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS a, LONG AS b AS ___hidden, LONG AS T4.COL1, LONG AS T4.COL2)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T4, T5__UNESCAPED, __T3, T1, T2, ___T6__2__UNESCAPED]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
-  3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  4 -> 3 [ label=<&nbsp;q19> label="q19" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q26> label="q26" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
 }Ω
 C
 
@@ -838,25 +815,23 @@ unnamed-125EXPLAIN SELECT "T4.COL2" FROM T4 WHERE "T4.COL2" > 18ı
   4 -> 3 [ label=<&nbsp;q19> label="q19" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q26> label="q26" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Å
+}Í
 -
 
-unnamed-12EXPLAIN SELECT * FROM "T4$view"œ
-¬Œì∂R ∫íÂ(0™˘&8@©SCAN(<,>) | TFILTER T4 | FILTER _.T4.COL1 GREATER_THAN 0 AND _.T4.COL2 GREATER_THAN 0 | MAP (_.T4.COL1 AS c__1, _.T4.COL2 AS c__2) | MAP (_.c__1 AS c__1, _.c__2 AS c__2)Ödigraph G {
+unnamed-12EXPLAIN SELECT * FROM "T4$view"∏
+¬±¨ìR ù’í(0∂π8@ÇSCAN(<,>) | TFILTER T4 | FILTER _.T4.COL1 GREATER_THAN 0 AND _.T4.COL2 GREATER_THAN 0 | MAP (_.T4.COL1 AS c__1, _.T4.COL2 AS c__2)ïdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6.c__1 AS c__1, q6.c__2 AS c__2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS c__1, LONG AS c__2)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q32.T4.COL1 AS c__1, q32.T4.COL2 AS c__2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS c__1, LONG AS c__2)" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.T4.COL1 GREATER_THAN 0 AND q2.T4.COL2 GREATER_THAN 0</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS a, LONG AS b AS ___hidden, LONG AS T4.COL1, LONG AS T4.COL2)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Type Filter</td></tr><tr><td align="left">WHERE record IS [T4]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS a, LONG AS b AS ___hidden, LONG AS T4.COL1, LONG AS T4.COL2)" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
-  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T4, T5__UNESCAPED, __T3, T1, T2, ___T6__2__UNESCAPED]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
-  3 -> 2 [ label=<&nbsp;q32> label="q32" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  4 -> 3 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  5 -> 4 [ label=<&nbsp;q25> label="q25" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  6 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q32.T4.COL1 AS c__1, q32.T4.COL2 AS c__2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS c__1, LONG AS c__2)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.T4.COL1 GREATER_THAN 0 AND q2.T4.COL2 GREATER_THAN 0</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS a, LONG AS b AS ___hidden, LONG AS T4.COL1, LONG AS T4.COL2)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Type Filter</td></tr><tr><td align="left">WHERE record IS [T4]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS a, LONG AS b AS ___hidden, LONG AS T4.COL1, LONG AS T4.COL2)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T4, T5__UNESCAPED, __T3, T1, T2, ___T6__2__UNESCAPED]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
+  3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ label=<&nbsp;q25> label="q25" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q32> label="q32" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
 }º
 4
 
@@ -955,7 +930,8 @@ unnamed-12JEXPLAIN SELECT ID, "__T5__COL2" FROM T5__UNESCAPED WHERE "__T5__COL2
 7
 
 unnamed-12)EXPLAIN SELECT * FROM "___T6.__UNESCAPED"ö	
-ï˛§≠b ªÀÖ(+0ä∫8*@ISCAN(T6$ENUM2 <,>)Ádigraph G {
+¡˘¿ûQ ≤œ(%0€í8@
+ISCAN(T6$ENUM2 <,>)Ádigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -966,7 +942,8 @@ unnamed-12)EXPLAIN SELECT * FROM "___T6.__UNESCAPED"ö
 P
 
 unnamed-12BEXPLAIN SELECT * FROM "___T6.__UNESCAPED" WHERE "T6$__COL1__" = 10›
-‰´»Án ¬ÅÛ(,0°Ô986@FISCAN(T6$ENUM2 <,>) | FILTER _.T6$__COL1__ EQUALS promote(@c8 AS LONG)˜digraph G {
+õßÑô
+d ∂™ä((0Ωô68/@FISCAN(T6$ENUM2 <,>) | FILTER _.T6$__COL1__ EQUALS promote(@c8 AS LONG)˜digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -996,7 +973,7 @@ unnamed-12WEXPLAIN SELECT ID, "__T6.COL2__VALUE" FROM "___T6.__UNESCAPED" WHERE
 U
 
 unnamed-12GEXPLAIN SELECT * FROM "___T6.__UNESCAPED" WHERE "__T6.COL2__VALUE" < 10Œ	
-Ù˜√®r „À«(-0ˇã!86@1ISCAN(T6$COL2 [[LESS_THAN promote(@c8 AS LONG)]])˝digraph G {
+ø≈‡÷h ãÁ©(+0Ã±81@1ISCAN(T6$COL2 [[LESS_THAN promote(@c8 AS LONG)]])˝digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -1020,8 +997,7 @@ unnamed-12\EXPLAIN SELECT ID, "__T6.COL2__VALUE" FROM "___T6.__UNESCAPED" WHERE
 V
 
 unnamed-12HEXPLAIN SELECT * FROM "___T6.__UNESCAPED" WHERE "T6$__ENUM_1" = '__D.__'•
-‰π‚
-n ”–®(,0±§B86@gISCAN(T6$ENUM2 <,>) | FILTER _.T6$__ENUM_1 EQUALS promote(@c8 AS ENUM<A(0), B__(1), C__(2), __D.__(3)>)ûdigraph G {
+õ¬∂≥d ˛œ∆((0Ç∑J8/@gISCAN(T6$ENUM2 <,>) | FILTER _.T6$__ENUM_1 EQUALS promote(@c8 AS ENUM<A(0), B__(1), C__(2), __D.__(3)>)ûdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -1051,7 +1027,7 @@ V
 
 unnamed-12HEXPLAIN SELECT * FROM "___T6.__UNESCAPED" WHERE "T6$__ENUM_2" = '__D.__'é
 
-Ù«ƒ·p π©£(-0õÍ-86@NISCAN(T6$ENUM2 [EQUALS promote(@c8 AS ENUM<A(0), B__(1), C__(2), __D.__(3)>)])†	digraph G {
+ø≈¯Ãg Ä ƒ(+0≈¿(81@NISCAN(T6$ENUM2 [EQUALS promote(@c8 AS ENUM<A(0), B__(1), C__(2), __D.__(3)>)])†	digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
