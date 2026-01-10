@@ -21,8 +21,8 @@
 package com.apple.foundationdb.relational.recordlayer.query.visitors;
 
 import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.relational.generated.RelationalParser;
+import com.apple.foundationdb.relational.recordlayer.query.CopyPlan;
 import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
 import com.apple.foundationdb.relational.recordlayer.query.SemanticAnalyzer;
 
@@ -77,5 +77,21 @@ public final class MetadataPlanVisitor extends DelegatingVisitor<BaseVisitor> {
         final var ddlFactory = getDelegate().getDdlQueryFactory();
         final var schemaTemplateId = visitUid(ctx.uid());
         return QueryPlan.MetadataQueryPlan.of(ddlFactory.getDescribeSchemaTemplateQueryAction(schemaTemplateId.getName()));
+    }
+
+    @Nonnull
+    @Override
+    public QueryPlan visitCopyExportStatement(@Nonnull RelationalParser.CopyExportStatementContext ctx) {
+        final var pathId = visitUid(ctx.path().uid());
+        return CopyPlan.getCopyExportAction(pathId.getName(), getDelegate().getPlanGenerationContext());
+    }
+
+    @Nonnull
+    @Override
+    public QueryPlan visitCopyImportStatement(@Nonnull RelationalParser.CopyImportStatementContext ctx) {
+        final var pathId = visitUid(ctx.path().uid());
+        // We must visit the parameter to ensure that it ends up in the Literals in the query execution context
+        visitPreparedStatementParameter(ctx.preparedStatementParameter());
+        return CopyPlan.getCopyImportAction(pathId.getName(), getDelegate().getPlanGenerationContext());
     }
 }

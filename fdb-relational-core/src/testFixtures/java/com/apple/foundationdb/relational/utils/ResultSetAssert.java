@@ -284,6 +284,10 @@ public class ResultSetAssert extends AbstractAssert<ResultSetAssert, RelationalR
         return this;
     }
 
+    public ResultSetAssert containsRowsExactly(List<List<Object>> rows) {
+        return containsRowsExactly(rows.stream().map(row -> row.toArray()).collect(Collectors.toList()));
+    }
+
     public ResultSetAssert containsRowsExactly(Collection<Object[]> rows) {
         //assume that the struct metadata is the same
         try {
