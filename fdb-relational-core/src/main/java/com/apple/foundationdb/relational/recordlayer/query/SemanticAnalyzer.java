@@ -299,7 +299,7 @@ public class SemanticAnalyzer {
         final var forEachOperators = operators.forEachOnly();
         // Case 1: no qualifier, e.g. SELECT * FROM T, R;
         if (optionalQualifier.isEmpty()) {
-            final var expansion = forEachOperators.getExpressions().nonEphemeral();
+            final var expansion = forEachOperators.getExpressions().nonEphemeral().nonInvisible();
             return Star.overQuantifiers(Optional.empty(), Streams.stream(forEachOperators).map(LogicalOperator::getQuantifier)
                     .map(Quantifier::getFlowedObjectValue).collect(ImmutableList.toImmutableList()), "unknown", expansion);
         }
@@ -310,7 +310,7 @@ public class SemanticAnalyzer {
                 .findFirst();
         if (logicalTableMaybe.isPresent()) {
             return Star.overQuantifier(optionalQualifier, logicalTableMaybe.get().getQuantifier().getFlowedObjectValue(),
-                    qualifier.getName(), logicalTableMaybe.get().getOutput().nonEphemeral());
+                    qualifier.getName(), logicalTableMaybe.get().getOutput().nonEphemeral().nonInvisible());
         }
         // Case 2.1: represents a rare case where a logical operator contains a mix of columns that are qualified
         // differently.

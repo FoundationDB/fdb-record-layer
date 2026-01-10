@@ -1382,6 +1382,63 @@ public class DdlStatementParsingTest {
         Assertions.assertEquals(sqlType, maybeNullableArrayColumn.get().getDataType().getJdbcSqlCode());
     }
 
+    @Test
+    void invisibleColumnsParsedCorrectly() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE my_table (id bigint, name string, secret string INVISIBLE, age integer, password string INVISIBLE, PRIMARY KEY(id))";
+
+        shouldWorkWithInjectedFactory(stmt, new AbstractMetadataOperationsFactory() {
+            @Nonnull
+            @Override
+            public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template, @Nonnull Options templateProperties) {
+                Assertions.assertInstanceOf(RecordLayerSchemaTemplate.class, template);
+                final var tables = ((RecordLayerSchemaTemplate) template).getTables();
+                Assertions.assertEquals(1, tables.size(), "should have only 1 table");
+
+                final var table = tables.iterator().next();
+                final var columns = table.getColumns();
+                Assertions.assertEquals(5, columns.size(), "should have 5 columns");
+
+                // Verify invisibility: id, name, age should be visible; secret, password should be invisible
+                Assertions.assertFalse(columns.stream().filter(c -> c.getName().equals("id")).findFirst().get().isInvisible(), "id should be visible");
+                Assertions.assertFalse(columns.stream().filter(c -> c.getName().equals("name")).findFirst().get().isInvisible(), "name should be visible");
+                Assertions.assertTrue(columns.stream().filter(c -> c.getName().equals("secret")).findFirst().get().isInvisible(), "secret should be invisible");
+                Assertions.assertFalse(columns.stream().filter(c -> c.getName().equals("age")).findFirst().get().isInvisible(), "age should be visible");
+                Assertions.assertTrue(columns.stream().filter(c -> c.getName().equals("password")).findFirst().get().isInvisible(), "password should be invisible");
+
+                return txn -> {
+                };
+            }
+        });
+    }
+
+    @Test
+    void visibleColumnsParsedCorrectly() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE my_table (id bigint VISIBLE, name string VISIBLE, PRIMARY KEY(id))";
+
+        shouldWorkWithInjectedFactory(stmt, new AbstractMetadataOperationsFactory() {
+            @Nonnull
+            @Override
+            public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template, @Nonnull Options templateProperties) {
+                Assertions.assertInstanceOf(RecordLayerSchemaTemplate.class, template);
+                final var tables = ((RecordLayerSchemaTemplate) template).getTables();
+                Assertions.assertEquals(1, tables.size(), "should have only 1 table");
+
+                final var table = tables.iterator().next();
+                final var columns = table.getColumns();
+                Assertions.assertEquals(2, columns.size(), "should have 2 columns");
+
+                // Verify all are visible (explicit VISIBLE keyword)
+                Assertions.assertFalse(columns.stream().filter(c -> c.getName().equals("id")).findFirst().get().isInvisible(), "id should be visible");
+                Assertions.assertFalse(columns.stream().filter(c -> c.getName().equals("name")).findFirst().get().isInvisible(), "name should be visible");
+
+                return txn -> {
+                };
+            }
+        });
+    }
+
     @Nonnull
     private static String replaceLast(@Nonnull final String str, final char oldChar, @Nonnull final String replacement) {
         if (str.isEmpty()) {

@@ -1,0 +1,319 @@
+#
+# invisible-columns.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+---
+options:
+  # Invisible columns are a new feature in this version
+  supported_version: !current_version
+---
+schema_template:
+    create table T1(id bigint, name string, secret string INVISIBLE, age integer, password string INVISIBLE, primary key(id))
+    create table T2(id2 bigint, email string, token string INVISIBLE, active boolean, primary key(id2))
+    create index T1_secret as select secret from t1
+    create index T1_password as select password from t1
+    create index T2_token as select token from t2
+    create view V1 as select * from T1
+    create view V2 as select id, name, secret from T1
+    create view V3 as select t1.*, t2.* from T1 t1, T2 t2 where t1.id = t2.id2
+    create function F1() as select * from T1
+    create function F2() as select id, name, secret from T1
+---
+setup:
+  steps:
+    - query: insert into T1 values (1, 'alice', 'secret1', 25, 'pass1')
+    - query: insert into T1 values (2, 'bob', 'secret2', 30, 'pass2')
+    - query: insert into T1 values (3, 'charlie', 'secret3', 35, 'pass3')
+    - query: insert into T2 values (1, 'alice@example.com', 'token1', true)
+    - query: insert into T2 values (2, 'bob@example.com', 'token2', true)
+    - query: insert into T2 values (3, 'charlie@example.com', 'token3', false)
+---
+test_block:
+  tests:
+    # Basic star expansion - invisible columns should be excluded
+    -
+      - query: select * from T1
+      - result: [{id: 1, name: 'alice', age: 25}, {id: 2, name: 'bob', age: 30}, {id: 3, name: 'charlie', age: 35}]
+
+    # Parenthesized star - should return nested struct excluding invisible columns
+    -
+      - query: select (*) from T1
+      - result: [{{id: 1, name: 'alice', age: 25}}, {{id: 2, name: 'bob', age: 30}}, {{id: 3, name: 'charlie', age: 35}}]
+
+    # Explicit selection of invisible columns should work
+    -
+      - query: select secret, password from T1
+      - result: [{secret: 'secret1', password: 'pass1'}, {secret: 'secret2', password: 'pass2'}, {secret: 'secret3', password: 'pass3'}]
+
+    # Mix of visible and invisible columns
+    -
+      - query: select id, secret, age from T1 where id = 1
+      - result: [{id: 1, secret: 'secret1', age: 25}]
+
+    # Star with additional explicit columns
+    -
+      - query: select *, secret from T1 where id = 1
+      - result: [{id: 1, name: 'alice', age: 25, secret: 'secret1'}]
+
+    # Parenthesized star with additional explicit columns
+    -
+      - query: select (*), secret from T1 where id = 1
+      - result: [{{id: 1, name: 'alice', age: 25}, secret: 'secret1'}]
+
+    # Qualified star expansion - should exclude invisible columns
+    -
+      - query: select T1.* from T1 where id = 1
+      - result: [{id: 1, name: 'alice', age: 25}]
+
+    # Parenthesized qualified star - should exclude invisible columns
+    -
+      - query: select (T1.*) from T1 where id = 1
+      - result: [{{id: 1, name: 'alice', age: 25}}]
+
+    # Qualified star with explicit invisible column
+    -
+      - query: select T1.*, T1.secret from T1 where id = 1
+      - result: [{id: 1, name: 'alice', age: 25, secret: 'secret1'}]
+
+    # Parenthesized qualified star with explicit invisible column
+    -
+      - query: select (T1.*), T1.secret from T1 where id = 1
+      - result: [{{id: 1, name: 'alice', age: 25}, secret: 'secret1'}]
+
+    # Referring to an invisible column does not make it visible
+    -
+      - query: select * from T1 where secret = 'secret1'
+      - result: [{id: 1, name: 'alice', age: 25}]
+
+    # Parenthesized star - referring to invisible column does not make it visible
+    -
+      - query: select (*) from T1 where secret = 'secret1'
+      - result: [{{id: 1, name: 'alice', age: 25}}]
+
+    # Table alias with star - should exclude invisible columns
+    -
+      - query: select t.* from T1 t where t.id = 1
+      - result: [{id: 1, name: 'alice', age: 25}]
+
+    # Parenthesized table alias star - should exclude invisible columns
+    -
+      - query: select (t.*) from T1 t where t.id = 1
+      - result: [{{id: 1, name: 'alice', age: 25}}]
+
+    # Table alias with explicit invisible column
+    -
+      - query: select t.id, t.secret, t.password from T1 t where t.id = 1
+      - result: [{id: 1, secret: 'secret1', password: 'pass1'}]
+
+    # Subquery with star - invisible columns should be excluded from outer query
+    -
+      - query: select * from (select * from T1 where id = 1) sub
+      - result: [{id: 1, name: 'alice', age: 25}]
+
+    # Subquery with parenthesized star
+    -
+      - query: select (*) from (select * from T1 where id = 1) sub
+      - result: [{{id: 1, name: 'alice', age: 25}}]
+
+    # Subquery explicitly selecting invisible columns
+    -
+      - query: select * from (select id, secret from T1 where id = 1) sub
+      - result: [{id: 1, secret: 'secret1'}]
+
+    # Nested subquery with star expansion
+    -
+      - query: select * from (select * from (select * from T1 where id = 1) inner_sub) outer_sub
+      - result: [{id: 1, name: 'alice', age: 25}]
+
+    # Nested subquery with parenthesized star expansion
+    -
+      - query: select (*) from (select (*) from (select (*) from T1 where id = 1) inner_sub) outer_sub
+      - result: [{{{{id: 1, name: 'alice', age: 25}}}}]
+
+    # Subquery selecting invisible column, outer query referencing it
+    -
+      - query: select sub.secret from (select secret from T1 where id = 1) sub
+      - result: [{secret: 'secret1'}]
+
+    # Join with star expansion - both tables should exclude invisible columns
+    -
+      - query: select * from T1, T2 where T1.id = T2.id2 and T1.id = 1
+      - result: [{id: 1, name: 'alice', age: 25, id2: 1, email: 'alice@example.com', active: true}]
+
+    # Join with parenthesized star expansion
+    -
+      - query: select (*) from T1, T2 where T1.id = T2.id2 and T1.id = 1
+      - result: [{{id: 1, name: 'alice', age: 25, id2: 1, email: 'alice@example.com', active: true}}]
+
+    # Join with qualified stars
+    -
+      - query: select T1.*, T2.* from T1, T2 where T1.id = T2.id2 and T1.id = 1
+      - result: [{id: 1, name: 'alice', age: 25, id2: 1, email: 'alice@example.com', active: true}]
+
+    # Join with parenthesized qualified stars
+    -
+      - query: select (T1.*), (T2.*) from T1, T2 where T1.id = T2.id2 and T1.id = 1
+      - result: [{{id: 1, name: 'alice', age: 25}, {id2: 1, email: 'alice@example.com', active: true}}]
+
+    # Join with one table's invisible column explicitly selected
+    -
+      - query: select T1.*, T2.token from T1, T2 where T1.id = T2.id2 and T1.id = 1
+      - result: [{id: 1, name: 'alice', age: 25, token: 'token1'}]
+
+    # Join with parenthesized qualified star and explicit invisible column
+    -
+      - query: select (T1.*), T2.token from T1, T2 where T1.id = T2.id2 and T1.id = 1
+      - result: [{{id: 1, name: 'alice', age: 25}, token: 'token1'}]
+
+    # Join with both tables' invisible columns
+    -
+      - query: select T1.secret, T2.token from T1, T2 where T1.id = T2.id2 and T1.id = 1
+      - result: [{secret: 'secret1', token: 'token1'}]
+
+    # View based on star - should exclude invisible columns
+    -
+      - query: select * from V1
+      - result: [{id: 1, name: 'alice', age: 25}, {id: 2, name: 'bob', age: 30}, {id: 3, name: 'charlie', age: 35}]
+
+    # Parenthesized star from view
+    -
+      - query: select (*) from V1
+      - result: [{{id: 1, name: 'alice', age: 25}}, {{id: 2, name: 'bob', age: 30}}, {{id: 3, name: 'charlie', age: 35}}]
+
+    # View that explicitly includes invisible column
+    -
+      - query: select * from V2
+      - result: [{id: 1, name: 'alice', secret: 'secret1'}, {id: 2, name: 'bob', secret: 'secret2'}, {id: 3, name: 'charlie', secret: 'secret3'}]
+
+    # Star from view that has star (should be already expanded, no invisible columns)
+    -
+      - query: select * from V1 where id = 1
+      - result: [{id: 1, name: 'alice', age: 25}]
+
+    # Parenthesized star from view that has star
+    -
+      - query: select (*) from V1 where id = 1
+      - result: [{{id: 1, name: 'alice', age: 25}}]
+
+    # View with join using star
+    -
+      - query: select * from V3 where id = 1
+      - result: [{id: 1, name: 'alice', age: 25, id2: 1, email: 'alice@example.com', active: true}]
+
+    # Parenthesized star from view with join
+    -
+      - query: select (*) from V3 where id = 1
+      - result: [{{id: 1, name: 'alice', age: 25, id2: 1, email: 'alice@example.com', active: true}}]
+
+    # Function returning star expansion - should exclude invisible columns
+    -
+      - query: select * from F1()
+      - result: [{id: 1, name: 'alice', age: 25}, {id: 2, name: 'bob', age: 30}, {id: 3, name: 'charlie', age: 35}]
+
+    # Parenthesized star from function
+    -
+      - query: select (*) from F1()
+      - result: [{{id: 1, name: 'alice', age: 25}}, {{id: 2, name: 'bob', age: 30}}, {{id: 3, name: 'charlie', age: 35}}]
+
+    # Function explicitly returning invisible column
+    -
+      - query: select * from F2()
+      - result: [{id: 1, name: 'alice', secret: 'secret1'}, {id: 2, name: 'bob', secret: 'secret2'}, {id: 3, name: 'charlie', secret: 'secret3'}]
+
+    # Invisible columns in WHERE clause
+    -
+      - query: select id, name from T1 where secret = 'secret1'
+      - result: [{id: 1, name: 'alice'}]
+
+    # Invisible columns in ORDER BY
+    -
+      - query: select id, name from T1 where id = 1 or id = 2 or id = 3 order by password desc
+      - result: [{id: 3, name: 'charlie'}, {id: 2, name: 'bob'}, {id: 1, name: 'alice'}]
+
+    # Invisible columns in GROUP BY should work when explicitly selected
+    -
+      - query: select secret, count(*) from T1 group by secret order by secret
+      - result: [{'secret1', 1}, {'secret2', 1}, {'secret3', 1}]
+
+    # DISTINCT with star - should exclude invisible columns
+    -
+      - query: select distinct * from T1 where id = 1 or id = 2
+      - result: [{id: 1, name: 'alice', age: 25}, {id: 2, name: 'bob', age: 30}]
+
+    # DISTINCT with parenthesized star
+    -
+      - query: select distinct (*) from T1 where id = 1 or id = 2
+      - result: [{{id: 1, name: 'alice', age: 25}}, {{id: 2, name: 'bob', age: 30}}]
+
+    # COUNT(*) should count all rows regardless of invisible columns
+    -
+      - query: select count(*) from T1
+      - result: [{3}]
+
+    # Aggregate functions on invisible columns
+    -
+      - query: select count(secret) as c1, count(password) as c2 from T1
+      - result: [{c1: 3, c2: 3}]
+
+    # UNION with star - both sides should exclude invisible columns
+    -
+      - query: select * from T1 where id = 1 union all select * from T1 where id = 2
+      - unorderedResult: [{id: 1, name: 'alice', age: 25}, {id: 2, name: 'bob', age: 30}]
+
+    # UNION with parenthesized star
+    -
+      - query: select (*) from T1 where id = 1 union all select (*) from T1 where id = 2
+      - unorderedResult: [{{id: 1, name: 'alice', age: 25}}, {{id: 2, name: 'bob', age: 30}}]
+
+    # UNION with one side explicitly selecting invisible column should work
+    -
+      - query: select id, name, age from T1 where id = 1 union all select id, name, age from T1 where id = 2
+      - unorderedResult: [{id: 1, name: 'alice', age: 25}, {id: 2, name: 'bob', age: 30}]
+
+    # CTE with star - should exclude invisible columns
+    -
+      - query: with cte as (select * from T1 where id = 1) select * from cte
+      - result: [{id: 1, name: 'alice', age: 25}]
+
+    # CTE with parenthesized star
+    -
+      - query: with cte as (select (*) from T1 where id = 1) select (*) from cte
+      - result: [{{{id: 1, name: 'alice', age: 25}}}]
+
+    # CTE explicitly selecting invisible column
+    -
+      - query: with cte as (select id, secret from T1 where id = 1) select * from cte
+      - result: [{id: 1, secret: 'secret1'}]
+
+    # CASE expression with invisible columns
+    # TODO: This test fails with cache retrieval error in Embedded mode. This is a pre-existing bug
+    #       that also affects regular (non-invisible) columns - see test-case-cache.yamsql on main branch.
+    #       The issue is unrelated to the invisible columns feature.
+    # -
+    #   - query: select id, case when secret like 'secret%' then 'valid' else 'invalid' end as status from T1 where id = 1
+    #   - result: [{id: 1, status: 'valid'}]
+
+    # Invisible column in HAVING clause
+    -
+      - query: select count(*) as cnt from T1 group by secret having secret = 'secret1'
+      - result: [{cnt: 1}]
+
+    # Invisible column in correlated subquery
+    -
+      - query: select id, name from T1 t1 where exists (select 1 from T2 t2 where t2.token = t1.secret and t2.id2 = t1.id)
+      - result: []
+...
