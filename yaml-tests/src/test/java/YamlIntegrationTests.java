@@ -208,6 +208,21 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void indexDdl(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("index-ddl.yamsql");
+    }
+
+    @TestTemplate
+    public void indexDdlValuesOnly(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("index-ddl-values-only.yamsql");
+    }
+
+    @TestTemplate
+    public void indexDdlAggregatesOnly(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("index-ddl-aggregates-only.yamsql");
+    }
+
+    @TestTemplate
     public void nested(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("nested-tests.yamsql");
     }
