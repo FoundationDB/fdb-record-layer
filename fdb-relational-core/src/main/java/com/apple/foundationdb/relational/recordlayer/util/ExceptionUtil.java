@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.recordlayer.util;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordIndexUniquenessViolation;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.provider.foundationdb.FDBExceptions;
 import com.apple.foundationdb.record.provider.foundationdb.RecordAlreadyExistsException;
@@ -66,7 +67,7 @@ public final class ExceptionUtil {
             code = ErrorCode.TRANSACTION_INACTIVE;
         } else if (re instanceof RecordDeserializationException || re.getCause() instanceof RecordDeserializationException) {
             code = ErrorCode.DESERIALIZATION_FAILURE;
-        } else if (re instanceof RecordAlreadyExistsException || re.getCause() instanceof RecordAlreadyExistsException) {
+        } else if (re instanceof RecordAlreadyExistsException || re.getCause() instanceof RecordAlreadyExistsException || re instanceof RecordIndexUniquenessViolation) {
             code = ErrorCode.UNIQUE_CONSTRAINT_VIOLATION;
         } else if (re instanceof MetaDataException) {
             //TODO(bfines) map this to specific error codes based on the violation
