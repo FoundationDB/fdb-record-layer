@@ -390,7 +390,9 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     public CompletableFuture<Void> mergeIndex() {
         return rebalancePartitions()
                 .thenCompose(ignored -> {
-                    state.store.getIndexDeferredMaintenanceControl().setLastStep(IndexDeferredMaintenanceControl.LastStep.MERGE);
+                    final IndexDeferredMaintenanceControl mergeControl = state.store.getIndexDeferredMaintenanceControl();
+                    mergeControl.setExplicitMergePath(true);
+                    mergeControl.setLastStep(IndexDeferredMaintenanceControl.LastStep.MERGE);
                     return directoryManager.mergeIndex(partitioner);
                 });
     }

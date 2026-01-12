@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.metadata.Index;
 
 import java.util.HashSet;
@@ -29,6 +30,7 @@ import java.util.Set;
  * Some store's indexes may need merging on some occasions. This helper module should allow the caller
  * to set and probe the merge policy and merge requests.
  */
+@API(API.Status.EXPERIMENTAL)
 public class IndexDeferredMaintenanceControl {
     private Set<Index> mergeRequiredIndexes = null;
     private boolean autoMergeDuringCommit = false;
