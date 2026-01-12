@@ -128,6 +128,20 @@ class DataRecordsTest {
     @RandomSeedSource({0x0fdbL, 0x5ca1eL, 123456L, 78910L, 1123581321345589L})
     void testNodeReferenceAndNode(final long randomSeed) {
         assertToString(randomSeed, DataRecordsTest::nodeReferenceAndNode, DataRecordsTest::nodeReferenceAndNode);
+
+        final Random random = new Random(randomSeed);
+        final NodeReferenceAndNode<NodeReferenceWithDistance, NodeReferenceWithVector> nodeReferenceAndNode1 =
+                nodeReferenceAndNode(random);
+        final NodeReferenceAndNode<NodeReferenceWithDistance, NodeReferenceWithVector> nodeReferenceAndNode2 =
+                nodeReferenceAndNode(random);
+
+        final var nodeReferenceAndNodes =
+                ImmutableList.of(nodeReferenceAndNode1, nodeReferenceAndNode2);
+        Assertions.assertThat(NodeReferenceAndNode.references(nodeReferenceAndNodes))
+                .containsExactly(nodeReferenceAndNode1.getNodeReference(), nodeReferenceAndNode2.getNodeReference());
+        Assertions.assertThat(NodeReferenceAndNode.primaryKeys(nodeReferenceAndNodes))
+                .containsExactly(nodeReferenceAndNode1.getNodeReference().getPrimaryKey(),
+                        nodeReferenceAndNode2.getNodeReference().getPrimaryKey());
     }
 
     private static <T> void assertToString(final long randomSeed,
