@@ -232,10 +232,10 @@ public class FDBIncarnationQueryTest extends FDBRecordStoreQueryTestBase {
                     assertEquals(3, cursor.asList().join().size());
                 }
                 for (int i = 0; i < 3; i++) {
-                    final MySimpleRecord record = MySimpleRecord.newBuilder()
+                    final MySimpleRecord rec = MySimpleRecord.newBuilder()
                             .mergeFrom(recordStore.loadRecord(Tuple.from(i)).getRecord())
                             .build();
-                    assertEquals((int)incarnation, record.getNumValue2());
+                    assertEquals((int)incarnation, rec.getNumValue2());
                 }
             }
         }
