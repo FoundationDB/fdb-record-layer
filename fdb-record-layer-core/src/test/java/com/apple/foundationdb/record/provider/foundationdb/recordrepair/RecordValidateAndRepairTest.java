@@ -23,17 +23,21 @@ package com.apple.foundationdb.record.provider.foundationdb.recordrepair;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.RecordMetaDataProto;
+import com.apple.foundationdb.record.RecordMetaDataProvider;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseRunner;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreKeyspace;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FormatVersion;
+import com.apple.foundationdb.record.provider.foundationdb.RecordStoreNoInfoAndNotEmptyException;
 import com.apple.foundationdb.record.provider.foundationdb.SplitHelper;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.test.BooleanSource;
 import com.apple.test.ParameterizedTestUtils;
 import com.google.protobuf.Message;
 import org.assertj.core.api.Assertions;
@@ -91,6 +95,49 @@ public class RecordValidateAndRepairTest extends FDBRecordStoreTestBase {
         }
 
         validateNormalScan(hook, formatVersion, NUM_RECORDS, storeVersions);
+    }
+
+    @ParameterizedTest
+    @BooleanSource({"allowRepair", "repairHeader"})
+    void testCorruptStoreHeaderNoCorruptRecords(final boolean allowRepair, final boolean repairHeader) throws Exception {
+        final boolean splitLongRecords = true;
+        final FormatVersion storeVersion = FormatVersion.SAVE_VERSION_WITH_RECORD;
+        final RecordMetaDataHook hook = ValidationTestUtils.getRecordMetaDataHook(splitLongRecords, true);
+        saveRecords(splitLongRecords, storeVersion, hook);
+
+        FDBRecordStore.Builder storeBuilder;
+        try (FDBRecordContext context = openContext()) {
+            final FDBRecordStore store = openSimpleRecordStore(context, hook, storeVersion);
+            storeBuilder = store.asBuilder();
+        }
+        clearStoreHeader(simpleMetaData(hook));
+
+        RecordRepair.Builder builder = RecordRepair.builder(fdb, storeBuilder)
+                .withValidationKind(RecordRepair.ValidationKind.RECORD_VALUE_AND_VERSION);
+        if (repairHeader) {
+            // This will allow the runner to repair the header before repairing records
+            builder = builder.withHeaderRepairParameters(1, storeVersion);
+        }
+        // Run validation and repair
+        try (RecordRepairValidateRunner runner = builder.buildRepairRunner(allowRepair)) {
+            RepairValidationResults repairResults = runner.run().join();
+            if (repairHeader) {
+                ValidationTestUtils.assertCompleteResults(repairResults, NUM_RECORDS);
+                // Verify records: all is OK.
+                ValidationTestUtils.assertNoInvalidResults(repairResults.getInvalidResults());
+            } else {
+                Assertions.assertThat(repairResults.getCaughtException()).hasCauseInstanceOf(RecordStoreNoInfoAndNotEmptyException.class);
+            }
+        }
+
+        if (repairHeader && allowRepair) {
+            validateNormalScan(hook, storeVersion, NUM_RECORDS, true);
+        } else {
+            try (FDBRecordContext context = openContext()) {
+                Assertions.assertThatThrownBy(() -> openSimpleRecordStore(context, hook, storeVersion))
+                        .isInstanceOf(RecordStoreNoInfoAndNotEmptyException.class);
+            }
+        }
     }
 
     public static Stream<Arguments> splitNumberFormatVersion() {
@@ -742,7 +789,6 @@ public class RecordValidateAndRepairTest extends FDBRecordStoreTestBase {
         return result;
     }
 
-
     private void validateNormalScan(final RecordMetaDataHook hook, final FormatVersion formatVersion, final int numRecords, Boolean hasVersion) throws Exception {
         // Load the records again to make sure they are all there
         try (FDBRecordContext context = openContext()) {
@@ -756,6 +802,14 @@ public class RecordValidateAndRepairTest extends FDBRecordStoreTestBase {
                     records.forEach(rec -> Assertions.assertThat(rec.getVersion()).isNull());
                 }
             }
+        }
+    }
+
+    private void clearStoreHeader(final RecordMetaDataProvider metaData) {
+        try (FDBRecordContext context = openContext()) {
+            recordStore = getStoreBuilder(context, metaData, path).createOrOpen();
+            context.ensureActive().clear(recordStore.getSubspace().pack(FDBRecordStoreKeyspace.STORE_INFO.key()));
+            commit(context);
         }
     }
 }

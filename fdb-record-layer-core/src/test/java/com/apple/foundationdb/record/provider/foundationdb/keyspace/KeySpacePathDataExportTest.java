@@ -41,6 +41,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -49,7 +50,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -69,7 +69,7 @@ class KeySpacePathDataExportTest {
     final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
 
     @Test
-    void exportAllDataFromSimplePath() throws ExecutionException, InterruptedException {
+    void exportAllDataFromSimplePath() {
         KeySpace root = new KeySpace(
                 new KeySpaceDirectory("root", KeyType.STRING, UUID.randomUUID().toString())
                         .addSubdirectory(new KeySpaceDirectory("level1", KeyType.LONG)));
@@ -83,13 +83,14 @@ class KeySpacePathDataExportTest {
             
             // Add data at different levels
             for (int i = 0; i < 5; i++) {
-                Tuple key = basePath.add("level1", (long) i).toTuple(context);
+                final KeySpacePath path = basePath.add("level1", (long)i);
+                Tuple key = path.toTuple(context);
                 tr.set(key.pack(), Tuple.from("value" + i).pack());
 
                 // Add some sub-data under each key
                 for (int j = 0; j < 3; j++) {
-                    Tuple subKey = key.add("sub" + j);
-                    tr.set(subKey.pack(), Tuple.from("subvalue" + i + "_" + j).pack());
+                    tr.set(path.toSubspace(context).pack(Tuple.from("sub" + j)),
+                            Tuple.from("subvalue" + i + "_" + j).pack());
                 }
             }
             context.commit();
@@ -103,16 +104,19 @@ class KeySpacePathDataExportTest {
             // Should have 5 main entries + 15 sub-entries = 20 total
             assertEquals(20, allData.size());
 
+            assertThat(allData)
+                    .allSatisfy(data ->
+                            assertThat(data.getPath().getDirectoryName()).isEqualTo("level1"));
+
             // Verify the data is sorted by key
-            for (int i = 1; i < allData.size(); i++) {
-                assertTrue(getKey(allData.get(i - 1), context).compareTo(getKey(allData.get(i), context)) < 0);
-            }
+            assertThat(allData.stream().map(data -> getKey(data, context)).collect(Collectors.toList()))
+                    .isSorted();
         }
     }
 
     // `toTuple` does not include the remainder, I'm not sure if that is intentional, or an oversight.
-    private Tuple getKey(final DataInKeySpacePath dataInKeySpacePath, final FDBRecordContext context) throws ExecutionException, InterruptedException {
-        final ResolvedKeySpacePath resolvedKeySpacePath = dataInKeySpacePath.getPath().toResolvedPathAsync(context).get();
+    private Tuple getKey(final DataInKeySpacePath dataInKeySpacePath, final FDBRecordContext context) {
+        final ResolvedKeySpacePath resolvedKeySpacePath = dataInKeySpacePath.getPath().toResolvedPathAsync(context).join();
         if (dataInKeySpacePath.getRemainder() != null) {
             return resolvedKeySpacePath.toTuple().addAll(dataInKeySpacePath.getRemainder());
         } else {
@@ -156,7 +160,7 @@ class KeySpacePathDataExportTest {
 
             // Verify all data belongs to user 2
             for (DataInKeySpacePath data : userData) {
-                String value = Tuple.fromBytes(data.getValue()).getString(0);
+                String value = Tuple.fromBytes(data.getValue().toByteArray()).getString(0);
                 assertTrue(value.startsWith("user2_"));
             }
         }
@@ -202,7 +206,7 @@ class KeySpacePathDataExportTest {
             // Verify we have data for all three services
             Set<String> serviceNames = new HashSet<>();
             for (DataInKeySpacePath data : allData) {
-                String value = Tuple.fromBytes(data.getValue()).getString(0);
+                String value = Tuple.fromBytes(data.getValue().toByteArray()).getString(0);
                 String serviceName = value.split("_")[0];
                 serviceNames.add(serviceName);
             }
@@ -250,7 +254,7 @@ class KeySpacePathDataExportTest {
 
             // Verify we have different value types
             Set<String> valueTypes = allData.stream()
-                    .map(data -> Tuple.fromBytes(data.getValue()).getString(0).split("_")[0])
+                    .map(data -> Tuple.fromBytes(data.getValue().toByteArray()).getString(0).split("_")[0])
                     .collect(Collectors.toSet());
             assertEquals((Arrays.stream(KeyType.values()).map(Enum::name).collect(Collectors.toSet())),
                     valueTypes);
@@ -291,7 +295,7 @@ class KeySpacePathDataExportTest {
 
             // Verify all data has expected prefix
             for (DataInKeySpacePath data : allData) {
-                String value = Tuple.fromBytes(data.getValue()).getString(0);
+                String value = Tuple.fromBytes(data.getValue().toByteArray()).getString(0);
                 assertTrue(value.startsWith("constant_path_data_"));
             }
         }
@@ -371,7 +375,7 @@ class KeySpacePathDataExportTest {
 
             // Verify all belong to engineering
             for (DataInKeySpacePath data : allData) {
-                String value = Tuple.fromBytes(data.getValue()).getString(0);
+                String value = Tuple.fromBytes(data.getValue().toByteArray()).getString(0);
                 if (value.startsWith("engineering_")) {
                     assertTrue(value.contains("engineering_"));
                 }
@@ -401,7 +405,7 @@ class KeySpacePathDataExportTest {
             
             for (int i = 0; i < binaryKeys.length; i++) {
                 Tuple key = basePath.add("blob", binaryKeys[i]).toTuple(context);
-                byte[] value = ("binary_data_" + i).getBytes();
+                byte[] value = ("binary_data_" + i).getBytes(StandardCharsets.UTF_8);
                 tr.set(key.pack(), value);
             }
             context.commit();
@@ -416,7 +420,7 @@ class KeySpacePathDataExportTest {
 
             // Verify binary data integrity
             for (DataInKeySpacePath data : allData) {
-                String valueStr = new String(data.getValue());
+                String valueStr = new String(data.getValue().toByteArray(), StandardCharsets.UTF_8);
                 assertTrue(valueStr.startsWith("binary_data_"));
             }
         }
@@ -524,9 +528,7 @@ class KeySpacePathDataExportTest {
                 final RecordCursor<DataInKeySpacePath> cursor = pathToExport.exportAllData(context, continuation.toBytes(),
                         scanProperties);
                 final AtomicReference<RecordCursorResult<Tuple>> tupleResult = new AtomicReference<>();
-                final List<Tuple> batch = cursor.map(dataInPath -> {
-                    return Tuple.fromBytes(dataInPath.getValue());
-                }).asList(tupleResult).join();
+                final List<Tuple> batch = cursor.map(dataInPath -> Tuple.fromBytes(dataInPath.getValue().toByteArray())).asList(tupleResult).join();
                 actual.add(batch);
                 continuation = tupleResult.get().getContinuation();
             }
@@ -578,7 +580,7 @@ class KeySpacePathDataExportTest {
     }
 
     @Test
-    void exportAllDataThroughKeySpacePathWrapperResolvedPaths() {
+    void exportAllDataThroughKeySpacePathWrapperRemainders() {
         final FDBDatabase database = dbExtension.getDatabase();
         final EnvironmentKeySpace keySpace = EnvironmentKeySpace.setupSampleData(database);
 
@@ -687,7 +689,7 @@ class KeySpacePathDataExportTest {
         assertEquals(expectedCount, app1User100Data.size(), expectedCountMessage);
 
         for (DataInKeySpacePath data : app1User100Data) {
-            String value = Tuple.fromBytes(data.getValue()).getString(0);
+            String value = Tuple.fromBytes(data.getValue().toByteArray()).getString(0);
             assertTrue(value.contains(expectedValueContents), contentMessage);
         }
     }

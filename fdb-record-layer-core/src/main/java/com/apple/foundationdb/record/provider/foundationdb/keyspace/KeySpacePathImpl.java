@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.ValueRange;
 import com.apple.foundationdb.record.cursors.LazyCursor;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursor;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
@@ -314,6 +315,56 @@ class KeySpacePathImpl implements KeySpacePath {
                             .thenApply(resolvedKey ->
                                     new DataInKeySpacePath(resolvedKey.toPath(), resolvedKey.getRemainder(), keyValue.getValue())),
                     1);
+    }
+
+    @Nonnull
+    @Override
+    public CompletableFuture<Void> importData(@Nonnull FDBRecordContext context,
+                                              @Nonnull Iterable<DataInKeySpacePath> dataToImport) {
+        return toTupleAsync(context).thenCompose(targetTuple -> {
+            // We use a mapPipelined here to help control the rate of insertions into the directory layer if those
+            // are happening.
+            // DirectoryLayer operations are done in a separate transaction for two reasons:
+            // 1. To reduce conflicts
+            // 2. So that it can immediately be cached without having to do it in a post-commit hook, which can make
+            //    things complicated
+            // It does use `HighContentionAllocator`, but it also reuses the read version from this context.
+            // In the general case, you would have many entries with the same path, and most would just be hitting the
+            // cache, but in more degenerate scenarios (like every path has one key), having a larger pipeline could
+            // cause conflicts, and retrying in the background. So it actually ends up being more efficient to only
+            // do one path-lookup at a time. It's possible that a pipelineSize of some small number greater than 1 could
+            // be more efficient in some of these scenarios, but they aren't really worth optimizing.
+            // Also, note that since directory layer allocations are done in a separate transaction, if allocating them
+            // takes too long, on a retry, any entries that succeeded will already be committed, and the retry should
+            // be much faster.
+            final RecordCursor<Void> insertionWork = RecordCursor.fromIterator(context.getExecutor(), dataToImport.iterator())
+                    .mapPipelined(dataItem ->
+                            dataItem.getPath().toTupleAsync(context).thenAccept(itemPathTuple -> {
+                                // Validate that this data belongs under this path
+                                if (!TupleHelpers.isPrefix(targetTuple, itemPathTuple)) {
+                                    throw new RecordCoreIllegalImportDataException(
+                                            "Data item path does not belong under target path",
+                                            "target", targetTuple,
+                                            "item", itemPathTuple);
+                                }
+
+                                // Reconstruct the key using the path and remainder
+                                Tuple keyTuple = itemPathTuple;
+                                if (dataItem.getRemainder() != null) {
+                                    keyTuple = keyTuple.addAll(dataItem.getRemainder());
+                                }
+
+                                // Store the data
+                                byte[] keyBytes = keyTuple.pack();
+                                byte[] valueBytes = dataItem.getValue().toByteArray();
+                                context.ensureActive().set(keyBytes, valueBytes);
+                            }),
+                            1);
+            // Use forEach to force consuming the entire cursor, which will cause the inserts to happen
+            final CompletableFuture<Void> allInsertions = insertionWork.forEach(vignore -> { })
+                    .whenComplete((vignore, e) -> insertionWork.close());
+            return context.instrument(FDBStoreTimer.Events.IMPORT_DATA, allInsertions);
+        });
     }
 
     /**

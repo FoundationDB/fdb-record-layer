@@ -25,9 +25,11 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.tuple.Tuple;
+import com.google.protobuf.ByteString;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Objects;
 
 /**
  * Class representing a {@link KeyValue} pair within in {@link KeySpacePath}.
@@ -40,7 +42,7 @@ public class DataInKeySpacePath {
     @Nullable
     private final Tuple remainder;
     @Nonnull
-    private final byte[] value;
+    private final ByteString value;
 
     public DataInKeySpacePath(@Nonnull final KeySpacePath path, @Nullable final Tuple remainder,
                               @Nullable final byte[] value) {
@@ -50,10 +52,11 @@ public class DataInKeySpacePath {
             throw new RecordCoreArgumentException("Value cannot be null")
                     .addLogInfo(LogMessageKeys.KEY, path);
         }
-        this.value = value;
+        this.value = ByteString.copyFrom(value);
     }
 
-    public byte[] getValue() {
+    @Nonnull
+    public ByteString getValue() {
         return this.value;
     }
 
@@ -67,4 +70,22 @@ public class DataInKeySpacePath {
         return remainder;
     }
 
+    @Override
+    public boolean equals(final Object o) {
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        final DataInKeySpacePath that = (DataInKeySpacePath)o;
+        return Objects.equals(path, that.path) && Objects.equals(remainder, that.remainder) && Objects.equals(value, that.value);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(path, remainder, value);
+    }
+
+    @Override
+    public String toString() {
+        return path + "+" + remainder + "->" + value;
+    }
 }

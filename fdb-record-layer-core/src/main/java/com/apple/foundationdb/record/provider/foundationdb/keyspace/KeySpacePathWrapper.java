@@ -202,4 +202,11 @@ public class KeySpacePathWrapper implements KeySpacePath {
                                                           @Nonnull ScanProperties scanProperties) {
         return inner.exportAllData(context, continuation, scanProperties);
     }
+
+    @Nonnull
+    @Override
+    public CompletableFuture<Void> importData(@Nonnull FDBRecordContext context,
+                                              @Nonnull Iterable<DataInKeySpacePath> dataToImport) {
+        return inner.importData(context, dataToImport);
+    }
 }

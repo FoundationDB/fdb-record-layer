@@ -26,6 +26,7 @@ import com.apple.foundationdb.linear.AffineOperator;
 import com.apple.foundationdb.linear.Quantizer;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
+import com.google.common.base.Verify;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -99,6 +100,34 @@ abstract class AbstractStorageAdapter<N extends NodeReference> implements Storag
     }
 
     @Override
+    public boolean isInliningStorageAdapter() {
+        final boolean isInliningStorageAdapter = getNodeFactory().getNodeKind() == NodeKind.INLINING;
+        Verify.verify(!isInliningStorageAdapter || this instanceof InliningStorageAdapter);
+        return isInliningStorageAdapter;
+    }
+
+    @Nonnull
+    @Override
+    public InliningStorageAdapter asInliningStorageAdapter() {
+        Verify.verify(isInliningStorageAdapter());
+        return (InliningStorageAdapter)this;
+    }
+
+    @Override
+    public boolean isCompactStorageAdapter() {
+        final boolean isCompactStorageAdapter = getNodeFactory().getNodeKind() == NodeKind.COMPACT;
+        Verify.verify(!isCompactStorageAdapter || this instanceof CompactStorageAdapter);
+        return isCompactStorageAdapter;
+    }
+
+    @Nonnull
+    @Override
+    public CompactStorageAdapter asCompactStorageAdapter() {
+        Verify.verify(isCompactStorageAdapter());
+        return (CompactStorageAdapter)this;
+    }
+
+    @Override
     @Nonnull
     public Subspace getSubspace() {
         return subspace;
@@ -130,23 +159,6 @@ abstract class AbstractStorageAdapter<N extends NodeReference> implements Storag
         return onReadListener;
     }
 
-    /**
-     * Asynchronously fetches a node from a specific layer of the HNSW.
-     * <p>
-     * The node is identified by its {@code layer} and {@code primaryKey}. The entire fetch operation is
-     * performed within the given {@link ReadTransaction}. After the underlying
-     * fetch operation completes, the retrieved node is validated by the
-     * {@link  #checkNode(Node)} method before the returned future is completed.
-     *
-     * @param readTransaction the non-null transaction to use for the read operation
-     * @param storageTransform an affine vector transformation operator that is used to transform the fetched vector
-     *        into the storage space that is currently being used
-     * @param layer the layer of the tree from which to fetch the node
-     * @param primaryKey the non-null primary key that identifies the node to fetch
-     *
-     * @return a {@link CompletableFuture} that will complete with the fetched {@link AbstractNode}
-     * once it has been read from storage and validated
-     */
     @Nonnull
     @Override
     public CompletableFuture<AbstractNode<N>> fetchNode(@Nonnull final ReadTransaction readTransaction,
@@ -169,7 +181,7 @@ abstract class AbstractStorageAdapter<N extends NodeReference> implements Storag
      * @param primaryKey the primary key that uniquely identifies the node to be fetched; must not be {@code null}
      *
      * @return a {@link CompletableFuture} that will be completed with the fetched {@link AbstractNode}.
-     * The future will complete with {@code null} if no node is found for the given key and layer.
+     *         The future will complete with {@code null} if no node is found for the given key and layer.
      */
     @Nonnull
     protected abstract CompletableFuture<AbstractNode<N>> fetchNodeInternal(@Nonnull ReadTransaction readTransaction,
@@ -185,7 +197,7 @@ abstract class AbstractStorageAdapter<N extends NodeReference> implements Storag
      * @return the node that was passed in
      */
     @Nullable
-    private <T extends Node<N>> T checkNode(@Nullable final T node) {
+    protected <T extends AbstractNode<N>> T checkNode(@Nullable final T node) {
         return node;
     }
 
@@ -200,23 +212,23 @@ abstract class AbstractStorageAdapter<N extends NodeReference> implements Storag
      *
      * @param transaction the non-null {@link Transaction} context for this write operation
      * @param quantizer the quantizer to use
-     * @param node the non-null {@link Node} to be written to storage
      * @param layer the layer index where the node is being written
+     * @param node the non-null {@link Node} to be written to storage
      * @param changeSet the non-null {@link NeighborsChangeSet} detailing the modifications
      * to the node's neighbors
      */
     @Override
     public void writeNode(@Nonnull final Transaction transaction, @Nonnull final Quantizer quantizer,
-                          @Nonnull final AbstractNode<N> node, final int layer,
+                          final int layer, @Nonnull final AbstractNode<N> node,
                           @Nonnull final NeighborsChangeSet<N> changeSet) {
-        writeNodeInternal(transaction, quantizer, node, layer, changeSet);
+        writeNodeInternal(transaction, quantizer, layer, node, changeSet);
         if (logger.isTraceEnabled()) {
             logger.trace("written node with key={} at layer={}", node.getPrimaryKey(), layer);
         }
     }
 
     /**
-     * Writes a single node to the data store as part of a larger transaction.
+     * Writes a single node to the given layer of the data store as part of a larger transaction.
      * <p>
      * This is an abstract method that concrete implementations must provide.
      * It is responsible for the low-level persistence of the given {@code node} at a
@@ -225,12 +237,28 @@ abstract class AbstractStorageAdapter<N extends NodeReference> implements Storag
      *
      * @param transaction the non-null transaction context for the write operation
      * @param quantizer the quantizer to use
-     * @param node the non-null {@link Node} to write
      * @param layer the layer or level of the node in the structure
+     * @param node the non-null {@link Node} to write
      * @param changeSet the non-null {@link NeighborsChangeSet} detailing additions or
      * removals of neighbor links
      */
     protected abstract void writeNodeInternal(@Nonnull Transaction transaction, @Nonnull Quantizer quantizer,
-                                              @Nonnull AbstractNode<N> node, int layer,
+                                              int layer, @Nonnull AbstractNode<N> node,
                                               @Nonnull NeighborsChangeSet<N> changeSet);
+
+    @Override
+    public void deleteNode(@Nonnull final Transaction transaction, final int layer, @Nonnull final Tuple primaryKey) {
+        deleteNodeInternal(transaction, layer, primaryKey);
+        if (logger.isTraceEnabled()) {
+            logger.trace("deleted node with key={} at layer={}", primaryKey, layer);
+        }
+    }
+
+    /**
+     * Deletes a single node from the given layer of the data store as part of a larger transaction.
+     * @param transaction the transaction to use
+     * @param layer the layer
+     * @param primaryKey the primary key of the node
+     */
+    protected abstract void deleteNodeInternal(@Nonnull Transaction transaction, int layer, @Nonnull Tuple primaryKey);
 }

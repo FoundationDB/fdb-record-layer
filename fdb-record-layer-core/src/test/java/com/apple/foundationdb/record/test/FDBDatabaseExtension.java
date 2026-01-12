@@ -38,8 +38,12 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.Executor;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -159,6 +163,18 @@ public class FDBDatabaseExtension implements AfterEachCallback {
                     LOGGER.info("Connecting to cluster file: " + key);
                     return getDatabaseFactory().getDatabase(key.isEmpty() ? null : key);
                 });
+    }
+
+    /**
+     * Return a random subset of the databases available.
+     * @param maxCount the number of desired databases
+     * @return a random subset of the databases available. This may be less than {@code maxCount} if there aren't that many
+     * databases available.
+     */
+    public List<FDBDatabase> getRandomDatabaseSubset(int maxCount) {
+        List<String> clusterFiles = new ArrayList<>(FDBTestEnvironment.allClusterFiles());
+        Collections.shuffle(clusterFiles);
+        return clusterFiles.stream().limit(maxCount).map(this::getDatabase).collect(Collectors.toList());
     }
 
     public void checkForOpenContexts() {
