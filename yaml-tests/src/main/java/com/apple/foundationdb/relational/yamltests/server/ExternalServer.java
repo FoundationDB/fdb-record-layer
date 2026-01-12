@@ -117,11 +117,13 @@ public class ExternalServer {
                 // "-agentlib:jdwp=transport=dt_socket,server=y,address=8000,suspend=n",
                 "-jar", serverJar.getAbsolutePath(),
                 "--grpcPort", Integer.toString(grpcPort), "--httpPort", Integer.toString(httpPort));
+        final File stdoutFile = File.createTempFile("JdbcServerOut-" + grpcPort + "-", ".log");
         ProcessBuilder.Redirect out = SAVE_SERVER_OUTPUT ?
-                                      ProcessBuilder.Redirect.to(File.createTempFile("JdbcServerOut-" + grpcPort, ".log")) :
+                                      ProcessBuilder.Redirect.to(stdoutFile) :
                                       ProcessBuilder.Redirect.DISCARD;
+        final File stderrFile = File.createTempFile("JdbcServerErr-" + grpcPort + "-", ".log");
         ProcessBuilder.Redirect err = SAVE_SERVER_OUTPUT ?
-                                      ProcessBuilder.Redirect.to(File.createTempFile("JdbcServerErr-" + grpcPort, ".log")) :
+                                      ProcessBuilder.Redirect.to(stderrFile) :
                                       ProcessBuilder.Redirect.DISCARD;
         processBuilder.redirectOutput(out);
         processBuilder.redirectError(err);
@@ -130,7 +132,9 @@ public class ExternalServer {
         }
 
         if (!startServer(processBuilder)) {
-            Assertions.fail("Failed to start the external server");
+            Assertions.fail("Failed to start the external server; " +
+                            (SAVE_SERVER_OUTPUT ? "see logs \nout: file://" + stdoutFile + "\nerr: file://" + stderrFile
+                             : "no logs captured, see ExternalServer.SAVE_SERVER_OUTPUT"));
         }
 
         logger.info("Started {} Version: {}", serverJar, version);
