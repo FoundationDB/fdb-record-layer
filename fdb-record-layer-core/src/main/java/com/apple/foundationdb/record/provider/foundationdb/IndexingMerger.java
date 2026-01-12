@@ -94,6 +94,7 @@ public class IndexingMerger {
                                     mergeControl.setRepartitionDocumentCount(repartitionDocumentCount);
                                     mergeControl.setLastStep(IndexDeferredMaintenanceControl.LastStep.NONE);
                                     mergeControl.setRepartitionCapped(false);
+                                    mergeControl.setExplicitMergePath(true);
                                     return store.getIndexMaintainer(index).mergeIndex();
                                 })
                                 .thenApply(ignore -> false)
