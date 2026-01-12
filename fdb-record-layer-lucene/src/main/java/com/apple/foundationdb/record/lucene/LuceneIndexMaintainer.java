@@ -399,6 +399,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     public void mergeIndexForTesting(@Nonnull final Tuple groupingKey,
                                      @Nullable final Integer partitionId,
                                      @Nonnull final AgilityContext agilityContext) throws IOException {
+        state.store.getIndexDeferredMaintenanceControl().setExplicitMergePath(true);
         directoryManager.mergeIndexWithContext(groupingKey, partitionId, agilityContext);
     }
 
