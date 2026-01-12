@@ -58,6 +58,8 @@ public class IncarnationValue extends AbstractValue {
 
     @Nullable
     @Override
+    @SpotBugsSuppressWarnings(value = "NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE",
+            justification = "Store parameter is nullable in interface but required for incarnation retrieval")
     public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
         Objects.requireNonNull(store);
         return store.getIncarnation();
