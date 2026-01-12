@@ -36,7 +36,6 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.google.auto.service.AutoService;
-import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -74,7 +73,7 @@ public class IncarnationValue extends AbstractValue {
     @Nonnull
     @Override
     protected Iterable<? extends Value> computeChildren() {
-        return ImmutableList.of();
+        return List.of();
     }
 
     @Nonnull
