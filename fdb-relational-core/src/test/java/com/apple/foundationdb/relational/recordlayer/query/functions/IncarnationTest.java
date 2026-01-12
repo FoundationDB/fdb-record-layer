@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer.query.functions;
 
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.provider.foundationdb.FormatVersion;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.AbstractDatabase;
@@ -60,7 +61,8 @@ public class IncarnationTest {
 
     @RegisterExtension
     @Order(2)
-    public final RelationalConnectionRule connection = new RelationalConnectionRule(database::getConnectionUri)
+    public final RelationalConnectionRule connection = new RelationalConnectionRule(
+            () -> relationalExtension.getDriver(FormatVersion.INCARNATION), database::getConnectionUri)
             .withOptions(Options.NONE)
             .withSchema("TEST_SCHEMA");
 
