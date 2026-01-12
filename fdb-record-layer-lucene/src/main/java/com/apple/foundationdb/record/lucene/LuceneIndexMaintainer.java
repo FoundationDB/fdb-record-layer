@@ -34,15 +34,12 @@ import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.apple.foundationdb.record.RecordCursorStartContinuation;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
-import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.lucene.directory.AgilityContext;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectoryManager;
 import com.apple.foundationdb.record.lucene.directory.FDBLuceneFileReference;
 import com.apple.foundationdb.record.lucene.idformat.LuceneIndexKeySerializer;
-import com.apple.foundationdb.record.lucene.idformat.RecordCoreFormatException;
-import com.apple.foundationdb.record.lucene.search.BooleanPointsConfig;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
 import com.apple.foundationdb.record.metadata.IndexRecordFunction;
@@ -67,24 +64,11 @@ import com.apple.foundationdb.record.query.QueryToKeyMatcher;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.Message;
-import org.apache.lucene.document.BinaryPoint;
-import org.apache.lucene.document.Document;
-import org.apache.lucene.document.DoublePoint;
-import org.apache.lucene.document.Field;
 import org.apache.lucene.document.FieldType;
-import org.apache.lucene.document.IntPoint;
-import org.apache.lucene.document.LongPoint;
-import org.apache.lucene.document.NumericDocValuesField;
-import org.apache.lucene.document.SortedDocValuesField;
-import org.apache.lucene.document.StoredField;
-import org.apache.lucene.document.StringField;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexOptions;
 import org.apache.lucene.index.IndexReader;
-import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.search.Query;
-import org.apache.lucene.util.BytesRef;
-import org.apache.lucene.util.NumericUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -193,61 +177,6 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         throw new RecordCoreException("unsupported scan type for Lucene index: " + scanType);
     }
 
-
-    /**
-     * Insert a field into the document and add a suggestion into the suggester if needed.
-     */
-    @SuppressWarnings("java:S3776")
-    private void insertField(LuceneDocumentFromRecord.DocumentField field, final Document document) {
-        final String fieldName = field.getFieldName();
-        final Object value = field.getValue();
-        final Field luceneField;
-        final Field sortedField;
-        final StoredField storedField;
-        switch (field.getType()) {
-            case TEXT:
-                luceneField = new Field(fieldName, (String) value, getTextFieldType(field));
-                sortedField = null;
-                storedField = null;
-                break;
-            case STRING:
-                luceneField = new StringField(fieldName, (String)value, field.isStored() ? Field.Store.YES : Field.Store.NO);
-                sortedField = field.isSorted() ? new SortedDocValuesField(fieldName, new BytesRef((String)value)) : null;
-                storedField = null;
-                break;
-            case INT:
-                luceneField = new IntPoint(fieldName, (Integer)value);
-                sortedField = field.isSorted() ? new NumericDocValuesField(fieldName, (Integer)value) : null;
-                storedField = field.isStored() ? new StoredField(fieldName, (Integer)value) : null;
-                break;
-            case LONG:
-                luceneField = new LongPoint(fieldName, (Long)value);
-                sortedField = field.isSorted() ? new NumericDocValuesField(fieldName, (Long)value) : null;
-                storedField = field.isStored() ? new StoredField(fieldName, (Long)value) : null;
-                break;
-            case DOUBLE:
-                luceneField = new DoublePoint(fieldName, (Double)value);
-                sortedField = field.isSorted() ? new NumericDocValuesField(fieldName, NumericUtils.doubleToSortableLong((Double)value)) : null;
-                storedField = field.isStored() ? new StoredField(fieldName, (Double)value) : null;
-                break;
-            case BOOLEAN:
-                byte[] bytes = Boolean.TRUE.equals(value) ? BooleanPointsConfig.TRUE_BYTES : BooleanPointsConfig.FALSE_BYTES;
-                luceneField = new BinaryPoint(fieldName, bytes);
-                storedField = field.isStored() ? new StoredField(fieldName, bytes) : null;
-                sortedField = field.isSorted() ? new SortedDocValuesField(fieldName, new BytesRef(bytes)) : null;
-                break;
-            default:
-                throw new RecordCoreArgumentException("Invalid type for lucene index field", "type", field.getType());
-        }
-        document.add(luceneField);
-        if (sortedField != null) {
-            document.add(sortedField);
-        }
-        if (storedField != null) {
-            document.add(storedField);
-        }
-    }
-
     <M extends Message> void writeDocument(final FDBIndexableRecord<M> newRecord, final Map.Entry<Tuple, List<LuceneDocumentFromRecord.DocumentField>> entry, final Integer partitionId) {
         try {
             writeDocument(entry.getValue(), entry.getKey(), partitionId, newRecord.getPrimaryKey());
@@ -256,38 +185,12 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         }
     }
 
-    @SuppressWarnings("PMD.CloseResource")
     private void writeDocument(@Nonnull List<LuceneDocumentFromRecord.DocumentField> fields,
                                Tuple groupingKey,
                                Integer partitionId,
                                Tuple primaryKey) throws IOException {
-        final long startTime = System.nanoTime();
-        Document document = new Document();
-        final IndexWriter newWriter = directoryManager.getIndexWriter(groupingKey, partitionId);
-
-        BytesRef ref = new BytesRef(keySerializer.asPackedByteArray(primaryKey));
-        // use packed Tuple for the Stored and Sorted fields
-        document.add(new StoredField(PRIMARY_KEY_FIELD_NAME, ref));
-        document.add(new SortedDocValuesField(PRIMARY_KEY_SEARCH_NAME, ref));
-        if (keySerializer.hasFormat()) {
-            try {
-                // Use BinaryPoint for fast lookup of ID when enabled
-                document.add(new BinaryPoint(PRIMARY_KEY_BINARY_POINT_NAME, keySerializer.asFormattedBinaryPoint(primaryKey)));
-            } catch (RecordCoreFormatException ex) {
-                // this can happen on format mismatch or encoding error
-                // just don't write the field, but allow the document to continue
-                logSerializationError("Failed to write using BinaryPoint encoded ID: {}", ex.getMessage());
-            }
-        }
-
-        Map<IndexOptions, List<LuceneDocumentFromRecord.DocumentField>> indexOptionsToFieldsMap = getIndexOptionsToFieldsMap(fields);
-        for (Map.Entry<IndexOptions, List<LuceneDocumentFromRecord.DocumentField>> entry : indexOptionsToFieldsMap.entrySet()) {
-            for (LuceneDocumentFromRecord.DocumentField field : entry.getValue()) {
-                insertField(field, document);
-            }
-        }
-        newWriter.addDocument(document);
-        state.context.record(LuceneEvents.Events.LUCENE_ADD_DOCUMENT, System.nanoTime() - startTime);
+        LuceneIndexMaintainerHelper.writeDocument(state.context, directoryManager, state.index, groupingKey, partitionId,
+                primaryKey, fields);
     }
 
     @Nonnull
@@ -302,62 +205,8 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         return map;
     }
 
-    @SuppressWarnings({"PMD.CloseResource", "java:S2095"})
     int deleteDocument(Tuple groupingKey, Integer partitionId, Tuple primaryKey) throws IOException {
-        final long startTime = System.nanoTime();
-        final IndexWriter indexWriter = directoryManager.getIndexWriter(groupingKey, partitionId);
-        @Nullable final LucenePrimaryKeySegmentIndex segmentIndex = directoryManager.getDirectory(groupingKey, partitionId).getPrimaryKeySegmentIndex();
-
-        if (segmentIndex != null) {
-            final LucenePrimaryKeySegmentIndex.DocumentIndexEntry documentIndexEntry = getDocumentIndexEntryWithRetry(segmentIndex, groupingKey, partitionId, primaryKey);
-            if (documentIndexEntry != null) {
-                state.context.ensureActive().clear(documentIndexEntry.entryKey); // TODO: Only if valid?
-                long valid = indexWriter.tryDeleteDocument(documentIndexEntry.indexReader, documentIndexEntry.docId);
-                if (valid > 0) {
-                    state.context.record(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_PRIMARY_KEY, System.nanoTime() - startTime);
-                    return 1;
-                } else if (LOG.isDebugEnabled()) {
-                    LOG.debug(KeyValueLogMessage.of("try delete document failed",
-                            LuceneLogMessageKeys.GROUP, groupingKey,
-                            LuceneLogMessageKeys.INDEX_PARTITION, partitionId,
-                            LuceneLogMessageKeys.SEGMENT, documentIndexEntry.segmentName,
-                            LuceneLogMessageKeys.DOC_ID, documentIndexEntry.docId,
-                            LuceneLogMessageKeys.PRIMARY_KEY, primaryKey));
-                }
-            } else if (LOG.isDebugEnabled()) {
-                LOG.debug(KeyValueLogMessage.of("primary key segment index entry not found",
-                        LuceneLogMessageKeys.GROUP, groupingKey,
-                        LuceneLogMessageKeys.INDEX_PARTITION, partitionId,
-                        LuceneLogMessageKeys.PRIMARY_KEY, primaryKey,
-                        LuceneLogMessageKeys.SEGMENTS, segmentIndex.findSegments(primaryKey)));
-            }
-        }
-        Query query;
-        // null format means don't use BinaryPoint for the index primary key
-        if (keySerializer.hasFormat()) {
-            try {
-                byte[][] binaryPoint = keySerializer.asFormattedBinaryPoint(primaryKey);
-                query = BinaryPoint.newRangeQuery(PRIMARY_KEY_BINARY_POINT_NAME, binaryPoint, binaryPoint);
-            } catch (RecordCoreFormatException ex) {
-                // this can happen on format mismatch or encoding error
-                // fallback to the old way (less efficient)
-                query = SortedDocValuesField.newSlowExactQuery(PRIMARY_KEY_SEARCH_NAME, new BytesRef(keySerializer.asPackedByteArray(primaryKey)));
-                logSerializationError("Failed to delete using BinaryPoint encoded ID: {}", ex.getMessage());
-            }
-        } else {
-            // fallback to the old way (less efficient)
-            query = SortedDocValuesField.newSlowExactQuery(PRIMARY_KEY_SEARCH_NAME, new BytesRef(keySerializer.asPackedByteArray(primaryKey)));
-        }
-
-        indexWriter.deleteDocuments(query);
-        LuceneEvents.Events event = state.store.isIndexWriteOnly(state.index) ?
-                                    LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_QUERY_IN_WRITE_ONLY_MODE :
-                                    LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_QUERY;
-        state.context.record(event, System.nanoTime() - startTime);
-
-        // if we delete by query, we aren't certain whether the document was actually deleted (if, for instance, it wasn't in Lucene
-        // to begin with)
-        return 0;
+        return LuceneIndexMaintainerHelper.deleteDocument(state.context, directoryManager, state.index, groupingKey, partitionId, primaryKey);
     }
 
     /**
