@@ -144,7 +144,7 @@ public class LuceneIndexMaintainerHelper {
         }
     }
 
-
+    @SuppressWarnings("PMD.CloseResource")
     public static void writeDocument(FDBRecordContext context,
                                      FDBDirectoryManager directoryManager,
                                      Index index,

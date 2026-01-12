@@ -64,9 +64,6 @@ import com.apple.foundationdb.record.query.QueryToKeyMatcher;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.Message;
-import org.apache.lucene.document.FieldType;
-import org.apache.lucene.index.DirectoryReader;
-import org.apache.lucene.index.IndexOptions;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.search.Query;
 import org.slf4j.Logger;
@@ -75,8 +72,6 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.EnumMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -106,7 +101,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     protected static final String PRIMARY_KEY_BINARY_POINT_NAME = "_b";
     private final Executor executor;
     LuceneIndexKeySerializer keySerializer;
-    private boolean serializerErrorLogged = false;
+
     @Nonnull
     private final LucenePartitioner partitioner;
 
@@ -193,46 +188,8 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                 primaryKey, fields);
     }
 
-    @Nonnull
-    private Map<IndexOptions, List<LuceneDocumentFromRecord.DocumentField>> getIndexOptionsToFieldsMap(@Nonnull List<LuceneDocumentFromRecord.DocumentField> fields) {
-        final Map<IndexOptions, List<LuceneDocumentFromRecord.DocumentField>> map = new EnumMap<>(IndexOptions.class);
-        fields.stream().forEach(f -> {
-            final IndexOptions indexOptions = getIndexOptions((String) Objects.requireNonNullElse(f.getConfig(LuceneFunctionNames.LUCENE_AUTO_COMPLETE_FIELD_INDEX_OPTIONS),
-                    LuceneFunctionNames.LuceneFieldIndexOptions.DOCS_AND_FREQS_AND_POSITIONS.name()));
-            map.putIfAbsent(indexOptions, new ArrayList<>());
-            map.get(indexOptions).add(f);
-        });
-        return map;
-    }
-
     int deleteDocument(Tuple groupingKey, Integer partitionId, Tuple primaryKey) throws IOException {
         return LuceneIndexMaintainerHelper.deleteDocument(state.context, directoryManager, state.index, groupingKey, partitionId, primaryKey);
-    }
-
-    /**
-     * Try to find the document for the given record in the segment index.
-     * This method would first try to find the document using the existing reader. If it can't, it will refresh the reader
-     * and try again. The incentive for this is when the documents have been updated in memory (e.g. in the same transaction), the
-     * writer may cache the changes in NRT and the reader (created before the updates) can't see them. Refreshing the reader from the
-     * writer can alleviate this by re-reading the changes in the NRT.
-     * If the index can't find the document with the refreshed reader, null is returned.
-     * @param groupingKey the grouping key for the index
-     * @param partitionId the partition ID for the index
-     * @param primaryKey the record primary key to look for
-     * @return segment index entry if the record was found, null if none
-     * @throws IOException in case of error
-     */
-    @SuppressWarnings("PMD.CloseResource")
-    private LucenePrimaryKeySegmentIndex.DocumentIndexEntry getDocumentIndexEntryWithRetry(LucenePrimaryKeySegmentIndex segmentIndex, final Tuple groupingKey, final Integer partitionId, final Tuple primaryKey) throws IOException {
-        DirectoryReader directoryReader = directoryManager.getWriterReader(groupingKey, partitionId, false);
-        LucenePrimaryKeySegmentIndex.DocumentIndexEntry documentIndexEntry = segmentIndex.findDocument(directoryReader, primaryKey);
-        if (documentIndexEntry != null) {
-            return documentIndexEntry;
-        } else {
-            // Use refresh to ensure the reader can see the latest deletes
-            directoryReader = directoryManager.getWriterReader(groupingKey, partitionId, true);
-            return segmentIndex.findDocument(directoryReader, primaryKey);
-        }
     }
 
     @Override
@@ -459,33 +416,6 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         });
     }
 
-    private FieldType getTextFieldType(LuceneDocumentFromRecord.DocumentField field) {
-        FieldType ft = new FieldType();
-
-        try {
-            ft.setIndexOptions(getIndexOptions((String)Objects.requireNonNullElse(field.getConfig(LuceneFunctionNames.LUCENE_FULL_TEXT_FIELD_INDEX_OPTIONS),
-                    LuceneFunctionNames.LuceneFieldIndexOptions.DOCS_AND_FREQS_AND_POSITIONS.name())));
-            ft.setTokenized(true);
-            ft.setStored(field.isStored());
-            ft.setStoreTermVectors((boolean)Objects.requireNonNullElse(field.getConfig(LuceneFunctionNames.LUCENE_FULL_TEXT_FIELD_WITH_TERM_VECTORS), false));
-            ft.setStoreTermVectorPositions((boolean)Objects.requireNonNullElse(field.getConfig(LuceneFunctionNames.LUCENE_FULL_TEXT_FIELD_WITH_TERM_VECTOR_POSITIONS), false));
-            ft.setOmitNorms(true);
-            ft.freeze();
-        } catch (ClassCastException ex) {
-            throw new RecordCoreArgumentException("Invalid value type for Lucene field config", ex);
-        }
-
-        return ft;
-    }
-
-    private static IndexOptions getIndexOptions(@Nonnull String value) {
-        try {
-            return IndexOptions.valueOf(value);
-        } catch (IllegalArgumentException ex) {
-            throw new RecordCoreArgumentException("Invalid enum value to parse for Lucene IndexOptions: " + value, ex);
-        }
-    }
-
     @Nonnull
     @Override
     public RecordCursor<InvalidIndexEntry> validateEntries(@Nullable byte[] continuation, @Nullable ScanProperties scanProperties) {
@@ -646,23 +576,6 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     @Nonnull
     protected FDBDirectoryManager createDirectoryManager(final @Nonnull IndexMaintainerState state) {
         return FDBDirectoryManager.getManager(state);
-    }
-
-    /**
-     * Simple throttling mechanism for log messages.
-     * Since the index writer may see many of these errors in quick succession, limit the number of log messages by ensuring
-     * we only log once per transaction.
-     * @param format the message format for the log
-     * @param arguments teh message arguments
-     */
-    private void logSerializationError(String format, Object ... arguments) {
-        if (LOG.isWarnEnabled()) {
-            if (! serializerErrorLogged) {
-                LOG.warn(format, arguments);
-                // Not thread safe but OK as we may only log an extra message
-                serializerErrorLogged = true;
-            }
-        }
     }
 
     @Nullable
