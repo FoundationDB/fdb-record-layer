@@ -318,7 +318,7 @@ public class HNSW {
             orderByDistance(@Nonnull final ReadTransaction readTransaction,
                             final int efRingSearch,
                             final int efOutwardSearch,
-                            final boolean includeVectors,
+                                                      final boolean includeVectors,
                             @Nonnull final RealVector centerVector,
                             final double minimumRadius,
                             @Nullable final Tuple minimumPrimaryKey) {
