@@ -549,6 +549,14 @@ public class SelectExpression extends AbstractRelationalExpressionWithChildren i
                         }
                     }
 
+                    // If the unmapped predicate correspond to an index-only value bailout, some indexes such
+                    // as vector indexes require matching these predicates in order to define their physical
+                    // plan and traversal semantics.
+                    if (remainingUnmappedCandidatePredicates.stream().filter(Objects::nonNull)
+                            .anyMatch(QueryPredicate::requiresMapping)) {
+                        return ImmutableList.of();
+                    }
+
                     //
                     // Last chance for unmapped predicates - if there is a placeholder or a tautology on the other side that is still
                     // unmapped, we can (and should) remove it from the unmapped other set now. The reasoning is that this predicate is
@@ -591,8 +599,13 @@ public class SelectExpression extends AbstractRelationalExpressionWithChildren i
 
         for (final var predicate : getPredicates()) {
             if (predicate instanceof Placeholder) {
-                if (!((Placeholder)predicate).getRanges().isEmpty()) {
+                final var placeholder = (Placeholder)predicate;
+                if (!(placeholder.getRanges().isEmpty())) {
                     // placeholder with a constraint, we need to bail
+                    return Optional.empty();
+                }
+                if (placeholder.getValue().isIndexOnly()) {
+                    // placeholder can be populated only by the index, bailout
                     return Optional.empty();
                 }
             } else if (!predicate.isTautology()) {

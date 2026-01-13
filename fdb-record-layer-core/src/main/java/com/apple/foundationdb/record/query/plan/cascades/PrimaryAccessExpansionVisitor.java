@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.MatchableSortExpression;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValueAndRanges;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 
@@ -58,7 +57,7 @@ public class PrimaryAccessExpansionVisitor extends KeyExpressionExpansionVisitor
                                             @Nullable final KeyExpression primaryKey,
                                             final boolean isReverse) {
         Objects.requireNonNull(primaryKey);
-        Debugger.updateIndex(PredicateWithValueAndRanges.class, old -> 0);
+        Debugger.updateIndex(PrimaryScanMatchCandidate.class, i -> i + 1);
 
         final var baseQuantifier = baseQuantifierSupplier.get();
 

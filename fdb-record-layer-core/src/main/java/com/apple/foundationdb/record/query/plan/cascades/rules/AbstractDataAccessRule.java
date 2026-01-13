@@ -53,6 +53,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalDist
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalIntersectionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
 import com.apple.foundationdb.record.query.plan.cascades.properties.CardinalitiesProperty.Cardinality;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.RegularTranslationMap;
@@ -661,6 +662,10 @@ public abstract class AbstractDataAccessRule extends CascadesRule<MatchPartition
                 continue;
             }
 
+            if (partialMatch.getUnboundPlaceholders().stream().anyMatch(Placeholder::requiresMapping)) {
+                continue;
+            }
+
             final var satisfyingOrderingsPair = satisfyingOrderingsPairOptional.get();
             final var scanDirection = satisfyingOrderingsPair.getLeft();
             Verify.verify(scanDirection == ScanDirection.FORWARD || scanDirection == ScanDirection.REVERSE ||
@@ -854,13 +859,18 @@ public abstract class AbstractDataAccessRule extends CascadesRule<MatchPartition
                 .stream()
                 .collect(ImmutableMap.toImmutableMap(
                         singleMatchedAccessVectored ->  singleMatchedAccessVectored.getElement().getPartialMatch(),
-                        singleMatchedAccessVectored ->  {
-                            final var singleMatchedAccess = singleMatchedAccessVectored.getElement();
-                            final var partialMatch = singleMatchedAccess.getPartialMatch();
-                            return partialMatch.getMatchCandidate()
-                                    .toEquivalentPlan(partialMatch, planContext, memoizer,
-                                            singleMatchedAccess.isReverseScanOrder());
-                        }));
+                        singleMatchedAccessVectored ->
+                                createScanForMatch(planContext, memoizer, singleMatchedAccessVectored.getElement())));
+    }
+
+    @Nonnull
+    private static RecordQueryPlan createScanForMatch(@Nonnull final PlanContext planContext,
+                                                      @Nonnull final Memoizer memoizer,
+                                                      @Nonnull final SingleMatchedAccess match) {
+        final var partialMatch = match.getPartialMatch();
+        return partialMatch.getMatchCandidate()
+                .toEquivalentPlan(partialMatch, planContext, memoizer,
+                        match.isReverseScanOrder());
     }
 
     /**

@@ -216,7 +216,7 @@ public class PredicateMultiMap {
             if (pulledUpPredicate instanceof PredicateWithValue) {
                 final var value = Objects.requireNonNull(((PredicateWithValue)pulledUpPredicate).getValue());
                 if (value.preOrderStream()
-                        .anyMatch(v -> v instanceof GroupByExpression.UnmatchedAggregateValue)) {
+                        .anyMatch(v -> v instanceof GroupByExpression.UnmatchedAggregateValue || v instanceof Value.IndexOnlyValue)) {
                     return true;
                 }
             }
@@ -227,7 +227,7 @@ public class PredicateMultiMap {
                     if (comparison instanceof Comparisons.ValueComparison) {
                         final var comparisonValue = comparison.getValue();
                         if (comparisonValue.preOrderStream()
-                                .anyMatch(v -> v instanceof GroupByExpression.UnmatchedAggregateValue)) {
+                                .anyMatch(v -> v instanceof GroupByExpression.UnmatchedAggregateValue || v instanceof Value.IndexOnlyValue)) {
                             return true;
                         }
                     }

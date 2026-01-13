@@ -104,6 +104,9 @@ public class PartialMatch {
     private final Supplier<Set<Placeholder>> boundPlaceholdersSupplier;
 
     @Nonnull
+    private final Supplier<Set<Placeholder>> unboundPlaceholdersSupplier;
+
+    @Nonnull
     private final Supplier<Set<Quantifier>> matchedQuantifiersSupplier;
 
     @Nonnull
@@ -131,7 +134,8 @@ public class PartialMatch {
         this.candidateRef = candidateRef;
         this.matchInfo = matchInfo;
         this.boundParameterPrefixMapSupplier = Suppliers.memoize(this::computeBoundParameterPrefixMap);
-        this.boundPlaceholdersSupplier = Suppliers.memoize(this::computeBoundPlaceholders);
+        this.boundPlaceholdersSupplier = Suppliers.memoize(() -> computePlaceholders(true));
+        this.unboundPlaceholdersSupplier = Suppliers.memoize(() -> computePlaceholders(false));
         this.matchedQuantifiersSupplier = Suppliers.memoize(this::computeMatchedQuantifiers);
         this.unmatchedQuantifiersSupplier = Suppliers.memoize(this::computeUnmatchedQuantifiers);
         this.compensatedAliasesSupplier = Suppliers.memoize(this::computeCompensatedAliases);
@@ -223,9 +227,14 @@ public class PartialMatch {
     }
 
     @Nonnull
-    private Set<Placeholder> computeBoundPlaceholders() {
+    public final Set<Placeholder> getUnboundPlaceholders() {
+        return unboundPlaceholdersSupplier.get();
+    }
+
+    @Nonnull
+    private Set<Placeholder> computePlaceholders(boolean isBound) {
         final var boundParameterPrefixMap = getBoundParameterPrefixMap();
-        final var boundPlaceholders = Sets.<Placeholder>newIdentityHashSet();
+        final var result = Sets.<Placeholder>newIdentityHashSet();
 
         //
         // Go through all accumulated parameter bindings -- find the query predicates binding the parameters. Those
@@ -246,12 +255,12 @@ public class PartialMatch {
             }
 
             final var placeholder = (Placeholder)candidatePredicate;
-            if (boundParameterPrefixMap.containsKey(placeholder.getParameterAlias())) {
-                boundPlaceholders.add(placeholder);
+            if (isBound == boundParameterPrefixMap.containsKey(placeholder.getParameterAlias())) {
+                result.add(placeholder);
             }
         }
 
-        return boundPlaceholders;
+        return result;
     }
 
     /**

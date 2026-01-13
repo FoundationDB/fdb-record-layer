@@ -329,7 +329,7 @@ public class SemanticAnalyzer {
         Assert.thatUnchecked(expression.getDataType().getCode() == DataType.Code.STRUCT, ErrorCode.INVALID_COLUMN_REFERENCE,
                 () -> String.format(Locale.ROOT, "attempt to expand non-struct column %s", qualifier));
         final var expressions = expandStructExpression(expression).nonEphemeral();
-        return Star.overQuantifier(optionalQualifier, expression.getUnderlying(), qualifier.getName(), expressions);
+        return Star.overQuantifier(optionalQualifier, expression.getUnderlyingValue(), qualifier.getName(), expressions);
     }
 
     @Nonnull
@@ -537,8 +537,8 @@ public class SemanticAnalyzer {
                 return Optional.empty();
             }
         }
-        final var fieldPath = FieldValue.resolveFieldPath(existingExpression.getUnderlying().getResultType(), accessors.build());
-        final var attributeExpression = FieldValue.ofFieldsAndFuseIfPossible(existingExpression.getUnderlying(), fieldPath);
+        final var fieldPath = FieldValue.resolveFieldPath(existingExpression.getUnderlyingValue().getResultType(), accessors.build());
+        final var attributeExpression = FieldValue.ofFieldsAndFuseIfPossible(existingExpression.getUnderlyingValue(), fieldPath);
         final var nestedAttribute = new Expression(Optional.of(requestedIdentifier), type, attributeExpression);
         return Optional.of(nestedAttribute);
     }
@@ -689,7 +689,7 @@ public class SemanticAnalyzer {
         Assert.thatUnchecked(expression.getDataType().getCode() == DataType.Code.STRUCT, ErrorCode.INVALID_COLUMN_REFERENCE,
                 () -> String.format(Locale.ROOT, "attempt to expand non-struct expression %s", expression));
         final ImmutableList.Builder<Expression> resultBuilder = ImmutableList.builder();
-        final var underlying = expression.getUnderlying();
+        final var underlying = expression.getUnderlyingValue();
         final var type = Assert.castUnchecked(expression.getDataType(), DataType.StructType.class);
         var colCount = 0;
         for (final var field : type.getFields()) {
@@ -706,7 +706,7 @@ public class SemanticAnalyzer {
 
     public void validateInListItems(@Nonnull Expressions inListItems) {
         for (final var inListItem : inListItems) {
-            final var resultType = inListItem.getUnderlying().getResultType();
+            final var resultType = inListItem.getUnderlyingValue().getResultType();
             Assert.thatUnchecked(resultType != Type.NULL, ErrorCode.WRONG_OBJECT_TYPE, "NULL values are not allowed in the IN list");
             Assert.thatUnchecked(!resultType.isUnresolved(), ErrorCode.UNKNOWN_TYPE,  String.format(Locale.ROOT, "Type cannot be determined for element `%s` in the IN list", inListItem));
         }
@@ -714,11 +714,11 @@ public class SemanticAnalyzer {
 
     public static void validateGroupByAggregates(@Nonnull Expressions groupByExpressions) {
         final var nestedAggregates = groupByExpressions.stream()
-                .filter(expression -> expression.getUnderlying() instanceof AggregateValue)
-                .filter(agg -> agg.getUnderlying().preOrderStream().skip(1).anyMatch(c -> c instanceof StreamableAggregateValue || c instanceof IndexableAggregateValue))
+                .filter(expression -> expression.getUnderlyingValue() instanceof AggregateValue)
+                .filter(agg -> agg.getUnderlyingValue().preOrderStream().skip(1).anyMatch(c -> c instanceof StreamableAggregateValue || c instanceof IndexableAggregateValue))
                 .collect(ImmutableSet.toImmutableSet());
         Assert.thatUnchecked(nestedAggregates.isEmpty(), ErrorCode.UNSUPPORTED_OPERATION, () -> String.format(Locale.ROOT, "unsupported nested aggregate(s) %s",
-                nestedAggregates.stream().map(ex -> ex.getUnderlying().toString()).collect(Collectors.joining(","))));
+                nestedAggregates.stream().map(ex -> ex.getUnderlyingValue().toString()).collect(Collectors.joining(","))));
     }
 
     /**
@@ -764,7 +764,7 @@ public class SemanticAnalyzer {
     public Type.Array resolveArrayTypeFromValues(@Nonnull Expressions arrayItems) {
         final var arrayItemsTypes = Streams
                 .stream(arrayItems)
-                .map(Expression::getUnderlying)
+                .map(Expression::getUnderlyingValue)
                 .map(Value::getResultType)
                 .collect(ImmutableList.toImmutableList());
         return resolveArrayTypeFromElementTypes(arrayItemsTypes);
@@ -775,9 +775,9 @@ public class SemanticAnalyzer {
                                            @Nonnull AliasMap aliasMap,
                                            @Nonnull Set<CorrelationIdentifier> constantCorrelations) {
         final Correlated.BoundEquivalence<Value> boundEquivalence = new Correlated.BoundEquivalence<>(aliasMap);
-        final var boundParts = Streams.stream(parts).map(Expression::getUnderlying).map(boundEquivalence::wrap)
+        final var boundParts = Streams.stream(parts).map(Expression::getUnderlyingValue).map(boundEquivalence::wrap)
                 .collect(ImmutableSet.toImmutableSet());
-        return isComposableFromInternal(expression.getUnderlying(), boundParts, boundEquivalence, constantCorrelations);
+        return isComposableFromInternal(expression.getUnderlyingValue(), boundParts, boundEquivalence, constantCorrelations);
     }
 
     private static boolean isComposableFromInternal(@Nonnull Value value,
@@ -831,7 +831,7 @@ public class SemanticAnalyzer {
     public static void validateLimit(@Nonnull Expression expression) {
         final long minInclusive = 1;
         final long maxInclusive = Integer.MAX_VALUE;
-        final var underlying = expression.getUnderlying();
+        final var underlying = expression.getUnderlyingValue();
         Assert.thatUnchecked(underlying instanceof LiteralValue<?>);
         final var value = ((LiteralValue<?>) underlying).getLiteralValue();
         Assert.notNullUnchecked(value, ErrorCode.INVALID_ROW_COUNT_IN_LIMIT_CLAUSE,
@@ -879,7 +879,7 @@ public class SemanticAnalyzer {
     public static void validateContinuation(@Nonnull final Expression continuation) {
         // currently, this only validates that the underlying Value is a byte string.
         // in the future, we might add more context-aware checks.
-        final var underlying = continuation.getUnderlying();
+        final var underlying = continuation.getUnderlyingValue();
         Assert.thatUnchecked(underlying instanceof LiteralValue<?>, ErrorCode.INVALID_CONTINUATION,
                 "Unexpected continuation parameter of type %s", underlying.getClass().getSimpleName());
         final var continuationBytes = Assert.castUnchecked(underlying, LiteralValue.class).getLiteralValue();

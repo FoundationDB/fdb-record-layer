@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer.query.visitors;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.provider.foundationdb.RuntimeOption;
 import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.CompatibleTypeEvolutionPredicate;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
@@ -43,6 +44,7 @@ import com.apple.foundationdb.relational.recordlayer.query.LogicalOperators;
 import com.apple.foundationdb.relational.recordlayer.query.LogicalPlanFragment;
 import com.apple.foundationdb.relational.recordlayer.query.MutablePlanGenerationContext;
 import com.apple.foundationdb.relational.recordlayer.query.OrderByExpression;
+import com.apple.foundationdb.relational.recordlayer.query.WindowSpecExpression;
 import com.apple.foundationdb.relational.recordlayer.query.Plan;
 import com.apple.foundationdb.relational.recordlayer.query.ProceduralPlan;
 import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
@@ -1494,20 +1496,45 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
 
     @Nonnull
     @Override
-    public Object visitNonAggregateWindowedFunction(@Nonnull RelationalParser.NonAggregateWindowedFunctionContext ctx) {
-        return visitChildren(ctx);
+    public Expression visitNonAggregateFunctionCall(final RelationalParser.NonAggregateFunctionCallContext ctx) {
+        return expressionVisitor.visitNonAggregateFunctionCall(ctx);
     }
 
     @Nonnull
     @Override
-    public Object visitOverClause(@Nonnull RelationalParser.OverClauseContext ctx) {
-        return visitChildren(ctx);
+    public Expression visitNonAggregateWindowedFunction(@Nonnull RelationalParser.NonAggregateWindowedFunctionContext ctx) {
+        return expressionVisitor.visitNonAggregateWindowedFunction(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public WindowSpecExpression visitOverClause(@Nonnull RelationalParser.OverClauseContext ctx) {
+        return expressionVisitor.visitOverClause(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public Expressions visitPartitionClause(final RelationalParser.PartitionClauseContext ctx) {
+        return expressionVisitor.visitPartitionClause(ctx);
     }
 
     @Nonnull
     @Override
     public Object visitWindowName(@Nonnull RelationalParser.WindowNameContext ctx) {
         return visitChildren(ctx);
+    }
+
+
+    @Nonnull
+    @Override
+    public Iterable<RuntimeOption> visitWindowOptionsClause(final RelationalParser.WindowOptionsClauseContext ctx) {
+        return expressionVisitor.visitWindowOptionsClause(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public RuntimeOption visitWindowOption(final RelationalParser.WindowOptionContext ctx) {
+        return expressionVisitor.visitWindowOption(ctx);
     }
 
     @Nonnull

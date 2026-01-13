@@ -98,7 +98,7 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
         var rootExpression = index.getRootExpression();
         Verify.verify(rootExpression instanceof GroupingKeyExpression);
 
-        Debugger.updateIndex(PredicateWithValueAndRanges.class, old -> 0);
+        Debugger.updateIndex(WindowedIndexExpansionVisitor.class, i -> i + 1);
         final var allExpansionsBuilder = ImmutableList.<GraphExpansion>builder();
 
         final var baseQuantifier = baseQuantifierSupplier.get();

@@ -41,6 +41,8 @@ import com.apple.foundationdb.record.query.plan.cascades.values.translation.Tran
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.google.auto.service.AutoService;
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -49,6 +51,9 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Objects;
 import java.util.Set;
+
+import static com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanOptions.HNSW_EF_SEARCH;
+import static com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanOptions.HNSW_RETURN_VECTORS;
 
 /**
  * {@link ScanComparisons} for use in a multidimensional index scan.
@@ -311,13 +316,35 @@ public final class VectorIndexScanComparisons implements IndexScanParameters {
     }
 
     @Nonnull
-    public static VectorIndexScanComparisons byDistance(@Nullable final ScanComparisons prefixScanComparisons,
+    public static VectorIndexScanComparisons byDistance(@Nullable ScanComparisons prefixScanComparisons,
+                                                        @Nonnull final DistanceRankValueComparison distanceRankValueComparison) {
+        if (prefixScanComparisons == null) {
+            prefixScanComparisons = ScanComparisons.EMPTY;
+        }
+
+        final var runtimeOptions = distanceRankValueComparison.getRuntimeOptions();
+        final var vectorIndexScanOptionsBuilder = VectorIndexScanOptions.builder();
+        runtimeOptions.getOptions().forEach(runtimeOption -> {
+            final var value = runtimeOption.getValue().evalWithoutStore(EvaluationContext.empty());
+            if (runtimeOption.getName().equals(HNSW_EF_SEARCH.getOptionName())) {
+                Verify.verify(value instanceof Integer);
+                vectorIndexScanOptionsBuilder.putOption(HNSW_EF_SEARCH, (Integer)value);
+            }
+            if (runtimeOption.getName().equals(HNSW_RETURN_VECTORS.getOptionName())) {
+                Verify.verify(value instanceof Boolean);
+                vectorIndexScanOptionsBuilder.putOption(HNSW_RETURN_VECTORS, (Boolean)value);
+            }
+        });
+
+        return byDistance(prefixScanComparisons, distanceRankValueComparison, vectorIndexScanOptionsBuilder.build());
+    }
+
+    @Nonnull
+    @VisibleForTesting
+    public static VectorIndexScanComparisons byDistance(@Nonnull ScanComparisons prefixScanComparisons,
                                                         @Nonnull final DistanceRankValueComparison distanceRankValueComparison,
                                                         @Nonnull final VectorIndexScanOptions vectorIndexScanOptions) {
-        return new VectorIndexScanComparisons(
-                prefixScanComparisons == null ? ScanComparisons.EMPTY : prefixScanComparisons,
-                distanceRankValueComparison,
-                vectorIndexScanOptions);
+        return new VectorIndexScanComparisons(prefixScanComparisons, distanceRankValueComparison, vectorIndexScanOptions);
     }
 
     /**

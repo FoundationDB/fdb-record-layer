@@ -170,7 +170,7 @@ enumDefinition
 indexDefinition
     : (UNIQUE)? INDEX indexName=uid AS queryTerm indexAttributes?                                                                  #indexAsSelectDefinition
     | (UNIQUE)? INDEX indexName=uid ON source=fullId indexColumnList includeClause? indexOptions?                                  #indexOnSourceDefinition
-    | VECTOR INDEX indexName=uid USING HNSW ON source=fullId indexColumnList includeClause? partitionClause? vectorIndexOptions?   #vectorIndexDefinition
+    | VECTOR INDEX indexName=uid USING HNSW ON source=fullId indexColumnList includeClause? indexPartitionClause? vectorIndexOptions?   #vectorIndexDefinition
     ;
 
 indexColumnList
@@ -187,6 +187,10 @@ includeClause
 
 indexType
     : UNIQUE | VECTOR
+    ;
+
+indexPartitionClause
+    : PARTITION BY '(' indexColumnSpec (',' indexColumnSpec)* ')'
     ;
 
 indexOptions
@@ -979,6 +983,7 @@ ifNotExists
 
 functionCall
     : aggregateWindowedFunction                                     #aggregateFunctionCall // done (supported)
+    | nonAggregateWindowedFunction                                  #nonAggregateFunctionCall // done
     | specificFunction                                              #specificFunctionCall //
     | scalarFunctionName '(' functionArgs? ')'                      #scalarFunctionCall // done (unsupported)
     | userDefinedScalarFunctionName '(' functionArgs? ')'           #userDefinedScalarFunctionCall
@@ -1109,26 +1114,36 @@ aggregateWindowedFunction
     ;
 
 nonAggregateWindowedFunction
-    : (LAG | LEAD) '(' expression (',' decimalLiteral)? (',' decimalLiteral)? ')' overClause
-    | (FIRST_VALUE | LAST_VALUE) '(' expression ')' overClause
-    | (CUME_DIST | DENSE_RANK | PERCENT_RANK | RANK | ROW_NUMBER) '('')' overClause
-    | NTH_VALUE '(' expression ',' decimalLiteral ')' overClause
-    | NTILE '(' decimalLiteral ')' overClause
+    : functionName=(LAG | LEAD) '(' expression (',' decimalLiteral)? (',' decimalLiteral)? ')' overClause
+    | functionName=(FIRST_VALUE | LAST_VALUE) '(' expression ')' overClause
+    | functionName=(CUME_DIST | DENSE_RANK | PERCENT_RANK | RANK | ROW_NUMBER) '('')' overClause
+    | functionName=NTH_VALUE '(' expression ',' decimalLiteral ')' overClause
+    | functionName=NTILE '(' decimalLiteral ')' overClause
     ;
 
 overClause
-    : OVER (/* '(' windowSpec? ')' |*/ windowName)
+    : OVER ( '(' windowSpec ')' | windowName)
     ;
 
 windowName
     : uid
     ;
 
-//commented out until we want to support window functions
-/* 
 windowSpec
-    : windowName? partitionClause? orderByClause? frameClause?
+    : windowName? partitionClause? orderByClause? windowOptionsClause?
     ;
+
+windowOptionsClause
+    : OPTIONS windowOption (COMMA windowOption)*
+    ;
+
+windowOption
+    : EF_SEARCH '=' efSearch=DECIMAL_LITERAL
+    ;
+
+//commented out until we want to support window functions
+/*
+
 
 
 frameClause
@@ -1158,7 +1173,7 @@ frameRange
 */
 
 partitionClause
-    : PARTITION BY '(' indexColumnSpec (',' indexColumnSpec)* ')'
+    : PARTITION BY uid (',' uid)*
     ;
 
 scalarFunctionName
@@ -1346,12 +1361,12 @@ functionNameBase
     | BUFFER | CEIL | CEILING | CENTROID | CHARACTER_LENGTH
     | CHARSET | CHAR_LENGTH | COERCIBILITY | COLLATION
     | COMPRESS | COALESCE | CONCAT | CONCAT_WS | CONNECTION_ID | CONV
-    | CONVERT_TZ | COS | COT | CRC32
+    | CONVERT_TZ | COS | COSINE_DISTANCE | COT | CRC32
     | CREATE_ASYMMETRIC_PRIV_KEY | CREATE_ASYMMETRIC_PUB_KEY
     | CREATE_DH_PARAMETERS | CREATE_DIGEST | CROSSES | CUME_DIST | DATABASE | DATE
     | DATEDIFF | DATE_FORMAT | DAY | DAYNAME | DAYOFMONTH
     | DAYOFWEEK | DAYOFYEAR | DECODE | DEGREES | DENSE_RANK | DES_DECRYPT
-    | DES_ENCRYPT | DIMENSION | DISJOINT | ELT | ENCODE
+    | DES_ENCRYPT | DIMENSION | DISJOINT DOT_PRODUCT_DISTANCE | ELT | EUCLIDEAN_DISTANCE | EUCLIDEAN_SQUARE_DISTANCE | ENCODE
     | ENCRYPT | ENDPOINT | ENVELOPE | EQUALS | EXP | EXPORT_SET
     | EXTERIORRING | EXTRACTVALUE | FIELD | FIND_IN_SET | FIRST_VALUE | FLOOR
     | FORMAT | FOUND_ROWS | FROM_BASE64 | FROM_DAYS
@@ -1369,7 +1384,7 @@ functionNameBase
     | LCASE | LEAD | LEAST | LEFT | LENGTH | LINEFROMTEXT | LINEFROMWKB
     | LINESTRING | LINESTRINGFROMTEXT | LINESTRINGFROMWKB | LN
     | LOAD_FILE | LOCATE | LOG | LOG10 | LOG2 | LOWER | LPAD
-    | LTRIM | MAKEDATE | MAKETIME | MAKE_SET | MASTER_POS_WAIT
+    | LTRIM | MANHATTEN_DISTANCE | MAKEDATE | MAKETIME | MAKE_SET | MASTER_POS_WAIT
     | MBRCONTAINS | MBRDISJOINT | MBREQUAL | MBRINTERSECTS
     | MBROVERLAPS | MBRTOUCHES | MBRWITHIN | MD5 | MICROSECOND
     | MINUTE | MLINEFROMTEXT | MLINEFROMWKB | MOD| MONTH | MONTHNAME

@@ -265,7 +265,7 @@ public class LogicalOperator {
         Assert.thatUnchecked(expression.getDataType().getCode() == DataType.Code.ARRAY,
                 ErrorCode.INVALID_COLUMN_REFERENCE,
                 () -> String.format(Locale.ROOT, "join correlation can occur only on column of repeated type, not %s type", expression.getDataType()));
-        final var explode = new ExplodeExpression(expression.getUnderlying());
+        final var explode = new ExplodeExpression(expression.getUnderlyingValue());
         final var resultingQuantifier = Quantifier.forEach(Reference.initialOf(explode));
 
         Expressions outputAttributes;
@@ -399,7 +399,7 @@ public class LogicalOperator {
         SelectExpression selectExpression;
 
         if (canAvoidProjectingIndividualFields(output, logicalOperators)) {
-            final var passedThroughResultValue = Iterables.getOnlyElement(output).getUnderlying();
+            final var passedThroughResultValue = Iterables.getOnlyElement(output).getUnderlyingValue();
             selectExpression = selectBuilder.build().buildSelectWithResultValue(passedThroughResultValue);
         } else {
             expandedOutput.underlyingAsColumns().forEach(selectBuilder::addResultColumn);
@@ -437,8 +437,8 @@ public class LogicalOperator {
                         // projecting individual columns (and lose their aliases) if and only if their names pairwise match the
                         // underlying query fragment columns.
                         output.expanded().stream().allMatch(expression -> expression.getName().isEmpty() ||
-                                (expression.getUnderlying() instanceof FieldValue &&
-                                        ((FieldValue) expression.getUnderlying()).getLastFieldName().equals(expression.getName().map(Identifier::getName))));
+                                (expression.getUnderlyingValue() instanceof FieldValue &&
+                                        ((FieldValue) expression.getUnderlyingValue()).getLastFieldName().equals(expression.getName().map(Identifier::getName))));
     }
 
     @Nonnull
@@ -526,7 +526,7 @@ public class LogicalOperator {
             final ImmutableList.Builder<Expression> promotedExpressions = ImmutableList.builder();
             for (int i = 0; i < expressions.size(); i++) {
                 final var currentExpression = expressions.asList().get(i);
-                final var newValue = PromoteValue.inject(currentExpression.getUnderlying(), type.getField(i).getFieldType());
+                final var newValue = PromoteValue.inject(currentExpression.getUnderlyingValue(), type.getField(i).getFieldType());
                 promotedExpressions.add(currentExpression.withUnderlying(newValue));
             }
             final var promotedUnionLeg = LogicalOperator.generateSimpleSelect(Expressions.of(promotedExpressions.build()),
@@ -542,7 +542,7 @@ public class LogicalOperator {
     @Nonnull
     public static Expressions adjustCountOnEmpty(@Nonnull final Expressions expressions) {
         return Expressions.of(expressions.expanded().stream().map(expression -> {
-            final var underlyingValue = expression.getUnderlying();
+            final var underlyingValue = expression.getUnderlyingValue();
             final Set<Value> visited = Sets.newIdentityHashSet();
             return expression.withUnderlying(Objects.requireNonNull(underlyingValue.replace(subValue -> {
                 if (!visited.add(subValue)) {

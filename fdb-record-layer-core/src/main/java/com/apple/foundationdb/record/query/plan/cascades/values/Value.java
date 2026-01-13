@@ -164,6 +164,22 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
     }
 
     /**
+     * Checks whether this {@link Value} or any of its child values in the expression tree is an
+     * {@link IndexOnlyValue}.
+     * <p>
+     * An index-only value is a scalar value that can only be fetched from an index and cannot be fetched from
+     * the base record nor computed on-the-fly. This method performs a pre-order traversal of the value expression
+     * tree to determine if any node is marked as index-only.
+     * </p>
+     *
+     * @return {@code true} if this value or any of its children is an {@link IndexOnlyValue}, {@code false} otherwise.
+     * @see IndexOnlyValue
+     */
+    default boolean isIndexOnly() {
+        return preOrderStream().anyMatch(IndexOnlyValue.class::isInstance);
+    }
+
+    /**
      * evaluates computation of the expression without a store and returns the result immediately.
      *
      * @param context The execution context.
@@ -266,6 +282,12 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
 
         return preOrderStream().filter(value -> value instanceof QuantifiedValue)
                 .allMatch(quantifiedValue -> quantifiedValue.isFunctionallyDependentOn(otherValue));
+    }
+
+    @Nonnull
+    default Optional<QueryPredicate> adjustComparison(@Nonnull final Comparisons.Type comparisonType,
+                                                      @Nonnull final Value comparand) {
+        return Optional.empty();
     }
 
     @Nonnull

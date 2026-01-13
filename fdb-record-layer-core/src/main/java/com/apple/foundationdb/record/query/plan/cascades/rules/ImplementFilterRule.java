@@ -42,7 +42,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.anyPlanPartition;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.planPartitions;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QueryPredicateMatchers.anyPredicate;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QueryPredicateMatchers.anyResidualPredicate;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.logicalFilterExpression;
 
 /**
@@ -59,7 +59,7 @@ public class ImplementFilterRule extends ImplementationCascadesRule<LogicalFilte
             planPartitions(any(innerPlanPartitionMatcher));
 
     @Nonnull
-    private static final BindingMatcher<QueryPredicate> predicateMatcher = anyPredicate();
+    private static final BindingMatcher<QueryPredicate> predicateMatcher = anyResidualPredicate();
 
     @Nonnull
     private static final BindingMatcher<Quantifier.ForEach> quantifierMatcher = forEachQuantifierOverRef(innerReferenceMatcher);

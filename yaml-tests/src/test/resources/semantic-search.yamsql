@@ -1,0 +1,120 @@
+#
+# semantic-search.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+---
+options:
+  supported_version: !current_version
+---
+schema_template:
+    create table documents(zone string, docId string, title string, embedding vector(3, half), primary key (zone, docId))
+    create view documentsView as select embedding, zone, title from documents
+    create vector index documentsEuclideanIndex using hnsw on documentsView(embedding) partition by(zone, title) options (metric = euclidean_metric)
+    create view documentsViewCosine as select embedding, zone from documents
+    create vector index documentsCosineIndex using hnsw on documentsViewCosine(embedding) partition by(zone) options (metric = cosine_metric)
+---
+test_block:
+  preset: single_repetition_ordered
+  options:
+    statement_type: prepared
+  name: semantic-search-tests
+  tests:
+    # Insert test data for Euclidean distance queries
+    -
+      - query: insert into documents values ('z1', 'd1', 'Document1', !! !v16 [1.0, 0.0, 0.0] !!)
+      - count: 1
+    -
+      - query: insert into documents values ('z1', 'd2', 'Document2', !! !v16 [0.0, 1.0, 0.0] !!)
+      - count: 1
+    -
+      - query: insert into documents values ('z1', 'd3', 'Document3', !! !v16 [0.0, 0.0, 1.0] !!)
+      - count: 1
+    -
+      - query: insert into documents values ('z2', 'd4', 'Document4', !! !v16 [1.0, 1.0, 0.0] !!)
+      - count: 1
+    -
+      - query: insert into documents values ('z2', 'd5', 'Document5', !! !v16 [0.5, 0.5, 0.5] !!)
+      - count: 1
+    # Basic HNSW query with row_number() - top-1 nearest neighbor using Euclidean distance
+    -
+      - query: select docId, title from documents
+          where zone = 'z1' and title = 'Document1'
+          and row_number() over (partition by zone, title order by euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc) <= 1
+      - result: [{'d1', 'Document1'}]
+    # HNSW query with row_number() - top-2 nearest neighbors
+    # this is not supported, requires skip scan support
+#    -
+#      - query: select docId, title from documents
+#          where zone = 'z1'
+#          and row_number() over (partition by zone, title order by euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc) <= 2
+#      - result: [{'d1', 'Document1'}, {'d2', 'Document2'}]
+    # HNSW query with row_number() and EF_SEARCH option
+    -
+      - query: select docId from documents
+          where zone = 'z1' and title = 'Document1'
+          and row_number() over (partition by zone, title order by euclidean_distance(embedding, !! !v16 [0.0, 1.0, 0.0] !!) asc options ef_search = 100) < 2
+      - result: [{'d1'}]
+    # HNSW query with descending order (farthest neighbors)
+    # distance equality is not supported.
+#    -
+#      - query: select docId from documents
+#          where zone = 'z1' and title = 'Document3'
+#          and row_number() over (partition by zone, title order by euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) desc) = 1
+#      - result: [{'d3'}]
+    # HNSW query with EF_SEARCH = 200
+    -
+      - query: select docId from documents
+          where zone = 'z1' and title = 'Document2'
+          and row_number() over (partition by zone, title order by euclidean_distance(embedding, !! !v16 [0.0, 1.0, 0.0] !!) asc options ef_search = 200) <= 1
+      - result: [{'d2'}]
+    # HNSW query with less than comparison
+    -
+      - query: select docId from documents
+          where zone = 'z1' and title = 'Document1'
+          and row_number() over (partition by zone, title order by euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc) < 2
+      - result: [{'d1'}]
+#    # Cosine distance HNSW query with row_number()
+#    -
+#      - query: select docId from documents
+#          where zone = 'z1'
+#          and row_number() over (partition by zone order by cosine_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc) <= 2
+#      - result: [{'d1'}, {'d2'}, {'d3'}]
+#    # Cosine distance with EF_SEARCH option
+#    -
+#      - query: select docId from documents
+#          where zone = 'z2'
+#          and row_number() over (partition by zone order by cosine_distance(embedding, !! !v16 [1.0, 1.0, 0.0] !!) asc options ef_search = 150) <= 1
+#      - result: [{'d4'}, {'d5'}]
+#    # Test with multiple rows matching partition criteria
+#    -
+#      - query: select count(*) as cnt from documents
+#          where zone = 'z1'
+#          and row_number() over (partition by zone, title order by euclidean_distance(embedding, !! !v16 [0.5, 0.5, 0.5] !!) asc) <= 1
+#      - result: [{3}]
+#    # HNSW query selecting multiple columns including the distance
+#    -
+#      - query: select docId, title, euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) as dist
+#          from documents
+#          where zone = 'z1' and title = 'Document1'
+#          and row_number() over (partition by zone, title order by euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc) <= 1
+#      - result: [{'d1', 'Document1', 0.0}]
+#    # Verify that different query vectors produce different results
+#    -
+#      - query: select docId from documents
+#          where zone = 'z1' and title = 'Document3'
+#          and row_number() over (partition by zone, title order by euclidean_distance(embedding, !! !v16 [0.0, 0.0, 1.0] !!) asc) <= 1
+#      - result: [{'d3'}]

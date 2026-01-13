@@ -94,7 +94,7 @@ public final class Expressions implements Iterable<Expression> {
         final var aliasMap = AliasMap.identitiesFor(value.getCorrelatedTo());
         final var simplifiedValue = value.simplify(EvaluationContext.empty(), aliasMap, constantAliases);
         for (final var expression : this) {
-            final var underlying = expression.getUnderlying();
+            final var underlying = expression.getUnderlyingValue();
             final var pulledUpUnderlying = Assert.notNullUnchecked(underlying.replace(
                     subExpression -> {
                         final var pulledUpExpressionMap =
@@ -199,7 +199,7 @@ public final class Expressions implements Iterable<Expression> {
 
     @Nonnull
     public Iterable<Value> underlying() {
-        return Streams.stream(this).map(Expression::getUnderlying).collect(ImmutableList.toImmutableList());
+        return Streams.stream(this).map(Expression::getUnderlyingValue).collect(ImmutableList.toImmutableList());
     }
 
     @Nonnull
@@ -215,7 +215,7 @@ public final class Expressions implements Iterable<Expression> {
     @Nonnull
     public Collection<Column<? extends Value>> underlyingAsColumns() {
         return Streams.stream(this)
-                .map(expression -> Column.of(expression.getName().map(Identifier::getName), expression.getUnderlying()))
+                .map(expression -> Column.of(expression.getName().map(Identifier::getName), expression.getUnderlyingValue()))
                 .collect(ImmutableList.toImmutableList());
     }
 
@@ -257,7 +257,7 @@ public final class Expressions implements Iterable<Expression> {
         for (final var argument : this) {
             final var argumentName = argument.getName();
             Verify.verify(argumentName.isPresent());
-            resultBuilder.put(argumentName.get().toString(), argument.getUnderlying());
+            resultBuilder.put(argumentName.get().toString(), argument.getUnderlyingValue());
         }
         return resultBuilder.build();
     }

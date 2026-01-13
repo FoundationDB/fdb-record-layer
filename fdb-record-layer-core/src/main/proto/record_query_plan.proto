@@ -269,6 +269,9 @@ message PValue {
     PSubscriptValue subscript_value = 52;
     PParameterObjectValue parameter_object_value = 53;
     PCastValue cast_value = 54;
+    PRowNumberValue row_number_value = 55;
+    PEuclideanDistanceRank euclidean_distance_rank = 56;
+    PCosineDistanceRank cosine_distance_rank = 57;
   }
 }
 
@@ -415,6 +418,8 @@ message PArithmeticValue {
       BITMAP_BUCKET_NUMBER_II = 105;
       BITMAP_BIT_POSITION_LI = 106;
       BITMAP_BIT_POSITION_II = 107;
+      EUCLIDEAN_DISTANCE_VV = 108;
+      COSINE_DISTANCE_VV = 109;
   }
 
   optional PPhysicalOperator operator = 1;
@@ -657,6 +662,16 @@ message PRankValue {
   optional PWindowedValue super = 1;
 }
 
+message PEuclideanDistanceRank {
+  optional PWindowedValue super = 1;
+  repeated PRuntimeOption runtime_options = 2;
+}
+
+message PCosineDistanceRank {
+  optional PWindowedValue super = 1;
+  repeated PRuntimeOption runtime_options = 2;
+}
+
 message PRecordConstructorValue {
   message PColumn {
     optional PType.PRecordType.PField field = 1;
@@ -669,6 +684,11 @@ message PRecordConstructorValue {
 message PRecordTypeValue {
   optional string alias = 1; // deprecated
   optional PValue in = 2;
+}
+
+message PRowNumberValue {
+  optional PWindowedValue super = 1;
+  repeated PRuntimeOption runtime_options = 2;
 }
 
 message PRelOpValue {
@@ -1489,6 +1509,7 @@ message PRecordTypeComparison {
 message PDistanceRankValueComparison {
   optional PValueComparison super = 1;
   optional PValue limitValue = 2;
+  repeated PRuntimeOption runtime_options = 3;
 }
 
 //
@@ -2289,4 +2310,12 @@ message PRecordQueryRecursiveDfsJoinPlan {
   optional PPhysicalQuantifier child_quantifier = 2;
   optional string prior_value_correlation = 3;
   optional PDfsTraversalStrategy dfs_traversal_strategy = 4;
+}
+
+//
+// PRuntimeOption
+//
+message PRuntimeOption {
+  optional string name = 1;
+  optional PValue value = 2;
 }

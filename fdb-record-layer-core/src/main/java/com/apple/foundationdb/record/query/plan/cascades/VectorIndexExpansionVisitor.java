@@ -1,9 +1,9 @@
 /*
- * ValueIndexExpansionVisitor.java
+ * VectorIndexExpansionVisitor.java
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2021 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +21,11 @@
 package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
+import com.apple.foundationdb.async.hnsw.Config;
+import com.apple.foundationdb.linear.Metric;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
@@ -31,35 +35,30 @@ import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.MatchableSortExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValueAndRanges;
+import com.apple.foundationdb.record.query.plan.cascades.values.CosineDistanceRowNumberValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.EuclideanDistanceRowNumberValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.Supplier;
 
-import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
-
 /**
- * Class to expand value index access into a candidate graph. The visitation methods are left unchanged from the super
+ * Class to expand vector index access into a candidate graph. The visitation methods are left unchanged from the super
  * class {@link KeyExpressionExpansionVisitor}, this class merely provides a specific {@link #expand} method.
  */
-public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor implements ExpansionVisitor<KeyExpressionExpansionVisitor.VisitorState> {
-    // We may need to rethink this as it limits the set of indexes that can support a grouping key expression
-    // this hard-coded list, which limits the ability of this visitor to work on types not defined
-    // in the core sub-project
+public class VectorIndexExpansionVisitor extends KeyExpressionExpansionVisitor implements ExpansionVisitor<KeyExpressionExpansionVisitor.VisitorState> {
     @Nonnull
-    private static final Set<String> GROUPED_INDEX_TYPES = Set.of(
-            IndexTypes.RANK,
-            IndexTypes.PERMUTED_MAX,
-            IndexTypes.PERMUTED_MIN
+    private static final Set<String> SUPPORTED_INDEX_TYPES = Set.of(
+            IndexTypes.VECTOR
     );
 
     @Nonnull
@@ -67,7 +66,8 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
     @Nonnull
     private final List<RecordType> queriedRecordTypes;
 
-    public ValueIndexExpansionVisitor(@Nonnull Index index, @Nonnull Collection<RecordType> queriedRecordTypes) {
+    public VectorIndexExpansionVisitor(@Nonnull Index index, @Nonnull Collection<RecordType> queriedRecordTypes) {
+        Preconditions.checkArgument(SUPPORTED_INDEX_TYPES.contains(index.getType()));
         this.index = index;
         this.queriedRecordTypes = ImmutableList.copyOf(queriedRecordTypes);
     }
@@ -78,22 +78,16 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
     public MatchCandidate expand(@Nonnull final Supplier<Quantifier.ForEach> baseQuantifierSupplier,
                                  @Nullable final KeyExpression primaryKey,
                                  final boolean isReverse) {
-        Debugger.updateIndex(ValueIndexExpansionVisitor.class, i -> i + 1);
+        Debugger.updateIndex(VectorIndexExpansionVisitor.class, i -> i + 1);
 
         final var baseQuantifier = baseQuantifierSupplier.get();
         final var allExpansionsBuilder = ImmutableList.<GraphExpansion>builder();
 
-        // add the value for the flow of records
         allExpansionsBuilder.add(GraphExpansion.ofQuantifier(baseQuantifier));
 
         var rootExpression = index.getRootExpression();
-
         if (rootExpression instanceof GroupingKeyExpression) {
-            if (GROUPED_INDEX_TYPES.contains(index.getType())) {
-                rootExpression = ((GroupingKeyExpression)rootExpression).getWholeKey();
-            } else {
-                throw new UnsupportedOperationException("cannot create match candidate on grouping expression for unknown index type");
-            }
+            throw new UnsupportedOperationException("cannot create match candidate on grouping expression for unknown index type");
         }
 
         final int keyValueSplitPoint;
@@ -124,7 +118,11 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
                         .removeAllResultColumns()
                         .build();
 
+        final var distanceValuePlaceholder = createDistanceValuePlaceholder(ImmutableList.copyOf(keyValues),
+                ImmutableList.copyOf(valueValues));
+
         allExpansionsBuilder.add(keyValueExpansion);
+        allExpansionsBuilder.add(GraphExpansion.ofPlaceholder(distanceValuePlaceholder));
 
         if (index.hasPredicate()) {
             final var filteredIndexPredicate = Objects.requireNonNull(index.getPredicate()).toPredicate(baseQuantifier.getFlowedObjectValue());
@@ -150,36 +148,6 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
             allExpansionsBuilder.add(predicateExpansionBuilder.build());
         }
 
-        final var keySize = keyValues.size();
-
-        if (primaryKey != null) {
-            // unfortunately we must copy as the returned list is not guaranteed to be mutable which is needed for the
-            // trimPrimaryKey() function as it is causing a side-effect
-            final var trimmedPrimaryKeys = Lists.newArrayList(primaryKey.normalizeKeyForPositions());
-            index.trimPrimaryKey(trimmedPrimaryKeys);
-
-            for (int i = 0; i < trimmedPrimaryKeys.size(); i++) {
-                final KeyExpression primaryKeyPart = trimmedPrimaryKeys.get(i);
-
-                final var initialStateForKeyPart =
-                        VisitorState.of(keyValues,
-                                Lists.newArrayList(),
-                                baseQuantifier,
-                                ImmutableList.of(),
-                                -1,
-                                keySize + i,
-                                false,
-                                true);
-                final var primaryKeyPartExpansion =
-                        pop(primaryKeyPart.expand(push(initialStateForKeyPart)))
-                                .toBuilder()
-                                .removeAllResultColumns()
-                                .build();
-                allExpansionsBuilder
-                        .add(primaryKeyPartExpansion);
-            }
-        }
-
         final var completeExpansion = GraphExpansion.ofOthers(allExpansionsBuilder.build());
         final var sealedExpansion = completeExpansion.seal();
         final var parameters =
@@ -189,7 +157,7 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
                         .collect(ImmutableList.toImmutableList());
         final var matchableSortExpression = new MatchableSortExpression(parameters, isReverse,
                 sealedExpansion.buildSelectWithResultValue(baseQuantifier.getFlowedObjectValue()));
-        return new ValueIndexScanMatchCandidate(index,
+        return new VectorIndexScanMatchCandidate(index,
                 queriedRecordTypes,
                 Traversal.withRoot(Reference.initialOf(matchableSortExpression)),
                 parameters,
@@ -197,35 +165,23 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
                 baseQuantifier.getAlias(),
                 keyValues,
                 valueValues,
-                fullKey(index, primaryKey),
+                ValueIndexExpansionVisitor.fullKey(index, primaryKey),
                 primaryKey);
     }
 
-    /**
-     * Compute the full key of an index (given that the index is a value index).
-     *
-     * @param index index to be expanded
-     * @param primaryKey primary key of the records the index ranges over. The primary key is used to determine
-     *        parts in the index definition that already contain parts of the primary key. All primary key components
-     *        that are not already part of the index key are appended to the index key.
-     * @return a {@link KeyExpression} describing the <em>full</em> index key as stored
-     */
     @Nonnull
-    public static KeyExpression fullKey(@Nonnull Index index, @Nullable final KeyExpression primaryKey) {
-        final KeyExpression rootExpression = index.getRootExpression() instanceof KeyWithValueExpression
-                                             ? ((KeyWithValueExpression)index.getRootExpression()).getKeyExpression()
-                                             : index.getRootExpression();
-        if (primaryKey == null) {
-            return rootExpression;
+    private Placeholder createDistanceValuePlaceholder(@Nonnull Iterable<? extends Value> partitioningValues,
+                                                       @Nonnull Iterable<? extends Value> argumentValues) {
+        final var metric = index.getOptions().getOrDefault(IndexOptions.HNSW_METRIC, Config.DEFAULT_METRIC.name());
+
+        if (metric.equals(Metric.EUCLIDEAN_METRIC.name())) {
+            return new EuclideanDistanceRowNumberValue(partitioningValues, argumentValues).asPlaceholder(newParameterAlias());
         }
-        final var trimmedPrimaryKeyComponents = new ArrayList<>(primaryKey.normalizeKeyForPositions());
-        index.trimPrimaryKey(trimmedPrimaryKeyComponents);
-        if (trimmedPrimaryKeyComponents.isEmpty()) {
-            return rootExpression;
+
+        if (metric.equals(Metric.COSINE_METRIC.name())) {
+            return new CosineDistanceRowNumberValue(partitioningValues, argumentValues).asPlaceholder(newParameterAlias());
         }
-        final var fullKeyListBuilder = ImmutableList.<KeyExpression>builder();
-        fullKeyListBuilder.add(rootExpression);
-        fullKeyListBuilder.addAll(trimmedPrimaryKeyComponents);
-        return concat(fullKeyListBuilder.build());
+
+        throw new RecordCoreException("vector index does not support provided metric type " + metric);
     }
 }

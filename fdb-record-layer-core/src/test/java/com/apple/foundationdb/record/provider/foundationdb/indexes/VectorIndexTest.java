@@ -47,6 +47,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactory;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactoryRegistry;
+import com.apple.foundationdb.record.provider.foundationdb.RuntimeOptions;
 import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanComparisons;
 import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanOptions;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
@@ -598,7 +599,7 @@ class VectorIndexTest extends VectorIndexTestBase {
         final Comparisons.DistanceRankValueComparison distanceRankComparison =
                 new Comparisons.DistanceRankValueComparison(Comparisons.Type.DISTANCE_RANK_LESS_THAN_OR_EQUAL,
                         new LiteralValue<>(Type.Vector.of(false, 16, 128), queryVector),
-                        new LiteralValue<>(k));
+                        new LiteralValue<>(k), RuntimeOptions.empty());
 
         return VectorIndexScanComparisons.byDistance(ScanComparisons.EMPTY,
                 distanceRankComparison, vectorIndexScanOptions);
