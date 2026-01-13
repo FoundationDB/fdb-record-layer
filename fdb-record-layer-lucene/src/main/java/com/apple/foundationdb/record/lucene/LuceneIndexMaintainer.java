@@ -189,7 +189,8 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     }
 
     int deleteDocument(Tuple groupingKey, Integer partitionId, Tuple primaryKey) throws IOException {
-        return LuceneIndexMaintainerHelper.deleteDocument(state.context, directoryManager, state.index, groupingKey, partitionId, primaryKey);
+        return LuceneIndexMaintainerHelper.deleteDocument(state.context, directoryManager, state.index, groupingKey, partitionId, primaryKey,
+                state.store.isIndexWriteOnly(state.index));
     }
 
     @Override

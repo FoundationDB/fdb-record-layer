@@ -58,7 +58,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
-public class LuceneIndexMaintainerHelper {
+public final class LuceneIndexMaintainerHelper {
     private static final Logger LOG = LoggerFactory.getLogger(LuceneIndexMaintainerHelper.class);
 
     private LuceneIndexMaintainerHelper() {
@@ -71,12 +71,10 @@ public class LuceneIndexMaintainerHelper {
                                      Index index,
                                      Tuple groupingKey,
                                      Integer partitionId,
-                                     Tuple primaryKey) throws IOException {
+                                     Tuple primaryKey,
+                                     boolean isWriteOnlyMode) throws IOException {
         final long startTime = System.nanoTime();
         final IndexWriter indexWriter = directoryManager.getIndexWriter(groupingKey, partitionId);
-        String formatString = index.getOption(LuceneIndexOptions.PRIMARY_KEY_SERIALIZATION_FORMAT);
-        LuceneIndexKeySerializer keySerializer = LuceneIndexKeySerializer.fromStringFormat(formatString);
-
         @Nullable final LucenePrimaryKeySegmentIndex segmentIndex = directoryManager.getDirectory(groupingKey, partitionId).getPrimaryKeySegmentIndex();
 
         if (segmentIndex != null) {
@@ -105,6 +103,8 @@ public class LuceneIndexMaintainerHelper {
         }
         Query query;
         // null format means don't use BinaryPoint for the index primary key
+        String formatString = index.getOption(LuceneIndexOptions.PRIMARY_KEY_SERIALIZATION_FORMAT);
+        LuceneIndexKeySerializer keySerializer = LuceneIndexKeySerializer.fromStringFormat(formatString);
         if (keySerializer.hasFormat()) {
             try {
                 byte[][] binaryPoint = keySerializer.asFormattedBinaryPoint(primaryKey);
@@ -121,8 +121,8 @@ public class LuceneIndexMaintainerHelper {
         }
 
         indexWriter.deleteDocuments(query);
-        LuceneEvents.Events event = // state.store.isIndexWriteOnly(index) ? todo
-                                    // LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_QUERY_IN_WRITE_ONLY_MODE :
+        LuceneEvents.Events event = isWriteOnlyMode ?
+                                    LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_QUERY_IN_WRITE_ONLY_MODE :
                                     LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_QUERY;
         context.record(event, System.nanoTime() - startTime);
 
@@ -186,10 +186,10 @@ public class LuceneIndexMaintainerHelper {
 
     }
 
-    private static void logSerializationError(String format, Object ... arguments) {
+    private static void logSerializationError(String format, String msg) {
         // TODO: report only once
         if (LOG.isWarnEnabled()) {
-            LOG.warn(format, arguments);
+            LOG.warn(format, msg);
         }
     }
 
