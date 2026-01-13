@@ -197,7 +197,9 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     public CompletableFuture<Void> mergeIndex() {
         return rebalancePartitions()
                 .thenCompose(ignored -> {
-                    state.store.getIndexDeferredMaintenanceControl().setLastStep(IndexDeferredMaintenanceControl.LastStep.MERGE);
+                    final IndexDeferredMaintenanceControl mergeControl = state.store.getIndexDeferredMaintenanceControl();
+                    mergeControl.setExplicitMergePath(true);
+                    mergeControl.setLastStep(IndexDeferredMaintenanceControl.LastStep.MERGE);
                     return directoryManager.mergeIndex(partitioner);
                 });
     }
@@ -206,6 +208,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     public void mergeIndexForTesting(@Nonnull final Tuple groupingKey,
                                      @Nullable final Integer partitionId,
                                      @Nonnull final AgilityContext agilityContext) throws IOException {
+        state.store.getIndexDeferredMaintenanceControl().setExplicitMergePath(true);
         directoryManager.mergeIndexWithContext(groupingKey, partitionId, agilityContext);
     }
 
