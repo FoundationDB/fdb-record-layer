@@ -132,6 +132,7 @@ public class FDBDirectory extends Directory  {
     private static final int STORED_FIELDS_SUBSPACE = 6;
     @VisibleForTesting
     public static final int FILE_LOCK_SUBSPACE = 7;
+    public static final int PENDING_WRITE_QUEUE_SUBSPACE = 8;
     private final AtomicLong nextTempFileCounter = new AtomicLong();
     @Nonnull
     private final Map<String, String> indexOptions;
@@ -141,6 +142,7 @@ public class FDBDirectory extends Directory  {
     private final Subspace fieldInfosSubspace;
     protected final Subspace storedFieldsSubspace;
     private final Subspace fileLockSubspace;
+    private final Subspace pendingWritesQueueSubspace;
     private final byte[] sequenceSubspaceKey;
 
     private final FDBDirectoryLockFactory lockFactory;
@@ -217,6 +219,7 @@ public class FDBDirectory extends Directory  {
         this.fieldInfosSubspace = subspace.subspace(Tuple.from(FIELD_INFOS_SUBSPACE));
         this.storedFieldsSubspace = subspace.subspace(Tuple.from(STORED_FIELDS_SUBSPACE));
         this.fileLockSubspace = subspace.subspace(Tuple.from(FILE_LOCK_SUBSPACE));
+        this.pendingWritesQueueSubspace = subspace.subspace(Tuple.from(PENDING_WRITE_QUEUE_SUBSPACE));
         this.lockFactory = new FDBDirectoryLockFactory(this, Objects.requireNonNullElse(agilityContext.getPropertyValue(LuceneRecordContextProperties.LUCENE_FILE_LOCK_TIME_WINDOW_MILLISECONDS), 0));
         this.blockSize = blockSize;
         this.fileReferenceCache = new AtomicReference<>();
@@ -982,6 +985,10 @@ public class FDBDirectory extends Directory  {
         if (lastLock != null) {
             lastLock.fileLockClearIfLocked();
         }
+    }
+
+    public PendingWriteQueue createPendingWritesQueue() {
+        return new PendingWriteQueue(pendingWritesQueueSubspace);
     }
 
     /**

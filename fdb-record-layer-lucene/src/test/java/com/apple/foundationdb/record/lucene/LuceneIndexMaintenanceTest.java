@@ -36,6 +36,7 @@ import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectoryLockFactory;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectoryManager;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectoryWrapper;
+import com.apple.foundationdb.record.lucene.directory.PendingWriteQueue;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.provider.common.FixedZeroKeyManager;
 import com.apple.foundationdb.record.provider.common.RollingTestKeyManager;
@@ -1172,6 +1173,31 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
 
         explicitMergeIndex(dataModel.index, contextProps, dataModel.schemaSetup);
         dataModel.validate(() -> openContext(contextProps));
+    }
+
+    @Test
+    void testCreatePendingWritesQueue() throws IOException {
+        final LuceneIndexTestDataModel dataModel = new LuceneIndexTestDataModel.Builder(1, this::getStoreBuilder, pathManager)
+                .setIsGrouped(true)
+                .setIsSynthetic(true)
+                .setPrimaryKeySegmentIndexEnabled(true)
+                .setPartitionHighWatermark(0) // no partitioning, so we only have one partition to work with
+                .build();
+        final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_REPARTITION_DOCUMENT_COUNT, 2)
+                .addProp(LuceneRecordContextProperties.LUCENE_MERGE_SEGMENTS_PER_TIER, (double)dataModel.nextInt(10) + 2) // it must be at least 2.0
+                .build();
+
+        Tuple groupingKey = Tuple.from(1);
+        Integer partitionId = null;
+        try (FDBRecordContext context = openContext(contextProps)) {
+            final FDBRecordStore store = dataModel.createOrOpenRecordStore(context);
+            final LuceneIndexMaintainer indexMaintainer = getIndexMaintainer(store, dataModel.index);
+            final FDBDirectoryManager directoryManager = indexMaintainer.getDirectoryManager();
+            final FDBDirectoryWrapper directoryWrapper = directoryManager.getDirectoryWrapper(groupingKey, partitionId);
+            final PendingWriteQueue pendingWriteQueue = directoryWrapper.getPendingWriteQueue();
+            assertNotNull(pendingWriteQueue);
+        }
     }
 
     /**
