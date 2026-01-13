@@ -26,16 +26,21 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.EndpointType;
 import com.apple.foundationdb.record.KeyRange;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.cursors.ChainedCursor;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.lucene.LuceneAnalyzerCombinationProvider;
 import com.apple.foundationdb.record.lucene.LuceneAnalyzerRegistryImpl;
 import com.apple.foundationdb.record.lucene.LuceneAnalyzerType;
 import com.apple.foundationdb.record.lucene.LuceneAnalyzerWrapper;
+import com.apple.foundationdb.record.lucene.LuceneEvents;
 import com.apple.foundationdb.record.lucene.LuceneExceptions;
 import com.apple.foundationdb.record.lucene.LuceneIndexExpressions;
+import com.apple.foundationdb.record.lucene.LuceneIndexMaintainerHelper;
 import com.apple.foundationdb.record.lucene.LuceneIndexTypes;
 import com.apple.foundationdb.record.lucene.LuceneLogMessageKeys;
 import com.apple.foundationdb.record.lucene.LucenePartitionInfoProto;
@@ -45,19 +50,25 @@ import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContextConfig;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBTransactionPriority;
 import com.apple.foundationdb.record.provider.foundationdb.IndexDeferredMaintenanceControl;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursor;
+import com.apple.foundationdb.record.provider.foundationdb.runners.throttled.CursorFactory;
+import com.apple.foundationdb.record.provider.foundationdb.runners.throttled.ItemHandler;
+import com.apple.foundationdb.record.provider.foundationdb.runners.throttled.ThrottledRetryingIterator;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
+import com.apple.foundationdb.util.CloseException;
 import com.google.common.annotations.VisibleForTesting;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -203,6 +214,7 @@ public class FDBDirectoryManager implements AutoCloseable {
                                       @Nonnull final AgilityContext agilityContext) {
         try (FDBDirectoryWrapper directoryWrapper = createDirectoryWrapper(groupingKey, partitionId, agilityContext)) {
             try {
+                directoryWrapper.setOngoingMergeIndicator();
                 directoryWrapper.mergeIndex();
                 if (LOGGER.isDebugEnabled()) {
                     LOGGER.debug(KeyValueLogMessage.of("Lucene merge success",
@@ -213,6 +225,9 @@ public class FDBDirectoryManager implements AutoCloseable {
                 throw LuceneExceptions.toRecordCoreException("Lucene mergeIndex failed", e,
                         LuceneLogMessageKeys.GROUP, groupingKey,
                         LuceneLogMessageKeys.INDEX_PARTITION, partitionId);
+            } finally {
+                // Here: drain this partition's queue and clear the "use queue" indicator
+                drainPendingQueueWithRetries(groupingKey, partitionId, agilityContext, directoryWrapper);
             }
         } catch (IOException e) {
             // there was an IOException closing the index writer
@@ -221,6 +236,104 @@ public class FDBDirectoryManager implements AutoCloseable {
                     LuceneLogMessageKeys.INDEX_PARTITION, partitionId);
         }
     }
+
+    public void drainPendingQueueWithRetries(@Nonnull final Tuple groupingKey,
+                                             @Nullable final Integer partitionId,
+                                             @Nonnull final AgilityContext agilityContext,
+                                             FDBDirectoryWrapper directoryWrapper) {
+        // todo: retry if fails to clear queue
+        for (int retries = 0; retries < 10; retries ++) {
+            try {
+                agilityContext.flush(); // since drain doesn't use agility context, flush it now to prevent a potential stale context
+                drainPendingQueue(groupingKey, partitionId, agilityContext);
+                directoryWrapper.clearOngoingMergeIndicator();
+                agilityContext.flush(); // flash within retries
+                return;
+            } catch (RuntimeException ex) {
+                if (LOGGER.isWarnEnabled()) {
+                    LOGGER.warn(KeyValueLogMessage.of("Failed to drain queue",
+                            LogMessageKeys.RETRY_COUNT, retries,
+                            LogMessageKeys.GROUPING_KEY, groupingKey,
+                            LogMessageKeys.PARTITION_ID, partitionId
+                    ), ex);
+                }
+            }
+        }
+        // Here: 10 failed clear queue attempts. What is the right thing to do?
+    }
+
+    public void drainPendingQueue(@Nonnull final Tuple groupingKey,
+                                  @Nullable final Integer partitionId,
+                                  @Nonnull final AgilityContext agilityContext) {
+        // Note - since this directory wrapper was already created, agility context should be unused in the next line's path
+        final PendingWriteQueue pendingWriteQueue = getDirectoryWrapper(groupingKey, partitionId, agilityContext).getPendingWriteQueue();
+        try (ThrottledRetryingIterator<PendingWriteQueue.QueueEntry> iterator = ThrottledRetryingIterator.builder(
+                        state.context.getDatabase(),
+                        cursorFactory(pendingWriteQueue),
+                        handleOneItemFactory(pendingWriteQueue, groupingKey, partitionId))
+                .withMdcContext(MDC.getCopyOfContextMap())
+                .build()) {
+            iterator.iterateAll(state.store.asBuilder());
+        } catch (CloseException e) {
+            throw new RuntimeException(e);
+        }
+
+    }
+
+    private CursorFactory<PendingWriteQueue.QueueEntry> cursorFactory(PendingWriteQueue pendingWriteQueue) {
+        return (@Nonnull FDBRecordStore store, @Nullable RecordCursorResult<PendingWriteQueue.QueueEntry> lastResult, int rowLimit) -> {
+            byte[] continuation = lastResult == null ? null : lastResult.getContinuation().toBytes();
+            ScanProperties scanProperties = ScanProperties.FORWARD_SCAN.with(executeProperties -> executeProperties.setReturnedRowLimit(rowLimit));
+            // Note: null could have been used instead of continuation as the preceding items should have been deleted. However,
+            // using a continuation will prevent an infinite loop in case of a bug that doesn't clear items.
+            return pendingWriteQueue.getQueueCursor(store.getContext(), scanProperties, continuation);
+        };
+    }
+
+    private ItemHandler<PendingWriteQueue.QueueEntry> handleOneItemFactory(PendingWriteQueue pendingWriteQueue,
+                                                                           @Nonnull final Tuple groupingKey,
+                                                                           @Nullable final Integer partitionId) {
+        return (store, lastResult, quotamanager) -> {
+            final PendingWriteQueue.QueueEntry queueEntry = lastResult.get();
+            if (queueEntry == null) {
+                return AsyncUtil.DONE;
+            }
+            try {
+                switch (queueEntry.getOperationType()) {
+                    case UPDATE:
+                    case INSERT:
+                        LuceneIndexMaintainerHelper.writeDocument(store.getContext(), this, state.index,
+                                groupingKey, partitionId,
+                                queueEntry.getPrimaryKeyParsed(), queueEntry.getDocumentFieldsParsed());
+                        break;
+                    case DELETE:
+                        int count = LuceneIndexMaintainerHelper.deleteDocument(store.getContext(), this, state.index,
+                                groupingKey, partitionId,
+                                queueEntry.getPrimaryKeyParsed(), store.isIndexWriteOnly(state.index));
+                        if (count > 0 && partitionId != null) {
+                            // tmp kludge - todo: find a better solution
+                            final IndexMaintainerState tmpState = new IndexMaintainerState(store, state.index, state.filter);
+                            final LucenePartitioner tmpPartitioner = new LucenePartitioner(tmpState);
+                            store.getContext().asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_DECREMENT,
+                                    tmpPartitioner.decrementCountAndSave(groupingKey, count, partitionId));
+                        }
+                        break;
+                    default:
+                        if (LOGGER.isWarnEnabled()) {
+                            LOGGER.warn(KeyValueLogMessage.of("bad queue entry",
+                                    LogMessageKeys.PRIMARY_KEY, queueEntry.getPrimaryKey()));
+                        }
+                        break;
+                }
+
+                pendingWriteQueue.clearEntry(store.getContext(), queueEntry);
+                return AsyncUtil.DONE;
+            } catch (IOException ex) {
+                throw new RecordCoreException("Lucene IOException", ex);
+            }
+        };
+    }
+
 
     private static void closeOrAbortAgilityContext(AgilityContext agilityContext, Throwable ex) {
         if (ex == null) {
@@ -292,6 +405,10 @@ public class FDBDirectoryManager implements AutoCloseable {
                 iterator.remove();
             }
         }
+    }
+
+    public PendingWriteQueue getPendingWriteQueue(@Nullable Tuple groupingKey, @Nullable Integer partitionId) {
+        return getDirectoryWrapper(groupingKey, partitionId).getPendingWriteQueue();
     }
 
     @VisibleForTesting

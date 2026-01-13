@@ -133,6 +133,7 @@ public class FDBDirectory extends Directory  {
     @VisibleForTesting
     public static final int FILE_LOCK_SUBSPACE = 7;
     public static final int PENDING_WRITE_QUEUE_SUBSPACE = 8;
+    public static final int ONGOING_MERGE_INDICATOR_SUBSPACE = 9;
     private final AtomicLong nextTempFileCounter = new AtomicLong();
     @Nonnull
     private final Map<String, String> indexOptions;
@@ -985,6 +986,58 @@ public class FDBDirectory extends Directory  {
         if (lastLock != null) {
             lastLock.fileLockClearIfLocked();
         }
+    }
+
+    /**
+     * Checks if the queue should be used during merge operations.
+     * @return true if queue should be used
+     */
+    public boolean shouldUseQueue() {
+        final Subspace ongoingMergeSubspace = subspace.subspace(Tuple.from(ONGOING_MERGE_INDICATOR_SUBSPACE));
+        final byte[] tupleBytes = asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_INCREMENT,
+                agilityContext.get(ongoingMergeSubspace.pack()));
+
+        // return true if the tuple exists, and not empty
+        return tupleBytes != null && !Tuple.fromBytes(tupleBytes).isEmpty();
+    }
+
+    /**
+     * Sets the queue usage indicator.
+     * @param context the FDB record context to use
+     */
+    public void setUseQueue(@Nonnull FDBRecordContext context) {
+        final Subspace ongoingMergeSubspace = subspace.subspace(Tuple.from(ONGOING_MERGE_INDICATOR_SUBSPACE));
+        final long nowMillis = System.currentTimeMillis();
+        final Tuple indicatorTuple = Tuple.from(nowMillis);
+        agilityContext.set(ongoingMergeSubspace.pack(), indicatorTuple.pack());
+    }
+
+    /**
+     * Clears the queue usage indicator, trow the queue is empty.
+     *
+     * @param context the FDB record context (caller can use agilityContext accept, but function must use one context)
+     * @throws RecordCoreException if the pending write queue is not empty
+     */
+    public void clearUseQueueFailIfNonEmpty(@Nonnull FDBRecordContext context) {
+        final Subspace ongoingMergeSubspace = subspace.subspace(Tuple.from(ONGOING_MERGE_INDICATOR_SUBSPACE));
+        final Subspace queueSubspace = subspace.subspace(Tuple.from(PENDING_WRITE_QUEUE_SUBSPACE));
+        final Range queueRange = queueSubspace.range();
+
+        // Verify that the pending write queue subspace is empty
+        final List<KeyValue> queueEntries = context.ensureActive()
+                .getRange(queueRange, 1) // Limit to 1 to just check if any entries exist
+                .asList()
+                .join();
+
+        if (!queueEntries.isEmpty()) {
+            throw new RecordCoreException("Cannot clear queue usage indicator: pending write queue is not empty");
+        }
+
+        // Add queue subspace range to conflict list
+        context.ensureActive().addReadConflictRange(queueRange.begin,  queueRange.end);
+
+        // Clear the ongoing merge indicator
+        context.ensureActive().clear(ongoingMergeSubspace.pack());
     }
 
     public PendingWriteQueue createPendingWritesQueue() {
