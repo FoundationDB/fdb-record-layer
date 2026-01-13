@@ -113,7 +113,9 @@ public final class LuceneIndexMaintainerHelper {
                 // this can happen on format mismatch or encoding error
                 // fallback to the old way (less efficient)
                 query = SortedDocValuesField.newSlowExactQuery(LuceneIndexMaintainer.PRIMARY_KEY_SEARCH_NAME, new BytesRef(keySerializer.asPackedByteArray(primaryKey)));
-                logSerializationError("Failed to delete using BinaryPoint encoded ID: {}", ex.getMessage());
+                if (LOG.isWarnEnabled()) {
+                    LOG.warn("Failed to delete using BinaryPoint encoded ID: {}", ex.getMessage());
+                }
             }
         } else {
             // fallback to the old way (less efficient)
@@ -131,8 +133,21 @@ public final class LuceneIndexMaintainerHelper {
         return 0;
     }
 
+    /**
+     * Try to find the document for the given record in the segment index.
+     * This method would first try to find the document using the existing reader. If it can't, it will refresh the reader
+     * and try again. The incentive for this is when the documents have been updated in memory (e.g. in the same transaction), the
+     * writer may cache the changes in NRT and the reader (created before the updates) can't see them. Refreshing the reader from the
+     * writer can alleviate this by re-reading the changes in the NRT.
+     * If the index can't find the document with the refreshed reader, null is returned.
+     * @param groupingKey the grouping key for the index
+     * @param partitionId the partition ID for the index
+     * @param primaryKey the record primary key to look for
+     * @return segment index entry if the record was found, null if none
+     * @throws IOException in case of error
+     */
     @SuppressWarnings("PMD.CloseResource")
-    public static LucenePrimaryKeySegmentIndex.DocumentIndexEntry getDocumentIndexEntryWithRetry(FDBDirectoryManager directoryManager, LucenePrimaryKeySegmentIndex segmentIndex, final Tuple groupingKey, final Integer partitionId, final Tuple primaryKey) throws IOException {
+    private static LucenePrimaryKeySegmentIndex.DocumentIndexEntry getDocumentIndexEntryWithRetry(FDBDirectoryManager directoryManager, LucenePrimaryKeySegmentIndex segmentIndex, final Tuple groupingKey, final Integer partitionId, final Tuple primaryKey) throws IOException {
         DirectoryReader directoryReader = directoryManager.getWriterReader(groupingKey, partitionId, false);
         LucenePrimaryKeySegmentIndex.DocumentIndexEntry documentIndexEntry = segmentIndex.findDocument(directoryReader, primaryKey);
         if (documentIndexEntry != null) {
@@ -171,7 +186,9 @@ public final class LuceneIndexMaintainerHelper {
             } catch (RecordCoreFormatException ex) {
                 // this can happen on format mismatch or encoding error
                 // just don't write the field, but allow the document to continue
-                logSerializationError("Failed to write using BinaryPoint encoded ID: {}", ex.getMessage());
+                if (LOG.isWarnEnabled()) {
+                    LOG.warn("Failed to write using BinaryPoint encoded ID: {}", ex.getMessage());
+                }
             }
         }
 
@@ -184,13 +201,6 @@ public final class LuceneIndexMaintainerHelper {
         newWriter.addDocument(document);
         context.record(LuceneEvents.Events.LUCENE_ADD_DOCUMENT, System.nanoTime() - startTime);
 
-    }
-
-    private static void logSerializationError(String format, String msg) {
-        // TODO: report only once
-        if (LOG.isWarnEnabled()) {
-            LOG.warn(format, msg);
-        }
     }
 
     @Nonnull
@@ -209,7 +219,7 @@ public final class LuceneIndexMaintainerHelper {
      * Insert a field into the document and add a suggestion into the suggester if needed.
      */
     @SuppressWarnings("java:S3776")
-    public static void insertField(LuceneDocumentFromRecord.DocumentField field, final Document document) {
+    private static void insertField(LuceneDocumentFromRecord.DocumentField field, final Document document) {
         final String fieldName = field.getFieldName();
         final Object value = field.getValue();
         final Field luceneField;
