@@ -131,6 +131,7 @@ public enum LogMessageKeys {
     VALUE_KEY,
     PRIMARY_KEY,
     GROUPING_KEY,
+    OVERALL_OPERATION,
     VALUE,
     INDEX_OPERATION("operation"),
     INITIAL_PREFIX,

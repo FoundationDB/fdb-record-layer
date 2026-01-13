@@ -152,6 +152,8 @@ public class LuceneEvents {
         WAIT_LUCENE_RENAME("lucene rename"),
         /** Wait to get a new file counter increment. */
         WAIT_LUCENE_GET_INCREMENT("lucene file counter increment"),
+        /** Wait to get a deleted file counter decrement. */
+        WAIT_LUCENE_GET_DECREMENT("lucene file counter decrement"),
         /** Wait to read a file reference. */
         WAIT_LUCENE_GET_FILE_REFERENCE("lucene get file reference"),
         /** Wait to read schema. */
