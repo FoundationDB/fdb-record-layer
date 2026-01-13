@@ -165,7 +165,27 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
 
     @Nonnull
     @Override
-    RecordLayerIndex visitIndexDefinition(@Nonnull RelationalParser.IndexDefinitionContext ctx);
+    RecordLayerIndex visitIndexAsSelectDefinition(@Nonnull RelationalParser.IndexAsSelectDefinitionContext ctx);
+
+    @Nonnull
+    @Override
+    RecordLayerIndex visitIndexOnSourceDefinition(@Nonnull RelationalParser.IndexOnSourceDefinitionContext ctx);
+
+    @Nonnull
+    @Override
+    RecordLayerIndex visitVectorIndexDefinition(RelationalParser.VectorIndexDefinitionContext ctx);
+
+    @Nonnull
+    @Override
+    Object visitIndexColumnList(@Nonnull RelationalParser.IndexColumnListContext ctx);
+
+    @Nonnull
+    @Override
+    Object visitIndexColumnSpec(@Nonnull RelationalParser.IndexColumnSpecContext ctx);
+
+    @Nonnull
+    @Override
+    Object visitIncludeClause(@Nonnull RelationalParser.IncludeClauseContext ctx);
 
     @Override
     Object visitIndexAttributes(RelationalParser.IndexAttributesContext ctx);
@@ -310,9 +330,9 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
     @Nullable
     Void visitTableSources(@Nonnull RelationalParser.TableSourcesContext ctx);
 
-    @Nonnull
+    @Nullable
     @Override
-    LogicalOperator visitTableSourceBase(@Nonnull RelationalParser.TableSourceBaseContext ctx);
+    Void visitTableSourceBase(@Nonnull RelationalParser.TableSourceBaseContext ctx);
 
     @Nonnull
     @Override
@@ -341,7 +361,7 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
     @Override
     NonnullPair<String, CompatibleTypeEvolutionPredicate.FieldAccessTrieNode> visitInlineTableDefinition(RelationalParser.InlineTableDefinitionContext ctx);
 
-    @Nonnull
+    @Nullable
     @Override
     Object visitInnerJoin(@Nonnull RelationalParser.InnerJoinContext ctx);
 

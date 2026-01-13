@@ -50,6 +50,11 @@ class DocumentationQueriesTests {
     }
 
     @TestTemplate
+    void indexDocumentationQueriesTests(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql(PREFIX + "/index-documentation-queries.yamsql");
+    }
+
+    @TestTemplate
     void isDistinctFromOperatorQueriesTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql(PREFIX + "/is-distinct-from-operator-queries.yamsql");
     }
