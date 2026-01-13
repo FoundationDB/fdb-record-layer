@@ -139,27 +139,15 @@ public final class RaBitQuantizer implements Quantizer {
     @Nonnull
     @VisibleForTesting
     Result encodeInternal(@Nonnull final RealVector data) {
-        // For cosine, encode the L2-normalized vector and use squared-euclidean parameterization.
-        final RealVector effectiveData;
-        final Metric effectiveMetric;
+        final int dims = data.getNumDimensions();
 
-        if (metric == Metric.COSINE_METRIC) {
-            effectiveData = l2NormalizeOrZero(data);
-            effectiveMetric = Metric.EUCLIDEAN_SQUARE_METRIC;
-        } else {
-            effectiveData = data;
-            effectiveMetric = metric;
-        }
-
-        final int dims = effectiveData.getNumDimensions();
-
-        final QuantizeExResult base = exBitsCode(effectiveData);
+        final QuantizeExResult base = exBitsCode(data);
         final int[] signedCode = base.code;
         final double ipInv = base.ipNormInv;
 
         final int[] totalCode = new int[dims];
         for (int i = 0; i < dims; i++) {
-            final int sgn = (effectiveData.getComponent(i) >= 0.0) ? 1 : 0;
+            final int sgn = (data.getComponent(i) >= 0.0) ? 1 : 0;
             totalCode[i] = signedCode[i] + (sgn << numExBits);
         }
 
@@ -170,9 +158,9 @@ public final class RaBitQuantizer implements Quantizer {
         }
         final RealVector xuCb = new DoubleRealVector(xuCbData);
 
-        final double residualL2Sqr = effectiveData.dot(effectiveData);
+        final double residualL2Sqr = data.dot(data);
         final double residualL2Norm = Math.sqrt(residualL2Sqr);
-        final double ipResidualXuCb = effectiveData.dot(xuCb);
+        final double ipResidualXuCb = data.dot(xuCb);
 
         final double xuCbNorm = xuCb.l2Norm();
         final double xuCbNormSqr = xuCbNorm * xuCbNorm;
@@ -189,35 +177,26 @@ public final class RaBitQuantizer implements Quantizer {
         final double fRescaleEx;
         final double fErrorEx;
 
-        if (effectiveMetric == Metric.EUCLIDEAN_SQUARE_METRIC || effectiveMetric == Metric.EUCLIDEAN_METRIC) {
-            fAddEx = residualL2Sqr;
-            fRescaleEx = ipInv * (-2.0 * residualL2Norm);
-            fErrorEx = 2.0 * tmpError;
-        } else if (effectiveMetric == Metric.DOT_PRODUCT_METRIC) {
-            fAddEx = 1.0;
-            fRescaleEx = ipInv * (-1.0 * residualL2Norm);
-            fErrorEx = tmpError;
-        } else {
-            throw new IllegalArgumentException("Unsupported metric");
+        switch (metric) {
+            case COSINE_METRIC:
+            case EUCLIDEAN_SQUARE_METRIC:
+            case EUCLIDEAN_METRIC:
+                fAddEx = residualL2Sqr;
+                fRescaleEx = ipInv * (-2.0 * residualL2Norm);
+                fErrorEx = 2.0 * tmpError;
+                break;
+
+            case DOT_PRODUCT_METRIC:
+                fAddEx = 1.0;
+                fRescaleEx = ipInv * (-1.0 * residualL2Norm);
+                fErrorEx = tmpError;
+                break;
+
+            default:
+                throw new IllegalArgumentException("Unsupported metric");
         }
 
         return new Result(new EncodedRealVector(numExBits, totalCode, fAddEx, fRescaleEx, fErrorEx), base.t, ipInv);
-    }
-
-    private static RealVector l2NormalizeOrZero(@Nonnull final RealVector x) {
-        final int d = x.getNumDimensions();
-        final double n2 = x.dot(x);
-        final double[] y = new double[d];
-
-        if (!(n2 > 0.0) || !Double.isFinite(n2)) {
-            return new DoubleRealVector(y);
-        }
-
-        final double inv = 1.0 / Math.sqrt(n2);
-        for (int i = 0; i < d; i++) {
-            y[i] = x.getComponent(i) * inv;
-        }
-        return new DoubleRealVector(y);
     }
 
     /**

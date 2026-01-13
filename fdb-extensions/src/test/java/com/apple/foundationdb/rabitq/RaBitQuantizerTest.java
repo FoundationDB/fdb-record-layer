@@ -254,15 +254,15 @@ public class RaBitQuantizerTest {
             v = v.normalize();
             q = q.normalize();
 
-            logger.info("q = {}", q);
-            logger.info("v = {}", v);
+            logger.trace("(cosine metric) q = {}", q);
+            logger.trace("(cosine metric) v = {}", v);
 
             final AffineOperator operator = new AffineOperator(rotator, null);
             final Transformed<RealVector> qRot = operator.transform(q);
             final Transformed<RealVector> vRot = operator.transform(v);
 
-            logger.info("qRot = {}", qRot);
-            logger.info("vRot = {}", vRot);
+            logger.trace("(cosine metric) qRot = {}", qRot);
+            logger.trace("(cosine metric) vRot = {}", vRot);
 
             final RaBitQuantizer quantizer = new RaBitQuantizer(Metric.COSINE_METRIC, numExBits);
             final Transformed<RealVector> encodedV = quantizer.encode(vRot);
@@ -273,20 +273,20 @@ public class RaBitQuantizerTest {
             final RaBitEstimator.Result estimatedDistance =
                     estimator.estimateDistanceAndErrorBound(qRot.getUnderlyingVector(),
                             (EncodedRealVector)encodedV.getUnderlyingVector());
-            logger.info("estimated 1 - cos(qRot, vRot) = {}", estimatedDistance);
+            logger.trace("estimated 1 - cos(qRot, vRot) = {}", estimatedDistance);
             final double trueDistance =
                     Metric.COSINE_METRIC.distance(vRot.getUnderlyingVector(),
                             qRot.getUnderlyingVector());
-            logger.info("true 1 - cos(qRot, vRot) = {}", trueDistance);
+            logger.trace("true 1 - cos(qRot, vRot) = {}", trueDistance);
             if (trueDistance >= estimatedDistance.getDistance() - estimatedDistance.getErr() &&
                     trueDistance < estimatedDistance.getDistance() + estimatedDistance.getErr()) {
                 numEstimationWithinBounds++;
             }
-            logger.info("reconstructed q = {}", reconstructedQ);
-            logger.info("reconstructed v = {}", reconstructedV);
-            logger.info("true 1 - cos(qDec, vDec) = {}", Metric.COSINE_METRIC.distance(reconstructedV, reconstructedQ));
+            logger.trace("(cosine metric) reconstructed q = {}", reconstructedQ);
+            logger.trace("(cosine metric) reconstructed v = {}", reconstructedV);
+            logger.trace("true 1 - cos(qDec, vDec) = {}", Metric.COSINE_METRIC.distance(reconstructedV, reconstructedQ));
             final double reconstructedDistance = Metric.COSINE_METRIC.distance(reconstructedV, q);
-            logger.info("true 1 - cos(q, vDec) = {}", reconstructedDistance);
+            logger.trace("true 1 - cos(q, vDec) = {}", reconstructedDistance);
             double error = Math.abs(estimatedDistance.getDistance() - trueDistance);
             if (error < Math.abs(reconstructedDistance - trueDistance)) {
                 numEstimationBetter ++;

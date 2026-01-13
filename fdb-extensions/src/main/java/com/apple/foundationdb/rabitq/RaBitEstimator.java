@@ -68,7 +68,14 @@ public class RaBitEstimator implements Estimator {
     public Result estimateDistanceAndErrorBound(@Nonnull final RealVector query,
                                                 @Nonnull final EncodedRealVector encodedVector) {
         if (metric == Metric.COSINE_METRIC) {
-            return estimateCosineDistanceAndErrorBound(query, encodedVector);
+            //
+            // In cosine metric there is a special case that conventionally if one vector is the zero vector, the
+            // distance is 1 as that distance corresponds to all vectors that are orthogonal to each other.
+            //
+            final double qNormSqr = query.dot(query);
+            if (!(qNormSqr > 0.0) || !Double.isFinite(qNormSqr)) {
+                return new Result(1.0, 0.0);
+            }
         }
 
         final double cb = (1 << numExBits) - 0.5;
@@ -79,14 +86,17 @@ public class RaBitEstimator implements Estimator {
         final RealVector xuc = totalCode.subtract(cb);
         final double dot = query.dot(xuc);
 
+        final double euclideanSquare = encodedVector.getAddEx() + gAdd + encodedVector.getRescaleEx() * dot;
+        final double euclideanSquareError = encodedVector.getErrorEx() * gError;
+
         switch (metric) {
+            case COSINE_METRIC:
+                return new Result(0.5 * euclideanSquare, 0.5 * euclideanSquareError);
             case DOT_PRODUCT_METRIC:
             case EUCLIDEAN_SQUARE_METRIC:
-                return new Result(encodedVector.getAddEx() + gAdd + encodedVector.getRescaleEx() * dot,
-                        encodedVector.getErrorEx() * gError);
+                return new Result(euclideanSquare, euclideanSquareError);
             case EUCLIDEAN_METRIC:
-                return new Result(Math.sqrt(encodedVector.getAddEx() + gAdd + encodedVector.getRescaleEx() * dot),
-                        Math.sqrt(encodedVector.getErrorEx() * gError));
+                return new Result(Math.sqrt(euclideanSquare), Math.sqrt(euclideanSquareError));
             default:
                 throw new UnsupportedOperationException("metric not supported by quantizer");
         }
@@ -102,12 +112,12 @@ public class RaBitEstimator implements Estimator {
         }
 
         // Normalize query
-        final double qInv = 1.0 / Math.sqrt(qNormSqr);
-        final double[] qHat = new double[query.getNumDimensions()];
-        for (int i = 0; i < qHat.length; i++) {
-            qHat[i] = query.getComponent(i) * qInv;
-        }
-        final RealVector qVec = new DoubleRealVector(qHat);
+        //final double qInv = 1.0 / Math.sqrt(qNormSqr);
+//        final double[] qHat = new double[query.getNumDimensions()];
+//        for (int i = 0; i < qHat.length; i++) {
+//            qHat[i] = query.getComponent(i) * qInv;
+//        }
+//        final RealVector qVec = new DoubleRealVector(qHat);
 
         // Now compute the RaBit estimate as if EUCLIDEAN_SQUARE_METRIC on normalized vectors
         final double cb = (1 << numExBits) - 0.5;
@@ -119,7 +129,7 @@ public class RaBitEstimator implements Estimator {
         final RealVector totalCode = new DoubleRealVector(encodedVector.getEncodedData());
         final RealVector xuc = totalCode.subtract(cb);
 
-        final double dot = qVec.dot(xuc);
+        final double dot = query.dot(xuc);
 
         final double euclSq = encodedVector.getAddEx() + gAdd + encodedVector.getRescaleEx() * dot;
         final double euclSqErr = encodedVector.getErrorEx() * gError;
