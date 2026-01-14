@@ -140,7 +140,7 @@ public class RecordQueryAggregateIndexPlan extends AbstractRelationalExpressionW
                     final Index index = metaData.getIndex(getIndexName());
                     return store.coveredIndexQueriedRecord(index, indexEntry, recordType, (M)toRecord.toRecord(recordDescriptor, indexEntry), false);
                 })
-                .map(QueryResult::fromQueriedRecord);
+                .map(queriedRecord -> QueryResult.fromQueriedRecord(resultValue.getResultType(), context, queriedRecord));
     }
 
     @Nonnull

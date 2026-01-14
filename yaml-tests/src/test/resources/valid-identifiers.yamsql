@@ -198,17 +198,17 @@ test_block:
     -
       # qualified star
       - query: select "foo.tableA".* from "foo.tableA";
-      - explain: "COVERING(foo.tableA.idx <,> -> [foo__2tableA__2A1: KEY:[0], foo__2tableA__2A2: KEY:[1], foo__2tableA__2A3: KEY:[2]]) | MAP (_.foo.tableA.A1 AS foo.tableA.A1, _.foo.tableA.A2 AS foo.tableA.A2, _.foo.tableA.A3 AS foo.tableA.A3)"
+      - explain: "ISCAN(foo.tableA.idx3 <,>)"
       - result: [{"foo.tableA.A1": 1 , "foo.tableA.A2": 10, "foo.tableA.A3": 1}, {"foo.tableA.A1": 2, "foo.tableA.A2": 10, "foo.tableA.A3": 2}, {"foo.tableA.A1": 3, "foo.tableA.A2": 10, "foo.tableA.A3": 3}]
     -
       # non-qualified star
       - query: select * from "foo.tableA";
-      - explain: "COVERING(foo.tableA.idx <,> -> [foo__2tableA__2A1: KEY:[0], foo__2tableA__2A2: KEY:[1], foo__2tableA__2A3: KEY:[2]]) | MAP (_.foo.tableA.A1 AS foo.tableA.A1, _.foo.tableA.A2 AS foo.tableA.A2, _.foo.tableA.A3 AS foo.tableA.A3)"
+      - explain: "ISCAN(foo.tableA.idx3 <,>)"
       - result: [{"foo.tableA.A1": 1 , 10, 1}, {"foo.tableA.A1": 2, 10, 2}, {"foo.tableA.A1": 3, 10, 3}]
     -
       # aliased star
       - query: select "_$$$".* from "foo.tableA" as "_$$$";
-      - explain: "COVERING(foo.tableA.idx <,> -> [foo__2tableA__2A1: KEY:[0], foo__2tableA__2A2: KEY:[1], foo__2tableA__2A3: KEY:[2]]) | MAP (_.foo.tableA.A1 AS foo.tableA.A1, _.foo.tableA.A2 AS foo.tableA.A2, _.foo.tableA.A3 AS foo.tableA.A3)"
+      - explain: "ISCAN(foo.tableA.idx3 <,>)"
       - result: [{"foo.tableA.A1": 1 , 10, 1}, {"foo.tableA.A1": 2, 10, 2}, {"foo.tableA.A1": 3, 10, 3}]
     -
       # with predicate
@@ -315,11 +315,11 @@ test_block:
       - result: [{"foo$tableC$C2": 20, 10}]
     -
       - query: select "__foo__tableD".* from "__foo__tableD";
-      - explain: "COVERING(__foo__tableD$idx <,> -> [__foo__0tableD__1D1: KEY:[0], __foo__0tableD__1D2: KEY:[1], __foo__0tableD__1D3: KEY:[2]]) | MAP (_.__foo__tableD$D1 AS __foo__tableD$D1, _.__foo__tableD$D2 AS __foo__tableD$D2, _.__foo__tableD$D3 AS __foo__tableD$D3)"
+      - explain: "ISCAN(__foo__tableD$idx <,>)"
       - result: [{"__foo__tableD$D1": 1 , "__foo__tableD$D2": 20, "__foo__tableD$D3": 1}, {"__foo__tableD$D1": 2, "__foo__tableD$D2": 20, "__foo__tableD$D3": 2}, {"__foo__tableD$D1": 3, "__foo__tableD$D2": 20, "__foo__tableD$D3": 3}, {"__foo__tableD$D1": 4, "__foo__tableD$D2": 20, "__foo__tableD$D3": 4}]
     -
       - query: select "__foo__tableD".* from "__foo__tableD" where "__foo__tableD$D3" >= 2;
-      - explain: "COVERING(__foo__tableD$idx <,> -> [__foo__0tableD__1D1: KEY:[0], __foo__0tableD__1D2: KEY:[1], __foo__0tableD__1D3: KEY:[2]]) | FILTER _.__foo__tableD$D3 GREATER_THAN_OR_EQUALS promote(@c11 AS LONG) | MAP (_.__foo__tableD$D1 AS __foo__tableD$D1, _.__foo__tableD$D2 AS __foo__tableD$D2, _.__foo__tableD$D3 AS __foo__tableD$D3)"
+      - explain: "COVERING(__foo__tableD$idx <,> -> [__foo__0tableD__1D1: KEY:[0], __foo__0tableD__1D2: KEY:[1], __foo__0tableD__1D3: KEY:[2]]) | FILTER _.__foo__tableD$D3 GREATER_THAN_OR_EQUALS promote(@c11 AS LONG) | FETCH"
       - result: [{"__foo__tableD$D1": 2, "__foo__tableD$D2": 20, "__foo__tableD$D3": 2}, {"__foo__tableD$D1": 3, "__foo__tableD$D2": 20, "__foo__tableD$D3": 3}, {"__foo__tableD$D1": 4, "__foo__tableD$D2": 20, "__foo__tableD$D3": 4}]
     -
       - query: select "__foo__tableD"."__foo__tableD$D1" from "__foo__tableD";
@@ -331,7 +331,7 @@ test_block:
       - result: [{"__foo__tableD$D1": 1}, {"__foo__tableD$D1": 2}, {"__foo__tableD$D1": 3}, {"__foo__tableD$D1": 4}]
     -
       - query: select "__foo__tableD".* from "__foo__tableD" where "__foo__tableD$D3" >= 2 order by "__foo__tableD$D1";
-      - explain: "COVERING(__foo__tableD$idx <,> -> [__foo__0tableD__1D1: KEY:[0], __foo__0tableD__1D2: KEY:[1], __foo__0tableD__1D3: KEY:[2]]) | FILTER _.__foo__tableD$D3 GREATER_THAN_OR_EQUALS promote(@c11 AS LONG) | MAP (_.__foo__tableD$D1 AS __foo__tableD$D1, _.__foo__tableD$D2 AS __foo__tableD$D2, _.__foo__tableD$D3 AS __foo__tableD$D3)"
+      - explain: "COVERING(__foo__tableD$idx <,> -> [__foo__0tableD__1D1: KEY:[0], __foo__0tableD__1D2: KEY:[1], __foo__0tableD__1D3: KEY:[2]]) | FILTER _.__foo__tableD$D3 GREATER_THAN_OR_EQUALS promote(@c11 AS LONG) | FETCH"
       - result: [{"__foo__tableD$D1": 2, "__foo__tableD$D2": 20, "__foo__tableD$D3": 2}, {"__foo__tableD$D1": 3, "__foo__tableD$D2": 20, "__foo__tableD$D3": 3}, {"__foo__tableD$D1": 4, "__foo__tableD$D2": 20, "__foo__tableD$D3": 4}]
     -
       - query: select sum("__foo__tableD$D1") from "__foo__tableD" group by "__foo__tableD$D2";
@@ -372,20 +372,20 @@ test_block:
     # views
     -
       - query: select * from "$yay__view";
-      - explain: "SCAN(<,>) | TFILTER foo__2tableE | FILTER _.foo.tableE.E3.S1 EQUALS 4 | MAP (_.foo.tableE.E1 AS _$x.id) | MAP (_._$x.id AS _$x.id)"
+      - explain: "SCAN(<,>) | TFILTER foo__2tableE | FILTER _.foo.tableE.E3.S1 EQUALS 4 | MAP (_.foo.tableE.E1 AS _$x.id)"
       - result: [{"_$x.id": 1}]
     -
       - query: select * from "__2yay__view";
-      - explain: "SCAN(<,>) | TFILTER foo__2tableE | FILTER _.foo.tableE.E3.S1 EQUALS 5 | MAP (_.foo.tableE.E1 AS _$y.id) | MAP (_._$y.id AS _$y.id)"
+      - explain: "SCAN(<,>) | TFILTER foo__2tableE | FILTER _.foo.tableE.E3.S1 EQUALS 5 | MAP (_.foo.tableE.E1 AS _$y.id)"
       - result: [{"_$y.id": 2}]
     -
       - query: select * from "வணக்கம்";
-      - explain: "SCAN(<,>) | TFILTER foo__2tableE | FILTER _.foo.tableE.E3.S1 EQUALS 6 | MAP (_.foo.tableE.E1 AS _$z.id) | MAP (_._$z.id AS _$z.id)"
+      - explain: "SCAN(<,>) | TFILTER foo__2tableE | FILTER _.foo.tableE.E3.S1 EQUALS 6 | MAP (_.foo.tableE.E1 AS _$z.id)"
       - result: [{"_$z.id": 3}]
     -
       # inline table definition
       - query: select * from values (1, 2, 3), (4, 5, 6) as "_$$$$"("_$$$", "_$$", "_$")
-      - explain: "EXPLODE array((@c6 AS _$$$, @c8 AS _$$, @c10 AS _$), (@c14 AS _$$$, @c16 AS _$$, @c18 AS _$)) | MAP (_._$$$ AS _$$$, _._$$ AS _$$, _._$ AS _$)"
+      - explain: "EXPLODE array((@c6 AS _$$$, @c8 AS _$$, @c10 AS _$), (@c14 AS _$$$, @c16 AS _$$, @c18 AS _$))"
       - result: [{"_$$$": 1, "_$$": 2, "_$": 3}, { "_$$$": 4, "_$$": 5, "_$": 6}]
     -
       # named record construction
@@ -434,6 +434,19 @@ test_block:
          {"enum_type.id": 11, "enum_type.enum__1": "B$C",   "enum_type.enum__2": !null _},
         ]
     -
+      - query: select * from "foo.enum.type" where "enum_type.enum__1" = 'B$C';
+      # Same as above, but with force continuations enabled.
+      # This can be combined with the previous query once we no longer care about backwards compatibility with versions older than !current_version
+      - supported_version: !current_version
+      - result: [
+         {"enum_type.id":  2, "enum_type.enum__1": "B$C",   "enum_type.enum__2": "B$C"},
+         {"enum_type.id":  6, "enum_type.enum__1": "B$C",   "enum_type.enum__2": "A"},
+         {"enum_type.id":  7, "enum_type.enum__1": "B$C",   "enum_type.enum__2": "C.D"},
+         {"enum_type.id":  8, "enum_type.enum__1": "B$C",   "enum_type.enum__2": "E__F"},
+         {"enum_type.id":  9, "enum_type.enum__1": "B$C",   "enum_type.enum__2": "__G$H"},
+         {"enum_type.id": 11, "enum_type.enum__1": "B$C",   "enum_type.enum__2": !null _},
+        ]
+    -
       - query: select * from "foo.enum.type" where "enum_type.enum__1" = 'C.D';
       - explain: "ISCAN(foo.enum.type$enum__1 [EQUALS promote(@c8 AS ENUM<A(0), B$C(1), C.D(2), E__F(3), __G$H(4)>)])"
       # Disable force_continuations on this plan until we resolve: https://github.com/FoundationDB/fdb-record-layer/issues/3734
@@ -442,10 +455,26 @@ test_block:
          {"enum_type.id": 3, "enum_type.enum__1": "C.D",   "enum_type.enum__2": "B$C"},
         ]
     -
+      - query: select * from "foo.enum.type" where "enum_type.enum__1" = 'C.D';
+      # Same as above, but with force continuations enabled.
+      # This can be combined with the previous query once we no longer care about backwards compatibility with versions older than !current_version
+      - supported_version: !current_version
+      - result: [
+         {"enum_type.id": 3, "enum_type.enum__1": "C.D",   "enum_type.enum__2": "B$C"},
+        ]
+    -
       - query: select * from "foo.enum.type" where "enum_type.enum__1" = 'A';
       - explain: "ISCAN(foo.enum.type$enum__1 [EQUALS promote(@c8 AS ENUM<A(0), B$C(1), C.D(2), E__F(3), __G$H(4)>)])"
       # Disable force_continuations on this plan until we resolve: https://github.com/FoundationDB/fdb-record-layer/issues/3734
       - maxRows: 0
+      - result: [
+         {"enum_type.id": 1, "enum_type.enum__1": "A",     "enum_type.enum__2": "B$C"},
+        ]
+    -
+      - query: select * from "foo.enum.type" where "enum_type.enum__1" = 'A';
+      # Same as above, but with force continuations enabled.
+      # This can be combined with the previous query once we no longer care about backwards compatibility with versions older than !current_version
+      - supported_version: !current_version
       - result: [
          {"enum_type.id": 1, "enum_type.enum__1": "A",     "enum_type.enum__2": "B$C"},
         ]
@@ -626,11 +655,11 @@ test_block:
   tests:
     -
       - query: SELECT * FROM T1
-      - explain: "SCAN(<,>) | TFILTER T1 | MAP (_.ID AS ID, _.T1.COL1 AS T1.COL1, _.T1.COL2 AS T1.COL2)"
+      - explain: "SCAN(<,>) | TFILTER T1"
       - result: [{"ID": 1, "T1.COL1": 10, "T1.COL2" : 1}, {"ID": 2, "T1.COL1": 10, "T1.COL2" : 2}, {"ID": 3, "T1.COL1": 10, "T1.COL2" : 3}, {"ID": 4, "T1.COL1": 10, "T1.COL2" : 4}, {"ID": 5, "T1.COL1": 10, "T1.COL2" : 5}]
     -
       - query: SELECT * FROM T1 WHERE "T1.COL2" > 3
-      - explain: "SCAN(<,>) | TFILTER T1 | FILTER _.T1.COL2 GREATER_THAN promote(@c8 AS LONG) | MAP (_.ID AS ID, _.T1.COL1 AS T1.COL1, _.T1.COL2 AS T1.COL2)"
+      - explain: "SCAN(<,>) | TFILTER T1 | FILTER _.T1.COL2 GREATER_THAN promote(@c8 AS LONG)"
       - result: [{"ID": 4, "T1.COL1": 10, "T1.COL2" : 4}, {"ID": 5, "T1.COL1": 10, "T1.COL2" : 5}]
     -
       - query: SELECT "T1.COL2" FROM T1 WHERE "T1.COL2" > 3
@@ -650,7 +679,7 @@ test_block:
       - result: [{9}, {10}]
     -
       - query: SELECT * FROM "__T3"
-      - explain: "SCAN(<,>) | TFILTER __T3 | MAP (_.ID AS ID, _.__T3$COL1 AS __T3$COL1, _.__T3$COL2 AS __T3$COL2, _.__T3$COL3 AS __T3$COL3)"
+      - explain: "SCAN(<,>) | TFILTER __T3"
       - result: [
           {"ID": 11, "__T3$COL1": 10, "__T3$COL2" : 11, "__T3$COL3": !null _},
           {"ID": 12, "__T3$COL1": 10, "__T3$COL2" : 12, "__T3$COL3": "T3.E.A"},
@@ -660,7 +689,7 @@ test_block:
         ]
     -
       - query: SELECT * FROM "__T3" WHERE "__T3$COL2" > 13
-      - explain: "SCAN(<,>) | TFILTER __T3 | FILTER _.__T3$COL2 GREATER_THAN promote(@c8 AS LONG) | MAP (_.ID AS ID, _.__T3$COL1 AS __T3$COL1, _.__T3$COL2 AS __T3$COL2, _.__T3$COL3 AS __T3$COL3)"
+      - explain: "SCAN(<,>) | TFILTER __T3 | FILTER _.__T3$COL2 GREATER_THAN promote(@c8 AS LONG)"
       - result: [
           {"ID": 14, "__T3$COL1": 10, "__T3$COL2" : 14, "__T3$COL3": "T3.E.C"},
           {"ID": 15, "__T3$COL1": 10, "__T3$COL2" : 15, "__T3$COL3": "T3.E.A"},
@@ -675,7 +704,7 @@ test_block:
       - result: [{ "c.1": 10, "c.2": "T3.E.B" }]
     -
       - query: SELECT * FROM T4
-      - explain: "SCAN(<,>) | TFILTER T4 | MAP (_.ID AS ID, _.___hidden AS ___hidden, _.T4.COL1 AS T4.COL1, _.T4.COL2 AS T4.COL2)"
+      - explain: "SCAN(<,>) | TFILTER T4"
       - result: [
           {"ID": 16, "___hidden": {11, 16}, "T4.COL1": 10, "T4.COL2" : 16},
           {"ID": 17, "___hidden": {11, 17}, "T4.COL1": 10, "T4.COL2" : 17},
@@ -688,7 +717,7 @@ test_block:
         ]
     -
       - query: SELECT * FROM T4 WHERE "T4.COL2" > 18
-      - explain: "SCAN(<,>) | TFILTER T4 | FILTER _.T4.COL2 GREATER_THAN promote(@c8 AS LONG) | MAP (_.ID AS ID, _.___hidden AS ___hidden, _.T4.COL1 AS T4.COL1, _.T4.COL2 AS T4.COL2)"
+      - explain: "SCAN(<,>) | TFILTER T4 | FILTER _.T4.COL2 GREATER_THAN promote(@c8 AS LONG)"
       - result: [
           {"ID": 19, "___hidden": {11, 19}, "T4.COL1": 10, "T4.COL2" : 19},
           {"ID": 20, "___hidden": {22, 20}, "T4.COL1": 10, "T4.COL2" : 20},
@@ -699,7 +728,7 @@ test_block:
       - result: [{19}, {20}]
     -
       - query: SELECT * FROM "T4$view"
-      - explain: "SCAN(<,>) | TFILTER T4 | FILTER _.T4.COL1 GREATER_THAN 0 AND _.T4.COL2 GREATER_THAN 0 | MAP (_.T4.COL1 AS c__1, _.T4.COL2 AS c__2) | MAP (_.c__1 AS c__1, _.c__2 AS c__2)"
+      - explain: "SCAN(<,>) | TFILTER T4 | FILTER _.T4.COL1 GREATER_THAN 0 AND _.T4.COL2 GREATER_THAN 0 | MAP (_.T4.COL1 AS c__1, _.T4.COL2 AS c__2)"
       - result: [
           {"c__1": 10, "c__2": 16 },
           {"c__1": 10, "c__2": 17 },
@@ -833,10 +862,28 @@ test_block:
           {"ID": 39, "T6$__COL1__": -1, "__T6.COL2__VALUE" : -1, "T6$__ENUM_1": 'A',      "T6$__ENUM_2": '__D.__' },
         ]
     -
+      - query: SELECT * FROM "___T6.__UNESCAPED" WHERE "T6$__ENUM_2" = '__D.__'
+      # Same as above, but with force continuations enabled.
+      # This can be combined with the previous query once we no longer care about backwards compatibility with versions older than !current_version
+      - supported_version: !current_version
+      - result: [
+          {"ID": 35, "T6$__COL1__": 10, "__T6.COL2__VALUE" : 19, "T6$__ENUM_1": '__D.__', "T6$__ENUM_2": '__D.__' },
+          {"ID": 39, "T6$__COL1__": -1, "__T6.COL2__VALUE" : -1, "T6$__ENUM_1": 'A',      "T6$__ENUM_2": '__D.__' },
+        ]
+    -
       - query: SELECT ID, "T6$__ENUM_1" FROM "___T6.__UNESCAPED" WHERE "T6$__ENUM_2" = '__D.__'
       - explain: "ISCAN(T6$ENUM2 [EQUALS promote(@c10 AS ENUM<A(0), B__(1), C__(2), __D.__(3)>)]) | MAP (_.ID AS ID, _.T6$__ENUM_1 AS T6$__ENUM_1)"
       # Disable force_continuations on this plan until we resolve: https://github.com/FoundationDB/fdb-record-layer/issues/3734
       - maxRows: 0
+      - result: [
+          {"ID": 35, "T6$__ENUM_1": '__D.__' },
+          {"ID": 39, "T6$__ENUM_1": 'A' },
+        ]
+    -
+      - query: SELECT ID, "T6$__ENUM_1" FROM "___T6.__UNESCAPED" WHERE "T6$__ENUM_2" = '__D.__'
+      # Same as above, but with force continuations enabled.
+      # This can be combined with the previous query once we no longer care about backwards compatibility with versions older than !current_version
+      - supported_version: !current_version
       - result: [
           {"ID": 35, "T6$__ENUM_1": '__D.__' },
           {"ID": 39, "T6$__ENUM_1": 'A' },

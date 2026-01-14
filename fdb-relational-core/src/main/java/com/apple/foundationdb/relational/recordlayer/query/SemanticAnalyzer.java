@@ -226,6 +226,11 @@ public class SemanticAnalyzer {
     }
 
     @Nonnull
+    public SchemaTemplate getMetadataCatalog() {
+        return metadataCatalog;
+    }
+
+    @Nonnull
     public Table getTable(@Nonnull Identifier tableIdentifier) {
         Assert.thatUnchecked(tableIdentifier.getQualifier().size() <= 1, ErrorCode.INTERNAL_ERROR, () -> String.format(Locale.ROOT, "Unknown table %s", tableIdentifier));
         if (tableIdentifier.isQualified()) {

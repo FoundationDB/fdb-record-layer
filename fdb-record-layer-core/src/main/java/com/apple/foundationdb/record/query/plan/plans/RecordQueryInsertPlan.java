@@ -94,7 +94,7 @@ public class RecordQueryInsertPlan extends RecordQueryAbstractDataModificationPl
         } else {
             result = store.saveRecordAsync(message, FDBRecordStoreBase.RecordExistenceCheck.ERROR_IF_EXISTS);
         }
-        return result.thenApply(fdbStoredRecord -> QueryResult.fromQueriedRecord(FDBQueriedRecord.stored(fdbStoredRecord)));
+        return result.thenApply(fdbStoredRecord -> QueryResult.fromQueriedRecord(getTargetType(), context, FDBQueriedRecord.stored(fdbStoredRecord)));
     }
 
     @Nonnull

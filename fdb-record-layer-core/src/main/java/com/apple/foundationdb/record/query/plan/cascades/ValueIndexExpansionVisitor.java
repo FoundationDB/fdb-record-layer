@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.RecordType;
@@ -193,7 +194,7 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
                 queriedRecordTypes,
                 Traversal.withRoot(Reference.initialOf(matchableSortExpression)),
                 parameters,
-                baseQuantifier.getFlowedObjectType(),
+                baseQuantifier.getFlowedObjectType().narrowRecordMaybe().orElseThrow(() -> new RecordCoreException("cannot create match candidate with non-record type")),
                 baseQuantifier.getAlias(),
                 keyValues,
                 valueValues,

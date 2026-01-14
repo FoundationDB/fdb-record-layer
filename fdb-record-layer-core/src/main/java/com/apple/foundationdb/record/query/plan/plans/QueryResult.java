@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.ProtoSerializable;
 import com.apple.foundationdb.record.RecordCoreException;
@@ -28,6 +29,10 @@ import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.planprotos.PQueryResult;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
+import com.apple.foundationdb.record.query.plan.cascades.typing.PseudoField;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
+import com.apple.foundationdb.record.query.plan.cascades.values.MessageHelpers;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
@@ -41,6 +46,7 @@ import com.google.protobuf.ZeroCopyByteString;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -235,18 +241,43 @@ public class QueryResult implements ProtoSerializable {
     }
 
     /**
-     * Create a new queriedRecord with the given element.
+     * Create a new queriedRecord with the given element. This will make a copy in order to extract data from the
+     * {@link FDBQueriedRecord} that is not in the underlying protobuf message. More details about that information
+     * in the {@link PseudoField} enum.
+     *
+     * @param resultType type of final value to construct
+     * @param evaluationContext context to use (mainly for the type repository)
      * @param queriedRecord the given queriedRecord
      * @return the newly created query queriedRecord
+     * @see PseudoField for information on the fields that are copied out of the queried record but are not in the
+     *    main definition
      */
     @Nonnull
-    public static QueryResult fromQueriedRecord(@Nullable final FDBQueriedRecord<?> queriedRecord) {
+    public static QueryResult fromQueriedRecord(@Nonnull Type resultType, @Nonnull EvaluationContext evaluationContext, @Nullable final FDBQueriedRecord<?> queriedRecord) {
         if (queriedRecord == null) {
             return new QueryResult(null, null, null);
         }
-        return new QueryResult(queriedRecord.getRecord(),
-                queriedRecord,
-                queriedRecord.getPrimaryKey());
+
+        final TypeRepository typeRepository = evaluationContext.getTypeRepository();
+        final Message datum;
+        if (!typeRepository.containsType(resultType) || !(resultType instanceof Type.Record)) {
+            // Type not in repository. Just return underlying queriedRecord
+            datum = queriedRecord.getRecord();
+        } else {
+            // Copy over data from the underlying message
+            final Message.Builder builder = Objects.requireNonNull(typeRepository.newMessageBuilder(resultType));
+            MessageHelpers.deepCopyMessage(builder, queriedRecord.getRecord());
+
+            // Extract any pseudo-fields
+            Type.Record recordType = (Type.Record) resultType;
+            for (PseudoField pseudoField : PseudoField.values()) {
+                pseudoField.fillInIfApplicable(recordType, queriedRecord, builder);
+            }
+
+            datum = builder.build();
+        }
+
+        return new QueryResult(datum, queriedRecord, queriedRecord.getPrimaryKey());
     }
 
     @Nonnull
