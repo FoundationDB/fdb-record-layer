@@ -287,6 +287,14 @@ public class FDBDirectoryWrapper implements AutoCloseable {
         return writerReader.get();
     }
 
+    /**
+     * Return the {@link PendingWriteQueue} instance to use to read documents queued while the directory was locked.
+     * @return the queue instance
+     */
+    public PendingWriteQueue getPendingWriteQueue() {
+        return pendingWriteQueue.getUnchecked();
+    }
+
     private static class FDBDirectorySerialMergeScheduler extends MergeScheduler {
         /**
          * This class is temporarily duplicating FDBDirectoryMergeScheduler.
