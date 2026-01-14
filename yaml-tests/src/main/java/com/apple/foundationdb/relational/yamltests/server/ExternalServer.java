@@ -44,7 +44,6 @@ public class ExternalServer {
 
     private static final Logger logger = LogManager.getLogger(ExternalServer.class);
     public static final String EXTERNAL_SERVER_PROPERTY_NAME = "yaml_testing_external_server";
-    private static final boolean SAVE_SERVER_OUTPUT = false;
 
     @Nonnull
     private final File serverJar;
@@ -118,13 +117,9 @@ public class ExternalServer {
                 "-jar", serverJar.getAbsolutePath(),
                 "--grpcPort", Integer.toString(grpcPort), "--httpPort", Integer.toString(httpPort));
         final File stdoutFile = File.createTempFile("JdbcServerOut-" + grpcPort + "-", ".log");
-        ProcessBuilder.Redirect out = SAVE_SERVER_OUTPUT ?
-                                      ProcessBuilder.Redirect.to(stdoutFile) :
-                                      ProcessBuilder.Redirect.DISCARD;
+        ProcessBuilder.Redirect out = ProcessBuilder.Redirect.to(stdoutFile);
         final File stderrFile = File.createTempFile("JdbcServerErr-" + grpcPort + "-", ".log");
-        ProcessBuilder.Redirect err = SAVE_SERVER_OUTPUT ?
-                                      ProcessBuilder.Redirect.to(stderrFile) :
-                                      ProcessBuilder.Redirect.DISCARD;
+        ProcessBuilder.Redirect err = ProcessBuilder.Redirect.to(stderrFile);
         processBuilder.redirectOutput(out);
         processBuilder.redirectError(err);
         if (clusterFile != null) {
@@ -132,9 +127,11 @@ public class ExternalServer {
         }
 
         if (!startServer(processBuilder)) {
-            Assertions.fail("Failed to start the external server; " +
-                            (SAVE_SERVER_OUTPUT ? "see logs \nout: file://" + stdoutFile + "\nerr: file://" + stderrFile
-                             : "no logs captured, see ExternalServer.SAVE_SERVER_OUTPUT"));
+            Assertions.fail("Failed to start the external server; see logs \n" +
+                    "out: file://" + stdoutFile + "\nerr: file://" + stderrFile);
+        } else {
+            stdoutFile.deleteOnExit();
+            stderrFile.deleteOnExit();
         }
 
         logger.info("Started {} Version: {}", serverJar, version);
