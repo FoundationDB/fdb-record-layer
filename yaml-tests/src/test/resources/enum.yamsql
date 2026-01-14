@@ -162,8 +162,8 @@ test_block:
     -
       - query: SELECT * From TABLE_B where "mood" = 'CONFUSED'
       # Same as above, but with force continuations enabled.
-      # This can be combined with the previous query once we no longer care about backwards compatibility with versions older than !current_version
-      - supported_version: !current_version
+      # This can be combined with the previous query once we no longer care about backwards compatibility with versions older than 4.9.1.0
+      - supported_version: 4.9.1.0
       - unorderedResult: [{2, 'bar', 'CONFUSED'},
                           {11, 'plugh', 'CONFUSED'}]
     -
@@ -180,8 +180,8 @@ test_block:
     -
       - query: SELECT * From TABLE_B where "mood" > 'INDIFFERENT'
       # Same as above, but with force continuations enabled.
-      # This can be combined with the previous query once we no longer care about backwards compatibility with versions older than !current_version
-      - supported_version: !current_version
+      # This can be combined with the previous query once we no longer care about backwards compatibility with versions older than 4.9.1.0
+      - supported_version: 4.9.1.0
       - unorderedResult: [{2, 'bar', 'CONFUSED'},
                           {4, 'qux', 'ANGRY'},
                           {7, 'grault', 'ANXIOUS'},

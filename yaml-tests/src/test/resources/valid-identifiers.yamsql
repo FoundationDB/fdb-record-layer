@@ -436,8 +436,8 @@ test_block:
     -
       - query: select * from "foo.enum.type" where "enum_type.enum__1" = 'B$C';
       # Same as above, but with force continuations enabled.
-      # This can be combined with the previous query once we no longer care about backwards compatibility with versions older than !current_version
-      - supported_version: !current_version
+      # This can be combined with the previous query once we no longer care about backwards compatibility with versions older than 4.9.1.0
+      - supported_version: 4.9.1.0
       - result: [
          {"enum_type.id":  2, "enum_type.enum__1": "B$C",   "enum_type.enum__2": "B$C"},
          {"enum_type.id":  6, "enum_type.enum__1": "B$C",   "enum_type.enum__2": "A"},
@@ -457,8 +457,8 @@ test_block:
     -
       - query: select * from "foo.enum.type" where "enum_type.enum__1" = 'C.D';
       # Same as above, but with force continuations enabled.
-      # This can be combined with the previous query once we no longer care about backwards compatibility with versions older than !current_version
-      - supported_version: !current_version
+      # This can be combined with the previous query once we no longer care about backwards compatibility with versions older than 4.9.1.0
+      - supported_version: 4.9.1.0
       - result: [
          {"enum_type.id": 3, "enum_type.enum__1": "C.D",   "enum_type.enum__2": "B$C"},
         ]
@@ -473,8 +473,8 @@ test_block:
     -
       - query: select * from "foo.enum.type" where "enum_type.enum__1" = 'A';
       # Same as above, but with force continuations enabled.
-      # This can be combined with the previous query once we no longer care about backwards compatibility with versions older than !current_version
-      - supported_version: !current_version
+      # This can be combined with the previous query once we no longer care about backwards compatibility with versions older than 4.9.1.0
+      - supported_version: 4.9.1.0
       - result: [
          {"enum_type.id": 1, "enum_type.enum__1": "A",     "enum_type.enum__2": "B$C"},
         ]
@@ -864,8 +864,8 @@ test_block:
     -
       - query: SELECT * FROM "___T6.__UNESCAPED" WHERE "T6$__ENUM_2" = '__D.__'
       # Same as above, but with force continuations enabled.
-      # This can be combined with the previous query once we no longer care about backwards compatibility with versions older than !current_version
-      - supported_version: !current_version
+      # This can be combined with the previous query once we no longer care about backwards compatibility with versions older than 4.9.1.0
+      - supported_version: 4.9.1.0
       - result: [
           {"ID": 35, "T6$__COL1__": 10, "__T6.COL2__VALUE" : 19, "T6$__ENUM_1": '__D.__', "T6$__ENUM_2": '__D.__' },
           {"ID": 39, "T6$__COL1__": -1, "__T6.COL2__VALUE" : -1, "T6$__ENUM_1": 'A',      "T6$__ENUM_2": '__D.__' },
@@ -882,8 +882,8 @@ test_block:
     -
       - query: SELECT ID, "T6$__ENUM_1" FROM "___T6.__UNESCAPED" WHERE "T6$__ENUM_2" = '__D.__'
       # Same as above, but with force continuations enabled.
-      # This can be combined with the previous query once we no longer care about backwards compatibility with versions older than !current_version
-      - supported_version: !current_version
+      # This can be combined with the previous query once we no longer care about backwards compatibility with versions older than 4.9.1.0
+      - supported_version: 4.9.1.0
       - result: [
           {"ID": 35, "T6$__ENUM_1": '__D.__' },
           {"ID": 39, "T6$__ENUM_1": 'A' },
