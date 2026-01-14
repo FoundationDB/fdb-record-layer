@@ -469,6 +469,55 @@ public class CopyCommandTest {
         }
     }
 
+    @ParameterizedTest
+    @BooleanSource("quoted")
+    void copyCatalogFailsOnTemplateMismatch(boolean quoted) throws RelationalException, SQLException {
+        final String uuidName = uuidForPath(false);
+        final String sourceDatabaseName = "/TEST/SOURCE_DB_" + uuidName;
+        final String destDatabaseName = "/TEST/DEST_DB_" + uuidName;
+        final String schemaName = "1";
+        final String sourceSchemaPath = sourceDatabaseName + "/" + schemaName;
+        final String destSchemaPath = destDatabaseName + "/" + schemaName;
+        String sourceTemplateName = "SOURCE_TEMPLATE_" + uuidName;
+        String destTemplateName = "DEST_TEMPLATE_" + uuidName;
+
+        try {
+            // Create source database with a schema template
+            ConnectionUtils.runCatalogStatement(stmt -> {
+                stmt.executeUpdate("CREATE SCHEMA TEMPLATE " + sourceTemplateName +
+                        " CREATE TABLE my_table (id bigint, col1 string, PRIMARY KEY(id))");
+                stmt.executeUpdate("CREATE DATABASE " + sourceDatabaseName);
+                stmt.executeUpdate("CREATE SCHEMA " + sourceDatabaseName + "/" + schemaName + " WITH TEMPLATE " + sourceTemplateName);
+            });
+
+            // Create destination database with a DIFFERENT schema template
+            ConnectionUtils.runCatalogStatement(stmt -> {
+                stmt.executeUpdate("CREATE SCHEMA TEMPLATE " + destTemplateName +
+                        " CREATE TABLE other_table (id bigint, col2 string, PRIMARY KEY(id))");
+                stmt.executeUpdate("CREATE DATABASE " + destDatabaseName);
+                stmt.executeUpdate("CREATE SCHEMA " + destDatabaseName + "/" + schemaName + " WITH TEMPLATE " + destTemplateName);
+            });
+
+            // Insert some records in the source database using SQL
+            ConnectionUtils.runStatementUpdate(sourceDatabaseName, schemaName,
+                    "INSERT INTO my_table VALUES (1, 'a'), (2, 'b'), (3, 'c')");
+
+            // Export data from source database
+            List<byte[]> exportedData = exportData(sourceSchemaPath, quoted);
+
+            // Try to import to destination database - should fail because schema exists with different template
+            RelationalAssertions.assertThrowsSqlException(() -> importData(quoted, true, destSchemaPath, exportedData))
+                    .hasErrorCode(ErrorCode.INVALID_SCHEMA_TEMPLATE);
+        } finally {
+            ConnectionUtils.runCatalogStatement(stmt -> {
+                stmt.executeUpdate("DROP SCHEMA TEMPLATE " + sourceTemplateName);
+                stmt.executeUpdate("DROP SCHEMA TEMPLATE " + destTemplateName);
+                stmt.executeUpdate("DROP DATABASE " + sourceDatabaseName);
+                stmt.executeUpdate("DROP DATABASE " + destDatabaseName);
+            });
+        }
+    }
+
     @Nonnull
     private static String uuidForPath(final boolean quoted) {
         if (quoted) {
