@@ -101,7 +101,6 @@ dependencies {
     implementation(libs.prometheus.grpc)
     implementation(libs.promethus.httpserver)
     implementation(libs.protobuf)
-    implementation(libs.dropwizard)
     implementation(libs.log4j.api)
     implementation(libs.commonscli)
     // See diagram on this page for logging dependencies: https://logging.apache.org/log4j/2.x/faq.html#which_jars

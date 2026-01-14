@@ -50,9 +50,6 @@ dependencies {
     // move it to a more appropriate package such as utils or something similar so we can
     // consume it from there.
     implementation project(path: coreProject, configuration: 'tests')
-    implementation(libs.dropwizard) {
-        exclude group: 'org.slf4j'
-    }
     implementation(libs.asciitable) {
         exclude group: 'org.slf4j'
     }

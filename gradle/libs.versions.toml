@@ -30,7 +30,6 @@ autoService-development = "1.0.1"
 asciitable = "0.3.2"
 caffeine = "3.1.8"
 commonscli = "1.5.0"
-dropwizard = "4.2.26"
 fdb = "7.1.26"
 geophile = "2.3.0"
 generatedAnnotation = "1.3.2"
@@ -84,7 +83,6 @@ fdbJava = { module = "org.foundationdb:fdb-java", version.ref = "fdb" }
 caffeine = { module = "com.github.ben-manes.caffeine:caffeine", version.ref = "caffeine"}
 caffeine-guava = { module = "com.github.ben-manes.caffeine:guava", version.ref = "caffeine"}
 commonscli = { module = "commons-cli:commons-cli", version.ref = "commonscli" }
-dropwizard = { module = "io.dropwizard.metrics:metrics-core", version.ref = "dropwizard" }
 geophile = { module = "com.geophile:geophile", version.ref = "geophile" }
 generatedAnnotation = { module = "javax.annotation:javax.annotation-api", version.ref = "generatedAnnotation" }
 grpc-commonProtos = { module = "com.google.api.grpc:proto-google-common-protos", version.ref = "grpc-commonProtos" }

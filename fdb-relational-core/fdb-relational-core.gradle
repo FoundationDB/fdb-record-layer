@@ -31,7 +31,6 @@ dependencies {
     implementation(project(coreProject))
     implementation project(":fdb-relational-api")
 
-    implementation(libs.dropwizard)
     compileOnly(libs.autoService)
     annotationProcessor(libs.autoService)
     implementation(libs.jsr305)
