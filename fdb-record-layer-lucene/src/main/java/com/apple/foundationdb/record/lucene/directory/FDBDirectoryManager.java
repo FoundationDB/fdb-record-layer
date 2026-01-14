@@ -369,6 +369,11 @@ public class FDBDirectoryManager implements AutoCloseable {
         return getDirectoryWrapper(groupingKey, partitionId).getWriter();
     }
 
+    @Nonnull
+    public IndexReader getIndexReaderWithReplayedQueue(@Nullable Tuple groupingKey, @Nullable Integer partitionId) throws IOException {
+        return getDirectoryWrapper(groupingKey, partitionId).getIndexReaderWithReplayedQueue();
+    }
+
     public DirectoryReader getWriterReader(@Nullable Tuple groupingKey, @Nullable Integer partitionId) throws IOException {
         return getWriterReader(groupingKey, partitionId, false);
     }

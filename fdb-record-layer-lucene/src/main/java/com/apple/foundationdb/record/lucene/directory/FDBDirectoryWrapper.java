@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.lucene.LuceneEvents;
 import com.apple.foundationdb.record.lucene.LuceneLoggerInfoStream;
 import com.apple.foundationdb.record.lucene.LuceneRecordContextProperties;
 import com.apple.foundationdb.record.lucene.codec.LazyCloseable;
+import com.apple.foundationdb.record.lucene.codec.LazyOpener;
 import com.apple.foundationdb.record.lucene.codec.LuceneOptimizedCodec;
 import com.apple.foundationdb.record.provider.foundationdb.IndexDeferredMaintenanceControl;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
@@ -104,6 +105,10 @@ public class FDBDirectoryWrapper implements AutoCloseable {
      * closure is postponed until this class' {@link #close()} call.
      */
     private Queue<LazyCloseable<DirectoryReader>> readersToClose;
+    /**
+     * The instance of the pending writes queue.
+     */
+    private LazyOpener<PendingWriteQueue> pendingWriteQueue;
 
     FDBDirectoryWrapper(@Nonnull final IndexMaintainerState state,
                         @Nonnull final Tuple key,
@@ -122,6 +127,7 @@ public class FDBDirectoryWrapper implements AutoCloseable {
         writerReader = LazyCloseable.supply(() -> DirectoryReader.open(writer.get()));
         readersToClose = new ConcurrentLinkedQueue<>();
         readersToClose.add(writerReader);
+        pendingWriteQueue = LazyOpener.supply(() -> directory.createPendingWritesQueue());
     }
 
     @VisibleForTesting
@@ -142,6 +148,7 @@ public class FDBDirectoryWrapper implements AutoCloseable {
         writerReader = LazyCloseable.supply(() -> DirectoryReader.open(writer.get()));
         readersToClose = new ConcurrentLinkedQueue<>();
         readersToClose.add(writerReader);
+        pendingWriteQueue = LazyOpener.supply(() -> directory.createPendingWritesQueue());
     }
 
     @Nonnull
@@ -199,6 +206,14 @@ public class FDBDirectoryWrapper implements AutoCloseable {
     }
 
     /**
+     * Return the {@link PendingWriteQueue} instance to use to read documents queued while the directory was locked.
+     * @return the queue instance
+     */
+    public PendingWriteQueue getPendingWriteQueue() {
+        return pendingWriteQueue.getUnchecked();
+    }
+
+    /**
      * An {@link IndexReader} for searching this directory. This will wrap {@link #getWriter()} if the writer has
      * already been instantiated, but otherwise, will just create a reader against this directory.
      * This object should be closed by callers.
@@ -212,6 +227,45 @@ public class FDBDirectoryWrapper implements AutoCloseable {
                     state.context.getExecutor(),
                     state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_OPEN_PARALLELISM));
         }
+    }
+
+    /**
+     * An {@link IndexReader} for querying this directory. This will wrap {@link #getWriter()} if the writer has
+     * already been instantiated, and wrap a writer that replays the pending writes entries otherwise.
+     * // TODO: more docs
+     * This object should be closed by callers.
+     */
+    @Nonnull
+    @SuppressWarnings("PMD.CloseResource")
+    public IndexReader getIndexReaderWithReplayedQueue() throws IOException {
+        if (useWriter) {
+            // In case the current directory has writes, prioritize them over the pending writes queue.
+            return DirectoryReader.open(writer.get());
+        } else {
+            // For now, create a reader from the writer that has all the pending queue elements.
+            // TODO: Return the regular reader if nothing in the queue
+            return DirectoryReader.open(createIndexWriterWithReplayedQueue());
+        }
+    }
+
+    @Nonnull
+    private IndexWriter createIndexWriterWithReplayedQueue() throws IOException {
+        // Create a no-lock wrapper around the existing directory
+        ReadOnlyFDBDirectory readOnlyDirectory = new ReadOnlyFDBDirectory(this.directory);
+
+        // Create a minimal IndexWriterConfig for the read-only writer
+        IndexWriterConfig config = new IndexWriterConfig(this.analyzerWrapper.getAnalyzer())
+                .setCodec(CODEC)
+                .setUseCompoundFile(USE_COMPOUND_FILE)
+                .setCommitOnClose(false);
+
+        IndexWriter readOnlyIndexWriter = new IndexWriter(readOnlyDirectory, config);
+        // Get the queue and apply changes if necessary
+        // This is using the state context as this is the one to be used for the query that is to be executed
+        // TODO: Lucene async to sync here instead of join
+        // TODO: Only create the writer if necessary, otherwise can use the existing reader
+        getPendingWriteQueue().replayQueuedOperations(state.context, readOnlyIndexWriter).join();  // Block until replay completes
+        return readOnlyIndexWriter;
     }
 
     /**

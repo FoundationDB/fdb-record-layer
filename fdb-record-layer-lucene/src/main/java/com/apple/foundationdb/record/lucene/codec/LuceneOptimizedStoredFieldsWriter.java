@@ -23,7 +23,7 @@ package com.apple.foundationdb.record.lucene.codec;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.lucene.LuceneExceptions;
 import com.apple.foundationdb.record.lucene.LuceneStoredFieldsProto;
-import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
+import com.apple.foundationdb.record.lucene.directory.FDBDirectoryBase;
 import com.google.protobuf.ByteString;
 import org.apache.lucene.codecs.StoredFieldsReader;
 import org.apache.lucene.codecs.StoredFieldsWriter;
@@ -54,12 +54,12 @@ import static org.apache.lucene.search.DocIdSetIterator.NO_MORE_DOCS;
 public class LuceneOptimizedStoredFieldsWriter extends StoredFieldsWriter {
     private static final Logger LOG = LoggerFactory.getLogger(LuceneOptimizedStoredFieldsWriter.class);
     protected LuceneStoredFieldsProto.LuceneStoredFields.Builder storedFields;
-    private final FDBDirectory directory;
+    private final FDBDirectoryBase directory;
     private final String segmentName;
     private int docId;
 
     @SuppressWarnings("PMD.CloseResource")
-    public LuceneOptimizedStoredFieldsWriter(final FDBDirectory directory, final SegmentInfo si) throws IOException {
+    public LuceneOptimizedStoredFieldsWriter(final FDBDirectoryBase directory, final SegmentInfo si) throws IOException {
         this.directory = directory;
         this.docId = 0;
         this.segmentName = si.name;

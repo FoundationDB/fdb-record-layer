@@ -275,7 +275,7 @@ public class PendingWriteQueueTest extends FDBRecordStoreTestBase {
     private void entryEquals(PendingWriteQueue.QueueEntry queueEntry, TestDocument testDocument, LucenePendingWriteQueueProto.PendingWriteItem.OperationType operationType) {
         assertTrue(queueEntry.getVersionstamp().isComplete());
         assertTrue(queueEntry.getEnqueuedTimeStamp() > 0);
-        assertEquals(testDocument.getPrimaryKey(), Tuple.fromBytes(queueEntry.getPrimaryKey()));
+        assertEquals(testDocument.getPrimaryKey(), queueEntry.getPrimaryKey());
         assertEquals(operationType, queueEntry.getOperationType());
         if (operationType.equals(LucenePendingWriteQueueProto.PendingWriteItem.OperationType.DELETE)) {
             assertTrue(queueEntry.getDocumentFields().isEmpty());

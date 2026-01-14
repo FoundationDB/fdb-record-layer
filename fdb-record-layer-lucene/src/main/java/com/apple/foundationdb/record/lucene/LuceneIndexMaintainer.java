@@ -118,7 +118,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     private final FDBDirectoryManager directoryManager;
     private final LuceneAnalyzerCombinationProvider autoCompleteAnalyzerSelector;
     public static final String PRIMARY_KEY_FIELD_NAME = "_p";
-    protected static final String PRIMARY_KEY_SEARCH_NAME = "_s";
+    public static final String PRIMARY_KEY_SEARCH_NAME = "_s";
     protected static final String PRIMARY_KEY_BINARY_POINT_NAME = "_b";
     private final Executor executor;
     LuceneIndexKeySerializer keySerializer;
@@ -198,7 +198,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
      * Insert a field into the document and add a suggestion into the suggester if needed.
      */
     @SuppressWarnings("java:S3776")
-    private void insertField(LuceneDocumentFromRecord.DocumentField field, final Document document) {
+    public static void insertField(LuceneDocumentFromRecord.DocumentField field, final Document document) {
         final String fieldName = field.getFieldName();
         final Object value = field.getValue();
         final Field luceneField;
@@ -610,7 +610,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         });
     }
 
-    private FieldType getTextFieldType(LuceneDocumentFromRecord.DocumentField field) {
+    private static FieldType getTextFieldType(LuceneDocumentFromRecord.DocumentField field) {
         FieldType ft = new FieldType();
 
         try {
