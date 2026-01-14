@@ -67,6 +67,7 @@ test_block:
           select docId, title from documents
           where zone = 'zone1' and bookshelf = 'fiction'
           and row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc) <= 1
+      - explain: "ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c10 AS STRING), EQUALS promote(@c14 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c32: @c38}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID, _.TITLE AS TITLE)"
       - result: [{'d1', 'The Great Gatsby'}]
 
     # HNSW query with Euclidean distance - top-3 nearest neighbors
@@ -75,6 +76,7 @@ test_block:
           select docId from documents
           where zone = 'zone1' and bookshelf = 'fiction'
           and row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc) <= 3
+      - explain: "ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c8 AS STRING), EQUALS promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c30: @c36}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID)"
       - result: [{'d1'}, {'d2'}, {'d3'}]
 
     # HNSW query with EF_SEARCH option
@@ -83,6 +85,7 @@ test_block:
           select docId from documents
           where zone = 'zone1' and bookshelf = 'science'
           and row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, !! !v16 [0.0, 1.0, 0.0] !!) asc options ef_search = 100) <= 2
+      - explain: "ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c8 AS STRING), EQUALS promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c30: @c40}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID)"
       - result: [{'d6'}, {'d7'}]
 
     # HNSW query with different EF_SEARCH value
@@ -91,6 +94,7 @@ test_block:
           select docId from documents
           where zone = 'zone1' and bookshelf = 'science'
           and row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, !! !v16 [0.0, 1.0, 0.0] !!) asc options ef_search = 200) < 3
+      - explain: "ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c8 AS STRING), EQUALS promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN @c30: @c39}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID)"
       - result: [{'d6'}, {'d7'}]
 
     # HNSW query with less than comparison
@@ -99,6 +103,7 @@ test_block:
           select docId from documents
           where zone = 'zone2' and bookshelf = 'fiction'
           and row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, !! !v16 [0.0, 0.0, 1.0] !!) asc) < 2
+      - explain: "ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c8 AS STRING), EQUALS promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN @c30: @c35}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID)"
       - result: [{'d11'}]
 
     # HNSW query with equals comparison, not supported yet.
@@ -115,6 +120,7 @@ test_block:
           select docId from documents
           where zone = 'zone1' and bookshelf = 'fiction'
           and row_number() over (partition by zone, bookshelf order by cosine_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc) <= 2
+      - explain: "ISCAN(DOCUMENTSCOSINEINDEX [EQUALS promote(@c8 AS STRING), EQUALS promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c30: @c36}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID)"
       - result: [{'d1'}, {'d2'}]
 
     # Cosine distance with EF_SEARCH option
@@ -123,6 +129,7 @@ test_block:
           select docId from documents
           where zone = 'zone1' and bookshelf = 'science'
           and row_number() over (partition by zone, bookshelf order by cosine_distance(embedding, !! !v16 [0.0, 1.0, 0.0] !!) asc options ef_search = 150) <= 3
+      - explain: "ISCAN(DOCUMENTSCOSINEINDEX [EQUALS promote(@c8 AS STRING), EQUALS promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c30: @c40}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID)"
       - result: [{'d6'}, {'d7'}, {'d8'}]
 
     # HNSW query across different partition (zone2)
@@ -131,6 +138,7 @@ test_block:
           select docId from documents
           where zone = 'zone2' and bookshelf = 'science'
           and row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, !! !v16 [0.5, 0.5, 0.0] !!) asc) <= 1
+      - explain: "ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c8 AS STRING), EQUALS promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c30: @c36}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID)"
       - result: [{'d14'}]
 
     # HNSW query selecting multiple columns including distance
@@ -140,6 +148,7 @@ test_block:
           from documents
           where zone = 'zone1' and bookshelf = 'fiction'
           and row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc) <= 1
+      - explain: "ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c19 AS STRING), EQUALS promote(@c23 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c41: @c47}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID, _.TITLE AS TITLE, (_.EMBEDDING) euclidean_distance @c41 AS DIST)"
       - result: [{'d1', 'The Great Gatsby', 0.0}]
 
     # HNSW query with prepared parameter for k value
@@ -148,6 +157,7 @@ test_block:
           select docId from documents
           where zone = 'zone1' and bookshelf = 'fiction'
           and row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc) <= !! 4 !!
+      - explain: "ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c8 AS STRING), EQUALS promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c30: @c36}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID)"
       - result: [{'d1'}, {'d2'}, {'d3'}, {'d4'}]
 
     # Verify different query vectors produce different results
@@ -156,6 +166,7 @@ test_block:
           select docId from documents
           where zone = 'zone1' and bookshelf = 'science'
           and row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, !! !v16 [0.2, 0.8, 0.0] !!) asc) <= 1
+      - explain: "ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c8 AS STRING), EQUALS promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c30: @c36}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID)"
       - result: [{'d8'}]
 
     # Test with top-5 results
@@ -164,4 +175,15 @@ test_block:
           select docId from documents
           where zone = 'zone1' and bookshelf = 'fiction'
           and row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, !! !v16 [0.7, 0.3, 0.0] !!) asc) <= 5
+      - explain: "ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c8 AS STRING), EQUALS promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c30: @c36}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID)"
       - result: [{'d4'}, {'d3'}, {'d5'}, {'d2'}, {'d1'}]
+
+    # HNSW query with OR condition - tests UNION of multiple HNSW index scans
+    -
+      - query:
+          select title from documents
+          where zone = 'zone1' and bookshelf = 'fiction'
+          and (row_number() over (partition by zone, bookshelf order by cosine_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc) <= 1
+            or row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, !! !v16 [0.5, 0.5, 0.5] !!) asc) <= 1)
+      - explain: "COVERING(DOCUMENTSCOSINEINDEX [EQUALS promote(@c8 AS STRING), EQUALS promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c31: @c37}:[] BY_DISTANCE -> [BOOKSHELF: KEY:[1], EMBEDDING: VALUE:[0], ZONE: KEY:[0]]) ⊎ COVERING(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c8 AS STRING), EQUALS promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c55: @c37}:[] BY_DISTANCE -> [BOOKSHELF: KEY:[1], EMBEDDING: VALUE:[0], ZONE: KEY:[0]]) | DISTINCT BY PK | FETCH | MAP (_.TITLE AS TITLE)"
+      - unorderedResult: [{'The Great Gatsby'}, {'The Catcher in the Rye'}]
