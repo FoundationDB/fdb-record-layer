@@ -150,17 +150,21 @@ public class VectorIndexExpansionVisitor extends KeyExpressionExpansionVisitor i
 
         final var completeExpansion = GraphExpansion.ofOthers(allExpansionsBuilder.build());
         final var sealedExpansion = completeExpansion.seal();
-        final var parameters =
-                sealedExpansion.getPlaceholders()
-                        .stream()
-                        .map(Placeholder::getParameterAlias)
-                        .collect(ImmutableList.toImmutableList());
+        final var parameters = sealedExpansion.getPlaceholders()
+                .stream()
+                .map(Placeholder::getParameterAlias)
+                .collect(ImmutableList.toImmutableList());
+        final var parametersRequiredForBinding = sealedExpansion.getPlaceholders().stream()
+                .filter(placeholder -> placeholder.getValue().isIndexOnly())
+                .map(Placeholder::getParameterAlias)
+                .collect(ImmutableSet.toImmutableSet());
         final var matchableSortExpression = new MatchableSortExpression(parameters, isReverse,
                 sealedExpansion.buildSelectWithResultValue(baseQuantifier.getFlowedObjectValue()));
         return new VectorIndexScanMatchCandidate(index,
                 queriedRecordTypes,
                 Traversal.withRoot(Reference.initialOf(matchableSortExpression)),
                 parameters,
+                parametersRequiredForBinding,
                 baseQuantifier.getFlowedObjectType(),
                 baseQuantifier.getAlias(),
                 keyValues,

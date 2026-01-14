@@ -38,6 +38,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
@@ -45,6 +46,7 @@ import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Supplier;
 
 /**
@@ -62,11 +64,11 @@ public class VectorIndexScanMatchCandidate implements ScanWithFetchMatchCandidat
      */
     private final List<RecordType> queriedRecordTypes;
 
-    /**
-     * Holds the parameter names for all necessary parameters that need to be bound during matching.
-     */
     @Nonnull
     private final List<CorrelationIdentifier> parameters;
+
+    @Nonnull
+    private final Set<CorrelationIdentifier> parametersRequiredForBinding;
 
     /**
      * Base type.
@@ -102,6 +104,7 @@ public class VectorIndexScanMatchCandidate implements ScanWithFetchMatchCandidat
                                          @Nonnull final Collection<RecordType> queriedRecordTypes,
                                          @Nonnull final Traversal traversal,
                                          @Nonnull final List<CorrelationIdentifier> parameters,
+                                         @Nonnull final Set<CorrelationIdentifier> parametersRequiredForBinding,
                                          @Nonnull final Type baseType,
                                          @Nonnull final CorrelationIdentifier baseAlias,
                                          @Nonnull final List<Value> indexKeyValues,
@@ -112,6 +115,7 @@ public class VectorIndexScanMatchCandidate implements ScanWithFetchMatchCandidat
         this.queriedRecordTypes = ImmutableList.copyOf(queriedRecordTypes);
         this.traversal = traversal;
         this.parameters = ImmutableList.copyOf(parameters);
+        this.parametersRequiredForBinding = ImmutableSet.copyOf(parametersRequiredForBinding);
         this.baseType = baseType;
         this.baseAlias = baseAlias;
         this.fullKeyExpression = fullKeyExpression;
@@ -155,6 +159,11 @@ public class VectorIndexScanMatchCandidate implements ScanWithFetchMatchCandidat
     @Override
     public List<CorrelationIdentifier> getSargableAliases() {
         return parameters;
+    }
+
+    @Nonnull
+    public Set<CorrelationIdentifier> getSargableAliasesRequiredForBinding() {
+        return parametersRequiredForBinding;
     }
 
     @Nonnull

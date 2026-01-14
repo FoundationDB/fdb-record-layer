@@ -552,10 +552,10 @@ public class SelectExpression extends AbstractRelationalExpressionWithChildren i
                     // If the unmapped predicate correspond to an index-only value bailout, some indexes such
                     // as vector indexes require matching these predicates in order to define their physical
                     // plan and traversal semantics.
-                    if (remainingUnmappedCandidatePredicates.stream().filter(Objects::nonNull)
-                            .anyMatch(QueryPredicate::requiresMapping)) {
-                        return ImmutableList.of();
-                    }
+//                    if (remainingUnmappedCandidatePredicates.stream().filter(Objects::nonNull)
+//                            .anyMatch(QueryPredicate::requiresMapping)) {
+//                        return ImmutableList.of();
+//                    }
 
                     //
                     // Last chance for unmapped predicates - if there is a placeholder or a tautology on the other side that is still

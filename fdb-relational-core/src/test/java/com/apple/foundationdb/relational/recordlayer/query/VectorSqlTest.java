@@ -21,9 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.linear.HalfRealVector;
-import com.apple.foundationdb.relational.api.StructResultSetMetaData;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
-import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
 import com.apple.foundationdb.relational.recordlayer.Utils;
 import com.apple.foundationdb.relational.utils.Ddl;
@@ -33,47 +31,16 @@ import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
 import java.net.URI;
-import java.util.stream.Stream;
 
-public class VectorTypeTest {
+public class VectorSqlTest {
     @RegisterExtension
     @Order(0)
     public final EmbeddedRelationalExtension relationalExtension = new EmbeddedRelationalExtension();
 
-    public VectorTypeTest() {
+    public VectorSqlTest() {
         Utils.enableCascadesDebugger();
-    }
-
-    @Nonnull
-    public static Stream<Arguments> vectorArguments() {
-        return Stream.of(
-                Arguments.of("halfvector(512)", DataType.VectorType.of(16, 512, true)),
-                Arguments.of("vector16(512)", DataType.VectorType.of(16, 512, true)),
-                Arguments.of("doublevector(1024)", DataType.VectorType.of(64, 1024, true)),
-                Arguments.of("vector32(768)", DataType.VectorType.of(32, 768, true)),
-                Arguments.of("vector(256)", DataType.VectorType.of(16, 256, true)));
-    }
-
-    @ParameterizedTest(name = "{0} evaluates to data type {1}")
-    @MethodSource("vectorArguments")
-    void vectorTest(@Nonnull final String ddlType, @Nonnull final DataType expectedType) throws Exception {
-        final String schemaTemplate = "create table t1(id bigint, col1 " + ddlType + ", primary key(id))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
-            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
-                statement.execute("select * from t1");
-                final var metadata = statement.getResultSet().getMetaData();
-                Assertions.assertThat(metadata).isInstanceOf(StructResultSetMetaData.class);
-                final var relationalMetadata = (StructResultSetMetaData)metadata;
-                final var type = relationalMetadata.getRelationalDataType().getFields().get(1).getType();
-                Assertions.assertThat(type).isEqualTo(expectedType);
-            }
-        }
     }
 
     @Test

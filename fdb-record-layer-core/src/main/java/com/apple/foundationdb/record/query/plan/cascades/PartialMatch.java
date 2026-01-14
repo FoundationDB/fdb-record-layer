@@ -104,7 +104,7 @@ public class PartialMatch {
     private final Supplier<Set<Placeholder>> boundPlaceholdersSupplier;
 
     @Nonnull
-    private final Supplier<Set<Placeholder>> unboundPlaceholdersSupplier;
+    private final Supplier<Set<CorrelationIdentifier>> boundSargableAliasesSupplier;
 
     @Nonnull
     private final Supplier<Set<Quantifier>> matchedQuantifiersSupplier;
@@ -134,8 +134,8 @@ public class PartialMatch {
         this.candidateRef = candidateRef;
         this.matchInfo = matchInfo;
         this.boundParameterPrefixMapSupplier = Suppliers.memoize(this::computeBoundParameterPrefixMap);
-        this.boundPlaceholdersSupplier = Suppliers.memoize(() -> computePlaceholders(true));
-        this.unboundPlaceholdersSupplier = Suppliers.memoize(() -> computePlaceholders(false));
+        this.boundPlaceholdersSupplier = Suppliers.memoize(this::computeBoundPlaceholders);
+        this.boundSargableAliasesSupplier = Suppliers.memoize(this::computeBoundSargableAliases);
         this.matchedQuantifiersSupplier = Suppliers.memoize(this::computeMatchedQuantifiers);
         this.unmatchedQuantifiersSupplier = Suppliers.memoize(this::computeUnmatchedQuantifiers);
         this.compensatedAliasesSupplier = Suppliers.memoize(this::computeCompensatedAliases);
@@ -222,19 +222,25 @@ public class PartialMatch {
     }
 
     @Nonnull
+    public final Set<CorrelationIdentifier> getBoundSargableAliases() {
+        return boundSargableAliasesSupplier.get();
+    }
+
+    @Nonnull
+    private Set<CorrelationIdentifier> computeBoundSargableAliases() {
+        return getBoundPlaceholders().stream().map(Placeholder::getParameterAlias)
+                .collect(ImmutableSet.toImmutableSet());
+    }
+
+    @Nonnull
     public final Set<Placeholder> getBoundPlaceholders() {
         return boundPlaceholdersSupplier.get();
     }
 
     @Nonnull
-    public final Set<Placeholder> getUnboundPlaceholders() {
-        return unboundPlaceholdersSupplier.get();
-    }
-
-    @Nonnull
-    private Set<Placeholder> computePlaceholders(boolean isBound) {
+    private Set<Placeholder> computeBoundPlaceholders() {
         final var boundParameterPrefixMap = getBoundParameterPrefixMap();
-        final var result = Sets.<Placeholder>newIdentityHashSet();
+        final var boundPlaceholders = Sets.<Placeholder>newIdentityHashSet();
 
         //
         // Go through all accumulated parameter bindings -- find the query predicates binding the parameters. Those
@@ -255,12 +261,12 @@ public class PartialMatch {
             }
 
             final var placeholder = (Placeholder)candidatePredicate;
-            if (isBound == boundParameterPrefixMap.containsKey(placeholder.getParameterAlias())) {
-                result.add(placeholder);
+            if (boundParameterPrefixMap.containsKey(placeholder.getParameterAlias())) {
+                boundPlaceholders.add(placeholder);
             }
         }
 
-        return result;
+        return boundPlaceholders;
     }
 
     /**

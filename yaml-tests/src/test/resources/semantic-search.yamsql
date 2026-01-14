@@ -21,11 +21,10 @@ options:
   supported_version: !current_version
 ---
 schema_template:
-    create table documents(zone string, docId string, title string, embedding vector(3, half), primary key (zone, docId))
-    create view documentsView as select embedding, zone, title from documents
-    create vector index documentsEuclideanIndex using hnsw on documentsView(embedding) partition by(zone, title) options (metric = euclidean_metric)
-    create view documentsViewCosine as select embedding, zone from documents
-    create vector index documentsCosineIndex using hnsw on documentsViewCosine(embedding) partition by(zone) options (metric = cosine_metric)
+    create table documents(zone string, docId string, bookshelf string, title string, embedding vector(3, half), primary key (zone, docId))
+    create view documentsView as select embedding, zone, bookshelf, docId, title from documents
+    create vector index documentsEuclideanIndex using hnsw on documentsView(embedding) partition by(zone, bookshelf) options (metric = euclidean_metric)
+    create vector index documentsCosineIndex using hnsw on documentsView(embedding) partition by(zone, bookshelf) options (metric = cosine_metric)
 ---
 test_block:
   preset: single_repetition_ordered
@@ -33,88 +32,136 @@ test_block:
     statement_type: prepared
   name: semantic-search-tests
   tests:
-    # Insert test data for Euclidean distance queries
+    # Insert test data using multi-row insert
     -
-      - query: insert into documents values ('z1', 'd1', 'Document1', !! !v16 [1.0, 0.0, 0.0] !!)
-      - count: 1
+      - query:
+          insert into documents values
+          ('zone1', 'd1', 'fiction', 'The Great Gatsby', !! !v16 [1.0, 0.0, 0.0] !!),
+          ('zone1', 'd2', 'fiction', '1984', !! !v16 [0.9, 0.1, 0.0] !!),
+          ('zone1', 'd3', 'fiction', 'To Kill a Mockingbird', !! !v16 [0.8, 0.2, 0.0] !!),
+          ('zone1', 'd4', 'fiction', 'Pride and Prejudice', !! !v16 [0.7, 0.3, 0.0] !!),
+          ('zone1', 'd5', 'fiction', 'The Catcher in the Rye', !! !v16 [0.6, 0.4, 0.0] !!)
+      - count: 5
     -
-      - query: insert into documents values ('z1', 'd2', 'Document2', !! !v16 [0.0, 1.0, 0.0] !!)
-      - count: 1
+      - query:
+          insert into documents values
+          ('zone1', 'd6', 'science', 'A Brief History of Time', !! !v16 [0.0, 1.0, 0.0] !!),
+          ('zone1', 'd7', 'science', 'The Selfish Gene', !! !v16 [0.1, 0.9, 0.0] !!),
+          ('zone1', 'd8', 'science', 'Cosmos', !! !v16 [0.2, 0.8, 0.0] !!),
+          ('zone1', 'd9', 'science', 'The Origin of Species', !! !v16 [0.3, 0.7, 0.0] !!),
+          ('zone1', 'd10', 'science', 'Relativity', !! !v16 [0.4, 0.6, 0.0] !!)
+      - count: 5
     -
-      - query: insert into documents values ('z1', 'd3', 'Document3', !! !v16 [0.0, 0.0, 1.0] !!)
-      - count: 1
+      - query:
+          insert into documents values
+          ('zone2', 'd11', 'fiction', 'Moby Dick', !! !v16 [0.0, 0.0, 1.0] !!),
+          ('zone2', 'd12', 'fiction', 'War and Peace', !! !v16 [0.0, 0.1, 0.9] !!),
+          ('zone2', 'd13', 'fiction', 'Crime and Punishment', !! !v16 [0.0, 0.2, 0.8] !!),
+          ('zone2', 'd14', 'science', 'The Gene', !! !v16 [0.5, 0.5, 0.0] !!),
+          ('zone2', 'd15', 'science', 'Sapiens', !! !v16 [0.4, 0.4, 0.2] !!)
+      - count: 5
+
+    # Basic HNSW query with Euclidean distance - top-1 nearest neighbor
     -
-      - query: insert into documents values ('z2', 'd4', 'Document4', !! !v16 [1.0, 1.0, 0.0] !!)
-      - count: 1
+      - query:
+          select docId, title from documents
+          where zone = 'zone1' and bookshelf = 'fiction'
+          and row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc) <= 1
+      - result: [{'d1', 'The Great Gatsby'}]
+
+    # HNSW query with Euclidean distance - top-3 nearest neighbors
     -
-      - query: insert into documents values ('z2', 'd5', 'Document5', !! !v16 [0.5, 0.5, 0.5] !!)
-      - count: 1
-    # Basic HNSW query with row_number() - top-1 nearest neighbor using Euclidean distance
+      - query:
+          select docId from documents
+          where zone = 'zone1' and bookshelf = 'fiction'
+          and row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc) <= 3
+      - result: [{'d1'}, {'d2'}, {'d3'}]
+
+    # HNSW query with EF_SEARCH option
     -
-      - query: select docId, title from documents
-          where zone = 'z1' and title = 'Document1'
-          and row_number() over (partition by zone, title order by euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc) <= 1
-      - result: [{'d1', 'Document1'}]
-    # HNSW query with row_number() - top-2 nearest neighbors
-    # this is not supported, requires skip scan support
-#    -
-#      - query: select docId, title from documents
-#          where zone = 'z1'
-#          and row_number() over (partition by zone, title order by euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc) <= 2
-#      - result: [{'d1', 'Document1'}, {'d2', 'Document2'}]
-    # HNSW query with row_number() and EF_SEARCH option
+      - query:
+          select docId from documents
+          where zone = 'zone1' and bookshelf = 'science'
+          and row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, !! !v16 [0.0, 1.0, 0.0] !!) asc options ef_search = 100) <= 2
+      - result: [{'d6'}, {'d7'}]
+
+    # HNSW query with different EF_SEARCH value
     -
-      - query: select docId from documents
-          where zone = 'z1' and title = 'Document1'
-          and row_number() over (partition by zone, title order by euclidean_distance(embedding, !! !v16 [0.0, 1.0, 0.0] !!) asc options ef_search = 100) < 2
-      - result: [{'d1'}]
-    # HNSW query with descending order (farthest neighbors)
-    # distance equality is not supported.
-#    -
-#      - query: select docId from documents
-#          where zone = 'z1' and title = 'Document3'
-#          and row_number() over (partition by zone, title order by euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) desc) = 1
-#      - result: [{'d3'}]
-    # HNSW query with EF_SEARCH = 200
-    -
-      - query: select docId from documents
-          where zone = 'z1' and title = 'Document2'
-          and row_number() over (partition by zone, title order by euclidean_distance(embedding, !! !v16 [0.0, 1.0, 0.0] !!) asc options ef_search = 200) <= 1
-      - result: [{'d2'}]
+      - query:
+          select docId from documents
+          where zone = 'zone1' and bookshelf = 'science'
+          and row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, !! !v16 [0.0, 1.0, 0.0] !!) asc options ef_search = 200) < 3
+      - result: [{'d6'}, {'d7'}]
+
     # HNSW query with less than comparison
     -
-      - query: select docId from documents
-          where zone = 'z1' and title = 'Document1'
-          and row_number() over (partition by zone, title order by euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc) < 2
-      - result: [{'d1'}]
-#    # Cosine distance HNSW query with row_number()
-#    -
-#      - query: select docId from documents
-#          where zone = 'z1'
-#          and row_number() over (partition by zone order by cosine_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc) <= 2
-#      - result: [{'d1'}, {'d2'}, {'d3'}]
-#    # Cosine distance with EF_SEARCH option
-#    -
-#      - query: select docId from documents
-#          where zone = 'z2'
-#          and row_number() over (partition by zone order by cosine_distance(embedding, !! !v16 [1.0, 1.0, 0.0] !!) asc options ef_search = 150) <= 1
-#      - result: [{'d4'}, {'d5'}]
-#    # Test with multiple rows matching partition criteria
-#    -
-#      - query: select count(*) as cnt from documents
-#          where zone = 'z1'
-#          and row_number() over (partition by zone, title order by euclidean_distance(embedding, !! !v16 [0.5, 0.5, 0.5] !!) asc) <= 1
-#      - result: [{3}]
-#    # HNSW query selecting multiple columns including the distance
-#    -
-#      - query: select docId, title, euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) as dist
-#          from documents
-#          where zone = 'z1' and title = 'Document1'
-#          and row_number() over (partition by zone, title order by euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc) <= 1
-#      - result: [{'d1', 'Document1', 0.0}]
-#    # Verify that different query vectors produce different results
-#    -
-#      - query: select docId from documents
-#          where zone = 'z1' and title = 'Document3'
-#          and row_number() over (partition by zone, title order by euclidean_distance(embedding, !! !v16 [0.0, 0.0, 1.0] !!) asc) <= 1
-#      - result: [{'d3'}]
+      - query:
+          select docId from documents
+          where zone = 'zone2' and bookshelf = 'fiction'
+          and row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, !! !v16 [0.0, 0.0, 1.0] !!) asc) < 2
+      - result: [{'d11'}]
+
+    # HNSW query with equals comparison, not supported yet.
+    # -
+    #   - query:
+    #       select docId from documents
+    #       where zone = 'zone2' and bookshelf = 'fiction'
+    #       and row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, !! !v16 [0.0, 0.0, 1.0] !!) asc) = 1
+    #   - result: [{'d11'}]
+
+    # Cosine distance HNSW query with row_number()
+    -
+      - query:
+          select docId from documents
+          where zone = 'zone1' and bookshelf = 'fiction'
+          and row_number() over (partition by zone, bookshelf order by cosine_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc) <= 2
+      - result: [{'d1'}, {'d2'}]
+
+    # Cosine distance with EF_SEARCH option
+    -
+      - query:
+          select docId from documents
+          where zone = 'zone1' and bookshelf = 'science'
+          and row_number() over (partition by zone, bookshelf order by cosine_distance(embedding, !! !v16 [0.0, 1.0, 0.0] !!) asc options ef_search = 150) <= 3
+      - result: [{'d6'}, {'d7'}, {'d8'}]
+
+    # HNSW query across different partition (zone2)
+    -
+      - query:
+          select docId from documents
+          where zone = 'zone2' and bookshelf = 'science'
+          and row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, !! !v16 [0.5, 0.5, 0.0] !!) asc) <= 1
+      - result: [{'d14'}]
+
+    # HNSW query selecting multiple columns including distance
+    -
+      - query:
+          select docId, title, euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) as dist
+          from documents
+          where zone = 'zone1' and bookshelf = 'fiction'
+          and row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc) <= 1
+      - result: [{'d1', 'The Great Gatsby', 0.0}]
+
+    # HNSW query with prepared parameter for k value
+    -
+      - query:
+          select docId from documents
+          where zone = 'zone1' and bookshelf = 'fiction'
+          and row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc) <= !! 4 !!
+      - result: [{'d1'}, {'d2'}, {'d3'}, {'d4'}]
+
+    # Verify different query vectors produce different results
+    -
+      - query:
+          select docId from documents
+          where zone = 'zone1' and bookshelf = 'science'
+          and row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, !! !v16 [0.2, 0.8, 0.0] !!) asc) <= 1
+      - result: [{'d8'}]
+
+    # Test with top-5 results
+    -
+      - query:
+          select docId from documents
+          where zone = 'zone1' and bookshelf = 'fiction'
+          and row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, !! !v16 [0.7, 0.3, 0.0] !!) asc) <= 5
+      - result: [{'d4'}, {'d3'}, {'d5'}, {'d2'}, {'d1'}]
