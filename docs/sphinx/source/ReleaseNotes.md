@@ -5,6 +5,68 @@ This document contains a log of changes to the FoundationDB Record Layer. It aim
 
 As the [versioning guide](Versioning.md) details, it cannot always be determined solely by looking at the version numbers whether one Record Layer version contains all changes included in another. In particular, bug fixes and backwards-compatible changes might be back-ported to or introduced as patches against older versions. To track when a patch version has been included in the main release train, some releases will say as a note that they contain all changes from a specific patch.
 
+## 4.9
+
+### 4.9.1.0
+
+<h4> Breaking Changes </h4>
+
+* Update dependencies and bump minor version to 4.9 - [PR #3842](https://github.com/FoundationDB/fdb-record-layer/pull/3842)
+* Remove log4j.properties from `fdb-record-layer-core` jar - [PR #3841](https://github.com/FoundationDB/fdb-record-layer/pull/3841)
+* Change DataInKeySpacePath.value to be a ByteString - [PR #3818](https://github.com/FoundationDB/fdb-record-layer/pull/3818)
+<h4> New Features </h4>
+
+* Added getter to access an instance of the pending writes queue - [PR #3836](https://github.com/FoundationDB/fdb-record-layer/pull/3836)
+* Introduce `INDEX ON` and vector index DDL - [PR #3782](https://github.com/FoundationDB/fdb-record-layer/pull/3782)
+* `search(.)` with objective function, `kNearestNeighborsRingSearch(.)`, and `orderByDistance(.)` iteration - [PR #3824](https://github.com/FoundationDB/fdb-record-layer/pull/3824)
+* Lucene Pending Writes Queue - [PR #3828](https://github.com/FoundationDB/fdb-record-layer/pull/3828)
+* Introduce a new incarnation field to the store header - [PR #3825](https://github.com/FoundationDB/fdb-record-layer/pull/3825)
+* Support of `INNER JOIN` syntax - [PR #3799](https://github.com/FoundationDB/fdb-record-layer/pull/3799)
+* Consider number of predicates at each level in rewriting cost model - [PR #3681](https://github.com/FoundationDB/fdb-record-layer/pull/3681)
+* vector updates and deletes - [PR #3797](https://github.com/FoundationDB/fdb-record-layer/pull/3797)
+* IndexingMerger: lessen work and retry by default - [PR #3732](https://github.com/FoundationDB/fdb-record-layer/pull/3732)
+* Introduce Serialization format for DataInKeySpacePath - [PR #3747](https://github.com/FoundationDB/fdb-record-layer/pull/3747)
+<h4> Bug Fixes </h4>
+
+* Fix internal errors from version queries: Part 1 - [PR #3809](https://github.com/FoundationDB/fdb-record-layer/pull/3809)
+* Use merge control to indicate an explicit merge path - [PR #3835](https://github.com/FoundationDB/fdb-record-layer/pull/3835)
+* Add equals and hashCode overrides to Type.Uuid - [PR #3679](https://github.com/FoundationDB/fdb-record-layer/pull/3679)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Fix 4.9 version for initial 4.9 release - [PR #3846](https://github.com/FoundationDB/fdb-record-layer/pull/3846)
+* Use matrix strategy in pull request build YAML to limit repetition - [PR #3839](https://github.com/FoundationDB/fdb-record-layer/pull/3839)
+* Create LuceneIndexMaintainerHelper for low level LuceneIndexMaintainer operations - [PR #3837](https://github.com/FoundationDB/fdb-record-layer/pull/3837)
+* Parallelize the PR jobs for fdb-extensions and yaml-tests - [PR #3838](https://github.com/FoundationDB/fdb-record-layer/pull/3838)
+* Ignore test failures in nightly runs - [PR #3822](https://github.com/FoundationDB/fdb-record-layer/pull/3822)
+* fixing class cast exception in testSIFTInsertSmall - [PR #3820](https://github.com/FoundationDB/fdb-record-layer/pull/3820)
+* hnsw test improvements - [PR #3814](https://github.com/FoundationDB/fdb-record-layer/pull/3814)
+* fixing test case problem in HNSWTest - [PR #3811](https://github.com/FoundationDB/fdb-record-layer/pull/3811)
+* Set timeout on PRB jobs - [PR #3810](https://github.com/FoundationDB/fdb-record-layer/pull/3810)
+* Bump the urllib3 dependency used by sphinx - [PR #3806](https://github.com/FoundationDB/fdb-record-layer/pull/3806)
+* Remove legacy code necessary to make mixed-order covering optimization planning backwards compatible - [PR #3803](https://github.com/FoundationDB/fdb-record-layer/pull/3803)
+* Include labels on PR in pr_labels check - [PR #3802](https://github.com/FoundationDB/fdb-record-layer/pull/3802)
+
+</details>
+
+
+**[Full Changelog (4.8.17.0...4.9.1.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.8.17.0...4.9.1.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.8.3.0`, ❌`4.8.5.0`, ✅`4.8.6.0`, ✅`4.8.11.0`, ✅`4.8.12.0`, ✅`4.8.13.0`, ✅`4.8.14.0`, ✅`4.8.15.0`, ✅`4.8.16.0`, ✅`4.8.17.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/21005791295)
+
+
+
 ## 4.8
 
 ### 4.8.17.0
