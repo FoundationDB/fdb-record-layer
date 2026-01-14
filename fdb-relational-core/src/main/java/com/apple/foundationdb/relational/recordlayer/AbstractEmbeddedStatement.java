@@ -215,10 +215,15 @@ public abstract class AbstractEmbeddedStatement implements java.sql.Statement {
             }
             return count;
         } catch (SQLException | RuntimeException ex) {
-            if (conn.canCommit()) {
-                conn.rollbackInternal();
+            SQLException finalException = ExceptionUtil.toRelationalException(ex).toSqlException();
+            try {
+                if (conn.canCommit()) {
+                    conn.rollbackInternal();
+                }
+            } catch (SQLException | RuntimeException rollbackError) {
+                finalException.addSuppressed(rollbackError);
             }
-            throw ExceptionUtil.toRelationalException(ex).toSqlException();
+            throw finalException;
         }
     }
 

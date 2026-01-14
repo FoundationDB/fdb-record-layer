@@ -29,21 +29,22 @@ import com.apple.foundationdb.relational.generated.RelationalLexer;
 import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.recordlayer.ddl.NoOpMetadataOperationsFactory;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerColumn;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.recordlayer.query.visitors.BaseVisitor;
 import com.apple.foundationdb.relational.recordlayer.query.visitors.DelegatingVisitor;
-import com.apple.foundationdb.relational.recordlayer.query.visitors.TypedVisitor;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.apache.commons.lang3.mutable.MutableBoolean;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.mockito.Mockito;
 
 import javax.annotation.Nonnull;
 import java.net.URI;
+import java.util.function.BiConsumer;
+import java.util.function.Function;
 import java.util.stream.Stream;
 
 /**
@@ -58,10 +59,6 @@ import java.util.stream.Stream;
  * implement these methods despite their limited practical usage.
  */
 public class DelegatingVisitorTest {
-
-    static Stream<String> traversalStrings() {
-        return Stream.of("TRAVERSAL ORDER PRE_ORDER", "TRAVERSAL ORDER LEVEL_ORDER");
-    }
 
     @Nonnull
     private static RecordLayerSchemaTemplate generateMetadata() {
@@ -81,208 +78,402 @@ public class DelegatingVisitorTest {
                 .build();
     }
 
-    @Test
-    void visitPredicatedExpressionTest() {
-        final var query = "X BETWEEN 32 AND 43";
-        final MutableBoolean baseVisitorCalled = new MutableBoolean(false);
-        final var baseVisitor = new BaseVisitor(
-                new MutablePlanGenerationContext(PreparedParams.empty(),
-                        PlanHashable.PlanHashMode.VC0, query, query, 42),
-                generateMetadata(),
-                NoOpQueryFactory.INSTANCE,
-                NoOpMetadataOperationsFactory.INSTANCE,
-                URI.create("/FDB/FRL1"),
-                false) {
-            @Nonnull
-            @Override
-            public Expression visitPredicatedExpression(@Nonnull final RelationalParser.PredicatedExpressionContext ctx) {
-                baseVisitorCalled.setTrue();
-                return Expression.ofUnnamed(LiteralValue.ofScalar(42));
-            }
-        };
-        final var delegatingVisitor = new DelegatingVisitor<>(baseVisitor);
+    /**
+     * Generic test helper for visitor methods that return Object or void.
+     *
+     * @param query the SQL query to parse
+     * @param parseMethod parser method to extract context
+     * @param visitMethod delegating visitor method to test
+     * @param visitorOverride function to create a BaseVisitor with overridden method
+     */
+    private <T> void testVisitor(String query,
+                                 Function<RelationalParser, T> parseMethod,
+                                 BiConsumer<DelegatingVisitor<BaseVisitor>, T> visitMethod,
+                                 Function<MutableBoolean, BaseVisitor> visitorOverride) {
+        final MutableBoolean called = new MutableBoolean(false);
+        final var visitor = visitorOverride.apply(called);
+        final var delegatingVisitor = new DelegatingVisitor<>(visitor);
+        final var context = parseQuery(query, parseMethod);
+        visitMethod.accept(delegatingVisitor, context);
+        Assertions.assertThat(called.booleanValue()).as("Expecting the method to be called").isTrue();
+    }
+
+    /**
+     * Simplified helper for most common case: parse, visit, assert called.
+     */
+    private <T> void testSimple(String query,
+                                Function<RelationalParser, T> parseMethod,
+                                BiConsumer<DelegatingVisitor<BaseVisitor>, T> visitMethod,
+                                Function<MutableBoolean, BaseVisitor> visitorOverride) {
+        testVisitor(query, parseMethod, visitMethod, visitorOverride);
+    }
+
+    private <T> T parseQuery(String query, Function<RelationalParser, T> parseMethod) {
         final var tokenSource = new RelationalLexer(new CaseInsensitiveCharStream(query));
         final var parser = new RelationalParser(new CommonTokenStream(tokenSource));
-        final var predicatedExpression = (RelationalParser.PredicatedExpressionContext)parser.expression();
-        delegatingVisitor.visitPredicatedExpression(predicatedExpression);
-        Assertions.assertThat(baseVisitorCalled.booleanValue()).isTrue();
+        return parseMethod.apply(parser);
+    }
+
+    private BaseVisitor createBaseVisitor(String query, MutableBoolean called) {
+        return new BaseVisitor(
+                new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, query, query, 42),
+                generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE,
+                URI.create("/FDB/FRL1"), false);
+    }
+
+    @Test
+    void visitPredicatedExpressionTest() {
+        testSimple("X BETWEEN 32 AND 43",
+                RelationalParser::expression,
+                (visitor, ctx) -> visitor.visitPredicatedExpression((RelationalParser.PredicatedExpressionContext) ctx),
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                        generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
+                    @Nonnull
+                    @Override
+                    public Expression visitPredicatedExpression(@Nonnull RelationalParser.PredicatedExpressionContext ctx) {
+                        called.setTrue();
+                        return Expression.ofUnnamed(LiteralValue.ofScalar(42));
+                    }
+                });
     }
 
     @Test
     void visitSubscriptExpressionTest() {
-        final var query = "X[42]";
-        final MutableBoolean baseVisitorCalled = new MutableBoolean(false);
-        final var baseVisitor = new BaseVisitor(
-                new MutablePlanGenerationContext(PreparedParams.empty(),
-                        PlanHashable.PlanHashMode.VC0, query, query, 42),
-                generateMetadata(),
-                NoOpQueryFactory.INSTANCE,
-                NoOpMetadataOperationsFactory.INSTANCE,
-                URI.create("/FDB/FRL1"),
-                false) {
-
-            @Override
-            public Expression visitSubscriptExpression(@Nonnull final RelationalParser.SubscriptExpressionContext ctx) {
-                baseVisitorCalled.setTrue();
-                return Expression.ofUnnamed(LiteralValue.ofScalar(42));
-            }
-        };
-        final var delegatingVisitor = new DelegatingVisitor<>(baseVisitor);
-        final var tokenSource = new RelationalLexer(new CaseInsensitiveCharStream(query));
-        final var parser = new RelationalParser(new CommonTokenStream(tokenSource));
-        final var predicatedExpression = (RelationalParser.SubscriptExpressionContext)parser.expressionAtom();
-        delegatingVisitor.visitSubscriptExpression(predicatedExpression);
-        Assertions.assertThat(baseVisitorCalled.booleanValue()).isTrue();
+        testSimple("X[42]",
+                RelationalParser::expressionAtom,
+                (visitor, ctx) -> visitor.visitSubscriptExpression((RelationalParser.SubscriptExpressionContext) ctx),
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                        generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
+                    @Override
+                    public Expression visitSubscriptExpression(@Nonnull RelationalParser.SubscriptExpressionContext ctx) {
+                        called.setTrue();
+                        return Expression.ofUnnamed(LiteralValue.ofScalar(42));
+                    }
+                });
     }
 
     @Test
     void visitUserDefinedScalarFunctionStatementBodyTest() {
         final var query = "AS testIdentifier";
-        final MutableBoolean baseVisitorCalled = new MutableBoolean(false);
-        final var baseVisitor = new BaseVisitor(
-                new MutablePlanGenerationContext(PreparedParams.empty(),
-                        PlanHashable.PlanHashMode.VC0, query, query, 42),
-                generateMetadata(),
-                NoOpQueryFactory.INSTANCE,
-                NoOpMetadataOperationsFactory.INSTANCE,
-                URI.create("/FDB/FRL1"),
-                false) {
-
+        final MutableBoolean called = new MutableBoolean(false);
+        final var visitor = new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, query, query, 42),
+                generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
             @Nonnull
             @Override
-            public Identifier visitUserDefinedScalarFunctionStatementBody(@Nonnull final RelationalParser.UserDefinedScalarFunctionStatementBodyContext ctx) {
-                baseVisitorCalled.setTrue();
+            public Identifier visitUserDefinedScalarFunctionStatementBody(@Nonnull RelationalParser.UserDefinedScalarFunctionStatementBodyContext ctx) {
+                called.setTrue();
                 return Identifier.of("testIdentifier");
             }
         };
-        final var delegatingVisitor = new DelegatingVisitor<>(baseVisitor);
-        final var tokenSource = new RelationalLexer(new CaseInsensitiveCharStream(query));
-        final var parser = new RelationalParser(new CommonTokenStream(tokenSource));
-        final var routineBodyContext = parser.routineBody();
-
-        if (routineBodyContext instanceof RelationalParser.UserDefinedScalarFunctionStatementBodyContext) {
-            final var userDefinedScalarFunctionStatementBodyContext = (RelationalParser.UserDefinedScalarFunctionStatementBodyContext)routineBodyContext;
-            final var result = delegatingVisitor.visitUserDefinedScalarFunctionStatementBody(userDefinedScalarFunctionStatementBodyContext);
-            Assertions.assertThat(result).isEqualTo(Identifier.of("testIdentifier"));
-        } else {
-            Assertions.fail("Expected UserDefinedScalarFunctionStatementBodyContext but got " + routineBodyContext.getClass().getSimpleName());
-        }
-
-        Assertions.assertThat(baseVisitorCalled.booleanValue()).isTrue();
+        final var delegatingVisitor = new DelegatingVisitor<>(visitor);
+        final var routineBodyContext = parseQuery(query, RelationalParser::routineBody);
+        Assertions.assertThat(routineBodyContext).isInstanceOf(RelationalParser.UserDefinedScalarFunctionStatementBodyContext.class);
+        final var result = delegatingVisitor.visitUserDefinedScalarFunctionStatementBody(
+                (RelationalParser.UserDefinedScalarFunctionStatementBodyContext) routineBodyContext);
+        Assertions.assertThat(result).isEqualTo(Identifier.of("testIdentifier"));
+        Assertions.assertThat(called.booleanValue()).isTrue();
     }
 
     @Test
     void visitUserDefinedScalarFunctionNameTest() {
-        final var query = "fake query";
-        final MutableBoolean baseVisitorCalled = new MutableBoolean(false);
-        final var baseVisitor = new BaseVisitor(
-                new MutablePlanGenerationContext(PreparedParams.empty(),
-                        PlanHashable.PlanHashMode.VC0, query, query, 42),
-                generateMetadata(),
-                NoOpQueryFactory.INSTANCE,
-                NoOpMetadataOperationsFactory.INSTANCE,
-                URI.create("/FDB/FRL1"),
-                false) {
+        testSimple("fake query",
+                RelationalParser::userDefinedScalarFunctionName,
+                (visitor, ctx) -> Assertions.assertThat(visitor.visitUserDefinedScalarFunctionName(ctx)).isEqualTo("testFunction"),
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                        generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
+                    @Nonnull
+                    @Override
+                    public String visitUserDefinedScalarFunctionName(@Nonnull RelationalParser.UserDefinedScalarFunctionNameContext ctx) {
+                        called.setTrue();
+                        return "testFunction";
+                    }
+                });
+    }
 
-            @Nonnull
-            @Override
-            public String visitUserDefinedScalarFunctionName(@Nonnull final RelationalParser.UserDefinedScalarFunctionNameContext ctx) {
-                baseVisitorCalled.setTrue();
-                return "testFunction";
-            }
-        };
-        final var delegatingVisitor = new DelegatingVisitor<>(baseVisitor);
-        final var tokenSource = new RelationalLexer(new CaseInsensitiveCharStream(query));
-        final var parser = new RelationalParser(new CommonTokenStream(tokenSource));
-        Assertions.assertThat(delegatingVisitor.visitUserDefinedScalarFunctionName(parser.userDefinedScalarFunctionName())).isEqualTo("testFunction");
-        Assertions.assertThat(baseVisitorCalled.booleanValue()).isTrue();
+    static Stream<String> traversalStrings() {
+        return Stream.of("TRAVERSAL ORDER PRE_ORDER", "TRAVERSAL ORDER LEVEL_ORDER");
     }
 
     @ParameterizedTest
     @MethodSource("traversalStrings")
     void visitTraversalExpressionTest(String query) {
-        final MutableBoolean baseVisitorCalled = new MutableBoolean(false);
-        final var baseVisitor = new BaseVisitor(
-                new MutablePlanGenerationContext(PreparedParams.empty(),
-                        PlanHashable.PlanHashMode.VC0, query, query, 42),
-                generateMetadata(),
-                NoOpQueryFactory.INSTANCE,
-                NoOpMetadataOperationsFactory.INSTANCE,
-                URI.create("/FDB/FRL1"),
-                false) {
-
-            public Object visitTraversalOrderClause(final RelationalParser.TraversalOrderClauseContext ctx) {
-                baseVisitorCalled.setTrue();
-                if (query.equals("TRAVERSAL ORDER LEVEL_ORDER")) {
-                    return RecursiveUnionExpression.TraversalStrategy.LEVEL;
-                } else {
-                    return RecursiveUnionExpression.TraversalStrategy.PREORDER;
-                }
-            }
-        };
-
-        final var delegatingVisitor = new DelegatingVisitor<>(baseVisitor);
-        final var tokenSource = new RelationalLexer(new CaseInsensitiveCharStream(query));
-        final var parser = new RelationalParser(new CommonTokenStream(tokenSource));
-        final var predicatedExpression = parser.traversalOrderClause();
-        delegatingVisitor.visitTraversalOrderClause(predicatedExpression);
-        Assertions.assertThat(baseVisitorCalled.booleanValue()).isTrue();
+        testSimple(query,
+                RelationalParser::traversalOrderClause,
+                DelegatingVisitor::visitTraversalOrderClause,
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, query, query, 42),
+                        generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
+                    @Override
+                    public Object visitTraversalOrderClause(RelationalParser.TraversalOrderClauseContext ctx) {
+                        called.setTrue();
+                        return query.equals("TRAVERSAL ORDER LEVEL_ORDER")
+                                ? RecursiveUnionExpression.TraversalStrategy.LEVEL
+                                : RecursiveUnionExpression.TraversalStrategy.PREORDER;
+                    }
+                });
     }
 
     @Test
     void visitViewDefinitionTest() {
-        final var query = "VIEW V AS SELECT * FROM T";
-        final MutableBoolean baseVisitorCalled = new MutableBoolean(false);
-        final var baseVisitor = new BaseVisitor(
-                new MutablePlanGenerationContext(PreparedParams.empty(),
-                        PlanHashable.PlanHashMode.VC0, query, query, 42),
-                generateMetadata(),
-                NoOpQueryFactory.INSTANCE,
-                NoOpMetadataOperationsFactory.INSTANCE,
-                URI.create("/FDB/FRL1"),
-                false) {
-
-            public Object visitViewDefinition(final RelationalParser.ViewDefinitionContext ctx) {
-                baseVisitorCalled.setTrue();
-                return null;
-            }
-        };
-
-        final var delegatingVisitor = new DelegatingVisitor<>(baseVisitor);
-        final var tokenSource = new RelationalLexer(new CaseInsensitiveCharStream(query));
-        final var parser = new RelationalParser(new CommonTokenStream(tokenSource));
-        final var viewDefinitionContext = parser.viewDefinition();
-        delegatingVisitor.visitViewDefinition(viewDefinitionContext);
-        Assertions.assertThat(baseVisitorCalled.booleanValue()).isTrue();
+        testSimple("VIEW V AS SELECT * FROM T",
+                RelationalParser::viewDefinition,
+                DelegatingVisitor::visitViewDefinition,
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                        generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
+                    @Override
+                    public Object visitViewDefinition(RelationalParser.ViewDefinitionContext ctx) {
+                        called.setTrue();
+                        return null;
+                    }
+                });
     }
 
     @Test
     void visitUserDefinedScalarFunctionCallTest() {
-        final var query = "myFunction(123)";
-        final MutableBoolean baseVisitorCalled = new MutableBoolean(false);
-        final var baseVisitor = new BaseVisitor(
-                new MutablePlanGenerationContext(PreparedParams.empty(),
-                        PlanHashable.PlanHashMode.VC0, query, query, 42),
-                generateMetadata(),
-                NoOpQueryFactory.INSTANCE,
-                NoOpMetadataOperationsFactory.INSTANCE,
-                URI.create("/FDB/FRL1"),
-                false) {
+        testSimple("myFunction(123)",
+                RelationalParser::functionCall,
+                (visitor, ctx) -> visitor.visitUserDefinedScalarFunctionCall((RelationalParser.UserDefinedScalarFunctionCallContext) ctx),
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                        generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
+                    @Nonnull
+                    @Override
+                    public Expression visitUserDefinedScalarFunctionCall(@Nonnull RelationalParser.UserDefinedScalarFunctionCallContext ctx) {
+                        called.setTrue();
+                        return Expression.ofUnnamed(LiteralValue.ofScalar(42));
+                    }
+                });
+    }
 
-            @Nonnull
-            @Override
-            public Expression visitUserDefinedScalarFunctionCall(@Nonnull final RelationalParser.UserDefinedScalarFunctionCallContext ctx) {
-                baseVisitorCalled.setTrue();
-                return Expression.ofUnnamed(LiteralValue.ofScalar(42));
-            }
-        };
-        final var delegatingVisitor = new DelegatingVisitor<>(baseVisitor);
-        final var tokenSource = new RelationalLexer(new CaseInsensitiveCharStream(query));
-        final var parser = new RelationalParser(new CommonTokenStream(tokenSource));
-        final var functionCallExpression = parser.functionCall();
-        final var userDefinedScalarFunctionCall = (RelationalParser.UserDefinedScalarFunctionCallContext)functionCallExpression;
-        delegatingVisitor.visitUserDefinedScalarFunctionCall(userDefinedScalarFunctionCall);
-        Assertions.assertThat(baseVisitorCalled.booleanValue()).isTrue();
+    @Test
+    void visitIndexOptionsTest() {
+        testSimple("OPTIONS (LEGACY_EXTREMUM_EVER)",
+                RelationalParser::indexOptions,
+                DelegatingVisitor::visitIndexOptions,
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                        generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
+                    @Override
+                    public Object visitIndexOptions(@Nonnull RelationalParser.IndexOptionsContext ctx) {
+                        called.setTrue();
+                        return null;
+                    }
+                });
+    }
+
+    @Test
+    void visitIndexOptionTest() {
+        testSimple("LEGACY_EXTREMUM_EVER",
+                RelationalParser::indexOption,
+                DelegatingVisitor::visitIndexOption,
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                        generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
+                    @Override
+                    public Object visitIndexOption(@Nonnull RelationalParser.IndexOptionContext ctx) {
+                        called.setTrue();
+                        return null;
+                    }
+                });
+    }
+
+    @Test
+    void visitVectorIndexDefinitionTest() {
+        final var query = "VECTOR INDEX myIndex USING HNSW ON table1 (R)";
+        testVisitor(query,
+                RelationalParser::indexDefinition,
+                (visitor, ctx) -> {
+                    Assertions.assertThat(ctx).isInstanceOf(RelationalParser.VectorIndexDefinitionContext.class);
+                    visitor.visitVectorIndexDefinition((RelationalParser.VectorIndexDefinitionContext) ctx);
+                },
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, query, query, 42),
+                        generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
+                    @Override
+                    @SuppressWarnings({"NullableProblems", "DataFlowIssue"})
+                    public RecordLayerIndex visitVectorIndexDefinition(@Nonnull RelationalParser.VectorIndexDefinitionContext ctx) {
+                        called.setTrue();
+                        return null;
+                    }
+                });
+    }
+
+    @Test
+    void visitPartitionClauseTest() {
+        final var query = "PARTITION BY (col1)";
+        testVisitor(query,
+                RelationalParser::partitionClause,
+                (visitor, ctx) -> {
+                    Assertions.assertThat(ctx).isInstanceOf(RelationalParser.PartitionClauseContext.class);
+                    visitor.visitPartitionClause(ctx);
+                },
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, query, query, 42),
+                        generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
+
+                    @Override
+                    public Object visitPartitionClause(final RelationalParser.PartitionClauseContext ctx) {
+                        called.setTrue();
+                        return null;
+                    }
+                });
+    }
+
+    @Test
+    void visitIndexColumnListTest() {
+        testSimple("(col1, col2)",
+                RelationalParser::indexColumnList,
+                DelegatingVisitor::visitIndexColumnList,
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                        generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
+                    @Override
+                    @SuppressWarnings({"NullableProblems", "DataFlowIssue"})
+                    public Object visitIndexColumnList(@Nonnull RelationalParser.IndexColumnListContext ctx) {
+                        called.setTrue();
+                        return null;
+                    }
+                });
+    }
+
+    @Test
+    void visitIncludeClauseTest() {
+        testSimple("INCLUDE (col1, col2)",
+                RelationalParser::includeClause,
+                DelegatingVisitor::visitIncludeClause,
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                        generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
+                    @Override
+                    @SuppressWarnings({"NullableProblems", "DataFlowIssue"})
+                    public Object visitIncludeClause(@Nonnull RelationalParser.IncludeClauseContext ctx) {
+                        called.setTrue();
+                        return null;
+                    }
+                });
+    }
+
+    @Test
+    void visitIndexOnSourceDefinitionTest() {
+        final var query = "INDEX myIndex ON table1 (R)";
+        testVisitor(query,
+                RelationalParser::indexDefinition,
+                (visitor, ctx) -> {
+                    Assertions.assertThat(ctx).isInstanceOf(RelationalParser.IndexOnSourceDefinitionContext.class);
+                    visitor.visitIndexOnSourceDefinition((RelationalParser.IndexOnSourceDefinitionContext) ctx);
+                },
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, query, query, 42),
+                        generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
+                    @Override
+                    @SuppressWarnings({"NullableProblems", "DataFlowIssue"})
+                    public RecordLayerIndex visitIndexOnSourceDefinition(@Nonnull RelationalParser.IndexOnSourceDefinitionContext ctx) {
+                        called.setTrue();
+                        return null;
+                    }
+                });
+    }
+
+    @Test
+    void visitIndexTypeTest() {
+        testSimple("UNIQUE",
+                RelationalParser::indexType,
+                DelegatingVisitor::visitIndexType,
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                        generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
+                    @Override
+                    public Object visitIndexType(@Nonnull RelationalParser.IndexTypeContext ctx) {
+                        called.setTrue();
+                        return null;
+                    }
+                });
+    }
+
+    @Test
+    void visitIndexColumnSpecTest() {
+        testSimple("col1 ASC",
+                RelationalParser::indexColumnSpec,
+                DelegatingVisitor::visitIndexColumnSpec,
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                        generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
+                    @Override
+                    @SuppressWarnings({"NullableProblems", "DataFlowIssue"})
+                    public Object visitIndexColumnSpec(@Nonnull RelationalParser.IndexColumnSpecContext ctx) {
+                        called.setTrue();
+                        return null;
+                    }
+                });
+    }
+
+    @Test
+    void visitIndexAsSelectDefinitionTest() {
+        final var query = "INDEX myIndex AS SELECT * FROM table1";
+        testVisitor(query,
+                RelationalParser::indexDefinition,
+                (visitor, ctx) -> {
+                    Assertions.assertThat(ctx).isInstanceOf(RelationalParser.IndexAsSelectDefinitionContext.class);
+                    visitor.visitIndexAsSelectDefinition((RelationalParser.IndexAsSelectDefinitionContext) ctx);
+                },
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, query, query, 42),
+                        generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
+                    @Override
+                    @SuppressWarnings({"NullableProblems", "DataFlowIssue"})
+                    public RecordLayerIndex visitIndexAsSelectDefinition(@Nonnull RelationalParser.IndexAsSelectDefinitionContext ctx) {
+                        called.setTrue();
+                        return null;
+                    }
+                });
+    }
+
+    @Test
+    void visitOrderClauseTest() {
+        testSimple("ASC NULLS FIRST",
+                RelationalParser::orderClause,
+                DelegatingVisitor::visitOrderClause,
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                        generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
+                    @Override
+                    public Object visitOrderClause(@Nonnull RelationalParser.OrderClauseContext ctx) {
+                        called.setTrue();
+                        return null;
+                    }
+                });
+    }
+
+    @Test
+    void visitVectorIndexOptionsTest() {
+        testSimple("OPTIONS (EF_CONSTRUCTION = 100)",
+                RelationalParser::vectorIndexOptions,
+                DelegatingVisitor::visitVectorIndexOptions,
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                        generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
+                    @Override
+                    public Object visitVectorIndexOptions(@Nonnull RelationalParser.VectorIndexOptionsContext ctx) {
+                        called.setTrue();
+                        return null;
+                    }
+                });
+    }
+
+    @Test
+    void visitHnswMetricTest() {
+        testSimple("EUCLIDEAN_METRIC",
+                RelationalParser::hnswMetric,
+                DelegatingVisitor::visitHnswMetric,
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                        generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
+                    @Override
+                    public Object visitHnswMetric(@Nonnull RelationalParser.HnswMetricContext ctx) {
+                        called.setTrue();
+                        return null;
+                    }
+                });
+    }
+
+    @Test
+    void visitVectorIndexOptionTest() {
+        testSimple("EF_CONSTRUCTION = 100",
+                RelationalParser::vectorIndexOption,
+                DelegatingVisitor::visitVectorIndexOption,
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                        generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
+                    @Override
+                    public Object visitVectorIndexOption(@Nonnull RelationalParser.VectorIndexOptionContext ctx) {
+                        called.setTrue();
+                        return null;
+                    }
+                });
     }
 
     @Test

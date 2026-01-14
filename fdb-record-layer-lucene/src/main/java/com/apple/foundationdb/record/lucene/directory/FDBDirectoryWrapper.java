@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.lucene.LuceneEvents;
 import com.apple.foundationdb.record.lucene.LuceneLoggerInfoStream;
 import com.apple.foundationdb.record.lucene.LuceneRecordContextProperties;
 import com.apple.foundationdb.record.lucene.codec.LazyCloseable;
+import com.apple.foundationdb.record.lucene.codec.LazyOpener;
 import com.apple.foundationdb.record.lucene.codec.LuceneOptimizedCodec;
 import com.apple.foundationdb.record.provider.foundationdb.IndexDeferredMaintenanceControl;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
@@ -104,6 +105,10 @@ public class FDBDirectoryWrapper implements AutoCloseable {
      * closure is postponed until this class' {@link #close()} call.
      */
     private Queue<LazyCloseable<DirectoryReader>> readersToClose;
+    /**
+     * The instance of the pending writes queue.
+     */
+    private LazyOpener<PendingWriteQueue> pendingWriteQueue;
 
     FDBDirectoryWrapper(@Nonnull final IndexMaintainerState state,
                         @Nonnull final Tuple key,
@@ -122,6 +127,7 @@ public class FDBDirectoryWrapper implements AutoCloseable {
         writerReader = LazyCloseable.supply(() -> DirectoryReader.open(writer.get()));
         readersToClose = new ConcurrentLinkedQueue<>();
         readersToClose.add(writerReader);
+        pendingWriteQueue = LazyOpener.supply(() -> directory.createPendingWritesQueue());
     }
 
     @VisibleForTesting
@@ -142,6 +148,7 @@ public class FDBDirectoryWrapper implements AutoCloseable {
         writerReader = LazyCloseable.supply(() -> DirectoryReader.open(writer.get()));
         readersToClose = new ConcurrentLinkedQueue<>();
         readersToClose.add(writerReader);
+        pendingWriteQueue = LazyOpener.supply(() -> directory.createPendingWritesQueue());
     }
 
     @Nonnull
@@ -231,6 +238,14 @@ public class FDBDirectoryWrapper implements AutoCloseable {
             }
         }
         return writerReader.get();
+    }
+
+    /**
+     * Return the {@link PendingWriteQueue} instance to use to read documents queued while the directory was locked.
+     * @return the queue instance
+     */
+    public PendingWriteQueue getPendingWriteQueue() {
+        return pendingWriteQueue.getUnchecked();
     }
 
     private static class FDBDirectorySerialMergeScheduler extends MergeScheduler {

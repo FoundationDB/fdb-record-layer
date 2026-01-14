@@ -1,0 +1,320 @@
+#
+# index-ddl-aggregates-only.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Test AGGREGATE indexes with different aggregation functions
+# Compares CREATE INDEX AS SELECT with GROUP BY vs CREATE INDEX ON with aggregate views
+# Both syntaxes should produce equivalent query plans
+
+---
+options:
+    supported_version: !current_version
+    noChecks: [metrics]
+---
+schema_template:
+    create table sales_mat_view(
+        id bigint,
+        product_id bigint,
+        category string,
+        region string,
+        amount bigint,
+        quantity bigint,
+        primary key(id)
+    )
+
+    create index idx_mv_sum_by_category as select sum(amount) from sales_mat_view group by category
+    create index idx_mv_sum_by_region as select sum(amount) from sales_mat_view group by region
+    create index idx_mv_sum_by_cat_region as select sum(amount) from sales_mat_view group by category, region
+    create index idx_mv_sum_by_all as select sum(amount) from sales_mat_view group by category, region, product_id
+
+    create index idx_mv_count_by_category as select count(*) from sales_mat_view group by category
+    create index idx_mv_count_qty_by_region as select count(quantity) from sales_mat_view group by region
+
+    create index idx_mv_cat_region_sum as select category, region, sum(amount) from sales_mat_view group by category, region
+
+    create index idx_mv_min_amount_by_category as select min(amount) from sales_mat_view group by category
+    create index idx_mv_max_amount_by_region as select max(amount) from sales_mat_view group by region
+
+    create index idx_mv_min_ever_qty_by_category as select min_ever(quantity) from sales_mat_view group by category
+    create index idx_mv_max_ever_qty_by_region as select max_ever(quantity) from sales_mat_view group by region
+
+    create index idx_mv_cat_max_region as select category, max(amount), region from sales_mat_view group by category, region
+    create index idx_mv_min_cat_region as select min(amount), category, region from sales_mat_view group by category, region
+
+    create table sales_index_on(
+        id bigint,
+        product_id bigint,
+        category string,
+        region string,
+        amount bigint,
+        quantity bigint,
+        primary key(id)
+    )
+
+    create view v_iot_sum_by_category as select sum(amount) as total_amount, category from sales_index_on group by category
+    create index idx_iot_sum_by_category on v_iot_sum_by_category(category) include(total_amount)
+
+    create view v_iot_sum_by_region as select sum(amount) as total_amount, region from sales_index_on group by region
+    create index idx_iot_sum_by_region on v_iot_sum_by_region(region) include(total_amount)
+
+    create view v_iot_sum_by_cat_region as select sum(amount) as total_amount, category, region from sales_index_on group by category, region
+    create index idx_iot_sum_by_cat_region on v_iot_sum_by_cat_region(category, region) include(total_amount)
+
+    create view v_iot_sum_by_all as select sum(amount) as total_amount, category, region, product_id from sales_index_on group by category, region, product_id
+    create index idx_iot_sum_by_all on v_iot_sum_by_all(category, region, product_id) include(total_amount)
+
+    create view v_iot_count_by_category as select count(*) as record_count, category from sales_index_on group by category
+    create index idx_iot_count_by_category on v_iot_count_by_category(category) include(record_count)
+
+    create view v_iot_count_qty_by_region as select count(quantity) as qty_count, region from sales_index_on group by region
+    create index idx_iot_count_qty_by_region on v_iot_count_qty_by_region(region) include(qty_count)
+
+    create view v_iot_cat_region_sum as select category, region, sum(amount) as total_amount from sales_index_on group by category, region
+    create index idx_iot_cat_region_sum on v_iot_cat_region_sum(category, region) include(total_amount)
+
+    create view v_iot_min_amount_by_category as select min(amount) as min_amount, category from sales_index_on group by category
+    create index idx_iot_min_amount_by_category on v_iot_min_amount_by_category(category) include(min_amount)
+
+    create view v_iot_max_amount_by_region as select max(amount) as max_amount, region from sales_index_on group by region
+    create index idx_iot_max_amount_by_region on v_iot_max_amount_by_region(region) include(max_amount)
+
+    create view v_iot_min_ever_qty_by_category as select min_ever(quantity) as min_qty, category from sales_index_on group by category
+    create index idx_iot_min_ever_qty_by_category on v_iot_min_ever_qty_by_category(category) include(min_qty)
+
+    create view v_iot_max_ever_qty_by_region as select max_ever(quantity) as max_qty, region from sales_index_on group by region
+    create index idx_iot_max_ever_qty_by_region on v_iot_max_ever_qty_by_region(region) include(max_qty)
+
+    create view v_iot_cat_max_region as select category, max(amount) as max_amount, region from sales_index_on group by category, region
+    create index idx_iot_cat_max_region on v_iot_cat_max_region(category, max_amount, region)
+
+    create view v_iot_min_cat_region as select min(amount) as min_amount, category, region from sales_index_on group by category, region
+    create index idx_iot_min_cat_region on v_iot_min_cat_region(min_amount, category, region)
+
+---
+setup:
+  steps:
+    - query: INSERT INTO sales_mat_view VALUES
+             (1, 101, 'Electronics', 'North', 1500, 10),
+             (2, 102, 'Electronics', 'South', 2000, 15),
+             (3, 103, 'Electronics', 'East', 1200, 8),
+             (4, 104, 'Electronics', 'North', 1800, 12),
+             (5, 201, 'Furniture', 'North', 800, 5),
+             (6, 202, 'Furniture', 'South', 950, 7),
+             (7, 203, 'Furniture', 'West', 1100, 6),
+             (8, 301, 'Clothing', 'East', 500, 20),
+             (9, 302, 'Clothing', 'West', 600, 25),
+             (10, 303, 'Clothing', 'North', 450, 18)
+
+    - query: INSERT INTO sales_index_on VALUES
+             (1, 101, 'Electronics', 'North', 1500, 10),
+             (2, 102, 'Electronics', 'South', 2000, 15),
+             (3, 103, 'Electronics', 'East', 1200, 8),
+             (4, 104, 'Electronics', 'North', 1800, 12),
+             (5, 201, 'Furniture', 'North', 800, 5),
+             (6, 202, 'Furniture', 'South', 950, 7),
+             (7, 203, 'Furniture', 'West', 1100, 6),
+             (8, 301, 'Clothing', 'East', 500, 20),
+             (9, 302, 'Clothing', 'West', 600, 25),
+             (10, 303, 'Clothing', 'North', 450, 18)
+
+---
+test_block:
+  name: sum_aggregate_single_grouping
+  tests:
+    # Test SUM aggregate with single GROUP BY column - category
+    -
+      - query: select category, sum(amount) as total from sales_mat_view group by category order by category
+      - explain: "AISCAN(IDX_MV_SUM_BY_CATEGORY <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS CATEGORY, _._1 AS TOTAL)"
+      - result: [{ "Clothing", 1550 }, { "Electronics", 6500 }, { "Furniture", 2850 }]
+    -
+      - query: select category, sum(amount) as total from sales_index_on group by category order by category
+      - explain: "AISCAN(IDX_IOT_SUM_BY_CATEGORY <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS CATEGORY, _._1 AS TOTAL)"
+      - result: [{ "Clothing", 1550 }, { "Electronics", 6500 }, { "Furniture", 2850 }]
+
+    # Test SUM aggregate with single GROUP BY column - region
+    -
+      - query: select region, sum(amount) as total from sales_mat_view group by region order by region
+      - explain: "AISCAN(IDX_MV_SUM_BY_REGION <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS REGION, _._1 AS TOTAL)"
+      - result: [{ "East", 1700 }, { "North", 4550 }, { "South", 2950 }, { "West", 1700 }]
+    -
+      - query: select region, sum(amount) as total from sales_index_on group by region order by region
+      - explain: "AISCAN(IDX_IOT_SUM_BY_REGION <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS REGION, _._1 AS TOTAL)"
+      - result: [{ "East", 1700 }, { "North", 4550 }, { "South", 2950 }, { "West", 1700 }]
+
+---
+test_block:
+  name: sum_aggregate_multi_grouping
+  tests:
+    # Test SUM aggregate with multiple GROUP BY columns
+    -
+      - query: select category, region, sum(amount) as total from sales_mat_view group by category, region order by category, region
+      - explain: "AISCAN(IDX_MV_CAT_REGION_SUM <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | MAP (_._0 AS CATEGORY, _._1 AS REGION, _._2 AS TOTAL)"
+      - result: [{ "Clothing", "East", 500 }, { "Clothing", "North", 450 }, { "Clothing", "West", 600 }, { "Electronics", "East", 1200 }, { "Electronics", "North", 3300 }, { "Electronics", "South", 2000 }, { "Furniture", "North", 800 }, { "Furniture", "South", 950 }, { "Furniture", "West", 1100 }]
+    -
+      - query: select category, region, sum(amount) as total from sales_index_on group by category, region order by category, region
+      - explain: "AISCAN(IDX_IOT_CAT_REGION_SUM <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | MAP (_._0 AS CATEGORY, _._1 AS REGION, _._2 AS TOTAL)"
+      - result: [{ "Clothing", "East", 500 }, { "Clothing", "North", 450 }, { "Clothing", "West", 600 }, { "Electronics", "East", 1200 }, { "Electronics", "North", 3300 }, { "Electronics", "South", 2000 }, { "Furniture", "North", 800 }, { "Furniture", "South", 950 }, { "Furniture", "West", 1100 }]
+
+    # Test filtering on specific category
+    -
+      - query: select category, region, sum(amount) as total from sales_mat_view where category = 'Electronics' group by category, region order by region
+      - explain: "AISCAN(IDX_MV_CAT_REGION_SUM [EQUALS promote(@c17 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | MAP (_._0 AS CATEGORY, _._1 AS REGION, _._2 AS TOTAL)"
+      - result: [{ "Electronics", "East", 1200 }, { "Electronics", "North", 3300 }, { "Electronics", "South", 2000 }]
+    -
+      - query: select category, region, sum(amount) as total from sales_index_on where category = 'Electronics' group by category, region order by region
+      - explain: "AISCAN(IDX_IOT_CAT_REGION_SUM [EQUALS promote(@c17 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | MAP (_._0 AS CATEGORY, _._1 AS REGION, _._2 AS TOTAL)"
+      - result: [{ "Electronics", "East", 1200 }, { "Electronics", "North", 3300 }, { "Electronics", "South", 2000 }]
+
+---
+test_block:
+  name: sum_aggregate_three_grouping
+  tests:
+    # Test aggregate with three GROUP BY columns
+    -
+      - query: select category, region, product_id, sum(amount) as total from sales_mat_view group by category, region, product_id order by category, region, product_id
+      - explain: "AISCAN(IDX_MV_SUM_BY_ALL <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[2], _3: VALUE:[0]]) | MAP (_._0 AS CATEGORY, _._1 AS REGION, _._2 AS PRODUCT_ID, _._3 AS TOTAL)"
+      - result: [{ "Clothing", "East", 301, 500 }, { "Clothing", "North", 303, 450 }, { "Clothing", "West", 302, 600 }, { "Electronics", "East", 103, 1200 }, { "Electronics", "North", 101, 1500 }, { "Electronics", "North", 104, 1800 }, { "Electronics", "South", 102, 2000 }, { "Furniture", "North", 201, 800 }, { "Furniture", "South", 202, 950 }, { "Furniture", "West", 203, 1100 }]
+    -
+      - query: select category, region, product_id, sum(amount) as total from sales_index_on group by category, region, product_id order by category, region, product_id
+      - explain: "AISCAN(IDX_IOT_SUM_BY_ALL <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[2], _3: VALUE:[0]]) | MAP (_._0 AS CATEGORY, _._1 AS REGION, _._2 AS PRODUCT_ID, _._3 AS TOTAL)"
+      - result: [{ "Clothing", "East", 301, 500 }, { "Clothing", "North", 303, 450 }, { "Clothing", "West", 302, 600 }, { "Electronics", "East", 103, 1200 }, { "Electronics", "North", 101, 1500 }, { "Electronics", "North", 104, 1800 }, { "Electronics", "South", 102, 2000 }, { "Furniture", "North", 201, 800 }, { "Furniture", "South", 202, 950 }, { "Furniture", "West", 203, 1100 }]
+
+---
+test_block:
+  name: count_star_aggregate
+  tests:
+    # Test COUNT(*) aggregate
+    -
+      - query: select category, count(*) as cnt from sales_mat_view group by category order by category
+      - explain: "AISCAN(IDX_MV_COUNT_BY_CATEGORY <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS CATEGORY, _._1 AS CNT)"
+      - result: [{ "Clothing", 3 }, { "Electronics", 4 }, { "Furniture", 3 }]
+    -
+      - query: select category, count(*) as cnt from sales_index_on group by category order by category
+      - explain: "AISCAN(IDX_IOT_COUNT_BY_CATEGORY <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS CATEGORY, _._1 AS CNT)"
+      - result: [{ "Clothing", 3 }, { "Electronics", 4 }, { "Furniture", 3 }]
+
+---
+test_block:
+  name: count_column_aggregate
+  tests:
+    # Test COUNT(column) aggregate
+    -
+      - query: select region, count(quantity) as cnt from sales_mat_view group by region order by region
+      - explain: "AISCAN(IDX_MV_COUNT_QTY_BY_REGION <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS REGION, _._1 AS CNT)"
+      - result: [{ "East", 2 }, { "North", 4 }, { "South", 2 }, { "West", 2 }]
+    -
+      - query: select region, count(quantity) as cnt from sales_index_on group by region order by region
+      - explain: "AISCAN(IDX_IOT_COUNT_QTY_BY_REGION <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS REGION, _._1 AS CNT)"
+      - result: [{ "East", 2 }, { "North", 4 }, { "South", 2 }, { "West", 2 }]
+
+---
+test_block:
+  name: aggregate_with_having
+  tests:
+    # Test HAVING clause with aggregates
+    -
+      - query: select category, sum(amount) as total from sales_mat_view group by category having sum(amount) > 2000 order by category
+      - explain: "AISCAN(IDX_MV_SUM_BY_CATEGORY <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | FILTER _._1 GREATER_THAN promote(@c21 AS LONG) | MAP (_._0 AS CATEGORY, _._1 AS TOTAL)"
+      - result: [{ "Electronics", 6500 }, { "Furniture", 2850 }]
+    -
+      - query: select category, sum(amount) as total from sales_index_on group by category having sum(amount) > 2000 order by category
+      - explain: "AISCAN(IDX_IOT_SUM_BY_CATEGORY <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | FILTER _._1 GREATER_THAN promote(@c21 AS LONG) | MAP (_._0 AS CATEGORY, _._1 AS TOTAL)"
+      - result: [{ "Electronics", 6500 }, { "Furniture", 2850 }]
+
+---
+test_block:
+  name: min_aggregate
+  tests:
+    # Test MIN aggregate
+    -
+      - query: select category, min(amount) as min_amt from sales_mat_view group by category order by category
+      - explain: "AISCAN(IDX_MV_MIN_AMOUNT_BY_CATEGORY <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1]]) | MAP (_._0 AS CATEGORY, _._1 AS MIN_AMT)"
+      - result: [{ "Clothing", 450 }, { "Electronics", 1200 }, { "Furniture", 800 }]
+    -
+      - query: select category, min(amount) as min_amt from sales_index_on group by category order by category
+      - explain: "AISCAN(IDX_IOT_MIN_AMOUNT_BY_CATEGORY <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1]]) | MAP (_._0 AS CATEGORY, _._1 AS MIN_AMT)"
+      - result: [{ "Clothing", 450 }, { "Electronics", 1200 }, { "Furniture", 800 }]
+
+---
+test_block:
+  name: max_aggregate
+  tests:
+    # Test MAX aggregate
+    -
+      - query: select region, max(amount) as max_amt from sales_mat_view group by region order by region
+      - explain: "AISCAN(IDX_MV_MAX_AMOUNT_BY_REGION <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1]]) | MAP (_._0 AS REGION, _._1 AS MAX_AMT)"
+      - result: [{ "East", 1200 }, { "North", 1800 }, { "South", 2000 }, { "West", 1100 }]
+    -
+      - query: select region, max(amount) as max_amt from sales_index_on group by region order by region
+      - explain: "AISCAN(IDX_IOT_MAX_AMOUNT_BY_REGION <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1]]) | MAP (_._0 AS REGION, _._1 AS MAX_AMT)"
+      - result: [{ "East", 1200 }, { "North", 1800 }, { "South", 2000 }, { "West", 1100 }]
+
+---
+test_block:
+  name: min_ever_aggregate
+  tests:
+    # Test MIN_EVER aggregate
+    -
+      - query: select category, min_ever(quantity) as min_qty from sales_mat_view group by category order by category
+      - explain: "AISCAN(IDX_MV_MIN_EVER_QTY_BY_CATEGORY <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS CATEGORY, _._1 AS MIN_QTY)"
+      - result: [{ "Clothing", 18 }, { "Electronics", 8 }, { "Furniture", 5 }]
+    -
+      - query: select category, min_ever(quantity) as min_qty from sales_index_on group by category order by category
+      - explain: "AISCAN(IDX_IOT_MIN_EVER_QTY_BY_CATEGORY <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS CATEGORY, _._1 AS MIN_QTY)"
+      - result: [{ "Clothing", 18 }, { "Electronics", 8 }, { "Furniture", 5 }]
+
+---
+test_block:
+  name: max_ever_aggregate
+  tests:
+    # Test MAX_EVER aggregate
+    -
+      - query: select region, max_ever(quantity) as max_qty from sales_mat_view group by region order by region
+      - explain: "AISCAN(IDX_MV_MAX_EVER_QTY_BY_REGION <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS REGION, _._1 AS MAX_QTY)"
+      - result: [{ "East", 20 }, { "North", 18 }, { "South", 15 }, { "West", 25 }]
+    -
+      - query: select region, max_ever(quantity) as max_qty from sales_index_on group by region order by region
+      - explain: "AISCAN(IDX_IOT_MAX_EVER_QTY_BY_REGION <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS REGION, _._1 AS MAX_QTY)"
+      - result: [{ "East", 20 }, { "North", 18 }, { "South", 15 }, { "West", 25 }]
+
+---
+test_block:
+  name: aggregate_in_middle_of_key
+  tests:
+    # Test aggregate value in the middle of the key - category, max(amount), region
+    -
+      - query: select category, max(amount) as max_amt, region from sales_mat_view group by category, region order by category, region
+      - explain: "AISCAN(IDX_MV_CAT_MAX_REGION <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[2]]) | MAP (_._0 AS CATEGORY, _._2 AS MAX_AMT, _._1 AS REGION)"
+      - result: [{ "Clothing", 500, "East" }, { "Clothing", 450, "North" }, { "Clothing", 600, "West" }, { "Electronics", 1200, "East" }, { "Electronics", 1800, "North" }, { "Electronics", 2000, "South" }, { "Furniture", 800, "North" }, { "Furniture", 950, "South" }, { "Furniture", 1100, "West" }]
+    -
+      - query: select category, max(amount) as max_amt, region from sales_index_on group by category, region order by category, region
+      - explain: "ISCAN(IDX_IOT_MIN_CAT_REGION <,>) | MAP (_ AS _0) | AGG (max_l(_._0.AMOUNT) AS _0) GROUP BY (_._0.CATEGORY AS _0, _._0.REGION AS _1) | MAP (_._0._0 AS CATEGORY, _._1._0 AS MAX_AMT, _._0._1 AS REGION)"
+      - result: [{ "Clothing", 500, "East" }, { "Clothing", 450, "North" }, { "Clothing", 600, "West" }, { "Electronics", 1200, "East" }, { "Electronics", 1800, "North" }, { "Electronics", 2000, "South" }, { "Furniture", 800, "North" }, { "Furniture", 950, "South" }, { "Furniture", 1100, "West" }]
+
+    # Test aggregate value at the beginning of the key - min(amount), category, region
+    -
+      - query: select min(amount) as min_amt, category, region from sales_mat_view group by category, region order by category, region
+      - explain: "AISCAN(IDX_MV_MIN_CAT_REGION <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[2]]) | MAP (_._2 AS MIN_AMT, _._0 AS CATEGORY, _._1 AS REGION)"
+      - result: [{ 500, "Clothing", "East" }, { 450, "Clothing", "North" }, { 600, "Clothing", "West" }, { 1200, "Electronics", "East" }, { 1500, "Electronics", "North" }, { 2000, "Electronics", "South" }, { 800, "Furniture", "North" }, { 950, "Furniture", "South" }, { 1100, "Furniture", "West" }]
+    -
+      - query: select min(amount) as min_amt, category, region from sales_index_on group by category, region order by category, region
+      - explain: "ISCAN(IDX_IOT_MIN_CAT_REGION <,>) | MAP (_ AS _0) | AGG (min_l(_._0.AMOUNT) AS _0) GROUP BY (_._0.CATEGORY AS _0, _._0.REGION AS _1) | MAP (_._1._0 AS MIN_AMT, _._0._0 AS CATEGORY, _._0._1 AS REGION)"
+      - result: [{ 500, "Clothing", "East" }, { 450, "Clothing", "North" }, { 600, "Clothing", "West" }, { 1200, "Electronics", "East" }, { 1500, "Electronics", "North" }, { 2000, "Electronics", "South" }, { 800, "Furniture", "North" }, { 950, "Furniture", "South" }, { 1100, "Furniture", "West" }]
+
+...
+

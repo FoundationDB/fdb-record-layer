@@ -169,7 +169,58 @@ enumDefinition
     ;
 
 indexDefinition
-    : (UNIQUE)? INDEX indexName=uid AS queryTerm indexAttributes?
+    : (UNIQUE)? INDEX indexName=uid AS queryTerm indexAttributes?                                                                  #indexAsSelectDefinition
+    | (UNIQUE)? INDEX indexName=uid ON source=fullId indexColumnList includeClause? indexOptions?                                  #indexOnSourceDefinition
+    | VECTOR INDEX indexName=uid USING HNSW ON source=fullId indexColumnList includeClause? partitionClause? vectorIndexOptions?   #vectorIndexDefinition
+    ;
+
+indexColumnList
+    : '(' indexColumnSpec (',' indexColumnSpec)* ')'
+    ;
+
+indexColumnSpec
+    : columnName=uid orderClause?
+    ;
+
+includeClause
+    : INCLUDE '(' uidList ')'
+    ;
+
+indexType
+    : UNIQUE | VECTOR
+    ;
+
+indexOptions
+    : OPTIONS '(' indexOption (COMMA indexOption)* ')'
+    ;
+
+indexOption
+    : LEGACY_EXTREMUM_EVER
+    ;
+
+vectorIndexOptions
+    : OPTIONS '(' vectorIndexOption (COMMA vectorIndexOption)* ')'
+    ;
+
+vectorIndexOption
+    : EF_CONSTRUCTION '=' efConstruction=DECIMAL_LITERAL
+    | CONNECTIVITY '=' connectivity=DECIMAL_LITERAL
+    | M_MAX '=' mMax=DECIMAL_LITERAL
+    | M_MAX_0 '=' mMaxZero=DECIMAL_LITERAL
+    | MAINTAIN_STATS_PROBABILITY '=' maintainStatsProbability=REAL_LITERAL
+    | METRIC '=' metric=hnswMetric
+    | RABITQ_NUM_EX_BITS '=' rabitQNumExBits=DECIMAL_LITERAL
+    | SAMPLE_VECTOR_STATS_PROBABILITY '=' statsProbability=REAL_LITERAL
+    | STATS_THRESHOLD '=' statsThreshold=DECIMAL_LITERAL
+    | USE_RABITQ '=' useRabitQ=booleanLiteral
+    ;
+
+hnswMetric
+    : MANHATTAN_METRIC
+    | EUCLIDEAN_METRIC
+    | EUCLIDEAN_SQUARE_METRIC
+    | COSINE_METRIC
+    | DOT_PRODUCT_METRIC
     ;
 
 indexAttributes
@@ -409,7 +460,12 @@ orderByClause
     ;
 
 orderByExpression
-    : expression order=(ASC | DESC)? (NULLS nulls=(FIRST | LAST))?
+    : expression orderClause?
+    ;
+
+orderClause
+    : order=(ASC | DESC) (NULLS nulls=(FIRST | LAST))?
+    | NULLS nulls=(FIRST | LAST)
     ;
 
 tableSources // done
@@ -1105,10 +1161,11 @@ frameRange
     | expression (PRECEDING | FOLLOWING)
     ;
 
-partitionClause
-    : PARTITION BY expression (',' expression)*
-    ;
 */
+
+partitionClause
+    : PARTITION BY '(' indexColumnSpec (',' indexColumnSpec)* ')'
+    ;
 
 scalarFunctionName
     : functionNameBase
