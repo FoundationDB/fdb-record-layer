@@ -64,11 +64,6 @@ class FDBTieredMergePolicy extends TieredMergePolicy {
         return LOGGER.isDebugEnabled();
     }
 
-    boolean isAutoMergeDuringCommit(MergeTrigger mergeTrigger) {
-        return mergeTrigger == MergeTrigger.FULL_FLUSH ||
-               mergeTrigger == MergeTrigger.COMMIT;
-    }
-
     private int specSize(@Nullable MergeSpecification spec) {
         return spec != null && spec.merges != null ? spec.merges.size() : 0;
     }
@@ -81,7 +76,7 @@ class FDBTieredMergePolicy extends TieredMergePolicy {
             MergeUtils.logFoundMerges(LOGGER, "Found Merges without mergeControl", context, indexSubspace, key, mergeTrigger, merges, exceptionAtCreation);
             return merges;
         }
-        if (!mergeControl.shouldAutoMergeDuringCommit() && isAutoMergeDuringCommit(mergeTrigger)) {
+        if (!mergeControl.shouldAutoMergeDuringCommit() && !mergeControl.isExplicitMergePath()) {
             // Here: skip it. The merge should be performed later by the user.
             return null;
         }

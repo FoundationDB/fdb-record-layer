@@ -831,6 +831,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                         1, AgilityContext.agile(context, 1L, 1L),
                         indexAnalyzerSelector.provideIndexAnalyzer(), new Exception());
 
+                recordStore.getIndexDeferredMaintenanceControl().setExplicitMergePath(true);
                 assertThrows(IOException.class, () -> fdbDirectoryWrapper.mergeIndex(), "invalid lock");
                 commit(context);
             }
