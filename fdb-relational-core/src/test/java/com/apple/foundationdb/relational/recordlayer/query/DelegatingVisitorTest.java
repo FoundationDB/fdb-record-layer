@@ -34,12 +34,14 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaT
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.recordlayer.query.visitors.BaseVisitor;
 import com.apple.foundationdb.relational.recordlayer.query.visitors.DelegatingVisitor;
+import com.apple.foundationdb.relational.recordlayer.query.visitors.TypedVisitor;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.apache.commons.lang3.mutable.MutableBoolean;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.mockito.Mockito;
 
 import javax.annotation.Nonnull;
 import java.net.URI;
