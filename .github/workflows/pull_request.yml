@@ -9,10 +9,10 @@ jobs:
   #  1. style: Runs all checks on the build (including compilation static analysis) except the tests
   #     This allows us to catch anything related to build and style faster, as we don't have to wait
   #     on tests to complete. It also allows the test jobs to continue even if there's a style failure.
-  #  2. (extensions, core, lucene, etc.)-tests: Runs the tests for one subproject each. These are the
-  #     more intensive subprojects, so separating them out allows us to run those parts of the build in
-  #     parallel, and it also allows us to ensure they get run even if there are failures in other
-  #     subprojects giving us more insight into the types of failures we're seeing.
+  #  2. tests: Runs the tests for a subset of subprojects in parallel. These are the most intensive
+  #     subprojects, so separating them out allows us to run those parts of the build in parallel, and
+  #     it also allows us to ensure they get run even if there are failures in other subprojects,
+  #     giving us more insight into the types of test failures that a PR might have induced.
   #  3. other-tests: Runs the rest of the tests. This tests all the remaining subprojects.
   #  4. coverage: Merges the JaCoCo output of 2 and 3 and generates reports.
 
@@ -33,7 +33,10 @@ jobs:
         with:
           gradle_command: build -x test -x destructiveTest -PreleaseBuild=false -PpublishBuild=false -PspotbugsEnableHtmlReport
 
-  extensions-tests:
+  tests:
+    strategy:
+      matrix:
+        subproject: [fdb-extensions, fdb-record-layer-core, fdb-record-layer-lucene, yaml-tests]
     runs-on: ubuntu-latest
     permissions:
       checks: write
@@ -50,127 +53,19 @@ jobs:
       - name: Run Gradle Test
         uses: ./actions/gradle-test
         with:
-          gradle_command: :fdb-extensions:jar :fdb-extensions:test :fdb-extensions:destructiveTest
+          gradle_command: :${{ matrix.subproject }}:jar :${{ matrix.subproject }}:test :${{ matrix.subproject }}:destructiveTest
           gradle_args: -PreleaseBuild=false -PpublishBuild=false
       - name: Publish Test Reports
         if: always()
         uses: actions/upload-artifact@v4.6.0
         with:
-          name: extensions-test-reports
+          name: ${{ matrix.subproject }}-test-reports
           path: |
-            test-reports/fdb-extensions/
+            test-reports/${{ matrix.subproject }}/
       - name: Publish Coverage Data
         uses: actions/upload-artifact@v4.6.0
         with:
-          name: extensions-coverage-data
-          path: |
-            **/.out/jacoco/*.exec
-            **/.out/libs/*.jar
-          include-hidden-files: true
-          retention-days: 1
-
-  core-tests:
-    runs-on: ubuntu-latest
-    permissions:
-      checks: write
-      contents: read
-      pull-requests: write
-    timeout-minutes: 40
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@v4.2.2
-      - name: Setup Base Environment
-        uses: ./actions/setup-base-env
-      - name: Setup FDB
-        uses: ./actions/setup-fdb
-      - name: Run Gradle Test
-        uses: ./actions/gradle-test
-        with:
-          gradle_command: :fdb-record-layer-core:jar :fdb-record-layer-core:test :fdb-record-layer-core:destructiveTest
-          gradle_args: -PreleaseBuild=false -PpublishBuild=false
-      - name: Publish Test Reports
-        if: always()
-        uses: actions/upload-artifact@v4.6.0
-        with:
-          name: core-test-reports
-          path: |
-            test-reports/fdb-record-layer-core/
-      - name: Publish Coverage Data
-        uses: actions/upload-artifact@v4.6.0
-        with:
-          name: core-coverage-data
-          path: |
-            **/.out/jacoco/*.exec
-            **/.out/libs/*.jar
-          include-hidden-files: true
-          retention-days: 1
-
-  lucene-tests:
-    runs-on: ubuntu-latest
-    permissions:
-      checks: write
-      contents: read
-      pull-requests: write
-    timeout-minutes: 40
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@v4.2.2
-      - name: Setup Base Environment
-        uses: ./actions/setup-base-env
-      - name: Setup FDB
-        uses: ./actions/setup-fdb
-      - name: Run Gradle Test
-        uses: ./actions/gradle-test
-        with:
-          gradle_command: :fdb-record-layer-lucene:jar :fdb-record-layer-lucene:test :fdb-record-layer-lucene:destructiveTest
-          gradle_args: -PreleaseBuild=false -PpublishBuild=false
-      - name: Publish Test Reports
-        if: always()
-        uses: actions/upload-artifact@v4.6.0
-        with:
-          name: lucene-test-reports
-          path: |
-            test-reports/fdb-record-layer-lucene/
-      - name: Publish Coverage Data
-        uses: actions/upload-artifact@v4.6.0
-        with:
-          name: lucene-coverage-data
-          path: |
-            **/.out/jacoco/*.exec
-            **/.out/libs/*.jar
-          include-hidden-files: true
-          retention-days: 1
-
-  yaml-tests:
-    runs-on: ubuntu-latest
-    permissions:
-      checks: write
-      contents: read
-      pull-requests: write
-    timeout-minutes: 40
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@v4.2.2
-      - name: Setup Base Environment
-        uses: ./actions/setup-base-env
-      - name: Setup FDB
-        uses: ./actions/setup-fdb
-      - name: Run Gradle Test
-        uses: ./actions/gradle-test
-        with:
-          gradle_command: :yaml-tests:jar :yaml-tests:test :yaml-tests:destructiveTest
-          gradle_args: -PreleaseBuild=false -PpublishBuild=false
-      - name: Publish Test Reports
-        if: always()
-        uses: actions/upload-artifact@v4.6.0
-        with:
-          name: yaml-test-reports
-          path: |
-            test-reports/yaml-tests/
-      - name: Publish Coverage Data
-        uses: actions/upload-artifact@v4.6.0
-        with:
-          name: yaml-coverage-data
+          name: ${{ matrix.subproject }}-coverage-data
           path: |
             **/.out/jacoco/*.exec
             **/.out/libs/*.jar
@@ -235,7 +130,7 @@ jobs:
           retention-days: 1
 
   coverage:
-    needs: [extensions-tests, core-tests, lucene-tests, yaml-tests, other-tests]
+    needs: [tests, other-tests]
     runs-on: ubuntu-latest
     permissions:
       checks: read
@@ -251,19 +146,19 @@ jobs:
       - name: 'Download lucene'
         uses: actions/download-artifact@v4
         with:
-          name: lucene-coverage-data
+          name: fdb-record-layer-lucene-coverage-data
       - name: 'Download extensions'
         uses: actions/download-artifact@v4
         with:
-          name: extensions-coverage-data
+          name: fdb-extensions-coverage-data
       - name: 'Download core'
         uses: actions/download-artifact@v4
         with:
-          name: core-coverage-data
+          name: fdb-record-layer-core-coverage-data
       - name: 'Download yaml'
         uses: actions/download-artifact@v4
         with:
-          name: yaml-coverage-data
+          name: yaml-tests-coverage-data
       - name: 'Download other'
         uses: actions/download-artifact@v4
         with:
