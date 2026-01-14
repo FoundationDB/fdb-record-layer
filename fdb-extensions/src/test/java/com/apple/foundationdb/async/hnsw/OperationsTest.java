@@ -268,7 +268,7 @@ class OperationsTest implements BaseTest {
                                         .setEfRepair(64)
                                         .setExtendCandidates(false)
                                         .setKeepPrunedConnections(false)
-                                        .setUseRaBitQ(true)
+                                        .setUseRaBitQ(false)
                                         .setRaBitQNumExBits(5)
                                         .setSampleVectorStatsProbability(1.0d)
                                         .setMaintainStatsProbability(0.1d)
