@@ -9,10 +9,10 @@ jobs:
   #  1. style: Runs all checks on the build (including compilation static analysis) except the tests
   #     This allows us to catch anything related to build and style faster, as we don't have to wait
   #     on tests to complete. It also allows the test jobs to continue even if there's a style failure.
-  #  2. subproject-tests: Runs the tests for a subset of subprojects in parallel. These are the
-  #     more intensive subprojects, so separating them out allows us to run those parts of the build in
-  #     parallel, and it also allows us to ensure they get run even if there are failures in other
-  #     subprojects giving us more insight into the types of failures we're seeing.
+  #  2. tests: Runs the tests for a subset of subprojects in parallel. These are the most intensive
+  #     subprojects, so separating them out allows us to run those parts of the build in parallel, and
+  #     it also allows us to ensure they get run even if there are failures in other subprojects,
+  #     giving us more insight into the types of test failures that a PR might have induced.
   #  3. other-tests: Runs the rest of the tests. This tests all the remaining subprojects.
   #  4. coverage: Merges the JaCoCo output of 2 and 3 and generates reports.
 
@@ -33,7 +33,7 @@ jobs:
         with:
           gradle_command: build -x test -x destructiveTest -PreleaseBuild=false -PpublishBuild=false -PspotbugsEnableHtmlReport
 
-  subproject-tests:
+  tests:
     strategy:
       matrix:
         subproject: [fdb-extensions, fdb-record-layer-core, fdb-record-layer-lucene, yaml-tests]
@@ -130,7 +130,7 @@ jobs:
           retention-days: 1
 
   coverage:
-    needs: [subproject-tests, other-tests]
+    needs: [tests, other-tests]
     runs-on: ubuntu-latest
     permissions:
       checks: read
