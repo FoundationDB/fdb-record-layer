@@ -81,7 +81,7 @@ public class DataTypeUtils {
             case ENUM:
                 final var asEnum = (Type.Enum) type;
                 final var enumValues = asEnum.getEnumValues().stream().map(v -> DataType.EnumType.EnumValue.of(v.getName(), v.getNumber())).collect(Collectors.toList());
-                return DataType.EnumType.from(asEnum.getName() == null ? ProtoUtils.uniqueName("") : asEnum.getName(), enumValues, asEnum.isNullable());
+                return DataType.EnumType.from(asEnum.getName() == null ? ProtoUtils.uniqueName("id") : asEnum.getName(), enumValues, asEnum.isNullable());
             default:
                 Assert.failUnchecked(String.format(Locale.ROOT, "unexpected type %s", type));
                 return null; // make compiler happy.

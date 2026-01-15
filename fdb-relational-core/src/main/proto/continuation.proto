@@ -88,4 +88,6 @@ message CompiledStatement {
   repeated TypedQueryArgument arguments = 4;
   // query plan constraints
   optional com.apple.foundationdb.record.planprotos.PQueryPlanConstraint plan_constraint = 5;
+  // query metadata
+  optional com.apple.foundationdb.record.planprotos.PType queryMetadata = 6;
 }
