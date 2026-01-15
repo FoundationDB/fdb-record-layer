@@ -862,7 +862,8 @@ public class SemanticAnalyzer {
     }
 
     public static void validateDatabaseUri(String pathName) {
-        Assert.thatUnchecked(Objects.requireNonNull(pathName).matches("/\\w[a-zA-Z0-9_/]*\\w"),
+        // TODO does this need to be more permissive. Does it need to support `.`
+        Assert.thatUnchecked(Objects.requireNonNull(pathName).matches("/\\w[-a-zA-Z0-9_/]*\\w"),
                 ErrorCode.INVALID_PATH, () -> String.format(Locale.ROOT, "invalid database path '%s'", pathName));
     }
 

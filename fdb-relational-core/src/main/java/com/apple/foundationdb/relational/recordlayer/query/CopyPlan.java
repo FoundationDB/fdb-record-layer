@@ -51,8 +51,8 @@ import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalExcep
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.api.metadata.Schema;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
-import com.apple.foundationdb.relational.copy.CopyData;
 import com.apple.foundationdb.relational.copy.CatalogInfo;
+import com.apple.foundationdb.relational.copy.CopyData;
 import com.apple.foundationdb.relational.recordlayer.ArrayRow;
 import com.apple.foundationdb.relational.recordlayer.ContinuationBuilder;
 import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
@@ -233,8 +233,10 @@ public final class CopyPlan extends QueryPlan {
                         copyDataBuilder.setSchemaTemplate(schemaTemplateInfo);
                     }
                 } catch (Exception e) {
-                    // If we can't extract schema info, just continue without it
-                    // This allows COPY to work for paths that don't have schemas
+                    throw new UncheckedRelationalException(new RelationalException(
+                            "Error extracting schema metadata information from catalog for data being exported",
+                            ErrorCode.COPY_SERIALIZATION_ERROR, e)
+                            .addContext("path", data.getPath()));
                 }
 
                 byte[] bytes = copyDataBuilder.build().toByteArray();
@@ -412,16 +414,16 @@ public final class CopyPlan extends QueryPlan {
                 if (!existingTemplate.getName().equals(templateName)) {
                     throw new RelationalException(
                             "Schema " + databaseUri.getPath() + "/" + schemaName +
-                            " exists but uses different template: expected " + templateName +
-                            ", found " + existingTemplate.getName(),
+                                    " exists but uses different template: expected " + templateName +
+                                    ", found " + existingTemplate.getName(),
                             ErrorCode.INVALID_SCHEMA_TEMPLATE);
                 }
 
                 if (existingTemplate.getVersion() != templateVersion) {
                     throw new RelationalException(
                             "Schema " + databaseUri.getPath() + "/" + schemaName +
-                            " exists but uses different template version: expected " + templateVersion +
-                            ", found " + existingTemplate.getVersion(),
+                                    " exists but uses different template version: expected " + templateVersion +
+                                    ", found " + existingTemplate.getVersion(),
                             ErrorCode.INVALID_SCHEMA_TEMPLATE);
                 }
             } else {
@@ -441,10 +443,9 @@ public final class CopyPlan extends QueryPlan {
                 final Schema newSchema = template.generateSchema(databaseUri.getPath(), schemaName);
                 storeCatalog.saveSchema(transaction, newSchema, false);
             }
+        } catch (RelationalException e) {
+            throw e;
         } catch (Exception e) {
-            if (e instanceof RelationalException) {
-                throw (RelationalException) e;
-            }
             throw new RelationalException("Failed to handle schema template during import",
                     ErrorCode.INTERNAL_ERROR, e);
         }
