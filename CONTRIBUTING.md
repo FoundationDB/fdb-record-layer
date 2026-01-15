@@ -155,7 +155,7 @@ you are working on an aspect of the RPC protocol. This can be run with `./gradle
 #### singleVersionTest
 
 For tests that use `@YamlTest`, this will run all the tests with the test connecting just
-to a single external server (unlike its normal behavior which is to alternate between the
+to multiple external servers of the same version (unlike its normal behavior which is to alternate between the
 external server and the current embedded connection).
 This can be run with `./gradlew singleVersionTest`
 
