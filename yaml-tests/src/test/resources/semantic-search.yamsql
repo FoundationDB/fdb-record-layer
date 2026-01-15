@@ -167,7 +167,7 @@ test_block:
           where zone = 'zone1' and bookshelf = 'fiction'
           and (row_number() over (partition by zone, bookshelf order by cosine_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc) <= 1
             or row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, !! !v16 [0.5, 0.5, 0.5] !!) asc) <= 1)
-      - explain: "ISCAN(DOCUMENTSCOSINEINDEX [EQUALS promote(@c8 AS STRING), EQUALS promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c31: @c37}:[] BY_DISTANCE) ∪ ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c8 AS STRING), EQUALS promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c55: @c37}:[] BY_DISTANCE) COMPARE BY (recordType(_), _.DOCID) | MAP (_.TITLE AS TITLE)"
+      - explain: "ISCAN(DOCUMENTSCOSINEINDEX [EQUALS promote(@c8 AS STRING), EQUALS promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c31: @c37}:[] BY_DISTANCE) ∪ ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c8 AS STRING), EQUALS promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c55: @c37}:[] BY_DISTANCE) COMPARE BY (recordType([_]), _.DOCID) | MAP (_.TITLE AS TITLE)"
       - unorderedResult: [{'The Great Gatsby'}, {'The Catcher in the Rye'}]
     -
       - query:

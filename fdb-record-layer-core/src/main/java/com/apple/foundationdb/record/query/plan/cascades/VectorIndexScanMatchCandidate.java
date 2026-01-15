@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
@@ -72,7 +71,7 @@ public class VectorIndexScanMatchCandidate implements ScanWithFetchMatchCandidat
      * Base type.
      */
     @Nonnull
-    private final Type baseType;
+    private final Type.Record baseType;
 
     /**
      * Base alias.
@@ -103,7 +102,7 @@ public class VectorIndexScanMatchCandidate implements ScanWithFetchMatchCandidat
                                          @Nonnull final Traversal traversal,
                                          @Nonnull final List<CorrelationIdentifier> parameters,
                                          @Nonnull final Set<CorrelationIdentifier> parametersRequiredForBinding,
-                                         @Nonnull final Type baseType,
+                                         @Nonnull final Type.Record baseType,
                                          @Nonnull final CorrelationIdentifier baseAlias,
                                          @Nonnull final List<Value> indexKeyValues,
                                          @Nonnull final List<Value> indexValueValues,
@@ -173,7 +172,7 @@ public class VectorIndexScanMatchCandidate implements ScanWithFetchMatchCandidat
 
     @Nonnull
     @Override
-    public Type getBaseType() {
+    public Type.Record getBaseType() {
         return baseType;
     }
 
@@ -218,8 +217,6 @@ public class VectorIndexScanMatchCandidate implements ScanWithFetchMatchCandidat
                                             final boolean reverseScanOrder) {
         final var matchInfo = partialMatch.getRegularMatchInfo();
         final var vectorIndexScanComparison = toVectorIndexScanComparisons(comparisonRanges);
-        final var baseRecordType =
-                Type.Record.fromFieldDescriptorsMap(RecordMetaData.getFieldDescriptorMapFromTypes(queriedRecordTypes));
         return new RecordQueryIndexPlan(index.getName(),
                 primaryKey,
                 vectorIndexScanComparison,
@@ -228,7 +225,7 @@ public class VectorIndexScanMatchCandidate implements ScanWithFetchMatchCandidat
                 reverseScanOrder,
                 false,
                 partialMatch.getMatchCandidate(),
-                baseRecordType,
+                baseType,
                 matchInfo.getConstraint());
     }
 

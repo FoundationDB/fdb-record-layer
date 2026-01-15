@@ -165,7 +165,7 @@ public class VectorIndexExpansionVisitor extends KeyExpressionExpansionVisitor i
                 Traversal.withRoot(Reference.initialOf(matchableSortExpression)),
                 parameters,
                 parametersRequiredForBinding,
-                baseQuantifier.getFlowedObjectType(),
+                baseQuantifier.getFlowedObjectType().narrowRecordMaybe().orElseThrow(() -> new RecordCoreException("cannot create match candidate with non-record type")),
                 baseQuantifier.getAlias(),
                 keyValues,
                 valueValues,
