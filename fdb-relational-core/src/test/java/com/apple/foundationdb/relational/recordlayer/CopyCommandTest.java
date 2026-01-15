@@ -415,7 +415,7 @@ public class CopyCommandTest {
         // TODO test with indexes
         // TODO test with multiple clusters
         // TODO test with more than one schema in the DB
-        final String uuidName = uuidForPath(false);
+        final String uuidName = uuidForPath(quoted);
         final String sourceDatabaseName = "/TEST/SOURCE_DB_" + uuidName;
         final String destDatabaseName = "/TEST/DEST_DB_" + uuidName;
         final String schemaName = "1";
@@ -426,10 +426,11 @@ public class CopyCommandTest {
         try {
             // Create a schema template and source database
             ConnectionUtils.runCatalogStatement(stmt -> {
-                stmt.executeUpdate("CREATE SCHEMA TEMPLATE " + templateName +
+                stmt.executeUpdate("CREATE SCHEMA TEMPLATE " + maybeQuote(templateName, quoted) +
                         " CREATE TABLE my_table (id bigint, col1 string, PRIMARY KEY(id))");
-                stmt.executeUpdate("CREATE DATABASE " + sourceDatabaseName);
-                stmt.executeUpdate("CREATE SCHEMA " + sourceDatabaseName + "/" + schemaName + " WITH TEMPLATE " + templateName);
+                stmt.executeUpdate("CREATE DATABASE " + maybeQuote(sourceDatabaseName, quoted));
+                stmt.executeUpdate("CREATE SCHEMA " + maybeQuote(sourceDatabaseName + "/" + schemaName, quoted) +
+                        " WITH TEMPLATE " + maybeQuote(templateName, quoted));
             });
 
             // Insert some records in the source database using SQL
@@ -463,8 +464,8 @@ public class CopyCommandTest {
                             )));
         } finally {
             ConnectionUtils.runCatalogStatement(stmt -> {
-                stmt.executeUpdate("DROP SCHEMA TEMPLATE " + templateName);
-                stmt.executeUpdate("DROP DATABASE " + sourceDatabaseName);
+                stmt.executeUpdate("DROP SCHEMA TEMPLATE " + maybeQuote(templateName, quoted));
+                stmt.executeUpdate("DROP DATABASE " + maybeQuote(sourceDatabaseName, quoted));
             });
         }
     }
