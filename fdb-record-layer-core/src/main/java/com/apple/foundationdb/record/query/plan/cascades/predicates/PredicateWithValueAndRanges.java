@@ -51,7 +51,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 import com.google.protobuf.Message;
-import org.checkerframework.checker.nullness.qual.NonNull;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -315,7 +314,7 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
      */
     @Nonnull
     @Override
-    public Optional<PredicateMapping> impliesCandidatePredicateMaybe(@NonNull final ValueEquivalence valueEquivalence,
+    public Optional<PredicateMapping> impliesCandidatePredicateMaybe(@Nonnull final ValueEquivalence valueEquivalence,
                                                                      @Nonnull final QueryPredicate originalQueryPredicate,
                                                                      @Nonnull final QueryPredicate candidatePredicate,
                                                                      @Nonnull final EvaluationContext evaluationContext) {

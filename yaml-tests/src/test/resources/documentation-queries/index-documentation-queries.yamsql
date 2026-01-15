@@ -1,6 +1,6 @@
 ---
 options:
-  supported_version: !current_version
+  supported_version: 4.9.1.0
 ---
 schema_template:
     create table products(id bigint, name string, category string, price bigint, rating bigint, supplier string, stock bigint, primary key(id))

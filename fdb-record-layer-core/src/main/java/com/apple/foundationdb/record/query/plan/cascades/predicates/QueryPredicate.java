@@ -30,8 +30,8 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.planprotos.PQueryPredicate;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
-import com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoolean;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
+import com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoolean;
 import com.apple.foundationdb.record.query.plan.cascades.Correlated;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Narrowable;
@@ -55,7 +55,6 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
 import com.google.protobuf.Message;
-import org.checkerframework.checker.nullness.qual.NonNull;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -171,7 +170,7 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
      */
     @Nonnull
     @SuppressWarnings("unused")
-    default Optional<PredicateMapping> impliesCandidatePredicateMaybe(@NonNull final ValueEquivalence valueEquivalence,
+    default Optional<PredicateMapping> impliesCandidatePredicateMaybe(@Nonnull final ValueEquivalence valueEquivalence,
                                                                       @Nonnull final QueryPredicate originalQueryPredicate,
                                                                       @Nonnull final QueryPredicate candidatePredicate,
                                                                       @Nonnull final EvaluationContext evaluationContext) {
@@ -270,7 +269,7 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
      * @param evaluationContext the evaluation context used to examine predicate implication.
      * @return a non-empty collection of {@link PredicateMapping}s
      */
-    default Collection<PredicateMapping> findImpliedMappings(@NonNull final ValueEquivalence valueEquivalence,
+    default Collection<PredicateMapping> findImpliedMappings(@Nonnull final ValueEquivalence valueEquivalence,
                                                              @Nonnull final QueryPredicate originalQueryPredicate,
                                                              @Nonnull final Iterable<? extends QueryPredicate> candidatePredicates,
                                                              @Nonnull final EvaluationContext evaluationContext) {

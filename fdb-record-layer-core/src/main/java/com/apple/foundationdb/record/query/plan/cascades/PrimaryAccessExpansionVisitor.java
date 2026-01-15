@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
@@ -89,6 +90,6 @@ public class PrimaryAccessExpansionVisitor extends KeyExpressionExpansionVisitor
                 availableRecordTypes,
                 recordTypes,
                 primaryKey,
-                baseQuantifier.getFlowedObjectType());
+                baseQuantifier.getFlowedObjectType().narrowRecordMaybe().orElseThrow(() -> new RecordCoreException("cannot create match candidate with non-record type")));
     }
 }

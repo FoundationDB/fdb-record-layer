@@ -22,7 +22,7 @@
 
 ---
 options:
-    supported_version: !current_version
+    supported_version: 4.9.1.0
 ---
 schema_template:
     # Table with indexes defined via materialized view

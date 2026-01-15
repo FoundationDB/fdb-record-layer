@@ -27,7 +27,6 @@ import com.google.common.collect.Sets;
 import com.google.common.escape.Escaper;
 import com.google.common.escape.Escapers;
 import com.google.common.graph.ImmutableNetwork;
-import org.checkerframework.checker.nullness.qual.NonNull;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -356,7 +355,7 @@ public class DotExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
     }
 
     protected void renderClusters(@Nonnull final ExporterContext context,
-                                  @NonNull final Set<N> currentNodes,
+                                  @Nonnull final Set<N> currentNodes,
                                   @Nonnull final Collection<Cluster<N, E>> nestedClusters,
                                   @Nonnull final String prefix,
                                   @Nonnull String indentation) {
