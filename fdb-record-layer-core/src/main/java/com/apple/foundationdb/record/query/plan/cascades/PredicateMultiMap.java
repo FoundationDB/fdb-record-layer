@@ -36,7 +36,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
-import org.checkerframework.checker.nullness.qual.NonNull;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
@@ -514,7 +513,7 @@ public class PredicateMultiMap {
             return parameterAliasOptional;
         }
 
-        @NonNull
+        @Nonnull
         public Optional<ComparisonRange> getComparisonRangeOptional() {
             return comparisonRangeOptional;
         }

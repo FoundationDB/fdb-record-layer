@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.query.plan.sorting;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.HeuristicPlanner;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ObjectPlanHash;
@@ -36,6 +35,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
+import com.apple.foundationdb.record.query.plan.HeuristicPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
@@ -121,7 +121,7 @@ public class RecordQueryDamPlan extends AbstractRelationalExpressionWithChildren
         final FDBStoreTimer timer = store.getTimer();
         final RecordCursor<FDBQueriedRecord<M>> dammed =
                 MemorySortCursor.createDam(adapter, innerCursor, timer, continuation).skipThenLimit(skip, limit);
-        return dammed.map(QueryResult::fromQueriedRecord);
+        return dammed.map(queriedRecord -> QueryResult.fromQueriedRecord(getResultValue().getResultType(), context, queriedRecord));
     }
 
     @Override

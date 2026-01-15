@@ -295,8 +295,8 @@ public class DeleteRangeNoMetadataKeyTest {
 
     @Test
     void testDeleteWithIndexWithSamePrefix() throws Exception {
-        final String schemaTemplateSuffix = " CREATE INDEX idx1 as select id, a from t1 order by id, a " +
-                "CREATE INDEX idx2 AS SELECT id, a, e, f FROM t2 ORDER BY id, a, e";
+        final String schemaTemplateSuffix = " CREATE INDEX idx1 ON t1(id, a) " +
+                "CREATE INDEX idx2 ON t2(id, a, e) INCLUDE(f)";
         try (var ddl = getDdl(schemaTemplateSuffix)) {
             try (var stmt = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertData(stmt);

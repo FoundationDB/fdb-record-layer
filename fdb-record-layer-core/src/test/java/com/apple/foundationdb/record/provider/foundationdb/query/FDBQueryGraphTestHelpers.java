@@ -39,7 +39,6 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type.Record;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -121,7 +120,7 @@ public class FDBQueryGraphTestHelpers extends FDBRecordStoreQueryTestBase {
         return forEach(
                 new LogicalTypeFilterExpression(ImmutableSet.of(typeName),
                         fullScanQun,
-                        Record.fromDescriptor(metaData.getRecordType(typeName).getDescriptor())));
+                        metaData.getPlannerType(typeName)));
     }
 
     @Nonnull

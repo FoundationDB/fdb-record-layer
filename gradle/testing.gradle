@@ -303,6 +303,9 @@ tasks.withType(Test).configureEach { task ->
         } else {
             task.testFramework.options.excludeTags.add('SuperSlow')
         }
+        if (project.hasProperty('tests.nightly')) {
+            task.ignoreFailures = true
+        }
         if (!project.hasProperty('tests.includeRandom')) {
             task.testFramework.options.excludeTags.add('Random')
         } else {

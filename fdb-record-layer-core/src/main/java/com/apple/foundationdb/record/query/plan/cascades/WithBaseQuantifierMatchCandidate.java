@@ -31,5 +31,5 @@ import javax.annotation.Nonnull;
 public interface WithBaseQuantifierMatchCandidate extends MatchCandidate {
 
     @Nonnull
-    Type getBaseType();
+    Type.Record getBaseType();
 }

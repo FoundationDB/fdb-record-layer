@@ -1,0 +1,357 @@
+sum_aggregate_single_grouping:
+-   query: EXPLAIN select category, sum(amount) as total from sales_mat_view group
+        by category order by category
+    explain: 'AISCAN(IDX_MV_SUM_BY_CATEGORY <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]])
+        | MAP (_._0 AS CATEGORY, _._1 AS TOTAL)'
+    task_count: 1034
+    task_total_time_ms: 429
+    transform_count: 295
+    transform_time_ms: 336
+    transform_yield_count: 140
+    insert_time_ms: 7
+    insert_new_count: 98
+    insert_reused_count: 10
+-   query: EXPLAIN select category, sum(amount) as total from sales_index_on group
+        by category order by category
+    explain: 'AISCAN(IDX_IOT_SUM_BY_CATEGORY <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]])
+        | MAP (_._0 AS CATEGORY, _._1 AS TOTAL)'
+    task_count: 1034
+    task_total_time_ms: 431
+    transform_count: 295
+    transform_time_ms: 334
+    transform_yield_count: 140
+    insert_time_ms: 7
+    insert_new_count: 98
+    insert_reused_count: 10
+-   query: EXPLAIN select region, sum(amount) as total from sales_mat_view group by
+        region order by region
+    explain: 'AISCAN(IDX_MV_SUM_BY_REGION <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]])
+        | MAP (_._0 AS REGION, _._1 AS TOTAL)'
+    task_count: 558
+    task_total_time_ms: 352
+    transform_count: 182
+    transform_time_ms: 297
+    transform_yield_count: 119
+    insert_time_ms: 4
+    insert_new_count: 36
+    insert_reused_count: 3
+-   query: EXPLAIN select region, sum(amount) as total from sales_index_on group by
+        region order by region
+    explain: 'AISCAN(IDX_IOT_SUM_BY_REGION <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]])
+        | MAP (_._0 AS REGION, _._1 AS TOTAL)'
+    task_count: 558
+    task_total_time_ms: 148
+    transform_count: 182
+    transform_time_ms: 120
+    transform_yield_count: 119
+    insert_time_ms: 1
+    insert_new_count: 36
+    insert_reused_count: 3
+sum_aggregate_multi_grouping:
+-   query: EXPLAIN select category, region, sum(amount) as total from sales_mat_view
+        group by category, region order by category, region
+    explain: 'AISCAN(IDX_MV_CAT_REGION_SUM <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1],
+        _2: VALUE:[0]]) | MAP (_._0 AS CATEGORY, _._1 AS REGION, _._2 AS TOTAL)'
+    task_count: 815
+    task_total_time_ms: 271
+    transform_count: 248
+    transform_time_ms: 205
+    transform_yield_count: 126
+    insert_time_ms: 3
+    insert_new_count: 69
+    insert_reused_count: 7
+-   query: EXPLAIN select category, region, sum(amount) as total from sales_index_on
+        group by category, region order by category, region
+    explain: 'AISCAN(IDX_IOT_CAT_REGION_SUM <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1],
+        _2: VALUE:[0]]) | MAP (_._0 AS CATEGORY, _._1 AS REGION, _._2 AS TOTAL)'
+    task_count: 815
+    task_total_time_ms: 277
+    transform_count: 248
+    transform_time_ms: 210
+    transform_yield_count: 126
+    insert_time_ms: 3
+    insert_new_count: 69
+    insert_reused_count: 7
+-   query: EXPLAIN select category, region, sum(amount) as total from sales_mat_view
+        where category = 'Electronics' group by category, region order by region
+    explain: 'AISCAN(IDX_MV_CAT_REGION_SUM [EQUALS promote(@c17 AS STRING)] BY_GROUP
+        -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | MAP (_._0 AS CATEGORY, _._1
+        AS REGION, _._2 AS TOTAL)'
+    task_count: 865
+    task_total_time_ms: 318
+    transform_count: 276
+    transform_time_ms: 223
+    transform_yield_count: 129
+    insert_time_ms: 3
+    insert_new_count: 71
+    insert_reused_count: 3
+-   query: EXPLAIN select category, region, sum(amount) as total from sales_index_on
+        where category = 'Electronics' group by category, region order by region
+    explain: 'AISCAN(IDX_IOT_CAT_REGION_SUM [EQUALS promote(@c17 AS STRING)] BY_GROUP
+        -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | MAP (_._0 AS CATEGORY, _._1
+        AS REGION, _._2 AS TOTAL)'
+    task_count: 865
+    task_total_time_ms: 242
+    transform_count: 276
+    transform_time_ms: 166
+    transform_yield_count: 129
+    insert_time_ms: 3
+    insert_new_count: 71
+    insert_reused_count: 3
+sum_aggregate_three_grouping:
+-   query: EXPLAIN select category, region, product_id, sum(amount) as total from
+        sales_mat_view group by category, region, product_id order by category, region,
+        product_id
+    explain: 'AISCAN(IDX_MV_SUM_BY_ALL <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1],
+        _2: KEY:[2], _3: VALUE:[0]]) | MAP (_._0 AS CATEGORY, _._1 AS REGION, _._2
+        AS PRODUCT_ID, _._3 AS TOTAL)'
+    task_count: 468
+    task_total_time_ms: 151
+    transform_count: 163
+    transform_time_ms: 125
+    transform_yield_count: 100
+    insert_time_ms: 0
+    insert_new_count: 24
+    insert_reused_count: 1
+-   query: EXPLAIN select category, region, product_id, sum(amount) as total from
+        sales_index_on group by category, region, product_id order by category, region,
+        product_id
+    explain: 'AISCAN(IDX_IOT_SUM_BY_ALL <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1],
+        _2: KEY:[2], _3: VALUE:[0]]) | MAP (_._0 AS CATEGORY, _._1 AS REGION, _._2
+        AS PRODUCT_ID, _._3 AS TOTAL)'
+    task_count: 468
+    task_total_time_ms: 152
+    transform_count: 163
+    transform_time_ms: 128
+    transform_yield_count: 100
+    insert_time_ms: 0
+    insert_new_count: 24
+    insert_reused_count: 1
+count_star_aggregate:
+-   query: EXPLAIN select category, count(*) as cnt from sales_mat_view group by category
+        order by category
+    explain: 'AISCAN(IDX_MV_COUNT_BY_CATEGORY <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]])
+        | MAP (_._0 AS CATEGORY, _._1 AS CNT)'
+    task_count: 623
+    task_total_time_ms: 130
+    transform_count: 190
+    transform_time_ms: 86
+    transform_yield_count: 110
+    insert_time_ms: 2
+    insert_new_count: 56
+    insert_reused_count: 7
+-   query: EXPLAIN select category, count(*) as cnt from sales_index_on group by category
+        order by category
+    explain: 'AISCAN(IDX_IOT_COUNT_BY_CATEGORY <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]])
+        | MAP (_._0 AS CATEGORY, _._1 AS CNT)'
+    task_count: 623
+    task_total_time_ms: 129
+    transform_count: 190
+    transform_time_ms: 81
+    transform_yield_count: 110
+    insert_time_ms: 2
+    insert_new_count: 56
+    insert_reused_count: 7
+count_column_aggregate:
+-   query: EXPLAIN select region, count(quantity) as cnt from sales_mat_view group
+        by region order by region
+    explain: 'AISCAN(IDX_MV_COUNT_QTY_BY_REGION <,> BY_GROUP -> [_0: KEY:[0], _1:
+        VALUE:[0]]) | MAP (_._0 AS REGION, _._1 AS CNT)'
+    task_count: 528
+    task_total_time_ms: 101
+    transform_count: 173
+    transform_time_ms: 71
+    transform_yield_count: 104
+    insert_time_ms: 1
+    insert_new_count: 36
+    insert_reused_count: 3
+-   query: EXPLAIN select region, count(quantity) as cnt from sales_index_on group
+        by region order by region
+    explain: 'AISCAN(IDX_IOT_COUNT_QTY_BY_REGION <,> BY_GROUP -> [_0: KEY:[0], _1:
+        VALUE:[0]]) | MAP (_._0 AS REGION, _._1 AS CNT)'
+    task_count: 528
+    task_total_time_ms: 102
+    transform_count: 173
+    transform_time_ms: 71
+    transform_yield_count: 104
+    insert_time_ms: 1
+    insert_new_count: 36
+    insert_reused_count: 3
+aggregate_with_having:
+-   query: EXPLAIN select category, sum(amount) as total from sales_mat_view group
+        by category having sum(amount) > 2000 order by category
+    explain: 'AISCAN(IDX_MV_SUM_BY_CATEGORY <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]])
+        | FILTER _._1 GREATER_THAN promote(@c21 AS LONG) | MAP (_._0 AS CATEGORY,
+        _._1 AS TOTAL)'
+    task_count: 1125
+    task_total_time_ms: 325
+    transform_count: 313
+    transform_time_ms: 236
+    transform_yield_count: 144
+    insert_time_ms: 7
+    insert_new_count: 111
+    insert_reused_count: 10
+-   query: EXPLAIN select category, sum(amount) as total from sales_index_on group
+        by category having sum(amount) > 2000 order by category
+    explain: 'AISCAN(IDX_IOT_SUM_BY_CATEGORY <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]])
+        | FILTER _._1 GREATER_THAN promote(@c21 AS LONG) | MAP (_._0 AS CATEGORY,
+        _._1 AS TOTAL)'
+    task_count: 1125
+    task_total_time_ms: 326
+    transform_count: 313
+    transform_time_ms: 239
+    transform_yield_count: 144
+    insert_time_ms: 9
+    insert_new_count: 111
+    insert_reused_count: 10
+min_aggregate:
+-   query: EXPLAIN select category, min(amount) as min_amt from sales_mat_view group
+        by category order by category
+    explain: 'AISCAN(IDX_MV_MIN_AMOUNT_BY_CATEGORY <,> BY_GROUP -> [_0: KEY:[0], _1:
+        KEY:[1]]) | MAP (_._0 AS CATEGORY, _._1 AS MIN_AMT)'
+    task_count: 780
+    task_total_time_ms: 140
+    transform_count: 229
+    transform_time_ms: 98
+    transform_yield_count: 122
+    insert_time_ms: 2
+    insert_new_count: 72
+    insert_reused_count: 8
+-   query: EXPLAIN select category, min(amount) as min_amt from sales_index_on group
+        by category order by category
+    explain: 'AISCAN(IDX_IOT_MIN_AMOUNT_BY_CATEGORY <,> BY_GROUP -> [_0: KEY:[0],
+        _1: KEY:[1]]) | MAP (_._0 AS CATEGORY, _._1 AS MIN_AMT)'
+    task_count: 653
+    task_total_time_ms: 125
+    transform_count: 197
+    transform_time_ms: 87
+    transform_yield_count: 117
+    insert_time_ms: 1
+    insert_new_count: 58
+    insert_reused_count: 7
+max_aggregate:
+-   query: EXPLAIN select region, max(amount) as max_amt from sales_mat_view group
+        by region order by region
+    explain: 'AISCAN(IDX_MV_MAX_AMOUNT_BY_REGION <,> BY_GROUP -> [_0: KEY:[0], _1:
+        KEY:[1]]) | MAP (_._0 AS REGION, _._1 AS MAX_AMT)'
+    task_count: 558
+    task_total_time_ms: 86
+    transform_count: 180
+    transform_time_ms: 64
+    transform_yield_count: 111
+    insert_time_ms: 0
+    insert_new_count: 38
+    insert_reused_count: 3
+-   query: EXPLAIN select region, max(amount) as max_amt from sales_index_on group
+        by region order by region
+    explain: 'AISCAN(IDX_IOT_MAX_AMOUNT_BY_REGION <,> BY_GROUP -> [_0: KEY:[0], _1:
+        KEY:[1]]) | MAP (_._0 AS REGION, _._1 AS MAX_AMT)'
+    task_count: 558
+    task_total_time_ms: 89
+    transform_count: 180
+    transform_time_ms: 67
+    transform_yield_count: 111
+    insert_time_ms: 0
+    insert_new_count: 38
+    insert_reused_count: 3
+min_ever_aggregate:
+-   query: EXPLAIN select category, min_ever(quantity) as min_qty from sales_mat_view
+        group by category order by category
+    explain: 'AISCAN(IDX_MV_MIN_EVER_QTY_BY_CATEGORY <,> BY_GROUP -> [_0: KEY:[0],
+        _1: VALUE:[0]]) | MAP (_._0 AS CATEGORY, _._1 AS MIN_QTY)'
+    task_count: 593
+    task_total_time_ms: 85
+    transform_count: 187
+    transform_time_ms: 60
+    transform_yield_count: 108
+    insert_time_ms: 1
+    insert_new_count: 50
+    insert_reused_count: 7
+-   query: EXPLAIN select category, min_ever(quantity) as min_qty from sales_index_on
+        group by category order by category
+    explain: 'AISCAN(IDX_IOT_MIN_EVER_QTY_BY_CATEGORY <,> BY_GROUP -> [_0: KEY:[0],
+        _1: VALUE:[0]]) | MAP (_._0 AS CATEGORY, _._1 AS MIN_QTY)'
+    task_count: 593
+    task_total_time_ms: 85
+    transform_count: 187
+    transform_time_ms: 53
+    transform_yield_count: 108
+    insert_time_ms: 1
+    insert_new_count: 50
+    insert_reused_count: 7
+max_ever_aggregate:
+-   query: EXPLAIN select region, max_ever(quantity) as max_qty from sales_mat_view
+        group by region order by region
+    explain: 'AISCAN(IDX_MV_MAX_EVER_QTY_BY_REGION <,> BY_GROUP -> [_0: KEY:[0], _1:
+        VALUE:[0]]) | MAP (_._0 AS REGION, _._1 AS MAX_QTY)'
+    task_count: 513
+    task_total_time_ms: 69
+    transform_count: 171
+    transform_time_ms: 47
+    transform_yield_count: 103
+    insert_time_ms: 0
+    insert_new_count: 33
+    insert_reused_count: 3
+-   query: EXPLAIN select region, max_ever(quantity) as max_qty from sales_index_on
+        group by region order by region
+    explain: 'AISCAN(IDX_IOT_MAX_EVER_QTY_BY_REGION <,> BY_GROUP -> [_0: KEY:[0],
+        _1: VALUE:[0]]) | MAP (_._0 AS REGION, _._1 AS MAX_QTY)'
+    task_count: 513
+    task_total_time_ms: 69
+    transform_count: 171
+    transform_time_ms: 48
+    transform_yield_count: 103
+    insert_time_ms: 0
+    insert_new_count: 33
+    insert_reused_count: 3
+aggregate_in_middle_of_key:
+-   query: EXPLAIN select category, max(amount) as max_amt, region from sales_mat_view
+        group by category, region order by category, region
+    explain: 'AISCAN(IDX_MV_CAT_MAX_REGION <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1],
+        _2: KEY:[2]]) | MAP (_._0 AS CATEGORY, _._2 AS MAX_AMT, _._1 AS REGION)'
+    task_count: 583
+    task_total_time_ms: 122
+    transform_count: 184
+    transform_time_ms: 88
+    transform_yield_count: 108
+    insert_time_ms: 2
+    insert_new_count: 46
+    insert_reused_count: 5
+-   query: EXPLAIN select category, max(amount) as max_amt, region from sales_index_on
+        group by category, region order by category, region
+    explain: ISCAN(IDX_IOT_MIN_CAT_REGION <,>) | MAP (_ AS _0) | AGG (max_l(_._0.AMOUNT)
+        AS _0) GROUP BY (_._0.CATEGORY AS _0, _._0.REGION AS _1) | MAP (_._0._0 AS
+        CATEGORY, _._1._0 AS MAX_AMT, _._0._1 AS REGION)
+    task_count: 458
+    task_total_time_ms: 108
+    transform_count: 150
+    transform_time_ms: 80
+    transform_yield_count: 101
+    insert_time_ms: 2
+    insert_new_count: 33
+    insert_reused_count: 4
+-   query: EXPLAIN select min(amount) as min_amt, category, region from sales_mat_view
+        group by category, region order by category, region
+    explain: 'AISCAN(IDX_MV_MIN_CAT_REGION <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1],
+        _2: KEY:[2]]) | MAP (_._2 AS MIN_AMT, _._0 AS CATEGORY, _._1 AS REGION)'
+    task_count: 583
+    task_total_time_ms: 120
+    transform_count: 184
+    transform_time_ms: 88
+    transform_yield_count: 108
+    insert_time_ms: 2
+    insert_new_count: 46
+    insert_reused_count: 5
+-   query: EXPLAIN select min(amount) as min_amt, category, region from sales_index_on
+        group by category, region order by category, region
+    explain: ISCAN(IDX_IOT_MIN_CAT_REGION <,>) | MAP (_ AS _0) | AGG (min_l(_._0.AMOUNT)
+        AS _0) GROUP BY (_._0.CATEGORY AS _0, _._0.REGION AS _1) | MAP (_._1._0 AS
+        MIN_AMT, _._0._0 AS CATEGORY, _._0._1 AS REGION)
+    task_count: 458
+    task_total_time_ms: 61
+    transform_count: 150
+    transform_time_ms: 46
+    transform_yield_count: 101
+    insert_time_ms: 0
+    insert_new_count: 33
+    insert_reused_count: 4
