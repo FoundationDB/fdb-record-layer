@@ -77,6 +77,7 @@ import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -625,7 +626,7 @@ public class SelectExpression extends AbstractRelationalExpressionWithChildren i
                 .map(Object::toString)
                 .collect(Collectors.joining(" AND "));
 
-        final var abbreviatedPredicateString = predicateString;
+        final var abbreviatedPredicateString = predicateString.length() > 30 ? String.format(Locale.ROOT, "%02x", predicateString.hashCode()) : predicateString;
         return PlannerGraph.fromNodeAndChildGraphs(
                 new PlannerGraph.LogicalOperatorNode(this,
                         "SELECT " + resultValue,

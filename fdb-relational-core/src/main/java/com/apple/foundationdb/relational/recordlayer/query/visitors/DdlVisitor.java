@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer.query.visitors;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.linear.Metric;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
@@ -74,12 +75,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-
-import static com.apple.foundationdb.linear.Metric.COSINE_METRIC;
-import static com.apple.foundationdb.linear.Metric.DOT_PRODUCT_METRIC;
-import static com.apple.foundationdb.linear.Metric.EUCLIDEAN_METRIC;
-import static com.apple.foundationdb.linear.Metric.EUCLIDEAN_SQUARE_METRIC;
-import static com.apple.foundationdb.linear.Metric.MANHATTAN_METRIC;
 
 @API(API.Status.EXPERIMENTAL)
 public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
@@ -347,15 +342,15 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
                 indexOptionsBuilder.put(IndexOptions.HNSW_MAINTAIN_STATS_PROBABILITY, option.maintainStatsProbability.getText());
             } else if (option.METRIC() != null) {
                 if (option.metric.DOT_PRODUCT_METRIC() != null) {
-                    indexOptionsBuilder.put(IndexOptions.HNSW_METRIC, DOT_PRODUCT_METRIC.name());
+                    indexOptionsBuilder.put(IndexOptions.HNSW_METRIC, Metric.DOT_PRODUCT_METRIC.name());
                 } else if (option.metric.EUCLIDEAN_METRIC() != null) {
-                    indexOptionsBuilder.put(IndexOptions.HNSW_METRIC, EUCLIDEAN_METRIC.name());
+                    indexOptionsBuilder.put(IndexOptions.HNSW_METRIC, Metric.EUCLIDEAN_METRIC.name());
                 } else if (option.metric.EUCLIDEAN_SQUARE_METRIC() != null) {
-                    indexOptionsBuilder.put(IndexOptions.HNSW_METRIC, EUCLIDEAN_SQUARE_METRIC.name());
+                    indexOptionsBuilder.put(IndexOptions.HNSW_METRIC, Metric.EUCLIDEAN_SQUARE_METRIC.name());
                 } else if (option.metric.COSINE_METRIC() != null) {
-                    indexOptionsBuilder.put(IndexOptions.HNSW_METRIC, COSINE_METRIC.name());
+                    indexOptionsBuilder.put(IndexOptions.HNSW_METRIC, Metric.COSINE_METRIC.name());
                 } else if (option.metric.MANHATTAN_METRIC() != null) {
-                    indexOptionsBuilder.put(IndexOptions.HNSW_METRIC, MANHATTAN_METRIC.name());
+                    indexOptionsBuilder.put(IndexOptions.HNSW_METRIC, Metric.MANHATTAN_METRIC.name());
                 } else {
                     Assert.failUnchecked("metric " + option.metric.getText() + " is not currently supported");
                 }
