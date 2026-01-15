@@ -342,8 +342,6 @@ public class Reference implements Correlated<Reference>, Typed {
             }
             return false;
         } finally {
-            final var name = Debugger.mapDebugger(d -> d.nameForObject(newExpression)).get();
-            System.out.println(" inserting:: " + name + " in " + this);
             Debugger.withDebugger(debugger -> debugger.onEvent(InsertIntoMemoEvent.end()));
         }
     }
@@ -632,20 +630,11 @@ public class Reference implements Correlated<Reference>, Typed {
 
     @Override
     public String toString() {
-        return Debugger.mapDebugger(debugger -> debugger.nameForObject(this) + "[e:[" +
-                        getExploratoryExpressions().stream()
+        return Debugger.mapDebugger(debugger -> debugger.nameForObject(this) + "[" +
+                        getAllMemberExpressions().stream()
                                 .map(debugger::nameForObject)
-                                .collect(Collectors.joining(",")) + "]" + "],[f:" +
-                        getFinalExpressions().stream()
-                                .map(debugger::nameForObject)
-                                .collect(Collectors.joining(",")) + "]]")
+                                .collect(Collectors.joining(",")) + "]")
                 .orElse("Reference@" + hashCode() + "(" + "isExplored=" + constraintsMap.isExplored() + ")");
-
-//        return Debugger.mapDebugger(debugger -> debugger.nameForObject(this) + "[" +
-//                        getAllMemberExpressions().stream()
-//                                .map(debugger::nameForObject)
-//                                .collect(Collectors.joining(",")) + "]")
-//                .orElse("Reference@" + hashCode() + "(" + "isExplored=" + constraintsMap.isExplored() + ")");
     }
 
     @Override

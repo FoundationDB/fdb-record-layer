@@ -30,7 +30,6 @@ import com.apple.foundationdb.record.query.plan.cascades.Memoizer;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionWithPredicates;
@@ -110,21 +109,14 @@ public class SelectMergeRule extends ImplementationCascadesRule<SelectExpression
         final var childSelectExpressions = bindings.getAll(childExpressionMatcher);
         final var selectExpression = bindings.get(root);
 
+        // there are no child contenders to merge.
+        if (quantifiers.isEmpty()) {
+            return;
+        }
+
         final var aliasToQuantifierMap = Quantifiers.aliasToQuantifierMap(selectExpression.getQuantifiers());
         final var correlationOrder = selectExpression.getCorrelationOrder();
-
-        // we might have to reverse it, but check later. essentially, it is in the decreasing order of how heavily
-        // others are dependent on it. So, the first element has the most elements depending on.
         final var correlationPermutation = TopologicalSort.anyTopologicalOrderPermutation(correlationOrder);
-
-        boolean a =
-//                correlationPermutation.get().size() == 2 && quantifiers.size() == 2 &&
-                childSelectExpressions.stream()
-                        .flatMap(e -> e.getQuantifiers().stream())
-                        .map(q -> q.getRangesOver())
-                        .flatMap(r -> r.getFinalExpressions().stream())
-                        .anyMatch(e -> e instanceof ExplodeExpression);
-
         final var quantifierToChildSelectExpressionMap =
                 Streams.zip(quantifiers.stream(),
                                 childSelectExpressions.stream(),
@@ -137,7 +129,6 @@ public class SelectMergeRule extends ImplementationCascadesRule<SelectExpression
         final var newPredicates = ImmutableList.<QueryPredicate>builder();
         final var selectTranslationBuilder = TranslationMap.regularBuilder();
         final var independentChildSelectTranslationBuilder = TranslationMap.regularBuilder();
-
         for (final var alias: correlationPermutation.orElseThrow()) {
             final var childSelectExpression = quantifierToChildSelectExpressionMap.get(alias);
             if (childSelectExpression != null) {
@@ -167,7 +158,7 @@ public class SelectMergeRule extends ImplementationCascadesRule<SelectExpression
                 childSelectExpression.getPredicates().stream()
                         .map(predicate -> predicate.translateCorrelations(resultantTranslationMap, false))
                         .forEach(newPredicates::add);
-                final var childSelectExpressionTranslatedResultValue = childSelectExpression.getResultValue().translateCorrelations(independentChildSelectTranslationBuilder.build());
+                final var childSelectExpressionTranslatedResultValue = childSelectExpression.getResultValue().translateCorrelations(resultantTranslationMap);
 
                 selectTranslationBuilder.when(alias)
                         .then((ignore1, ignore2) -> childSelectExpressionTranslatedResultValue);
