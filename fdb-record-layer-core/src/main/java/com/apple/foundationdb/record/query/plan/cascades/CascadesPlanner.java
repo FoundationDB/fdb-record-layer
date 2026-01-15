@@ -48,6 +48,8 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers;
+import com.apple.foundationdb.record.query.plan.cascades.rules.FinalizeExpressionsRule;
+import com.apple.foundationdb.record.query.plan.cascades.rules.SelectMergeRule;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
@@ -995,6 +997,17 @@ public class CascadesPlanner implements QueryPlanner {
             final PlannerBindings initialBindings = getInitialBindings();
 
             final AtomicInteger numMatches = new AtomicInteger(0);
+
+            final var a = group.toString();
+            final var b = Debugger.mapDebugger(d -> d.nameForObject(expression));
+            final var c = rule.getMatcher().bindMatches(getConfiguration(), initialBindings, getBindable()).count();
+
+            if (rule instanceof SelectMergeRule && c > 0) {
+                System.out.println(" calling:: SMR on " + a + ", " + b + " ::: matches :: " + c);
+            }
+            if (rule instanceof FinalizeExpressionsRule && c > 0) {
+                System.out.println(" calling:: FER on " + a + ", " + b + " ::: matches :: " + c);
+            }
 
             rule.getMatcher()
                     .bindMatches(getConfiguration(), initialBindings, getBindable())

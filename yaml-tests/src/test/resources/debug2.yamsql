@@ -189,6 +189,7 @@ setup:
                  ((2, 'msg-6', false, false, null), 'thread3', 1010, ('dataRef6'), 16, 0, 0, 0, ('32'), 1010, 'sender2@apple.com', 1002, ('textSearchRef5'), 6, [(('WEAK', 'inbox2', null, null), 120), (('WEAK', 'inbox4', null, null), 144), (('WEAK', 'inbox1', null, null), 145)], 'sender2')
 ---
 test_block:
+  preset: single_repetition_ordered
   options:
     connection_lifecycle: test
   tests:

@@ -342,6 +342,8 @@ public class Reference implements Correlated<Reference>, Typed {
             }
             return false;
         } finally {
+            final var name = Debugger.mapDebugger(d -> d.nameForObject(newExpression)).get();
+            System.out.println(" inserting:: " + name + " in " + this);
             Debugger.withDebugger(debugger -> debugger.onEvent(InsertIntoMemoEvent.end()));
         }
     }
@@ -575,7 +577,7 @@ public class Reference implements Correlated<Reference>, Typed {
     }
 
     /**
-     * Re-reference final members of this group, i.e., use a subset of members to from a new {@link Reference}.
+     * Re-reference final members of this group, i.e., use a subset of members to form a new {@link Reference}.
      * Note that {@code this} group must not need exploration.
      *
      * @param expressions a collection of expressions that all have to be members of this group
@@ -630,11 +632,20 @@ public class Reference implements Correlated<Reference>, Typed {
 
     @Override
     public String toString() {
-        return Debugger.mapDebugger(debugger -> debugger.nameForObject(this) + "[" +
-                        getAllMemberExpressions().stream()
+        return Debugger.mapDebugger(debugger -> debugger.nameForObject(this) + "[e:[" +
+                        getExploratoryExpressions().stream()
                                 .map(debugger::nameForObject)
-                                .collect(Collectors.joining(",")) + "]")
+                                .collect(Collectors.joining(",")) + "]" + "],[f:" +
+                        getFinalExpressions().stream()
+                                .map(debugger::nameForObject)
+                                .collect(Collectors.joining(",")) + "]]")
                 .orElse("Reference@" + hashCode() + "(" + "isExplored=" + constraintsMap.isExplored() + ")");
+
+//        return Debugger.mapDebugger(debugger -> debugger.nameForObject(this) + "[" +
+//                        getAllMemberExpressions().stream()
+//                                .map(debugger::nameForObject)
+//                                .collect(Collectors.joining(",")) + "]")
+//                .orElse("Reference@" + hashCode() + "(" + "isExplored=" + constraintsMap.isExplored() + ")");
     }
 
     @Override
