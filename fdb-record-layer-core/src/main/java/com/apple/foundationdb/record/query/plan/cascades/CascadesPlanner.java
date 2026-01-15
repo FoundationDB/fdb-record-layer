@@ -998,17 +998,6 @@ public class CascadesPlanner implements QueryPlanner {
 
             final AtomicInteger numMatches = new AtomicInteger(0);
 
-            final var a = group.toString();
-            final var b = Debugger.mapDebugger(d -> d.nameForObject(expression));
-            final var c = rule.getMatcher().bindMatches(getConfiguration(), initialBindings, getBindable()).count();
-
-            if (rule instanceof SelectMergeRule && c > 0) {
-                System.out.println(" calling:: SMR on " + a + ", " + b + " ::: matches :: " + c);
-            }
-            if (rule instanceof FinalizeExpressionsRule && c > 0) {
-                System.out.println(" calling:: FER on " + a + ", " + b + " ::: matches :: " + c);
-            }
-
             rule.getMatcher()
                     .bindMatches(getConfiguration(), initialBindings, getBindable())
                     .map(bindings -> new CascadesRuleCall(plannerPhase, planContext, rule, group,
