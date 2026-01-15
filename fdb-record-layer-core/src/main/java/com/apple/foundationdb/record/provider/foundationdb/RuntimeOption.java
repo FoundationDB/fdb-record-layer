@@ -1,5 +1,5 @@
 /*
- * Option.java
+ * RuntimeOption.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -40,7 +40,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 
-public class RuntimeOption implements Typed, Correlated<RuntimeOption>, PlanSerializable, PlanHashable {
+@SuppressWarnings("PMD.AvoidFieldNameMatchingTypeName")
+public final class RuntimeOption implements Typed, Correlated<RuntimeOption>, PlanSerializable, PlanHashable {
 
     @Nonnull
     private final String name;
@@ -126,6 +127,7 @@ public class RuntimeOption implements Typed, Correlated<RuntimeOption>, PlanSeri
 
     @Nonnull
     @Override
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public RuntimeOption rebase(@Nonnull final AliasMap translationMap) {
         final var translatedValue = value.rebase(translationMap);
         if (translatedValue == value) {
@@ -135,6 +137,7 @@ public class RuntimeOption implements Typed, Correlated<RuntimeOption>, PlanSeri
     }
 
     @Override
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap aliasMap) {
         if (this == other) {
             return true;

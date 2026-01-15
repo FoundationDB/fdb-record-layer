@@ -43,12 +43,14 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 
-public class RuntimeOptions implements Correlated<RuntimeOptions> {
+@SuppressWarnings("PMD.AvoidFieldNameMatchingTypeName")
+public final class RuntimeOptions implements Correlated<RuntimeOptions> {
 
     @Nonnull
     private static final RuntimeOptions EMPTY = new RuntimeOptions(ImmutableSet.of());
 
     @Nonnull
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     private final Map<String, RuntimeOption> runtimeOptions;
 
     public RuntimeOptions(@Nonnull final PlanSerializationContext serializationContext,
@@ -134,6 +136,7 @@ public class RuntimeOptions implements Correlated<RuntimeOptions> {
     }
 
     @Override
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap aliasMap) {
         if (this == other) {
             return true;
@@ -158,6 +161,7 @@ public class RuntimeOptions implements Correlated<RuntimeOptions> {
     }
 
     @Nonnull
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public ConstrainedBoolean semanticEqualsTyped(@Nonnull final Object other, @Nonnull final ValueEquivalence valueEquivalence) {
         if (this == other) {
             return ConstrainedBoolean.alwaysTrue();

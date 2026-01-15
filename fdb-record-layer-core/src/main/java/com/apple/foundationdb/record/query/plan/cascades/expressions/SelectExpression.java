@@ -77,7 +77,6 @@ import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.IdentityHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -548,14 +547,6 @@ public class SelectExpression extends AbstractRelationalExpressionWithChildren i
                             parameterBindingMap.put(parameterAliasOptional.get(), comparisonRangeOptional.get());
                         }
                     }
-
-                    // If the unmapped predicate correspond to an index-only value bailout, some indexes such
-                    // as vector indexes require matching these predicates in order to define their physical
-                    // plan and traversal semantics.
-//                    if (remainingUnmappedCandidatePredicates.stream().filter(Objects::nonNull)
-//                            .anyMatch(QueryPredicate::requiresMapping)) {
-//                        return ImmutableList.of();
-//                    }
 
                     //
                     // Last chance for unmapped predicates - if there is a placeholder or a tautology on the other side that is still

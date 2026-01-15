@@ -876,11 +876,11 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
 
     @Nonnull
     @Override
-    Iterable<RuntimeOption> visitWindowOptionsClause(final RelationalParser.WindowOptionsClauseContext ctx);
+    Iterable<RuntimeOption> visitWindowOptionsClause(RelationalParser.WindowOptionsClauseContext ctx);
 
     @Nonnull
     @Override
-    RuntimeOption visitWindowOption(final RelationalParser.WindowOptionContext ctx);
+    RuntimeOption visitWindowOption(RelationalParser.WindowOptionContext ctx);
 
     @Nonnull
     @Override

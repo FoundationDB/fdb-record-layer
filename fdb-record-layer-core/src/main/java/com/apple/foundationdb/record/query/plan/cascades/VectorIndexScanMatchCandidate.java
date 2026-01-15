@@ -160,6 +160,7 @@ public class VectorIndexScanMatchCandidate implements ScanWithFetchMatchCandidat
     }
 
     @Nonnull
+    @Override
     public Set<CorrelationIdentifier> getSargableAliasesRequiredForBinding() {
         return parametersRequiredForBinding;
     }

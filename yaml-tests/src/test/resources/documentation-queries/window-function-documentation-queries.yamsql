@@ -1,0 +1,105 @@
+#
+# window-function-documentation-queries.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+---
+options:
+  supported_version: !current_version
+---
+schema_template:
+    create table documents(zone string, docId string, bookshelf string, title string, embedding vector(3, half), primary key (zone, docId))
+    create view documentsView as select embedding, zone, bookshelf, docId, title from documents
+    create vector index documentsEuclideanIndex using hnsw on documentsView(embedding) partition by(zone, bookshelf) options (metric = euclidean_metric)
+    create vector index documentsCosineIndex using hnsw on documentsView(embedding) partition by(zone, bookshelf) options (metric = cosine_metric)
+---
+test_block:
+  name: window-function-documentation-tests
+  preset: single_repetition_ordered
+  options:
+    statement_type: prepared
+  tests:
+    # Setup data
+    -
+      - query: insert into documents values
+              ('zone1', 'd1', 'fiction', 'The Great Gatsby', !! !v16 [1.0, 0.0, 0.0] !!),
+              ('zone1', 'd2', 'fiction', '1984', !! !v16 [0.9, 0.1, 0.0] !!),
+              ('zone1', 'd3', 'fiction', 'To Kill a Mockingbird', !! !v16 [0.8, 0.2, 0.0] !!),
+              ('zone1', 'd6', 'science', 'A Brief History of Time', !! !v16 [0.0, 1.0, 0.0] !!),
+              ('zone1', 'd7', 'science', 'The Selfish Gene', !! !v16 [0.1, 0.9, 0.0] !!)
+      - count: 5
+    # Basic K-Nearest Neighbor Search (documentation example)
+    -
+      - query: SELECT docId, title, euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) AS distance
+              FROM documents
+              WHERE zone = 'zone1' AND bookshelf = 'fiction'
+                AND ROW_NUMBER() OVER (
+                    PARTITION BY zone, bookshelf
+                    ORDER BY euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) ASC
+                ) <= 1
+      - result: [{docId: 'd1', title: 'The Great Gatsby', distance: 0.0}]
+
+    # Top-K Search (documentation example)
+    -
+      - query: SELECT docId, euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) AS distance
+              FROM documents
+              WHERE zone = 'zone1' AND bookshelf = 'fiction'
+                AND ROW_NUMBER() OVER (
+                    PARTITION BY zone, bookshelf
+                    ORDER BY euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) ASC
+                ) <= 3
+      - result: [{docId: 'd1', distance: 0.0},
+                 {docId: 'd2', distance: 0.14147317261689443},
+                 {docId: 'd3', distance: 0.28294634523378887}]
+
+    # Using Custom Search Parameters (documentation example)
+    -
+      - query: SELECT docId
+              FROM documents
+              WHERE zone = 'zone1' AND bookshelf = 'science'
+                AND ROW_NUMBER() OVER (
+                    PARTITION BY zone, bookshelf
+                    ORDER BY euclidean_distance(embedding, !! !v16 [0.0, 1.0, 0.0] !!) ASC
+                    OPTIONS ef_search = 100
+                ) <= 2
+      - result: [{docId: 'd6'}, {docId: 'd7'}]
+
+    # Using Less Than (documentation example)
+    -
+      - query: SELECT docId
+              FROM documents
+              WHERE zone = 'zone1' AND bookshelf = 'science'
+                AND ROW_NUMBER() OVER (
+                    PARTITION BY zone, bookshelf
+                    ORDER BY euclidean_distance(embedding, !! !v16 [0.0, 1.0, 0.0] !!) ASC
+                    OPTIONS ef_search = 200
+                ) < 3
+      - result: [{docId: 'd6'}, {docId: 'd7'}]
+
+    # Combining Multiple HNSW Searches (documentation example)
+    -
+      - query: SELECT title
+              FROM documents
+              WHERE zone = 'zone1' AND bookshelf = 'fiction'
+                AND (ROW_NUMBER() OVER (
+                        PARTITION BY zone, bookshelf
+                        ORDER BY cosine_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) ASC
+                    ) <= 1
+                    OR ROW_NUMBER() OVER (
+                        PARTITION BY zone, bookshelf
+                        ORDER BY euclidean_distance(embedding, !! !v16 [0.5, 0.5, 0.5] !!) ASC
+                    ) <= 1)
+      - unorderedResult: [{title: 'The Great Gatsby'}, {title: 'To Kill a Mockingbird'}]
