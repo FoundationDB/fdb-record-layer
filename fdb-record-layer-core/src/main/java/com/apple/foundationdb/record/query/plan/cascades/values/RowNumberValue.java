@@ -84,6 +84,12 @@ public class RowNumberValue extends WindowedValue implements Value.IndexOnlyValu
 
     @Nonnull
     @Override
+    public Type getResultType() {
+        return Type.primitiveType(Type.TypeCode.LONG);
+    }
+
+    @Nonnull
+    @Override
     public Value withChildren(final Iterable<? extends Value> newChildren) {
         final var childrenPair = splitNewChildren(newChildren);
         return new RowNumberValue(childrenPair.getKey(), childrenPair.getValue(), runtimeOptions);
@@ -102,7 +108,7 @@ public class RowNumberValue extends WindowedValue implements Value.IndexOnlyValu
      * <p>
      * <strong>Matched Pattern:</strong>
      * <pre>
-     *                      Comparison (<=, <, or =)
+     *                      Comparison (&lt;=, &lt;, or =)
      *                      /                      \
      *                     /                        \
      *                    /                          \
@@ -127,12 +133,12 @@ public class RowNumberValue extends WindowedValue implements Value.IndexOnlyValu
      * ROW_NUMBER() OVER (
      *   PARTITION BY category
      *   ORDER BY EUCLIDEAN_DISTANCE(embedding, [0.1, 0.2, 0.3])
-     * ) <= 10
+     * ) &lt;= 10
      *
      * -- Cosine distance example:
      * ROW_NUMBER() OVER (
      *   ORDER BY COSINE_DISTANCE(text_embedding, [0.5, 0.3, 0.2])
-     * ) < 5
+     * ) &lt; 5
      * </pre>
      * These would be transformed to find the k nearest neighbors using appropriate distance metrics.
      * </p>
@@ -219,20 +225,9 @@ public class RowNumberValue extends WindowedValue implements Value.IndexOnlyValu
             // case MANHATTAN_DISTANCE:
             // case DOT_PRODUCT_DISTANCE:
             case COSINE_DISTANCE:
-                Value queryVector;
-                Value indexVector;
                 final var arithmeticValueArgs = ImmutableList.copyOf(arithmeticValue.getChildren());
-                final var firstArg = arithmeticValueArgs.get(0);
-                final var secondArg = arithmeticValueArgs.get(1);
-                if (firstArg instanceof FieldValue && secondArg.isConstant()) {
-                    indexVector = firstArg;
-                    queryVector = secondArg;
-                } else if (firstArg.isConstant() && secondArg instanceof FieldValue) {
-                    indexVector = secondArg;
-                    queryVector = firstArg;
-                } else {
-                    return Optional.empty();
-                }
+                final var indexVector = arithmeticValueArgs.get(0);
+                final var queryVector = arithmeticValueArgs.get(1);
                 distanceRankComparison = new Comparisons.DistanceRankValueComparison(distanceRankComparisonType, queryVector,
                         comparand, runtimeOptions);
                 if (arithmeticValue.getLogicalOperator() == EUCLIDEAN_DISTANCE) {

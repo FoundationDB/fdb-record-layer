@@ -27,11 +27,9 @@ import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanComparisons;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
-import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
@@ -221,51 +219,16 @@ public class VectorIndexScanMatchCandidate implements ScanWithFetchMatchCandidat
         final var vectorIndexScanComparison = toVectorIndexScanComparisons(comparisonRanges);
         final var baseRecordType =
                 Type.Record.fromFieldDescriptorsMap(RecordMetaData.getFieldDescriptorMapFromTypes(queriedRecordTypes));
-        return tryFetchCoveringIndexScan(partialMatch, planContext, memoizer, vectorIndexScanComparison, reverseScanOrder, baseRecordType)
-                .orElseGet(() ->
-                        new RecordQueryIndexPlan(index.getName(),
-                                primaryKey,
-                                vectorIndexScanComparison,
-                                planContext.getPlannerConfiguration().getIndexFetchMethod(),
-                                RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords.PRIMARY_KEY,
-                                reverseScanOrder,
-                                false,
-                                partialMatch.getMatchCandidate(),
-                                baseRecordType,
-                                matchInfo.getConstraint()));
-    }
-
-    @Nonnull
-    private Optional<RecordQueryPlan> tryFetchCoveringIndexScan(@Nonnull final PartialMatch partialMatch,
-                                                                @Nonnull final PlanContext planContext,
-                                                                @Nonnull final Memoizer memoizer,
-                                                                @Nonnull final VectorIndexScanComparisons vectorIndexScanComparisons,
-                                                                final boolean isReverse,
-                                                                @Nonnull Type.Record baseRecordType) {
-        final var indexEntryToLogicalRecordOptional = getIndexEntryToLogicalRecordMaybe();
-        if (indexEntryToLogicalRecordOptional.isEmpty()) {
-            return Optional.empty();
-        }
-        final var indexEntryToLogicalRecord = indexEntryToLogicalRecordOptional.get();
-        final var indexPlan =
-                new RecordQueryIndexPlan(index.getName(),
-                        primaryKey,
-                        vectorIndexScanComparisons,
-                        planContext.getPlannerConfiguration().getIndexFetchMethod(),
-                        RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords.PRIMARY_KEY,
-                        isReverse,
-                        false,
-                        partialMatch.getMatchCandidate(),
-                        baseRecordType,
-                        partialMatch.getRegularMatchInfo().getConstraint());
-
-        final var coveringIndexPlan = new RecordQueryCoveringIndexPlan(indexPlan,
-                indexEntryToLogicalRecord.getQueriedRecordType().getName(),
-                AvailableFields.NO_FIELDS, // not used except for old planner properties
-                indexEntryToLogicalRecord.getIndexKeyValueToPartialRecord());
-
-        return Optional.of(new RecordQueryFetchFromPartialRecordPlan(Quantifier.physical(memoizer.memoizePlan(coveringIndexPlan)),
-                coveringIndexPlan::pushValueThroughFetch, baseRecordType, RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords.PRIMARY_KEY));
+        return new RecordQueryIndexPlan(index.getName(),
+                primaryKey,
+                vectorIndexScanComparison,
+                planContext.getPlannerConfiguration().getIndexFetchMethod(),
+                RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords.PRIMARY_KEY,
+                reverseScanOrder,
+                false,
+                partialMatch.getMatchCandidate(),
+                baseRecordType,
+                matchInfo.getConstraint());
     }
 
     @Nonnull

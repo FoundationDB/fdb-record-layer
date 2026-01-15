@@ -1,7 +1,7 @@
 ›
 €
 semantic-search-tests¡EXPLAIN select docId, title from documents where zone = 'zone1' and bookshelf = 'fiction' and row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, ?) asc) <= 1¸
-·Ø¶ÊOE ´úß=(0Ö¥Ÿ8@«ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c10 AS STRING), EQUALS promote(@c14 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c32: @c38}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID, _.TITLE AS TITLE)ìdigraph G {
+‹…ØôIA ı˝ô7(0≈ùî8@«ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c10 AS STRING), EQUALS promote(@c14 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c32: @c38}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID, _.TITLE AS TITLE)ìdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -13,7 +13,7 @@
 }ù
 ‘
 semantic-search-tests∫EXPLAIN select docId from documents where zone = 'zone1' and bookshelf = 'fiction' and row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, ?) asc) <= 3√
-·„ÕñE Î¢ç(0ñ∑Q8@¥ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c8 AS STRING), EQUALS promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c30: @c36}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID)Ódigraph G {
+‹ÿÛÒA  ùœ(0Ÿ¬]8@¥ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c8 AS STRING), EQUALS promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c30: @c36}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID)Ódigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -25,7 +25,7 @@
 }µ
 Ï
 semantic-search-tests“EXPLAIN select docId from documents where zone = 'zone1' and bookshelf = 'science' and row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, ?) asc options ef_search = 100) <= 2√
-·ÛÀ˝E ”Ù‚(0ÇüR8@¥ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c8 AS STRING), EQUALS promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c30: @c40}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID)Ódigraph G {
+‹Å≥£	A ò≠Í(0ÕÏ>8@¥ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c8 AS STRING), EQUALS promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c30: @c40}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID)Ódigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -37,8 +37,7 @@
 }¢
 Î
 semantic-search-tests—EXPLAIN select docId from documents where zone = 'zone1' and bookshelf = 'science' and row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, ?) asc options ef_search = 200) < 3±
-·…Ãè
-E ÏÄï(0ÖñP8@´ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c8 AS STRING), EQUALS promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN @c30: @c39}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID)Âdigraph G {
+‹Ä™Ö	A ﬁã‡(0£@8@´ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c8 AS STRING), EQUALS promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN @c30: @c39}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID)Âdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -50,7 +49,7 @@
 }ä
 ”
 semantic-search-testsπEXPLAIN select docId from documents where zone = 'zone2' and bookshelf = 'fiction' and row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, ?) asc) < 2±
-·©ûµE ô•á(0Ã÷f8@´ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c8 AS STRING), EQUALS promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN @c30: @c35}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID)Âdigraph G {
+‹Û“◊A ¶øã(0Ùπ38@´ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c8 AS STRING), EQUALS promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN @c30: @c35}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID)Âdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -62,7 +61,7 @@
 }î
 —
 semantic-search-tests∑EXPLAIN select docId from documents where zone = 'zone1' and bookshelf = 'fiction' and row_number() over (partition by zone, bookshelf order by cosine_distance(embedding, ?) asc) <= 2Ω
-·«ÅëE ÖìÆ(0§⁄68@±ISCAN(DOCUMENTSCOSINEINDEX [EQUALS promote(@c8 AS STRING), EQUALS promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c30: @c36}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID)Îdigraph G {
+‹û¯éA Íá«(0¨Ω,8@±ISCAN(DOCUMENTSCOSINEINDEX [EQUALS promote(@c8 AS STRING), EQUALS promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c30: @c36}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID)Îdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -74,7 +73,7 @@
 }¨
 È
 semantic-search-testsœEXPLAIN select docId from documents where zone = 'zone1' and bookshelf = 'science' and row_number() over (partition by zone, bookshelf order by cosine_distance(embedding, ?) asc options ef_search = 150) <= 3Ω
-·èî—E ó¢î(0¨…;8@±ISCAN(DOCUMENTSCOSINEINDEX [EQUALS promote(@c8 AS STRING), EQUALS promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c30: @c40}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID)Îdigraph G {
+‹üØìA öé˙(0∏µ)8@±ISCAN(DOCUMENTSCOSINEINDEX [EQUALS promote(@c8 AS STRING), EQUALS promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c30: @c40}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID)Îdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -86,7 +85,7 @@
 }ù
 ‘
 semantic-search-tests∫EXPLAIN select docId from documents where zone = 'zone2' and bookshelf = 'science' and row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, ?) asc) <= 1√
-·„ÕñE Î¢ç(0ñ∑Q8@¥ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c8 AS STRING), EQUALS promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c30: @c36}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID)Ódigraph G {
+‹ÿÛÒA  ùœ(0Ÿ¬]8@¥ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c8 AS STRING), EQUALS promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c30: @c36}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID)Ódigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -98,7 +97,7 @@
 }ı
 Ö
 semantic-search-testsÎEXPLAIN select docId, title, euclidean_distance(embedding, ?) as dist from documents where zone = 'zone1' and bookshelf = 'fiction' and row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, ?) asc) <= 1Í
-·Æñ‡E ¸•ù(0Èû+8@ˆISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c19 AS STRING), EQUALS promote(@c23 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c41: @c47}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID, _.TITLE AS TITLE, (_.EMBEDDING) euclidean_distance @c41 AS DIST)”digraph G {
+‹ƒ˙ÍA ˘ºò(0≥ñ&8@ˆISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c19 AS STRING), EQUALS promote(@c23 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c41: @c47}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID, _.TITLE AS TITLE, (_.EMBEDDING) euclidean_distance @c41 AS DIST)”digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -110,7 +109,7 @@
 }ù
 ‘
 semantic-search-tests∫EXPLAIN select docId from documents where zone = 'zone1' and bookshelf = 'fiction' and row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, ?) asc) <= ?√
-·ŸâµE ÿ™î(0ƒñ$8@¥ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c8 AS STRING), EQUALS promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c30: @c36}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID)Ódigraph G {
+‹Üî´A ÊËú(0≥¥8@¥ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c8 AS STRING), EQUALS promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c30: @c36}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID)Ódigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -122,7 +121,7 @@
 }ù
 ‘
 semantic-search-tests∫EXPLAIN select docId from documents where zone = 'zone1' and bookshelf = 'science' and row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, ?) asc) <= 1√
-·„ÕñE Î¢ç(0ñ∑Q8@¥ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c8 AS STRING), EQUALS promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c30: @c36}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID)Ódigraph G {
+‹ÿÛÒA  ùœ(0Ÿ¬]8@¥ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c8 AS STRING), EQUALS promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c30: @c36}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID)Ódigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -134,7 +133,7 @@
 }ù
 ‘
 semantic-search-tests∫EXPLAIN select docId from documents where zone = 'zone1' and bookshelf = 'fiction' and row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, ?) asc) <= 5√
-·„ÕñE Î¢ç(0ñ∑Q8@¥ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c8 AS STRING), EQUALS promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c30: @c36}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID)Ódigraph G {
+‹ÿÛÒA  ùœ(0Ÿ¬]8@¥ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c8 AS STRING), EQUALS promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c30: @c36}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID)Ódigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -143,26 +142,140 @@
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">DOCUMENTSEUCLIDEANINDEX</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS ZONE, STRING AS DOCID, STRING AS BOOKSHELF, STRING AS TITLE, VECTOR(16, 3) AS EMBEDDING)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}ñ)
+}‚ 
 ∫
-semantic-search-tests†EXPLAIN select title from documents where zone = 'zone1' and bookshelf = 'fiction' and (row_number() over (partition by zone, bookshelf order by cosine_distance(embedding, ?) asc) <= 1 or row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, ?) asc) <= 1)÷&
-‡¶ù ¶ ß¶ô(30£Ã8=@	ÍCOVERING(DOCUMENTSCOSINEINDEX [EQUALS promote(@c8 AS STRING), EQUALS promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c31: @c37}:[] BY_DISTANCE -> [BOOKSHELF: KEY:[1], EMBEDDING: VALUE:[0], ZONE: KEY:[0]]) ‚äé COVERING(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c8 AS STRING), EQUALS promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c55: @c37}:[] BY_DISTANCE -> [BOOKSHELF: KEY:[1], EMBEDDING: VALUE:[0], ZONE: KEY:[0]]) | DISTINCT BY PK | FETCH | MAP (_.TITLE AS TITLE)…"digraph G {
+semantic-search-tests†EXPLAIN select title from documents where zone = 'zone1' and bookshelf = 'fiction' and (row_number() over (partition by zone, bookshelf order by cosine_distance(embedding, ?) asc) <= 1 or row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, ?) asc) <= 1)¢
+›ú…£ç èº∑(-0≥ã’8/@ıISCAN(DOCUMENTSCOSINEINDEX [EQUALS promote(@c8 AS STRING), EQUALS promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c31: @c37}:[] BY_DISTANCE) ‚à™ ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c8 AS STRING), EQUALS promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c55: @c37}:[] BY_DISTANCE) COMPARE BY (recordType(_), _.DOCID) | MAP (_.TITLE AS TITLE)ädigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q2.TITLE AS TITLE)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS TITLE)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Fetch Records</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(STRING AS ZONE, STRING AS DOCID, STRING AS BOOKSHELF, STRING AS TITLE, VECTOR(16, 3) AS EMBEDDING)" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Unordered Primary Key Distinct</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(STRING AS ZONE, STRING AS DOCID, STRING AS BOOKSHELF, STRING AS TITLE, VECTOR(16, 3) AS EMBEDDING)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Union All</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(STRING AS ZONE, STRING AS DOCID, STRING AS BOOKSHELF, STRING AS TITLE, VECTOR(16, 3) AS EMBEDDING)" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">prefix comparisons: [EQUALS promote(@c8 AS STRING), EQUALS promote(@c12 AS STRING)]</td></tr><tr><td align="left">distanceRank: DISTANCE_RANK_LESS_THAN_OR_EQUAL @c55: @c37</td></tr><tr><td align="left">scan options: []</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS ZONE, STRING AS DOCID, STRING AS BOOKSHELF, STRING AS TITLE, VECTOR(16, 3) AS EMBEDDING)" ];
-  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">prefix comparisons: [EQUALS promote(@c8 AS STRING), EQUALS promote(@c12 AS STRING)]</td></tr><tr><td align="left">distanceRank: DISTANCE_RANK_LESS_THAN_OR_EQUAL @c31: @c37</td></tr><tr><td align="left">scan options: []</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS ZONE, STRING AS DOCID, STRING AS BOOKSHELF, STRING AS TITLE, VECTOR(16, 3) AS EMBEDDING)" ];
-  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">DOCUMENTSEUCLIDEANINDEX</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS ZONE, STRING AS DOCID, STRING AS BOOKSHELF, STRING AS TITLE, VECTOR(16, 3) AS EMBEDDING)" ];
-  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">DOCUMENTSCOSINEINDEX</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS ZONE, STRING AS DOCID, STRING AS BOOKSHELF, STRING AS TITLE, VECTOR(16, 3) AS EMBEDDING)" ];
-  3 -> 2 [ label=<&nbsp;q79> label="q79" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  4 -> 3 [ label=<&nbsp;q77> label="q77" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  5 -> 4 [ label=<&nbsp;q71> label="q71" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  6 -> 4 [ label=<&nbsp;q69> label="q69" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  7 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  8 -> 6 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Union Distinct</td></tr><tr><td align="left">COMPARE BY (recordType(_), _.DOCID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS ZONE, STRING AS DOCID, STRING AS BOOKSHELF, STRING AS TITLE, VECTOR(16, 3) AS EMBEDDING)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">prefix comparisons: [EQUALS promote(@c8 AS STRING), EQUALS promote(@c12 AS STRING)]</td></tr><tr><td align="left">distanceRank: DISTANCE_RANK_LESS_THAN_OR_EQUAL @c31: @c37</td></tr><tr><td align="left">scan options: []</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS ZONE, STRING AS DOCID, STRING AS BOOKSHELF, STRING AS TITLE, VECTOR(16, 3) AS EMBEDDING)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">prefix comparisons: [EQUALS promote(@c8 AS STRING), EQUALS promote(@c12 AS STRING)]</td></tr><tr><td align="left">distanceRank: DISTANCE_RANK_LESS_THAN_OR_EQUAL @c55: @c37</td></tr><tr><td align="left">scan options: []</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS ZONE, STRING AS DOCID, STRING AS BOOKSHELF, STRING AS TITLE, VECTOR(16, 3) AS EMBEDDING)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">DOCUMENTSCOSINEINDEX</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS ZONE, STRING AS DOCID, STRING AS BOOKSHELF, STRING AS TITLE, VECTOR(16, 3) AS EMBEDDING)" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">DOCUMENTSEUCLIDEANINDEX</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS ZONE, STRING AS DOCID, STRING AS BOOKSHELF, STRING AS TITLE, VECTOR(16, 3) AS EMBEDDING)" ];
+  3 -> 2 [ label=<&nbsp;q75> label="q75" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 2 [ label=<&nbsp;q77> label="q77" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}”9
+¯
+semantic-search-testsﬁEXPLAIN select r.reviewId, r.rating, d2.docId, d2.title from reviews r join documents d1 on r.zone = d1.zone and r.docId = d1.docId join documents d2 on d2.zone = d1.zone and d2.bookshelf = d1.bookshelf where r.reviewId = 'r1' and row_number() over (partition by d2.zone, d2.bookshelf order by euclidean_distance(d2.embedding, d1.embedding) asc) <= 3’6
+úÄà∑KÜ ﬁﬁ«+(ç0˝§Î8≤@ÀSCAN(<,>) | TFILTER REVIEWS | FILTER _.REVIEWID EQUALS promote(@c63 AS STRING) | FLATMAP q0 -> { SCAN(<,>) | TFILTER DOCUMENTS | FILTER q0.ZONE EQUALS _.ZONE AND q0.DOCID EQUALS _.DOCID | FLATMAP q1 -> { ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS q1.ZONE, EQUALS q1.BOOKSHELF]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL q1.EMBEDDING: @c95}:[] BY_DISTANCE) AS q2 RETURN q2 } AS q2 RETURN (q0.REVIEWID AS REVIEWID, q0.RATING AS RATING, q2.DOCID AS DOCID, q2.TITLE AS TITLE) }Â2digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q2.REVIEWID AS REVIEWID, q2.RATING AS RATING, q8.DOCID AS DOCID, q8.TITLE AS TITLE)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS REVIEWID, LONG AS RATING, STRING AS DOCID, STRING AS TITLE)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.REVIEWID EQUALS promote(@c63 AS STRING)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS REVIEWID, STRING AS ZONE, STRING AS DOCID, LONG AS RATING, STRING AS REVIEWTEXT)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Type Filter</td></tr><tr><td align="left">WHERE record IS [REVIEWS]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS REVIEWID, STRING AS ZONE, STRING AS DOCID, LONG AS RATING, STRING AS REVIEWTEXT)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [REVIEWS, DOCUMENTS]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP q8</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS ZONE, STRING AS DOCID, STRING AS BOOKSHELF, STRING AS TITLE, VECTOR(16, 3) AS EMBEDDING)" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.ZONE EQUALS q6.ZONE AND q2.DOCID EQUALS q6.DOCID</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS ZONE, STRING AS DOCID, STRING AS BOOKSHELF, STRING AS TITLE, VECTOR(16, 3) AS EMBEDDING)" ];
+  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">prefix comparisons: [EQUALS q6.ZONE, EQUALS q6.BOOKSHELF]</td></tr><tr><td align="left">distanceRank: DISTANCE_RANK_LESS_THAN_OR_EQUAL q6.EMBEDDING: @c95</td></tr><tr><td align="left">scan options: []</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS ZONE, STRING AS DOCID, STRING AS BOOKSHELF, STRING AS TITLE, VECTOR(16, 3) AS EMBEDDING)" ];
+  9 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Type Filter</td></tr><tr><td align="left">WHERE record IS [DOCUMENTS]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS ZONE, STRING AS DOCID, STRING AS BOOKSHELF, STRING AS TITLE, VECTOR(16, 3) AS EMBEDDING)" ];
+  10 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">DOCUMENTSEUCLIDEANINDEX</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS ZONE, STRING AS DOCID, STRING AS BOOKSHELF, STRING AS TITLE, VECTOR(16, 3) AS EMBEDDING)" ];
+  11 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
+  12 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [REVIEWS, DOCUMENTS]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
+  3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ label=<&nbsp;q57> label="q57" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 6 [ label=<&nbsp;q6> label="q6" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  8 -> 6 [ label=<&nbsp;q8> label="q8" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  9 -> 7 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  10 -> 8 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  11 -> 9 [ label=<&nbsp;q53> label="q53" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  12 -> 11 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 1 [ label=<&nbsp;q8> label="q8" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  {
+    rank=same;
+    rankDir=LR;
+    2 -> 6 [ color="red" style="invis" ];
+  }
+  {
+    rank=same;
+    rankDir=LR;
+    7 -> 8 [ color="red" style="invis" ];
+  }
+}¯8
+‹
+semantic-search-tests¬EXPLAIN select r.reviewText, d2.title from reviews r join documents d1 on r.zone = d1.zone and r.docId = d1.docId join documents d2 on d2.zone = d1.zone and d2.bookshelf = 'fiction' where r.rating >= 5 and row_number() over (partition by d2.zone, d2.bookshelf order by cosine_distance(d2.embedding, d1.embedding) asc) <= 2ñ6
+¥ΩÎµ2º	 «ŒÄ(™0Úôè8”@)ªSCAN(<,>) | TFILTER REVIEWS | FILTER _.RATING GREATER_THAN_OR_EQUALS promote(@c54 AS LONG) | FLATMAP q0 -> { SCAN(<,>) | TFILTER DOCUMENTS | FILTER q0.ZONE EQUALS _.ZONE AND q0.DOCID EQUALS _.DOCID | FLATMAP q1 -> { ISCAN(DOCUMENTSCOSINEINDEX [EQUALS q1.ZONE, EQUALS promote(@c47 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL q1.EMBEDDING: @c86}:[] BY_DISTANCE) AS q2 RETURN q2 } AS q2 RETURN (q0.REVIEWTEXT AS REVIEWTEXT, q2.TITLE AS TITLE) }∂2digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q2.REVIEWTEXT AS REVIEWTEXT, q8.TITLE AS TITLE)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS REVIEWTEXT, STRING AS TITLE)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.RATING GREATER_THAN_OR_EQUALS promote(@c54 AS LONG)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS REVIEWID, STRING AS ZONE, STRING AS DOCID, LONG AS RATING, STRING AS REVIEWTEXT)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Type Filter</td></tr><tr><td align="left">WHERE record IS [REVIEWS]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS REVIEWID, STRING AS ZONE, STRING AS DOCID, LONG AS RATING, STRING AS REVIEWTEXT)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [REVIEWS, DOCUMENTS]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP q8</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS ZONE, STRING AS DOCID, STRING AS BOOKSHELF, STRING AS TITLE, VECTOR(16, 3) AS EMBEDDING)" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.ZONE EQUALS q6.ZONE AND q2.DOCID EQUALS q6.DOCID</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS ZONE, STRING AS DOCID, STRING AS BOOKSHELF, STRING AS TITLE, VECTOR(16, 3) AS EMBEDDING)" ];
+  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">prefix comparisons: [EQUALS q6.ZONE, EQUALS promote(@c47 AS STRING)]</td></tr><tr><td align="left">distanceRank: DISTANCE_RANK_LESS_THAN_OR_EQUAL q6.EMBEDDING: @c86</td></tr><tr><td align="left">scan options: []</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS ZONE, STRING AS DOCID, STRING AS BOOKSHELF, STRING AS TITLE, VECTOR(16, 3) AS EMBEDDING)" ];
+  9 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Type Filter</td></tr><tr><td align="left">WHERE record IS [DOCUMENTS]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS ZONE, STRING AS DOCID, STRING AS BOOKSHELF, STRING AS TITLE, VECTOR(16, 3) AS EMBEDDING)" ];
+  10 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">DOCUMENTSCOSINEINDEX</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS ZONE, STRING AS DOCID, STRING AS BOOKSHELF, STRING AS TITLE, VECTOR(16, 3) AS EMBEDDING)" ];
+  11 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
+  12 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [REVIEWS, DOCUMENTS]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
+  3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ label=<&nbsp;q57> label="q57" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 6 [ label=<&nbsp;q6> label="q6" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  8 -> 6 [ label=<&nbsp;q8> label="q8" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  9 -> 7 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  10 -> 8 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  11 -> 9 [ label=<&nbsp;q53> label="q53" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  12 -> 11 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 1 [ label=<&nbsp;q8> label="q8" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  {
+    rank=same;
+    rankDir=LR;
+    2 -> 6 [ color="red" style="invis" ];
+  }
+  {
+    rank=same;
+    rankDir=LR;
+    7 -> 8 [ color="red" style="invis" ];
+  }
+}≠6
+Å
+semantic-search-testsÁEXPLAIN select r.reviewId, d2.docId, d2.title from reviews r join documents d1 on r.zone = d1.zone and r.docId = d1.docId join documents d2 on d2.zone = d1.zone and d2.bookshelf = 'science' where r.zone = 'zone1' and row_number() over (partition by d2.zone, d2.bookshelf order by euclidean_distance(d2.embedding, d1.embedding) asc options ef_search = 100) < 2¶3
+¸⁄ﬁ˚&Î ñèê(Ñ0ÁπÎ8ò@ SCAN(<,>) | TFILTER DOCUMENTS | FLATMAP q0 -> { SCAN(<,>) | TFILTER REVIEWS | FILTER _.ZONE EQUALS q0.ZONE AND _.ZONE EQUALS promote(@c57 AS STRING) AND _.DOCID EQUALS q0.DOCID | FLATMAP q1 -> { ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS q0.ZONE, EQUALS promote(@c51 AS STRING)]:{DISTANCE_RANK_LESS_THAN q0.EMBEDDING: @c92}:[] BY_DISTANCE) AS q2 RETURN (q1 AS _0, q2 AS _1) } AS q3 RETURN (q3._0.REVIEWID AS REVIEWID, q3._1.DOCID AS DOCID, q3._1.TITLE AS TITLE) }∑/digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q174._0.REVIEWID AS REVIEWID, q174._1.DOCID AS DOCID, q174._1.TITLE AS TITLE)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS REVIEWID, STRING AS DOCID, STRING AS TITLE)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Type Filter</td></tr><tr><td align="left">WHERE record IS [DOCUMENTS]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS ZONE, STRING AS DOCID, STRING AS BOOKSHELF, STRING AS TITLE, VECTOR(16, 3) AS EMBEDDING)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [REVIEWS, DOCUMENTS]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q2 AS _0, q8 AS _1)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS REVIEWID, STRING AS ZONE, STRING AS DOCID, LONG AS RATING, STRING AS REVIEWTEXT AS _0, STRING AS ZONE, STRING AS DOCID, STRING AS BOOKSHELF, STRING AS TITLE, VECTOR(16, 3) AS EMBEDDING AS _1)" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.ZONE EQUALS q6.ZONE AND q2.ZONE EQUALS promote(@c57 AS STRING) AND q2.DOCID EQUALS q6.DOCID</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS REVIEWID, STRING AS ZONE, STRING AS DOCID, LONG AS RATING, STRING AS REVIEWTEXT)" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">prefix comparisons: [EQUALS q6.ZONE, EQUALS promote(@c51 AS STRING)]</td></tr><tr><td align="left">distanceRank: DISTANCE_RANK_LESS_THAN q6.EMBEDDING: @c92</td></tr><tr><td align="left">scan options: []</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS ZONE, STRING AS DOCID, STRING AS BOOKSHELF, STRING AS TITLE, VECTOR(16, 3) AS EMBEDDING)" ];
+  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Type Filter</td></tr><tr><td align="left">WHERE record IS [REVIEWS]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS REVIEWID, STRING AS ZONE, STRING AS DOCID, LONG AS RATING, STRING AS REVIEWTEXT)" ];
+  9 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">DOCUMENTSEUCLIDEANINDEX</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS ZONE, STRING AS DOCID, STRING AS BOOKSHELF, STRING AS TITLE, VECTOR(16, 3) AS EMBEDDING)" ];
+  10 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
+  11 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [REVIEWS, DOCUMENTS]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
+  3 -> 2 [ label=<&nbsp;q53> label="q53" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 5 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 5 [ label=<&nbsp;q8> label="q8" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  8 -> 6 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  9 -> 7 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  10 -> 8 [ label=<&nbsp;q57> label="q57" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  11 -> 10 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 1 [ label=<&nbsp;q174> label="q174" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  {
+    rank=same;
+    rankDir=LR;
+    2 -> 5 [ color="red" style="invis" ];
+  }
+  {
+    rank=same;
+    rankDir=LR;
+    6 -> 7 [ color="red" style="invis" ];
+  }
 }

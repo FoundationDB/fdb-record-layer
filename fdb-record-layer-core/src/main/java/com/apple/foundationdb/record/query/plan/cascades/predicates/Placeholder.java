@@ -78,11 +78,6 @@ public class Placeholder extends PredicateWithValueAndRanges implements WithAlia
         return !isConstraining();
     }
 
-    @Override
-    public boolean requiresMapping() {
-        return getValue().isIndexOnly();
-    }
-
     @Nonnull
     public static Placeholder newInstanceWithoutRanges(@Nonnull Value value, @Nonnull CorrelationIdentifier parameterAlias) {
         return new Placeholder(value, ImmutableSet.of(), parameterAlias);

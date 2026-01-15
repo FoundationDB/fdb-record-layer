@@ -1173,7 +1173,7 @@ frameRange
 */
 
 partitionClause
-    : PARTITION BY uid (',' uid)*
+    : PARTITION BY fullId (',' fullId)*
     ;
 
 scalarFunctionName

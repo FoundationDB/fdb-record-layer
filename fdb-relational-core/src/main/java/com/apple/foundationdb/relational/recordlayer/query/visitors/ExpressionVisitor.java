@@ -314,8 +314,9 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nonnull
     @Override
     public Expressions visitPartitionClause(@Nonnull final RelationalParser.PartitionClauseContext ctx) {
-        final var partitionByExpressions = ctx.uid().stream()
-                .map(uid -> getDelegate().getSemanticAnalyzer().resolveIdentifier(visitUid(uid), getDelegate().getCurrentPlanFragment()))
+        final var partitionByExpressions = ctx.fullId().stream()
+                .map(fullId -> getDelegate().getSemanticAnalyzer()
+                        .resolveIdentifier(visitFullId(fullId), getDelegate().getCurrentPlanFragment()))
                 .collect(ImmutableList.toImmutableList());
         return Expressions.of(partitionByExpressions);
     }

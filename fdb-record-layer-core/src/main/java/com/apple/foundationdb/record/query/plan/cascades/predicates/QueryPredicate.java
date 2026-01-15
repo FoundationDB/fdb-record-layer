@@ -317,10 +317,6 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
         return false;
     }
 
-    default boolean requiresMapping() {
-        return false;
-    }
-
     @Nullable
     @SpotBugsSuppressWarnings(value = {"NP_NONNULL_PARAM_VIOLATION"}, justification = "compile-time evaluations take their value from the context only")
     default Boolean compileTimeEval(@Nonnull final EvaluationContext context) {

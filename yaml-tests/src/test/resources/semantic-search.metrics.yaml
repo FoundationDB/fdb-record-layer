@@ -5,12 +5,12 @@ semantic-search-tests:
     explain: 'ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c10 AS STRING), EQUALS
         promote(@c14 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c32: @c38}:[]
         BY_DISTANCE) | MAP (_.DOCID AS DOCID, _.TITLE AS TITLE)'
-    task_count: 225
-    task_total_time_ms: 167
-    transform_count: 69
-    transform_time_ms: 128
-    transform_yield_count: 25
-    insert_time_ms: 7
+    task_count: 220
+    task_total_time_ms: 153
+    transform_count: 65
+    transform_time_ms: 115
+    transform_yield_count: 24
+    insert_time_ms: 6
     insert_new_count: 20
     insert_reused_count: 1
 -   query: EXPLAIN select docId from documents where zone = 'zone1' and bookshelf
@@ -19,11 +19,11 @@ semantic-search-tests:
     explain: 'ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c8 AS STRING), EQUALS
         promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c30: @c36}:[]
         BY_DISTANCE) | MAP (_.DOCID AS DOCID)'
-    task_count: 225
-    task_total_time_ms: 27
-    transform_count: 69
-    transform_time_ms: 16
-    transform_yield_count: 25
+    task_count: 220
+    task_total_time_ms: 41
+    transform_count: 65
+    transform_time_ms: 30
+    transform_yield_count: 24
     insert_time_ms: 1
     insert_new_count: 20
     insert_reused_count: 1
@@ -33,11 +33,11 @@ semantic-search-tests:
     explain: 'ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c8 AS STRING), EQUALS
         promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c30: @c40}:[]
         BY_DISTANCE) | MAP (_.DOCID AS DOCID)'
-    task_count: 225
-    task_total_time_ms: 27
-    transform_count: 69
-    transform_time_ms: 16
-    transform_yield_count: 25
+    task_count: 220
+    task_total_time_ms: 19
+    transform_count: 65
+    transform_time_ms: 12
+    transform_yield_count: 24
     insert_time_ms: 1
     insert_new_count: 20
     insert_reused_count: 1
@@ -47,11 +47,11 @@ semantic-search-tests:
     explain: 'ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c8 AS STRING), EQUALS
         promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN @c30: @c39}:[] BY_DISTANCE)
         | MAP (_.DOCID AS DOCID)'
-    task_count: 225
-    task_total_time_ms: 21
-    transform_count: 69
+    task_count: 220
+    task_total_time_ms: 18
+    transform_count: 65
     transform_time_ms: 12
-    transform_yield_count: 25
+    transform_yield_count: 24
     insert_time_ms: 1
     insert_new_count: 20
     insert_reused_count: 1
@@ -61,12 +61,12 @@ semantic-search-tests:
     explain: 'ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c8 AS STRING), EQUALS
         promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN @c30: @c35}:[] BY_DISTANCE)
         | MAP (_.DOCID AS DOCID)'
-    task_count: 225
-    task_total_time_ms: 17
-    transform_count: 69
+    task_count: 220
+    task_total_time_ms: 16
+    transform_count: 65
     transform_time_ms: 10
-    transform_yield_count: 25
-    insert_time_ms: 1
+    transform_yield_count: 24
+    insert_time_ms: 0
     insert_new_count: 20
     insert_reused_count: 1
 -   query: EXPLAIN select docId from documents where zone = 'zone1' and bookshelf
@@ -75,11 +75,11 @@ semantic-search-tests:
     explain: 'ISCAN(DOCUMENTSCOSINEINDEX [EQUALS promote(@c8 AS STRING), EQUALS promote(@c12
         AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c30: @c36}:[] BY_DISTANCE)
         | MAP (_.DOCID AS DOCID)'
-    task_count: 225
+    task_count: 220
     task_total_time_ms: 14
-    transform_count: 69
+    transform_count: 65
     transform_time_ms: 9
-    transform_yield_count: 25
+    transform_yield_count: 24
     insert_time_ms: 0
     insert_new_count: 20
     insert_reused_count: 1
@@ -89,11 +89,11 @@ semantic-search-tests:
     explain: 'ISCAN(DOCUMENTSCOSINEINDEX [EQUALS promote(@c8 AS STRING), EQUALS promote(@c12
         AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c30: @c40}:[] BY_DISTANCE)
         | MAP (_.DOCID AS DOCID)'
-    task_count: 225
-    task_total_time_ms: 13
-    transform_count: 69
+    task_count: 220
+    task_total_time_ms: 12
+    transform_count: 65
     transform_time_ms: 8
-    transform_yield_count: 25
+    transform_yield_count: 24
     insert_time_ms: 0
     insert_new_count: 20
     insert_reused_count: 1
@@ -103,11 +103,11 @@ semantic-search-tests:
     explain: 'ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c8 AS STRING), EQUALS
         promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c30: @c36}:[]
         BY_DISTANCE) | MAP (_.DOCID AS DOCID)'
-    task_count: 225
-    task_total_time_ms: 27
-    transform_count: 69
-    transform_time_ms: 16
-    transform_yield_count: 25
+    task_count: 220
+    task_total_time_ms: 41
+    transform_count: 65
+    transform_time_ms: 30
+    transform_yield_count: 24
     insert_time_ms: 1
     insert_new_count: 20
     insert_reused_count: 1
@@ -119,11 +119,11 @@ semantic-search-tests:
         promote(@c23 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c41: @c47}:[]
         BY_DISTANCE) | MAP (_.DOCID AS DOCID, _.TITLE AS TITLE, (_.EMBEDDING) euclidean_distance
         @c41 AS DIST)'
-    task_count: 225
-    task_total_time_ms: 16
-    transform_count: 69
-    transform_time_ms: 10
-    transform_yield_count: 25
+    task_count: 220
+    task_total_time_ms: 14
+    transform_count: 65
+    transform_time_ms: 8
+    transform_yield_count: 24
     insert_time_ms: 0
     insert_new_count: 20
     insert_reused_count: 1
@@ -133,11 +133,11 @@ semantic-search-tests:
     explain: 'ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c8 AS STRING), EQUALS
         promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c30: @c36}:[]
         BY_DISTANCE) | MAP (_.DOCID AS DOCID)'
-    task_count: 225
-    task_total_time_ms: 13
-    transform_count: 69
-    transform_time_ms: 8
-    transform_yield_count: 25
+    task_count: 220
+    task_total_time_ms: 11
+    transform_count: 65
+    transform_time_ms: 6
+    transform_yield_count: 24
     insert_time_ms: 0
     insert_new_count: 20
     insert_reused_count: 1
@@ -147,11 +147,11 @@ semantic-search-tests:
     explain: 'ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c8 AS STRING), EQUALS
         promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c30: @c36}:[]
         BY_DISTANCE) | MAP (_.DOCID AS DOCID)'
-    task_count: 225
-    task_total_time_ms: 27
-    transform_count: 69
-    transform_time_ms: 16
-    transform_yield_count: 25
+    task_count: 220
+    task_total_time_ms: 41
+    transform_count: 65
+    transform_time_ms: 30
+    transform_yield_count: 24
     insert_time_ms: 1
     insert_new_count: 20
     insert_reused_count: 1
@@ -161,11 +161,11 @@ semantic-search-tests:
     explain: 'ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c8 AS STRING), EQUALS
         promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c30: @c36}:[]
         BY_DISTANCE) | MAP (_.DOCID AS DOCID)'
-    task_count: 225
-    task_total_time_ms: 27
-    transform_count: 69
-    transform_time_ms: 16
-    transform_yield_count: 25
+    task_count: 220
+    task_total_time_ms: 41
+    transform_count: 65
+    transform_time_ms: 30
+    transform_yield_count: 24
     insert_time_ms: 1
     insert_new_count: 20
     insert_reused_count: 1
@@ -173,18 +173,74 @@ semantic-search-tests:
         = 'fiction' and (row_number() over (partition by zone, bookshelf order by
         cosine_distance(embedding, ?) asc) <= 1 or row_number() over (partition by
         zone, bookshelf order by euclidean_distance(embedding, ?) asc) <= 1)
-    explain: 'COVERING(DOCUMENTSCOSINEINDEX [EQUALS promote(@c8 AS STRING), EQUALS
-        promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c31: @c37}:[]
-        BY_DISTANCE -> [BOOKSHELF: KEY:[1], EMBEDDING: VALUE:[0], ZONE: KEY:[0]])
-        ⊎ COVERING(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c8 AS STRING), EQUALS
-        promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c55: @c37}:[]
-        BY_DISTANCE -> [BOOKSHELF: KEY:[1], EMBEDDING: VALUE:[0], ZONE: KEY:[0]])
-        | DISTINCT BY PK | FETCH | MAP (_.TITLE AS TITLE)'
-    task_count: 608
-    task_total_time_ms: 59
-    transform_count: 166
-    transform_time_ms: 42
-    transform_yield_count: 51
+    explain: 'ISCAN(DOCUMENTSCOSINEINDEX [EQUALS promote(@c8 AS STRING), EQUALS promote(@c12
+        AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c31: @c37}:[] BY_DISTANCE)
+        ∪ ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c8 AS STRING), EQUALS promote(@c12
+        AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c55: @c37}:[] BY_DISTANCE)
+        COMPARE BY (recordType(_), _.DOCID) | MAP (_.TITLE AS TITLE)'
+    task_count: 477
+    task_total_time_ms: 50
+    transform_count: 141
+    transform_time_ms: 34
+    transform_yield_count: 45
     insert_time_ms: 3
-    insert_new_count: 61
-    insert_reused_count: 9
+    insert_new_count: 47
+    insert_reused_count: 6
+-   query: EXPLAIN select r.reviewId, r.rating, d2.docId, d2.title from reviews r
+        join documents d1 on r.zone = d1.zone and r.docId = d1.docId join documents
+        d2 on d2.zone = d1.zone and d2.bookshelf = d1.bookshelf where r.reviewId =
+        'r1' and row_number() over (partition by d2.zone, d2.bookshelf order by euclidean_distance(d2.embedding,
+        d1.embedding) asc) <= 3
+    explain: 'SCAN(<,>) | TFILTER REVIEWS | FILTER _.REVIEWID EQUALS promote(@c63
+        AS STRING) | FLATMAP q0 -> { SCAN(<,>) | TFILTER DOCUMENTS | FILTER q0.ZONE
+        EQUALS _.ZONE AND q0.DOCID EQUALS _.DOCID | FLATMAP q1 -> { ISCAN(DOCUMENTSEUCLIDEANINDEX
+        [EQUALS q1.ZONE, EQUALS q1.BOOKSHELF]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL q1.EMBEDDING:
+        @c95}:[] BY_DISTANCE) AS q2 RETURN q2 } AS q2 RETURN (q0.REVIEWID AS REVIEWID,
+        q0.RATING AS RATING, q2.DOCID AS DOCID, q2.TITLE AS TITLE) }'
+    task_count: 2076
+    task_total_time_ms: 158
+    transform_count: 902
+    transform_time_ms: 91
+    transform_yield_count: 141
+    insert_time_ms: 12
+    insert_new_count: 178
+    insert_reused_count: 26
+-   query: EXPLAIN select r.reviewText, d2.title from reviews r join documents d1
+        on r.zone = d1.zone and r.docId = d1.docId join documents d2 on d2.zone =
+        d1.zone and d2.bookshelf = 'fiction' where r.rating >= 5 and row_number()
+        over (partition by d2.zone, d2.bookshelf order by cosine_distance(d2.embedding,
+        d1.embedding) asc) <= 2
+    explain: 'SCAN(<,>) | TFILTER REVIEWS | FILTER _.RATING GREATER_THAN_OR_EQUALS
+        promote(@c54 AS LONG) | FLATMAP q0 -> { SCAN(<,>) | TFILTER DOCUMENTS | FILTER
+        q0.ZONE EQUALS _.ZONE AND q0.DOCID EQUALS _.DOCID | FLATMAP q1 -> { ISCAN(DOCUMENTSCOSINEINDEX
+        [EQUALS q1.ZONE, EQUALS promote(@c47 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL
+        q1.EMBEDDING: @c86}:[] BY_DISTANCE) AS q2 RETURN q2 } AS q2 RETURN (q0.REVIEWTEXT
+        AS REVIEWTEXT, q2.TITLE AS TITLE) }'
+    task_count: 2740
+    task_total_time_ms: 105
+    transform_count: 1212
+    transform_time_ms: 60
+    transform_yield_count: 170
+    insert_time_ms: 10
+    insert_new_count: 211
+    insert_reused_count: 41
+-   query: EXPLAIN select r.reviewId, d2.docId, d2.title from reviews r join documents
+        d1 on r.zone = d1.zone and r.docId = d1.docId join documents d2 on d2.zone
+        = d1.zone and d2.bookshelf = 'science' where r.zone = 'zone1' and row_number()
+        over (partition by d2.zone, d2.bookshelf order by euclidean_distance(d2.embedding,
+        d1.embedding) asc options ef_search = 100) < 2
+    explain: 'SCAN(<,>) | TFILTER DOCUMENTS | FLATMAP q0 -> { SCAN(<,>) | TFILTER
+        REVIEWS | FILTER _.ZONE EQUALS q0.ZONE AND _.ZONE EQUALS promote(@c57 AS STRING)
+        AND _.DOCID EQUALS q0.DOCID | FLATMAP q1 -> { ISCAN(DOCUMENTSEUCLIDEANINDEX
+        [EQUALS q0.ZONE, EQUALS promote(@c51 AS STRING)]:{DISTANCE_RANK_LESS_THAN
+        q0.EMBEDDING: @c92}:[] BY_DISTANCE) AS q2 RETURN (q1 AS _0, q2 AS _1) } AS
+        q3 RETURN (q3._0.REVIEWID AS REVIEWID, q3._1.DOCID AS DOCID, q3._1.TITLE AS
+        TITLE) }'
+    task_count: 1916
+    task_total_time_ms: 81
+    transform_count: 875
+    transform_time_ms: 52
+    transform_yield_count: 132
+    insert_time_ms: 5
+    insert_new_count: 152
+    insert_reused_count: 23
