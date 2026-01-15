@@ -53,7 +53,7 @@ Important Notes
 * Must use :sql:`UNION ALL` (not :sql:`UNION`) between the anchor and recursive queries
 * The recursive query must reference the CTE name to establish the recursive relationship
 * **Warning**: The system does not automatically prevent infinite recursion. Ensure your recursive queries have proper
-termination conditions to avoid infinite loops that may cause the system to crash
+  termination conditions to avoid infinite loops that may cause the system to crash
 * Traversal strategy affects the order of results but not the final set of results
 * Column names and types must be consistent between anchor and recursive queries
 
