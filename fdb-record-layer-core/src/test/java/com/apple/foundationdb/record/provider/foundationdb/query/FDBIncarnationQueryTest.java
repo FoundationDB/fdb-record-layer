@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.TestRecords1Proto.MySimpleRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
+import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
@@ -38,7 +39,6 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.IncarnationValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.tuple.Tuple;
@@ -53,6 +53,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.executeCascades;
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.fullTypeScan;
@@ -205,15 +206,20 @@ public class FDBIncarnationQueryTest extends FDBRecordStoreQueryTestBase {
 
                 final GraphExpansion.Builder graphExpansionBuilder = GraphExpansion.builder();
                 graphExpansionBuilder.addQuantifier(quantifier);
+                // Remove any PseudoFields
+                final Set<Type.Record.Field> properFields = Set.copyOf(recordType.getFields());
+                final List<Column<? extends FieldValue>> resultColumns = quantifier.getFlowedColumns().stream()
+                        .filter(column -> properFields.contains(column.getField()))
+                        .collect(Collectors.toList());
+                graphExpansionBuilder.addAllResultColumns(resultColumns);
                 Quantifier.ForEach selectQuantifier = Quantifier.forEach(Reference.initialOf(
-                        graphExpansionBuilder.build().buildSelectWithResultValue(QuantifiedObjectValue.of(quantifier))));
+                        graphExpansionBuilder.build().buildSelect()));
 
                 // Resolve the field path for num_value_2
                 final FieldValue.FieldPath updatePath = FieldValue.resolveFieldPath(selectQuantifier.getFlowedObjectType(),
                         List.of(new FieldValue.Accessor("num_value_2", -1)));
 
                 // Create the update value: incarnation value
-
                 Quantifier.ForEach updateQun = Quantifier.forEach(Reference.initialOf(new UpdateExpression(selectQuantifier,
                         "MySimpleRecord",
                         recordType,
