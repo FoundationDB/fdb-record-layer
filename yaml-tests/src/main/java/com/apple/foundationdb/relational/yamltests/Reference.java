@@ -21,25 +21,29 @@
 package com.apple.foundationdb.relational.yamltests;
 
 import com.apple.foundationdb.relational.util.Assert;
+import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Objects;
+import java.util.function.Supplier;
 
 /**
  * This represents a location in a YAMSQL file.
  */
-public class Reference {
-
+public class Reference implements Comparable<Reference> {
     @Nonnull
     private final Resource resource;
-
     private final int lineNumber;
+    @Nonnull
+    private final Supplier<Tuple> tupleSupplier;
+
 
     private Reference(@Nonnull final Resource resource, int lineNumber) {
         this.resource = resource;
         this.lineNumber = lineNumber;
+        this.tupleSupplier = () -> Tuple.from(resource.tupleSupplier.get().getItems()).add(lineNumber);
     }
 
     @Nonnull
@@ -92,22 +96,28 @@ public class Reference {
         return Objects.hash(resource, lineNumber);
     }
 
+    @Override
+    public int compareTo(final Reference o) {
+        return tupleSupplier.get().compareTo(o.tupleSupplier.get());
+    }
+
     /**
      * A resource represents path to a YAMSQL file. However, this class also serves the purpose of maintaining the
      * parent {@link Reference}s that (recursively) provides information about the calling stack that has lead to
      * this file being executed.
      */
     public static class Resource {
-
         @Nullable
         private final Reference parentRef;
-
         @Nonnull
         private final String path;
+        @Nonnull
+        private final Supplier<Tuple> tupleSupplier;
 
         private Resource(@Nullable final Reference parentRef, @Nonnull final String path) {
             this.parentRef = parentRef;
             this.path = path;
+            this.tupleSupplier = () -> parentRef == null ? Tuple.from(path) : Tuple.fromList(parentRef.tupleSupplier.get().getItems()).add(path);
         }
 
         public Reference withLineNumber(int lineNumber) {
@@ -178,8 +188,8 @@ public class Reference {
         }
 
         private static void assertNotCyclic(@Nonnull final Reference parentRef, @Nonnull final String path) {
-            final var callStack = parentRef.getCallStack();
-            Assert.thatUnchecked(callStack.stream().map(r -> r.getResource().getPath()).noneMatch(path::equals), "Cyclic path detected at: " + parentRef);
+            final var asTuple = parentRef.tupleSupplier.get().getItems();
+            Assert.thatUnchecked(asTuple.stream().noneMatch(path::equals), "Cyclic path detected at: " + parentRef);
         }
     }
 }

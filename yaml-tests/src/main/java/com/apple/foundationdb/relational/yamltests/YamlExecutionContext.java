@@ -94,18 +94,18 @@ public final class YamlExecutionContext {
 
     private static final URI SYSTEM_CATALOG_ADDRESS = URI.create("jdbc:embed:/__SYS?schema=CATALOG");
 
+    @Nonnull final String topLevelResourcePath;
     @Nonnull
     private final Set<Reference.Resource> registeredResources = new HashSet<>();
     @Nonnull
     private final Map<Reference.Resource, List<String>> editedFileStream = new HashMap<>();
     @Nonnull
     private final Map<Reference.Resource, Boolean> isDirty = new HashMap<>();
+    @Nullable
+    private ImmutableMap<PlannerMetricsProto.Identifier, PlannerMetricsProto.Info> expectedMetricsMap;
     @Nonnull
-    private final Map<Reference.Resource, ImmutableMap<PlannerMetricsProto.Identifier, PlannerMetricsProto.Info>> expectedMetricsMap = new HashMap<>();
-    @Nonnull
-    private final Map<Reference.Resource, Map<QueryAndLocation, PlannerMetricsProto.Info>> actualMetricsMap = new HashMap<>();
-    @Nonnull
-    private final Map<Reference.Resource, Boolean> isDirtyMetrics = new HashMap<>();
+    private Map<QueryAndLocation, PlannerMetricsProto.Info> actualMetricsMap = new HashMap<>();
+    private boolean isDirtyMetrics = false;
     @Nonnull
     private final YamlConnectionFactory connectionFactory;
     @SuppressWarnings("AbbreviationAsWordInName")
@@ -125,8 +125,9 @@ public final class YamlExecutionContext {
         }
     }
 
-    YamlExecutionContext(@Nonnull YamlConnectionFactory factory, @Nonnull final ContextOptions additionalOptions) {
+    YamlExecutionContext(@Nonnull String topLevelResourcePath, @Nonnull YamlConnectionFactory factory, @Nonnull final ContextOptions additionalOptions) {
         this.connectionFactory = factory;
+        this.topLevelResourcePath = topLevelResourcePath;
         this.additionalOptions = additionalOptions;
         if (isNightly()) {
             logger.info("ℹ️ Running in the NIGHTLY context.");
@@ -142,15 +143,17 @@ public final class YamlExecutionContext {
 
     public void registerResource(@Nonnull final Reference.Resource resource) throws RelationalException {
         if (registeredResources.contains(resource)) {
-            throw new RuntimeException();
+            throw new RuntimeException("The resource " + resource + " is already registered.");
         }
         if (shouldCorrectExplains()) {
             this.editedFileStream.put(resource, loadYamlResource(resource));
         }
-        this.expectedMetricsMap.put(resource, loadMetricsResource(resource));
-        this.actualMetricsMap.put(resource, new TreeMap<>(Comparator.comparing(QueryAndLocation::getLineNumber)
-                .thenComparing(QueryAndLocation::getBlockName)
-                .thenComparing(QueryAndLocation::getQuery)));
+        if (this.expectedMetricsMap == null) {
+            this.expectedMetricsMap = loadMetricsResource(resource);
+            this.actualMetricsMap = new TreeMap<>(Comparator.comparing(QueryAndLocation::getReference)
+                    .thenComparing(QueryAndLocation::getBlockName)
+                    .thenComparing(QueryAndLocation::getQuery));
+        }
         registeredResources.add(resource);
     }
 
@@ -188,9 +191,9 @@ public final class YamlExecutionContext {
         }
     }
 
-    @Nonnull
-    public ImmutableMap<PlannerMetricsProto.Identifier, PlannerMetricsProto.Info> getMetricsMap(@Nonnull final Reference.Resource resource) {
-        return expectedMetricsMap.get(resource);
+    @Nullable
+    public ImmutableMap<PlannerMetricsProto.Identifier, PlannerMetricsProto.Info> getMetricsMap() {
+        return expectedMetricsMap;
     }
 
     @Nullable
@@ -200,12 +203,12 @@ public final class YamlExecutionContext {
                                                             @Nonnull final Reference reference,
                                                             @Nonnull final PlannerMetricsProto.Info info,
                                                             @Nonnull final List<String> setups) {
-        return actualMetricsMap.get(reference.getResource()).put(new QueryAndLocation(blockName, query, reference.getLineNumber(), setups), info);
+        return actualMetricsMap.put(new QueryAndLocation(blockName, query, reference, setups), info);
     }
 
     @SuppressWarnings("UnusedReturnValue")
-    public synchronized void markDirty(@Nonnull final Reference.Resource resource) {
-        this.isDirtyMetrics.put(resource, true);
+    public synchronized void markDirty() {
+        this.isDirtyMetrics = true;
     }
 
     public boolean isNightly() {
@@ -250,19 +253,12 @@ public final class YamlExecutionContext {
                 Assertions.fail("Found duplicate entries for writing to file: " + resource.getPath());
             }
             saveYamlFile(resource);
-            saveMetricsAsBinaryProto(resource);
-            saveMetricsAsYaml(resource);
         }
-        for (final var resource: registeredResources) {
-            if (!isDirtyMetrics.getOrDefault(resource, false)) {
-                continue;
-            }
-            if (filePathsWithResourceCount.getOrDefault(resource.getPath(), 0L) > 1) {
-                Assertions.fail("Found duplicate entries for writing metrics for file: " + resource.getPath());
-            }
-            saveMetricsAsBinaryProto(resource);
-            saveMetricsAsYaml(resource);
+        if (!isDirtyMetrics) {
+            return;
         }
+        saveMetricsAsBinaryProto();
+        saveMetricsAsYaml();
     }
 
     private void saveYamlFile(@Nonnull final Reference.Resource resource) {
@@ -321,10 +317,12 @@ public final class YamlExecutionContext {
             if (localList.size() == 1) {
                 return URI.create(localList.get(0));
             }
+            Assert.thatUnchecked(localList.isEmpty(), ErrorCode.INTERNAL_ERROR,
+                    () -> "Requested a default connection URI, but multiple available to choose from in local: " + String.join(", " + localList));
             final var globalList = getGlobalConnectionURIList(resource);
             Assert.thatUnchecked(!globalList.isEmpty(), ErrorCode.INTERNAL_ERROR, () -> "Requested a default connection URI, but none present");
             Assert.thatUnchecked(globalList.size() == 1, ErrorCode.INTERNAL_ERROR,
-                    () -> "Requested a default connection URI, but multiple available to choose from: " + String.join(", ", globalList));
+                    () -> "Requested a default connection URI, but multiple available to choose from in global: " + String.join(", ", globalList));
             return URI.create(globalList.get(0));
         }
         final var list = !isGlobal ? connectionURIs.getOrDefault(resource, List.of()) : getGlobalConnectionURIList(resource);
@@ -427,11 +425,7 @@ public final class YamlExecutionContext {
         return additionalOptions.getOrDefault(option, defaultValue);
     }
 
-    private void saveMetricsAsBinaryProto(@Nonnull Reference.Resource resource) {
-        final var fileName = Path.of(System.getProperty("user.dir"))
-                .resolve(Path.of("src", "test", "resources", metricsBinaryProtoFileName(resource.getPath())))
-                .toAbsolutePath().toString();
-
+    private void saveMetricsAsBinaryProto() {
         //
         // It is possible that some queries are repeated within the same block. These explain queries, if served from
         // the cache contain their original planner metrics when they were planned, thus they are identical and we
@@ -442,19 +436,19 @@ public final class YamlExecutionContext {
         // but continue.
         //
         final var condensedMetricsMap = new LinkedHashMap<PlannerMetricsProto.Identifier, PlannerMetricsProto.Info>();
-        for (final var entry : actualMetricsMap.get(resource).entrySet()) {
+        for (final var entry : actualMetricsMap.entrySet()) {
             final var queryAndLocation = entry.getKey();
             final var identifier = queryAndLocation.getIdentifier();
             if (condensedMetricsMap.containsKey(identifier)) {
-                logger.warn("⚠️ Repeated query in block {} at line {}", queryAndLocation.getBlockName(),
-                        queryAndLocation.getLineNumber());
+                logger.warn("⚠️ Repeated query in block {} at {}", queryAndLocation.getBlockName(),
+                        queryAndLocation.getReference());
             } else {
                 condensedMetricsMap.put(identifier,
                         entry.getValue());
             }
         }
 
-        try (var fos = new FileOutputStream(fileName)) {
+        try (var fos = new FileOutputStream(topLevelResourcePath)) {
             for (final var entry : condensedMetricsMap.entrySet()) {
                 PlannerMetricsProto.Entry.newBuilder()
                         .setIdentifier(entry.getKey())
@@ -462,20 +456,16 @@ public final class YamlExecutionContext {
                         .build()
                         .writeDelimitedTo(fos);
             }
-            logger.info("🟢 Planner metrics file {} replaced.", fileName);
+            logger.info("🟢 Planner metrics file {} replaced.", topLevelResourcePath);
         } catch (final IOException iOE) {
-            logger.error("⚠️ Source file {} could not be replaced with corrected file.", fileName);
+            logger.error("⚠️ Source file {} could not be replaced with corrected file.", topLevelResourcePath);
             Assertions.fail(iOE);
         }
     }
 
-    private void saveMetricsAsYaml(@Nonnull final Reference.Resource resource) {
-        final var fileName = Path.of(System.getProperty("user.dir"))
-                .resolve(Path.of("src", "test", "resources", metricsYamlFileName(resource.getPath())))
-                .toAbsolutePath().toString();
-
+    private void saveMetricsAsYaml() {
         final var mmap = LinkedListMultimap.<String, Map<String, Object>>create();
-        for (final var entry : actualMetricsMap.get(resource).entrySet()) {
+        for (final var entry : actualMetricsMap.entrySet()) {
             final var identifier = entry.getKey().getIdentifier();
             final var info = entry.getValue();
             final var countersAndTimers = info.getCountersAndTimers();
@@ -498,6 +488,7 @@ public final class YamlExecutionContext {
             mmap.put(identifier.getBlockName(), infoMap);
         }
 
+        final var fileName = metricsYamlFileName(topLevelResourcePath);
         try (var fos = new FileOutputStream(fileName)) {
             DumperOptions options = new DumperOptions();
             options.setIndent(4);
@@ -711,16 +702,17 @@ public final class YamlExecutionContext {
     private static class QueryAndLocation {
         @Nonnull
         private final PlannerMetricsProto.Identifier identifier;
-        private final int lineNumber;
+        @Nonnull
+        private final Reference reference;
 
-        public QueryAndLocation(@Nonnull final String blockName, final String query, final int lineNumber,
+        public QueryAndLocation(@Nonnull final String blockName, final String query, @Nonnull final Reference reference,
                                 @Nonnull List<String> setups) {
             identifier = PlannerMetricsProto.Identifier.newBuilder()
                     .setBlockName(blockName)
                     .setQuery(query)
                     .addAllSetups(setups)
                     .build();
-            this.lineNumber = lineNumber;
+            this.reference = reference;
         }
 
         @Nonnull
@@ -733,12 +725,14 @@ public final class YamlExecutionContext {
             return identifier.getBlockName();
         }
 
+        @Nonnull
         public String getQuery() {
             return identifier.getQuery();
         }
 
-        public int getLineNumber() {
-            return lineNumber;
+        @Nonnull
+        public Reference getReference() {
+            return reference;
         }
 
         @Override
@@ -747,12 +741,12 @@ public final class YamlExecutionContext {
                 return false;
             }
             final QueryAndLocation that = (QueryAndLocation)o;
-            return lineNumber == that.lineNumber && Objects.equals(identifier, that.identifier);
+            return reference.equals(that.reference) && Objects.equals(identifier, that.identifier);
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(identifier, lineNumber);
+            return Objects.hash(identifier, reference);
         }
     }
 

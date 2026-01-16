@@ -84,7 +84,7 @@ public class CheckExplainConfig extends QueryConfig {
         resultSet.next();
         final var actualPlan = resultSet.getString(1);
         final var actualDot = resultSet.getString(3);
-        final var metricsMap = executionContext.getMetricsMap(getReference().getResource());
+        final var metricsMap = executionContext.getMetricsMap();
         final var identifier = PlannerMetricsProto.Identifier.newBuilder()
                 .setBlockName(blockName)
                 .setQuery(currentQuery)
@@ -181,7 +181,7 @@ public class CheckExplainConfig extends QueryConfig {
                 .build();
         if (expectedPlannerMetricsInfo == null) {
             executionContext.putMetrics(blockName, currentQuery, getReference(), actualInfo, setups);
-            executionContext.markDirty(getReference().getResource());
+            executionContext.markDirty();
             logger.debug(() -> "⭐️ Successfully inserted new planner metrics at " + getReference());
         } else {
             final var expectedCountersAndTimers = expectedPlannerMetricsInfo.getCountersAndTimers();
@@ -191,7 +191,7 @@ public class CheckExplainConfig extends QueryConfig {
             if (areMetricsDifferent(expectedCountersAndTimers, actualCountersAndTimers, metricsDescriptor)) {
                 executionContext.putMetrics(blockName, currentQuery, getReference(), actualInfo, setups);
                 if (executionContext.shouldCorrectMetrics()) {
-                    executionContext.markDirty(getReference().getResource());
+                    executionContext.markDirty();
                     logger.debug(() -> "⭐️ Successfully updated planner metrics at " + getReference());
                 } else {
                     QueryCommand.reportTestFailure("‼️ Planner metrics have changed for " + getReference());

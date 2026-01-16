@@ -49,7 +49,7 @@ public final class YamlRunner {
     public YamlRunner(@Nonnull String resourcePath, @Nonnull YamlConnectionFactory factory,
                       @Nonnull final YamlExecutionContext.ContextOptions additionalOptions) throws RelationalException {
         this.baseResource = Reference.Resource.base(resourcePath);
-        this.executionContext = new YamlExecutionContext(factory, additionalOptions);
+        this.executionContext = new YamlExecutionContext(resourcePath, factory, additionalOptions);
     }
 
     public void run() throws Exception {
