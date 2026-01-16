@@ -21,17 +21,18 @@
 package com.apple.foundationdb.record.query.plan.cascades.debug;
 
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
-import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger.InitiatePlannerPhaseEvent;
+import com.apple.foundationdb.record.query.plan.cascades.events.AdjustMatchPlannerEvent;
+import com.apple.foundationdb.record.query.plan.cascades.events.ExecutingTaskPlannerEvent;
+import com.apple.foundationdb.record.query.plan.cascades.events.ExploreExpressionPlannerEvent;
+import com.apple.foundationdb.record.query.plan.cascades.events.ExploreGroupPlannerEvent;
+import com.apple.foundationdb.record.query.plan.cascades.events.InitiatePhasePlannerEvent;
+import com.apple.foundationdb.record.query.plan.cascades.events.InsertIntoMemoPlannerEvent;
+import com.apple.foundationdb.record.query.plan.cascades.events.OptimizeGroupPlannerEvent;
+import com.apple.foundationdb.record.query.plan.cascades.events.OptimizeInputsPlannerEvent;
+import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEvent;
+import com.apple.foundationdb.record.query.plan.cascades.events.TransformPlannerEvent;
+import com.apple.foundationdb.record.query.plan.cascades.events.TransformRuleCallPlannerEvent;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger.AdjustMatchEvent;
-import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger.ExecutingTaskEvent;
-import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger.ExploreExpressionEvent;
-import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger.ExploreGroupEvent;
-import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger.InsertIntoMemoEvent;
-import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger.OptimizeGroupEvent;
-import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger.OptimizeInputsEvent;
-import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger.TransformEvent;
-import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger.TransformRuleCallEvent;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableListMultimap;
@@ -52,7 +53,7 @@ public class Processors {
      * Event-typed processor.
      * @param <E> the type of event
      */
-    public interface Processor<E extends Debugger.Event> {
+    public interface Processor<E extends PlannerEvent> {
         default void onCallback(final PlannerRepl plannerRepl, final E event) {
             onList(plannerRepl, event);
         }
@@ -71,12 +72,12 @@ public class Processors {
     }
 
     /**
-     * Processor for {@link ExecutingTaskEvent}.
+     * Processor for {@link ExecutingTaskPlannerEvent}.
      */
     @AutoService(Processor.class)
-    public static class ExecutingTaskProcessor implements Processor<ExecutingTaskEvent> {
+    public static class ExecutingTaskProcessor implements Processor<ExecutingTaskPlannerEvent> {
         @Override
-        public void onDetail(final PlannerRepl plannerRepl, final ExecutingTaskEvent event) {
+        public void onDetail(final PlannerRepl plannerRepl, final ExecutingTaskPlannerEvent event) {
             plannerRepl.printlnKeyValue("location", event.getLocation().name().toLowerCase(Locale.ROOT));
             plannerRepl.printlnKeyValue("shorthand", event.getShorthand().name().toLowerCase(Locale.ROOT));
             plannerRepl.printlnKeyValue("description", event.getDescription());
@@ -86,7 +87,7 @@ public class Processors {
         }
 
         @Override
-        public void onList(final PlannerRepl plannerRepl, final ExecutingTaskEvent event) {
+        public void onList(final PlannerRepl plannerRepl, final ExecutingTaskPlannerEvent event) {
             plannerRepl.printKeyValue("location", event.getLocation().name().toLowerCase(Locale.ROOT) + "; ");
             plannerRepl.printKeyValue("shorthand", event.getShorthand().name().toLowerCase(Locale.ROOT) + "; ");
             plannerRepl.printKeyValue("description", event.getDescription() + "; ");
@@ -95,18 +96,18 @@ public class Processors {
         }
 
         @Override
-        public Class<ExecutingTaskEvent> getEventType() {
-            return ExecutingTaskEvent.class;
+        public Class<ExecutingTaskPlannerEvent> getEventType() {
+            return ExecutingTaskPlannerEvent.class;
         }
     }
 
     /**
-     * Processor for {@link OptimizeGroupEvent}.
+     * Processor for {@link OptimizeGroupPlannerEvent}.
      */
     @AutoService(Processor.class)
-    public static class OptimizeGroupProcessor implements Processor<OptimizeGroupEvent> {
+    public static class OptimizeGroupProcessor implements Processor<OptimizeGroupPlannerEvent> {
         @Override
-        public void onDetail(final PlannerRepl plannerRepl, final OptimizeGroupEvent event) {
+        public void onDetail(final PlannerRepl plannerRepl, final OptimizeGroupPlannerEvent event) {
             plannerRepl.printlnKeyValue("shorthand", event.getShorthand().name().toLowerCase(Locale.ROOT));
             plannerRepl.printlnKeyValue("location", event.getLocation().name().toLowerCase(Locale.ROOT));
             plannerRepl.printlnKeyValue("description", event.getDescription());
@@ -117,7 +118,7 @@ public class Processors {
         }
 
         @Override
-        public void onList(final PlannerRepl plannerRepl, final OptimizeGroupEvent event) {
+        public void onList(final PlannerRepl plannerRepl, final OptimizeGroupPlannerEvent event) {
             plannerRepl.printKeyValue("shorthand", event.getShorthand().name().toLowerCase(Locale.ROOT) + "; ");
             plannerRepl.printKeyValue("location", event.getLocation().name().toLowerCase(Locale.ROOT) + "; ");
             plannerRepl.printKeyValue("description", event.getDescription() + "; ");
@@ -126,18 +127,18 @@ public class Processors {
         }
 
         @Override
-        public Class<OptimizeGroupEvent> getEventType() {
-            return OptimizeGroupEvent.class;
+        public Class<OptimizeGroupPlannerEvent> getEventType() {
+            return OptimizeGroupPlannerEvent.class;
         }
     }
 
     /**
-     * Processor for {@link ExploreExpressionEvent}.
+     * Processor for {@link ExploreExpressionPlannerEvent}.
      */
     @AutoService(Processor.class)
-    public static class ExploreExpressionProcessor implements Processor<ExploreExpressionEvent> {
+    public static class ExploreExpressionProcessor implements Processor<ExploreExpressionPlannerEvent> {
         @Override
-        public void onDetail(final PlannerRepl plannerRepl, final ExploreExpressionEvent event) {
+        public void onDetail(final PlannerRepl plannerRepl, final ExploreExpressionPlannerEvent event) {
             plannerRepl.printlnKeyValue("event", event.getShorthand().name().toLowerCase(Locale.ROOT));
             plannerRepl.printlnKeyValue("location", event.getLocation().name().toLowerCase(Locale.ROOT));
             plannerRepl.printlnKeyValue("description", event.getDescription());
@@ -149,7 +150,7 @@ public class Processors {
         }
 
         @Override
-        public void onList(final PlannerRepl plannerRepl, final ExploreExpressionEvent event) {
+        public void onList(final PlannerRepl plannerRepl, final ExploreExpressionPlannerEvent event) {
             plannerRepl.printKeyValue("shorthand", event.getShorthand().name().toLowerCase(Locale.ROOT) + "; ");
             plannerRepl.printKeyValue("location", event.getLocation().name().toLowerCase(Locale.ROOT) + "; ");
             plannerRepl.printKeyValue("description", event.getDescription() + "; ");
@@ -159,18 +160,18 @@ public class Processors {
         }
 
         @Override
-        public Class<ExploreExpressionEvent> getEventType() {
-            return ExploreExpressionEvent.class;
+        public Class<ExploreExpressionPlannerEvent> getEventType() {
+            return ExploreExpressionPlannerEvent.class;
         }
     }
 
     /**
-     * Processor for {@link ExploreGroupEvent}.
+     * Processor for {@link ExploreGroupPlannerEvent}.
      */
     @AutoService(Processor.class)
-    public static class ExploreGroupProcessor implements Processor<ExploreGroupEvent> {
+    public static class ExploreGroupProcessor implements Processor<ExploreGroupPlannerEvent> {
         @Override
-        public void onDetail(final PlannerRepl plannerRepl, final ExploreGroupEvent event) {
+        public void onDetail(final PlannerRepl plannerRepl, final ExploreGroupPlannerEvent event) {
             plannerRepl.printlnKeyValue("event", event.getShorthand().name().toLowerCase(Locale.ROOT));
             plannerRepl.printlnKeyValue("location", event.getLocation().name().toLowerCase(Locale.ROOT));
             plannerRepl.printlnKeyValue("description", event.getDescription());
@@ -181,7 +182,7 @@ public class Processors {
         }
 
         @Override
-        public void onList(final PlannerRepl plannerRepl, final ExploreGroupEvent event) {
+        public void onList(final PlannerRepl plannerRepl, final ExploreGroupPlannerEvent event) {
             plannerRepl.printKeyValue("shorthand", event.getShorthand().name().toLowerCase(Locale.ROOT) + "; ");
             plannerRepl.printKeyValue("location", event.getLocation().name().toLowerCase(Locale.ROOT) + "; ");
             plannerRepl.printKeyValue("description", event.getDescription() + "; ");
@@ -190,18 +191,18 @@ public class Processors {
         }
 
         @Override
-        public Class<ExploreGroupEvent> getEventType() {
-            return ExploreGroupEvent.class;
+        public Class<ExploreGroupPlannerEvent> getEventType() {
+            return ExploreGroupPlannerEvent.class;
         }
     }
 
     /**
-     * Processor for {@link TransformEvent}.
+     * Processor for {@link TransformPlannerEvent}.
      */
     @AutoService(Processor.class)
-    public static class TransformProcessor implements Processor<TransformEvent> {
+    public static class TransformProcessor implements Processor<TransformPlannerEvent> {
         @Override
-        public void onDetail(final PlannerRepl plannerRepl, final TransformEvent event) {
+        public void onDetail(final PlannerRepl plannerRepl, final TransformPlannerEvent event) {
             plannerRepl.printlnKeyValue("event", event.getShorthand().name().toLowerCase(Locale.ROOT));
             plannerRepl.printlnKeyValue("location", event.getLocation().name().toLowerCase(Locale.ROOT));
             plannerRepl.printlnKeyValue("description", event.getDescription());
@@ -219,7 +220,7 @@ public class Processors {
         }
 
         @Override
-        public void onList(final PlannerRepl plannerRepl, final TransformEvent event) {
+        public void onList(final PlannerRepl plannerRepl, final TransformPlannerEvent event) {
             plannerRepl.printKeyValue("shorthand", event.getShorthand().name().toLowerCase(Locale.ROOT) + "; ");
             plannerRepl.printKeyValue("location", event.getLocation().name().toLowerCase(Locale.ROOT) + "; ");
             plannerRepl.printKeyValue("description", event.getDescription() + "; ");
@@ -235,18 +236,18 @@ public class Processors {
         }
 
         @Override
-        public Class<TransformEvent> getEventType() {
-            return TransformEvent.class;
+        public Class<TransformPlannerEvent> getEventType() {
+            return TransformPlannerEvent.class;
         }
     }
 
     /**
-     * Processor for {@link TransformRuleCallEvent}.
+     * Processor for {@link TransformRuleCallPlannerEvent}.
      */
     @AutoService(Processor.class)
-    public static class TransformRuleCallProcessor implements Processor<TransformRuleCallEvent> {
+    public static class TransformRuleCallProcessor implements Processor<TransformRuleCallPlannerEvent> {
         @Override
-        public void onDetail(final PlannerRepl plannerRepl, final TransformRuleCallEvent event) {
+        public void onDetail(final PlannerRepl plannerRepl, final TransformRuleCallPlannerEvent event) {
             plannerRepl.printlnKeyValue("event", event.getShorthand().name().toLowerCase(Locale.ROOT));
             plannerRepl.printlnKeyValue("location", event.getLocation().name().toLowerCase(Locale.ROOT));
             plannerRepl.printlnKeyValue("description", event.getDescription());
@@ -265,7 +266,7 @@ public class Processors {
                 }
             }
 
-            if (event.getLocation() == Debugger.Location.END) {
+            if (event.getLocation() == PlannerEvent.Location.END) {
                 plannerRepl.printlnKeyValue("yield", "");
                 for (final RelationalExpression newExpression :
                         Iterables.concat(ruleCall.getNewFinalExpressions(), ruleCall.getNewExploratoryExpressions())) {
@@ -276,7 +277,7 @@ public class Processors {
         }
 
         @Override
-        public void onList(final PlannerRepl plannerRepl, final TransformRuleCallEvent event) {
+        public void onList(final PlannerRepl plannerRepl, final TransformRuleCallPlannerEvent event) {
             plannerRepl.printKeyValue("shorthand", event.getShorthand().name().toLowerCase(Locale.ROOT) + "; ");
             plannerRepl.printKeyValue("location", event.getLocation().name().toLowerCase(Locale.ROOT) + "; ");
             plannerRepl.printKeyValue("description", event.getDescription() + "; ");
@@ -292,18 +293,18 @@ public class Processors {
         }
 
         @Override
-        public Class<TransformRuleCallEvent> getEventType() {
-            return TransformRuleCallEvent.class;
+        public Class<TransformRuleCallPlannerEvent> getEventType() {
+            return TransformRuleCallPlannerEvent.class;
         }
     }
 
     /**
-     * Processor for {@link AdjustMatchEvent}.
+     * Processor for {@link AdjustMatchPlannerEvent}.
      */
     @AutoService(Processor.class)
-    public static class AdjustMatchProcessor implements Processor<AdjustMatchEvent> {
+    public static class AdjustMatchProcessor implements Processor<AdjustMatchPlannerEvent> {
         @Override
-        public void onDetail(final PlannerRepl plannerRepl, final AdjustMatchEvent event) {
+        public void onDetail(final PlannerRepl plannerRepl, final AdjustMatchPlannerEvent event) {
             plannerRepl.printlnKeyValue("event", event.getShorthand().name().toLowerCase(Locale.ROOT));
             plannerRepl.printlnKeyValue("location", event.getLocation().name().toLowerCase(Locale.ROOT));
             plannerRepl.printlnKeyValue("description", event.getDescription());
@@ -316,7 +317,7 @@ public class Processors {
         }
 
         @Override
-        public void onList(final PlannerRepl plannerRepl, final AdjustMatchEvent event) {
+        public void onList(final PlannerRepl plannerRepl, final AdjustMatchPlannerEvent event) {
             plannerRepl.printKeyValue("shorthand", event.getShorthand().name().toLowerCase(Locale.ROOT) + "; ");
             plannerRepl.printKeyValue("location", event.getLocation().name().toLowerCase(Locale.ROOT) + "; ");
             plannerRepl.printKeyValue("description", event.getDescription() + "; ");
@@ -326,18 +327,18 @@ public class Processors {
         }
 
         @Override
-        public Class<AdjustMatchEvent> getEventType() {
-            return AdjustMatchEvent.class;
+        public Class<AdjustMatchPlannerEvent> getEventType() {
+            return AdjustMatchPlannerEvent.class;
         }
     }
 
     /**
-     * Processor for {@link OptimizeInputsEvent}.
+     * Processor for {@link OptimizeInputsPlannerEvent}.
      */
     @AutoService(Processor.class)
-    public static class OptimizeInputsProcessor implements Processor<OptimizeInputsEvent> {
+    public static class OptimizeInputsProcessor implements Processor<OptimizeInputsPlannerEvent> {
         @Override
-        public void onDetail(final PlannerRepl plannerRepl, final OptimizeInputsEvent event) {
+        public void onDetail(final PlannerRepl plannerRepl, final OptimizeInputsPlannerEvent event) {
             plannerRepl.printlnKeyValue("event", event.getShorthand().name().toLowerCase(Locale.ROOT));
             plannerRepl.printlnKeyValue("location", event.getLocation().name().toLowerCase(Locale.ROOT));
             plannerRepl.printlnKeyValue("description", event.getDescription());
@@ -349,7 +350,7 @@ public class Processors {
         }
 
         @Override
-        public void onList(final PlannerRepl plannerRepl, final OptimizeInputsEvent event) {
+        public void onList(final PlannerRepl plannerRepl, final OptimizeInputsPlannerEvent event) {
             plannerRepl.printKeyValue("shorthand", event.getShorthand().name().toLowerCase(Locale.ROOT) + "; ");
             plannerRepl.printKeyValue("location", event.getLocation().name().toLowerCase(Locale.ROOT) + "; ");
             plannerRepl.printKeyValue("description", event.getDescription() + "; ");
@@ -359,42 +360,42 @@ public class Processors {
         }
 
         @Override
-        public Class<OptimizeInputsEvent> getEventType() {
-            return OptimizeInputsEvent.class;
+        public Class<OptimizeInputsPlannerEvent> getEventType() {
+            return OptimizeInputsPlannerEvent.class;
         }
     }
 
     /**
-     * Processor for {@link InsertIntoMemoEvent}.
+     * Processor for {@link InsertIntoMemoPlannerEvent}.
      */
     @AutoService(Processor.class)
-    public static class InsertMemoProcessor implements Processor<InsertIntoMemoEvent> {
+    public static class InsertMemoProcessor implements Processor<InsertIntoMemoPlannerEvent> {
         @Override
-        public void onDetail(final PlannerRepl plannerRepl, final InsertIntoMemoEvent event) {
+        public void onDetail(final PlannerRepl plannerRepl, final InsertIntoMemoPlannerEvent event) {
             plannerRepl.printlnKeyValue("event", event.getShorthand().name().toLowerCase(Locale.ROOT));
             plannerRepl.printlnKeyValue("location", event.getLocation().name().toLowerCase(Locale.ROOT));
             plannerRepl.printlnKeyValue("description", event.getDescription());
         }
 
         @Override
-        public void onList(final PlannerRepl plannerRepl, final InsertIntoMemoEvent event) {
+        public void onList(final PlannerRepl plannerRepl, final InsertIntoMemoPlannerEvent event) {
             plannerRepl.printKeyValue("shorthand", event.getShorthand().name().toLowerCase(Locale.ROOT) + "; ");
             plannerRepl.printKeyValue("location", event.getLocation().name().toLowerCase(Locale.ROOT));
         }
 
         @Override
-        public Class<InsertIntoMemoEvent> getEventType() {
-            return InsertIntoMemoEvent.class;
+        public Class<InsertIntoMemoPlannerEvent> getEventType() {
+            return InsertIntoMemoPlannerEvent.class;
         }
     }
 
     /**
-     * Processor for {@link InitiatePlannerPhaseEvent}.
+     * Processor for {@link InitiatePhasePlannerEvent}.
      */
     @AutoService(Processor.class)
-    public static class InitiatePlannerPhaseProcessor implements Processor<InitiatePlannerPhaseEvent> {
+    public static class InitiatePlannerPhaseProcessor implements Processor<InitiatePhasePlannerEvent> {
         @Override
-        public void onDetail(final PlannerRepl plannerRepl, final InitiatePlannerPhaseEvent event) {
+        public void onDetail(final PlannerRepl plannerRepl, final InitiatePhasePlannerEvent event) {
             plannerRepl.printlnKeyValue("event", event.getShorthand().name().toLowerCase(Locale.ROOT));
             plannerRepl.printlnKeyValue("location", event.getLocation().name().toLowerCase(Locale.ROOT));
             plannerRepl.printlnKeyValue("description", event.getDescription());
@@ -402,15 +403,15 @@ public class Processors {
         }
 
         @Override
-        public void onList(final PlannerRepl plannerRepl, final InitiatePlannerPhaseEvent event) {
+        public void onList(final PlannerRepl plannerRepl, final InitiatePhasePlannerEvent event) {
             plannerRepl.printKeyValue("shorthand", event.getShorthand().name().toLowerCase(Locale.ROOT) + "; ");
             plannerRepl.printKeyValue("location", event.getLocation().name().toLowerCase(Locale.ROOT) + "; ");
             plannerRepl.printKeyValue("planner phase", event.getPlannerPhase().name().toLowerCase(Locale.ROOT));
         }
 
         @Override
-        public Class<InitiatePlannerPhaseEvent> getEventType() {
-            return InitiatePlannerPhaseEvent.class;
+        public Class<InitiatePhasePlannerEvent> getEventType() {
+            return InitiatePhasePlannerEvent.class;
         }
     }
 }
