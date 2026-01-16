@@ -127,8 +127,8 @@ public class SelectMergeRule extends ImplementationCascadesRule<SelectExpression
         final Set<CorrelationIdentifier> newQunAliases = new HashSet<>();
         final var newQuantifiers = ImmutableList.<Quantifier>builder();
         final var newPredicates = ImmutableList.<QueryPredicate>builder();
-        final var selectTranslationBuilder = TranslationMap.regularBuilder();
-        final var independentChildSelectTranslationBuilder = TranslationMap.regularBuilder();
+        final var topLevelSelectTranslationBuilder = TranslationMap.regularBuilder();
+        final var nextChildSelectTranslationBuilder = TranslationMap.regularBuilder();
         for (final var alias: correlationPermutation.orElseThrow()) {
             final var childSelectExpression = quantifierToChildSelectExpressionMap.get(alias);
             if (childSelectExpression != null) {
@@ -146,7 +146,7 @@ public class SelectMergeRule extends ImplementationCascadesRule<SelectExpression
                     }
                 }
                 final var childAliasMap = TranslationMap.rebaseWithAliasMap(childAliasMapBuilder.build());
-                final var independentChildSelectExpressionTranslationMap = independentChildSelectTranslationBuilder.build();
+                final var independentChildSelectExpressionTranslationMap = nextChildSelectTranslationBuilder.build();
                 TranslationMap resultantTranslationMap;
                 if (childAliasMap.definesOnlyIdentities()) {
                     resultantTranslationMap = RegularTranslationMap.compose(ImmutableList.of(independentChildSelectExpressionTranslationMap));
@@ -156,13 +156,13 @@ public class SelectMergeRule extends ImplementationCascadesRule<SelectExpression
 
                 newQuantifiers.addAll(Quantifiers.rebaseGraphs(childSelectExpression.getQuantifiers(), (Memoizer) call, resultantTranslationMap, true));
                 childSelectExpression.getPredicates().stream()
-                        .map(predicate -> predicate.translateCorrelations(resultantTranslationMap, false))
+                        .map(predicate -> predicate.translateCorrelations(resultantTranslationMap, true))
                         .forEach(newPredicates::add);
                 final var childSelectExpressionTranslatedResultValue = childSelectExpression.getResultValue().translateCorrelations(resultantTranslationMap);
 
-                selectTranslationBuilder.when(alias)
+                topLevelSelectTranslationBuilder.when(alias)
                         .then((ignore1, ignore2) -> childSelectExpressionTranslatedResultValue);
-                independentChildSelectTranslationBuilder.when(alias)
+                nextChildSelectTranslationBuilder.when(alias)
                         .then((ignore1, ignore2) -> childSelectExpressionTranslatedResultValue);
             } else {
                 // non-SelectExpression
@@ -173,7 +173,7 @@ public class SelectMergeRule extends ImplementationCascadesRule<SelectExpression
                             call.memoizeFinalExpressionsFromOther(childReference, childReference.getFinalExpressions());
                     newQuantifiers.add(aliasToQuantifierMap.get(alias).overNewReference(newChildReference));
                 } else {
-                    final var newQun = Quantifiers.rebaseGraphs(ImmutableList.of(aliasToQuantifierMap.get(alias)), (Memoizer) call, independentChildSelectTranslationBuilder.build(), true);
+                    final var newQun = Quantifiers.rebaseGraphs(ImmutableList.of(aliasToQuantifierMap.get(alias)), (Memoizer) call, nextChildSelectTranslationBuilder.build(), true);
                     newQuantifiers.addAll(newQun);
                 }
             }
@@ -182,7 +182,7 @@ public class SelectMergeRule extends ImplementationCascadesRule<SelectExpression
         //
         // Use the new translation map to update the final result value as well as any pre-existing predicates
         //
-        final var translationMap = selectTranslationBuilder.build();
+        final var translationMap = topLevelSelectTranslationBuilder.build();
         selectExpression.getPredicates()
                 .forEach(predicate -> newPredicates.add(predicate.translateCorrelations(translationMap, true)));
 
