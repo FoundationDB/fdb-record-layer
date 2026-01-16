@@ -269,6 +269,7 @@ message PValue {
     PSubscriptValue subscript_value = 52;
     PParameterObjectValue parameter_object_value = 53;
     PCastValue cast_value = 54;
+    PIncarnationValue incarnation_value = 55;
   }
 }
 
@@ -1284,6 +1285,10 @@ message PVariadicFunctionValue {
 message PVersionValue {
   optional string base_alias = 1;  // to-be-deprecated
   optional PValue child = 2;
+}
+
+message PIncarnationValue {
+  // No fields needed - this function takes no arguments
 }
 
 message PWindowedValue {
