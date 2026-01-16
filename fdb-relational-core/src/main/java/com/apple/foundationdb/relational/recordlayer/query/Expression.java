@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.AndOrValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
@@ -67,17 +68,17 @@ public class Expression {
     private final DataType dataType;
 
     @Nonnull
-    private final Supplier<Value> underlying;
+    private final Supplier<Typed> underlying;
 
     public Expression(@Nonnull Optional<Identifier> name,
                       @Nonnull DataType dataType,
-                      @Nonnull Value expression) {
+                      @Nonnull Typed expression) {
         this(name, dataType, () -> expression);
     }
 
     public Expression(@Nonnull Optional<Identifier> name,
                       @Nonnull DataType dataType,
-                      @Nonnull Supplier<Value> valueSupplier) {
+                      @Nonnull Supplier<Typed> valueSupplier) {
         this.name = name;
         this.dataType = dataType;
         this.underlying = Suppliers.memoize(valueSupplier::get);
@@ -94,7 +95,12 @@ public class Expression {
     }
 
     @Nonnull
-    public Value getUnderlying() {
+    public Value getUnderlyingValue() {
+        return Assert.castUnchecked(underlying.get(), Value.class);
+    }
+
+    @Nonnull
+    public Typed getUnderlying() {
         return underlying.get();
     }
 
@@ -103,12 +109,12 @@ public class Expression {
         if (getName().isPresent() && getName().get().equals(name)) {
             return this;
         }
-        return new Expression(Optional.of(name), getDataType(), getUnderlying());
+        return new Expression(Optional.of(name), getDataType(), getUnderlyingValue());
     }
 
     @Nonnull
     public Expression withUnderlying(@Nonnull Value underlying) {
-        if (getUnderlying().semanticEquals(underlying, AliasMap.identitiesFor(underlying.getCorrelatedTo()))) {
+        if (getUnderlyingValue().semanticEquals(underlying, AliasMap.identitiesFor(underlying.getCorrelatedTo()))) {
             return this;
         }
         return new Expression(getName(), DataTypeUtils.toRelationalType(underlying.getResultType()), underlying);
@@ -123,7 +129,7 @@ public class Expression {
         if (!name.isQualified()) {
             return this;
         }
-        return new Expression(Optional.of(name.withoutQualifier()), getDataType(), getUnderlying());
+        return new Expression(Optional.of(name.withoutQualifier()), getDataType(), getUnderlyingValue());
     }
 
     @Nonnull
@@ -141,7 +147,7 @@ public class Expression {
         if (newNameMaybe.equals(name)) {
             return this;
         }
-        return new Expression(Optional.of(newNameMaybe), getDataType(), getUnderlying());
+        return new Expression(Optional.of(newNameMaybe), getDataType(), getUnderlyingValue());
     }
 
     @Nonnull
@@ -157,10 +163,10 @@ public class Expression {
             return this;
         }
         if (qualifier.isEmpty()) {
-            return new Expression(Optional.of(name.withoutQualifier()), getDataType(), getUnderlying());
+            return new Expression(Optional.of(name.withoutQualifier()), getDataType(), getUnderlyingValue());
         }
         final var newName = name.withQualifier(qualifier.get().fullyQualifiedName());
-        return new Expression(Optional.of(newName), getDataType(), getUnderlying());
+        return new Expression(Optional.of(newName), getDataType(), getUnderlyingValue());
     }
 
     public boolean isAggregate() {
@@ -169,7 +175,7 @@ public class Expression {
 
     @Nonnull
     public NamedArgumentExpression toNamedArgument(@Nonnull final Identifier name) {
-        return new NamedArgumentExpression(name, dataType, getUnderlying());
+        return new NamedArgumentExpression(name, dataType, getUnderlyingValue());
     }
 
     @Nonnull
@@ -186,7 +192,7 @@ public class Expression {
                              @Nonnull Set<CorrelationIdentifier> constantAliases) {
         final var aliasMap = AliasMap.identitiesFor(value.getCorrelatedTo());
         final var simplifiedValue = value.simplify(EvaluationContext.empty(), aliasMap, constantAliases);
-        final var underlying = getUnderlying();
+        final var underlying = getUnderlyingValue();
         final var pulledUpUnderlying = Assert.notNullUnchecked(underlying.replace(
                 subExpression -> {
                     final var pulledUpExpressionMap =
@@ -203,10 +209,10 @@ public class Expression {
 
     public boolean canBeDerivedFrom(@Nonnull final Expression expression,
                                     @Nonnull final Set<CorrelationIdentifier> constantAliases) {
-        final var value = expression.getUnderlying();
+        final var value = expression.getUnderlyingValue();
         final var aliasMap = AliasMap.identitiesFor(value.getCorrelatedTo());
         final var simplifiedValue = value.simplify(EvaluationContext.empty(), aliasMap, constantAliases);
-        final var thisValue = getUnderlying();
+        final var thisValue = getUnderlyingValue();
         final var quantifier = CorrelationIdentifier.uniqueId();
         final var result = simplifiedValue.pullUp(ImmutableList.of(thisValue),
                 EvaluationContext.empty(), aliasMap, constantAliases, quantifier);
@@ -223,7 +229,7 @@ public class Expression {
      */
     @Nonnull
     public Expressions dereferenced(@Nonnull Literals literals) {
-        return Expressions.ofSingle(withUnderlying(Assert.notNullUnchecked(underlying.get().replace(value -> {
+        return Expressions.ofSingle(withUnderlying(Assert.notNullUnchecked(getUnderlyingValue().replace(value -> {
             if (value instanceof ConstantObjectValue) {
                 final ConstantObjectValue constantObjectValue = (ConstantObjectValue) value;
                 return new LiteralValue<>(constantObjectValue.getResultType(), literals.asMap().get(constantObjectValue.getConstantId()));
@@ -235,16 +241,16 @@ public class Expression {
     @Nonnull
     public EphemeralExpression asEphemeral() {
         Verify.verify(getName().isPresent());
-        return new EphemeralExpression(getName().get(), getDataType(), getUnderlying());
+        return new EphemeralExpression(getName().get(), getDataType(), getUnderlyingValue());
     }
 
     @Override
     public String toString() {
-        return getName().orElse(Identifier.of("??")) + "|" + getDataType() + "| ⇾ " + getUnderlying();
+        return getName().orElse(Identifier.of("??")) + "|" + getDataType() + "| ⇾ " + getUnderlyingValue();
     }
 
     @Nonnull
-    public static Expression ofUnnamed(@Nonnull Value value) {
+    public static Expression ofUnnamed(@Nonnull Typed value) {
         return ofUnnamed(DataTypeUtils.toRelationalType(value.getResultType()), value);
     }
 
@@ -255,7 +261,7 @@ public class Expression {
 
     @Nonnull
     public static Expression ofUnnamed(@Nonnull DataType dataType,
-                                       @Nonnull Value expression) {
+                                       @Nonnull Typed expression) {
         return new Expression(Optional.empty(), dataType, expression);
     }
 
@@ -290,7 +296,7 @@ public class Expression {
 
         @Nonnull
         private static Iterable<Value> filterUnderlying(@Nonnull final Expression expression, boolean onlyAggregates) {
-            return Streams.stream(expression.getUnderlying().preOrderIterator(value ->
+            return Streams.stream(expression.getUnderlyingValue().preOrderIterator(value ->
                     value instanceof ArithmeticValue ||
                             value instanceof AndOrValue ||
                             value instanceof NotValue ||
@@ -304,16 +310,14 @@ public class Expression {
         public static QueryPredicate toUnderlyingPredicate(@Nonnull final Expression expression,
                                                            @Nonnull final Set<CorrelationIdentifier> localAliases,
                                                            boolean forDdl) {
-            final var value = Assert.castUnchecked(expression.getUnderlying(), BooleanValue.class);
+            final var value = Assert.castUnchecked(expression.getUnderlyingValue(), BooleanValue.class);
+            final Optional<QueryPredicate> result;
             if (forDdl) {
-                final var result = value.toQueryPredicate(ParseHelpers.EMPTY_TYPE_REPOSITORY, localAliases);
-                Assert.thatUnchecked(result.isPresent());
-                return result.get();
+                result = value.toQueryPredicate(ParseHelpers.EMPTY_TYPE_REPOSITORY, localAliases);
             } else {
-                final var result = value.toQueryPredicate(null, localAliases);
-                Assert.thatUnchecked(result.isPresent());
-                return result.get();
+                result = value.toQueryPredicate(null, localAliases);
             }
+            return Assert.optionalUnchecked(result);
         }
     }
 
@@ -339,7 +343,7 @@ public class Expression {
             if (name.equals(getArgumentName())) {
                 return this;
             }
-            return new NamedArgumentExpression(name, getDataType(), getUnderlying());
+            return new NamedArgumentExpression(name, getDataType(), getUnderlyingValue());
         }
     }
 }

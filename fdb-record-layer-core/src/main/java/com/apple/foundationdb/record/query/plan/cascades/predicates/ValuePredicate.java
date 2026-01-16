@@ -39,6 +39,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.translation.Tran
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence.Precedence;
 import com.google.auto.service.AutoService;
+import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -63,18 +64,22 @@ public class ValuePredicate extends AbstractQueryPredicate implements PredicateW
     private final Value value;
     @Nonnull
     private final Comparison comparison;
+    @Nonnull
+    private final Supplier<Boolean> isIndexOnlySupplier;
 
     private ValuePredicate(@Nonnull final PlanSerializationContext serializationContext,
                            @Nonnull final PValuePredicate valuePredicate) {
         super(serializationContext, Objects.requireNonNull(valuePredicate.getSuper()));
         this.value = Value.fromValueProto(serializationContext, Objects.requireNonNull(valuePredicate.getValue()));
         this.comparison = Comparison.fromComparisonProto(serializationContext, Objects.requireNonNull(valuePredicate.getComparison()));
+        this.isIndexOnlySupplier = Suppliers.memoize(() -> getValue().isIndexOnly());
     }
 
     public ValuePredicate(@Nonnull final Value value, @Nonnull final Comparison comparison) {
         super(false);
         this.value = value;
         this.comparison = comparison;
+        this.isIndexOnlySupplier = Suppliers.memoize(() -> getValue().isIndexOnly());
     }
 
     @Nonnull
@@ -123,6 +128,11 @@ public class ValuePredicate extends AbstractQueryPredicate implements PredicateW
     @Override
     public <M extends Message> Boolean eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
         return comparison.eval(store, context, value.eval(store, context));
+    }
+
+    @Override
+    public boolean isIndexOnly() {
+        return isIndexOnlySupplier.get();
     }
 
     @Nonnull

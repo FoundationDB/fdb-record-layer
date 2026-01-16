@@ -44,6 +44,7 @@ import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence.Precedence;
 import com.google.auto.service.AutoService;
+import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -101,6 +102,9 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
     @Nonnull
     private final Supplier<Boolean> rangesCompileTimeChecker;
 
+    @Nonnull
+    private final Supplier<Boolean> isIndexOnlySupplier;
+
     protected PredicateWithValueAndRanges(@Nonnull final PlanSerializationContext serializationContext,
                                           @Nonnull final PPredicateWithValueAndRanges predicateWithValueAndRangesProto) {
         super(serializationContext, Objects.requireNonNull(predicateWithValueAndRangesProto.getSuper()));
@@ -111,6 +115,7 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
         }
         this.ranges = rangeConstraintsBuilder.build();
         this.rangesCompileTimeChecker = () -> ranges.stream().allMatch(RangeConstraints::isCompileTime);
+        this.isIndexOnlySupplier = Suppliers.memoize(() -> getValue().isIndexOnly());
     }
 
     /**
@@ -124,6 +129,7 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
         this.value = value;
         this.ranges = ImmutableSet.copyOf(ranges);
         this.rangesCompileTimeChecker = () -> ranges.stream().allMatch(RangeConstraints::isCompileTime);
+        this.isIndexOnlySupplier = Suppliers.memoize(() -> getValue().isIndexOnly());
     }
 
     @Override
@@ -141,6 +147,11 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
     @Nonnull
     public PredicateWithValueAndRanges withRanges(@Nonnull final Set<RangeConstraints> ranges) {
         return new PredicateWithValueAndRanges(value, ranges);
+    }
+
+    @Override
+    public boolean isIndexOnly() {
+        return isIndexOnlySupplier.get();
     }
 
     @Nonnull

@@ -518,7 +518,7 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
                 for (final var indexEntry : getIndexEntries()) {
                     builder.addIndexEntries(RecordCursorProto.VectorIndexScanContinuation.IndexEntry.newBuilder()
                             .setKey(ByteString.copyFrom(indexEntry.getKey().pack()))
-                            .setValue(ByteString.copyFrom(indexEntry.getKey().pack()))
+                            .setValue(ByteString.copyFrom(indexEntry.getValue().pack()))
                             .build());
                 }
 

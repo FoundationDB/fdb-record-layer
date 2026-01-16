@@ -23,6 +23,7 @@ Syntax
     DQL/WHERE
     DQL/CASE
     DQL/ORDER_BY
+    DQL/WINDOW_FUNCTIONS
     DQL/EXPLAIN
 
 .. toctree::

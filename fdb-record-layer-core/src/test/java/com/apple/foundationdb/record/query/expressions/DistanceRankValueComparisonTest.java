@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.expressions;
 import com.apple.foundationdb.linear.DoubleRealVector;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.provider.foundationdb.RuntimeOptions;
 import com.apple.foundationdb.record.query.ParameterRelationshipGraph;
 import com.apple.foundationdb.record.query.expressions.Comparisons.DistanceRankValueComparison;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -160,13 +161,15 @@ class DistanceRankValueComparisonTest extends ComparisonsTestBase {
     private static DistanceRankValueComparison correlatedComparison() {
         return new DistanceRankValueComparison(Comparisons.Type.DISTANCE_RANK_LESS_THAN_OR_EQUAL,
                 QuantifiedObjectValue.of(q1(), Type.Vector.of(false, 64, 128)),
-                QuantifiedObjectValue.of(q2(), Type.primitiveType(Type.TypeCode.INT, false)));
+                QuantifiedObjectValue.of(q2(), Type.primitiveType(Type.TypeCode.INT, false)),
+                RuntimeOptions.empty());
     }
 
     @Nonnull
     private static DistanceRankValueComparison randomComparison() {
         return new DistanceRankValueComparison(Comparisons.Type.DISTANCE_RANK_LESS_THAN_OR_EQUAL,
-                getRandomVectorValue(), new LiteralValue<>(10));
+                getRandomVectorValue(), new LiteralValue<>(10),
+                RuntimeOptions.empty());
     }
 
     @Nonnull

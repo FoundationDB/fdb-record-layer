@@ -425,6 +425,8 @@ The ordering clause for each column can take the following forms:
         name ASC
     )
 
+.. _vector_index_syntax:
+
 VECTOR INDEX Syntax
 ===================
 

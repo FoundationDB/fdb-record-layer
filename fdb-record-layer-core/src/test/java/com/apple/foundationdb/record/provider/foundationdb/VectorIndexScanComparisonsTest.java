@@ -255,14 +255,14 @@ class VectorIndexScanComparisonsTest {
     @Nonnull
     private static Comparisons.DistanceRankValueComparison randomDistanceRankComparison() {
         return new Comparisons.DistanceRankValueComparison(Comparisons.Type.DISTANCE_RANK_LESS_THAN_OR_EQUAL,
-                getRandomVectorValue(), new LiteralValue<>(10));
+                getRandomVectorValue(), new LiteralValue<>(10), RuntimeOptions.empty());
     }
 
     @Nonnull
     private static Comparisons.DistanceRankValueComparison correlatedDistanceRankComparison() {
         return new Comparisons.DistanceRankValueComparison(Comparisons.Type.DISTANCE_RANK_LESS_THAN_OR_EQUAL,
                 QuantifiedObjectValue.of(q3(), Type.Vector.of(false, 64, 128)),
-                QuantifiedObjectValue.of(q4(), Type.primitiveType(Type.TypeCode.INT, false)));
+                QuantifiedObjectValue.of(q4(), Type.primitiveType(Type.TypeCode.INT, false)), RuntimeOptions.empty());
     }
 
     @Nonnull

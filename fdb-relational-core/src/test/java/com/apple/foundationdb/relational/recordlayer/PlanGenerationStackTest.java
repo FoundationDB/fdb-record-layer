@@ -165,7 +165,8 @@ public class PlanGenerationStackTest {
                     Arguments.of(76, "with recursive c1 as (select * from restaurant union all select * from c1) select * From c1", null),
                     Arguments.of(77, "with recursive c as (with recursive c1 as (select * from restaurant union all select * from c1) select * From c1 union all select * from restaurant, c) select * from c", null),
                     Arguments.of(78, "with recursive c as (with c as (select * from restaurant) select * from c union all select * from restaurant) select * from c union all select * from restaurant", "ambiguous nested recursive CTE name"),
-                    Arguments.of(79, "with recursive c1(name) as (select * from restaurant union all select * from c1) select * From c", "cte query has 7 column(s), however 1 aliases defined")
+                    Arguments.of(79, "with recursive c1(name) as (select * from restaurant union all select * from c1) select * From c", "cte query has 7 column(s), however 1 aliases defined"),
+                    Arguments.of(80, "select * from restaurant where row_number() over(order by rest_no) < 10", "window functions are not allowed in WHERE")
             );
         }
     }

@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer.query.visitors;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.linear.Metric;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
@@ -47,14 +48,14 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerView;
 import com.apple.foundationdb.relational.recordlayer.query.Expression;
 import com.apple.foundationdb.relational.recordlayer.query.Expressions;
 import com.apple.foundationdb.relational.recordlayer.query.Identifier;
-import com.apple.foundationdb.relational.recordlayer.query.LogicalOperators;
-import com.apple.foundationdb.relational.recordlayer.query.ddl.OnSourceIndexGenerator;
-import com.apple.foundationdb.relational.recordlayer.query.ddl.MaterializedViewIndexGenerator;
 import com.apple.foundationdb.relational.recordlayer.query.LogicalOperator;
+import com.apple.foundationdb.relational.recordlayer.query.LogicalOperators;
 import com.apple.foundationdb.relational.recordlayer.query.PreparedParams;
 import com.apple.foundationdb.relational.recordlayer.query.ProceduralPlan;
 import com.apple.foundationdb.relational.recordlayer.query.QueryParser;
 import com.apple.foundationdb.relational.recordlayer.query.SemanticAnalyzer;
+import com.apple.foundationdb.relational.recordlayer.query.ddl.MaterializedViewIndexGenerator;
+import com.apple.foundationdb.relational.recordlayer.query.ddl.OnSourceIndexGenerator;
 import com.apple.foundationdb.relational.recordlayer.query.functions.CompiledSqlFunction;
 import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.collect.ImmutableList;
@@ -296,8 +297,8 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         Assert.isNullUnchecked(indexDefinitionContext.includeClause(), ErrorCode.UNSUPPORTED_OPERATION,
                 "INCLUDE clause is not supported for vector indexes");
 
-        if (indexDefinitionContext.partitionClause() != null) {
-            indexDefinitionContext.partitionClause().indexColumnSpec().forEach(colSpec ->
+        if (indexDefinitionContext.indexPartitionClause() != null) {
+            indexDefinitionContext.indexPartitionClause().indexColumnSpec().forEach(colSpec ->
                     indexGeneratorBuilder.addKeyColumn(OnSourceIndexGenerator.IndexedColumn
                             .parseColSpec(colSpec, getDelegate().getIdentifierVisitor())));
         }
@@ -340,7 +341,19 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
             } else if (option.MAINTAIN_STATS_PROBABILITY() != null) {
                 indexOptionsBuilder.put(IndexOptions.HNSW_MAINTAIN_STATS_PROBABILITY, option.maintainStatsProbability.getText());
             } else if (option.METRIC() != null) {
-                indexOptionsBuilder.put(IndexOptions.HNSW_METRIC, option.metric.getText());
+                if (option.metric.DOT_PRODUCT_METRIC() != null) {
+                    indexOptionsBuilder.put(IndexOptions.HNSW_METRIC, Metric.DOT_PRODUCT_METRIC.name());
+                } else if (option.metric.EUCLIDEAN_METRIC() != null) {
+                    indexOptionsBuilder.put(IndexOptions.HNSW_METRIC, Metric.EUCLIDEAN_METRIC.name());
+                } else if (option.metric.EUCLIDEAN_SQUARE_METRIC() != null) {
+                    indexOptionsBuilder.put(IndexOptions.HNSW_METRIC, Metric.EUCLIDEAN_SQUARE_METRIC.name());
+                } else if (option.metric.COSINE_METRIC() != null) {
+                    indexOptionsBuilder.put(IndexOptions.HNSW_METRIC, Metric.COSINE_METRIC.name());
+                } else if (option.metric.MANHATTAN_METRIC() != null) {
+                    indexOptionsBuilder.put(IndexOptions.HNSW_METRIC, Metric.MANHATTAN_METRIC.name());
+                } else {
+                    Assert.failUnchecked("metric " + option.metric.getText() + " is not currently supported");
+                }
             } else if (option.RABITQ_NUM_EX_BITS() != null) {
                 indexOptionsBuilder.put(IndexOptions.HNSW_RABITQ_NUM_EX_BITS, option.rabitQNumExBits.getText());
             } else if (option.SAMPLE_VECTOR_STATS_PROBABILITY() != null) {
@@ -609,7 +622,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
             final var functionBody = visitUserDefinedScalarFunctionStatementBody(Assert.castUnchecked(bodyCtx, RelationalParser.UserDefinedScalarFunctionStatementBodyContext.class));
             Optional<Expression> result = semanticAnalyzer.lookupNestedField(functionBody, Expression.of(paramValueList.get(0), paramNameIdList.get(0)), Expression.of(paramValueList.get(0), paramNameIdList.get(0)), true);
             Assert.thatUnchecked(result.isPresent(), "cannot resolve user defined scalar function value");
-            return new UserDefinedMacroFunction(functionName, paramValueList, result.get().getUnderlying());
+            return new UserDefinedMacroFunction(functionName, paramValueList, result.get().getUnderlyingValue());
         } else {
             // table functions
             Assert.thatUnchecked(isSqlParameterStyle, ErrorCode.UNSUPPORTED_OPERATION, "only sql-style parameters are supported");
@@ -695,7 +708,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         Assert.thatUnchecked(ctx.parameterMode() == null || ctx.parameterMode().IN() != null, "only IN parameters are supported");
         if (ctx.DEFAULT() != null) {
             final var defaultExpression = Assert.castUnchecked(visit(ctx.parameterDefault), Expression.class);
-            var defaultValue = PromoteValue.inject(defaultExpression.getUnderlying(), underlyingType);
+            var defaultValue = PromoteValue.inject(defaultExpression.getUnderlyingValue(), underlyingType);
             return Expression.of(defaultValue, parameterName);
         } else {
             return Expression.of(new ThrowsValue(underlyingType), parameterName);

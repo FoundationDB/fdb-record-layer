@@ -104,6 +104,9 @@ public class PartialMatch {
     private final Supplier<Set<Placeholder>> boundPlaceholdersSupplier;
 
     @Nonnull
+    private final Supplier<Set<CorrelationIdentifier>> boundSargableAliasesSupplier;
+
+    @Nonnull
     private final Supplier<Set<Quantifier>> matchedQuantifiersSupplier;
 
     @Nonnull
@@ -132,6 +135,7 @@ public class PartialMatch {
         this.matchInfo = matchInfo;
         this.boundParameterPrefixMapSupplier = Suppliers.memoize(this::computeBoundParameterPrefixMap);
         this.boundPlaceholdersSupplier = Suppliers.memoize(this::computeBoundPlaceholders);
+        this.boundSargableAliasesSupplier = Suppliers.memoize(this::computeBoundSargableAliases);
         this.matchedQuantifiersSupplier = Suppliers.memoize(this::computeMatchedQuantifiers);
         this.unmatchedQuantifiersSupplier = Suppliers.memoize(this::computeUnmatchedQuantifiers);
         this.compensatedAliasesSupplier = Suppliers.memoize(this::computeCompensatedAliases);
@@ -215,6 +219,17 @@ public class PartialMatch {
                 .filter(quantifier -> matchInfo.getRegularMatchInfo()
                         .getChildPartialMatchMaybe(quantifier.getAlias()).isEmpty())
                 .collect(LinkedIdentitySet.toLinkedIdentitySet());
+    }
+
+    @Nonnull
+    public final Set<CorrelationIdentifier> getBoundSargableAliases() {
+        return boundSargableAliasesSupplier.get();
+    }
+
+    @Nonnull
+    private Set<CorrelationIdentifier> computeBoundSargableAliases() {
+        return getBoundPlaceholders().stream().map(Placeholder::getParameterAlias)
+                .collect(ImmutableSet.toImmutableSet());
     }
 
     @Nonnull

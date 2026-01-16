@@ -476,6 +476,39 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
     @Nonnull
     PQueryPredicate toQueryPredicateProto(@Nonnull PlanSerializationContext serializationContext);
 
+    /**
+     * Determines whether this predicate involves an index-only value that cannot be evaluated from base records.
+     * <p>
+     * For simple predicates (like {@link ValuePredicate}), this method returns {@code true} if the left-hand side
+     * of the comparison is an {@link com.apple.foundationdb.record.query.plan.cascades.values.Value.IndexOnlyValue}.
+     * Index-only values are scalar values that can only be fetched from an index and cannot be fetched from base
+     * records nor computed on-the-fly.
+     * </p>
+     * <p>
+     * For composite predicates (like {@link AndPredicate} or {@link OrPredicate}), this method returns {@code true}
+     * if <em>any</em> of the child predicates are index-only.
+     * </p>
+     * <p>
+     * This property is important for query planning because predicates involving index-only values must be evaluated
+     * using index scans and cannot be applied as residual filters on base record scans.
+     * </p>
+     * <p>
+     * <strong>Examples of index-only values:</strong>
+     * <ul>
+     *   <li>{@link com.apple.foundationdb.record.query.plan.cascades.values.EuclideanDistanceRowNumberValue} -
+     *       Distance-based ranking that can only be computed from pre-built vector indexes</li>
+     *   <li>{@link com.apple.foundationdb.record.query.plan.cascades.values.CosineDistanceRowNumberValue} -
+     *       Cosine similarity ranking from vector indexes</li>
+     * </ul>
+     * </p>
+     *
+     * @return {@code true} if this predicate (or any of its sub-predicates) involves an index-only value,
+     *         {@code false} otherwise
+     * @see com.apple.foundationdb.record.query.plan.cascades.values.Value#isIndexOnly()
+     * @see com.apple.foundationdb.record.query.plan.cascades.values.Value.IndexOnlyValue
+     */
+    boolean isIndexOnly();
+
     @Nonnull
     static QueryPredicate fromQueryPredicateProto(@Nonnull final PlanSerializationContext serializationContext,
                                                   @Nonnull final PQueryPredicate queryPredicateProto) {

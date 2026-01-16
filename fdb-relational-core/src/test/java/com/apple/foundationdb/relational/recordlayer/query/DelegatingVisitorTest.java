@@ -304,9 +304,9 @@ public class DelegatingVisitorTest {
                 },
                 called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, query, query, 42),
                         generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
-
+                    @Nonnull
                     @Override
-                    public Object visitPartitionClause(final RelationalParser.PartitionClauseContext ctx) {
+                    public Expressions visitPartitionClause(final RelationalParser.PartitionClauseContext ctx) {
                         called.setTrue();
                         return null;
                     }

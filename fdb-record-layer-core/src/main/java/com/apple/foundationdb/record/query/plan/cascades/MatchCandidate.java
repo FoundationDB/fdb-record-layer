@@ -94,6 +94,11 @@ public interface MatchCandidate {
     @Nonnull
     List<CorrelationIdentifier> getOrderingAliases();
 
+    @Nonnull
+    default Set<CorrelationIdentifier> getSargableAliasesRequiredForBinding() {
+        return ImmutableSet.of();
+    }
+
     /**
      * This method returns a key expression that can be used to actually compute the keys of this candidate for a
      * given record.

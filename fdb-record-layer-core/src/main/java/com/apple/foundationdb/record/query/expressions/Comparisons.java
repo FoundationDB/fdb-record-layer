@@ -52,6 +52,7 @@ import com.apple.foundationdb.record.provider.common.text.TextTokenizer;
 import com.apple.foundationdb.record.provider.common.text.TextTokenizerRegistry;
 import com.apple.foundationdb.record.provider.common.text.TextTokenizerRegistryImpl;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.provider.foundationdb.RuntimeOptions;
 import com.apple.foundationdb.record.provider.foundationdb.cursors.ProbableIntersectionCursor;
 import com.apple.foundationdb.record.query.ParameterRelationshipGraph;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
@@ -1777,30 +1778,41 @@ public class Comparisons {
         @Nonnull
         private final Value limitValue;
 
+        @Nonnull
+        private final RuntimeOptions runtimeOptions;
+
         protected DistanceRankValueComparison(@Nonnull PlanSerializationContext serializationContext,
                                               @Nonnull final PDistanceRankValueComparison distanceRankValueComparisonProto) {
             super(serializationContext, distanceRankValueComparisonProto.getSuper());
             this.limitValue = Value.fromValueProto(serializationContext,
                     Objects.requireNonNull(distanceRankValueComparisonProto.getLimitValue()));
+            this.runtimeOptions = RuntimeOptions.fromProto(serializationContext,
+                    distanceRankValueComparisonProto.getRuntimeOptionsList());
         }
 
         public DistanceRankValueComparison(@Nonnull final Type type, @Nonnull final Value comparandValue,
-                                           @Nonnull final Value limitValue) {
-            this(type, comparandValue, ParameterRelationshipGraph.unbound(), limitValue);
+                                           @Nonnull final Value limitValue, @Nonnull final RuntimeOptions runtimeOptions) {
+            this(type, comparandValue, ParameterRelationshipGraph.unbound(), limitValue, runtimeOptions);
         }
 
         public DistanceRankValueComparison(@Nonnull final Type type, @Nonnull final Value comparandValue,
                                            @Nonnull final ParameterRelationshipGraph parameterRelationshipGraph,
-                                           @Nonnull final Value limitValue) {
+                                           @Nonnull final Value limitValue, @Nonnull final RuntimeOptions runtimeOptions) {
             super(type, comparandValue, parameterRelationshipGraph);
             Verify.verify(type == Type.DISTANCE_RANK_LESS_THAN ||
                     type == Type.DISTANCE_RANK_LESS_THAN_OR_EQUAL);
             this.limitValue = limitValue;
+            this.runtimeOptions = runtimeOptions;
         }
 
         @Nonnull
         public Value getLimitValue() {
             return limitValue;
+        }
+
+        @Nonnull
+        public RuntimeOptions getRuntimeOptions() {
+            return runtimeOptions;
         }
 
         @Nonnull
@@ -1810,7 +1822,7 @@ public class Comparisons {
                 return this;
             }
             return new DistanceRankValueComparison(newType, getComparandValue(), parameterRelationshipGraph,
-                    getLimitValue());
+                    getLimitValue(), getRuntimeOptions());
         }
 
         @Nonnull
@@ -1820,23 +1832,34 @@ public class Comparisons {
             if (getComparandValue() == value) {
                 return this;
             }
-            return new DistanceRankValueComparison(getType(), value, parameterRelationshipGraph, getLimitValue());
+            return new DistanceRankValueComparison(getType(), value, parameterRelationshipGraph, getLimitValue(),
+                    getRuntimeOptions());
         }
 
         @Nonnull
         @Override
         @SuppressWarnings("PMD.CompareObjectsWithEquals")
         public Optional<Comparison> replaceValuesMaybe(@Nonnull final Function<Value, Optional<Value>> replacementFunction) {
-            return replacementFunction.apply(getComparandValue())
-                    .flatMap(replacedComparandValue ->
-                            replacementFunction.apply(getLimitValue()).map(replacedLimitValue -> {
-                                if (replacedComparandValue == getComparandValue() &&
-                                        replacedLimitValue == getLimitValue()) {
-                                    return this;
-                                }
-                                return new DistanceRankValueComparison(getType(), replacedComparandValue,
-                                        parameterRelationshipGraph, replacedLimitValue);
-                            }));
+            final var replacedComparandValueMaybe = replacementFunction.apply(getComparandValue());
+            if (replacedComparandValueMaybe.isEmpty()) {
+                return Optional.empty();
+            }
+            final var replacedLimitValueMaybe = replacementFunction.apply(getLimitValue());
+            if (replacedLimitValueMaybe.isEmpty()) {
+                return Optional.empty();
+            }
+            final var replacedRuntimeOptionsMaybe = runtimeOptions.replaceValuesMaybe(replacementFunction);
+            if (replacedRuntimeOptionsMaybe.isEmpty()) {
+                return Optional.empty();
+            }
+
+            if (replacedComparandValueMaybe.get() == getComparandValue() &&
+                    replacedLimitValueMaybe.get() == getLimitValue() &&
+                    replacedRuntimeOptionsMaybe.get() == getRuntimeOptions()) {
+                return Optional.of(this);
+            }
+            return Optional.of(new DistanceRankValueComparison(getType(), replacedComparandValueMaybe.get(),
+                    parameterRelationshipGraph, replacedLimitValueMaybe.get(), replacedRuntimeOptionsMaybe.get()));
         }
 
         @Nonnull
@@ -1848,6 +1871,9 @@ public class Comparisons {
                     .noneMatch(translationMap::containsSourceAlias) &&
                     getLimitValue().getCorrelatedTo()
                             .stream()
+                            .noneMatch(translationMap::containsSourceAlias) &&
+                    runtimeOptions.getCorrelatedTo()
+                            .stream()
                             .noneMatch(translationMap::containsSourceAlias)) {
                 return this;
             }
@@ -1855,7 +1881,8 @@ public class Comparisons {
             return new DistanceRankValueComparison(getType(),
                     getComparandValue().translateCorrelations(translationMap, shouldSimplifyValues),
                     parameterRelationshipGraph,
-                    getLimitValue().translateCorrelations(translationMap, shouldSimplifyValues));
+                    getLimitValue().translateCorrelations(translationMap, shouldSimplifyValues),
+                    runtimeOptions.translateCorrelations(translationMap, shouldSimplifyValues));
         }
 
         @Nonnull
@@ -1870,9 +1897,16 @@ public class Comparisons {
         @Nonnull
         @Override
         public ConstrainedBoolean semanticEqualsTyped(@Nonnull final Comparison other, @Nonnull final ValueEquivalence valueEquivalence) {
+            if (!(other instanceof DistanceRankValueComparison)) {
+                return ConstrainedBoolean.falseValue();
+            }
+
             return super.semanticEqualsTyped(other, valueEquivalence)
                     .compose(ignored -> getLimitValue()
                             .semanticEquals(((DistanceRankValueComparison)other).getLimitValue(),
+                                    valueEquivalence))
+                    .compose(ignored -> getRuntimeOptions()
+                            .semanticEqualsTyped(((DistanceRankValueComparison)other).runtimeOptions,
                                     valueEquivalence));
         }
 
@@ -1929,7 +1963,7 @@ public class Comparisons {
         public DistanceRankValueComparison withParameterRelationshipMap(@Nonnull final ParameterRelationshipGraph parameterRelationshipGraph) {
             Verify.verify(this.parameterRelationshipGraph.isUnbound());
             return new DistanceRankValueComparison(getType(), getComparandValue(), parameterRelationshipGraph,
-                    getLimitValue());
+                    getLimitValue(), getRuntimeOptions());
         }
 
         @Nonnull
@@ -1938,6 +1972,7 @@ public class Comparisons {
             return PDistanceRankValueComparison.newBuilder()
                     .setSuper(super.toValueComparisonProto(serializationContext))
                     .setLimitValue(getLimitValue().toValueProto(serializationContext))
+                    .addAllRuntimeOptions(getRuntimeOptions().toProto(serializationContext))
                     .build();
         }
 

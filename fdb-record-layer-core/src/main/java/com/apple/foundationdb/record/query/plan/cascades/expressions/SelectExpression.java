@@ -591,8 +591,13 @@ public class SelectExpression extends AbstractRelationalExpressionWithChildren i
 
         for (final var predicate : getPredicates()) {
             if (predicate instanceof Placeholder) {
-                if (!((Placeholder)predicate).getRanges().isEmpty()) {
+                final var placeholder = (Placeholder)predicate;
+                if (!(placeholder.getRanges().isEmpty())) {
                     // placeholder with a constraint, we need to bail
+                    return Optional.empty();
+                }
+                if (placeholder.getValue().isIndexOnly()) {
+                    // placeholder can be populated only by the index, bailout
                     return Optional.empty();
                 }
             } else if (!predicate.isTautology()) {

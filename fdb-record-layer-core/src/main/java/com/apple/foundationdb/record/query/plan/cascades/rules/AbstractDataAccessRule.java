@@ -661,6 +661,10 @@ public abstract class AbstractDataAccessRule extends CascadesRule<MatchPartition
                 continue;
             }
 
+            if (!partialMatch.getBoundSargableAliases().containsAll(partialMatch.getMatchCandidate().getSargableAliasesRequiredForBinding())) {
+                continue;
+            }
+
             final var satisfyingOrderingsPair = satisfyingOrderingsPairOptional.get();
             final var scanDirection = satisfyingOrderingsPair.getLeft();
             Verify.verify(scanDirection == ScanDirection.FORWARD || scanDirection == ScanDirection.REVERSE ||
