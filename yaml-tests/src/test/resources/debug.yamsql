@@ -1,0 +1,187 @@
+---
+# Note that the few fields in the schema template have been explicitly made nullable just because of the lack of
+# proper support for `NOT NULL` constraint on fields in Relational layer. Additionally, certain non-nullable arrays
+# have been made nullable because of lacking support for array literals in insert statements.
+#
+# These issues are tracked by the following radars:
+#     1. rdar://145133843 (bring back support for NOT NULL constraint on non-array columns)
+#     2. rdar://145133877 (add support for array literals in insert statements)
+#
+# Affected fields are 'bigintList.values' (2), 'RecordHeader.strong_references' (2),
+# 'RecordHeader.protection_info_keys_to_remove' (2), 'MapFromReferenceToInt64.values' (2) and 'AssetId.encoded_id' (1)
+schema_template:
+    CREATE TYPE AS STRUCT "UUID" (
+        most_significant_bits bigint,
+        least_significant_bits bigint
+    )
+
+    CREATE TYPE AS STRUCT Versionstamp(
+        versionstamp bytes,
+        incarnation integer
+    )
+
+    CREATE TYPE AS STRUCT bigintList(
+        "values" bigint array
+    )
+
+    CREATE TYPE AS STRUCT "RecordHeader"(
+        "record_id" string,
+        "generation" bigint,
+        "type_id" string,
+        "type_name" string,
+        "type_generation" bigint,
+        "creator_dsid" bigint,
+        "creator_device_ID" string,
+        "ctime" double,
+        "mtime" double,
+        "tombstone" boolean,
+        "original_generation" bigint,
+        "modified_by_dsid" bigint,
+        "modified_by_device_id" string,
+        "has_external_assets" boolean,
+        "protection_info" bytes,
+        "protection_info_tag" string,
+        "expiration_date" bigint,
+        "record_ttl" bigint,
+        "share_id" string,
+        "share_revision_uuid" string,
+        "zone_key" bigint,
+        "zone_name" string,
+        "strong_references" string array,
+        "archived" boolean,
+        "protection_info_last_roll_timestamp" bigint,
+        "protection_info_public_key_id" bytes,
+        "emptyTombstone" boolean,
+        "protection_info_encrypted_last_roll_date" bytes,
+        "protection_info_last_roll_etag_DEPRECATED" string,
+        "asset_size" bigint,
+        "asset_usage" bigint,
+        "should_count_metadata" boolean,
+        "dummy_metadata_quota" bigint,
+        "blobification_usage" bigint,
+        "original_version" Versionstamp,
+        "incarnation" integer,
+        "blob_id_number" bigint,
+        "int64_record_id" bigint,
+        "bytes_record_id" bytes,
+        "uuid_record_id" "UUID",
+        "queue_lease_id" string,
+        "queue_vesting_time" double,
+        "queue_dequeue_count" integer,
+        "queue_priority" bigint,
+        "stableUrl" bytes,
+        "shareInfo" bytes,
+        "protection_info_keys_to_remove" bytes array,
+        "original_with_versionstamp" boolean,
+        "modified_by_user_id" string,
+        "creator_user_id" string
+    )
+
+    CREATE TYPE AS STRUCT "AssetId" (
+        "encoded_id" bytes,
+        "protection_info" bytes,
+        "reference_signature" bytes,
+        "asset_copy_metadata" bytes,
+        "clear_key" bytes
+    )
+
+    CREATE TYPE AS ENUM "ReferenceType" ( 'OWNING', 'WEAK', 'VALIDATING' )
+
+    CREATE TYPE AS STRUCT "Reference" (
+        "reference_type" "ReferenceType",
+        "string_value" STRING,
+        "zone_id" STRING,
+        "zone_owner_id" STRING
+    )
+
+    CREATE TYPE AS STRUCT "ReferenceInt64Pair" (
+        "key" "Reference",
+        "value" BIGINT
+    )
+
+    CREATE TYPE AS STRUCT "MapFromReferenceToInt64" (
+        "values" "ReferenceInt64Pair" array
+    )
+
+    CREATE TABLE "msgstate" (
+    "___header"            "RecordHeader",
+    "appleThrId"           STRING,
+    "createdModseq"        BIGINT,
+    "dataRef"              "Reference",
+    "flags"                BIGINT,
+    "isDeleted"            BIGINT,
+    "isExpunged"           BIGINT,
+    "isSeen"               BIGINT,
+    "mboxRef"              "Reference",
+    "modseq"               BIGINT,
+    "senderEmailAddress"   STRING,
+    "stateInternalDate"    BIGINT,
+    "textSearchRef"        "Reference",
+    "uid"                  BIGINT,
+    "mboxRefUidMap"        "ReferenceInt64Pair" ARRAY,
+    "groupKey"             STRING,
+    PRIMARY KEY("___header"."zone_key", "___header"."record_id")
+    )
+
+    CREATE INDEX "maxDateBySender" as
+    SELECT "msgstate"."___header"."zone_key", "msgstate"."mboxRef"."string_value", "entry"."key"."string_value", "msgstate"."isDeleted", "msgstate"."groupKey", max("msgstate"."stateInternalDate")
+    FROM "msgstate", "msgstate"."mboxRefUidMap" AS "entry"
+    WHERE "msgstate"."___header"."tombstone" is not true AND "___header"."archived" is not true
+    GROUP BY "msgstate"."___header"."zone_key", "msgstate"."mboxRef"."string_value", "entry"."key"."string_value", "msgstate"."isDeleted", "msgstate"."groupKey"
+    ORDER BY "msgstate"."___header"."zone_key", "msgstate"."mboxRef"."string_value", "entry"."key"."string_value", "msgstate"."isDeleted", max("msgstate"."stateInternalDate"), "msgstate"."groupKey"
+
+    WITH OPTIONS(ENABLE_LONG_ROWS=true, INTERMINGLE_TABLES=true)
+---
+setup:
+  steps:
+    - query: INSERT INTO "msgstate"("___header"("zone_key", "record_id", "tombstone", "archived", "expiration_date"),
+                  "appleThrId", "createdModseq", "dataRef"("string_value"), "flags", "isDeleted", "isExpunged", "isSeen", "mboxRef"("string_value"), "modseq", "senderEmailAddress", "stateInternalDate", "textSearchRef"("string_value"), "uid", "mboxRefUidMap", "groupKey")
+          VALUES ((0, '17c1c2f8-ef95-487f-8dfd-b8e88bfc27b5', false, false, null), 'thread1', 1000, ('dataRef1'), 16, 0, 0, 0, ('31'), 1000, 'sender@apple.com', 1697574817001, ('textSearchRef1'), 1, [(('OWNING', 'inbox1', null, null), 100), ((null, 'inbox2', null, null), 101), ((null, 'inbox3', null, null), 102), ((null, 'inbox4', null, null), 103)], 'sender1'),
+                 ((0, '2e709abe-425f-4212-a32f-6a2ea9874d1d', false, false, null), 'thread1', 1003, ('dataRef2'), 16, 1, 0, 1, ('31'), 1006, 'sender@apple.com', 1697574818012, ('textSearchRef2'), 3, [((null, 'inbox3', null, null), 105), ((null, 'inbox2', null, null), 106), ((null, 'inbox5', null, null), 110)], 'sender1'),
+                 ((0, '70b5a154-bf05-4bf4-9ee1-a0628461d835', false, false, null), 'thread1', 1007, ('dataRef1'), 16, 0, 0, 1, ('32'), 1007, 'sender@apple.com', 1697574818013, ('textSearchRef1'), 1, [((null, 'inbox1', null, null), 105), ((null, 'inbox2', null, null), 115)], 'sender2'),
+                 ((0, 'c37717e9-c9a3-438e-93b1-aa9805cb2468', false, false, null), 'thread1', 1008, ('dataRef3'), 16, 0, 0, 0, ('32'), 1008, 'sender@apple.com', 1697574818014, ('textSearchRef3'), 2, [((null, 'inbox42', null, null), 115)], 'sender2'),
+                 ((0, 'fd4c26bc-cef0-4c45-91df-f75562ed64d4', false, false, null), 'thread1', 1009, ('dataRef4'), 16, 1, 1, 1, ('31'), 1011, 'sender@apple.com', 1697574818017, ('textSearchRef4'), 4, [((null, 'inbox2', null, null), 105), ((null, 'inbox30', null, null), 106), ((null, 'inbox4', null, null), 113)], 'sender3'),
+                 ((0, '680a192e-83e1-4eb9-ad59-097b92972630', false, false, null), 'thread1', 1010, ('dataRef5'), 16, 0, 0, 0, ('31'), 1010, 'sender@apple.com', 1697574818018, ('textSearchRef5'), 5, [((null, 'inbox30', null, null), 120), ((null, 'inbox50', null, null), 144)], 'sender3'),
+                 ((1, 'msg-1', false, false, null), 'thread2', 1000, ('dataRef1'), 16, 0, 0, 1, ('32'), 1000, 'sender@apple.com', 1, ('textSearchRef1'), 1, [(('WEAK', 'inbox1', null, null), 100), (('WEAK', 'inbox2', null, null), 101), (('WEAK', 'inbox3', null, null), 102), (('WEAK', 'inbox4', null, null), 103)], 'sender3'),
+                 ((1, 'msg-2', false, false, null), 'thread3', 1003, ('dataRef2'), 16, 0, 0, 1, ('32'), 1006, 'sender@apple.com', 2, ('textSearchRef2'), 2, [(('WEAK', 'inbox3', null, null), 105), (('WEAK', 'inbox2', null, null), 106), (('WEAK', 'inbox5', null, null), 110)], 'sender3'),
+                 ((1, 'msg-3', false, false, null), 'thread2', 1007, ('dataRef3'), 16, 0, 0, 0, ('32'), 1007, 'sender@apple.com', 3, ('textSearchRef1'), 3, [(('WEAK', 'inbox1', null, null), 105), (('WEAK', 'inbox2', null, null), 115)], 'sender2'),
+                 ((1, 'msg-4', false, false, null), 'thread3', 1008, ('dataRef4'), 16, 0, 0, 0, ('32'), 1008, 'sender@apple.com', 4, ('textSearchRef3'), 4, [(('WEAK', 'inbox4', null, null), 115)], 'sender2'),
+                 ((1, 'msg-5', false, false, null), 'thread2', 1009, ('dataRef5'), 16, 0, 0, 1, ('32'), 1011, 'sender@apple.com', 5, ('textSearchRef4'), 5, [(('WEAK', 'inbox2', null, null), 105), (('WEAK', 'inbox3', null, null), 106), (('WEAK', 'inbox4', null, null), 113), (('WEAK', 'inbox5', null, null), 114)], 'sender1'),
+                 ((1, 'msg-6', false, false, null), 'thread3', 1010, ('dataRef6'), 16, 0, 0, 0, ('32'), 1010, 'sender@apple.com', 6, ('textSearchRef5'), 6, [(('WEAK', 'inbox2', null, null), 120), (('WEAK', 'inbox4', null, null), 144), (('WEAK', 'inbox1', null, null), 145)], 'sender1'),
+                 ((2, 'msg-1', false, false, null), 'thread2', 1000, ('dataRef1'), 16, 0, 0, 1, ('32'), 1000, 'sender1@apple.com', 1001, ('textSearchRef1'), 1, [(('WEAK', 'inbox1', null, null), 100), (('WEAK', 'inbox2', null, null), 101), (('WEAK', 'inbox3', null, null), 102), (('WEAK', 'inbox4', null, null), 103)], 'sender1'),
+                 ((2, 'msg-2', false, false, null), 'thread3', 1003, ('dataRef2'), 16, 0, 0, 1, ('32'), 1006, 'sender1@apple.com', 1002, ('textSearchRef2'), 2, [(('WEAK', 'inbox3', null, null), 105), (('WEAK', 'inbox2', null, null), 106), (('WEAK', 'inbox5', null, null), 110)], 'sender1'),
+                 ((2, 'msg-3', false, false, null), 'thread2', 1007, ('dataRef3'), 16, 0, 0, 0, ('32'), 1007, 'sender1@apple.com', 1003, ('textSearchRef1'), 3, [(('WEAK', 'inbox2', null, null), 115)], 'sender1'),
+                 ((2, 'msg-4', false, false, null), 'thread3', 1008, ('dataRef4'), 16, 0, 0, 0, ('32'), 1008, 'sender2@apple.com', 1001, ('textSearchRef3'), 4, [(('WEAK', 'inbox4', null, null), 115)], 'sender2'),
+                 ((2, 'msg-5', false, false, null), 'thread2', 1009, ('dataRef5'), 16, 0, 0, 1, ('32'), 1011, 'sender2@apple.com', 1002, ('textSearchRef4'), 5, [(('WEAK', 'inbox2', null, null), 105), (('WEAK', 'inbox3', null, null), 106), (('WEAK', 'inbox4', null, null), 113), (('WEAK', 'inbox5', null, null), 114)], 'sender2'),
+                 ((2, 'msg-6', false, false, null), 'thread3', 1010, ('dataRef6'), 16, 0, 0, 0, ('32'), 1010, 'sender2@apple.com', 1002, ('textSearchRef5'), 6, [(('WEAK', 'inbox2', null, null), 120), (('WEAK', 'inbox4', null, null), 144), (('WEAK', 'inbox1', null, null), 145)], 'sender2')
+---
+test_block:
+  preset: single_repetition_ordered
+  options:
+    connection_lifecycle: test
+  tests:
+    -
+      - query: SELECT "msgstate"."mboxRef"."string_value" as "mboxRefValue", "entry"."string_value" AS "category", "msgstate"."isDeleted", "msgstate"."groupKey", max("msgstate"."stateInternalDate") AS "maxDate"
+          FROM "msgstate", (SELECT "key"."string_value" FROM "msgstate"."mboxRefUidMap") AS "entry"
+          WHERE "msgstate"."___header"."zone_key" = 0 AND "msgstate"."___header"."tombstone" is not true AND "msgstate"."___header"."archived" is not true
+          GROUP BY "msgstate"."___header"."zone_key", "msgstate"."mboxRef"."string_value", "entry"."string_value", "msgstate"."isDeleted", "msgstate"."groupKey"
+      - debugger: repl
+      - explain: "AISCAN(maxDateBySender [EQUALS promote(@c54 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[2], _3: KEY:[3], _4: KEY:[5], _5: KEY:[4]]) | MAP (_._1 AS mboxRefValue, _._2 AS category, _._3 AS isDeleted, _._4 AS groupKey, _._5 AS maxDate)"
+      - result: [
+              {mboxRefValue: '31', category: 'inbox1', isDeleted: 0, groupKey: 'sender1', maxDate: 1697574817001},
+              {mboxRefValue: '31', category: 'inbox2', isDeleted: 0, groupKey: 'sender1', maxDate: 1697574817001},
+              {mboxRefValue: '31', category: 'inbox2', isDeleted: 1, groupKey: 'sender1', maxDate: 1697574818012},
+              {mboxRefValue: '31', category: 'inbox2', isDeleted: 1, groupKey: 'sender3', maxDate: 1697574818017},
+              {mboxRefValue: '31', category: 'inbox3', isDeleted: 0, groupKey: 'sender1', maxDate: 1697574817001},
+              {mboxRefValue: '31', category: 'inbox3', isDeleted: 1, groupKey: 'sender1', maxDate: 1697574818012},
+              {mboxRefValue: '31', category: 'inbox30', isDeleted: 0, groupKey: 'sender3', maxDate: 1697574818018},
+              {mboxRefValue: '31', category: 'inbox30', isDeleted: 1, groupKey: 'sender3', maxDate: 1697574818017},
+              {mboxRefValue: '31', category: 'inbox4', isDeleted: 0, groupKey: 'sender1', maxDate: 1697574817001},
+              {mboxRefValue: '31', category: 'inbox4', isDeleted: 1, groupKey: 'sender3', maxDate: 1697574818017},
+              {mboxRefValue: '31', category: 'inbox5', isDeleted: 1, groupKey: 'sender1', maxDate: 1697574818012},
+              {mboxRefValue: '31', category: 'inbox50', isDeleted: 0, groupKey: 'sender3', maxDate: 1697574818018},
+              {mboxRefValue: '32', category: 'inbox1', isDeleted: 0, groupKey: 'sender2', maxDate: 1697574818013},
+              {mboxRefValue: '32', category: 'inbox2', isDeleted: 0, groupKey: 'sender2', maxDate: 1697574818013},
+              {mboxRefValue: '32', category: 'inbox42', isDeleted: 0, groupKey: 'sender2', maxDate: 1697574818014}
+          ]
+...
