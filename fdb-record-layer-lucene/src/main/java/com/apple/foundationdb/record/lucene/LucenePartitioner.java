@@ -56,6 +56,7 @@ import com.apple.foundationdb.record.provider.common.StoreTimerSnapshot;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexableRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOrphanBehavior;
@@ -514,8 +515,233 @@ public class LucenePartitioner {
                             builder.setTo(ByteString.copyFrom(partitioningKey.pack()));
                         }
                         savePartitionMetadata(groupingKey, builder);
+                        if (assignedPartition.hasMergingState() && !assignedPartition.getMergingState().equals(LucenePartitionInfoProto.LucenePartitionInfo.MergingState.NORMAL)) {
+                            // Note that the partition info also contains the buffer partition, and should not be changed during draining
+                            return getBufferPartitionId(assignedPartition.getId());
+                        }
                         return assignedPartition.getId();
                     });
+                });
+    }
+
+    public static int getBufferPartitionId(int partitionId) {
+        // TODO: better distinct id for buffer partitions
+        return partitionId | 0xf00000;
+    }
+
+
+    /**
+     * Drain buffer partition - move all the documents from the buffer to the actual partition.
+     * The merging state should be handled by the caller.
+     *
+     * @param partitionId the ID of the destination partition
+     * @param groupingKey the grouping key for both partitions
+     * @param partitionInfo preset partition info
+     * @param context the FDB record context to use for the operation
+     * @return CompletableFuture containing the number of documents moved
+     * @throws RecordCoreException if the operation fails
+     */
+    public CompletableFuture<Integer> drainBufferPartitionAsync(
+            int partitionId,
+            @Nonnull Tuple groupingKey,
+            @Nonnull LucenePartitionInfoProto.LucenePartitionInfo partitionInfo,
+            @Nonnull FDBRecordContext context) {
+        final long startTime = System.nanoTime();
+        int bufferPartitionId = getBufferPartitionId(partitionId);
+
+        return state.store.asBuilder().setContext(context).openAsync()
+                .thenCompose(store -> {
+                    // Create cursor to get all documents from source partition
+                    final var fieldInfos = LuceneIndexExpressions.getDocumentFieldDerivations(state.index, state.store.getRecordMetaData());
+                    ScanComparisons comparisons = groupingKey.isEmpty() ?
+                                                  ScanComparisons.EMPTY :
+                                                  Objects.requireNonNull(ScanComparisons.from(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, groupingKey.get(0))));
+                    LuceneScanParameters scan = new LuceneScanQueryParameters(
+                            comparisons,
+                            new LuceneQuerySearchClause(LuceneQueryType.QUERY, "*:*", false),
+                            new Sort(new SortField(partitionFieldNameInLucene, SortField.Type.LONG),
+                                    new SortField(LuceneIndexMaintainer.PRIMARY_KEY_SEARCH_NAME, SortField.Type.STRING)),
+                            null,
+                            null,
+                            null);
+                    ScanProperties scanProperties = ExecuteProperties.newBuilder().build().asScanProperties(false);
+                    LuceneScanQuery scanQuery = (LuceneScanQuery)scan.bind(state.store, state.index, EvaluationContext.EMPTY);
+                    // we create the cursor here explicitly (vs. e.g. calling state.store.scanIndex(...)) because we want the search
+                    // to be performed specifically in the provided partition.
+                    // alternatively we can include a partitionInfo in the lucene scan parameters--tbd
+                    final LuceneRecordCursor cursor = new LuceneRecordCursor(
+                            state.context.getExecutor(),
+                            state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_EXECUTOR_SERVICE),
+                            this,
+                            Objects.requireNonNull(state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_INDEX_CURSOR_PAGE_SIZE)),
+                            scanProperties, state, scanQuery.getQuery(), scanQuery.getSort(), null,
+                            scanQuery.getGroupKey(), partitionInfo, scanQuery.getLuceneQueryHighlightParameters(), scanQuery.getTermMap(),
+                            scanQuery.getStoredFields(), scanQuery.getStoredFieldTypes(),
+                            LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerCombinationProvider(state.index, LuceneAnalyzerType.FULL_TEXT, fieldInfos),
+                            LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerCombinationProvider(state.index, LuceneAnalyzerType.AUTO_COMPLETE, fieldInfos));
+
+                    Collection<RecordType> recordTypes = store.getRecordMetaData().recordTypesForIndex(state.index);
+                    if (recordTypes.stream().map(RecordType::isSynthetic).distinct().count() > 1) {
+                        // don't support mix of synthetic/regular
+                        throw new RecordCoreException("mix of synthetic and non-synthetic record types in index is not supported");
+                    }
+
+                    // Determine record types for proper loading
+                    if (recordTypes.stream().map(RecordType::isSynthetic).distinct().count() > 1) {
+                        throw new RecordCoreException("mix of synthetic and non-synthetic record types in index is not supported");
+                    }
+
+                    // Fetch all records from source partition
+                    CompletableFuture<? extends List<? extends FDBIndexableRecord<Message>>> fetchedRecordsFuture;
+                    if (recordTypes.iterator().next().isSynthetic()) {
+                        fetchedRecordsFuture = cursor.mapPipelined(
+                                indexEntry -> store.loadSyntheticRecord(indexEntry.getPrimaryKey()),
+                                store.getPipelineSize(PipelineOperation.INDEX_TO_RECORD)
+                        ).asList();
+                    } else {
+                        fetchedRecordsFuture = store
+                                .fetchIndexRecords(cursor, IndexOrphanBehavior.SKIP)
+                                .map(FDBIndexedRecord::getStoredRecord)
+                                .asList();
+                    }
+
+                    // Ensure cursor is closed
+                    fetchedRecordsFuture = fetchedRecordsFuture.whenComplete((ignored, throwable) -> cursor.close());
+
+                    return fetchedRecordsFuture.thenApply(records -> {
+                        if (records.isEmpty()) {
+                            if (LOGGER.isDebugEnabled()) {
+                                LOGGER.debug(KeyValueLogMessage.of("No records found in buffer partition",
+                                        LogMessageKeys.PARTITION_ID, bufferPartitionId));
+                            }
+                            return 0;
+                        }
+
+                        try {
+                            // Get LuceneIndexMaintainer for document operations
+                            LuceneIndexMaintainer indexMaintainer = (LuceneIndexMaintainer)state.store.getIndexMaintainer(state.index);
+
+                            // Delete all documents from buffer partition and add to partition
+                            for (FDBIndexableRecord<Message> rec : records) {
+                                indexMaintainer.deleteDocument(groupingKey, bufferPartitionId, rec.getPrimaryKey());
+                                LuceneDocumentFromRecord.getRecordFields(state.index.getRootExpression(), rec)
+                                        .entrySet().forEach(entry -> {
+                                            indexMaintainer.writeDocument(rec, entry, partitionId);
+                                        });
+                            }
+
+                            if (LOGGER.isDebugEnabled()) {
+                                LOGGER.debug(KeyValueLogMessage.of("Moved documents from buffer partition to partition",
+                                        LogMessageKeys.PARTITION_ID, partitionId,
+                                        LogMessageKeys.GROUPING_KEY, groupingKey,
+                                        LogMessageKeys.INDEX_REPARTITION_DOCUMENT_COUNT, records.size(),
+                                        LogMessageKeys.DURATION_MILLIS, TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime)));
+                            }
+
+                            return records.size();
+
+                        } catch (Exception e) {
+                            throw new RecordCoreException("Failed to move documents between partitions", e)
+                                    .addLogInfo("sourcePartitionId", bufferPartitionId)
+                                    .addLogInfo("destinationPartitionId", partitionId)
+                                    .addLogInfo("groupingKey", groupingKey);
+                        }
+                    });
+                });
+    }
+
+
+    /**
+     * Process all delete keys in a partition's delete list.
+     *
+     * @param partitionId the ID of the partition to process delete keys for
+     * @param groupingKey the grouping key for the partition
+     * @param context the FDB record context to use for operations
+     * @return CompletableFuture containing the count of documents successfully deleted
+     */
+    public CompletableFuture<Integer> processPartitionDeleteKeys(
+            int partitionId,
+            @Nonnull Tuple groupingKey,
+            @Nonnull FDBRecordContext context) {
+
+        // Reload the partition info
+        return getPartitionMetaInfoByIdWithContext(partitionId, groupingKey, context)
+                .thenCompose(partitionInfo -> {
+                    if (partitionInfo == null) {
+                        throw new RecordCoreException("Partition not found")
+                                .addLogInfo(LogMessageKeys.PARTITION_ID, partitionId)
+                                .addLogInfo(LogMessageKeys.GROUPING_KEY, groupingKey);
+                    }
+
+                    final List<ByteString> deleteKeysList = partitionInfo.getDeleteKeysList();
+
+                    if (deleteKeysList.isEmpty()) {
+                        if (LOGGER.isDebugEnabled()) {
+                            LOGGER.debug(KeyValueLogMessage.of("No delete keys to process",
+                                    LogMessageKeys.PARTITION_ID, partitionId));
+                        }
+                        return CompletableFuture.completedFuture(0);
+                    }
+
+                    return CompletableFuture.supplyAsync(() -> {
+                        try {
+                            FDBRecordStore storeWithContext = state.store.asBuilder().setContext(context).open();
+                            LuceneIndexMaintainer indexMaintainer = (LuceneIndexMaintainer) storeWithContext.getIndexMaintainer(state.index);
+                            int deleteCount = 0;
+                            int totalDeleteKeys = deleteKeysList.size();
+
+                            // Process each delete key
+                            for (ByteString deleteKeyBytes: deleteKeysList) {
+                                Tuple primaryKey = Tuple.fromBytes(deleteKeyBytes.toByteArray());
+                                int deletedDocs = indexMaintainer.deleteDocument(groupingKey, partitionId, primaryKey);
+                                deleteCount += deletedDocs;
+                            }
+
+                            if (LOGGER.isDebugEnabled()) {
+                                LOGGER.debug(KeyValueLogMessage.of("successfully processed deleted list",
+                                        LogMessageKeys.PARTITION_ID, partitionId,
+                                        LogMessageKeys.KEY_COUNT, totalDeleteKeys,
+                                        LogMessageKeys.DELETED_DOCUMENTS_COUNT, deleteCount));
+                            }
+
+                            return deleteCount;
+
+                        } catch (Exception e) {
+                            throw new RecordCoreException("Failed to process delete keys from partition", e)
+                                    .addLogInfo(LogMessageKeys.PARTITION_ID, partitionId)
+                                    .addLogInfo(LogMessageKeys.GROUPING_KEY, groupingKey)
+                                    .addLogInfo(LogMessageKeys.KEY_COUNT, deleteKeysList.size());
+                        }
+                    }, context.getExecutor());
+                });
+    }
+
+    /**
+     * Get partition metadata by ID using the provided context.
+     */
+    private CompletableFuture<LucenePartitionInfoProto.LucenePartitionInfo> getPartitionMetaInfoByIdWithContext(
+            int partitionId,
+            @Nonnull Tuple groupingKey,
+            @Nonnull FDBRecordContext context) {
+
+        Range range = state.indexSubspace.subspace(groupingKey.add(PARTITION_META_SUBSPACE)).range();
+
+        return context.ensureActive()
+                .getRange(range, Integer.MAX_VALUE, true, StreamingMode.WANT_ALL)
+                .asList()
+                .thenApply(keyValues -> {
+                    for (KeyValue kv : keyValues) {
+                        try {
+                            LucenePartitionInfoProto.LucenePartitionInfo partition =
+                                    LucenePartitionInfoProto.LucenePartitionInfo.parseFrom(kv.getValue());
+                            if (partition.getId() == partitionId) {
+                                return partition;
+                            }
+                        } catch (InvalidProtocolBufferException e) {
+                            // Skip malformed entries
+                        }
+                    }
+                    return null; // Not found
                 });
     }
 
@@ -550,6 +776,34 @@ public class LucenePartitioner {
         state.context.ensureActive().set(
                 partitionMetadataKeyFromPartitioningValue(groupingKey, getPartitionKey(updatedPartition)),
                 updatedPartition.toByteArray());
+    }
+
+    /**
+     * Set the partition info for a specific partition using the provided context.
+     *
+     * @param partitionId the ID of the partition to update
+     * @param groupingKey the grouping key for the partition
+     * @param context the FDB record context to use for the operation (instead of state.context)
+     * @param partitionInfo the new partition info (assumed to be valid)
+     */
+    public void setPartitionInfo(int partitionId,
+                                 @Nonnull Tuple groupingKey,
+                                 @Nonnull FDBRecordContext context,
+                                 @Nonnull LucenePartitionInfoProto.LucenePartitionInfo partitionInfo) {
+
+        Tuple partitionKey = getPartitionKey(partitionInfo);
+        byte[] metadataKey = partitionMetadataKeyFromPartitioningValue(groupingKey, partitionKey);
+
+        // Save the updated partition metadata using the provided context (NOT state.context)
+        context.ensureActive().set(metadataKey, partitionInfo.toByteArray());
+
+        if (LOGGER.isDebugEnabled()) {
+            LOGGER.debug(KeyValueLogMessage.of("Set partition info for partition",
+                    LogMessageKeys.PARTITION_ID, partitionId,
+                    LogMessageKeys.GROUPING_KEY, groupingKey,
+                    LogMessageKeys.PARTITION_MERGING_STATE, partitionInfo.getMergingState(),
+                    LogMessageKeys.GROUPING_KEY, partitionKey));
+        }
     }
 
     @Nonnull
@@ -612,9 +866,10 @@ public class LucenePartitioner {
      * @param groupingKey grouping key
      * @param amount amount to subtract from the doc count
      * @param partitionId the id of the partition to decrement
+     * @param primaryKeyToDeleteList a primary key to add to the delete list (should be during merging)
      */
     CompletableFuture<Void> decrementCountAndSave(@Nonnull Tuple groupingKey,
-                                                  int amount, final int partitionId) {
+                                                  int amount, final int partitionId, final ByteString primaryKeyToDeleteList) {
         return state.context.doWithWriteLock(new LockIdentifier(partitionMetadataSubspace(groupingKey)),
                 () -> getPartitionMetaInfoById(partitionId, groupingKey).thenAccept(serialized -> {
                     if (serialized == null) {
@@ -631,6 +886,9 @@ public class LucenePartitioner {
                         // should never happen
                         throw new RecordCoreInternalException("Issue updating Lucene partition metadata (resulting count < 0)",
                                 LogMessageKeys.PARTITION_ID, partitionId);
+                    }
+                    if (primaryKeyToDeleteList != null) {
+                        builder.addDeleteKeys(primaryKeyToDeleteList);
                     }
                     savePartitionMetadata(groupingKey, builder);
                 }));
