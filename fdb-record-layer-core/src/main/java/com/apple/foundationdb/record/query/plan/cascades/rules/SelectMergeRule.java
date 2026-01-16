@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Memoizer;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.References;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionWithPredicates;
@@ -46,6 +47,7 @@ import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
@@ -168,14 +170,13 @@ public class SelectMergeRule extends ImplementationCascadesRule<SelectExpression
                 // non-SelectExpression
                 Verify.verify(newQunAliases.add(alias), "alias %s duplicated in pulled up children", alias);
                 final var childReference = aliasToQuantifierMap.get(alias).getRangesOver();
-                if (correlationOrder.getDependencyMap().get(alias).isEmpty()) {
-                    final var newChildReference =
-                            call.memoizeFinalExpressionsFromOther(childReference, childReference.getFinalExpressions());
-                    newQuantifiers.add(aliasToQuantifierMap.get(alias).overNewReference(newChildReference));
-                } else {
-                    final var newQun = Quantifiers.rebaseGraphs(ImmutableList.of(aliasToQuantifierMap.get(alias)), (Memoizer) call, nextChildSelectTranslationBuilder.build(), true);
-                    newQuantifiers.addAll(newQun);
+                Reference newChildReference = call.memoizeFinalExpressionsFromOther(childReference, childReference.getFinalExpressions());
+                if (!correlationOrder.getDependencyMap().get(alias).isEmpty()) {
+                    // This might possibly prove wasteful as we first create and memoize a new ref of final expressions,
+                    // and then rebase it for adjustments - which itself could memoize refs that changed.
+                    newChildReference = Iterables.getOnlyElement(References.rebaseGraphs(ImmutableList.of(newChildReference), (Memoizer) call, nextChildSelectTranslationBuilder.build(), true));
                 }
+                newQuantifiers.add(aliasToQuantifierMap.get(alias).overNewReference(newChildReference));
             }
         }
 
