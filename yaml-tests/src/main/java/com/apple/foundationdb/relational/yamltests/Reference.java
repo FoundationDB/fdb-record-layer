@@ -43,7 +43,7 @@ public class Reference implements Comparable<Reference> {
     private Reference(@Nonnull final Resource resource, int lineNumber) {
         this.resource = resource;
         this.lineNumber = lineNumber;
-        this.tupleSupplier = () -> Tuple.from(resource.tupleSupplier.get().getItems()).add(lineNumber);
+        this.tupleSupplier = () -> Tuple.fromList(resource.tupleSupplier.get().getItems()).add(lineNumber);
     }
 
     @Nonnull
@@ -189,6 +189,7 @@ public class Reference implements Comparable<Reference> {
 
         private static void assertNotCyclic(@Nonnull final Reference parentRef, @Nonnull final String path) {
             final var asTuple = parentRef.tupleSupplier.get().getItems();
+            System.out.println(asTuple);
             Assert.thatUnchecked(asTuple.stream().noneMatch(path::equals), "Cyclic path detected at: " + parentRef);
         }
     }

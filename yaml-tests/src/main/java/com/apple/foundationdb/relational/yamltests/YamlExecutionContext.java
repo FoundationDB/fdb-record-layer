@@ -448,7 +448,10 @@ public final class YamlExecutionContext {
             }
         }
 
-        try (var fos = new FileOutputStream(topLevelResourcePath)) {
+        final var fileName = Path.of(System.getProperty("user.dir"))
+                .resolve(Path.of("src", "test", "resources", metricsBinaryProtoFileName(topLevelResourcePath)))
+                .toAbsolutePath().toString();
+        try (var fos = new FileOutputStream(fileName)) {
             for (final var entry : condensedMetricsMap.entrySet()) {
                 PlannerMetricsProto.Entry.newBuilder()
                         .setIdentifier(entry.getKey())
@@ -456,9 +459,9 @@ public final class YamlExecutionContext {
                         .build()
                         .writeDelimitedTo(fos);
             }
-            logger.info("🟢 Planner metrics file {} replaced.", topLevelResourcePath);
+            logger.info("🟢 Planner metrics file {} replaced.", fileName);
         } catch (final IOException iOE) {
-            logger.error("⚠️ Source file {} could not be replaced with corrected file.", topLevelResourcePath);
+            logger.error("⚠️ Source file {} could not be replaced with corrected file.", fileName);
             Assertions.fail(iOE);
         }
     }
@@ -476,6 +479,7 @@ public final class YamlExecutionContext {
             if (identifier.getSetupsCount() > 0) {
                 infoMap.put("setup", identifier.getSetupsList());
             }
+            infoMap.put("ref", entry.getKey().getReference().toString());
             infoMap.put("explain", info.getExplain());
             infoMap.put("task_count", countersAndTimers.getTaskCount());
             infoMap.put("task_total_time_ms", TimeUnit.NANOSECONDS.toMillis(countersAndTimers.getTaskTotalTimeNs()));
@@ -488,7 +492,9 @@ public final class YamlExecutionContext {
             mmap.put(identifier.getBlockName(), infoMap);
         }
 
-        final var fileName = metricsYamlFileName(topLevelResourcePath);
+        final var fileName = Path.of(System.getProperty("user.dir"))
+                .resolve(Path.of("src", "test", "resources", metricsYamlFileName(topLevelResourcePath)))
+                .toAbsolutePath().toString();
         try (var fos = new FileOutputStream(fileName)) {
             DumperOptions options = new DumperOptions();
             options.setIndent(4);

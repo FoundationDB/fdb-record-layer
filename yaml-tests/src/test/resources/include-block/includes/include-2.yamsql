@@ -24,6 +24,7 @@ test_block:
   tests:
     -
       - query: select * from t1 where id < 50
+      - explain: "SCAN(<,>) | FILTER _.ID LESS_THAN promote(@c8 AS LONG)"
       - result: [
         {id: 10, col1: 20},
         {id: 30, col1: 40}]

@@ -5,9 +5,9 @@ transactions-tests:
         t2;
     explain: SCAN(<,>)
     task_count: 166
-    task_total_time_ms: 10
+    task_total_time_ms: 9
     transform_count: 46
-    transform_time_ms: 4
+    transform_time_ms: 3
     transform_yield_count: 15
     insert_time_ms: 0
     insert_new_count: 14
@@ -18,9 +18,9 @@ transactions-tests:
         t2 where id < 50;
     explain: SCAN(<,>) | FILTER _.ID LESS_THAN promote(@cT2_FUNC18 AS LONG)
     task_count: 189
-    task_total_time_ms: 15
+    task_total_time_ms: 8
     transform_count: 50
-    transform_time_ms: 6
+    transform_time_ms: 3
     transform_yield_count: 16
     insert_time_ms: 0
     insert_new_count: 18
