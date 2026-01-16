@@ -36,6 +36,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.CastValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.WindowedValue;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.metadata.DataType;
@@ -646,6 +647,15 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nonnull
     @Override
     public Expression visitWhereExpr(@Nonnull RelationalParser.WhereExprContext ctx) {
+        final var expression = parseChild(ctx);
+        // verify no window functions
+        Assert.thatUnchecked(expression.getUnderlyingValue().preOrderStream().noneMatch(v -> v instanceof WindowedValue),
+                ErrorCode.WINDOWING_ERROR, "window functions are not allowed in WHERE");
+        return expression;
+    }
+
+    @Override
+    public Expression visitQualifyExpr(final RelationalParser.QualifyExprContext ctx) {
         return parseChild(ctx);
     }
 

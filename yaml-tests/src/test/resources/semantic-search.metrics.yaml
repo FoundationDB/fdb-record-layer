@@ -1,120 +1,120 @@
 semantic-search-tests:
 -   query: EXPLAIN select docId, title, euclidean_distance(embedding, ?) from documents
-        where zone = 'zone1' and bookshelf = 'fiction' and row_number() over (partition
+        where zone = 'zone1' and bookshelf = 'fiction' qualify row_number() over (partition
         by zone, bookshelf order by euclidean_distance(embedding, ?) asc) <= 1
     explain: 'ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c17 AS STRING), EQUALS
         promote(@c21 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c39: @c45}:[]
         BY_DISTANCE) | MAP (_.DOCID AS DOCID, _.TITLE AS TITLE, (_.EMBEDDING) euclidean_distance
         @c39 AS _2)'
     task_count: 220
-    task_total_time_ms: 128
+    task_total_time_ms: 149
     transform_count: 65
-    transform_time_ms: 98
+    transform_time_ms: 117
     transform_yield_count: 24
-    insert_time_ms: 6
+    insert_time_ms: 7
     insert_new_count: 20
     insert_reused_count: 1
 -   query: EXPLAIN select docId, euclidean_distance(embedding, ?) from documents where
-        zone = 'zone1' and bookshelf = 'fiction' and row_number() over (partition
+        zone = 'zone1' and bookshelf = 'fiction' qualify row_number() over (partition
         by zone, bookshelf order by euclidean_distance(embedding, ?) asc) <= 3
     explain: 'ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c15 AS STRING), EQUALS
         promote(@c19 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c37: @c43}:[]
         BY_DISTANCE) | MAP (_.DOCID AS DOCID, (_.EMBEDDING) euclidean_distance @c37
         AS _1)'
     task_count: 220
-    task_total_time_ms: 19
+    task_total_time_ms: 20
     transform_count: 65
     transform_time_ms: 12
     transform_yield_count: 24
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 20
     insert_reused_count: 1
 -   query: EXPLAIN select docId from documents where zone = 'zone1' and bookshelf
-        = 'science' and row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding,
-        ?) asc options ef_search = 100) <= 2
+        = 'science' qualify row_number() over (partition by zone, bookshelf order
+        by euclidean_distance(embedding, ?) asc options ef_search = 100) <= 2
     explain: 'ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c8 AS STRING), EQUALS
         promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c30: @c40}:[]
         BY_DISTANCE) | MAP (_.DOCID AS DOCID)'
     task_count: 220
-    task_total_time_ms: 19
+    task_total_time_ms: 16
     transform_count: 65
-    transform_time_ms: 12
+    transform_time_ms: 10
     transform_yield_count: 24
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 20
     insert_reused_count: 1
 -   query: EXPLAIN select docId from documents where zone = 'zone1' and bookshelf
-        = 'science' and row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding,
-        ?) asc options ef_search = 200) < 3
+        = 'science' qualify row_number() over (partition by zone, bookshelf order
+        by euclidean_distance(embedding, ?) asc options ef_search = 200) < 3
     explain: 'ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c8 AS STRING), EQUALS
         promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN @c30: @c39}:[] BY_DISTANCE)
         | MAP (_.DOCID AS DOCID)'
     task_count: 220
-    task_total_time_ms: 18
+    task_total_time_ms: 14
     transform_count: 65
-    transform_time_ms: 12
+    transform_time_ms: 9
     transform_yield_count: 24
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 20
     insert_reused_count: 1
 -   query: EXPLAIN select docId from documents where zone = 'zone2' and bookshelf
-        = 'fiction' and row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding,
-        ?) asc) < 2
+        = 'fiction' qualify row_number() over (partition by zone, bookshelf order
+        by euclidean_distance(embedding, ?) asc) < 2
     explain: 'ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c8 AS STRING), EQUALS
         promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN @c30: @c35}:[] BY_DISTANCE)
         | MAP (_.DOCID AS DOCID)'
     task_count: 220
-    task_total_time_ms: 16
+    task_total_time_ms: 15
     transform_count: 65
-    transform_time_ms: 10
+    transform_time_ms: 9
     transform_yield_count: 24
     insert_time_ms: 0
     insert_new_count: 20
     insert_reused_count: 1
 -   query: EXPLAIN select docId, cosine_distance(embedding, ?) from documents where
-        zone = 'zone1' and bookshelf = 'fiction' and row_number() over (partition
+        zone = 'zone1' and bookshelf = 'fiction' qualify row_number() over (partition
         by zone, bookshelf order by cosine_distance(embedding, ?) asc) <= 2
     explain: 'ISCAN(DOCUMENTSCOSINEINDEX [EQUALS promote(@c15 AS STRING), EQUALS promote(@c19
         AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c37: @c43}:[] BY_DISTANCE)
         | MAP (_.DOCID AS DOCID, (_.EMBEDDING) cosine_distance @c37 AS _1)'
     task_count: 220
-    task_total_time_ms: 16
+    task_total_time_ms: 15
     transform_count: 65
-    transform_time_ms: 10
+    transform_time_ms: 9
     transform_yield_count: 24
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 20
     insert_reused_count: 1
 -   query: EXPLAIN select docId from documents where zone = 'zone1' and bookshelf
-        = 'science' and row_number() over (partition by zone, bookshelf order by cosine_distance(embedding,
-        ?) asc options ef_search = 150) <= 3
+        = 'science' qualify row_number() over (partition by zone, bookshelf order
+        by cosine_distance(embedding, ?) asc options ef_search = 150) <= 3
     explain: 'ISCAN(DOCUMENTSCOSINEINDEX [EQUALS promote(@c8 AS STRING), EQUALS promote(@c12
         AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c30: @c40}:[] BY_DISTANCE)
         | MAP (_.DOCID AS DOCID)'
     task_count: 220
-    task_total_time_ms: 12
+    task_total_time_ms: 11
     transform_count: 65
-    transform_time_ms: 8
+    transform_time_ms: 7
     transform_yield_count: 24
     insert_time_ms: 0
     insert_new_count: 20
     insert_reused_count: 1
 -   query: EXPLAIN select docId from documents where zone = 'zone2' and bookshelf
-        = 'science' and row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding,
-        ?) asc) <= 1
+        = 'science' qualify row_number() over (partition by zone, bookshelf order
+        by euclidean_distance(embedding, ?) asc) <= 1
     explain: 'ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c8 AS STRING), EQUALS
         promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c30: @c36}:[]
         BY_DISTANCE) | MAP (_.DOCID AS DOCID)'
     task_count: 220
-    task_total_time_ms: 41
+    task_total_time_ms: 9
     transform_count: 65
-    transform_time_ms: 30
+    transform_time_ms: 6
     transform_yield_count: 24
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 20
     insert_reused_count: 1
 -   query: EXPLAIN select docId, title, euclidean_distance(embedding, ?) as dist from
-        documents where zone = 'zone1' and bookshelf = 'fiction' and row_number()
+        documents where zone = 'zone1' and bookshelf = 'fiction' qualify row_number()
         over (partition by zone, bookshelf order by euclidean_distance(embedding,
         ?) asc) <= 1
     explain: 'ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c19 AS STRING), EQUALS
@@ -122,21 +122,21 @@ semantic-search-tests:
         BY_DISTANCE) | MAP (_.DOCID AS DOCID, _.TITLE AS TITLE, (_.EMBEDDING) euclidean_distance
         @c41 AS DIST)'
     task_count: 220
-    task_total_time_ms: 14
+    task_total_time_ms: 12
     transform_count: 65
-    transform_time_ms: 8
+    transform_time_ms: 7
     transform_yield_count: 24
     insert_time_ms: 0
     insert_new_count: 20
     insert_reused_count: 1
 -   query: EXPLAIN select docId from documents where zone = 'zone1' and bookshelf
-        = 'fiction' and row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding,
-        ?) asc) <= ?
+        = 'fiction' qualify row_number() over (partition by zone, bookshelf order
+        by euclidean_distance(embedding, ?) asc) <= ?
     explain: 'ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c8 AS STRING), EQUALS
         promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c30: @c36}:[]
         BY_DISTANCE) | MAP (_.DOCID AS DOCID)'
     task_count: 220
-    task_total_time_ms: 11
+    task_total_time_ms: 10
     transform_count: 65
     transform_time_ms: 6
     transform_yield_count: 24
@@ -144,55 +144,55 @@ semantic-search-tests:
     insert_new_count: 20
     insert_reused_count: 1
 -   query: EXPLAIN select docId from documents where zone = 'zone1' and bookshelf
-        = 'science' and row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding,
-        ?) asc) <= 1
+        = 'science' qualify row_number() over (partition by zone, bookshelf order
+        by euclidean_distance(embedding, ?) asc) <= 1
     explain: 'ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c8 AS STRING), EQUALS
         promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c30: @c36}:[]
         BY_DISTANCE) | MAP (_.DOCID AS DOCID)'
     task_count: 220
-    task_total_time_ms: 41
+    task_total_time_ms: 9
     transform_count: 65
-    transform_time_ms: 30
+    transform_time_ms: 6
     transform_yield_count: 24
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 20
     insert_reused_count: 1
 -   query: EXPLAIN select docId from documents where zone = 'zone1' and bookshelf
-        = 'fiction' and row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding,
-        ?) asc) <= 5
+        = 'fiction' qualify row_number() over (partition by zone, bookshelf order
+        by euclidean_distance(embedding, ?) asc) <= 5
     explain: 'ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c8 AS STRING), EQUALS
         promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c30: @c36}:[]
         BY_DISTANCE) | MAP (_.DOCID AS DOCID)'
     task_count: 220
-    task_total_time_ms: 41
+    task_total_time_ms: 9
     transform_count: 65
-    transform_time_ms: 30
+    transform_time_ms: 6
     transform_yield_count: 24
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 20
     insert_reused_count: 1
 -   query: EXPLAIN select title from documents where zone = 'zone1' and bookshelf
-        = 'fiction' and (row_number() over (partition by zone, bookshelf order by
-        cosine_distance(embedding, ?) asc) <= 1 or row_number() over (partition by
-        zone, bookshelf order by euclidean_distance(embedding, ?) asc) <= 1)
+        = 'fiction' qualify (row_number() over (partition by zone, bookshelf order
+        by cosine_distance(embedding, ?) asc) <= 1 or row_number() over (partition
+        by zone, bookshelf order by euclidean_distance(embedding, ?) asc) <= 1)
     explain: 'ISCAN(DOCUMENTSCOSINEINDEX [EQUALS promote(@c8 AS STRING), EQUALS promote(@c12
         AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c31: @c37}:[] BY_DISTANCE)
         ∪ ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c8 AS STRING), EQUALS promote(@c12
         AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c55: @c37}:[] BY_DISTANCE)
-        COMPARE BY (recordType(_), _.DOCID) | MAP (_.TITLE AS TITLE)'
+        COMPARE BY (recordType([_]), _.DOCID) | MAP (_.TITLE AS TITLE)'
     task_count: 477
-    task_total_time_ms: 50
+    task_total_time_ms: 43
     transform_count: 141
-    transform_time_ms: 34
+    transform_time_ms: 29
     transform_yield_count: 45
-    insert_time_ms: 3
+    insert_time_ms: 2
     insert_new_count: 47
     insert_reused_count: 6
 -   query: EXPLAIN select r.reviewId, r.rating, d2.docId, d2.title from reviews r
         join documents d1 on r.zone = d1.zone and r.docId = d1.docId join documents
         d2 on d2.zone = d1.zone and d2.bookshelf = d1.bookshelf where r.reviewId =
-        'r1' and row_number() over (partition by d2.zone, d2.bookshelf order by euclidean_distance(d2.embedding,
-        d1.embedding) asc) <= 3
+        'r1' qualify row_number() over (partition by d2.zone, d2.bookshelf order by
+        euclidean_distance(d2.embedding, d1.embedding) asc) <= 3
     explain: 'SCAN(<,>) | TFILTER REVIEWS | FILTER _.REVIEWID EQUALS promote(@c63
         AS STRING) | FLATMAP q0 -> { SCAN(<,>) | TFILTER DOCUMENTS | FILTER q0.ZONE
         EQUALS _.ZONE AND q0.DOCID EQUALS _.DOCID | FLATMAP q1 -> { ISCAN(DOCUMENTSEUCLIDEANINDEX
@@ -200,16 +200,16 @@ semantic-search-tests:
         @c95}:[] BY_DISTANCE) AS q2 RETURN q2 } AS q2 RETURN (q0.REVIEWID AS REVIEWID,
         q0.RATING AS RATING, q2.DOCID AS DOCID, q2.TITLE AS TITLE) }'
     task_count: 2076
-    task_total_time_ms: 158
+    task_total_time_ms: 130
     transform_count: 902
-    transform_time_ms: 91
+    transform_time_ms: 82
     transform_yield_count: 141
-    insert_time_ms: 12
+    insert_time_ms: 10
     insert_new_count: 178
     insert_reused_count: 26
 -   query: EXPLAIN select r.reviewText, d2.title from reviews r join documents d1
         on r.zone = d1.zone and r.docId = d1.docId join documents d2 on d2.zone =
-        d1.zone and d2.bookshelf = 'fiction' where r.rating >= 5 and row_number()
+        d1.zone and d2.bookshelf = 'fiction' where r.rating >= 5 qualify row_number()
         over (partition by d2.zone, d2.bookshelf order by cosine_distance(d2.embedding,
         d1.embedding) asc) <= 2
     explain: 'SCAN(<,>) | TFILTER REVIEWS | FILTER _.RATING GREATER_THAN_OR_EQUALS
@@ -219,16 +219,16 @@ semantic-search-tests:
         q1.EMBEDDING: @c86}:[] BY_DISTANCE) AS q2 RETURN q2 } AS q2 RETURN (q0.REVIEWTEXT
         AS REVIEWTEXT, q2.TITLE AS TITLE) }'
     task_count: 2740
-    task_total_time_ms: 105
+    task_total_time_ms: 106
     transform_count: 1212
-    transform_time_ms: 60
+    transform_time_ms: 61
     transform_yield_count: 170
     insert_time_ms: 10
     insert_new_count: 211
     insert_reused_count: 41
 -   query: EXPLAIN select r.reviewId, d2.docId, d2.title from reviews r join documents
         d1 on r.zone = d1.zone and r.docId = d1.docId join documents d2 on d2.zone
-        = d1.zone and d2.bookshelf = 'science' where r.zone = 'zone1' and row_number()
+        = d1.zone and d2.bookshelf = 'science' where r.zone = 'zone1' qualify row_number()
         over (partition by d2.zone, d2.bookshelf order by euclidean_distance(d2.embedding,
         d1.embedding) asc options ef_search = 100) < 2
     explain: 'SCAN(<,>) | TFILTER DOCUMENTS | FLATMAP q0 -> { SCAN(<,>) | TFILTER
@@ -239,9 +239,9 @@ semantic-search-tests:
         q3 RETURN (q3._0.REVIEWID AS REVIEWID, q3._1.DOCID AS DOCID, q3._1.TITLE AS
         TITLE) }'
     task_count: 1916
-    task_total_time_ms: 81
+    task_total_time_ms: 83
     transform_count: 875
-    transform_time_ms: 52
+    transform_time_ms: 54
     transform_yield_count: 132
     insert_time_ms: 5
     insert_new_count: 152

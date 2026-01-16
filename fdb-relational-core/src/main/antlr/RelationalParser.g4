@@ -545,7 +545,7 @@ selectElement
     ;
 
 fromClause // done
-    : FROM tableSources (WHERE whereExpr)?
+    : FROM tableSources (WHERE whereExpr)? (QUALIFY qualifyExpr)?
     ;
 
 groupByClause // done
@@ -554,6 +554,9 @@ groupByClause // done
     ;
 
 whereExpr
+    : expression;
+
+qualifyExpr
     : expression;
 
 havingClause

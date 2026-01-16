@@ -278,9 +278,11 @@ public abstract class AbstractArrayConstructorValue extends AbstractValue implem
         }
 
         @Nonnull
-        public static LightArrayConstructorValue of(@Nonnull final List<? extends Value> children, @Nonnull final Type type) {
-            Verify.verify(!children.isEmpty());
-            return new LightArrayConstructorValue(children, type);
+        public static LightArrayConstructorValue of(@Nonnull final List<? extends Value> children, @Nonnull final Type elementType) {
+            if (children.isEmpty()) {
+                return emptyArray(elementType);
+            }
+            return new LightArrayConstructorValue(children, elementType);
         }
 
         @Nonnull

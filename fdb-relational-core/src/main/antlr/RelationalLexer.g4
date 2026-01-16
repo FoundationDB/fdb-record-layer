@@ -170,6 +170,7 @@ PARTITION:                           'PARTITION';
 PRIMARY:                             'PRIMARY';
 PROCEDURE:                           'PROCEDURE';
 PURGE:                               'PURGE';
+QUALIFY:                             'QUALIFY';
 READ:                                'READ';
 READS:                               'READS';
 RECURSIVE:                           'RECURSIVE';

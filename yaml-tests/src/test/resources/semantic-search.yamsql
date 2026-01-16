@@ -73,35 +73,42 @@ test_block:
       - query:
           select docId, title, euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) from documents
           where zone = 'zone1' and bookshelf = 'fiction'
-          and row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc) <= 1
+          qualify row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc) <= 1
       - explain: "ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c17 AS STRING), EQUALS promote(@c21 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c39: @c45}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID, _.TITLE AS TITLE, (_.EMBEDDING) euclidean_distance @c39 AS _2)"
       - result: [{'d1', 'The Great Gatsby', 0.0}]
+    -
+      # defining window function in WHERE clause is not allowed, as per SQL standard.
+      - query:
+          select docId, title, euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) from documents
+          where zone = 'zone1' and bookshelf = 'fiction'
+          and row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc) <= 1
+      - error: "42F21"
     -
       - query:
           select docId, euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) from documents
           where zone = 'zone1' and bookshelf = 'fiction'
-          and row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc) <= 3
+          qualify row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc) <= 3
       - explain: "ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c15 AS STRING), EQUALS promote(@c19 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c37: @c43}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID, (_.EMBEDDING) euclidean_distance @c37 AS _1)"
       - result: [{'d1', 0.0}, {'d2', 0.14147317261689443}, {'d3', 0.28294634523378887}]
     -
       - query:
           select docId from documents
           where zone = 'zone1' and bookshelf = 'science'
-          and row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, !! !v16 [0.0, 1.0, 0.0] !!) asc options ef_search = 100) <= 2
+          qualify row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, !! !v16 [0.0, 1.0, 0.0] !!) asc options ef_search = 100) <= 2
       - explain: "ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c8 AS STRING), EQUALS promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c30: @c40}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID)"
       - result: [{'d6'}, {'d7'}]
     -
       - query:
           select docId from documents
           where zone = 'zone1' and bookshelf = 'science'
-          and row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, !! !v16 [0.0, 1.0, 0.0] !!) asc options ef_search = 200) < 3
+          qualify row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, !! !v16 [0.0, 1.0, 0.0] !!) asc options ef_search = 200) < 3
       - explain: "ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c8 AS STRING), EQUALS promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN @c30: @c39}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID)"
       - result: [{'d6'}, {'d7'}]
     -
       - query:
           select docId from documents
           where zone = 'zone2' and bookshelf = 'fiction'
-          and row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, !! !v16 [0.0, 0.0, 1.0] !!) asc) < 2
+          qualify row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, !! !v16 [0.0, 0.0, 1.0] !!) asc) < 2
       - explain: "ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c8 AS STRING), EQUALS promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN @c30: @c35}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID)"
       - result: [{'d11'}]
     # HNSW query with equals comparison, not supported yet.
@@ -109,27 +116,27 @@ test_block:
     #   - query:
     #       select docId from documents
     #       where zone = 'zone2' and bookshelf = 'fiction'
-    #       and row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, !! !v16 [0.0, 0.0, 1.0] !!) asc) = 1
+    #       qualify row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, !! !v16 [0.0, 0.0, 1.0] !!) asc) = 1
     #   - result: [{'d11'}]
     -
       - query:
           select docId, cosine_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) from documents
           where zone = 'zone1' and bookshelf = 'fiction'
-          and row_number() over (partition by zone, bookshelf order by cosine_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc) <= 2
+          qualify row_number() over (partition by zone, bookshelf order by cosine_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc) <= 2
       - explain: "ISCAN(DOCUMENTSCOSINEINDEX [EQUALS promote(@c15 AS STRING), EQUALS promote(@c19 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c37: @c43}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID, (_.EMBEDDING) cosine_distance @c37 AS _1)"
       - result: [{'d1', 0.0}, {'d2', 0.006114621302865664}]
     -
       - query:
           select docId from documents
           where zone = 'zone1' and bookshelf = 'science'
-          and row_number() over (partition by zone, bookshelf order by cosine_distance(embedding, !! !v16 [0.0, 1.0, 0.0] !!) asc options ef_search = 150) <= 3
+          qualify row_number() over (partition by zone, bookshelf order by cosine_distance(embedding, !! !v16 [0.0, 1.0, 0.0] !!) asc options ef_search = 150) <= 3
       - explain: "ISCAN(DOCUMENTSCOSINEINDEX [EQUALS promote(@c8 AS STRING), EQUALS promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c30: @c40}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID)"
       - result: [{'d6'}, {'d7'}, {'d8'}]
     -
       - query:
           select docId from documents
           where zone = 'zone2' and bookshelf = 'science'
-          and row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, !! !v16 [0.5, 0.5, 0.0] !!) asc) <= 1
+          qualify row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, !! !v16 [0.5, 0.5, 0.0] !!) asc) <= 1
       - explain: "ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c8 AS STRING), EQUALS promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c30: @c36}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID)"
       - result: [{'d14'}]
     -
@@ -137,35 +144,35 @@ test_block:
           select docId, title, euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) as dist
           from documents
           where zone = 'zone1' and bookshelf = 'fiction'
-          and row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc) <= 1
+          qualify row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc) <= 1
       - explain: "ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c19 AS STRING), EQUALS promote(@c23 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c41: @c47}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID, _.TITLE AS TITLE, (_.EMBEDDING) euclidean_distance @c41 AS DIST)"
       - result: [{'d1', 'The Great Gatsby', 0.0}]
     -
       - query:
           select docId from documents
           where zone = 'zone1' and bookshelf = 'fiction'
-          and row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc) <= !! 4 !!
+          qualify row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc) <= !! 4 !!
       - explain: "ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c8 AS STRING), EQUALS promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c30: @c36}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID)"
       - result: [{'d1'}, {'d2'}, {'d3'}, {'d4'}]
     -
       - query:
           select docId from documents
           where zone = 'zone1' and bookshelf = 'science'
-          and row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, !! !v16 [0.2, 0.8, 0.0] !!) asc) <= 1
+          qualify row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, !! !v16 [0.2, 0.8, 0.0] !!) asc) <= 1
       - explain: "ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c8 AS STRING), EQUALS promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c30: @c36}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID)"
       - result: [{'d8'}]
     -
       - query:
           select docId from documents
           where zone = 'zone1' and bookshelf = 'fiction'
-          and row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, !! !v16 [0.7, 0.3, 0.0] !!) asc) <= 5
+          qualify row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, !! !v16 [0.7, 0.3, 0.0] !!) asc) <= 5
       - explain: "ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c8 AS STRING), EQUALS promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c30: @c36}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID)"
       - result: [{'d4'}, {'d3'}, {'d5'}, {'d2'}, {'d1'}]
     -
       - query:
           select title from documents
           where zone = 'zone1' and bookshelf = 'fiction'
-          and (row_number() over (partition by zone, bookshelf order by cosine_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc) <= 1
+          qualify (row_number() over (partition by zone, bookshelf order by cosine_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc) <= 1
             or row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, !! !v16 [0.5, 0.5, 0.5] !!) asc) <= 1)
       - explain: "ISCAN(DOCUMENTSCOSINEINDEX [EQUALS promote(@c8 AS STRING), EQUALS promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c31: @c37}:[] BY_DISTANCE) ∪ ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c8 AS STRING), EQUALS promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c55: @c37}:[] BY_DISTANCE) COMPARE BY (recordType([_]), _.DOCID) | MAP (_.TITLE AS TITLE)"
       - unorderedResult: [{'The Great Gatsby'}, {'The Catcher in the Rye'}]
@@ -176,7 +183,7 @@ test_block:
           join documents d1 on r.zone = d1.zone and r.docId = d1.docId
           join documents d2 on d2.zone = d1.zone and d2.bookshelf = d1.bookshelf
           where r.reviewId = 'r1'
-          and row_number() over (partition by d2.zone, d2.bookshelf order by euclidean_distance(d2.embedding, d1.embedding) asc) <= 3
+          qualify row_number() over (partition by d2.zone, d2.bookshelf order by euclidean_distance(d2.embedding, d1.embedding) asc) <= 3
       - explain: "SCAN(<,>) | TFILTER REVIEWS | FILTER _.REVIEWID EQUALS promote(@c63 AS STRING) | FLATMAP q0 -> { SCAN(<,>) | TFILTER DOCUMENTS | FILTER q0.ZONE EQUALS _.ZONE AND q0.DOCID EQUALS _.DOCID | FLATMAP q1 -> { ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS q1.ZONE, EQUALS q1.BOOKSHELF]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL q1.EMBEDDING: @c95}:[] BY_DISTANCE) AS q2 RETURN q2 } AS q2 RETURN (q0.REVIEWID AS REVIEWID, q0.RATING AS RATING, q2.DOCID AS DOCID, q2.TITLE AS TITLE) }"
       - result: [{'r1', 5, 'd1', 'The Great Gatsby'}, {'r1', 5, 'd2', '1984'}, {'r1', 5, 'd3', 'To Kill a Mockingbird'}]
     -
@@ -186,7 +193,7 @@ test_block:
           join documents d1 on r.zone = d1.zone and r.docId = d1.docId
           join documents d2 on d2.zone = d1.zone and d2.bookshelf = 'fiction'
           where r.rating >= 5
-          and row_number() over (partition by d2.zone, d2.bookshelf order by cosine_distance(d2.embedding, d1.embedding) asc) <= 2
+          qualify row_number() over (partition by d2.zone, d2.bookshelf order by cosine_distance(d2.embedding, d1.embedding) asc) <= 2
       - explain: "SCAN(<,>) | TFILTER REVIEWS | FILTER _.RATING GREATER_THAN_OR_EQUALS promote(@c54 AS LONG) | FLATMAP q0 -> { SCAN(<,>) | TFILTER DOCUMENTS | FILTER q0.ZONE EQUALS _.ZONE AND q0.DOCID EQUALS _.DOCID | FLATMAP q1 -> { ISCAN(DOCUMENTSCOSINEINDEX [EQUALS q1.ZONE, EQUALS promote(@c47 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL q1.EMBEDDING: @c86}:[] BY_DISTANCE) AS q2 RETURN q2 } AS q2 RETURN (q0.REVIEWTEXT AS REVIEWTEXT, q2.TITLE AS TITLE) }"
       - unorderedResult: [
           {'Excellent book!', 'The Great Gatsby'},
@@ -203,7 +210,7 @@ test_block:
           join documents d1 on r.zone = d1.zone and r.docId = d1.docId
           join documents d2 on d2.zone = d1.zone and d2.bookshelf = 'science'
           where r.zone = 'zone1'
-          and row_number() over (partition by d2.zone, d2.bookshelf order by euclidean_distance(d2.embedding, d1.embedding) asc options ef_search = 100) < 2
+          qualify row_number() over (partition by d2.zone, d2.bookshelf order by euclidean_distance(d2.embedding, d1.embedding) asc options ef_search = 100) < 2
       - explain: "SCAN(<,>) | TFILTER DOCUMENTS | FLATMAP q0 -> { SCAN(<,>) | TFILTER REVIEWS | FILTER _.ZONE EQUALS q0.ZONE AND _.ZONE EQUALS promote(@c57 AS STRING) AND _.DOCID EQUALS q0.DOCID | FLATMAP q1 -> { ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS q0.ZONE, EQUALS promote(@c51 AS STRING)]:{DISTANCE_RANK_LESS_THAN q0.EMBEDDING: @c92}:[] BY_DISTANCE) AS q2 RETURN (q1 AS _0, q2 AS _1) } AS q3 RETURN (q3._0.REVIEWID AS REVIEWID, q3._1.DOCID AS DOCID, q3._1.TITLE AS TITLE) }"
       - unorderedResult: [
           {'r1', 'd10', 'Relativity'},
@@ -217,5 +224,5 @@ test_block:
           join documents d1 on r.zone = d1.zone and r.docId = d1.docId
           join documents d2 on d2.zone = d1.zone and d2.bookshelf = 'science'
           where r.zone = 'zone1'
-          and row_number() over (partition by d2.zone, d2.bookshelf order by manhattan_distance(d2.embedding, d1.embedding) asc options ef_search = 100) < 2
+          qualify row_number() over (partition by d2.zone, d2.bookshelf order by manhattan_distance(d2.embedding, d1.embedding) asc options ef_search = 100) < 2
       - error: "0AF00"

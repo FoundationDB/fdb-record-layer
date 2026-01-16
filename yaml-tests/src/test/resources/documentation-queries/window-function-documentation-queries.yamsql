@@ -41,23 +41,35 @@ test_block:
               ('zone1', 'd6', 'science', 'A Brief History of Time', !! !v16 [0.0, 1.0, 0.0] !!),
               ('zone1', 'd7', 'science', 'The Selfish Gene', !! !v16 [0.1, 0.9, 0.0] !!)
       - count: 5
-    # Basic K-Nearest Neighbor Search (documentation example)
+
+    # Window functions are not allowed in WHERE clause (error expected)
     -
-      - query: SELECT docId, title, euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) AS distance
+      - query: SELECT docId, title
               FROM documents
               WHERE zone = 'zone1' AND bookshelf = 'fiction'
                 AND ROW_NUMBER() OVER (
                     PARTITION BY zone, bookshelf
                     ORDER BY euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) ASC
                 ) <= 1
+      - error: "42F21"
+
+    # Basic K-Nearest Neighbor Search using QUALIFY (documentation example)
+    -
+      - query: SELECT docId, title, euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) AS distance
+              FROM documents
+              WHERE zone = 'zone1' AND bookshelf = 'fiction'
+              QUALIFY ROW_NUMBER() OVER (
+                    PARTITION BY zone, bookshelf
+                    ORDER BY euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) ASC
+                ) <= 1
       - result: [{docId: 'd1', title: 'The Great Gatsby', distance: 0.0}]
 
-    # Top-K Search (documentation example)
+    # Top-K Search using QUALIFY (documentation example)
     -
       - query: SELECT docId, euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) AS distance
               FROM documents
               WHERE zone = 'zone1' AND bookshelf = 'fiction'
-                AND ROW_NUMBER() OVER (
+              QUALIFY ROW_NUMBER() OVER (
                     PARTITION BY zone, bookshelf
                     ORDER BY euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) ASC
                 ) <= 3
@@ -65,41 +77,41 @@ test_block:
                  {docId: 'd2', distance: 0.14147317261689443},
                  {docId: 'd3', distance: 0.28294634523378887}]
 
-    # Using Custom Search Parameters (documentation example)
+    # Using Custom Search Parameters with QUALIFY (documentation example)
     -
       - query: SELECT docId
               FROM documents
               WHERE zone = 'zone1' AND bookshelf = 'science'
-                AND ROW_NUMBER() OVER (
+              QUALIFY ROW_NUMBER() OVER (
                     PARTITION BY zone, bookshelf
                     ORDER BY euclidean_distance(embedding, !! !v16 [0.0, 1.0, 0.0] !!) ASC
                     OPTIONS ef_search = 100
                 ) <= 2
       - result: [{docId: 'd6'}, {docId: 'd7'}]
 
-    # Using Less Than (documentation example)
+    # Using Less Than with QUALIFY (documentation example)
     -
       - query: SELECT docId
               FROM documents
               WHERE zone = 'zone1' AND bookshelf = 'science'
-                AND ROW_NUMBER() OVER (
+              QUALIFY ROW_NUMBER() OVER (
                     PARTITION BY zone, bookshelf
                     ORDER BY euclidean_distance(embedding, !! !v16 [0.0, 1.0, 0.0] !!) ASC
                     OPTIONS ef_search = 200
                 ) < 3
       - result: [{docId: 'd6'}, {docId: 'd7'}]
 
-    # Combining Multiple HNSW Searches (documentation example)
+    # Combining Multiple HNSW Searches with QUALIFY (documentation example)
     -
       - query: SELECT title
               FROM documents
               WHERE zone = 'zone1' AND bookshelf = 'fiction'
-                AND (ROW_NUMBER() OVER (
+              QUALIFY ROW_NUMBER() OVER (
                         PARTITION BY zone, bookshelf
                         ORDER BY cosine_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) ASC
                     ) <= 1
                     OR ROW_NUMBER() OVER (
                         PARTITION BY zone, bookshelf
                         ORDER BY euclidean_distance(embedding, !! !v16 [0.5, 0.5, 0.5] !!) ASC
-                    ) <= 1)
+                    ) <= 1
       - unorderedResult: [{title: 'The Great Gatsby'}, {title: 'To Kill a Mockingbird'}]

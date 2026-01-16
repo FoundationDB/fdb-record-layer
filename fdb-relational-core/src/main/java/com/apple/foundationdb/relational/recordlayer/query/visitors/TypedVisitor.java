@@ -415,6 +415,9 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
     @Override
     Expression visitWhereExpr(@Nonnull RelationalParser.WhereExprContext ctx);
 
+    @Override
+    Expression visitQualifyExpr(RelationalParser.QualifyExprContext ctx);
+
     @Nonnull
     @Override
     Expression visitHavingClause(@Nonnull RelationalParser.HavingClauseContext ctx);

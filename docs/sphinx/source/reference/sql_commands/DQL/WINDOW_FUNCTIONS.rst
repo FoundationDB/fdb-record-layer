@@ -12,6 +12,10 @@ The Relational Layer currently supports the ``ROW_NUMBER()`` window function for
 
    Currently, only the ``ROW_NUMBER()`` window function is supported for HNSW-backed semantic search. Other window functions (``RANK()``, ``DENSE_RANK()``, ``LAG()``, ``LEAD()``, etc.) are not yet supported in this context. Additionally, ``ROW_NUMBER()`` requires a proper HNSW vector index to function correctly for semantic search queries.
 
+.. important::
+
+   Window functions are **not allowed** in the ``WHERE`` clause, as per SQL standard. Use the ``QUALIFY`` clause to filter on window function results. See `The QUALIFY Clause`_ for more details.
+
 Syntax
 ======
 
@@ -59,7 +63,7 @@ How It Works
 1. An HNSW vector index is created on a table with vector columns
 2. The index is partitioned by specified columns (e.g., zone, category)
 3. Queries use ``ROW_NUMBER() OVER (PARTITION BY ... ORDER BY distance_function(...))`` to rank results
-4. A filter on ``ROW_NUMBER() <= K`` limits results to the top K nearest neighbors
+4. A ``QUALIFY`` clause with ``ROW_NUMBER() <= K`` limits results to the top K nearest neighbors
 5. The query planner recognizes this pattern and uses the HNSW index for efficient retrieval
 
 Supported Distance Functions
@@ -80,6 +84,7 @@ The following distance functions are available for use with HNSW indexes:
 Limitations
 -----------
 
+- **Window functions not allowed in WHERE clause**: As per SQL standard, window functions cannot be used in the ``WHERE`` clause. Use the ``QUALIFY`` clause instead to filter on window function results
 - **Only ROW_NUMBER() is supported**: Other window functions (``RANK()``, ``DENSE_RANK()``, ``LAG()``, ``LEAD()``, etc.) are not yet supported for HNSW-backed semantic search
 - **Requires HNSW index**: ``ROW_NUMBER()`` must be backed by a proper HNSW vector index on the queried table
 - **Limited comparison operators**: Only ``<`` and ``<=`` comparisons are supported for filtering ``ROW_NUMBER()`` results; the ``=`` comparison is not yet supported
@@ -120,6 +125,20 @@ For these examples, assume we have a document store with embeddings:
         ('zone1', 'd6', 'science', 'A Brief History of Time', CAST([0.0, 1.0, 0.0] AS VECTOR(3, HALF))),
         ('zone1', 'd7', 'science', 'The Selfish Gene', CAST([0.1, 0.9, 0.0] AS VECTOR(3, HALF)))
 
+The QUALIFY Clause
+------------------
+
+The ``QUALIFY`` clause is used to filter rows based on window function results. It is similar to ``WHERE``, but is evaluated after window functions are computed. According to SQL standard, window functions are **not allowed** in the ``WHERE`` clause. Use ``QUALIFY`` instead.
+
+**Syntax:**
+
+.. code-block:: sql
+
+    SELECT columns
+    FROM table
+    WHERE regular_conditions
+    QUALIFY window_function_condition
+
 Basic K-Nearest Neighbor Search
 --------------------------------
 
@@ -130,7 +149,7 @@ Find the single closest document in the fiction bookshelf:
     SELECT docId, title, euclidean_distance(embedding, CAST([1.0, 0.0, 0.0] AS VECTOR(3, HALF))) AS distance
     FROM documents
     WHERE zone = 'zone1' AND bookshelf = 'fiction'
-      AND ROW_NUMBER() OVER (
+    QUALIFY ROW_NUMBER() OVER (
           PARTITION BY zone, bookshelf
           ORDER BY euclidean_distance(embedding, CAST([1.0, 0.0, 0.0] AS VECTOR(3, HALF))) ASC
       ) <= 1
@@ -155,7 +174,7 @@ Find the top 3 most similar documents:
     SELECT docId, euclidean_distance(embedding, CAST([1.0, 0.0, 0.0] AS VECTOR(3, HALF))) AS distance
     FROM documents
     WHERE zone = 'zone1' AND bookshelf = 'fiction'
-      AND ROW_NUMBER() OVER (
+    QUALIFY ROW_NUMBER() OVER (
           PARTITION BY zone, bookshelf
           ORDER BY euclidean_distance(embedding, CAST([1.0, 0.0, 0.0] AS VECTOR(3, HALF))) ASC
       ) <= 3
@@ -182,7 +201,7 @@ Control the search quality with ``ef_search``:
     SELECT docId
     FROM documents
     WHERE zone = 'zone1' AND bookshelf = 'science'
-      AND ROW_NUMBER() OVER (
+    QUALIFY ROW_NUMBER() OVER (
           PARTITION BY zone, bookshelf
           ORDER BY euclidean_distance(embedding, CAST([0.0, 1.0, 0.0] AS VECTOR(3, HALF))) ASC
           OPTIONS ef_search = 100
@@ -205,7 +224,7 @@ You can use ``<`` instead of ``<=`` to exclude the K-th result:
     SELECT docId
     FROM documents
     WHERE zone = 'zone1' AND bookshelf = 'science'
-      AND ROW_NUMBER() OVER (
+    QUALIFY ROW_NUMBER() OVER (
           PARTITION BY zone, bookshelf
           ORDER BY euclidean_distance(embedding, CAST([0.0, 1.0, 0.0] AS VECTOR(3, HALF))) ASC
           OPTIONS ef_search = 200
@@ -228,14 +247,14 @@ Use ``OR`` to combine results from different similarity searches:
     SELECT title
     FROM documents
     WHERE zone = 'zone1' AND bookshelf = 'fiction'
-      AND (ROW_NUMBER() OVER (
+    QUALIFY ROW_NUMBER() OVER (
               PARTITION BY zone, bookshelf
               ORDER BY cosine_distance(embedding, CAST([1.0, 0.0, 0.0] AS VECTOR(3, HALF))) ASC
           ) <= 1
           OR ROW_NUMBER() OVER (
               PARTITION BY zone, bookshelf
               ORDER BY euclidean_distance(embedding, CAST([0.5, 0.5, 0.5] AS VECTOR(3, HALF))) ASC
-          ) <= 1)
+          ) <= 1
 
 This finds documents that are either the closest to ``[1.0, 0.0, 0.0]`` using cosine distance OR the closest to ``[0.5, 0.5, 0.5]`` using euclidean distance.
 
@@ -245,12 +264,12 @@ Important Notes
 Query Planning
 --------------
 
-The query planner automatically recognizes the pattern of ``ROW_NUMBER() OVER (PARTITION BY ... ORDER BY distance_function(...)) <= K`` and uses the HNSW index when:
+The query planner automatically recognizes the pattern of ``QUALIFY ROW_NUMBER() OVER (PARTITION BY ... ORDER BY distance_function(...)) <= K`` and uses the HNSW index when:
 
 1. An HNSW index exists on the table
 2. The ``PARTITION BY`` columns match the index partition
 3. The ``ORDER BY`` uses a distance function matching the index metric
-4. The filter uses ``ROW_NUMBER() <= K`` or ``ROW_NUMBER() < K``
+4. The ``QUALIFY`` clause uses ``ROW_NUMBER() <= K`` or ``ROW_NUMBER() < K``
 
 When these conditions are met, the query plan will show ``ISCAN(...BY_DISTANCE)`` indicating efficient index usage.
 

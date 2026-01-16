@@ -836,6 +836,12 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
 
     @Nonnull
     @Override
+    public Expression visitQualifyExpr(final RelationalParser.QualifyExprContext ctx) {
+        return expressionVisitor.visitQualifyExpr(ctx);
+    }
+
+    @Nonnull
+    @Override
     public Expression visitHavingClause(@Nonnull RelationalParser.HavingClauseContext ctx) {
         return expressionVisitor.visitHavingClause(ctx);
     }
