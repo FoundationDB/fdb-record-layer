@@ -93,7 +93,7 @@ public class KnownPkGetTest {
 
     @Connection
     public Connector memoryConnector = new Connector() {
-        private final InMemoryCatalog catalog = new InMemoryCatalog();
+        private final InMemoryCatalog catalog = new InMemoryCatalog(null);
 
         @Override
         public RelationalConnection connect(URI dbUri) throws RelationalException {
