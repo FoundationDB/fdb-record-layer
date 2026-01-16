@@ -110,6 +110,16 @@ public class DoubleRealVector extends AbstractRealVector {
         return vectorBytes;
     }
 
+    /**
+     * Returns a vector whose components are all zero.
+     * @param numDimensions number of dimensions
+     * @return a vector whose components are all zero
+     */
+    @Nonnull
+    public static DoubleRealVector zeroVector(final int numDimensions) {
+        return new DoubleRealVector(new double[numDimensions]);
+    }
+
     @Nonnull
     private static double[] computeDoubleData(@Nonnull Double[] doubleData) {
         double[] result = new double[doubleData.length];

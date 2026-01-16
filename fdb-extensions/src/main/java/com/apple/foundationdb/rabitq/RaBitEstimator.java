@@ -67,21 +67,36 @@ public class RaBitEstimator implements Estimator {
     @Nonnull
     public Result estimateDistanceAndErrorBound(@Nonnull final RealVector query,
                                                 @Nonnull final EncodedRealVector encodedVector) {
+        if (metric == Metric.COSINE_METRIC) {
+            //
+            // In cosine metric there is a special case that conventionally if one vector is the zero vector, the
+            // distance is 1 as that distance corresponds to all vectors that are orthogonal to each other.
+            //
+            final double qNormSqr = query.dot(query);
+            if (!(qNormSqr > 0.0) || !Double.isFinite(qNormSqr)) {
+                return new Result(1.0, 0.0);
+            }
+        }
+
         final double cb = (1 << numExBits) - 0.5;
         final double gAdd = query.dot(query);
         final double gError = Math.sqrt(gAdd);
+
         final RealVector totalCode = new DoubleRealVector(encodedVector.getEncodedData());
         final RealVector xuc = totalCode.subtract(cb);
         final double dot = query.dot(xuc);
 
+        final double euclideanSquare = encodedVector.getAddEx() + gAdd + encodedVector.getRescaleEx() * dot;
+        final double euclideanSquareError = encodedVector.getErrorEx() * gError;
+
         switch (metric) {
+            case COSINE_METRIC:
+                return new Result(0.5 * euclideanSquare, 0.5 * euclideanSquareError);
             case DOT_PRODUCT_METRIC:
             case EUCLIDEAN_SQUARE_METRIC:
-                return new Result(encodedVector.getAddEx() + gAdd + encodedVector.getRescaleEx() * dot,
-                        encodedVector.getErrorEx() * gError);
+                return new Result(euclideanSquare, euclideanSquareError);
             case EUCLIDEAN_METRIC:
-                return new Result(Math.sqrt(encodedVector.getAddEx() + gAdd + encodedVector.getRescaleEx() * dot),
-                        Math.sqrt(encodedVector.getErrorEx() * gError));
+                return new Result(Math.sqrt(euclideanSquare), Math.sqrt(euclideanSquareError));
             default:
                 throw new UnsupportedOperationException("metric not supported by quantizer");
         }

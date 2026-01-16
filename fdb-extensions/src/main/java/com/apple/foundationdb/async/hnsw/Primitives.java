@@ -25,6 +25,8 @@ import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.linear.Estimator;
+import com.apple.foundationdb.linear.FhtKacRotator;
+import com.apple.foundationdb.linear.LinearOperator;
 import com.apple.foundationdb.linear.Metric;
 import com.apple.foundationdb.linear.Quantizer;
 import com.apple.foundationdb.linear.RealVector;
@@ -141,14 +143,30 @@ public class Primitives {
         return getLocator().getOnReadListener();
     }
 
+    boolean isMetricNeedsNormalizedVectors() {
+        return getConfig().getMetric() == Metric.COSINE_METRIC;
+    }
+
     @Nonnull
     StorageTransform storageTransform(@Nullable final AccessInfo accessInfo) {
         if (accessInfo == null || !accessInfo.canUseRaBitQ()) {
             return StorageTransform.identity();
         }
 
-        return new StorageTransform(accessInfo.getRotatorSeed(),
-                getConfig().getNumDimensions(), Objects.requireNonNull(accessInfo.getNegatedCentroid()));
+        return storageTransform(accessInfo.getRotatorSeed(),
+                Objects.requireNonNull(accessInfo.getNegatedCentroid()),
+                isMetricNeedsNormalizedVectors());
+    }
+
+    @Nonnull
+    StorageTransform storageTransform(@Nullable final Long rotatorSeed,
+                                      @Nullable final RealVector negatedCentroid,
+                                      final boolean normalizeVectors) {
+        final LinearOperator linearOperator =
+                rotatorSeed == null
+                ? null : new FhtKacRotator(rotatorSeed, getConfig().getNumDimensions(), 10);
+
+        return new StorageTransform(linearOperator, negatedCentroid, normalizeVectors);
     }
 
     @Nonnull

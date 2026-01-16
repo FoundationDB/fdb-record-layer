@@ -129,6 +129,16 @@ class MetricTest {
                     d -> Assertions.assertThat(metric.satisfiesTriangleInequality()).isFalse(),
                     d -> Assertions.assertThat(d + distanceYZ).isGreaterThanOrEqualTo(distanceXZ - 2E-10d),
                     d -> Assertions.assertThat(triangleHolds(distanceXY, distanceYZ, distanceXZ, numDimensions * 3)).isTrue());
+
+            if (i % 2 == 1) {
+                // we can only check this for non-degenerate component values
+                final RealVector xt = x.add(z);
+                final RealVector yt = y.add(z);
+                final double distanceXtYt = metric.distance(xt, yt);
+                Assertions.assertThat(distanceXtYt).satisfiesAnyOf(
+                        d -> Assertions.assertThat(metric.satisfiesPreservedUnderTranslation()).isFalse(),
+                        d -> Assertions.assertThat(d).isCloseTo(distanceXY, Offset.offset(2E-10d)));
+            }
         }
     }
 

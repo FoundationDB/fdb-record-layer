@@ -65,6 +65,15 @@ interface MetricDefinition {
     }
 
     /**
+     * Method to be implemented by the specific metric.
+     * @return {@code true} iff for all {@link RealVector}s {@code x, y} and all translations T holds that
+     *         {@code distance(x, y) == distance(T(x), T(y))}
+     */
+    default boolean satisfiesPreservedUnderTranslation() {
+        return true;
+    }
+
+    /**
      * Convenience method that returns if all properties of a metric required to be a <i>true</i> metric are satisfied.
      * @return {@code true} iff this metric is a true metric.
      */
@@ -219,6 +228,11 @@ interface MetricDefinition {
         }
 
         @Override
+        public boolean satisfiesPreservedUnderTranslation() {
+            return false;
+        }
+
+        @Override
         public double distance(@Nonnull final double[] vector1, @Nonnull final double[] vector2) {
             MetricDefinition.validate(vector1, vector2);
 
@@ -274,6 +288,11 @@ interface MetricDefinition {
 
         @Override
         public boolean satisfiesTriangleInequality() {
+            return false;
+        }
+
+        @Override
+        public boolean satisfiesPreservedUnderTranslation() {
             return false;
         }
 
