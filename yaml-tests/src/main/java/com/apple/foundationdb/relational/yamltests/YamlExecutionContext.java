@@ -94,7 +94,7 @@ public final class YamlExecutionContext {
 
     private static final URI SYSTEM_CATALOG_ADDRESS = URI.create("jdbc:embed:/__SYS?schema=CATALOG");
 
-    @Nonnull final String topLevelResourcePath;
+    @Nonnull final Reference.Resource topLevelResource;
     @Nonnull
     private final Set<Reference.Resource> registeredResources = new HashSet<>();
     @Nonnull
@@ -125,9 +125,9 @@ public final class YamlExecutionContext {
         }
     }
 
-    YamlExecutionContext(@Nonnull String topLevelResourcePath, @Nonnull YamlConnectionFactory factory, @Nonnull final ContextOptions additionalOptions) {
+    YamlExecutionContext(@Nonnull Reference.Resource topLevelResource, @Nonnull YamlConnectionFactory factory, @Nonnull final ContextOptions additionalOptions) {
         this.connectionFactory = factory;
-        this.topLevelResourcePath = topLevelResourcePath;
+        this.topLevelResource = topLevelResource;
         this.additionalOptions = additionalOptions;
         if (isNightly()) {
             logger.info("ℹ️ Running in the NIGHTLY context.");
@@ -449,7 +449,7 @@ public final class YamlExecutionContext {
         }
 
         final var fileName = Path.of(System.getProperty("user.dir"))
-                .resolve(Path.of("src", "test", "resources", metricsBinaryProtoFileName(topLevelResourcePath)))
+                .resolve(Path.of("src", "test", "resources", metricsBinaryProtoFileName(topLevelResource.getPath())))
                 .toAbsolutePath().toString();
         try (var fos = new FileOutputStream(fileName)) {
             for (final var entry : condensedMetricsMap.entrySet()) {
@@ -493,7 +493,7 @@ public final class YamlExecutionContext {
         }
 
         final var fileName = Path.of(System.getProperty("user.dir"))
-                .resolve(Path.of("src", "test", "resources", metricsYamlFileName(topLevelResourcePath)))
+                .resolve(Path.of("src", "test", "resources", metricsYamlFileName(topLevelResource.getPath())))
                 .toAbsolutePath().toString();
         try (var fos = new FileOutputStream(fileName)) {
             DumperOptions options = new DumperOptions();

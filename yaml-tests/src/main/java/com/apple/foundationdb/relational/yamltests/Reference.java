@@ -189,7 +189,6 @@ public class Reference implements Comparable<Reference> {
 
         private static void assertNotCyclic(@Nonnull final Reference parentRef, @Nonnull final String path) {
             final var asTuple = parentRef.tupleSupplier.get().getItems();
-            System.out.println(asTuple);
             Assert.thatUnchecked(asTuple.stream().noneMatch(path::equals), "Cyclic path detected at: " + parentRef);
         }
     }
