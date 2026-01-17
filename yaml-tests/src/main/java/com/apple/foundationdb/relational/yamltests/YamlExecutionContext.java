@@ -105,7 +105,7 @@ public final class YamlExecutionContext {
     private ImmutableMap<PlannerMetricsProto.Identifier, PlannerMetricsProto.Info> expectedMetricsMap;
     @Nonnull
     private Map<QueryAndLocation, PlannerMetricsProto.Info> actualMetricsMap = new HashMap<>();
-    private boolean isDirtyMetrics = false;
+    private volatile boolean isDirtyMetrics = false;
     @Nonnull
     private final YamlConnectionFactory connectionFactory;
     @SuppressWarnings("AbbreviationAsWordInName")
