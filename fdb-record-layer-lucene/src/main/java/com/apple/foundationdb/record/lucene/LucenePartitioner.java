@@ -613,8 +613,8 @@ public class LucenePartitioner {
      * @param amount amount to subtract from the doc count
      * @param partitionId the id of the partition to decrement
      */
-    CompletableFuture<Void> decrementCountAndSave(@Nonnull Tuple groupingKey,
-                                                  int amount, final int partitionId) {
+    public CompletableFuture<Void> decrementCountAndSave(@Nonnull Tuple groupingKey,
+                                                         int amount, final int partitionId) {
         return state.context.doWithWriteLock(new LockIdentifier(partitionMetadataSubspace(groupingKey)),
                 () -> getPartitionMetaInfoById(partitionId, groupingKey).thenAccept(serialized -> {
                     if (serialized == null) {
@@ -1075,7 +1075,7 @@ public class LucenePartitioner {
                 // situation with the partition metadata keys.
                 records.forEach(r -> {
                     try {
-                        indexMaintainer.deleteDocument(groupingKey, partitionInfo.getId(), r.getPrimaryKey());
+                        indexMaintainer.deleteDocument(groupingKey, partitionInfo.getId(), r.getPrimaryKey(), LuceneIndexMaintainer.OverallOperation.DELETE);
                     } catch (IOException e) {
                         throw LuceneExceptions.toRecordCoreException(e.getMessage(), e);
                     }
@@ -1113,7 +1113,7 @@ public class LucenePartitioner {
             for (FDBIndexableRecord<Message> rec : records) {
                 LuceneDocumentFromRecord.getRecordFields(state.index.getRootExpression(), rec)
                         .entrySet().forEach(entry -> {
-                            indexMaintainer.writeDocument(rec, entry, destinationPartitionId);
+                            indexMaintainer.writeDocument(rec, entry, destinationPartitionId, LuceneIndexMaintainer.OverallOperation.INSERT);
                             addToAndSavePartitionMetadata(rec, groupingKey, destinationPartitionId);
                         });
             }

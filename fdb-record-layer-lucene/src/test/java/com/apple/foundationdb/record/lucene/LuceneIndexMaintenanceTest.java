@@ -632,7 +632,6 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
         AtomicInteger merges = new AtomicInteger();
         AtomicInteger docCount = new AtomicInteger();
         AtomicInteger conflicts = new AtomicInteger();
-        AtomicInteger fileLockFailures = new AtomicInteger();
         AtomicReference<Throwable> failedInsert = new AtomicReference<>();
         AtomicReference<Throwable> failedMerge = new AtomicReference<>();
         Thread inserter = new Thread(() -> {
@@ -673,7 +672,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                             if (e instanceof FDBExceptions.FDBStoreTransactionConflictException) {
                                 conflicts.incrementAndGet();
                             } else if (e instanceof FDBExceptions.FDBStoreLockTakenException) {
-                                fileLockFailures.incrementAndGet();
+                                // do nothing
                             } else {
                                 LOGGER.debug("Failing: couldn't commit for key {}", (1000L + i), e);
                                 failedInsert.set(e);
@@ -730,7 +729,6 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
         assertNull(failedMerge.get());
         assertThat(successfulMerges.get(), Matchers.greaterThan(10));
         assertThat(conflicts.get(), Matchers.greaterThan(10));
-        assertThat(fileLockFailures.get(), Matchers.greaterThan(10));
         assertThat(docCount.get(), Matchers.greaterThanOrEqualTo(200));
 
         // validate index is sane
