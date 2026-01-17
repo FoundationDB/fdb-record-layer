@@ -51,6 +51,7 @@ import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -324,5 +325,109 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
         // Check that data subspace is now empty
         final List<KeyValue> finalKeys = context.ensureActive().getRange(directory.getSubspace().range()).asList().join();
         Assertions.assertThat(finalKeys).isEmpty();
+    }
+
+    @Test
+    void testQueueIndicatorLifecycle() {
+        // 1. Initially, shouldUseQueue should return false
+        assertFalse(directory.shouldUseQueue(),
+                "shouldUseQueue should return false when no indicator is set");
+
+        // 2. Set the queue indicator
+        directory.setUseQueue(context);
+
+        // 3. After setting, shouldUseQueue should return true in same transaction
+        assertTrue(directory.shouldUseQueue(),
+                "shouldUseQueue should return true after setUseQueue is called");
+
+        // 4. Commit and verify persistence
+        context.commit();
+
+        // 5. Open new context and verify indicator persists
+        try (FDBRecordContext newContext = fdb.openContext()) {
+            FDBDirectory newDirectory = createDirectory(subspace, newContext, null);
+
+            assertTrue(newDirectory.shouldUseQueue(),
+                    "shouldUseQueue should return true in new transaction after commit");
+
+            // 6. Attempt to clear with non-empty queue should fail
+            // First, add an item to the queue
+            PendingWriteQueue queue = newDirectory.createPendingWritesQueue();
+            queue.enqueueInsert(newContext,
+                    com.apple.foundationdb.tuple.Tuple.from("testDoc", 1),
+                    createTestFields());
+            newContext.commit();
+        }
+
+        // 7. Try to clear indicator with non-empty queue - should fail
+        try (FDBRecordContext newContext = fdb.openContext()) {
+            FDBDirectory newDirectory = createDirectory(subspace, newContext, null);
+
+            com.apple.foundationdb.record.RecordCoreException exception =
+                    assertThrows(com.apple.foundationdb.record.RecordCoreException.class,
+                            () -> newDirectory.clearUseQueueFailIfNonEmpty(newContext),
+                            "clearUseQueueFailIfNonEmpty should throw when queue is not empty");
+
+            assertThat(exception.getMessage(),
+                    org.hamcrest.Matchers.containsString("pending write queue is not empty"));
+
+            // Indicator should still be set
+            assertTrue(newDirectory.shouldUseQueue(),
+                    "shouldUseQueue should still return true after failed clear attempt");
+        }
+
+        // 8. Clear the queue
+        try (FDBRecordContext newContext = fdb.openContext()) {
+            FDBDirectory newDirectory = createDirectory(subspace, newContext, null);
+            PendingWriteQueue queue = newDirectory.createPendingWritesQueue();
+
+            // Read and clear all queue entries
+            com.apple.foundationdb.record.RecordCursor<PendingWriteQueue.QueueEntry> cursor =
+                    queue.getQueueCursor(newContext,
+                            com.apple.foundationdb.record.ScanProperties.FORWARD_SCAN,
+                            null);
+
+            cursor.forEach(entry -> queue.clearEntry(newContext, entry)).join();
+            newContext.commit();
+        }
+
+        // 9. Now clearing the indicator should succeed
+        try (FDBRecordContext newContext = fdb.openContext()) {
+            FDBDirectory newDirectory = createDirectory(subspace, newContext, null);
+
+            // Should still be set before clear
+            assertTrue(newDirectory.shouldUseQueue(),
+                    "shouldUseQueue should return true before clear");
+
+            // Clear should succeed now
+            newDirectory.clearUseQueueFailIfNonEmpty(newContext);
+
+            // Should be false immediately after clear in same transaction
+            assertFalse(newDirectory.shouldUseQueue(),
+                    "shouldUseQueue should return false after clearUseQueueFailIfNonEmpty");
+
+            newContext.commit();
+        }
+
+        // 10. Verify indicator remains cleared after commit
+        try (FDBRecordContext newContext = fdb.openContext()) {
+            FDBDirectory newDirectory = createDirectory(subspace, newContext, null);
+
+            assertFalse(newDirectory.shouldUseQueue(),
+                    "shouldUseQueue should return false in new transaction after clear and commit");
+        }
+    }
+
+    private java.util.List<com.apple.foundationdb.record.lucene.LuceneDocumentFromRecord.DocumentField> createTestFields() {
+        return java.util.List.of(
+                new com.apple.foundationdb.record.lucene.LuceneDocumentFromRecord.DocumentField(
+                        "testField",
+                        "test value",
+                        com.apple.foundationdb.record.lucene.LuceneIndexExpressions.DocumentFieldType.TEXT,
+                        false,
+                        false,
+                        java.util.Map.of()
+                )
+        );
     }
 }
