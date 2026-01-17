@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.yamltests.block;
 
+import com.apple.foundationdb.relational.yamltests.Reference;
 import com.apple.foundationdb.relational.yamltests.YamlConnection;
 import com.apple.foundationdb.relational.yamltests.YamlConnectionFactory;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
@@ -44,13 +45,12 @@ import java.util.function.Consumer;
  * </p>
  */
 @SuppressWarnings({"PMD.GuardLogStatement"})
-public abstract class ConnectedBlock implements Block {
+public abstract class ConnectedBlock extends ReferencedBlock implements Block {
 
     private static final Logger logger = LogManager.getLogger(ConnectedBlock.class);
 
     static final String BLOCK_CONNECT = "connect";
 
-    int lineNumber;
     @Nonnull
     YamlExecutionContext executionContext;
     @Nonnull
@@ -58,16 +58,11 @@ public abstract class ConnectedBlock implements Block {
     @Nonnull
     final List<Consumer<YamlConnection>> executables;
 
-    ConnectedBlock(int lineNumber, @Nonnull List<Consumer<YamlConnection>> executables, @Nonnull URI connectionURI, @Nonnull YamlExecutionContext executionContext) {
-        this.lineNumber = lineNumber;
+    ConnectedBlock(@Nonnull Reference reference, @Nonnull List<Consumer<YamlConnection>> executables, @Nonnull URI connectionURI, @Nonnull YamlExecutionContext executionContext) {
+        super(reference);
         this.executables = executables;
         this.connectionURI = connectionURI;
         this.executionContext = executionContext;
-    }
-
-    @Override
-    public int getLineNumber() {
-        return lineNumber;
     }
 
     protected final void executeExecutables(@Nonnull Collection<Consumer<YamlConnection>> list) {
@@ -85,9 +80,9 @@ public abstract class ConnectedBlock implements Block {
             logger.debug("✅ Connected to database: `{}`", connectionURI);
             consumer.accept(connection);
         } catch (SQLException sqle) {
-            throw executionContext.wrapContext(sqle,
-                    () -> String.format(Locale.ROOT, "‼️ Error connecting to the database `%s` in block at line %d", connectionURI, lineNumber),
-                    "connection [" + connectionURI + "]", getLineNumber());
+            throw YamlExecutionContext.wrapContext(sqle,
+                    () -> String.format(Locale.ROOT, "‼️ Error connecting to the database `%s` in block at %s", connectionURI, getReference()),
+                    "connection [" + connectionURI + "]", getReference());
         }
     }
 
