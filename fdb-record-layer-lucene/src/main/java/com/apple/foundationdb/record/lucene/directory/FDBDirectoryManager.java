@@ -312,6 +312,7 @@ public class FDBDirectoryManager implements AutoCloseable {
                                 queueEntry.getPrimaryKeyParsed(), store.isIndexWriteOnly(state.index));
                         if (count > 0 && partitionId != null) {
                             // tmp kludge - todo: find a better solution
+                            // One option is to adjust the accounting while while queuing
                             final IndexMaintainerState tmpState = new IndexMaintainerState(store, state.index, state.filter);
                             final LucenePartitioner tmpPartitioner = new LucenePartitioner(tmpState);
                             store.getContext().asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_DECREMENT,
