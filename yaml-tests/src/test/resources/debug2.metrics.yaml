@@ -1,0 +1,25 @@
+unnamed-4:
+-   query: EXPLAIN SELECT "msgstate"."mboxRef"."string_value" as "mboxRefValue", "entry"."string_value"
+        AS "category", "msgstate"."isDeleted", "msgstate"."groupKey", max("msgstate"."stateInternalDate")
+        AS "maxDate" FROM "msgstate", (SELECT "key"."string_value" FROM "msgstate"."mboxRefUidMap")
+        AS "entry" GROUP BY "msgstate"."___header"."zone_key", "msgstate"."mboxRef"."string_value",
+        "entry"."string_value", "msgstate"."isDeleted", "msgstate"."groupKey"
+    setup:
+    - create temporary function "msgstate" (include_expired boolean default null,
+        include_tombstone boolean default null, include_archived boolean default null)
+        on commit drop function AS SELECT * FROM "__5tvf_msgstate"( zone_key => 0L,
+        zone_wide => false, include_tombstone => include_tombstone, include_archived
+        => include_archived, include_expired => COALESCE(include_expired, true), query_execution_date
+        => 1674055795, restrict_to_dsid => NULL )
+    explain: 'AISCAN(maxDateBySender [EQUALS @cmsgstate32] BY_GROUP -> [_0: KEY:[0],
+        _1: KEY:[1], _2: KEY:[2], _3: KEY:[3], _4: KEY:[5], _5: KEY:[4]]) | MAP (_._1
+        AS mboxRefValue, _._2 AS category, _._3 AS isDeleted, _._4 AS groupKey, _._5
+        AS maxDate)'
+    task_count: 1327
+    task_total_time_ms: 401
+    transform_count: 376
+    transform_time_ms: 290
+    transform_yield_count: 113
+    insert_time_ms: 34
+    insert_new_count: 237
+    insert_reused_count: 18

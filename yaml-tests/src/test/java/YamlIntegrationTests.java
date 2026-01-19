@@ -18,7 +18,6 @@
  * limitations under the License.
  */
 
-import com.apple.foundationdb.relational.yamltests.DebugPlanner;
 import com.apple.foundationdb.relational.yamltests.MaintainYamlTestConfig;
 import com.apple.foundationdb.relational.yamltests.YamlTest;
 import com.apple.foundationdb.relational.yamltests.YamlTestConfigFilters;
@@ -366,7 +365,6 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
-    @DebugPlanner
     public void testTest(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("debug2.yamsql");
     }

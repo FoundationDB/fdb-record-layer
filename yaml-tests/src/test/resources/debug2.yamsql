@@ -198,8 +198,7 @@ test_block:
           FROM "msgstate", (SELECT "key"."string_value" FROM "msgstate"."mboxRefUidMap") AS "entry"
           GROUP BY "msgstate"."___header"."zone_key", "msgstate"."mboxRef"."string_value", "entry"."string_value", "msgstate"."isDeleted", "msgstate"."groupKey"
       - setupReference: tvf_msgstate_0_zone_include_expired
-#      - debugger: repl
-      - explain: "AISCAN(maxDateBySender [EQUALS promote(@c54 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[2], _3: KEY:[3], _4: KEY:[5], _5: KEY:[4]]) | MAP (_._1 AS mboxRefValue, _._2 AS category, _._3 AS isDeleted, _._4 AS groupKey, _._5 AS maxDate)"
+      - explain: "AISCAN(maxDateBySender [EQUALS @cmsgstate32] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[2], _3: KEY:[3], _4: KEY:[5], _5: KEY:[4]]) | MAP (_._1 AS mboxRefValue, _._2 AS category, _._3 AS isDeleted, _._4 AS groupKey, _._5 AS maxDate)"
       - result: [
               {mboxRefValue: '31', category: 'inbox1', isDeleted: 0, groupKey: 'sender1', maxDate: 1697574817001},
               {mboxRefValue: '31', category: 'inbox2', isDeleted: 0, groupKey: 'sender1', maxDate: 1697574817001},
