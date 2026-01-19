@@ -735,15 +735,15 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
         return getDelegate().visitWhereExpr(ctx);
     }
 
-    @Override
-    public Expression visitQualifyExpr(final RelationalParser.QualifyExprContext ctx) {
-        return getDelegate().visitQualifyExpr(ctx);
-    }
-
     @Nonnull
     @Override
     public Expression visitHavingClause(@Nonnull RelationalParser.HavingClauseContext ctx) {
         return getDelegate().visitHavingClause(ctx);
+    }
+
+    @Override
+    public Expression visitQualifyClause(final RelationalParser.QualifyClauseContext ctx) {
+        return getDelegate().visitQualifyClause(ctx);
     }
 
     @Nonnull

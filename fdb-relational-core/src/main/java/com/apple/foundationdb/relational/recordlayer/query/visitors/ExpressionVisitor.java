@@ -654,8 +654,9 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         return expression;
     }
 
+    @Nonnull
     @Override
-    public Expression visitQualifyExpr(final RelationalParser.QualifyExprContext ctx) {
+    public Expression visitQualifyClause(final RelationalParser.QualifyClauseContext ctx) {
         return parseChild(ctx);
     }
 

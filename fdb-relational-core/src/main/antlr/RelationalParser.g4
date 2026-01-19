@@ -524,6 +524,7 @@ queryTerm
     fromClause?
     groupByClause?
     havingClause?
+    qualifyClause?
     /*windowClause?*/
     orderByClause?
     limitClause?
@@ -545,7 +546,7 @@ selectElement
     ;
 
 fromClause // done
-    : FROM tableSources (WHERE whereExpr)? (QUALIFY qualifyExpr)?
+    : FROM tableSources (WHERE whereExpr)?
     ;
 
 groupByClause // done
@@ -556,11 +557,12 @@ groupByClause // done
 whereExpr
     : expression;
 
-qualifyExpr
-    : expression;
-
 havingClause
     :  HAVING havingExpr=expression
+    ;
+
+qualifyClause
+    : QUALIFY expression
     ;
 
 //commenting out Windows, because we'll want them eventually, but don't want to deal with them now

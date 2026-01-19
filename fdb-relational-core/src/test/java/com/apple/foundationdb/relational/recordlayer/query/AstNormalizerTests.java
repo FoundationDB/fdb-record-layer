@@ -1330,8 +1330,8 @@ public class AstNormalizerTests {
     @Test
     void windowFunctionOptionsAreNotStripped() throws Exception {
         // Test that EF_SEARCH option in window function is preserved during normalization
-        validate("select * from t1 where row_number() over (partition by zone order by distance OPTIONS EF_SEARCH = 100) < 10",
-                "select * from \"T1\" where row_number ( ) over ( partition by \"ZONE\" order by \"DISTANCE\" OPTIONS EF_SEARCH = 100 ) < ? ",
+        validate("select * from t1 qualify row_number() over (partition by zone order by distance OPTIONS EF_SEARCH = 100) < 10",
+                "select * from \"T1\" qualify row_number ( ) over ( partition by \"ZONE\" order by \"DISTANCE\" OPTIONS EF_SEARCH = 100 ) < ? ",
                 Map.of(constantId(22), 10));
     }
 

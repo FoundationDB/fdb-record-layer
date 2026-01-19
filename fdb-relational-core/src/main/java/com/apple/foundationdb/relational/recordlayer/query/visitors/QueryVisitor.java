@@ -216,8 +216,8 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
                 visitWhereExpr(simpleTableContext.fromClause().whereExpr()));
 
         // for now, conjunct qualify predicates (if any) with where in a single condition.
-        if (simpleTableContext.fromClause().qualifyExpr() != null) {
-            final var qualifyExpr = visitQualifyExpr(simpleTableContext.fromClause().qualifyExpr());
+        if (simpleTableContext.qualifyClause() != null) {
+            final var qualifyExpr = visitQualifyClause(simpleTableContext.qualifyClause());
             where = where.map(exp -> getDelegate().resolveFunction("and", exp, qualifyExpr)).or(() -> Optional.of(qualifyExpr));
         }
 
