@@ -168,17 +168,16 @@ public class PredicateCountByLevelProperty implements ExpressionProperty<Predica
          * within the provided {@link PredicateCountByLevelInfo} instances, starting from the deepest level (representing
          * the leaf nodes of the {@link RelationalExpression} tree used to create those instances) to the highest level
          * (representing the root node) and returns the integer comparison between the first non-equal query predicate
-         * counts. If the number of query predicates is equal at each level, the integer comparison between the highest
-         * level in each {@link PredicateCountByLevelInfo} instance is returned instead.
+         * counts. If the number of query predicates is equal at each level, this returns zero indicating that the
+         * two plans should be considered equivalent.
          * </p>
          * @param a the first {@link PredicateCountByLevelInfo} to compare
          * @param b the second {@link PredicateCountByLevelInfo} to compare
          *
          * @return the value {@code 0} if {@code a} have the same number of predicates at each level as {@code b};
          *         a value less than {@code 0} if {@code a} has fewer predicates than {@code b} at a
-         *         deeper level or if {@code a} has fewer levels than {@code b}; and
-         *         a value greater than {@code 0} if {@code a} has more predicates than {@code b} at a
-         *         deeper level or if {@code a} has more levels than {@code b}.
+         *         deeper level; and a value greater than {@code 0} if {@code a} has more predicates than
+         *         {@code b} at a deeper level
          */
         public static int compare(final PredicateCountByLevelInfo a, final PredicateCountByLevelInfo b) {
             final SortedMap<Integer, Integer> aLevelToPredicateCount = a.getLevelToPredicateCount();
@@ -192,7 +191,7 @@ public class PredicateCountByLevelProperty implements ExpressionProperty<Predica
                     return Integer.compare(aPredicateCountAtLevel, bPredicateCountAtLevel);
                 }
             }
-            return 0; // Integer.compare(a.getHighestLevel(), b.getHighestLevel());
+            return 0;
         }
     }
 

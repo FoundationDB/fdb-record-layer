@@ -15,7 +15,7 @@ user-defined-scalar-function-tests:
     task_count: 226
     task_total_time_ms: 13
     transform_count: 55
-    transform_time_ms: 4
+    transform_time_ms: 6
     transform_yield_count: 23
     insert_time_ms: 0
     insert_new_count: 25
@@ -82,11 +82,11 @@ user-defined-scalar-function-tests:
     explain: ISCAN(I2 [[GREATER_THAN_OR_EQUALS promote(@c6 AS LONG)]]) | MAP (_.ID
         AS PROCESSED_ID, _.R.V.Z AS Z_VAL)
     task_count: 556
-    task_total_time_ms: 25
+    task_total_time_ms: 63
     transform_count: 132
-    transform_time_ms: 6
+    transform_time_ms: 21
     transform_yield_count: 43
-    insert_time_ms: 0
+    insert_time_ms: 2
     insert_new_count: 71
     insert_reused_count: 3
 -   query: EXPLAIN select * from table_func3(20, 40)
@@ -110,7 +110,7 @@ user-defined-scalar-function-tests:
     task_count: 923
     task_total_time_ms: 44
     transform_count: 216
-    transform_time_ms: 13
+    transform_time_ms: 11
     transform_yield_count: 73
     insert_time_ms: 1
     insert_new_count: 142

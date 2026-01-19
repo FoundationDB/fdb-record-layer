@@ -3,7 +3,7 @@ unnamed-3:
         < 20)
     explain: ISCAN(I1 [EQUALS promote(@c8 AS LONG), EQUALS @c12])
     task_count: 327
-    task_total_time_ms: 18
+    task_total_time_ms: 17
     transform_count: 80
     transform_time_ms: 6
     transform_yield_count: 32
@@ -17,9 +17,9 @@ agg-index-tests-count:
         -> [B1: KEY:[3], B2: KEY:[1], B3: KEY:[0]]) | FILTER @c15 IS_NULL OR _.B1
         LESS_THAN promote(@c21 AS INT) | FETCH'
     task_count: 1432
-    task_total_time_ms: 50
+    task_total_time_ms: 45
     transform_count: 266
-    transform_time_ms: 20
+    transform_time_ms: 15
     transform_yield_count: 84
     insert_time_ms: 1
     insert_new_count: 175

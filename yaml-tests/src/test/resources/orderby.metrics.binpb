@@ -1,7 +1,7 @@
-Ø
+¨
 4
-orderby-tests#EXPLAIN select c from t1 order by bˆ
-Æºõ…M ãÙ‡($0”Æ8@fCOVERING(I1 <,> -> [A: KEY:[2], B: KEY:[0], C: VALUE:[0]]) | MAP (_.C AS C, _.B AS B) | MAP (_.C AS C)digraph G {
+orderby-tests#EXPLAIN select c from t1 order by bÛ
+ÆÆ‘ˆM ã¬ª($0ﬁÏ8@cCOVERING(I1 <,> -> [A: KEY[2], B: KEY[0], C: VALUE[0]]) | MAP (_.C AS C, _.B AS B) | MAP (_.C AS C)digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -12,10 +12,10 @@
   3 -> 2 [ label=<&nbsp;q47> label="q47" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Ø
+}¨
 4
-orderby-tests#EXPLAIN select b from t1 order by cˆ
-ó«ûª^ ¥‚Î(+0–≥8)@fCOVERING(I2 <,> -> [A: KEY:[2], B: VALUE:[0], C: KEY:[0]]) | MAP (_.B AS B, _.C AS C) | MAP (_.B AS B)digraph G {
+orderby-tests#EXPLAIN select b from t1 order by cÛ
+ó∆Ã›^ “ÄÃ(+0Ú˚8)@cCOVERING(I2 <,> -> [A: KEY[2], B: VALUE[0], C: KEY[0]]) | MAP (_.B AS B, _.C AS C) | MAP (_.B AS B)digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -26,10 +26,10 @@
   3 -> 2 [ label=<&nbsp;q56> label="q56" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Ó
+}Î
 9
-orderby-tests(EXPLAIN select c from t1 order by b desc∞
-ÆÉ∏óM Å∫°($0öÄ8@nCOVERING(I1 <,> REVERSE -> [A: KEY:[2], B: KEY:[0], C: VALUE:[0]]) | MAP (_.C AS C, _.B AS B) | MAP (_.C AS C)¢digraph G {
+orderby-tests(EXPLAIN select c from t1 order by b desc≠
+ÆòÕƒM °Ó¨($0â‘8@kCOVERING(I1 <,> REVERSE -> [A: KEY[2], B: KEY[0], C: VALUE[0]]) | MAP (_.C AS C, _.B AS B) | MAP (_.C AS C)¢digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -40,11 +40,10 @@
   3 -> 2 [ label=<&nbsp;q47> label="q47" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Ó
+}Î
 9
-orderby-tests(EXPLAIN select b from t1 order by c desc∞
-óäç¢
-^ ∞œå(+0à— 8)@nCOVERING(I2 <,> REVERSE -> [A: KEY:[2], B: VALUE:[0], C: KEY:[0]]) | MAP (_.B AS B, _.C AS C) | MAP (_.B AS B)¢digraph G {
+orderby-tests(EXPLAIN select b from t1 order by c desc≠
+ó¥æ£	^ Ï≈Ω(+0®î#8)@kCOVERING(I2 <,> REVERSE -> [A: KEY[2], B: VALUE[0], C: KEY[0]]) | MAP (_.B AS B, _.C AS C) | MAP (_.B AS B)¢digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -55,10 +54,10 @@
   3 -> 2 [ label=<&nbsp;q56> label="q56" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Ö
+}É
 @
-orderby-tests/EXPLAIN select c, b from t5 order by c, b desc;¿
-“úÛî5 πÛ¡(0ù·8@xCOVERING(I8 <,> -> [A: KEY:[3], B: from_ordered_bytes(KEY:[1], DESC_NULLS_LAST), C: KEY:[0]]) | MAP (_.C AS C, _.B AS B)®
+orderby-tests/EXPLAIN select c, b from t5 order by c, b desc;æ
+“Êïÿ5 ÓÖì(0⁄“8@vCOVERING(I8 <,> -> [A: KEY[3], B: from_ordered_bytes(KEY:[1], DESC_NULLS_LAST), C: KEY[0]]) | MAP (_.C AS C, _.B AS B)®
 digraph G {
   fontname=courier;
   rankdir=BT;

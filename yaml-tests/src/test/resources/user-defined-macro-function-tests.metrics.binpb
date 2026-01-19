@@ -17,7 +17,7 @@ S
 }≠
 L
 "user-defined-scalar-function-tests&EXPLAIN select st2_func(r) from nested‹
-‚Ï”∫7 ‹Ñ™(0ßÎ8@!ISCAN(I2 <,>) | MAP (_.R.U AS _0)õdigraph G {
+‚Úﬂ“7 °”è(0„…08@!ISCAN(I2 <,>) | MAP (_.R.U AS _0)õdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -96,18 +96,19 @@ J
   3 -> 2 [ label=<&nbsp;q4> label="q4" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q65> label="q65" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}¬
+}ø
 L
-"user-defined-scalar-function-tests&EXPLAIN select * from table_func2(140)Ò
-¨€‚äÑ ∑ùå(+0ΩÛ+8G@hISCAN(I2 [[GREATER_THAN_OR_EQUALS promote(@c6 AS LONG)]]) | MAP (_.ID AS PROCESSED_ID, _.R.V.Z AS Z_VAL)Ëdigraph G {
+"user-defined-scalar-function-tests&EXPLAIN select * from table_func2(140)Ó
+¨¨˝îÑ ®Óí
+(+0Ú–®8G@hISCAN(I2 [[GREATER_THAN_OR_EQUALS promote(@c6 AS LONG)]]) | MAP (_.ID AS PROCESSED_ID, _.R.V.Z AS Z_VAL)‰digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q12.ID AS PROCESSED_ID, q12.R.V.Z AS Z_VAL)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS PROCESSED_ID, LONG AS Z_VAL)" ];
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q4.ID AS PROCESSED_ID, q4.R.V.Z AS Z_VAL)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS PROCESSED_ID, LONG AS Z_VAL)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [[GREATER_THAN_OR_EQUALS promote(@c6 AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS S, LONG AS T AS Q, LONG AS W, LONG AS X AS U, LONG AS Y, LONG AS Z AS V AS R)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS S, LONG AS T AS Q, LONG AS W, LONG AS X AS U, LONG AS Y, LONG AS Z AS V AS R)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q12> label="q12" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q4> label="q4" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
 }È
 O
 "user-defined-scalar-function-tests)EXPLAIN select * from table_func3(20, 40)ï
@@ -127,7 +128,7 @@ O
 }∂%
 ™
 "user-defined-scalar-function-testsÉEXPLAIN select t1.id_copy as A, t2.processed_id as B from table_func1(2) t1, table_func2(100) t2 where t1.id_copy = t2.processed_idÜ$
-õÛÁÜÿ ®Íô(I0¡Õ\8é@©ISCAN(I2 <,>) | FLATMAP q0 -> { COVERING(I2 <,> -> [Q: [S: KEY:[2]], R: [U: [W: KEY:[3]], V: [Z: KEY:[0]]]]) | FILTER _.R.V.Z GREATER_THAN_OR_EQUALS promote(@c22 AS LONG) | FETCH | FILTER q0.ID EQUALS _.ID AND q0.ID LESS_THAN_OR_EQUALS promote(@c16 AS LONG) AS q1 RETURN (q0.ID AS A, q1.ID AS B) }∫!digraph G {
+õ∏ëãÿ ÷Éƒ(I0‰ña8é@©ISCAN(I2 <,>) | FLATMAP q0 -> { COVERING(I2 <,> -> [Q: [S: KEY:[2]], R: [U: [W: KEY:[3]], V: [Z: KEY:[0]]]]) | FILTER _.R.V.Z GREATER_THAN_OR_EQUALS promote(@c22 AS LONG) | FETCH | FILTER q0.ID EQUALS _.ID AND q0.ID LESS_THAN_OR_EQUALS promote(@c16 AS LONG) AS q1 RETURN (q0.ID AS A, q1.ID AS B) }∫!digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;

@@ -140,7 +140,7 @@ b
 }Ÿ
 s
 	unnamed-2fEXPLAIN select id from array_table where exists (select 1 from array_table.fruits f where f = 'apple')§
-Øµ«‰ ¿ó–("0òÇ8.@BCOVERING(FRUITS [EQUALS @c18] -> [ID: KEY:[2]]) | MAP (_.ID AS ID)Ädigraph G {
+Øƒ­ÁC‰ „žÞ/("0×Æ‰8.@ACOVERING(FRUITS [EQUALS @c18] -> [ID: KEY[2]]) | MAP (_.ID AS ID)Ädigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;

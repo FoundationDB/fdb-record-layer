@@ -424,12 +424,12 @@ uuid-as-a-primary-key:
     insert_reused_count: 2
 uuid-in-index-definition:
 -   query: EXPLAIN select b, c from tc order by b
-    explain: 'COVERING(TC1 <,> -> [A: KEY:[2], B: KEY:[0], C: VALUE:[0]]) | MAP (_.B
+    explain: 'COVERING(TC1 <,> -> [A: KEY[2], B: KEY[0], C: VALUE[0]]) | MAP (_.B
         AS B, _.C AS C)'
     task_count: 305
-    task_total_time_ms: 21
+    task_total_time_ms: 20
     transform_count: 72
-    transform_time_ms: 7
+    transform_time_ms: 9
     transform_yield_count: 34
     insert_time_ms: 0
     insert_new_count: 33
@@ -448,7 +448,7 @@ uuid-in-index-definition:
         order by b
     explain: ISCAN(TC1 [[GREATER_THAN promote(@c8 AS UUID)]])
     task_count: 411
-    task_total_time_ms: 23
+    task_total_time_ms: 21
     transform_count: 95
     transform_time_ms: 6
     transform_yield_count: 42
@@ -459,22 +459,22 @@ uuid-in-index-definition:
         order by b desc
     explain: ISCAN(TC1 [[LESS_THAN promote(@c8 AS UUID)]] REVERSE)
     task_count: 411
-    task_total_time_ms: 24
+    task_total_time_ms: 20
     transform_count: 95
-    transform_time_ms: 6
+    transform_time_ms: 7
     transform_yield_count: 42
     insert_time_ms: 0
     insert_new_count: 41
     insert_reused_count: 4
 -   query: EXPLAIN select * from tc where b < 'a8708750-d70f-4800-8c3b-13700d5b369f'
         and c > 4 order by b desc
-    explain: 'COVERING(TC1 [[LESS_THAN promote(@c8 AS UUID)]] REVERSE -> [A: KEY:[2],
-        B: KEY:[0], C: VALUE:[0]]) | FILTER _.C GREATER_THAN promote(@c12 AS LONG)
-        | FETCH'
+    explain: 'COVERING(TC1 [[LESS_THAN promote(@c8 AS UUID)]] REVERSE -> [A: KEY[2],
+        B: KEY[0], C: VALUE[0]]) | FILTER _.C GREATER_THAN promote(@c12 AS LONG) |
+        FETCH'
     task_count: 515
-    task_total_time_ms: 25
+    task_total_time_ms: 22
     transform_count: 109
-    transform_time_ms: 7
+    transform_time_ms: 8
     transform_yield_count: 46
     insert_time_ms: 0
     insert_new_count: 55

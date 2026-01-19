@@ -1,7 +1,7 @@
-ß
+§
 U
-	cte-testsHEXPLAIN with c1 as (select col1, col2 from t1) select col1, col2 from c1Õ
-ãêõ◊? Ö◊_(0™§8@fCOVERING(I1 <,> -> [COL1: KEY:[1], COL2: KEY:[0], ID: KEY:[3]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2)»
+	cte-testsHEXPLAIN with c1 as (select col1, col2 from t1) select col1, col2 from c1 
+ãÊ—Î? ˙Ãm(0»ò8@cCOVERING(I1 <,> -> [COL1: KEY[1], COL2: KEY[0], ID: KEY[3]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2)»
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -11,10 +11,10 @@ digraph G {
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1, LONG AS COL2)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q42> label="q42" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}è
+}å
 7
-	cte-tests*EXPLAIN select col1 from t1 where col2 < 3”
-∑§å£k Ôq("0äÏ8-@uCOVERING(I1 [[LESS_THAN promote(@c8 AS LONG)]] -> [COL1: KEY:[1], COL2: KEY:[0], ID: KEY:[3]]) | MAP (_.COL1 AS COL1)ø
+	cte-tests*EXPLAIN select col1 from t1 where col2 < 3–
+∑¿ÊÁk ›÷_("0≈è8-@rCOVERING(I1 [[LESS_THAN promote(@c8 AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], ID: KEY[3]]) | MAP (_.COL1 AS COL1)ø
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -24,10 +24,10 @@ digraph G {
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1, LONG AS COL2)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q59> label="q59" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}≠
+}©
 [
-	cte-testsNEXPLAIN select x from (select col1 as x, col2 as y from t1) as sub where y < 3Õ
-Ú≥“Œx ¬ÒÉ('0˙ä88@sCOVERING(I1 [[LESS_THAN promote(@c21 AS LONG)]] -> [COL1: KEY:[1], COL2: KEY:[0], ID: KEY:[3]]) | MAP (_.COL1 AS X)∫
+	cte-testsNEXPLAIN select x from (select col1 as x, col2 as y from t1) as sub where y < 3…
+Ú≈Ûàx ò‰g('0ËÕ88@pCOVERING(I1 [[LESS_THAN promote(@c21 AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], ID: KEY[3]]) | MAP (_.COL1 AS X)∫
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -37,10 +37,10 @@ digraph G {
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1, LONG AS COL2)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q65> label="q65" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}∞
+}¨
 ^
-	cte-testsQEXPLAIN with c1(x, y) as (select col1, col2 from t1) select x from c1 where y < 3Õ
-Úé‡’x ÍçÖ('0€æ88@sCOVERING(I1 [[LESS_THAN promote(@c24 AS LONG)]] -> [COL1: KEY:[1], COL2: KEY:[0], ID: KEY:[3]]) | MAP (_.COL1 AS X)∫
+	cte-testsQEXPLAIN with c1(x, y) as (select col1, col2 from t1) select x from c1 where y < 3…
+Ú≠Âéx ÍÖk('0¨∂88@pCOVERING(I1 [[LESS_THAN promote(@c24 AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], ID: KEY[3]]) | MAP (_.COL1 AS X)∫
 digraph G {
   fontname=courier;
   rankdir=BT;

@@ -58,13 +58,13 @@ enum-tests3EXPLAIN SELECT * From TABLE_A where "mood" < "mood"±
   3 -> 2 [ label=<&nbsp;q19> label="q19" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}˝
+}˛
 
 E
 
-enum-tests7EXPLAIN SELECT * From TABLE_B where "mood" = 'CONFUSED'≥
+enum-tests7EXPLAIN SELECT * From TABLE_B where "mood" = 'CONFUSED'¥
 
-œ ∏ÂM ÜÁ®(0¨…D8"@áISCAN(B$MOOD [EQUALS promote(@c8 AS ENUM<JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)>)])ã	digraph G {
+œ÷§©FM ÕïÅ7(0ü¡©8"@áISCAN(B$MOOD [EQUALS promote(@c8 AS ENUM<JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)>)])ã	digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -76,7 +76,7 @@ H
 
 enum-tests:EXPLAIN SELECT * From TABLE_B where "mood" > 'INDIFFERENT'√
 
-œƒÎˆN Ç¨π(0Ò¯r8"@èISCAN(B$MOOD [[GREATER_THAN promote(@c8 AS ENUM<JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)>)]])ì	digraph G {
+œÜŸ≤N õπí(0£¯Q8"@èISCAN(B$MOOD [[GREATER_THAN promote(@c8 AS ENUM<JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)>)]])ì	digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;

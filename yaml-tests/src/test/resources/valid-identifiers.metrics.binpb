@@ -1,7 +1,7 @@
 €
 ô
 	all-testsãEXPLAIN select t.id from "foo.table$nested.repeated" as t where exists (select * from t."level0.field1" as x where x."level1$field.3" = 20)º
-êØù˘	  °÷„(50Ôƒ'8D@tCOVERING(foo.table$nested.repeated.idx.field.1.3 [EQUALS promote(@c25 AS LONG)] -> [ID: KEY:[2]]) | MAP (_.ID AS ID)ßdigraph G {
+ê’ÆÈ  áŒÙ	(50Ã›M8D@tCOVERING(foo.table$nested.repeated.idx.field.1.3 [EQUALS promote(@c25 AS LONG)] -> [ID: KEY:[2]]) | MAP (_.ID AS ID)ßdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -13,7 +13,7 @@
 }
 ™
 	all-testsúEXPLAIN select t.id from "foo.table$nested.repeated" as t where exists (select * from t."level0.field1" as x where x."level1$field.2"."level2$field.1" = 91)¿
-êÔëµ  ùı‰(50àô88D@vCOVERING(foo.table$nested.repeated.idx.field.1.2.1 [EQUALS promote(@c27 AS LONG)] -> [ID: KEY:[2]]) | MAP (_.ID AS ID)©digraph G {
+êçîü  ≠Ÿˇ(50Ï¡|8D@vCOVERING(foo.table$nested.repeated.idx.field.1.2.1 [EQUALS promote(@c27 AS LONG)] -> [ID: KEY:[2]]) | MAP (_.ID AS ID)©digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -25,7 +25,7 @@
 }˜
 ±
 	all-tests£EXPLAIN select t.id from "foo.table$nested.repeated" as t where exists (select * from t."level0.field1" as b, b."level1$field.1" where "level2$array.field.1" = 10)¿
-íÒﬂá	¬ Ëﬂ¬(E0Êô68`@	vCOVERING(foo.table$nested.repeated.idx.field.1.1.1 [EQUALS promote(@c27 AS LONG)] -> [ID: KEY:[2]]) | MAP (_.ID AS ID)©digraph G {
+í˛≈˜¬ åÆ≈(E0±∆¨8`@	uCOVERING(foo.table$nested.repeated.idx.field.1.1.1 [EQUALS promote(@c27 AS LONG)] -> [ID: KEY[2]]) | MAP (_.ID AS ID)©digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -34,22 +34,20 @@
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">foo.table$nested.repeated.idx.field.1.1.1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, ARRAY(ARRAY(LONG AS level2$array.field.1, LONG AS level2$field.2) AS level1$field.1, LONG AS level2$field.1, LONG AS level2$field.2 AS level1$field.2, LONG AS level1$field.3) AS level0.field1)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q123> label="q123" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}õ
+}„
 r
-	all-testseEXPLAIN select "level0.field1"."level1$field.1"."level2$field.1" from "foo.table$nested" where id = 1§
-⁄ÛÙ¸r ë⁄ç(!0Ø£'84@ÙCOVERING(foo.table$nested.idx <,> -> [ID: KEY:[2], level0__2field1: [level1__1field__21: [level2__1field__21: KEY:[0]]]]) | FILTER _.ID EQUALS promote(@c12 AS LONG) | FETCH | MAP (_.level0.field1.level1$field.1.level2$field.1 AS level2$field.1)èdigraph G {
+	all-testseEXPLAIN select "level0.field1"."level1$field.1"."level2$field.1" from "foo.table$nested" where id = 1Ï
+⁄¡Œár á¢â(!0÷˝π84@ÍCOVERING(foo.table$nested.idx <,> -> [ID: KEY[2], level0__2field1: [level1__1field__21: [level2__1field__21: KEY[0]]]]) | FILTER _.ID EQUALS promote(@c12 AS LONG) | MAP (_.level0.field1.level1$field.1.level2$field.1 AS level2$field.1)‡digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q43.level0.field1.level1$field.1.level2$field.1 AS level2$field.1)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS level2$field.1)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Fetch Records</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS ID, LONG AS level2$field.1, LONG AS level2$field.2 AS level1$field.1, LONG AS level2$field.1, LONG AS level2$field.2 AS level1$field.2 AS level0.field1)" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q45.ID EQUALS promote(@c12 AS LONG)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS level2$field.1, LONG AS level2$field.2 AS level1$field.1, LONG AS level2$field.1, LONG AS level2$field.2 AS level1$field.2 AS level0.field1)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS level2$field.1, LONG AS level2$field.2 AS level1$field.1, LONG AS level2$field.1, LONG AS level2$field.2 AS level1$field.2 AS level0.field1)" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">foo.table$nested.idx</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS level2$field.1, LONG AS level2$field.2 AS level1$field.1, LONG AS level2$field.1, LONG AS level2$field.2 AS level1$field.2 AS level0.field1)" ];
-  3 -> 2 [ label=<&nbsp;q47> label="q47" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  4 -> 3 [ label=<&nbsp;q45> label="q45" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q43> label="q43" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q49.level0.field1.level1$field.1.level2$field.1 AS level2$field.1)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS level2$field.1)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q45.ID EQUALS promote(@c12 AS LONG)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS level2$field.1, LONG AS level2$field.2 AS level1$field.1, LONG AS level2$field.1, LONG AS level2$field.2 AS level1$field.2 AS level0.field1)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS level2$field.1, LONG AS level2$field.2 AS level1$field.1, LONG AS level2$field.1, LONG AS level2$field.2 AS level1$field.2 AS level0.field1)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">foo.table$nested.idx</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS level2$field.1, LONG AS level2$field.2 AS level1$field.1, LONG AS level2$field.1, LONG AS level2$field.2 AS level1$field.2 AS level0.field1)" ];
+  3 -> 2 [ label=<&nbsp;q45> label="q45" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q49> label="q49" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
 }ﬁ
 Å
 	all-teststEXPLAIN select "foo.table$repeated".id from "foo.table$repeated" where 'foo' IN "foo.table$repeated"."field.1$array"◊
@@ -66,10 +64,10 @@ r
   4 -> 3 [ label=<&nbsp;q39> label="q39" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q46> label="q46" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}ì
+}í
 ¢
-	all-testsîEXPLAIN select "foo.table$repeated".id from "foo.table$repeated" where exists (select 1 from "foo.table$repeated"."field.1$array" r where r = 'foo')Î
-‹ÆÒ¢ã á¿»($0ô‡8.@PCOVERING(foo.table$repeated.2 [EQUALS @c20] -> [ID: KEY:[2]]) | MAP (_.ID AS ID)˙
+	all-testsîEXPLAIN select "foo.table$repeated".id from "foo.table$repeated" where exists (select 1 from "foo.table$repeated"."field.1$array" r where r = 'foo')Í
+‹ØÖíã ñ”˘($0∫˚)8.@OCOVERING(foo.table$repeated.2 [EQUALS @c20] -> [ID: KEY[2]]) | MAP (_.ID AS ID)˙
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -98,7 +96,7 @@ i
 }º
 â
 	all-tests|EXPLAIN select t."field.1$array" from "foo.table$repeated" as t where exists (select 1 from t."field.0$array" r where r = 3)≠
-¿Úî¯á ‰¯Õ("0ôÄ8+@cISCAN(foo.table$repeated.1 [EQUALS promote(@c22 AS LONG)]) | MAP (_.field.1$array AS field.1$array)©digraph G {
+¿ëöøá Á∏¯("0“Œ58+@cISCAN(foo.table$repeated.1 [EQUALS promote(@c22 AS LONG)]) | MAP (_.field.1$array AS field.1$array)©digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -201,7 +199,7 @@ C
 }§
 a
 	all-testsTEXPLAIN select "__foo__tableD".* from "__foo__tableD" where "__foo__tableD$D3" >= 2;æ
-⁄·Á¡S ŒÉ÷(!0ëé8&@ŒCOVERING(__foo__tableD$idx <,> -> [__foo__0tableD__1D1: KEY:[0], __foo__0tableD__1D2: KEY:[1], __foo__0tableD__1D3: KEY:[2]]) | FILTER _.__foo__tableD$D3 GREATER_THAN_OR_EQUALS promote(@c11 AS LONG) | FETCHœdigraph G {
+⁄óÚ‡S ñÜﬁ(!0ï∑>8&@ŒCOVERING(__foo__tableD$idx <,> -> [__foo__0tableD__1D1: KEY:[0], __foo__0tableD__1D2: KEY:[1], __foo__0tableD__1D3: KEY:[2]]) | FILTER _.__foo__tableD$D3 GREATER_THAN_OR_EQUALS promote(@c11 AS LONG) | FETCHœdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -212,10 +210,10 @@ a
   3 -> 2 [ label=<&nbsp;q51> label="q51" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q53> label="q53" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Õ
+} 
 T
-	all-testsGEXPLAIN select "__foo__tableD"."__foo__tableD$D1" from "__foo__tableD";Ù
-Ü´ëÄ@ ”π¨(0µ¢8@¨COVERING(__foo__tableD$idx <,> -> [__foo__0tableD__1D1: KEY:[0], __foo__0tableD__1D2: KEY:[1], __foo__0tableD__1D3: KEY:[2]]) | MAP (_.__foo__tableD$D1 AS __foo__tableD$D1)ßdigraph G {
+	all-testsGEXPLAIN select "__foo__tableD"."__foo__tableD$D1" from "__foo__tableD";Ò
+ÜæõÊ@ ´¸¬(0†¬8@©COVERING(__foo__tableD$idx <,> -> [__foo__0tableD__1D1: KEY[0], __foo__0tableD__1D2: KEY[1], __foo__0tableD__1D3: KEY[2]]) | MAP (_.__foo__tableD$D1 AS __foo__tableD$D1)ßdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -224,10 +222,10 @@ T
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">__foo__tableD$idx</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS __foo__tableD$D1, LONG AS __foo__tableD$D2, LONG AS __foo__tableD$D3)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q51> label="q51" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Ω
+}∫
 D
-	all-tests7EXPLAIN select "__foo__tableD$D1" from "__foo__tableD";Ù
-ÜÑï®@ óÃß(0€¬8@¨COVERING(__foo__tableD$idx <,> -> [__foo__0tableD__1D1: KEY:[0], __foo__0tableD__1D2: KEY:[1], __foo__0tableD__1D3: KEY:[2]]) | MAP (_.__foo__tableD$D1 AS __foo__tableD$D1)ßdigraph G {
+	all-tests7EXPLAIN select "__foo__tableD$D1" from "__foo__tableD";Ò
+ÜÇ«º@ ¢ÏÖ(0°ã8@©COVERING(__foo__tableD$idx <,> -> [__foo__0tableD__1D1: KEY[0], __foo__0tableD__1D2: KEY[1], __foo__0tableD__1D3: KEY[2]]) | MAP (_.__foo__tableD$D1 AS __foo__tableD$D1)ßdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -239,7 +237,7 @@ D
 }¿
 }
 	all-testspEXPLAIN select "__foo__tableD".* from "__foo__tableD" where "__foo__tableD$D3" >= 2 order by "__foo__tableD$D1";æ
-í∏‘áF π˘ﬁ(0Ì˜8@ŒCOVERING(__foo__tableD$idx <,> -> [__foo__0tableD__1D1: KEY:[0], __foo__0tableD__1D2: KEY:[1], __foo__0tableD__1D3: KEY:[2]]) | FILTER _.__foo__tableD$D3 GREATER_THAN_OR_EQUALS promote(@c11 AS LONG) | FETCHœdigraph G {
+í‹ñ‘F ËÈ“(0©ﬂ!8@ŒCOVERING(__foo__tableD$idx <,> -> [__foo__0tableD__1D1: KEY:[0], __foo__0tableD__1D2: KEY:[1], __foo__0tableD__1D3: KEY:[2]]) | FILTER _.__foo__tableD$D3 GREATER_THAN_OR_EQUALS promote(@c11 AS LONG) | FETCHœdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -416,10 +414,10 @@ D
   rankdir=BT;
   splines=polyline;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE array((@c6 AS _$$$, @c8 AS _$$, @c10 AS _$), (@c14 AS _$$$, @c16 AS _$$, @c18 AS _$))</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS _$$$, INT AS _$$, INT AS _$)" ];
-}ã
+}à
 n
-	all-testsaEXPLAIN select struct "x$$" ("foo.tableA.A1", "foo.tableA.A2", "foo.tableA.A3") from "foo.tableA"ò
-ã≤ÿàä õÎ¯(20‰´#86@ÈCOVERING(foo.tableA.idx <,> -> [foo__2tableA__2A1: KEY:[0], foo__2tableA__2A2: KEY:[1], foo__2tableA__2A3: KEY:[2]]) | MAP ((_.foo.tableA.A1 AS foo.tableA.A1, _.foo.tableA.A2 AS foo.tableA.A2, _.foo.tableA.A3 AS foo.tableA.A3) AS _0)çdigraph G {
+	all-testsaEXPLAIN select struct "x$$" ("foo.tableA.A1", "foo.tableA.A2", "foo.tableA.A3") from "foo.tableA"ï
+ãÙπ∑ä ΩÓµ(20Ë !86@ÊCOVERING(foo.tableA.idx <,> -> [foo__2tableA__2A1: KEY[0], foo__2tableA__2A2: KEY[1], foo__2tableA__2A3: KEY[2]]) | MAP ((_.foo.tableA.A1 AS foo.tableA.A1, _.foo.tableA.A2 AS foo.tableA.A2, _.foo.tableA.A3 AS foo.tableA.A3) AS _0)çdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -431,7 +429,7 @@ n
 }≥
 K
 	all-tests>EXPLAIN select struct "x$$" ("foo.tableA".*) from "foo.tableA"„
-≠ÑÙÕK Î∆ä(%0Ò±I8#@*ISCAN(foo.tableA.idx3 <,>) | MAP (_ AS _0)ôdigraph G {
+≠¶‹É	K „ƒ´(%0ÉìH8#@*ISCAN(foo.tableA.idx3 <,>) | MAP (_ AS _0)ôdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -443,7 +441,7 @@ K
 }ˆ
 j
 	all-tests]EXPLAIN select struct "x$$" ("foo.tableA.A2" + "foo.tableA.A1" as "__$$__") from "foo.tableA"á
-≠»îÉI ô…÷(%0ë’8#@VISCAN(foo.tableA.idx3 <,>) | MAP ((_.foo.tableA.A2 + _.foo.tableA.A1 AS __$$__) AS _0)ëdigraph G {
+≠˙» I õùÄ(%0¶§'8#@VISCAN(foo.tableA.idx3 <,>) | MAP ((_.foo.tableA.A2 + _.foo.tableA.A1 AS __$$__) AS _0)ëdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -466,7 +464,7 @@ j
 U
 	all-testsHEXPLAIN select * from "foo.enum.type" where "enum_type.enum__1" = 'B$C';¶
 
-œ˙Ú˝M ∂Îß(0ÄÑ8"@cISCAN(foo.enum.type$enum__1 [EQUALS promote(@c8 AS ENUM<A(0), B$C(1), C.D(2), E__F(3), __G$H(4)>)])£	digraph G {
+œÃß£M ﬂñ≈(0Ÿ»I8"@cISCAN(foo.enum.type$enum__1 [EQUALS promote(@c8 AS ENUM<A(0), B$C(1), C.D(2), E__F(3), __G$H(4)>)])£	digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -477,7 +475,7 @@ U
 U
 	all-testsHEXPLAIN select * from "foo.enum.type" where "enum_type.enum__1" = 'C.D';¶
 
-œ˙Ú˝M ∂Îß(0ÄÑ8"@cISCAN(foo.enum.type$enum__1 [EQUALS promote(@c8 AS ENUM<A(0), B$C(1), C.D(2), E__F(3), __G$H(4)>)])£	digraph G {
+œÃß£M ﬂñ≈(0Ÿ»I8"@cISCAN(foo.enum.type$enum__1 [EQUALS promote(@c8 AS ENUM<A(0), B$C(1), C.D(2), E__F(3), __G$H(4)>)])£	digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -489,7 +487,7 @@ U
 S
 	all-testsFEXPLAIN select * from "foo.enum.type" where "enum_type.enum__1" = 'A';¶
 
-œ˙Ú˝M ∂Îß(0ÄÑ8"@cISCAN(foo.enum.type$enum__1 [EQUALS promote(@c8 AS ENUM<A(0), B$C(1), C.D(2), E__F(3), __G$H(4)>)])£	digraph G {
+œÃß£M ﬂñ≈(0Ÿ»I8"@cISCAN(foo.enum.type$enum__1 [EQUALS promote(@c8 AS ENUM<A(0), B$C(1), C.D(2), E__F(3), __G$H(4)>)])£	digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -499,7 +497,7 @@ S
 }õ
 U
 	all-testsHEXPLAIN select * from "foo.enum.type" where "enum_type.enum__2" = 'B$C';¡
-´¢µœJ ú£›(0ô˚8 @ÇISCAN(foo.enum.type$enum__1 <,>) | FILTER _.enum_type.enum__2 EQUALS promote(@c8 AS ENUM<A(0), B$C(1), C.D(2), E__F(3), __G$H(4)>)ûdigraph G {
+´˚ÔÍ0J Ì√†&(0ª‘m8 @ÇISCAN(foo.enum.type$enum__1 <,>) | FILTER _.enum_type.enum__2 EQUALS promote(@c8 AS ENUM<A(0), B$C(1), C.D(2), E__F(3), __G$H(4)>)ûdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -511,7 +509,7 @@ U
 }õ
 U
 	all-testsHEXPLAIN select * from "foo.enum.type" where "enum_type.enum__2" = 'C.D';¡
-´¢µœJ ú£›(0ô˚8 @ÇISCAN(foo.enum.type$enum__1 <,>) | FILTER _.enum_type.enum__2 EQUALS promote(@c8 AS ENUM<A(0), B$C(1), C.D(2), E__F(3), __G$H(4)>)ûdigraph G {
+´˚ÔÍ0J Ì√†&(0ª‘m8 @ÇISCAN(foo.enum.type$enum__1 <,>) | FILTER _.enum_type.enum__2 EQUALS promote(@c8 AS ENUM<A(0), B$C(1), C.D(2), E__F(3), __G$H(4)>)ûdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -523,7 +521,7 @@ U
 }ô
 S
 	all-testsFEXPLAIN select * from "foo.enum.type" where "enum_type.enum__2" = 'A';¡
-´¢µœJ ú£›(0ô˚8 @ÇISCAN(foo.enum.type$enum__1 <,>) | FILTER _.enum_type.enum__2 EQUALS promote(@c8 AS ENUM<A(0), B$C(1), C.D(2), E__F(3), __G$H(4)>)ûdigraph G {
+´˚ÔÍ0J Ì√†&(0ª‘m8 @ÇISCAN(foo.enum.type$enum__1 <,>) | FILTER _.enum_type.enum__2 EQUALS promote(@c8 AS ENUM<A(0), B$C(1), C.D(2), E__F(3), __G$H(4)>)ûdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -535,7 +533,7 @@ S
 }ı
 k
 update-delete-statementsOEXPLAIN UPDATE "foo.tableA" SET "foo.tableA.A2" = 100 WHERE "foo.tableA.A1" = 1Ö
-Ú¶·∆í ˝†´(90÷Ç8W@æCOVERING(foo.tableA.idx [EQUALS promote(@c10 AS LONG)] -> [foo__2tableA__2A1: KEY:[0], foo__2tableA__2A2: KEY:[1], foo__2tableA__2A3: KEY:[2]]) | DISTINCT BY PK | FETCH | UPDATE foo__2tableA•digraph G {
+ÚäÉÃí áÆ(90Û÷8W@æCOVERING(foo.tableA.idx [EQUALS promote(@c10 AS LONG)] -> [foo__2tableA__2A1: KEY:[0], foo__2tableA__2A2: KEY:[1], foo__2tableA__2A3: KEY:[2]]) | DISTINCT BY PK | FETCH | UPDATE foo__2tableA•digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -558,7 +556,7 @@ k
 }√
 ã
 update-delete-statementsoEXPLAIN UPDATE "foo.tableA" SET "foo.tableA.A2" = 100 WHERE "foo.tableA.A1" > 1 RETURNING "new"."foo.tableA.A1"≤
-´π∑˜† œπ¥(90Ûù8[@ÛCOVERING(foo.tableA.idx [[GREATER_THAN promote(@c10 AS LONG)]] -> [foo__2tableA__2A1: KEY:[0], foo__2tableA__2A2: KEY:[1], foo__2tableA__2A3: KEY:[2]]) | DISTINCT BY PK | FETCH | UPDATE foo__2tableA | MAP (_.new.foo.tableA.A1 AS foo.tableA.A1)ùdigraph G {
+´Õ‡Æ† Õ˛ƒ(90Æâ&8[@ÛCOVERING(foo.tableA.idx [[GREATER_THAN promote(@c10 AS LONG)]] -> [foo__2tableA__2A1: KEY:[0], foo__2tableA__2A2: KEY:[1], foo__2tableA__2A3: KEY:[2]]) | DISTINCT BY PK | FETCH | UPDATE foo__2tableA | MAP (_.new.foo.tableA.A1 AS foo.tableA.A1)ùdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -678,11 +676,11 @@ unnamed-12EXPLAIN SELECT * FROM T2î
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T2$COL1, LONG AS T2$COL2)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T2$T2.COL1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T2$COL1, LONG AS T2$COL2)" ];
   2 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}î
+}ï
 :
 
-unnamed-12,EXPLAIN SELECT * FROM T2 WHERE "T2$COL2" > 8’
-´…â˘J õ¸h(0Â÷8 @JISCAN(T2$T2.COL1 <,>) | FILTER _.T2$COL2 GREATER_THAN promote(@c8 AS LONG)Ï
+unnamed-12,EXPLAIN SELECT * FROM T2 WHERE "T2$COL2" > 8÷
+´ÆÙ…J Åä˚(0‘˙8 @JISCAN(T2$T2.COL1 <,>) | FILTER _.T2$COL2 GREATER_THAN promote(@c8 AS LONG)Ï
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -944,7 +942,8 @@ unnamed-12)EXPLAIN SELECT * FROM "___T6.__UNESCAPED"ö
 P
 
 unnamed-12BEXPLAIN SELECT * FROM "___T6.__UNESCAPED" WHERE "T6$__COL1__" = 10›
-õ∆ñŒd ÷≥¡((0«¯8/@FISCAN(T6$ENUM2 <,>) | FILTER _.T6$__COL1__ EQUALS promote(@c8 AS LONG)˜digraph G {
+õßÑô
+d ∂™ä((0Ωô68/@FISCAN(T6$ENUM2 <,>) | FILTER _.T6$__COL1__ EQUALS promote(@c8 AS LONG)˜digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -974,18 +973,18 @@ unnamed-12WEXPLAIN SELECT ID, "__T6.COL2__VALUE" FROM "___T6.__UNESCAPED" WHERE
 U
 
 unnamed-12GEXPLAIN SELECT * FROM "___T6.__UNESCAPED" WHERE "__T6.COL2__VALUE" < 10Œ	
-øÒ∫Úh õ¯°(+0Çá81@1ISCAN(T6$COL2 [[LESS_THAN promote(@c8 AS LONG)]])˝digraph G {
+ø≈‡÷h ãÁ©(+0Ã±81@1ISCAN(T6$COL2 [[LESS_THAN promote(@c8 AS LONG)]])˝digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [[LESS_THAN promote(@c8 AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T6$__COL1__, LONG AS __T6.COL2__VALUE, ENUM&lt;A(0), B__(1), C__(2), __D.__(3)&gt; AS T6$__ENUM_1, ENUM&lt;A(0), B__(1), C__(2), __D.__(3)&gt; AS T6$__ENUM_2)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T6$COL2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T6$__COL1__, LONG AS __T6.COL2__VALUE, ENUM&lt;A(0), B__(1), C__(2), __D.__(3)&gt; AS T6$__ENUM_1, ENUM&lt;A(0), B__(1), C__(2), __D.__(3)&gt; AS T6$__ENUM_2)" ];
   2 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}»
+}∆
 j
 
-unnamed-12\EXPLAIN SELECT ID, "__T6.COL2__VALUE" FROM "___T6.__UNESCAPED" WHERE "__T6.COL2__VALUE" < 10Ÿ
-‡¬Ÿı	ì éÓö(/0˛ä08B@ûCOVERING(T6$COL2 [[LESS_THAN promote(@c10 AS LONG)]] -> [ID: KEY:[2], __T6__2COL2__VALUE: KEY:[0]]) | MAP (_.ID AS ID, _.__T6.COL2__VALUE AS __T6.COL2__VALUE)ôdigraph G {
+unnamed-12\EXPLAIN SELECT ID, "__T6.COL2__VALUE" FROM "___T6.__UNESCAPED" WHERE "__T6.COL2__VALUE" < 10◊
+‡±Ω¶ì ·âÀ(/0ˆáM8B@úCOVERING(T6$COL2 [[LESS_THAN promote(@c10 AS LONG)]] -> [ID: KEY[2], __T6__2COL2__VALUE: KEY[0]]) | MAP (_.ID AS ID, _.__T6.COL2__VALUE AS __T6.COL2__VALUE)ôdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -998,7 +997,7 @@ unnamed-12\EXPLAIN SELECT ID, "__T6.COL2__VALUE" FROM "___T6.__UNESCAPED" WHERE
 V
 
 unnamed-12HEXPLAIN SELECT * FROM "___T6.__UNESCAPED" WHERE "T6$__ENUM_1" = '__D.__'•
-õåÕ‡d €ÉŸ((0Åî8/@gISCAN(T6$ENUM2 <,>) | FILTER _.T6$__ENUM_1 EQUALS promote(@c8 AS ENUM<A(0), B__(1), C__(2), __D.__(3)>)ûdigraph G {
+õ¬∂≥d ˛œ∆((0Ç∑J8/@gISCAN(T6$ENUM2 <,>) | FILTER _.T6$__ENUM_1 EQUALS promote(@c8 AS ENUM<A(0), B__(1), C__(2), __D.__(3)>)ûdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -1028,7 +1027,7 @@ V
 
 unnamed-12HEXPLAIN SELECT * FROM "___T6.__UNESCAPED" WHERE "T6$__ENUM_2" = '__D.__'é
 
-øÍƒá	g ≤ö∫(+0Ñ£81@NISCAN(T6$ENUM2 [EQUALS promote(@c8 AS ENUM<A(0), B__(1), C__(2), __D.__(3)>)])†	digraph G {
+ø≈¯Ãg Ä ƒ(+0≈¿(81@NISCAN(T6$ENUM2 [EQUALS promote(@c8 AS ENUM<A(0), B__(1), C__(2), __D.__(3)>)])†	digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -1039,7 +1038,7 @@ unnamed-12HEXPLAIN SELECT * FROM "___T6.__UNESCAPED" WHERE "T6$__ENUM_2" = '__D
 f
 
 unnamed-12XEXPLAIN SELECT ID, "T6$__ENUM_1" FROM "___T6.__UNESCAPED" WHERE "T6$__ENUM_2" = '__D.__'È
-•±€©ã Ó∏(+0†ç8;@ÄISCAN(T6$ENUM2 [EQUALS promote(@c10 AS ENUM<A(0), B__(1), C__(2), __D.__(3)>)]) | MAP (_.ID AS ID, _.T6$__ENUM_1 AS T6$__ENUM_1)«digraph G {
+•òÙúã ¸ﬁÓ(+0Ö˙X8;@ÄISCAN(T6$ENUM2 [EQUALS promote(@c10 AS ENUM<A(0), B__(1), C__(2), __D.__(3)>)]) | MAP (_.ID AS ID, _.T6$__ENUM_1 AS T6$__ENUM_1)«digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;

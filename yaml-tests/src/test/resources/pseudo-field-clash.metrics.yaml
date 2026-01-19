@@ -138,11 +138,11 @@ pseudo-field-clash-queries:
     explain: ISCAN(T3_COL1_VERSION [EQUALS promote(@c8 AS LONG)]) | MAP (_.ID AS ID,
         _.COL1 AS COL1, _.COL2 AS COL2)
     task_count: 549
-    task_total_time_ms: 18
+    task_total_time_ms: 129
     transform_count: 139
-    transform_time_ms: 6
+    transform_time_ms: 87
     transform_yield_count: 43
-    insert_time_ms: 0
+    insert_time_ms: 5
     insert_new_count: 59
     insert_reused_count: 5
 -   query: EXPLAIN SELECT * FROM t2 WHERE col1 = 20 ORDER BY "__ROW_VERSION" DESC
