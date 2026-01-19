@@ -631,23 +631,27 @@ public class SelectExpression extends AbstractRelationalExpressionWithChildren i
     @Nonnull
     @Override
     public PlannerGraph rewriteInternalPlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
-        final var explainFormatter =
+        final var whereFormatter =
                 new WithIndentationsExplainFormatter(DefaultExplainSymbolMap::new, 7,
                         50, 4);
 
         final var predicateString =
                 "WHERE " + getConjunctedPredicate().explain()
                         .getExplainTokens()
-                        .render(explainFormatter);
+                        .render(whereFormatter);
 
-        final var resultSString =
+        final var selectFormatter =
+                new WithIndentationsExplainFormatter(DefaultExplainSymbolMap::new, 5,
+                        50, 4);
+
+        final var resultString =
                 "SELECT " + resultValue.explain()
                         .getExplainTokens()
-                        .render(explainFormatter);
+                        .render(selectFormatter);
 
         return PlannerGraph.fromNodeAndChildGraphs(
                 new PlannerGraph.LogicalOperatorNode(this,
-                        "SELECT " + resultValue,
+                        resultString,
                         getPredicates().isEmpty()
                         ? ImmutableList.of()
                         : ImmutableList.of(predicateString),

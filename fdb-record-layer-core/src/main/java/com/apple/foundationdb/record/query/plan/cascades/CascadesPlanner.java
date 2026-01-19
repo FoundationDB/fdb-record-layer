@@ -415,7 +415,6 @@ public class CascadesPlanner implements QueryPlanner {
 
         final RelationalExpression expression = currentRoot.get();
         Debugger.withDebugger(debugger -> debugger.onQuery(expression.toString(), planContext));
-        expression.show(false);
         this.traversal = Traversal.withRoot(currentRoot);
         this.taskStack = new ArrayDeque<>();
         this.taskCount = 0;

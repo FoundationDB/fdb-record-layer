@@ -446,12 +446,14 @@ public class PlannerGraphVisitor implements SimpleExpressionVisitor<PlannerGraph
     @Nonnull
     @Override
     public PlannerGraph evaluateAtExpression(@Nonnull final RelationalExpression expression, @Nonnull final List<PlannerGraph> childGraphs) {
+        if (isForExplain() && expression instanceof ExplainPlannerGraphRewritable) {
+            return ((ExplainPlannerGraphRewritable)expression).rewriteExplainPlannerGraph(childGraphs);
+        }
+        if (!isForExplain() && expression instanceof InternalPlannerGraphRewritable) {
+            return ((InternalPlannerGraphRewritable)expression).rewriteInternalPlannerGraph(childGraphs);
+        }
         if (expression instanceof PlannerGraphRewritable) {
             return ((PlannerGraphRewritable)expression).rewritePlannerGraph(childGraphs);
-        } else if (isForExplain() && expression instanceof ExplainPlannerGraphRewritable) {
-            return ((ExplainPlannerGraphRewritable)expression).rewriteExplainPlannerGraph(childGraphs);
-        } else if (!isForExplain() && expression instanceof InternalPlannerGraphRewritable) {
-            return ((InternalPlannerGraphRewritable)expression).rewriteInternalPlannerGraph(childGraphs);
         } else {
             return PlannerGraph.fromNodeAndChildGraphs(
                     new PlannerGraph.LogicalOperatorNode(expression,

@@ -41,12 +41,16 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.cascades.explain.ExplainPlanVisitor;
+import com.apple.foundationdb.record.query.plan.cascades.explain.ExplainPlannerGraphRewritable;
+import com.apple.foundationdb.record.query.plan.cascades.explain.InternalPlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.AbstractRelationalExpressionWithChildren;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
+import com.apple.foundationdb.record.query.plan.explain.DefaultExplainSymbolMap;
+import com.apple.foundationdb.record.query.plan.explain.WithIndentationsExplainFormatter;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -64,7 +68,7 @@ import java.util.Set;
  * method: Mapping one {@link Value} to another.
  */
 @API(API.Status.INTERNAL)
-public class RecordQueryFlatMapPlan extends AbstractRelationalExpressionWithChildren implements RecordQueryPlanWithChildren {
+public class RecordQueryFlatMapPlan extends AbstractRelationalExpressionWithChildren implements RecordQueryPlanWithChildren, ExplainPlannerGraphRewritable, InternalPlannerGraphRewritable {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Flat-Map-Plan");
 
     @Nonnull
@@ -246,6 +250,33 @@ public class RecordQueryFlatMapPlan extends AbstractRelationalExpressionWithChil
     @Override
     public List<? extends Quantifier> getQuantifiers() {
         return ImmutableList.of(outerQuantifier, innerQuantifier);
+    }
+
+    @Nonnull
+    @Override
+    public PlannerGraph rewriteExplainPlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
+        return rewritePlannerGraph(childGraphs);
+    }
+
+    @Nonnull
+    @Override
+    public PlannerGraph rewriteInternalPlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
+        final var explainFormatter =
+                new WithIndentationsExplainFormatter(DefaultExplainSymbolMap::new, 5,
+                        50, 4);
+
+        final var flatMapString =
+                "FLATMAP " + getResultValue().explain()
+                        .getExplainTokens()
+                        .render(explainFormatter);
+
+        return PlannerGraph.fromNodeAndChildGraphs(
+                new PlannerGraph.OperatorNodeWithInfo(
+                        this,
+                        NodeInfo.PREDICATE_FILTER_OPERATOR,
+                        ImmutableList.of(flatMapString),
+                        ImmutableMap.of()),
+                childGraphs);
     }
 
     @Nonnull

@@ -33,7 +33,13 @@ import java.util.List;
  * how a {@link PlannerGraph} is modified when we use the {@link PlannerGraphVisitor} when explaining a plan
  * to an end-user.
  */
-public interface ExplainPlannerGraphRewritable {
+public interface ExplainPlannerGraphRewritable extends PlannerGraphRewritable {
+    @Nonnull
+    @Override
+    default PlannerGraph rewritePlannerGraph(@Nonnull List<? extends PlannerGraph> childGraphs) {
+        return rewriteExplainPlannerGraph(childGraphs);
+    }
+
     /**
      * Method to rewrite the planner graph.
      *
