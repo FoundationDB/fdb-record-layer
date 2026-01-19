@@ -83,13 +83,13 @@ unnamed-2:
     insert_reused_count: 8
 -   query: EXPLAIN select id from array_table where exists (select 1 from array_table.fruits
         f where f = 'apple')
-    explain: 'COVERING(FRUITS [EQUALS @c18] -> [ID: KEY[2]]) | MAP (_.ID AS ID)'
+    explain: 'COVERING(FRUITS [EQUALS @c18] -> [ID: KEY:[2]]) | MAP (_.ID AS ID)'
     task_count: 472
-    task_total_time_ms: 141
+    task_total_time_ms: 17
     transform_count: 137
-    transform_time_ms: 100
+    transform_time_ms: 4
     transform_yield_count: 34
-    insert_time_ms: 6
+    insert_time_ms: 0
     insert_new_count: 46
     insert_reused_count: 2
 -   query: EXPLAIN select id from array_table where 'apple' in fruits

@@ -1,98 +1,98 @@
 basic-sql-function-tests:
 -   query: EXPLAIN select col1, col2 from f1(a => 103, b => 'b');
     explain: 'COVERING(T1_IDX1 [EQUALS promote(@c14 AS STRING), [LESS_THAN promote(@c10
-        AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | MAP (_.COL1 AS
-        COL1, _.COL2 AS COL2)'
+        AS LONG)]] -> [COL1: KEY:[1], COL2: KEY:[0], COL3: KEY:[2]]) | MAP (_.COL1
+        AS COL1, _.COL2 AS COL2)'
     task_count: 1176
-    task_total_time_ms: 80
+    task_total_time_ms: 84
     transform_count: 261
-    transform_time_ms: 22
+    transform_time_ms: 23
     transform_yield_count: 96
-    insert_time_ms: 5
+    insert_time_ms: 2
     insert_new_count: 148
     insert_reused_count: 11
 -   query: EXPLAIN select col1, col2 from f1(b => 'b', a => 103);
     explain: 'COVERING(T1_IDX1 [EQUALS promote(@c10 AS STRING), [LESS_THAN promote(@c14
-        AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | MAP (_.COL1 AS
-        COL1, _.COL2 AS COL2)'
+        AS LONG)]] -> [COL1: KEY:[1], COL2: KEY:[0], COL3: KEY:[2]]) | MAP (_.COL1
+        AS COL1, _.COL2 AS COL2)'
     task_count: 1176
-    task_total_time_ms: 88
+    task_total_time_ms: 91
     transform_count: 261
-    transform_time_ms: 20
+    transform_time_ms: 24
     transform_yield_count: 96
-    insert_time_ms: 4
+    insert_time_ms: 3
     insert_new_count: 148
     insert_reused_count: 11
 -   query: EXPLAIN select col1, col2 from f1(103, 'b');
     explain: 'COVERING(T1_IDX1 [EQUALS promote(@c10 AS STRING), [LESS_THAN promote(@c8
-        AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | MAP (_.COL1 AS
-        COL1, _.COL2 AS COL2)'
+        AS LONG)]] -> [COL1: KEY:[1], COL2: KEY:[0], COL3: KEY:[2]]) | MAP (_.COL1
+        AS COL1, _.COL2 AS COL2)'
     task_count: 1176
-    task_total_time_ms: 78
+    task_total_time_ms: 92
     transform_count: 261
-    transform_time_ms: 21
+    transform_time_ms: 24
     transform_yield_count: 96
-    insert_time_ms: 4
+    insert_time_ms: 3
     insert_new_count: 148
     insert_reused_count: 11
 -   query: EXPLAIN select col1 + 10, col2 from f1(103, 'b');
     explain: ISCAN(T1_IDX1 [EQUALS promote(@c12 AS STRING), [LESS_THAN promote(@c10
         AS LONG)]]) | MAP (_.COL1 + @c4 AS _0, _.COL2 AS COL2)
     task_count: 1024
-    task_total_time_ms: 71
+    task_total_time_ms: 83
     transform_count: 244
-    transform_time_ms: 20
+    transform_time_ms: 22
     transform_yield_count: 86
     insert_time_ms: 2
     insert_new_count: 128
     insert_reused_count: 6
 -   query: EXPLAIN select * from f1(103, 'b');
     explain: 'COVERING(T1_IDX1 [EQUALS promote(@c8 AS STRING), [LESS_THAN promote(@c6
-        AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | MAP (_.COL1 AS
-        COL1, _.COL2 AS COL2)'
+        AS LONG)]] -> [COL1: KEY:[1], COL2: KEY:[0], COL3: KEY:[2]]) | MAP (_.COL1
+        AS COL1, _.COL2 AS COL2)'
     task_count: 1176
-    task_total_time_ms: 90
+    task_total_time_ms: 88
     transform_count: 261
-    transform_time_ms: 24
+    transform_time_ms: 22
     transform_yield_count: 96
-    insert_time_ms: 5
+    insert_time_ms: 2
     insert_new_count: 148
     insert_reused_count: 11
 -   query: EXPLAIN select * from f1(103, 'b') where col1 = 101
     explain: 'COVERING(T1_IDX1 [EQUALS promote(@c8 AS STRING), EQUALS promote(@c13
-        AS LONG)] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | MAP (_.COL1 AS
-        COL1, _.COL2 AS COL2)'
+        AS LONG)] -> [COL1: KEY:[1], COL2: KEY:[0], COL3: KEY:[2]]) | MAP (_.COL1
+        AS COL1, _.COL2 AS COL2)'
     task_count: 1320
-    task_total_time_ms: 107
+    task_total_time_ms: 109
     transform_count: 299
-    transform_time_ms: 31
+    transform_time_ms: 29
     transform_yield_count: 110
-    insert_time_ms: 7
+    insert_time_ms: 4
     insert_new_count: 190
     insert_reused_count: 18
 -   query: EXPLAIN select * from f1(103 + 1, 'b')
     explain: 'COVERING(T1_IDX1 [EQUALS promote(@c10 AS STRING), [LESS_THAN promote(@c6
-        + @c8 AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | MAP (_.COL1
+        + @c8 AS LONG)]] -> [COL1: KEY:[1], COL2: KEY:[0], COL3: KEY:[2]]) | MAP (_.COL1
         AS COL1, _.COL2 AS COL2)'
     task_count: 1176
-    task_total_time_ms: 90
+    task_total_time_ms: 84
     transform_count: 261
-    transform_time_ms: 23
+    transform_time_ms: 21
     transform_yield_count: 96
-    insert_time_ms: 4
+    insert_time_ms: 2
     insert_new_count: 148
     insert_reused_count: 11
 -   query: EXPLAIN select * from (select * from f1(103 + 1, 'b')) as x where col1
         < 105
     explain: 'COVERING(T1_IDX1 [EQUALS promote(@c14 AS STRING), [LESS_THAN promote(@c10
-        + @c12 AS LONG) && LESS_THAN promote(@c22 AS LONG)]] -> [COL1: KEY[1], COL2:
-        KEY[0], COL3: KEY[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2)'
+        + @c12 AS LONG) && LESS_THAN promote(@c22 AS LONG)]] -> [COL1: KEY:[1], COL2:
+        KEY:[0], COL3: KEY:[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2)'
     task_count: 1440
-    task_total_time_ms: 103
+    task_total_time_ms: 109
     transform_count: 320
-    transform_time_ms: 26
+    transform_time_ms: 34
     transform_yield_count: 118
-    insert_time_ms: 7
+    insert_time_ms: 4
     insert_new_count: 214
     insert_reused_count: 20
 -   query: EXPLAIN select A.col1 AS W, A.col2 AS X, B.col1 AS Y, B.col2 AS Z from
@@ -128,26 +128,26 @@ basic-sql-function-tests:
 -   query: EXPLAIN with x(y, z) as (select * from f1(b => 'b', a => 103)) select *
         from x
     explain: 'COVERING(T1_IDX1 [EQUALS promote(@c17 AS STRING), [LESS_THAN promote(@c21
-        AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | MAP (_.COL1 AS
-        Y, _.COL2 AS Z)'
+        AS LONG)]] -> [COL1: KEY:[1], COL2: KEY:[0], COL3: KEY:[2]]) | MAP (_.COL1
+        AS Y, _.COL2 AS Z)'
     task_count: 1202
-    task_total_time_ms: 72
+    task_total_time_ms: 81
     transform_count: 265
-    transform_time_ms: 18
+    transform_time_ms: 20
     transform_yield_count: 98
-    insert_time_ms: 4
+    insert_time_ms: 2
     insert_new_count: 152
     insert_reused_count: 11
 -   query: EXPLAIN with x(y, z) as (select * from f1(103, 'b')) select * from x
     explain: 'COVERING(T1_IDX1 [EQUALS promote(@c17 AS STRING), [LESS_THAN promote(@c15
-        AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | MAP (_.COL1 AS
-        Y, _.COL2 AS Z)'
+        AS LONG)]] -> [COL1: KEY:[1], COL2: KEY:[0], COL3: KEY:[2]]) | MAP (_.COL1
+        AS Y, _.COL2 AS Z)'
     task_count: 1202
-    task_total_time_ms: 82
+    task_total_time_ms: 91
     transform_count: 265
-    transform_time_ms: 21
+    transform_time_ms: 23
     transform_yield_count: 98
-    insert_time_ms: 4
+    insert_time_ms: 2
     insert_new_count: 152
     insert_reused_count: 11
 -   query: EXPLAIN select * from t2 where exists (select * from f2(t2.z))
@@ -228,109 +228,109 @@ basic-sql-function-tests:
     insert_reused_count: 81
 -   query: EXPLAIN select * from f5();
     explain: 'COVERING(T1_IDX1 [EQUALS promote(''b'' AS STRING), [LESS_THAN promote(103
-        AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | MAP (_.COL1 AS
-        COL1, _.COL2 AS COL2)'
+        AS LONG)]] -> [COL1: KEY:[1], COL2: KEY:[0], COL3: KEY:[2]]) | MAP (_.COL1
+        AS COL1, _.COL2 AS COL2)'
+    task_count: 1176
+    task_total_time_ms: 86
+    transform_count: 261
+    transform_time_ms: 21
+    transform_yield_count: 96
+    insert_time_ms: 2
+    insert_new_count: 148
+    insert_reused_count: 11
+-   query: EXPLAIN select * from f5(103);
+    explain: 'COVERING(T1_IDX1 [EQUALS promote(''b'' AS STRING), [LESS_THAN promote(@c6
+        AS LONG)]] -> [COL1: KEY:[1], COL2: KEY:[0], COL3: KEY:[2]]) | MAP (_.COL1
+        AS COL1, _.COL2 AS COL2)'
+    task_count: 1176
+    task_total_time_ms: 65
+    transform_count: 261
+    transform_time_ms: 13
+    transform_yield_count: 96
+    insert_time_ms: 2
+    insert_new_count: 148
+    insert_reused_count: 11
+-   query: EXPLAIN select * from f5(b => 'b');
+    explain: 'COVERING(T1_IDX1 [EQUALS promote(@c8 AS STRING), [LESS_THAN promote(103
+        AS LONG)]] -> [COL1: KEY:[1], COL2: KEY:[0], COL3: KEY:[2]]) | MAP (_.COL1
+        AS COL1, _.COL2 AS COL2)'
+    task_count: 1176
+    task_total_time_ms: 87
+    transform_count: 261
+    transform_time_ms: 25
+    transform_yield_count: 96
+    insert_time_ms: 2
+    insert_new_count: 148
+    insert_reused_count: 11
+-   query: EXPLAIN select * from f5(b => 'b', a => 103);
+    explain: 'COVERING(T1_IDX1 [EQUALS promote(@c8 AS STRING), [LESS_THAN promote(@c12
+        AS LONG)]] -> [COL1: KEY:[1], COL2: KEY:[0], COL3: KEY:[2]]) | MAP (_.COL1
+        AS COL1, _.COL2 AS COL2)'
+    task_count: 1176
+    task_total_time_ms: 88
+    transform_count: 261
+    transform_time_ms: 22
+    transform_yield_count: 96
+    insert_time_ms: 2
+    insert_new_count: 148
+    insert_reused_count: 11
+-   query: EXPLAIN select * from f5(b => 'b', a => 102);
+    explain: 'COVERING(T1_IDX1 [EQUALS promote(@c8 AS STRING), [LESS_THAN promote(@c12
+        AS LONG)]] -> [COL1: KEY:[1], COL2: KEY:[0], COL3: KEY:[2]]) | MAP (_.COL1
+        AS COL1, _.COL2 AS COL2)'
+    task_count: 1176
+    task_total_time_ms: 88
+    transform_count: 261
+    transform_time_ms: 22
+    transform_yield_count: 96
+    insert_time_ms: 2
+    insert_new_count: 148
+    insert_reused_count: 11
+-   query: EXPLAIN select * from f5(b => 'a', a => 102);
+    explain: 'COVERING(T1_IDX1 [EQUALS promote(@c8 AS STRING), [LESS_THAN promote(@c12
+        AS LONG)]] -> [COL1: KEY:[1], COL2: KEY:[0], COL3: KEY:[2]]) | MAP (_.COL1
+        AS COL1, _.COL2 AS COL2)'
+    task_count: 1176
+    task_total_time_ms: 88
+    transform_count: 261
+    transform_time_ms: 22
+    transform_yield_count: 96
+    insert_time_ms: 2
+    insert_new_count: 148
+    insert_reused_count: 11
+-   query: EXPLAIN select * from f5(a => 102, b => 'a');
+    explain: 'COVERING(T1_IDX1 [EQUALS promote(@c12 AS STRING), [LESS_THAN promote(@c8
+        AS LONG)]] -> [COL1: KEY:[1], COL2: KEY:[0], COL3: KEY:[2]]) | MAP (_.COL1
+        AS COL1, _.COL2 AS COL2)'
+    task_count: 1176
+    task_total_time_ms: 87
+    transform_count: 261
+    transform_time_ms: 20
+    transform_yield_count: 96
+    insert_time_ms: 2
+    insert_new_count: 148
+    insert_reused_count: 11
+-   query: EXPLAIN select * from f5(102);
+    explain: 'COVERING(T1_IDX1 [EQUALS promote(''b'' AS STRING), [LESS_THAN promote(@c6
+        AS LONG)]] -> [COL1: KEY:[1], COL2: KEY:[0], COL3: KEY:[2]]) | MAP (_.COL1
+        AS COL1, _.COL2 AS COL2)'
+    task_count: 1176
+    task_total_time_ms: 65
+    transform_count: 261
+    transform_time_ms: 13
+    transform_yield_count: 96
+    insert_time_ms: 2
+    insert_new_count: 148
+    insert_reused_count: 11
+-   query: EXPLAIN select * from f5(102, 'a');
+    explain: 'COVERING(T1_IDX1 [EQUALS promote(@c8 AS STRING), [LESS_THAN promote(@c6
+        AS LONG)]] -> [COL1: KEY:[1], COL2: KEY:[0], COL3: KEY:[2]]) | MAP (_.COL1
+        AS COL1, _.COL2 AS COL2)'
     task_count: 1176
     task_total_time_ms: 79
     transform_count: 261
     transform_time_ms: 19
     transform_yield_count: 96
-    insert_time_ms: 4
-    insert_new_count: 148
-    insert_reused_count: 11
--   query: EXPLAIN select * from f5(103);
-    explain: 'COVERING(T1_IDX1 [EQUALS promote(''b'' AS STRING), [LESS_THAN promote(@c6
-        AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | MAP (_.COL1 AS
-        COL1, _.COL2 AS COL2)'
-    task_count: 1176
-    task_total_time_ms: 94
-    transform_count: 261
-    transform_time_ms: 21
-    transform_yield_count: 96
-    insert_time_ms: 8
-    insert_new_count: 148
-    insert_reused_count: 11
--   query: EXPLAIN select * from f5(b => 'b');
-    explain: 'COVERING(T1_IDX1 [EQUALS promote(@c8 AS STRING), [LESS_THAN promote(103
-        AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | MAP (_.COL1 AS
-        COL1, _.COL2 AS COL2)'
-    task_count: 1176
-    task_total_time_ms: 75
-    transform_count: 261
-    transform_time_ms: 17
-    transform_yield_count: 96
-    insert_time_ms: 4
-    insert_new_count: 148
-    insert_reused_count: 11
--   query: EXPLAIN select * from f5(b => 'b', a => 103);
-    explain: 'COVERING(T1_IDX1 [EQUALS promote(@c8 AS STRING), [LESS_THAN promote(@c12
-        AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | MAP (_.COL1 AS
-        COL1, _.COL2 AS COL2)'
-    task_count: 1176
-    task_total_time_ms: 85
-    transform_count: 261
-    transform_time_ms: 22
-    transform_yield_count: 96
-    insert_time_ms: 4
-    insert_new_count: 148
-    insert_reused_count: 11
--   query: EXPLAIN select * from f5(b => 'b', a => 102);
-    explain: 'COVERING(T1_IDX1 [EQUALS promote(@c8 AS STRING), [LESS_THAN promote(@c12
-        AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | MAP (_.COL1 AS
-        COL1, _.COL2 AS COL2)'
-    task_count: 1176
-    task_total_time_ms: 85
-    transform_count: 261
-    transform_time_ms: 22
-    transform_yield_count: 96
-    insert_time_ms: 4
-    insert_new_count: 148
-    insert_reused_count: 11
--   query: EXPLAIN select * from f5(b => 'a', a => 102);
-    explain: 'COVERING(T1_IDX1 [EQUALS promote(@c8 AS STRING), [LESS_THAN promote(@c12
-        AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | MAP (_.COL1 AS
-        COL1, _.COL2 AS COL2)'
-    task_count: 1176
-    task_total_time_ms: 85
-    transform_count: 261
-    transform_time_ms: 22
-    transform_yield_count: 96
-    insert_time_ms: 4
-    insert_new_count: 148
-    insert_reused_count: 11
--   query: EXPLAIN select * from f5(a => 102, b => 'a');
-    explain: 'COVERING(T1_IDX1 [EQUALS promote(@c12 AS STRING), [LESS_THAN promote(@c8
-        AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | MAP (_.COL1 AS
-        COL1, _.COL2 AS COL2)'
-    task_count: 1176
-    task_total_time_ms: 88
-    transform_count: 261
-    transform_time_ms: 21
-    transform_yield_count: 96
-    insert_time_ms: 4
-    insert_new_count: 148
-    insert_reused_count: 11
--   query: EXPLAIN select * from f5(102);
-    explain: 'COVERING(T1_IDX1 [EQUALS promote(''b'' AS STRING), [LESS_THAN promote(@c6
-        AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | MAP (_.COL1 AS
-        COL1, _.COL2 AS COL2)'
-    task_count: 1176
-    task_total_time_ms: 94
-    transform_count: 261
-    transform_time_ms: 21
-    transform_yield_count: 96
-    insert_time_ms: 8
-    insert_new_count: 148
-    insert_reused_count: 11
--   query: EXPLAIN select * from f5(102, 'a');
-    explain: 'COVERING(T1_IDX1 [EQUALS promote(@c8 AS STRING), [LESS_THAN promote(@c6
-        AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | MAP (_.COL1 AS
-        COL1, _.COL2 AS COL2)'
-    task_count: 1176
-    task_total_time_ms: 83
-    transform_count: 261
-    transform_time_ms: 20
-    transform_yield_count: 96
-    insert_time_ms: 4
+    insert_time_ms: 2
     insert_new_count: 148
     insert_reused_count: 11

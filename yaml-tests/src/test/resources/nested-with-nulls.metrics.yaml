@@ -20,12 +20,12 @@ nested-with-nulls-tests:
     insert_new_count: 36
     insert_reused_count: 4
 -   query: EXPLAIN select id from t1 where a.b.a IS NULL
-    explain: 'COVERING(I1 [[null],[null]] -> [ID: KEY[2], A: [B: [A: KEY[0]]]]) |
-        MAP (_.ID AS ID)'
+    explain: 'COVERING(I1 [[null],[null]] -> [ID: KEY:[2], A: [B: [A: KEY:[0]]]])
+        | MAP (_.ID AS ID)'
     task_count: 443
-    task_total_time_ms: 18
+    task_total_time_ms: 7
     transform_count: 109
-    transform_time_ms: 4
+    transform_time_ms: 2
     transform_yield_count: 36
     insert_time_ms: 0
     insert_new_count: 45
@@ -91,23 +91,23 @@ nested-with-nulls-tests:
     insert_new_count: 36
     insert_reused_count: 4
 -   query: EXPLAIN select id from t1 where a.a.b IS NOT NULL
-    explain: 'COVERING(I2 ([null],> -> [ID: KEY[2], A: [A: [B: KEY[0]]]]) | MAP (_.ID
-        AS ID)'
+    explain: 'COVERING(I2 ([null],> -> [ID: KEY:[2], A: [A: [B: KEY:[0]]]]) | MAP
+        (_.ID AS ID)'
     task_count: 454
     task_total_time_ms: 17
     transform_count: 123
-    transform_time_ms: 5
+    transform_time_ms: 4
     transform_yield_count: 38
     insert_time_ms: 0
     insert_new_count: 47
     insert_reused_count: 4
 -   query: EXPLAIN select id from t1 where a.b.a IS NOT NULL
-    explain: 'COVERING(I1 ([null],> -> [ID: KEY[2], A: [B: [A: KEY[0]]]]) | MAP (_.ID
-        AS ID)'
+    explain: 'COVERING(I1 ([null],> -> [ID: KEY:[2], A: [B: [A: KEY:[0]]]]) | MAP
+        (_.ID AS ID)'
     task_count: 443
-    task_total_time_ms: 20
+    task_total_time_ms: 12
     transform_count: 109
-    transform_time_ms: 5
+    transform_time_ms: 3
     transform_yield_count: 36
     insert_time_ms: 0
     insert_new_count: 45

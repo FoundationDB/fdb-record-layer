@@ -99,7 +99,7 @@ test_block:
     -
       # Test joining table function results with scalar UDF processing
       - query: select t1.id_copy as A, t2.processed_id as B from table_func1(2) t1, table_func2(100) t2 where t1.id_copy = t2.processed_id
-      - explain: "ISCAN(I2 <,>) | FLATMAP q0 -> { ISCAN(I2 <,>) | FILTER q0.ID EQUALS _.ID AND q0.ID LESS_THAN_OR_EQUALS promote(@c16 AS LONG) AND _.R.V.Z GREATER_THAN_OR_EQUALS promote(@c22 AS LONG) AS q1 RETURN (q0.ID AS A, q1.ID AS B) }"
+      - explain: "ISCAN(I2 <,>) | FLATMAP q0 -> { COVERING(I2 <,> -> [Q: [S: KEY:[2]], R: [U: [W: KEY:[3]], V: [Z: KEY:[0]]]]) | FILTER _.R.V.Z GREATER_THAN_OR_EQUALS promote(@c22 AS LONG) | FETCH | FILTER q0.ID EQUALS _.ID AND q0.ID LESS_THAN_OR_EQUALS promote(@c16 AS LONG) AS q1 RETURN (q0.ID AS A, q1.ID AS B) }"
       - unorderedResult: [{A: 1, B: 1}, {A: 2, B: 2}]
     -
       # Test scalar UDF applied to table function results

@@ -590,10 +590,11 @@ H
   4 -> 3 [ label=<&nbsp;q19> label="q19" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q26> label="q26" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}ã
+}æ
 B
-uuid-in-index-definition&EXPLAIN select b, c from tc order by bœ
-±“­Ú	H ‘é¬("0›–$8!@SCOVERING(TC1 <,> -> [A: KEY[2], B: KEY[0], C: VALUE[0]]) | MAP (_.B AS B, _.C AS C)©
+uuid-in-index-definition&EXPLAIN select b, c from tc order by bŸ
+±Šü£
+H úÖÝ("0¡Ž!8!@VCOVERING(TC1 <,> -> [A: KEY:[2], B: KEY:[0], C: VALUE:[0]]) | MAP (_.B AS B, _.C AS C)©
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -616,8 +617,7 @@ digraph G {
 }
 p
 uuid-in-index-definitionTEXPLAIN select * from tc where b > 'a8708750-d70f-4800-8c3b-13700d5b369f' order by b¨
-›¬¯ 
-_ ¿ãô(*0°ý 8)@0ISCAN(TC1 [[GREATER_THAN promote(@c8 AS UUID)]])Ødigraph G {
+›§Ñ´_ ûðœ(*0´š8)@0ISCAN(TC1 [[GREATER_THAN promote(@c8 AS UUID)]])Ødigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -627,18 +627,17 @@ p
 }Ö
 u
 uuid-in-index-definitionYEXPLAIN select * from tc where b < 'a8708750-d70f-4800-8c3b-13700d5b369f' order by b descÜ
-›’©û	_ íò°(*0ž•8)@5ISCAN(TC1 [[LESS_THAN promote(@c8 AS UUID)]] REVERSE)‡digraph G {
+›âžÐ_ Áû›(*0êÀ8)@5ISCAN(TC1 [[LESS_THAN promote(@c8 AS UUID)]] REVERSE)‡digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [[LESS_THAN promote(@c8 AS UUID)]]</td></tr><tr><td align="left">direction: reversed</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, UUID AS B, LONG AS C)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">TC1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, UUID AS B, LONG AS C)" ];
   2 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}ù
+}ü
 
-uuid-in-index-definitioncEXPLAIN select * from tc where b < 'a8708750-d70f-4800-8c3b-13700d5b369f' and c > 4 order by b descõ
-ƒæàó
-m «ˆí(.0’ú-87@—COVERING(TC1 [[LESS_THAN promote(@c8 AS UUID)]] REVERSE -> [A: KEY[2], B: KEY[0], C: VALUE[0]]) | FILTER _.C GREATER_THAN promote(@c12 AS LONG) | FETCH½digraph G {
+uuid-in-index-definitioncEXPLAIN select * from tc where b < 'a8708750-d70f-4800-8c3b-13700d5b369f' and c > 4 order by b descø
+ƒÞ™§m ë®ç(.0¥â%87@šCOVERING(TC1 [[LESS_THAN promote(@c8 AS UUID)]] REVERSE -> [A: KEY:[2], B: KEY:[0], C: VALUE:[0]]) | FILTER _.C GREATER_THAN promote(@c12 AS LONG) | FETCH½digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;

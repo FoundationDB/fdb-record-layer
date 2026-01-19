@@ -26,34 +26,34 @@
   3 -> 2 [ label=<&nbsp;q19> label="q19" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}™
+}∑
 &
-	unnamed-1EXPLAIN select * from T2;ˇ
-Ë±ŸÎ$T ∑Üî(+0⁄∏á8-@@ISCAN(T2$a <,>) | MAP (_.ID AS ID, _.A AS A, _.B AS B, _.C AS C)ûdigraph G {
+	unnamed-1EXPLAIN select * from T2;å
+ËŒÒÍT ﬁï∞(+0Ç‡8-@GISCAN(T2$a_with_b <,>) | MAP (_.ID AS ID, _.A AS A, _.B AS B, _.C AS C)•digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q2.ID AS ID, q2.A AS A, q2.B AS B, q2.C AS C)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, STRING AS B, LONG AS C)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, STRING AS B, LONG AS C, VERSION AS __ROW_VERSION)" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T2$a</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, STRING AS B, LONG AS C, VERSION AS __ROW_VERSION)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T2$a_with_b</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, STRING AS B, LONG AS C, VERSION AS __ROW_VERSION)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}¥
+}¬
 1
-	unnamed-1$EXPLAIN select * from T2 order by a;˛
-Ö⁄õëC ŸÄ”($0ªΩg8@@ISCAN(T2$a <,>) | MAP (_.ID AS ID, _.A AS A, _.B AS B, _.C AS C)ûdigraph G {
+	unnamed-1$EXPLAIN select * from T2 order by a;å
+Ö ˆëC ´Äô($0çπ8@GISCAN(T2$a_with_b <,>) | MAP (_.ID AS ID, _.A AS A, _.B AS B, _.C AS C)•digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q2.ID AS ID, q2.A AS A, q2.B AS B, q2.C AS C)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, STRING AS B, LONG AS C)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, STRING AS B, LONG AS C, VERSION AS __ROW_VERSION)" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T2$a</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, STRING AS B, LONG AS C, VERSION AS __ROW_VERSION)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T2$a_with_b</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, STRING AS B, LONG AS C, VERSION AS __ROW_VERSION)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
 }ª
 S
 	unnamed-1FEXPLAIN select "__ROW_VERSION", T2.* from T2 order by "__ROW_VERSION";„
-Œ∏≈â9 ì≥À( 0˛Ç28@eISCAN(T2$version <,>) | MAP (version([_]) AS __ROW_VERSION, _.ID AS ID, _.A AS A, _.B AS B, _.C AS C)ﬁdigraph G {
+Œﬁà—9 ıﬂÉ( 0–Ì8@eISCAN(T2$version <,>) | MAP (version([_]) AS __ROW_VERSION, _.ID AS ID, _.A AS A, _.B AS B, _.C AS C)ﬁdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -62,10 +62,10 @@ S
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T2$version</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, STRING AS B, LONG AS C, VERSION AS __ROW_VERSION)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}¸
+}˚
 `
-	unnamed-1SEXPLAIN select "__ROW_VERSION", T2.* from T2 where a = 40 order by "__ROW_VERSION";ó
-ﬂøµ e ¶’û('0Â·º8!@ÇISCAN(T2$a_version [EQUALS promote(@c12 AS LONG)]) | MAP (version([_]) AS __ROW_VERSION, _.ID AS ID, _.A AS A, _.B AS B, _.C AS C)Ûdigraph G {
+	unnamed-1SEXPLAIN select "__ROW_VERSION", T2.* from T2 where a = 40 order by "__ROW_VERSION";ñ
+ﬂ≥êøe üÈ˝('0Û’8!@ÇISCAN(T2$a_version [EQUALS promote(@c12 AS LONG)]) | MAP (version([_]) AS __ROW_VERSION, _.ID AS ID, _.A AS A, _.B AS B, _.C AS C)Ûdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -132,35 +132,39 @@ N
   3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}¨
+}µ'
 U
-	unnamed-1HEXPLAIN update T2 set c = c + 1 where a = 30 and id < 100 and b = 'even'“
-÷	–¥–Ä áÎÔ(L0¢Íì8é@‘ISCAN(T2$a_with_b [EQUALS promote(@c12 AS LONG)]) | DISTINCT BY PK | FILTER _.ID LESS_THAN promote(@c16 AS LONG) AND _.B EQUALS promote(@c20 AS STRING) | MAP (_.ID AS ID, _.A AS A, _.B AS B, _.C AS C) | UPDATE T2⁄digraph G {
+	unnamed-1HEXPLAIN update T2 set c = c + 1 where a = 30 and id < 100 and b = 'even'€&
+Ûˆ≈´® »í∂(V0Èﬂ:8ß@ÅCOVERING(T2$a_with_b [EQUALS promote(@c12 AS LONG)] -> [A: KEY:[0], ID: KEY:[2]]) | DISTINCT BY PK | FILTER _.ID LESS_THAN promote(@c16 AS LONG) | FETCH | FILTER _.B EQUALS promote(@c20 AS STRING) | MAP (_.ID AS ID, _.A AS A, _.B AS B, _.C AS C) | UPDATE T2∑$digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Modification</td></tr><tr><td align="left">UPDATE</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightcoral" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, STRING AS B, LONG AS C AS old, LONG AS ID, LONG AS A, STRING AS B, LONG AS C AS new)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q186.ID AS ID, q186.A AS A, q186.B AS B, q186.C AS C)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, STRING AS B, LONG AS C)" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q190.ID LESS_THAN promote(@c16 AS LONG) AND q190.B EQUALS promote(@c20 AS STRING)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, STRING AS B, LONG AS C, VERSION AS __ROW_VERSION)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Unordered Primary Key Distinct</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS ID, LONG AS A, STRING AS B, LONG AS C, VERSION AS __ROW_VERSION)" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c12 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, STRING AS B, LONG AS C, VERSION AS __ROW_VERSION)" ];
-  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T2$a_with_b</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, STRING AS B, LONG AS C, VERSION AS __ROW_VERSION)" ];
-  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">T2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, STRING AS B, LONG AS C AS old, LONG AS ID, LONG AS A, STRING AS B, LONG AS C AS new)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q190.B EQUALS promote(@c20 AS STRING)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, STRING AS B, LONG AS C, VERSION AS __ROW_VERSION)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Fetch Records</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS ID, LONG AS A, STRING AS B, LONG AS C, VERSION AS __ROW_VERSION)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q198.ID LESS_THAN promote(@c16 AS LONG)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, STRING AS B, LONG AS C, VERSION AS __ROW_VERSION)" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Unordered Primary Key Distinct</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS ID, LONG AS A, STRING AS B, LONG AS C, VERSION AS __ROW_VERSION)" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c12 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, STRING AS B, LONG AS C, VERSION AS __ROW_VERSION)" ];
+  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T2$a_with_b</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, STRING AS B, LONG AS C, VERSION AS __ROW_VERSION)" ];
+  9 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">T2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, STRING AS B, LONG AS C AS old, LONG AS ID, LONG AS A, STRING AS B, LONG AS C AS new)" ];
   3 -> 2 [ label=<&nbsp;q186> label="q186" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ label=<&nbsp;q190> label="q190" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  5 -> 4 [ label=<&nbsp;q188> label="q188" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  6 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ label=<&nbsp;q194> label="q194" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 5 [ label=<&nbsp;q198> label="q198" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 6 [ label=<&nbsp;q196> label="q196" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  8 -> 7 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  7 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="none" arrowtail="normal" dir="both" ];
+  9 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="none" arrowtail="normal" dir="both" ];
   {
     rank=same;
     rankDir=LR;
-    2 -> 7 [ color="red" style="invis" ];
+    2 -> 9 [ color="red" style="invis" ];
   }
-}¸
+}˚
 `
-	unnamed-1SEXPLAIN select "__ROW_VERSION", T2.* from T2 where a = 30 order by "__ROW_VERSION";ó
-ﬂß·Óe ÚØÎ('0√ ¨8!@ÇISCAN(T2$a_version [EQUALS promote(@c12 AS LONG)]) | MAP (version([_]) AS __ROW_VERSION, _.ID AS ID, _.A AS A, _.B AS B, _.C AS C)Ûdigraph G {
+	unnamed-1SEXPLAIN select "__ROW_VERSION", T2.* from T2 where a = 30 order by "__ROW_VERSION";ñ
+ﬂ≥êøe üÈ˝('0Û’8!@ÇISCAN(T2$a_version [EQUALS promote(@c12 AS LONG)]) | MAP (version([_]) AS __ROW_VERSION, _.ID AS ID, _.A AS A, _.B AS B, _.C AS C)Ûdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;

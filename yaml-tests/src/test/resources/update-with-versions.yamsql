@@ -136,14 +136,14 @@ test_block:
     -
       # Issue a query on T2 that selects the elements from T2 that will be updated in the next query
       - query: select * from T2 where a = 30 and id < 100 and b = 'even'
-      - explain: "ISCAN(T2$a_with_b [EQUALS promote(@c8 AS LONG)]) | FILTER _.ID LESS_THAN promote(@c12 AS LONG) AND _.B EQUALS promote(@c16 AS STRING) | MAP (_.ID AS ID, _.A AS A, _.B AS B, _.C AS C)"
+      - explain: "COVERING(T2$a_with_b [EQUALS promote(@c8 AS LONG)] -> [A: KEY:[0], ID: KEY:[2]]) | FILTER _.ID LESS_THAN promote(@c12 AS LONG) | FETCH | FILTER _.B EQUALS promote(@c16 AS STRING) | MAP (_.ID AS ID, _.A AS A, _.B AS B, _.C AS C)"
       - result: [
            { ID: 2, A: 30, B: "even", C: 0},
         ]
     -
       # Update one record in T2
       - query: update T2 set c = c + 1 where a = 30 and id < 100 and b = 'even'
-      - explain: "ISCAN(T2$a_with_b [EQUALS promote(@c12 AS LONG)]) | DISTINCT BY PK | FILTER _.ID LESS_THAN promote(@c16 AS LONG) AND _.B EQUALS promote(@c20 AS STRING) | MAP (_.ID AS ID, _.A AS A, _.B AS B, _.C AS C) | UPDATE T2"
+      - explain: "COVERING(T2$a_with_b [EQUALS promote(@c12 AS LONG)] -> [A: KEY:[0], ID: KEY:[2]]) | DISTINCT BY PK | FILTER _.ID LESS_THAN promote(@c16 AS LONG) | FETCH | FILTER _.B EQUALS promote(@c20 AS STRING) | MAP (_.ID AS ID, _.A AS A, _.B AS B, _.C AS C) | UPDATE T2"
       - count: 1
     -
       # Validate the results

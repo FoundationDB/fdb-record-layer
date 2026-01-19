@@ -147,10 +147,10 @@ D
   5 -> 4 [ label=<&nbsp;q104> label="q104" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   6 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}’
+}”
 ?
-agg-index-tests,EXPLAIN select col2 from T1 where col1 = 10;Î
-¥é‘ˆ« ¯¢Ô(E0’€Á8D@nCOVERING(MV8 [EQUALS promote(@c8 AS LONG)] -> [COL1: KEY[0], COL2: KEY[1], ID: KEY[3]]) | MAP (_.COL2 AS COL2)¾
+agg-index-tests,EXPLAIN select col2 from T1 where col1 = 10;Ð
+¥®âò« ã¾ë(E0ð˜?8D@qCOVERING(MV8 [EQUALS promote(@c8 AS LONG)] -> [COL1: KEY:[0], COL2: KEY:[1], ID: KEY:[3]]) | MAP (_.COL2 AS COL2)¾
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -160,10 +160,11 @@ digraph G {
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">MV8</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1, LONG AS COL2)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q142> label="q142" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Ú
+}Ý
 R
-agg-index-tests?EXPLAIN select col2 from T1 where col1 = 10 order by col2 desc;ƒ
-’¥øò.X éá’&(00¸ 08@ vCOVERING(MV8 [EQUALS promote(@c8 AS LONG)] REVERSE -> [COL1: KEY[0], COL2: KEY[1], ID: KEY[3]]) | MAP (_.COL2 AS COL2)í
+agg-index-tests?EXPLAIN select col2 from T1 where col1 = 10 order by col2 desc;†
+’¨å¯
+X ¿µ(00•Ì	8@ yCOVERING(MV8 [EQUALS promote(@c8 AS LONG)] REVERSE -> [COL1: KEY:[0], COL2: KEY:[1], ID: KEY:[3]]) | MAP (_.COL2 AS COL2)í
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -321,11 +322,10 @@ u
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">MV9</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1, LONG AS COL2, LONG AS COL3)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}
+}…
 V
-agg-index-testsCEXPLAIN select col3, col2 from t2 where col1 = 1 order by col3 asc;¦
-Ù©¨×
-m ˆ†¦(60ÂŠ8@ COVERING(MV9 [EQUALS promote(@c10 AS LONG)] -> [COL1: KEY[0], COL2: KEY[2], COL3: KEY[1], ID: KEY[4]]) | MAP (_.COL3 AS COL3, _.COL2 AS COL2)ø
+agg-index-testsCEXPLAIN select col3, col2 from t2 where col1 = 1 order by col3 asc;ª
+Ù¡–¾m µ¹Ð(60÷•8@ ‘COVERING(MV9 [EQUALS promote(@c10 AS LONG)] -> [COL1: KEY:[0], COL2: KEY:[2], COL3: KEY:[1], ID: KEY:[4]]) | MAP (_.COL3 AS COL3, _.COL2 AS COL2)ø
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -335,10 +335,10 @@ digraph G {
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">MV9</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1, LONG AS COL2, LONG AS COL3)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q86> label="q86" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}¼
+}À
 W
-agg-index-testsDEXPLAIN select col3, col2 from t2 where col1 = 1 order by col3 desc;à
-ÙõºÏm ûùí(60ô¯8@ •COVERING(MV9 [EQUALS promote(@c10 AS LONG)] REVERSE -> [COL1: KEY[0], COL2: KEY[2], COL3: KEY[1], ID: KEY[4]]) | MAP (_.COL3 AS COL3, _.COL2 AS COL2)ªdigraph G {
+agg-index-testsDEXPLAIN select col3, col2 from t2 where col1 = 1 order by col3 desc;ä
+ÙíÊ¨m ŒôÏ(60¯½8@ ™COVERING(MV9 [EQUALS promote(@c10 AS LONG)] REVERSE -> [COL1: KEY:[0], COL2: KEY:[2], COL3: KEY:[1], ID: KEY:[4]]) | MAP (_.COL3 AS COL3, _.COL2 AS COL2)ªdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;

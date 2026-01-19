@@ -32,6 +32,7 @@ import org.junit.jupiter.api.TestTemplate;
  * Note: Use {@link com.apple.foundationdb.relational.yamltests.DebugPlanner} on a specific test in this class to bring
  * up the {@link com.apple.foundationdb.record.query.plan.cascades.debug.PlannerRepl} debugger implementation.
  */
+@MaintainYamlTestConfig(YamlTestConfigFilters.CORRECT_EXPLAIN_AND_METRICS)
 @YamlTest
 public class YamlIntegrationTests {
 

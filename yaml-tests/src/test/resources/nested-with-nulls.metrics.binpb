@@ -26,10 +26,10 @@ H
   3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q45> label="q45" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}¦
+}§
 H
-nested-with-nulls-tests-EXPLAIN select id from t1 where a.b.a IS NULLÙ
-»ð‰Ëm öì¡($0¹Í*8-@TCOVERING(I1 [[null],[null]] -> [ID: KEY[2], A: [B: [A: KEY[0]]]]) | MAP (_.ID AS ID)ådigraph G {
+nested-with-nulls-tests-EXPLAIN select id from t1 where a.b.a IS NULLÚ
+»¨¼m íý($0»·8-@VCOVERING(I1 [[null],[null]] -> [ID: KEY:[2], A: [B: [A: KEY:[0]]]]) | MAP (_.ID AS ID)ådigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -122,10 +122,10 @@ L
   3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q45> label="q45" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}¤
+}¦
 L
-nested-with-nulls-tests1EXPLAIN select id from t1 where a.a.b IS NOT NULLÓ
-Æ‘ßš{ ƒŸÞ(&0÷˜,8/@NCOVERING(I2 ([null],> -> [ID: KEY[2], A: [A: [B: KEY[0]]]]) | MAP (_.ID AS ID)ådigraph G {
+nested-with-nulls-tests1EXPLAIN select id from t1 where a.a.b IS NOT NULLÕ
+ÆöÑ—{ ®¡Š(&0Æ"8/@PCOVERING(I2 ([null],> -> [ID: KEY:[2], A: [A: [B: KEY:[0]]]]) | MAP (_.ID AS ID)ådigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -134,10 +134,10 @@ L
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS A, STRING AS A, LONG AS B AS A, STRING AS A, LONG AS B AS B AS B)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q69> label="q69" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}¤
+}¦
 L
-nested-with-nulls-tests1EXPLAIN select id from t1 where a.b.a IS NOT NULLÓ
-»•ØÇ	m Âˆ²($0Ô28-@NCOVERING(I1 ([null],> -> [ID: KEY[2], A: [B: [A: KEY[0]]]]) | MAP (_.ID AS ID)ådigraph G {
+nested-with-nulls-tests1EXPLAIN select id from t1 where a.b.a IS NOT NULLÕ
+»ËçŠm ¸–è($0°“'8-@PCOVERING(I1 ([null],> -> [ID: KEY:[2], A: [B: [A: KEY:[0]]]]) | MAP (_.ID AS ID)ådigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;

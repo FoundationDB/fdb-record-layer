@@ -1,7 +1,35 @@
-œ
+—
 U
-distinct-from-tests>EXPLAIN select * from t1 WHERE col2 is   distinct    from nullı
-≤ÆÓ‰k ıˆ (.0Æ›382@\COVERING(I2 <,> -> [COL2: KEY[0], ID: KEY[2]]) | FILTER _.COL2 IS_DISTINCT_FROM NULL | FETCH˘digraph G {
+distinct-from-tests>EXPLAIN select * from t1 WHERE col2 is   distinct    from null˜
+≤∆€Æk êÊë(.0ﬁı+82@^COVERING(I2 <,> -> [COL2: KEY:[0], ID: KEY:[2]]) | FILTER _.COL2 IS_DISTINCT_FROM NULL | FETCH˘digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Fetch Records</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(INT AS ID, INT AS COL1, INT AS COL2)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q61.COL2 IS_DISTINCT_FROM NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, INT AS COL1, INT AS COL2)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, INT AS COL1, INT AS COL2)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, INT AS COL1, INT AS COL2)" ];
+  3 -> 2 [ label=<&nbsp;q61> label="q61" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q63> label="q63" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}Í
+N
+distinct-from-tests7EXPLAIN select * from t1 WHERE col1 is DISTINCT from 10ó
+¬ïôÕp ù¢¯(00‡ò.86@nCOVERING(I1 <,> -> [COL1: KEY:[0], ID: KEY:[2]]) | FILTER _.COL1 IS_DISTINCT_FROM promote(@c10 AS INT) | FETCHâdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Fetch Records</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(INT AS ID, INT AS COL1, INT AS COL2)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q61.COL1 IS_DISTINCT_FROM promote(@c10 AS INT)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, INT AS COL1, INT AS COL2)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, INT AS COL1, INT AS COL2)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, INT AS COL1, INT AS COL2)" ];
+  3 -> 2 [ label=<&nbsp;q61> label="q61" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q63> label="q63" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}Ã
+P
+distinct-from-tests9EXPLAIN select * from t1 WHERE null is distinct from col2˜
+≤ïÜk ”Çô(.0é«,82@^COVERING(I2 <,> -> [COL2: KEY:[0], ID: KEY:[2]]) | FILTER _.COL2 IS_DISTINCT_FROM NULL | FETCH˘digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -14,36 +42,8 @@ U
   2 -> 1 [ label=<&nbsp;q63> label="q63" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
 }Ë
 N
-distinct-from-tests7EXPLAIN select * from t1 WHERE col1 is DISTINCT from 10ï
-¬ô˛Ép ∑ß‹(00∂Ω986@lCOVERING(I1 <,> -> [COL1: KEY[0], ID: KEY[2]]) | FILTER _.COL1 IS_DISTINCT_FROM promote(@c10 AS INT) | FETCHâdigraph G {
-  fontname=courier;
-  rankdir=BT;
-  splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Fetch Records</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(INT AS ID, INT AS COL1, INT AS COL2)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q61.COL1 IS_DISTINCT_FROM promote(@c10 AS INT)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, INT AS COL1, INT AS COL2)" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, INT AS COL1, INT AS COL2)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, INT AS COL1, INT AS COL2)" ];
-  3 -> 2 [ label=<&nbsp;q61> label="q61" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q63> label="q63" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-} 
-P
-distinct-from-tests9EXPLAIN select * from t1 WHERE null is distinct from col2ı
-≤±ΩÏk ∞ùƒ(.0ÑÆ682@\COVERING(I2 <,> -> [COL2: KEY[0], ID: KEY[2]]) | FILTER _.COL2 IS_DISTINCT_FROM NULL | FETCH˘digraph G {
-  fontname=courier;
-  rankdir=BT;
-  splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Fetch Records</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(INT AS ID, INT AS COL1, INT AS COL2)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q61.COL2 IS_DISTINCT_FROM NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, INT AS COL1, INT AS COL2)" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, INT AS COL1, INT AS COL2)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, INT AS COL1, INT AS COL2)" ];
-  3 -> 2 [ label=<&nbsp;q61> label="q61" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q63> label="q63" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Á
-N
-distinct-from-tests7EXPLAIN select * from t1 WHERE 10 is distinct from col1î
-¬Ç≠íp ¥‡(00áÊ∑86@kCOVERING(I1 <,> -> [COL1: KEY[0], ID: KEY[2]]) | FILTER _.COL1 IS_DISTINCT_FROM promote(@c6 AS INT) | FETCHàdigraph G {
+distinct-from-tests7EXPLAIN select * from t1 WHERE 10 is distinct from col1ï
+¬ü€Êp üËä(00¬…F86@mCOVERING(I1 <,> -> [COL1: KEY:[0], ID: KEY:[2]]) | FILTER _.COL1 IS_DISTINCT_FROM promote(@c6 AS INT) | FETCHàdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -54,10 +54,10 @@ N
   3 -> 2 [ label=<&nbsp;q61> label="q61" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q63> label="q63" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}ƒ
+}∆
 P
-distinct-from-tests9EXPLAIN select * from t1 WHERE null is distinct from nullÔ
-Ÿõòíp ±‡¿(00ª®;88@ZCOVERING(I1 <,> -> [COL1: KEY[0], ID: KEY[2]]) | FILTER NULL IS_DISTINCT_FROM NULL | FETCHıdigraph G {
+distinct-from-tests9EXPLAIN select * from t1 WHERE null is distinct from nullÒ
+Ÿßô⁄p ÇΩÑ(00›¯/88@\COVERING(I1 <,> -> [COL1: KEY:[0], ID: KEY:[2]]) | FILTER NULL IS_DISTINCT_FROM NULL | FETCHıdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -68,10 +68,10 @@ P
   3 -> 2 [ label=<&nbsp;q60> label="q60" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q62> label="q62" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}º
+}æ
 L
-distinct-from-tests5EXPLAIN select * from t1 WHERE 10 is distinct from 10Î
-ŸÜæ§p ›Å“(00Ä∂=88@XCOVERING(I1 <,> -> [COL1: KEY[0], ID: KEY[2]]) | FILTER @c6 IS_DISTINCT_FROM @c6 | FETCHÛdigraph G {
+distinct-from-tests5EXPLAIN select * from t1 WHERE 10 is distinct from 10Ì
+Ÿ±‰›p øÊÉ(00ñˆ.88@ZCOVERING(I1 <,> -> [COL1: KEY:[0], ID: KEY:[2]]) | FILTER @c6 IS_DISTINCT_FROM @c6 | FETCHÛdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -82,11 +82,38 @@ L
   3 -> 2 [ label=<&nbsp;q60> label="q60" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q62> label="q62" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Ÿ
+}€
 ]
-not-distinct-from-testsBEXPLAIN select * from t1 WHERE col2 is      not distinct from null˜
-≤Û¡Ù
-j äÄŒ(.0¯¢682@]COVERING(I2 <,> -> [COL2: KEY[0], ID: KEY[2]]) | FILTER _.COL2 NOT_DISTINCT_FROM NULL | FETCH˙digraph G {
+not-distinct-from-testsBEXPLAIN select * from t1 WHERE col2 is      not distinct from null˘
+≤Úµ˛j °¥Ò(.0åÅ-82@_COVERING(I2 <,> -> [COL2: KEY:[0], ID: KEY:[2]]) | FILTER _.COL2 NOT_DISTINCT_FROM NULL | FETCH˙digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Fetch Records</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(INT AS ID, INT AS COL1, INT AS COL2)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q61.COL2 NOT_DISTINCT_FROM NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, INT AS COL1, INT AS COL2)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, INT AS COL1, INT AS COL2)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, INT AS COL1, INT AS COL2)" ];
+  3 -> 2 [ label=<&nbsp;q61> label="q61" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q63> label="q63" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}Ù
+V
+not-distinct-from-tests;EXPLAIN select * from t1 WHERE col1 is not distinct from 20ô
+¬Û¨Éo ¶⁄¶(00œÜ186@oCOVERING(I1 <,> -> [COL1: KEY:[0], ID: KEY:[2]]) | FILTER _.COL1 NOT_DISTINCT_FROM promote(@c11 AS INT) | FETCHädigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Fetch Records</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(INT AS ID, INT AS COL1, INT AS COL2)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q61.COL1 NOT_DISTINCT_FROM promote(@c11 AS INT)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, INT AS COL1, INT AS COL2)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, INT AS COL1, INT AS COL2)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, INT AS COL1, INT AS COL2)" ];
+  3 -> 2 [ label=<&nbsp;q61> label="q61" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q63> label="q63" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}÷
+X
+not-distinct-from-tests=EXPLAIN select * from t1 WHERE null is not distinct from col2˘
+≤–øñj ÷â˛(.0ﬁ◊,82@_COVERING(I2 <,> -> [COL2: KEY:[0], ID: KEY:[2]]) | FILTER _.COL2 NOT_DISTINCT_FROM NULL | FETCH˙digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -99,37 +126,8 @@ L
   2 -> 1 [ label=<&nbsp;q63> label="q63" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
 }Ú
 V
-not-distinct-from-tests;EXPLAIN select * from t1 WHERE col1 is not distinct from 20ó
-¬Áÿ◊o ó˘Û(00∏¨>86@mCOVERING(I1 <,> -> [COL1: KEY[0], ID: KEY[2]]) | FILTER _.COL1 NOT_DISTINCT_FROM promote(@c11 AS INT) | FETCHädigraph G {
-  fontname=courier;
-  rankdir=BT;
-  splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Fetch Records</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(INT AS ID, INT AS COL1, INT AS COL2)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q61.COL1 NOT_DISTINCT_FROM promote(@c11 AS INT)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, INT AS COL1, INT AS COL2)" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, INT AS COL1, INT AS COL2)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, INT AS COL1, INT AS COL2)" ];
-  3 -> 2 [ label=<&nbsp;q61> label="q61" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q63> label="q63" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}‘
-X
-not-distinct-from-tests=EXPLAIN select * from t1 WHERE null is not distinct from col2˜
-≤°¯Ò
-j ßíŒ(.0ÛÜ782@]COVERING(I2 <,> -> [COL2: KEY[0], ID: KEY[2]]) | FILTER _.COL2 NOT_DISTINCT_FROM NULL | FETCH˙digraph G {
-  fontname=courier;
-  rankdir=BT;
-  splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Fetch Records</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(INT AS ID, INT AS COL1, INT AS COL2)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q61.COL2 NOT_DISTINCT_FROM NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, INT AS COL1, INT AS COL2)" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, INT AS COL1, INT AS COL2)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, INT AS COL1, INT AS COL2)" ];
-  3 -> 2 [ label=<&nbsp;q61> label="q61" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q63> label="q63" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}
-V
-not-distinct-from-tests;EXPLAIN select * from t1 WHERE 20 is not distinct from col1ï
-¬¨«µo ÊÃÎ(00æº=86@lCOVERING(I1 <,> -> [COL1: KEY[0], ID: KEY[2]]) | FILTER _.COL1 NOT_DISTINCT_FROM promote(@c6 AS INT) | FETCHâdigraph G {
+not-distinct-from-tests;EXPLAIN select * from t1 WHERE 20 is not distinct from col1ó
+¬ûà˜o ÿŸ©(00˚Œ086@nCOVERING(I1 <,> -> [COL1: KEY:[0], ID: KEY:[2]]) | FILTER _.COL1 NOT_DISTINCT_FROM promote(@c6 AS INT) | FETCHâdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;

@@ -158,10 +158,10 @@ F
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c8 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1, STRING AS __ROW_VERSION)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T2_COL1_VERSION</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1, STRING AS __ROW_VERSION)" ];
   2 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Å
+}Ä
 F
-pseudo-field-clash-queries(EXPLAIN SELECT * FROM t3 WHERE col1 = 20∂
-•ﬂÕ€=ã ⁄à€)(+0ï¶µ8;@gISCAN(T3_COL1_VERSION [EQUALS promote(@c8 AS LONG)]) | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)≠digraph G {
+pseudo-field-clash-queries(EXPLAIN SELECT * FROM t3 WHERE col1 = 20µ
+•ÚõÀã ÈÈó(+0‘£'8;@gISCAN(T3_COL1_VERSION [EQUALS promote(@c8 AS LONG)]) | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)≠digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;

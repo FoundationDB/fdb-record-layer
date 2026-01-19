@@ -121,23 +121,23 @@ agg-index-tests:
     insert_new_count: 46
     insert_reused_count: 5
 -   query: EXPLAIN select col2 from T1 where col1 = 10;
-    explain: 'COVERING(MV8 [EQUALS promote(@c8 AS LONG)] -> [COL1: KEY[0], COL2: KEY[1],
-        ID: KEY[3]]) | MAP (_.COL2 AS COL2)'
+    explain: 'COVERING(MV8 [EQUALS promote(@c8 AS LONG)] -> [COL1: KEY:[0], COL2:
+        KEY:[1], ID: KEY:[3]]) | MAP (_.COL2 AS COL2)'
     task_count: 677
-    task_total_time_ms: 37
+    task_total_time_ms: 43
     transform_count: 171
-    transform_time_ms: 11
+    transform_time_ms: 12
     transform_yield_count: 69
-    insert_time_ms: 3
+    insert_time_ms: 1
     insert_new_count: 68
     insert_reused_count: 5
 -   query: EXPLAIN select col2 from T1 where col1 = 10 order by col2 desc;
-    explain: 'COVERING(MV8 [EQUALS promote(@c8 AS LONG)] REVERSE -> [COL1: KEY[0],
-        COL2: KEY[1], ID: KEY[3]]) | MAP (_.COL2 AS COL2)'
+    explain: 'COVERING(MV8 [EQUALS promote(@c8 AS LONG)] REVERSE -> [COL1: KEY:[0],
+        COL2: KEY:[1], ID: KEY:[3]]) | MAP (_.COL2 AS COL2)'
     task_count: 274
-    task_total_time_ms: 98
+    task_total_time_ms: 21
     transform_count: 88
-    transform_time_ms: 79
+    transform_time_ms: 8
     transform_yield_count: 48
     insert_time_ms: 0
     insert_new_count: 18
@@ -285,10 +285,10 @@ agg-index-tests:
     insert_new_count: 28
     insert_reused_count: 1
 -   query: EXPLAIN select col3, col2 from t2 where col1 = 1 order by col3 asc;
-    explain: 'COVERING(MV9 [EQUALS promote(@c10 AS LONG)] -> [COL1: KEY[0], COL2:
-        KEY[2], COL3: KEY[1], ID: KEY[4]]) | MAP (_.COL3 AS COL3, _.COL2 AS COL2)'
+    explain: 'COVERING(MV9 [EQUALS promote(@c10 AS LONG)] -> [COL1: KEY:[0], COL2:
+        KEY:[2], COL3: KEY:[1], ID: KEY:[4]]) | MAP (_.COL3 AS COL3, _.COL2 AS COL2)'
     task_count: 345
-    task_total_time_ms: 22
+    task_total_time_ms: 28
     transform_count: 109
     transform_time_ms: 11
     transform_yield_count: 54
@@ -296,13 +296,13 @@ agg-index-tests:
     insert_new_count: 26
     insert_reused_count: 0
 -   query: EXPLAIN select col3, col2 from t2 where col1 = 1 order by col3 desc;
-    explain: 'COVERING(MV9 [EQUALS promote(@c10 AS LONG)] REVERSE -> [COL1: KEY[0],
-        COL2: KEY[2], COL3: KEY[1], ID: KEY[4]]) | MAP (_.COL3 AS COL3, _.COL2 AS
-        COL2)'
+    explain: 'COVERING(MV9 [EQUALS promote(@c10 AS LONG)] REVERSE -> [COL1: KEY:[0],
+        COL2: KEY:[2], COL3: KEY:[1], ID: KEY:[4]]) | MAP (_.COL3 AS COL3, _.COL2
+        AS COL2)'
     task_count: 345
-    task_total_time_ms: 24
+    task_total_time_ms: 27
     transform_count: 109
-    transform_time_ms: 10
+    transform_time_ms: 11
     transform_yield_count: 54
     insert_time_ms: 0
     insert_new_count: 26

@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.query.plan.cascades.properties.Cardinalitie
 import com.apple.foundationdb.record.query.plan.cascades.properties.CardinalitiesProperty.Cardinality;
 import com.apple.foundationdb.record.query.plan.cascades.properties.ExpressionDepthProperty;
 import com.apple.foundationdb.record.query.plan.cascades.properties.NormalizedResidualPredicateProperty;
+import com.apple.foundationdb.record.query.plan.cascades.properties.PredicateCountByLevelProperty;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInJoinPlan;
@@ -208,6 +209,14 @@ public class PlanningCostModel implements CascadesCostModel {
             int fetchPositionCompare = Integer.compare(fetchDepthA, fetchDepthB);
             if (fetchPositionCompare != 0) {
                 return fetchPositionCompare;
+            }
+
+            // Compare predicate levels. Prefer plans that place more predicates at deeper levels
+            final PredicateCountByLevelProperty.PredicateCountByLevelInfo predicateLevelInfoA = PredicateCountByLevelProperty.predicateCountByLevel().evaluate(a);
+            final PredicateCountByLevelProperty.PredicateCountByLevelInfo predicateLevelInfoB = PredicateCountByLevelProperty.predicateCountByLevel().evaluate(b);
+            int predicateLevelCompare = PredicateCountByLevelProperty.PredicateCountByLevelInfo.compare(predicateLevelInfoA, predicateLevelInfoB);
+            if (predicateLevelCompare != 0) {
+                return predicateLevelCompare;
             }
 
             // All things being equal for index vs covering index -- there are plans competing of the following shape

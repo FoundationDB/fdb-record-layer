@@ -1,7 +1,7 @@
 –
 Y
 	unnamed-3LEXPLAIN select * from B where b3 = 4 and b2 = 'b' and (? is null or b1 < 20)¸
-ÇŠø P ¤…( 0ð¬8#@4ISCAN(I1 [EQUALS promote(@c8 AS LONG), EQUALS @c12])ädigraph G {
+Ç²ý„	P Ëû¢( 0˜Ý8#@4ISCAN(I1 [EQUALS promote(@c8 AS LONG), EQUALS @c12])ädigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -11,7 +11,8 @@ Y
 }Ž
 e
 agg-index-tests-countLEXPLAIN select * from B where b3 = 4 and b2 = 'b' and (? is null or b1 < 20)¤
-˜Ö‚×Š â‚°(T0œþ^8¯@ºCOVERING(I1 [EQUALS promote(@c8 AS LONG), EQUALS promote(@c12 AS STRING)] -> [B1: KEY:[3], B2: KEY:[1], B3: KEY:[0]]) | FILTER @c15 IS_NULL OR _.B1 LESS_THAN promote(@c21 AS INT) | FETCHÇdigraph G {
+˜¯îˆŠ ¶«€
+(T0Èâc8¯@ºCOVERING(I1 [EQUALS promote(@c8 AS LONG), EQUALS promote(@c12 AS STRING)] -> [B1: KEY:[3], B2: KEY:[1], B3: KEY:[0]]) | FILTER @c15 IS_NULL OR _.B1 LESS_THAN promote(@c21 AS INT) | FETCHÇdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;

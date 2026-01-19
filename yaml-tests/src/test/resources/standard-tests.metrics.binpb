@@ -1,7 +1,8 @@
 ⁄
 Ä
 standard-testsnEXPLAIN select id, case when col1 = 10 then 100 when col2 in (6,7,8,9) then 200 else 300 end as NEWCOL from T1‘
-’Ç”†6 ®¸Û(0Ïà)8@ñISCAN(I1 <,>) | MAP (_.ID AS ID, pick(ConditionSelector(_.COL1 equals @c8, _.COL2 IN promote(@c14 AS ARRAY(LONG)), TRUE), @c10, @c24, @c26) AS NEWCOL)ùdigraph G {
+’ò¯„
+6 û∫÷(0£¡58@ñISCAN(I1 <,>) | MAP (_.ID AS ID, pick(ConditionSelector(_.COL1 equals @c8, _.COL2 IN promote(@c14 AS ARRAY(LONG)), TRUE), @c10, @c24, @c26) AS NEWCOL)ùdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -13,7 +14,7 @@
 }∏
 w
 standard-testseEXPLAIN select id, case when col1 = 10 then 100 when col2 in (6,7,8,9) then 200 end as NEWCOL from T1º
-’»ÖÇ6 ∞Ò≠(0◊Ü,8@äISCAN(I1 <,>) | MAP (_.ID AS ID, pick(ConditionSelector(_.COL1 equals @c8, _.COL2 IN promote(@c14 AS ARRAY(LONG))), @c10, @c24) AS NEWCOL)ëdigraph G {
+’Å‚Ñ6 ©€“(0Ì˙18@äISCAN(I1 <,>) | MAP (_.ID AS ID, pick(ConditionSelector(_.COL1 equals @c8, _.COL2 IN promote(@c14 AS ARRAY(LONG))), @c10, @c24) AS NEWCOL)ëdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -25,7 +26,7 @@ w
 }„
 :
 standard-tests(EXPLAIN select * from T1 where COL1 = 20§
-∑∑Ö€	K ÙÇû(0Ω„'8@'ISCAN(I1 [EQUALS promote(@c8 AS LONG)])›digraph G {
+∑©º≠	K ≠Á√(0¶â'8@'ISCAN(I1 [EQUALS promote(@c8 AS LONG)])›digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -36,7 +37,7 @@ w
 I
 standard-tests7EXPLAIN select * from T1 where COL1 >= 10 OR COL1 <= 20Ò
 ã
-Ì“æ?Ñ ıÒΩ(O0„ö‘8ü@‘COVERING(I1 [[GREATER_THAN_OR_EQUALS promote(@c9 AS LONG)]] -> [COL1: KEY:[0], ID: KEY:[2]]) ‚äé COVERING(I1 [[LESS_THAN_OR_EQUALS promote(@c14 AS LONG)]] -> [COL1: KEY:[0], ID: KEY:[2]]) | DISTINCT BY PK | FETCH˘digraph G {
+Öö⁄Ñ Óº†(O0ﬂ§æ8ü@‘COVERING(I1 [[GREATER_THAN_OR_EQUALS promote(@c9 AS LONG)]] -> [COL1: KEY:[0], ID: KEY:[2]]) ‚äé COVERING(I1 [[LESS_THAN_OR_EQUALS promote(@c14 AS LONG)]] -> [COL1: KEY:[0], ID: KEY:[2]]) | DISTINCT BY PK | FETCH˘digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -56,7 +57,7 @@ I
 }“
 W
 standard-testsEEXPLAIN select * from T1 where COL1 >= 10 OR COL1 <= 20 ORDER BY COL1ˆ
-ΩÎ›ö‡ éÃ®(>0ê˜Ã8}@†ISCAN(I1 [[GREATER_THAN_OR_EQUALS promote(@c9 AS LONG)]]) ‚à™ ISCAN(I1 [[LESS_THAN_OR_EQUALS promote(@c14 AS LONG)]]) COMPARE BY (_.COL1, recordType([_]), _.ID)≥digraph G {
+ΩÆÂ„$‡ ›êÁ(>0¡…¥8}@†ISCAN(I1 [[GREATER_THAN_OR_EQUALS promote(@c9 AS LONG)]]) ‚à™ ISCAN(I1 [[LESS_THAN_OR_EQUALS promote(@c14 AS LONG)]]) COMPARE BY (_.COL1, recordType([_]), _.ID)≥digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -72,7 +73,7 @@ W
 }˘
 J
 standard-tests8EXPLAIN select * from T1 where COL1 >= 10 AND COL1 <= 20™
-∑†öŒL Å≈›(0‰Ô#8@fISCAN(I1 [[GREATER_THAN_OR_EQUALS promote(@c9 AS LONG) && LESS_THAN_OR_EQUALS promote(@c14 AS LONG)]])§digraph G {
+∑≤ÑﬂL ﬁ∞˜(0ìç(8@fISCAN(I1 [[GREATER_THAN_OR_EQUALS promote(@c9 AS LONG) && LESS_THAN_OR_EQUALS promote(@c14 AS LONG)]])§digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -82,7 +83,7 @@ J
 }á	
 X
 standard-testsFEXPLAIN select * from T1 where COL1 >= 10 AND COL1 <= 20 ORDER BY COL1™
-áéâ‰A ïÿõ(0éŸ8@fISCAN(I1 [[GREATER_THAN_OR_EQUALS promote(@c9 AS LONG) && LESS_THAN_OR_EQUALS promote(@c14 AS LONG)]])§digraph G {
+á⁄•ÿA ı≈—(0ã†8@fISCAN(I1 [[GREATER_THAN_OR_EQUALS promote(@c9 AS LONG) && LESS_THAN_OR_EQUALS promote(@c14 AS LONG)]])§digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -92,7 +93,7 @@ X
 }
 G
 standard-tests5EXPLAIN select * from T1 where COL1 = 20 OR COL1 = 20§
-«§ß˜P òÊì( 0äì"8#@'ISCAN(I1 [EQUALS promote(@c8 AS LONG)])›digraph G {
+«≥™´P Ôπ´( 0ö∆08#@'ISCAN(I1 [EQUALS promote(@c8 AS LONG)])›digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -102,7 +103,7 @@ G
 }˛
 U
 standard-testsCEXPLAIN select * from T1 where COL1 = 20 OR COL1 = 20 ORDER BY COL1§
-óﬁâ∑F ¬é¥(0÷¯+8@'ISCAN(I1 [EQUALS promote(@c8 AS LONG)])›digraph G {
+ó‘∏¢F ë¶°(0∏ô$8@'ISCAN(I1 [EQUALS promote(@c8 AS LONG)])›digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -112,7 +113,7 @@ U
 }Ò
 H
 standard-tests6EXPLAIN select * from T1 where COL1 = 20 AND COL1 = 20§
-∑ı§‡	K ï˚¢(0Ì¶:8@'ISCAN(I1 [EQUALS promote(@c8 AS LONG)])›digraph G {
+∑≈ﬂ†K ê˜Ï(0õ¥(8@'ISCAN(I1 [EQUALS promote(@c8 AS LONG)])›digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -123,7 +124,7 @@ H
 f
 standard-testsTEXPLAIN select * from T1 where (COL1 = 20 OR COL1 = 10) AND (COL1 = 20 OR COL1 = 10)Ø
 ≥
-—¡ù+é –…ã(S0¡˛°8•@≥COVERING(I1 [EQUALS promote(@c9 AS LONG)] -> [COL1: KEY:[0], ID: KEY:[2]]) ‚äé COVERING(I1 [EQUALS promote(@c13 AS LONG)] -> [COL1: KEY:[0], ID: KEY:[2]]) | DISTINCT BY PK | FETCHÿdigraph G {
+»¯ù,é §‰Î(S0°É…8•@≥COVERING(I1 [EQUALS promote(@c9 AS LONG)] -> [COL1: KEY:[0], ID: KEY:[2]]) ‚äé COVERING(I1 [EQUALS promote(@c13 AS LONG)] -> [COL1: KEY:[0], ID: KEY:[2]]) | DISTINCT BY PK | FETCHÿdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -143,7 +144,7 @@ f
 }≠
 t
 standard-testsbEXPLAIN select * from T1 where (COL1 = 20 OR COL1 = 10) AND (COL1 = 20 OR COL1 = 10) ORDER BY COL1¥
-≠	‘∏∏#Ò ë˛Ÿ(@0¯ÈΩ8Ñ@ISCAN(I1 [EQUALS promote(@c9 AS LONG)]) ‚à™ ISCAN(I1 [EQUALS promote(@c13 AS LONG)]) COMPARE BY (_.COL1, recordType([_]), _.ID)ídigraph G {
+≠	éáÏ*Ò ﬁä∫(@0¸ïè8Ñ@ISCAN(I1 [EQUALS promote(@c9 AS LONG)]) ‚à™ ISCAN(I1 [EQUALS promote(@c13 AS LONG)]) COMPARE BY (_.COL1, recordType([_]), _.ID)ídigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -159,7 +160,7 @@ t
 }ú	
 k
 standard-testsYEXPLAIN select * from T1 where (COL1 >= 10 AND COL1 <= 20) OR (COL1 >= 10 AND COL1 <= 20)¨
-«ÖŸéQ ¥Ó†( 0¬Ù*8#@gISCAN(I1 [[GREATER_THAN_OR_EQUALS promote(@c10 AS LONG) && LESS_THAN_OR_EQUALS promote(@c15 AS LONG)]])•digraph G {
+«ãﬁ∑Q ß“À( 0ë®68#@gISCAN(I1 [[GREATER_THAN_OR_EQUALS promote(@c10 AS LONG) && LESS_THAN_OR_EQUALS promote(@c15 AS LONG)]])•digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -169,17 +170,17 @@ k
 }™	
 y
 standard-testsgEXPLAIN select * from T1 where (COL1 >= 10 AND COL1 <= 20) OR (COL1 >= 10 AND COL1 <= 20) ORDER BY COL1¨
-óú˘£F Å¸˜(0È›N8@gISCAN(I1 [[GREATER_THAN_OR_EQUALS promote(@c10 AS LONG) && LESS_THAN_OR_EQUALS promote(@c15 AS LONG)]])•digraph G {
+óôï∂F È§π(0¥8@gISCAN(I1 [[GREATER_THAN_OR_EQUALS promote(@c10 AS LONG) && LESS_THAN_OR_EQUALS promote(@c15 AS LONG)]])•digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [[GREATER_THAN_OR_EQUALS promote(@c10 AS LONG) &amp;&amp; LESS_THAN_OR_EQUALS promote(@c15 AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1, LONG AS COL2)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1, LONG AS COL2)" ];
   2 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Û
+}Ù
 b
-standard-testsPEXPLAIN select * from (select * from (select * from T1) as x where ID = 5) as y;å
-èøôà^ Ë◊≈($0”‰π82@aCOVERING(I1 <,> -> [COL1: KEY[0], ID: KEY[2]]) | FILTER _.ID EQUALS promote(@c19 AS LONG) | FETCHädigraph G {
+standard-testsPEXPLAIN select * from (select * from (select * from T1) as x where ID = 5) as y;ç
+è´†å^ ‘üó($0û N82@cCOVERING(I1 <,> -> [COL1: KEY:[0], ID: KEY:[2]]) | FILTER _.ID EQUALS promote(@c19 AS LONG) | FETCHädigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -190,10 +191,10 @@ b
   3 -> 2 [ label=<&nbsp;q46> label="q46" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q48> label="q48" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Ú
+}Ù
 b
-standard-testsPEXPLAIN select * from (select * from (select * from T1) as x) as y where ID = 5;ã
-πº°†g ñÉå((0ˇ§Z8;@aCOVERING(I1 <,> -> [COL1: KEY[0], ID: KEY[2]]) | FILTER _.ID EQUALS promote(@c22 AS LONG) | FETCHädigraph G {
+standard-testsPEXPLAIN select * from (select * from (select * from T1) as x) as y where ID = 5;ç
+πÿ·¶g ó‚…((0¸Íq8;@cCOVERING(I1 <,> -> [COL1: KEY:[0], ID: KEY:[2]]) | FILTER _.ID EQUALS promote(@c22 AS LONG) | FETCHädigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -226,10 +227,10 @@ b
   7 -> 6 [ label=<&nbsp;q56> label="q56" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   8 -> 7 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q12> label="q12" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}ï
+}ó
 y
-standard-testsgEXPLAIN select * from (select * from (select * from (select * from T1  where ID > 10) as x) as y) as z;ó
-à√ﬁ˚	Y ¶∞…(#0€ﬁ88/@gCOVERING(I1 <,> -> [COL1: KEY[0], ID: KEY[2]]) | FILTER _.ID GREATER_THAN promote(@c20 AS LONG) | FETCHêdigraph G {
+standard-testsgEXPLAIN select * from (select * from (select * from (select * from T1  where ID > 10) as x) as y) as z;ô
+à∏ëÎY Í¶€(#0©´<8/@iCOVERING(I1 <,> -> [COL1: KEY:[0], ID: KEY:[2]]) | FILTER _.ID GREATER_THAN promote(@c20 AS LONG) | FETCHêdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
