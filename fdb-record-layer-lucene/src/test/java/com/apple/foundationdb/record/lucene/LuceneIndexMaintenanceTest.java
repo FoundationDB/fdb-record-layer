@@ -117,6 +117,7 @@ import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.lucene.LuceneIndexOptions.INDEX_PARTITION_BY_FIELD_NAME;
 import static com.apple.foundationdb.record.lucene.LuceneIndexOptions.INDEX_PARTITION_HIGH_WATERMARK;
+import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.SIMPLE_TEXT_SUFFIXES;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.function;
@@ -734,6 +735,98 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
         // validate index is sane
         new LuceneIndexTestValidator(() -> openContext(contextProps), context -> Objects.requireNonNull(schemaSetup.apply(context)))
                 .validate(index, insertedDocs, "text:about", false);
+    }
+
+    @Test
+    void pendingQueueTestSimple() throws Exception {
+        // Test simple non-partitioned ongoing merge indicator life cycle
+        final Index index = SIMPLE_TEXT_SUFFIXES;
+        final KeySpacePath path = pathManager.createPath(TestKeySpace.RECORD_STORE);
+        final Function<FDBRecordContext, FDBRecordStore> schemaSetup = context ->
+                LuceneIndexTestUtils.rebuildIndexMetaData(context, path,
+                        TestRecordsTextProto.SimpleDocument.getDescriptor().getName(),
+                        index, useCascadesPlanner).getLeft();
+
+        // Set merge indicator
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
+
+            // Get directory and set queue indicator
+            IndexMaintainerState state = new IndexMaintainerState(recordStore, index,
+                    recordStore.getIndexMaintenanceFilter());
+            FDBDirectoryManager directoryManager = FDBDirectoryManager.getManager(state);
+            FDBDirectory directory = directoryManager.getDirectory(null, null);
+            directory.setUseQueue(context);
+            commit(context);
+        }
+
+        // Write a record
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
+            recordStore.saveRecord(
+                    LuceneIndexTestUtils.createSimpleDocument(1001L, "test document", 1)
+            );
+            commit(context);
+        }
+
+        // Verify record is in queue
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
+
+            // Verify entry is in pending queue
+            IndexMaintainerState state = new IndexMaintainerState(recordStore, index,
+                    recordStore.getIndexMaintenanceFilter());
+            FDBDirectoryManager directoryManager = FDBDirectoryManager.getManager(state);
+            FDBDirectory directory = directoryManager.getDirectory(null, null);
+
+            assertTrue(directory.shouldUseQueue(),
+                    "Merge indicator should still be true");
+
+            PendingWriteQueue queue = directory.createPendingWritesQueue();
+
+            List<PendingWriteQueue.QueueEntry> queueEntries = new ArrayList<>();
+            RecordCursor<PendingWriteQueue.QueueEntry> queueCursor = queue.getQueueCursor(
+                    context, ScanProperties.FORWARD_SCAN, null);
+            queueCursor.forEach(queueEntries::add).join();
+
+            assertEquals(1, queueEntries.size(), "Queue should have exactly 1 entry");
+
+            PendingWriteQueue.QueueEntry entry = queueEntries.get(0);
+            assertEquals(LucenePendingWriteQueueProto.PendingWriteItem.OperationType.INSERT,
+                    entry.getOperationType(), "Entry should be INSERT operation");
+            commit(context);
+        }
+
+        // call merge - this should call drain and remove the ongoing merge indicator
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
+            final LuceneIndexMaintainer indexMaintainer = getIndexMaintainer(recordStore, index);
+            indexMaintainer.mergeIndex();
+            commit(context);
+        }
+
+        // Verify empty queue
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
+
+            IndexMaintainerState state = new IndexMaintainerState(recordStore, index,
+                    recordStore.getIndexMaintenanceFilter());
+            FDBDirectoryManager directoryManager = FDBDirectoryManager.getManager(state);
+            FDBDirectory directory = directoryManager.getDirectory(null, null);
+
+            assertFalse(directory.shouldUseQueue(), "Merge indicator should be false");
+
+            PendingWriteQueue queue = directory.createPendingWritesQueue();
+            List<PendingWriteQueue.QueueEntry> queueEntries = new ArrayList<>();
+            RecordCursor<PendingWriteQueue.QueueEntry> queueCursor = queue.getQueueCursor(
+                    context, ScanProperties.FORWARD_SCAN, null);
+            queueCursor.forEach(queueEntries::add).join();
+
+            assertEquals(0, queueEntries.size(), "Queue should be empty");
+
+            commit(context);
+        }
+
     }
 
     // A test where there are multiple threads trying to do merges. At the end the index should be validated for consistency.
