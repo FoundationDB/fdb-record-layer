@@ -39,7 +39,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.PullUp;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
-import com.apple.foundationdb.record.query.plan.explain.DefaultExplainSymbolMap;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
 import com.apple.foundationdb.record.query.plan.explain.WithIndentationsExplainFormatter;
 import com.google.common.base.Verify;
@@ -193,8 +192,7 @@ public class FullUnorderedScanExpression extends AbstractRelationalExpressionWit
         Verify.verify(childGraphs.isEmpty());
 
         final var explainFormatter =
-                new WithIndentationsExplainFormatter(DefaultExplainSymbolMap::new, 15,
-                        50, 4);
+                WithIndentationsExplainFormatter.forDot(15);
 
         final var sourceString =
                 "record types: " +

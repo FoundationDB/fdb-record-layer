@@ -56,7 +56,6 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
-import com.apple.foundationdb.record.query.plan.explain.DefaultExplainSymbolMap;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
 import com.apple.foundationdb.record.query.plan.explain.WithIndentationsExplainFormatter;
 import com.google.auto.service.AutoService;
@@ -437,8 +436,7 @@ public class RecordQueryScanPlan extends AbstractRelationalExpressionWithoutChil
                             ImmutableList.of("ALL"));
         } else {
             final var explainFormatter =
-                    new WithIndentationsExplainFormatter(DefaultExplainSymbolMap::new, 7,
-                            50, 14);
+                    WithIndentationsExplainFormatter.forDot(14);
 
             final var sourceString =
                     "record types: " +

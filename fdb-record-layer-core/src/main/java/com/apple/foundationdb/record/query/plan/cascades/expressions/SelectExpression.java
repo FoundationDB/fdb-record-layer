@@ -59,7 +59,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Values;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.MaxMatchMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.PullUp;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
-import com.apple.foundationdb.record.query.plan.explain.DefaultExplainSymbolMap;
 import com.apple.foundationdb.record.query.plan.explain.WithIndentationsExplainFormatter;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
@@ -632,8 +631,7 @@ public class SelectExpression extends AbstractRelationalExpressionWithChildren i
     @Override
     public PlannerGraph rewriteInternalPlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
         final var whereFormatter =
-                new WithIndentationsExplainFormatter(DefaultExplainSymbolMap::new, 7,
-                        50, 4);
+                WithIndentationsExplainFormatter.forDot(7);
 
         final var predicateString =
                 "WHERE " + getConjunctedPredicate().explain()
@@ -641,8 +639,7 @@ public class SelectExpression extends AbstractRelationalExpressionWithChildren i
                         .render(whereFormatter);
 
         final var selectFormatter =
-                new WithIndentationsExplainFormatter(DefaultExplainSymbolMap::new, 5,
-                        50, 4);
+                WithIndentationsExplainFormatter.forDot(5);
 
         final var resultString =
                 "SELECT " + resultValue.explain()

@@ -49,7 +49,6 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.AbstractRel
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
-import com.apple.foundationdb.record.query.plan.explain.DefaultExplainSymbolMap;
 import com.apple.foundationdb.record.query.plan.explain.WithIndentationsExplainFormatter;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
@@ -262,8 +261,7 @@ public class RecordQueryFlatMapPlan extends AbstractRelationalExpressionWithChil
     @Override
     public PlannerGraph rewriteInternalPlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
         final var explainFormatter =
-                new WithIndentationsExplainFormatter(DefaultExplainSymbolMap::new, 5,
-                        50, 4);
+                WithIndentationsExplainFormatter.forDot(5);
 
         final var flatMapString =
                 "FLATMAP " + getResultValue().explain()
@@ -273,7 +271,7 @@ public class RecordQueryFlatMapPlan extends AbstractRelationalExpressionWithChil
         return PlannerGraph.fromNodeAndChildGraphs(
                 new PlannerGraph.OperatorNodeWithInfo(
                         this,
-                        NodeInfo.PREDICATE_FILTER_OPERATOR,
+                        NodeInfo.NESTED_LOOP_JOIN_OPERATOR,
                         ImmutableList.of(flatMapString),
                         ImmutableMap.of()),
                 childGraphs);

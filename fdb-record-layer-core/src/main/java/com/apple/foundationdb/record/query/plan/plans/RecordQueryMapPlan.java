@@ -48,7 +48,6 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.AbstractRel
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
-import com.apple.foundationdb.record.query.plan.explain.DefaultExplainSymbolMap;
 import com.apple.foundationdb.record.query.plan.explain.WithIndentationsExplainFormatter;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
@@ -224,8 +223,7 @@ public class RecordQueryMapPlan extends AbstractRelationalExpressionWithChildren
     @Override
     public PlannerGraph rewriteInternalPlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
         final var explainFormatter =
-                new WithIndentationsExplainFormatter(DefaultExplainSymbolMap::new, 1,
-                        50, 4);
+                WithIndentationsExplainFormatter.forDot(1);
 
         final var mapString =
                 "MAP " + getResultValue().explain()

@@ -31,7 +31,6 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
-import com.apple.foundationdb.record.query.plan.explain.DefaultExplainSymbolMap;
 import com.apple.foundationdb.record.query.plan.explain.WithIndentationsExplainFormatter;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Suppliers;
@@ -170,8 +169,7 @@ public class LogicalFilterExpression extends AbstractRelationalExpressionWithChi
     @Override
     public PlannerGraph rewriteInternalPlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
         final var explainFormatter =
-                new WithIndentationsExplainFormatter(DefaultExplainSymbolMap::new, 7,
-                        50, 4);
+                WithIndentationsExplainFormatter.forDot(7);
 
         final var predicateString =
                 "WHERE " + getConjunctedPredicate().explain()

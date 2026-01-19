@@ -53,6 +53,8 @@ import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.explain.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.rules.QueryPredicateSimplificationRuleTest.RandomPredicateGenerator;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
@@ -87,6 +89,7 @@ import com.apple.foundationdb.record.query.plan.sorting.RecordQuerySortPlan;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.test.RandomSeedSource;
 import com.apple.test.RandomizedTestUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -599,6 +602,19 @@ public class ExplainPlanVisitorTest {
         String lengthLimitedString =
                 ExplainPlanVisitor.toStringForExternalExplain(unorderedUnionPlan, ExplainLevel.STRUCTURE, minLength);
         assertEquals(withoutUnstringable.substring(0, minLength) + "...", lengthLimitedString);
+    }
+
+    @ParameterizedTest
+    @RandomSeedSource({0x0fdbL, 0x5ca1eL, 123456L, 78910L, 1123581321345589L})
+    void testDotExplainForPredicates(final long seed) {
+        final WithIndentationsExplainFormatter formatter = WithIndentationsExplainFormatter.forDot(4);
+        final RandomPredicateGenerator randomPredicateGenerator = new RandomPredicateGenerator(new Random(seed));
+        final QueryPredicate randomPredicate = randomPredicateGenerator.generate().getPredicateUnderTest();
+        final var explainTokens = randomPredicate.explain().getExplainTokens();
+        final String predicateString = explainTokens.render(formatter).toString();
+        final String defaultExplainPredicateString = explainTokens.render(new DefaultExplainFormatter(DefaultExplainSymbolMap::new)).toString();
+        assertEquals(defaultExplainPredicateString.replaceAll("\\s+", ""),
+                predicateString.replaceAll("\\s+", ""));
     }
 
     /**
