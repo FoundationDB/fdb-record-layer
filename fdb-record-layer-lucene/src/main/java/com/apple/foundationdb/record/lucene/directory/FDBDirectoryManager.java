@@ -241,7 +241,6 @@ public class FDBDirectoryManager implements AutoCloseable {
                                              @Nullable final Integer partitionId,
                                              @Nonnull final AgilityContext agilityContext,
                                              FDBDirectoryWrapper directoryWrapper) {
-        // todo: retry if fails to clear queue
         for (int retries = 0; retries < 10; retries ++) {
             try {
                 agilityContext.flush(); // since drain doesn't use agility context, flush it now to prevent a potential stale context
@@ -273,7 +272,8 @@ public class FDBDirectoryManager implements AutoCloseable {
                         handleOneItemFactory(pendingWriteQueue, groupingKey, partitionId))
                 .withMdcContext(MDC.getCopyOfContextMap())
                 .build()) {
-            iterator.iterateAll(state.store.asBuilder());
+            agilityContext.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_DECREMENT,
+                    iterator.iterateAll(state.store.asBuilder()));
         } catch (CloseException e) {
             throw new RuntimeException(e);
         }
