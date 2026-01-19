@@ -64,7 +64,7 @@ test_block:
             traversal order level_order
             select id, parent, level from c1
       - supported_version: 4.7.2.0
-      - explain: "RUNION q0, q1 { INITIAL { COVERING(CHILDIDX [EQUALS promote(@c19 AS LONG)] -> [ID: KEY:[0], PARENT: KEY:[1]]) | MAP (_.ID AS ID, _.PARENT AS PARENT, @c11 AS LEVEL) | INSERT INTO TEMP q1 } RECURSIVE  { ISCAN(CHILDIDX <,>) | FLATMAP q2 -> { TEMP SCAN base() | FILTER _.PARENT EQUALS q2.ID AS q3 RETURN (q2.ID AS ID, q2.PARENT AS PARENT, q3.LEVEL + @c45 AS LEVEL) } | INSERT INTO TEMP q1 }} | MAP (_.ID AS ID, _.PARENT AS PARENT, _.LEVEL AS LEVEL)"
+      - explain: "RUNION q0, q1 { INITIAL { COVERING(CHILDIDX [EQUALS promote(@c19 AS LONG)] -> [ID: KEY:[0], PARENT: KEY:[1]]) | MAP (_.ID AS ID, _.PARENT AS PARENT, @c11 AS LEVEL) | INSERT INTO TEMP q1 } RECURSIVE  { TEMP SCAN base() | FLATMAP q2 -> { COVERING(PARENTIDX <,> -> [ID: KEY:[1], PARENT: KEY:[0]]) | FILTER q2.PARENT EQUALS _.ID | FETCH AS q3 RETURN (q3.ID AS ID, q3.PARENT AS PARENT, q2.LEVEL + @c45 AS LEVEL) } | INSERT INTO TEMP q1 }} | MAP (_.ID AS ID, _.PARENT AS PARENT, _.LEVEL AS LEVEL)"
       - result: [{ID: 250, PARENT: 50, LEVEL: 0},
                  {ID: 50, PARENT: 10, LEVEL: 1},
                  {ID: 10, PARENT: 1, LEVEL: 2},
@@ -122,7 +122,7 @@ test_block:
             traversal order level_order
             select id from c1
       - supported_version: 4.7.2.0
-      - explain: "RUNION q0, q1 { INITIAL { ISCAN(PARENTIDX [EQUALS promote(@c15 AS LONG)]) | INSERT INTO TEMP q1 } RECURSIVE  { ISCAN(CHILDIDX <,>) | FLATMAP q2 -> { TEMP SCAN base() | FILTER _.ID EQUALS q2.PARENT AS q3 RETURN (q2.ID AS ID, q2.PARENT AS PARENT) } | INSERT INTO TEMP q1 }} | MAP (_.ID AS ID)"
+      - explain: "RUNION q0, q1 { INITIAL { ISCAN(PARENTIDX [EQUALS promote(@c15 AS LONG)]) | INSERT INTO TEMP q1 } RECURSIVE  { TEMP SCAN base() | FLATMAP q2 -> { COVERING(PARENTIDX <,> -> [ID: KEY:[1], PARENT: KEY:[0]]) | FILTER q2.ID EQUALS _.PARENT | FETCH AS q3 RETURN (q3.ID AS ID, q3.PARENT AS PARENT) } | INSERT INTO TEMP q1 }} | MAP (_.ID AS ID)"
       - unorderedResult: [{ID: 1},
                           {ID: 10},
                           {ID: 20},
@@ -150,7 +150,7 @@ test_block:
             traversal order level_order
             select id from c1
       - supported_version: 4.7.2.0
-      - explain: "RUNION q0, q1 { INITIAL { ISCAN(CHILDIDX [EQUALS promote(@c15 AS LONG)]) | INSERT INTO TEMP q1 } RECURSIVE  { ISCAN(CHILDIDX <,>) | FLATMAP q2 -> { TEMP SCAN base() | FILTER _.PARENT EQUALS q2.ID AS q3 RETURN (q2.ID AS ID, q2.PARENT AS PARENT) } | INSERT INTO TEMP q1 }} | MAP (_.ID AS ID)"
+      - explain: "RUNION q0, q1 { INITIAL { ISCAN(CHILDIDX [EQUALS promote(@c15 AS LONG)]) | INSERT INTO TEMP q1 } RECURSIVE  { TEMP SCAN base() | FLATMAP q2 -> { COVERING(PARENTIDX <,> -> [ID: KEY:[1], PARENT: KEY:[0]]) | FILTER q2.PARENT EQUALS _.ID | FETCH AS q3 RETURN (q3.ID AS ID, q3.PARENT AS PARENT) } | INSERT INTO TEMP q1 }} | MAP (_.ID AS ID)"
       - result: [{ID: 250},
                  {ID: 50},
                  {ID: 10},

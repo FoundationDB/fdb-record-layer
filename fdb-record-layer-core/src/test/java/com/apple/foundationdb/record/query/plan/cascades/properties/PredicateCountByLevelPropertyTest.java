@@ -20,23 +20,13 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.properties;
 
-import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
-import com.apple.foundationdb.record.query.plan.cascades.PlannerStage;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.Reference;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
 import java.util.Map;
 
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.column;
@@ -166,46 +156,6 @@ class PredicateCountByLevelPropertyTest {
         );
     }
 
-    @Nonnull
-    private static Quantifier.Physical physicalOf(@Nonnull RecordQueryPlan plan) {
-        return Quantifier.Physical.physical(Reference.ofFinalExpression(PlannerStage.PLANNED, plan));
-    }
-
-    /**
-     * When evaluating predicate levels, we skip over any {@link RecordQueryUnorderedPrimaryKeyDistinctPlan}.
-     * This is because we will prefer lower distinct filters later on in the cost model, and we don't want
-     * this comparison to get in the way.
-     */
-    @Test
-    void skipsDistinctPlanInLevelCalculation() {
-        final Quantifier.Physical scanQun = physicalOf(new RecordQueryScanPlan(ImmutableSet.of("T"), baseT().getFlowedObjectType(), null, ScanComparisons.EMPTY, false, true));
-
-        // Build a filter on top of a distinct on top of the scan
-        final Quantifier.Physical distinctQun = physicalOf(new RecordQueryUnorderedPrimaryKeyDistinctPlan(scanQun));
-        final RelationalExpression filterExpr = new RecordQueryPredicatesFilterPlan(distinctQun, ImmutableList.of(fieldPredicate(distinctQun, "b", EQUALS_42)));
-        final var infoFilterOverDistinct = predicateCountByLevel().evaluate(filterExpr);
-
-        assertThat(infoFilterOverDistinct.getLevelToPredicateCount().lastKey()).isOne();
-        assertThat(infoFilterOverDistinct.getLevelToPredicateCount()).containsExactly(
-                Map.entry(0, 0), // corresponds to the level with the scan plan
-                Map.entry(1, 1) // corresponds to the level with the filter plan -- skips distinct plan
-        );
-
-        // Swapping the distinct and filter leads to to an equivalent level info
-        final Quantifier.Physical filterQun = physicalOf(new RecordQueryPredicatesFilterPlan(scanQun, ImmutableList.of(fieldPredicate(distinctQun, "b", EQUALS_42))));
-        final RelationalExpression distinctExpr = new RecordQueryUnorderedPrimaryKeyDistinctPlan(filterQun);
-        final var infoDistinctOverFilter = predicateCountByLevel().evaluate(distinctExpr);
-
-        assertThat(infoDistinctOverFilter.getLevelToPredicateCount().lastKey()).isOne();
-        assertThat(infoDistinctOverFilter.getLevelToPredicateCount()).containsExactly(
-                Map.entry(0, 0), // corresponds to the level with the scan plan
-                Map.entry(1, 1) // corresponds to the level with the filter plan
-        );
-
-        assertThat(PredicateCountByLevelProperty.PredicateCountByLevelInfo.compare(infoFilterOverDistinct, infoDistinctOverFilter)).isZero();
-        assertThat(PredicateCountByLevelProperty.PredicateCountByLevelInfo.compare(infoDistinctOverFilter, infoFilterOverDistinct)).isZero();
-    }
-
     @Test
     void predicateCountByLevelInfoInstancesAreCombinedCorrectly() {
         final var aInfo = new PredicateCountByLevelProperty.PredicateCountByLevelInfo(
@@ -237,50 +187,10 @@ class PredicateCountByLevelPropertyTest {
                         ImmutableMap.of(0, 1, 1, 2, 2, 1));
 
         assertThat(PredicateCountByLevelProperty.PredicateCountByLevelInfo.compare(aInfo, bInfo)).isPositive();
-        assertThat(PredicateCountByLevelProperty.PredicateCountByLevelInfo.compare(bInfo, aInfo)).isNegative();
     }
 
     @Test
-    void compareBehavesAsIfFilledInZerosForDifferentLevelsEquality() {
-        final PredicateCountByLevelProperty.PredicateCountByLevelInfo aInfo =
-                new PredicateCountByLevelProperty.PredicateCountByLevelInfo(
-                        ImmutableMap.of(0, 1, 1, 3, 2, 1));
-        final PredicateCountByLevelProperty.PredicateCountByLevelInfo bInfo =
-                new PredicateCountByLevelProperty.PredicateCountByLevelInfo(
-                        ImmutableMap.of(0, 1, 1, 3, 2, 1, 3, 0));
-
-        assertThat(PredicateCountByLevelProperty.PredicateCountByLevelInfo.compare(aInfo, bInfo)).isZero();
-        assertThat(PredicateCountByLevelProperty.PredicateCountByLevelInfo.compare(bInfo, aInfo)).isZero();
-    }
-
-    @Test
-    void compareHandlesMissingLevel() {
-        final PredicateCountByLevelProperty.PredicateCountByLevelInfo aInfo =
-                new PredicateCountByLevelProperty.PredicateCountByLevelInfo(
-                        ImmutableMap.of(0, 1, 2, 1));
-        final PredicateCountByLevelProperty.PredicateCountByLevelInfo bInfo =
-                new PredicateCountByLevelProperty.PredicateCountByLevelInfo(
-                        ImmutableMap.of(0, 1, 1, 1, 2, 1));
-
-        assertThat(PredicateCountByLevelProperty.PredicateCountByLevelInfo.compare(aInfo, bInfo)).isNegative();
-        assertThat(PredicateCountByLevelProperty.PredicateCountByLevelInfo.compare(bInfo, aInfo)).isPositive();
-    }
-
-    @Test
-    void compareHandlesMissingLevelEquality() {
-        final PredicateCountByLevelProperty.PredicateCountByLevelInfo aInfo =
-                new PredicateCountByLevelProperty.PredicateCountByLevelInfo(
-                        ImmutableMap.of(0, 1, 2, 1));
-        final PredicateCountByLevelProperty.PredicateCountByLevelInfo bInfo =
-                new PredicateCountByLevelProperty.PredicateCountByLevelInfo(
-                        ImmutableMap.of(0, 1, 1, 0, 2, 1));
-
-        assertThat(PredicateCountByLevelProperty.PredicateCountByLevelInfo.compare(aInfo, bInfo)).isZero();
-        assertThat(PredicateCountByLevelProperty.PredicateCountByLevelInfo.compare(bInfo, aInfo)).isZero();
-    }
-
-    @Test
-    void compareBehavesAsIfFilledInZerosForDifferentLevelsInequality() {
+    void compareReturnsInfoWithMoreLevelsInCaseOfEquality() {
         final PredicateCountByLevelProperty.PredicateCountByLevelInfo aInfo =
                 new PredicateCountByLevelProperty.PredicateCountByLevelInfo(
                         ImmutableMap.of(0, 1, 1, 3, 2, 1));
@@ -289,7 +199,6 @@ class PredicateCountByLevelPropertyTest {
                         ImmutableMap.of(0, 1, 1, 3, 2, 1, 3, 1));
 
         assertThat(PredicateCountByLevelProperty.PredicateCountByLevelInfo.compare(aInfo, bInfo)).isNegative();
-        assertThat(PredicateCountByLevelProperty.PredicateCountByLevelInfo.compare(bInfo, aInfo)).isPositive();
     }
 
     @Test
@@ -302,7 +211,6 @@ class PredicateCountByLevelPropertyTest {
                         ImmutableMap.of(0, 1, 1, 3, 2, 1, 3, 1));
 
         assertThat(PredicateCountByLevelProperty.PredicateCountByLevelInfo.compare(aInfo, bInfo)).isZero();
-        assertThat(PredicateCountByLevelProperty.PredicateCountByLevelInfo.compare(bInfo, aInfo)).isZero();
     }
 
     @Test

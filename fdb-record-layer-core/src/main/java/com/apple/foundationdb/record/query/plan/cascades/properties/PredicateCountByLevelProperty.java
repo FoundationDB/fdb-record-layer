@@ -25,11 +25,8 @@ import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.SimpleExpressionVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionWithPredicates;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryMapPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Iterables;
 
@@ -38,7 +35,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.SortedMap;
 import java.util.stream.Collectors;
 
@@ -171,50 +167,33 @@ public class PredicateCountByLevelProperty implements ExpressionProperty<Predica
          * within the provided {@link PredicateCountByLevelInfo} instances, starting from the deepest level (representing
          * the leaf nodes of the {@link RelationalExpression} tree used to create those instances) to the highest level
          * (representing the root node) and returns the integer comparison between the first non-equal query predicate
-         * counts. If the number of query predicates is equal at each level, this returns zero indicating that the
-         * two plans should be considered equivalent.
+         * counts. If the number of query predicates is equal at each level, the integer comparison between the highest
+         * level in each {@link PredicateCountByLevelInfo} instance is returned instead.
          * </p>
          * @param a the first {@link PredicateCountByLevelInfo} to compare
          * @param b the second {@link PredicateCountByLevelInfo} to compare
          *
          * @return the value {@code 0} if {@code a} have the same number of predicates at each level as {@code b};
          *         a value less than {@code 0} if {@code a} has fewer predicates than {@code b} at a
-         *         deeper level; and a value greater than {@code 0} if {@code a} has more predicates than
-         *         {@code b} at a deeper level
+         *         deeper level or if {@code a} has fewer levels than {@code b}; and
+         *         a value greater than {@code 0} if {@code a} has more predicates than {@code b} at a
+         *         deeper level or if {@code a} has more levels than {@code b}.
          */
         public static int compare(final PredicateCountByLevelInfo a, final PredicateCountByLevelInfo b) {
             final SortedMap<Integer, Integer> aLevelToPredicateCount = a.getLevelToPredicateCount();
             final SortedMap<Integer, Integer> bLevelToPredicateCount = b.getLevelToPredicateCount();
-            final int highestLevel = Math.max(a.getHighestLevel(), b.getHighestLevel());
-            for (int level = 0; level <= highestLevel; level++) {
-                final int aPredicateCountAtLevel = aLevelToPredicateCount.getOrDefault(level, 0);
-                final int bPredicateCountAtLevel = bLevelToPredicateCount.getOrDefault(level, 0);
+            for (final var entry : aLevelToPredicateCount.entrySet()) {
+                final int aPredicateCountAtLevel = entry.getValue();
+                final int bPredicateCountAtLevel = bLevelToPredicateCount.getOrDefault(entry.getKey(), 0);
                 if (aPredicateCountAtLevel != bPredicateCountAtLevel) {
                     return Integer.compare(aPredicateCountAtLevel, bPredicateCountAtLevel);
                 }
             }
-            return 0;
-        }
-
-        public static int compareByDepth(final PredicateCountByLevelInfo a, final PredicateCountByLevelInfo b) {
-            final SortedMap<Integer, Integer> aLevelToPredicateCount = a.getLevelToPredicateCount();
-            final SortedMap<Integer, Integer> bLevelToPredicateCount = b.getLevelToPredicateCount();
-            final int highestLevel = Math.max(a.getHighestLevel(), b.getHighestLevel());
-            for (int depth = 0; depth <= highestLevel; depth++) {
-                final int aPredicateCountAtLevel = aLevelToPredicateCount.getOrDefault(a.getHighestLevel() - depth, 0);
-                final int bPredicateCountAtLevel = bLevelToPredicateCount.getOrDefault(b.getHighestLevel() - depth, 0);
-                if (aPredicateCountAtLevel != bPredicateCountAtLevel) {
-                    return Integer.compare(aPredicateCountAtLevel, bPredicateCountAtLevel);
-                }
-            }
-            return 0;
+            return Integer.compare(a.getHighestLevel(), b.getHighestLevel());
         }
     }
 
     private static final class PredicateCountByLevelVisitor implements SimpleExpressionVisitor<PredicateCountByLevelInfo> {
-        @Nonnull
-        private static Set<Class<?>> ignoredTypes = ImmutableSet.of(RecordQueryUnorderedPrimaryKeyDistinctPlan.class, RecordQueryMapPlan.class);
-
         @Nonnull
         private static final PredicateCountByLevelVisitor VISITOR = new PredicateCountByLevelVisitor();
 
@@ -228,13 +207,6 @@ public class PredicateCountByLevelProperty implements ExpressionProperty<Predica
                                                               @Nonnull final List<PredicateCountByLevelInfo> childResults) {
             final var newLevelToPredicateCountMap = ImmutableMap.<Integer, Integer>builder()
                     .putAll(PredicateCountByLevelInfo.combine(childResults).getLevelToPredicateCount());
-            if (ignoredTypes.stream().anyMatch(type -> type.isInstance(expression))) {
-                // For the purposes of computing the predicate levels, ignore distinct plans. This is a bit hacky,
-                // but we don't want them to participate in comparisons on predicate levels. This is because
-                // we will generally want to prefer plans with deeper predicates, except we want to push distinct
-                // operators below filters (see: PushDistinctThroughFilterRule).
-                return new PredicateCountByLevelInfo(newLevelToPredicateCountMap.build());
-            }
             final var currentLevel = childResults
                     .stream().mapToInt(PredicateCountByLevelInfo::getHighestLevel).max().orElse(-1) + 1;
             final int currentLevelPredicates;

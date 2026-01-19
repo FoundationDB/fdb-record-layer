@@ -355,7 +355,7 @@ test_block:
       - query: select t3."__ROW_VERSION" AS version3, t3.id AS id3, t4."__ROW_VERSION" AS version4, t4.id AS id4, t3.col2, t4.col4
            from t3, t4
            where t3.col1 = 'b' and t4.col1 = 'b' and t4.col2 = t3.col2 and exists (select 1 from t4.col4 x where x = 2)
-      - explain: "ISCAN(T3_VERSION_WITH_COL1 <,>) | FLATMAP q0 -> { ISCAN(T4_COL2_COL4 [EQUALS q0.COL2, EQUALS promote(@c70 AS LONG)]) | FILTER _.COL1 EQUALS promote(@c42 AS STRING) | FILTER q0.COL1 EQUALS promote(@c42 AS STRING) AS q1 RETURN (version([q0]) AS VERSION3, q0.ID AS ID3, version([q1]) AS VERSION4, q1.ID AS ID4, q0.COL2 AS COL2, q1.COL4 AS COL4) }"
+      - explain: "COVERING(T3_VERSION_WITH_COL1 <,> -> [COL1: VALUE:[0], ID: KEY:[2]]) | FILTER _.COL1 EQUALS promote(@c42 AS STRING) | FETCH | FLATMAP q0 -> { ISCAN(T4_COL2_COL4 [EQUALS q0.COL2, EQUALS promote(@c70 AS LONG)]) | FILTER _.COL1 EQUALS promote(@c42 AS STRING) AS q1 RETURN (version([q0]) AS VERSION3, q0.ID AS ID3, version([q1]) AS VERSION4, q1.ID AS ID4, q0.COL2 AS COL2, q1.COL4 AS COL4) }"
       - result: [
           { VERSION3: !not_null _, ID3:  3, VERSION4: !not_null _, ID4: 15, COL2: 1, COL4: [1, 2, 3] },
           { VERSION3: !not_null _, ID3:  3, VERSION4: !not_null _, ID4: 16, COL2: 1, COL4: [2, 5] },
@@ -367,7 +367,7 @@ test_block:
       - query: select t3.id AS id3, t4."__ROW_VERSION" AS version4, t4.id AS id4, t3.col2, t4.col4
            from t3, t4
            where t3.col1 = 'b' and t4.col1 = 'b' and t4.col2 = t3.col2 and exists (select 1 from t4.col4 x where x = 2)
-      - explain: "ISCAN(T3_VERSION_WITH_COL1 <,>) | FLATMAP q0 -> { ISCAN(T4_COL2_COL4 [EQUALS q0.COL2, EQUALS promote(@c64 AS LONG)]) | FILTER _.COL1 EQUALS promote(@c36 AS STRING) | FILTER q0.COL1 EQUALS promote(@c36 AS STRING) AS q1 RETURN (q0.ID AS ID3, version([q1]) AS VERSION4, q1.ID AS ID4, q0.COL2 AS COL2, q1.COL4 AS COL4) }"
+      - explain: "COVERING(T3_VERSION_WITH_COL1 <,> -> [COL1: VALUE:[0], ID: KEY:[2]]) | FILTER _.COL1 EQUALS promote(@c36 AS STRING) | FETCH | FLATMAP q0 -> { ISCAN(T4_COL2_COL4 [EQUALS q0.COL2, EQUALS promote(@c64 AS LONG)]) | FILTER _.COL1 EQUALS promote(@c36 AS STRING) AS q1 RETURN (q0.ID AS ID3, version([q1]) AS VERSION4, q1.ID AS ID4, q0.COL2 AS COL2, q1.COL4 AS COL4) }"
       - result: [
           { ID3:  3, VERSION4: !not_null _, ID4: 15, COL2: 1, COL4: [1, 2, 3] },
           { ID3:  3, VERSION4: !not_null _, ID4: 16, COL2: 1, COL4: [2, 5] },
