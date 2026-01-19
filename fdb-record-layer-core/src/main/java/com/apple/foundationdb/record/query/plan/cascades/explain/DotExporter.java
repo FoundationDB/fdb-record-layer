@@ -170,6 +170,7 @@ public class DotExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
         }
     }
 
+    @SuppressWarnings("PMD.CloseResource")
     private void renderCorrelations(@Nonnull final ExporterContext context, final N n, final String indentation) {
         final ImmutableNetwork<N, E> network = context.getNetwork();
         final PrintWriter out = context.getPrintWriter();
