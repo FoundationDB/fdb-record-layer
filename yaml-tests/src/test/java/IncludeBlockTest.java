@@ -132,12 +132,12 @@ public class IncludeBlockTest {
 
     static Stream<String> shouldPass() {
         return Stream.of(
-//                "single-connection",
-//                "multiple-includes",
-//                "multiple-same-includes",
-                "nested-includes"
-//                "include-prioritize-local-uri",
-//                "include-falls-back-to-global-available-uri"
+                "single-connection",
+                "multiple-includes",
+                "multiple-same-includes",
+                "nested-includes",
+                "include-prioritize-local-uri",
+                "include-falls-back-to-global-available-uri"
         );
     }
 
