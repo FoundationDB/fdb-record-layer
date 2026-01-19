@@ -308,7 +308,7 @@ public class PartitionSelectRule extends ExplorationCascadesRule<SelectExpressio
             upperGraphExpansionBuilder.addAllPredicates(newUpperPredicates);
             upperSelectExpression = upperGraphExpansionBuilder.build().buildSelectWithResultValue(newResultValue);
         }
-        
+
         call.yieldExploratoryExpression(upperSelectExpression);
     }
 

@@ -59,6 +59,8 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Values;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.MaxMatchMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.PullUp;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
+import com.apple.foundationdb.record.query.plan.explain.DefaultExplainSymbolMap;
+import com.apple.foundationdb.record.query.plan.explain.WithIndentationsExplainFormatter;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -102,6 +104,8 @@ public class SelectExpression extends AbstractRelationalExpressionWithChildren i
     private final Supplier<PartiallyOrderedSet<CorrelationIdentifier>> correlationOrderSupplier;
     @Nonnull
     private final Supplier<Set<Set<CorrelationIdentifier>>> independentQuantifiersPartitioningSupplier;
+    @Nonnull
+    private final Supplier<QueryPredicate> conjunctedPredicateSupplier;
 
     public SelectExpression(@Nonnull Value resultValue,
                             @Nonnull List<? extends Quantifier> children,
@@ -114,6 +118,7 @@ public class SelectExpression extends AbstractRelationalExpressionWithChildren i
         this.aliasToQuantifierMapSupplier = Suppliers.memoize(() -> Quantifiers.aliasToQuantifierMap(children));
         this.correlationOrderSupplier = Suppliers.memoize(this::computeCorrelationOrder);
         this.independentQuantifiersPartitioningSupplier = Suppliers.memoize(this::computeIndependentQuantifiersPartitioning);
+        this.conjunctedPredicateSupplier = Suppliers.memoize(this::computeConjunctedPredicate);
     }
 
     @Nonnull
@@ -293,6 +298,16 @@ public class SelectExpression extends AbstractRelationalExpressionWithChildren i
             }
         }
         return partitioning;
+    }
+
+    @Nonnull
+    public QueryPredicate getConjunctedPredicate() {
+        return conjunctedPredicateSupplier.get();
+    }
+
+    @Nonnull
+    private QueryPredicate computeConjunctedPredicate() {
+        return AndPredicate.and(getPredicates());
     }
 
     @Nonnull
@@ -616,29 +631,19 @@ public class SelectExpression extends AbstractRelationalExpressionWithChildren i
     @Nonnull
     @Override
     public PlannerGraph rewriteInternalPlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
-        final var predicatesAsStrings =
-                getPredicates().stream()
-                        .map(Object::toString)
-                        .collect(ImmutableList.toImmutableList());
-        final int predicatesLength = predicatesAsStrings.stream().mapToInt(String::length).sum();
+        final var explainFormatter =
+                new WithIndentationsExplainFormatter(DefaultExplainSymbolMap::new, 7,
+                        50, 4);
 
-        final String predicateString;
-        if (predicatesLength > 50) {
-            final StringBuilder predicateStringBuilder = new StringBuilder("WHERE ");
-            for (int i = 0; i < predicatesAsStrings.size(); i++) {
-                predicateStringBuilder.append(predicatesAsStrings.get(i));
+        final var predicateString =
+                "WHERE " + getConjunctedPredicate().explain()
+                        .getExplainTokens()
+                        .render(explainFormatter);
 
-                if (i + 1 < predicatesAsStrings.size()) {
-                    predicateStringBuilder.append(" AND\n       ");
-                }
-            }
-            predicateString = predicateStringBuilder.toString();
-        } else {
-            predicateString = "WHERE " +
-                    getPredicates().stream()
-                            .map(Object::toString)
-                            .collect(Collectors.joining(" AND "));
-        }
+        final var resultSString =
+                "SELECT " + resultValue.explain()
+                        .getExplainTokens()
+                        .render(explainFormatter);
 
         return PlannerGraph.fromNodeAndChildGraphs(
                 new PlannerGraph.LogicalOperatorNode(this,

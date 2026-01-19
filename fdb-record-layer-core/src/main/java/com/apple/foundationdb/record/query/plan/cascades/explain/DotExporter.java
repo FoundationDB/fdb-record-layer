@@ -21,12 +21,18 @@
 package com.apple.foundationdb.record.query.plan.cascades.explain;
 
 import com.apple.foundationdb.record.query.combinatorics.TopologicalSort;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
 import com.google.common.escape.Escaper;
 import com.google.common.escape.Escapers;
 import com.google.common.graph.ImmutableNetwork;
+import com.google.common.graph.Network;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -34,6 +40,7 @@ import java.io.PrintWriter;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -161,6 +168,79 @@ public class DotExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
                 out.println(";");
             }
         }
+    }
+
+    private void renderCorrelations(@Nonnull final ExporterContext context, final N n, final String indentation) {
+        final ImmutableNetwork<N, E> network = context.getNetwork();
+        final PrintWriter out = context.getPrintWriter();
+
+        if ((n instanceof PlannerGraph.ReferenceHeadNode) || (n instanceof PlannerGraph.ReferenceMemberNode)) {
+            return;
+        }
+        final List<? extends Quantifier> quantifiers = PlannerGraph.tryGetQuantifiers(n);
+        if (quantifiers.size() <= 1) {
+            return;
+        }
+
+        final Set<CorrelationIdentifier> correlationSources = Quantifiers.aliases(quantifiers);
+        final ImmutableList.Builder<N> correlatedNodesBuilder = ImmutableList.builder();
+
+        final Set<E> childrenEdges = network.inEdges(n);
+        for (final E currentEdge : childrenEdges) {
+            final N currentChildNode = network.incidentNodes(currentEdge).nodeU();
+            correlatedNodesBuilder.addAll(collectCorrelatedNodes(network, currentChildNode, correlationSources));
+        }
+
+        final ImmutableList<N> correlatedNodes = correlatedNodesBuilder.build();
+
+        for (final N correlatedNode : correlatedNodes) {
+            out.println(indentation + "{");
+            out.print(indentation);
+            renderEdge(context,
+                    true,
+                    correlatedNode,
+                    n,
+                    ImmutableMap.of("color", Attribute.dot("blue"),
+                            "style", Attribute.dot("dotted"),
+                            "arrowhead", Attribute.dot("none"),
+                            "tailport", Attribute.dot("nw"),
+                            "headport", Attribute.dot("s"),
+                            "constraint", Attribute.dot("false")));
+            out.println(indentation + "}");
+        }
+    }
+
+    @Nonnull
+    private List<N> collectCorrelatedNodes(@Nonnull final Network<N, E> network, final N n,
+                                           @Nonnull final Set<CorrelationIdentifier> correlationSources) {
+        final ImmutableList.Builder<N> correlatedNodesBuilder = ImmutableList.builder();
+        final Set<E> childrenEdges = network.inEdges(n);
+        for (final E currentEdge : childrenEdges) {
+            final N currentChildNode = network.incidentNodes(currentEdge).nodeU();
+            if (currentChildNode instanceof PlannerGraph.ReferenceHeadNode) {
+                final Set<N> refMembers = network.predecessors(currentChildNode);
+                for (final N refMember : Sets.filter(refMembers, refMember -> refMember instanceof PlannerGraph.ReferenceMemberNode)) {
+                    for (final N childUnderMember : network.predecessors(refMember)) {
+                        correlatedNodesBuilder.addAll(collectCorrelatedNodes(network, childUnderMember,
+                                correlationSources));
+                    }
+                }
+            } else {
+                correlatedNodesBuilder.addAll(collectCorrelatedNodes(network, currentChildNode,
+                        correlationSources));
+            }
+        }
+        if (!(n instanceof PlannerGraph.ReferenceHeadNode) && !(n instanceof PlannerGraph.ReferenceMemberNode)) {
+            final Optional<? extends RelationalExpression> expressionOptional = PlannerGraph.tryGetExpression(n);
+            if (expressionOptional.isPresent()) {
+                final RelationalExpression expression = expressionOptional.get();
+                if (!Collections.disjoint(expression.getCorrelatedToWithoutChildren(), correlationSources)) {
+                    correlatedNodesBuilder.add(n);
+                }
+            }
+        }
+
+        return correlatedNodesBuilder.build();
     }
 
     @SuppressWarnings({"unchecked", "PMD.CloseResource"})
@@ -374,6 +454,7 @@ public class DotExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
         }
 
         for (final N remainingNode : remainingNodes) {
+            renderCorrelations(context, remainingNode, indentation);
             renderInvisibleEdges(context, remainingNode, indentation);
         }
     }

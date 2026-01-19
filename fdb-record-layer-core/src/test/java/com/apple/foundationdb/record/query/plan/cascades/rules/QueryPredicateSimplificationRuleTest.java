@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredica
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
+import com.apple.foundationdb.record.query.plan.explain.WithIndentationsExplainFormatter;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.test.RandomizedTestUtils;
 import com.google.common.base.Verify;
@@ -128,6 +129,10 @@ public class QueryPredicateSimplificationRuleTest {
                 .addPredicate(expectedPredicate)
                 .build().buildSelect();
         testHelper.assertYields(selectExpression, evaluationContext, expected);
+
+        final WithIndentationsExplainFormatter formatter = WithIndentationsExplainFormatter.forDot(4);
+        final String predicateString = actualPredicate.explain().getExplainTokens().render(formatter).toString();
+        System.out.println(predicateString);
     }
 
     @ParameterizedTest(name = "({1}) should be the simplified version of {0}")

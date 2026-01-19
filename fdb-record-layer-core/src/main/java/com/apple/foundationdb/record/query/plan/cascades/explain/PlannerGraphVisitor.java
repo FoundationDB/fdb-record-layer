@@ -242,7 +242,7 @@ public class PlannerGraphVisitor implements SimpleExpressionVisitor<PlannerGraph
      *        nodes of clusters. Clusters are used by the dot exporter to
      *        <ul>
      *            <li>assign common attributes to all nodes and edges, e.g. like a common gray background</li>
-     *            <li>assign a name that is displayed displayed</li>
+     *            <li>assign a name that is displayed</li>
      *            <li>cause the layout algorithm to pack the nodes in a cluster if they were one big node</li>
      *        </ul>
      * @return the graph as string in dot format.
@@ -256,7 +256,7 @@ public class PlannerGraphVisitor implements SimpleExpressionVisitor<PlannerGraph
                 Edge::getAttributes,
                 ImmutableMap.of("fontname", Attribute.dot("courier"),
                         "rankdir", Attribute.dot("BT"),
-                        "splines", Attribute.dot("polyline")),
+                        "splines", Attribute.dot("line")),
                 (network, nodes) -> {
                     final ImmutableList.Builder<Cluster<Node, Edge>> clusterBuilder = ImmutableList.builder();
                     clusterBuilder.addAll(clustersForGroups(plannerGraph.getNetwork(), queryPlannerNodes));
