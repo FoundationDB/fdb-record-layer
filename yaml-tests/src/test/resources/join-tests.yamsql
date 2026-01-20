@@ -327,6 +327,6 @@ test_block:
       - query: select * from ja join jb using(c1);
       - supported_version: !current_version
       # this result is wrong, it has to be [{c1: 1, c2: 2, c3: 3}]
-      - result: [{_0: 1, c2: 2, _2: 1, c3: 3}]
+      - result: [{c1: 1, c2: 2, c3: 3}]
 
 ...
