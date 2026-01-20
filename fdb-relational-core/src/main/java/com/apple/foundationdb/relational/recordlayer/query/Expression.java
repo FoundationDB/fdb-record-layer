@@ -69,6 +69,8 @@ public class Expression {
     @Nonnull
     private final Supplier<Value> underlying;
 
+    public Boolean hidden = false;
+
     public Expression(@Nonnull Optional<Identifier> name,
                       @Nonnull DataType dataType,
                       @Nonnull Value expression) {

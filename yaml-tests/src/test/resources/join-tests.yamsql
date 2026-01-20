@@ -24,6 +24,8 @@ schema_template:
     create table project(id bigint, name string, dsc string, emp_id bigint, primary key(id))
     create table a(ida bigint, a1 bigint, a2 bigint, a3 bigint, primary key(ida))
     create table b(idb bigint, b1 bigint, b2 bigint, b3 bigint, primary key(idb))
+    create table ja(c1 bigint, c2 bigint, primary key(c1))
+    create table jb(c1 bigint, c3 bigint, primary key(c1))
 ---
 setup:
   steps:
@@ -48,6 +50,8 @@ setup:
                (3, 'Feedback', 'Turn customer feedback into actionable items', 5)
     - query: INSERT INTO A VALUES(1, 0, 100,0)
     - query: INSERT INTO B VALUES (4, 0, 0, 200)
+    - query: INSERT INTO ja VALUES(1, 1)
+    - query: INSERT INTO jb VALUES(1, 1)
 ---
 test_block:
   tests:
@@ -307,9 +311,16 @@ test_block:
       - query: select emp.id from emp, dept where emp.dept_id = dept.id and dept.id = 1 and emp.id in (10, 20, 30)
       - result: []
 
+#    -
+#      # inner join with using
+#      - query: select fname, lname, name from emp inner join dept using (fname);
+#      - supported_version: !current_version
+#      - error: "0AF00"
+
     -
       # inner join with using
-      - query: select fname, lname, name from emp inner join dept using (fname);
+      - query: select ja.c1 from ja join jb using(c1);
       - supported_version: !current_version
-      - error: "0AF00"
+      - result: []
+
 ...

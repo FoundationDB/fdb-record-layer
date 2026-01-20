@@ -327,9 +327,24 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nullable
     @Override
     public Void visitInnerJoin(@Nonnull RelationalParser.InnerJoinContext ctx) {
-        Assert.isNullUnchecked(ctx.uidList(), ErrorCode.UNSUPPORTED_QUERY, "using is not yet supported for inner join");
-        getDelegate().getCurrentPlanFragment().addOperator(Assert.castUnchecked(ctx.tableSourceItem().accept(this), LogicalOperator.class));
-        getDelegate().getCurrentPlanFragment().addInnerJoinExpression(Assert.castUnchecked(ctx.expression().accept(this), Expression.class));
+        final var rightTableSource = Assert.castUnchecked(ctx.tableSourceItem().accept(this), LogicalOperator.class);
+
+        if (ctx.uidList() != null && !ctx.uidList().isEmpty()) {
+            for (final var uidContext : ctx.uidList().uid()) {
+                final var uid = visitUid(uidContext);
+                final var leftExpression = getDelegate().getSemanticAnalyzer().resolveIdentifier(uid, getDelegate().getCurrentPlanFragment().getLogicalOperators());
+                final var rightExpression = getDelegate().getSemanticAnalyzer().resolveIdentifier(uid, rightTableSource);
+
+                rightExpression.hidden = true;
+
+                getDelegate().getCurrentPlanFragment().addInnerJoinExpression(getDelegate().resolveFunction("=", leftExpression, rightExpression));
+            }
+            getDelegate().getCurrentPlanFragment().addOperator(rightTableSource);
+        } else {
+            getDelegate().getCurrentPlanFragment().addOperator(rightTableSource);
+            getDelegate().getCurrentPlanFragment().addInnerJoinExpression(Assert.castUnchecked(ctx.expression().accept(this), Expression.class));
+        }
+
         return null;
     }
 

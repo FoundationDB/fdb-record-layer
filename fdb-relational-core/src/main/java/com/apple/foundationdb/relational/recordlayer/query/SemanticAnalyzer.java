@@ -367,6 +367,18 @@ public class SemanticAnalyzer {
         return attributes.get(0);
     }
 
+    public Expression resolveIdentifier(@Nonnull Identifier identifier,
+                                        @Nonnull LogicalOperator operator) {
+        var attributes = lookupOneOperaror(identifier, operator, true);
+        Assert.thatUnchecked(attributes.size() <= 1, ErrorCode.AMBIGUOUS_COLUMN, () -> String.format(Locale.ROOT, "Ambiguous reference %s", identifier));
+        if (attributes.isEmpty()) {
+            attributes = lookupOneOperaror(identifier, operator, false);
+        }
+        Assert.thatUnchecked(!attributes.isEmpty(), ErrorCode.UNDEFINED_COLUMN, () -> String.format(Locale.ROOT, "Unknown reference %s", identifier));
+        Assert.thatUnchecked(attributes.size() == 1, ErrorCode.AMBIGUOUS_COLUMN, () -> String.format(Locale.ROOT, "Ambiguous reference %s", identifier));
+        return attributes.get(0);
+    }
+
     @Nonnull
     private Optional<Expression> resolveIdentifierMaybe(@Nonnull Identifier identifier,
                                                         @Nonnull LogicalOperators operators) {
@@ -448,6 +460,52 @@ public class SemanticAnalyzer {
                 lookupPseudoField(operator, referenceIdentifier, matchQualifiedOnly)
                         .ifPresent(matchedAttributes::add);
             }
+        }
+        return matchedAttributes.build();
+    }
+
+    private List<Expression> lookupOneOperaror(@Nonnull Identifier referenceIdentifier,
+                                    @Nonnull LogicalOperator operator,
+                                    boolean matchQualifiedOnly) {
+        if (matchQualifiedOnly && !referenceIdentifier.isQualified()) {
+            return ImmutableList.of();
+        }
+        final ImmutableList.Builder<Expression> matchedAttributes = ImmutableList.builder();
+        if (operator.getQuantifier() instanceof Quantifier.Existential) {
+            return ImmutableList.of();
+        }
+        final var operatorNameMaybe = operator.getName();
+        boolean checkForPseudoColumns = true;
+        for (final var attribute : operator.getOutput()) {
+            if (attribute.getName().isEmpty()) {
+                continue;
+            }
+            final var attributeIdentifier = attribute.getName().get();
+            if (attributeIdentifier.equals(referenceIdentifier)) {
+                matchedAttributes.add(attribute);
+                checkForPseudoColumns = false;
+                continue;
+            } else if (!matchQualifiedOnly && attributeIdentifier.withoutQualifier().equals(referenceIdentifier)) {
+                matchedAttributes.add(attribute);
+                checkForPseudoColumns = false;
+                continue;
+            }
+            if (matchQualifiedOnly && operatorNameMaybe.isPresent()) {
+                if (attributeIdentifier.withQualifier(operatorNameMaybe.get().getName()).equals(referenceIdentifier)) {
+                    matchedAttributes.add(attribute);
+                    checkForPseudoColumns = false;
+                    continue;
+                }
+            }
+            final var nestedFieldMaybe = lookupNestedField(referenceIdentifier, attribute, operator, matchQualifiedOnly);
+            if (nestedFieldMaybe.isPresent()) {
+                matchedAttributes.add(nestedFieldMaybe.get());
+                checkForPseudoColumns = false;
+            }
+        }
+        if (checkForPseudoColumns) {
+            lookupPseudoField(operator, referenceIdentifier, matchQualifiedOnly)
+                    .ifPresent(matchedAttributes::add);
         }
         return matchedAttributes.build();
     }
