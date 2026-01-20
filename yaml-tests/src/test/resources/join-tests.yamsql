@@ -50,8 +50,8 @@ setup:
                (3, 'Feedback', 'Turn customer feedback into actionable items', 5)
     - query: INSERT INTO A VALUES(1, 0, 100,0)
     - query: INSERT INTO B VALUES (4, 0, 0, 200)
-    - query: INSERT INTO ja VALUES(1, 1)
-    - query: INSERT INTO jb VALUES(1, 1)
+    - query: INSERT INTO ja VALUES(1, 2)
+    - query: INSERT INTO jb VALUES(1, 3)
 ---
 test_block:
   tests:
@@ -318,9 +318,15 @@ test_block:
 #      - error: "0AF00"
 
     -
-      # inner join with using
+      # inner join with using: select one field
       - query: select ja.c1 from ja join jb using(c1);
       - supported_version: !current_version
-      - result: []
+      - result: [{1}]
+    -
+      # inner join with using: select * t
+      - query: select * from ja join jb using(c1);
+      - supported_version: !current_version
+      # this result is wrong, it has to be [{c1: 1, c2: 2, c3: 3}]
+      - result: [{_0: 1, c2: 2, _2: 1, c3: 3}]
 
 ...
