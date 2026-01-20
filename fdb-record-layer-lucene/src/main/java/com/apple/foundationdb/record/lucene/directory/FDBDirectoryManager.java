@@ -40,7 +40,7 @@ import com.apple.foundationdb.record.lucene.LuceneAnalyzerWrapper;
 import com.apple.foundationdb.record.lucene.LuceneEvents;
 import com.apple.foundationdb.record.lucene.LuceneExceptions;
 import com.apple.foundationdb.record.lucene.LuceneIndexExpressions;
-import com.apple.foundationdb.record.lucene.LuceneIndexMaintainerHelper;
+import com.apple.foundationdb.record.lucene.LuceneIndexMaintainer;
 import com.apple.foundationdb.record.lucene.LuceneIndexTypes;
 import com.apple.foundationdb.record.lucene.LuceneLogMessageKeys;
 import com.apple.foundationdb.record.lucene.LucenePartitionInfoProto;
@@ -313,28 +313,16 @@ public class FDBDirectoryManager implements AutoCloseable {
             if (queueEntry == null) {
                 return AsyncUtil.DONE;
             }
-            try (final IndexWriter newWriter = getDirectoryWrapper(groupingKey, partitionId,
-                    AgilityContext.nonAgile(context)).getWriter()) {
+
+            try {
+                final LuceneIndexMaintainer maintainer = (LuceneIndexMaintainer)store.getIndexMaintainer(state.index);
                 switch (queueEntry.getOperationType()) {
                     case UPDATE:
                     case INSERT:
-                        LuceneIndexMaintainerHelper.writeDocument(context, newWriter, state.index,
-                                groupingKey, partitionId,
-                                queueEntry.getPrimaryKeyParsed(), queueEntry.getDocumentFieldsParsed());
+                        maintainer.writeDocumentBypassQueue(groupingKey, partitionId, queueEntry.getPrimaryKeyParsed(), queueEntry.getDocumentFieldsParsed());
                         break;
                     case DELETE:
-                        // je-todo: remove this user-caller usage
-                        int count = LuceneIndexMaintainerHelper.deleteDocument(context, this, state.index,
-                                groupingKey, partitionId,
-                                queueEntry.getPrimaryKeyParsed(), store.isIndexWriteOnly(state.index));
-                        if (count > 0 && partitionId != null) {
-                            // tmp kludge - todo: find a better solution
-                            // One option is to adjust the accounting while while queuing
-                            final IndexMaintainerState tmpState = new IndexMaintainerState(store, state.index, state.filter);
-                            final LucenePartitioner tmpPartitioner = new LucenePartitioner(tmpState);
-                            context.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_DECREMENT,
-                                    tmpPartitioner.decrementCountAndSave(groupingKey, count, partitionId));
-                        }
+                        maintainer.deleteDocumentBypassQueue(groupingKey, partitionId, queueEntry.getPrimaryKeyParsed());
                         break;
                     default:
                         if (LOGGER.isWarnEnabled()) {
