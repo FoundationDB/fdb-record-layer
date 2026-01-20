@@ -180,6 +180,8 @@ public class LuceneEvents {
         WAIT_LUCENE_FILE_LOCK_CLEAR("lucene clear file lock"),
         /** Wait to drain the pending queue. */
         WAIT_LUCENE_DRAIN_PENDING_QUEUE("lucene pending queue drain"),
+        /** Wait to for the pending queue. */
+        WAIT_LUCENE_PENDING_QUEUE("lucene pending queue get item(s)"),
         ;
         private final String title;
         private final String logKey;

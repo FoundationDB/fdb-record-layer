@@ -145,6 +145,7 @@ public class FDBRecordStoreConcurrentTestBase {
     public FDBRecordContext openContext(@Nonnull final RecordLayerPropertyStorage.Builder props) {
         final FDBRecordContextConfig config = contextConfig(props)
                 .setTimer(timer)
+                .setReportConflictingKeys(true)
                 .build();
 
         return fdb.openContext(config);

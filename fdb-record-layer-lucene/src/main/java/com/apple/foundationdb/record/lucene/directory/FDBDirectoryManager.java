@@ -284,8 +284,9 @@ public class FDBDirectoryManager implements AutoCloseable {
                         cursorFactory(pendingWriteQueue),
                         handleOneItemFactory(pendingWriteQueue, groupingKey, partitionId))
                 .withMdcContext(MDC.getCopyOfContextMap())
+                .withCommitWhenDone(true)
                 .build()) {
-            agilityContext.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_DECREMENT,
+            agilityContext.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_DRAIN_PENDING_QUEUE,
                     iterator.iterateAll(state.store.asBuilder()));
         } catch (CloseException e) {
             throw new RuntimeException(e);
@@ -307,20 +308,23 @@ public class FDBDirectoryManager implements AutoCloseable {
                                                                            @Nonnull final Tuple groupingKey,
                                                                            @Nullable final Integer partitionId) {
         return (store, lastResult, quotamanager) -> {
+            final FDBRecordContext context = store.getContext();
             final PendingWriteQueue.QueueEntry queueEntry = lastResult.get();
             if (queueEntry == null) {
                 return AsyncUtil.DONE;
             }
-            try {
+            try (final IndexWriter newWriter = getDirectoryWrapper(groupingKey, partitionId,
+                    AgilityContext.nonAgile(context)).getWriter()) {
                 switch (queueEntry.getOperationType()) {
                     case UPDATE:
                     case INSERT:
-                        LuceneIndexMaintainerHelper.writeDocument(store.getContext(), this, state.index,
+                        LuceneIndexMaintainerHelper.writeDocument(context, newWriter, state.index,
                                 groupingKey, partitionId,
                                 queueEntry.getPrimaryKeyParsed(), queueEntry.getDocumentFieldsParsed());
                         break;
                     case DELETE:
-                        int count = LuceneIndexMaintainerHelper.deleteDocument(store.getContext(), this, state.index,
+                        // je-todo: remove this user-caller usage
+                        int count = LuceneIndexMaintainerHelper.deleteDocument(context, this, state.index,
                                 groupingKey, partitionId,
                                 queueEntry.getPrimaryKeyParsed(), store.isIndexWriteOnly(state.index));
                         if (count > 0 && partitionId != null) {
@@ -328,7 +332,7 @@ public class FDBDirectoryManager implements AutoCloseable {
                             // One option is to adjust the accounting while while queuing
                             final IndexMaintainerState tmpState = new IndexMaintainerState(store, state.index, state.filter);
                             final LucenePartitioner tmpPartitioner = new LucenePartitioner(tmpState);
-                            store.getContext().asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_DECREMENT,
+                            context.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_DECREMENT,
                                     tmpPartitioner.decrementCountAndSave(groupingKey, count, partitionId));
                         }
                         break;
@@ -340,7 +344,7 @@ public class FDBDirectoryManager implements AutoCloseable {
                         break;
                 }
 
-                pendingWriteQueue.clearEntry(store.getContext(), queueEntry);
+                pendingWriteQueue.clearEntry(context, queueEntry);
                 return AsyncUtil.DONE;
             } catch (IOException ex) {
                 throw new RecordCoreException("Lucene IOException", ex);

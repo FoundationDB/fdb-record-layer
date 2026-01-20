@@ -192,7 +192,11 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
             queueOperation(groupingKey, partitionId, primaryKey, fields, overallOperation);
             return;
         }
-        LuceneIndexMaintainerHelper.writeDocument(state.context, directoryManager, state.index, groupingKey, partitionId, primaryKey, fields);
+        LuceneIndexMaintainerHelper.writeDocument(state.context,
+                directoryManager.getIndexWriter(groupingKey, partitionId),
+                state.index,
+                groupingKey, partitionId,
+                primaryKey, fields);
     }
 
     private void queueOperation(final Tuple groupingKey, final Integer partitionId, final Tuple primaryKey,
