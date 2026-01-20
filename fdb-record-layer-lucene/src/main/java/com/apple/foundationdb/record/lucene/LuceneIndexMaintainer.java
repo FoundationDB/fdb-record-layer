@@ -187,16 +187,45 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                                Integer partitionId,
                                Tuple primaryKey,
                                OverallOperation overallOperation) throws IOException {
+        // Here: partition count was adjusted pre-emptively (pending queue or not)
         if (shouldUseQueue(groupingKey, partitionId)) {
-            // Partition is locked during merge - enqueue the insert/update operation
             queueOperation(groupingKey, partitionId, primaryKey, fields, overallOperation);
-            return;
+        } else {
+            writeDocumentBypassQueue(groupingKey, partitionId, primaryKey, fields);
         }
+    }
+
+    public void writeDocumentBypassQueue(Tuple groupingKey,
+                                         Integer partitionId,
+                                         Tuple primaryKey,
+                                         @Nonnull List<LuceneDocumentFromRecord.DocumentField> fields) throws IOException {
         LuceneIndexMaintainerHelper.writeDocument(state.context,
                 directoryManager.getIndexWriter(groupingKey, partitionId),
                 state.index,
                 groupingKey, partitionId,
                 primaryKey, fields);
+    }
+
+    int deleteDocument(Tuple groupingKey, @Nullable Integer partitionId, Tuple primaryKey, OverallOperation overallOperation) throws IOException {
+        if (shouldUseQueue(groupingKey, partitionId)) {
+            queueOperation(groupingKey, partitionId, primaryKey, null, overallOperation);
+            return 0; // partition count will be adjusted during drain
+        } else {
+            return deleteDocumentBypassQueue(groupingKey, partitionId, primaryKey);
+        }
+    }
+
+    public int deleteDocumentBypassQueue(Tuple groupingKey, @Nullable Integer partitionId, Tuple primaryKey) throws IOException {
+        final int countDeleted = LuceneIndexMaintainerHelper.deleteDocument(state.context, directoryManager, state.index, groupingKey, partitionId, primaryKey,
+                state.store.isIndexWriteOnly(state.index));
+        // countDeleted may be 0 when in writeOnly mode, but otherwise should not happen.
+        if (partitionId == null || countDeleted <= 0) {
+            return 0;
+        }
+        // If needed, adjust partition's count
+        state.context.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_DECREMENT,
+                partitioner.decrementCountAndSave(groupingKey, countDeleted, partitionId));
+        return countDeleted;
     }
 
     private void queueOperation(final Tuple groupingKey, final Integer partitionId, final Tuple primaryKey,
@@ -224,15 +253,6 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                     LogMessageKeys.OVERALL_OPERATION, overallOperation
             ));
         }
-    }
-
-    int deleteDocument(Tuple groupingKey, @Nullable Integer partitionId, Tuple primaryKey, OverallOperation overallOperation) throws IOException {
-        if (shouldUseQueue(groupingKey, partitionId)) {
-            queueOperation(groupingKey, partitionId, primaryKey, null, overallOperation);
-            return 0; // accounting will be done during drain
-        }
-        return LuceneIndexMaintainerHelper.deleteDocument(state.context, directoryManager, state.index, groupingKey, partitionId, primaryKey,
-                state.store.isIndexWriteOnly(state.index));
     }
 
     @Override
@@ -403,7 +423,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
             final Integer destinationPartitionIdHint,
             final Map.Entry<Tuple, List<LuceneDocumentFromRecord.DocumentField>> entry,
             OverallOperation overallOperation) {
-        return tryDeleteInWriteOnlyMode(Objects.requireNonNull(newRecord), entry.getKey(), overallOperation).thenCompose(countDeleted ->
+        return tryDeleteInWriteOnlyMode(Objects.requireNonNull(newRecord), entry.getKey(), overallOperation).thenCompose(ignored ->
                 partitioner.addToAndSavePartitionMetadata(newRecord, entry.getKey(), destinationPartitionIdHint)
                         .thenAccept(partitionId -> writeDocument(newRecord, entry, partitionId, overallOperation)));
     }
@@ -471,13 +491,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
             }
             try {
                 int countDeleted = deleteDocument(groupingKey, partitionInfo.getId(), record.getPrimaryKey(), overallOperation);
-                // this might be 0 when in writeOnly mode, but otherwise should not happen.
-                if (countDeleted > 0) {
-                    return partitioner.decrementCountAndSave(groupingKey, countDeleted, partitionInfo.getId())
-                            .thenApply(vignore -> countDeleted);
-                } else {
-                    return CompletableFuture.completedFuture(countDeleted);
-                }
+                return CompletableFuture.completedFuture(countDeleted);
             } catch (IOException e) {
                 throw LuceneExceptions.toRecordCoreException("Issue deleting", e, "record", record.getPrimaryKey());
             }
