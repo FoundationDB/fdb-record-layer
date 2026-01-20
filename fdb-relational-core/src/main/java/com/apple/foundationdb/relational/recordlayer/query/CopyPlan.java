@@ -45,7 +45,6 @@ import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalExcep
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.copy.CopyData;
 import com.apple.foundationdb.relational.recordlayer.ArrayRow;
-import com.apple.foundationdb.relational.recordlayer.CommittingIteratorResultSet;
 import com.apple.foundationdb.relational.recordlayer.ContinuationBuilder;
 import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
@@ -263,9 +262,8 @@ public final class CopyPlan extends QueryPlan {
 
             // Return result set with single row containing count
             // We won't commit until the result set is closed
-            return new CommittingIteratorResultSet(getImportResultSetMetaData(),
-                    List.of(new ArrayRow(importCount)).iterator(),
-                    0,
+            return new RecordLayerResultSet(getImportResultSetMetaData(),
+                    RecordLayerIterator.create(RecordCursor.fromList(List.of(importCount)), ArrayRow::new),
                     context.connection.unwrap(EmbeddedRelationalConnection.class));
         } catch (RelationalException | UncheckedRelationalException e) {
             throw e;
