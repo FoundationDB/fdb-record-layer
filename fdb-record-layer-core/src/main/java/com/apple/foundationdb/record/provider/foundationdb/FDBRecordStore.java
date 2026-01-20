@@ -98,6 +98,8 @@ import com.apple.foundationdb.record.query.expressions.RecordTypeKeyComparison;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.StoreIsLockedForRecordUpdates;
+import com.apple.foundationdb.record.StoreIsFullyLockedException;
+import com.apple.foundationdb.record.UnknownStoreLockStateException;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerializationRegistry;
@@ -2711,6 +2713,40 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                     subspaceProvider.logKey(), subspaceProvider.toString(context));
         } else {
             FormatVersion.validateFormatVersion(storeHeader.getFormatVersion(), subspaceProvider);
+            validateStoreLockState(storeHeader, subspaceProvider);
+        }
+    }
+
+    /**
+     * Validates the store lock state according to the format version. For stores with format version
+     * {@link FormatVersion#FULL_STORE_LOCK} or higher, unknown lock states (including UNSPECIFIED) will prevent
+     * the store from being opened. Additionally, stores in {@link RecordMetaDataProto.DataStoreInfo.StoreLockState.State#FULL_STORE}
+     * state cannot be opened.
+     *
+     * @param storeHeader the store header containing the lock state
+     * @param subspaceProvider the subspace provider for error messages
+     */
+    private static void validateStoreLockState(@Nonnull RecordMetaDataProto.DataStoreInfo storeHeader,
+                                               @Nonnull SubspaceProvider subspaceProvider) {
+        if (!storeHeader.hasStoreLockState()) {
+            return;
+        }
+
+        final RecordMetaDataProto.DataStoreInfo.StoreLockState storeLockState = storeHeader.getStoreLockState();
+        final RecordMetaDataProto.DataStoreInfo.StoreLockState.State lockState = storeLockState.getLockState();
+        final FormatVersion formatVersion = FormatVersion.getFormatVersion(storeHeader.getFormatVersion());
+
+        // Check if store is fully locked (applies to all format versions)
+        if (lockState.equals(RecordMetaDataProto.DataStoreInfo.StoreLockState.State.FULL_STORE)) {
+            throw new StoreIsFullyLockedException(storeLockState, subspaceProvider.logKey(), subspaceProvider);
+        }
+
+        // All unknown states (including UNSPECIFIED) prevent opening
+        if (formatVersion.isAtLeast(FormatVersion.FULL_STORE_LOCK)) {
+            if (lockState.equals(RecordMetaDataProto.DataStoreInfo.StoreLockState.State.UNSPECIFIED)) {
+                throw new UnknownStoreLockStateException("Store has unknown lock state",
+                        storeLockState.getUnknownFields(), subspaceProvider.logKey(), subspaceProvider);
+            }
         }
     }
 
