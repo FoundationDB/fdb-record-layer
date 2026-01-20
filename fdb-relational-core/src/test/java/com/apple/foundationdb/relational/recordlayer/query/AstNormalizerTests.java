@@ -1327,6 +1327,33 @@ public class AstNormalizerTests {
                 Map.of(constantId(5), "apple"));
     }
 
+    @Test
+    void parseCopyExport() throws Exception {
+        validate(List.of("copy /test/foo/bar",
+                        "  copy   /test/foo/bar  "),
+                PreparedParams.empty(),
+                "copy \"/TEST/FOO/BAR\" ", // I don't know if this matters, since we're not caching
+                List.of(Map.of(), Map.of()),
+                null,
+                -1,
+                EnumSet.of(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_ADMIN_STATEMENT,
+                        AstNormalizer.NormalizationResult.QueryCachingFlags.WITH_NO_CACHE_OPTION));
+    }
+
+    @Test
+    void parseCopyImport() throws Exception {
+        validate(List.of("copy /test/foo/bar from ?",
+                        "  copy /test/foo/bar   from   ?"),
+                PreparedParams.of(Map.of(1, new byte[0]), Map.of()),
+                "copy \"/TEST/FOO/BAR\" from ? ", // I don't know if this matters, since we're not caching
+                List.of(Map.of(constantId(3), ByteString.empty()),
+                        Map.of(constantId(3), ByteString.empty())),
+                null,
+                -1,
+                EnumSet.of(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_ADMIN_STATEMENT,
+                        AstNormalizer.NormalizationResult.QueryCachingFlags.WITH_NO_CACHE_OPTION));
+    }
+
     @Nonnull
     private String normalizeQuery(@Nonnull final String functionDdl) throws RelationalException {
         final var normalizer = AstNormalizer.normalizeAst(fakeSchemaTemplate,
