@@ -202,6 +202,9 @@ public class FDBDirectoryManager implements AutoCloseable {
         try {
             mergeIndexWithContext(groupingKey, partitionId, agilityContext);
         } finally {
+            // Here: drain this partition's queue and clear the "use queue" indicator
+            drainPendingQueue(groupingKey, partitionId, agilityContext);
+
             // IndexWriter may release the file lock in a finally block in its own code, so if there is an error in its
             // code, we need to commit. We could optimize this a bit, and have it only flush if it has committed anything
             // but that should be rare.
@@ -225,13 +228,22 @@ public class FDBDirectoryManager implements AutoCloseable {
                 throw LuceneExceptions.toRecordCoreException("Lucene mergeIndex failed", e,
                         LuceneLogMessageKeys.GROUP, groupingKey,
                         LuceneLogMessageKeys.INDEX_PARTITION, partitionId);
-            } finally {
-                // Here: drain this partition's queue and clear the "use queue" indicator
-                drainPendingQueueWithRetries(groupingKey, partitionId, agilityContext, directoryWrapper);
             }
         } catch (IOException e) {
             // there was an IOException closing the index writer
             throw LuceneExceptions.toRecordCoreException("Lucene mergeIndex close failed", e,
+                    LuceneLogMessageKeys.GROUP, groupingKey,
+                    LuceneLogMessageKeys.INDEX_PARTITION, partitionId);
+        }
+    }
+
+    private void drainPendingQueue(@Nonnull final Tuple groupingKey,
+                                   @Nullable final Integer partitionId,
+                                   @Nonnull final AgilityContext agilityContext) {
+        try (FDBDirectoryWrapper directoryWrapper = createDirectoryWrapper(groupingKey, partitionId, agilityContext)) {
+            drainPendingQueueWithRetries(groupingKey, partitionId, agilityContext, directoryWrapper);
+        } catch (IOException e) {
+            throw LuceneExceptions.toRecordCoreException("Drain pending queue failed", e,
                     LuceneLogMessageKeys.GROUP, groupingKey,
                     LuceneLogMessageKeys.INDEX_PARTITION, partitionId);
         }
@@ -243,10 +255,10 @@ public class FDBDirectoryManager implements AutoCloseable {
                                              FDBDirectoryWrapper directoryWrapper) {
         for (int retries = 0; retries < 10; retries ++) {
             try {
-                agilityContext.flush(); // since drain doesn't use agility context, flush it now to prevent a potential stale context
-                drainPendingQueue(groupingKey, partitionId, agilityContext);
+                agilityContext.flush(); // before potentially long drain
+                drainPendingQueueNow(groupingKey, partitionId, agilityContext, directoryWrapper);
                 directoryWrapper.clearOngoingMergeIndicator();
-                agilityContext.flush(); // flash within retries
+                agilityContext.flush(); // commit clear indicator
                 return;
             } catch (RuntimeException ex) {
                 if (LOGGER.isWarnEnabled()) {
@@ -261,11 +273,12 @@ public class FDBDirectoryManager implements AutoCloseable {
         // Here: 10 failed clear queue attempts. What is the right thing to do?
     }
 
-    public void drainPendingQueue(@Nonnull final Tuple groupingKey,
-                                  @Nullable final Integer partitionId,
-                                  @Nonnull final AgilityContext agilityContext) {
+    public void drainPendingQueueNow(@Nonnull final Tuple groupingKey,
+                                     @Nullable final Integer partitionId,
+                                     @Nonnull final AgilityContext agilityContext,
+                                     @Nonnull FDBDirectoryWrapper directoryWrapper) {
         // Note - since this directory wrapper was already created, agility context should be unused in the next line's path
-        final PendingWriteQueue pendingWriteQueue = getDirectoryWrapper(groupingKey, partitionId, agilityContext).getPendingWriteQueue();
+        final PendingWriteQueue pendingWriteQueue = directoryWrapper.getPendingWriteQueue();
         try (ThrottledRetryingIterator<PendingWriteQueue.QueueEntry> iterator = ThrottledRetryingIterator.builder(
                         state.context.getDatabase(),
                         cursorFactory(pendingWriteQueue),

@@ -801,8 +801,8 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
         try (FDBRecordContext context = openContext()) {
             FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
             final LuceneIndexMaintainer indexMaintainer = getIndexMaintainer(recordStore, index);
-            indexMaintainer.mergeIndex();
-            commit(context);
+            indexMaintainer.mergeIndex().join();
+            // commit(context);
         }
 
         // Verify empty queue
