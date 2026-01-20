@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.RecordCoreStorageException;
 import com.apple.foundationdb.record.logging.CompletionExceptionLogHelper;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
+import com.apple.foundationdb.record.lucene.LuceneConcurrency;
 import com.apple.foundationdb.record.lucene.LuceneEvents;
 import com.apple.foundationdb.record.lucene.LuceneExceptions;
 import com.apple.foundationdb.record.lucene.LuceneIndexOptions;
@@ -1024,12 +1025,13 @@ public class FDBDirectory extends Directory  {
         final Range queueRange = queueSubspace.range();
 
         // Verify that the pending write queue subspace is empty
-        final List<KeyValue> queueEntries = context.ensureActive()
-                .getRange(queueRange, 1) // Limit to 1 to just check if any entries exist
-                .asList()
-                .join();
+        final List<KeyValue> queueEntries =
+                LuceneConcurrency.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_PENDING_QUEUE,
+                        context.ensureActive()
+                                .getRange(queueRange, 1) // Limit to 1 to just check if any entries exist
+                                .asList(), context);
 
-        if (!queueEntries.isEmpty()) {
+        if (queueEntries == null || !queueEntries.isEmpty()) {
             throw new RecordCoreException("Cannot clear queue usage indicator: pending write queue is not empty");
         }
 

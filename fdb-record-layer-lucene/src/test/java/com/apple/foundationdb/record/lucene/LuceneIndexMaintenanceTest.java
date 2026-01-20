@@ -802,7 +802,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
             FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
             final LuceneIndexMaintainer indexMaintainer = getIndexMaintainer(recordStore, index);
             indexMaintainer.mergeIndex().join();
-            // commit(context);
+            commit(context);
         }
 
         // Verify empty queue
@@ -823,10 +823,8 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
             queueCursor.forEach(queueEntries::add).join();
 
             assertEquals(0, queueEntries.size(), "Queue should be empty");
-
             commit(context);
         }
-
     }
 
     // A test where there are multiple threads trying to do merges. At the end the index should be validated for consistency.
