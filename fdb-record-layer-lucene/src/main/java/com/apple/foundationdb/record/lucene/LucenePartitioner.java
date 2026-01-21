@@ -1075,7 +1075,7 @@ public class LucenePartitioner {
                 // situation with the partition metadata keys.
                 records.forEach(r -> {
                     try {
-                        indexMaintainer.deleteDocument(groupingKey, partitionInfo.getId(), r.getPrimaryKey(), null);
+                        indexMaintainer.deleteDocumentBypassQueue(groupingKey, partitionInfo.getId(), r.getPrimaryKey());
                     } catch (IOException e) {
                         throw LuceneExceptions.toRecordCoreException(e.getMessage(), e);
                     }

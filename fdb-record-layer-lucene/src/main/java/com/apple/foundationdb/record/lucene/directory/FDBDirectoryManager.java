@@ -327,7 +327,11 @@ public class FDBDirectoryManager implements AutoCloseable {
                         maintainer.writeDocumentBypassQueue(groupingKey, partitionId, queueEntry.getPrimaryKeyParsed(), queueEntry.getDocumentFieldsParsed());
                         break;
                     case DELETE:
-                        maintainer.deleteDocumentBypassQueue(groupingKey, partitionId, queueEntry.getPrimaryKeyParsed(), true);
+                        final int countDeleted = maintainer.deleteDocumentBypassQueue(groupingKey, partitionId, queueEntry.getPrimaryKeyParsed());
+                        if (partitionId != null) {
+                            state.context.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_DECREMENT,
+                                    maintainer.postDeleteUpdatePartitionCount(groupingKey, partitionId, countDeleted));
+                        }
                         break;
                     default:
                         if (LOGGER.isWarnEnabled()) {
