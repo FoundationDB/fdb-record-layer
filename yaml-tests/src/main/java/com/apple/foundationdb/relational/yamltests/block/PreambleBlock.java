@@ -26,12 +26,12 @@ import com.apple.foundationdb.relational.yamltests.Matchers;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import com.apple.foundationdb.relational.yamltests.server.SemanticVersion;
 import com.apple.foundationdb.relational.yamltests.server.SupportedVersionCheck;
-import com.google.common.collect.ImmutableList;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Assumptions;
 
 import javax.annotation.Nonnull;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -50,7 +50,7 @@ public class PreambleBlock extends SupportBlock {
     }
 
     @Nonnull
-    public static ImmutableList<Block> parse(@Nonnull final Object document, @Nonnull final YamlExecutionContext executionContext) {
+    public static List<Block> parse(@Nonnull final Object document, @Nonnull final YamlExecutionContext executionContext) {
         final Map<?, ?> optionsMap = CustomYamlConstructor.LinedObject.unlineKeys(Matchers.map(document, OPTIONS));
 
         // read the supported version option, and immediately abort the test if the version check fails.
@@ -68,7 +68,7 @@ public class PreambleBlock extends SupportBlock {
         }
 
         executionContext.setConnectionOptions(connectionOptions);
-        return ImmutableList.of();
+        return List.of();
     }
 
     @Nonnull

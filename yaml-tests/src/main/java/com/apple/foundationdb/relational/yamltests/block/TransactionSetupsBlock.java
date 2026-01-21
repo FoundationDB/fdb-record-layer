@@ -21,11 +21,10 @@
 package com.apple.foundationdb.relational.yamltests.block;
 
 import com.apple.foundationdb.relational.yamltests.Matchers;
-import com.apple.foundationdb.relational.yamltests.YamsqlReference;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
-import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
+import java.util.List;
 import java.util.Map;
 
 public class TransactionSetupsBlock extends SupportBlock {
@@ -35,15 +34,14 @@ public class TransactionSetupsBlock extends SupportBlock {
     public TransactionSetupsBlock() {
     }
 
-    public static ImmutableList<Block> parse(@Nonnull final YamsqlReference reference,
-                                      final Object document,
-                                      final YamlExecutionContext executionContext) {
+    public static List<Block> parse(@Nonnull final Object document,
+                                    @Nonnull final YamlExecutionContext executionContext) {
         final Map<?, ?> map = Matchers.map(document);
         for (final Map.Entry<?, ?> entry : map.entrySet()) {
             final String transactionSetupName = Matchers.string(entry.getKey(), "transaction setup name");
             final String transactionSetupCommand = Matchers.string(entry.getValue(), "transaction setup command");
             executionContext.registerTransactionSetup(transactionSetupName, transactionSetupCommand);
         }
-        return ImmutableList.of();
+        return List.of();
     }
 }

@@ -94,13 +94,13 @@ public final class YamlExecutionContext {
 
     private static final URI SYSTEM_CATALOG_ADDRESS = URI.create("jdbc:embed:/__SYS?schema=CATALOG");
 
-    @Nonnull final YamsqlReference.YamsqlResource topLevelResource;
+    @Nonnull final YamlReference.YamlResource topLevelResource;
     @Nonnull
-    private final Set<YamsqlReference.YamsqlResource> registeredResources = new HashSet<>();
+    private final Set<YamlReference.YamlResource> registeredResources = new HashSet<>();
     @Nonnull
-    private final Map<YamsqlReference.YamsqlResource, List<String>> editedFileStream = new HashMap<>();
+    private final Map<YamlReference.YamlResource, List<String>> editedFileStream = new HashMap<>();
     @Nonnull
-    private final Map<YamsqlReference.YamsqlResource, Boolean> isDirty = new HashMap<>();
+    private final Map<YamlReference.YamlResource, Boolean> isDirty = new HashMap<>();
     @Nullable
     private ImmutableMap<PlannerMetricsProto.Identifier, PlannerMetricsProto.Info> expectedMetricsMap;
     @Nonnull
@@ -109,7 +109,7 @@ public final class YamlExecutionContext {
     @Nonnull
     private final YamlConnectionFactory connectionFactory;
     @SuppressWarnings("AbbreviationAsWordInName")
-    private final Map<YamsqlReference.YamsqlResource, List<String>> connectionURIs = new HashMap<>();
+    private final Map<YamlReference.YamlResource, List<String>> connectionURIs = new HashMap<>();
     // Additional options that can be set by the runners to impact test execution
     private final ContextOptions additionalOptions;
     private final Map<String, String> transactionSetups = new HashMap<>();
@@ -125,7 +125,7 @@ public final class YamlExecutionContext {
         }
     }
 
-    YamlExecutionContext(@Nonnull YamsqlReference.YamsqlResource topLevelResource, @Nonnull YamlConnectionFactory factory, @Nonnull final ContextOptions additionalOptions) {
+    YamlExecutionContext(@Nonnull YamlReference.YamlResource topLevelResource, @Nonnull YamlConnectionFactory factory, @Nonnull final ContextOptions additionalOptions) {
         this.connectionFactory = factory;
         this.topLevelResource = topLevelResource;
         this.additionalOptions = additionalOptions;
@@ -141,7 +141,7 @@ public final class YamlExecutionContext {
         }
     }
 
-    public void registerResource(@Nonnull final YamsqlReference.YamsqlResource resource) throws RelationalException {
+    public void registerResource(@Nonnull final YamlReference.YamlResource resource) throws RelationalException {
         if (registeredResources.contains(resource)) {
             throw new RuntimeException("The resource " + resource + " is already registered.");
         }
@@ -178,7 +178,7 @@ public final class YamlExecutionContext {
         return additionalOptions.getOrDefault(OPTION_SHOW_PLAN_ON_DIFF, false);
     }
 
-    public boolean correctExplain(@Nonnull final YamsqlReference reference, @Nonnull String actual) {
+    public boolean correctExplain(@Nonnull final YamlReference reference, @Nonnull String actual) {
         if (!shouldCorrectExplains()) {
             return false;
         }
@@ -200,7 +200,7 @@ public final class YamlExecutionContext {
     @SuppressWarnings("UnusedReturnValue")
     public synchronized PlannerMetricsProto.Info putMetrics(@Nonnull final String blockName,
                                                             @Nonnull final String query,
-                                                            @Nonnull final YamsqlReference reference,
+                                                            @Nonnull final YamlReference reference,
                                                             @Nonnull final PlannerMetricsProto.Info info,
                                                             @Nonnull final List<String> setups) {
         return actualMetricsMap.put(new QueryAndLocation(blockName, query, reference, setups), info);
@@ -237,7 +237,7 @@ public final class YamlExecutionContext {
 
     public void replaceFilesIfRequired() {
         final var filePathsWithResourceCount = registeredResources.stream()
-                .map(YamsqlReference.YamsqlResource::getPath)
+                .map(YamlReference.YamlResource::getPath)
                 .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
         for (final var resource: registeredResources) {
             if (!isDirty.getOrDefault(resource, false)) {
@@ -261,7 +261,7 @@ public final class YamlExecutionContext {
         saveMetricsAsYaml();
     }
 
-    private void saveYamlFile(@Nonnull final YamsqlReference.YamsqlResource resource) {
+    private void saveYamlFile(@Nonnull final YamlReference.YamlResource resource) {
         try {
             try (var writer = new PrintWriter(new FileWriter(Path.of(System.getProperty("user.dir")).resolve(Path.of("src", "test", "resources", resource.getPath())).toAbsolutePath().toString(), StandardCharsets.UTF_8))) {
                 for (var line : editedFileStream.get(resource)) {
@@ -275,8 +275,8 @@ public final class YamlExecutionContext {
         }
     }
 
-    public void registerConnectionURI(@Nonnull YamsqlReference.YamsqlResource resource, @Nonnull String stringURI) {
-        Assert.thatUnchecked(registeredResources.contains(resource), "A YamsqlResource should be registered before registering available connection URIs");
+    public void registerConnectionURI(@Nonnull YamlReference.YamlResource resource, @Nonnull String stringURI) {
+        Assert.thatUnchecked(registeredResources.contains(resource), "A YamlResource should be registered before registering available connection URIs");
         connectionURIs.computeIfAbsent(resource, ignore -> new ArrayList<>()).add(stringURI);
     }
 
@@ -284,11 +284,11 @@ public final class YamlExecutionContext {
      * Infers the URI of the database to which a block should connect to.
      * <br>
      * A block can declare a connection in multiple ways:
-     * 1. no explicit declaration: Try to connect to the only registered connection URI in the local {@link YamsqlReference.YamsqlResource}.
+     * 1. no explicit declaration: Try to connect to the only registered connection URI in the local {@link YamlReference.YamlResource}.
      *    If not, try to connect to the only connection across all parent resources.
      *    A URI can be registered by defining a "schema_template" block before that, which sets up the database and schema for a provided schema template.
      * 2. Parameter 0: connects to the system tables (catalog).
-     * 3. Parameter One-based Number: connects to the registered connection URI, number denotes the sequence of definitions in the local YamsqlResource.
+     * 3. Parameter One-based Number: connects to the registered connection URI, number denotes the sequence of definitions in the local YamlResource.
      *    To access parent connection URIs, this number should be prepended by `(global)` tag.
      * 4. Parameter String: connects to the defined String
      *
@@ -296,8 +296,8 @@ public final class YamlExecutionContext {
      *
      * @return a valid connection URI
      */
-    public URI inferConnectionURI(@Nonnull final YamsqlReference.YamsqlResource resource, @Nullable Object connectObject) {
-        Assert.thatUnchecked(registeredResources.contains(resource), "A YamsqlResource should be registered before registering available connection URIs");
+    public URI inferConnectionURI(@Nonnull final YamlReference.YamlResource resource, @Nullable Object connectObject) {
+        Assert.thatUnchecked(registeredResources.contains(resource), "A YamlResource should be registered before registering available connection URIs");
         if (connectObject == null) {
             return getConnectionFromConnectionURIList(resource, true, -1, true);
         } else if (connectObject instanceof Integer) {
@@ -311,7 +311,7 @@ public final class YamlExecutionContext {
         }
     }
 
-    private URI getConnectionFromConnectionURIList(@Nonnull YamsqlReference.YamsqlResource resource, boolean defaultValue, int idx, boolean isGlobal) {
+    private URI getConnectionFromConnectionURIList(@Nonnull YamlReference.YamlResource resource, boolean defaultValue, int idx, boolean isGlobal) {
         if (defaultValue) {
             final var localList = connectionURIs.getOrDefault(resource, List.of());
             if (localList.size() == 1) {
@@ -334,11 +334,11 @@ public final class YamlExecutionContext {
         return URI.create(list.get(idx - 1));
     }
 
-    private List<String> getGlobalConnectionURIList(@Nonnull YamsqlReference.YamsqlResource resource) {
+    private List<String> getGlobalConnectionURIList(@Nonnull YamlReference.YamlResource resource) {
         final var parentRef = resource.getParentRef();
-        final var resourcesBuilder = ImmutableList.<YamsqlReference.YamsqlResource>builder();
+        final var resourcesBuilder = ImmutableList.<YamlReference.YamlResource>builder();
         if (parentRef != null) {
-            resourcesBuilder.addAll(parentRef.getCallStack().stream().map(YamsqlReference::getResource).iterator());
+            resourcesBuilder.addAll(parentRef.getCallStack().stream().map(YamlReference::getResource).iterator());
         }
         resourcesBuilder.add(resource);
         return resourcesBuilder.build().stream()
@@ -376,13 +376,13 @@ public final class YamlExecutionContext {
      * @param throwable the throwable that needs to be wrapped
      * @param msg additional context
      * @param identifier The name of the element type to which the context is associated to.
-     * @param reference the {@link YamsqlReference} of the YAMSQL file to which the context is associated to.
+     * @param reference the {@link YamlReference} of the YAMSQL file to which the context is associated to.
      *
      * @return wrapped {@link YamlExecutionError}
      */
     @Nonnull
     public static RuntimeException wrapContext(@Nonnull Throwable throwable, @Nonnull Supplier<String> msg,
-                                               @Nonnull String identifier, @Nonnull final YamsqlReference reference) {
+                                               @Nonnull String identifier, @Nonnull final YamlReference reference) {
         if (throwable instanceof TestAbortedException) {
             return (TestAbortedException)throwable;
         } else if (throwable instanceof YamlExecutionError) {
@@ -401,7 +401,7 @@ public final class YamlExecutionContext {
         }
     }
 
-    private static StackTraceElement[] composeStackTrace(@Nonnull YamsqlReference reference, @Nonnull String identifier) {
+    private static StackTraceElement[] composeStackTrace(@Nonnull YamlReference reference, @Nonnull String identifier) {
         final var refList = reference.getCallStack();
         final var newStackTrace = new StackTraceElement[refList.size()];
         for (int i = refList.size() - 2; i >= 0; i--) {
@@ -510,7 +510,7 @@ public final class YamlExecutionContext {
     }
 
     @Nonnull
-    private static List<String> loadYamlResource(@Nonnull final YamsqlReference.YamsqlResource resource) throws RelationalException {
+    private static List<String> loadYamlResource(@Nonnull final YamlReference.YamlResource resource) throws RelationalException {
         final ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
         final List<String> inMemoryFile = new ArrayList<>();
         try (BufferedReader bufferedReader =
@@ -527,7 +527,7 @@ public final class YamlExecutionContext {
     }
 
     @Nonnull
-    private static ImmutableMap<PlannerMetricsProto.Identifier, PlannerMetricsProto.Info> loadMetricsResource(@Nonnull final YamsqlReference.YamsqlResource resource) throws RelationalException {
+    private static ImmutableMap<PlannerMetricsProto.Identifier, PlannerMetricsProto.Info> loadMetricsResource(@Nonnull final YamlReference.YamlResource resource) throws RelationalException {
         final ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
         final var fis = classLoader.getResourceAsStream(metricsBinaryProtoFileName(resource.getPath()));
         final var resultMapBuilder =
@@ -709,9 +709,9 @@ public final class YamlExecutionContext {
         @Nonnull
         private final PlannerMetricsProto.Identifier identifier;
         @Nonnull
-        private final YamsqlReference reference;
+        private final YamlReference reference;
 
-        public QueryAndLocation(@Nonnull final String blockName, final String query, @Nonnull final YamsqlReference reference,
+        public QueryAndLocation(@Nonnull final String blockName, final String query, @Nonnull final YamlReference reference,
                                 @Nonnull List<String> setups) {
             identifier = PlannerMetricsProto.Identifier.newBuilder()
                     .setBlockName(blockName)
@@ -737,7 +737,7 @@ public final class YamlExecutionContext {
         }
 
         @Nonnull
-        public YamsqlReference getReference() {
+        public YamlReference getReference() {
             return reference;
         }
 

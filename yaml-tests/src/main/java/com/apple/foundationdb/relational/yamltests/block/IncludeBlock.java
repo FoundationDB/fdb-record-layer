@@ -25,7 +25,7 @@ import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.relational.yamltests.CustomYamlConstructor;
 import com.apple.foundationdb.relational.yamltests.Matchers;
-import com.apple.foundationdb.relational.yamltests.YamsqlReference;
+import com.apple.foundationdb.relational.yamltests.YamlReference;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import com.google.common.collect.ImmutableList;
 import org.apache.logging.log4j.LogManager;
@@ -69,7 +69,7 @@ public class IncludeBlock extends SupportBlock {
     }
 
     @Nonnull
-    public static List<Block> parse(@Nonnull final YamsqlReference reference, @Nonnull final Object document,
+    public static List<Block> parse(@Nonnull final YamlReference reference, @Nonnull final Object document,
                                     @Nonnull final YamlExecutionContext executionContext) {
         try {
             final var resourceName = Matchers.string(document, "resource name");
@@ -80,7 +80,7 @@ public class IncludeBlock extends SupportBlock {
     }
 
     @Nonnull
-    public static List<Block> parse(@Nonnull final YamsqlReference.YamsqlResource resource, @Nonnull final YamlExecutionContext executionContext)
+    public static List<Block> parse(@Nonnull final YamlReference.YamlResource resource, @Nonnull final YamlExecutionContext executionContext)
             throws Exception {
         try {
             final var allBlocks = ImmutableList.<Block>builder();
@@ -108,7 +108,7 @@ public class IncludeBlock extends SupportBlock {
 
     @SpotBugsSuppressWarnings(value = "NP_NONNULL_RETURN_VIOLATION", justification = "should never happen, fail throws")
     @Nonnull
-    private static InputStream getInputStream(@Nonnull final YamsqlReference.YamsqlResource resource) throws RelationalException {
+    private static InputStream getInputStream(@Nonnull final YamlReference.YamlResource resource) throws RelationalException {
         final ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
         InputStream inputStream = classLoader.getResourceAsStream(resource.getPath());
         Assert.notNull(inputStream, String.format(Locale.ROOT, "could not find '%s' in resources bundle", resource.getPath()));

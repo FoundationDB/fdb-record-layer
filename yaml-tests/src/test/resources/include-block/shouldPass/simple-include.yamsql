@@ -1,5 +1,5 @@
 #
-# single-connection.yamsql
+# simple-include.yamsql
 #
 # This source file is part of the FoundationDB open source project
 #
@@ -17,7 +17,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This test should pass
+# This tests a single include block in the file. It should pass.
 ---
 schema_template:
     create table t1(id bigint, col1 bigint, primary key(id))

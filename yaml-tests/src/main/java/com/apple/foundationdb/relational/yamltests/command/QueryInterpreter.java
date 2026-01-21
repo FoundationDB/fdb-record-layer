@@ -21,7 +21,7 @@
 package com.apple.foundationdb.relational.yamltests.command;
 
 import com.apple.foundationdb.relational.util.Assert;
-import com.apple.foundationdb.relational.yamltests.YamsqlReference;
+import com.apple.foundationdb.relational.yamltests.YamlReference;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import com.apple.foundationdb.relational.yamltests.command.parameterinjection.InListParameter;
 import com.apple.foundationdb.relational.yamltests.command.parameterinjection.ListParameter;
@@ -82,7 +82,7 @@ public final class QueryInterpreter {
     @Nonnull
     private final String query;
     @Nonnull
-    private final YamsqlReference reference;
+    private final YamlReference reference;
     @Nonnull
     private final YamlExecutionContext executionContext;
     /**
@@ -255,7 +255,7 @@ public final class QueryInterpreter {
         }
     }
 
-    private QueryInterpreter(@Nonnull final YamsqlReference reference, @Nonnull String query, @Nonnull final YamlExecutionContext executionContext) {
+    private QueryInterpreter(@Nonnull final YamlReference reference, @Nonnull String query, @Nonnull final YamlExecutionContext executionContext) {
         this.query = query;
         this.reference = reference;
         this.injections = getInjections(query);
@@ -287,7 +287,7 @@ public final class QueryInterpreter {
         return lst;
     }
 
-    public static QueryInterpreter withQueryString(@Nonnull final YamsqlReference reference, @Nonnull String query, @Nonnull final YamlExecutionContext executionContext) {
+    public static QueryInterpreter withQueryString(@Nonnull final YamlReference reference, @Nonnull String query, @Nonnull final YamlExecutionContext executionContext) {
         return new QueryInterpreter(reference, query, executionContext);
     }
 

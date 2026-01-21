@@ -25,7 +25,7 @@ import com.apple.foundationdb.relational.recordlayer.ErrorCapturingResultSet;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.yamltests.CustomYamlConstructor;
 import com.apple.foundationdb.relational.yamltests.Matchers;
-import com.apple.foundationdb.relational.yamltests.YamsqlReference;
+import com.apple.foundationdb.relational.yamltests.YamlReference;
 import com.apple.foundationdb.relational.yamltests.YamlConnection;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import com.apple.foundationdb.relational.yamltests.block.PreambleBlock;
@@ -86,17 +86,17 @@ public abstract class QueryConfig {
     private static final Set<String> VERSION_DEPENDENT_RESULT_CONFIGS = ImmutableSet.of(QUERY_CONFIG_INITIAL_VERSION_AT_LEAST, QUERY_CONFIG_INITIAL_VERSION_LESS_THAN);
 
     @Nullable private final Object value;
-    @Nonnull private final YamsqlReference reference;
+    @Nonnull private final YamlReference reference;
     @Nullable private final String configName;
 
-    protected QueryConfig(@Nullable String configName, @Nullable Object value, @Nonnull final YamsqlReference reference) {
+    protected QueryConfig(@Nullable String configName, @Nullable Object value, @Nonnull final YamlReference reference) {
         this.configName = configName;
         this.value = value;
         this.reference = reference;
     }
 
     @Nonnull
-    protected YamsqlReference getReference() {
+    protected YamlReference getReference() {
         return reference;
     }
 
@@ -167,7 +167,7 @@ public abstract class QueryConfig {
     }
 
     private static QueryConfig getCheckResultConfig(boolean isExpectedOrdered, @Nullable String configName,
-                                                    @Nullable Object value, @Nonnull final YamsqlReference reference) {
+                                                    @Nullable Object value, @Nonnull final YamlReference reference) {
         return new QueryConfig(configName, value, reference) {
 
             @Override
@@ -202,11 +202,11 @@ public abstract class QueryConfig {
 
     private static QueryConfig getCheckExplainConfig(boolean isExact, @Nonnull String blockName,
                                                      @Nonnull String configName, @Nullable Object value,
-                                                     @Nonnull final YamsqlReference reference, @Nonnull YamlExecutionContext executionContext) {
+                                                     @Nonnull final YamlReference reference, @Nonnull YamlExecutionContext executionContext) {
         return new CheckExplainConfig(configName, value, reference, executionContext, isExact, blockName);
     }
 
-    private static QueryConfig getCheckErrorConfig(@Nullable Object value, @Nonnull final YamsqlReference reference) {
+    private static QueryConfig getCheckErrorConfig(@Nullable Object value, @Nonnull final YamlReference reference) {
         return new QueryConfig(QUERY_CONFIG_ERROR, value, reference) {
 
             @Override
@@ -243,7 +243,7 @@ public abstract class QueryConfig {
         };
     }
 
-    private static QueryConfig getCheckCountConfig(@Nullable Object value, @Nonnull final YamsqlReference reference) {
+    private static QueryConfig getCheckCountConfig(@Nullable Object value, @Nonnull final YamlReference reference) {
         return new QueryConfig(QUERY_CONFIG_COUNT, value, reference) {
 
             @Override
@@ -259,7 +259,7 @@ public abstract class QueryConfig {
         };
     }
 
-    private static QueryConfig getCheckPlanHashConfig(@Nullable Object value, @Nonnull YamsqlReference reference) {
+    private static QueryConfig getCheckPlanHashConfig(@Nullable Object value, @Nonnull YamlReference reference) {
         return new QueryConfig(QUERY_CONFIG_PLAN_HASH, value, reference) {
 
             @Override
@@ -283,7 +283,7 @@ public abstract class QueryConfig {
         };
     }
 
-    public static QueryConfig getNoCheckConfig(@Nonnull final YamsqlReference reference) {
+    public static QueryConfig getNoCheckConfig(@Nonnull final YamlReference reference) {
         return new QueryConfig(QUERY_CONFIG_NO_CHECKS, null, reference) {
             @SuppressWarnings("PMD.CloseResource") // lifetime of autocloseable persists beyond method
             @Override
@@ -302,7 +302,7 @@ public abstract class QueryConfig {
         };
     }
 
-    private static QueryConfig getMaxRowConfig(@Nonnull Object value, @Nonnull final YamsqlReference reference) {
+    private static QueryConfig getMaxRowConfig(@Nonnull Object value, @Nonnull final YamlReference reference) {
         return new QueryConfig(QUERY_CONFIG_MAX_ROWS, value, reference) {
             @Override
             protected void checkResultInternal(@Nonnull String currentQuery, @Nonnull Object actual,
@@ -312,7 +312,7 @@ public abstract class QueryConfig {
         };
     }
 
-    private static QueryConfig getSetupConfig(final Object value, @Nonnull final YamsqlReference reference) {
+    private static QueryConfig getSetupConfig(final Object value, @Nonnull final YamlReference reference) {
         return new QueryConfig(QUERY_CONFIG_SETUP, value, reference) {
             @Override
             protected void checkResultInternal(@Nonnull final String currentQuery, @Nonnull final Object actual,
@@ -322,7 +322,7 @@ public abstract class QueryConfig {
         };
     }
 
-    private static QueryConfig getDebuggerConfig(@Nonnull Object value, @Nonnull final YamsqlReference reference) {
+    private static QueryConfig getDebuggerConfig(@Nonnull Object value, @Nonnull final YamlReference reference) {
         return new QueryConfig(QUERY_CONFIG_DEBUGGER, DebuggerImplementation.valueOf(((String)value).toUpperCase(Locale.ROOT)),
                 reference) {
             @Override
@@ -334,7 +334,7 @@ public abstract class QueryConfig {
     }
 
     @Nonnull
-    public static QueryConfig getSupportedVersionConfig(Object rawVersion, @Nonnull final YamsqlReference reference, final YamlExecutionContext executionContext) {
+    public static QueryConfig getSupportedVersionConfig(Object rawVersion, @Nonnull final YamlReference reference, final YamlExecutionContext executionContext) {
         final SupportedVersionCheck check = SupportedVersionCheck.parse(rawVersion, executionContext.getConnectionFactory().getVersionsUnderTest());
         if (!check.isSupported()) {
             return new SkipConfig(QUERY_CONFIG_SUPPORTED_VERSION, rawVersion, reference, check.getMessage());
@@ -354,10 +354,10 @@ public abstract class QueryConfig {
      * Return a NoOp config - a config that does nothing.
      * This config can be executed but will perform no action. Use in cases where we need to continue running (e.g.
      * the command and config are legal and supprted) but some conditions make execution unneeded.
-     * @param reference the {@link YamsqlReference} in the test file
+     * @param reference the {@link YamlReference} in the test file
      * @return an instance of a NoOp config
      */
-    public static QueryConfig getNoOpConfig(@Nonnull final YamsqlReference reference) {
+    public static QueryConfig getNoOpConfig(@Nonnull final YamlReference reference) {
         return new QueryConfig(QUERY_CONFIG_NO_OP, null, reference) {
             @SuppressWarnings("PMD.CloseResource") // lifetime of autocloseable persists beyond method
             @Override
@@ -370,7 +370,7 @@ public abstract class QueryConfig {
     }
 
     @Nonnull
-    public static List<QueryConfig> parseConfigs(String blockName, @Nonnull final YamsqlReference commandReference,
+    public static List<QueryConfig> parseConfigs(String blockName, @Nonnull final YamlReference commandReference,
                                                  @Nonnull List<?> objects, @Nonnull YamlExecutionContext executionContext) {
         List<QueryConfig> configs = new ArrayList<>();
         // After the first result config, require all future results are also result configs. That is, we should
@@ -399,7 +399,7 @@ public abstract class QueryConfig {
         return configs;
     }
 
-    private static QueryConfig getInitialVersionCheckConfig(Object key, Object value, @Nonnull final YamsqlReference reference) {
+    private static QueryConfig getInitialVersionCheckConfig(Object key, Object value, @Nonnull final YamlReference reference) {
         try {
             SemanticVersion versionArgument = PreambleBlock.parseVersion(value);
             if (QUERY_CONFIG_INITIAL_VERSION_AT_LEAST.equals(key)) {
@@ -416,7 +416,7 @@ public abstract class QueryConfig {
         }
     }
 
-    private static QueryConfig parseConfig(String blockName, String key, Object value, @Nonnull final YamsqlReference reference, YamlExecutionContext executionContext) {
+    private static QueryConfig parseConfig(String blockName, String key, Object value, @Nonnull final YamlReference reference, YamlExecutionContext executionContext) {
         if (QUERY_CONFIG_SUPPORTED_VERSION.equals(key)) {
             return getSupportedVersionConfig(value, reference, executionContext);
         } else if (VERSION_DEPENDENT_RESULT_CONFIGS.contains(key)) {
@@ -460,7 +460,7 @@ public abstract class QueryConfig {
         }
     }
 
-    private static void validateConfigs(List<QueryConfig> configs, @Nonnull final YamsqlReference reference) {
+    private static void validateConfigs(List<QueryConfig> configs, @Nonnull final YamlReference reference) {
         Assert.thatUnchecked(configs.stream().skip(1)
                         .noneMatch(config -> QueryConfig.QUERY_CONFIG_SUPPORTED_VERSION.equals(config.getConfigName())),
                 "supported_version must be the first config in a query (after the query itself)");
@@ -487,7 +487,7 @@ public abstract class QueryConfig {
     public static class SkipConfig extends QueryConfig {
         private final String message;
 
-        public SkipConfig(final String configMap, final Object value, @Nonnull final YamsqlReference reference, final String message) {
+        public SkipConfig(final String configMap, final Object value, @Nonnull final YamlReference reference, final String message) {
             super(configMap, value, reference);
             this.message = message;
         }
@@ -507,7 +507,7 @@ public abstract class QueryConfig {
         private final SemanticVersion minVersion;
         private final SemanticVersion maxVersion;
 
-        public InitialVersionCheckConfig(final String configName, final Object value, @Nonnull final YamsqlReference reference,
+        public InitialVersionCheckConfig(final String configName, final Object value, @Nonnull final YamlReference reference,
                                          SemanticVersion minVersion, SemanticVersion maxVersion) {
             super(configName, value, reference);
             this.minVersion = minVersion;

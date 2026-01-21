@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.relational.yamltests.block;
 
-import com.apple.foundationdb.relational.yamltests.YamsqlReference;
+import com.apple.foundationdb.relational.yamltests.YamlReference;
 import com.apple.foundationdb.relational.yamltests.YamlConnection;
 import com.apple.foundationdb.relational.yamltests.YamlConnectionFactory;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
@@ -58,7 +58,7 @@ public abstract class ConnectedBlock extends ReferencedBlock implements Block {
     @Nonnull
     final List<Consumer<YamlConnection>> executables;
 
-    ConnectedBlock(@Nonnull YamsqlReference reference, @Nonnull List<Consumer<YamlConnection>> executables, @Nonnull URI connectionURI, @Nonnull YamlExecutionContext executionContext) {
+    ConnectedBlock(@Nonnull YamlReference reference, @Nonnull List<Consumer<YamlConnection>> executables, @Nonnull URI connectionURI, @Nonnull YamlExecutionContext executionContext) {
         super(reference);
         this.executables = executables;
         this.connectionURI = connectionURI;

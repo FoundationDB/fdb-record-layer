@@ -41,14 +41,14 @@ public final class YamlRunner {
     static final String TEST_NIGHTLY_REPETITION = "tests.yaml.iterations";
 
     @Nonnull
-    private final YamsqlReference.YamsqlResource baseResource;
+    private final YamlReference.YamlResource baseResource;
 
     @Nonnull
     private final YamlExecutionContext executionContext;
 
     public YamlRunner(@Nonnull String resourcePath, @Nonnull YamlConnectionFactory factory,
                       @Nonnull final YamlExecutionContext.ContextOptions additionalOptions) throws RelationalException {
-        this.baseResource = YamsqlReference.YamsqlResource.base(resourcePath);
+        this.baseResource = YamlReference.YamlResource.base(resourcePath);
         this.executionContext = new YamlExecutionContext(baseResource, factory, additionalOptions);
     }
 

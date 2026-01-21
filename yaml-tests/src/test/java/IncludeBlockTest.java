@@ -48,7 +48,7 @@ public class IncludeBlockTest {
 
     private static final SemanticVersion VERSION = SemanticVersion.parse("4.4.8.0");
     private static final YamlTestConfig config = new EmbeddedConfig(FDBTestEnvironment.randomClusterFile());
-    private static final boolean CORRECT_METRICS = false;
+    private static final boolean CORRECT_METRICS = true;
     private static final String CLUSTER_FILE = FDBTestEnvironment.randomClusterFile();
 
     @BeforeAll
@@ -96,6 +96,7 @@ public class IncludeBlockTest {
         );
     }
 
+    
     static Stream<String> includesShouldPass() {
         return Stream.of(
                 "include-scoped"
@@ -119,7 +120,8 @@ public class IncludeBlockTest {
         return Stream.of(
                 "options-in-included",
                 "cycle-in-include",
-                "include-scope-not-visible-outside"
+                "include-scope-not-visible-outside",
+                "include-non-existent"
         );
     }
 
@@ -132,7 +134,7 @@ public class IncludeBlockTest {
 
     static Stream<String> shouldPass() {
         return Stream.of(
-                "single-connection",
+                "simple-include",
                 "multiple-includes",
                 "multiple-same-includes",
                 "nested-includes",

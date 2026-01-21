@@ -23,11 +23,11 @@ package com.apple.foundationdb.relational.yamltests.block;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.yamltests.CustomYamlConstructor;
 import com.apple.foundationdb.relational.yamltests.Matchers;
-import com.apple.foundationdb.relational.yamltests.YamsqlReference;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
-import com.google.common.collect.ImmutableList;
+import com.apple.foundationdb.relational.yamltests.YamlReference;
 
 import javax.annotation.Nonnull;
+import java.util.List;
 
 /**
  * Block is a single region in the YAMSQL file that can either be a
@@ -53,8 +53,8 @@ public interface Block {
      * @param executionContext information needed to carry out the execution
      * @return zero of more blocks
      */
-    static ImmutableList<Block> parse(@Nonnull YamsqlReference.YamsqlResource resource, @Nonnull Object region, int blockNumber,
-                                      @Nonnull YamlExecutionContext executionContext, boolean isTopLevel) {
+    static List<Block> parse(@Nonnull YamlReference.YamlResource resource, @Nonnull Object region, int blockNumber,
+                             @Nonnull YamlExecutionContext executionContext, boolean isTopLevel) {
         final var blockObject = Matchers.map(region, "block");
         Assert.thatUnchecked(blockObject.size() == 1,
                 "Illegal Format: A block is expected to be a map of size 1 ({" + resource + "}) keys: " + blockObject.keySet());
@@ -67,7 +67,7 @@ public interface Block {
                 case SetupBlock.SETUP_BLOCK:
                     return SetupBlock.ManualSetupBlock.parse(reference, entry.getValue(), executionContext);
                 case TransactionSetupsBlock.TRANSACTION_SETUP:
-                    return TransactionSetupsBlock.parse(reference, entry.getValue(), executionContext);
+                    return TransactionSetupsBlock.parse(entry.getValue(), executionContext);
                 case TestBlock.TEST_BLOCK:
                     return TestBlock.parse(blockNumber, reference, entry.getValue(), executionContext);
                 case SetupBlock.SchemaTemplateBlock.SCHEMA_TEMPLATE_BLOCK:
@@ -86,13 +86,13 @@ public interface Block {
     }
 
     /**
-     * Returns the {@link YamsqlReference} attached with the block. This is usually represented by the first line of the
+     * Returns the {@link YamlReference} attached with the block. This is usually represented by the first line of the
      * block in YAMSQL file and the name of that file. However, the more important bit that is there in it, is the call
      * stack that has led to the execution of this block.
-     * @return the {@link YamsqlReference} of the current block.
+     * @return the {@link YamlReference} of the current block.
      */
     @Nonnull
-    YamsqlReference getReference();
+    YamlReference getReference();
 
     /**
      * Executes the executables from the parsed block in a single connection.
@@ -106,7 +106,7 @@ public interface Block {
      * @return the list of {@link Block}
      */
     @Nonnull
-    default ImmutableList<Block> getAndClearFinalizingBlocks() {
-        return ImmutableList.of();
+    default List<Block> getAndClearFinalizingBlocks() {
+        return List.of();
     }
 }
