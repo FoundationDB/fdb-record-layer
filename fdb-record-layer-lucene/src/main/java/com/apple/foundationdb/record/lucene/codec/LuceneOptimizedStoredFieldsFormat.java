@@ -24,7 +24,7 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.lucene.LuceneExceptions;
 import com.apple.foundationdb.record.lucene.LuceneIndexOptions;
 import com.apple.foundationdb.record.lucene.LucenePrimaryKeySegmentIndexV1;
-import com.apple.foundationdb.record.lucene.directory.FDBDirectoryBase;
+import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectoryUtils;
 import org.apache.lucene.codecs.StoredFieldsFormat;
 import org.apache.lucene.codecs.StoredFieldsReader;
@@ -55,7 +55,7 @@ public class LuceneOptimizedStoredFieldsFormat extends StoredFieldsFormat {
     @Override
     public StoredFieldsReader fieldsReader(final Directory directory, final SegmentInfo si, final FieldInfos fn, final IOContext context) throws IOException {
         try {
-            FDBDirectoryBase fdbDirectory = FDBDirectoryUtils.getFDBDirectory(directory);
+            FDBDirectory fdbDirectory = FDBDirectoryUtils.getFDBDirectory(directory);
 
             if (fdbDirectory.usesOptimizedStoredFields()) {
                 return new LuceneOptimizedStoredFieldsReader(fdbDirectory, si, fn);
@@ -72,7 +72,7 @@ public class LuceneOptimizedStoredFieldsFormat extends StoredFieldsFormat {
     @Override
     public StoredFieldsWriter fieldsWriter(final Directory directory, final SegmentInfo si, final IOContext context) throws IOException {
         try {
-            FDBDirectoryBase fdbDirectory = FDBDirectoryUtils.getFDBDirectory(directory);
+            FDBDirectory fdbDirectory = FDBDirectoryUtils.getFDBDirectory(directory);
             StoredFieldsWriter storedFieldsWriter;
 
             // Use FALSE as the default OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED option, for backwards compatibility

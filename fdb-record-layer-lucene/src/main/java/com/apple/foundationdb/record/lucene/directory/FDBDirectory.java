@@ -69,6 +69,7 @@ import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.store.IndexOutput;
 import org.apache.lucene.store.Lock;
+import org.apache.lucene.store.LockFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -115,7 +116,7 @@ import static org.apache.lucene.codecs.lucene86.Lucene86SegmentInfoFormat.SI_EXT
  */
 @API(API.Status.EXPERIMENTAL)
 @NotThreadSafe
-public class FDBDirectory extends FDBDirectoryBase {
+public class FDBDirectory extends Directory {
     private static final Logger LOGGER = LoggerFactory.getLogger(FDBDirectory.class);
     public static final int DEFAULT_BLOCK_SIZE = 1_024;
     public static final int DEFAULT_BLOCK_CACHE_MAXIMUM_SIZE = 1024;
@@ -145,8 +146,9 @@ public class FDBDirectory extends FDBDirectoryBase {
     private final Subspace pendingWritesQueueSubspace;
     private final byte[] sequenceSubspaceKey;
 
-    private final FDBDirectoryLockFactory lockFactory;
-    private FDBDirectoryLockFactory.FDBDirectoryLock lastLock = null;
+    private final LockFactory lockFactory;
+    private final int maxPendingWritesToReplay;
+    private Lock lastLock = null;
     private final int blockSize;
 
     /**
@@ -194,19 +196,20 @@ public class FDBDirectory extends FDBDirectoryBase {
     public FDBDirectory(@Nonnull Subspace subspace, @Nullable Map<String, String> indexOptions,
                         @Nullable FDBDirectorySharedCacheManager sharedCacheManager, @Nullable Tuple sharedCacheKey,
                         boolean deferDeleteToCompoundFile, AgilityContext agilityContext) {
-        this(subspace, indexOptions, sharedCacheManager, sharedCacheKey, agilityContext,
+        this(subspace, indexOptions, sharedCacheManager, sharedCacheKey, agilityContext, null,
                 DEFAULT_BLOCK_SIZE, DEFAULT_INITIAL_CAPACITY, DEFAULT_BLOCK_CACHE_MAXIMUM_SIZE, DEFAULT_CONCURRENCY_LEVEL, deferDeleteToCompoundFile);
     }
 
     public FDBDirectory(@Nonnull Subspace subspace, @Nullable Map<String, String> indexOptions,
                         @Nullable FDBDirectorySharedCacheManager sharedCacheManager, @Nullable Tuple sharedCacheKey,
-                        boolean deferDeleteToCompoundFile, AgilityContext agilityContext, int blockCacheMaximumSize) {
-        this(subspace, indexOptions, sharedCacheManager, sharedCacheKey, agilityContext,
+                        boolean deferDeleteToCompoundFile, AgilityContext agilityContext, @Nullable LockFactory lockFactory, int blockCacheMaximumSize) {
+        this(subspace, indexOptions, sharedCacheManager, sharedCacheKey, agilityContext, lockFactory,
                 DEFAULT_BLOCK_SIZE, DEFAULT_INITIAL_CAPACITY, blockCacheMaximumSize, DEFAULT_CONCURRENCY_LEVEL, deferDeleteToCompoundFile);
     }
 
     private FDBDirectory(@Nonnull Subspace subspace, @Nullable Map<String, String> indexOptions,
                          @Nullable FDBDirectorySharedCacheManager sharedCacheManager, @Nullable Tuple sharedCacheKey, AgilityContext agilityContext,
+                         @Nullable LockFactory lockFactory,
                          int blockSize, final int initialCapacity, final int blockCacheMaximumSize, final int concurrencyLevel,
                          boolean deferDeleteToCompoundFile) {
         this.agilityContext = agilityContext;
@@ -220,7 +223,7 @@ public class FDBDirectory extends FDBDirectoryBase {
         this.storedFieldsSubspace = subspace.subspace(Tuple.from(STORED_FIELDS_SUBSPACE));
         this.fileLockSubspace = subspace.subspace(Tuple.from(FILE_LOCK_SUBSPACE));
         this.pendingWritesQueueSubspace = subspace.subspace(Tuple.from(PENDING_WRITE_QUEUE_SUBSPACE));
-        this.lockFactory = new FDBDirectoryLockFactory(this, Objects.requireNonNullElse(agilityContext.getPropertyValue(LuceneRecordContextProperties.LUCENE_FILE_LOCK_TIME_WINDOW_MILLISECONDS), 0));
+        this.lockFactory = (lockFactory != null) ? lockFactory : defaultLockFactory(agilityContext);
         this.blockSize = blockSize;
         this.fileReferenceCache = new AtomicReference<>();
         this.blockCache = CacheBuilder.newBuilder()
@@ -241,6 +244,7 @@ public class FDBDirectory extends FDBDirectoryBase {
         this.sharedCachePending = sharedCacheManager != null && sharedCacheKey != null;
         this.fieldInfosStorage = new FieldInfosStorage(this);
         this.deferDeleteToCompoundFile = deferDeleteToCompoundFile;
+        this.maxPendingWritesToReplay = agilityContext.getPropertyValue(LuceneRecordContextProperties.LUCENE_MAX_PENDING_WRITES_REPLAYED_FOR_QUERY);
     }
 
     private void cacheRemovalCallback() {
@@ -977,18 +981,19 @@ public class FDBDirectory extends FDBDirectoryBase {
                     LuceneLogMessageKeys.LOCK_NAME, lockName));
         }
         final Lock lock = lockFactory.obtainLock(null, lockName);
-        lastLock = (FDBDirectoryLockFactory.FDBDirectoryLock) lock;
+        lastLock = lock;
         return lock;
     }
 
     private void clearLockIfLocked() {
-        if (lastLock != null) {
-            lastLock.fileLockClearIfLocked();
+        // There can be other kinds of locks on occasion, so ensure it is of the right type
+        if ((lastLock != null) && (lastLock instanceof FDBDirectoryLockFactory.FDBDirectoryLock)) {
+            ((FDBDirectoryLockFactory.FDBDirectoryLock)lastLock).fileLockClearIfLocked();
         }
     }
 
     public PendingWriteQueue createPendingWritesQueue() {
-        return new PendingWriteQueue(pendingWritesQueueSubspace);
+        return new PendingWriteQueue(pendingWritesQueueSubspace, maxPendingWritesToReplay);
     }
 
     /**
@@ -1179,5 +1184,15 @@ public class FDBDirectory extends FDBDirectoryBase {
     @Nullable
     public String getIndexOption(@Nonnull String key) {
         return indexOptions.get(key);
+    }
+
+    /**
+     * Utility to create the default LockFactory when null is given to the constructor.
+     * @param agilityContext the agility context to use for the factory
+     * @return the created lock factory
+     */
+    @Nonnull
+    private FDBDirectoryLockFactory defaultLockFactory(final AgilityContext agilityContext) {
+        return new FDBDirectoryLockFactory(this, Objects.requireNonNullElse(agilityContext.getPropertyValue(LuceneRecordContextProperties.LUCENE_FILE_LOCK_TIME_WINDOW_MILLISECONDS), 0));
     }
 }

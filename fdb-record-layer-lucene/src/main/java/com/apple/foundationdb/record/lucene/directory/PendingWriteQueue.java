@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.lucene.LuceneDocumentFromRecord;
 import com.apple.foundationdb.record.lucene.LuceneEvents;
 import com.apple.foundationdb.record.lucene.LuceneExceptions;
 import com.apple.foundationdb.record.lucene.LuceneIndexMaintainer;
+import com.apple.foundationdb.record.lucene.LuceneIndexMaintainerHelper;
 import com.apple.foundationdb.record.lucene.LuceneLogMessageKeys;
 import com.apple.foundationdb.record.lucene.LucenePendingWriteQueueProto;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
@@ -81,6 +82,8 @@ import java.util.concurrent.CompletableFuture;
  */
 @API(API.Status.INTERNAL)
 public class PendingWriteQueue {
+    public static final int MAX_PENDING_ENTRIES_TO_REPLAY = 0;
+
     private static final Logger LOGGER = LoggerFactory.getLogger(PendingWriteQueue.class);
 
     /**
@@ -101,7 +104,7 @@ public class PendingWriteQueue {
      * as necessary
      */
     public PendingWriteQueue(@Nonnull Subspace queueSubspace) {
-        this(queueSubspace, 0);
+        this(queueSubspace, MAX_PENDING_ENTRIES_TO_REPLAY);
     }
 
     public PendingWriteQueue(@Nonnull Subspace queueSubspace, int maxEntriesToReplay) {
@@ -206,6 +209,10 @@ public class PendingWriteQueue {
 
         // Record metrics
         context.increment(LuceneEvents.Counts.LUCENE_PENDING_QUEUE_CLEAR);
+
+        if (LOGGER.isDebugEnabled()) {
+            LOGGER.debug("Cleared queue entry");
+        }
     }
 
     /**
@@ -247,6 +254,7 @@ public class PendingWriteQueue {
     /**
      * Replay a single queued operation directly to the IndexWriter.
      */
+    @SuppressWarnings("fallthrough")
     private void replayOperation(@Nonnull QueueEntry entry, @Nonnull IndexWriter indexWriter) {
         Tuple primaryKey = entry.getPrimaryKey();
         LucenePendingWriteQueueProto.PendingWriteItem.OperationType opType = entry.getOperationType();
@@ -254,7 +262,13 @@ public class PendingWriteQueue {
         try {
             switch (opType) {
                 case UPDATE:
-                    // TODO: for update we should try to delete the doc first
+                    // TODO: can we use the segment primary key index to delete the doc directly?
+                    Query updateDeleteQuery = SortedDocValuesField.newSlowExactQuery(
+                            LuceneIndexMaintainer.PRIMARY_KEY_SEARCH_NAME,
+                            new BytesRef(primaryKey.pack()));
+                    indexWriter.deleteDocuments(updateDeleteQuery);
+                    // Fallthrough to the next CASE
+
                 case INSERT:
                     // Get IndexWriter and write document directly
                     Document document = new Document();
@@ -268,7 +282,7 @@ public class PendingWriteQueue {
                     // Add document fields
                     List<LuceneDocumentFromRecord.DocumentField> fields = PendingWritesQueueHelper.fromProtoFields(entry.getDocumentFields());
                     for (LuceneDocumentFromRecord.DocumentField field : fields) {
-                        LuceneIndexMaintainer.insertField(field, document);
+                        LuceneIndexMaintainerHelper.insertField(field, document);
                     }
 
                     indexWriter.addDocument(document);
@@ -285,6 +299,10 @@ public class PendingWriteQueue {
 
                 default:
                     LOGGER.warn("Unknown operation type: {}", opType);
+            }
+
+            if (LOGGER.isDebugEnabled()) {
+                LOGGER.debug("Replayed {} operation", opType);
             }
         } catch (IOException ex) {
             throw LuceneExceptions.toRecordCoreException("failed to replay message on writer", ex);

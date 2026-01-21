@@ -219,7 +219,7 @@ public final class LuceneIndexMaintainerHelper {
      * Insert a field into the document and add a suggestion into the suggester if needed.
      */
     @SuppressWarnings("java:S3776")
-    private static void insertField(LuceneDocumentFromRecord.DocumentField field, final Document document) {
+    public static void insertField(LuceneDocumentFromRecord.DocumentField field, final Document document) {
         final String fieldName = field.getFieldName();
         final Object value = field.getValue();
         final Field luceneField;

@@ -46,12 +46,14 @@ import org.apache.lucene.index.MergeScheduler;
 import org.apache.lucene.index.MergeTrigger;
 import org.apache.lucene.index.StandardDirectoryReaderOptimization;
 import org.apache.lucene.index.TieredMergePolicy;
+import org.apache.lucene.store.LockFactory;
 import org.apache.lucene.util.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.io.Closeable;
 import java.io.IOException;
 import java.util.Map;
 import java.util.Queue;
@@ -79,6 +81,7 @@ public class FDBDirectoryWrapper implements AutoCloseable {
     private final Tuple key;
     @Nonnull
     private final LuceneAnalyzerWrapper analyzerWrapper;
+    private final int blockCacheMaximumSize;
     /**
      * When we fetch the reader via {@link #getReader()}, if the {@link #writer} has been instantiated, we want to
      * create a NRT reader based of that, so that you can read your own writes. If we haven't interacted with the
@@ -106,6 +109,20 @@ public class FDBDirectoryWrapper implements AutoCloseable {
      */
     private Queue<LazyCloseable<DirectoryReader>> readersToClose;
     /**
+     * The cached version of the {@link IndexWriter} that contains the replayed {@link PendingWriteQueue} entries.
+     * This writer has all the queue elements replayed, so any reader created from it can find them through a query.
+     * This writer is lazily initialized, and is closed once this directory wrapper is closed.
+     */
+    private LazyCloseable<IndexWriter> replayedQueueIndexWriter;
+    /**
+     * The cached context used by the {@link #replayedQueueIndexWriter}.
+     * Since the {@link #replayedQueueIndexWriter} cannot write anything to disk (the queue replay is used only for the
+     * query - other mechanisms will drain the queue into the index), we use a read-only {@link AgilityContext} for the
+     * writer.
+     * This context is lazily initialized, and is closed once this directory wrapper is closed.
+     */
+    private LazyCloseable<CloseableReadOnlyAgilityContext> replayedQueueContext;
+    /**
      * The instance of the pending writes queue.
      */
     private LazyOpener<PendingWriteQueue> pendingWriteQueue;
@@ -119,14 +136,17 @@ public class FDBDirectoryWrapper implements AutoCloseable {
                         @Nullable final Exception exceptionAtCreation) {
         this.state = state;
         this.key = key;
-        this.directory = createFDBDirectory(state, key, agilityContext, blockCacheMaximumSize);
+        this.directory = createFDBDirectory(state, key, agilityContext, null, blockCacheMaximumSize);
         this.agilityContext = agilityContext;
+        this.blockCacheMaximumSize = blockCacheMaximumSize;
         this.mergeDirectoryCount = mergeDirectoryCount;
         this.analyzerWrapper = analyzerWrapper;
         writer = LazyCloseable.supply(() -> createIndexWriter(exceptionAtCreation));
         writerReader = LazyCloseable.supply(() -> DirectoryReader.open(writer.get()));
         readersToClose = new ConcurrentLinkedQueue<>();
         readersToClose.add(writerReader);
+        replayedQueueContext = LazyCloseable.supply(() -> createReadOnlyContext());
+        replayedQueueIndexWriter = LazyCloseable.supply(() -> createIndexWriterWithReplayedQueue());
         pendingWriteQueue = LazyOpener.supply(() -> directory.createPendingWritesQueue());
     }
 
@@ -141,6 +161,7 @@ public class FDBDirectoryWrapper implements AutoCloseable {
         this.state = state;
         this.key = key;
         this.directory = directory;
+        this.blockCacheMaximumSize = state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_BLOCK_CACHE_MAXIMUM_SIZE); // TODO!!!
         this.agilityContext = agilityContext;
         this.mergeDirectoryCount = mergeDirectoryCount;
         this.analyzerWrapper = analyzerWrapper;
@@ -148,6 +169,8 @@ public class FDBDirectoryWrapper implements AutoCloseable {
         writerReader = LazyCloseable.supply(() -> DirectoryReader.open(writer.get()));
         readersToClose = new ConcurrentLinkedQueue<>();
         readersToClose.add(writerReader);
+        replayedQueueContext = LazyCloseable.supply(() -> createReadOnlyContext());
+        replayedQueueIndexWriter = LazyCloseable.supply(() -> createIndexWriterWithReplayedQueue());
         pendingWriteQueue = LazyOpener.supply(() -> directory.createPendingWritesQueue());
     }
 
@@ -176,6 +199,7 @@ public class FDBDirectoryWrapper implements AutoCloseable {
     protected FDBDirectory createFDBDirectory(final IndexMaintainerState state,
                                               final Tuple key,
                                               final AgilityContext agilityContext,
+                                              final @Nullable LockFactory lockFactory,
                                               final int blockCacheMaximumSize) {
         final Subspace subspace = state.indexSubspace.subspace(key);
         final FDBDirectorySharedCacheManager sharedCacheManager = FDBDirectorySharedCacheManager.forContext(state.context);
@@ -189,7 +213,9 @@ public class FDBDirectoryWrapper implements AutoCloseable {
                 sharedCacheKey = sharedCacheManager.getSubspace().unpack(subspace.pack());
             }
         }
-        return createFDBDirectory(subspace, state.index.getOptions(), sharedCacheManager, sharedCacheKey, USE_COMPOUND_FILE, agilityContext, blockCacheMaximumSize);
+        return createFDBDirectory(
+                subspace, state.index.getOptions(), sharedCacheManager, sharedCacheKey, USE_COMPOUND_FILE,
+                agilityContext, lockFactory, blockCacheMaximumSize);
     }
 
     protected @Nonnull FDBDirectory createFDBDirectory(final Subspace subspace,
@@ -197,20 +223,13 @@ public class FDBDirectoryWrapper implements AutoCloseable {
                                                        final FDBDirectorySharedCacheManager sharedCacheManager,
                                                        final Tuple sharedCacheKey,
                                                        final boolean useCompoundFile, final AgilityContext agilityContext,
+                                                       final @Nullable LockFactory lockFactory,
                                                        final int blockCacheMaximumSize) {
-        return new FDBDirectory(subspace, options, sharedCacheManager, sharedCacheKey, useCompoundFile, agilityContext, blockCacheMaximumSize);
+        return new FDBDirectory(subspace, options, sharedCacheManager, sharedCacheKey, useCompoundFile, agilityContext, lockFactory, blockCacheMaximumSize);
     }
 
     public FDBDirectory getDirectory() {
         return directory;
-    }
-
-    /**
-     * Return the {@link PendingWriteQueue} instance to use to read documents queued while the directory was locked.
-     * @return the queue instance
-     */
-    public PendingWriteQueue getPendingWriteQueue() {
-        return pendingWriteQueue.getUnchecked();
     }
 
     /**
@@ -244,15 +263,15 @@ public class FDBDirectoryWrapper implements AutoCloseable {
         } else {
             // For now, create a reader from the writer that has all the pending queue elements.
             // TODO: Return the regular reader if nothing in the queue
-            return DirectoryReader.open(createIndexWriterWithReplayedQueue());
+            return DirectoryReader.open(replayedQueueIndexWriter.get());
         }
     }
 
     @Nonnull
     private IndexWriter createIndexWriterWithReplayedQueue() throws IOException {
-        // Create a no-lock wrapper around the existing directory
-        ReadOnlyFDBDirectory readOnlyDirectory = new ReadOnlyFDBDirectory(this.directory);
-
+        final AgilityContext readOnlyContext = replayedQueueContext.get().getAgilityContext();
+        // Create a read-only directory with read-only context and no-op lock factory
+        final FDBDirectory readOnlyDirectory = createFDBDirectory(state, key, readOnlyContext, NoOpLockFactory.INSTANCE, blockCacheMaximumSize);
         // Create a minimal IndexWriterConfig for the read-only writer
         IndexWriterConfig config = new IndexWriterConfig(this.analyzerWrapper.getAnalyzer())
                 .setCodec(CODEC)
@@ -261,11 +280,17 @@ public class FDBDirectoryWrapper implements AutoCloseable {
 
         IndexWriter readOnlyIndexWriter = new IndexWriter(readOnlyDirectory, config);
         // Get the queue and apply changes if necessary
-        // This is using the state context as this is the one to be used for the query that is to be executed
+        // This is using the read-only agility context as this is the one to be used for the query that is to be executed
         // TODO: Lucene async to sync here instead of join
-        // TODO: Only create the writer if necessary, otherwise can use the existing reader
-        getPendingWriteQueue().replayQueuedOperations(state.context, readOnlyIndexWriter).join();  // Block until replay completes
+        readOnlyContext.apply(context -> getPendingWriteQueue().replayQueuedOperations(context, readOnlyIndexWriter)).join();
+        // Block until replay completes
         return readOnlyIndexWriter;
+    }
+
+    @Nonnull
+    private CloseableReadOnlyAgilityContext createReadOnlyContext() {
+        AgilityContext readOnlyContext = AgilityContext.readOnlyNonAgile(agilityContext.getCallerContext(), null);
+        return new CloseableReadOnlyAgilityContext(readOnlyContext);
     }
 
     /**
@@ -445,7 +470,9 @@ public class FDBDirectoryWrapper implements AutoCloseable {
     @Override
     @SuppressWarnings("PMD.CloseResource")
     public synchronized void close() throws IOException {
-        IOUtils.close(writer, directory);
+        // Note that we are not closing the replayedQueueIndexWriter, since it is wasteful to roll back in memory changes
+        // as the actual transaction is rolled back anyway
+        IOUtils.close(writer, directory, replayedQueueContext);
         try {
             CloseableUtils.closeAll(readersToClose.toArray(new LazyCloseable<?>[0]));
         } catch (CloseException e) {
@@ -460,5 +487,22 @@ public class FDBDirectoryWrapper implements AutoCloseable {
     @VisibleForTesting
     public Queue<LazyCloseable<DirectoryReader>> getReadersToClose() {
         return readersToClose;
+    }
+
+    private class CloseableReadOnlyAgilityContext implements Closeable {
+        private AgilityContext agilityContext;
+
+        private CloseableReadOnlyAgilityContext(final AgilityContext agilityContext) {
+            this.agilityContext = agilityContext;
+        }
+
+        public AgilityContext getAgilityContext() {
+            return agilityContext;
+        }
+
+        @Override
+        public void close() throws IOException {
+            agilityContext.abortAndClose();
+        }
     }
 }

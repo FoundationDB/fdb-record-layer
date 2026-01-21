@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.lucene.LuceneExceptions;
 import com.apple.foundationdb.record.lucene.LucenePrimaryKeySegmentIndexV1;
 import com.apple.foundationdb.record.lucene.LuceneStoredFieldsProto;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
-import com.apple.foundationdb.record.lucene.directory.FDBDirectoryBase;
 import org.apache.lucene.codecs.StoredFieldsReader;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.FieldInfos;
@@ -50,13 +49,13 @@ import java.util.List;
  */
 public class LuceneOptimizedStoredFieldsReader extends StoredFieldsReader implements LucenePrimaryKeySegmentIndexV1.StoredFieldsReaderSegmentInfo {
     private static final Logger LOG = LoggerFactory.getLogger(LuceneOptimizedStoredFieldsReader.class);
-    private final FDBDirectoryBase directory;
+    private final FDBDirectory directory;
     private final SegmentInfo si;
     private final FieldInfos fieldInfos;
     private final String segmentName;
 
     @SuppressWarnings("PMD.CloseResource")
-    public LuceneOptimizedStoredFieldsReader(final FDBDirectoryBase directory, final SegmentInfo si, final FieldInfos fieldInfos) {
+    public LuceneOptimizedStoredFieldsReader(final FDBDirectory directory, final SegmentInfo si, final FieldInfos fieldInfos) {
         this.si = si;
         this.fieldInfos = fieldInfos;
         this.directory = directory;

@@ -24,7 +24,7 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.lucene.LuceneExceptions;
 import com.apple.foundationdb.record.lucene.LuceneIndexMaintainer;
 import com.apple.foundationdb.record.lucene.LucenePrimaryKeySegmentIndex;
-import com.apple.foundationdb.record.lucene.directory.FDBDirectoryBase;
+import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
 import com.google.protobuf.ByteString;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.IndexableField;
@@ -40,7 +40,7 @@ class PrimaryKeyAndStoredFieldsWriter extends LuceneOptimizedStoredFieldsWriter 
     private int documentId;
 
     PrimaryKeyAndStoredFieldsWriter(SegmentInfo segmentInfo,
-                                    @Nonnull final FDBDirectoryBase directory) throws IOException {
+                                    @Nonnull final FDBDirectory directory) throws IOException {
         super(directory, segmentInfo);
         this.segmentId = directory.primaryKeySegmentId(segmentInfo.name, true);
         this.lucenePrimaryKeySegmentIndex = directory.getPrimaryKeySegmentIndex();
